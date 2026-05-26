@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.2.1  2026/05/25
+*! iivw_fit Version 1.2.2  2026/05/26
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -16,10 +16,11 @@ Options:
   model(string)       - gee (default) or mixed
   family(string)      - GEE family (default: gaussian)
   link(string)        - GEE link (default: canonical)
-  timespec(string)    - Time specification: linear, quadratic, cubic, ns(#), none
+  timespec(string)    - Time specification: linear, quadratic, cubic, ns(#), categorical, none
   interaction(varlist) - Create time x covariate interaction terms
   categorical(varlist)- Variables in indepvars to expand into dummies
   basecat(#)          - Reference category for categorical (default: lowest)
+  timebasecat(#)      - Reference category for categorical time (default: lowest)
   cluster(varname)    - Cluster variable (default: id from metadata)
   bootstrap(#)        - Bootstrap replicates (0 = sandwich SE only)
   level(#)            - Confidence level (default: 95)
@@ -47,6 +48,7 @@ program define iivw_fit, eclass
          INTeraction(varlist numeric) ///
          CATEGorical(varlist numeric) ///
          BASEcat(string) ///
+         TIMEBASEcat(string) ///
          CLuster(varname) ///
          UNWeighted ///
          ID(varname) TIME(varname) ///
@@ -168,9 +170,21 @@ program define iivw_fit, eclass
     if regexm("`timespec'", "^ns\(([0-9]+)\)$") {
         * Natural spline - valid
     }
-    else if !inlist("`timespec'", "linear", "quadratic", "cubic", "none") {
-        display as error "timespec() must be linear, quadratic, cubic, ns(#), or none"
+    else if !inlist("`timespec'", "linear", "quadratic", "cubic", "categorical", "none") {
+        display as error "timespec() must be linear, quadratic, cubic, ns(#), categorical, or none"
         error 198
+    }
+
+    if "`timebasecat'" != "" & "`timespec'" != "categorical" {
+        display as error "timebasecat() requires timespec(categorical)"
+        error 198
+    }
+    if "`timebasecat'" != "" {
+        capture confirm number `timebasecat'
+        if _rc {
+            display as error "timebasecat() must be numeric"
+            error 198
+        }
     }
 
     * Validate interaction + timespec compatibility
@@ -278,141 +292,213 @@ program define iivw_fit, eclass
     * Validation-stage failures (above) preserve the user's prior fit state.
     foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat {
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat {
         char _dta[`ch'] ""
     }
 
     local time_vars ""
     local time_vars_created ""
+    local time_cat_vars_created ""
+    local time_basecat_used ""
 
     if "`timespec'" != "none" {
-        local time_vars "`panel_time'"
+        if "`timespec'" == "categorical" {
+            quietly levelsof `panel_time' if `touse', local(time_levels)
+            local n_time_levels : word count `time_levels'
 
-        if inlist("`timespec'", "quadratic", "cubic") {
-            capture confirm variable `prefix'time_sq
-            if _rc == 0 {
-                if "`replace'" == "" {
-                    display as error "variable `prefix'time_sq already exists; use replace option"
-                    error 110
-                }
-                drop `prefix'time_sq
-            }
-            gen double `prefix'time_sq = `panel_time'^2
-            label variable `prefix'time_sq "Time squared"
-            local time_vars "`time_vars' `prefix'time_sq"
-            local time_vars_created "`time_vars_created' `prefix'time_sq"
-        }
-        if "`timespec'" == "cubic" {
-            capture confirm variable `prefix'time_cu
-            if _rc == 0 {
-                if "`replace'" == "" {
-                    display as error "variable `prefix'time_cu already exists; use replace option"
-                    error 110
-                }
-                drop `prefix'time_cu
-            }
-            gen double `prefix'time_cu = `panel_time'^3
-            label variable `prefix'time_cu "Time cubed"
-            local time_vars "`time_vars' `prefix'time_cu"
-            local time_vars_created "`time_vars_created' `prefix'time_cu"
-        }
-        if regexm("`timespec'", "^ns\(([0-9]+)\)$") {
-            local ns_df = regexs(1)
-
-            * Use the same natural spline approach as msm
-            * Generate basis variables inline
-            local n_knots = `ns_df' + 1
-
-            quietly summarize `panel_time' if `touse'
-            local xmin = r(min)
-            local xmax = r(max)
-            local xrange = `xmax' - `xmin'
-
-            if `xrange' == 0 {
-                display as error "time variable has no variation"
+            if `n_time_levels' < 2 {
+                display as error "timespec(categorical) requires at least two observed time categories"
                 error 198
             }
 
-            if `ns_df' == 1 {
-                capture confirm variable `prefix'tns1
+            local base_time : word 1 of `time_levels'
+            if "`timebasecat'" != "" {
+                local tbase_found = 0
+                foreach tlev of local time_levels {
+                    if `tlev' == `timebasecat' local tbase_found = 1
+                }
+                if `tbase_found' == 1 {
+                    local base_time "`timebasecat'"
+                }
+                else {
+                    display as text "note: timebasecat(`timebasecat') not found in `panel_time'; using lowest value"
+                }
+            }
+            local time_basecat_used "`base_time'"
+
+            local tvar_vallbl : value label `panel_time'
+            local tvar_label : variable label `panel_time'
+            if `"`tvar_label'"' == "" local tvar_label "`panel_time'"
+
+            local base_text : display %9.0g `base_time'
+            local base_text = strtrim("`base_text'")
+            if "`tvar_vallbl'" != "" & floor(`base_time') == `base_time' {
+                local base_ltext : label `tvar_vallbl' `base_time'
+                if `"`base_ltext'"' != "" local base_text `"`base_ltext'"'
+            }
+
+            local tcat_index = 0
+            foreach tlev of local time_levels {
+                if `tlev' == `base_time' continue
+                local ++tcat_index
+
+                local tcat_name "`prefix'tcat_`tcat_index'"
+                capture confirm variable `tcat_name'
                 if _rc == 0 {
                     if "`replace'" == "" {
-                        display as error "variable `prefix'tns1 already exists; use replace option"
+                        display as error "variable `tcat_name' already exists; use replace option"
                         error 110
                     }
-                    drop `prefix'tns1
+                    drop `tcat_name'
                 }
-                gen double `prefix'tns1 = `panel_time'
-                local time_vars "`prefix'tns1"
-                local time_vars_created "`prefix'tns1"
-            }
-            else {
-                * Calculate knot positions
-                local n_internal = `ns_df' - 1
-                forvalues k = 1/`n_internal' {
-                    local pct = 100 * `k' / (`n_internal' + 1)
-                    quietly _pctile `panel_time' if `touse', percentiles(`pct')
-                    local knot`k' = r(r1)
-                }
-                local knot0 = `xmin'
-                local knot`ns_df' = `xmax'
 
-                * Require strictly increasing knots to avoid division-by-zero
-                local knots ""
-                forvalues k = 0/`ns_df' {
-                    local knots "`knots' `knot`k''"
+                local lev_text : display %9.0g `tlev'
+                local lev_text = strtrim("`lev_text'")
+                if "`tvar_vallbl'" != "" & floor(`tlev') == `tlev' {
+                    local lev_ltext : label `tvar_vallbl' `tlev'
+                    if `"`lev_ltext'"' != "" local lev_text `"`lev_ltext'"'
                 }
-                local uniq_knots : list uniq knots
-                local n_knots : word count `knots'
-                local n_uniq  : word count `uniq_knots'
-                if `n_uniq' < `n_knots' {
-                    display as error "ns(`ns_df') produced tied knots (time variable has many ties)"
-                    display as error "reduce ns() degrees of freedom or use a coarser time scale"
+
+                gen byte `tcat_name' = (`panel_time' == `tlev') if `touse'
+                label variable `tcat_name' `"`tvar_label': `lev_text' (vs. `base_text')"'
+                local time_vars "`time_vars' `tcat_name'"
+                local time_vars_created "`time_vars_created' `tcat_name'"
+                local time_cat_vars_created "`time_cat_vars_created' `tcat_name'"
+            }
+        }
+        else {
+            local time_vars "`panel_time'"
+
+            if inlist("`timespec'", "quadratic", "cubic") {
+                capture confirm variable `prefix'time_sq
+                if _rc == 0 {
+                    if "`replace'" == "" {
+                        display as error "variable `prefix'time_sq already exists; use replace option"
+                        error 110
+                    }
+                    drop `prefix'time_sq
+                }
+                gen double `prefix'time_sq = `panel_time'^2
+                label variable `prefix'time_sq "Time squared"
+                local time_vars "`time_vars' `prefix'time_sq"
+                local time_vars_created "`time_vars_created' `prefix'time_sq"
+            }
+            if "`timespec'" == "cubic" {
+                capture confirm variable `prefix'time_cu
+                if _rc == 0 {
+                    if "`replace'" == "" {
+                        display as error "variable `prefix'time_cu already exists; use replace option"
+                        error 110
+                    }
+                    drop `prefix'time_cu
+                }
+                gen double `prefix'time_cu = `panel_time'^3
+                label variable `prefix'time_cu "Time cubed"
+                local time_vars "`time_vars' `prefix'time_cu"
+                local time_vars_created "`time_vars_created' `prefix'time_cu"
+            }
+            if regexm("`timespec'", "^ns\(([0-9]+)\)$") {
+                local ns_df = regexs(1)
+
+                * Use the same natural spline approach as msm
+                * Generate basis variables inline
+                local n_knots = `ns_df' + 1
+
+                quietly summarize `panel_time' if `touse'
+                local xmin = r(min)
+                local xmax = r(max)
+                local xrange = `xmax' - `xmin'
+
+                if `xrange' == 0 {
+                    display as error "time variable has no variation"
                     error 198
                 }
 
-                * First basis: linear time
-                capture confirm variable `prefix'tns1
-                if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `prefix'tns1 already exists; use replace option"
-                        error 110
-                    }
-                    drop `prefix'tns1
-                }
-                gen double `prefix'tns1 = `panel_time'
-                local time_vars "`prefix'tns1"
-                local time_vars_created "`prefix'tns1"
-
-                * Harrell restricted cubic spline
-                * K-2 nonlinear bases using knots 0..n_internal-1
-                local t_last = `knot`ns_df''
-                local t_pen  = `knot`n_internal''
-                local jmax = `n_internal' - 1
-
-                forvalues j = 0/`jmax' {
-                    local jj = `j' + 2
-                    capture confirm variable `prefix'tns`jj'
+                if `ns_df' == 1 {
+                    capture confirm variable `prefix'tns1
                     if _rc == 0 {
                         if "`replace'" == "" {
-                            display as error "variable `prefix'tns`jj' already exists; use replace option"
+                            display as error "variable `prefix'tns1 already exists; use replace option"
                             error 110
                         }
-                        drop `prefix'tns`jj'
+                        drop `prefix'tns1
                     }
-                    gen double `prefix'tns`jj' = ///
-                        (max(0, `panel_time' - `knot`j'')^3 - ///
-                         max(0, `panel_time' - `t_last')^3) / ///
-                        (`t_last' - `knot`j'') - ///
-                        (max(0, `panel_time' - `t_pen')^3 - ///
-                         max(0, `panel_time' - `t_last')^3) / ///
-                        (`t_last' - `t_pen')
-                    local time_vars "`time_vars' `prefix'tns`jj'"
-                    local time_vars_created "`time_vars_created' `prefix'tns`jj'"
+                    gen double `prefix'tns1 = `panel_time'
+                    local time_vars "`prefix'tns1"
+                    local time_vars_created "`prefix'tns1"
+                }
+                else {
+                    * Calculate knot positions
+                    local n_internal = `ns_df' - 1
+                    forvalues k = 1/`n_internal' {
+                        local pct = 100 * `k' / (`n_internal' + 1)
+                        quietly _pctile `panel_time' if `touse', percentiles(`pct')
+                        local knot`k' = r(r1)
+                    }
+                    local knot0 = `xmin'
+                    local knot`ns_df' = `xmax'
+
+                    * Require strictly increasing knots to avoid division-by-zero
+                    local knots ""
+                    forvalues k = 0/`ns_df' {
+                        local knots "`knots' `knot`k''"
+                    }
+                    local uniq_knots : list uniq knots
+                    local n_knots : word count `knots'
+                    local n_uniq  : word count `uniq_knots'
+                    if `n_uniq' < `n_knots' {
+                        display as error "ns(`ns_df') produced tied knots (time variable has many ties)"
+                        display as error "reduce ns() degrees of freedom or use a coarser time scale"
+                        error 198
+                    }
+
+                    * First basis: linear time
+                    capture confirm variable `prefix'tns1
+                    if _rc == 0 {
+                        if "`replace'" == "" {
+                            display as error "variable `prefix'tns1 already exists; use replace option"
+                            error 110
+                        }
+                        drop `prefix'tns1
+                    }
+                    gen double `prefix'tns1 = `panel_time'
+                    local time_vars "`prefix'tns1"
+                    local time_vars_created "`prefix'tns1"
+
+                    * Harrell restricted cubic spline
+                    * K-2 nonlinear bases using knots 0..n_internal-1
+                    local t_last = `knot`ns_df''
+                    local t_pen  = `knot`n_internal''
+                    local jmax = `n_internal' - 1
+
+                    forvalues j = 0/`jmax' {
+                        local jj = `j' + 2
+                        capture confirm variable `prefix'tns`jj'
+                        if _rc == 0 {
+                            if "`replace'" == "" {
+                                display as error "variable `prefix'tns`jj' already exists; use replace option"
+                                error 110
+                            }
+                            drop `prefix'tns`jj'
+                        }
+                        gen double `prefix'tns`jj' = ///
+                            (max(0, `panel_time' - `knot`j'')^3 - ///
+                             max(0, `panel_time' - `t_last')^3) / ///
+                            (`t_last' - `knot`j'') - ///
+                            (max(0, `panel_time' - `t_pen')^3 - ///
+                             max(0, `panel_time' - `t_last')^3) / ///
+                            (`t_last' - `t_pen')
+                        local time_vars "`time_vars' `prefix'tns`jj'"
+                        local time_vars_created "`time_vars_created' `prefix'tns`jj'"
+                    }
                 }
             }
         }
     }
+    local time_vars = strtrim("`time_vars'")
+    local time_vars_created = strtrim("`time_vars_created'")
+    local time_cat_vars_created = strtrim("`time_cat_vars_created'")
 
     * =========================================================================
     * EXPAND CATEGORICAL VARIABLES
@@ -637,6 +723,7 @@ program define iivw_fit, eclass
             foreach tvar of local time_vars {
 
                 * Map time variable to suffix
+                local tvar_is_cat = 0
                 if "`tvar'" == "`panel_time'" {
                     local suffix "time"
                 }
@@ -645,6 +732,10 @@ program define iivw_fit, eclass
                 }
                 else if "`tvar'" == "`prefix'time_cu" {
                     local suffix "tcu"
+                }
+                else if substr("`tvar'", 1, strlen("`prefix'tcat_")) == "`prefix'tcat_" {
+                    local suffix = substr("`tvar'", strlen("`prefix'") + 1, .)
+                    local tvar_is_cat = 1
                 }
                 else {
                     * Spline basis: strip prefix to get tnsN
@@ -669,6 +760,11 @@ program define iivw_fit, eclass
                 * Truncate covariate portion if name > 32 chars
                 if strlen("`ix_name'") > 32 {
                     local max_covar = 32 - strlen("`prefix'ix_") - strlen("_`suffix'")
+                    if `max_covar' < 1 {
+                        display as error "interaction variable name cannot be made valid with prefix `prefix' and suffix `suffix'"
+                        display as error "use a shorter generate() prefix in iivw_weight"
+                        error 198
+                    }
                     local ivar_trunc = substr("`ivar_portion'", 1, `max_covar')
                     local ix_name "`prefix'ix_`ivar_trunc'_`suffix'"
                     display as text "note: interaction variable name truncated to `ix_name'"
@@ -694,6 +790,18 @@ program define iivw_fit, eclass
                 }
                 gen double `ix_name' = `ivar' * `tvar'
 
+                local ix_time_part "`suffix'"
+                if `tvar_is_cat' {
+                    local tvar_clean : variable label `tvar'
+                    local tvs_pos = strpos(`"`tvar_clean'"', " (vs.")
+                    if `tvs_pos' > 0 {
+                        local tvar_clean = substr(`"`tvar_clean'"', 1, `tvs_pos' - 1)
+                    }
+                    if `"`tvar_clean'"' != "" {
+                        local ix_time_part `"`tvar_clean'"'
+                    }
+                }
+
                 * Build label: use clean label for categorical dummies
                 if `is_cat_dummy' {
                     local ivar_label : variable label `ivar'
@@ -704,10 +812,10 @@ program define iivw_fit, eclass
                     else {
                         local ivar_clean `"`ivar_label'"'
                     }
-                    label variable `ix_name' `"`ivar_clean' x `suffix'"'
+                    label variable `ix_name' `"`ivar_clean' x `ix_time_part'"'
                 }
                 else {
-                    label variable `ix_name' "`ivar' x `suffix'"
+                    label variable `ix_name' `"`ivar' x `ix_time_part'"'
                 }
 
                 local ix_vars "`ix_vars' `ix_name'"
@@ -810,6 +918,10 @@ program define iivw_fit, eclass
     char _dta[_iivw_timespec] "`timespec'"
     char _dta[_iivw_cluster] "`cluster'"
     char _dta[_iivw_time_vars] "`time_vars'"
+    if "`timespec'" == "categorical" {
+        char _dta[_iivw_time_cat_vars] "`time_cat_vars_created'"
+        char _dta[_iivw_time_basecat] "`time_basecat_used'"
+    }
     if "`interaction'" != "" {
         char _dta[_iivw_interaction] "`interaction'"
         char _dta[_iivw_ix_vars] "`ix_vars'"
@@ -914,7 +1026,12 @@ program define iivw_fit, eclass
     ereturn local iivw_cluster "`cluster'"
     ereturn local iivw_id "`panel_id'"
     ereturn local iivw_time "`panel_time'"
+    ereturn local iivw_time_vars "`time_vars'"
     ereturn local iivw_display_vars "`all_covars'"
+    if "`timespec'" == "categorical" {
+        ereturn local iivw_time_cat_vars "`time_cat_vars_created'"
+        ereturn local iivw_time_basecat "`time_basecat_used'"
+    }
     if "`interaction'" != "" {
         ereturn local iivw_interaction "`interaction'"
         ereturn local iivw_ix_vars "`ix_vars'"

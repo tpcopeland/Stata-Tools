@@ -11,7 +11,7 @@ title: "console_output"
 ```
 ----------------------------------------------------------------------
 iivw - Visit Weighting and Diagnostic Workflow for Stata
-Version 1.2.1
+Version 1.2.2
 ----------------------------------------------------------------------
 
 Commands
@@ -294,8 +294,8 @@ Log likelihood = -8274.2097                             Prob > chi2   = 0.0000
 note: 320 subjects have missing visit model covariates at first observation
   weight set to 1 by convention; check covariate completeness
 (320 real changes made)
-(file /tmp/St1374530.000001 not found)
-file /tmp/St1374530.000001 saved as .dta format
+(file /tmp/St2135901.000001 not found)
+file /tmp/St2135901.000001 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -321,8 +321,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St1374530.000003 not found)
-file /tmp/St1374530.000003 saved as .dta format
+(file /tmp/St2135901.000003 not found)
+file /tmp/St2135901.000003 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 37 observations (18 low, 19 high)
 
@@ -683,4 +683,366 @@ model may over-correct. Treat the weighted and adjusted estimates as a
 diagnostic range, not a point decomposition.
 Plausible diagnostic range:   -0.4833 to    0.6566
 
+```
+
+## Step 5: categorical visit-wave interactions for regtab
+
+```stata
+. preserve
+```
+
+```stata
+. keep if testno <= 4
+```
+
+```
+(617 observations deleted)
+
+```
+
+```stata
+. bysort id: gen byte _nvis_wave = _N
+```
+
+```stata
+. keep if _nvis_wave >= 2
+```
+
+```
+(0 observations deleted)
+
+```
+
+```stata
+. drop _nvis_wave
+```
+
+```stata
+. gen byte visit_wave = testno
+```
+
+```stata
+. label variable visit_wave "Visit wave"
+```
+
+```stata
+. label define visit_wave_demo 1 "Baseline" 2 "Month 6"
+```
+
+```
+>     3 "Month 12" 4 "Month 18", replace
+
+```
+
+```stata
+. label values visit_wave visit_wave_demo
+```
+
+```stata
+. iivw_weight,
+>     id(id) time(visit_wave)
+>     visit_cov(tx age female edss0 sdmt0 dur naive relapse)
+>     treat(tx)
+>     treat_cov(age female edss0 sdmt0 dur naive)
+>     stabcov(tx)
+>     truncate(1 99) efron replace nolog
+```
+
+```
+----------------------------------------------------------------------
+iivw_weight - FIPTIW Weight Computation
+----------------------------------------------------------------------
+
+ID variable:      id
+Time variable:    visit_wave
+Visit covariates: tx age female edss0 sdmt0 dur naive relapse
+Treatment:        tx
+Treatment covars: age female edss0 sdmt0 dur naive
+Weight type:      FIPTIW
+Truncation:       1th - 99th percentile
+
+Fitting visit intensity model (Andersen-Gill Cox)...
+  Visit model: stcox tx age female edss0 sdmt0 dur naive relapse
+
+Survival-time data settings
+
+           ID variable: id
+         Failure event: __00000B!=0 & __00000B<.
+Observed time interval: (__00000A[_n-1], __00000A]
+     Enter on or after: time __000009
+     Exit on or before: time .
+
+--------------------------------------------------------------------------
+      1,243  total observations
+          0  exclusions
+--------------------------------------------------------------------------
+      1,243  observations remaining, representing
+        320  subjects
+      1,243  failures in multiple-failure-per-subject data
+      1,243  total analysis time at risk and under observation
+                                                At risk from t =         0
+                                     Earliest observed entry t =         0
+                                          Last observed exit t =         4
+
+         Failure _d: __00000B
+   Analysis time _t: __00000A
+  Enter on or after: time __000009
+  Exit on or before: time .
+        ID variable: id
+
+Cox regression with Efron method for ties
+
+No. of subjects =   320                                 Number of obs =  1,243
+No. of failures = 1,243
+Time at risk    = 1,243
+                                                        LR chi2(8)    =   0.00
+Log likelihood = -5907.4017                             Prob > chi2   = 1.0000
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          tx |          1   .0585434    -0.00   1.000     .8915953    1.121585
+         age |          1   .0041568    -0.00   1.000      .991886     1.00818
+      female |          1   .0598461     0.00   1.000     .8893218    1.124452
+       edss0 |          1   .0338953    -0.00   1.000     .9357251     1.06869
+       sdmt0 |          1    .004979     0.00   1.000     .9902888    1.009806
+         dur |          1   .0084048     0.00   1.000     .9836618     1.01661
+       naive |          1   .0594587    -0.00   1.000     .8899973    1.123599
+     relapse |          1   .0724163    -0.00   1.000     .8676791      1.1525
+------------------------------------------------------------------------------
+  Stabilization model: stcox tx
+
+         Failure _d: __00000B
+   Analysis time _t: __00000A
+  Enter on or after: time __000009
+  Exit on or before: time .
+        ID variable: id
+
+Cox regression with Efron method for ties
+
+No. of subjects =   320                                 Number of obs =  1,243
+No. of failures = 1,243
+Time at risk    = 1,243
+                                                        LR chi2(1)    =   0.00
+Log likelihood = -5907.4017                             Prob > chi2   = 1.0000
+
+------------------------------------------------------------------------------
+          _t | Haz. ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          tx |          1    .056885     0.00   1.000      .894498    1.117946
+------------------------------------------------------------------------------
+(320 real changes made)
+(file /tmp/St2135901.000002 not found)
+file /tmp/St2135901.000002 saved as .dta format
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,243
+    -----------------------------------------
+Fitting treatment model (logistic)...
+  Treatment model: logit tx age female edss0 sdmt0 dur naive
+
+Logistic regression                                     Number of obs =    320
+                                                        LR chi2(6)    =  19.44
+                                                        Prob > chi2   = 0.0035
+Log likelihood = -212.02983                             Pseudo R2     = 0.0438
+
+------------------------------------------------------------------------------
+          tx | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         age |  -.0511638   .0168062    -3.04   0.002    -.0841032   -.0182243
+      female |    .011558   .2428638     0.05   0.962    -.4644462    .4875623
+       edss0 |   .2792362   .1374955     2.03   0.042     .0097499    .5487225
+       sdmt0 |   .0117131   .0202938     0.58   0.564    -.0280619    .0514882
+         dur |  -.0462497   .0341505    -1.35   0.176    -.1131835     .020684
+       naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
+       _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
+------------------------------------------------------------------------------
+(file /tmp/St2135901.000004 not found)
+file /tmp/St2135901.000004 saved as .dta format
+Truncating weights at 1th and 99th percentiles...
+  Truncated 27 observations (12 low, 15 high)
+
+Weight distribution:
+  Mean:        0.9988
+  SD:          0.2437
+  Min:         0.6447
+  Median:      0.9445
+  Max:         1.7075
+  P1:          0.6447
+  P99:         1.7075
+
+Observations:               1243
+Subjects:                    320
+Effective sample size:    1173.2 (of 1243)
+
+Variables created: _iivw_tw _iivw_iw _iivw_weight
+Next step: iivw_fit to fit weighted outcome model
+----------------------------------------------------------------------
+
+```
+
+```stata
+. collect clear
+```
+
+```stata
+. iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse,
+>     model(gee) timespec(categorical) timebasecat(1)
+>     categorical(tx) interaction(tx) replace nolog collect
+```
+
+```
+----------------------------------------------------------------------
+iivw_fit - FIPTIW Weighted Outcome Model
+----------------------------------------------------------------------
+
+Model type:       gee
+Outcome:          sdmt
+Predictors:        tx age female edss0 dur naive sdmt0 relapse
+Time spec:        categorical
+Interactions:     tx
+Categorical:      tx
+Family:           gaussian
+Estimation:       GLM with clustered robust SEs
+Weight var:       _iivw_weight
+Cluster var:      id
+
+Fitting fiptiw GEE model...
+
+
+Generalized linear models                         Number of obs   =      1,243
+Optimization     : ML                             Residual df     =      1,228
+                                                  Scale parameter =   5.523623
+Deviance         =  6783.009094                   (1/df) Deviance =   5.523623
+Pearson          =  6783.009094                   (1/df) Pearson  =   5.523623
+
+Variance function: V(u) = 1                       [Gaussian]
+Link function    : g(u) = u                       [Identity]
+
+                                                  AIC             =   4.554783
+Log pseudolikelihood = -2815.797697               BIC             =  -1966.839
+
+                                               (Std. err. adjusted for 320 clusters in id)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                    sdmt | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+      _iivw_cat_ntz_like |   .3700799    .275793     1.34   0.180    -.1704645    .9106243
+                     age |  -.0111889   .0098552    -1.14   0.256    -.0305047    .0081269
+                  female |  -.0283099   .1429652    -0.20   0.843    -.3085164    .2518967
+                   edss0 |  -.1991367   .0771785    -2.58   0.010    -.3504039   -.0478695
+                     dur |  -.0153172   .0221315    -0.69   0.489    -.0586941    .0280597
+                   naive |   .0349186   .1437519     0.24   0.808    -.2468301    .3166672
+                   sdmt0 |   .9986082   .0119827    83.34   0.000     .9751224    1.022094
+                 relapse |  -.1129314   .1807185    -0.62   0.532    -.4671332    .2412704
+            _iivw_tcat_1 |   1.028891   .2724541     3.78   0.000     .4948908    1.562891
+            _iivw_tcat_2 |   1.563186   .2788019     5.61   0.000     1.016744    2.109628
+            _iivw_tcat_3 |    2.11844   .2751612     7.70   0.000     1.579133    2.657746
+_iivw_ix_ntz_like_tcat_1 |  -.1226329   .3884583    -0.32   0.752    -.8839972    .6387314
+_iivw_ix_ntz_like_tcat_2 |   -.088507    .369044    -0.24   0.810    -.8118198    .6348059
+_iivw_ix_ntz_like_tcat_3 |   .3656814    .385371     0.95   0.343    -.3896319    1.120995
+                   _cons |   2.908345   .8256661     3.52   0.000     1.290069    4.526621
+------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------
+FIPTIW-weighted effects:
+
+             Variable       Coef.         SE            95% CI       P
+----------------------------------------------------------------------
+            Intercept      2.9083     0.8257   1.2901, 4.5266   <0.001
+   NTZ-like (vs. RT..      0.3701     0.2758  -0.1705, 0.9106    0.180
+   Age at treatment..     -0.0112     0.0099  -0.0305, 0.0081    0.256
+               Female     -0.0283     0.1430  -0.3085, 0.2519    0.843
+        Baseline EDSS     -0.1991     0.0772  -0.3504,-0.0479    0.010
+     Disease duration     -0.0153     0.0221  -0.0587, 0.0281    0.489
+      Treatment-naive      0.0349     0.1438  -0.2468, 0.3167    0.808
+        Baseline SDMT      0.9986     0.0120   0.9751, 1.0221   <0.001
+       Recent relapse     -0.1129     0.1807  -0.4671, 0.2413    0.532
+   Visit wave: Mont..      1.0289     0.2725   0.4949, 1.5629   <0.001
+   Visit wave: Mont..      1.5632     0.2788   1.0167, 2.1096   <0.001
+   Visit wave: Mont..      2.1184     0.2752   1.5791, 2.6577   <0.001
+   NTZ-like x Visit..     -0.1226     0.3885  -0.8840, 0.6387    0.752
+   NTZ-like x Visit..     -0.0885     0.3690  -0.8118, 0.6348    0.810
+   NTZ-like x Visit..      0.3657     0.3854  -0.3896, 1.1210    0.343
+----------------------------------------------------------------------
+
+```
+
+```stata
+. local cat_time "`e(iivw_time_cat_vars)'"
+```
+
+```stata
+. local cat_ix "`e(iivw_ix_vars)'"
+```
+
+```stata
+. regtab, title("Treatment by visit wave") stats(n) relabel
+```
+
+```
+Treatment by visit wave
+  +------------------------------------------------------------------------+
+  |                                       Model                            |
+  |                                       Coef.           95% CI   p-value |
+  |             NTZ-like (vs. RTX-like)    0.37    (-0.17, 0.91)      0.18 |
+  |              Age at treatment start   -0.01    (-0.03, 0.01)      0.26 |
+  |                              Female   -0.03    (-0.31, 0.25)      0.84 |
+  |------------------------------------------------------------------------|
+  |                       Baseline EDSS   -0.20   (-0.35, -0.05)     0.010 |
+  |                    Disease duration   -0.02    (-0.06, 0.03)      0.49 |
+  |                     Treatment-naive    0.03    (-0.25, 0.32)      0.81 |
+  |                       Baseline SDMT    1.00     (0.98, 1.02)    <0.001 |
+  |                      Recent relapse   -0.11    (-0.47, 0.24)      0.53 |
+  |------------------------------------------------------------------------|
+  |  Visit wave: Month 6 (vs. Baseline)    1.03     (0.49, 1.56)    <0.001 |
+  | Visit wave: Month 12 (vs. Baseline)    1.56     (1.02, 2.11)    <0.001 |
+  | Visit wave: Month 18 (vs. Baseline)    2.12     (1.58, 2.66)    <0.001 |
+  |      NTZ-like x Visit wave: Month 6   -0.12    (-0.88, 0.64)      0.75 |
+  |     NTZ-like x Visit wave: Month 12   -0.09    (-0.81, 0.63)      0.81 |
+  |------------------------------------------------------------------------|
+  |     NTZ-like x Visit wave: Month 18    0.37    (-0.39, 1.12)      0.34 |
+  |                           Intercept    2.91     (1.29, 4.53)    <0.001 |
+  |                        Observations   1,243                            |
+  +------------------------------------------------------------------------+
+
+
+```
+
+```stata
+. display as text "Generated categorical-time terms: " as result "`cat_time'"
+```
+
+```
+Generated categorical-time terms: _iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3
+
+```
+
+```stata
+. display as text "Generated treatment-by-wave terms: " as result "`cat_ix'"
+```
+
+```
+Generated treatment-by-wave terms:  _iivw_ix_ntz_like_tcat_1 _iivw_ix_ntz_like_tcat_2 _iivw_ix_ntz_like_tcat_3
+
+```
+
+```stata
+. foreach v of local cat_ix {
+```
+
+```
+  2.     local ixlbl : variable label `v'
+  3.     display as text "  `v': " as result `"`ixlbl'"'
+  4. }
+  _iivw_ix_ntz_like_tcat_1: NTZ-like x Visit wave: Month 6
+  _iivw_ix_ntz_like_tcat_2: NTZ-like x Visit wave: Month 12
+  _iivw_ix_ntz_like_tcat_3: NTZ-like x Visit wave: Month 18
+
+```
+
+```stata
+. restore
 ```

@@ -3,6 +3,7 @@
     Produces:
       1. Console output (FIPTIW diagnostic workflow) -> .log -> .md via logdoc
       2. Excel table (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
+      3. Excel table (categorical visit-wave interaction labels) -> .xlsx
 
     Run from the Stata-Tools repository root:
       stata-mp -b do iivw/demo/demo_iivw.do
@@ -145,6 +146,42 @@ iivw_diagnose years, ///
     unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) ///
     estimand(marginal) exogeneity(`exo')
 
+* # Step 5: categorical visit-wave interactions for regtab
+preserve
+keep if testno <= 4
+bysort id: gen byte _nvis_wave = _N
+keep if _nvis_wave >= 2
+drop _nvis_wave
+gen byte visit_wave = testno
+label variable visit_wave "Visit wave"
+label define visit_wave_demo 1 "Baseline" 2 "Month 6" ///
+    3 "Month 12" 4 "Month 18", replace
+label values visit_wave visit_wave_demo
+
+iivw_weight, ///
+    id(id) time(visit_wave) ///
+    visit_cov(tx age female edss0 sdmt0 dur naive relapse) ///
+    treat(tx) ///
+    treat_cov(age female edss0 sdmt0 dur naive) ///
+    stabcov(tx) ///
+    truncate(1 99) efron replace nolog
+
+collect clear
+iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
+    model(gee) timespec(categorical) timebasecat(1) ///
+    categorical(tx) interaction(tx) replace nolog collect
+
+local cat_time "`e(iivw_time_cat_vars)'"
+local cat_ix "`e(iivw_ix_vars)'"
+regtab, title("Treatment by visit wave") stats(n) relabel
+display as text "Generated categorical-time terms: " as result "`cat_time'"
+display as text "Generated treatment-by-wave terms: " as result "`cat_ix'"
+foreach v of local cat_ix {
+    local ixlbl : variable label `v'
+    display as text "  `v': " as result `"`ixlbl'"'
+}
+restore
+
 log close demo
 
 **# Excel table: diagnostic model comparison
@@ -174,6 +211,47 @@ quietly ds
 local xlsx_vars `r(varlist)'
 local n_xlsx_cols : word count `xlsx_vars'
 assert `n_xlsx_cols' >= 2
+restore
+
+**# Excel table: categorical visit-wave interactions
+preserve
+keep if testno <= 4
+bysort id: gen byte _nvis_wave = _N
+keep if _nvis_wave >= 2
+drop _nvis_wave
+gen byte visit_wave = testno
+label variable visit_wave "Visit wave"
+label define visit_wave_demo 1 "Baseline" 2 "Month 6" ///
+    3 "Month 12" 4 "Month 18", replace
+label values visit_wave visit_wave_demo
+
+iivw_weight, ///
+    id(id) time(visit_wave) ///
+    visit_cov(tx age female edss0 sdmt0 dur naive relapse) ///
+    treat(tx) ///
+    treat_cov(age female edss0 sdmt0 dur naive) ///
+    stabcov(tx) ///
+    truncate(1 99) efron replace nolog
+
+collect clear
+iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
+    model(gee) timespec(categorical) timebasecat(1) ///
+    categorical(tx) interaction(tx) replace nolog collect
+
+regtab, xlsx("`xlsx'") sheet("Visit waves") ///
+    title("Treatment by visit wave") ///
+    stats(n) relabel
+
+capture confirm file "`xlsx'"
+if _rc exit _rc
+quietly import excel using "`xlsx'", sheet("Visit waves") clear allstring
+local found_wave_label = 0
+ds
+foreach v of varlist `r(varlist)' {
+    quietly count if strpos(`v', "NTZ-like x Visit wave: Month 6") > 0
+    if r(N) > 0 local found_wave_label = 1
+}
+assert `found_wave_label' == 1
 restore
 
 **# Convert console log to markdown via logdoc

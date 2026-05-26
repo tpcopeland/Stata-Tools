@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.2.1** | 2026-05-25
+**Version 1.2.2** | 2026-05-26
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -295,7 +295,7 @@ iivw_fit edss treated age sex edss_bl, ///
     model(gee) timespec(ns(3)) interaction(treated) replace
 ```
 
-Use `timespec(linear)`, `timespec(quadratic)`, `timespec(cubic)`, `timespec(ns(#))`, or `timespec(none)` depending on how flexible the time trend should be.  Start with `linear`, then compare to `ns(3)` to check sensitivity.
+Use `timespec(linear)`, `timespec(quadratic)`, `timespec(cubic)`, `timespec(ns(#))`, `timespec(categorical)`, or `timespec(none)` depending on how flexible the time trend should be.  Start with `linear`, then compare to `ns(3)` to check sensitivity. Use `categorical` when time is a small set of meaningful visit waves or calendar periods.
 
 ### 5. Use categorical predictors in the outcome model
 
@@ -308,7 +308,25 @@ iivw_fit edss treatment edss_bl, ///
     categorical(treatment) timespec(ns(3)) interaction(treatment) replace
 ```
 
-### 6. Bootstrap standard errors
+### 6. Use categorical time for visit-wave effects
+
+`timespec(categorical)` expands the stored time variable into labeled non-reference time indicators.  Use value labels on the time variable so `collect` and `regtab` get readable rows.
+
+```stata
+label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12", replace
+label values visit_wave wave
+
+iivw_weight, id(id) time(visit_wave) ///
+    visit_cov(edss_bl relapse) replace nolog
+iivw_fit edss treatment edss_bl, ///
+    timespec(categorical) timebasecat(1) ///
+    categorical(treatment) interaction(treatment) replace collect
+regtab, xlsx(iivw_results.xlsx) sheet(Waves) title(Treatment by Visit Wave)
+```
+
+Generated coefficient names stay short and predictable, such as `_iivw_tcat_1` and `_iivw_ix_drug_tcat_1`, while variable labels carry table-ready text such as `Visit wave: Month 6 (vs. Baseline)` and `Drug x Visit wave: Month 6`. Use the generated names for post-estimation commands and the labels for exported tables.
+
+### 7. Bootstrap standard errors
 
 Bootstrap replicates apply to the outcome model fit with fixed weights.  The weights are not re-estimated inside each bootstrap draw.  Bootstrap clustering uses `cluster()` when specified and otherwise defaults to the subject ID stored by `iivw_weight`:
 
@@ -316,7 +334,7 @@ Bootstrap replicates apply to the outcome model fit with fixed weights.  The wei
 iivw_fit edss treated edss_bl, bootstrap(500) nolog replace
 ```
 
-### 7. Export results to Excel
+### 8. Export results to Excel
 
 Use the `collect` option with non-bootstrap `model(gee)` fits and `regtab` (from the `tabtools` package) to build publication-ready tables:
 
@@ -406,7 +424,7 @@ The package ships with functional, validation, and cross-validation QA under `qa
 
 ## Demo
 
-The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`.
+The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also includes a categorical visit-wave example showing how generated time and interaction labels carry through to `regtab`.
 
 Regenerate from the repository root with:
 
@@ -417,7 +435,7 @@ do iivw/demo/demo_iivw.do
 Generated outputs:
 
 - [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
-- `demo/iivw_results.xlsx` — Excel comparison of unweighted, FIPTIW, and FIPTIW + `log(test+1)` outcome models
+- `demo/iivw_results.xlsx` — Excel workbook with a diagnostic model-comparison sheet and a `Visit waves` sheet showing categorical-time interaction labels
 
 The key diagnostic pattern in the demo mirrors the study logic: weighting moves the marginal/reference time slope only modestly, while the measurement-process adjustment moves it sharply. Because the exogeneity check finds that lagged outcomes predict future visit timing, `iivw_diagnose` reports a diagnostic range rather than a point artifact share.
 
@@ -456,6 +474,35 @@ Plausible diagnostic range:   -0.4833 to    0.6566
 
 </details>
 
+<details>
+<summary>Categorical-time regtab labels</summary>
+
+```stata
+. iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
+    model(gee) timespec(categorical) timebasecat(1) ///
+    categorical(tx) interaction(tx) replace nolog
+```
+
+```text
+Treatment by visit wave
+  |  Visit wave: Month 6 (vs. Baseline)    1.03     (0.49, 1.56)    <0.001 |
+  | Visit wave: Month 12 (vs. Baseline)    1.56     (1.02, 2.11)    <0.001 |
+  | Visit wave: Month 18 (vs. Baseline)    2.12     (1.58, 2.66)    <0.001 |
+  |      NTZ-like x Visit wave: Month 6   -0.12    (-0.88, 0.64)      0.75 |
+  |     NTZ-like x Visit wave: Month 12   -0.09    (-0.81, 0.63)      0.81 |
+  |     NTZ-like x Visit wave: Month 18    0.37    (-0.39, 1.12)      0.34 |
+
+Generated categorical-time terms: _iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3
+Generated treatment-by-wave terms:  _iivw_ix_ntz_like_tcat_1 _iivw_ix_ntz_like_tcat_2 _iivw_ix_ntz_like_tcat_3
+  _iivw_ix_ntz_like_tcat_1: NTZ-like x Visit wave: Month 6
+  _iivw_ix_ntz_like_tcat_2: NTZ-like x Visit wave: Month 12
+  _iivw_ix_ntz_like_tcat_3: NTZ-like x Visit wave: Month 18
+```
+
+The generated workbook asserts that the `Visit waves` sheet contains the readable row label `NTZ-like x Visit wave: Month 6`.
+
+</details>
+
 ## References
 
 - Buzkova P, Lumley T. Longitudinal data analysis for generalized linear models with follow-up dependent on outcome-related variables. *Canadian Journal of Statistics*. 2007;35(4):485-500. doi:10.1002/cjs.5550350402.
@@ -464,6 +511,12 @@ Plausible diagnostic range:   -0.4833 to    0.6566
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.2.2 (2026-05-26)
+
+- Added `iivw_fit, timespec(categorical)` for visit-wave or period indicators, with `timebasecat()` to choose the reference time category
+- Added stable generated categorical-time names and table-ready variable labels for time dummies and time interactions, including categorical predictor x categorical time terms for `collect`/`regtab`
+- Stored categorical-time metadata in `e()` and dataset characteristics, and added QA for generated labels, interactions, and `regtab` export
 
 ### v1.2.1 (2026-05-25)
 

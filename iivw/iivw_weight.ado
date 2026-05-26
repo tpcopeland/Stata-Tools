@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.2.1  2026/05/25
+*! iivw_weight Version 1.2.2  2026/05/26
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -80,7 +80,7 @@ program define iivw_weight, rclass sortpreserve
 
     foreach candidate in `prefix'iw `prefix'tw `prefix'weight ///
         `prefix'time_sq `prefix'time_cu `prefix'tns1 ///
-        `prefix'cat_x `prefix'ix_x_time {
+        `prefix'tcat_1 `prefix'cat_x `prefix'ix_x_time {
         capture confirm name `candidate'
         if _rc {
             display as error "generate() prefix creates invalid variable name: `candidate'"
@@ -306,7 +306,8 @@ program define iivw_weight, rclass sortpreserve
         _iivw_weight_var _iivw_prefix _iivw_treat _iivw_visit_covars ///
         _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat {
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat {
         char _dta[`ch'] ""
     }
 

@@ -4,7 +4,7 @@ version 16.0
 set varabbrev off
 
 * test_iivw.do - Functional tests for iivw package
-* Tests: 118 (basic functionality, options, error handling, return values,
+* Tests: 122 (basic functionality, options, error handling, return values,
 *        edge cases, data preservation, expanded coverage,
 *        regtab integration + console summary + install/settings)
 *
@@ -72,7 +72,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 5
-        assert "`r(version)'" == "1.2.1"
+        assert "`r(version)'" == "1.2.2"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -2939,6 +2939,166 @@ if `run_only' == 0 | `run_only' == 118 {
     }
     else {
         display as error "  FAIL: Test 118 - intercept-only fit (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 119: Categorical time creates labeled time dummies
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 119 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen byte visit_wave = _n
+        keep if visit_wave <= 4
+        bysort id: gen byte _nvis = _N
+        keep if _nvis >= 2
+        drop _nvis
+        label variable visit_wave "Visit wave"
+        label define wave_t119 1 "Baseline" 2 "Second visit" ///
+            3 "Third visit" 4 "Fourth visit", replace
+        label values visit_wave wave_t119
+        iivw_weight, id(id) time(visit_wave) visit_cov(edss relapse) nolog
+        iivw_fit edss treated, model(gee) timespec(categorical) nolog
+        assert "`e(iivw_timespec)'" == "categorical"
+        assert "`e(iivw_time_basecat)'" == "1"
+        confirm variable _iivw_tcat_1
+        confirm variable _iivw_tcat_2
+        confirm variable _iivw_tcat_3
+        local tlbl : variable label _iivw_tcat_1
+        assert `"`tlbl'"' == `"Visit wave: Second visit (vs. Baseline)"'
+        assert strpos("`e(iivw_display_vars)'", "_iivw_tcat_1") > 0
+        local tv : char _dta[_iivw_time_cat_vars]
+        assert "`tv'" == "_iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 119 - categorical time dummies labeled"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 119 - categorical time dummies (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 120: Categorical predictor x categorical time labels are table-ready
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 120 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen byte visit_wave = _n
+        keep if visit_wave <= 4
+        bysort id: gen byte _nvis = _N
+        keep if _nvis >= 2
+        drop _nvis
+        bysort id (days): gen double edss_bl = edss[1]
+        label variable visit_wave "Visit wave"
+        label define wave_t120 1 "Baseline" 2 "Second visit" ///
+            3 "Third visit" 4 "Fourth visit", replace
+        label values visit_wave wave_t120
+        label define treated_t120 0 "Placebo" 1 "Drug", replace
+        label values treated treated_t120
+        iivw_weight, id(id) time(visit_wave) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, model(gee) timespec(categorical) ///
+            categorical(treated) interaction(treated) nolog
+        confirm variable _iivw_ix_drug_tcat_1
+        local ixlbl : variable label _iivw_ix_drug_tcat_1
+        assert `"`ixlbl'"' == `"Drug x Visit wave: Second visit"'
+        assert strpos("`e(iivw_ix_vars)'", "_iivw_ix_drug_tcat_1") > 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 120 - categorical time interaction labels"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 120 - categorical time interactions (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 121: timebasecat() changes categorical-time reference
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 121 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen byte visit_wave = _n
+        keep if visit_wave <= 4
+        bysort id: gen byte _nvis = _N
+        keep if _nvis >= 2
+        drop _nvis
+        label variable visit_wave "Visit wave"
+        label define wave_t121 1 "Baseline" 2 "Second visit" ///
+            3 "Third visit" 4 "Fourth visit", replace
+        label values visit_wave wave_t121
+        iivw_weight, id(id) time(visit_wave) visit_cov(edss relapse) nolog
+        iivw_fit edss treated, model(gee) timespec(categorical) ///
+            timebasecat(2) nolog
+        assert "`e(iivw_time_basecat)'" == "2"
+        local tlbl : variable label _iivw_tcat_1
+        assert `"`tlbl'"' == `"Visit wave: Baseline (vs. Second visit)"'
+        capture confirm variable _iivw_tcat_4
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 121 - timebasecat sets reference"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 121 - timebasecat reference (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 122: collect + regtab carries categorical-time interaction labels
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 122 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen byte visit_wave = _n
+        keep if visit_wave <= 4
+        bysort id: gen byte _nvis = _N
+        keep if _nvis >= 2
+        drop _nvis
+        bysort id (days): gen double edss_bl = edss[1]
+        label variable visit_wave "Visit wave"
+        label define wave_t122 1 "Baseline" 2 "Second visit" ///
+            3 "Third visit" 4 "Fourth visit", replace
+        label values visit_wave wave_t122
+        label define treated_t122 0 "Placebo" 1 "Drug", replace
+        label values treated treated_t122
+        iivw_weight, id(id) time(visit_wave) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        collect clear
+        iivw_fit edss treated edss_bl, model(gee) timespec(categorical) ///
+            categorical(treated) interaction(treated) nolog collect
+        local _xlsxfile "/tmp/_test_iivw_regtab_122.xlsx"
+        capture erase "`_xlsxfile'"
+        regtab, xlsx("`_xlsxfile'") sheet(Test122) title(Categorical Time)
+        confirm file "`_xlsxfile'"
+        import excel using "`_xlsxfile'", clear allstring
+        local found = 0
+        ds
+        foreach v of varlist `r(varlist)' {
+            quietly count if strpos(`v', "Drug x Visit wave: Second visit") > 0
+            if r(N) > 0 local found = 1
+        }
+        assert `found' == 1
+        capture erase "`_xlsxfile'"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 122 - regtab carries categorical-time labels"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 122 - regtab categorical-time labels (error `=_rc')"
         local ++fail_count
     }
 }

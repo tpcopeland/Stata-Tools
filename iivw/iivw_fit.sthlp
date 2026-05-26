@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  25may2026}{...}
+{* *! version 1.2.2  26may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -47,10 +47,11 @@
 {synopt:{opt mod:el(string)}}estimation method: {cmd:gee} (default) or {cmd:mixed}{p_end}
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
-{synopt:{opt times:pec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:none}{p_end}
+{synopt:{opt times:pec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:categorical}, {cmd:none}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
 {synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
 {synopt:{opt base:cat(#)}}reference category for {opt categorical()} (default: lowest value){p_end}
+{synopt:{opt timebase:cat(#)}}reference time category for {cmd:timespec(categorical)} (default: lowest value){p_end}
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
@@ -168,6 +169,8 @@ binomial, log for poisson).  Override when you need a non-canonical link (e.g.,
 {cmd:ns(#)} uses a natural cubic spline with {it:#} degrees of freedom,
 which allows flexible nonlinear trends while remaining stable at the
 boundaries.
+{cmd:categorical} expands the stored time variable into one indicator per
+non-reference time category.
 {cmd:none} excludes time from the model entirely.
 
 {pmore}
@@ -181,7 +184,9 @@ The time variables are built from the time variable stored by
 {cmd:iivw_weight}.  For polynomial specifications, variables named
 {it:prefix}{cmd:time_sq} and {it:prefix}{cmd:time_cu} are created.  For
 natural splines, variables named {it:prefix}{cmd:tns1}, {it:prefix}{cmd:tns2},
-etc. are created.
+etc. are created.  For categorical time, variables named
+{it:prefix}{cmd:tcat_1}, {it:prefix}{cmd:tcat_2}, etc. are created and labeled
+with the time value and reference category.
 
 {phang}
 {opt interaction(varlist)} creates product terms between each specified
@@ -190,7 +195,9 @@ covariate effects to change over time.  For example, with
 {cmd:timespec(linear)}, one interaction variable is created per covariate
 (covariate x time).  With {cmd:timespec(quadratic)}, two are created
 (covariate x time, covariate x time-squared).  With {cmd:ns(#)}, {it:#}
-interaction variables are created per covariate.
+interaction variables are created per covariate.  With
+{cmd:timespec(categorical)}, one interaction variable is created for each
+non-reference time category per interacted covariate.
 
 {pmore}
 Not compatible with {cmd:timespec(none)}, since there are no time variables
@@ -198,10 +205,11 @@ to interact with.
 
 {pmore}
 Interaction variables are named {cmd:_iivw_ix_{it:covar}_{it:suffix}} where
-{it:suffix} is {cmd:time}, {cmd:tsq}, {cmd:tcu}, or {cmd:tnsN}.  Names
-longer than 32 characters are truncated with a warning.  If truncation would
-produce duplicate interaction-variable names, {cmd:iivw_fit} stops with an
-error so the model is not fit with a silently collapsed interaction list.
+{it:suffix} is {cmd:time}, {cmd:tsq}, {cmd:tcu}, {cmd:tnsN}, or
+{cmd:tcat_N}.  Names longer than 32 characters are truncated with a warning.
+If truncation would produce duplicate interaction-variable names,
+{cmd:iivw_fit} stops with an error so the model is not fit with a silently
+collapsed interaction list.
 
 {pmore}
 If a variable in {opt interaction()} is not included in {it:indepvars}, a
@@ -232,6 +240,13 @@ a note.
 {opt categorical()}.  Must be an integer.  If the specified value is not found
 in a variable's levels, the lowest value is used with a note.  Requires
 {opt categorical()}.
+
+{phang}
+{opt timebasecat(#)} specifies the reference time category when
+{cmd:timespec(categorical)} is used.  The default is the lowest observed time
+value in the estimation sample.  If {opt timebasecat()} is specified but not
+observed, {cmd:iivw_fit} uses the lowest observed time value and displays a
+note.
 
 {dlgtab:Standard errors}
 
@@ -417,6 +432,14 @@ export with {helpb regtab} (from the {cmd:tabtools} package; install
 separately if needed).  For bootstrap or {cmd:model(mixed)} fits, use Stata's
 standard post-estimation/export workflow after the model is fit.
 
+{pstd}
+Generated coefficient names are short and stable so post-estimation commands
+can address them exactly.  Generated variable labels carry table-ready text.
+For example, a labeled treatment category "Drug" interacted with categorical
+time "Second visit" is stored under a coefficient name such as
+{cmd:_iivw_ix_drug_tcat_1} but labeled "Drug x Visit wave: Second visit" for
+table output.
+
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_fit score drug age severity_bl, model(gee) collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(IIW) coef(Coef.) title(IIW Model)}{p_end}
@@ -457,6 +480,13 @@ includes one or more time trend variables.  These capture the average
 trajectory of the outcome over time, after removing the effect of treatment
 and other covariates.  With {cmd:timespec(linear)}, the time coefficient is
 the per-unit-time rate of change.
+
+{pstd}
+With {cmd:timespec(categorical)}, time is treated as a set of visit waves,
+periods, or other discrete occasions.  The coefficients compare each
+non-reference time category with the reference time category.  This is useful
+for planned visits or coarse calendar periods where a smooth linear or spline
+trend is not the intended estimand.
 
 {pstd}
 {bf:Interactions.}  When {opt interaction(treated)} is specified, the model
@@ -508,7 +538,9 @@ with truncated weights.{p_end}
 {phang2}{bf:Which time specification should I use?}  Start with
 {cmd:timespec(linear)}.  If residual trends or subject-matter knowledge
 suggest curvature, compare with {cmd:timespec(ns(3))}.  Report whether the
-main effect is sensitive to this choice.{p_end}
+main effect is sensitive to this choice.  Use {cmd:timespec(categorical)}
+when time is a small set of meaningful visit waves or periods rather than a
+continuous trend.{p_end}
 
 
 {marker reporting}{...}
@@ -701,7 +733,21 @@ level gets its own set of time interaction terms.
 {phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(ns(3)) categorical(treatment) interaction(treatment) replace}{p_end}
 
 {pstd}
-{bf:Example 14: Exclude time from the model}
+{bf:Example 14: Categorical time and treatment-by-period effects}
+
+{pstd}
+Use categorical time when visits occur at planned waves.  Give the time
+variable value labels before fitting so exported tables show readable row
+labels.
+
+{phang2}{cmd:. label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12", replace}{p_end}
+{phang2}{cmd:. label values visit_wave wave}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(categorical) categorical(treatment) interaction(treatment) replace collect}{p_end}
+{phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Waves) title(Treatment by Visit Wave)}{p_end}
+
+{pstd}
+{bf:Example 15: Exclude time from the model}
 
 {pstd}
 When the outcome has no time trend or when time is already included as a
@@ -711,7 +757,7 @@ time variable creation.
 {phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(none) replace}{p_end}
 
 {pstd}
-{bf:Example 15: Mixed-effects model (Stata 17+)}
+{bf:Example 16: Mixed-effects model (Stata 17+)}
 
 {pstd}
 Fit a mixed model with a random intercept per subject.  This estimates
@@ -739,6 +785,9 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}
 {synopt:{cmd:e(iivw_id)}}panel ID used{p_end}
 {synopt:{cmd:e(iivw_time)}}time variable used{p_end}
+{synopt:{cmd:e(iivw_time_vars)}}time variables included in the outcome model{p_end}
+{synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummy variables created{p_end}
+{synopt:{cmd:e(iivw_time_basecat)}}reference category for categorical time{p_end}
 {synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
 {synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
@@ -756,6 +805,8 @@ checks can tell which model was most recently fit:
 {synopt:{cmd:_dta[_iivw_timespec]}}time specification used{p_end}
 {synopt:{cmd:_dta[_iivw_cluster]}}clustering variable used{p_end}
 {synopt:{cmd:_dta[_iivw_time_vars]}}time variables included in the outcome model{p_end}
+{synopt:{cmd:_dta[_iivw_time_cat_vars]}}categorical-time dummy variables created{p_end}
+{synopt:{cmd:_dta[_iivw_time_basecat]}}reference category for categorical time{p_end}
 {synopt:{cmd:_dta[_iivw_interaction]}}variables specified in {opt interaction()}{p_end}
 {synopt:{cmd:_dta[_iivw_ix_vars]}}interaction variables created{p_end}
 {synopt:{cmd:_dta[_iivw_categorical]}}variables specified in {opt categorical()}{p_end}
@@ -797,7 +848,7 @@ doi:10.1177/09622802241313289.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.1, 2026-05-25{p_end}
+{pstd}Version 1.2.2, 2026-05-26{p_end}
 
 
 {title:Also see}
