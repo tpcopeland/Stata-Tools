@@ -1,4 +1,4 @@
-*! regtab Version 1.3.0  2026/05/23
+*! regtab Version 1.3.1  2026/05/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1259,18 +1259,18 @@ if "`relabel'" != "" {
             local _gvar "`re_groupvar_`_lev''"
             local _glbl "`re_grouplbl_`_lev''"
 
-            * Random intercept: var(_cons[groupvar]) -> "GroupLabel (Intercept)"
-            replace A = "`_glbl' (Intercept)" if A == "var(_cons[`_gvar'])"
+            * Random intercept: var(_cons[groupvar]) -> "Variance: GroupLabel (Intercept)"
+            replace A = "Variance: `_glbl' (Intercept)" if A == "var(_cons[`_gvar'])"
 
-            * Random slopes: var(varname[groupvar]) -> "GroupLabel (VarLabel)"
+            * Random slopes: var(varname[groupvar]) -> "Variance: GroupLabel (VarLabel)"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
                     local slope_lbl "`lbl_`revar''"
-                    replace A = "`_glbl' (`slope_lbl')" if A == "var(`revar'[`_gvar'])"
+                    replace A = "Variance: `_glbl' (`slope_lbl')" if A == "var(`revar'[`_gvar'])"
                 }
             }
 
-            * Covariances: cov(var1,var2[groupvar]) -> "GroupLabel (Label1, Label2)"
+            * Covariances: cov(var1,var2[groupvar]) -> "Covariance: GroupLabel (Label1, Label2)"
             count if strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0
             if r(N) > 0 {
                 gen _temp_row = _n
@@ -1288,7 +1288,7 @@ if "`relabel'" != "" {
                     if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
                     local cov_lbl2 "`lbl_`cov_v2''"
                     if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
-                    replace A = "`_glbl' (`cov_lbl1', `cov_lbl2')" in `row'
+                    replace A = "Covariance: `_glbl' (`cov_lbl1', `cov_lbl2')" in `row'
                 }
                 drop _temp_row
             }
@@ -1304,12 +1304,12 @@ if "`relabel'" != "" {
         }
 
         * --- Single-level patterns (no brackets) for single-level mixed ---
-        replace A = "`re_grouplbl' (Intercept)" if A == "var(_cons)"
+        replace A = "Variance: `re_grouplbl' (Intercept)" if A == "var(_cons)"
 
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
                 local slope_lbl "`lbl_`revar''"
-                replace A = "`re_grouplbl' (`slope_lbl')" if A == "var(`revar')"
+                replace A = "Variance: `re_grouplbl' (`slope_lbl')" if A == "var(`revar')"
             }
         }
 
@@ -1330,7 +1330,7 @@ if "`relabel'" != "" {
                 if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
                 local cov_lbl2 "`lbl_`cov_v2''"
                 if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
-                replace A = "`re_grouplbl' (`cov_lbl1', `cov_lbl2')" in `row'
+                replace A = "Covariance: `re_grouplbl' (`cov_lbl1', `cov_lbl2')" in `row'
             }
             drop _temp_row
         }

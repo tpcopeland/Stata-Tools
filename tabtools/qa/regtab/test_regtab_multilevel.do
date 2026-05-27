@@ -132,8 +132,8 @@ capture {
     forvalues i = 1/`=_N' {
         if strpos(B[`i'], "District (Intercept)") > 0 local found_district = 1
         if strpos(B[`i'], "School (Intercept)") > 0 local found_school_int = 1
-        if strpos(B[`i'], "School (Treatment)") > 0 local found_school_slope = 1
-        if strpos(B[`i'], "School (Treatment, Intercept)") > 0 local found_cov = 1
+        if strpos(B[`i'], "Variance: School (Treatment)") > 0 local found_school_slope = 1
+        if strpos(B[`i'], "Covariance: School (Treatment, Intercept)") > 0 local found_cov = 1
         if strpos(B[`i'], "Residual Variance") > 0 local found_residual = 1
     }
     assert `found_district' == 1
@@ -335,14 +335,14 @@ capture {
 
     import excel "`output_dir'/_test_ml_single_slope.xlsx", sheet("Slope1") clear allstring
 
-    * Check relabeled
+    * Check relabeled with explicit parameter type
     local found_int = 0
     local found_slope = 0
     local found_cov = 0
     forvalues i = 1/`=_N' {
-        if strpos(B[`i'], "School (Intercept)") > 0 local found_int = 1
-        if strpos(B[`i'], "School (Treatment)") > 0 local found_slope = 1
-        if strpos(B[`i'], "School (Treatment, Intercept)") > 0 local found_cov = 1
+        if strtrim(B[`i']) == "Variance: School (Intercept)" local found_int = 1
+        if strtrim(B[`i']) == "Variance: School (Treatment)" local found_slope = 1
+        if strtrim(B[`i']) == "Covariance: School (Treatment, Intercept)" local found_cov = 1
     }
     assert `found_int' == 1
     assert `found_slope' == 1
@@ -513,6 +513,55 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Test 12 - Label collision (error `=_rc')"
+    local fail = `fail' + 1
+}
+
+
+**# Test 13: Single-level linear random slope covariance label is explicit
+
+capture {
+    clear
+    set obs 800
+    gen id = ceil(_n/8)
+    label variable id "Patient identifier"
+    bysort id: gen visit = _n
+    gen double months_since_tx = (visit - 1) / 2
+    label variable months_since_tx "Years since Treatment Initiation"
+    gen double u0 = .
+    gen double u1 = .
+    bysort id: replace u0 = rnormal(0, 3) if _n == 1
+    bysort id: replace u1 = rnormal(0, 0.4) if _n == 1
+    bysort id: replace u0 = u0[1]
+    bysort id: replace u1 = u1[1]
+    gen y = 45 + 1.5 * months_since_tx + u0 + u1 * months_since_tx + rnormal(0, 2)
+
+    collect clear
+    collect: mixed y c.months_since_tx || id: months_since_tx, covariance(unstructured)
+
+    capture erase "`output_dir'/_test_ml_single_linear_cov.xlsx"
+    regtab, xlsx("`output_dir'/_test_ml_single_linear_cov.xlsx") sheet("LinearCov") relabel
+
+    import excel "`output_dir'/_test_ml_single_linear_cov.xlsx", sheet("LinearCov") clear allstring
+
+    local found_slope_var = 0
+    local found_int_var = 0
+    local found_cov = 0
+    forvalues i = 1/`=_N' {
+        if strtrim(B[`i']) == "Variance: Patient identifier (Years since Treatment Initiation)" local found_slope_var = 1
+        if strtrim(B[`i']) == "Variance: Patient identifier (Intercept)" local found_int_var = 1
+        if strtrim(B[`i']) == "Covariance: Patient identifier (Years since Treatment Initiation, Intercept)" local found_cov = 1
+    }
+    assert `found_slope_var' == 1
+    assert `found_int_var' == 1
+    assert `found_cov' == 1
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test 13 - Single-level linear covariance relabel is explicit"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test 13 - Single-level linear covariance relabel (error `=_rc')"
     local fail = `fail' + 1
 }
 

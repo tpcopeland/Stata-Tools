@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  23may2026}{...}
+{* *! version 1.3.1  27may2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -64,7 +64,7 @@ for treatment effects and margins tables.
 {synopt:{opt headers:hade}}Apply background fill to the header row.{p_end}
 {synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt cdisc}}CDISC formatting mode: sets digits to 4, coef label to "Estimate", and forces {cmd:stats(n)}.{p_end}
-{synopt:{opt relab:el}}Relabel random effects using variable labels. For single-level models, {cmd:var(_cons)} becomes {it:GroupLabel} {cmd:(Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:District} {cmd:(Intercept)}, {it:School} {cmd:(Intercept)}, etc.{p_end}
+{synopt:{opt relab:el}}Relabel random effects using variable labels and explicit parameter types. For single-level models, {cmd:var(_cons)} becomes {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes {it:Covariance: GroupLabel (X label, Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:Variance: District (Intercept)}, {it:Variance: School (Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
 {synopt:{cmdab:starsl:evels(}{it:numlist}{cmd:)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
@@ -94,9 +94,9 @@ MOR = exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and
 The 95% CI bounds are transformed on the same scale. In multi-level models,
 each transformed random-intercept row keeps its own grouping label, so the
 output reads, for example, "Median Odds Ratio (District)" and
-"Median Odds Ratio (School)". MOR/MHR values are formatted with 2
-decimal places. Other random effects (slopes, covariances, residual) remain
-as variance components with 4 decimal places. Use {opt nore} to suppress all
+"Median Odds Ratio (School)". MOR/MHR values and other random effects
+(slopes, covariances, residual) follow the requested {opt digits()} precision.
+Use {opt nore} to suppress all
 random-effects rows if desired.{p_end}
 
 {marker remarks}{title:Remarks}
@@ -154,13 +154,14 @@ bottom.{p_end}
 
 {pstd}
 With {opt relabel}, each grouping level gets a separate label derived from
-its variable label: {it:District (Intercept)}, {it:School (Intercept)},
-{it:Residual Variance}. Without {opt relabel}, the raw bracket notation is
+its variable label and the parameter type: {it:Variance: District (Intercept)},
+{it:Variance: School (Intercept)}, {it:Residual Variance}. Without {opt relabel}, the raw bracket notation is
 shown: {cmd:var(_cons[district])}, {cmd:var(_cons[school])}, {cmd:var(e)}.
 Random effects are sorted by level (outermost first) after fixed effects.
 Models with random slopes and covariance terms (e.g.,
 {cmd:|| school: treatment, cov(unstructured)}) produce additional rows such
-as {it:School (Treatment)} and {it:School (Treatment, Intercept)}.{p_end}
+as {it:Variance: School (Treatment)} and
+{it:Covariance: School (Treatment, Intercept)}.{p_end}
 
 {pstd}Auto-detected coefficient labels and conditional formatting:{p_end}
 {phang2}{cmd:. collect clear}{p_end}
@@ -212,6 +213,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.0{p_end}
+{pstd}{bf:Version} 1.3.1{p_end}
 
 {hline}

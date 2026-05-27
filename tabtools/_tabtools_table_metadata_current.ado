@@ -1,4 +1,4 @@
-*! _tabtools_table_metadata_current Version 1.3.0  2026/05/23
+*! _tabtools_table_metadata_current Version 1.3.1  2026/05/27
 *! Compute table metadata for the current output dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

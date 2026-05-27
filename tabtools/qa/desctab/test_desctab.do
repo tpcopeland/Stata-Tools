@@ -236,7 +236,7 @@ capture noisily {
     collect: table rep78, statistic(count price)
     capture frame drop _dt_returns
     desctab, frame(_dt_returns, replace)
-    assert "`r(version)'" == "1.3.0"
+    assert "`r(version)'" == "1.3.1"
     assert "`r(rowvar)'" == "rep78"
     assert "`r(stats)'" == "count"
     assert r(N_cells) > 0

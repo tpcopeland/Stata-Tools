@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write_current Version 1.3.0  2026/05/23
+*! _tabtools_xlsx_write_current Version 1.3.1  2026/05/27
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
