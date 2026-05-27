@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.2.3** | 2026-05-26
+**Version 1.3.0** | 2026-05-27
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -511,6 +511,12 @@ The generated workbook asserts that the `Visit waves` sheet contains the readabl
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.3.0 (2026-05-27)
+
+- Added `iivw_weight, nobaseevent`: treats each subject's first visit as study entry (risk onset) rather than a modeled visit-intensity event. The Andersen-Gill model then fits only follow-up visits, removing the circularity of the baseline visit predicting its own occurrence, and lets single-visit subjects pass through (they contribute a baseline row with weight 1 instead of triggering the "requires at least 2 visits" error). Default behavior is unchanged
+- Improved the 2-visit error message to point users to `nobaseevent`
+- Stored `r(nobaseevent)` and `_dta[_iivw_baseevent]` to record the mode
 
 ### v1.2.3 (2026-05-26)
 

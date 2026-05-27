@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  26may2026}{...}
+{* *! version 1.3.0  27may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -65,6 +65,7 @@
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
 {synopt:{opt efr:on}}use Efron method for tied visit times in Cox model{p_end}
+{synopt:{opt nobase:event}}treat the first visit as study entry, not a modeled event (IIW/FIPTIW){p_end}
 
 {synoptline}
 {p2colreset}{...}
@@ -225,6 +226,30 @@ observation.  Ensure that entry times are strictly less than first visit
 times.  Examine the weight distribution carefully in such designs, as late
 entry can concentrate weight on a few early-entering subjects.
 
+{phang}
+{opt nobaseevent} treats each subject's first visit as study entry (risk
+onset) rather than as a modeled event in the visit-intensity Andersen-Gill
+model.  The default models every visit, including the baseline, as a
+recurrent event, which means the baseline visit's covariates help predict the
+baseline visit's own occurrence.  Under {opt nobaseevent} the modeled events
+are the follow-up visits only -- the intervals (t1,t2], (t2,t3], ... -- so the
+subject becomes at risk for the visit process at the first observed visit.
+
+{pmore}
+This has two consequences.  First, it removes the circularity of conditioning
+the baseline visit on baseline covariates; when {opt lagvars()} is also used,
+the baseline measurement then legitimately predicts the {it:second} visit
+rather than itself.  Second, subjects with only one visit are no longer an
+error: they contribute a single baseline row (IIW weight 1) and supply no
+event to the intensity model.  At least one subject must still have two or
+more visits so the model has events to fit.
+
+{pmore}
+{opt nobaseevent} changes the fitted intensity model and therefore the
+weights, so the default behavior is retained unless you request it.  When
+{opt nobaseevent} is specified, {opt entry()} is ignored -- the first visit
+defines risk onset.
+
 {dlgtab:Reporting}
 
 {phang}
@@ -358,13 +383,16 @@ interpreting a precise-looking weighted coefficient.
 {bf:Data requirements}
 
 {pstd}
-Data must be in long panel format with one row per subject-visit.  Each
-subject must have at least 2 visits for IIW and FIPTIW because the visit
-intensity model requires repeated visits.  IPTW-only analyses may use a
-single row per subject.  The {opt id()} and {opt time()} combination must
-uniquely identify each row.  The {opt treat()} variable must be observed
-for every row used in IPTW/FIPTIW, binary (0/1), and time-invariant within
-subjects.
+Data must be in long panel format with one row per subject-visit.  By
+default each subject must have at least 2 visits for IIW and FIPTIW because
+the visit intensity model treats every visit as a recurrent event and so
+needs repeated visits.  Specify {opt nobaseevent} to relax this: the baseline
+visit is then treated as study entry, single-visit subjects are retained
+(IIW weight 1), and only one subject need have two or more visits.  IPTW-only
+analyses may use a single row per subject.  The {opt id()} and {opt time()}
+combination must uniquely identify each row.  The {opt treat()} variable must
+be observed for every row used in IPTW/FIPTIW, binary (0/1), and
+time-invariant within subjects.
 
 {pstd}
 {bf:Relationship to exogeneity diagnostics}
@@ -618,6 +646,7 @@ than the default Breslow method.
 {synopt:{cmd:r(p99_weight)}}99th percentile weight{p_end}
 {synopt:{cmd:r(ess)}}effective sample size: (sum w)^2 / sum(w^2){p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
+{synopt:{cmd:r(nobaseevent)}}1 if {opt nobaseevent} was specified, 0 otherwise{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
@@ -632,6 +661,7 @@ than the default Breslow method.
 {synopt:{cmd:_dta[_iivw_weight_var]}}final weight variable name{p_end}
 {synopt:{cmd:_dta[_iivw_prefix]}}generated-variable prefix{p_end}
 {synopt:{cmd:_dta[_iivw_visit_covars]}}expanded visit-model covariate list for {cmd:iivw_balance}{p_end}
+{synopt:{cmd:_dta[_iivw_baseevent]}}1 if {opt nobaseevent} was specified, 0 otherwise (IIW/FIPTIW){p_end}
 {synopt:{cmd:_dta[_iivw_treat]}}treatment variable, if specified{p_end}
 
 
@@ -664,7 +694,7 @@ doi:10.1177/09622802241313289.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.3, 2026-05-26{p_end}
+{pstd}Version 1.3.0, 2026-05-27{p_end}
 
 
 {title:Also see}

@@ -140,11 +140,11 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.2.3"
-    local ado_date "2026/05/26"
-    local sthlp_date "26may2026"
-    local iso_date "2026-05-26"
-    local pkg_date "20260526"
+    local version "1.3.0"
+    local ado_date "2026/05/27"
+    local sthlp_date "27may2026"
+    local iso_date "2026-05-27"
+    local pkg_date "20260527"
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
@@ -418,7 +418,7 @@ capture noisily {
 
     iivw
     assert r(n_commands) == 5
-    assert "`r(version)'" == "1.2.3"
+    assert "`r(version)'" == "1.3.0"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

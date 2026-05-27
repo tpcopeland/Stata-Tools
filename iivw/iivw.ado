@@ -1,4 +1,4 @@
-*! iivw Version 1.2.3  2026/05/26
+*! iivw Version 1.3.0  2026/05/27
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -24,7 +24,7 @@ program define iivw, rclass
 
     syntax
 
-    local version "1.2.3"
+    local version "1.3.0"
 
     display as text ""
     display as text "{hline 70}"

@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.2.3  2026/05/26
+*! iivw_weight Version 1.3.0  2026/05/27
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -55,7 +55,7 @@ program define iivw_weight, rclass sortpreserve
          LAGvars(varlist numeric) ///
          ENTry(varname numeric) ///
          TRUNCate(numlist min=2 max=2) ///
-         GENerate(name) REPLACE noLOG EFRon]
+         GENerate(name) REPLACE noLOG EFRon noBASEevent]
 
     * =========================================================================
     * SET DEFAULTS
@@ -69,6 +69,11 @@ program define iivw_weight, rclass sortpreserve
 
     local efron_opt ""
     if "`efron'" != "" local efron_opt "efron"
+
+    * noBASEevent: treat the first visit per subject as study entry (risk onset)
+    * rather than a modeled recurrent event. The syntax macro is `baseevent'
+    * (the "no" stripped); it equals "nobaseevent" when the user disables it.
+    local exclude_base = ("`baseevent'" == "nobaseevent")
 
     local __iivw_created_vars ""
 
@@ -188,13 +193,30 @@ program define iivw_weight, rclass sortpreserve
     if inlist("`wtype'", "iivw", "fiptiw") {
         tempvar _nvis
         quietly bysort `id' (`time'): gen long `_nvis' = _N
-        quietly summarize `_nvis'
-        if r(min) < 2 {
-            quietly count if `_nvis' < 2
-            local n_single = r(N)
-            display as error "`n_single' observations belong to subjects with only 1 visit"
-            display as error "`wtype' requires at least 2 visits per subject"
-            error 198
+        if `exclude_base' {
+            * Under nobaseevent the baseline visit is study entry, not a modeled
+            * event, so single-visit subjects contribute only a baseline row
+            * (weight 1) and need not be dropped. The model still requires at
+            * least one subject with a follow-up visit to have any events to fit.
+            quietly summarize `_nvis'
+            if r(max) < 2 {
+                display as error "nobaseevent requires at least one subject with 2 or more visits"
+                display as error "with no follow-up visits the intensity model has no events to fit"
+                error 198
+            }
+        }
+        else {
+            quietly summarize `_nvis'
+            if r(min) < 2 {
+                quietly count if `_nvis' < 2
+                local n_single = r(N)
+                display as error "`n_single' observations belong to subjects with only 1 visit"
+                display as error "`wtype' requires at least 2 visits per subject"
+                display as text  "  to retain single-visit subjects, specify nobaseevent: the"
+                display as text  "  baseline visit is then treated as study entry rather than a"
+                display as text  "  modeled visit-intensity event"
+                error 198
+            }
         }
         drop `_nvis'
     }
@@ -304,6 +326,7 @@ program define iivw_weight, rclass sortpreserve
     * metadata. Validation failures above preserve the user's prior weights.
     foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
         _iivw_weight_var _iivw_prefix _iivw_treat _iivw_visit_covars ///
+        _iivw_baseevent ///
         _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
         _iivw_categorical _iivw_cat_vars _iivw_basecat ///
@@ -365,6 +388,14 @@ program define iivw_weight, rclass sortpreserve
     if "`truncate'" != "" {
         display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
     }
+    if `exclude_base' & inlist("`wtype'", "iivw", "fiptiw") {
+        display as text "Baseline visit:   " as result ///
+            "study entry (not modeled as a visit-intensity event)"
+        if "`entry'" != "" {
+            display as text "note: entry() is ignored under nobaseevent; the first" ///
+                " visit per subject defines risk onset"
+        }
+    }
     display as text ""
 
     * Count subjects
@@ -423,6 +454,20 @@ program define iivw_weight, rclass sortpreserve
             gen double `_stop' = `time'
             gen byte `_event' = 1
 
+            * Under nobaseevent the baseline visit is study entry, not an event.
+            * Drop the (entry, t1] interval so the subject enters the visit-
+            * intensity risk set at the first visit and the modeled events are
+            * the follow-up visits (t1,t2], (t2,t3], .... This removes the
+            * circularity of the baseline visit predicting its own occurrence and
+            * lets single-visit subjects pass through (they contribute no event).
+            * Dropped baseline rows are reinstated with weight 1 after restore.
+            if `exclude_base' {
+                tempvar _firstrow_drop
+                bysort `id' (`time'): gen byte `_firstrow_drop' = (_n == 1)
+                drop if `_firstrow_drop'
+                drop `_firstrow_drop'
+            }
+
             * ---------------------------------------------------------------
             * Step 2: Fit Andersen-Gill Cox model
             * ---------------------------------------------------------------
@@ -457,21 +502,28 @@ program define iivw_weight, rclass sortpreserve
                 gen double `prefix'iw = exp(-`_xb_full')
             }
 
-            * Warn if first observations have missing covariates
-            * (predict xb gives missing when covariates are missing)
-            tempvar _first_visit
-            bysort `id' (`time'): gen byte `_first_visit' = (_n == 1)
-            quietly count if `_first_visit' & missing(`_xb_full')
-            if r(N) > 0 {
-                local n_miss_first = r(N)
-                noisily display as text "note: `n_miss_first' subjects have " ///
-                    "missing visit model covariates at first observation"
-                noisily display as text "  weight set to 1 by convention; " ///
-                    "check covariate completeness"
-            }
+            * In default mode the preserved data still holds the baseline rows.
+            * Under nobaseevent those rows were dropped before fitting; their
+            * weight (1) is reinstated after restore in the full data, so the
+            * first-visit handling below is skipped to avoid mislabeling the
+            * first follow-up visit as the baseline.
+            if !`exclude_base' {
+                * Warn if first observations have missing covariates
+                * (predict xb gives missing when covariates are missing)
+                tempvar _first_visit
+                bysort `id' (`time'): gen byte `_first_visit' = (_n == 1)
+                quietly count if `_first_visit' & missing(`_xb_full')
+                if r(N) > 0 {
+                    local n_miss_first = r(N)
+                    noisily display as text "note: `n_miss_first' subjects have " ///
+                        "missing visit model covariates at first observation"
+                    noisily display as text "  weight set to 1 by convention; " ///
+                        "check covariate completeness"
+                }
 
-            * First observation per subject: set weight = 1
-            bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
+                * First observation per subject: set weight = 1
+                bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
+            }
 
             keep `_obsno' `prefix'iw
             save `__iivw_iwfile', replace
@@ -493,7 +545,15 @@ program define iivw_weight, rclass sortpreserve
             exit `__iivw_iw_rc'
         }
 
-        merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
+        if `exclude_base' {
+            * Baseline rows were dropped before fitting, so they are master-only
+            * here; reinstate their IIW weight to 1 (study-entry convention).
+            merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match master)
+            bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
+        }
+        else {
+            merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
+        }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
 
         if `__iivw_visit_converged' == 0 {
@@ -693,6 +753,7 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_prefix] "`prefix'"
     if inlist("`wtype'", "iivw", "fiptiw") {
         char _dta[_iivw_visit_covars] "`visit_covars'"
+        char _dta[_iivw_baseevent] "`exclude_base'"
     }
     else {
         char _dta[_iivw_visit_covars] ""
@@ -756,6 +817,7 @@ program define iivw_weight, rclass sortpreserve
     return scalar p99_weight = `w_p99'
     return scalar ess = `ess'
     return scalar n_truncated = `n_truncated'
+    return scalar nobaseevent = `exclude_base'
 
     return local weighttype "`wtype'"
     return local weight_var "`prefix'weight"
