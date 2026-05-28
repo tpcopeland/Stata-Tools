@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.0.1, 13may2026
+Version 1.0.2, 28may2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend.
 
@@ -402,6 +402,10 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.0.2 (2026-05-28)
+
+- Aligned the code's declared `version` floor with the documented and packaged minimum: `rangematch.ado` and `_rangematch_mata.ado` now declare `version 16.1` (was `16.0`), matching the `Stata 16.1+` requirement in the help file, README, and `.pkg`. No change to behavior on Stata 16.1 or later.
 
 ### 1.0.1 (2026-05-13)
 

@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 1.1.0
+*   T7: Version header reports 1.1.1
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T10: generate() + hierarchy() with bare names (M8)
@@ -17,6 +17,7 @@
 *   T13: r(codefile) returns user-facing basename for builtin codefiles
 *   T14: auto-labels on suffix variables when no explicit label given
 *   T15: explicit labels still override auto-labels
+*   T16: matched_code() not leaked by multi-window sensitivity supplementary scan
 
 clear all
 set seed 12345
@@ -215,7 +216,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 1.1.0
+* T7: header advertises version 1.1.1
 * ============================================================
 
 local ++test_count
@@ -226,10 +227,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "1.1.0") > 0
+    assert strpos("`_line1'", "1.1.1") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 1.1.0"
+    display as result "  PASS T7: version header is 1.1.1"
     local ++pass_count
 }
 else {
@@ -462,6 +463,44 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T15: explicit label override (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T16: matched_code() not leaked by multi-window sensitivity scan
+* ============================================================
+* The supplementary scan for multi-window lookback() must not populate
+* matched_code() for secondary-window-only rows (rows outside the primary
+* analysis window). Row A (visit_dt=990) is inside the primary 30-day window
+* [970,1000]; row B (visit_dt=920) is only inside the 90-day window. With the
+* leak, row B's mc was wrongly set to "E119"; it must be empty.
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str6 dx1 double visit_dt double index_dt
+    1 "E110" 990 1000
+    1 "E119" 920 1000
+    end
+    codescan dx1, define(dm2 "E11") id(pid) date(visit_dt) refdate(index_dt) ///
+        lookback(30 90) inclusive merge matched_code(mc)
+    * In-primary-window matched row keeps its matched code
+    assert mc == "E110" if visit_dt == 990
+    * Secondary-window-only row must NOT be populated (the leak)
+    assert mc == ""     if visit_dt == 920
+    * Sensitivity matrix is unaffected: 1 condition x 2 windows, both 100%
+    matrix _S = r(sensitivity)
+    assert rowsof(_S) == 1 & colsof(_S) == 2
+    assert abs(_S[1, 1] - 100) < 1e-6
+    assert abs(_S[1, 2] - 100) < 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS T16: matched_code not leaked by sensitivity scan"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T16: matched_code sensitivity leak (rc=`=_rc')"
     local ++fail_count
 }
 

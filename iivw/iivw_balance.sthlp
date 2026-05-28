@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  27may2026}{...}
+{* *! version 1.3.1  28may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -277,6 +277,6 @@ AG-refit view.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.0, 2026-05-27{p_end}
+{pstd}Version 1.3.1, 2026-05-28{p_end}
 
 {hline}

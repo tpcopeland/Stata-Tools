@@ -34,6 +34,7 @@ local suites ///
     test_rangematch_routing_contract.do ///
     test_rangematch_backend_equivalence.do ///
     test_rangematch_saving_matrix.do ///
+    test_rangematch_v16compat.do ///
     test_documentation_examples.do ///
     test_release_integrity.do
 

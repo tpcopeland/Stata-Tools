@@ -11,7 +11,7 @@ title: "console_output"
 ```
 ----------------------------------------------------------------------
 iivw - Visit Weighting and Diagnostic Workflow for Stata
-Version 1.3.0
+Version 1.3.1
 ----------------------------------------------------------------------
 
 Commands

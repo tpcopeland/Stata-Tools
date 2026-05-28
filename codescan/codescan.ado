@@ -1,4 +1,4 @@
-*! codescan Version 1.1.0  2026/04/24
+*! codescan Version 1.1.1  2026/05/28
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -938,6 +938,8 @@ program define codescan, rclass
     if `n_lookback_windows' > 1 {
         tempname sensitivity
         matrix `sensitivity' = J(`n_conditions', `n_lookback_windows', .)
+        * Column names are rebuilt during the display section below (using the
+        * final window order); this initialization is intentionally provisional.
         local _sens_cnames ""
 
         * First window: use match counts already accumulated by primary scan
@@ -994,6 +996,10 @@ program define codescan, rclass
             }
             local _mata_detail ""
             local _mata_countmode ""
+            * matched_code is a primary-scan output; the supplementary scan
+            * must not populate it for secondary-window-only rows (those lie
+            * outside the primary analysis window).
+            local _mata_matched_code ""
             quietly mata: _codescan_mata_scan()
         }
 
@@ -1045,6 +1051,7 @@ program define codescan, rclass
         }
         local _mata_detail "`detail'"
         local _mata_countmode "`countmode'"
+        local _mata_matched_code "`matched_code'"
 
         local _has_sensitivity = 1
     }
@@ -1509,6 +1516,9 @@ program define codescan, rclass
                 matrix `sensitivity'[`i', 1] = `summary'[`i', 2]
             }
             else {
+                * Unreachable in practice: multi-window lookback() requires
+                * collapse or merge (validated above). Kept as a defensive
+                * row-level fallback should that constraint ever be relaxed.
                 matrix `sensitivity'[`i', 1] = `_prim_n_`i'' / `N_display' * 100
             }
         }

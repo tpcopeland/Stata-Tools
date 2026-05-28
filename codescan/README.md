@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.1.0** | 2026-04-24
+**Version 1.1.1** | 2026-05-28
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -547,6 +547,12 @@ useful for automated checks before freezing a code dictionary.
 - Quan H, Sundararajan V, Halfon P, et al. (2005). ICD-9-CM and ICD-10 coding algorithms for defining comorbidities in administrative data.
 - Quan H, Li B, Couris CM, et al. (2011). Updated Charlson comorbidity weights for risk adjustment.
 - van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system adaptation of the Elixhauser comorbidity measure for hospital mortality.
+
+## Changelog
+
+### 1.1.1 (2026-05-28)
+- Fix: `matched_code()` no longer captures codes from observations outside the primary analysis window when combined with a multi-window `lookback()` and `merge`. The supplementary sensitivity scan previously reused the matched-code buffer and populated it for secondary-window-only rows.
+- Docs: corrected the `codescan_describe.ado` header to list the `save()` option and the `r(top_codes)`/`r(chapters)` matrices.
 
 ## Author
 

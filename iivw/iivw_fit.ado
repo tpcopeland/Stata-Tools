@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.3.0  2026/05/27
+*! iivw_fit Version 1.3.1  2026/05/28
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -164,6 +164,25 @@ program define iivw_fit, eclass
     if `bootstrap' < 0 {
         display as error "bootstrap() must be greater than or equal to 0"
         error 198
+    }
+
+    * collect is only wired into the non-bootstrap model(gee) path; refuse it
+    * elsewhere rather than silently ignoring it.
+    if "`collect'" != "" {
+        if c(stata_version) < 17 {
+            display as error "collect requires Stata 17 or later"
+            error 198
+        }
+        if "`model'" == "mixed" {
+            display as error "collect is only supported with model(gee)"
+            display as error "  the collect: prefix is not applied to mixed models"
+            error 198
+        }
+        if `bootstrap' > 0 {
+            display as error "collect is not supported with bootstrap()"
+            display as error "  the collect: prefix is not applied to bootstrap fits"
+            error 198
+        }
     }
 
     * Validate time spec

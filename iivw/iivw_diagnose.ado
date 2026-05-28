@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.3.0  2026/05/27
+*! iivw_diagnose Version 1.3.1  2026/05/28
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -304,9 +304,6 @@ program define iivw_diagnose, rclass
                 error 111
             }
             local se_`role' = scalar(`_setmp')
-
-            local cmd_`role' "`e(iivw_cmd)'"
-            local wtype_`role' "`e(iivw_weighttype)'"
         }
 
         local z = invnormal(1 - (100 - `level') / 200)

@@ -1,4 +1,4 @@
-*! codescan_describe Version 1.1.0  2026/04/24
+*! codescan_describe Version 1.1.1  2026/05/28
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -13,13 +13,15 @@ DESCRIPTION:
     conditions for scanning.
 
 SYNTAX:
-    codescan_describe varlist [if] [in] [, Top(integer 20) NODots TOSTRing]
+    codescan_describe varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string)]
 
 STORED RESULTS:
     r(n_unique)   - Number of unique codes found
     r(n_entries)  - Total non-empty code entries across all variables
     r(n_vars)     - Number of variables scanned
     r(varlist)    - Variables scanned
+    r(top_codes)  - Matrix: frequency, percent, cumulative percent per code
+    r(chapters)   - Matrix: code count, entry count per first-character chapter
 */
 
 program define codescan_describe, rclass

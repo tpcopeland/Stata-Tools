@@ -83,6 +83,41 @@ if `hits' > 0 {
 display as result "v16compat probe 2: no Stata-17-only command names referenced in `: word count `files'' file(s) -- PASS"
 
 * ---------------------------------------------------------------------------
+* Probe 2b: each .ado must declare `version 16.1` (the documented floor) and
+* must NOT declare a lower `version 16.0`. This locks the code's parser-frame
+* floor to the minimum advertised in the help file, README, and .pkg, so the
+* probe-3 smoke calls below genuinely exercise the 16.1 syntax interpreter.
+* ---------------------------------------------------------------------------
+foreach f of local files {
+    tempname fh
+    file open `fh' using "`pkg_dir'/`f'", read text
+    local saw_161 = 0
+    local saw_old = 0
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`macval(line)'"', "^[ \t]*version[ \t]+16\.1([^0-9]|$)") {
+            local saw_161 = 1
+        }
+        if regexm(`"`macval(line)'"', "^[ \t]*version[ \t]+16\.0([^0-9]|$)") {
+            local saw_old = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    if `saw_old' {
+        display as error ///
+            "v16compat probe 2b: `f' declares 'version 16.0' but the documented floor is 16.1"
+        exit 9
+    }
+    if !`saw_161' {
+        display as error ///
+            "v16compat probe 2b: `f' does not declare 'version 16.1' (the documented floor)"
+        exit 9
+    }
+}
+display as result "v16compat probe 2b: both .ado files declare 'version 16.1' and none declares '16.0' -- PASS"
+
+* ---------------------------------------------------------------------------
 * Probe 3: smoke call rangematch from inside a version-16.1 do-file
 * ---------------------------------------------------------------------------
 tempfile usingF

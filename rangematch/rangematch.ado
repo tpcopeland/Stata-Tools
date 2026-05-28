@@ -1,4 +1,4 @@
-*! rangematch Version 1.0.1  2026/05/13
+*! rangematch Version 1.0.2  2026/05/28
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -13,7 +13,7 @@ capture program drop _rangematch_build_group_ids
 capture program drop _rangematch_run_backend
 
 program define _rangematch_display_counts
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -53,7 +53,7 @@ program define _rangematch_display_counts
 end
 
 program define _rangematch_display_stats
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -104,7 +104,7 @@ program define _rangematch_display_stats
 end
 
 program define _rangematch_display_timing
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -135,7 +135,7 @@ program define _rangematch_display_timing
 end
 
 program define _rangematch_build_output_names, sclass
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -212,7 +212,7 @@ program define _rangematch_build_output_names, sclass
 end
 
 program define _rangematch_load_using, sclass
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -425,7 +425,7 @@ program define _rangematch_load_using, sclass
 end
 
 program define _rangematch_build_group_ids
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -534,7 +534,7 @@ program define _rangematch_build_group_ids
 end
 
 program define _rangematch_run_backend, sclass
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -652,13 +652,13 @@ program define _rangematch_run_backend, sclass
 end
 
 program define rangematch, rclass
-    version 16.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.0.1"
+    local _rm_required_mata_version "1.0.2"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc

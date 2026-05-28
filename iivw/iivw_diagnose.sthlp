@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  27may2026}{...}
+{* *! version 1.3.1  28may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
@@ -41,7 +41,7 @@
 {synopt:{opt ex:ogeneity(string)}}{cmd:exogenous}, {cmd:endogenous}, or {cmd:unknown}; default is {cmd:unknown}{p_end}
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
-{synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default is {cmd:95}{p_end}
+{synopt:{opt l:evel(#)}}confidence level for coefficient intervals; must be greater than 10 and less than 99.99; default is {cmd:95}{p_end}
 {synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}; not abbreviated, so {cmd:ex()} remains {opt exogeneity()}{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
@@ -111,7 +111,8 @@ and displays the bias of each estimate versus that value.
 
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
-intervals displayed from each stored model.
+intervals displayed from each stored model.  It must be greater than 10 and
+less than 99.99; the default is 95.
 
 {phang}
 {opt xlsx(filename)} writes a long diagnostics table to an Excel {cmd:.xlsx}
@@ -339,6 +340,6 @@ doi:10.1002/cjs.5550350402.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2026-05-27{p_end}
+{pstd}Version 1.3.1, 2026-05-28{p_end}
 
 {hline}
