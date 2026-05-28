@@ -786,13 +786,13 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_id)}}panel ID used{p_end}
 {synopt:{cmd:e(iivw_time)}}time variable used{p_end}
 {synopt:{cmd:e(iivw_time_vars)}}time variables included in the outcome model{p_end}
-{synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummy variables created{p_end}
-{synopt:{cmd:e(iivw_time_basecat)}}reference category for categorical time{p_end}
+{synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummy variables created, when applicable{p_end}
+{synopt:{cmd:e(iivw_time_basecat)}}reference category for categorical time, when applicable{p_end}
 {synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
-{synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
-{synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
-{synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}{p_end}
-{synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created{p_end}
+{synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}, when applicable{p_end}
+{synopt:{cmd:e(iivw_ix_vars)}}interaction variables created, when applicable{p_end}
+{synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}, when applicable{p_end}
+{synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created, when applicable{p_end}
 
 {pstd}
 The command also stores fit metadata in dataset characteristics so downstream

@@ -148,6 +148,9 @@ for IIW and FIPTIW weights.
 {pmore}
 For {cmd:wtype(iptw)}, {opt visit_cov()} is optional.  The visit model is
 skipped entirely, and any {opt visit_cov()} variables are ignored with a note.
+Other visit-model-only options, including {opt stabcov()}, {opt lagvars()},
+{opt entry()}, {opt efron}, and {opt nobaseevent}, are not allowed with
+{cmd:wtype(iptw)} because no visit intensity model is fit.
 
 {pmore}
 {bf:Choosing visit covariates.}  Include variables that predict both (a) the
@@ -193,6 +196,7 @@ numerator model.  Without this option, the IIW weight is
 {it:exp(-xb_full)}, which can be volatile.  With stabilization, a second
 (simpler) Cox model is fit using only {opt stabcov()}, and the weight becomes
 {it:exp(xb_stab - xb_full)}.
+This option is allowed only for IIW or FIPTIW weights.
 
 {pmore}
 In the FIPTIW setting (Tompkins et al. 2025), the numerator model typically
@@ -207,6 +211,7 @@ preserving the treatment effect estimand.
 time-varying covariates within each subject.  Lagged variables are named
 {it:varname}_lag1 and are automatically included in the visit intensity model
 alongside any variables in {opt visit_cov()}.
+This option is allowed only for IIW or FIPTIW weights.
 
 {pmore}
 Lagging avoids using the current visit's outcome to predict the current
@@ -218,6 +223,7 @@ EDSS ({cmd:edss_lag1}) is more appropriate.
 {opt entry(varname)} specifies a subject-specific study entry time.  The
 default is 0 for all subjects.  This affects the start time for the first
 visit's counting process interval in the Andersen-Gill model.
+This option is allowed only for IIW or FIPTIW weights.
 
 {pmore}
 In designs with late entry or left truncation, set this to the date
@@ -234,6 +240,7 @@ recurrent event, which means the baseline visit's covariates help predict the
 baseline visit's own occurrence.  Under {opt nobaseevent} the modeled events
 are the follow-up visits only -- the intervals (t1,t2], (t2,t3], ... -- so the
 subject becomes at risk for the visit process at the first observed visit.
+This option is allowed only for IIW or FIPTIW weights.
 
 {pmore}
 This has two consequences.  First, it removes the circularity of conditioning
@@ -288,6 +295,7 @@ when there are many tied visit times, which is common in clinic data where
 visits are recorded at monthly or quarterly granularity.  This option also
 matches R's {cmd:coxph()} default, which is useful when cross-validating
 results against R.
+This option is allowed only for IIW or FIPTIW weights.
 
 
 {marker wtypes}{...}

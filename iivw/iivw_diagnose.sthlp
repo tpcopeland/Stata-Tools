@@ -42,6 +42,15 @@
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
 {synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default is {cmd:95}{p_end}
+{synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx()}; not abbreviated, so {cmd:ex()} remains {opt exogeneity()}{p_end}
+{synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
+{synopt:{opt replace}}accepted for compatibility; Excel output updates only the named sheet{p_end}
+{synopt:{opt open}}open the Excel workbook after writing it{p_end}
+{synopt:{opt t:itle(string)}}optional Excel title row{p_end}
+{synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
+{synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
+{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -103,6 +112,41 @@ and displays the bias of each estimate versus that value.
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
 intervals displayed from each stored model.
+
+{phang}
+{opt xlsx(filename)} writes a long diagnostics table to an Excel {cmd:.xlsx}
+workbook.  Estimate rows contain {cmd:b}, {cmd:se}, {cmd:ll}, and {cmd:ul};
+diagnostic, range, share, and optional bias rows store their scalar quantity
+in {cmd:value}.  The worksheet is formatted with a merged title, readable
+column labels, numeric cell formats, column widths, header shading, borders,
+and an explanatory footnote.
+
+{phang}
+{opt excel(filename)} is a synonym for {opt xlsx()}.  This option is not
+abbreviated so that {cmd:ex()} continues to mean {opt exogeneity()}.
+
+{phang}
+{opt sheet(sheetname)} sets the Excel worksheet name.  The default is
+{cmd:Diagnostics}.  This option requires {opt xlsx()} or {opt excel()}.
+
+{phang}
+{opt replace} is accepted for compatibility with earlier reporting examples.
+Excel output follows the tabtools workbook convention: if the workbook
+exists, only the named sheet is cleared and rewritten; other sheets are
+preserved.
+
+{phang}
+{opt open} opens the Excel workbook after writing it.  This option requires
+{opt xlsx()} or {opt excel()}.
+
+{phang}
+{opt title(string)} and {opt footnote(string)} add optional title and footnote
+rows to Excel output.
+
+{phang}
+{opt decimals(#)} sets the number of decimal places used in Excel numeric
+cell formatting.  {opt digits(#)} is a synonym.  The allowed range is
+0 through 6; the default is 4.
 
 
 {marker estimand}{...}
@@ -221,6 +265,11 @@ Example 3: simulation-style call with a known true value.
 
 {phang2}{cmd:. iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) adjusted(M_adjusted) true(0) exogeneity(unknown)}{p_end}
 
+{pstd}
+Example 4: export formatted diagnostics to a workbook sheet.
+
+{phang2}{cmd:. iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) adjusted(M_adjusted) exogeneity(unknown) xlsx(iivw_results.xlsx) sheet(Diagnostics) replace}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -259,6 +308,13 @@ Example 3: simulation-style call with a known true value.
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
 {synopt:{cmd:r(conclusion)}}interpretation category{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
+{synoptline}
+
+{synopthdr:Export scalars}
+{synoptline}
+{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 {synoptline}
 
 {synopthdr:Matrices}

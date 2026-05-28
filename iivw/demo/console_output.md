@@ -11,7 +11,7 @@ title: "console_output"
 ```
 ----------------------------------------------------------------------
 iivw - Visit Weighting and Diagnostic Workflow for Stata
-Version 1.2.2
+Version 1.3.0
 ----------------------------------------------------------------------
 
 Commands
@@ -294,8 +294,8 @@ Log likelihood = -8274.2097                             Prob > chi2   = 0.0000
 note: 320 subjects have missing visit model covariates at first observation
   weight set to 1 by convention; check covariate completeness
 (320 real changes made)
-(file /tmp/St2135901.000001 not found)
-file /tmp/St2135901.000001 saved as .dta format
+(file /tmp/St3243624.000001 not found)
+file /tmp/St3243624.000001 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -321,8 +321,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St2135901.000003 not found)
-file /tmp/St2135901.000003 saved as .dta format
+(file /tmp/St3243624.000003 not found)
+file /tmp/St3243624.000003 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 37 observations (18 low, 19 high)
 
@@ -373,6 +373,7 @@ _iivw_weight |      1,860    1.645994    .5582194   .7032949   3.327522
 
 ```stata
 . iivw_balance, nolog
+>     xlsx("`export_xlsx'") sheet("Balance") replace
 ```
 
 ```
@@ -405,6 +406,15 @@ Weighted vs unweighted covariate means
   Balance flag:    good  (modeled covariates; abs(SMD) <= 0.100)
   Informative:     1
 ----------------------------------------------------------------------
+
+```
+
+```stata
+. display as text "Balance export: " as result "xlsx() sheet Balance"
+```
+
+```
+Balance export: xlsx() sheet Balance
 
 ```
 
@@ -658,6 +668,7 @@ Conclusion:        evidence that lagged predictors are associated with visit tim
 . iivw_diagnose years,
 >     unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted)
 >     estimand(marginal) exogeneity(`exo')
+>     excel("`export_xlsx'") sheet("Diagnostics") replace
 ```
 
 ```
@@ -682,6 +693,15 @@ Because the measurement process appears outcome-dependent, the adjusted
 model may over-correct. Treat the weighted and adjusted estimates as a
 diagnostic range, not a point decomposition.
 Plausible diagnostic range:   -0.4833 to    0.6566
+
+```
+
+```stata
+. display as text "Diagnostic export: " as result "excel() sheet Diagnostics"
+```
+
+```
+Diagnostic export: excel() sheet Diagnostics
 
 ```
 
@@ -832,8 +852,8 @@ Log likelihood = -5907.4017                             Prob > chi2   = 1.0000
           tx |          1    .056885     0.00   1.000      .894498    1.117946
 ------------------------------------------------------------------------------
 (320 real changes made)
-(file /tmp/St2135901.000002 not found)
-file /tmp/St2135901.000002 saved as .dta format
+(file /tmp/St3243624.000002 not found)
+file /tmp/St3243624.000002 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -859,8 +879,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St2135901.000004 not found)
-file /tmp/St2135901.000004 saved as .dta format
+(file /tmp/St3243624.000004 not found)
+file /tmp/St3243624.000004 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 27 observations (12 low, 15 high)
 

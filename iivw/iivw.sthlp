@@ -366,8 +366,9 @@ marginal or reference-arm time slope, here {cmd:days}.
 {pstd}
 If {cmd:iivw_exogtest} finds that lagged outcomes predict future visits,
 treat the adjusted estimate as a sensitivity bound rather than as a clean
-artifact correction.  The package demo, {cmd:iivw/demo/demo_iivw.do}, contains
-a runnable version of this workflow with synthetic SDMT-like data.
+artifact correction.  The GitHub repository includes a runnable demo at
+{browse "https://github.com/tpcopeland/Stata-Tools/tree/main/iivw/demo":iivw/demo}
+with synthetic SDMT-like data.
 
 
 {marker references}{...}

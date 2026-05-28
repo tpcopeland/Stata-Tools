@@ -16,7 +16,7 @@ Outcome models are fit via GEE-style estimation (GLM with clustered robust SEs) 
 
 - Stata 16 or later
 - Stata 17 or later for `iivw_fit, model(mixed)`
-- Optional: `tabtools` for the `regtab` Excel export examples
+- Optional: `tabtools` for the `regtab` model-table Excel examples
 
 ## Installation
 
@@ -336,13 +336,25 @@ iivw_fit edss treated edss_bl, bootstrap(500) nolog replace
 
 ### 8. Export results to Excel
 
-Use the `collect` option with non-bootstrap `model(gee)` fits and `regtab` (from the `tabtools` package) to build publication-ready tables:
+Use the `collect` option with non-bootstrap `model(gee)` fits and `regtab` (from the `tabtools` package) to build publication-ready model tables:
 
 ```stata
 collect clear
 iivw_fit edss treated edss_bl, model(gee) nolog replace collect
 regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
 ```
+
+`iivw_balance` and `iivw_diagnose` can also export their diagnostic tables directly, without requiring `tabtools`:
+
+```stata
+iivw_balance, xlsx(iivw_results.xlsx) sheet(Balance) replace
+
+iivw_diagnose months_since_tx, ///
+    unweighted(M_unweighted) weighted(M_weighted) adjusted(M_adjusted) ///
+    exogeneity(unknown) xlsx(iivw_results.xlsx) sheet(Diagnostics) replace
+```
+
+These direct exports are workbook-only: each command writes a styled `.xlsx` sheet with readable headers, native numeric cells, column widths, borders, and explanatory notes. Existing workbooks are updated by replacing only the named sheet.
 
 ## Weight Diagnostics
 
@@ -424,7 +436,7 @@ The package ships with functional, validation, and cross-validation QA under `qa
 
 ## Demo
 
-The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also includes a categorical visit-wave example showing how generated time and interaction labels carry through to `regtab`.
+The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also demonstrates styled `.xlsx` sheet exports from `iivw_balance` and `iivw_diagnose`, plus the `regtab` workbook export for model tables.
 
 Regenerate from the repository root with:
 
@@ -436,6 +448,34 @@ Generated outputs:
 
 - [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
 - `demo/iivw_results.xlsx` — Excel workbook with a diagnostic model-comparison sheet and a `Visit waves` sheet showing categorical-time interaction labels
+- `demo/iivw_reporting_exports.xlsx` — direct reporting workbook with `Balance` and `Diagnostics` sheets
+
+The script verifies the direct export workbook sheets and expected rows in both styled worksheets.
+
+<details>
+<summary>Direct reporting export examples</summary>
+
+```stata
+. iivw_balance, nolog ///
+    xlsx("iivw/demo/iivw_reporting_exports.xlsx") sheet("Balance") replace
+```
+
+```text
+Balance export: xlsx() sheet Balance
+```
+
+```stata
+. iivw_diagnose years, ///
+    unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) ///
+    estimand(marginal) exogeneity(endogenous) ///
+    excel("iivw/demo/iivw_reporting_exports.xlsx") sheet("Diagnostics") replace
+```
+
+```text
+Diagnostic export: excel() sheet Diagnostics
+```
+
+</details>
 
 The key diagnostic pattern in the demo mirrors the study logic: weighting moves the marginal/reference time slope only modestly, while the measurement-process adjustment moves it sharply. Because the exogeneity check finds that lagged outcomes predict future visit timing, `iivw_diagnose` reports a diagnostic range rather than a point artifact share.
 
@@ -499,7 +539,7 @@ Generated treatment-by-wave terms:  _iivw_ix_ntz_like_tcat_1 _iivw_ix_ntz_like_t
   _iivw_ix_ntz_like_tcat_3: NTZ-like x Visit wave: Month 18
 ```
 
-The generated workbook asserts that the `Visit waves` sheet contains the readable row label `NTZ-like x Visit wave: Month 6`.
+The generated model workbook asserts that the `Visit waves` sheet contains the readable row label `NTZ-like x Visit wave: Month 6`.
 
 </details>
 
@@ -517,6 +557,7 @@ The generated workbook asserts that the `Visit waves` sheet contains the readabl
 - Added `iivw_weight, nobaseevent`: treats each subject's first visit as study entry (risk onset) rather than a modeled visit-intensity event. The Andersen-Gill model then fits only follow-up visits, removing the circularity of the baseline visit predicting its own occurrence, and lets single-visit subjects pass through (they contribute a baseline row with weight 1 instead of triggering the "requires at least 2 visits" error). Default behavior is unchanged
 - Improved the 2-visit error message to point users to `nobaseevent`
 - Stored `r(nobaseevent)` and `_dta[_iivw_baseevent]` to record the mode
+- Added styled direct `.xlsx` sheet reporting exports to `iivw_balance` and `iivw_diagnose`
 
 ### v1.2.3 (2026-05-26)
 

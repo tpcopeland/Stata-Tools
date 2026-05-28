@@ -132,6 +132,32 @@ program define iivw_weight, rclass sortpreserve
         if "`visit_cov'" != "" {
             display as text "note: visit_cov() is ignored for wtype(iptw); " ///
                 "only the treatment model is fitted"
+            local visit_cov ""
+        }
+        if "`stabcov'" != "" {
+            display as error "stabcov() is only allowed with IIW or FIPTIW weights"
+            display as error "wtype(iptw) fits only the treatment model"
+            error 198
+        }
+        if "`lagvars'" != "" {
+            display as error "lagvars() is only allowed with IIW or FIPTIW weights"
+            display as error "wtype(iptw) has no visit intensity model for lagged covariates"
+            error 198
+        }
+        if "`entry'" != "" {
+            display as error "entry() is only allowed with IIW or FIPTIW weights"
+            display as error "wtype(iptw) fits no visit intensity counting-process model"
+            error 198
+        }
+        if "`efron'" != "" {
+            display as error "efron is only allowed with IIW or FIPTIW weights"
+            display as error "wtype(iptw) fits no Cox visit intensity model"
+            error 198
+        }
+        if `exclude_base' {
+            display as error "nobaseevent is only allowed with IIW or FIPTIW weights"
+            display as error "wtype(iptw) fits no visit intensity model"
+            error 198
         }
     }
 
@@ -425,6 +451,11 @@ program define iivw_weight, rclass sortpreserve
         if _rc == 0 {
             local __iivw_visit_hold_ok = 1
         }
+        else {
+            local __iivw_hold_rc = _rc
+            display as error "could not preserve active estimation results"
+            exit `__iivw_hold_rc'
+        }
 
         preserve
         capture noisily {
@@ -529,11 +560,15 @@ program define iivw_weight, rclass sortpreserve
             save `__iivw_iwfile', replace
         }
         local __iivw_iw_rc = _rc
+        local __iivw_unhold_rc = 0
         restore
         if `__iivw_visit_hold_ok' {
             capture _estimates unhold `__iivw_visit_est'
             local __iivw_unhold_rc = _rc
             local __iivw_visit_hold_ok = 0
+            if `__iivw_unhold_rc' != 0 & `__iivw_iw_rc' == 0 {
+                local __iivw_iw_rc = `__iivw_unhold_rc'
+            }
         }
 
         if `__iivw_iw_rc' != 0 {
@@ -541,7 +576,12 @@ program define iivw_weight, rclass sortpreserve
                 capture drop `v'
                 local __iivw_drop_rc = _rc
             }
-            display as error "visit intensity model failed; no weights created"
+            if `__iivw_unhold_rc' != 0 {
+                display as error "could not restore active estimation results"
+            }
+            else {
+                display as error "visit intensity model failed; no weights created"
+            }
             exit `__iivw_iw_rc'
         }
 
@@ -595,6 +635,11 @@ program define iivw_weight, rclass sortpreserve
         if _rc == 0 {
             local __iivw_logit_hold_ok = 1
         }
+        else {
+            local __iivw_hold_rc = _rc
+            display as error "could not preserve active estimation results"
+            exit `__iivw_hold_rc'
+        }
         preserve
         capture noisily {
             quietly keep if `_first_obs'
@@ -605,11 +650,15 @@ program define iivw_weight, rclass sortpreserve
             save `__iivw_psfile', replace
         }
         local logit_rc = _rc
+        local __iivw_unhold_rc = 0
         restore
         if `__iivw_logit_hold_ok' {
             capture _estimates unhold `__iivw_logit_est'
             local __iivw_unhold_rc = _rc
             local __iivw_logit_hold_ok = 0
+            if `__iivw_unhold_rc' != 0 & `logit_rc' == 0 {
+                local logit_rc = `__iivw_unhold_rc'
+            }
         }
 
         if `logit_rc' != 0 {
@@ -622,7 +671,12 @@ program define iivw_weight, rclass sortpreserve
                 capture drop `v'
                 local __iivw_drop_rc = _rc
             }
-            display as error "treatment model failed; no weights created"
+            if `__iivw_unhold_rc' != 0 {
+                display as error "could not restore active estimation results"
+            }
+            else {
+                display as error "treatment model failed; no weights created"
+            }
             exit `logit_rc'
         }
 

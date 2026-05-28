@@ -31,12 +31,19 @@ program define iivw_balance, rclass
 
     tempname __iivw_balance __iivw_hr_unweighted __iivw_hr_weighted
     local __iivw_return_ok = 0
+    local __iivw_export_rc = 0
+    local __iivw_export_xlsx ""
+    local __iivw_export_sheet ""
+    local __iivw_export_decimals = .
 
     capture noisily {
 
     syntax [varlist(default=none numeric)] [if] [in] , ///
         [cvcut(real 0.10) essratiocut(real 0.95) ///
-         smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon]
+         smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon ///
+         XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
+         REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
+         DECimals(integer -1) DIGits(integer -1)]
 
     if `cvcut' < 0 {
         display as error "cvcut() must be greater than or equal to 0"
@@ -50,6 +57,13 @@ program define iivw_balance, rclass
         display as error "smdcut() must be greater than 0"
         error 198
     }
+    if `decimals' >= 0 & `digits' >= 0 & `decimals' != `digits' {
+        display as error "decimals() and digits() specify different values"
+        error 198
+    }
+    local __iivw_decimals = 4
+    if `decimals' >= 0 local __iivw_decimals = `decimals'
+    if `digits' >= 0 local __iivw_decimals = `digits'
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
@@ -399,6 +413,88 @@ program define iivw_balance, rclass
     }
     display as text "{hline 70}"
 
+    local __iivw_export_requested = ///
+        (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
+         `"`sheet'"' != "" | "`open'" != "")
+    if `__iivw_export_requested' {
+        tempname __iivw_export_table
+        frame create `__iivw_export_table' ///
+            str80 covariate ///
+            double unweighted_mean ///
+            double weighted_mean ///
+            double sd ///
+            double smd ///
+            double abs_smd ///
+            double N ///
+            double n_missing ///
+            byte modeled
+
+        forvalues i = 1/`n_covars' {
+            local __iivw_v : word `i' of `balance_covars'
+            frame post `__iivw_export_table' ///
+                (`"`__iivw_v'"') ///
+                (el(`__iivw_balance', `i', 1)) ///
+                (el(`__iivw_balance', `i', 2)) ///
+                (el(`__iivw_balance', `i', 3)) ///
+                (el(`__iivw_balance', `i', 4)) ///
+                (el(`__iivw_balance', `i', 5)) ///
+                (el(`__iivw_balance', `i', 6)) ///
+                (el(`__iivw_balance', `i', 7)) ///
+                (el(`__iivw_balance', `i', 8))
+        }
+
+        frame `__iivw_export_table': label variable covariate "Covariate"
+        frame `__iivw_export_table': label variable unweighted_mean "Unweighted mean"
+        frame `__iivw_export_table': label variable weighted_mean "Weighted mean"
+        frame `__iivw_export_table': label variable sd "Unweighted SD"
+        frame `__iivw_export_table': label variable smd "SMD"
+        frame `__iivw_export_table': label variable abs_smd "|SMD|"
+        frame `__iivw_export_table': label variable N "N"
+        frame `__iivw_export_table': label variable n_missing "Missing"
+        frame `__iivw_export_table': label variable modeled "Modeled"
+
+        local __iivw_sheet `"`sheet'"'
+        if `"`__iivw_sheet'"' == "" & ///
+            (`"`xlsx'"' != "" | `"`excel'"' != "") local __iivw_sheet "Balance"
+
+        local __iivw_clean_xlsx `"`xlsx'"'
+        local __iivw_clean_excel `"`excel'"'
+        local __iivw_clean_title `"`title'"'
+        local __iivw_clean_footnote `"`footnote'"'
+        local __iivw_dq = char(34)
+        local __iivw_clean_xlsx = subinstr(`"`__iivw_clean_xlsx'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_excel = subinstr(`"`__iivw_clean_excel'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_sheet = subinstr(`"`__iivw_sheet'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_title = subinstr(`"`__iivw_clean_title'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_footnote = subinstr(`"`__iivw_clean_footnote'"', `"`__iivw_dq'"', "", .)
+        if `"`__iivw_clean_title'"' == "" {
+            local __iivw_clean_title "IIVW balance diagnostic"
+        }
+        if `"`__iivw_clean_footnote'"' == "" {
+            local __iivw_clean_footnote ///
+                "Modeled = 1 identifies visit-intensity model covariates; |SMD| is the absolute weighted-minus-unweighted standardized difference."
+        }
+
+        local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals')"'
+        if `"`__iivw_clean_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_clean_xlsx'")"'
+        if `"`__iivw_clean_excel'"' != "" local __iivw_export_opts `"`__iivw_export_opts' excel("`__iivw_clean_excel'")"'
+        if `"`__iivw_clean_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_clean_sheet'")"'
+        if `"`__iivw_clean_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_clean_title'")"'
+        if `"`__iivw_clean_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_clean_footnote'")"'
+        if "`replace'" != "" local __iivw_export_opts `"`__iivw_export_opts' replace"'
+        if "`open'" != "" local __iivw_export_opts `"`__iivw_export_opts' open"'
+
+        capture noisily _iivw_export_table, `__iivw_export_opts'
+        local __iivw_export_rc = _rc
+        if `__iivw_export_rc' == 0 {
+            local __iivw_export_xlsx `"`r(xlsx)'"'
+            local __iivw_export_sheet `"`r(sheet)'"'
+            local __iivw_export_decimals = r(decimals)
+        }
+        capture frame drop `__iivw_export_table'
+        local __iivw_drop_rc = _rc
+    }
+
     local __iivw_return_ok = 1
 
     }
@@ -425,10 +521,18 @@ program define iivw_balance, rclass
     return local leverage "`leverage'"
     return local balance_flag "`balance_flag'"
     return local result_columns "unweighted_mean weighted_mean sd smd abs_smd N n_missing modeled"
+    if `"`__iivw_export_xlsx'"' != "" {
+        return local xlsx `"`__iivw_export_xlsx'"'
+        return local sheet `"`__iivw_export_sheet'"'
+    }
+    if `__iivw_export_decimals' < . {
+        return scalar decimals = `__iivw_export_decimals'
+    }
 
     if "`agrefit'" != "" {
         return matrix hr_unweighted = `__iivw_hr_unweighted'
         return matrix hr_weighted = `__iivw_hr_weighted'
     }
     return matrix balance = `__iivw_balance'
+    if `__iivw_export_rc' exit `__iivw_export_rc'
 end

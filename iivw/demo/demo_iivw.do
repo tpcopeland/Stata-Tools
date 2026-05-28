@@ -2,8 +2,9 @@
 
     Produces:
       1. Console output (FIPTIW diagnostic workflow) -> .log -> .md via logdoc
-      2. Excel table (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
+      2. Excel tables (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
       3. Excel table (categorical visit-wave interaction labels) -> .xlsx
+      4. Direct reporting exports from iivw_balance/iivw_diagnose -> .xlsx sheets
 
     Run from the Stata-Tools repository root:
       stata-mp -b do iivw/demo/demo_iivw.do
@@ -18,12 +19,16 @@ set linesize 120
 local repo_dir = regexr("`c(pwd)'", "/+$", "")
 local pkg_dir "iivw/demo"
 local xlsx "`pkg_dir'/iivw_results.xlsx"
+local export_xlsx "`pkg_dir'/iivw_reporting_exports.xlsx"
 capture mkdir "`pkg_dir'"
 capture erase "`pkg_dir'/console_output.log"
 capture erase "`pkg_dir'/console_output.md"
 capture erase "`pkg_dir'/console_output.html"
 capture erase "`pkg_dir'/console_output.png"
 capture erase "`xlsx'"
+capture erase "`export_xlsx'"
+capture erase "`pkg_dir'/iivw_balance.csv"
+capture erase "`pkg_dir'/iivw_diagnostics.csv"
 
 **# Install packages from local source
 capture ado uninstall iivw
@@ -117,7 +122,9 @@ iivw_weight, ///
 display as text "FIPTIW effective sample size: " as result %9.1f r(ess) ///
     as text " of " as result %9.0f r(N)
 summarize _iivw_weight _iivw_iw _iivw_tw
-iivw_balance, nolog
+iivw_balance, nolog ///
+    xlsx("`export_xlsx'") sheet("Balance") replace
+display as text "Balance export: " as result "xlsx() sheet Balance"
 
 * # Step 3: weighted and artifact-adjusted outcome models
 iivw_fit sdmt tx years tx_years relapse ///
@@ -144,7 +151,9 @@ if r(endogenous_flag) local exo "endogenous"
 
 iivw_diagnose years, ///
     unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) ///
-    estimand(marginal) exogeneity(`exo')
+    estimand(marginal) exogeneity(`exo') ///
+    excel("`export_xlsx'") sheet("Diagnostics") replace
+display as text "Diagnostic export: " as result "excel() sheet Diagnostics"
 
 * # Step 5: categorical visit-wave interactions for regtab
 preserve
@@ -183,6 +192,27 @@ foreach v of local cat_ix {
 restore
 
 log close demo
+
+**# Direct reporting export verification
+confirm file "`export_xlsx'"
+
+preserve
+quietly import excel using "`export_xlsx'", sheet("Balance") cellrange(A3) firstrow clear
+quietly count
+assert r(N) > 0
+confirm variable Covariate
+quietly count if Covariate == "age"
+assert r(N) == 1
+restore
+
+preserve
+quietly import excel using "`export_xlsx'", sheet("Diagnostics") cellrange(A3) firstrow clear
+quietly count
+assert r(N) > 0
+confirm variable Quantity
+quietly count if Quantity == "sampling_gap"
+assert r(N) == 1
+restore
 
 **# Excel table: diagnostic model comparison
 collect clear

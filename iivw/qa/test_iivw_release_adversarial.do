@@ -148,6 +148,10 @@ capture noisily {
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
+    _qa_iivw_must_contain, file("`pkg_dir'/demo/console_output.md") ///
+        pattern("Version `version'")
+    _qa_iivw_must_not_contain, file("`pkg_dir'/demo/console_output.md") ///
+        pattern("Version 1.2.2")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
         pattern("d Distribution-Date: `pkg_date'")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
@@ -173,7 +177,8 @@ capture noisily {
         "iivw_diagnose.ado|iivw_diagnose" ///
         "_iivw_get_settings.ado|_iivw_get_settings" ///
         "_iivw_check_weighted.ado|_iivw_check_weighted" ///
-        "_iivw_bs_estimate.ado|_iivw_bs_estimate" {
+        "_iivw_bs_estimate.ado|_iivw_bs_estimate" ///
+        "_iivw_export_table.ado|_iivw_export_table" {
         gettoken file cmd : pair, parse("|")
         local cmd = substr("`cmd'", 2, .)
         _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
@@ -183,6 +188,11 @@ capture noisily {
         _qa_iivw_must_not_contain, file("`pkg_dir'/`file'") ///
             pattern("*! Department of Clinical Neuroscience")
     }
+
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
+        pattern("could not preserve active estimation results")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
+        pattern("could not restore active estimation results")
 
     foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
@@ -194,6 +204,11 @@ capture noisily {
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("Version `version', `iso_date'")
     }
+
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+        pattern("https://github.com/tpcopeland/Stata-Tools/tree/main/iivw/demo")
+    _qa_iivw_must_not_contain, file("`pkg_dir'/iivw.sthlp") ///
+        pattern("The package demo, {cmd:iivw/demo/demo_iivw.do}")
 }
 if _rc == 0 {
     display as result "  PASS: release metadata and version strings are synchronized"
@@ -221,7 +236,8 @@ capture noisily {
         iivw_diagnose.sthlp ///
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
-        _iivw_bs_estimate.ado
+        _iivw_bs_estimate.ado ///
+        _iivw_export_table.ado
 
     foreach file of local package_files {
         capture confirm file "`pkg_dir'/`file'"
@@ -262,7 +278,9 @@ capture noisily {
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
-        demo/demo_iivw.do
+        _iivw_export_table.ado ///
+        demo/demo_iivw.do ///
+        demo/console_output.md
 
     local slash = char(47)
     local dot = char(46)
@@ -293,20 +311,12 @@ else {
 
 local ++test_count
 capture noisily {
-    local allowed_logs ///
-        run_all.log ///
-        test_iivw_release_adversarial.log ///
-        test_iivw_balance.log ///
-        test_iivw_performance.log ///
-        test_iivw_v105_regressions.log ///
-        test_iivw_v106_regressions.log ///
-        test_iivw_final_adversarial.log ///
-        test_iivw_fit_unweighted.log ///
-        test_iivw_exogtest.log ///
-        test_iivw_diagnose.log ///
-        test_iivw_diagnostic_workflow.log ///
-        test_iivw_exogtest_adversarial.log ///
-        validation_iivw_diagnostics_known_answers.log
+    local allowed_logs run_all.log
+    local qa_dofiles : dir "`pkg_dir'/qa" files "*.do"
+    foreach dofile of local qa_dofiles {
+        local allowed_log = subinstr("`dofile'", ".do", ".log", .)
+        local allowed_logs "`allowed_logs' `allowed_log'"
+    }
 
     foreach folder in "`pkg_dir'" "`pkg_dir'/qa" {
         foreach ext in log smcl dta xlsx {
@@ -360,17 +370,20 @@ capture noisily {
     foreach file in ///
         iivw.ado ///
         iivw_weight.ado ///
+        iivw_balance.ado ///
         iivw_fit.ado ///
         iivw_exogtest.ado ///
         iivw_diagnose.ado ///
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
+        _iivw_export_table.ado ///
         regtab.ado ///
         tabtools.ado ///
         _tabtools_common.ado ///
         iivw.sthlp ///
         iivw_weight.sthlp ///
+        iivw_balance.sthlp ///
         iivw_fit.sthlp ///
         iivw_exogtest.sthlp ///
         iivw_diagnose.sthlp {
@@ -429,6 +442,12 @@ capture noisily {
     iivw_balance, nolog
     assert r(N) == 320
     assert "`r(weighttype)'" == "iivw"
+    iivw_balance, nolog xlsx(iivw_balance_export.xlsx) ///
+        sheet(Balance) replace
+    assert "`r(sheet)'" == "Balance"
+    capture confirm file "`work_dir'/iivw_balance_export.xlsx"
+    assert _rc == 0
+    erase "`work_dir'/iivw_balance_export.xlsx"
 
     capture program drop _iivw_check_weighted
     capture program drop _iivw_get_settings
@@ -489,6 +508,22 @@ capture noisily {
     capture confirm file "`work_dir'/iivw_results.xlsx"
     assert _rc == 0
     erase "`work_dir'/iivw_results.xlsx"
+
+    estimates clear
+    regress edss days
+    estimates store R_unweighted
+    regress edss days [pw=_iivw_weight]
+    estimates store R_weighted
+    regress edss days edss_bl [pw=_iivw_weight]
+    estimates store R_adjusted
+    iivw_diagnose days, unweighted(R_unweighted) weighted(R_weighted) ///
+        adjusted(R_adjusted) exogeneity(unknown) ///
+        xlsx(iivw_diagnose_export.xlsx) sheet(Diagnostics) ///
+        replace
+    assert "`r(sheet)'" == "Diagnostics"
+    capture confirm file "`work_dir'/iivw_diagnose_export.xlsx"
+    assert _rc == 0
+    erase "`work_dir'/iivw_diagnose_export.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: README and iivw.sthlp worked examples run after install"
@@ -625,6 +660,12 @@ capture sysdir set PERSONAL "`old_personal'"
 
 capture confirm file "`work_dir'/iivw_results.xlsx"
 if _rc == 0 erase "`work_dir'/iivw_results.xlsx"
+capture confirm file "`work_dir'/iivw_balance_export.xlsx"
+if _rc == 0 erase "`work_dir'/iivw_balance_export.xlsx"
+capture confirm file "`work_dir'/iivw_diagnose_export.xlsx"
+if _rc == 0 erase "`work_dir'/iivw_diagnose_export.xlsx"
+capture frame drop __rel_balance
+capture frame drop __rel_diag
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

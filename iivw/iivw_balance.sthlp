@@ -43,6 +43,17 @@
 {synopt:{opt efron}}use Efron method for tied event times in AG refits{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
 {synopt:{opt level(#)}}confidence level for AG-refit hazard-ratio intervals; default {cmd:c(level)}{p_end}
+
+{syntab:Reporting}
+{synopt:{opt xlsx(filename)}}write the balance table to an Excel workbook{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
+{synopt:{opt sheet(sheetname)}}Excel worksheet name; default is {cmd:Balance}{p_end}
+{synopt:{opt replace}}accepted for compatibility; Excel output updates only the named sheet{p_end}
+{synopt:{opt open}}open the Excel workbook after writing it{p_end}
+{synopt:{opt title(string)}}optional Excel title row{p_end}
+{synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
+{synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
+{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -110,6 +121,41 @@ models.
 {phang}
 {opt level(#)} sets the confidence level for the supplementary hazard-ratio
 intervals.
+
+{dlgtab:Reporting}
+
+{phang}
+{opt xlsx(filename)} writes the balance table to an Excel {cmd:.xlsx}
+workbook.  The exported rows match {cmd:r(balance)} with a leading
+{cmd:covariate} column.  The worksheet is formatted with a merged title,
+readable column labels, numeric cell formats, column widths, header shading,
+borders, and an explanatory footnote.
+
+{phang}
+{opt excel(filename)} is a synonym for {opt xlsx()}.
+
+{phang}
+{opt sheet(sheetname)} sets the Excel worksheet name.  The default is
+{cmd:Balance}.  This option requires {opt xlsx()} or {opt excel()}.
+
+{phang}
+{opt replace} is accepted for compatibility with earlier reporting examples.
+Excel output follows the tabtools workbook convention: if the workbook
+exists, only the named sheet is cleared and rewritten; other sheets are
+preserved.
+
+{phang}
+{opt open} opens the Excel workbook after writing it.  This option requires
+{opt xlsx()} or {opt excel()}.
+
+{phang}
+{opt title(string)} and {opt footnote(string)} add optional title and footnote
+rows to Excel output.
+
+{phang}
+{opt decimals(#)} sets the number of decimal places used in Excel numeric
+cell formatting.  {opt digits(#)} is a synonym.  The allowed range is
+0 through 6; the default is 4.
 
 
 {marker remarks}{...}
@@ -181,6 +227,10 @@ AG-refit view.{p_end}
 
 {phang2}{cmd:. iivw_balance severity relapse, agrefit nolog}{p_end}
 
+{pstd}Export the formatted balance table to a workbook sheet.{p_end}
+
+{phang2}{cmd:. iivw_balance, xlsx(iivw_results.xlsx) sheet(Balance) replace}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -209,6 +259,11 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
 {synopt:{cmd:r(balance_flag)}}{cmd:good} or {cmd:poor}{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
+
+{p2col 5 28 32 2:Export scalars}{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(balance)}}unweighted mean, weighted mean, SD, SMD, abs(SMD), N, missing count, modeled flag{p_end}

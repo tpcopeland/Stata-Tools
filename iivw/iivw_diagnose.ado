@@ -10,6 +10,10 @@ program define iivw_diagnose, rclass
 
     tempname _held_est _estimates
     local _held_ests = 0
+    local _export_rc = 0
+    local _export_xlsx ""
+    local _export_sheet ""
+    local _export_decimals = .
 
     capture noisily {
 
@@ -22,11 +26,36 @@ program define iivw_diagnose, rclass
         local estimand ""
         local true ""
         local level 95
+        local xlsx ""
+        local excel ""
+        local sheet ""
+        local title ""
+        local footnote ""
+        local decimals ""
+        local digits ""
+        local replace ""
+        local open ""
         local leftover ""
         local optlist `"`options'"'
         while `"`optlist'"' != "" {
             gettoken opt optlist : optlist, bind
             local opt_l = lower(`"`opt'"')
+            if `"`opt_l'"' == "replace" {
+                if "`replace'" != "" {
+                    display as error "replace specified more than once"
+                    error 198
+                }
+                local replace "replace"
+                continue
+            }
+            if `"`opt_l'"' == "open" {
+                if "`open'" != "" {
+                    display as error "open specified more than once"
+                    error 198
+                }
+                local open "open"
+                continue
+            }
             if regexm(`"`opt_l'"', "^([a-z]+)\(.+\)$") {
                 local optname = regexs(1)
                 local p1 = strpos(`"`opt'"', "(")
@@ -87,6 +116,67 @@ program define iivw_diagnose, rclass
                     local true `"`optval'"'
                     continue
                 }
+                if "`optname'" == "xlsx" {
+                    if `"`xlsx'"' != "" {
+                        display as error "xlsx() specified more than once"
+                        error 198
+                    }
+                    local xlsx `"`optval'"'
+                    continue
+                }
+                if "`optname'" == "excel" {
+                    if `"`excel'"' != "" {
+                        display as error "excel() specified more than once"
+                        error 198
+                    }
+                    local excel `"`optval'"'
+                    continue
+                }
+                if strlen("`optname'") >= 2 & ///
+                    substr("sheet", 1, strlen("`optname'")) == "`optname'" {
+                    if `"`sheet'"' != "" {
+                        display as error "sheet() specified more than once"
+                        error 198
+                    }
+                    local sheet `"`optval'"'
+                    continue
+                }
+                if strlen("`optname'") >= 1 & ///
+                    substr("title", 1, strlen("`optname'")) == "`optname'" {
+                    if `"`title'"' != "" {
+                        display as error "title() specified more than once"
+                        error 198
+                    }
+                    local title `"`optval'"'
+                    continue
+                }
+                if strlen("`optname'") >= 1 & ///
+                    substr("footnote", 1, strlen("`optname'")) == "`optname'" {
+                    if `"`footnote'"' != "" {
+                        display as error "footnote() specified more than once"
+                        error 198
+                    }
+                    local footnote `"`optval'"'
+                    continue
+                }
+                if strlen("`optname'") >= 3 & ///
+                    substr("decimals", 1, strlen("`optname'")) == "`optname'" {
+                    if "`decimals'" != "" {
+                        display as error "decimals() specified more than once"
+                        error 198
+                    }
+                    local decimals `"`optval'"'
+                    continue
+                }
+                if strlen("`optname'") >= 3 & ///
+                    substr("digits", 1, strlen("`optname'")) == "`optname'" {
+                    if "`digits'" != "" {
+                        display as error "digits() specified more than once"
+                        error 198
+                    }
+                    local digits `"`optval'"'
+                    continue
+                }
                 if strlen("`optname'") >= 1 & ///
                     substr("level", 1, strlen("`optname'")) == "`optname'" {
                     if "`level_seen'" != "" {
@@ -138,6 +228,27 @@ program define iivw_diagnose, rclass
                 display as error "true() must be numeric"
                 error 198
             }
+        }
+        local _decimals_final = 4
+        if "`decimals'" != "" {
+            capture confirm integer number `decimals'
+            if _rc {
+                display as error "decimals() must be an integer"
+                error 198
+            }
+            local _decimals_final = `decimals'
+        }
+        if "`digits'" != "" {
+            capture confirm integer number `digits'
+            if _rc {
+                display as error "digits() must be an integer"
+                error 198
+            }
+            if "`decimals'" != "" & `decimals' != `digits' {
+                display as error "decimals() and digits() specify different values"
+                error 198
+            }
+            local _decimals_final = `digits'
         }
 
         local coefficient : list clean coefficient
@@ -352,6 +463,106 @@ program define iivw_diagnose, rclass
             display as text "Weighted bias:      " as result %10.4f `bias_weighted'
             display as text "Adjusted bias:      " as result %10.4f `bias_adjusted'
         }
+
+        local _export_requested = ///
+            (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
+             `"`sheet'"' != "" | "`open'" != "")
+        if `_export_requested' {
+            tempname _diagnose_export
+            frame create `_diagnose_export' ///
+                str16 section ///
+                str32 item ///
+                double b ///
+                double se ///
+                double ll ///
+                double ul ///
+                double value
+
+            frame post `_diagnose_export' ("estimate") ("unweighted") ///
+                (`b_unweighted') (`se_unweighted') ///
+                (`ll_unweighted') (`ul_unweighted') (.)
+            frame post `_diagnose_export' ("estimate") ("weighted") ///
+                (`b_weighted') (`se_weighted') ///
+                (`ll_weighted') (`ul_weighted') (.)
+            frame post `_diagnose_export' ("estimate") ("adjusted") ///
+                (`b_adjusted') (`se_adjusted') ///
+                (`ll_adjusted') (`ul_adjusted') (.)
+
+            frame post `_diagnose_export' ("diagnostic") ("sampling_gap") ///
+                (.) (.) (.) (.) (`sampling_gap')
+            frame post `_diagnose_export' ("diagnostic") ("artifact_gap") ///
+                (.) (.) (.) (.) (`artifact_gap')
+            frame post `_diagnose_export' ("diagnostic") ("total_gap") ///
+                (.) (.) (.) (.) (`total_gap')
+            frame post `_diagnose_export' ("diagnostic") ("sampling_share") ///
+                (.) (.) (.) (.) (`sampling_share')
+            frame post `_diagnose_export' ("diagnostic") ("artifact_share") ///
+                (.) (.) (.) (.) (`artifact_share')
+            frame post `_diagnose_export' ("diagnostic") ("bounds_lower") ///
+                (.) (.) (.) (.) (`bounds_lower')
+            frame post `_diagnose_export' ("diagnostic") ("bounds_upper") ///
+                (.) (.) (.) (.) (`bounds_upper')
+
+            if "`true'" != "" {
+                frame post `_diagnose_export' ("bias") ("true") ///
+                    (.) (.) (.) (.) (`true_value')
+                frame post `_diagnose_export' ("bias") ("bias_unweighted") ///
+                    (.) (.) (.) (.) (`bias_unweighted')
+                frame post `_diagnose_export' ("bias") ("bias_weighted") ///
+                    (.) (.) (.) (.) (`bias_weighted')
+                frame post `_diagnose_export' ("bias") ("bias_adjusted") ///
+                    (.) (.) (.) (.) (`bias_adjusted')
+            }
+
+            frame `_diagnose_export': label variable section "Section"
+            frame `_diagnose_export': label variable item "Quantity"
+            frame `_diagnose_export': label variable b "Estimate"
+            frame `_diagnose_export': label variable se "SE"
+            frame `_diagnose_export': label variable ll "Lower CI"
+            frame `_diagnose_export': label variable ul "Upper CI"
+            frame `_diagnose_export': label variable value "Value"
+
+            local _sheet `"`sheet'"'
+            if `"`_sheet'"' == "" & ///
+                (`"`xlsx'"' != "" | `"`excel'"' != "") local _sheet "Diagnostics"
+
+            local _clean_xlsx `"`xlsx'"'
+            local _clean_excel `"`excel'"'
+            local _clean_title `"`title'"'
+            local _clean_footnote `"`footnote'"'
+            local _dq = char(34)
+            local _clean_xlsx = subinstr(`"`_clean_xlsx'"', `"`_dq'"', "", .)
+            local _clean_excel = subinstr(`"`_clean_excel'"', `"`_dq'"', "", .)
+            local _clean_sheet = subinstr(`"`_sheet'"', `"`_dq'"', "", .)
+            local _clean_title = subinstr(`"`_clean_title'"', `"`_dq'"', "", .)
+            local _clean_footnote = subinstr(`"`_clean_footnote'"', `"`_dq'"', "", .)
+            if `"`_clean_title'"' == "" {
+                local _clean_title "IIVW diagnostic decomposition"
+            }
+            if `"`_clean_footnote'"' == "" {
+                local _clean_footnote ///
+                    "Estimate rows use b, SE, and confidence limits; diagnostic and bias rows use the Value column."
+            }
+
+            local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final')"'
+            if `"`_clean_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_clean_xlsx'")"'
+            if `"`_clean_excel'"' != "" local _export_opts `"`_export_opts' excel("`_clean_excel'")"'
+            if `"`_clean_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_clean_sheet'")"'
+            if `"`_clean_title'"' != "" local _export_opts `"`_export_opts' title("`_clean_title'")"'
+            if `"`_clean_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_clean_footnote'")"'
+            if "`replace'" != "" local _export_opts `"`_export_opts' replace"'
+            if "`open'" != "" local _export_opts `"`_export_opts' open"'
+
+            capture noisily _iivw_export_table, `_export_opts'
+            local _export_rc = _rc
+            if `_export_rc' == 0 {
+                local _export_xlsx `"`r(xlsx)'"'
+                local _export_sheet `"`r(sheet)'"'
+                local _export_decimals = r(decimals)
+            }
+            capture frame drop `_diagnose_export'
+            local _drop_rc = _rc
+        }
     }
     local rc = _rc
     if `_held_ests' {
@@ -369,6 +580,13 @@ program define iivw_diagnose, rclass
     return local weighted "`weighted'"
     return local unweighted "`unweighted'"
     return local coefficient "`coefficient'"
+    if `"`_export_xlsx'"' != "" {
+        return local xlsx `"`_export_xlsx'"'
+        return local sheet `"`_export_sheet'"'
+    }
+    if `_export_decimals' < . {
+        return scalar decimals = `_export_decimals'
+    }
     return scalar bounds_upper = `bounds_upper'
     return scalar bounds_lower = `bounds_lower'
     return scalar artifact_share = `artifact_share'
@@ -388,4 +606,5 @@ program define iivw_diagnose, rclass
         return scalar bias_unweighted = `bias_unweighted'
         return scalar true = `true_value'
     }
+    if `_export_rc' exit `_export_rc'
 end

@@ -50,6 +50,7 @@ else {
         test_iivw_fit_unweighted ///
         test_iivw_exogtest ///
         test_iivw_diagnose ///
+        test_iivw_reporting_exports ///
         test_iivw_diagnostic_workflow ///
         test_iivw_exogtest_adversarial ///
         validation_iivw_diagnostics_known_answers ///

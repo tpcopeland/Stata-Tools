@@ -71,7 +71,8 @@ program define _assert_no_weight_outputs
         assert _rc != 0
     }
     foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_treat {
+        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_visit_covars ///
+        _iivw_baseevent {
         local val : char _dta[`ch']
         assert "`val'" == ""
     }
@@ -641,6 +642,67 @@ if `run_only' == 0 | `run_only' == 15 {
         display as error "  FAIL: 15 - Cox collinearity (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 15"
+    }
+}
+
+* Test 16: IPTW-only ignores visit_cov() but rejects IIW-only options
+local ++test_count
+if `run_only' == 0 | `run_only' == 16 {
+    capture noisily {
+        _adv_panel
+        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) nolog
+        assert "`r(weighttype)'" == "iptw"
+        assert "`r(visit_covars)'" == ""
+        assert "`: char _dta[_iivw_visit_covars]'" == ""
+        capture confirm variable severity_lag1
+        assert _rc != 0
+
+        _adv_panel
+        capture noisily iivw_weight, id(id) time(months) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) ///
+            lagvars(severity) nolog
+        assert _rc == 198
+        capture confirm variable severity_lag1
+        assert _rc != 0
+        _assert_no_weight_outputs
+
+        _adv_panel
+        capture noisily iivw_weight, id(id) time(months) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) ///
+            stabcov(severity) nolog
+        assert _rc == 198
+        _assert_no_weight_outputs
+
+        _adv_panel
+        capture noisily iivw_weight, id(id) time(months) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) ///
+            entry(entry_ok) nolog
+        assert _rc == 198
+        _assert_no_weight_outputs
+
+        _adv_panel
+        capture noisily iivw_weight, id(id) time(months) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) ///
+            efron nolog
+        assert _rc == 198
+        _assert_no_weight_outputs
+
+        _adv_panel
+        capture noisily iivw_weight, id(id) time(months) ///
+            treat(treated) treat_cov(sev_bl marker_bl) wtype(iptw) ///
+            nobaseevent nolog
+        assert _rc == 198
+        _assert_no_weight_outputs
+    }
+    if _rc == 0 {
+        display as result "  PASS: 16 - IPTW-only visit-model option contract"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 16 - IPTW-only visit-model options (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 16"
     }
 }
 

@@ -35,3 +35,4 @@ f iivw_diagnose.sthlp
 f _iivw_get_settings.ado
 f _iivw_check_weighted.ado
 f _iivw_bs_estimate.ado
+f _iivw_export_table.ado
