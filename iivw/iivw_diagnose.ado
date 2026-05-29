@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.3.1  2026/05/28
+*! iivw_diagnose Version 1.4.0  2026/05/29
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -467,57 +467,12 @@ program define iivw_diagnose, rclass
         if `_export_requested' {
             tempname _diagnose_export
             frame create `_diagnose_export' ///
-                str16 section ///
-                str32 item ///
-                double b ///
-                double se ///
-                double ll ///
-                double ul ///
-                double value
-
-            frame post `_diagnose_export' ("estimate") ("unweighted") ///
-                (`b_unweighted') (`se_unweighted') ///
-                (`ll_unweighted') (`ul_unweighted') (.)
-            frame post `_diagnose_export' ("estimate") ("weighted") ///
-                (`b_weighted') (`se_weighted') ///
-                (`ll_weighted') (`ul_weighted') (.)
-            frame post `_diagnose_export' ("estimate") ("adjusted") ///
-                (`b_adjusted') (`se_adjusted') ///
-                (`ll_adjusted') (`ul_adjusted') (.)
-
-            frame post `_diagnose_export' ("diagnostic") ("sampling_gap") ///
-                (.) (.) (.) (.) (`sampling_gap')
-            frame post `_diagnose_export' ("diagnostic") ("artifact_gap") ///
-                (.) (.) (.) (.) (`artifact_gap')
-            frame post `_diagnose_export' ("diagnostic") ("total_gap") ///
-                (.) (.) (.) (.) (`total_gap')
-            frame post `_diagnose_export' ("diagnostic") ("sampling_share") ///
-                (.) (.) (.) (.) (`sampling_share')
-            frame post `_diagnose_export' ("diagnostic") ("artifact_share") ///
-                (.) (.) (.) (.) (`artifact_share')
-            frame post `_diagnose_export' ("diagnostic") ("bounds_lower") ///
-                (.) (.) (.) (.) (`bounds_lower')
-            frame post `_diagnose_export' ("diagnostic") ("bounds_upper") ///
-                (.) (.) (.) (.) (`bounds_upper')
-
-            if "`true'" != "" {
-                frame post `_diagnose_export' ("bias") ("true") ///
-                    (.) (.) (.) (.) (`true_value')
-                frame post `_diagnose_export' ("bias") ("bias_unweighted") ///
-                    (.) (.) (.) (.) (`bias_unweighted')
-                frame post `_diagnose_export' ("bias") ("bias_weighted") ///
-                    (.) (.) (.) (.) (`bias_weighted')
-                frame post `_diagnose_export' ("bias") ("bias_adjusted") ///
-                    (.) (.) (.) (.) (`bias_adjusted')
-            }
-
-            frame `_diagnose_export': label variable section "Section"
-            frame `_diagnose_export': label variable item "Quantity"
-            frame `_diagnose_export': label variable b "Estimate"
-            frame `_diagnose_export': label variable se "SE"
-            frame `_diagnose_export': label variable ll "Lower CI"
-            frame `_diagnose_export': label variable ul "Upper CI"
-            frame `_diagnose_export': label variable value "Value"
+                strL A ///
+                strL B ///
+                strL c1 ///
+                strL c2 ///
+                strL c3 ///
+                strL c4
 
             local _sheet `"`sheet'"'
             if `"`_sheet'"' == "" & ///
@@ -528,6 +483,7 @@ program define iivw_diagnose, rclass
             local _clean_title `"`title'"'
             local _clean_footnote `"`footnote'"'
             local _dq = char(34)
+            local _num_fmt "%9.`_decimals_final'f"
             local _clean_xlsx = subinstr(`"`_clean_xlsx'"', `"`_dq'"', "", .)
             local _clean_excel = subinstr(`"`_clean_excel'"', `"`_dq'"', "", .)
             local _clean_sheet = subinstr(`"`_sheet'"', `"`_dq'"', "", .)
@@ -541,7 +497,161 @@ program define iivw_diagnose, rclass
                     "Estimate rows use b, SE, and confidence limits; diagnostic and bias rows use the Value column."
             }
 
-            local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final')"'
+            frame post `_diagnose_export' ///
+                (`"`_clean_title'"') ("") ("") ("") ("") ("")
+            frame post `_diagnose_export' ///
+                ("") ("") ("Model estimates") ("") ("") ("Diagnostic values")
+            frame post `_diagnose_export' ///
+                ("") ("Quantity") ("Estimate") ("SE") ("95% CI") ("Value")
+
+            local _b_str ""
+            local _se_str ""
+            local _ci_str ""
+            if `b_unweighted' < . {
+                local _b_str : display `_num_fmt' `b_unweighted'
+                local _b_str = strtrim("`_b_str'")
+            }
+            if `se_unweighted' < . {
+                local _se_str : display `_num_fmt' `se_unweighted'
+                local _se_str = strtrim("`_se_str'")
+            }
+            if `ll_unweighted' < . & `ul_unweighted' < . {
+                local _ll_str : display `_num_fmt' `ll_unweighted'
+                local _ll_str = strtrim("`_ll_str'")
+                local _ul_str : display `_num_fmt' `ul_unweighted'
+                local _ul_str = strtrim("`_ul_str'")
+                local _ci_str "`_ll_str' to `_ul_str'"
+            }
+            frame post `_diagnose_export' ///
+                ("") ("Unweighted") (`"`_b_str'"') (`"`_se_str'"') ///
+                (`"`_ci_str'"') ("")
+
+            local _b_str ""
+            local _se_str ""
+            local _ci_str ""
+            if `b_weighted' < . {
+                local _b_str : display `_num_fmt' `b_weighted'
+                local _b_str = strtrim("`_b_str'")
+            }
+            if `se_weighted' < . {
+                local _se_str : display `_num_fmt' `se_weighted'
+                local _se_str = strtrim("`_se_str'")
+            }
+            if `ll_weighted' < . & `ul_weighted' < . {
+                local _ll_str : display `_num_fmt' `ll_weighted'
+                local _ll_str = strtrim("`_ll_str'")
+                local _ul_str : display `_num_fmt' `ul_weighted'
+                local _ul_str = strtrim("`_ul_str'")
+                local _ci_str "`_ll_str' to `_ul_str'"
+            }
+            frame post `_diagnose_export' ///
+                ("") ("Weighted") (`"`_b_str'"') (`"`_se_str'"') ///
+                (`"`_ci_str'"') ("")
+
+            local _b_str ""
+            local _se_str ""
+            local _ci_str ""
+            if `b_adjusted' < . {
+                local _b_str : display `_num_fmt' `b_adjusted'
+                local _b_str = strtrim("`_b_str'")
+            }
+            if `se_adjusted' < . {
+                local _se_str : display `_num_fmt' `se_adjusted'
+                local _se_str = strtrim("`_se_str'")
+            }
+            if `ll_adjusted' < . & `ul_adjusted' < . {
+                local _ll_str : display `_num_fmt' `ll_adjusted'
+                local _ll_str = strtrim("`_ll_str'")
+                local _ul_str : display `_num_fmt' `ul_adjusted'
+                local _ul_str = strtrim("`_ul_str'")
+                local _ci_str "`_ll_str' to `_ul_str'"
+            }
+            frame post `_diagnose_export' ///
+                ("") ("Weighted + artifact adjusted") ///
+                (`"`_b_str'"') (`"`_se_str'"') (`"`_ci_str'"') ("")
+
+            local _value_str ""
+            if `sampling_gap' < . {
+                local _value_str : display `_num_fmt' `sampling_gap'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Sampling gap") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `artifact_gap' < . {
+                local _value_str : display `_num_fmt' `artifact_gap'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Artifact gap") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `total_gap' < . {
+                local _value_str : display `_num_fmt' `total_gap'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Total gap") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `sampling_share' < . {
+                local _value_str : display `_num_fmt' `sampling_share'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Sampling share") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `artifact_share' < . {
+                local _value_str : display `_num_fmt' `artifact_share'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Artifact share") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `bounds_lower' < . {
+                local _value_str : display `_num_fmt' `bounds_lower'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Lower bound") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            local _value_str ""
+            if `bounds_upper' < . {
+                local _value_str : display `_num_fmt' `bounds_upper'
+                local _value_str = strtrim("`_value_str'")
+            }
+            frame post `_diagnose_export' ("") ("Upper bound") ///
+                ("") ("") ("") (`"`_value_str'"')
+
+            if "`true'" != "" {
+                local _value_str : display `_num_fmt' `true_value'
+                local _value_str = strtrim("`_value_str'")
+                frame post `_diagnose_export' ("") ("True value") ///
+                    ("") ("") ("") (`"`_value_str'"')
+
+                local _value_str : display `_num_fmt' `bias_unweighted'
+                local _value_str = strtrim("`_value_str'")
+                frame post `_diagnose_export' ("") ("Unweighted bias") ///
+                    ("") ("") ("") (`"`_value_str'"')
+
+                local _value_str : display `_num_fmt' `bias_weighted'
+                local _value_str = strtrim("`_value_str'")
+                frame post `_diagnose_export' ("") ("Weighted bias") ///
+                    ("") ("") ("") (`"`_value_str'"')
+
+                local _value_str : display `_num_fmt' `bias_adjusted'
+                local _value_str = strtrim("`_value_str'")
+                frame post `_diagnose_export' ("") ("Adjusted bias") ///
+                    ("") ("") ("") (`"`_value_str'"')
+            }
+
+            frame post `_diagnose_export' ///
+                ("") (`"`_clean_footnote'"') ("") ("") ("") ("")
+
+            local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools)"'
             if `"`_clean_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_clean_xlsx'")"'
             if `"`_clean_excel'"' != "" local _export_opts `"`_export_opts' excel("`_clean_excel'")"'
             if `"`_clean_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_clean_sheet'")"'

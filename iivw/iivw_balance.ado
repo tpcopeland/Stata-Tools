@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.3.1  2026/05/28
+*! iivw_balance Version 1.4.0  2026/05/29
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -419,52 +419,23 @@ program define iivw_balance, rclass
     if `__iivw_export_requested' {
         tempname __iivw_export_table
         frame create `__iivw_export_table' ///
-            str80 covariate ///
-            double unweighted_mean ///
-            double weighted_mean ///
-            double sd ///
-            double smd ///
-            double abs_smd ///
-            double N ///
-            double n_missing ///
-            byte modeled
+            strL A ///
+            strL B ///
+            strL c1 ///
+            strL c2 ///
+            strL c3 ///
+            strL c4 ///
+            strL c5 ///
+            strL c6 ///
+            strL c7 ///
+            strL c8
 
-        forvalues i = 1/`n_covars' {
-            local __iivw_v : word `i' of `balance_covars'
-            frame post `__iivw_export_table' ///
-                (`"`__iivw_v'"') ///
-                (el(`__iivw_balance', `i', 1)) ///
-                (el(`__iivw_balance', `i', 2)) ///
-                (el(`__iivw_balance', `i', 3)) ///
-                (el(`__iivw_balance', `i', 4)) ///
-                (el(`__iivw_balance', `i', 5)) ///
-                (el(`__iivw_balance', `i', 6)) ///
-                (el(`__iivw_balance', `i', 7)) ///
-                (el(`__iivw_balance', `i', 8))
-        }
+        local __iivw_dq = char(34)
+        local __iivw_num_fmt "%9.`__iivw_decimals'f"
+        local __iivw_int_fmt "%9.0f"
 
-        frame `__iivw_export_table': label variable covariate "Covariate"
-        frame `__iivw_export_table': label variable unweighted_mean "Unweighted mean"
-        frame `__iivw_export_table': label variable weighted_mean "Weighted mean"
-        frame `__iivw_export_table': label variable sd "Unweighted SD"
-        frame `__iivw_export_table': label variable smd "SMD"
-        frame `__iivw_export_table': label variable abs_smd "|SMD|"
-        frame `__iivw_export_table': label variable N "N"
-        frame `__iivw_export_table': label variable n_missing "Missing"
-        frame `__iivw_export_table': label variable modeled "Modeled"
-
-        local __iivw_sheet `"`sheet'"'
-        if `"`__iivw_sheet'"' == "" & ///
-            (`"`xlsx'"' != "" | `"`excel'"' != "") local __iivw_sheet "Balance"
-
-        local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_excel `"`excel'"'
         local __iivw_clean_title `"`title'"'
         local __iivw_clean_footnote `"`footnote'"'
-        local __iivw_dq = char(34)
-        local __iivw_clean_xlsx = subinstr(`"`__iivw_clean_xlsx'"', `"`__iivw_dq'"', "", .)
-        local __iivw_clean_excel = subinstr(`"`__iivw_clean_excel'"', `"`__iivw_dq'"', "", .)
-        local __iivw_clean_sheet = subinstr(`"`__iivw_sheet'"', `"`__iivw_dq'"', "", .)
         local __iivw_clean_title = subinstr(`"`__iivw_clean_title'"', `"`__iivw_dq'"', "", .)
         local __iivw_clean_footnote = subinstr(`"`__iivw_clean_footnote'"', `"`__iivw_dq'"', "", .)
         if `"`__iivw_clean_title'"' == "" {
@@ -472,10 +443,100 @@ program define iivw_balance, rclass
         }
         if `"`__iivw_clean_footnote'"' == "" {
             local __iivw_clean_footnote ///
-                "Modeled = 1 identifies visit-intensity model covariates; |SMD| is the absolute weighted-minus-unweighted standardized difference."
+                "Modeled identifies visit-intensity model covariates; |SMD| is the absolute weighted-minus-unweighted standardized difference."
         }
 
-        local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals')"'
+        frame post `__iivw_export_table' ///
+            (`"`__iivw_clean_title'"') ("") ("") ("") ("") ///
+            ("") ("") ("") ("") ("")
+        frame post `__iivw_export_table' ///
+            ("") ("") ("Means") ("") ("") ///
+            ("Balance") ("") ("") ("Counts") ("")
+        frame post `__iivw_export_table' ///
+            ("") ("Covariate") ("Unweighted mean") ("Weighted mean") ///
+            ("Unweighted SD") ("SMD") ("|SMD|") ("Modeled") ///
+            ("N") ("Missing")
+
+        forvalues i = 1/`n_covars' {
+            local __iivw_v : word `i' of `balance_covars'
+            local __iivw_label : variable label `__iivw_v'
+            if `"`__iivw_label'"' == "" {
+                local __iivw_label "`__iivw_v'"
+            }
+            local __iivw_label = subinstr(`"`__iivw_label'"', `"`__iivw_dq'"', "", .)
+
+            local __iivw_unw ""
+            local __iivw_wgt ""
+            local __iivw_sd ""
+            local __iivw_smd ""
+            local __iivw_abs ""
+            local __iivw_n ""
+            local __iivw_missing ""
+            local __iivw_modeled ""
+
+            if el(`__iivw_balance', `i', 1) < . {
+                local __iivw_unw : display `__iivw_num_fmt' el(`__iivw_balance', `i', 1)
+                local __iivw_unw = strtrim("`__iivw_unw'")
+            }
+            if el(`__iivw_balance', `i', 2) < . {
+                local __iivw_wgt : display `__iivw_num_fmt' el(`__iivw_balance', `i', 2)
+                local __iivw_wgt = strtrim("`__iivw_wgt'")
+            }
+            if el(`__iivw_balance', `i', 3) < . {
+                local __iivw_sd : display `__iivw_num_fmt' el(`__iivw_balance', `i', 3)
+                local __iivw_sd = strtrim("`__iivw_sd'")
+            }
+            if el(`__iivw_balance', `i', 4) < . {
+                local __iivw_smd : display `__iivw_num_fmt' el(`__iivw_balance', `i', 4)
+                local __iivw_smd = strtrim("`__iivw_smd'")
+            }
+            if el(`__iivw_balance', `i', 5) < . {
+                local __iivw_abs : display `__iivw_num_fmt' el(`__iivw_balance', `i', 5)
+                local __iivw_abs = strtrim("`__iivw_abs'")
+            }
+            if el(`__iivw_balance', `i', 6) < . {
+                local __iivw_n : display `__iivw_int_fmt' el(`__iivw_balance', `i', 6)
+                local __iivw_n = strtrim("`__iivw_n'")
+            }
+            if el(`__iivw_balance', `i', 7) < . {
+                local __iivw_missing : display `__iivw_int_fmt' el(`__iivw_balance', `i', 7)
+                local __iivw_missing = strtrim("`__iivw_missing'")
+            }
+            if el(`__iivw_balance', `i', 8) < . {
+                local __iivw_modeled "No"
+                if el(`__iivw_balance', `i', 8) == 1 {
+                    local __iivw_modeled "Yes"
+                }
+            }
+
+            frame post `__iivw_export_table' ///
+                ("") ///
+                (`"`__iivw_label'"') ///
+                (`"`__iivw_unw'"') ///
+                (`"`__iivw_wgt'"') ///
+                (`"`__iivw_sd'"') ///
+                (`"`__iivw_smd'"') ///
+                (`"`__iivw_abs'"') ///
+                (`"`__iivw_modeled'"') ///
+                (`"`__iivw_n'"') ///
+                (`"`__iivw_missing'"')
+        }
+
+        frame post `__iivw_export_table' ///
+            ("") (`"`__iivw_clean_footnote'"') ("") ("") ("") ///
+            ("") ("") ("") ("") ("")
+
+        local __iivw_sheet `"`sheet'"'
+        if `"`__iivw_sheet'"' == "" & ///
+            (`"`xlsx'"' != "" | `"`excel'"' != "") local __iivw_sheet "Balance"
+
+        local __iivw_clean_xlsx `"`xlsx'"'
+        local __iivw_clean_excel `"`excel'"'
+        local __iivw_clean_xlsx = subinstr(`"`__iivw_clean_xlsx'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_excel = subinstr(`"`__iivw_clean_excel'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_sheet = subinstr(`"`__iivw_sheet'"', `"`__iivw_dq'"', "", .)
+
+        local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
         if `"`__iivw_clean_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_clean_xlsx'")"'
         if `"`__iivw_clean_excel'"' != "" local __iivw_export_opts `"`__iivw_export_opts' excel("`__iivw_clean_excel'")"'
         if `"`__iivw_clean_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_clean_sheet'")"'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  28may2026}{...}
+{* *! version 1.4.0  29may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
@@ -115,12 +115,11 @@ intervals displayed from each stored model.  It must be greater than 10 and
 less than 99.99; the default is 95.
 
 {phang}
-{opt xlsx(filename)} writes a long diagnostics table to an Excel {cmd:.xlsx}
-workbook.  Estimate rows contain {cmd:b}, {cmd:se}, {cmd:ll}, and {cmd:ul};
-diagnostic, range, share, and optional bias rows store their scalar quantity
-in {cmd:value}.  The worksheet is formatted with a merged title, readable
-column labels, numeric cell formats, column widths, header shading, borders,
-and an explanatory footnote.
+{opt xlsx(filename)} writes a diagnostics table to an Excel {cmd:.xlsx}
+workbook.  The exported worksheet uses a tabtools-style layout with a merged
+title, grouped headers, estimate rows under {cmd:Estimate}, {cmd:SE}, and
+{cmd:95% CI}, diagnostic and optional bias rows under {cmd:Value}, readable
+row labels, column widths, borders, and an explanatory footnote.
 
 {phang}
 {opt excel(filename)} is a synonym for {opt xlsx()}.  This option is not
@@ -340,6 +339,6 @@ doi:10.1002/cjs.5550350402.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.1, 2026-05-28{p_end}
+{pstd}Version 1.4.0, 2026-05-29{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.3.1  2026/05/28
+*! _iivw_export_table Version 1.4.0  2026/05/29
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,7 +20,7 @@ program define _iivw_export_table, rclass
     syntax , TABLEFRAME(name) ///
         [XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(integer 4)]
+         DECimals(integer 4) LAYout(string)]
 
     local __iivw_dq = char(34)
     foreach __iivw_opt in xlsx excel sheet title footnote {
@@ -28,6 +28,13 @@ program define _iivw_export_table, rclass
         local __iivw_tmp = strtrim(`"`__iivw_tmp'"')
         local __iivw_tmp = subinstr(`"`__iivw_tmp'"', `"`__iivw_dq'"', "", .)
         local `__iivw_opt' `"`__iivw_tmp'"'
+    }
+    local layout = lower(strtrim(`"`layout'"'))
+    if `"`layout'"' == "" local layout "standard"
+    if `"`layout'"' == "regtab" local layout "tabtools"
+    if !inlist(`"`layout'"', "standard", "tabtools") {
+        display as error "layout() must be standard or tabtools"
+        error 198
     }
 
     capture frame `tableframe': count
@@ -48,7 +55,7 @@ program define _iivw_export_table, rclass
         display as error "internal export frame has no variables"
         error 498
     }
-    if `__iivw_return_cols' > 26 {
+    if "`layout'" == "standard" & `__iivw_return_cols' > 26 {
         display as error "iivw Excel export currently supports at most 26 columns"
         error 498
     }
@@ -93,6 +100,56 @@ program define _iivw_export_table, rclass
 
     if `"`title'"' == "" local title `"`sheet'"'
 
+    if "`layout'" == "tabtools" {
+        local __iivw_note_row = 0
+        if `"`footnote'"' != "" {
+            local __iivw_note_row = `__iivw_return_rows'
+        }
+
+        local __iivw_widths ""
+        forvalues __iivw_j = 1/`__iivw_return_cols' {
+            local __iivw_v : word `__iivw_j' of `__iivw_vars'
+            local __iivw_width = 8
+            if `__iivw_j' == 1 local __iivw_width = 1
+            forvalues __iivw_i = 1/`__iivw_return_rows' {
+                if `__iivw_note_row' > 0 & ///
+                    `__iivw_i' == `__iivw_note_row' & `__iivw_j' == 2 {
+                    continue
+                }
+                frame `tableframe': local __iivw_scell = `__iivw_v'[`__iivw_i']
+                local __iivw_slen = strlen(`"`__iivw_scell'"') + 2
+                if `__iivw_slen' > `__iivw_width' {
+                    local __iivw_width = `__iivw_slen'
+                }
+            }
+            if `__iivw_j' == 1 {
+                local __iivw_width = 1
+            }
+            else if `__iivw_j' == 2 {
+                local __iivw_width = max(18, min(42, `__iivw_width'))
+            }
+            else {
+                local __iivw_width = max(7, min(18, `__iivw_width'))
+            }
+            local __iivw_widths "`__iivw_widths' `__iivw_width'"
+        }
+
+        frame `tableframe': mata: _iivw_xlsx_write_tabtools( ///
+            `"`__iivw_xlsx'"', `"`sheet'"', `"`__iivw_vars'"', ///
+            `__iivw_return_rows', `__iivw_return_cols', ///
+            `__iivw_note_row', `"`__iivw_widths'"')
+
+        local __iivw_return_xlsx `"`__iivw_xlsx'"'
+        local __iivw_return_sheet `"`sheet'"'
+
+        if "`open'" != "" {
+            capture noisily shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
+            if _rc {
+                display as text "note: Excel file was written but could not be opened automatically"
+            }
+        }
+    }
+    else {
     capture confirm file `"`__iivw_xlsx'"'
     local __iivw_xlsx_exists = (_rc == 0)
     if `__iivw_xlsx_exists' {
@@ -199,6 +256,7 @@ program define _iivw_export_table, rclass
             display as text "note: Excel file was written but could not be opened automatically"
         }
     }
+    }
 
     }
     local rc = _rc
@@ -218,6 +276,12 @@ end
 
 version 16.0
 capture mata: mata drop _iivw_xlsx_style()
+local __iivw_mata_drop_rc = _rc
+capture mata: mata drop _iivw_xlsx_write_tabtools()
+local __iivw_mata_drop_rc = _rc
+capture mata: mata drop _iivw_xlsx_style_tabtools()
+local __iivw_mata_drop_rc = _rc
+capture mata: mata drop _iivw_xlsx_cur_strmat()
 local __iivw_mata_drop_rc = _rc
 
 mata:
@@ -293,6 +357,180 @@ void _iivw_xlsx_style(
     }
 
     b.close_book()
+}
+
+void _iivw_xlsx_write_tabtools(
+    string scalar filepath,
+    string scalar sheet,
+    string scalar varlist,
+    real scalar n_rows,
+    real scalar n_cols,
+    real scalar note_row,
+    string scalar widths)
+{
+    class xl scalar b
+    string rowvector sheets
+    string matrix table
+    real scalar i, found
+
+    b = xl()
+
+    if (!fileexists(filepath)) {
+        b.create_book(filepath, sheet, "xlsx")
+    }
+    else {
+        b.load_book(filepath)
+        sheets = b.get_sheets()
+        found = 0
+        for (i = 1; i <= length(sheets); i++) {
+            if (sheets[i] == sheet) {
+                found = 1
+                break
+            }
+        }
+        if (found) {
+            b.clear_sheet(sheet)
+        }
+        else {
+            b.add_sheet(sheet)
+        }
+        b.set_sheet(sheet)
+    }
+
+    b.set_mode("open")
+    table = _iivw_xlsx_cur_strmat(varlist)
+    b.put_string(1, 1, table)
+
+    _iivw_xlsx_style_tabtools(b, sheet, n_rows, n_cols, note_row, widths)
+    b.close_book()
+}
+
+void _iivw_xlsx_style_tabtools(
+    class xl scalar b,
+    string scalar sheet,
+    real scalar n_rows,
+    real scalar n_cols,
+    real scalar note_row,
+    string scalar widths)
+{
+    real rowvector w
+    real scalar data_last, j, cend
+
+    if (n_rows < 1 | n_cols < 1) return
+
+    data_last = n_rows
+    if (note_row > 0) data_last = note_row - 1
+
+    b.set_font((1, n_rows), (1, n_cols), "Arial", 10)
+    b.set_vertical_align((1, n_rows), (1, n_cols), "bottom")
+
+    b.set_font((1, 1), (1, n_cols), "Arial", 12)
+    b.set_font_bold((1, 1), (1, n_cols), "on")
+    b.set_sheet_merge(sheet, (1, 1), (1, n_cols))
+    b.set_horizontal_align((1, 1), (1, 1), "left")
+    b.set_vertical_align((1, 1), (1, 1), "center")
+    b.set_text_wrap((1, 1), (1, 1), "on")
+    b.set_row_height(1, 1, 30)
+
+    if (n_cols >= 1) b.set_column_width(1, 1, 1)
+
+    if (n_rows >= 2 & n_cols >= 2) {
+        b.set_font_bold((2, 2), (2, n_cols), "on")
+        b.set_vertical_align((2, 2), (2, n_cols), "center")
+        b.set_top_border((2, 2), (2, n_cols), "thin")
+        if (n_cols >= 3) {
+            b.set_horizontal_align((2, 2), (3, n_cols), "center")
+            b.set_text_wrap((2, 2), (3, n_cols), "on")
+        }
+        b.set_row_height(2, 2, 24)
+    }
+
+    if (n_rows >= 3 & n_cols >= 2) {
+        b.set_font_bold((3, 3), (2, n_cols), "on")
+        b.set_top_border((3, 3), (2, n_cols), "thin")
+        b.set_bottom_border((3, 3), (2, n_cols), "thin")
+        b.set_vertical_align((3, 3), (2, n_cols), "center")
+        if (n_cols >= 3) {
+            b.set_horizontal_align((3, 3), (3, n_cols), "center")
+        }
+    }
+
+    if (data_last >= 4 & n_cols >= 2) {
+        b.set_horizontal_align((4, data_last), (2, 2), "left")
+        b.set_vertical_align((4, data_last), (2, n_cols), "center")
+        b.set_bottom_border((data_last, data_last), (2, n_cols), "thin")
+        if (n_cols >= 3) {
+            b.set_horizontal_align((4, data_last), (3, n_cols), "center")
+        }
+    }
+
+    if (n_cols >= 2 & data_last >= 2) {
+        b.set_left_border((2, data_last), (2, 2), "thin")
+        b.set_right_border((2, data_last), (2, 2), "thin")
+        b.set_right_border((2, data_last), (n_cols, n_cols), "thin")
+    }
+
+    if (n_cols >= 3) {
+        for (j = 3; j <= n_cols; j = j + 3) {
+            cend = min((j + 2, n_cols))
+            if (n_rows >= 2 & cend > j) {
+                b.set_sheet_merge(sheet, (2, 2), (j, cend))
+                b.set_horizontal_align((2, 2), (j, cend), "center")
+            }
+            if (data_last >= 2) {
+                b.set_right_border((2, data_last), (cend, cend), "thin")
+            }
+        }
+    }
+
+    if (note_row > 0 & note_row <= n_rows & n_cols >= 2) {
+        b.set_sheet_merge(sheet, (note_row, note_row), (2, n_cols))
+        b.set_font((note_row, note_row), (2, n_cols), "Arial", 8)
+        b.set_font_italic((note_row, note_row), (2, n_cols), "on")
+        b.set_text_wrap((note_row, note_row), (2, n_cols), "on")
+        b.set_horizontal_align((note_row, note_row), (2, 2), "left")
+        b.set_vertical_align((note_row, note_row), (2, 2), "center")
+        b.set_row_height(note_row, note_row, 38)
+    }
+
+    w = strtoreal(tokens(widths))
+    for (j = 1; j <= min((cols(w), n_cols)); j++) {
+        if (w[j] < . & w[j] > 0) b.set_column_width(j, j, w[j])
+    }
+}
+
+string matrix _iivw_xlsx_cur_strmat(string scalar varlist)
+{
+    string rowvector vars
+    string matrix out
+    string colvector scol
+    real colvector ncol
+    string scalar fmt
+    real scalar i, j, N, K
+
+    vars = tokens(varlist)
+    N = st_nobs()
+    K = cols(vars)
+    out = J(N, K, "")
+
+    for (j = 1; j <= K; j++) {
+        if (st_isstrvar(vars[j])) {
+            out[, j] = st_sdata(., vars[j])
+        }
+        else {
+            ncol = st_data(., vars[j])
+            scol = J(N, 1, "")
+            fmt = st_varformat(vars[j])
+            for (i = 1; i <= N; i++) {
+                if (ncol[i] < .) {
+                    scol[i] = strtrim(strofreal(ncol[i], fmt))
+                }
+            }
+            out[, j] = scol
+        }
+    }
+
+    return(out)
 }
 
 end

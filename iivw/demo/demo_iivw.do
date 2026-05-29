@@ -4,7 +4,7 @@
       1. Console output (FIPTIW diagnostic workflow) -> .log -> .md via logdoc
       2. Excel tables (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
       3. Excel table (categorical visit-wave interaction labels) -> .xlsx
-      4. Direct reporting exports from iivw_balance/iivw_diagnose -> .xlsx sheets
+      4. Direct reporting exports from iivw_balance/iivw_exogtest/iivw_diagnose -> .xlsx sheets
 
     Run from the Stata-Tools repository root:
       stata-mp -b do iivw/demo/demo_iivw.do
@@ -144,7 +144,13 @@ estimates store M_adjusted
 iivw_exogtest sdmt relapse, ///
     id(id) time(years) ///
     adjust(age female edss0 sdmt0 dur naive) ///
-    by(tx) efron nolog
+    by(tx) efron nolog ///
+    xlsx("`export_xlsx'") sheet("Exogeneity") ///
+    title("SDMT visit-timing exogeneity diagnostic") ///
+    footnote("Outcome-dependent visits; artifact adjustment is a sensitivity range.") ///
+    decimals(3)
+display as text "Exogeneity export: " as result "xlsx() sheet `r(sheet)' decimals " ///
+    as result %2.0f r(decimals)
 
 local exo "exogenous"
 if r(endogenous_flag) local exo "endogenous"
@@ -197,20 +203,35 @@ log close demo
 confirm file "`export_xlsx'"
 
 preserve
-quietly import excel using "`export_xlsx'", sheet("Balance") cellrange(A3) firstrow clear
+quietly import excel using "`export_xlsx'", sheet("Balance") clear allstring
 quietly count
 assert r(N) > 0
-confirm variable Covariate
-quietly count if Covariate == "age"
+assert C[2] == "Means"
+assert F[2] == "Balance"
+assert B[3] == "Covariate"
+quietly count if B == "Age at treatment start"
 assert r(N) == 1
 restore
 
 preserve
-quietly import excel using "`export_xlsx'", sheet("Diagnostics") cellrange(A3) firstrow clear
+quietly import excel using "`export_xlsx'", sheet("Exogeneity") clear allstring
+assert A[1] == "SDMT visit-timing exogeneity diagnostic"
+assert C[3] == "HR"
+assert D[3] == "95% CI"
+assert E[3] == "p-value"
+quietly count if B == "Observed SDMT score (lag 1)"
+assert r(N) >= 1
+quietly count if B == "Joint test (all lagged predictors)"
+assert r(N) == 1
+restore
+
+preserve
+quietly import excel using "`export_xlsx'", sheet("Diagnostics") clear allstring
 quietly count
 assert r(N) > 0
-confirm variable Quantity
-quietly count if Quantity == "sampling_gap"
+assert C[2] == "Model estimates"
+assert B[3] == "Quantity"
+quietly count if B == "Sampling gap"
 assert r(N) == 1
 restore
 

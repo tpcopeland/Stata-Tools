@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  28may2026}{...}
+{* *! version 1.4.0  29may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -52,6 +52,15 @@
 {synopt:{opt efr:on}}use Efron method for tied event times in {cmd:stcox}{p_end}
 {synopt:{opt nolog}}suppress Cox iteration log{p_end}
 {synopt:{opt l:evel(#)}}confidence level for hazard-ratio intervals; default {cmd:c(level)}{p_end}
+
+{syntab:Excel export}
+{synopt:{opt xlsx(filename)}}write the exogeneity table to an Excel workbook{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
+{synopt:{opt sheet(sheetname)}}Excel worksheet name; default {cmd:Exogeneity}{p_end}
+{synopt:{opt title(string)}}optional Excel title row{p_end}
+{synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
+{synopt:{opt decimals(#)}}Excel decimal places (0-6, default 3){p_end}
+{synopt:{opt open}}open the workbook after writing{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -136,6 +145,45 @@ target lag variable already exists.
 {opt level(#)} specifies the confidence level for displayed hazard-ratio
 intervals.  The diagnostic alpha is {cmd:(100-level)/100}; for example,
 {cmd:level(90)} uses alpha 0.10.
+
+{dlgtab:Excel export}
+
+{phang}
+{opt xlsx(filename)} writes a {cmd:regtab}-style exogeneity table to an Excel
+{cmd:.xlsx} workbook.  The exported table uses the first label column for
+readable lagged-predictor row labels, taking variable labels from {it:varlist}
+and falling back to variable names when labels are absent.  Each fitted group
+gets a hazard-ratio, confidence-interval, and p-value column block, followed
+by a joint-test row.  The worksheet is formatted with a merged title row,
+group headers, statistic headers, column widths, borders, and an explanatory
+footnote.
+
+{phang}
+{opt excel(filename)} is a synonym for {opt xlsx()}.
+
+{phang}
+{opt sheet(sheetname)} sets the Excel worksheet name.  The default is
+{cmd:Exogeneity}.  If no {opt xlsx()} or {opt excel()} file is supplied, no
+workbook is written and the diagnostic results are still returned.
+
+{phang}
+Excel output follows the tabtools workbook convention: if the workbook
+exists, only the named sheet is cleared and rewritten; other sheets are
+preserved.  The {opt replace} option keeps its existing meaning for generated
+lag variables and is not an Excel overwrite option.
+
+{phang}
+{opt open} opens the Excel workbook after writing it.  It has an effect only
+when {opt xlsx()} or {opt excel()} supplies a workbook.
+
+{phang}
+{opt title(string)} and {opt footnote(string)} add optional title and footnote
+rows to Excel output.
+
+{phang}
+{opt decimals(#)} sets the number of decimal places used for exported hazard
+ratios, confidence intervals, and p-values.  The allowed range is 0 through
+6; the default is 3.
 
 
 {marker remarks}{...}
@@ -232,6 +280,10 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 
 {phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) replace efron nolog}{p_end}
 
+{pstd}Export the by-arm diagnostic to an Excel worksheet.{p_end}
+
+{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) efron nolog xlsx(iivw_results.xlsx) sheet("Move 2 Exogeneity")}{p_end}
+
 {pstd}Use a shorter generated-variable prefix.{p_end}
 
 {phang2}{cmd:. iivw_exogtest sdmt, id(id) time(months) generate(x_) replace nolog}{p_end}
@@ -253,6 +305,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(joint_min_p)}}minimum joint p-value for lagged predictors{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(endogenous_flag)}}1 if any individual or joint p-value is below alpha; otherwise 0{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
 {synopt:{cmd:r(id)}}subject identifier{p_end}
@@ -267,6 +320,8 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(result_row_labels)}}row labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(conclusion)}}short diagnostic conclusion{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(results)}}numeric results matrix with columns {cmd:group_index term_index b se z p hr lb ub N n_ids}{p_end}
@@ -295,6 +350,6 @@ doi:10.1111/j.1467-9868.2004.b5543.x.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.1, 2026-05-28{p_end}
+{pstd}Version 1.4.0, 2026-05-29{p_end}
 
 {hline}

@@ -22,9 +22,12 @@ if "`base'" != "qa" {
 }
 local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
 
-adopath + "`pkg_dir'"
+adopath ++ "`pkg_dir'"
 discard
 which iivw_exogtest
+findfile iivw_exogtest.ado
+local exog_path "`r(fn)'"
+assert strpos("`exog_path'", "`pkg_dir'") == 1
 
 local test_count = 0
 local pass_count = 0
@@ -48,6 +51,8 @@ program define _exog_independent_panel
     replace months = 0 if visit == 1
     gen double y = 10 + sin(id / 5) + 0.1 * visit + rnormal(0, 0.7)
     gen double marker = cos(id / 7) + rnormal(0, 0.5)
+    label variable y "Outcome score"
+    label variable marker "Disease marker"
 end
 
 capture program drop _exog_dependent_panel
@@ -71,6 +76,7 @@ program define _exog_dependent_panel
     replace gap = exp(1.2 - 0.85 * lag_y_internal + rnormal(0, 0.04)) if visit > 1
     replace gap = max(gap, 0.03) if visit > 1
     bysort id (visit): gen double months = sum(gap)
+    label variable y "Outcome score"
     drop lag_y_internal gap
 end
 
@@ -342,6 +348,142 @@ if `run_only' == 0 | `run_only' == 10 {
         display as error "  FAIL: 10 - skipped groups (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 10"
+    }
+}
+
+**## 11. xlsx() export creates a workbook and returns export metadata
+local ++test_count
+if `run_only' == 0 | `run_only' == 11 {
+    capture noisily {
+        _exog_independent_panel
+        tempfile xlstub
+        local xl "`xlstub'.xlsx"
+        capture erase "`xl'"
+
+        iivw_exogtest y marker, id(id) time(months) ///
+            adjust(age female treatment) level(99) nolog ///
+            xlsx("`xl'") sheet("Exog")
+
+        confirm file "`xl'"
+        assert "`r(xlsx)'" == "`xl'"
+        assert "`r(sheet)'" == "Exog"
+        assert r(decimals) == 3
+        matrix R = r(results)
+        assert rowsof(R) == 2
+        assert colsof(R) == 11
+
+        import excel using "`xl'", sheet("Exog") cellrange(A1:E7) allstring clear
+        assert A[1] == "Exogeneity diagnostic: lagged predictors of next-visit timing (Andersen-Gill Cox, hazard ratios)"
+        assert C[2] == "Overall"
+        assert C[3] == "HR"
+        assert D[3] == "99% CI"
+        assert E[3] == "p-value"
+        assert B[4] == "Outcome score (lag 1)"
+        assert B[5] == "Disease marker (lag 1)"
+        assert B[6] == "Joint test (all lagged predictors)"
+        assert B[7] != ""
+    }
+    if _rc == 0 {
+        display as result "  PASS: 11 - xlsx() export workbook"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 11 - xlsx() export workbook (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 11"
+    }
+}
+
+**## 12. excel() export with by() includes per-group joint rows
+local ++test_count
+if `run_only' == 0 | `run_only' == 12 {
+    capture noisily {
+        _exog_dependent_panel
+        tempfile xlstub
+        local xl "`xlstub'.xlsx"
+        capture erase "`xl'"
+
+        iivw_exogtest y, id(id) time(months) by(treatment) ///
+            adjust(age female) level(90) nolog ///
+            excel("`xl'") sheet("ByExog") decimals(2)
+
+        confirm file "`xl'"
+        assert "`r(xlsx)'" == "`xl'"
+        assert "`r(sheet)'" == "ByExog"
+        assert r(decimals) == 2
+
+        import excel using "`xl'", sheet("ByExog") cellrange(A1:H6) allstring clear
+        assert C[2] == "0"
+        assert F[2] == "1"
+        assert C[3] == "HR"
+        assert D[3] == "90% CI"
+        assert E[3] == "p-value"
+        assert F[3] == "HR"
+        assert G[3] == "90% CI"
+        assert H[3] == "p-value"
+        assert B[4] == "Outcome score (lag 1)"
+        assert B[5] == "Joint test (all lagged predictors)"
+        assert B[6] != ""
+    }
+    if _rc == 0 {
+        display as result "  PASS: 12 - by() excel() export rows"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 12 - by() excel() export rows (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 12"
+    }
+}
+
+**## 13. Missing workbook for sheet() warns softly and preserves returns
+local ++test_count
+if `run_only' == 0 | `run_only' == 13 {
+    capture noisily {
+        _exog_dependent_panel
+        iivw_exogtest y, id(id) time(months) adjust(age female) ///
+            level(90) nolog sheet("OnlySheet")
+
+        assert r(n_models) == 1
+        assert r(N) == 480
+        assert "`r(xlsx)'" == ""
+        assert "`r(sheet)'" == ""
+        matrix R = r(results)
+        assert rowsof(R) == 1
+        assert colsof(R) == 11
+    }
+    if _rc == 0 {
+        display as result "  PASS: 13 - sheet-only export failure is soft"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 13 - sheet-only export failure (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 13"
+    }
+}
+
+**## 14. decimals() bounds are enforced before export
+local ++test_count
+if `run_only' == 0 | `run_only' == 14 {
+    capture noisily {
+        _exog_independent_panel
+        tempfile xlstub
+        local xl "`xlstub'.xlsx"
+        capture noisily iivw_exogtest y, id(id) time(months) ///
+            adjust(age female) nolog xlsx("`xl'") decimals(9)
+        assert _rc == 198
+        capture confirm file "`xl'"
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: 14 - decimals() bounds"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 14 - decimals() bounds (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 14"
     }
 }
 

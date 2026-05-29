@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.3.1  2026/05/28
+*! iivw_exogtest Version 1.4.0  2026/05/29
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -24,6 +24,7 @@ Options:
   efron              - Use Efron ties in stcox
   nolog              - Suppress Cox iteration log
   level(#)           - Confidence level for displayed HR intervals
+  xlsx()/excel()     - Export diagnostic table to a styled Excel sheet
 
 See help iivw_exogtest for complete documentation
 */
@@ -38,13 +39,26 @@ program define iivw_exogtest, rclass sortpreserve
     local __iivw_restore_needed = 0
     local __iivw_hold_ok = 0
     local __iivw_return_ok = 0
+    tempname __iivw_exog_frame
+    local __iivw_exog_frame_created = 0
+    local __iivw_exog_xlsx_done ""
+    local __iivw_exog_sheet_done ""
+    local __iivw_exog_dec_done = .
+    local __iivw_exog_export_rc = 0
 
     capture noisily {
 
     syntax varlist(numeric min=1) [if] [in] , ///
         ID(varname) TIME(varname numeric) ///
         [ADJust(varlist numeric) BY(varname) ENTry(varname numeric) ///
-         GENerate(name) REPLACE EFRon noLOG Level(cilevel)]
+         GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
+         XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
+         TITLE(string asis) FOOTNOTE(string asis) DECIMALS(integer 3) OPEN]
+
+    if `decimals' < 0 | `decimals' > 6 {
+        display as error "decimals() must be between 0 and 6"
+        error 198
+    }
 
     if "`generate'" == "" local generate "_iivw_exog_"
     local prefix "`generate'"
@@ -151,12 +165,19 @@ program define iivw_exogtest, rclass sortpreserve
         quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
         local vlab : variable label `v'
         if `"`vlab'"' == "" local vlab "`v'"
-        if strlen(`"`vlab' (lag 1)"') > 80 {
-            local vlab = substr(`"`vlab'"', 1, 72) + "..."
+        local vlab = subinstr(`"`vlab'"', char(34), "", .)
+        local __iivw_term_label_`lag_index' `"`vlab' (lag 1)"'
+        local __iivw_term_labels ///
+            `"`__iivw_term_labels'|`__iivw_term_label_`lag_index''"'
+        local __iivw_lag_label `"`__iivw_term_label_`lag_index''"'
+        if strlen(`"`__iivw_lag_label'"') > 80 {
+            local __iivw_lag_label = ///
+                substr(`"`__iivw_lag_label'"', 1, 77) + "..."
         }
-        label variable `lagname' `"`vlab' (lag 1)"'
+        label variable `lagname' `"`__iivw_lag_label'"'
         local __iivw_created_vars "`__iivw_created_vars' `lagname'"
     }
+    local __iivw_term_labels = substr(`"`__iivw_term_labels'"', 2, .)
 
     preserve
     local __iivw_restore_needed = 1
@@ -226,6 +247,7 @@ program define iivw_exogtest, rclass sortpreserve
     local row_labels ""
     local group_labels ""
     local skipped_labels ""
+    local __iivw_fitted_groups ""
 
     display as text ""
     display as text "{hline 70}"
@@ -248,6 +270,7 @@ program define iivw_exogtest, rclass sortpreserve
         if "`by'" != "" {
             local glabel : label `group_vallab' `g'
             if `"`glabel'"' == "" local glabel "`g'"
+            local glabel = subinstr(`"`glabel'"', char(34), "", .)
             local heading "By group: `by' = `glabel'"
         }
         else {
@@ -255,6 +278,7 @@ program define iivw_exogtest, rclass sortpreserve
             local heading "Overall model"
         }
         local group_labels `"`group_labels'|`glabel'"'
+        local __iivw_glab_`group_index' `"`glabel'"'
 
         quietly count if `__iivw_usable' & `__iivw_group' == `g'
         local gN = r(N)
@@ -304,6 +328,7 @@ program define iivw_exogtest, rclass sortpreserve
         }
 
         local ++n_models
+        local __iivw_fitted_groups "`__iivw_fitted_groups' `group_index'"
         local total_N = `total_N' + `gN'
         local total_ids = `total_ids' + `gIds'
 
@@ -315,6 +340,7 @@ program define iivw_exogtest, rclass sortpreserve
             if `joint_p' < `joint_min_p' local joint_min_p = `joint_p'
             if `joint_p' < `alpha' local endogenous_flag = 1
         }
+        local __iivw_jointp_`group_index' = `joint_p'
         local group_sig = (`joint_p' < `alpha')
 
         display as text _col(4) "{ralign 22:Predictor}" ///
@@ -366,6 +392,7 @@ program define iivw_exogtest, rclass sortpreserve
             matrix `__iivw_results'[`row', 11] = `gIds'
 
             local row_labels "`row_labels' g`group_index'_t`term_index'"
+            local __iivw_display_term `"`__iivw_term_label_`term_index''"'
 
             local p_fmt "."
             if `p' < . {
@@ -377,7 +404,7 @@ program define iivw_exogtest, rclass sortpreserve
                     local p_fmt = strtrim("`p_fmt'")
                 }
             }
-            display as text _col(4) "{ralign 22:`lv'}" ///
+            display as text _col(4) "{ralign 22:`__iivw_display_term'}" ///
                 as result _col(30) %9.3f `hr' ///
                 _col(41) %9.3f `lb' ///
                 _col(52) %9.3f `ub' ///
@@ -431,10 +458,186 @@ program define iivw_exogtest, rclass sortpreserve
     display as text "Conclusion:        " as result "`conclusion'"
     display as text "{hline 70}"
 
+    local __iivw_exog_export_req = ///
+        (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
+         `"`sheet'"' != "" | "`open'" != "")
+    if `__iivw_exog_export_req' {
+        local __iivw_n_fitted : word count `__iivw_fitted_groups'
+        local __iivw_n_data_cols = 3 * `__iivw_n_fitted'
+        local __iivw_exog_frame_spec "strL A strL B"
+        forvalues __c = 1/`__iivw_n_data_cols' {
+            local __iivw_exog_frame_spec ///
+                "`__iivw_exog_frame_spec' strL c`__c'"
+        }
+        frame create `__iivw_exog_frame' `__iivw_exog_frame_spec'
+        local __iivw_exog_frame_created = 1
+
+        local __iivw_nrows = rowsof(`__iivw_results')
+        local __iivw_blank_cells ""
+        forvalues __c = 1/`__iivw_n_data_cols' {
+            local __iivw_blank_cells `"`__iivw_blank_cells' ("")"'
+        }
+
+        local __iivw_dq = char(34)
+        local __iivw_clean_xlsx `"`xlsx'"'
+        local __iivw_clean_excel `"`excel'"'
+        local __iivw_clean_sheet `"`sheet'"'
+        local __iivw_clean_title `"`title'"'
+        local __iivw_clean_foot `"`footnote'"'
+        foreach __iivw_clean in xlsx excel sheet title foot {
+            local __iivw_clean_`__iivw_clean' = ///
+                subinstr(`"`__iivw_clean_`__iivw_clean''"', `"`__iivw_dq'"', "", .)
+        }
+        if `"`__iivw_clean_sheet'"' == "" {
+            local __iivw_clean_sheet "Exogeneity"
+        }
+        if `"`__iivw_clean_title'"' == "" {
+            local __iivw_clean_title ///
+                "Exogeneity diagnostic: lagged predictors of next-visit timing (Andersen-Gill Cox, hazard ratios)"
+        }
+        if `"`__iivw_clean_foot'"' == "" {
+            local __iivw_mp : display %5.3f `min_p'
+            local __iivw_jmp : display %5.3f `joint_min_p'
+            local __iivw_mp = strtrim("`__iivw_mp'")
+            local __iivw_jmp = strtrim("`__iivw_jmp'")
+            local __iivw_clean_foot ///
+                "Andersen-Gill Cox models, cluster-robust SEs on `id'. Minimum term p = `__iivw_mp'; minimum joint p = `__iivw_jmp'; endogeneity flag = `endogenous_flag'. `conclusion'. Small p-values indicate outcome-dependent visit timing, so cumulative test-count adjustment may be endogenous."
+        }
+
+        frame post `__iivw_exog_frame' ///
+            (`"`__iivw_clean_title'"') ("") `__iivw_blank_cells'
+
+        local __iivw_group_cells ""
+        foreach __g of local __iivw_fitted_groups {
+            local __iivw_export_glab `"`__iivw_glab_`__g''"'
+            if "`by'" == "" & `"`__iivw_export_glab'"' == "overall" {
+                local __iivw_export_glab "Overall"
+            }
+            local __iivw_group_cells ///
+                `"`__iivw_group_cells' (`"`__iivw_export_glab'"') ("") ("")"'
+        }
+        frame post `__iivw_exog_frame' ///
+            ("") ("") `__iivw_group_cells'
+
+        local __iivw_header_cells ""
+        forvalues __m = 1/`__iivw_n_fitted' {
+            local __iivw_header_cells ///
+                `"`__iivw_header_cells' ("HR") ("`level'% CI") ("p-value")"'
+        }
+        frame post `__iivw_exog_frame' ///
+            ("") ("") `__iivw_header_cells'
+
+        local __iivw_num_fmt "%9.`decimals'f"
+        if `decimals' == 0 local __iivw_num_fmt "%9.0f"
+        local __iivw_p_cut = 10^-`decimals'
+        if `decimals' == 0 local __iivw_p_cut = .
+        local __iivw_p_cut_txt ///
+            "0.`=substr("000000", 1, max(`decimals' - 1, 0))'1"
+
+        forvalues __ti = 1/`n_terms' {
+            local __iivw_row_cells ""
+            foreach __g of local __iivw_fitted_groups {
+                local __hr_fmt ""
+                local __ci_fmt ""
+                local __p_fmt ""
+                forvalues __r = 1/`__iivw_nrows' {
+                    if `__iivw_results'[`__r', 1] != `__g' continue
+                    if `__iivw_results'[`__r', 2] != `__ti' continue
+                    local __hr = `__iivw_results'[`__r', 7]
+                    local __lb = `__iivw_results'[`__r', 8]
+                    local __ub = `__iivw_results'[`__r', 9]
+                    local __p = `__iivw_results'[`__r', 6]
+                    if `__hr' < . {
+                        local __hr_fmt : display `__iivw_num_fmt' `__hr'
+                        local __hr_fmt = strtrim("`__hr_fmt'")
+                    }
+                    if `__lb' < . & `__ub' < . {
+                        local __lb_fmt : display `__iivw_num_fmt' `__lb'
+                        local __ub_fmt : display `__iivw_num_fmt' `__ub'
+                        local __lb_fmt = strtrim("`__lb_fmt'")
+                        local __ub_fmt = strtrim("`__ub_fmt'")
+                        local __ci_fmt "(`__lb_fmt', `__ub_fmt')"
+                    }
+                    if `__p' < . {
+                        if `__iivw_p_cut' < . & `__p' < `__iivw_p_cut' {
+                            local __p_fmt "<`__iivw_p_cut_txt'"
+                        }
+                        else {
+                            local __p_fmt : display `__iivw_num_fmt' `__p'
+                            local __p_fmt = strtrim("`__p_fmt'")
+                        }
+                    }
+                }
+                local __iivw_row_cells ///
+                    `"`__iivw_row_cells' ("`__hr_fmt'") ("`__ci_fmt'") ("`__p_fmt'")"'
+            }
+            frame post `__iivw_exog_frame' ///
+                ("") (`"`__iivw_term_label_`__ti''"') `__iivw_row_cells'
+        }
+
+        local __iivw_joint_cells ""
+        foreach __g of local __iivw_fitted_groups {
+            local __jp_fmt ""
+            local __jp = `__iivw_jointp_`__g''
+            if `__jp' < . {
+                if `__iivw_p_cut' < . & `__jp' < `__iivw_p_cut' {
+                    local __jp_fmt "<`__iivw_p_cut_txt'"
+                }
+                else {
+                    local __jp_fmt : display `__iivw_num_fmt' `__jp'
+                    local __jp_fmt = strtrim("`__jp_fmt'")
+                }
+            }
+            local __iivw_joint_cells ///
+                `"`__iivw_joint_cells' ("") ("") ("`__jp_fmt'")"'
+        }
+        frame post `__iivw_exog_frame' ///
+            ("") ("Joint test (all lagged predictors)") `__iivw_joint_cells'
+
+        if `"`__iivw_clean_foot'"' != "" {
+            frame post `__iivw_exog_frame' ///
+                ("") (`"`__iivw_clean_foot'"') `__iivw_blank_cells'
+        }
+
+        local __iivw_exog_opts ///
+            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_clean_sheet'") title("`__iivw_clean_title'") footnote("`__iivw_clean_foot'") layout(tabtools)"'
+        if `"`__iivw_clean_xlsx'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_clean_xlsx'")"'
+        }
+        if `"`__iivw_clean_excel'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' excel("`__iivw_clean_excel'")"'
+        }
+        if "`open'" != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' open"'
+        }
+
+        capture noisily _iivw_export_table, `__iivw_exog_opts'
+        local __iivw_exog_export_rc = _rc
+        if `__iivw_exog_export_rc' == 0 {
+            local __iivw_exog_xlsx_done `"`r(xlsx)'"'
+            local __iivw_exog_sheet_done `"`r(sheet)'"'
+            local __iivw_exog_dec_done = r(decimals)
+        }
+        else {
+            display as error ///
+                "warning: iivw_exogtest Excel export failed (rc=`__iivw_exog_export_rc'); diagnostic results still returned"
+        }
+        capture frame drop `__iivw_exog_frame'
+        local __iivw_exog_drop_rc = _rc
+        local __iivw_exog_frame_created = 0
+    }
+
     local __iivw_return_ok = 1
 
     }
     local rc = _rc
+    if `__iivw_exog_frame_created' {
+        capture frame drop `__iivw_exog_frame'
+        local __iivw_frame_drop_rc = _rc
+        if `rc' == 0 & `__iivw_frame_drop_rc' != 0 {
+            local rc = `__iivw_frame_drop_rc'
+        }
+    }
     if `__iivw_restore_needed' {
         capture restore
         local __iivw_restore_rc = _rc
@@ -471,10 +674,17 @@ program define iivw_exogtest, rclass sortpreserve
         return local by "`by'"
         return local group_labels `"`group_labels'"'
         return local skipped_labels `"`skipped_labels'"'
-        return local term_labels "`generated_lags'"
+        return local term_labels `"`__iivw_term_labels'"'
         return local result_row_labels "`row_labels'"
         return local result_columns "group_index term_index b se z p hr lb ub N n_ids"
         return local conclusion "`conclusion'"
+        if `"`__iivw_exog_xlsx_done'"' != "" {
+            return local xlsx `"`__iivw_exog_xlsx_done'"'
+            return local sheet `"`__iivw_exog_sheet_done'"'
+        }
+        if `__iivw_exog_dec_done' < . {
+            return scalar decimals = `__iivw_exog_dec_done'
+        }
         return matrix results = `__iivw_results'
     }
 end

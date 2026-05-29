@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.3.1** | 2026-05-28
+**Version 1.4.0** | 2026-05-29
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -344,17 +344,21 @@ iivw_fit edss treated edss_bl, model(gee) nolog replace collect
 regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
 ```
 
-`iivw_balance` and `iivw_diagnose` can also export their diagnostic tables directly, without requiring `tabtools`:
+`iivw_balance`, `iivw_exogtest`, and `iivw_diagnose` can also export their diagnostic tables directly, without requiring `tabtools`:
 
 ```stata
 iivw_balance, xlsx(iivw_results.xlsx) sheet(Balance) replace
+
+iivw_exogtest sdmt_score recent_relapse, ///
+    id(id) time(months_since_tx) adjust(age sex bl_edss bl_sdmt) ///
+    by(treatment) efron nolog xlsx(iivw_results.xlsx) sheet(Exogeneity)
 
 iivw_diagnose months_since_tx, ///
     unweighted(M_unweighted) weighted(M_weighted) adjusted(M_adjusted) ///
     exogeneity(unknown) xlsx(iivw_results.xlsx) sheet(Diagnostics) replace
 ```
 
-These direct exports are workbook-only: each command writes a styled `.xlsx` sheet with readable headers, native numeric cells, column widths, borders, and explanatory notes. Existing workbooks are updated by replacing only the named sheet.
+These direct exports are workbook-only: each command writes a styled `.xlsx` sheet with tabtools/regtab-style title, group-header, statistic-header, label-column, border, width, and footnote conventions. Existing workbooks are updated by replacing only the named sheet. `iivw_balance` and `iivw_exogtest` use variable-label row headers when labels are available. For `iivw_exogtest`, `replace` still means overwrite generated lag variables, not Excel workbook replacement.
 
 ## Weight Diagnostics
 
@@ -436,7 +440,7 @@ The package ships with functional, validation, and cross-validation QA under `qa
 
 ## Demo
 
-The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also demonstrates styled `.xlsx` sheet exports from `iivw_balance` and `iivw_diagnose`, plus the `regtab` workbook export for model tables.
+The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also demonstrates styled `.xlsx` sheet exports from `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose`, plus the `regtab` workbook export for model tables.
 
 Regenerate from the repository root with:
 
@@ -448,9 +452,9 @@ Generated outputs:
 
 - [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
 - `demo/iivw_results.xlsx` — Excel workbook with a diagnostic model-comparison sheet and a `Visit waves` sheet showing categorical-time interaction labels
-- `demo/iivw_reporting_exports.xlsx` — direct reporting workbook with `Balance` and `Diagnostics` sheets
+- `demo/iivw_reporting_exports.xlsx` — direct reporting workbook with `Balance`, `Exogeneity`, and `Diagnostics` sheets
 
-The script verifies the direct export workbook sheets and expected rows in both styled worksheets.
+The script verifies the direct export workbook sheets and expected rows in all three styled worksheets.
 
 <details>
 <summary>Direct reporting export examples</summary>
@@ -462,6 +466,21 @@ The script verifies the direct export workbook sheets and expected rows in both 
 
 ```text
 Balance export: xlsx() sheet Balance
+```
+
+```stata
+. iivw_exogtest sdmt relapse, ///
+    id(id) time(years) ///
+    adjust(age female edss0 sdmt0 dur naive) ///
+    by(tx) efron nolog ///
+    xlsx("iivw/demo/iivw_reporting_exports.xlsx") sheet("Exogeneity") ///
+    title("SDMT visit-timing exogeneity diagnostic") ///
+    footnote("Outcome-dependent visits; artifact adjustment is a sensitivity range.") ///
+    decimals(3)
+```
+
+```text
+Exogeneity export: xlsx() sheet Exogeneity decimals  3
 ```
 
 ```stata
@@ -551,6 +570,12 @@ The generated model workbook asserts that the `Visit waves` sheet contains the r
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.4.0 (2026-05-29)
+
+- Added styled `.xlsx` sheet export to `iivw_exogtest`, including variable-label predictor rows, per-group hazard-ratio blocks, joint-test rows, and `r(xlsx)`, `r(sheet)`, and `r(decimals)` returns
+- Restyled the direct `iivw_balance` and `iivw_diagnose` workbook sheets to match the tabtools/regtab export layout, including grouped headers and readable row labels
+- Updated exogeneity QA to verify local package loading, workbook creation, by-group export rows, soft export failure, and `decimals()` bounds
 
 ### v1.3.1 (2026-05-28)
 

@@ -126,12 +126,22 @@ capture noisily {
         "`balxlsx'" Balance balance 2 "`balmark'"
     confirm file "`balmark'"
 
-    import excel using "`balxlsx'", sheet("Balance") cellrange(A4:I5) clear
-    assert _N == 2
-    assert A[1] == "x"
-    assert A[2] == "z"
-    assert reldif(B[1], B0[1,1]) < 1e-12
-    assert reldif(F[1], B0[1,5]) < 1e-12
+    import excel using "`balxlsx'", sheet("Balance") clear allstring
+    assert _N == 6
+    assert A[1] == "IIVW balance diagnostic"
+    assert C[2] == "Means"
+    assert F[2] == "Balance"
+    assert I[2] == "Counts"
+    assert B[3] == "Covariate"
+    assert C[3] == "Unweighted mean"
+    assert G[3] == "|SMD|"
+    assert H[3] == "Modeled"
+    assert B[4] == "x"
+    assert B[5] == "z"
+    assert abs(real(C[4]) - B0[1,1]) < 0.0001
+    assert abs(real(G[4]) - B0[1,5]) < 0.0001
+    assert H[4] == "Yes"
+    assert H[5] == "No"
 }
 if _rc == 0 {
     display as result "  PASS: T2 - iivw_balance styled workbook"
@@ -178,15 +188,21 @@ capture noisily {
         "`diagxlsx'" Diagnostics diagnostics 14 "`diagmark'"
     confirm file "`diagmark'"
 
-    import excel using "`diagxlsx'", sheet("Diagnostics") cellrange(A4:G17) clear
-    assert _N == 14
-    assert A[1] == "estimate"
-    assert B[1] == "unweighted"
-    assert reldif(C[1], E[1,1]) < 1e-12
-    assert B[4] == "sampling_gap"
-    assert reldif(G[4], `sampling_gap') < 1e-12
-    assert B[14] == "bias_adjusted"
-    assert reldif(G[14], `bias_adjusted') < 1e-12
+    import excel using "`diagxlsx'", sheet("Diagnostics") clear allstring
+    assert _N == 18
+    assert A[1] == "IIVW diagnostic decomposition"
+    assert C[2] == "Model estimates"
+    assert F[2] == "Diagnostic values"
+    assert B[3] == "Quantity"
+    assert C[3] == "Estimate"
+    assert E[3] == "95% CI"
+    assert F[3] == "Value"
+    assert B[4] == "Unweighted"
+    assert abs(real(C[4]) - E[1,1]) < 0.0001
+    assert B[7] == "Sampling gap"
+    assert abs(real(F[7]) - `sampling_gap') < 0.0001
+    assert B[17] == "Adjusted bias"
+    assert abs(real(F[17]) - `bias_adjusted') < 0.0001
 }
 if _rc == 0 {
     display as result "  PASS: T3 - iivw_diagnose styled workbook"
@@ -279,16 +295,16 @@ capture noisily {
         "`workbook'" Diagnostics diagnostics 10 "`bookdiagmark'"
     confirm file "`bookdiagmark'"
 
-    import excel using "`workbook'", sheet("Balance") cellrange(A4:I4) clear
-    assert _N == 1
-    assert A[1] == "x"
+    import excel using "`workbook'", sheet("Balance") clear allstring
+    assert _N == 5
+    assert B[4] == "x"
 
-    import excel using "`workbook'", sheet("Diagnostics") cellrange(A4:G13) clear
-    assert _N == 10
-    assert B[9] == "bounds_lower"
-    assert reldif(G[9], 0.10) < 1e-12
-    assert B[10] == "bounds_upper"
-    assert reldif(G[10], 0.31) < 1e-12
+    import excel using "`workbook'", sheet("Diagnostics") clear allstring
+    assert _N == 14
+    assert B[12] == "Lower bound"
+    assert abs(real(F[12]) - 0.10) < 0.0001
+    assert B[13] == "Upper bound"
+    assert abs(real(F[13]) - 0.31) < 0.0001
 }
 if _rc == 0 {
     display as result "  PASS: T5 - shared workbook multi-sheet export"

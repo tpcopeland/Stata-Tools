@@ -11,7 +11,7 @@ title: "console_output"
 ```
 ----------------------------------------------------------------------
 iivw - Visit Weighting and Diagnostic Workflow for Stata
-Version 1.3.1
+Version 1.4.0
 ----------------------------------------------------------------------
 
 Commands
@@ -294,8 +294,8 @@ Log likelihood = -8274.2097                             Prob > chi2   = 0.0000
 note: 320 subjects have missing visit model covariates at first observation
   weight set to 1 by convention; check covariate completeness
 (320 real changes made)
-(file /tmp/St3243624.000001 not found)
-file /tmp/St3243624.000001 saved as .dta format
+(file /tmp/St2295571.000001 not found)
+file /tmp/St2295571.000001 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -321,8 +321,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St3243624.000003 not found)
-file /tmp/St3243624.000003 saved as .dta format
+(file /tmp/St2295571.000003 not found)
+file /tmp/St2295571.000003 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 37 observations (18 low, 19 high)
 
@@ -591,18 +591,22 @@ FIPTIW-weighted effects:
 >     id(id) time(years)
 >     adjust(age female edss0 sdmt0 dur naive)
 >     by(tx) efron nolog
+>     xlsx("`export_xlsx'") sheet("Exogeneity")
+>     title("SDMT visit-timing exogeneity diagnostic")
+>     footnote("Outcome-dependent visits; artifact adjustment is a sensitivity range.")
+>     decimals(3)
 ```
 
 ```
 Survival-time data settings
 
            ID variable: id
-         Failure event: __000007!=0 & __000007<.
-Observed time interval: (__000006[_n-1], __000006]
-     Enter on or after: time __000005
+         Failure event: __000008!=0 & __000008<.
+Observed time interval: (__000007[_n-1], __000007]
+     Enter on or after: time __000006
      Exit on or before: time .
       Keep observations
-                if exp: __000008
+                if exp: __000009
 
 --------------------------------------------------------------------------
       1,860  total observations
@@ -629,8 +633,8 @@ Alpha:            0.050
 By group: tx = RTX-like
                 Predictor           HR   CI lower   CI upper          p
 ----------------------------------------------------------------------
-     _iivw_exog_sdmt_lag1        0.956      0.937      0.975     <0.001
-   _iivw_exog_relapse_lag1       1.043      0.923      1.179      0.501
+   Observed SDMT score (lag 1)    0.956     0.937      0.975     <0.001
+   Recent relapse (lag 1)        1.043      0.923      1.179      0.501
 ----------------------------------------------------------------------
 Joint test p-value:   0.0001
 Interpretation: lagged predictors are associated with visit timing.
@@ -639,8 +643,8 @@ Interpretation: lagged predictors are associated with visit timing.
 By group: tx = NTZ-like
                 Predictor           HR   CI lower   CI upper          p
 ----------------------------------------------------------------------
-     _iivw_exog_sdmt_lag1        0.947      0.936      0.958     <0.001
-   _iivw_exog_relapse_lag1       0.957      0.897      1.020      0.175
+   Observed SDMT score (lag 1)    0.947     0.936      0.958     <0.001
+   Recent relapse (lag 1)        0.957      0.897      1.020      0.175
 ----------------------------------------------------------------------
 Joint test p-value:   0.0000
 Interpretation: lagged predictors are associated with visit timing.
@@ -653,6 +657,16 @@ Minimum p-value:     0.0000
 Minimum joint p:     0.0000
 Conclusion:        evidence that lagged predictors are associated with visit timing
 ----------------------------------------------------------------------
+
+```
+
+```stata
+. display as text "Exogeneity export: " as result "xlsx() sheet `r(sheet)' decimals "
+>     as result %2.0f r(decimals)
+```
+
+```
+Exogeneity export: xlsx() sheet Exogeneity decimals  3
 
 ```
 
@@ -852,8 +866,8 @@ Log likelihood = -5907.4017                             Prob > chi2   = 1.0000
           tx |          1    .056885     0.00   1.000      .894498    1.117946
 ------------------------------------------------------------------------------
 (320 real changes made)
-(file /tmp/St3243624.000002 not found)
-file /tmp/St3243624.000002 saved as .dta format
+(file /tmp/St2295571.000002 not found)
+file /tmp/St2295571.000002 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -879,8 +893,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St3243624.000004 not found)
-file /tmp/St3243624.000004 saved as .dta format
+(file /tmp/St2295571.000004 not found)
+file /tmp/St2295571.000004 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 27 observations (12 low, 15 high)
 

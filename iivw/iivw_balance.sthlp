@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  28may2026}{...}
+{* *! version 1.4.0  29may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -126,10 +126,10 @@ intervals.
 
 {phang}
 {opt xlsx(filename)} writes the balance table to an Excel {cmd:.xlsx}
-workbook.  The exported rows match {cmd:r(balance)} with a leading
-{cmd:covariate} column.  The worksheet is formatted with a merged title,
-readable column labels, numeric cell formats, column widths, header shading,
-borders, and an explanatory footnote.
+workbook.  The exported worksheet uses a tabtools-style layout with a merged
+title, grouped headers, readable statistic labels, variable-label row headers
+when available, column widths, borders, and an explanatory footnote.  The
+numeric values are rendered from {cmd:r(balance)} for presentation.
 
 {phang}
 {opt excel(filename)} is a synonym for {opt xlsx()}.
@@ -277,6 +277,6 @@ AG-refit view.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.1, 2026-05-28{p_end}
+{pstd}Version 1.4.0, 2026-05-29{p_end}
 
 {hline}
