@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.0.2  2026/05/17
+*! _psdash_balance_binary Version 1.1.0  2026/05/29
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

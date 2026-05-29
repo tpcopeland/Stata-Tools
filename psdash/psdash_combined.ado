@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.0.2  2026/05/17
+*! psdash_combined Version 1.1.0  2026/05/29
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -79,6 +79,10 @@ program define psdash_combined, rclass
     local source "`_psd_source'"
     local method "`_psd_method'"
     local contract_version "`_psd_contract_version'"
+    local iivw_component "`_psd_iivw_component'"
+    local iivw_treatment_wvar "`_psd_iivw_treatment_wvar'"
+    local iivw_final_wvar "`_psd_iivw_final_wvar'"
+    local iivw_visit_wvar "`_psd_iivw_visit_wvar'"
     local longitudinal "`_psd_longitudinal'"
     local idvar "`_psd_id'"
     local period "`_psd_period'"
@@ -115,6 +119,9 @@ program define psdash_combined, rclass
     * Use detected weights if not explicitly provided
     if "`wvar'" == "" & "`det_wvar'" != "" {
         local wvar "`det_wvar'"
+    }
+    if "`source'" == "iivw" & "`iivw_component'" == "" {
+        local iivw_component "treatment"
     }
 
     if "`longitudinal'" == "1" {
@@ -208,7 +215,16 @@ program define psdash_combined, rclass
         display as text "Weights:       " as result "`wvar_label'"
     }
     display as text "Estimand:      " as result strupper("`estimand'")
-    display as text "Source:        " as result "`source'"
+    local source_label "`source'"
+    local component_label ""
+    if "`source'" == "iivw" {
+        local source_label "iivw treatment model"
+        local component_label "treatment IPTW (`wvar')"
+    }
+    display as text "Source:        " as result "`source_label'"
+    if "`component_label'" != "" {
+        display as text "Weight component: " as result "`component_label'"
+    }
 
     * Track which graphs to combine and verdict status
     local graph_list ""
@@ -327,8 +343,12 @@ program define psdash_combined, rclass
     * Store shared return values
     return local treatment "`treatment'"
     return local psvar "`psvar_label'"
+    return local wvar "`wvar'"
     return local estimand "`estimand'"
     return local source "`source'"
+    if "`iivw_component'" != "" {
+        return local iivwcomponent "`iivw_component'"
+    }
     if "`multigroup'" != "0" {
         return local levels "`levels'"
         return local reference "`reference_grp'"

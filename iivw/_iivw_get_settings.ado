@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 1.4.0  2026/05/29
+*! _iivw_get_settings Version 1.5.0  2026/05/29
 *! Retrieve stored metadata from dataset characteristics
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -13,7 +13,13 @@ program define _iivw_get_settings, rclass
     local weighttype : char _dta[_iivw_weighttype]
     local weight_var : char _dta[_iivw_weight_var]
     local prefix     : char _dta[_iivw_prefix]
+    local iw_var     : char _dta[_iivw_iw_var]
+    local tw_var     : char _dta[_iivw_tw_var]
+    local ps_var     : char _dta[_iivw_ps_var]
     local treat      : char _dta[_iivw_treat]
+    local treat_covars : char _dta[_iivw_treat_covars]
+    local ps_estimand : char _dta[_iivw_ps_estimand]
+    local contract_version : char _dta[_iivw_contract_version]
     local visit_covars : char _dta[_iivw_visit_covars]
 
     if "`prefix'" == "" local prefix "_iivw_"
@@ -23,7 +29,13 @@ program define _iivw_get_settings, rclass
     return local weighttype "`weighttype'"
     return local weight_var "`weight_var'"
     return local prefix "`prefix'"
+    return local iw_var "`iw_var'"
+    return local tw_var "`tw_var'"
+    return local ps_var "`ps_var'"
     return local treat "`treat'"
+    return local treat_covars "`treat_covars'"
+    return local ps_estimand "`ps_estimand'"
+    return local contract_version "`contract_version'"
     return local visit_covars "`visit_covars'"
 
     }

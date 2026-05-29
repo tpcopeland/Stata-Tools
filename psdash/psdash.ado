@@ -1,4 +1,4 @@
-*! psdash Version 1.0.2  2026/05/17
+*! psdash Version 1.1.0  2026/05/29
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -70,7 +70,7 @@ program define _psdash_overview
     display as text ""
     display as text "Usage:"
     display as text "  {cmd:psdash} {it:subcmd} [{it:treatment}] [{it:psvar}] [{cmd:,} {it:options}]"
-    display as text "  After {cmd:teffects}, treatment and PS are auto-detected."
+    display as text "  After {cmd:teffects} or {cmd:iivw_weight}, treatment and PS are auto-detected."
     display as text ""
     display as text "Subcommands:"
     display as text "  {cmd:psdash overlap}    PS density/histogram by treatment group"

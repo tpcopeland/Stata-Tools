@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.3** | 2026-05-06
+**Version 1.0.4** | 2026-05-29
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -105,6 +105,7 @@ always-treated strategy versus the never-treated strategy?
 | `msm_plot` | Draw weight density, Love plot, survival curves, trajectory, and positivity plots |
 | `msm_report` | Produce a compact publication-style results table (console, CSV, or Excel) |
 | `msm_table` | Export multi-sheet Excel workbook with all pipeline results |
+| `msm_diagtab` | Export an accumulated cross-contrast weight-diagnostics summary (one row per contrast) to Excel |
 | `msm_sensitivity` | Compute E-values and confounding-bound sensitivity summaries |
 
 ## How It Works
@@ -397,6 +398,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.0.4** (2026-05-29): Added cross-contrast weight diagnostics: `msm_diagnose` gains `accumulate()`/`contrast()`/`outcome()` to append one summary row per weighted panel to a frame, and the new `msm_diagtab` command exports that accumulated frame as a single styled Excel sheet
 - **1.0.3** (2026-05-06): Added explicit `msm_fit` `vce()` control, Cox `strata()` support, and external R/Python validation of robust and clustered standard errors
 - **1.0.2** (2026-05-06): Added adversarial QA for state invalidation, missing treatment/censoring weights, output export restoration, and clarified binary-outcome model scope
 - **1.0.1** (2026-04-30): Hardened validation edge cases, time-fixed outcome-covariate enforcement, Cox guidance, and protocol export escaping

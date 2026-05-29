@@ -1,4 +1,4 @@
-*! _psdash_validate_psvars Version 1.0.2  2026/05/17
+*! _psdash_validate_psvars Version 1.1.0  2026/05/29
 *! Validate multi-group propensity-score variable lists
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

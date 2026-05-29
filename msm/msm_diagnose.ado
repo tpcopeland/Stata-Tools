@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.0.3  2026/05/06
+*! msm_diagnose Version 1.0.4  2026/05/29
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -16,6 +16,9 @@ Options:
   balance_covariates(varlist)  - Covariates for balance assessment
   by_period                    - Show weight stats by period
   threshold(#)                 - SMD threshold for balance (default: 0.1)
+  accumulate(name)             - Append a one-row summary to a named frame
+  contrast(string)             - Contrast label for the accumulate row (required)
+  outcome(string)              - Outcome label for the accumulate row
 
 See help msm_diagnose for complete documentation
 */
@@ -29,7 +32,19 @@ program define msm_diagnose, rclass
 
     capture noisily {
 
-    syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1)]
+    syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1) ///
+              ACCUMulate(name) CONTrast(string) OUTcome(string)]
+
+    * contrast() identifies the accumulate row and is required with accumulate()
+    if "`accumulate'" != "" & `"`contrast'"' == "" {
+        display as error "contrast() is required with accumulate()"
+        exit 198
+    }
+
+    * Preserve the accumulate labels before the internal `outcome' local (set
+    * from _msm_outcome below) clobbers the user-supplied outcome() option.
+    local _acc_contrast `"`contrast'"'
+    local _acc_outcome  `"`outcome'"'
 
     * Check prerequisites
     _msm_check_prepared
@@ -239,6 +254,23 @@ program define msm_diagnose, rclass
         return matrix balance = `bal_matrix'
     }
 
+    * Cross-contrast balance summaries for accumulate(); populated only when
+    * balance was assessed, otherwise left missing.  n_imbalanced reuses the
+    * count already shown above so the summary matches the displayed table.
+    local _diag_nimb = .
+    local _diag_maxabs = .
+    if "`balance_covariates'" != "" {
+        local _diag_nimb = `n_imbalanced'
+        local _diag_maxabs = 0
+        local _R = rowsof(_msm_bal_matrix)
+        forvalues _i = 1/`_R' {
+            local _s = abs(_msm_bal_matrix[`_i', 2])
+            if `_s' < . {
+                if `_s' > `_diag_maxabs' local _diag_maxabs = `_s'
+            }
+        }
+    }
+
     display as text ""
     display as text "{hline 70}"
 
@@ -267,6 +299,26 @@ program define msm_diagnose, rclass
     char _dta[_msm_diag_ess] "`ess'"
     char _dta[_msm_diag_ess_pct] "`ess_pct'"
     char _dta[_msm_diag_saved] "1"
+
+    * =========================================================================
+    * CROSS-CONTRAST ACCUMULATION (optional)
+    * =========================================================================
+    * Append one summary row per call to a named frame, creating it with the
+    * fixed schema on first use.  Values come from the locals computed above
+    * (the return-list scalars are not yet in r() inside this program).
+    if "`accumulate'" != "" {
+        capture frame `accumulate': describe
+        if _rc {
+            frame create `accumulate' ///
+                str80 contrast str40 outcome ///
+                double(n_obs ess ess_pct max_weight p99_weight n_extreme ///
+                       n_imbalanced max_abs_smd)
+        }
+        frame post `accumulate' ///
+            (`"`_acc_contrast'"') (`"`_acc_outcome'"') ///
+            (`n_total') (`ess') (`ess_pct') (`w_max') (`w_p99') ///
+            (`n_extreme') (`_diag_nimb') (`_diag_maxabs')
+    }
 
     } /* end capture noisily */
     local _rc = _rc

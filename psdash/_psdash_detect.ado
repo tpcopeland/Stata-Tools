@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.0.2  2026/05/17
+*! _psdash_detect Version 1.1.0  2026/05/29
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -316,7 +316,118 @@ program define _psdash_detect
     }
 
     * -----------------------------------------------------------------
-    * Strategy 1b: Auto-detect from cross-sectional tmle contract state
+    * Strategy 1b: Auto-detect from iivw dataset contract
+    * -----------------------------------------------------------------
+    if `nargs' == 0 & "`psvars'" == "" {
+        local iivw_weighted : char _dta[_iivw_weighted]
+        if "`iivw_weighted'" == "1" {
+            local iivw_wtype : char _dta[_iivw_weighttype]
+            local iivw_wtype = strlower("`iivw_wtype'")
+
+            if !inlist("`iivw_wtype'", "iptw", "fiptiw") {
+                display as error "last iivw_weight run has no treatment propensity-score component"
+                display as error "  use iivw_balance for visit-intensity diagnostics"
+                display as error "  or rerun iivw_weight with treat() and treat_cov() for IPTW/FIPTIW diagnostics"
+                exit 198
+            }
+
+            local iivw_treat : char _dta[_iivw_treat]
+            local iivw_psvar : char _dta[_iivw_ps_var]
+            local iivw_twvar : char _dta[_iivw_tw_var]
+            local iivw_iwvar : char _dta[_iivw_iw_var]
+            local iivw_wvar_final : char _dta[_iivw_weight_var]
+            local iivw_covars : char _dta[_iivw_treat_covars]
+            local iivw_estimand : char _dta[_iivw_ps_estimand]
+            local iivw_contract : char _dta[_iivw_contract_version]
+
+            if "`iivw_treat'" == "" {
+                display as error "iivw contract does not identify a treatment variable"
+                exit 198
+            }
+            confirm variable `iivw_treat'
+            confirm numeric variable `iivw_treat'
+
+            if "`iivw_psvar'" == "" {
+                display as error "iivw contract does not identify a treatment propensity score variable"
+                exit 198
+            }
+            confirm variable `iivw_psvar'
+            confirm numeric variable `iivw_psvar'
+
+            if "`iivw_covars'" == "" {
+                display as error "iivw contract does not identify treatment-model covariates"
+                exit 198
+            }
+            foreach _iivw_cov of local iivw_covars {
+                confirm variable `_iivw_cov'
+                confirm numeric variable `_iivw_cov'
+            }
+
+            if "`iivw_twvar'" == "" {
+                display as error "iivw contract does not identify the treatment weight variable"
+                exit 198
+            }
+            confirm variable `iivw_twvar'
+            confirm numeric variable `iivw_twvar'
+
+            if "`iivw_wvar_final'" != "" {
+                confirm variable `iivw_wvar_final'
+                confirm numeric variable `iivw_wvar_final'
+            }
+            if "`iivw_iwvar'" != "" {
+                confirm variable `iivw_iwvar'
+                confirm numeric variable `iivw_iwvar'
+            }
+
+            local _sv_levelsof ""
+            if "`samplevar'" != "" local _sv_levelsof "if `samplevar'"
+            quietly levelsof `iivw_treat' `_sv_levelsof', local(_trt_levels)
+            local _K : word count `_trt_levels'
+            if `_K' < 2 {
+                display as error "treatment must have at least 2 levels"
+                exit 198
+            }
+            if `_K' != 2 {
+                display as error "iivw propensity diagnostics require binary 0/1 treatment"
+                exit 198
+            }
+            local _lev1 : word 1 of `_trt_levels'
+            local _lev2 : word 2 of `_trt_levels'
+            if !("`_lev1'" == "0" & "`_lev2'" == "1") {
+                display as error "iivw propensity diagnostics require binary 0/1 treatment"
+                exit 198
+            }
+
+            local iivw_wvar "`wvar'"
+            local iivw_wvar_auto "0"
+            if "`iivw_wvar'" == "" local iivw_wvar "`iivw_twvar'"
+
+            if "`iivw_estimand'" == "" local iivw_estimand "ate"
+            local iivw_estimand = strlower("`iivw_estimand'")
+
+            c_local _psd_treatment "`iivw_treat'"
+            c_local _psd_psvar "`iivw_psvar'"
+            c_local _psd_psvar_auto "0"
+            c_local _psd_covariates "`iivw_covars'"
+            c_local _psd_wvar "`iivw_wvar'"
+            c_local _psd_wvar_auto "`iivw_wvar_auto'"
+            c_local _psd_source "iivw"
+            c_local _psd_estimand "`iivw_estimand'"
+            c_local _psd_contract_version "`iivw_contract'"
+            c_local _psd_multigroup "0"
+            c_local _psd_K "2"
+            c_local _psd_levels "0 1"
+            c_local _psd_reference "0"
+            c_local _psd_iivw_component "treatment"
+            c_local _psd_iivw_treatment_wvar "`iivw_twvar'"
+            c_local _psd_iivw_final_wvar "`iivw_wvar_final'"
+            c_local _psd_iivw_visit_wvar "`iivw_iwvar'"
+            exit
+        }
+    }
+
+    * -----------------------------------------------------------------
+    * Strategy 1c: Auto-detect from cross-sectional tmle contract state
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "tmle" {
         local tmle_treatment "`e(treatment)'"
@@ -495,7 +606,7 @@ program define _psdash_detect
     }
 
     * -----------------------------------------------------------------
-    * Strategy 1c: Auto-detect from longitudinal ltmle contract state
+    * Strategy 1d: Auto-detect from longitudinal ltmle contract state
     * -----------------------------------------------------------------
     if "`e(cmd)'" == "ltmle" {
         if "`allowlongitudinal'" == "" {

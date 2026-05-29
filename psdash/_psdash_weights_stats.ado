@@ -1,4 +1,4 @@
-*! _psdash_weights_stats Version 1.0.2  2026/05/17
+*! _psdash_weights_stats Version 1.1.0  2026/05/29
 *! IPTW weight summary and ESS statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

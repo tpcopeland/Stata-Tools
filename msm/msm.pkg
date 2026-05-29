@@ -10,7 +10,7 @@ d regression adjustment fails.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260506
+d Distribution-Date: 20260529
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -47,6 +47,8 @@ f msm_sensitivity.ado
 f msm_sensitivity.sthlp
 f msm_table.ado
 f msm_table.sthlp
+f msm_diagtab.ado
+f msm_diagtab.sthlp
 f _msm_tbl_coef.ado
 f _msm_tbl_pred.ado
 f _msm_tbl_bal.ado

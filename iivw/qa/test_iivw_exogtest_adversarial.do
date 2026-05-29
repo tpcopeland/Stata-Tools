@@ -324,7 +324,8 @@ if `run_only' == 0 | `run_only' == 8 {
         assert "`r(by)'" == "arm"
         assert "`r(group_labels)'" == "control|treated"
         assert "`r(lagvars)'" == "byx_y_lag1"
-        assert "`r(term_labels)'" == "byx_y_lag1"
+        assert "`r(term_labels)'" == "y (lag 1)"
+        assert "`r(result_row_labels)'" == " g1_t1 g2_t1"
         assert "`r(result_columns)'" == "group_index term_index b se z p hr lb ub N n_ids"
 
         matrix R = r(results)

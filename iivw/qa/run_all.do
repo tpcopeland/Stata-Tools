@@ -46,6 +46,7 @@ else {
         test_iivw_performance ///
         test_iivw_weight_validation_guards ///
         test_iivw_weight_adversarial ///
+        test_iivw_psdash_contract ///
         test_iivw_fit_adversarial ///
         test_iivw_fit_unweighted ///
         test_iivw_exogtest ///

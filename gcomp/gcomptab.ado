@@ -1,41 +1,67 @@
-*! gcomptab Version 1.1.2  2026/05/06
-*! Format gcomp mediation analysis results for Excel export
+*! gcomptab Version 1.2.0  2026/05/29
+*! Format gcomp mediation or time-varying dose-response results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 DESCRIPTION:
-    Formats gcomp (parametric g-formula for causal mediation) results into
-    polished Excel tables. Exports point estimates, 95% CIs, and standard errors
-    with professional formatting.
+    Formats gcomp (parametric g-formula) results into polished Excel tables.
+    Two modes:
 
-    gcomp is a user-written command for causal mediation analysis that uses
-    Monte Carlo simulation to estimate total causal effects (TCE), natural direct
-    effects (NDE), natural indirect effects (NIE), proportion mediated (PM),
-    and controlled direct effects (CDE).
+    MEDIATION (default): formats causal-mediation output - total causal effect
+    (TCE), natural direct effect (NDE), natural indirect effect (NIE), proportion
+    mediated (PM), and controlled direct effect (CDE).
+
+    DOSE-RESPONSE: formats time-varying confounding output (gcomp ...,
+    interventions(...)) into a per-strategy table - one row per intervention with
+    the counterfactual risk (PO), its 95% CI, an optional implied mean cumulative
+    exposure-years column, and a risk-difference-vs-reference column. Selected with
+    the doseresponse option, or auto-detected when e(b) has PO# columns and no tce
+    column.
 
 SYNTAX:
     gcomptab, xlsx(string) sheet(string) [ci(string) effect(string) title(string)
               labels(string) decimal(integer) font(string) fontsize(integer)
               borderstyle(string) zebra footnote(string) open boldp(real)
-              highlight(real)]
+              highlight(real)
+              doseresponse strategylabels(string) expyears(numlist)
+              reference(integer) nord]
 
     xlsx:    Required. Excel file name (requires .xlsx suffix)
     sheet:   Required. Excel sheet name
     ci:      CI type: normal, percentile, bc, or bca (default: normal)
-    effect:  Label for effect column (default: "Estimate")
+    effect:  Label for effect column (mediation default "Estimate";
+             dose-response default "Risk")
     title:   Table title for cell A1
-    labels:  Custom labels for effects, separated by backslash
+    labels:  Custom labels for mediation effects, separated by backslash
              (default: "TCE \ NDE \ NIE \ PM \ CDE")
     decimal: Decimal places for estimates (default: 3)
 
+    Dose-response only:
+    doseresponse:    Force the dose-response branch.
+    strategylabels:  Backslash-separated strategy labels, one per PO# column;
+                     unlabeled columns default to "PO#".
+    expyears:        Implied mean cumulative exposure-years, one per PO# column
+                     (adds a "Mean exposure-years" column when supplied).
+    reference:       PO index used as the risk-difference reference (default 1).
+    nord:            Suppress the risk-difference-vs-reference column.
+
 PREREQUISITES:
-    Run gcomp first. gcomptab reads from e() results posted by gcomp:
+    Run gcomp first. gcomptab reads from e() results posted by gcomp.
+
+    Mediation mode:
     - e(b)[1,N]          - point estimates (cols: tce, nde, nie, pm, [cde])
     - e(se)[1,N]         - standard errors
     - e(ci_normal)[2,N]  - normal CIs (row 1=lower, row 2=upper)
     - e(ci_percentile), e(ci_bc), e(ci_bca) - alternative CI matrices
     - e(cmd) == "gcomp", e(analysis_type) == "mediation"
+
+    Dose-response mode:
+    - e(b)[1,N]          - contains PO1..POk counterfactual mean outcomes (the
+                           last PO column is the simulated observed regime, so
+                           k = #interventions + 1)
+    - e(ci_normal)[2,N]  - matching CIs (or e(ci_percentile) with ci(percentile))
+    - e(cmd) == "gcomp", e(analysis_type) == "time_varying"
 
 EXAMPLES:
     * After running gcomp
@@ -63,7 +89,8 @@ capture noisily {
     syntax, xlsx(string) sheet(string) [ci(string) effect(string) title(string) ///
             labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
             BORDERstyle(string) ZEBRA FOOTnote(string) OPEN BOLDp(real 0) ///
-            HIGHlight(real 0)]
+            HIGHlight(real 0) DOSEresponse STRATEGYlabels(string) ///
+            EXPYears(numlist) REFerence(integer 1) noRD]
 
     * Auto-load bundled Excel helpers on demand
     capture _gcomp_xl_helpers_ready
@@ -86,6 +113,30 @@ capture noisily {
     }
     _gcomp_xl_require_helpers
 
+    * ----- Mode detection: dose-response (time-varying PO#) vs mediation -----
+    local _drmode 0
+    capture confirm matrix e(b)
+    if _rc == 0 {
+        tempname _eb_peek
+        matrix `_eb_peek' = e(b)
+        local _has_po1 = (colnumb(`_eb_peek', "PO1") != .)
+        local _has_tce = (colnumb(`_eb_peek', "tce") != .)
+        if "`doseresponse'" != "" local _drmode 1
+        else if `_has_po1' & !`_has_tce' local _drmode 1
+    }
+    else if "`doseresponse'" != "" {
+        local _drmode 1
+    }
+
+    if `_drmode' {
+        _gcomptab_doseresponse, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
+            effect(`"`effect'"') title(`"`title'"') decimal(`decimal') ///
+            font(`"`font'"') fontsize(`fontsize') borderstyle(`"`borderstyle'"') ///
+            reference(`reference') `rd' strategylabels(`"`strategylabels'"') ///
+            expyears(`expyears') `zebra' footnote(`"`footnote'"') `open'
+        return add
+    }
+    else {
 quietly {
     _gcomptab_validate, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         effect(`"`effect'"') decimal(`decimal') font(`"`font'"') ///
@@ -168,6 +219,7 @@ quietly {
         nie(`nie') pm(`pm') cde(`cde')
     return add
 }
+    }
 } /* end capture noisily */
 local _gc_rc = _rc
 set varabbrev `_gc_varabbrev'
@@ -651,6 +703,392 @@ program define _gcomptab_post_returns, rclass
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
     return local ci "`ci'"
+end
+
+* =============================================================================
+* Time-varying dose-response branch
+* =============================================================================
+
+capture program drop _gcomptab_doseresponse
+program define _gcomptab_doseresponse, rclass
+    version 16.0
+    syntax, XLSX(string) SHEET(string) REFerence(integer) DECimal(integer) ///
+        FONTSize(integer) [CI(string) EFFECT(string) TITLE(string) Font(string) ///
+        BORDERstyle(string) STRATEGYlabels(string) EXPYears(numlist) noRD ///
+        ZEBRA FOOTnote(string) OPEN]
+
+    _gcomptab_dr_validate, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
+        effect(`"`effect'"') decimal(`decimal') font(`"`font'"') ///
+        fontsize(`fontsize') borderstyle(`"`borderstyle'"')
+    local ci "`r(ci)'"
+    local effect "`r(effect)'"
+    local font "`r(font)'"
+    local borderstyle "`r(borderstyle)'"
+    local _hborder "`r(hborder)'"
+    local k = r(k)
+
+    if `reference' < 1 | `reference' > `k' {
+        noisily display as error "reference() must be between 1 and `k' (number of PO# columns)"
+        exit 198
+    }
+
+    tempname _drtab
+    local _pres 0
+    preserve
+    local _pres 1
+    capture noisily {
+        _gcomptab_dr_build, ci(`"`ci'"') k(`k') decimal(`decimal') ///
+            reference(`reference') effect(`"`effect'"') title(`"`title'"') ///
+            strategylabels(`"`strategylabels'"') expyears(`expyears') `rd'
+        local num_rows = r(num_rows)
+        local num_cols = r(num_cols)
+        local strat_width = r(strat_width)
+        local risk_width = r(risk_width)
+        local has_exp = r(has_exp)
+        local has_rd = r(has_rd)
+        local ref_label `"`r(ref_label)'"'
+        matrix `_drtab' = r(table)
+
+        * Default footnote: g-formula MC settings + reference strategy
+        if `"`footnote'"' == "" {
+            local _fn "Counterfactual cumulative incidence under each sustained-treatment strategy from the parametric g-formula"
+            if "`e(MC_sims)'" != "" {
+                local _fn `"`_fn' (`e(MC_sims)' Monte Carlo simulations"'
+                if "`e(samples)'" != "" local _fn `"`_fn', `e(samples)' bootstrap samples"'
+                local _fn `"`_fn')"'
+            }
+            local _fn `"`_fn'. Risk difference shown versus reference strategy: `ref_label'."'
+            local footnote `"`_fn'"'
+        }
+
+        _gcomptab_write_excel, xlsx(`"`xlsx'"') sheet(`"`sheet'"')
+        _gcomptab_dr_style, xlsx(`"`xlsx'"') sheet(`"`sheet'"') rows(`num_rows') ///
+            cols(`num_cols') stratwidth(`strat_width') riskwidth(`risk_width') ///
+            hasexp(`has_exp') hasrd(`has_rd') font(`"`font'"') fontsize(`fontsize') ///
+            borderstyle(`"`borderstyle'"') hborder(`"`_hborder'"') `zebra' ///
+            footnote(`"`footnote'"')
+    }
+    local _dr_rc = _rc
+    if `_pres' capture restore
+    if `_dr_rc' exit `_dr_rc'
+
+    if "`open'" != "" {
+        _gcomp_xl_open "`xlsx'"
+    }
+
+    return scalar k = `k'
+    return scalar reference = `reference'
+    return local xlsx "`xlsx'"
+    return local sheet "`sheet'"
+    return local ci "`ci'"
+    return local ref_label `"`ref_label'"'
+    return matrix table = `_drtab'
+end
+
+capture program drop _gcomptab_dr_validate
+program define _gcomptab_dr_validate, rclass
+    version 16.0
+    syntax, XLSX(string) SHEET(string) DECimal(integer) FONTSIZE(integer) ///
+        [CI(string) EFFECT(string) FONT(string) BORDERSTYLE(string)]
+
+    if "`ci'" == "" local ci "normal"
+    if "`effect'" == "" local effect "Risk"
+    if "`font'" == "" local font "Arial"
+    if "`borderstyle'" == "" local borderstyle "academic"
+    local hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
+
+    if "`e(cmd)'" != "gcomp" {
+        noisily display as error "No gcomp results found"
+        noisily display as error "Run {bf:gcomp} with {bf:interventions()} first"
+        exit 119
+    }
+    capture confirm matrix e(b)
+    if _rc != 0 {
+        noisily display as error "No gcomp results found in e(b)"
+        exit 119
+    }
+
+    tempname eb
+    matrix `eb' = e(b)
+    local k 0
+    local _i 1
+    while colnumb(`eb', "PO`_i'") != . {
+        local k = `_i'
+        local ++_i
+    }
+    if `k' == 0 {
+        noisily display as error "e(b) has no PO# columns"
+        noisily display as error "doseresponse requires a time-varying gcomp result (interventions())"
+        noisily display as error "For mediation output, omit doseresponse"
+        exit 198
+    }
+
+    if !inlist("`ci'", "normal", "percentile", "bc", "bca") {
+        noisily display as error "ci() must be normal, percentile, bc, or bca"
+        exit 198
+    }
+    capture confirm matrix e(ci_`ci')
+    if _rc != 0 {
+        noisily display as error "CI matrix ci_`ci' not found in e()"
+        noisily display as error "Available CI types depend on gcomp bootstrap options"
+        exit 111
+    }
+    tempname cimat
+    matrix `cimat' = e(ci_`ci')
+    if rowsof(`cimat') != 2 | colnumb(`cimat', "PO1") == . {
+        noisily display as error "CI matrix ci_`ci' has unexpected shape"
+        exit 198
+    }
+
+    if !strmatch("`xlsx'", "*.xlsx") {
+        noisily display as error "Excel filename must have .xlsx extension"
+        exit 198
+    }
+    _gcomp_validate_path "`xlsx'" "xlsx()"
+    _gcomp_validate_path "`sheet'" "sheet()"
+    _gcomp_xl_validate_sheet "`sheet'" "sheet()"
+    if `decimal' < 1 | `decimal' > 6 {
+        noisily display as error "decimal() must be between 1 and 6"
+        exit 198
+    }
+    _gcomp_validate_path "`font'" "font()"
+    if `fontsize' < 1 | `fontsize' > 72 {
+        noisily display as error "fontsize() must be between 1 and 72"
+        exit 198
+    }
+    if !inlist("`borderstyle'", "academic", "thin", "medium") {
+        noisily display as error "borderstyle() must be academic, thin, or medium"
+        exit 198
+    }
+
+    return scalar k = `k'
+    return local ci "`ci'"
+    return local effect "`effect'"
+    return local font "`font'"
+    return local borderstyle "`borderstyle'"
+    return local hborder "`hborder'"
+end
+
+capture program drop _gcomptab_dr_build
+program define _gcomptab_dr_build, rclass
+    version 16.0
+    syntax, CI(string) K(integer) DECimal(integer) REFerence(integer) ///
+        [EFFECT(string) TITLE(string) STRATEGYlabels(string) EXPYears(numlist) noRD]
+
+    if "`effect'" == "" local effect "Risk"
+    local has_rd = ("`rd'" != "nord")
+
+    tempname eb cimat
+    matrix `eb' = e(b)
+    matrix `cimat' = e(ci_`ci')
+
+    * Strategy labels (backslash-delimited; unlabeled columns default to PO#)
+    local labels : subinstr local strategylabels " \ " "\", all
+    local labels : subinstr local labels "\  " "\", all
+    local labels : subinstr local labels "  \" "\", all
+    tokenize `"`labels'"', parse("\")
+    forvalues i = 1/`k' {
+        local _p = 2*`i' - 1
+        local lab`i' `"``_p''"'
+        if `"`lab`i''"' == "" local lab`i' "PO`i'"
+    }
+
+    * Implied mean exposure-years (optional, one per PO#)
+    local n_exp : word count `expyears'
+    if `n_exp' > `k' {
+        noisily display as error "expyears() has `n_exp' value(s) but the result has `k' PO# column(s)"
+        exit 198
+    }
+    local has_exp = (`n_exp' > 0)
+
+    * Reference risk
+    local _ref_col = colnumb(`eb', "PO`reference'")
+    local risk_ref = `eb'[1, `_ref_col']
+    local ref_label `"`lab`reference''"'
+
+    * r(table): one row per strategy
+    tempname _T
+    matrix `_T' = J(`k', 5, .)
+    local _rn ""
+    forvalues i = 1/`k' {
+        local _col = colnumb(`eb', "PO`i'")
+        matrix `_T'[`i', 1] = `eb'[1, `_col']
+        matrix `_T'[`i', 2] = `cimat'[1, `_col']
+        matrix `_T'[`i', 3] = `cimat'[2, `_col']
+        local _ev = .
+        if `i' <= `n_exp' {
+            local _evtok : word `i' of `expyears'
+            local _ev = `_evtok'
+        }
+        matrix `_T'[`i', 4] = `_ev'
+        matrix `_T'[`i', 5] = `eb'[1, `_col'] - `risk_ref'
+        local _rn "`_rn' PO`i'"
+    }
+    matrix colnames `_T' = risk ci_lower ci_upper exp_years rd
+    matrix rownames `_T' = `=strtrim("`_rn'")'
+
+    * Export dataset (mirrors mediation geometry: A1 title, row 2 header, data)
+    local fmt "%9.`decimal'f"
+    clear
+    set obs `=`k' + 2'
+    gen str244 pad = ""
+    gen str244 strat = ""
+    gen str40 expcol = ""
+    gen str60 riskcol = ""
+    gen str30 rdcol = ""
+
+    replace pad = `"`title'"' in 1
+
+    replace strat = "Strategy" in 2
+    if `has_exp' replace expcol = "Mean exposure-years" in 2
+    replace riskcol = "`effect' (95% CI)" in 2
+    if `has_rd' replace rdcol = "RD vs ref" in 2
+
+    forvalues i = 1/`k' {
+        local _r = `i' + 2
+        replace strat = `"`lab`i''"' in `_r'
+        local _risk = `_T'[`i', 1]
+        local _ll = `_T'[`i', 2]
+        local _ul = `_T'[`i', 3]
+        replace riskcol = string(`_risk', "`fmt'") + " (" + string(`_ll', "`fmt'") + ", " + string(`_ul', "`fmt'") + ")" in `_r'
+        if `has_exp' {
+            local _ev = `_T'[`i', 4]
+            if `_ev' != . replace expcol = string(`_ev', "%9.0g") in `_r'
+        }
+        if `has_rd' {
+            local _rdv = `_T'[`i', 5]
+            replace rdcol = string(`_rdv', "`fmt'") in `_r'
+        }
+    }
+
+    if !`has_exp' drop expcol
+    if !`has_rd' drop rdcol
+
+    gen _ls = length(strat)
+    quietly summarize _ls
+    local strat_width = max(`r(max)', 12)
+    gen _lr = length(riskcol)
+    quietly summarize _lr
+    local risk_width = max(`r(max)', 18)
+    drop _ls _lr
+
+    return scalar num_rows = _N
+    return scalar num_cols = 3 + `has_exp' + `has_rd'
+    return scalar strat_width = `strat_width'
+    return scalar risk_width = `risk_width'
+    return scalar has_exp = `has_exp'
+    return scalar has_rd = `has_rd'
+    return scalar k = `k'
+    return local ref_label `"`ref_label'"'
+    return matrix table = `_T'
+end
+
+capture program drop _gcomptab_dr_style
+program define _gcomptab_dr_style
+    version 16.0
+    syntax, XLSX(string) SHEET(string) ROWS(integer) COLS(integer) ///
+        STRATWIDTH(real) RISKWIDTH(real) HASEXP(integer) HASRD(integer) ///
+        FONT(string) FONTSIZE(integer) BORDERSTYLE(string) HBORDER(string) ///
+        [ZEBRA FOOTNOTE(string)]
+
+    * Column positions (col 1 = thin pad, col 2 = strategy label)
+    local c_strat 2
+    if `hasexp' {
+        local c_exp 3
+        local c_risk 4
+    }
+    else {
+        local c_risk 3
+    }
+    if `hasrd' local c_rd = `c_risk' + 1
+
+    * Reconstruct varlist matching column order for numeric conversion
+    local _varlist "pad strat"
+    if `hasexp' local _varlist "`_varlist' expcol"
+    local _varlist "`_varlist' riskcol"
+    if `hasrd' local _varlist "`_varlist' rdcol"
+
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 1)
+        mata: b.set_column_width(`c_strat', `c_strat', `=`stratwidth' * 0.9')
+        if `hasexp' mata: b.set_column_width(`c_exp', `c_exp', 18)
+        mata: b.set_column_width(`c_risk', `c_risk', `=`riskwidth' * 0.95')
+        if `hasrd' mata: b.set_column_width(`c_rd', `c_rd', 12)
+
+        forvalues _r = 3/`rows' {
+            forvalues _c = 3/`cols' {
+                local _vname : word `_c' of `_varlist'
+                local _cellstr = `_vname'[`_r']
+                if `"`_cellstr'"' == "" | `"`_cellstr'"' == "." continue
+                if strpos(`"`_cellstr'"', "(") > 0 continue
+                local _cellclean = subinstr(`"`_cellstr'"', ",", "", .)
+                local _cellnum = real("`_cellclean'")
+                if `_cellnum' != . {
+                    mata: b.put_number(`_r', `_c', `_cellnum')
+                }
+            }
+        }
+
+        mata: b.set_font((1,`rows'), (1,`cols'), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,`cols'), "`font'", `=`fontsize' + 2')
+
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,`cols'))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
+
+        mata: b.set_font_bold(2, (2,`cols'), "on")
+        mata: b.set_horizontal_align(2, (2,`cols'), "center")
+        mata: b.set_top_border(2, (2,`cols'), "`hborder'")
+        mata: b.set_bottom_border(2, (2,`cols'), "`hborder'")
+        mata: b.set_fill_pattern(2, (2,`cols'), "solid", "219 229 241")
+
+        mata: b.set_bottom_border(`rows', (2,`cols'), "`hborder'")
+
+        if "`borderstyle'" != "academic" {
+            mata: b.set_left_border((2,`rows'), 2, "`hborder'")
+            mata: b.set_right_border((2,`rows'), `cols', "`hborder'")
+        }
+
+        if `rows' >= 3 & `cols' >= 3 {
+            mata: b.set_horizontal_align((3,`rows'), (3,`cols'), "center")
+        }
+        mata: b.set_horizontal_align((3,`rows'), `c_strat', "left")
+
+        if "`zebra'" != "" {
+            forvalues _zr = 4(2)`rows' {
+                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "237 242 249")
+            }
+        }
+
+        if `"`footnote'"' != "" {
+            local _fn_row = `rows' + 1
+            local _fn_fontsize = max(`fontsize' - 2, 6)
+            mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`cols'))
+            mata: b.set_horizontal_align(`_fn_row', 2, "left")
+            mata: b.set_vertical_align(`_fn_row', 2, "center")
+            mata: b.set_text_wrap(`_fn_row', 2, "on")
+            mata: b.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
+            mata: b.set_font_italic(`_fn_row', 2, "on")
+        }
+
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 end
 
 *

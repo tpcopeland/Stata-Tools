@@ -1,4 +1,4 @@
-*! _msm_smd Version 1.0.3  2026/05/06
+*! _msm_smd Version 1.0.4  2026/05/29
 *! Compute standardized mean difference between treatment groups
 *! Author: Timothy P Copeland
 

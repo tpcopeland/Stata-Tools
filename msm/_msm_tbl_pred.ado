@@ -1,4 +1,4 @@
-*! _msm_tbl_pred Version 1.0.3  2026/05/06
+*! _msm_tbl_pred Version 1.0.4  2026/05/29
 program define _msm_tbl_pred, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

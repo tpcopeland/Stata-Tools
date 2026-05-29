@@ -13,6 +13,7 @@ local suite_files test_psdash.do validation_psdash.do validation_known_answers.d
     test_refactor_option_abbrev_contract.do ///
     test_refactor_return_contracts.do test_refactor_graph_export_failures.do ///
     test_tmle_ltmle_contract.do ///
+    test_iivw_contract.do ///
     test_multigroup_detect.do test_multigroup_overlap_support.do ///
     test_multigroup_balance_weights.do ///
     test_adversarial.do test_detect_dispatch_adversarial.do ///

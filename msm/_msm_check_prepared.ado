@@ -1,4 +1,4 @@
-*! _msm_check_prepared Version 1.0.3  2026/05/06
+*! _msm_check_prepared Version 1.0.4  2026/05/29
 *! Verify data has been through msm_prepare
 *! Author: Timothy P Copeland
 

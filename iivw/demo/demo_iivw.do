@@ -2,9 +2,10 @@
 
     Produces:
       1. Console output (FIPTIW diagnostic workflow) -> .log -> .md via logdoc
-      2. Excel tables (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
-      3. Excel table (categorical visit-wave interaction labels) -> .xlsx
-      4. Direct reporting exports from iivw_balance/iivw_exogtest/iivw_diagnose -> .xlsx sheets
+      2. psdash treatment-propensity and final-weight diagnostic graphs -> .png
+      3. Excel tables (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
+      4. Excel table (categorical visit-wave interaction labels) -> .xlsx
+      5. Direct reporting exports from iivw_balance/iivw_exogtest/iivw_diagnose -> .xlsx sheets
 
     Run from the Stata-Tools repository root:
       stata-mp -b do iivw/demo/demo_iivw.do
@@ -20,11 +21,15 @@ local repo_dir = regexr("`c(pwd)'", "/+$", "")
 local pkg_dir "iivw/demo"
 local xlsx "`pkg_dir'/iivw_results.xlsx"
 local export_xlsx "`pkg_dir'/iivw_reporting_exports.xlsx"
+local psdash_dashboard "`pkg_dir'/iivw_psdash_dashboard.png"
+local psdash_final_weights "`pkg_dir'/iivw_psdash_final_weights.png"
 capture mkdir "`pkg_dir'"
 capture erase "`pkg_dir'/console_output.log"
 capture erase "`pkg_dir'/console_output.md"
 capture erase "`pkg_dir'/console_output.html"
 capture erase "`pkg_dir'/console_output.png"
+capture erase "`psdash_dashboard'"
+capture erase "`psdash_final_weights'"
 capture erase "`xlsx'"
 capture erase "`export_xlsx'"
 capture erase "`pkg_dir'/iivw_balance.csv"
@@ -33,8 +38,13 @@ capture erase "`pkg_dir'/iivw_diagnostics.csv"
 **# Install packages from local source
 capture ado uninstall iivw
 quietly net install iivw, from("`repo_dir'/iivw") replace
+capture ado uninstall psdash
+quietly net install psdash, from("`repo_dir'/psdash") replace
 capture ado uninstall tabtools
 quietly net install tabtools, from("`repo_dir'/tabtools") replace
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`repo_dir'/tc_schemes") replace
+set scheme plotplainblind
 
 **# Generate synthetic longitudinal SDMT-like data
 clear
@@ -121,12 +131,22 @@ iivw_weight, ///
 
 display as text "FIPTIW effective sample size: " as result %9.1f r(ess) ///
     as text " of " as result %9.0f r(N)
-summarize _iivw_weight _iivw_iw _iivw_tw
+summarize _iivw_weight _iivw_iw _iivw_ps _iivw_tw
+
+* # Step 3: psdash treatment-propensity diagnostics from iivw metadata
+psdash combined, saving("`psdash_dashboard'")
+psdash weights, iivwcomponent(final) detail graph ///
+    saving("`psdash_final_weights'")
+display as text "psdash dashboard export: " as result "`psdash_dashboard'"
+display as text "psdash final-weight export: " as result "`psdash_final_weights'"
+capture graph close _all
+
+* # Step 4: visit-intensity leverage diagnostics
 iivw_balance, nolog ///
     xlsx("`export_xlsx'") sheet("Balance") replace
 display as text "Balance export: " as result "xlsx() sheet Balance"
 
-* # Step 3: weighted and artifact-adjusted outcome models
+* # Step 5: weighted and artifact-adjusted outcome models
 iivw_fit sdmt tx years tx_years relapse ///
     age female edss0 dur naive sdmt0, ///
     model(gee) timespec(none) replace nolog
@@ -140,7 +160,7 @@ iivw_fit sdmt tx years tx_years relapse ///
     model(gee) timespec(none) replace nolog
 estimates store M_adjusted
 
-* # Step 4: exogeneity check and diagnostic decomposition
+* # Step 6: exogeneity check and diagnostic decomposition
 iivw_exogtest sdmt relapse, ///
     id(id) time(years) ///
     adjust(age female edss0 sdmt0 dur naive) ///
@@ -161,7 +181,7 @@ iivw_diagnose years, ///
     excel("`export_xlsx'") sheet("Diagnostics") replace
 display as text "Diagnostic export: " as result "excel() sheet Diagnostics"
 
-* # Step 5: categorical visit-wave interactions for regtab
+* # Step 7: categorical visit-wave interactions for regtab
 preserve
 keep if testno <= 4
 bysort id: gen byte _nvis_wave = _N
@@ -198,6 +218,10 @@ foreach v of local cat_ix {
 restore
 
 log close demo
+
+**# Graph export verification
+confirm file "`psdash_dashboard'"
+confirm file "`psdash_final_weights'"
 
 **# Direct reporting export verification
 confirm file "`export_xlsx'"

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  06may2026}{...}
+{* *! version 1.2.0  29may2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -13,13 +13,15 @@
 {title:Title}
 
 {p2colset 5 20 22 2}{...}
-{p2col:{cmd:gcomptab} {hline 2}}Format gcomp mediation results into Excel tables{p_end}
+{p2col:{cmd:gcomptab} {hline 2}}Format gcomp mediation or time-varying dose-response results into Excel tables{p_end}
 {p2colreset}{...}
 
 {pstd}
-Export causal mediation results from {helpb gcomp} into a publication-ready
-Excel table with formatted estimates, confidence intervals, and standard
-errors.
+Export results from {helpb gcomp} into a publication-ready Excel table. Two
+modes are supported: {bf:mediation} (the default — formats the TCE/NDE/NIE/PM/CDE
+decomposition) and {bf:dose-response} (formats a time-varying intervention run
+into a per-strategy table of counterfactual risks, confidence intervals,
+implied exposure-years, and risk differences versus a reference strategy).
 
 
 {marker syntax}{...}
@@ -56,10 +58,20 @@ errors.
 {synopt:{opt bold:p(#)}}bold numeric cells when Wald p < cutoff; default {cmd:0} disables{p_end}
 {synopt:{opt high:light(#)}}highlight row in yellow when Wald p < cutoff; default {cmd:0} disables{p_end}
 
+{syntab:Dose-response (time-varying)}
+{synopt:{opt dose:response}}force the dose-response branch (otherwise auto-detected){p_end}
+{synopt:{opt strategy:labels(string)}}backslash-separated strategy labels, one per PO# column{p_end}
+{synopt:{opt expy:ears(numlist)}}implied mean cumulative exposure-years, one per PO# column{p_end}
+{synopt:{opt ref:erence(#)}}PO index used as the risk-difference reference; default is {cmd:1}{p_end}
+{synopt:{opt nord}}suppress the risk-difference-vs-reference column{p_end}
+
 {syntab:Other}
 {synopt:{opt open}}open the Excel file after export{p_end}
 {synoptline}
 {p2colreset}{...}
+{p 4 6 2}
+In dose-response mode {opt effect()} defaults to {cmd:"Risk"} and the mediation-only
+options ({opt labels()}, {opt boldp()}, {opt highlight()}) are ignored.
 
 
 {marker description}{...}
@@ -68,11 +80,11 @@ errors.
 {pstd}
 {cmd:gcomptab} is a post-estimation command that reads the {cmd:e()} results
 left behind by {helpb gcomp} and writes them into a formatted Excel workbook.
-It is designed for the {bf:mediation analysis} workflow — it does not format
-time-varying intervention results.
+It supports two layouts.
 
 {pstd}
-The exported table includes one row for each mediation effect:
+{bf:Mediation mode (default)} formats a causal-mediation run. The exported
+table includes one row for each mediation effect:
 
 {p 8 12 2}{hline 3} Total Causal Effect (TCE){p_end}
 {p 8 12 2}{hline 3} Natural Direct Effect (NDE){p_end}
@@ -87,11 +99,29 @@ optional zebra striping, footnotes, and conditional emphasis (bold or
 highlight) for statistically significant effects.
 
 {pstd}
-{bf:Prerequisites.} Run {cmd:gcomp} with {opt mediation} before calling
-{cmd:gcomptab}. The command checks that {cmd:e(cmd)} is {cmd:"gcomp"} and
-{cmd:e(analysis_type)} is {cmd:"mediation"}. The {opt oce} mediation type is
-not supported; use {opt obe}, {opt linexp}, {opt specific}, or baseline-based
-mediation.
+{bf:Mediation prerequisites.} Run {cmd:gcomp} with {opt mediation} before
+calling {cmd:gcomptab} in mediation mode. The command checks that {cmd:e(cmd)}
+is {cmd:"gcomp"} and {cmd:e(analysis_type)} is {cmd:"mediation"}. The {opt oce}
+mediation type is not supported; use {opt obe}, {opt linexp}, {opt specific}, or
+baseline-based mediation.
+
+{pstd}
+{bf:Dose-response mode} formats a time-varying intervention run
+({cmd:gcomp ..., interventions(...)}). It emits one row per intervention with
+the strategy label, the counterfactual risk and its 95% CI, an optional implied
+mean cumulative exposure-years column, and the risk difference versus a chosen
+reference strategy. This mode is selected automatically when {cmd:e(b)} contains
+{cmd:PO#} columns and no {cmd:tce} column, or explicitly with {opt doseresponse}.
+
+{pstd}
+{cmd:gcomp} posts one {cmd:PO#} column per intervention {it:plus} a final column
+for the simulated observed (natural-course) regime, so a run with {it:m}
+interventions yields {it:k} = {it:m}+1 {cmd:PO#} columns. {opt strategylabels()}
+and {opt expyears()} map onto these columns in order; any column you do not
+label keeps the default name {cmd:PO#} and any column without a supplied
+exposure-years value is left blank. Risk differences are reported as point
+estimates (risk minus the reference strategy's risk); the reference row is
+therefore {cmd:0}.
 
 
 {marker options}{...}
@@ -187,6 +217,36 @@ The p-value is computed as {cmd:2 * normal(-abs(estimate / se))}. Default is
 {opt highlight(#)} applies yellow background shading to the entire data row
 when the Wald p-value is below the cutoff. Works like {opt boldp()} but uses
 color instead of (or in addition to) bold weight. Default is {cmd:0} (disabled).
+
+{dlgtab:Dose-response (time-varying)}
+
+{phang}
+{opt doseresponse} forces the dose-response branch. This is normally
+unnecessary — {cmd:gcomptab} auto-detects dose-response output whenever
+{cmd:e(b)} has {cmd:PO#} columns and no {cmd:tce} column — but the option lets
+you select it explicitly and produces a clear error if the active {cmd:e()} is
+not a time-varying {cmd:gcomp} result.
+
+{phang}
+{opt strategylabels(string)} supplies the strategy labels shown in the first
+data column, separated by backslashes, in the order of the {cmd:PO#} columns.
+Any column you do not label is shown as {cmd:PO#}. For example,
+{cmd:strategylabels("Never HE \ Always HE \ Observed regime")}.
+
+{phang}
+{opt expyears(numlist)} supplies the implied mean cumulative exposure-years for
+each strategy, one value per {cmd:PO#} column, in column order. When supplied, a
+{cmd:Mean exposure-years} column is added to the table; when omitted, the column
+is not shown. Supplying more values than there are {cmd:PO#} columns is an error.
+
+{phang}
+{opt reference(#)} selects which {cmd:PO#} column is the reference for the
+risk-difference column. Default is {cmd:1} (the first intervention). Must be
+between 1 and the number of {cmd:PO#} columns.
+
+{phang}
+{opt nord} suppresses the {cmd:RD vs ref} column, leaving only the strategy,
+optional exposure-years, and risk columns.
 
 {dlgtab:Other}
 
@@ -310,6 +370,22 @@ Combine title, footnote, zebra, bold, and yellow highlighting:
 {phang2}{cmd:      footnote("Bold: p < 0.05. Yellow: p < 0.01.") ///}{p_end}
 {phang2}{cmd:      zebra boldp(0.05) highlight(0.01) font("Calibri") fontsize(11)}{p_end}
 
+    {hline}
+{pstd}
+{bf:Example 7: Time-varying dose-response table}
+
+{pstd}
+Fit a time-varying g-formula with sustained-exposure interventions, then format
+the per-strategy risks into a dose-response table. With {cmd:interventions(A=1, A=0)}
+there are three {cmd:PO#} columns (the two interventions plus the simulated
+observed regime), so three strategy labels and three exposure-years are supplied:
+
+{phang2}{cmd:. gcomp Y ... , outcome(Y) idvar(id) tvar(time) intvars(A) eofu ///}{p_end}
+{phang2}{cmd:      interventions(A=1, A=0) sim(500) samples(200) seed(12345)}{p_end}
+{phang2}{cmd:. gcomptab, doseresponse sheet("Table 5 DR") xlsx(table5.xlsx) ///}{p_end}
+{phang2}{cmd:      strategylabels("Always HE \ Never HE \ Observed regime") ///}{p_end}
+{phang2}{cmd:      expyears(5 0 2) reference(1) effect("Risk")}{p_end}
+
 
 {marker output}{...}
 {title:Output format}
@@ -322,6 +398,11 @@ The Excel table has the following structure:
 {p 8 12 2}{bf:Rows 3-6}: Data rows for TCE, NDE, NIE, and PM.{p_end}
 {p 8 12 2}{bf:Row 7}: CDE data row (only when the fitted model included {opt control()}).{p_end}
 {p 8 12 2}{bf:Next row}: Footnote (if specified), merged across the table width, italic, smaller font.{p_end}
+
+{pstd}
+In {bf:dose-response} mode the columns are instead Strategy | Mean exposure-years
+(when {opt expyears()} is supplied) | {it:effect} (95% CI) | RD vs ref (unless
+{opt nord}), with one data row per {cmd:PO#} column.
 
 {pstd}
 Formatting details:
@@ -352,6 +433,23 @@ Formatting details:
 {synopt:{cmd:r(sheet)}}sheet name used{p_end}
 {synopt:{cmd:r(ci)}}CI type displayed{p_end}
 
+{pstd}
+In {bf:dose-response} mode {cmd:gcomptab} stores instead:
+
+{synoptset 18 tabbed}{...}
+{p2col 5 18 22 2: Scalars}{p_end}
+{synopt:{cmd:r(k)}}number of strategies ({cmd:PO#} columns) exported{p_end}
+{synopt:{cmd:r(reference)}}PO index used as the risk-difference reference{p_end}
+
+{p2col 5 18 22 2: Macros}{p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename used{p_end}
+{synopt:{cmd:r(sheet)}}sheet name used{p_end}
+{synopt:{cmd:r(ci)}}CI type displayed{p_end}
+{synopt:{cmd:r(ref_label)}}label of the reference strategy{p_end}
+
+{p2col 5 18 22 2: Matrices}{p_end}
+{synopt:{cmd:r(table)}}{it:k} x 5 matrix (rows {cmd:PO1..POk}; columns {cmd:risk}, {cmd:ci_lower}, {cmd:ci_upper}, {cmd:exp_years}, {cmd:rd}){p_end}
+
 
 {marker author}{...}
 {title:Author}
@@ -360,7 +458,7 @@ Formatting details:
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.2, 2026-05-06{p_end}
+{pstd}Version 1.2.0, 2026-05-29{p_end}
 
 
 {marker seealso}{...}

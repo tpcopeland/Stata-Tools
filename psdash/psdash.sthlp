@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  17may2026}{...}
+{* *! version 1.1.0  29may2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -45,6 +45,9 @@ where {it:subcommand} is one of:
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
 After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the estimand are read from the tmle contract state.
 After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled subcommands require explicit variables.
+After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
+propensity-score, treatment-covariate, and treatment-weight variables are read
+from the iivw dataset contract.
 After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.
 In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
 are both valid; the one-argument form treats the argument as the propensity
@@ -84,7 +87,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {opt gen:erate(name)} {opt replace} {opt det:ail} {opt gr:aph}
 {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt name(string)} {opt esti:mand(string)}
-{opt psv:ars(varlist)} {opt ref:erence(#)}]
+{opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwcomponent(string)}]
 
 {dlgtab:support}
 
@@ -281,6 +284,14 @@ Required with {opt trim()}, {opt truncate()}, or {opt stabilize}.
 {opt detail} displays the full percentile distribution.
 
 {phang}
+{opt iivwcomponent(string)} selects which iivw weight variable to summarize
+after {cmd:iivw_weight}.  Allowed values are {cmd:treatment} (the default
+IPTW component, e.g. {cmd:_iivw_tw}), {cmd:final} (the final analysis weight,
+e.g. {cmd:_iivw_weight}), and {cmd:visit} (the visit-intensity component,
+e.g. {cmd:_iivw_iw}).  The visit component is descriptive only; overlap and
+support diagnostics remain treatment-propensity diagnostics.
+
+{phang}
 {opt graph} displays a weight distribution histogram.
 
 {phang}
@@ -345,7 +356,7 @@ the combined dashboard. It is not passed to the support panel.
 {title:Remarks}
 
 {pstd}
-{cmd:psdash} is designed to work in six modes:
+{cmd:psdash} is designed to work in seven modes:
 
 {phang2}
 1. {bf:After teffects}: treatment, covariates, PS, and weights are fully
@@ -362,17 +373,23 @@ overlap and contract-weight summaries instead of silently pooling person-period
 rows as if they were cross-sectional observations.
 
 {phang2}
-4. {bf:After logit/probit}: treatment and covariates are auto-detected from
+4. {bf:After iivw_weight}: treatment, {cmd:_iivw_ps}, treatment-model
+covariates, and {cmd:_iivw_tw} are auto-detected from iivw dataset metadata.
+Run {cmd:psdash combined}. Use {cmd:psdash weights, iivwcomponent(final)}
+when you want the final FIPTIW/IPTW analysis-weight distribution.
+
+{phang2}
+5. {bf:After logit/probit}: treatment and covariates are auto-detected from
 {cmd:e()}. The user must provide the PS variable (from {cmd:predict}).
 
 {phang2}
-5. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
+6. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
 and covariates are auto-detected from {cmd:e()}. The user runs
 {cmd:predict ps1 ps2 ps3, pr} and passes the GPS variables via
 {opt psvars(ps1 ps2 ps3)}.
 
 {phang2}
-6. {bf:Manual}: the user provides treatment and PS variables explicitly,
+7. {bf:Manual}: the user provides treatment and PS variables explicitly,
 along with covariates and/or weights via options.
 
 {pstd}
@@ -466,7 +483,17 @@ so that the weight and balance diagnostics use the same variable.
 {phang2}{cmd:. psdash balance foreign ps, covariates(mpg weight length) wvar(ipw)}{p_end}
 
 {pstd}
-{bf:4. ATT workflow after teffects, atet.}
+{bf:4. Using psdash after iivw_weight.}
+After {cmd:iivw_weight} with a treatment model, {cmd:psdash combined}
+auto-detects the iivw treatment propensity-score contract. The final weight
+can be summarized explicitly with {opt iivwcomponent(final)}.
+
+{phang2}{cmd:. iivw_weight, id(id) time(months) visit_cov(age sex bl_edss bl_sdmt) treat(treated) treat_cov(age sex bl_edss bl_sdmt) replace nolog}{p_end}
+{phang2}{cmd:. psdash combined}{p_end}
+{phang2}{cmd:. psdash weights, iivwcomponent(final) detail graph}{p_end}
+
+{pstd}
+{bf:5. ATT workflow after teffects, atet.}
 When {cmd:teffects} is fit with {cmd:, atet}, {cmd:psdash} maps Stata's
 ATET result to {cmd:estimand(att)} internally. That lets the balance and
 weight diagnostics use ATT weights automatically.
@@ -477,7 +504,7 @@ weight diagnostics use ATT weights automatically.
 {phang2}{cmd:. psdash weights, detail}{p_end}
 
 {pstd}
-{bf:5. Focused option examples on sysuse auto.}
+{bf:6. Focused option examples on sysuse auto.}
 These examples show a few common follow-up diagnostics once {cmd:ps} already
 exists: add KS statistics to the balance table, create trimmed or stabilized
 weights, and mark observations inside common support.
@@ -491,7 +518,7 @@ weights, and mark observations inside common support.
 {phang2}{cmd:. psdash support foreign ps, crump generate(in_support)}{p_end}
 
 {pstd}
-{bf:6. Multi-group treatment (3 arms) with mlogit.}
+{bf:7. Multi-group treatment (3 arms) with mlogit.}
 When the treatment has more than two levels, estimate the generalized propensity
 score with {cmd:mlogit} and pass the K predicted probabilities via
 {opt psvars()}. The generated example below creates a stable three-arm treatment
@@ -565,6 +592,7 @@ identifies the reference group.
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand ({cmd:ate}, {cmd:att}, or {cmd:atc}){p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
 
 {dlgtab:balance}
 
@@ -589,6 +617,7 @@ identifies the reference group.
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(varlist)}}covariates assessed{p_end}
 {synopt:{cmd:r(wvar)}}weight variable, or {cmd:auto-generated} for temporary weights{p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}balance-statistics matrix; rows are covariates{p_end}
@@ -637,6 +666,8 @@ include the compared treatment levels.
 {synopt:{cmd:r(wvar)}}weight variable name, or {cmd:auto-generated} for temporary weights{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
+{synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
 {synopt:{cmd:r(generate)}}generated variable name (if modification){p_end}
 
 {pstd}
@@ -669,6 +700,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
 
 {dlgtab:combined}
 
@@ -681,8 +713,9 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, or {cmd:"ltmle"}){p_end}
-{synopt:{cmd:r(wvar)}}weight variable name for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, {cmd:"ltmle"}, or {cmd:"iivw"}){p_end}
+{synopt:{cmd:r(wvar)}}weight variable name for combined diagnostics or LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
 {synopt:{cmd:r(period)}}period variable for LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(periods)}}period values included in LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(id)}}ID variable for LTMLE longitudinal diagnostics, when available{p_end}

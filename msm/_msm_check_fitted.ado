@@ -1,4 +1,4 @@
-*! _msm_check_fitted Version 1.0.3  2026/05/06
+*! _msm_check_fitted Version 1.0.4  2026/05/29
 *! Verify model has been fitted
 *! Author: Timothy P Copeland
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  29may2026}{...}
+{* *! version 1.5.0  29may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -109,9 +109,10 @@ propensity-score weight.
 {bf:What the command creates.}  {cmd:iivw_weight} adds one or more weight
 variables to the dataset.  The final weight variable (by default
 {cmd:_iivw_weight}) is used automatically by {helpb iivw_fit} in the next
-step.  If you specified FIPTIW, two component variables are also created:
-{cmd:_iivw_iw} (the visit intensity weight) and {cmd:_iivw_tw} (the treatment
-weight).  You can change the prefix with {opt generate()}.
+step.  If you specified FIPTIW, component variables are also created:
+{cmd:_iivw_iw} (the visit intensity weight), {cmd:_iivw_tw} (the treatment
+weight), and {cmd:_iivw_ps} (the treatment propensity score).  You can change
+the prefix with {opt generate()}.
 
 {pstd}
 The command also stores the expanded visit-model covariate list used by
@@ -276,8 +277,9 @@ well-specified or whether certain subjects have unusual visit patterns.
 {phang}
 {opt generate(name)} specifies a prefix for generated weight variables.
 Default is {cmd:_iivw_}.  Variables created include {it:prefix}iw (IIW
-component), {it:prefix}tw (IPTW component), and {it:prefix}weight (final
-combined weight).  The prefix must be 23 characters or fewer so derived
+component), {it:prefix}ps (treatment propensity score), {it:prefix}tw
+(IPTW component), and {it:prefix}weight (final combined weight).  The prefix
+must be 23 characters or fewer so derived
 variables used by {cmd:iivw_fit} can also be valid Stata names.
 
 {phang}
@@ -489,9 +491,12 @@ suggests model misspecification.{p_end}
 {opt truncate(1 99)}.  If the treatment effect changes substantially, the
 estimate may be driven by a few extreme weights.{p_end}
 
-{phang2}5. {bf:IPTW component.}  For FIPTIW, inspect {cmd:_iivw_tw}
-separately.  Extreme treatment weights usually indicate positivity
-violations.{p_end}
+{phang2}5. {bf:Treatment propensity component.}  For IPTW/FIPTIW, run
+{cmd:psdash combined} after {cmd:iivw_weight} to inspect treatment-propensity
+overlap, common support, treatment-covariate balance, and the treatment IPTW
+component.  Use {cmd:psdash weights, iivwcomponent(final) detail graph} for
+the final analysis-weight distribution.  Use {cmd:iivw_balance} for the
+visit-intensity model.{p_end}
 
 
 {marker troubleshooting}{...}
@@ -589,6 +594,9 @@ Correct for both informative visits and treatment confounding.
 {opt truncate(1 99)} caps extreme weights at the 1st and 99th percentiles.
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. psdash combined}{p_end}
+{phang2}{cmd:. psdash weights, iivwcomponent(final) detail graph}{p_end}
+{phang2}{cmd:. iivw_balance, agrefit nolog}{p_end}
 
 {pstd}
 {bf:Example 3: Lagged covariates in the visit model}
@@ -655,11 +663,20 @@ than the default Breslow method.
 {synopt:{cmd:r(ess)}}effective sample size: (sum w)^2 / sum(w^2){p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
 {synopt:{cmd:r(nobaseevent)}}1 if {opt nobaseevent} was specified, 0 otherwise{p_end}
+{synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}
+{synopt:{cmd:r(ps_max)}}maximum treatment propensity score (IPTW/FIPTIW){p_end}
+{synopt:{cmd:r(n_ps_extreme)}}observations with propensity scores below 0.01 or above 0.99 (IPTW/FIPTIW){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
 {synopt:{cmd:r(weight_var)}}name of final weight variable{p_end}
+{synopt:{cmd:r(iw_var)}}visit-intensity component variable, when created{p_end}
+{synopt:{cmd:r(tw_var)}}treatment IPTW component variable, when created{p_end}
+{synopt:{cmd:r(ps_var)}}treatment propensity-score variable, when created{p_end}
 {synopt:{cmd:r(visit_covars)}}expanded visit-model covariates used for IIW/FIPTIW{p_end}
+{synopt:{cmd:r(treat_covars)}}treatment-model covariates used for IPTW/FIPTIW{p_end}
+{synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
+{synopt:{cmd:r(contract_version)}}iivw metadata contract version{p_end}
 
 {p2col 5 28 32 2: Dataset characteristics}{p_end}
 {synopt:{cmd:_dta[_iivw_weighted]}}flag that weights are current{p_end}
@@ -668,9 +685,15 @@ than the default Breslow method.
 {synopt:{cmd:_dta[_iivw_weighttype]}}weight type used{p_end}
 {synopt:{cmd:_dta[_iivw_weight_var]}}final weight variable name{p_end}
 {synopt:{cmd:_dta[_iivw_prefix]}}generated-variable prefix{p_end}
+{synopt:{cmd:_dta[_iivw_iw_var]}}visit-intensity component variable, when created{p_end}
+{synopt:{cmd:_dta[_iivw_tw_var]}}treatment IPTW component variable, when created{p_end}
+{synopt:{cmd:_dta[_iivw_ps_var]}}treatment propensity-score variable, when created{p_end}
 {synopt:{cmd:_dta[_iivw_visit_covars]}}expanded visit-model covariate list for {cmd:iivw_balance}{p_end}
 {synopt:{cmd:_dta[_iivw_baseevent]}}1 if {opt nobaseevent} was specified, 0 otherwise (IIW/FIPTIW){p_end}
 {synopt:{cmd:_dta[_iivw_treat]}}treatment variable, if specified{p_end}
+{synopt:{cmd:_dta[_iivw_treat_covars]}}treatment-model covariates, if specified{p_end}
+{synopt:{cmd:_dta[_iivw_ps_estimand]}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
+{synopt:{cmd:_dta[_iivw_contract_version]}}iivw metadata contract version{p_end}
 
 
 {marker references}{...}
@@ -702,7 +725,7 @@ doi:10.1177/09622802241313289.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.0, 2026-05-29{p_end}
+{pstd}Version 1.5.0, 2026-05-29{p_end}
 
 
 {title:Also see}

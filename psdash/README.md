@@ -1,10 +1,10 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.0.2** | 2026-05-17
+**Version 1.1.0** | 2026-05-29
 
-Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
+Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
-This package exists because PS diagnostics in Stata are scattered across `tebalance`, user-written helpers, and ad-hoc `summarize`/`tabstat` calls, with each step requiring the analyst to re-specify the treatment variable, covariate list, PS variable, and weighting scheme. `psdash` collapses that friction: when called after `teffects` or cross-sectional `tmle`, it reads treatment, covariates, propensity scores, and the implied weighting scheme (ATE/ATT/ATC) directly from the estimation contract. After `logit`/`probit` it still pulls treatment and covariates from the estimation context. In fully manual mode, treatment and PS are passed explicitly; `covariates()` and `wvar()` are supplied to the subcommands that use those inputs. Auto-generated propensity scores and IPTW weights are created as temporary working variables and are not left behind in the user's dataset.
+This package exists because PS diagnostics in Stata are scattered across `tebalance`, user-written helpers, and ad-hoc `summarize`/`tabstat` calls, with each step requiring the analyst to re-specify the treatment variable, covariate list, PS variable, and weighting scheme. `psdash` collapses that friction: when called after `teffects`, cross-sectional `tmle`, or `iivw_weight`, it reads treatment, covariates, propensity scores, and the relevant weighting scheme directly from the estimation or dataset contract. After `logit`/`probit` it still pulls treatment and covariates from the estimation context. In fully manual mode, treatment and PS are passed explicitly; `covariates()` and `wvar()` are supplied to the subcommands that use those inputs. Auto-generated propensity scores and IPTW weights are created as temporary working variables and are not left behind in the user's dataset.
 
 Balance reporting is deliberately richer than the `tebalance summarize` default. `psdash balance` computes raw and weighted standardized mean differences, variance ratios, Kolmogorov-Smirnov statistics, and a Love plot sorted by absolute SMD, with configurable thresholds and Excel export. When a PS is available, it auto-generates IPTW weights for the requested `estimand()` (default ATE) and displays adjusted columns alongside raw columns, so the user sees immediately how much weighting resolves any imbalance — with `nowvar` to suppress weighting and `wvar()` to supply a pre-computed weight variable. Factor and interaction notation (`i.var`, `c.var`, `##`) is expanded transparently when balance is auto-detected from a fitted `logit`/`probit`/`teffects` model.
 
@@ -24,17 +24,37 @@ net install psdash, from("/path/to/psdash") replace
 
 ## How It Works
 
-`psdash` is designed to work in six modes:
+`psdash` is designed to work in seven modes:
 
 - **After `teffects`**: treatment, covariates, propensity scores, and the implied weighting scheme are auto-detected from `e()`. This is the shortest workflow: fit `teffects`, then run `psdash combined` or one of the individual subcommands.
 - **After cross-sectional `tmle`**: treatment, `_tmle_ps`, covariates, and `estimand()` are read from the tmle contract state. `psdash combined` and individual subcommands can be called without retyping those inputs.
 - **After `ltmle`**: run `psdash combined`. It reports period-by-period PS overlap and the contract weight distribution using the LTMLE PS and weight variables. Pooled individual subcommands require explicit variables rather than silently treating the longitudinal data as cross-sectional.
+- **After `iivw_weight`**: treatment, `_iivw_ps`, treatment-model covariates, and `_iivw_tw` are read from the iivw dataset contract. Run `psdash combined` for treatment-propensity diagnostics, then `iivw_balance` for visit-intensity diagnostics.
 - **After `logit`/`probit`**: treatment and covariates are read from the estimation context, but you still supply the PS variable created by `predict`.
 - **After `mlogit` (multi-group)**: for multi-valued treatments with nonnegative integer levels, treatment and covariates are auto-detected from `e()`. Run `predict ps1 ps2 ps3, pr` and pass the GPS variables via `psvars(ps1 ps2 ps3)`.
 - **Manual mode**: provide treatment and PS explicitly, then pass `covariates()` to balance/combined and `wvar()` to balance/weights/combined when you want to override auto-detection.
 
 When a PS variable is available, `psdash balance` auto-generates IPTW weights for the requested `estimand()` unless you suppress that with `nowvar` or provide `wvar()` yourself.
 Auto-generated propensity scores and weights are temporary working variables and are not left behind in the user's dataset.
+
+## Using psdash with iivw
+
+When `iivw_weight` is run with `treat()` and `treat_cov()`, the treatment propensity model can be diagnosed with `psdash`.
+
+Run `psdash combined` immediately after `iivw_weight` to inspect treatment-propensity overlap, common support, treatment-covariate balance, and treatment-weight distribution. Then run `iivw_balance` for the visit-intensity component. The two diagnostics answer different questions: `psdash` checks treatment positivity and treatment-model balance; `iivw_balance` checks whether visit-intensity weights have enough leverage and whether modeled visit covariates are balanced.
+
+```stata
+iivw_weight, id(id) time(months) ///
+    visit_cov(age sex bl_edss bl_sdmt) ///
+    lagvars(sdmt relapse) ///
+    treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
+    truncate(1 99) efron replace nolog
+
+psdash combined, saving(treatment_ps_dashboard.png)
+psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
+iivw_balance, agrefit nolog
+iivw_fit sdmt treated age sex bl_edss, timespec(ns(3)) nolog
+```
 
 ## What Should I Run?
 
@@ -156,6 +176,7 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `detail` — show percentile distribution
 - `graph` — weight distribution histogram
 - `xlabel(numlist)` - custom x-axis labels for the histogram
+- `iivwcomponent(treatment|final|visit)` - choose the stored iivw treatment, final, or visit component for `psdash weights`
 
 ### support
 - `crump` — Crump et al. (2009) optimal trimming for binary treatments; use `threshold()` for multi-group
@@ -174,11 +195,11 @@ Each subcommand stores results in `r()`. Technical users can use these values in
 
 | Subcommand | Key scalars/macros | Matrix |
 |------------|--------------------|--------|
-| `overlap` | `r(N)`, `r(overlap_lower)`, `r(overlap_upper)`, `r(n_outside)`, `r(pct_outside)`, `r(auc)`, `r(treatment)`, `r(psvar)` | none |
-| `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)` | `r(balance)` |
-| `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(generate)` | none |
-| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)` | none |
-| `combined` | Inherits subcommand results via `return add`; also stores `r(treatment)`, `r(psvar)`, `r(estimand)`, `r(source)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
+| `overlap` | `r(N)`, `r(overlap_lower)`, `r(overlap_upper)`, `r(n_outside)`, `r(pct_outside)`, `r(auc)`, `r(treatment)`, `r(psvar)`, `r(source)` | none |
+| `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)`, `r(source)` | `r(balance)` |
+| `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(wvar)`, `r(source)`, `r(iivwcomponent)`, `r(generate)` | none |
+| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)`, `r(source)` | none |
+| `combined` | Inherits subcommand results via `return add`; also stores `r(treatment)`, `r(psvar)`, `r(wvar)`, `r(estimand)`, `r(source)`, `r(iivwcomponent)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
 | `combined` after `ltmle` | Stores LTMLE metadata (`r(longitudinal)`, `r(period)`, `r(periods)`, `r(id)`, `r(wvar)`, `r(method)`, `r(contract_version)`), weight diagnostics (`r(mean_wt)`, `r(ess)`, `r(ess_pct)`, percentiles), and `r(max_pct_outside)` | `r(overlap_by_period)`, `r(weights_by_period)` |
 
 For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels.
@@ -231,6 +252,7 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.1.0** (29 May 2026): Added iivw dataset-contract auto-detection, `psdash weights, iivwcomponent()`, iivw source labels, and focused iivw contract QA.
 - **v1.0.2** (17 May 2026): Rejected invalid manual `estimand()` values, added clean multi-group treatment-level validation, isolated remaining QA installs, and made the demo path handling relocatable with failure-safe cleanup.
 - **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support threshold validation, and binary variance-ratio summaries.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands

@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.0.2  2026/05/17
+*! psdash_balance Version 1.1.0  2026/05/29
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1203,6 +1203,7 @@ program define psdash_balance, rclass
             return scalar n_ps_near_boundary = `n_ps_near'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
+            return local source "`source'"
             return local varlist "`varlist'"
             if "`wvar'" != "" {
                 if "`wvar_auto'" == "1" {
@@ -1230,6 +1231,7 @@ program define psdash_balance, rclass
             return scalar threshold = `threshold'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
+            return local source "`source'"
             return local varlist "`varlist'"
             return local levels "`levels'"
             return local reference "`mg_reference'"

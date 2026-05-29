@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.0.2  2026/05/18
+*! _psdash_ltmle_diagnostics Version 1.1.0  2026/05/29
 *! Longitudinal propensity score diagnostics for LTMLE contract state
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

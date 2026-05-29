@@ -11,7 +11,7 @@ title: "console_output"
 ```
 ----------------------------------------------------------------------
 iivw - Visit Weighting and Diagnostic Workflow for Stata
-Version 1.4.0
+Version 1.5.0
 ----------------------------------------------------------------------
 
 Commands
@@ -294,8 +294,8 @@ Log likelihood = -8274.2097                             Prob > chi2   = 0.0000
 note: 320 subjects have missing visit model covariates at first observation
   weight set to 1 by convention; check covariate completeness
 (320 real changes made)
-(file /tmp/St2295571.000001 not found)
-file /tmp/St2295571.000001 saved as .dta format
+(file /tmp/St2688209.000001 not found)
+file /tmp/St2688209.000001 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -321,8 +321,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St2295571.000003 not found)
-file /tmp/St2295571.000003 saved as .dta format
+(file /tmp/St2688209.000003 not found)
+file /tmp/St2688209.000003 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 37 observations (18 low, 19 high)
 
@@ -342,7 +342,7 @@ Effective sample size:    1668.2 (of 1860)
 Note: weight mean is 1.646
   Consider checking model specification or using truncation.
 
-Variables created: _iivw_tw _iivw_iw _iivw_weight
+Variables created: _iivw_ps _iivw_tw _iivw_iw _iivw_weight
 Next step: iivw_fit to fit weighted outcome model
 ----------------------------------------------------------------------
 
@@ -359,7 +359,7 @@ FIPTIW effective sample size:    1668.2 of      1860
 ```
 
 ```stata
-. summarize _iivw_weight _iivw_iw _iivw_tw
+. summarize _iivw_weight _iivw_iw _iivw_ps _iivw_tw
 ```
 
 ```
@@ -367,9 +367,249 @@ FIPTIW effective sample size:    1668.2 of      1860
 -------------+---------------------------------------------------------
 _iivw_weight |      1,860    1.645994    .5582194   .7032949   3.327522
     _iivw_iw |      1,860    1.663965    .4195706   .9795081   2.908683
+    _iivw_ps |      1,860    .5202407     .120732   .2091008   .7832389
     _iivw_tw |      1,860       .9942    .2437126   .6203382   1.835502
 
 ```
+
+## Step 3: psdash treatment-propensity diagnostics from iivw metadata
+
+```stata
+. psdash combined, saving("`psdash_dashboard'")
+```
+
+```
+Propensity Score Diagnostics Dashboard
+Treatment:     tx
+PS variable:   _iivw_ps
+Covariates:    6
+Weights:       _iivw_tw
+Estimand:      ATE
+Source:        iivw treatment model
+Weight component: treatment IPTW (_iivw_tw)
+
+=== OVERLAP DIAGNOSTICS ===
+
+PS Overlap
+Treatment:         tx
+PS variable:       _iivw_ps
+
+----------------------------------------------------------------------
+Propensity Score Distribution
+----------------------------------------------------------------------
+                            Treated        Control
+----------------------------------------------------------------------
+                   N          1,186            674
+                Mean         0.5420         0.4820
+                  SD         0.1166         0.1184
+                 Min         0.2775         0.2091
+                 Max         0.7832         0.7298
+----------------------------------------------------------------------
+
+-------------------------------------------------------
+Common Support Region
+-------------------------------------------------------
+Lower bound:               0.2775
+Upper bound:               0.7298
+Outside support:               90 ( 4.84%)
+  Treated outside:             49
+  Control outside:             41
+C-statistic (AUC):         0.6334
+-------------------------------------------------------
+
+Overlap: Good ( 4.8% outside support)
+
+=== BALANCE DIAGNOSTICS ===
+
+Covariate Balance
+Treatment:     tx
+Estimand:      ATE
+N (treated):        1,186
+N (control):          674
+Weights:       _iivw_tw
+Threshold:      0.100
+
+
+---------------------------------------------------------------------------------------
+           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
+---------------------------------------------------------------------------------------
+                 age |-0.366  0.79-0.055  0.79    Balanced
+              female | 0.001  1.00 0.016  0.99    Balanced
+               edss0 | 0.220  0.92 0.011  0.92    Balanced
+               sdmt0 | 0.033  1.21-0.008  1.23    Balanced
+                 dur |-0.107  0.90 0.046  1.14    Balanced
+               naive |-0.231  0.91-0.034  0.99    Balanced
+---------------------------------------------------------------------------------------
+
+
+Maximum |SMD| (raw):       0.366
+Maximum |SMD| (adjusted):  0.055
+Maximum VR (raw):           0.79
+Maximum VR (adjusted):      0.79
+Covariates > SMD threshold:    0 of   6
+---------------------------------------------------------------------------------------
+
+Balance: Adequate (max |SMD| =  0.055)
+
+=== WEIGHT DIAGNOSTICS ===
+
+IPTW Weight Diagnostics
+Weight variable:   _iivw_tw
+Treatment:         tx
+Observations:           1,860
+
+----------------------------------------------------------------------
+Weight Distribution Summary
+----------------------------------------------------------------------
+                                 Overall        Treated        Control
+----------------------------------------------------------------------
+                        N          1,860          1,186            674
+                     Mean          0.994          0.990          1.002
+                       SD          0.244          0.240          0.249
+                      Min          0.620          0.650          0.620
+                      Max          1.836          1.836          1.816
+----------------------------------------------------------------------
+
+----------------------------------------------------------------------
+Effective Sample Size (ESS)
+----------------------------------------------------------------------
+                                 Overall        Treated        Control
+----------------------------------------------------------------------
+                      ESS         1754.6         1120.0          634.7
+               ESS % of N          94.3%          94.4%          94.2%
+----------------------------------------------------------------------
+
+--------------------------------------------------
+Extreme Weight Detection
+--------------------------------------------------
+Coefficient of Variation:    0.245
+Weights > 10:                    0 ( 0.00%)
+Weights > 20:                    0
+--------------------------------------------------
+
+
+Weights: Acceptable (ESS = 94.3% of N)
+
+=== COMMON SUPPORT ASSESSMENT ===
+
+Common Support
+Treatment:         tx
+PS variable:       _iivw_ps
+Observations:           1,860
+
+------------------------------------------------------------
+Propensity Score Range
+------------------------------------------------------------
+                            Treated        Control
+------------------------------------------------------------
+                   N          1,186            674
+              Min PS         0.2775         0.2091
+              Max PS         0.7832         0.7298
+------------------------------------------------------------
+
+-------------------------------------------------------
+Common Support Region
+-------------------------------------------------------
+Lower bound:               0.2775
+Upper bound:               0.7298
+Outside support:               90 ( 4.84%)
+  Treated outside:             49
+  Control outside:             41
+-------------------------------------------------------
+
+Support: Good ( 4.8% outside support)
+(file iivw/demo/iivw_psdash_dashboard.png not found)
+file iivw/demo/iivw_psdash_dashboard.png written in PNG format
+Overall: PASS
+
+```
+
+```stata
+. psdash weights, iivwcomponent(final) detail graph
+>     saving("`psdash_final_weights'")
+```
+
+```
+IPTW Weight Diagnostics
+Weight variable:   _iivw_weight
+Weight component:  final FIPTIW (_iivw_weight)
+Treatment:         tx
+Observations:           1,860
+Source:            iivw final analysis weight
+
+----------------------------------------------------------------------
+Weight Distribution Summary
+----------------------------------------------------------------------
+                                 Overall        Treated        Control
+----------------------------------------------------------------------
+                        N          1,860          1,186            674
+                     Mean          1.646          1.650          1.640
+                       SD          0.558          0.500          0.649
+                      Min          0.703          0.703          0.703
+                      Max          3.328          3.328          3.328
+----------------------------------------------------------------------
+
+--------------------------------------------------
+Percentile Distribution (Overall)
+--------------------------------------------------
+     Percentile         Weight
+--------------------------------------------------
+             1%          0.703
+             5%          0.823
+            10%          0.956
+            25%          1.273
+   50% (median)          1.576
+            75%          1.930
+            90%          2.432
+            95%          2.699
+            99%          3.328
+--------------------------------------------------
+
+----------------------------------------------------------------------
+Effective Sample Size (ESS)
+----------------------------------------------------------------------
+                                 Overall        Treated        Control
+----------------------------------------------------------------------
+                      ESS         1668.2         1086.4          582.9
+               ESS % of N          89.7%          91.6%          86.5%
+----------------------------------------------------------------------
+
+--------------------------------------------------
+Extreme Weight Detection
+--------------------------------------------------
+Coefficient of Variation:    0.339
+Weights > 10:                    0 ( 0.00%)
+Weights > 20:                    0
+--------------------------------------------------
+
+
+Weights: Acceptable (ESS = 89.7% of N)
+
+```
+
+```stata
+. display as text "psdash dashboard export: " as result "`psdash_dashboard'"
+```
+
+```
+psdash dashboard export: iivw/demo/iivw_psdash_dashboard.png
+
+```
+
+```stata
+. display as text "psdash final-weight export: " as result "`psdash_final_weights'"
+```
+
+```
+psdash final-weight export: iivw/demo/iivw_psdash_final_weights.png
+
+```
+
+```stata
+. capture graph close _all
+```
+
+## Step 4: visit-intensity leverage diagnostics
 
 ```stata
 . iivw_balance, nolog
@@ -418,7 +658,7 @@ Balance export: xlsx() sheet Balance
 
 ```
 
-## Step 3: weighted and artifact-adjusted outcome models
+## Step 5: weighted and artifact-adjusted outcome models
 
 ```stata
 . iivw_fit sdmt tx years tx_years relapse
@@ -584,7 +824,7 @@ FIPTIW-weighted effects:
 . estimates store M_adjusted
 ```
 
-## Step 4: exogeneity check and diagnostic decomposition
+## Step 6: exogeneity check and diagnostic decomposition
 
 ```stata
 . iivw_exogtest sdmt relapse,
@@ -719,7 +959,7 @@ Diagnostic export: excel() sheet Diagnostics
 
 ```
 
-## Step 5: categorical visit-wave interactions for regtab
+## Step 7: categorical visit-wave interactions for regtab
 
 ```stata
 . preserve
@@ -866,8 +1106,8 @@ Log likelihood = -5907.4017                             Prob > chi2   = 1.0000
           tx |          1    .056885     0.00   1.000      .894498    1.117946
 ------------------------------------------------------------------------------
 (320 real changes made)
-(file /tmp/St2295571.000002 not found)
-file /tmp/St2295571.000002 saved as .dta format
+(file /tmp/St2688209.000002 not found)
+file /tmp/St2688209.000002 saved as .dta format
 
     Result                      Number of obs
     -----------------------------------------
@@ -893,8 +1133,8 @@ Log likelihood = -212.02983                             Pseudo R2     = 0.0438
        naive |  -.4647676   .2401882    -1.94   0.053    -.9355278    .0059925
        _cons |    1.39893   1.368537     1.02   0.307    -1.283353    4.081214
 ------------------------------------------------------------------------------
-(file /tmp/St2295571.000004 not found)
-file /tmp/St2295571.000004 saved as .dta format
+(file /tmp/St2688209.000004 not found)
+file /tmp/St2688209.000004 saved as .dta format
 Truncating weights at 1th and 99th percentiles...
   Truncated 27 observations (12 low, 15 high)
 
@@ -911,7 +1151,7 @@ Observations:               1243
 Subjects:                    320
 Effective sample size:    1173.2 (of 1243)
 
-Variables created: _iivw_tw _iivw_iw _iivw_weight
+Variables created: _iivw_ps _iivw_tw _iivw_iw _iivw_weight
 Next step: iivw_fit to fit weighted outcome model
 ----------------------------------------------------------------------
 

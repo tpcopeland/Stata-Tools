@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.0.2  2026/05/17
+*! psdash_weights Version 1.1.0  2026/05/29
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -89,7 +89,16 @@ program define psdash_weights, rclass
          GRAPHOPTions(string asis) ///
          name(string) ///
          ESTImand(string) ///
-         PSVars(varlist numeric)]
+         PSVars(varlist numeric) ///
+         IIVWComponent(string)]
+
+    if "`iivwcomponent'" != "" {
+        local iivwcomponent = strlower("`iivwcomponent'")
+        if !inlist("`iivwcomponent'", "treatment", "final", "visit") {
+            display as error "iivwcomponent() must be treatment, final, or visit"
+            exit 198
+        }
+    }
 
     * MARK SAMPLE
     tempvar touse ps_auto wt_auto
@@ -151,6 +160,11 @@ program define psdash_weights, rclass
         local mg_reference "`_psd_reference'"
     }
 
+    local iivw_component "`_psd_iivw_component'"
+    local iivw_treatment_wvar "`_psd_iivw_treatment_wvar'"
+    local iivw_final_wvar "`_psd_iivw_final_wvar'"
+    local iivw_visit_wvar "`_psd_iivw_visit_wvar'"
+
     * Use detected weights or auto-generate from PS
     if "`wvar'" == "" & "`_psd_wvar'" != "" {
         local wvar "`_psd_wvar'"
@@ -181,6 +195,56 @@ program define psdash_weights, rclass
         }
         local wvar "`wt_auto'"
         local wvar_auto "1"
+    }
+
+    if "`source'" == "iivw" & "`iivw_component'" == "" {
+        local iivw_component "treatment"
+    }
+
+    if "`iivwcomponent'" != "" {
+        local iivw_weighted : char _dta[_iivw_weighted]
+        if "`iivw_weighted'" != "1" {
+            display as error "iivwcomponent() requires current iivw_weight metadata"
+            display as error "  rerun iivw_weight, or specify wvar() directly"
+            exit 198
+        }
+        if "`iivw_treatment_wvar'" == "" {
+            local iivw_treatment_wvar : char _dta[_iivw_tw_var]
+        }
+        if "`iivw_final_wvar'" == "" {
+            local iivw_final_wvar : char _dta[_iivw_weight_var]
+        }
+        if "`iivw_visit_wvar'" == "" {
+            local iivw_visit_wvar : char _dta[_iivw_iw_var]
+        }
+
+        if "`iivwcomponent'" == "treatment" {
+            local iivw_selected_wvar "`iivw_treatment_wvar'"
+            local iivw_component "treatment"
+        }
+        else if "`iivwcomponent'" == "final" {
+            local iivw_selected_wvar "`iivw_final_wvar'"
+            local iivw_component "final"
+        }
+        else if "`iivwcomponent'" == "visit" {
+            local iivw_selected_wvar "`iivw_visit_wvar'"
+            local iivw_component "visit"
+        }
+
+        if "`iivw_selected_wvar'" == "" {
+            display as error "iivwcomponent(`iivwcomponent') is unavailable in the current iivw metadata"
+            if "`iivwcomponent'" == "visit" {
+                display as error "  visit weights are available after IIW/FIPTIW, not IPTW-only"
+            }
+            else if "`iivwcomponent'" == "treatment" {
+                display as error "  treatment weights require iivw_weight with treat() and treat_cov()"
+            }
+            exit 198
+        }
+        confirm variable `iivw_selected_wvar'
+        confirm numeric variable `iivw_selected_wvar'
+        local wvar "`iivw_selected_wvar'"
+        local wvar_auto "0"
     }
 
     * Track all multigroup PS inputs so output-name guards can protect them.
@@ -346,6 +410,32 @@ program define psdash_weights, rclass
 
     * Set defaults
     if "`name'" == "" local name "psdash_weights"
+    local source_label "`source'"
+    local component_label ""
+    local weight_xtitle "IPTW Weight"
+    local graph_title "IPTW Weight Distribution"
+    if "`source'" == "iivw" | "`iivwcomponent'" != "" {
+        local iivw_wtype : char _dta[_iivw_weighttype]
+        local iivw_wtype = strupper("`iivw_wtype'")
+        if "`iivw_component'" == "" local iivw_component "treatment"
+        if "`iivw_component'" == "treatment" {
+            local source_label "iivw treatment model"
+            local component_label "treatment IPTW (`wvar')"
+        }
+        else if "`iivw_component'" == "final" {
+            local source_label "iivw final analysis weight"
+            local component_label "final `iivw_wtype' (`wvar')"
+            local weight_xtitle "Final analysis weight"
+            local graph_title "Final Analysis Weight Distribution"
+        }
+        else if "`iivw_component'" == "visit" {
+            local source_label "iivw visit-intensity model"
+            local component_label "visit-intensity IIW (`wvar')"
+            local weight_xtitle "Visit-intensity weight"
+            local graph_title "Visit-Intensity Weight Distribution"
+            display as text "note: iivwcomponent(visit) is descriptive only; PS overlap/support do not apply"
+        }
+    }
 
     * CALCULATE WEIGHT STATISTICS (binary)
     _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
@@ -389,10 +479,13 @@ program define psdash_weights, rclass
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
+    if "`component_label'" != "" {
+        display as text "Weight component:  " as result "`component_label'"
+    }
     display as text "Treatment:         " as result "`treatment'"
     display as text "Observations:      " as result %10.0fc `N'
-    if "`source'" != "manual" {
-        display as text "Source:            " as result "`source'"
+    if "`source'" != "manual" | "`iivwcomponent'" != "" {
+        display as text "Source:            " as result "`source_label'"
     }
     display ""
 
@@ -541,7 +634,32 @@ program define psdash_weights, rclass
         capture noisily {
             quietly {
                 if "`xlabel'" == "" {
-                    local xlabel "0 2 5 10 15 20"
+                    if `max_wt' <= 1 {
+                        local xlabel "0 .25 .5 .75 1"
+                    }
+                    else if `max_wt' <= 2 {
+                        local xlabel "0 .5 1 1.5 2"
+                    }
+                    else if `max_wt' <= 5 {
+                        local xlabel "0 1 2 3 4 5"
+                    }
+                    else if `max_wt' <= 10 {
+                        local xlabel "0 2 4 6 8 10"
+                    }
+                    else if `max_wt' <= 20 {
+                        local xlabel "0 5 10 15 20"
+                    }
+                    else if `max_wt' <= 50 {
+                        local xlabel "0 10 20 30 40 50"
+                    }
+                    else if `max_wt' <= 100 {
+                        local xlabel "0 20 40 60 80 100"
+                    }
+                    else {
+                        local xstep = ceil(`max_wt' / 5)
+                        local xupper = `xstep' * 5
+                        local xlabel "0(`xstep')`xupper'"
+                    }
                 }
 
                 local scheme_opt ""
@@ -559,8 +677,8 @@ program define psdash_weights, rclass
                        (histogram `wvar' if `touse' & `treatment' == 0, ///
                            frequency fcolor(cranberry%50) lcolor(cranberry) width(`bw')), ///
                        legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
-                       xtitle("IPTW Weight") ytitle("Frequency") ///
-                       title("IPTW Weight Distribution") ///
+                       xtitle("`weight_xtitle'") ytitle("Frequency") ///
+                       title("`graph_title'") ///
                        xlabel(`xlabel') ///
                        xline(1, lcolor(gs8) lpattern(dash)) ///
                        name(`name', replace) ///
@@ -678,6 +796,31 @@ program define psdash_weights, rclass
     }
 
     if "`name'" == "" local name "psdash_weights"
+    local source_label "`source'"
+    local component_label ""
+    local weight_xtitle "IPTW Weight"
+    local graph_title "IPTW Weight Distribution (Multi-Group)"
+    if "`source'" == "iivw" | "`iivwcomponent'" != "" {
+        local iivw_wtype : char _dta[_iivw_weighttype]
+        local iivw_wtype = strupper("`iivw_wtype'")
+        if "`iivw_component'" == "" local iivw_component "treatment"
+        if "`iivw_component'" == "treatment" {
+            local source_label "iivw treatment model"
+            local component_label "treatment IPTW (`wvar')"
+        }
+        else if "`iivw_component'" == "final" {
+            local source_label "iivw final analysis weight"
+            local component_label "final `iivw_wtype' (`wvar')"
+            local weight_xtitle "Final analysis weight"
+            local graph_title "Final Analysis Weight Distribution"
+        }
+        else if "`iivw_component'" == "visit" {
+            local source_label "iivw visit-intensity model"
+            local component_label "visit-intensity IIW (`wvar')"
+            local weight_xtitle "Visit-intensity weight"
+            local graph_title "Visit-Intensity Weight Distribution"
+        }
+    }
 
     * CALCULATE WEIGHT STATISTICS (multi-group)
     _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
@@ -716,10 +859,13 @@ program define psdash_weights, rclass
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
+    if "`component_label'" != "" {
+        display as text "Weight component:  " as result "`component_label'"
+    }
     display as text "Treatment:         " as result "`treatment'" as text " (`K' groups, ref = `mg_reference')"
     display as text "Observations:      " as result %10.0fc `N'
-    if "`source'" != "manual" {
-        display as text "Source:            " as result "`source'"
+    if "`source'" != "manual" | "`iivwcomponent'" != "" {
+        display as text "Source:            " as result "`source_label'"
     }
     display ""
 
@@ -918,7 +1064,32 @@ program define psdash_weights, rclass
         capture noisily {
             quietly {
                 if "`xlabel'" == "" {
-                    local xlabel "0 2 5 10 15 20"
+                    if `max_wt' <= 1 {
+                        local xlabel "0 .25 .5 .75 1"
+                    }
+                    else if `max_wt' <= 2 {
+                        local xlabel "0 .5 1 1.5 2"
+                    }
+                    else if `max_wt' <= 5 {
+                        local xlabel "0 1 2 3 4 5"
+                    }
+                    else if `max_wt' <= 10 {
+                        local xlabel "0 2 4 6 8 10"
+                    }
+                    else if `max_wt' <= 20 {
+                        local xlabel "0 5 10 15 20"
+                    }
+                    else if `max_wt' <= 50 {
+                        local xlabel "0 10 20 30 40 50"
+                    }
+                    else if `max_wt' <= 100 {
+                        local xlabel "0 20 40 60 80 100"
+                    }
+                    else {
+                        local xstep = ceil(`max_wt' / 5)
+                        local xupper = `xstep' * 5
+                        local xlabel "0(`xstep')`xupper'"
+                    }
                 }
 
                 local scheme_opt ""
@@ -946,8 +1117,8 @@ program define psdash_weights, rclass
 
                 noisily twoway `plot_cmd', ///
                     legend(order(`legend_order') rows(1) position(6)) ///
-                    xtitle("IPTW Weight") ytitle("Frequency") ///
-                    title("IPTW Weight Distribution (Multi-Group)") ///
+                    xtitle("`weight_xtitle'") ytitle("Frequency") ///
+                    title("`graph_title'") ///
                     xlabel(`xlabel') ///
                     xline(1, lcolor(gs8) lpattern(dash)) ///
                     name(`name', replace) ///
@@ -1019,6 +1190,10 @@ program define psdash_weights, rclass
             }
             return local treatment "`treatment'"
             return local estimand "`estimand'"
+            return local source "`source'"
+            if "`iivw_component'" != "" {
+                return local iivwcomponent "`iivw_component'"
+            }
         }
         else if "`_psdash_return_mode'" == "multigroup" {
             if "`generate'" != "" {
@@ -1053,6 +1228,10 @@ program define psdash_weights, rclass
             return scalar p99 = `p99'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
+            return local source "`source'"
+            if "`iivw_component'" != "" {
+                return local iivwcomponent "`iivw_component'"
+            }
             return local levels "`levels'"
             return local reference "`mg_reference'"
             if "`wvar_auto'" == "1" {

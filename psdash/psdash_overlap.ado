@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.0.2  2026/05/17
+*! psdash_overlap Version 1.1.0  2026/05/29
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -628,6 +628,7 @@ program define psdash_overlap, rclass
             return local treatment "`treatment'"
             return local psvar "`psvar_label'"
             return local estimand "`estimand'"
+            return local source "`source'"
         }
         else if "`_psdash_return_mode'" == "multigroup" {
             return scalar N = `N'
@@ -649,6 +650,7 @@ program define psdash_overlap, rclass
             return local levels "`levels'"
             return local reference "`reference_grp'"
             return local estimand "`estimand'"
+            return local source "`source'"
         }
     }
     if `rc' exit `rc'

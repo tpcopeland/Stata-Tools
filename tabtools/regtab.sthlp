@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.3.2  29may2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -54,7 +54,7 @@ for treatment effects and margins tables.
 {synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled when all collected models are on a ratio scale (OR/HR/IRR/SHR/TR/AF); use {opt keepintercept} to override.{p_end}
 {synopt:{opt keepi:ntercept}}Force display of intercept row even for exponentiated models.{p_end}
 {synopt:{opt nore:effects}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
-{synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For GEE models ({cmd:xtgee}), {cmd:aic} automatically displays QIC (Quasi-likelihood Information Criterion) since AIC is undefined for quasi-likelihood. {cmd:qic} can also be requested explicitly. For mixed regular and pseudo-R² collections, the row label becomes {cmd:R² / Pseudo R²}. {cmd:icc} is computed per model from variance components when defined.{p_end}
+{synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For survival models ({cmd:stcox}/{cmd:streg}), {cmd:n} reports the number of subjects ({cmd:e(N_sub)}) in preference to the number of records; {cmd:n_sub} and {cmd:subjects} are accepted as synonyms for {cmd:n}. Unrecognized {cmd:stats()} tokens are ignored with a warning. For GEE models ({cmd:xtgee}), {cmd:aic} automatically displays QIC (Quasi-likelihood Information Criterion) since AIC is undefined for quasi-likelihood. {cmd:qic} can also be requested explicitly. For mixed regular and pseudo-R² collections, the row label becomes {cmd:R² / Pseudo R²}. {cmd:icc} is computed per model from variance components when defined.{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for coefficients and CIs (default 2, range 0-6). Random-effects rows use the same display precision as the main coefficient columns; MOR/MHR rows follow the transformed scale.{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
@@ -213,6 +213,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.1{p_end}
+{pstd}{bf:Version} 1.3.2{p_end}
 
 {hline}

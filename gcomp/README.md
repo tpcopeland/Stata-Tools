@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.1.2** | 2026-05-06
+**Version 1.2.0** | 2026-05-29
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -419,6 +419,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.2.0** (2026-05-29): `gcomptab` gains a **time-varying dose-response mode**. After a `gcomp ..., interventions(...)` run it now formats the `PO#` counterfactual-risk columns into a per-strategy Excel table — strategy label, risk and 95% CI, optional implied mean cumulative exposure-years (`expyears()`), and a point risk-difference-versus-reference column (`reference()`, suppressible with `nord`). Strategy names are supplied with `strategylabels()`; the mode is auto-detected when `e(b)` has `PO#` columns and no `tce` column, or forced with `doseresponse`. New `r(table)`, `r(k)`, `r(reference)`, and `r(ref_label)` returns. Mediation mode is unchanged.
 - **1.1.2** (2026-05-06): Restored full bootstrap covariance posting in `e(V)` instead of rebuilding a diagonal-only matrix from `e(se)`, preserving valid covariance-aware postestimation for mediation and time-varying estimates. `samples(1)` is now rejected by package validation before Stata's bootstrap machinery runs.
 - **1.1.1** (2026-05-06): Hardened `gcomptab` Excel/reporting contracts. The command now rejects malformed `e(b)`, `e(se)`, and CI matrices with missing effect column names before export, validates `font()` metacharacters and `fontsize()` range, and preserves active `e()` while returning clean validation errors. Time-varying `gcomp` now counts unique subjects correctly in unsorted panels and eofu MSM bootstrap no longer depends on a scratch `msm_params` matrix.
 - **1.1.0** (2026-04-26): Input validation and model-fit diagnostics. `commands()`, `equations()`, and related options are now validated before the bootstrap loop — mismatches produce clear error messages naming the offending variable. New `diagnostics` option displays model-fit statistics (N, convergence, R^2/pseudo-R^2, RMSE) for each parametric model during the initial estimation run. Diagnostics are always stored in `e(model_diagnostics)`.

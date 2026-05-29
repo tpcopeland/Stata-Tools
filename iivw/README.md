@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.4.0** | 2026-05-29
+**Version 1.5.0** | 2026-05-29
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -62,7 +62,7 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 
 1. **Compute weights** with `iivw_weight`.  You always specify `id()` and `time()`.  For IIW/FIPTIW, the command fits an Andersen-Gill recurrent-event Cox model to estimate each subject's visit intensity; for IPTW-only, it fits only the treatment propensity model.  It then creates a weight variable in the dataset.
 2. **Choose the weighting strategy** that matches the scientific problem (see table below).
-3. **Inspect weights** with `iivw_balance` and `summarize _iivw_weight, detail`.  Look for low leverage, poor balance flags, and extreme tails.  If the weight distribution has heavy tails, re-run with `truncate(1 99)` to cap extreme weights.
+3. **Inspect diagnostics** with `iivw_balance` for the visit-intensity model.  When `treat()` and `treat_cov()` are used, run `psdash combined` for treatment-propensity overlap, common support, balance, and treatment-weight diagnostics.
 4. **Fit the outcome model** with `iivw_fit`.  It reads the weight variable and panel structure from the dataset automatically.
 
 ## Recommended Analysis Recipes
@@ -94,6 +94,10 @@ iivw_weight, id(id) time(months) ///
     lagvars(current_score relapse) ///
     treat(treated) treat_cov(age sex baseline_edss baseline_score) ///
     truncate(1 99) efron replace nolog
+
+psdash combined, saving(treatment_ps_dashboard.png)
+psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
+iivw_balance, agrefit nolog
 
 iivw_fit current_score treated age sex baseline_score, ///
     timespec(linear) nolog
@@ -195,9 +199,28 @@ For IPTW and FIPTIW, `treat()` must be a binary 0/1 treatment indicator, observe
 
 ## What Gets Added to the Data
 
-By default, `iivw_weight` creates `_iivw_weight`, the final weight used by `iivw_fit`.  It also creates component weights when needed: `_iivw_iw` for visit-intensity weights and `_iivw_tw` for treatment weights.  Use `generate(prefix)` to change the prefix.
+By default, `iivw_weight` creates `_iivw_weight`, the final weight used by `iivw_fit`.  It also creates component variables when needed: `_iivw_iw` for visit-intensity weights, `_iivw_ps` for the treatment propensity score, and `_iivw_tw` for treatment weights.  Use `generate(prefix)` to change the prefix.
 
-The weighting step also stores dataset metadata, including the panel ID, time variable, weight type, weight variable, prefix, and expanded visit-model covariate list.  `iivw_balance` and `iivw_fit` read that metadata automatically, so the usual workflow is to run `iivw_weight`, inspect the weights, and then run `iivw_fit` without re-entering the panel structure.
+The weighting step also stores dataset metadata, including the panel ID, time variable, weight type, weight variable, component variables, prefix, expanded visit-model covariate list, treatment variable, treatment-model covariates, and the treatment propensity-score contract.  `iivw_balance`, `iivw_fit`, and `psdash` read that metadata automatically, so the usual workflow is to run `iivw_weight`, inspect the relevant diagnostics, and then run `iivw_fit` without re-entering the panel structure.
+
+## Using psdash with iivw
+
+When `iivw_weight` is run with `treat()` and `treat_cov()`, the treatment propensity model can be diagnosed with `psdash`.
+
+Run `psdash combined` immediately after `iivw_weight` to inspect treatment-propensity overlap, common support, treatment-covariate balance, and treatment-weight distribution. Then run `iivw_balance` for the visit-intensity component. The two diagnostics answer different questions: `psdash` checks treatment positivity and treatment-model balance; `iivw_balance` checks whether visit-intensity weights have enough leverage and whether modeled visit covariates are balanced.
+
+```stata
+iivw_weight, id(id) time(months) ///
+    visit_cov(age sex bl_edss bl_sdmt) ///
+    lagvars(sdmt relapse) ///
+    treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
+    truncate(1 99) efron replace nolog
+
+psdash combined, saving(treatment_ps_dashboard.png)
+psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
+iivw_balance, agrefit nolog
+iivw_fit sdmt treated age sex bl_edss, timespec(ns(3)) nolog
+```
 
 ## Choosing Covariates
 
@@ -371,7 +394,8 @@ After running `iivw_weight`, check these before fitting the outcome model:
 | Effective sample size (reported automatically) | ESS much less than N | Simplify the visit model or truncate |
 | Weight mean (reported automatically) | Mean far from 1.0 | Check model specification |
 | Compare with/without truncation | Treatment effect changes substantially | Result may be driven by a few extreme weights |
-| `summarize _iivw_tw, detail` (FIPTIW only) | Extreme treatment weights | Positivity violations — check covariate overlap |
+| `psdash combined` (IPTW/FIPTIW only) | Poor treatment PS overlap, common-support loss, or residual treatment-covariate imbalance | Revisit `treat_cov()` and treatment positivity |
+| `psdash weights, iivwcomponent(final) detail graph` | Extreme final FIPTIW/IPTW analysis weights | Check both treatment and visit components; consider truncation |
 
 ## Common Problems and Fixes
 
@@ -440,7 +464,7 @@ The package ships with functional, validation, and cross-validation QA under `qa
 
 ## Demo
 
-The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also demonstrates styled `.xlsx` sheet exports from `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose`, plus the `regtab` workbook export for model tables.
+The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, treatment-propensity diagnostics through `psdash`, visit-intensity diagnostics through `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`. It also demonstrates styled `.xlsx` sheet exports from `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose`, plus the `regtab` workbook export for model tables.
 
 Regenerate from the repository root with:
 
@@ -451,10 +475,67 @@ do iivw/demo/demo_iivw.do
 Generated outputs:
 
 - [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
+- [`demo/iivw_psdash_dashboard.png`](demo/iivw_psdash_dashboard.png) — psdash treatment-propensity overlap, support, balance, and treatment-weight dashboard using `_iivw_ps` and `_iivw_tw`
+- [`demo/iivw_psdash_final_weights.png`](demo/iivw_psdash_final_weights.png) — final FIPTIW analysis-weight distribution from `psdash weights, iivwcomponent(final)`
 - `demo/iivw_results.xlsx` — Excel workbook with a diagnostic model-comparison sheet and a `Visit waves` sheet showing categorical-time interaction labels
 - `demo/iivw_reporting_exports.xlsx` — direct reporting workbook with `Balance`, `Exogeneity`, and `Diagnostics` sheets
 
-The script verifies the direct export workbook sheets and expected rows in all three styled worksheets.
+The script verifies the generated psdash graph files, the direct export workbook sheets, and expected rows in all three styled worksheets.
+
+### psdash treatment-propensity diagnostics
+
+After `iivw_weight` creates `_iivw_ps`, `_iivw_tw`, `_iivw_iw`, and `_iivw_weight`, the demo calls `psdash combined` with no treatment or propensity-score arguments. `psdash` reads the iivw dataset contract and uses the treatment component for PS overlap, common support, treatment-covariate balance, and treatment IPTW diagnostics.
+
+![psdash treatment-propensity dashboard](demo/iivw_psdash_dashboard.png)
+
+The final FIPTIW analysis weight can be summarized separately with `iivwcomponent(final)`.
+
+![psdash final FIPTIW weight distribution](demo/iivw_psdash_final_weights.png)
+
+<details>
+<summary>psdash console output</summary>
+
+```stata
+. psdash combined, saving("iivw/demo/iivw_psdash_dashboard.png")
+```
+
+```text
+Propensity Score Diagnostics Dashboard
+Treatment:     tx
+PS variable:   _iivw_ps
+Covariates:    6
+Weights:       _iivw_tw
+Estimand:      ATE
+Source:        iivw treatment model
+Weight component: treatment IPTW (_iivw_tw)
+
+Overlap: Good ( 4.8% outside support)
+Balance: Adequate (max |SMD| =  0.055)
+Weights: Acceptable (ESS = 94.3% of N)
+Support: Good ( 4.8% outside support)
+Overall: PASS
+```
+
+```stata
+. psdash weights, iivwcomponent(final) detail graph ///
+    saving("iivw/demo/iivw_psdash_final_weights.png")
+```
+
+```text
+IPTW Weight Diagnostics
+Weight variable:   _iivw_weight
+Weight component:  final FIPTIW (_iivw_weight)
+Source:            iivw final analysis weight
+
+Effective Sample Size (ESS)
+                                 Overall        Treated        Control
+                      ESS         1668.2         1086.4          582.9
+               ESS % of N          89.7%          91.6%          86.5%
+
+Weights: Acceptable (ESS = 89.7% of N)
+```
+
+</details>
 
 <details>
 <summary>Direct reporting export examples</summary>
@@ -570,6 +651,13 @@ The generated model workbook asserts that the `Visit waves` sheet contains the r
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.5.0 (2026-05-29)
+
+- Persisted the treatment propensity score as `_iivw_ps` for IPTW/FIPTIW runs
+- Added the shared iivw treatment-PS metadata contract consumed by `psdash`
+- Added treatment-component returns from `iivw_weight` and `_iivw_get_settings`
+- Documented the `psdash combined` handoff for treatment-propensity diagnostics
 
 ### v1.4.0 (2026-05-29)
 

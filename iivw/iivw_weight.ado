@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.4.0  2026/05/29
+*! iivw_weight Version 1.5.0  2026/05/29
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -83,7 +83,7 @@ program define iivw_weight, rclass sortpreserve
         error 198
     }
 
-    foreach candidate in `prefix'iw `prefix'tw `prefix'weight ///
+    foreach candidate in `prefix'iw `prefix'tw `prefix'ps `prefix'weight ///
         `prefix'time_sq `prefix'time_cu `prefix'tns1 ///
         `prefix'tcat_1 `prefix'cat_x `prefix'ix_x_time {
         capture confirm name `candidate'
@@ -322,7 +322,7 @@ program define iivw_weight, rclass sortpreserve
     }
 
     * Check for existing weight variables
-    foreach wvar in `prefix'iw `prefix'tw `prefix'weight {
+    foreach wvar in `prefix'iw `prefix'tw `prefix'ps `prefix'weight {
         capture confirm variable `wvar'
         if _rc == 0 {
             if "`replace'" == "" {
@@ -351,8 +351,9 @@ program define iivw_weight, rclass sortpreserve
     * any error past this point (data mutation, model fit) leaves no stale
     * metadata. Validation failures above preserve the user's prior weights.
     foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_visit_covars ///
-        _iivw_baseevent ///
+        _iivw_weight_var _iivw_prefix _iivw_iw_var _iivw_tw_var ///
+        _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
+        _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
         _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
         _iivw_categorical _iivw_cat_vars _iivw_basecat ///
@@ -616,6 +617,9 @@ program define iivw_weight, rclass sortpreserve
         display as text "Fitting treatment model (logistic)..."
 
         local treat_covars "`treat_cov'"
+        local n_ps_lo = 0
+        local n_ps_hi = 0
+        local n_ps_extreme = 0
 
         * Fit propensity score model on cross-sectional data (one row per subject)
         * Using full panel would over-represent subjects with more visits.
@@ -684,9 +688,17 @@ program define iivw_weight, rclass sortpreserve
             merge m:1 `id' using `__iivw_psfile', nogen assert(match)
 
             * Warn about extreme propensity scores
-            count if `_ps_tmp' < 0.01 & !missing(`_ps_tmp')
+            gen double `prefix'ps = `_ps_tmp'
+            label variable `prefix'ps "Treatment propensity score"
+            local __iivw_created_vars "`__iivw_created_vars' `prefix'ps"
+
+            summarize `prefix'ps, meanonly
+            local ps_min = r(min)
+            local ps_max = r(max)
+
+            count if `prefix'ps < 0.01 & !missing(`prefix'ps)
             local n_ps_lo = r(N)
-            count if `_ps_tmp' > 0.99 & !missing(`_ps_tmp')
+            count if `prefix'ps > 0.99 & !missing(`prefix'ps)
             local n_ps_hi = r(N)
             if `n_ps_lo' > 0 | `n_ps_hi' > 0 {
                 local n_ps_extreme = `n_ps_lo' + `n_ps_hi'
@@ -700,10 +712,10 @@ program define iivw_weight, rclass sortpreserve
             local p_treat = r(mean)
 
             gen double `prefix'tw = .
-            replace `prefix'tw = `p_treat' / `_ps_tmp' ///
-                if `treat' == 1 & !missing(`treat', `_ps_tmp')
-            replace `prefix'tw = (1 - `p_treat') / (1 - `_ps_tmp') ///
-                if `treat' == 0 & !missing(`treat', `_ps_tmp')
+            replace `prefix'tw = `p_treat' / `prefix'ps ///
+                if `treat' == 1 & !missing(`treat', `prefix'ps)
+            replace `prefix'tw = (1 - `p_treat') / (1 - `prefix'ps) ///
+                if `treat' == 0 & !missing(`treat', `prefix'ps)
 
             drop `_ps_tmp'
             label variable `prefix'tw "Inverse probability of treatment weight"
@@ -805,15 +817,29 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_weighttype] "`wtype'"
     char _dta[_iivw_weight_var] "`prefix'weight"
     char _dta[_iivw_prefix] "`prefix'"
+    char _dta[_iivw_contract_version] "1"
     if inlist("`wtype'", "iivw", "fiptiw") {
+        char _dta[_iivw_iw_var] "`prefix'iw"
         char _dta[_iivw_visit_covars] "`visit_covars'"
         char _dta[_iivw_baseevent] "`exclude_base'"
     }
     else {
+        char _dta[_iivw_iw_var] ""
         char _dta[_iivw_visit_covars] ""
     }
-    if "`treat'" != "" {
+    if inlist("`wtype'", "iptw", "fiptiw") {
+        char _dta[_iivw_tw_var] "`prefix'tw"
+        char _dta[_iivw_ps_var] "`prefix'ps"
         char _dta[_iivw_treat] "`treat'"
+        char _dta[_iivw_treat_covars] "`treat_covars'"
+        char _dta[_iivw_ps_estimand] "ate"
+    }
+    else {
+        char _dta[_iivw_tw_var] ""
+        char _dta[_iivw_ps_var] ""
+        char _dta[_iivw_treat] ""
+        char _dta[_iivw_treat_covars] ""
+        char _dta[_iivw_ps_estimand] ""
     }
 
     * =========================================================================
@@ -848,7 +874,7 @@ program define iivw_weight, rclass sortpreserve
         local created_vars "`prefix'iw `created_vars'"
     }
     if inlist("`wtype'", "iptw", "fiptiw") {
-        local created_vars "`prefix'tw `created_vars'"
+        local created_vars "`prefix'ps `prefix'tw `created_vars'"
     }
 
     display as text ""
@@ -876,6 +902,19 @@ program define iivw_weight, rclass sortpreserve
     return local weighttype "`wtype'"
     return local weight_var "`prefix'weight"
     return local visit_covars "`visit_covars'"
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        return local iw_var "`prefix'iw"
+    }
+    if inlist("`wtype'", "iptw", "fiptiw") {
+        return scalar ps_min = `ps_min'
+        return scalar ps_max = `ps_max'
+        return scalar n_ps_extreme = `n_ps_extreme'
+        return local ps_var "`prefix'ps"
+        return local tw_var "`prefix'tw"
+        return local treat_covars "`treat_covars'"
+        return local ps_estimand "ate"
+    }
+    return local contract_version "1"
 
     }
     local rc = _rc

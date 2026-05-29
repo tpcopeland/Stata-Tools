@@ -1,4 +1,4 @@
-*! _msm_coef_scale_label Version 1.0.3  2026/05/06
+*! _msm_coef_scale_label Version 1.0.4  2026/05/29
 *! Scale label for MSM coefficient tables
 *! Author: Timothy P Copeland
 

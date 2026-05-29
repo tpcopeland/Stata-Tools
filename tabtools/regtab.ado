@@ -1,4 +1,4 @@
-*! regtab Version 1.3.1  2026/05/27
+*! regtab Version 1.3.2  2026/05/29
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -455,6 +455,22 @@ quietly{
         if strpos("`stats_lower'", " ll ") local want_ll = 1
         if strpos("`stats_lower'", " groups ") local want_groups = 1
         if strpos("`stats_lower'", " r2 ") | strpos("`stats_lower'", " r-squared ") local want_r2 = 1
+
+        * Aliases: treat n_sub / subjects as a request for the N row; regtab
+        * already prefers N_sub (subjects) over N (rows) for survival models.
+        if strpos("`stats_lower'", " n_sub ") | strpos("`stats_lower'", " subjects ") ///
+            local want_n = 1
+
+        * Warn (do not silently drop) on unrecognized stats() tokens.
+        local _stat_known " n n_sub subjects aic bic qic icc ll groups r2 r-squared "
+        foreach _stok of local stats {
+            local _stok_l = strlower("`_stok'")
+            if !strpos("`_stat_known'", " `_stok_l' ") {
+                noisily display as error ///
+                    "warning: stats() token '`_stok'' not recognized and ignored;" ///
+                    " valid: n (n_sub/subjects) aic bic qic icc ll groups r2"
+            }
+        }
 
         * ================================================================
         * EXTRACT PER-MODEL STATS FROM COLLECTION
