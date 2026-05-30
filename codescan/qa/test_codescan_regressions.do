@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 1.1.1
+*   T7: Version header reports 1.1.2
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T10: generate() + hierarchy() with bare names (M8)
@@ -18,6 +18,8 @@
 *   T14: auto-labels on suffix variables when no explicit label given
 *   T15: explicit labels still override auto-labels
 *   T16: matched_code() not leaked by multi-window sensitivity supplementary scan
+*   T17: bundled helper files are idempotent on reload (cap program drop fix) —
+*        re-running a helper file in one session must not crash "already defined"
 
 clear all
 set seed 12345
@@ -216,7 +218,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 1.1.1
+* T7: header advertises version 1.1.2
 * ============================================================
 
 local ++test_count
@@ -227,10 +229,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "1.1.1") > 0
+    assert strpos("`_line1'", "1.1.2") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 1.1.1"
+    display as result "  PASS T7: version header is 1.1.2"
     local ++pass_count
 }
 else {
@@ -501,6 +503,36 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T16: matched_code sensitivity leak (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T17: bundled helper files are idempotent on reload
+* ============================================================
+* The loader in codescan.ado re-runs an entire helper file whenever ANY of its
+* programs is missing from memory (partial-load state). Each bundled file defines
+* several top-level programs; without a preceding `capture program drop`, the
+* second run of the file crashes with rc=110 "program ... already defined". This
+* test reproduces that by running each helper file twice in one session.
+
+local ++test_count
+capture noisily {
+    foreach _hf in _codescan_codefile _codescan_definitions _codescan_hierarchy ///
+                   _codescan_outputs _codescan_score {
+        findfile `_hf'.ado
+        local _hpath `"`r(fn)'"'
+        run `"`_hpath'"'
+        * Second run must not crash on "already defined" (the 1.1.2 fix).
+        run `"`_hpath'"'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS T17: bundled helper files idempotent on reload"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T17: helper reload crashed (rc=`=_rc')"
     local ++fail_count
 }
 

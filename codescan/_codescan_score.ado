@@ -1,7 +1,8 @@
-*! _codescan_score Version 1.1.1  2026/05/28
+*! _codescan_score Version 1.1.2  2026/05/30
 *! Private score helpers for codescan
 *! Author: Timothy P Copeland
 
+capture program drop _codescan_assign_score_weights
 program define _codescan_assign_score_weights, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -241,6 +242,7 @@ program define _codescan_assign_score_weights, rclass
     }
 end
 
+capture program drop _codescan_apply_score
 program define _codescan_apply_score
     version 16.0
     local _orig_varabbrev = c(varabbrev)

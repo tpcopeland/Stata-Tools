@@ -1,7 +1,8 @@
-*! _codescan_definitions Version 1.1.1  2026/05/28
+*! _codescan_definitions Version 1.1.2  2026/05/30
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland
 
+capture program drop _codescan_parse_define
 program define _codescan_parse_define, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -83,6 +84,7 @@ program define _codescan_parse_define, rclass
     }
 end
 
+capture program drop _codescan_apply_generate
 program define _codescan_apply_generate, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -104,6 +106,7 @@ program define _codescan_apply_generate, rclass
     return local name "`name'"
 end
 
+capture program drop _codescan_validate_def_regex
 program define _codescan_validate_def_regex
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -131,6 +134,7 @@ program define _codescan_validate_def_regex
     if `rc' exit `rc'
 end
 
+capture program drop _codescan_apply_level
 program define _codescan_apply_level, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -176,6 +180,9 @@ program define _codescan_apply_level, rclass
     return local pattern `"`pattern'"'
 end
 
+* Drop first so a reload of this bundled file (loader re-runs it on partial-load)
+* does not crash with "_codescan_validate_regex() already exists" (r3000).
+capture mata: mata drop _codescan_validate_regex()
 mata:
 void _codescan_validate_regex(string scalar pat, string scalar cname, string scalar ptype)
 {

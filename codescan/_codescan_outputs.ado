@@ -1,7 +1,8 @@
-*! _codescan_outputs Version 1.1.1  2026/05/28
+*! _codescan_outputs Version 1.1.2  2026/05/30
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland
 
+capture program drop _codescan_plan_outputs
 program define _codescan_plan_outputs, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -127,6 +128,7 @@ program define _codescan_plan_outputs, rclass
     }
 end
 
+capture program drop _codescan_cleanup_outputs
 program define _codescan_cleanup_outputs
     version 16.0
     local _orig_varabbrev = c(varabbrev)

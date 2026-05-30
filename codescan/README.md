@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.1.1** | 2026-05-28
+**Version 1.1.2** | 2026-05-30
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -549,6 +549,9 @@ useful for automated checks before freezing a code dictionary.
 - van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system adaptation of the Elixhauser comorbidity measure for hospital mortality.
 
 ## Changelog
+
+### 1.1.2 (2026-05-30)
+- Fix: bundled helper files (`_codescan_codefile`, `_codescan_definitions`, `_codescan_hierarchy`, `_codescan_outputs`, `_codescan_score`) now precede every `program define` with `capture program drop`. Because the loader re-runs a whole helper file whenever any one of its programs is missing from memory, a partial-load state could otherwise crash a second in-session invocation with `program ... already defined`. All sub-programs are now idempotent on reload.
 
 ### 1.1.1 (2026-05-28)
 - Fix: `matched_code()` no longer captures codes from observations outside the primary analysis window when combined with a multi-window `lookback()` and `merge`. The supplementary sensitivity scan previously reused the matched-code buffer and populated it for secondary-window-only rows.

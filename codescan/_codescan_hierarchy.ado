@@ -1,7 +1,8 @@
-*! _codescan_hierarchy Version 1.1.1  2026/05/28
+*! _codescan_hierarchy Version 1.1.2  2026/05/30
 *! Private hierarchy helpers for codescan
 *! Author: Timothy P Copeland
 
+capture program drop _codescan_check_hierarchy_syntax
 program define _codescan_check_hierarchy_syntax
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -43,6 +44,7 @@ program define _codescan_check_hierarchy_syntax
     if `rc' exit `rc'
 end
 
+capture program drop _codescan_parse_hierarchy
 program define _codescan_parse_hierarchy, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -138,6 +140,7 @@ program define _codescan_parse_hierarchy, rclass
     }
 end
 
+capture program drop _codescan_apply_hierarchy
 program define _codescan_apply_hierarchy
     version 16.0
     local _orig_varabbrev = c(varabbrev)
