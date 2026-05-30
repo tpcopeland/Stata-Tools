@@ -4,4 +4,3 @@ qa/baseline/workbooks/
 **/__pycache__/
 *.log
 *.smcl
-demo/demo_*.xlsx
