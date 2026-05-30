@@ -1,0 +1,14 @@
+# Generated QA artifacts at the qa/ root.
+#
+# Every test run `capture erase`s and then regenerates these via export()/
+# saving()/xlsx() targets, so tracking them produced only binary churn and
+# violated the "artifacts never tracked" distribution standard. They are
+# recreated on demand by the QA suite, so nothing depends on a tracked copy.
+#
+# Anchored to the qa/ root with a leading slash so the deliberate INPUT
+# fixtures under qa/data/ stay tracked.
+/*.dta
+/*.xlsx
+/*.csv
+/*.log
+/*.smcl

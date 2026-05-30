@@ -1,0 +1,14 @@
+# Generated QA artifacts at the qa/ root.
+#
+# Every test run `capture erase`s and then regenerates these via export()/
+# saving()/save targets, so tracking them produced only binary churn and
+# violated the "artifacts never tracked" distribution standard. They are
+# recreated on demand by `do run_all.do`, so nothing depends on a tracked copy.
+#
+# Anchored to the qa/ root with a leading slash so that deliberate INPUT
+# fixtures placed under qa/data/ (the repo convention) stay tracked.
+/*.dta
+/*.xlsx
+/*.csv
+/*.log
+/*.smcl
