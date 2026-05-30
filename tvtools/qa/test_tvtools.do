@@ -620,7 +620,7 @@ else {
     local ++fail_count
 }
 
-* TEST 14: Version is 1.5.3
+* TEST 14: Version is 1.0.0
 local ++test_count
 
 capture findfile tvage.ado
@@ -630,8 +630,8 @@ if _rc == 0 {
     file read `fh' line
     file close `fh'
 
-    if strpos("`line'", "1.5.3") > 0 {
-        display as result "  PASS: Version is 1.5.3"
+    if strpos("`line'", "1.0.0") > 0 {
+        display as result "  PASS: Version is 1.0.0"
         local ++pass_count
     }
     else {
@@ -12205,14 +12205,14 @@ else {
     local failed_tests "`failed_tests' 20.2"
 }
 
-* Test 20.3: tvtools version returns 1.5.3
+* Test 20.3: tvtools version returns 1.0.0
 local ++test_count
 capture noisily {
     tvtools
-    assert "`r(version)'" == "1.5.3"
+    assert "`r(version)'" == "1.0.0"
 }
 if _rc == 0 {
-    display as result "  PASS: tvtools version is 1.5.3"
+    display as result "  PASS: tvtools version is 1.0.0"
     local ++pass_count
 }
 else {

@@ -152,6 +152,7 @@ program define _tabtools_collect_render_current, rclass
     if `rc' exit `rc'
 end
 
+cap program drop _tt_collect_dim_locals
 program define _tt_collect_dim_locals, rclass
     version 17.0
     syntax anything(name=args) [, LEVELS(string)]
@@ -205,6 +206,7 @@ program define _tt_collect_dim_locals, rclass
     return local dimlabel `"`dimlabel'"'
 end
 
+cap program drop _tt_collect_result_locals
 program define _tt_collect_result_locals, rclass
     version 17.0
     syntax , RESULTS(string) PREFIX(name)

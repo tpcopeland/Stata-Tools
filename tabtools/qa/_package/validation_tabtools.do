@@ -542,8 +542,8 @@ capture noisily {
     local found_int = 0
     local found_res = 0
     forvalues i = 1/`=_N' {
-        if B[`i'] == "Hospital Site (Intercept)" local found_int = 1
-        if B[`i'] == "Residual Variance" local found_res = 1
+        if strpos(B[`i'], "Variance: Hospital Site (Intercept)") > 0 local found_int = 1
+        if strpos(B[`i'], "Residual Variance") > 0 local found_res = 1
     }
     assert `found_int' == 1
     assert `found_res' == 1
@@ -579,8 +579,8 @@ capture noisily {
     local found_int = 0
     local found_slope = 0
     forvalues i = 1/`=_N' {
-        if B[`i'] == "Healthcare Provider (Intercept)" local found_int = 1
-        if B[`i'] == "Healthcare Provider (Treatment Group)" local found_slope = 1
+        if strpos(B[`i'], "Variance: Healthcare Provider (Intercept)") > 0 local found_int = 1
+        if strpos(B[`i'], "Variance: Healthcare Provider (Treatment Group)") > 0 local found_slope = 1
     }
     assert `found_int' == 1
     assert `found_slope' == 1
@@ -897,7 +897,7 @@ capture noisily {
     import excel "`output_dir'/_val_regtab_nolabels.xlsx", sheet("NoLabels") clear allstring
     local found = 0
     forvalues i = 1/`=_N' {
-        if B[`i'] == "grp (Intercept)" local found = 1
+        if strpos(B[`i'], "Variance: grp (Intercept)") > 0 local found = 1
     }
     assert `found' == 1
 }

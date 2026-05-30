@@ -1179,7 +1179,7 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.1 — NEJM theme validates (Arial 10pt, academic borders)"
+    display as result "  PASS: XL14.1 — NEJM theme validates (Arial 9pt, academic borders)"
     local ++n_pass
 }
 else {

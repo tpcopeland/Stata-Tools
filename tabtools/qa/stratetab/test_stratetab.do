@@ -39,6 +39,12 @@ end
 local ++test_count
 capture noisily {
     tempfile missing_rate
+    * Guarantee the precondition: the using file must NOT exist. A bare tempfile
+    * name is not enough — in a long session (e.g. run_all) an earlier do-file's
+    * first tempfile shares this session-rooted name, and any `save "<tf>.dta"'
+    * leaves a leftover .dta that Stata does not auto-erase (it only tracks the
+    * bare tempname). Erase it so stratetab reliably hits the file-not-found path.
+    capture erase "`missing_rate'.dta"
     local _orig_varabbrev = c(varabbrev)
     set varabbrev on
     capture stratetab, using("`missing_rate'") outcomes(1) display

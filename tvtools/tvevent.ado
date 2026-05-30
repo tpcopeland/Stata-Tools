@@ -947,6 +947,7 @@ end
 
 // Subroutine: Handle empty event data (no events to flag)
 // Loads interval data, creates censored outcome, optionally creates timegen
+cap program drop _tvevent_empty_output
 program define _tvevent_empty_output, rclass
     version 16.0
     syntax , using(string) id(name) startvar(name) stopvar(name) ///

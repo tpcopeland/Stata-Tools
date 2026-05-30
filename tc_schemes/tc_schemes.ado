@@ -129,7 +129,7 @@ program define tc_schemes, rclass
         return local schemes "`selected_schemes'"
         return scalar n_schemes = `n_schemes'
         return local sources "`selected_sources'"
-        return local version "1.0.2"
+        return local version "1.0.0"
 
     }
     local rc = _rc

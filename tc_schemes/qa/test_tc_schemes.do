@@ -40,7 +40,7 @@ capture noisily {
     assert r(n_schemes) > 0
     assert "`r(schemes)'" != ""
     assert "`r(sources)'" == "blindschemes schemepack"
-    assert "`r(version)'" == "1.0.2"
+    assert "`r(version)'" == "1.0.0"
 }
 if _rc == 0 {
     display as result "  PASS"
