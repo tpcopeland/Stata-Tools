@@ -1124,13 +1124,17 @@ quietly{
         local _depvar ""
         local _dep_label ""
         capture local _depvar "`e(depvar)'"
+        local _depvar_rc = _rc
         if "`_depvar'" != "" {
             capture local _dep_label : variable label `_depvar'
+            local _dep_label_rc = _rc
             local _dep_vallab ""
             capture local _dep_vallab : value label `_depvar'
+            local _dep_vallab_rc = _rc
             if "`_dep_vallab'" != "" {
                 capture levelsof `_depvar' if e(sample), local(_dep_levels_for_eq)
-                if _rc == 0 {
+                local _dep_levels_rc = _rc
+                if `_dep_levels_rc' == 0 {
                     foreach _dlev of local _dep_levels_for_eq {
                         local _dlbl ""
                         capture local _dlbl : label `_dep_vallab' `_dlev'
