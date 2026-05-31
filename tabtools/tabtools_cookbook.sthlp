@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.3.5  01jun2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -455,6 +455,6 @@ that need different formats in the same cell.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.1{p_end}
+{pstd}{bf:Version} 1.3.5{p_end}
 
 {hline}

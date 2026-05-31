@@ -1,4 +1,4 @@
-*! regtab Version 1.3.2  2026/05/29
+*! regtab Version 1.3.5  2026/06/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -6,7 +6,7 @@ DESCRIPTION:
 	Formats the collected regression tables; exports point estimate, 95% CI, and p-value to excel; and applies excel formatting (column widths, merges cells, sets column widths). Title appears in cell A1. Top left cell of table is B2.
 
 SYNTAX:
-	regtab, xlsx(string) sheet(string) [models(string) sep(string asis) coef(string) title(string) noint nore stats(string) relabel addrow(string asis)]
+	regtab, xlsx(string) sheet(string) [models(string) sep(string asis) coef(string) title(string) noint nore stats(string) relabel cutlabels(string asis) addrow(string asis)]
 
 	xlsx:	Required option. Excel file name. Requires .xlsx suffix
 	sheet:	Required option. Excel sheet name.
@@ -14,6 +14,8 @@ SYNTAX:
 	coef:	Labels the point estimate (e.g., OR, Coef., HR)
 	title:	Gives spreasheet a table name in cell A1
 	noint:	Drops intercept row
+	        Also drops cutpoint and ancillary-only rows such as cut1, lnalpha,
+	        alpha, and /sigma; use keepintercept to show them.
 	nore:	Drops random effects rows
 	sep:    character separating 95% CI, default is ", "
 	stats:	Model statistics to add at bottom (space-separated): n aic bic qic icc ll groups
@@ -25,6 +27,8 @@ SYNTAX:
 	        - ll: Log-likelihood
 	        - groups: Number of groups (for mixed models)
 	relabel: Relabel random effects nicely (e.g., "var(_cons)" -> "Variance (Intercept)")
+	cutlabels: Relabel ordered-outcome cutpoints, separated by backslashes.
+	        Example: cutlabels("Low/Mid \ Mid/High")
 	addrow: Append custom rows below the table body. Format: addrow("Label" val1 val2).
 	        Use backslash to separate multiple rows:
 	        addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)
@@ -70,7 +74,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
 	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
-	REFcat(string) ADDRow(string asis) COMPact NOPvalue ///
+	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1)]
 
 * Accept excel() as synonym for xlsx()
@@ -129,6 +133,9 @@ if "`coef'" == "" {
 	else if inlist("`_ecmd'", "poisson", "mepoisson", "nbreg", "menbreg", "glm") {
 		local coef "IRR"
 	}
+	else if "`_ecmd'" == "mlogit" {
+		local coef "RRR"
+	}
 	else if inlist("`_ecmd'", "finegray", "stcrreg") {
 		local coef "SHR"
 	}
@@ -153,9 +160,9 @@ if "`coef'" == "" {
 }
 
 * Auto-detect nointercept for exponentiated models (U4)
-* OR/HR/IRR models rarely report intercept; suppress unless user forces it
+* OR/HR/IRR/RRR models rarely report intercept; suppress unless user forces it
 if "`nointercept'" == "" & "`keepintercept'" == "" {
-	if inlist("`coef'", "OR", "HR", "IRR", "SHR", "TR", "AF") {
+	if inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR", "AF") {
 		local nointercept "nointercept"
 	}
 }
@@ -248,6 +255,7 @@ quietly{
     local _model_headers_mixed = 0
     local _all_auto_noint = 1
     local _coef_label_return "`coef'"
+    local _has_multieq_estimator = 0
     capture {
         collect layout (cmdset) (result[cmd cmdline])
     }
@@ -294,6 +302,7 @@ quietly{
 
             local _has_irr = regexm(`"`_cmdline_lc'"', "(^|[, ])irr([ ,]|$)")
             local _has_or = regexm(`"`_cmdline_lc'"', "(^|[, ])or([ ,]|$)")
+            local _has_rrr = regexm(`"`_cmdline_lc'"', "(^|[, ])rrr([ ,]|$)")
             local _optstr ""
             local _comma_pos = strpos(`"`_cmdline_lc'"', ",")
             if `_comma_pos' > 0 {
@@ -337,6 +346,17 @@ quietly{
                     local model_re_family_`m' "variance"
                     local model_icc_undef_`m' 1
                 }
+            }
+            else if "`_cmdword'" == "mlogit" {
+                local model_coef_`m' "RRR"
+                local model_null_`m' 1
+                local model_eform_`m' = !`_has_rrr'
+                local model_auto_noint_`m' 1
+                local _has_multieq_estimator = 1
+            }
+            else if inlist("`_cmdword'", "zip", "zinb", "churdle") {
+                local model_auto_noint_`m' 1
+                local _has_multieq_estimator = 1
             }
             else if inlist("`_cmdword'", "finegray", "stcrreg") {
                 local model_coef_`m' "SHR"
@@ -1083,6 +1103,49 @@ quietly{
         }
     }
 
+    * Multi-equation estimators (for example mlogit, zip, zinb, churdle)
+    * need coleq#colname rows; colname alone collapses outcome/equation-specific
+    * coefficients that share the same term name.
+    local _is_multieq = 0
+    local _use_coleq_layout = `_is_multilevel'
+    local _coleq_label_n = 0
+    capture quietly collect levelsof coleq
+    if _rc == 0 {
+        local _coleq_levels `"`s(levels)'"'
+        local _coleq_n : word count `_coleq_levels'
+        if `_coleq_n' > 1 & ("`re_groupvars'" == "" | "`re_groupvars'" == ".") ///
+            & `_has_multieq_estimator' {
+            local _is_multieq = 1
+            local _use_coleq_layout = 1
+        }
+
+        * If the dependent variable has value labels, map equation names such
+        * as Partial_response or 2 back to reader-facing outcome labels.
+        local _depvar ""
+        local _dep_label ""
+        capture local _depvar "`e(depvar)'"
+        if "`_depvar'" != "" {
+            capture local _dep_label : variable label `_depvar'
+            local _dep_vallab ""
+            capture local _dep_vallab : value label `_depvar'
+            if "`_dep_vallab'" != "" {
+                capture levelsof `_depvar' if e(sample), local(_dep_levels_for_eq)
+                if _rc == 0 {
+                    foreach _dlev of local _dep_levels_for_eq {
+                        local _dlbl ""
+                        capture local _dlbl : label `_dep_vallab' `_dlev'
+                        if `"`_dlbl'"' != "" {
+                            local ++_coleq_label_n
+                            local _coleq_key_`_coleq_label_n' `"`_dlev'"'
+                            local _coleq_key2_`_coleq_label_n' `"`=strtoname(`"`_dlbl'"')'"'
+                            local _coleq_lab_`_coleq_label_n' `"`_dlbl'"'
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 collect label levels result _r_b "`coef'", modify
 collect label levels result _r_ci "`=c(level)'% CI", modify
 collect label levels result _r_p "p-value", modify
@@ -1094,7 +1157,7 @@ collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) noab
 
 * Multi-level mixed models: use coleq#colname to preserve per-level RE rows
 * (colname layout collapses duplicate var(_cons) across levels)
-if `_is_multilevel' {
+if `_use_coleq_layout' {
     collect layout (coleq#colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 }
 else {
@@ -1105,7 +1168,7 @@ else {
 preserve
 
 local _collect_render_rc = 0
-if `_is_multilevel' {
+if `_use_coleq_layout' {
     capture _tabtools_collect_render_current, type(main) rowdim(coleq#colname) ///
         coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'")
     local _collect_render_rc = _rc
@@ -1222,9 +1285,59 @@ if `_is_multilevel' {
         drop _is_header _parent_header _data_is_re _A_trim
     }
 }
+else if `_is_multieq' {
+    gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
+    gen str244 _parent_header = A if _is_header
+    replace _parent_header = _parent_header[_n-1] if _parent_header == "" & _n > 2
+    replace _parent_header = strtrim(_parent_header) if _n > 2
+
+    gen str244 _A_trim = strtrim(A) if _n > 2
+    gen str244 _eq_label = _parent_header if _n > 2
+    if `_coleq_label_n' > 0 {
+        forvalues _eqi = 1/`_coleq_label_n' {
+            replace _eq_label = `"`_coleq_lab_`_eqi''"' ///
+                if _eq_label == `"`_coleq_key_`_eqi''"' ///
+                | _eq_label == `"`_coleq_key2_`_eqi''"'
+        }
+    }
+    if `"`_dep_label'"' != "" {
+        replace _eq_label = `"`_dep_label'"' if _eq_label == `"`_depvar'"'
+    }
+    replace _eq_label = "Inflation equation" if strlower(_eq_label) == "inflate"
+    replace _eq_label = "Selection equation" ///
+        if inlist(strlower(_eq_label), "selection_ll", "selection_ul", "selection")
+    replace _eq_label = "Scale" if strlower(_eq_label) == "lnsigma"
+    replace _eq_label = "Ancillary" ///
+        if strlower(_eq_label) == "/" | regexm(strlower(_eq_label), "^_diparm")
+    replace _eq_label = subinstr(_eq_label, "_", " ", .) if _n > 2
+    replace _A_trim = "Intercept" if inlist(strlower(_A_trim), "_cons", "constant", "intercept")
+
+    * Omitted rows from base outcomes add noise and can masquerade as
+    * reference-category coefficients for every covariate.
+    gen byte _drop_omitted_eq = !_is_header & _n > 2 & ///
+        (substr(_A_trim, 1, 2) == "o." | strpos(_A_trim, "o.") == 1)
+    drop if _drop_omitted_eq
+    drop _drop_omitted_eq
+
+    replace A = _eq_label + ": " + _A_trim ///
+        if !_is_header & _eq_label != "" & _A_trim != "" & _n > 2
+    drop if _is_header
+    drop _is_header _parent_header _A_trim _eq_label
+}
 
 if "`noint'" != "" {
-	drop if regexm(strlower(A), "^(intercept|_cons|constant)$")
+    gen str244 _noint_row = strlower(strtrim(A)) if _n > 2
+    drop if _n > 2 & ( ///
+        regexm(_noint_row, "^(intercept|_cons|constant)$") ///
+        | regexm(_noint_row, ": +(intercept|_cons|constant)$") ///
+        | regexm(_noint_row, "^/?cut[0-9]+$") ///
+        | regexm(_noint_row, ": +/?cut[0-9]+$") ///
+        | regexm(_noint_row, "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)") ///
+        | regexm(_noint_row, ": +(/|alpha|lnalpha|ln_p|p|1/p)$") ///
+        | regexm(_noint_row, "^ancillary:") ///
+        | regexm(_noint_row, "^scale:") ///
+    )
+    capture drop _noint_row
 }
 
 if "`nore'" != "" {
@@ -1503,6 +1616,33 @@ if "`factorlabel'" != "" & "`_fvlabel_cmds'" != "" {
     }
 }
 
+* Relabel ordered-outcome cutpoint rows (cut1, /cut1, cut2, ...).
+* Labels are positional and split on backslashes to match models().
+if `"`cutlabels'"' != "" {
+    local _cutlabels_rest `"`cutlabels'"'
+    local _cut_bslash = char(92)
+    local _cut_n = 0
+    while `"`_cutlabels_rest'"' != "" {
+        local _cut_pos = strpos(`"`_cutlabels_rest'"', "`_cut_bslash'")
+        if `_cut_pos' > 0 {
+            local _cut_piece = strtrim(substr(`"`_cutlabels_rest'"', 1, `_cut_pos' - 1))
+            local _cutlabels_rest = strtrim(substr(`"`_cutlabels_rest'"', `_cut_pos' + 1, .))
+        }
+        else {
+            local _cut_piece = strtrim(`"`_cutlabels_rest'"')
+            local _cutlabels_rest ""
+        }
+        if `"`_cut_piece'"' != "" {
+            local ++_cut_n
+            local _cut_label_`_cut_n' `"`_cut_piece'"'
+        }
+    }
+    forvalues _cut_i = 1/`_cut_n' {
+        replace A = `"`_cut_label_`_cut_i''"' ///
+            if _n >= 3 & regexm(strlower(strtrim(A)), "^/?cut`_cut_i'$")
+    }
+}
+
 * Filter rows by keep/drop list
 * Note: A contains variable labels from collect, not variable names
 * Match against exact label, variable name within label, or factor prefix
@@ -1536,6 +1676,10 @@ drop _re_rowid
 local last = `n' - 2
 gen byte _is_ancillary = 0
 replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)")
+replace _is_ancillary = 1 if _n > 2 & ///
+    regexm(strlower(strtrim(A)), ": +(/|alpha|lnalpha|ln_p|p|1/p)$")
+replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(_raw_A)), "^/?cut[0-9]+$")
+replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^/?cut[0-9]+$")
 if "`dimnonsig'" != "" {
     capture drop _nonsig _ci_seen
     gen byte _nonsig = (_n >= 3)
@@ -1584,7 +1728,7 @@ local _model_ix = 0
 forvalues i = 2(3)`=`last'+1' {
     local _model_ix = `_model_ix' + 1
     local _needs_eform = 0
-    local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "SHR", "TR"), 1, 0)
+    local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR"), 1, 0)
     if `_model_ix' <= `_meta_models' {
         local _needs_eform = `model_eform_`_model_ix''
         local _null = `model_null_`_model_ix''
@@ -2152,6 +2296,10 @@ else if "`coef'" == "HR" {
 else if "`coef'" == "IRR" {
     local _methods_coef "Incidence rate ratios"
     local _methods_model "Poisson regression"
+}
+else if "`coef'" == "RRR" {
+    local _methods_coef "Relative risk ratios"
+    local _methods_model "multinomial logistic regression"
 }
 else if "`coef'" == "Coef." {
     local _methods_coef "Coefficients"

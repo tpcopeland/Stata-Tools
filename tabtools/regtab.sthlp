@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.2  29may2026}{...}
+{* *! version 1.3.5  01jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt comp:act} {opt nop:value} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
@@ -49,9 +49,9 @@ for treatment effects and margins tables.
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Regression"}.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints used by {cmd:collect} {cmd:cidelimiter()}. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, {cmd:regtab} auto-generates {cmd:Model} or {cmd:Model 1}, {cmd:Model 2}, ...{p_end}
-{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, {cmd:regtab} auto-detects the display scale separately for each collected model from the collected command metadata: {cmd:logit}/{cmd:logistic}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}/{cmd:nbreg}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}/{cmd:mixed}{it:->}Coef. For coefficient-scale fits such as {cmd:logit} or {cmd:poisson}, fixed-effect rows are exponentiated for display when the auto header implies OR/IRR output. Mixed-scale collections use per-model headers unless you set {opt coef()} explicitly.{p_end}
+{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, {cmd:regtab} auto-detects the display scale separately for each collected model from the collected command metadata: {cmd:logit}/{cmd:logistic}{it:->}OR, {cmd:mlogit}{it:->}RRR, {cmd:stcox}{it:->}HR, {cmd:poisson}/{cmd:nbreg}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}/{cmd:mixed}{it:->}Coef. For coefficient-scale fits such as {cmd:logit}, {cmd:mlogit}, or {cmd:poisson}, fixed-effect rows are exponentiated for display when the auto header implies OR/RRR/IRR output. Mixed-scale collections use per-model headers unless you set {opt coef()} explicitly.{p_end}
 {synopt:{opt title(string)}}Text written into {cmd:A1} and merged across the table width. If omitted, the title row is left blank.{p_end}
-{synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled when all collected models are on a ratio scale (OR/HR/IRR/SHR/TR/AF); use {opt keepintercept} to override.{p_end}
+{synopt:{opt noint:ercept}}Drop intercept, ordered-outcome cutpoint, and ancillary-only rows such as {cmd:cut1}, {cmd:lnalpha}, {cmd:alpha}, and {cmd:/sigma}. Auto-enabled when all collected models are on a ratio scale (OR/RRR/HR/IRR/SHR/TR/AF); use {opt keepintercept} to override.{p_end}
 {synopt:{opt keepi:ntercept}}Force display of intercept row even for exponentiated models.{p_end}
 {synopt:{opt nore:effects}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
 {synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For survival models ({cmd:stcox}/{cmd:streg}), {cmd:n} reports the number of subjects ({cmd:e(N_sub)}) in preference to the number of records; {cmd:n_sub} and {cmd:subjects} are accepted as synonyms for {cmd:n}. Unrecognized {cmd:stats()} tokens are ignored with a warning. For GEE models ({cmd:xtgee}), {cmd:aic} automatically displays QIC (Quasi-likelihood Information Criterion) since AIC is undefined for quasi-likelihood. {cmd:qic} can also be requested explicitly. For mixed regular and pseudo-R² collections, the row label becomes {cmd:R² / Pseudo R²}. {cmd:icc} is computed per model from variance components when defined.{p_end}
@@ -75,9 +75,10 @@ for treatment effects and margins tables.
 {synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching specified variable names. Cannot be combined with {cmd:drop()}.{p_end}
 {synopt:{opt drop(varlist)}}Drop rows matching specified variable names. Cannot be combined with {cmd:keep()}.{p_end}
-{synopt:{opt dimnon:sig}}Gray out non-significant rows. Rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef.) are dimmed. Reference category rows are always dimmed. Category headers are dimmed unless at least one level is significant.{p_end}
+{synopt:{opt dimnon:sig}}Gray out non-significant rows. Rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/RRR/HR/IRR/SHR/TR, 0 for Coef.) are dimmed. Reference category rows are always dimmed. Category headers are dimmed unless at least one level is significant.{p_end}
 {synopt:{opt factorl:abel}}Replace factor variable prefixes (e.g., {it:3.rep78}) with their value labels.{p_end}
 {synopt:{opt ref:cat(string)}}Label for reference category rows. Default is {cmd:"Reference"}. Set to customize, e.g., {cmd:refcat("Ref.")}.{p_end}
+{synopt:{opt cutl:abels(string)}}Custom labels for ordered-model cutpoint rows. Separate labels with backslashes, e.g., {cmd:cutlabels("Low to moderate \ Moderate to high")}. Use {opt keepintercept} when you want cutpoints displayed; otherwise {opt noint} and ratio-scale auto-hiding remove them.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}
 {synopt:{opt nop:value}}Suppress p-value columns in the console, frame, CSV, and Excel output. With {opt compact}, this leaves one estimate-and-CI column per model. P-values remain available internally for {opt stars} and row highlighting.{p_end}
 {synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
@@ -107,12 +108,13 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it intentionally updates collect labels, styles, and layout before export. If you need the original collection layout unchanged for later commands, save or rebuild that collection before running {cmd:regtab}.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
 {p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale per collected model from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
+{p 4 8 2}- Multi-equation models such as {cmd:mlogit}, {cmd:zip}, {cmd:zinb}, and {cmd:churdle} use the equation/outcome dimension in the row labels, so rows read like {it:Partial response: Age z-score} or {it:Inflation equation: Prior events} instead of collapsing repeated covariate names across equations. For labeled multinomial outcomes, value labels are used when available. {cmd:mlogit} is displayed as relative risk ratios (RRR) by default; zero-inflated and hurdle models remain on their native coefficient scale unless {opt coef()} and collection styling are supplied by the user.{p_end}
 {p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies explicit names. {opt models()} values are split on the backslash character.{p_end}
 
 {pstd}Notes on output shaping{p_end}
 {p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands use the same {opt digits()} precision as the main coefficient rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
-{p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
+{p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed with {opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you intentionally want ordered-model cutpoints displayed with publication-friendly labels.{p_end}
 {p 4 8 2}- P-value columns can be removed from the rendered table with {opt nopvalue}. If {opt stars} is also specified, significance stars are still computed from the collected p-values before the p-value columns are dropped.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes Excel output through the shared tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
@@ -126,6 +128,32 @@ random-effects rows if desired.{p_end}
 {phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
 {phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Diabetes") title("Odds Ratios for Diabetes") coef(OR)"':. regtab, xlsx(regression.xlsx) sheet("Diabetes") ///}{p_end}
 {phang3}{cmd:title("Odds Ratios for Diabetes") coef(OR)}{p_end}
+
+{pstd}Multinomial logistic regression with outcome-specific RRR rows:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. xtile price_group = price, nq(3)}{p_end}
+{phang2}{cmd:. label define price_group 1 "Low price" 2 "Middle price" 3 "High price"}{p_end}
+{phang2}{cmd:. label values price_group price_group}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: mlogit price_group mpg weight, baseoutcome(1)}{p_end}
+{phang2}{cmd:. regtab, xlsx(regression.xlsx) sheet("Multinomial") title("Price group model")}{p_end}
+
+{pstd}
+Rows are labeled by outcome and term (for example, {it:Middle price: Mileage (mpg)}),
+and the estimate header is auto-detected as {cmd:RRR}.{p_end}
+
+{pstd}Ordered logit with custom cutpoint labels:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. keep if !missing(rep78)}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: ologit rep78 mpg weight}{p_end}
+{phang2}{cmd:. regtab, xlsx(regression.xlsx) sheet("Ordered") keepintercept ///}{p_end}
+{phang3}{cmd:cutlabels("1 to 2 \ 2 to 3 \ 3 to 4 \ 4 to 5")}{p_end}
+
+{pstd}
+The number of labels may match however many cutpoints the ordered model returns.
+Without {opt keepintercept}, {cmd:regtab} treats cutpoints like ancillary rows and
+omits them from ratio-scale presentation tables.{p_end}
 
 {pstd}Two models with merged headers, dropping the intercept row:{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
@@ -173,6 +201,8 @@ as {it:Variance: School (Treatment)} and
 When {opt coef()} is omitted, {cmd:regtab} auto-detects the label from the
 model type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR,
 {cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR,
+{cmd:mlogit} {it:->} RRR,
+{cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef.,
 {cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time) {it:->} AF,
 {cmd:regress}/{cmd:mixed} {it:->} Coef.
 The {opt boldp()} option bolds p-value cells below
@@ -213,6 +243,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.2{p_end}
+{pstd}{bf:Version} 1.3.5{p_end}
 
 {hline}

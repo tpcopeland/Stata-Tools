@@ -282,6 +282,50 @@ else {
 capture frame drop eff_ci_collect
 
 * ============================================================
+* Test 7c: collect CI bounds honor digits()
+* ============================================================
+capture frame drop eff_ci_digits_collect
+capture noisily {
+    sysuse auto, clear
+    gen byte high_price = price > 5000
+    quietly logit high_price c.mpg
+    collect clear
+    collect: margins, dydx(mpg)
+    effecttab, frame(eff_ci_digits_collect, replace) effect("AME") display digits(4)
+    frame eff_ci_digits_collect {
+        local _found_ci = 0
+        forvalues _r = 3/`=_N' {
+            local _ci = strtrim(c2[`_r'])
+            if "`_ci'" != "" & strpos("`_ci'", "(") == 1 & strpos("`_ci'", ", ") > 0 {
+                local _body = substr("`_ci'", 2, strlen("`_ci'") - 2)
+                local _split = strpos("`_body'", ", ")
+                local _lo = strtrim(substr("`_body'", 1, `_split' - 1))
+                local _hi = strtrim(substr("`_body'", `_split' + 2, .))
+                local _lopos = strpos("`_lo'", ".")
+                local _hipos = strpos("`_hi'", ".")
+                assert `_lopos' > 0
+                assert `_hipos' > 0
+                assert strlen(substr("`_lo'", `_lopos' + 1, .)) == 4
+                assert strlen(substr("`_hi'", `_hipos' + 1, .)) == 4
+                local _found_ci = 1
+                continue, break
+            }
+        }
+        assert `_found_ci' == 1
+    }
+}
+if _rc == 0 {
+    display as result "PASS: T7c — collect CI bounds honor digits()"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T7c — collect CI bounds ignore digits() (rc=`=_rc')"
+    local ++n_fail
+}
+capture frame drop eff_ci_digits_collect
+quietly webuse cattaneo2, clear
+
+* ============================================================
 * Test 8: effecttab CSV export
 * ============================================================
 capture noisily {

@@ -9,10 +9,11 @@
       Console (1 SMCL file + 1 markdown file):
         1. console_output.smcl        - consolidated display log
         2. console_output.md          - markdown console output for README
-      Per-command workbooks (11 xlsx files, 55 sheets total):
+      Per-command workbooks (12 xlsx files, 65 sheets total):
         demo_table1.xlsx    (11 sheets) - table1_tc + themes
         demo_desctab.xlsx   (6 sheets)  - desctab table collect formatting
-        demo_regtab.xlsx    (13 sheets) - regtab all variants
+        demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
+        demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
         demo_effecttab.xlsx  (4 sheets) - effecttab ATE + margins
         demo_stratetab.xlsx  (1 sheet)  - stratetab rates
@@ -83,6 +84,7 @@ quietly net install tabtools, from("`repo_root'/tabtools") replace
 local xlsx_table1    "`pkg_dir'/demo_table1.xlsx"
 local xlsx_desctab   "`pkg_dir'/demo_desctab.xlsx"
 local xlsx_regtab    "`pkg_dir'/demo_regtab.xlsx"
+local xlsx_regtab_models "`pkg_dir'/demo_regtab_models.xlsx"
 local xlsx_comptab   "`pkg_dir'/demo_comptab.xlsx"
 local xlsx_effecttab "`pkg_dir'/demo_effecttab.xlsx"
 local xlsx_stratetab "`pkg_dir'/demo_stratetab.xlsx"
@@ -93,7 +95,7 @@ local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
 local console_log    "`pkg_dir'/console_output.smcl"
 local console_md     "`pkg_dir'/console_output.md"
-foreach _f in table1 desctab regtab comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
     capture erase "`xlsx_`_f''"
 }
 capture erase "`pkg_dir'/demo_tabtools.xlsx"
@@ -260,6 +262,73 @@ log on demo
 noisily regtab, coef("OR") noint nopvalue display
 
 log off demo
+
+**# Console: regtab multinomial logit display
+use `analysis', clear
+collect clear
+quietly collect: mlogit education index_age female diabetes hypertension, ///
+    baseoutcome(1)
+
+log on demo
+
+noisily regtab, display stats(n ll aic bic r2)
+
+log off demo
+
+**# Console: regtab zero-inflated display
+preserve
+clear
+set seed 20260601
+set obs 1500
+gen byte treatment = runiform() < 0.45
+gen double age_z = rnormal()
+gen byte female = runiform() < 0.55
+gen double zero_risk = rnormal()
+gen double log_mu = 0.45 - 0.25 * treatment + 0.35 * age_z + 0.20 * female + rnormal() * 0.35
+gen double mu = exp(log_mu)
+gen byte structural_zero = runiform() < invlogit(-0.9 + 0.90 * zero_risk - 0.45 * treatment + 0.35 * female)
+gen byte event_count = cond(structural_zero, 0, rpoisson(mu))
+label variable event_count "Event count"
+label variable treatment "Treatment"
+label variable age_z "Age z-score"
+label variable female "Female"
+label variable zero_risk "Structural-zero risk"
+
+collect clear
+quietly collect: zip event_count treatment age_z female, inflate(zero_risk female)
+quietly collect: zinb event_count treatment age_z female, inflate(zero_risk female)
+
+log on demo
+
+noisily regtab, display stats(n aic bic ll) models("ZIP" \ "ZINB")
+
+log off demo
+restore
+
+**# Console: regtab hurdle display
+preserve
+clear
+set seed 20260602
+set obs 1200
+gen double dose_intensity = rnormal()
+gen double participation_score = rnormal()
+gen byte positive = runiform() < invlogit(-0.3 + 0.7 * participation_score)
+gen double annual_cost = cond(positive, ///
+    exp(1 + 0.4 * dose_intensity + rnormal() * 0.5), 0)
+label variable annual_cost "Annual cost"
+label variable dose_intensity "Dose intensity"
+label variable participation_score "Participation score"
+
+collect clear
+quietly collect: churdle linear annual_cost dose_intensity, ///
+    select(participation_score) ll(0)
+
+log on demo
+
+noisily regtab, display stats(n ll aic bic r2)
+
+log off demo
+restore
 
 **# Console: corrtab display
 log on demo
@@ -555,6 +624,144 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab AddRow") ///
     footnote("Custom rows appended below model estimates.") ///
     models("Model 1")
 
+**# Sheet 23: MLogit -- Multinomial logit with outcome-specific rows
+use `analysis', clear
+collect clear
+collect: mlogit education index_age female diabetes hypertension, ///
+    baseoutcome(1)
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("MLogit") ///
+    title("Table 5h. Multinomial Logit -- Education Level") ///
+    stats(n ll aic bic r2) models("Multinomial")
+
+**# Sheet 24: OLS -- Linear regression
+use `analysis', clear
+collect clear
+collect: regress crp treated index_age female diabetes hypertension
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("OLS") ///
+    title("Table 5i. Linear Regression -- C-Reactive Protein") ///
+    coef("Coef.") stats(n r2 aic bic) models("OLS")
+
+**# Sheet 25: Probit -- Binary probit regression
+collect clear
+collect: probit cv_event treated index_age female diabetes hypertension
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("Probit") ///
+    title("Table 5j. Probit Regression -- Cardiovascular Event") ///
+    coef("Coef.") noint stats(n ll aic bic r2) models("Probit")
+
+**# Sheet 26: Ordered Logit -- Ordinal outcome model
+collect clear
+collect: ologit education index_age female diabetes hypertension
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("Ordered Logit") ///
+    title("Table 5k. Ordered Logit -- Education Level") ///
+    keepintercept cutlabels("Primary to Secondary \ Secondary to Tertiary") ///
+    stats(n ll aic bic r2) models("Ordered logit")
+
+**# Sheet 27: Negative Binomial -- Count model
+collect clear
+collect: nbreg prior_hosp treated index_age female diabetes hypertension
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("NegBin") ///
+    title("Table 5l. Negative Binomial Regression -- Prior Hospitalizations") ///
+    noint stats(n ll aic bic) models("Negative binomial")
+
+**# Sheet 28: GLM Poisson -- Generalized linear model
+collect clear
+collect: glm prior_hosp treated index_age female diabetes hypertension, ///
+    family(poisson) link(log) nolog
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("GLM Poisson") ///
+    title("Table 5m. GLM Poisson -- Prior Hospitalizations") ///
+    stats(n aic bic) models("GLM Poisson")
+
+**# Sheet 29: Panel RE -- Random-effects panel model
+preserve
+clear
+set seed 20260603
+set obs 600
+gen int patient_id = ceil(_n / 4)
+gen byte visit = mod(_n - 1, 4) + 1
+gen double exposure = rnormal()
+gen double age = rnormal(58, 9)
+gen double patient_u = rnormal() if visit == 1
+bysort patient_id: replace patient_u = patient_u[1]
+gen double symptom_score = 2 + 0.45 * exposure + 0.03 * age + patient_u + rnormal()
+label variable symptom_score "Symptom score"
+label variable exposure "Treatment exposure"
+label variable age "Age"
+xtset patient_id visit
+
+collect clear
+collect: xtreg symptom_score exposure age, re
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("Panel RE") ///
+    title("Table 5n. Panel Random-Effects Regression") ///
+    coef("Coef.") noreeffects stats(n groups) models("Panel RE")
+restore
+
+**# Sheet 30: Quantile -- Median regression
+use `analysis', clear
+collect clear
+collect: qreg crp treated index_age female diabetes hypertension
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("Quantile") ///
+    title("Table 5o. Median Regression -- C-Reactive Protein") ///
+    coef("Coef.") stats(n r2) models("Median")
+
+**# Sheet 31: ZIP ZINB -- Zero-inflated count models
+preserve
+clear
+set seed 20260601
+set obs 1500
+gen byte treatment = runiform() < 0.45
+gen double age_z = rnormal()
+gen byte female = runiform() < 0.55
+gen double zero_risk = rnormal()
+gen double log_mu = 0.45 - 0.25 * treatment + 0.35 * age_z + 0.20 * female + rnormal() * 0.35
+gen double mu = exp(log_mu)
+gen byte structural_zero = runiform() < invlogit(-0.9 + 0.90 * zero_risk - 0.45 * treatment + 0.35 * female)
+gen byte event_count = cond(structural_zero, 0, rpoisson(mu))
+label variable event_count "Event count"
+label variable treatment "Treatment"
+label variable age_z "Age z-score"
+label variable female "Female"
+label variable zero_risk "Structural-zero risk"
+
+collect clear
+collect: zip event_count treatment age_z female, inflate(zero_risk female)
+collect: zinb event_count treatment age_z female, inflate(zero_risk female)
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("ZIP ZINB") ///
+    title("Table 5p. Zero-Inflated Count Models") ///
+    stats(n ll aic bic) models("ZIP" \ "ZINB")
+restore
+
+**# Sheet 32: Hurdle -- Cragg hurdle model
+preserve
+clear
+set seed 20260602
+set obs 1200
+gen double dose_intensity = rnormal()
+gen double participation_score = rnormal()
+gen byte positive = runiform() < invlogit(-0.3 + 0.7 * participation_score)
+gen double annual_cost = cond(positive, ///
+    exp(1 + 0.4 * dose_intensity + rnormal() * 0.5), 0)
+label variable annual_cost "Annual cost"
+label variable dose_intensity "Dose intensity"
+label variable participation_score "Participation score"
+
+collect clear
+collect: churdle linear annual_cost dose_intensity, ///
+    select(participation_score) ll(0)
+
+regtab, xlsx("`xlsx_regtab_models'") sheet("Hurdle") ///
+    title("Table 5q. Cragg Hurdle Model -- Annual Cost") ///
+    stats(n ll aic bic r2) models("Cragg hurdle")
+restore
+
 **# Verify new regtab workbook content
 preserve
 import excel using "`xlsx_regtab'", sheet("Regtab Compact") clear allstring
@@ -576,6 +783,47 @@ foreach v of varlist _all {
     quietly count if strtrim(`v') == "p-value"
     assert r(N) == 0
 }
+restore
+
+preserve
+import excel using "`xlsx_regtab_models'", sheet("MLogit") clear allstring
+local _has_mlogit_outcome 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "Secondary") > 0 | strpos(`v', "Tertiary") > 0
+    if r(N) > 0 local _has_mlogit_outcome 1
+}
+assert `_has_mlogit_outcome' == 1
+restore
+
+preserve
+import excel using "`xlsx_regtab_models'", sheet("Ordered Logit") clear allstring
+local _has_cutlabels 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "Primary to Secondary") > 0 ///
+        | strpos(`v', "Secondary to Tertiary") > 0
+    if r(N) > 0 local _has_cutlabels 1
+}
+assert `_has_cutlabels' == 1
+restore
+
+preserve
+import excel using "`xlsx_regtab_models'", sheet("ZIP ZINB") clear allstring
+local _has_inflate_row 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "Inflation equation") > 0
+    if r(N) > 0 local _has_inflate_row 1
+}
+assert `_has_inflate_row' == 1
+restore
+
+preserve
+import excel using "`xlsx_regtab_models'", sheet("Hurdle") clear allstring
+local _has_hurdle_selection 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "Selection equation") > 0
+    if r(N) > 0 local _has_hurdle_selection 1
+}
+assert `_has_hurdle_selection' == 1
 restore
 
 * Build purpose-built Cox model frames for composite demo
@@ -1114,7 +1362,7 @@ clear
 display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.smcl"
 display as result "  `pkg_dir'/console_output.md"
-foreach _f in table1 desctab regtab comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
     capture confirm file "`xlsx_`_f''"
     if _rc == 0 display as result "  `xlsx_`_f''"
 }

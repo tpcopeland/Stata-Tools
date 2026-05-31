@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.3.2** | 2026-05-29
+**Version 1.3.5** | 2026-06-01
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
@@ -37,7 +37,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 
 | Command | Description | Stata |
 |---------|-------------|-------|
-| `regtab` | Format the current `collect` from regression models into a polished table with Excel export and automatic console display | 17+ |
+| `regtab` | Format the current `collect` from regression models into a polished table with Excel export and automatic console display, including multi-equation models such as `mlogit`, `zip`, `zinb`, and `churdle` | 17+ |
 | `effecttab` | Format `teffects` or `margins` results from the current `collect` into an effects table | 17+ |
 
 ### File and frame workflow builders
@@ -68,7 +68,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 11 Excel workbooks (55 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 12 Excel workbooks (65 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 
@@ -269,6 +269,71 @@ The `nopvalue` option suppresses p-value columns:
  Prior cardiovascular disease 0.98       (0.92, 1.05)
 ```
 
+Multinomial models keep outcome-specific rows and use RRR by default:
+
+```stata
+. collect clear
+. collect: mlogit education index_age female diabetes hypertension, baseoutcome(1)
+. regtab, display stats(n ll aic bic r2)
+```
+
+```
+                                              Model
+                                                RRR         95% CI   p-value
+ Secondary: Age at cohort entry (years)        1.00   (1.00, 1.00)      0.75
+ Secondary: Female sex                         1.08   (1.00, 1.18)     0.063
+ Tertiary: Age at cohort entry (years)         1.00   (1.00, 1.00)      0.76
+ Tertiary: Female sex                          1.02   (0.93, 1.11)      0.71
+ Observations                                15,000
+ AIC                                      32530.06
+ BIC                                      32606.21
+ Log-likelihood                         -16255.03
+ Pseudo R²                                   0.000
+```
+
+Zero-inflated models keep the count and inflation equations distinct:
+
+```stata
+. collect clear
+. collect: zip event_count treatment age_z female, inflate(zero_risk female)
+. collect: zinb event_count treatment age_z female, inflate(zero_risk female)
+. regtab, display stats(n aic bic ll) models("ZIP" \ "ZINB")
+```
+
+```
+                                                 ZIP                                  ZINB
+                                               Coef.           95% CI   p-value      Coef.           95% CI   p-value
+ Event count: Treatment                        -0.15   (-0.26, -0.05)     0.003      -0.14   (-0.26, -0.03)     0.016
+ Event count: Age z-score                       0.39     (0.34, 0.44)    <0.001       0.39     (0.33, 0.45)    <0.001
+ Event count: Female                            0.30     (0.19, 0.41)    <0.001       0.32     (0.19, 0.45)    <0.001
+ Inflation equation: Female                     0.50     (0.15, 0.84)     0.005       0.72     (0.26, 1.19)     0.002
+ Inflation equation: Structural-zero risk       0.85     (0.66, 1.04)    <0.001       1.07     (0.79, 1.35)    <0.001
+ Observations                                  1,500                                 1,500
+ AIC                                        4338.98                               4307.53
+ BIC                                        4376.17                               4350.04
+ Log-likelihood                           -2162.49                              -2145.76
+```
+
+Hurdle models preserve outcome and selection equations while ancillary rows stay hidden in default presentation tables:
+
+```stata
+. collect clear
+. collect: churdle linear annual_cost dose_intensity, select(participation_score) ll(0)
+. regtab, display stats(n ll aic bic r2)
+```
+
+```
+                                              Model
+                                              Coef.         95% CI   p-value
+ Annual cost: Dose intensity                   1.75   (1.49, 2.02)    <0.001
+ Selection equation: Participation score       0.51   (0.43, 0.60)    <0.001
+ Observations                                1,200
+ AIC                                       3425.86
+ BIC                                       3451.31
+ Log-likelihood                          -1707.93
+ Pseudo R²                                  0.100
+```
+
 ### corrtab — Correlation matrix
 
 ```stata
@@ -354,13 +419,14 @@ tabtools: all persistent defaults cleared
 
 ### Excel workbooks
 
-The demo generates 11 workbooks (55 sheets) covering every command and option combination:
+The demo generates 12 workbooks (65 sheets) covering every command and option combination:
 
 | Workbook | Sheets | Contents |
 |----------|--------|----------|
 | `demo_table1.xlsx` | 11 | table1_tc variants: basic, total, weighted, wtcompare, SMD, formats, missing, custom symbols, NEJM/BMJ/APA themes |
 | `demo_desctab.xlsx` | 6 | desctab: default unshaded exports, explicit shaded styling, events / N (%), mean (SD), median (IQR), separate statistic columns, and custom compose templates |
-| `demo_regtab.xlsx` | 13 | regtab: logistic, compact, nopvalue, multi-model, Cox, mixed, CDISC, Poisson, GEE QIC, advanced formatting, keep/drop, addrow |
+| `demo_regtab.xlsx` | 13 | regtab: logistic, compact, nopvalue, multi-model, Cox, mixed, CDISC, Poisson, GEE QIC, advanced formatting, keep/drop, and addrow |
+| `demo_regtab_models.xlsx` | 10 | regtab model families: mlogit, OLS, probit, ordered logit with custom cutpoint labels, negative binomial, GLM Poisson, panel RE, quantile, ZIP/ZINB, and hurdle |
 | `demo_effecttab.xlsx` | 4 | effecttab: ATE (IPW), IPW vs AIPW comparison, margins, average marginal effects |
 | `demo_comptab.xlsx` | 5 | comptab: source frames, composite, compact with sections, name-based row selection |
 | `demo_survtab.xlsx` | 3 | survtab: KM + median, RMST + difference, cumulative incidence |
@@ -379,6 +445,9 @@ The demo generates 11 workbooks (55 sheets) covering every command and option co
 
 ## Version History
 
+- **1.3.5** (2026-06-01): Fix `effecttab, digits()` so collect-rendered 95% CI bounds use the requested decimal precision. Add `regtab, cutlabels()` for ordered-model cutpoints, make `noint` hide cutpoint and ancillary-only rows such as `lnalpha`, `alpha`, and `/sigma`, and split model-family demos into `demo_regtab_models.xlsx` with richer zero-inflated examples.
+- **1.3.4** (2026-06-01): Extend `regtab` multi-equation row handling to zero-inflated Poisson, zero-inflated negative binomial, and Cragg hurdle models, with equation labels for outcome, inflation, selection, scale, and ancillary rows. Expand QA and demos for the model families covered by the regression-family matrix.
+- **1.3.3** (2026-05-31): Make `regtab` preserve multi-equation row identity for estimators such as `mlogit`, auto-display multinomial logit output as relative risk ratios (RRR), and add a regression-family QA matrix covering `mlogit`, OLS, logit, probit, ologit, count, GLM, panel, survival, and quantile models.
 - **1.3.2** (2026-05-29): Make `regtab, stats()` accept `n_sub` and `subjects` as synonyms for `n` (the N row, which already reports subjects for survival models), and warn instead of silently ignoring unrecognized `stats()` tokens.
 - **1.3.1** (2026-05-27): Make `regtab, relabel` random-effect rows identify variance and covariance parameters explicitly, including linear mixed-model random-slope covariance rows such as `cov(months_since_tx,_cons)`.
 - **1.3.0** (2026-05-23): Replace final Excel writers with a shared Mata `xl()` backend, add Mata workbook read/write helpers for collect parsing and backend contracts, and remove `export excel`/`import excel` from command implementations.

@@ -1,4 +1,4 @@
-*! effecttab Version 1.3.1  2026/05/27
+*! effecttab Version 1.3.5  2026/06/01
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -782,7 +782,8 @@ quietly {
 		if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 	}
 
-	* Normalize fixed-width CI cells without changing numeric return values.
+	* Normalize and reformat CI cells without changing numeric return values.
+	local _ci_sep_len = strlen(`"`sep'"')
 	forvalues i = 2(3)`n' {
 		capture confirm variable c`i'
 		if _rc == 0 {
@@ -799,6 +800,25 @@ quietly {
 					quietly count if strpos(c`i', ",  ") > 0 & _n >= 3
 				}
 			}
+			tempvar _ci_raw _ci_body _ci_pos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
+			gen str244 `_ci_raw' = strtrim(c`i') if _n >= 3
+			gen str244 `_ci_body' = `_ci_raw'
+			replace `_ci_body' = substr(`_ci_body', 2, length(`_ci_body') - 2) ///
+				if length(`_ci_body') >= 2 & substr(`_ci_body', 1, 1) == "(" ///
+				& substr(`_ci_body', length(`_ci_body'), 1) == ")"
+			gen int `_ci_pos' = strpos(`_ci_body', `"`sep'"')
+			gen str122 `_ci_lo_s' = strtrim(substr(`_ci_body', 1, `_ci_pos' - 1)) if `_ci_pos' > 0
+			gen str122 `_ci_hi_s' = strtrim(substr(`_ci_body', `_ci_pos' + `_ci_sep_len', .)) if `_ci_pos' > 0
+			replace `_ci_lo_s' = subinstr(`_ci_lo_s', ",", "", .)
+			replace `_ci_hi_s' = subinstr(`_ci_hi_s', ",", "", .)
+			destring `_ci_lo_s', gen(`_ci_lo') force
+			destring `_ci_hi_s', gen(`_ci_hi') force
+			gen str244 `_ci_fmt' = ""
+			replace `_ci_fmt' = "(" + strtrim(string(`_ci_lo', "`coef_fmt'")) + `"`sep'"' + ///
+				strtrim(string(`_ci_hi', "`coef_fmt'")) + ")" ///
+				if `_ci_lo' < . & `_ci_hi' < . & _n >= 3
+			replace c`i' = `_ci_fmt' if `_ci_fmt' != "" & _n >= 3
+			drop `_ci_raw' `_ci_body' `_ci_pos' `_ci_lo_s' `_ci_hi_s' `_ci_lo' `_ci_hi' `_ci_fmt'
 		}
 	}
 
