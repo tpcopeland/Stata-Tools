@@ -71,7 +71,7 @@ variables. The pairwise observation count matrix is stored in
 {synopt:{opt low:er}}display the lower triangle only (default); only one of {opt lower}, {opt upper}, or {opt full} may be specified{p_end}
 {synopt:{opt upp:er}}display the upper triangle only{p_end}
 {synopt:{opt full}}display the full symmetric matrix{p_end}
-{synopt:{opt star(numlist)}}significance thresholds for stars; must be strictly increasing values in (0,1); default {cmd:0.001 0.01 0.05}, producing *{it:p}<0.05, **{it:p}<0.01, ***{it:p}<0.001; cannot be combined with {opt pvalues}{p_end}
+{synopt:{opt star(numlist)}}significance thresholds for stars; values are accepted in any order, sorted internally, and must be unique values in (0,1); default {cmd:0.001 0.01 0.05}, producing *{it:p}<0.05, **{it:p}<0.01, ***{it:p}<0.001; cannot be combined with {opt pvalues}{p_end}
 {synopt:{opt pval:ues}}show p-values in parentheses instead of stars; cannot be combined with {opt star()}{p_end}
 {synopt:{opt dig:its(#)}}decimal places for correlation coefficients; default 2, range 0-6; also respects {cmd:tabtools set digits}{p_end}
 {synoptline}

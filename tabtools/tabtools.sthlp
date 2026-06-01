@@ -177,7 +177,7 @@ They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
 {synoptset 22 tabbed}{...}
 {synopt:{opt list}}display commands as a simple list{p_end}
 {synopt:{opt detail}}show detailed information with descriptions{p_end}
-{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:general}, {cmd:all}{p_end}
+{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:general}, {cmd:all}{p_end}
 {synoptline}
 
 {dlgtab:Settings keys}
@@ -295,6 +295,7 @@ across sessions.
 {phang2}{cmd:. tabtools, list}{p_end}
 {phang2}{cmd:. tabtools, detail}{p_end}
 {phang2}{cmd:. tabtools, category(descriptive)}{p_end}
+{phang2}{cmd:. tabtools, category(export)}{p_end}
 
 
 {marker stored}{...}

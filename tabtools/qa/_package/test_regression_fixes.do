@@ -413,22 +413,22 @@ else {
 
 **# 5. tabtools detail listing — all commands and categories
 
-**## 5a. tabtools returns 12 commands
+**## 5a. tabtools returns 14 current commands
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 12
+    assert r(n_commands) == 14
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 12"
+    display as result "  PASS: tabtools returns n_commands = 14"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 12 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 14 (error `=_rc')"
     local ++fail_count
 }
 
-**## 5b. All 7 categories are returned
+**## 5b. All 8 categories are returned
 local ++test_count
 capture noisily {
     tabtools
@@ -439,10 +439,11 @@ capture noisily {
     assert strpos("`cats'", "survival") > 0
     assert strpos("`cats'", "diagnostics") > 0
     assert strpos("`cats'", "composite") > 0
+    assert strpos("`cats'", "export") > 0
     assert strpos("`cats'", "general") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns all 7 categories"
+    display as result "  PASS: tabtools returns all 8 categories"
     local ++pass_count
 }
 else {
@@ -453,7 +454,7 @@ else {
 **## 5c. Each category filter returns commands
 local ++test_count
 local t5c_pass = 1
-foreach cat in descriptive models rates survival diagnostics composite general {
+foreach cat in descriptive models rates survival diagnostics composite export general {
     capture noisily {
         tabtools, category(`cat')
         assert r(n_commands) > 0
@@ -478,7 +479,7 @@ else {
 **## 5d. detail option works for all categories
 local ++test_count
 local t5d_pass = 1
-foreach cat in all descriptive models rates survival diagnostics composite general {
+foreach cat in all descriptive models rates survival diagnostics composite export general {
     capture noisily {
         tabtools, detail category(`cat')
     }
@@ -496,7 +497,7 @@ else {
     local ++fail_count
 }
 
-**## 5e. r(commands) contains all 12 command names
+**## 5e. r(commands) contains all 14 current command names
 local ++test_count
 local t5e_pass = 1
 capture noisily {
@@ -508,7 +509,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab tabtools {
+    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab tabtools {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }
@@ -519,7 +520,7 @@ else {
     }
 }
 if `t5e_pass' == 1 {
-    display as result "  PASS: all 12 commands in r(commands)"
+    display as result "  PASS: all 14 current commands in r(commands)"
     local ++pass_count
 }
 else {
