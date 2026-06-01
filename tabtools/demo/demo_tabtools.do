@@ -9,7 +9,7 @@
       Console (1 SMCL file + 1 markdown file):
         1. console_output.smcl        - consolidated display log
         2. console_output.md          - markdown console output for README
-      Per-command workbooks (12 xlsx files, 65 sheets total):
+      Per-command workbooks (14 xlsx files, 72 sheets total):
         demo_table1.xlsx    (11 sheets) - table1_tc + themes
         demo_desctab.xlsx   (6 sheets)  - desctab table collect formatting
         demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
@@ -22,6 +22,8 @@
         demo_diagtab.xlsx    (3 sheets) - diagtab accuracy
         demo_survtab.xlsx    (3 sheets) - survtab KM + RMST
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
+        demo_puttab.xlsx     (3 sheets) - puttab matrix/frame/data sources
+        demo_stacktab.xlsx (4 sheets) - puttab blocks + stacktab assembly
 */
 
 version 17.0
@@ -93,9 +95,11 @@ local xlsx_crosstab  "`pkg_dir'/demo_crosstab.xlsx"
 local xlsx_diagtab   "`pkg_dir'/demo_diagtab.xlsx"
 local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
+local xlsx_puttab    "`pkg_dir'/demo_puttab.xlsx"
+local xlsx_stacktab "`pkg_dir'/demo_stacktab.xlsx"
 local console_log    "`pkg_dir'/console_output.smcl"
 local console_md     "`pkg_dir'/console_output.md"
-foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
     capture erase "`xlsx_`_f''"
 }
 capture erase "`pkg_dir'/demo_tabtools.xlsx"
@@ -354,6 +358,57 @@ log on demo
 
 noisily diagtab phat_display cv_event, cutoff(0.35) ///
     auc wilson display
+
+log off demo
+
+**# Console: puttab + stacktab export pipeline
+* Emit two styled estimate blocks with puttab, then assemble them into one
+* composite sheet with stacktab (vstack, column merge, section labels).
+preserve
+local _pipe_xlsx "`pkg_dir'/_pipeline_parts.xlsx"
+capture erase "`_pipe_xlsx'"
+
+clear
+input str22 term str10 ahr str16 ci
+"Any HRT"        "0.82" "(0.69, 0.98)"
+"Former smoker"  "1.14" "(0.97, 1.34)"
+"Current smoker" "1.46" "(1.21, 1.77)"
+end
+label variable term "Exposure"
+label variable ahr "aHR"
+label variable ci "95% CI"
+
+log on demo
+
+noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Primary") varlabels
+
+log off demo
+
+clear
+input str22 term str10 ahr str16 ci
+"Low dose"  "0.91" "(0.74, 1.12)"
+"High dose" "0.73" "(0.58, 0.92)"
+end
+label variable term "Exposure"
+label variable ahr "aHR"
+label variable ci "95% CI"
+
+log on demo
+
+noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Dose") varlabels
+
+noisily stacktab using "`_pipe_xlsx'", sheet("Composite") ///
+    blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \ ///
+           sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///
+    columnmerge(B+C as "aHR (95% CI)") ///
+    spacing(1) display ///
+    title("Hormone therapy and recurrent events") ///
+    note("aHR = adjusted hazard ratio; CI = confidence interval.")
+
+log off demo
+
+capture erase "`_pipe_xlsx'"
+restore
 
 log close demo
 drop phat_display
@@ -1258,6 +1313,102 @@ capture frame drop _demo_hr_rates
 capture frame drop _demo_hr_bin
 capture frame drop _demo_hr_dose
 
+**# Sheets 53-55: puttab -- style an in-memory table (matrix/frame/data)
+* puttab is the first-mile styled-block producer: it takes a table already in
+* memory and writes it as one house-styled Excel sheet. One sheet per source.
+sysuse auto, clear
+
+* Source 1: a Stata matrix (r(table) from a regression)
+quietly regress price mpg weight i.foreign
+matrix _put_T = r(table)'
+puttab using "`xlsx_puttab'", sheet("Matrix") matrix(_put_T) ///
+    title("Table P1. OLS Coefficients for Car Price") ///
+    digits(3) headershade
+matrix drop _put_T
+
+* Source 2: a named frame (subset of the current data)
+capture frame drop _put_top
+frame put make mpg price weight in 1/10, into(_put_top)
+puttab using "`xlsx_puttab'", sheet("Frame") frame(_put_top) ///
+    title("Table P2. First Ten Cars") ///
+    varlabels theme(nejm) zebra
+capture frame drop _put_top
+
+* Source 3: the current dataset (a collapse result with value labels)
+collapse (mean) price mpg (count) n=price, by(foreign)
+puttab foreign price mpg n using "`xlsx_puttab'", sheet("Collapse") ///
+    title("Table P3. Mean Price and Mileage by Origin") ///
+    varlabels digits(1) borderstyle(academic) ///
+    footnote("n = number of vehicles in each origin group.")
+
+**# Sheets 56-59: stacktab -- assemble a composite from puttab-styled blocks
+* Step 1: emit two estimate/CI blocks as styled sheets with puttab.
+clear
+input str22 term str10 ahr str16 ci
+"Any HRT"        "0.82" "(0.69, 0.98)"
+"Former smoker"  "1.14" "(0.97, 1.34)"
+"Current smoker" "1.46" "(1.21, 1.77)"
+end
+label variable term "Exposure"
+label variable ahr "aHR"
+label variable ci "95% CI"
+puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Primary") varlabels
+
+clear
+input str22 term str10 ahr str16 ci
+"Low dose"  "0.91" "(0.74, 1.12)"
+"High dose" "0.73" "(0.58, 0.92)"
+end
+label variable term "Exposure"
+label variable ahr "aHR"
+label variable ci "95% CI"
+puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Dose") varlabels
+
+* Step 2 (vstack): merge estimate+CI columns, label each block as a section.
+stacktab using "`xlsx_stacktab'", sheet("Composite") ///
+    blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \ ///
+           sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///
+    columnmerge(B+C as "aHR (95% CI)") ///
+    spacing(1) ///
+    title("Table 2. Hormone Therapy and Recurrent Events") ///
+    note("aHR = adjusted hazard ratio; CI = confidence interval. Models adjusted for age and comorbidities.")
+
+* Step 2 (hstack): place two equal-height blocks side by side.
+stacktab using "`xlsx_stacktab'", sheet("SideBySide") ///
+    blocks(sheet(Block Primary) rows(2/3) cols(A-C) \ ///
+           sheet(Block Dose) rows(2/3) cols(A-C)) ///
+    layout(hstack) ///
+    title("Primary and Dose-Response Estimates Side by Side")
+
+**# Verify puttab + stacktab workbook content
+preserve
+import excel using "`xlsx_puttab'", sheet("Matrix") clear allstring
+assert A[1] == "Table P1. OLS Coefficients for Car Price"
+* matrix row names become the first (label) column; mpg is a model term
+local _has_mpg 0
+foreach v of varlist _all {
+    quietly count if strtrim(`v') == "mpg"
+    if r(N) > 0 local _has_mpg 1
+}
+assert `_has_mpg' == 1
+restore
+
+preserve
+import excel using "`xlsx_stacktab'", sheet("Composite") clear allstring
+assert A[1] == "Table 2. Hormone Therapy and Recurrent Events"
+* merged header and a merged estimate (aHR + CI) appear in the body
+local _has_merge_hdr 0
+local _has_merge_val 0
+foreach v of varlist _all {
+    quietly count if strtrim(`v') == "aHR (95% CI)"
+    if r(N) > 0 local _has_merge_hdr 1
+    quietly count if strpos(`v', "0.82 (0.69, 0.98)") > 0
+    if r(N) > 0 local _has_merge_val 1
+}
+assert `_has_merge_hdr' == 1
+assert `_has_merge_val' == 1
+restore
+
 **# Sheets 47-52: Desctab -- formatted table collect examples
 sysuse auto, clear
 collect clear
@@ -1362,7 +1513,7 @@ clear
 display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.smcl"
 display as result "  `pkg_dir'/console_output.md"
-foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
     capture confirm file "`xlsx_`_f''"
     if _rc == 0 display as result "  `xlsx_`_f''"
 }

@@ -1,7 +1,8 @@
 {smcl}
-{* *! version 1.3.5  01jun2026}{...}
+{* *! version 1.3.6  01jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
+{viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
 {viewerjumpto "Persistent defaults" "tabtools##defaults"}{...}
 {viewerjumpto "Examples" "tabtools##examples"}{...}
@@ -15,6 +16,8 @@
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
 {vieweralsosee "hrcomptab" "help hrcomptab"}{...}
+{vieweralsosee "puttab" "help puttab"}{...}
+{vieweralsosee "stacktab" "help stacktab"}{...}
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
@@ -71,10 +74,16 @@ worked examples.
 {synopt:{helpb effecttab}}Treatment effects and margins results{p_end}
 
 {pstd}
-{bf:Composite}
+{bf:Composite and assembly}
 
-{synopt:{helpb comptab}}Combine regtab/effecttab frames into one table{p_end}
-{synopt:{helpb hrcomptab}}Combine stratetab and regtab frames into a Table 2-style sheet{p_end}
+{synopt:{helpb comptab}}Combine selected rows from regtab/effecttab frames into one table{p_end}
+{synopt:{helpb hrcomptab}}Combine a stratetab frame with regtab rows into a Table 2-style sheet{p_end}
+{synopt:{helpb stacktab}}Assemble already-exported Excel sheets/blocks into one composite sheet{p_end}
+
+{pstd}
+{bf:Styled in-memory export}
+
+{synopt:{helpb puttab}}Style one in-memory table (dataset, frame, or matrix) as a single sheet{p_end}
 
 {pstd}
 {bf:Rates And Clinical}
@@ -88,6 +97,47 @@ worked examples.
 
 {synopt:{helpb tabtools}}Suite controller and persistent defaults manager{p_end}
 {synoptline}
+
+
+{marker assembly}{...}
+{title:Choosing puttab, comptab, or stacktab}
+
+{pstd}
+Three commands build a single combined or styled sheet, but they differ by
+{it:what they read}:
+
+{pstd}
+{bf:{helpb puttab}} reads {it:one table already in memory} — the current
+dataset, a {helpb frames:frame}, or a {it:matrix} such as {cmd:e(b)},
+{cmd:r(table)}, or a {cmd:collapse}/{cmd:tabulate} result — and writes it as one
+styled sheet. It does no analysis: it is the generic styler for raw tables that
+have no dedicated tabtools command. Broad on input, single sheet on output.
+
+{pstd}
+{bf:{helpb comptab}} reads tabtools {helpb regtab}/{helpb effecttab} {it:frames}
+(live estimation results stored with the {cmd:frame()} option) and cherry-picks
+selected rows into one composite sheet. Assembly happens at the
+{it:estimation} level, so rows can be reordered, relabeled, and grouped before
+export. {helpb hrcomptab} is the related builder that attaches {helpb regtab}
+rows to a {helpb stratetab} rates scaffold for a Table 2-style sheet.
+
+{pstd}
+{bf:{helpb stacktab}} reads sheets that have {it:already been exported} to an
+{cmd:.xlsx} workbook and stacks them vertically or side by side, optionally
+merging columns. Assembly happens at the {it:spreadsheet} level: it works on
+cells and is agnostic to whatever produced them.
+
+{pstd}
+{bf:Workflow.} {helpb puttab} and {helpb stacktab} form an emit-then-assemble
+pipeline — use {cmd:puttab} to write each styled block to its own sheet, then
+{cmd:stacktab} to combine those sheets into the final table. {helpb comptab}
+(and {helpb hrcomptab}) is the frame-based sibling of {cmd:stacktab}: reach for
+it when the pieces are still tabtools frames rather than exported sheets.
+
+{pstd}
+In short: to style one raw table, use {helpb puttab}; to combine estimation
+results still in frames, use {helpb comptab} or {helpb hrcomptab}; to combine
+sheets already written to a workbook, use {helpb stacktab}.
 
 
 {marker syntax}{...}
@@ -287,6 +337,6 @@ across sessions.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.5{p_end}
+{pstd}{bf:Version} 1.3.6{p_end}
 
 {hline}

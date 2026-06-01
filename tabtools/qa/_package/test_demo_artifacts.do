@@ -56,6 +56,7 @@ else {
             demo_table1.xlsx ///
             demo_desctab.xlsx ///
             demo_regtab.xlsx ///
+            demo_regtab_models.xlsx ///
             demo_comptab.xlsx ///
             demo_effecttab.xlsx ///
             demo_stratetab.xlsx ///
@@ -63,7 +64,9 @@ else {
             demo_crosstab.xlsx ///
             demo_diagtab.xlsx ///
             demo_survtab.xlsx ///
-            demo_hrcomptab.xlsx
+            demo_hrcomptab.xlsx ///
+            demo_puttab.xlsx ///
+            demo_stacktab.xlsx
 
         local actual_sheets 0
         foreach f of local xlsx_files {
@@ -94,7 +97,7 @@ else {
                 }
             }
         }
-        assert `actual_sheets' == 55
+        assert `actual_sheets' == 72
         tempfile readme_hit
         shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
         tempname readmefh

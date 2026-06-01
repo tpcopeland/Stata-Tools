@@ -16,6 +16,8 @@ d   survtab        - Kaplan-Meier survival estimates and medians
 d   crosstab       - Cross-tabulation with association measures
 d   diagtab        - Diagnostic accuracy (Se, Sp, PPV, NPV, ROC)
 d   corrtab        - Correlation matrix with significance stars
+d   puttab         - Style an in-memory dataset, frame, or matrix as one sheet
+d   stacktab       - Assemble multi-sheet composite Excel tables from blocks
 d
 d All commands apply consistent Excel formatting: column widths,
 d borders, fonts, merged headers, and professional styling.
@@ -60,5 +62,11 @@ f diagtab.ado
 f diagtab.sthlp
 f corrtab.ado
 f corrtab.sthlp
+f puttab.ado
+f puttab.sthlp
+f stacktab.ado
+f stacktab.sthlp
+f xlsxcompose.ado
+f xlsxcompose.sthlp
 f tabtools_cheatsheet.sthlp
 f tabtools_cookbook.sthlp

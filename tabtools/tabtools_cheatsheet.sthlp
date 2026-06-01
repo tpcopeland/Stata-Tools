@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  01jun2026}{...}
+{* *! version 1.3.6  01jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
@@ -9,12 +9,20 @@
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
 {vieweralsosee "hrcomptab" "help hrcomptab"}{...}
+{vieweralsosee "puttab" "help puttab"}{...}
+{vieweralsosee "stacktab" "help stacktab"}{...}
 {vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
-{title:tabtools Quick Reference (v1.3.5)}
+{title:tabtools Quick Reference (v1.3.6)}
 
 {pstd}Common option combinations for each command.{p_end}
+
+{pstd}{bf:Combining/styling tables:} use {bf:puttab} to style one raw in-memory
+table (dataset/frame/matrix), {bf:comptab} to combine rows from regtab/effecttab
+{it:frames}, and {bf:stacktab} to assemble sheets {it:already exported} to a
+workbook. Pipeline: {cmd:puttab} emits styled blocks {c -}> {cmd:stacktab}
+assembles them.{p_end}
 
 {hline}
 {title:table1_tc}
@@ -106,13 +114,30 @@
 
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S1") frame(f1)}{p_end}
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S2") frame(f2)}{p_end}
-{phang2}{cmd:comptab f1 f2, rows(1 \ 1) xlsx(comp.xlsx) sheet("Combined")}{p_end}
+{phang2}{cmd:comptab f1 f2, rows(1 \ 1) xlsx(comp.xlsx) sheet("Combined")} {it:// combine rows from regtab frames}{p_end}
+
+{hline}
+{title:puttab} {it:(style one raw in-memory table: dataset, frame, or matrix)}
+
+{phang2}{cmd:collapse (mean) price mpg (count) n=price, by(foreign)}{p_end}
+{phang2}{cmd:puttab foreign price mpg n using parts.xlsx, sheet("ByOrigin") varlabels digits(1) zebra} {it:// data source}{p_end}
+{phang2}{cmd:regress price mpg weight}{p_end}
+{phang2}{cmd:matrix T = r(table)'}{p_end}
+{phang2}{cmd:puttab using parts.xlsx, sheet("Coefs") matrix(T) title("OLS") digits(3)} {it:// matrix source}{p_end}
+{phang2}{cmd:puttab using parts.xlsx, sheet("Top10") frame(top) headershade} {it:// frame source}{p_end}
+
+{hline}
+{title:stacktab} {it:(assemble sheets already exported to a workbook)}
+
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Composite") blocks(sheet(Model A) \ sheet(Model B))} {it:// vstack two block sheets}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(Primary) rows(1/4) cols(A-C) \ sheet(Dose) rows(1/3) cols(A-C)) columnmerge(B+C as "aHR (95% CI)")} {it:// merge est + CI, label sections}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide") blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)} {it:// place blocks side by side}{p_end}
 
 {hline}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.3.5{p_end}
+{pstd}Version 1.3.6{p_end}
 
 {hline}

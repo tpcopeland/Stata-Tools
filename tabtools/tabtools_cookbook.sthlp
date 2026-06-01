@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  01jun2026}{...}
+{* *! version 1.3.6  01jun2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -18,6 +18,8 @@
 {viewerjumpto "Recipe 16" "tabtools_cookbook##r16"}{...}
 {viewerjumpto "Recipe 17" "tabtools_cookbook##r17"}{...}
 {viewerjumpto "Recipe 18" "tabtools_cookbook##r18"}{...}
+{viewerjumpto "Recipe 19" "tabtools_cookbook##r19"}{...}
+{viewerjumpto "Recipe 20" "tabtools_cookbook##r20"}{...}
 {title:tabtools Cookbook}
 
 {pstd}
@@ -193,6 +195,11 @@ table with custom row ordering.{p_end}
 {phang3}{cmd:xlsx(composite.xlsx) sheet("Models") ///}{p_end}
 {phang3}{cmd:title("Table 4. Association with Price (OR, 95% CI)") ///}{p_end}
 {phang3}{cmd:zebra}{p_end}
+
+{pstd}{cmd:comptab} combines rows while the pieces are still tabtools
+{it:frames}. If your blocks are instead {it:already exported} to sheets in a
+workbook, assemble them with {helpb stacktab} (Recipe 20) rather than
+{cmd:comptab}.{p_end}
 
 {hline}
 {marker r8}{...}
@@ -440,6 +447,79 @@ that need different formats in the same cell.
 {phang2}{cmd:desctab, xlsx(desc_events.xlsx) sheet("Events") compose(events_n_pct) title("Events / N (%) by repair record and origin")}{p_end}
 
 {hline}
+{marker r19}{...}
+{title:Recipe 19. Style a raw in-memory table with puttab}
+
+{pstd}Use {cmd:puttab} when you have a table already in memory — the current
+dataset, a {helpb frames:frame}, or a {it:matrix} — and no dedicated tabtools
+command fits. It does no analysis; it just applies the house style to whatever
+you hand it. Here the same workbook gets one sheet from each source type.{p_end}
+
+{phang2}{cmd:sysuse auto, clear}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:* Matrix source: r(table) from a regression}{p_end}
+{phang2}{cmd:regress price mpg weight i.foreign}{p_end}
+{phang2}{cmd:matrix T = r(table)'}{p_end}
+{phang2}{cmd:puttab using report.xlsx, sheet("Coefs") matrix(T) ///}{p_end}
+{phang3}{cmd:title("OLS Coefficients") digits(3) headershade}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:* Frame source: a subset frame}{p_end}
+{phang2}{cmd:frame put make mpg price in 1/10, into(top)}{p_end}
+{phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) ///}{p_end}
+{phang3}{cmd:title("First Ten Cars") varlabels theme(nejm) zebra}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:* Data source: a collapse result with value labels}{p_end}
+{phang2}{cmd:collapse (mean) price mpg (count) n=price, by(foreign)}{p_end}
+{phang2}{cmd:puttab foreign price mpg n using report.xlsx, sheet("ByOrigin") ///}{p_end}
+{phang3}{cmd:title("Mean Price and Mileage by Origin") varlabels digits(1)}{p_end}
+
+{pstd}A numeric column is written with {cmd:digits()} decimals, but integer-valued
+columns (like the count {cmd:n}) stay integer, and value labels are resolved.{p_end}
+
+{hline}
+{marker r20}{...}
+{title:Recipe 20. Emit-then-assemble pipeline (puttab + stacktab)}
+
+{pstd}{cmd:puttab} and {cmd:stacktab} are two halves of one pipeline: {cmd:puttab}
+writes each styled block to its own sheet, then {cmd:stacktab} assembles those
+sheets into the final composite. Unlike {helpb comptab}, which combines tabtools
+{it:frames}, {cmd:stacktab} works purely on sheets {it:already in the workbook}.{p_end}
+
+{phang2}{cmd:* Step 1: emit two estimate/CI blocks as styled sheets}{p_end}
+{phang2}{cmd:clear}{p_end}
+{phang2}{cmd:input str22 term str10 ahr str16 ci}{p_end}
+{phang2}{cmd:"Any HRT"        "0.82" "(0.69, 0.98)"}{p_end}
+{phang2}{cmd:"Former smoker"  "1.14" "(0.97, 1.34)"}{p_end}
+{phang2}{cmd:"Current smoker" "1.46" "(1.21, 1.77)"}{p_end}
+{phang2}{cmd:end}{p_end}
+{phang2}{cmd:label var term "Exposure"}{p_end}
+{phang2}{cmd:label var ahr "aHR"}{p_end}
+{phang2}{cmd:label var ci "95% CI"}{p_end}
+{phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Primary") varlabels}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:clear}{p_end}
+{phang2}{cmd:input str22 term str10 ahr str16 ci}{p_end}
+{phang2}{cmd:"Low dose"  "0.91" "(0.74, 1.12)"}{p_end}
+{phang2}{cmd:"High dose" "0.73" "(0.58, 0.92)"}{p_end}
+{phang2}{cmd:end}{p_end}
+{phang2}{cmd:label var term "Exposure"}{p_end}
+{phang2}{cmd:label var ahr "aHR"}{p_end}
+{phang2}{cmd:label var ci "95% CI"}{p_end}
+{phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Dose") varlabels}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:* Step 2: assemble the blocks, merge estimate+CI, label sections}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") ///}{p_end}
+{phang3}{cmd:blocks(sheet(Primary) rows(1/4) cols(A-C) label(Any HRT use) \ ///}{p_end}
+{phang3}{cmd:       sheet(Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///}{p_end}
+{phang3}{cmd:columnmerge(B+C as "aHR (95% CI)") spacing(1) ///}{p_end}
+{phang3}{cmd:title("Table 2. Hormone Therapy and Recurrent Events") ///}{p_end}
+{phang3}{cmd:note("aHR = adjusted hazard ratio; CI = confidence interval.")}{p_end}
+
+{pstd}{cmd:layout(hstack)} places equal-height blocks side by side instead of
+stacking them. The legacy command name {cmd:xlsxcompose} still works as a
+deprecated alias for {cmd:stacktab}.{p_end}
+
+{hline}
 
 {title:Also see}
 
@@ -447,7 +527,8 @@ that need different formats in the same cell.
 {pstd}{helpb tabtools_cheatsheet} — quick option reference{p_end}
 {pstd}{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, {helpb stratetab},
 {helpb survtab}, {helpb crosstab}, {helpb diagtab},
-{helpb corrtab}, {helpb comptab}, {helpb hrcomptab} — individual command help{p_end}
+{helpb corrtab}, {helpb comptab}, {helpb hrcomptab}, {helpb puttab},
+{helpb stacktab} — individual command help{p_end}
 
 {hline}
 
@@ -455,6 +536,6 @@ that need different formats in the same cell.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.5{p_end}
+{pstd}{bf:Version} 1.3.6{p_end}
 
 {hline}

@@ -1,13 +1,13 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.3.5** | 2026-06-01
+**Version 1.3.6** | 2026-06-01
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
 ## Requirements
 
 - Stata 16 or later for `tabtools` and `table1_tc`
-- Stata 17 or later for `desctab`, `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, and `stratetab`
+- Stata 17 or later for `desctab`, `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, `stratetab`, and `puttab`
 - `desctab`, `regtab`, and `effecttab` require Stata's `collect` framework
 - `survtab` requires `stset` data, and `stratetab` expects saved `strate, output()` datasets
 
@@ -48,6 +48,27 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 | `comptab` | Combine selected rows from one or more `regtab` or `effecttab` frames into one composite sheet | 17+ |
 | `hrcomptab` | Build a final Table 2-style sheet by combining a `stratetab` frame with selected `regtab` rows | 17+ |
 
+### Styled export and assembly
+
+| Command | Description | Stata |
+|---------|-------------|-------|
+| `puttab` | Style a table already in memory — the current dataset, a named frame, or a Stata matrix (`e(b)`, `r(table)`, `collapse`/`tabulate` output) — as one house-styled Excel sheet. Feeds `stacktab` | 17+ |
+| `stacktab` | Assemble multi-sheet composite Excel tables from source blocks (vstack/hstack, column merges, titles, notes). | 16+ |
+
+#### puttab vs comptab vs stacktab
+
+These three commands all produce a single combined or styled sheet, but they differ by **what they read**:
+
+| Command | Reads | Level | Use when |
+|---------|-------|-------|----------|
+| `puttab` | one table already in memory — dataset, `frame()`, or `matrix()` (`e(b)`, `r(table)`, `collapse`/`tabulate`) | raw input → one styled sheet | you have a raw table and no specialized command fits; you just want it styled |
+| `comptab` | tabtools `regtab`/`effecttab` **frames** (live estimation results) | estimation level | you want to cherry-pick and reorder rows from models still held in frames (`hrcomptab` does the rates + hazard-ratio Table 2 variant) |
+| `stacktab` | sheets **already exported** to an `.xlsx` workbook | spreadsheet level | you want to stack/merge blocks that are already cells in a workbook, regardless of what produced them |
+
+**Workflow:** `puttab` and `stacktab` form an emit-then-assemble pipeline — `puttab` writes each styled block to its own sheet, then `stacktab` combines those sheets into the final table. `comptab`/`hrcomptab` are the frame-based siblings of `stacktab`: reach for them when the pieces are still tabtools frames rather than exported sheets.
+
+In short: style one raw table → `puttab`; combine estimation results still in frames → `comptab`/`hrcomptab`; combine sheets already in a workbook → `stacktab`.
+
 ### Suite utility
 
 | Command | Description | Stata |
@@ -63,12 +84,14 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 | Regression or effect estimates after modeling | `collect:` then `regtab` or `effecttab` | These commands format the active collection rather than refitting models |
 | Survival summaries from `stset` data | `survtab` | Use when you want Kaplan-Meier estimates, medians, RMST, or risk sets |
 | Incidence-rate tables from saved `strate` files | `stratetab` | File-based workflow; no dataset needs to remain in memory |
-| Final manuscript table assembled from earlier outputs | `comptab` or `hrcomptab` | These second-stage builders consume frames produced earlier in the pipeline |
+| Final table assembled from estimation results still in frames | `comptab` or `hrcomptab` | These second-stage builders consume `regtab`/`effecttab`/`stratetab` frames produced earlier in the pipeline |
+| A raw in-memory table (dataset, frame, or matrix) styled as one sheet | `puttab` | The generic styler for tables that have no dedicated tabtools command |
+| Composite assembled from sheets already exported to a workbook | `stacktab` | Spreadsheet-level assembly (vstack/hstack, column merges); pairs with `puttab` as emit-then-assemble |
 | Session-wide formatting defaults | `tabtools` | Use `tabtools set`, `tabtools get`, and `tabtools set clear` to control fonts, borders, themes, and digits |
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 12 Excel workbooks (65 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 14 Excel workbooks (72 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 
@@ -392,6 +415,41 @@ Hurdle models preserve outcome and selection equations while ancillary rows stay
  Youden's index 0.038
 ```
 
+### puttab + stacktab — emit-then-assemble export pipeline
+
+`puttab` styles a table already in memory (the current dataset, a named `frame()`, or a Stata `matrix()`) as one house-styled sheet; `stacktab` imports those sheets and assembles them into a composite. Here two estimate/CI blocks are emitted with `puttab`, then stacked, column-merged, and section-labeled with `stacktab`:
+
+```stata
+. puttab term ahr ci using parts.xlsx, sheet("Block Primary") varlabels
+puttab: wrote 3 data rows x 3 cols (data source) to sheet Block Primary in parts.xlsx
+
+. puttab term ahr ci using parts.xlsx, sheet("Block Dose") varlabels
+puttab: wrote 2 data rows x 3 cols (data source) to sheet Block Dose in parts.xlsx
+
+. stacktab using parts.xlsx, sheet("Composite")            ///
+      blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \  ///
+             sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///
+      columnmerge(B+C as "aHR (95% CI)") spacing(1) display   ///
+      title("Hormone therapy and recurrent events")           ///
+      note("aHR = adjusted hazard ratio; CI = confidence interval.")
+```
+
+```
+  ┌──────────────────────────────────────┐
+  │      Any HRT use        aHR (95% CI)  │
+  │          Any HRT   0.82 (0.69, 0.98)  │
+  │    Former smoker   1.14 (0.97, 1.34)  │
+  │   Current smoker   1.46 (1.21, 1.77)  │
+  │                                       │
+  │ By estrogen dose          aHR  95% CI │
+  │         Low dose   0.91 (0.74, 1.12)  │
+  │        High dose   0.73 (0.58, 0.92)  │
+  └──────────────────────────────────────┘
+stacktab: 2 blocks -> 8 rows written -> sheet Composite
+```
+
+The same pipeline writes the formatted workbook (`title` to `A1`, table from `B2`, merged `aHR (95% CI)` column, section dividers, and an italic note).
+
 ### Persistent defaults
 
 ```stata
@@ -419,7 +477,7 @@ tabtools: all persistent defaults cleared
 
 ### Excel workbooks
 
-The demo generates 12 workbooks (65 sheets) covering every command and option combination:
+The demo generates 14 workbooks (72 sheets) covering every command and option combination:
 
 | Workbook | Sheets | Contents |
 |----------|--------|----------|
@@ -435,16 +493,19 @@ The demo generates 12 workbooks (65 sheets) covering every command and option co
 | `demo_crosstab.xlsx` | 5 | crosstab: OR, RR/RD, styled, trend, row percentages |
 | `demo_diagtab.xlsx` | 3 | diagtab: accuracy + AUC, prevalence-adjusted, multiple cutoffs |
 | `demo_hrcomptab.xlsx` | 1 | hrcomptab: Table 2-style composite (rates + hazard ratios) |
+| `demo_puttab.xlsx` | 3 | puttab: matrix source (`r(table)`), frame source, collapse/data source with themes and zebra |
+| `demo_stacktab.xlsx` | 4 | stacktab: puttab-styled source blocks, vstack composite with column merge and section labels, hstack side-by-side |
 
 ## Resources
 
 - `help tabtools` for the suite overview and persistent defaults
 - `help tabtools_cheatsheet` for compact option patterns across commands
 - `help tabtools_cookbook` for longer end-to-end recipes
-- `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, and `help diagtab` for command-specific syntax
+- `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, and `help stacktab` for command-specific syntax
 
 ## Version History
 
+- **1.3.6** (2026-06-01): Add `puttab`, a first-mile styled-block producer that writes a table already in memory — the current dataset, a named `frame()`, or a Stata `matrix()` such as `e(b)`, `r(table)`, or `collapse`/`tabulate` output — as one house-styled Excel sheet with the shared title/header/zebra/border geometry. For a matrix source the row and column names become the label column and header row; for a dataset or frame source numeric columns honor `digits()`, integers stay integer, and value labels are resolved. Repeated calls build a multi-sheet workbook that `stacktab` can assemble, closing the raw-input gap between `desctab` (needs a `collect`) and `stacktab` (needs pre-exported sheets). Fold the former standalone `xlsxcompose` package into the suite as `stacktab` (block-assembly of composite sheets); `xlsxcompose` is retained as a deprecated alias that forwards to `stacktab` and returns the same `r()` results. Together `puttab` and `stacktab` form the emit-then-assemble export pipeline.
 - **1.3.5** (2026-06-01): Fix `effecttab, digits()` so collect-rendered 95% CI bounds use the requested decimal precision. Add `regtab, cutlabels()` for ordered-model cutpoints, make `noint` hide cutpoint and ancillary-only rows such as `lnalpha`, `alpha`, and `/sigma`, and split model-family demos into `demo_regtab_models.xlsx` with richer zero-inflated examples.
 - **1.3.4** (2026-06-01): Extend `regtab` multi-equation row handling to zero-inflated Poisson, zero-inflated negative binomial, and Cragg hurdle models, with equation labels for outcome, inflation, selection, scale, and ancillary rows. Expand QA and demos for the model families covered by the regression-family matrix.
 - **1.3.3** (2026-05-31): Make `regtab` preserve multi-equation row identity for estimators such as `mlogit`, auto-display multinomial logit output as relative risk ratios (RRR), and add a regression-family QA matrix covering `mlogit`, OLS, logit, probit, ologit, count, GLM, panel, survival, and quantile models.

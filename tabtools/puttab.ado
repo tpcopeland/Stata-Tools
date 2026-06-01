@@ -1,0 +1,573 @@
+*! puttab Version 1.3.6  2026/06/01
+*! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Program class: rclass
+
+/*
+DESCRIPTION:
+    puttab is the first-mile styled-block producer for the tabtools suite. It
+    takes a table that already lives in memory -- the current dataset, a named
+    frame, or a Stata matrix (e(b), r(table), a collapse/tabulate result) -- and
+    writes it as one house-styled Excel sheet with the shared tabtools geometry:
+    merged title, header rule, optional header shading and zebra striping,
+    column widths, borders, and an italic footnote.
+
+    It complements the rest of the suite at the raw-input end: desctab needs a
+    collect: table, stacktab needs blocks already exported as sheets. puttab
+    styles a raw frame/matrix/dataset, so the natural pipeline is
+
+        emit styled blocks with puttab  ->  assemble them with stacktab
+
+SOURCE (exactly one):
+    varlist        columns of the current dataset (explicit; required for the
+                   current-data source)
+    frame(name)    a named frame (optionally subset by varlist)
+    matrix(name)   a Stata matrix (row/column names become labels/headers)
+*/
+
+program define puttab, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _restore_needed = 0
+    local _book_open = 0
+    capture noisily {
+
+        capture putexcel close
+
+        * Auto-load shared helper programs
+        capture _tabtools_helpers_ready
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+        _tabtools_require_helpers
+
+        syntax [anything(name=vlist)] [if] [in] using/ , SHeet(string) ///
+            [ FRAme(string) Matrix(name) ///
+              TItle(string) FOOTnote(string) ///
+              THEme(string) BORDERstyle(string) ///
+              HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
+              DIGits(integer -1) VARLabels NOHeader ///
+              CSV(string) open ]
+
+        * ----- output file validation -----
+        if !strmatch(lower(`"`using'"'), "*.xlsx") {
+            noisily display as error "using file must have a .xlsx extension"
+            exit 198
+        }
+        _tabtools_validate_path `"`using'"' "using"
+
+        _tabtools_validate_sheet "`sheet'" "sheet()"
+
+        local csv = strtrim(subinstr(`"`csv'"', char(34), "", .))
+        if `"`csv'"' != "" {
+            if !strmatch(lower(`"`csv'"'), "*.csv") {
+                noisily display as error "csv() must have a .csv extension"
+                exit 198
+            }
+            _tabtools_validate_path `"`csv'"' "csv()"
+        }
+
+        * ----- digits -----
+        if `digits' == -1 {
+            if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
+            else local digits = 2
+        }
+        if `digits' < 0 | `digits' > 6 {
+            noisily display as error "digits() must be between 0 and 6"
+            exit 198
+        }
+
+        * ----- shared formatting / colors -----
+        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+            headershade(`headershade') zebra(`zebra')
+        _tabtools_resolve_colors, headercolor(`"`headercolor'"') ///
+            zebracolor(`"`zebracolor'"')
+
+        * ----- resolve source (validate BEFORE preserve) -----
+        local _nsrc = 0
+        if `"`matrix'"' != "" local ++_nsrc
+        if `"`frame'"'  != "" local ++_nsrc
+        if `_nsrc' > 1 {
+            noisily display as error "matrix() and frame() may not be combined"
+            exit 198
+        }
+
+        local _hasifin = (`"`if'"' != "" | `"`in'"' != "")
+
+        local _src ""
+        local _framename ""
+        if `"`matrix'"' != "" {
+            if `"`vlist'"' != "" {
+                noisily display as error "a varlist is not allowed with matrix(); the matrix is the source"
+                exit 198
+            }
+            if `_hasifin' {
+                noisily display as error "if/in is not allowed with a matrix() source"
+                exit 198
+            }
+            confirm matrix `matrix'
+            if rowsof(`matrix') < 1 | colsof(`matrix') < 1 {
+                noisily display as error "matrix(`matrix') is empty"
+                exit 198
+            }
+            local _src "matrix"
+        }
+        else if `"`frame'"' != "" {
+            local _framename = strtrim(subinstr(`"`frame'"', char(34), "", .))
+            confirm name `_framename'
+            capture confirm frame `_framename'
+            if _rc {
+                noisily display as error "frame `_framename' not found"
+                exit 111
+            }
+            local _src "frame"
+        }
+        else {
+            if `"`vlist'"' == "" {
+                noisily display as error "specify a varlist, frame(), or matrix() as the table source"
+                exit 198
+            }
+            * Validate the requested varlist against the current data now,
+            * before preserve, so a typo fails without a restore.
+            unab _keepvars : `vlist'
+            local _src "data"
+        }
+
+        * ===== build the in-memory string table (c1..cK) =====
+        preserve
+        local _restore_needed = 1
+
+        local _titlerows = (`"`title'"' != "")
+        local _headerrows = ("`noheader'" == "")
+        local _uselbl = ("`varlabels'" != "")
+
+        if "`_src'" == "matrix" {
+            clear
+            mata: _puttab_matrix_table("`matrix'", `digits', `_titlerows', `_headerrows')
+        }
+        else {
+            if "`_src'" == "frame" {
+                tempfile _srcdata
+                quietly frame `_framename': save `"`_srcdata'"', replace
+                use `"`_srcdata'"', clear
+            }
+            * Row subset (if/in) before column subset, so the if/in condition may
+            * reference columns that the varlist drops.
+            if `_hasifin' {
+                marksample _touse, novarlist
+                quietly keep if `_touse'
+                quietly drop `_touse'
+            }
+            if `"`vlist'"' != "" {
+                unab _keepvars : `vlist'
+                keep `_keepvars'
+            }
+            quietly ds
+            local _srcvars `r(varlist)'
+            if "`_srcvars'" == "" {
+                noisily display as error "source contains no variables to export"
+                exit 111
+            }
+            quietly count
+            if r(N) == 0 {
+                noisily display as error "source contains no observations to export"
+                exit 2000
+            }
+            mata: _puttab_data_table("`_srcvars'", `digits', `_titlerows', ///
+                `_headerrows', `_uselbl')
+        }
+
+        local K = c(k)
+        if `K' < 1 {
+            noisily display as error "no columns produced for export"
+            exit 198
+        }
+
+        * Title text into the (blank) first row, first column
+        if `_titlerows' quietly replace c1 = `"`title'"' in 1
+
+        local _header_row = cond(`_headerrows', `_titlerows' + 1, 0)
+        local _data_start = `_titlerows' + `_headerrows' + 1
+        local _last_data_row = _N
+        if `_last_data_row' < `_data_start' {
+            noisily display as error "source produced no data rows"
+            exit 2000
+        }
+        local _ndatarows = `_last_data_row' - `_data_start' + 1
+
+        * Footnote as a trailing row
+        local _foot_row = 0
+        if `"`footnote'"' != "" {
+            local _foot_row = _N + 1
+            quietly set obs `_foot_row'
+            quietly replace c1 = `"`footnote'"' in `_foot_row'
+        }
+        local _total_rows = _N
+
+        * ----- optional CSV mirror of the assembled table -----
+        if `"`csv'"' != "" {
+            export delimited using `"`csv'"', replace novarnames
+            capture confirm file `"`csv'"'
+            if _rc {
+                noisily display as error "CSV export completed but file was not created"
+                exit 601
+            }
+        }
+
+        * ===== border code (thin=1, medium=2, thick=3, none=4) =====
+        local _hbc = 1
+        if "`_hborder'" == "medium" local _hbc = 2
+        if "`_hborder'" == "thick"  local _hbc = 3
+        if "`_hborder'" == "none"   local _hbc = 4
+
+        * ===== column widths (measured over header + data rows only) =====
+        tempname _rules
+        local _first_rule_done = 0
+        local _content_top = `_titlerows' + 1
+        forvalues j = 1/`K' {
+            tempvar _len
+            quietly gen long `_len' = length(c`j')
+            quietly summarize `_len' ///
+                if c`j' != "" & inrange(_n, `_content_top', `_last_data_row'), ///
+                meanonly
+            local _w = cond(r(N) > 0, ceil(r(max) * 0.95) + 2, 10)
+            if `j' == 1 {
+                if `_w' < 12 local _w = 12
+                if `_w' > 50 local _w = 50
+            }
+            else {
+                if `_w' < 8  local _w = 8
+                if `_w' > 32 local _w = 32
+            }
+            drop `_len'
+            if !`_first_rule_done' {
+                matrix `_rules' = (13, 1, 1, `j', `j', `_w', 0, 0, 0)
+                local _first_rule_done = 1
+            }
+            else {
+                matrix `_rules' = `_rules' \ (13, 1, 1, `j', `j', `_w', 0, 0, 0)
+            }
+        }
+
+        * ===== base font, wrap, vertical centering, left alignment =====
+        matrix `_rules' = `_rules' \ ///
+            (1, 1, `_total_rows', 1, `K', `_fontsize', 1, 0, 0) \ ///
+            (4, 1, `_total_rows', 1, `K', 0, 1, 0, 0) \ ///
+            (6, 1, `_total_rows', 1, `K', 0, 2, 0, 0) \ ///
+            (5, 1, `_total_rows', 1, `K', 0, 1, 0, 0)
+
+        * ===== title row =====
+        if `_titlerows' {
+            matrix `_rules' = `_rules' \ ///
+                (14, 1, 1, 1, `K', 0, 0, 0, 0) \ ///
+                (1, 1, 1, 1, `K', `=`_fontsize' + 2', 1, 0, 0) \ ///
+                (2, 1, 1, 1, `K', 0, 1, 0, 0) \ ///
+                (5, 1, 1, 1, `K', 0, 2, 0, 0)
+        }
+
+        * ===== header row (or top rule above first data row) =====
+        if `_headerrows' {
+            matrix `_rules' = `_rules' \ ///
+                (2, `_header_row', `_header_row', 1, `K', 0, 1, 0, 0) \ ///
+                (5, `_header_row', `_header_row', 1, `K', 0, 2, 0, 0) \ ///
+                (8, `_header_row', `_header_row', 1, `K', 0, `_hbc', 0, 0) \ ///
+                (9, `_header_row', `_header_row', 1, `K', 0, `_hbc', 0, 0)
+            if "`headershade'" != "" {
+                matrix `_rules' = `_rules' \ ///
+                    (7, `_header_row', `_header_row', 1, `K', 0, -1, 0, 0)
+            }
+        }
+        else {
+            matrix `_rules' = `_rules' \ ///
+                (8, `_data_start', `_data_start', 1, `K', 0, `_hbc', 0, 0)
+        }
+
+        * ===== bottom rule below the last data row =====
+        matrix `_rules' = `_rules' \ ///
+            (9, `_last_data_row', `_last_data_row', 1, `K', 0, `_hbc', 0, 0)
+
+        * ===== zebra striping over data rows =====
+        if "`zebra'" != "" {
+            forvalues _zr = `=`_data_start' + 1'(2)`_last_data_row' {
+                matrix `_rules' = `_rules' \ ///
+                    (7, `_zr', `_zr', 1, `K', 0, -2, 0, 0)
+            }
+        }
+
+        * ===== footnote row =====
+        if `_foot_row' > 0 {
+            local _fn_size = max(`_fontsize' - 2, 6)
+            matrix `_rules' = `_rules' \ ///
+                (14, `_foot_row', `_foot_row', 1, `K', 0, 0, 0, 0) \ ///
+                (1, `_foot_row', `_foot_row', 1, `K', `_fn_size', 1, 0, 0) \ ///
+                (3, `_foot_row', `_foot_row', 1, `K', 0, 1, 0, 0) \ ///
+                (5, `_foot_row', `_foot_row', 1, `K', 0, 1, 0, 0)
+        }
+
+        * ===== write the sheet and apply the styling =====
+        _tabtools_xlsx_write_current using `"`using'"', sheet(`"`sheet'"') book(b)
+        local _book_open = 1
+
+        _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
+            rules(`_rules') font("`_font'") ///
+            color1("`_headercolor'") color2("`_zebracolor'")
+
+        mata: b.close_book()
+        local _book_open = 0
+        capture mata: mata drop b
+
+        capture confirm file `"`using'"'
+        if _rc {
+            noisily display as error "export command succeeded but file `using' was not found"
+            exit 601
+        }
+
+        * Stash results to post after cleanup
+        local _ret_rows    = `_total_rows'
+        local _ret_cols    = `K'
+        local _ret_data    = `_ndatarows'
+        local _ret_sheet   `"`sheet'"'
+        local _ret_file    `"`using'"'
+        local _ret_source  "`_src'"
+        local _ret_csv     `"`csv'"'
+
+        noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
+            as text " data rows x " as result "`K'" as text " cols (" ///
+            as result "`_src'" as text " source) to sheet " ///
+            as result `"`sheet'"' as text " in " as result `"`using'"'
+    }
+    local rc = _rc
+    if `_book_open' {
+        capture mata: b.close_book()
+    }
+    capture mata: mata drop b
+    if `_restore_needed' capture restore
+    set varabbrev `_orig_varabbrev'
+    if `rc' {
+        if `rc' == 603 | `rc' == 608 | `rc' == 610 {
+            noisily display as error "Hint: ensure the xlsx file is not open in another application"
+        }
+        exit `rc'
+    }
+
+    return scalar n_rows    = `_ret_rows'
+    return scalar n_cols    = `_ret_cols'
+    return scalar n_datarows = `_ret_data'
+    return local  source    "`_ret_source'"
+    return local  sheet     `"`_ret_sheet'"'
+    return local  file      `"`_ret_file'"'
+    if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
+
+    if "`open'" != "" _tabtools_open_file `"`_ret_file'"'
+end
+
+
+* ============================================================================
+* Mata: build the c1..cK string table from a dataset or a matrix
+* ============================================================================
+version 17.0
+capture mata: mata drop _puttab_data_table()
+capture mata: mata drop _puttab_matrix_table()
+capture mata: mata drop _puttab_fmt_num()
+capture mata: mata drop _puttab_stripe_names()
+capture mata: mata drop _puttab_emit_table()
+
+mata:
+mata set matastrict on
+
+// Format a numeric column to strings, honouring value labels first, then
+// integer-vs-fractional display at the requested number of digits.
+string colvector _puttab_fmt_num(
+    real colvector v,
+    real scalar digits,
+    string scalar vlabel)
+{
+    string colvector out, mapped
+    real scalar i, n, allint
+    string scalar ifmt, ffmt
+
+    n = rows(v)
+    out = J(n, 1, "")
+
+    mapped = J(n, 1, "")
+    if (vlabel != "") {
+        if (st_vlexists(vlabel)) {
+            mapped = st_vlmap(vlabel, v)
+        }
+    }
+
+    allint = 1
+    for (i = 1; i <= n; i++) {
+        if (v[i] < . & v[i] != floor(v[i])) {
+            allint = 0
+            break
+        }
+    }
+    ifmt = "%32.0f"
+    ffmt = "%32." + strofreal(digits, "%9.0f") + "f"
+
+    for (i = 1; i <= n; i++) {
+        if (mapped[i] != "") {
+            out[i] = mapped[i]
+        }
+        else if (v[i] < .) {
+            out[i] = strtrim(strofreal(v[i], allint ? ifmt : ffmt))
+        }
+    }
+    return(out)
+}
+
+// Combine a matrix stripe (eqname, name) into display labels.
+string colvector _puttab_stripe_names(string matrix stripe)
+{
+    string colvector out
+    real scalar i, n
+    string scalar eq
+
+    n = rows(stripe)
+    out = J(n, 1, "")
+    for (i = 1; i <= n; i++) {
+        eq = stripe[i, 1]
+        if (eq != "" & eq != "_") {
+            out[i] = eq + ":" + stripe[i, 2]
+        }
+        else {
+            out[i] = stripe[i, 2]
+        }
+    }
+    return(out)
+}
+
+// Replace the current (empty) dataset with string variables c1..cK holding the
+// assembled table `out'. Row `header_at' (0 = none) is the header row.
+void _puttab_emit_table(string matrix out)
+{
+    real scalar j, i, K, N, maxlen
+    string scalar vname, vtype
+
+    N = rows(out)
+    K = cols(out)
+
+    stata("quietly drop _all")
+    for (j = 1; j <= K; j++) {
+        maxlen = 0
+        for (i = 1; i <= N; i++) {
+            if (strlen(out[i, j]) > maxlen) maxlen = strlen(out[i, j])
+        }
+        if (maxlen < 1) maxlen = 1
+        if (maxlen <= 2045) vtype = "str" + strofreal(maxlen, "%9.0f")
+        else vtype = "strL"
+        vname = "c" + strofreal(j, "%9.0f")
+        (void) st_addvar(vtype, vname)
+    }
+    st_addobs(N)
+    for (j = 1; j <= K; j++) {
+        st_sstore(., "c" + strofreal(j, "%9.0f"), out[, j])
+    }
+}
+
+// Build the table from the current dataset's variables.
+void _puttab_data_table(
+    string scalar varlist,
+    real scalar digits,
+    real scalar titlerows,
+    real scalar headerrows,
+    real scalar usevarlabels)
+{
+    string rowvector vars
+    string matrix out
+    string colvector scol
+    real colvector ncol
+    real scalar j, K, N, total, hdr, datatop
+    string scalar lbl, hdrtext
+
+    vars = tokens(varlist)
+    K = cols(vars)
+    N = st_nobs()
+    total = titlerows + headerrows + N
+    out = J(total, K, "")
+
+    hdr = titlerows + 1            // header row index (if headerrows)
+    datatop = titlerows + headerrows + 1
+
+    for (j = 1; j <= K; j++) {
+        // header text
+        if (headerrows) {
+            hdrtext = vars[j]
+            if (usevarlabels) {
+                lbl = st_varlabel(vars[j])
+                if (lbl != "") hdrtext = lbl
+            }
+            out[hdr, j] = hdrtext
+        }
+        // body
+        if (st_isstrvar(vars[j])) {
+            scol = st_sdata(., vars[j])
+        }
+        else {
+            ncol = st_data(., vars[j])
+            scol = _puttab_fmt_num(ncol, digits, st_varvaluelabel(vars[j]))
+        }
+        out[(datatop..total), j] = scol
+    }
+
+    _puttab_emit_table(out)
+}
+
+// Build the table from a Stata matrix (row/col names -> labels/header).
+void _puttab_matrix_table(
+    string scalar matname,
+    real scalar digits,
+    real scalar titlerows,
+    real scalar headerrows)
+{
+    real matrix M
+    string matrix out
+    string colvector rnames
+    string colvector cnames
+    real scalar i, j, R, C, Kout, total, hdr, datatop
+
+    M = st_matrix(matname)
+    R = rows(M)
+    C = cols(M)
+    rnames = _puttab_stripe_names(st_matrixrowstripe(matname))
+    cnames = _puttab_stripe_names(st_matrixcolstripe(matname))
+
+    Kout = C + 1
+    total = titlerows + headerrows + R
+    out = J(total, Kout, "")
+
+    hdr = titlerows + 1
+    datatop = titlerows + headerrows + 1
+
+    if (headerrows) {
+        for (j = 1; j <= C; j++) {
+            out[hdr, j + 1] = cnames[j]
+        }
+    }
+    for (i = 1; i <= R; i++) {
+        out[datatop + i - 1, 1] = rnames[i]
+    }
+    // Format column by column so decimals are consistent within each column.
+    for (j = 1; j <= C; j++) {
+        out[(datatop..(datatop + R - 1)), j + 1] =
+            _puttab_fmt_num(M[., j], digits, "")
+    }
+
+    _puttab_emit_table(out)
+}
+
+end

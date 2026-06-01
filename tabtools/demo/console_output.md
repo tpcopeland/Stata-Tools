@@ -64,9 +64,9 @@ tabtools: all persistent defaults cleared
 ```
 
 ```
-──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────
 tabtools - Publication-Ready Table Export Suite
-──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────
 
 **Descriptive Statistics**
   table1_tc    - Table 1 with automatic statistical tests
@@ -91,11 +91,15 @@ tabtools - Publication-Ready Table Export Suite
   comptab      - Combine regtab/effecttab frames into one table
   hrcomptab    - Attach regtab frames to a stratetab scaffold
 
+**Styled Export**
+  puttab       - Style an in-memory dataset, frame, or matrix as one sheet
+  stacktab     - Assemble multi-sheet composite Excel tables from blocks
+
 **General Purpose**
   tabtools     - Suite controller and persistent defaults
 
-──────────────────────────────────────────────────────────────────────
-Total commands: 12
+──────────────────────────────────────────────────────────────────────────
+Total commands: 14
 
 Help:     help tabtools for overview
           help <command> for individual command help
@@ -174,6 +178,17 @@ tabtools - Publication-Ready Table Export Suite
   hrcomptab    Build a final Table 2-style sheet by using
                a stratetab frame as the scaffold and injecting
                selected rows from one or more regtab frames.
+
+**Styled Export**
+  ────────────────────────────────────────────────────────────────────
+  puttab       Style a table already in memory -- the current
+               dataset, a named frame, or a Stata matrix
+               (e(b), r(table), collapse output) -- as one
+               house-styled Excel sheet. Feeds stacktab.
+
+  stacktab     Assemble multi-sheet composite Excel tables from
+               source blocks (vstack or hstack), with column
+               merges, titles, and notes. Formerly xlsxcompose.
 
 **General Purpose**
   ────────────────────────────────────────────────────────────────────
@@ -560,4 +575,60 @@ tabtools - Publication-Ready Table Export Suite
   │ Youden's index      0.038                  │
   └────────────────────────────────────────────┘
 
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Primary") varlabels
+```
+
+```
+puttab: wrote 3 data rows x 3 cols (data source) to sheet Block Primary in /home/tpcopeland/Stata-Tools/tabtools/demo/_pipeline_parts.xlsx
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Dose") varlabels
+```
+
+```
+puttab: wrote 2 data rows x 3 cols (data source) to sheet Block Dose in /home/tpcopeland/Stata-Tools/tabtools/demo/_pipeline_parts.xlsx
+```
+
+```stata
+. noisily stacktab using "`_pipe_xlsx'", sheet("Composite")
+>     blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \
+>            sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose))
+>     columnmerge(B+C as "aHR (95% CI)")
+>     spacing(1) display
+>     title("Hormone therapy and recurrent events")
+>     note("aHR = adjusted hazard ratio; CI = confidence interval.")
+```
+
+```
+
+  ┌──────────────────────────────────────┐─────────────
+  │           _xcol1              _xcol2 │
+  ├──────────────────────────────────────┤─────────────
+  │      Any HRT use        aHR (95% CI) │
+  │          Any HRT   0.82 (0.69, 0.98) │
+  │    Former smoker   1.14 (0.97, 1.34) │
+  │   Current smoker   1.46 (1.21, 1.77) │
+  │                                      │
+  ├──────────────────────────────────────┤─────────────
+  │ By estrogen dose          aHR 95% CI │
+  │         Low dose   0.91 (0.74, 1.12) │
+  │        High dose   0.73 (0.58, 0.92) │
+  └──────────────────────────────────────┘─────────────
+stacktab: 2 blocks -> 8 rows written -> sheet Composite
+```
+
+```stata
+. log off demo
 ```
