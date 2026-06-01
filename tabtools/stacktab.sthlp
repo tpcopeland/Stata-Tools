@@ -1,5 +1,12 @@
 {smcl}
 {* *! version 1.3.6  01jun2026}{...}
+{viewerjumpto "Package overview" "stacktab##package"}{...}
+{viewerjumpto "Syntax" "stacktab##syntax"}{...}
+{viewerjumpto "Description" "stacktab##description"}{...}
+{viewerjumpto "Examples" "stacktab##examples"}{...}
+{viewerjumpto "Stored results" "stacktab##stored"}{...}
+{viewerjumpto "Also see" "stacktab##alsosee"}{...}
+{viewerjumpto "Author" "stacktab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "puttab" "help puttab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
@@ -12,6 +19,7 @@ Help for {hi:stacktab}{right:(tabtools)}
 {p 4 4 2}
 {bf:stacktab} {hline 2} Assemble multi-sheet composite Excel tables from source blocks
 
+{marker package}{...}
 {title:Package}
 
 {p 4 4 2}
@@ -22,6 +30,7 @@ into one composite sheet with {cmd:stacktab}. {cmd:stacktab} was previously
 distributed as the standalone command {cmd:xlsxcompose}; that name is retained as
 a deprecated alias.
 
+{marker syntax}{...}
 {title:Syntax}
 
 {p 8 16 2}
@@ -54,9 +63,10 @@ a deprecated alias.
 {synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
 {synopt:{opt dis:play}}list the composed table in the Results window before writing{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
-{synopt:{opt she:etreplace}}replace the output sheet if it exists{p_end}
+{synopt:{opt sheet:replace}}replace the output sheet if it exists{p_end}
 {synoptline}
 
+{marker description}{...}
 {title:Description}
 
 {p 4 4 2}
@@ -138,7 +148,8 @@ Specify
 writes the same composed table to a delimited file and requires a {cmd:.csv}
 extension.
 
-{title:Pipeline with puttab}
+{marker examples}{...}
+{title:Examples}
 
 {p 4 4 2}
 Use {helpb puttab} to write each styled source block to its own sheet, then
@@ -149,6 +160,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {cmd:. puttab using parts.xlsx, sheet("B") matrix(MB) title("Model B")}{break}
 {cmd:. stacktab using final.xlsx, sheet("Table 2") blocks(sheet(A) \ sheet(B))}
 
+{marker stored}{...}
 {title:Stored results}
 
 {synoptset 22}{...}
@@ -166,6 +178,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synopt:{cmd:r(frame)}}frame name, when {opt frame()} is specified{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when {opt csv()} is specified{p_end}
 
+{marker alsosee}{...}
 {title:Also see}
 
 {psee}
@@ -173,6 +186,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {helpb tabtools_cheatsheet}
 {p_end}
 
+{marker author}{...}
 {title:Author}
 
 {p 4 4 2}

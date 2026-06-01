@@ -66,9 +66,9 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt nop:value}}suppress the p-value column (and associated test/statistic columns){p_end}
 
 {syntab:Contents of Cells}
-{synopt:{cmdab:f:ormat(}{it:{help fmt:%fmt}}{cmd:)}}default display format for continuous variables{p_end}
-{synopt:{cmdab:percf:ormat(}{it:{help fmt:%fmt}}{cmd:)}}default display format for percentages{p_end}
-{synopt:{cmdab:nf:ormat(}{it:{help fmt:%fmt}}{cmd:)}}display format for n and N; default is %12.0fc{p_end}
+{synopt:{opt f:ormat(%fmt)}}default display format for continuous variables{p_end}
+{synopt:{opt percf:ormat(%fmt)}}default display format for percentages{p_end}
+{synopt:{opt nf:ormat(%fmt)}}display format for n and N; default is %12.0fc{p_end}
 {synopt:{opt varlabplus}}add data type description after variable labels{p_end}
 {synopt:{opt iqrmiddle("string")}}symbol between Q1 and Q3; default is "-"{p_end}
 {synopt:{opt sdleft("string")}}symbol before SD; default is " ("{p_end}
@@ -89,28 +89,28 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {.xlsx}{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/{opt excel()}{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
-{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt the:me(string)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
-{synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
+{synopt:{opt foot:note(string)}}add footnote row below table{p_end}
 {synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
-{synopt:{cmdab:headers:hade}}apply shading to header rows{p_end}
-{synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
-{synopt:{cmdab:smdt:hreshold(}{it:#}{cmd:)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header background color; named Excel color or RGB triplet such as {cmd:"200 220 240"}{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color; named Excel color or RGB triplet such as {cmd:"240 245 250"}{p_end}
+{synopt:{opt headers:hade}}apply shading to header rows{p_end}
+{synopt:{opt high:light(#)}}highlight rows where p < threshold{p_end}
+{synopt:{opt smdt:hreshold(#)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
+{synopt:{opt headerc:olor(string)}}custom header background color; named Excel color or RGB triplet such as {cmd:"200 220 240"}{p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra stripe color; named Excel color or RGB triplet such as {cmd:"240 245 250"}{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
 
 {syntab:Frame & Pipeline}
-{synopt:{cmdab:fra:me(}{it:name}[{cmd:, replace}]{cmd:)}}store output in a named Stata frame{p_end}
+{synopt:{opt fra:me(name[, replace])}}store output in a named Stata frame{p_end}
 
 {syntab:Other}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
 {synopt:{opt dots}}show progress dots while processing variables{p_end}
-{synopt:{cmdab:missings:ummary}}add missing data summary row per variable{p_end}
-{synopt:{cmdab:noi:sily}}display detailed processing output{p_end}
-{synopt:{cmdab:wtc:ompare}}show unweighted statistics alongside weighted (requires {opt wt()}){p_end}
+{synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
+{synopt:{opt noi:sily}}display detailed processing output{p_end}
+{synopt:{opt wtc:ompare}}show unweighted statistics alongside weighted (requires {opt wt()}){p_end}
 {synoptline}
 
 

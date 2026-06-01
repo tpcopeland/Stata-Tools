@@ -33,7 +33,7 @@
 {it:rateframe}
 {cmd:,}
 {opt modelframes(framelist)}
-{cmdab:rown:ames(}{it:string}{cmd:)}
+{opt rown:ames(string)}
 [{it:options}]
 
 
@@ -44,30 +44,30 @@
 {synopt:{it:rateframe}}frame created by {helpb stratetab} with {cmd:frame()}{p_end}
 {synopt:{opt modelframes(framelist)}}space-separated list of frames created by {helpb regtab} with {cmd:frame()}{p_end}
 {synopt:{opt rows(string)}}backslash-separated row specifications, one per model frame{p_end}
-{synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
+{synopt:{opt rown:ames(string)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
-{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
-{synopt:{cmdab:dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
+{synopt:{opt fra:me(name)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}
-{synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote text below the table{p_end}
+{synopt:{opt foot:note(string)}}footnote text below the table{p_end}
 {synopt:{opt eff:ect(string)}}header label for the effect column; default {cmd:aHR}{p_end}
 {synopt:{opt refl:abel(string)}}text for inferred reference rows; default {cmd:Reference}{p_end}
 
 {syntab:Formatting}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
-{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt the:me(string)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}shade the 2 header rows{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for header rows{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for zebra shading{p_end}
+{synopt:{opt headerc:olor(string)}}named Excel color or RGB triplet for header rows{p_end}
+{synopt:{opt zebrac:olor(string)}}named Excel color or RGB triplet for zebra shading{p_end}
 {synoptline}
 
 
@@ -141,7 +141,7 @@ row, those rows count in the numbering. For example, a frame with rows
 would use {cmd:rows(... \ 3/4)} to select the two non-reference dose rows.
 
 {phang}
-{cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that
+{opt rown:ames(string)} is an alternative to {opt rows()} that
 matches case-insensitive substrings against the rendered labels in the first
 column ({cmd:A}) of each model frame. Use one backslash-separated specification
 per frame. Choose unambiguous tokens, or quote multi-word phrases, when labels

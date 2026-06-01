@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
@@ -66,7 +66,7 @@ for treatment effects and margins tables.
 {synopt:{opt cdisc}}CDISC formatting mode: sets digits to 4, coef label to "Estimate", and forces {cmd:stats(n)}.{p_end}
 {synopt:{opt relab:el}}Relabel random effects using variable labels and explicit parameter types. For single-level models, {cmd:var(_cons)} becomes {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes {it:Covariance: GroupLabel (X label, Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:Variance: District (Intercept)}, {it:Variance: School (Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
-{synopt:{cmdab:starsl:evels(}{it:numlist}{cmd:)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
+{synopt:{opt starsl:evels(numlist)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as a named Excel color or RGB triplet (default: {cmd:"219 229 241"}).{p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a named Excel color or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
@@ -81,7 +81,7 @@ for treatment effects and margins tables.
 {synopt:{opt cutl:abels(string)}}Custom labels for ordered-model cutpoint rows. Separate labels with backslashes, e.g., {cmd:cutlabels("Low to moderate \ Moderate to high")}. Use {opt keepintercept} when you want cutpoints displayed; otherwise {opt noint} and ratio-scale auto-hiding remove them.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}
 {synopt:{opt nop:value}}Suppress p-value columns in the console, frame, CSV, and Excel output. With {opt compact}, this leaves one estimate-and-CI column per model. P-values remain available internally for {opt stars} and row highlighting.{p_end}
-{synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
+{synopt:{opt addr:ow(string asis)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
 {synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
 {synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
 {synoptline}

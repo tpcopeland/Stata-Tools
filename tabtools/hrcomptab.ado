@@ -37,7 +37,7 @@ program define hrcomptab, rclass
         _tabtools_require_helpers
 
         syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
-            [rows(string asis) ROWNAMES(string asis) ///
+            [rows(string asis) ROWNames(string asis) ///
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) ///
             EFFect(string) REFLabel(string) ///

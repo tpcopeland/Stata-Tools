@@ -175,6 +175,29 @@ else {
 capture frame drop hrc_final2
 
 * -------------------------------------------------------------------------
+* 2b. rownames() minimum-abbreviation rown() (regression: ROWNAMES was
+*     all-caps so rown() failed rc=198 despite the help documenting it)
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop hrc_final2b
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rown("treated" \ "1 2") ///
+        frame(hrc_final2b, replace)
+    assert r(N_modelrows) == 3
+    capture frame drop hrc_final2b
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab rown() abbreviation accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab rown() abbreviation (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_final2b
+
+* -------------------------------------------------------------------------
 * 3. Ambiguous mixed layouts are rejected
 * -------------------------------------------------------------------------
 local ++test_count

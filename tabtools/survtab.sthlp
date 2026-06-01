@@ -26,7 +26,7 @@ and restricted mean survival time.{p_end}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headers:hade} {opt headerc:olor(string)} {opt boldp(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
-{cmdab:addr:ow(}{it:string asis}{cmd:)}]{p_end}
+{opt addr:ow(string asis)}]{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}.{p_end}
 
@@ -90,7 +90,7 @@ colors — are supported.{p_end}
 {synopt:{opt dig:its(#)}}decimal places for survival estimates and CIs (default 1, range 0-6){p_end}
 {synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10); default 3{p_end}
 {synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10); default 2{p_end}
-{synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}append custom rows below table body{p_end}
+{synopt:{opt addr:ow(string asis)}}append custom rows below table body{p_end}
 {synoptline}
 
 {pstd}When {opt rmst()} is used, interpret RMST summaries relative to the requested truncation time. The estimate is restricted to the observed follow-up window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}

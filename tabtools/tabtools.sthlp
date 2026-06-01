@@ -202,6 +202,16 @@ A {cmd:custom} theme accepts additional options on the same line:
 {p 8 17 2}
 {cmd:tabtools set theme custom, font(}{it:name}{cmd:) fontsize(}{it:#}{cmd:) headercolor(}{it:color}{cmd:) zebracolor(}{it:color}{cmd:) borderstyle(}{it:name}{cmd:)}
 
+{synoptset 22 tabbed}{...}
+{synopthdr:custom-theme option}
+{synoptline}
+{synopt:{opt font(string)}}font family for the custom theme{p_end}
+{synopt:{opt fontsize(#)}}font size in points for the custom theme{p_end}
+{synopt:{opt headerc:olor(string)}}header fill: named Excel color or RGB triplet{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra fill: named Excel color or RGB triplet{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synoptline}
+
 {pstd}
 {it:color} may be either a named Excel color such as {cmd:navy} or an RGB
 triplet such as {cmd:"200 220 240"}. Omitted custom-theme suboptions reset

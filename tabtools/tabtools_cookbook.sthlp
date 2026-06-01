@@ -20,6 +20,13 @@
 {viewerjumpto "Recipe 18" "tabtools_cookbook##r18"}{...}
 {viewerjumpto "Recipe 19" "tabtools_cookbook##r19"}{...}
 {viewerjumpto "Recipe 20" "tabtools_cookbook##r20"}{...}
+{vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "tabtools cheatsheet" "help tabtools_cheatsheet"}{...}
+{vieweralsosee "table1_tc" "help table1_tc"}{...}
+{vieweralsosee "regtab" "help regtab"}{...}
+{vieweralsosee "effecttab" "help effecttab"}{...}
+{vieweralsosee "puttab" "help puttab"}{...}
+{vieweralsosee "stacktab" "help stacktab"}{...}
 {title:tabtools Cookbook}
 
 {pstd}

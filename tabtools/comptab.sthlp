@@ -47,12 +47,12 @@
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{cmdab:dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
-{synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote text below the table{p_end}
+{synopt:{opt foot:note(string)}}footnote text below the table{p_end}
 {synopt:{cmdab:comp:act}}merge estimate and CI into one column per model{p_end}
 {synopt:{cmdab:sec:tion(}{it:string}{cmd:)}}backslash-separated section labels, one per frame{p_end}
 {synopt:{cmdab:rela:bel(}{it:string}{cmd:)}}rename rows: pairs of row_number "new label"{p_end}
@@ -60,13 +60,13 @@
 
 {syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
-{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
-{synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for header rows{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for zebra shading{p_end}
+{synopt:{opt headers:hade}}apply background fill to the header row{p_end}
+{synopt:{opt headerc:olor(string)}}named Excel color or RGB triplet for header rows{p_end}
+{synopt:{opt zebrac:olor(string)}}named Excel color or RGB triplet for zebra shading{p_end}
 {synoptline}
 
 
