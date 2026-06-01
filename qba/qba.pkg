@@ -1,0 +1,45 @@
+v 3
+d 'qba': Quantitative Bias Analysis for epidemiologic data
+d
+d Implements simple and probabilistic bias analysis for
+d misclassification, selection bias, and unmeasured confounding.
+d Supports multi-bias analysis and visualization.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260602
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: bias analysis
+d KW: misclassification
+d KW: selection bias
+d KW: unmeasured confounding
+d KW: sensitivity analysis
+d KW: E-value
+d KW: epidemiology
+d
+f qba.ado
+f qba.sthlp
+f qba_misclass.ado
+f qba_misclass.sthlp
+f qba_selection.ado
+f qba_selection.sthlp
+f qba_confound.ado
+f qba_confound.sthlp
+f qba_multi.ado
+f qba_multi.sthlp
+f qba_plot.ado
+f qba_plot.sthlp
+f _qba_distributions.ado
+f _qba_require_distributions.ado
+f _qba_detect_contract.ado
+f _qba_parse_saving.ado
+f _qba_mc_summary.ado
+f _qba_draw_checked.ado
+f _qba_flag_misclass_pair.ado
+f _qba_plot_validate_cells.ado
+f _qba_plot_tornado.ado
+f _qba_plot_distribution.ado
+f _qba_plot_tipping.ado

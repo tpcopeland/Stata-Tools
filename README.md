@@ -51,6 +51,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | [msm](https://github.com/tpcopeland/Stata-Tools/tree/main/msm) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--26-brightgreen) | Marginal structural models for longitudinal causal analysis with IPTW, diagnostics, prediction, plots, and reports |
 | [mvp](https://github.com/tpcopeland/Stata-Tools/tree/main/mvp) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Missing-data pattern analysis with stratified pattern tables and missingness graphics |
 | [psdash](https://github.com/tpcopeland/Stata-Tools/tree/main/psdash) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--29-brightgreen) | Propensity score diagnostics dashboard: overlap, balance, weight distribution, and common support |
+| [qba](https://github.com/tpcopeland/Stata-Tools/tree/main/qba) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--02-brightgreen) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding, with multi-bias chains and visualization (simple and probabilistic) |
 
 ### Time-Varying Data & Registries
 
