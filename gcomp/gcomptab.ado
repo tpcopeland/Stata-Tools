@@ -88,7 +88,9 @@ capture noisily {
 
     syntax, xlsx(string) sheet(string) [ci(string) effect(string) title(string) ///
             labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
-            BORDERstyle(string) ZEBRA FOOTnote(string) OPEN BOLDp(real 0) ///
+            BORDERstyle(string) THEme(string) HEADERShade NOSHAde ///
+            HEADERColor(string) ZEBRA ZEBRAColor(string) NOZEbra ///
+            FOOTnote(string) OPEN BOLDp(real 0) ///
             HIGHlight(real 0) DOSEresponse STRATEGYlabels(string) ///
             EXPYears(numlist) REFerence(integer 1) noRD]
 
@@ -113,6 +115,31 @@ capture noisily {
     }
     _gcomp_xl_require_helpers
 
+    if "`theme'" != "" {
+        local theme = lower("`theme'")
+        if !inlist("`theme'", "lancet", "nejm", "bmj", "apa", "jama", ///
+            "plos", "nature", "cell", "annals") {
+            noisily display as error "theme() must be lancet, nejm, bmj, apa, jama, plos, nature, cell, or annals"
+            exit 198
+        }
+        if "`font'" == "" local font = cond("`theme'" == "apa", "Times New Roman", "Arial")
+        if `fontsize' == 10 {
+            if inlist("`theme'", "lancet", "nejm") local fontsize 9
+            else if "`theme'" == "apa" local fontsize 12
+            else if "`theme'" == "nature" local fontsize 7
+            else if "`theme'" == "cell" local fontsize 8
+        }
+        if "`borderstyle'" == "" {
+            if "`theme'" == "plos" local borderstyle "thin"
+            else local borderstyle "academic"
+        }
+        if "`theme'" == "nejm" local zebra "zebra"
+    }
+    if "`noshade'" != "" local headershade ""
+    if "`nozebra'" != "" local zebra ""
+    if `"`headercolor'"' == "" local headercolor "219 229 241"
+    if `"`zebracolor'"' == "" local zebracolor "237 242 249"
+
     * ----- Mode detection: dose-response (time-varying PO#) vs mediation -----
     local _drmode 0
     capture confirm matrix e(b)
@@ -133,7 +160,8 @@ capture noisily {
             effect(`"`effect'"') title(`"`title'"') decimal(`decimal') ///
             font(`"`font'"') fontsize(`fontsize') borderstyle(`"`borderstyle'"') ///
             reference(`reference') `rd' strategylabels(`"`strategylabels'"') ///
-            expyears(`expyears') `zebra' footnote(`"`footnote'"') `open'
+            expyears(`expyears') `headershade' headercolor(`"`headercolor'"') ///
+            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') `open'
         return add
     }
     else {
@@ -199,7 +227,8 @@ quietly {
         _gcomptab_style_excel, xlsx(`"`xlsx'"') sheet(`"`sheet'"') rows(`num_rows') ///
             cols(`num_cols') labelwidth(`label_width') ciwidth(`ci_width') ///
             font(`"`font'"') fontsize(`fontsize') borderstyle(`"`borderstyle'"') ///
-            hborder(`"`_hborder'"') `zebra' footnote(`"`footnote'"') ///
+            hborder(`"`_hborder'"') `headershade' headercolor(`"`headercolor'"') ///
+            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') ///
             boldp(`boldp') highlight(`highlight') pvaltce(`"`p_tce'"') ///
             pvalnde(`"`p_nde'"') pvalnie(`"`p_nie'"') pvalpm(`"`p_pm'"') ///
             pvalcde(`"`p_cde'"')
@@ -229,14 +258,14 @@ end
 capture program drop _gcomptab_validate
 program define _gcomptab_validate, rclass
     version 16.0
-    syntax, XLSX(string) SHEET(string) DECimal(integer) FONTSIZE(integer) ///
-        BOLDP(real) HIGHLIGHT(real) [CI(string) EFFECT(string) ///
-        FONT(string) BORDERSTYLE(string)]
+    syntax, XLSX(string) SHEET(string) DECimal(integer) FONTSize(integer) ///
+        BOLDp(real) HIGHlight(real) [CI(string) EFFECT(string) ///
+        Font(string) BORDERstyle(string)]
 
     if "`ci'" == "" local ci "normal"
     if "`effect'" == "" local effect "Estimate"
     if "`font'" == "" local font "Arial"
-    if "`borderstyle'" == "" local borderstyle "academic"
+    if "`borderstyle'" == "" local borderstyle "thin"
     local hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
 
     if "`e(cmd)'" != "gcomp" {
@@ -568,9 +597,10 @@ capture program drop _gcomptab_style_excel
 program define _gcomptab_style_excel
     version 16.0
     syntax, XLSX(string) SHEET(string) ROWS(integer) COLS(integer) ///
-        LABELWIDTH(real) CIWIDTH(real) FONT(string) FONTSIZE(integer) ///
-        BORDERSTYLE(string) HBORDER(string) [ZEBRA FOOTNOTE(string) ///
-        BOLDP(real 0) HIGHLIGHT(real 0) PVALTCE(string) PVALNDE(string) ///
+        LABELWIDTH(real) CIWIDTH(real) Font(string) FONTSize(integer) ///
+        BORDERstyle(string) HBORDER(string) [HEADERShade HEADERColor(string) ///
+        ZEBRA ZEBRAColor(string) FOOTnote(string) ///
+        BOLDp(real 0) HIGHlight(real 0) PVALTCE(string) PVALNDE(string) ///
         PVALNIE(string) PVALPM(string) PVALCDE(string)]
 
     if "`pvaltce'" == "" local _pval_3 .
@@ -583,6 +613,8 @@ program define _gcomptab_style_excel
     else local _pval_6 = real("`pvalpm'")
     if "`pvalcde'" == "" local _pval_7 .
     else local _pval_7 = real("`pvalcde'")
+    if `"`headercolor'"' == "" local headercolor "219 229 241"
+    if `"`zebracolor'"' == "" local zebracolor "237 242 249"
 
     capture {
         mata: b = xl()
@@ -627,7 +659,9 @@ program define _gcomptab_style_excel
         mata: b.set_horizontal_align(2, (2,`cols'), "center")
         mata: b.set_top_border(2, (2,`cols'), "`hborder'")
         mata: b.set_bottom_border(2, (2,`cols'), "`hborder'")
-        mata: b.set_fill_pattern(2, (2,`cols'), "solid", "219 229 241")
+        if "`headershade'" != "" {
+            mata: b.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
+        }
 
         mata: b.set_bottom_border(`rows', (2,`cols'), "`hborder'")
 
@@ -642,7 +676,7 @@ program define _gcomptab_style_excel
 
         if "`zebra'" != "" {
             forvalues _zr = 4(2)`rows' {
-                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
             }
         }
 
@@ -715,7 +749,8 @@ program define _gcomptab_doseresponse, rclass
     syntax, XLSX(string) SHEET(string) REFerence(integer) DECimal(integer) ///
         FONTSize(integer) [CI(string) EFFECT(string) TITLE(string) Font(string) ///
         BORDERstyle(string) STRATEGYlabels(string) EXPYears(numlist) noRD ///
-        ZEBRA FOOTnote(string) OPEN]
+        HEADERShade HEADERColor(string) ZEBRA ZEBRAColor(string) ///
+        FOOTnote(string) OPEN]
 
     _gcomptab_dr_validate, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         effect(`"`effect'"') decimal(`decimal') font(`"`font'"') ///
@@ -765,8 +800,9 @@ program define _gcomptab_doseresponse, rclass
         _gcomptab_dr_style, xlsx(`"`xlsx'"') sheet(`"`sheet'"') rows(`num_rows') ///
             cols(`num_cols') stratwidth(`strat_width') riskwidth(`risk_width') ///
             hasexp(`has_exp') hasrd(`has_rd') font(`"`font'"') fontsize(`fontsize') ///
-            borderstyle(`"`borderstyle'"') hborder(`"`_hborder'"') `zebra' ///
-            footnote(`"`footnote'"')
+            borderstyle(`"`borderstyle'"') hborder(`"`_hborder'"') ///
+            `headershade' headercolor(`"`headercolor'"') ///
+            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"')
     }
     local _dr_rc = _rc
     if `_pres' capture restore
@@ -788,13 +824,13 @@ end
 capture program drop _gcomptab_dr_validate
 program define _gcomptab_dr_validate, rclass
     version 16.0
-    syntax, XLSX(string) SHEET(string) DECimal(integer) FONTSIZE(integer) ///
-        [CI(string) EFFECT(string) FONT(string) BORDERSTYLE(string)]
+    syntax, XLSX(string) SHEET(string) DECimal(integer) FONTSize(integer) ///
+        [CI(string) EFFECT(string) Font(string) BORDERstyle(string)]
 
     if "`ci'" == "" local ci "normal"
     if "`effect'" == "" local effect "Risk"
     if "`font'" == "" local font "Arial"
-    if "`borderstyle'" == "" local borderstyle "academic"
+    if "`borderstyle'" == "" local borderstyle "thin"
     local hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
 
     if "`e(cmd)'" != "gcomp" {
@@ -988,8 +1024,11 @@ program define _gcomptab_dr_style
     version 16.0
     syntax, XLSX(string) SHEET(string) ROWS(integer) COLS(integer) ///
         STRATWIDTH(real) RISKWIDTH(real) HASEXP(integer) HASRD(integer) ///
-        FONT(string) FONTSIZE(integer) BORDERSTYLE(string) HBORDER(string) ///
-        [ZEBRA FOOTNOTE(string)]
+        Font(string) FONTSize(integer) BORDERstyle(string) HBORDER(string) ///
+        [HEADERShade HEADERColor(string) ZEBRA ZEBRAColor(string) FOOTnote(string)]
+
+    if `"`headercolor'"' == "" local headercolor "219 229 241"
+    if `"`zebracolor'"' == "" local zebracolor "237 242 249"
 
     * Column positions (col 1 = thin pad, col 2 = strategy label)
     local c_strat 2
@@ -1047,7 +1086,9 @@ program define _gcomptab_dr_style
         mata: b.set_horizontal_align(2, (2,`cols'), "center")
         mata: b.set_top_border(2, (2,`cols'), "`hborder'")
         mata: b.set_bottom_border(2, (2,`cols'), "`hborder'")
-        mata: b.set_fill_pattern(2, (2,`cols'), "solid", "219 229 241")
+        if "`headershade'" != "" {
+            mata: b.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
+        }
 
         mata: b.set_bottom_border(`rows', (2,`cols'), "`hborder'")
 
@@ -1063,7 +1104,7 @@ program define _gcomptab_dr_style
 
         if "`zebra'" != "" {
             forvalues _zr = 4(2)`rows' {
-                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
             }
         }
 

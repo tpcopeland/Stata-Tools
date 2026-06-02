@@ -50,8 +50,14 @@ implied exposure-years, and risk differences versus a reference strategy).
 {syntab:Formatting}
 {synopt:{opt f:ont(string)}}font family; default is {cmd:"Arial"}{p_end}
 {synopt:{opt fonts:ize(#)}}body font size; title uses fontsize+2; default is {cmd:10}{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:academic} (default), {cmd:thin}, or {cmd:medium}{p_end}
-{synopt:{opt zebra}}alternating row shading (light blue){p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt the:me(string)}}journal-style preset for font, size, borders, and zebra shading{p_end}
+{synopt:{opt headers:hade}}shade header rows{p_end}
+{synopt:{opt nosha:de}}suppress header shading from a theme{p_end}
+{synopt:{opt headerc:olor(string)}}header fill color; default {cmd:"219 229 241"}{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt noze:bra}}suppress zebra shading from a theme{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra fill color; default {cmd:"237 242 249"}{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table in smaller italic font{p_end}
 
 {syntab:Emphasis}
@@ -191,13 +197,23 @@ creation.
 
 {phang}
 {opt borderstyle(string)} controls the table border style:{break}
-{cmd:academic} {hline 2} horizontal rules only, between header/body/footer (default){break}
-{cmd:thin} {hline 2} thin borders on all cells{break}
+{cmd:thin} {hline 2} thin boxed table (default){break}
 {cmd:medium} {hline 2} medium-weight borders on all cells
+{break}{cmd:academic} {hline 2} horizontal rules only, between header/body/footer
 
 {phang}
-{opt zebra} applies alternating light-blue shading to data rows. This
-improves readability in tables with many rows.
+{opt theme(string)} applies a journal-style preset. Allowed values are
+{cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
+{cmd:nature}, {cmd:cell}, and {cmd:annals}.
+
+{phang}
+{opt headershade}, {opt noshade}, and {opt headercolor(string)} control header
+fills. Header shading is off by default.
+
+{phang}
+{opt zebra} applies alternating row shading to data rows. {opt nozebra}
+suppresses zebra shading requested by a theme. {opt zebracolor(string)} sets
+the alternating-row fill color.
 
 {phang}
 {opt footnote(string)} places footnote text below the table. The text is
@@ -394,7 +410,7 @@ observed regime), so three strategy labels and three exposure-years are supplied
 The Excel table has the following structure:
 
 {p 8 12 2}{bf:Row 1}: Title (if specified), merged across the table width, bold, fontsize+2.{p_end}
-{p 8 12 2}{bf:Row 2}: Column headers — Effect | Estimate | 95% CI | SE — with blue background and bold text.{p_end}
+{p 8 12 2}{bf:Row 2}: Column headers — Effect | Estimate | 95% CI | SE — bold, centered, and optionally shaded with {opt headershade}.{p_end}
 {p 8 12 2}{bf:Rows 3-6}: Data rows for TCE, NDE, NIE, and PM.{p_end}
 {p 8 12 2}{bf:Row 7}: CDE data row (only when the fitted model included {opt control()}).{p_end}
 {p 8 12 2}{bf:Next row}: Footnote (if specified), merged across the table width, italic, smaller font.{p_end}
@@ -409,7 +425,7 @@ Formatting details:
 
 {p 8 12 2}{hline 3} Numeric cells are stored as Excel numbers, not text, so they can be used in formulas.{p_end}
 {p 8 12 2}{hline 3} Column widths are adjusted to content.{p_end}
-{p 8 12 2}{hline 3} The academic border style (default) uses horizontal rules only — above and below the header row and below the last data row — matching journal conventions.{p_end}
+{p 8 12 2}{hline 3} The default thin border style draws a boxed table; {cmd:academic} uses horizontal rules only above and below the header row and below the last data row.{p_end}
 {p 8 12 2}{hline 3} Zebra striping, bold, and highlighting are applied conditionally as described in {it:Options}.{p_end}
 
 
@@ -454,7 +470,7 @@ In {bf:dose-response} mode {cmd:gcomptab} stores instead:
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 

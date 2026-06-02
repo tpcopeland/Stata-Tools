@@ -618,7 +618,7 @@ capture noisily {
     _adv_mock_gcomp
     gcomptab, xlsx("`fmt_xlsx'") sheet("Fmt") ///
         title("Formatted Table") font("Calibri") fontsize(11) ///
-        borderstyle(thin) zebra boldp(0.05) highlight(0.05)
+        borderstyle(thin) headershade zebra boldp(0.05) highlight(0.05)
     confirm file "`fmt_xlsx'"
 
     local py_ok "0"

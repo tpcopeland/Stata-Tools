@@ -2681,7 +2681,7 @@ version 16.0
 local _gc_varabbrev = c(varabbrev)
 set varabbrev off
 capture noisily {
-	syntax, B(name) V(name) SE(name) CI(name) NOBS(integer) SIMS(integer) SAMPLES(integer) OUTcome(string) ///
+		syntax, B(name) V(name) SE(name) CI(name) NOBS(integer) SIMS(integer) SAMples(integer) OUTcome(string) ///
 		[CIP(name) CIBC(name) CIBCA(name) DIAG(name) MEDiation OCE OBE LINEXP SPECIFIC LOGOR LOGRR ///
 		EXposure(string) MEDIator(string) PO0(real 0) NEXPLEV(integer 0)]
 
