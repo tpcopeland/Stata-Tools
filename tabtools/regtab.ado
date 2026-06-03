@@ -1,4 +1,4 @@
-*! regtab Version 1.3.5  2026/06/01
+*! regtab Version 1.3.7  2026/06/03
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -75,7 +75,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
 	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
-	pdp(integer -1) highpdp(integer -1)]
+	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -97,6 +97,12 @@ if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
 if `pdp' == -1 local pdp = 3
 if `highpdp' == -1 local highpdp = 2
 local _show_pvalues = ("`nopvalue'" == "")
+
+* Label-column width cap. 0 (default) resolves to 45 chars: wide enough for
+* ordinary predictor labels, narrow enough that a lone verbose random-effects
+* row wraps instead of stretching the whole column.
+local _label_width_cap = `labelwidth'
+if `_label_width_cap' <= 0 local _label_width_cap = 45
 
 * Validate sheet name for Excel constraints
 _tabtools_validate_sheet "`sheet'" "sheet()"
@@ -2406,6 +2412,11 @@ gen A_length = length(A)
 egen factor_length = max(A_length)
 sum factor_length, d
 local factor_length = ceil(r(max) * 0.95) + 2
+* Cap the label column so a single verbose label (e.g. an unstructured
+* random-effects "Covariance: ... (slope, Intercept)" row) cannot blow the
+* whole column out to 60-76 chars. Labels longer than the cap wrap onto
+* multiple lines (text-wrap rule below) instead of forcing a wide column.
+if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
 drop A_length factor_length c*_max c*_length
 
@@ -2504,6 +2515,14 @@ capture {
 	if `=`max_header_length'*.9' > `_total_model_width' {
 		local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
 		local _style_rule_rows `"`_style_rule_rows' | 12 2 2 1 1 `=`headerheight'*15' 0 0 0"'
+	}
+
+	* Wrap the label column so labels longer than the capped width (e.g. a
+	* verbose random-effects covariance row) flow onto extra lines instead of
+	* being clipped by the adjacent estimate cell. Top-align the label rows so
+	* the first line stays level with the single-line estimate cells.
+	if `num_rows' >= 4 {
+		local _style_rule_rows `"`_style_rule_rows' | 4 4 `num_rows' 2 2 0 1 0 0 | 6 4 `num_rows' 2 2 0 3 0 0"'
 	}
 
 	local _style_rule_rows `"`_style_rule_rows' | 1 1 `num_rows' 1 `num_cols' `_fontsize' 1 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' 1 0 0 | 14 1 1 1 `num_cols' 0 0 0 0 | 4 1 1 1 1 0 1 0 0 | 5 1 1 1 1 0 1 0 0 | 6 1 1 1 1 0 2 0 0 | 2 1 1 1 1 0 1 0 0"'

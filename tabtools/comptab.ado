@@ -1,4 +1,4 @@
-*! comptab Version 1.3.1  2026/05/27
+*! comptab Version 1.3.7  2026/06/03
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -122,7 +122,12 @@ program define comptab, rclass
         THEme(string) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
-        csv(string) FRAme(string) DISplay]
+        csv(string) FRAme(string) DISplay LABELWidth(integer 0)]
+
+    * Label-column width cap (0 -> default 45): keeps a lone verbose label from
+    * stretching the whole column; longer labels wrap (text-wrap rule below).
+    local _label_width_cap = `labelwidth'
+    if `_label_width_cap' <= 0 local _label_width_cap = 45
 
     * Validate: exactly one of rows() or rownames() must be specified
     if `"`rows'"' == "" & `"`rownames'"' == "" {
@@ -691,6 +696,7 @@ program define comptab, rclass
     egen factor_length = max(A_length)
     qui sum factor_length, d
     local factor_length = ceil(r(max) * 0.95) + 2
+    if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
     drop A_length factor_length c*_max c*_length
 
@@ -817,6 +823,11 @@ program define comptab, rclass
         }
         if `_headerht' > 0 {
             local _style_rule_spec `"`_style_rule_spec' | 12 2 2 1 1 `=`_headerht'*15' 0 0 0"'
+        }
+        * Wrap + top-align the label column so labels exceeding the capped width
+        * flow onto extra lines instead of being clipped by the next cell.
+        if `num_rows' >= 4 {
+            local _style_rule_spec `"`_style_rule_spec' | 4 4 `num_rows' 2 2 0 1 0 0 | 6 4 `num_rows' 2 2 0 3 0 0"'
         }
         local _style_rule_spec `"`_style_rule_spec' | 1 1 `num_rows' 1 `num_cols' `_fontsize' 1 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' 1 0 0 | 14 1 1 1 `num_cols' 0 0 0 0 | 4 1 1 1 1 0 1 0 0 | 5 1 1 1 1 0 1 0 0 | 6 1 1 1 1 0 2 0 0 | 2 1 1 1 1 0 1 0 0"'
         if "`headershade'" != "" {

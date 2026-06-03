@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  01jun2026}{...}
+{* *! version 1.3.7  03jun2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
@@ -62,6 +62,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
+{synopt:{opt labelw:idth(#)}}Maximum width (in characters) of the label (first) column (default 45). Caps how wide a single long row label can stretch the column; labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}

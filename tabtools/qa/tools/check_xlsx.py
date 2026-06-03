@@ -882,6 +882,16 @@ def check_col_width_at_most(ws: Worksheet, col: str, width: float) -> CheckResul
     )
 
 
+def check_cell_wrap(ws: Worksheet, ref: str) -> CheckResult:
+    align = ws[ref].alignment
+    passed = bool(align and align.wrap_text)
+    return CheckResult(
+        name=f"Cell {ref} text-wrap enabled",
+        passed=passed,
+        message="wrap on" if passed else "wrap off",
+    )
+
+
 def check_col_width_fits_content(ws: Worksheet, col: str, start_row: int) -> CheckResult:
     actual = _column_width(ws, col)
     max_len, max_row, sample = _column_max_length(ws, col, start_row)
@@ -1091,6 +1101,9 @@ class CheckRunner:
         if args.col_width_fits_content:
             for spec in args.col_width_fits_content:
                 results.append(check_col_width_fits_content(ws, spec[0], int(spec[1])))
+        if args.cell_wrap:
+            for ref in args.cell_wrap:
+                results.append(check_cell_wrap(ws, ref))
         if args.theme:
             for name in args.theme:
                 results.append(check_theme(ws, name))
@@ -1298,6 +1311,8 @@ Available patterns for --has-pattern:
     style.add_argument("--col-width-fits-content", nargs=2, action=CellPairAction,
                        metavar=("COL", "STARTROW"),
                        help="Column COL width >= max content length from STARTROW")
+    style.add_argument("--cell-wrap", action="append", metavar="REF",
+                       help="Cell REF has text-wrap enabled")
     style.add_argument("--theme", action="append", metavar="NAME",
                        help="Dominant font/size/borders match theme: nejm, lancet, apa")
 

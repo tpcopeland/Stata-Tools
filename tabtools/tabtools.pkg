@@ -24,7 +24,7 @@ d borders, fonts, merged headers, and professional styling.
 d
 d Requires: Stata version 16+ (tabtools, table1_tc), 17+ (all other commands)
 d
-d Distribution-Date: 20260601
+d Distribution-Date: 20260603
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

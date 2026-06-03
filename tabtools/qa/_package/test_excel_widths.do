@@ -333,13 +333,117 @@ capture frame drop _wx_hr_rates
 capture frame drop _wx_hr_bin
 capture frame drop _wx_hr_dose
 
+* =========================================================================
+**# WX9: regtab caps the label column on a verbose random-effects row + wraps
+* A mixed model with an unstructured random slope produces a ~60-char
+* "Covariance: id (<slope label>, Intercept)" row. Before the cap this single
+* label stretched column B to ~60; the cap (default 45) plus text-wrap keeps it
+* tight while the long label flows onto extra lines instead of being clipped.
+* =========================================================================
+local ++n_total
+capture noisily {
+    clear
+    set obs 600
+    set seed 20260603
+    gen id = ceil(_n/6)
+    gen double tx_time = runiform() * 10
+    label variable tx_time "Years since Treatment Initiation"
+    gen double y = 50 + 2 * tx_time + rnormal(0, 3) + rnormal()
+    collect clear
+    collect: mixed y tx_time || id: tx_time, covariance(unstructured)
+
+    capture erase "`output_dir'/_wx_regtab_label.xlsx"
+    regtab, xlsx("`output_dir'/_wx_regtab_label.xlsx") sheet("L") relabel factorlabel
+
+    _wx_assert "`output_dir'/_wx_regtab_label.txt" ///
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_regtab_label.xlsx" --sheet "L" --col-width-at-most B 50 --cell-wrap B4 --result-file "`output_dir'/_wx_regtab_label.txt" --quiet"'
+}
+if _rc == 0 {
+    display as result "  PASS: WX9 - regtab label column capped + wrapped on verbose RE row"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: WX9 - regtab label column capped + wrapped on verbose RE row (rc=`=_rc')"
+    local ++n_fail
+}
+
+* =========================================================================
+**# WX10: regtab labelwidth() overrides the default cap
+* =========================================================================
+local ++n_total
+capture noisily {
+    clear
+    set obs 600
+    set seed 20260603
+    gen id = ceil(_n/6)
+    gen double tx_time = runiform() * 10
+    label variable tx_time "Years since Treatment Initiation"
+    gen double y = 50 + 2 * tx_time + rnormal(0, 3) + rnormal()
+    collect clear
+    collect: mixed y tx_time || id: tx_time, covariance(unstructured)
+
+    capture erase "`output_dir'/_wx_regtab_lw.xlsx"
+    regtab, xlsx("`output_dir'/_wx_regtab_lw.xlsx") sheet("LW") relabel factorlabel labelwidth(25)
+
+    _wx_assert "`output_dir'/_wx_regtab_lw.txt" ///
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_regtab_lw.xlsx" --sheet "LW" --col-width-at-most B 27 --result-file "`output_dir'/_wx_regtab_lw.txt" --quiet"'
+}
+if _rc == 0 {
+    display as result "  PASS: WX10 - regtab labelwidth() overrides the default cap"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: WX10 - regtab labelwidth() overrides the default cap (rc=`=_rc')"
+    local ++n_fail
+}
+
+* =========================================================================
+**# WX11: comptab caps the label column on a verbose random-effects row
+* =========================================================================
+local ++n_total
+capture noisily {
+    clear
+    set obs 600
+    set seed 20260603
+    gen id = ceil(_n/6)
+    gen double tx_time = runiform() * 10
+    label variable tx_time "Years since Treatment Initiation"
+    gen double y = 50 + 2 * tx_time + rnormal(0, 3) + rnormal()
+    collect clear
+    collect: mixed y tx_time || id: tx_time, covariance(unstructured)
+    regtab, frame(_wx_lab_f1, replace) relabel factorlabel models("M1")
+    collect clear
+    collect: mixed y tx_time || id: tx_time, covariance(unstructured)
+    regtab, frame(_wx_lab_f2, replace) relabel factorlabel models("M2")
+
+    capture erase "`output_dir'/_wx_comptab_label.xlsx"
+    comptab _wx_lab_f1 _wx_lab_f2, rows(1/6 \ 1/6) ///
+        xlsx("`output_dir'/_wx_comptab_label.xlsx") sheet("CL") title("Composite")
+
+    _wx_assert "`output_dir'/_wx_comptab_label.txt" ///
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_comptab_label.xlsx" --sheet "CL" --col-width-at-most B 50 --cell-wrap B4 --result-file "`output_dir'/_wx_comptab_label.txt" --quiet"'
+
+    capture frame drop _wx_lab_f1
+    capture frame drop _wx_lab_f2
+}
+if _rc == 0 {
+    display as result "  PASS: WX11 - comptab label column capped + wrapped on verbose RE row"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: WX11 - comptab label column capped + wrapped on verbose RE row (rc=`=_rc')"
+    local ++n_fail
+}
+capture frame drop _wx_lab_f1
+capture frame drop _wx_lab_f2
+
 display _newline as result "Excel Width Tests Complete"
 display as result "  Passed: `n_pass' / `n_total'"
 if `n_fail' > 0 {
     display as error "  Failed: `n_fail' / `n_total'"
 }
 
-foreach f in _wx_regtab.txt _wx_regtab_tight.txt _wx_effecttab.txt _wx_comptab.txt _wx_corrtab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt {
+foreach f in _wx_regtab.txt _wx_regtab_tight.txt _wx_effecttab.txt _wx_comptab.txt _wx_corrtab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt _wx_regtab_label.txt _wx_regtab_lw.txt _wx_comptab_label.txt {
     capture erase "`output_dir'/`f'"
 }
 

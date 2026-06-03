@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  01jun2026}{...}
+{* *! version 1.3.7  03jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
@@ -56,6 +56,7 @@ for treatment effects and margins tables.
 {synopt:{opt nore:effects}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
 {synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For survival models ({cmd:stcox}/{cmd:streg}), {cmd:n} reports the number of subjects ({cmd:e(N_sub)}) in preference to the number of records; {cmd:n_sub} and {cmd:subjects} are accepted as synonyms for {cmd:n}. Unrecognized {cmd:stats()} tokens are ignored with a warning. For GEE models ({cmd:xtgee}), {cmd:aic} automatically displays QIC (Quasi-likelihood Information Criterion) since AIC is undefined for quasi-likelihood. {cmd:qic} can also be requested explicitly. For mixed regular and pseudo-R² collections, the row label becomes {cmd:R² / Pseudo R²}. {cmd:icc} is computed per model from variance components when defined.{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for coefficients and CIs (default 2, range 0-6). Random-effects rows use the same display precision as the main coefficient columns; MOR/MHR rows follow the transformed scale.{p_end}
+{synopt:{opt labelw:idth(#)}}Maximum width (in characters) of the label (first) column (default 45). Caps how wide a single long row label — most often an unstructured random-effects {cmd:Covariance: ... (slope, Intercept)} row — can stretch the column; labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}

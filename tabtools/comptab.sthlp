@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.3.7  03jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -61,6 +61,7 @@
 {syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt labelw:idth(#)}}maximum width (characters) of the label (first) column (default 45); labels longer than the cap wrap onto extra lines{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}

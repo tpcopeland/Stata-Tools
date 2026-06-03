@@ -1,4 +1,4 @@
-*! effecttab Version 1.3.5  2026/06/01
+*! effecttab Version 1.3.7  2026/06/03
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -82,12 +82,18 @@ program define effecttab, rclass
 	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
 	        HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay ///
-	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1)]
+	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
+	        LABELWidth(integer 0)]
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
 	local _has_xlsx = "`xlsx'" != ""
 	if "`sheet'" == "" local sheet "Effects"
+
+	* Label-column width cap (0 -> default 45): keeps a lone verbose label from
+	* stretching the whole column; longer labels wrap (text-wrap rule below).
+	local _label_width_cap = `labelwidth'
+	if `_label_width_cap' <= 0 local _label_width_cap = 45
 
 	* Resolve persistent defaults
 	if `digits' == -1 {
@@ -1033,6 +1039,7 @@ quietly {
 	if ceil(`_effect_len' * 0.85) + 2 > `factor_length' {
 	    local factor_length = ceil(`_effect_len' * 0.85) + 2
 	}
+	if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
 	drop A_length factor_length c*_max c*_length
 
@@ -1105,6 +1112,12 @@ quietly {
 			if `=`max_header_length'*.9' > `_total_model_width' {
 				local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
 				local _style_rule_rows `"`_style_rule_rows' | 12, 2, 2, 1, 1, `=`headerheight'*15', 0, 0, 0"'
+			}
+			* Wrap + top-align the label column so labels exceeding the capped
+			* width flow onto extra lines instead of being clipped.
+			if `num_rows' >= 4 {
+				local _style_rule_rows `"`_style_rule_rows' | 4, 4, `num_rows', 2, 2, 0, 1, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 6, 4, `num_rows', 2, 2, 0, 3, 0, 0"'
 			}
 
 			local _style_rule_rows `"`_style_rule_rows' | 1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0"'

@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.3.6** | 2026-06-01
+**Version 1.3.7** | 2026-06-03
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
@@ -505,6 +505,7 @@ The demo generates 14 workbooks (72 sheets) covering every command and option co
 
 ## Version History
 
+- **1.3.7** (2026-06-03): Cap the label (first) column width in `regtab`, `effecttab`, and `comptab` so a single verbose row label — most commonly an unstructured random-effects `Covariance: ... (slope, Intercept)` row from a mixed model — can no longer stretch the whole column to 60-76 characters and balloon the table. The label column now caps at 45 characters by default; labels longer than the cap wrap onto extra lines (top-aligned) instead of being clipped by the adjacent estimate cell. The cap is tunable via the new `labelwidth()` option on all three commands.
 - **1.3.6** (2026-06-01): Add `puttab`, a first-mile styled-block producer that writes a table already in memory — the current dataset, a named `frame()`, or a Stata `matrix()` such as `e(b)`, `r(table)`, or `collapse`/`tabulate` output — as one house-styled Excel sheet with the shared title/header/zebra/border geometry. For a matrix source the row and column names become the label column and header row; for a dataset or frame source numeric columns honor `digits()`, integers stay integer, and value labels are resolved. Repeated calls build a multi-sheet workbook that `stacktab` can assemble, closing the raw-input gap between `desctab` (needs a `collect`) and `stacktab` (needs pre-exported sheets). Fold the former standalone `xlsxcompose` package into the suite as `stacktab` (block-assembly of composite sheets); `xlsxcompose` is retained as a deprecated alias that forwards to `stacktab` and returns the same `r()` results. Together `puttab` and `stacktab` form the emit-then-assemble export pipeline.
 - **1.3.5** (2026-06-01): Fix `effecttab, digits()` so collect-rendered 95% CI bounds use the requested decimal precision. Add `regtab, cutlabels()` for ordered-model cutpoints, make `noint` hide cutpoint and ancillary-only rows such as `lnalpha`, `alpha`, and `/sigma`, and split model-family demos into `demo_regtab_models.xlsx` with richer zero-inflated examples.
 - **1.3.4** (2026-06-01): Extend `regtab` multi-equation row handling to zero-inflated Poisson, zero-inflated negative binomial, and Cragg hurdle models, with equation labels for outcome, inflation, selection, scale, and ancillary rows. Expand QA and demos for the model families covered by the regression-family matrix.
