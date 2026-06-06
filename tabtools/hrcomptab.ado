@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.5.1  2026/06/06
+*! hrcomptab Version 1.5.2  2026/06/06
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -513,20 +513,54 @@ program define hrcomptab, rclass
 
             local _section_rows_sp " `section_rows' "
             local _ref_rows_sp " `ref_rows' "
+
+            * A section header that owns exactly one plotted row is redundant in
+            * a forest plot. Pre-scan the scaffold: for each section row, count
+            * the rows up to the next section (or end); mark single-child sections
+            * so their label is folded into that one row instead of a header.
+            local _fold_sections " "
+            foreach _sr of local section_rows {
+                local _cnt = 0
+                local _rr = `_sr' + 1
+                local _stop = 0
+                while `_rr' <= `_rate_rows' & !`_stop' {
+                    if strpos("`_section_rows_sp'", " `_rr' ") {
+                        local _stop = 1
+                    }
+                    else {
+                        local ++_cnt
+                        local ++_rr
+                    }
+                }
+                if `_cnt' == 1 local _fold_sections "`_fold_sections'`_sr' "
+            }
+
             local _next_model_ep = 0
             local _current_section ""
+            local _pending_fold_label ""
             forvalues _r = 4/`_rate_rows' {
                 frame `rateframe' {
                     local _rate_lab_ep = c1[`_r']
                 }
                 if strpos("`_section_rows_sp'", " `_r' ") {
                     local _current_section = strtrim(`"`_rate_lab_ep'"')
-                    frame post `_eplotframe_name' (`"`_current_section'"') (.) (.) (.) (.) ///
-                        (.) ("") ("section") (`"`_current_section'"') (.) (`"`rateframe'"')
+                    if strpos("`_fold_sections'", " `_r' ") {
+                        local _pending_fold_label `"`_current_section'"'
+                    }
+                    else {
+                        local _pending_fold_label ""
+                        frame post `_eplotframe_name' (`"`_current_section'"') (.) (.) (.) (.) ///
+                            (.) ("") ("section") (`"`_current_section'"') (.) (`"`rateframe'"')
+                    }
                     continue
                 }
                 if strpos("`_ref_rows_sp'", " `_r' ") {
-                    frame post `_eplotframe_name' (`"`_rate_lab_ep'"') (.) (.) (.) (.) ///
+                    local _ref_post_label `"`_rate_lab_ep'"'
+                    if `"`_pending_fold_label'"' != "" {
+                        local _ref_post_label `"`_pending_fold_label'"'
+                        local _pending_fold_label ""
+                    }
+                    frame post `_eplotframe_name' (`"`_ref_post_label'"') (.) (.) (.) (.) ///
                         (.) ("") ("reference") (`"`_current_section'"') (.) (`"`rateframe'"')
                     continue
                 }
@@ -553,7 +587,12 @@ program define hrcomptab, rclass
                                     local _ep_model = model[`_ep_i']
                                     local _ep_model_label = model_label[`_ep_i']
                                     local _ep_rowtype = rowtype[`_ep_i']
-                                    frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+                                    local _ep_post_label `"`_ep_label'"'
+                                    if `"`_pending_fold_label'"' != "" {
+                                        local _ep_post_label `"`_pending_fold_label'"'
+                                        local _pending_fold_label ""
+                                    }
+                                    frame post `_eplotframe_name' (`"`_ep_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
                                         (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
                                         (`"`_current_section'"') (`_src_row_ep') (`"`_mfname_ep'"')
                                 }

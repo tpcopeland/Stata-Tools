@@ -1,4 +1,4 @@
-*! comptab Version 1.5.1  2026/06/06
+*! comptab Version 1.5.2  2026/06/06
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -537,35 +537,55 @@ program define comptab, rclass
         forvalues f = 1/`n_frames' {
             local _fname : word `f' of `framelist'
             local _sec_label ""
-            if `has_sections' {
-                local _sec_label `"`seclabel`f''"'
+            if `has_sections' local _sec_label `"`seclabel`f''"'
+
+            * Resolve the source companion frame for this display frame.
+            local _src_ep ""
+            capture frame `_fname': local _src_ep : char _dta[tabtools_eplotframe]
+            local _src_ep_ok = (_rc == 0 & `"`_src_ep'"' != "")
+            if `_src_ep_ok' {
+                capture frame `_src_ep': quietly count
+                if _rc local _src_ep_ok = 0
+            }
+
+            * Count the plotted rows this section contributes. A section header
+            * that owns exactly one row is redundant in a forest plot, so fold
+            * the section label into that single row and skip the header.
+            local _n_eff_f = 0
+            if `_src_ep_ok' {
+                foreach r of local expanded`f' {
+                    frame `_src_ep' {
+                        forvalues _ep_i = 1/`=_N' {
+                            if source_row[`_ep_i'] == `r' local ++_n_eff_f
+                        }
+                    }
+                }
+            }
+            local _fold = (`has_sections' & `_n_eff_f' == 1)
+            if `has_sections' & !`_fold' {
                 frame post `_eplotframe_name' (`"`_sec_label'"') (.) (.) (.) (.) ///
                     (.) ("") ("section") (`"`_sec_label'"') (.) (`"`_fname'"')
             }
-            local _src_ep ""
-            capture frame `_fname': local _src_ep : char _dta[tabtools_eplotframe]
-            local _src_ep_rc = _rc
-            if `_src_ep_rc' == 0 & `"`_src_ep'"' != "" {
-                capture frame `_src_ep': quietly count
-                local _src_ep_rc = _rc
-                if `_src_ep_rc' == 0 {
-                    foreach r of local expanded`f' {
-                        frame `_src_ep' {
-                            local _ep_N = _N
-                            forvalues _ep_i = 1/`_ep_N' {
-                                if source_row[`_ep_i'] == `r' {
-                                    local _ep_label = label[`_ep_i']
-                                    local _ep_est = estimate[`_ep_i']
-                                    local _ep_ll = ll[`_ep_i']
-                                    local _ep_ul = ul[`_ep_i']
-                                    local _ep_p = pvalue[`_ep_i']
-                                    local _ep_model = model[`_ep_i']
-                                    local _ep_model_label = model_label[`_ep_i']
-                                    local _ep_rowtype = rowtype[`_ep_i']
-                                    frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
-                                        (`"`_sec_label'"') (`r') (`"`_fname'"')
-                                }
+
+            if `_src_ep_ok' {
+                foreach r of local expanded`f' {
+                    frame `_src_ep' {
+                        local _ep_N = _N
+                        forvalues _ep_i = 1/`_ep_N' {
+                            if source_row[`_ep_i'] == `r' {
+                                local _ep_label = label[`_ep_i']
+                                local _ep_est = estimate[`_ep_i']
+                                local _ep_ll = ll[`_ep_i']
+                                local _ep_ul = ul[`_ep_i']
+                                local _ep_p = pvalue[`_ep_i']
+                                local _ep_model = model[`_ep_i']
+                                local _ep_model_label = model_label[`_ep_i']
+                                local _ep_rowtype = rowtype[`_ep_i']
+                                local _post_label `"`_ep_label'"'
+                                if `_fold' local _post_label `"`_sec_label'"'
+                                frame post `_eplotframe_name' (`"`_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+                                    (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
+                                    (`"`_sec_label'"') (`r') (`"`_fname'"')
                             }
                         }
                     }

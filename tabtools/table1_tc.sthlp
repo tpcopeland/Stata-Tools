@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.1  06jun2026}{...}
+{* *! version 1.5.2  06jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -264,7 +264,7 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.5.1{p_end}
+{pstd}{bf:Version} 1.5.2{p_end}
 
 {title:Also see}
 

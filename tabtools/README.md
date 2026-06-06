@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.5.1** | 2026-06-06
+**Version 1.5.2** | 2026-06-06
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -618,6 +618,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.5.2** (2026-06-06): Cleaner forest plots from `comptab` and `hrcomptab`. When a `section()` (or stratetab scaffold section) contributes exactly one plotted row, the eplot companion frame now folds the section label into that single row instead of emitting a standalone header row followed by one indented effect — the redundant header/child pair that made one-coefficient-per-model forests look cluttered. The rendered Excel and console tables are unchanged; only the `eplotframe()`/`forest` output differs. Added `qa/_package/test_eplot_section_fold.do`.
 - **1.5.1** (2026-06-06): Fix two correctness bugs found while auditing the v1.5.0 eplot bridge. `comptab` and `hrcomptab` could not export Markdown (`markdown()` failed with `rc=198` because of a malformed compound quote in the post-`forest` return block). `regtab` double-exponentiated `logit, or` and `ologit, or` models (the `logit`/`ologit` branch hardcoded `eform=1` instead of respecting a user-supplied `or` option, unlike `melogit`/`poisson`/`mlogit`), silently reporting `exp(OR)`; this also propagated into the eplot companion frame. Added regression tests for both in `qa/_package/test_markdown_exports.do` and `qa/regtab/test_regtab_model_families.do`.
 - **1.5.0** (2026-06-06): Add an `eplot` bridge for graph-ready estimate/CI companion frames. `regtab` and `effecttab` now support `eplotframe()`; `comptab` and `hrcomptab` can compose those companions and draw forest plots with `forest`, passing graph options through `eplotoptions()` while honoring the active graph scheme by default. `regtab` and `effecttab` now support `eplotframe()`; `comptab` and `hrcomptab` can compose those companions and draw forest plots with `forest`, passing graph options through `eplotoptions()` while honoring the active graph scheme by default.
 - **1.4.0** (2026-06-05): Add `markdown()` and `mdappend` exports across tabtools table commands, including same-call Excel plus Markdown export and sequential Markdown report building. Add `_tabtools_markdown_write_current.ado` as the shared Markdown writer and allow `puttab` to run Markdown-only without `using`.
