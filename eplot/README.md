@@ -211,6 +211,34 @@ eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap
 
 ![Significance colors](demo/sigcolors.png)
 
+### 10. Forest plot from a tabtools table
+
+Frame mode reads the graph-ready companion frame that [`tabtools`](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) commands produce with `eplotframe()` — so a published regression table and its forest plot share one set of estimates. `regtab` writes the table and the frame together; `eplot` plots the frame.
+
+```stata
+collect clear
+quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
+regtab, coef("OR") noint eplotframe(or_effects, replace)
+
+eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
+    null(1) values stars vformat(%4.2f) ///
+    effect("Odds Ratio (95% CI)") ///
+    title("Predictors of cardiovascular events")
+```
+
+![Forest plot from a tabtools regtab table](demo/forest_regtab.png)
+
+`comptab` and `hrcomptab` go one step further: their `forest` option composes companion frames from several models and calls `eplot` for you, passing graph options through `eplotoptions()`.
+
+```stata
+comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
+    forest eplotoptions(null(1) title("Treatment effect: crude vs adjusted"))
+```
+
+![Model-comparison forest plot from comptab](demo/forest_comptab.png)
+
+The shared demo `demo/demo_tabtools_eplot.do` (also shipped in `tabtools/demo/`) builds both plots end to end from the bundled clinical cohort.
+
 ## Option Reference
 
 Options are organized by function. Not every option works in every mode — see `help eplot` for per-option mode availability.

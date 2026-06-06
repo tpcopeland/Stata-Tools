@@ -544,6 +544,71 @@ The demo generates 14 workbooks (72 sheets) covering every command and option co
 | `demo_puttab.xlsx` | 3 | puttab: matrix source (`r(table)`), frame source, collapse/data source with themes and zebra |
 | `demo_stacktab.xlsx` | 4 | stacktab: puttab-styled source blocks, vstack composite with column merge and section labels, hstack side-by-side |
 
+## Integration with eplot: tables to forest plots
+
+The same effect estimates that fill a publication table can drive a forest plot — without re-entering a single number. `regtab` and `effecttab` accept `eplotframe()`, which stores a graph-ready companion frame (`label`, `estimate`, `ll`, `ul`, `pvalue`, `rowtype`) that the separate [`eplot`](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) package reads directly. `comptab` and `hrcomptab` compose those companions and draw the plot in one step with `forest`.
+
+The integration demo `demo/demo_tabtools_eplot.do` builds an adjusted odds-ratio table and turns it into a forest plot two ways. Run it from a local checkout:
+
+```bash
+stata-mp -b do tabtools/demo/demo_tabtools_eplot.do
+```
+
+### One model: regtab table, then eplot forest
+
+`regtab` writes the table and the companion frame at once; `eplot` plots the frame.
+
+```stata
+collect clear
+quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
+regtab, coef("OR") noint eplotframe(or_effects, replace) display
+
+eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
+    null(1) values stars vformat(%4.2f) ///
+    effect("Odds Ratio (95% CI)") ///
+    title("Predictors of cardiovascular events")
+```
+
+The table:
+
+```
+  +-----------------------------------------------+
+  |                Model                          |
+  |                   OR         95% CI   p-value |
+  |      Treated    1.03   (0.96, 1.10)      0.38 |
+  | Age at index    1.00   (1.00, 1.01)     0.035 |
+  |   Female sex    1.01   (0.94, 1.08)      0.84 |
+  |-----------------------------------------------|
+  |     Diabetes    1.11   (1.04, 1.19)     0.002 |
+  | Hypertension    1.01   (0.94, 1.08)      0.84 |
+  |    Prior CVD    1.04   (0.97, 1.12)      0.23 |
+  +-----------------------------------------------+
+```
+
+The matching forest plot:
+
+![Forest plot from a regtab table](demo/forest_regtab.png)
+
+### Several models: comptab forest in one step
+
+`comptab` composes companion frames from multiple `regtab` runs; `forest` calls `eplot` for you, and `eplotoptions()` passes graph options through.
+
+```stata
+* Crude and adjusted treatment effects, each captured as a regtab frame
+collect clear
+quietly collect: logistic cv_event treated
+regtab, coef("OR") noint frame(g_crude, replace) eplotframe(ge_crude, replace)
+
+collect clear
+quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
+regtab, coef("OR") noint frame(g_adj, replace) eplotframe(ge_adj, replace)
+
+comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
+    forest eplotoptions(null(1) title("Treatment effect: crude vs adjusted"))
+```
+
+![Model-comparison forest plot from comptab](demo/forest_comptab.png)
+
 ## Resources
 
 - `help tabtools` for the suite overview and persistent defaults
