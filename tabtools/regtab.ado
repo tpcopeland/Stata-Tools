@@ -1,4 +1,4 @@
-*! regtab Version 1.5.0  2026/06/06
+*! regtab Version 1.5.1  2026/06/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -371,7 +371,7 @@ quietly{
             if inlist("`_cmdword'", "logit", "ologit") {
                 local model_coef_`m' "OR"
                 local model_null_`m' 1
-                local model_eform_`m' 1
+                local model_eform_`m' = !`_has_or'
                 local model_auto_noint_`m' 1
             }
             else if "`_cmdword'" == "logistic" {

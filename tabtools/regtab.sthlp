@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  06jun2026}{...}
+{* *! version 1.5.1  06jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -254,6 +254,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.5.0{p_end}
+{pstd}{bf:Version} 1.5.1{p_end}
 
 {hline}

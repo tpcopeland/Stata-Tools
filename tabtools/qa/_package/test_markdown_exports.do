@@ -164,6 +164,82 @@ else {
     local ++fail_count
 }
 
+**# comptab Markdown export
+* Regression guard for the v1.5.1 fix: comptab's post-forest return block
+* (which always runs) had a malformed compound quote in the markdown return,
+* so any comptab, markdown(...) call failed with rc=198 "invalid syntax".
+local ++test_count
+local md_comp "`output_dir'/markdown_comptab.md"
+capture erase "`md_comp'"
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    regtab, frame(_md_rt1, replace)
+    collect clear
+    collect: regress price mpg length
+    regtab, frame(_md_rt2, replace)
+    comptab _md_rt1 _md_rt2, rows(1 2 \ 1 2) markdown("`md_comp'") title("Composite")
+    assert "`r(markdown)'" == "`md_comp'"
+    assert r(markdown_rows) > 0
+    _md_assert_contains using "`md_comp'", text("Composite")
+}
+if _rc == 0 {
+    display as result "  PASS: comptab Markdown export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: comptab Markdown export (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _md_rt1
+capture frame drop _md_rt2
+
+**# hrcomptab Markdown export
+* Same v1.5.1 regression guard for hrcomptab's post-forest return block.
+local ++test_count
+local md_hr "`output_dir'/markdown_hrcomptab.md"
+capture erase "`md_hr'"
+capture noisily {
+    tempfile _md_rate
+    clear
+    set obs 2
+    gen exposure = _n - 1
+    gen double _D = cond(_n == 1, 10, 20)
+    gen double _Y = cond(_n == 1, 1000, 1100)
+    gen double _Rate = _D / _Y
+    gen double _Lower = _Rate * 0.80
+    gen double _Upper = _Rate * 1.20
+    label define _md_exp 0 "None" 1 "Current", replace
+    label values exposure _md_exp
+    save "`_md_rate'.dta", replace
+    clear
+    stratetab, using(`_md_rate') outcomes(1) frame(_md_rates, replace) ///
+        outlabels("Outcome") explabels("Exposure")
+    clear
+    set obs 80
+    set seed 60607
+    gen byte treated = mod(_n, 2)
+    gen double y = 10 + 2 * treated + rnormal()
+    collect clear
+    collect: regress y treated
+    regtab, frame(_md_hrmod, replace) noint coef("aHR")
+    hrcomptab _md_rates, modelframes(_md_hrmod) rows(1) effect("aHR") ///
+        markdown("`md_hr'") title("Survival")
+    assert "`r(markdown)'" == "`md_hr'"
+    _md_assert_contains using "`md_hr'", text("Survival")
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab Markdown export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab Markdown export (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _md_rates
+capture frame drop _md_hrmod
+
 **# Error paths
 local ++test_count
 capture noisily {
@@ -189,6 +265,8 @@ capture erase "`md_table1'"
 capture erase "`md_cross'"
 capture erase "`xlsx_cross'"
 capture erase "`md_put'"
+capture erase "`md_comp'"
+capture erase "`md_hr'"
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: test_markdown_exports tests=`test_count' pass=`pass_count' fail=`fail_count'"

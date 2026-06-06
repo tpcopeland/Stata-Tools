@@ -1,4 +1,4 @@
-*! comptab Version 1.5.0  2026/06/06
+*! comptab Version 1.5.1  2026/06/06
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1124,7 +1124,7 @@ program define comptab, rclass
     return clear
     if `"`frame'"' != "" return local frame "`frame'"
     if `"`_ret_markdown'"' != "" {
-        return local markdown `"`_ret_markdown'"
+        return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
     }

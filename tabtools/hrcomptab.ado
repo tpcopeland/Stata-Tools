@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.5.0  2026/06/06
+*! hrcomptab Version 1.5.1  2026/06/06
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -977,7 +977,7 @@ program define hrcomptab, rclass
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
     if "`csv'" != "" return local csv "`csv'"
     if `"`_ret_markdown'"' != "" {
-        return local markdown `"`_ret_markdown'"
+        return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
     }

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  06jun2026}{...}
+{* *! version 1.5.1  06jun2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -144,6 +144,6 @@ exits with an error instead of silently omitting the measure.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.5.0{p_end}
+{pstd}{bf:Version} 1.5.1{p_end}
 
 {hline}

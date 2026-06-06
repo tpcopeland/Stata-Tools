@@ -527,6 +527,69 @@ else {
     local ++fail
 }
 
+**# Test 7: logit/ologit respect a user-supplied or option (no double-exp)
+* Regression guard for the v1.5.1 fix: the logit/ologit branch hardcoded
+* model_eform=1, so `logit, or` (whose r(table) already holds odds ratios)
+* was exponentiated a second time, silently reporting exp(OR). The estimate
+* is read from the eplot companion frame so this also covers bridge propagation.
+local ++total
+capture noisily {
+    sysuse auto, clear
+
+    * Ground-truth OR from e(b): logit coefficients are log-odds regardless of or
+    quietly logit foreign mpg weight
+    local _truth_mpg = exp(_b[mpg])
+
+    * Path A: plain logit -> regtab applies eform itself
+    collect clear
+    collect: logit foreign mpg weight
+    capture frame drop _rt_or_plain_ep
+    regtab, frame(_rt_or_plain, replace) eplotframe(_rt_or_plain_ep, replace) coef("OR")
+    frame _rt_or_plain_ep {
+        quietly count if strpos(label, "Mileage") > 0
+        assert r(N) == 1
+        quietly summarize estimate if strpos(label, "Mileage") > 0, meanonly
+        local _plain_mpg = r(mean)
+    }
+
+    * Path B: logit, or -> regtab must NOT re-exponentiate
+    collect clear
+    collect: logit foreign mpg weight, or
+    capture frame drop _rt_or_eform_ep
+    regtab, frame(_rt_or_eform, replace) eplotframe(_rt_or_eform_ep, replace) coef("OR")
+    frame _rt_or_eform_ep {
+        quietly summarize estimate if strpos(label, "Mileage") > 0, meanonly
+        local _eform_mpg = r(mean)
+    }
+
+    assert abs(`_plain_mpg' - `_truth_mpg') < 1e-6
+    assert abs(`_eform_mpg' - `_truth_mpg') < 1e-6
+    assert abs(`_eform_mpg' - `_plain_mpg') < 1e-9
+
+    * ologit, or must likewise single-exponentiate
+    quietly ologit rep78 mpg weight
+    local _truth_o_mpg = exp(_b[mpg])
+    collect clear
+    collect: ologit rep78 mpg weight, or
+    capture frame drop _rt_or_ologit_ep
+    regtab, frame(_rt_or_ologit, replace) eplotframe(_rt_or_ologit_ep, replace) coef("OR")
+    frame _rt_or_ologit_ep {
+        quietly summarize estimate if strpos(label, "Mileage") > 0, meanonly
+        local _ologit_mpg = r(mean)
+    }
+    assert abs(`_ologit_mpg' - `_truth_o_mpg') < 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS: Test 7 - logit/ologit or option single-exponentiates"
+    local ++pass
+}
+else {
+    display as error "  FAIL: Test 7 - logit/ologit or double-exp regression (rc=`=_rc')"
+    local ++fail
+}
+capture frame drop _rt_or_plain _rt_or_plain_ep _rt_or_eform _rt_or_eform_ep
+capture frame drop _rt_or_ologit _rt_or_ologit_ep
+
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"
