@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  05jun2026}{...}
+{* *! version 1.5.0  06jun2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -543,6 +543,6 @@ deprecated alias for {cmd:stacktab}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.6{p_end}
+{pstd}{bf:Version} 1.5.0{p_end}
 
 {hline}

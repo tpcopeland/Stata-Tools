@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  05jun2026}{...}
+{* *! version 1.5.0  06jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -49,6 +49,9 @@
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite companion frame for {helpb eplot}; source frames must have been created by {cmd:regtab} or {cmd:effecttab} with {opt eplotframe()}{p_end}
+{synopt:{opt forest}}draw an {helpb eplot} forest plot from the composite companion frame; requires the separate {cmd:eplot} package{p_end}
+{synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
@@ -99,6 +102,13 @@ the {opt frame()} option. All source frames must have the same column structure
 ({it:estimate} | {it:CI} | {it:p}) and compact frames
 ({it:estimate+CI} | {it:p}) are both supported, but all source frames in one
 call must use the same layout.
+
+{pstd}
+For plot-ready composites, create each source table with both {opt frame()} and
+{opt eplotframe()}. {cmd:comptab, eplotframe()} then carries forward the
+selected estimate/CI rows into one graph-ready frame. {cmd:comptab, forest}
+uses that frame with {helpb eplot} and leaves the active graph scheme in effect
+unless you pass a {opt scheme()} option through {opt eplotoptions()}.
 
 
 {marker options}{...}
@@ -255,6 +265,7 @@ smaller than the specified threshold.
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready composite companion frame name (if {cmd:eplotframe()} specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
@@ -266,7 +277,7 @@ smaller than the specified threshold.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.1{p_end}
+{pstd}{bf:Version} 1.5.0{p_end}
 
 
 {marker alsosee}{...}

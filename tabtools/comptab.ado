@@ -1,4 +1,4 @@
-*! comptab Version 1.4.0  2026/06/05
+*! comptab Version 1.5.0  2026/06/06
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -122,7 +122,8 @@ program define comptab, rclass
         THEme(string) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay LABELWidth(integer 0)]
+        csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
+        FOREST EPLOTOptions(string asis) DISplay LABELWidth(integer 0)]
 
     * Label-column width cap (0 -> default 45): keeps a lone verbose label from
     * stretching the whole column; longer labels wrap (text-wrap rule below).
@@ -185,6 +186,39 @@ program define comptab, rclass
             noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
             exit 198
         }
+    }
+
+    local _eplotframe_name ""
+    local _eplotframe_replace 0
+    local _eplotframe_temporary 0
+    if `"`eplotframe'"' != "" {
+        local _ep_spec = strtrim(`"`eplotframe'"')
+        gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
+        local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
+        if `"`_eplotframe_name'"' == "" {
+            noisily display as error "eplotframe() requires a frame name"
+            exit 198
+        }
+        capture confirm name `_eplotframe_name'
+        if _rc {
+            noisily display as error "eplotframe() must start with a valid Stata frame name"
+            exit 198
+        }
+        local _ep_rest : subinstr local _ep_rest "," "", all
+        local _ep_rest = lower(strtrim(`"`_ep_rest'"'))
+        if `"`_ep_rest'"' != "" {
+            if `"`_ep_rest'"' == "replace" local _eplotframe_replace 1
+            else {
+                noisily display as error "eplotframe() only allows the replace suboption"
+                exit 198
+            }
+        }
+    }
+    if "`forest'" != "" & `"`_eplotframe_name'"' == "" {
+        tempname _forest_eplotframe
+        local _eplotframe_name "`_forest_eplotframe'"
+        local _eplotframe_replace 1
+        local _eplotframe_temporary 1
     }
 
     * =====================================================================
@@ -485,6 +519,62 @@ program define comptab, rclass
     preserve
     tempfile _build _chunk
 
+    if `"`_eplotframe_name'"' != "" {
+        capture frame `_eplotframe_name': quietly count
+        if _rc == 0 {
+            if `_eplotframe_replace' {
+                frame drop `_eplotframe_name'
+            }
+            else {
+                noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+                restore
+                exit 110
+            }
+        }
+        frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
+            double pvalue int model str244 model_label str24 rowtype str244 section ///
+            long source_row str32 source_frame
+        forvalues f = 1/`n_frames' {
+            local _fname : word `f' of `framelist'
+            local _sec_label ""
+            if `has_sections' {
+                local _sec_label `"`seclabel`f''"'
+                frame post `_eplotframe_name' (`"`_sec_label'"') (.) (.) (.) (.) ///
+                    (.) ("") ("section") (`"`_sec_label'"') (.) (`"`_fname'"')
+            }
+            local _src_ep ""
+            capture frame `_fname': local _src_ep : char _dta[tabtools_eplotframe]
+            local _src_ep_rc = _rc
+            if `_src_ep_rc' == 0 & `"`_src_ep'"' != "" {
+                capture frame `_src_ep': quietly count
+                local _src_ep_rc = _rc
+                if `_src_ep_rc' == 0 {
+                    foreach r of local expanded`f' {
+                        frame `_src_ep' {
+                            local _ep_N = _N
+                            forvalues _ep_i = 1/`_ep_N' {
+                                if source_row[`_ep_i'] == `r' {
+                                    local _ep_label = label[`_ep_i']
+                                    local _ep_est = estimate[`_ep_i']
+                                    local _ep_ll = ll[`_ep_i']
+                                    local _ep_ul = ul[`_ep_i']
+                                    local _ep_p = pvalue[`_ep_i']
+                                    local _ep_model = model[`_ep_i']
+                                    local _ep_model_label = model_label[`_ep_i']
+                                    local _ep_rowtype = rowtype[`_ep_i']
+                                    frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
+                                        (`"`_sec_label'"') (`r') (`"`_fname'"')
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        frame `_eplotframe_name': char _dta[tabtools_source] "comptab"
+    }
+
     * Extract header rows (model labels + column headers) from first frame
     frame `fname1': qui save `_build', replace
     use `_build', clear
@@ -757,6 +847,9 @@ program define comptab, rclass
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
+        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+            frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+        }
         return local frame "`frame'"
     }
     if `"`_ret_markdown'"' != "" {
@@ -777,6 +870,7 @@ program define comptab, rclass
     return scalar N_cols = `num_cols'
     return scalar N_models = `n_models'
     return scalar N_frames = `n_frames'
+    if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
 
     if `_has_xlsx' {
         capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
@@ -993,8 +1087,57 @@ program define comptab, rclass
     }
     return local methods "`_methods'"
 
+    if "`forest'" != "" {
+        capture which eplot
+        local _which_eplot_rc = _rc
+        if `_which_eplot_rc' {
+            noisily display as error "forest requires eplot"
+            noisily display as error `"Install with: net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace"'
+            if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+            exit 111
+        }
+        else {
+            local _eplotoptions_clean = strtrim(`"`eplotoptions'"')
+            if substr(`"`_eplotoptions_clean'"', 1, 1) == "," {
+                local _eplotoptions_clean = strtrim(substr(`"`_eplotoptions_clean'"', 2, .))
+            }
+            frame `_eplotframe_name': quietly count if rowtype == "effect"
+            if r(N) == 0 {
+                noisily display as error "forest requires an eplotframe with effect rows"
+                if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+                exit 2000
+            }
+            capture noisily eplot, frame(`_eplotframe_name') labels(label) rowtype(rowtype) ///
+                style(forest) effect("Effect estimate") values `_eplotoptions_clean'
+            local _forest_rc = _rc
+            if `_forest_rc' {
+                if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+                exit `_forest_rc'
+            }
+        }
+        if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+    }
+
     * Open file if requested
     if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
+
+    return clear
+    if `"`frame'"' != "" return local frame "`frame'"
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    return scalar N_rows = `num_rows'
+    return scalar N_cols = `num_cols'
+    return scalar N_models = `n_models'
+    return scalar N_frames = `n_frames'
+    if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
+    if `_xlsx_ok' {
+        return local xlsx "`xlsx'"
+        return local sheet "`sheet'"
+    }
+    return local methods "`_methods'"
 
     } // end quietly
 

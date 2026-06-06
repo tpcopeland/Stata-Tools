@@ -1,8 +1,8 @@
-# eplot — Unified effect plotting from data, estimates, and matrices
+# eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.1.1** | 2026-04-30
+**Version 1.2.0** | 2026-06-06
 
-`eplot` creates forest plots and coefficient plots from three sources — variables in memory, active or stored estimation results, and preassembled matrices — under one command with one set of options.
+`eplot` creates forest plots and coefficient plots from four sources — variables in memory, active or stored estimation results, preassembled matrices, and graph-ready frames — under one command with one set of options.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 
 | Command | Description |
 |---------|-------------|
-| `eplot` | Draw effect plots from data in memory, estimation results, or matrices |
+| `eplot` | Draw effect plots from data in memory, estimation results, matrices, or graph-ready frames |
 
 ## How It Works
 
@@ -43,12 +43,14 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 | `eplot es lci uci, ...` | **Data** | Effect sizes already in variables (meta-analysis, imported results) |
 | `eplot .` or `eplot m1 m2, ...` | **Estimates** | Plot coefficients from a regression you just ran, or compare stored models |
 | `eplot, matrix(R) ...` | **Matrix** | Results assembled in a Stata matrix |
+| `eplot, frame(F) ...` | **Frame** | Results assembled in a graph-ready Stata frame, including tabtools `eplotframe()` output |
 
-Mode detection gives precedence to data mode when the first three tokens are numeric variables. In ambiguous cases, use `eplot .` to force estimates mode or `matrix()` to force matrix mode explicitly.
+Mode detection gives precedence to explicit `frame()` and `matrix()` calls, then to data mode when the first three tokens are numeric variables. In ambiguous cases, use `eplot .` to force estimates mode, `matrix()` to force matrix mode, or `frame()` to force frame mode explicitly.
 
 ## Feature Highlights
 
-- **One command, three input modes** — data in memory, estimation results, and matrices share one option vocabulary
+- **One command, four input modes** — data in memory, estimation results, matrices, and graph-ready frames share one option vocabulary
+- **Tabtools bridge** — plot frames emitted by `regtab`, `effecttab`, `comptab`, and `hrcomptab` through their `eplotframe()` options
 - **Journal style presets** — `style(lancet)`, `style(jama)`, `style(nejm)`, `style(bmj)` apply ready-made looks; override any individual element
 - **Multi-model comparison** — overlay stored estimates side by side with `modellabels()`, `offset()`, and `palette()`
 - **Values annotation** — add formatted effect text next to each marker with `values`; customize with `vformat()` and `stars`
@@ -237,6 +239,7 @@ Options are organized by function. Not every option works in every mode — see 
 
 ## Version History
 
+- **1.2.0** (2026-06-06): Added frame input mode via `eplot, frame(framename)` with default `estimate`, `ll`, `ul`, `label`, `rowtype`, `pvalue`, and weight-variable detection for tabtools companion frames
 - **1.1.1** (2026-04-30): Fixed y-axis ordering bug where categorical labels appeared in reverse order across all plotting modes (data, estimates, matrix)
 - **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, effect-axis `xlabel()` passthrough, automatic value-annotation margin sizing, and clearer mode-detection documentation
 - **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes; multi-model comparison; journal style presets; significance coloring; meta-analysis features

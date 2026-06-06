@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  05jun2026}{...}
+{* *! version 1.5.0  06jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
@@ -200,6 +200,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.4.0
+Version 1.5.0
 {p 4 4 2}
 {hline}

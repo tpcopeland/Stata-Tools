@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  30apr2026}{...}
+{* *! version 1.2.0  06jun2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -41,14 +41,26 @@ Plot from matrix:
 {p 8 16 2}
 {cmd:eplot} {cmd:,} {opt matrix(matname)} [{it:options}]
 
+{pstd}
+Plot from a graph-ready frame:
+
+{p 8 16 2}
+{cmd:eplot} {cmd:,} {opt fr:ame(framename)} [{it:options}]
+
 
 {synoptset 32 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Data specification}
+{synopt:{opt fr:ame(framename)}}use a graph-ready frame as input{p_end}
 {synopt:{opt lab:els(varname)}}variable containing row labels{p_end}
 {synopt:{opt wei:ghts(varname)}}variable for marker/box sizing{p_end}
 {synopt:{opt type(varname)}}row type indicator (1=effect, 3=subgroup, 5=overall){p_end}
+{synopt:{opt pv:alue(varname)}}numeric p-value variable for {opt stars} and {cmd:r(pvalues)}{p_end}
+{synopt:{opt est:imate(varname)}}frame-mode point estimate variable; default is {cmd:estimate}{p_end}
+{synopt:{opt ll(varname)}}frame-mode lower confidence limit variable; default is {cmd:ll}{p_end}
+{synopt:{opt ul(varname)}}frame-mode upper confidence limit variable; default is {cmd:ul}{p_end}
+{synopt:{opt rowt:ype(varname)}}frame-mode synonym for {opt type()}; default is {cmd:rowtype} when present{p_end}
 
 {syntab:Coefficient selection}
 {synopt:{opt keep(coeflist)}}keep specified coefficients{p_end}
@@ -139,9 +151,9 @@ Plot from matrix:
 
 {pstd}
 {cmd:eplot} creates forest plots and coefficient plots from data in memory,
-stored estimation results, or matrices.  Instead of switching between separate
+stored estimation results, matrices, or graph-ready frames.  Instead of switching between separate
 plotting commands for different workflows, {cmd:eplot} provides one interface
-for all three sources.
+for all four sources.
 
 {pstd}
 {bf:Quick start.}  Run a regression and see the coefficients immediately:
@@ -151,7 +163,7 @@ for all three sources.
 	{cmd:. eplot ., drop(_cons) cicap}
 
 {pstd}
-{cmd:eplot} supports three input modes.  It detects the mode automatically
+{cmd:eplot} supports four input modes.  It detects the mode automatically
 from the arguments you supply:
 
 {phang2}
@@ -173,6 +185,15 @@ Stata matrix with either 2 columns ({it:b}, {it:se}) or 3 columns ({it:b},
 {it:lci}, {it:uci}).  Row names become labels.  This is useful when results
 come from post-estimation commands or custom calculations.
 
+{phang2}
+{bf:4. Frame mode} — you specify {opt frame(framename)}.  {cmd:eplot} reads a
+named Stata frame containing graph-ready variables.  By default the frame must
+contain numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}; if present, string
+{cmd:label}, {cmd:rowtype}, {cmd:weight}, {cmd:weights}, and numeric
+{cmd:pvalue} are used automatically.  Use {opt estimate()}, {opt ll()},
+{opt ul()}, {opt labels()}, {opt rowtype()}, {opt type()}, {opt weights()}, or
+{opt pvalue()} to override those defaults.
+
 {pstd}
 {bf:Choosing the right mode.}
 
@@ -183,6 +204,7 @@ come from post-estimation commands or custom calculations.
 {p2col:Comparing two models}Estimates: {cmd:eplot m1 m2}{p_end}
 {p2col:Have effect sizes in variables}Data: {cmd:eplot es lci uci}{p_end}
 {p2col:Results in a matrix}Matrix: {cmd:eplot, matrix(R)}{p_end}
+{p2col:Results in a graph-ready frame}Frame: {cmd:eplot, frame(F)}{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -194,8 +216,8 @@ suppressed because exp(_cons) is not interpretable.
 Mode detection gives precedence to data mode when the first three tokens are
 numeric variables.  If stored estimate names happen to match numeric variable
 names in memory, {cmd:eplot} will treat the call as data mode.  In ambiguous
-cases, use {cmd:eplot .} to force estimates mode or {opt matrix()} to force
-matrix mode.
+cases, use {cmd:eplot .} to force estimates mode, {opt matrix()} to force
+matrix mode, or {opt frame()} to force frame mode.
 
 
 {marker options}{...}
@@ -206,25 +228,35 @@ Not every option works in every mode.  The availability tags below indicate
 which modes accept each option:
 {bf:[D]} = data mode,
 {bf:[E]} = estimates mode,
-{bf:[M]} = matrix mode.
-Options without a tag work in all three modes.
+{bf:[M]} = matrix mode,
+{bf:[F]} = frame mode.
+Options without a tag work in all four modes.
 
 {dlgtab:Data specification}
 
 {phang}
-{opt labels(varname)} {bf:[D]}
+{opt frame(framename)} {bf:[F]}
+specifies a named Stata frame containing graph-ready effect rows.  The default
+variable contract is numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}, with
+optional string {cmd:label} and {cmd:rowtype}, numeric {cmd:pvalue}, and
+numeric {cmd:weight} or {cmd:weights}.  The active dataset and active graph
+scheme are left unchanged unless the user supplies normal graph options such as
+{opt scheme()}.
+
+{phang}
+{opt labels(varname)} {bf:[D,F]}
 specifies a string variable containing labels for each row (e.g., study names).
 If omitted, rows are labeled "Row 1", "Row 2", etc.
 
 {phang}
-{opt weights(varname)} {bf:[D]}
+{opt weights(varname)} {bf:[D,F]}
 specifies a numeric variable that controls marker (or box) size.  In a forest
 plot this typically represents study weights; larger values produce larger
 markers.  When {opt weights()} is specified, markers are drawn as filled
 squares whose area is proportional to the weight.
 
 {phang}
-{opt type(varname)} {bf:[D]}
+{opt type(varname)} {bf:[D,F]}
 specifies a variable indicating the role of each row in the plot.  This lets
 you include headers, subgroup summaries, and overall pooled estimates in one
 dataset.  Accepted values:
@@ -246,6 +278,25 @@ If {opt type()} is a string variable, the values {cmd:"header"},
 {cmd:"missing"}, {cmd:"subgroup"}, {cmd:"hetinfo"}, {cmd:"overall"}, and
 {cmd:"blank"} are recognized.  If {opt type()} is omitted, all rows are
 treated as regular effects (type 1).
+
+{phang}
+{opt pvalue(varname)} {bf:[D,F]}
+specifies a numeric p-value variable.  In data and frame modes, {opt stars}
+uses this variable for significance stars when {opt values} is specified, and
+{cmd:eplot} returns it in {cmd:r(pvalues)} for plotted effect rows.
+
+{phang}
+{opt estimate(varname)} {bf:[F]}, {opt ll(varname)} {bf:[F]}, and
+{opt ul(varname)} {bf:[F]}
+override the default frame-mode point estimate, lower confidence limit, and
+upper confidence limit variables.  These options are needed only when the frame
+does not use the default names {cmd:estimate}, {cmd:ll}, and {cmd:ul}.
+
+{phang}
+{opt rowtype(varname)} {bf:[F]}
+is a frame-mode synonym for {opt type()}.  If neither is specified,
+{cmd:eplot} automatically uses {cmd:rowtype} when that variable exists, then
+falls back to {cmd:type} when present.
 
 {dlgtab:Coefficient selection}
 
@@ -368,7 +419,7 @@ sets the x-axis title (or y-axis title in vertical layout).  Default is
 Override with a custom label such as {cmd:effect("Odds Ratio (95% CI)")}.
 
 {phang}
-{opt values} {bf:[D]} {bf:[E single-model]} {bf:[M]}
+{opt values} {bf:[D,F]} {bf:[E single-model]} {bf:[M]}
 annotates each row with formatted text showing the point estimate and
 confidence interval (e.g., "0.85 (0.72, 0.99)").  Requires horizontal layout.
 See also {opt vformat()} for custom formatting.
@@ -381,12 +432,14 @@ Example: {cmd:vformat(%6.3f)}.  {cmd:eplot} automatically widens the values
 column margin when formatted text is longer than the default layout.
 
 {phang}
-{opt stars} {bf:[E single-model]} {bf:[M 2-col]}
+{opt stars} {bf:[D,F]} {bf:[E single-model]} {bf:[M 2-col]}
 appends significance stars to the {opt values} annotation: {cmd:*} for
-p < 0.05, {cmd:**} for p < 0.01, {cmd:***} for p < 0.001.  p-values are
-computed from the coefficient and its standard error.  In matrix mode, this
-requires a 2-column matrix (b and se); 3-column matrices (b, lci, uci) do
-not carry standard errors so stars are not available.
+p < 0.05, {cmd:**} for p < 0.01, {cmd:***} for p < 0.001.  In data and frame
+modes, {opt pvalue()} or an auto-detected frame variable named {cmd:pvalue}
+supplies the p-values.  In estimates mode, p-values are computed from the
+coefficient and its standard error.  In matrix mode, this requires a 2-column
+matrix (b and se); 3-column matrices (b, lci, uci) do not carry standard
+errors so stars are not available.
 
 {phang}
 {opt sigcolors}
@@ -433,7 +486,7 @@ show the clinical interpretation of each direction.
 {dlgtab:Prediction intervals (data mode)}
 
 {phang}
-{opt pi(lci_var uci_var)} {bf:[D]}
+{opt pi(lci_var uci_var)} {bf:[D,F]}
 draws prediction interval whiskers as dashed lines behind the confidence
 interval whiskers.  Specify two numeric variables for the lower and upper
 prediction limits.  Prediction intervals are wider than confidence intervals
@@ -443,16 +496,16 @@ fall.
 {dlgtab:Heterogeneity (data mode)}
 
 {phang}
-{opt i2(string)} {bf:[D]}
+{opt i2(string)} {bf:[D,F]}
 displays the I-squared (I{c 178}) heterogeneity value in the graph note.  The value
 is displayed as-is — {cmd:eplot} does not compute it.
 
 {phang}
-{opt tau2(string)} {bf:[D]}
+{opt tau2(string)} {bf:[D,F]}
 displays the between-study variance ({it:tau}{c 178}) in the graph note.
 
 {phang}
-{opt qstat(string)} {bf:[D]}
+{opt qstat(string)} {bf:[D,F]}
 displays the Q statistic (Cochran's Q) in the graph note.  Example:
 {cmd:qstat("8.63, df=5, p=0.125")}.
 
@@ -605,38 +658,50 @@ sets the CI line width.  Default is {cmd:medium}.
 {phang2}{cmd:. eplot, matrix(R) eform effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 8: Logistic regression with eform}
+{bf:Example 8: Frame mode}
+
+{phang2}{stata "clear":. clear}{p_end}
+{phang2}{cmd:. input str20 label double(estimate ll ul pvalue) str10 rowtype}{p_end}
+{phang2}{cmd:. "Age"      1.12 1.04 1.20 0.004 "effect"}{p_end}
+{phang2}{cmd:. "Sex"      0.86 0.70 1.06 0.150 "effect"}{p_end}
+{phang2}{cmd:. "Overall"  1.03 0.97 1.10 0.320 "overall"}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. frame put label estimate ll ul pvalue rowtype, into(effects)}{p_end}
+{phang2}{cmd:. eplot, frame(effects) values stars effect("Ratio (95% CI)")}{p_end}
+
+{pstd}
+{bf:Example 9: Logistic regression with eform}
 
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 {phang2}{stata "logit foreign mpg weight length":. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 9: Noconstant, auto-labels, and significance stars}
+{bf:Example 10: Noconstant, auto-labels, and significance stars}
 
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 {phang2}{stata "regress price mpg weight foreign":. regress price mpg weight foreign}{p_end}
 {phang2}{cmd:. eplot ., noconstant stars values scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 10: Color-coded significance}
+{bf:Example 11: Color-coded significance}
 
 {phang2}{cmd:. eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 11: Style presets}
+{bf:Example 12: Style presets}
 
 {phang2}{cmd:. eplot ., noconstant style(lancet) scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 12: Factor variable labels}
+{bf:Example 13: Factor variable labels}
 
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 {phang2}{stata "logit foreign mpg weight i.rep78":. logit foreign mpg weight i.rep78}{p_end}
 {phang2}{cmd:. eplot ., noconstant eform cicap scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 13: Meta-analysis forest plot with heterogeneity}
+{bf:Example 14: Meta-analysis forest plot with heterogeneity}
 
 {phang2}{stata "clear":. clear}{p_end}
 {phang2}{cmd:. input str20 study es lci uci weight byte type}{p_end}
@@ -753,14 +818,14 @@ automatically.  No {opt coeflabels()} needed unless you want custom text.
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}k x 3 matrix of plotted effects ({it:b}, {it:ll}, {it:ul}); k x 3m for multi-model{p_end}
-{synopt:{cmd:r(pvalues)}}p-values per coefficient (estimates mode, single-model only){p_end}
+{synopt:{cmd:r(pvalues)}}p-values per plotted effect when available (data/frame modes with {opt pvalue()}, estimates mode single-model, or 2-column matrix mode){p_end}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
+Timothy P Copeland, Karolinska Institutet{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Stockholm, Sweden

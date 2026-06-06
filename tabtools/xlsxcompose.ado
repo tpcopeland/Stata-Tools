@@ -1,4 +1,4 @@
-*! xlsxcompose Version 1.3.6  2026/06/01
+*! xlsxcompose Version 1.5.0  2026/06/06
 *! Deprecated alias for stacktab (tabtools); forwards all arguments and r()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

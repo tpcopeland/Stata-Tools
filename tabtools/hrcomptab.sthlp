@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  05jun2026}{...}
+{* *! version 1.5.0  06jun2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -54,6 +54,9 @@
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame for {helpb eplot}; model frames must have been created by {cmd:regtab} with {opt eplotframe()}{p_end}
+{synopt:{opt forest}}draw an {helpb eplot} forest plot from the companion frame; requires the separate {cmd:eplot} package{p_end}
+{synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
@@ -114,6 +117,13 @@ outcome. Model frames must come from {cmd:regtab} and must contain exactly one
 model block per outcome in the rate frame. Standard {cmd:regtab} frames
 ({it:estimate} | {it:CI} | {it:p}) and compact frames ({it:estimate+CI} | {it:p})
 are both supported, but all model frames in one call must share the same layout.
+
+{pstd}
+For forest plots, create each model table with both {opt frame()} and
+{opt eplotframe()}. {cmd:hrcomptab, eplotframe()} maps those selected model
+effects onto the rate scaffold and records section/reference rows for plotting.
+{cmd:hrcomptab, forest} then calls {helpb eplot} and leaves the active graph
+scheme in effect unless you pass {opt scheme()} through {opt eplotoptions()}.
 
 
 {marker options}{...}
@@ -243,6 +253,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name, when {cmd:eplotframe()} specified{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
@@ -253,7 +264,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.3.1{p_end}
+{pstd}{bf:Version} 1.5.0{p_end}
 
 
 {marker alsosee}{...}

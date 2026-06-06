@@ -1,4 +1,4 @@
-*! effecttab Version 1.4.0  2026/06/05
+*! effecttab Version 1.5.0  2026/06/06
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -81,14 +81,42 @@ program define effecttab, rclass
 	        models(string) title(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
-	        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay ///
+		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) DISplay ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
 	        LABELWidth(integer 0)]
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-	local _has_xlsx = "`xlsx'" != ""
-	if "`sheet'" == "" local sheet "Effects"
+		local _has_xlsx = "`xlsx'" != ""
+		if "`sheet'" == "" local sheet "Effects"
+
+		local _eplotframe_name ""
+		local _eplotframe_replace 0
+		if `"`eplotframe'"' != "" {
+			local _ep_spec = strtrim(`"`eplotframe'"')
+			gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
+			local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
+			if `"`_eplotframe_name'"' == "" {
+				noisily display as error "eplotframe() requires a frame name"
+				exit 198
+			}
+			capture confirm name `_eplotframe_name'
+			if _rc {
+				noisily display as error "eplotframe() must start with a valid Stata frame name"
+				exit 198
+			}
+			local _ep_rest : subinstr local _ep_rest "," "", all
+			local _ep_rest = lower(strtrim(`"`_ep_rest'"'))
+			if `"`_ep_rest'"' != "" {
+				if `"`_ep_rest'"' == "replace" {
+					local _eplotframe_replace 1
+				}
+				else {
+					noisily display as error "eplotframe() only allows the replace suboption"
+					exit 198
+				}
+			}
+		}
 
 	* Label-column width cap (0 -> default 45): keeps a lone verbose label from
 	* stretching the whole column; longer labels wrap (text-wrap rule below).
@@ -551,16 +579,16 @@ quietly {
 		qui replace c3 = "p" in 2
 		* Data rows
 		local _rnames : rownames `from'
-		forvalues _fr = 1/`_nrows' {
-			local _obs = `_fr' + 2
+			forvalues _fr = 1/`_nrows' {
+				local _obs = `_fr' + 2
 			local _rn : word `_fr' of `_rnames'
 			local _rn = subinstr("`_rn'", "_", " ", .)
 			qui replace A = "`_rn'" in `_obs'
-			local _est = `from'[`_fr', 1]
-			local _cilo = `from'[`_fr', 2]
-			local _cihi = `from'[`_fr', 3]
-			local _pv = `from'[`_fr', 4]
-			if !missing(`_est') qui replace c1 = string(`_est', "%9.`digits'f") in `_obs'
+				local _est = `from'[`_fr', 1]
+				local _cilo = `from'[`_fr', 2]
+				local _cihi = `from'[`_fr', 3]
+				local _pv = `from'[`_fr', 4]
+				if !missing(`_est') qui replace c1 = string(`_est', "%9.`digits'f") in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
 				local _cilo_s : display %9.`digits'f `_cilo'
 				local _cihi_s : display %9.`digits'f `_cihi'
@@ -643,8 +671,22 @@ quietly {
 		rename `var' c`n'
 		replace c`n' = "" if _n == 1
 		local n `=`n'+1'
-	}
-	local n `=`n'-1'
+		}
+		local n `=`n'-1'
+
+		if `_from_matrix' {
+			gen double _eplot_est1 = .
+			gen double _eplot_ll1 = .
+			gen double _eplot_ul1 = .
+			gen double _eplot_p1 = .
+			forvalues _fr = 1/`_nrows' {
+				local _obs = `_fr' + 2
+				replace _eplot_est1 = `from'[`_fr', 1] in `_obs'
+				replace _eplot_ll1 = `from'[`_fr', 2] in `_obs'
+				replace _eplot_ul1 = `from'[`_fr', 3] in `_obs'
+				replace _eplot_p1 = `from'[`_fr', 4] in `_obs'
+			}
+		}
 
 	* =========================================================================
 	* CLEAN UP EFFECT LABELS (post-import fallback)
@@ -784,19 +826,25 @@ quietly {
 	}
 
 	* Format numeric columns
-	forvalues i = 1(3)`last' {
-		destring c`i', gen(c`i'z) force
-		replace c`i'z = round(c`i'z, `coef_round')
-		tostring c`i'z, replace force format(`coef_fmt')
+		forvalues i = 1(3)`last' {
+			destring c`i', gen(c`i'z) force
+			replace c`i'z = round(c`i'z, `coef_round')
+			local _model_ix = (`i' + 2) / 3
+			capture confirm variable _eplot_est`_model_ix'
+			if _rc gen double _eplot_est`_model_ix' = .
+			replace _eplot_est`_model_ix' = c`i'z ///
+				if _n >= 3 & c`i'z < . & missing(_eplot_est`_model_ix')
+			tostring c`i'z, replace force format(`coef_fmt')
 		* Mark base level as "Reference" when ATE is 0 and CI is empty
 		replace c`i' = "Reference" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
 			& strtrim(c`=`i'+1') == "" & _n >= 3
 		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "Reference"
 		* Clear CI and p-value for Reference rows
-		replace c`=`i'+1' = "" if c`i' == "Reference" & _n >= 3
-		capture confirm variable c`=`i'+2'
-		if _rc == 0 replace c`=`i'+2' = "" if c`i' == "Reference" & _n >= 3
-		drop c`i'z
+			replace c`=`i'+1' = "" if c`i' == "Reference" & _n >= 3
+			capture confirm variable c`=`i'+2'
+			if _rc == 0 replace c`=`i'+2' = "" if c`i' == "Reference" & _n >= 3
+			replace _eplot_est`_model_ix' = . if c`i' == "Reference" & _n >= 3
+			drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
 		capture confirm variable c`=`i'+2'
@@ -832,9 +880,18 @@ quietly {
 			gen str122 `_ci_hi_s' = strtrim(substr(`_ci_body', `_ci_pos' + `_ci_sep_len', .)) if `_ci_pos' > 0
 			replace `_ci_lo_s' = subinstr(`_ci_lo_s', ",", "", .)
 			replace `_ci_hi_s' = subinstr(`_ci_hi_s', ",", "", .)
-			destring `_ci_lo_s', gen(`_ci_lo') force
-			destring `_ci_hi_s', gen(`_ci_hi') force
-			gen str244 `_ci_fmt' = ""
+				destring `_ci_lo_s', gen(`_ci_lo') force
+				destring `_ci_hi_s', gen(`_ci_hi') force
+				local _model_ix = (`i' + 1) / 3
+				capture confirm variable _eplot_ll`_model_ix'
+				if _rc gen double _eplot_ll`_model_ix' = .
+				capture confirm variable _eplot_ul`_model_ix'
+				if _rc gen double _eplot_ul`_model_ix' = .
+				replace _eplot_ll`_model_ix' = `_ci_lo' ///
+					if _n >= 3 & `_ci_lo' < . & missing(_eplot_ll`_model_ix')
+				replace _eplot_ul`_model_ix' = `_ci_hi' ///
+					if _n >= 3 & `_ci_hi' < . & missing(_eplot_ul`_model_ix')
+				gen str244 `_ci_fmt' = ""
 			replace `_ci_fmt' = "(" + strtrim(string(`_ci_lo', "`coef_fmt'")) + `"`sep'"' + ///
 				strtrim(string(`_ci_hi', "`coef_fmt'")) + ")" ///
 				if `_ci_lo' < . & `_ci_hi' < . & _n >= 3
@@ -847,9 +904,14 @@ quietly {
 	forvalues i = 3(3)`n' {
 		* Store original string value to detect genuinely missing p-values
 		gen str20 c`i'_orig = c`i'
-		* Convert to numeric - force will set non-numeric to missing
-		destring c`i', gen(c`i'z) force
-		gen str20 c`i'_fmt = ""
+			* Convert to numeric - force will set non-numeric to missing
+			destring c`i', gen(c`i'z) force
+			local _model_ix = `i' / 3
+			capture confirm variable _eplot_p`_model_ix'
+			if _rc gen double _eplot_p`_model_ix' = .
+			replace _eplot_p`_model_ix' = c`i'z ///
+				if _n >= 3 & c`i'z < . & missing(_eplot_p`_model_ix')
+			gen str20 c`i'_fmt = ""
 		* Handle genuinely missing p-values
 		replace c`i'_fmt = "" if missing(c`i'z) & (strtrim(c`i'_orig) == "." | strtrim(c`i'_orig) == "")
 		* Format p-values using pdp/highpdp
@@ -868,8 +930,51 @@ quietly {
 		replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3
 		* Leave blank for missing p-values
 		replace c`i' = "" if missing(c`i'z) & _n >= 3
-		drop c`i'z c`i'_fmt c`i'_orig
-	}
+			drop c`i'z c`i'_fmt c`i'_orig
+		}
+
+		if `"`_eplotframe_name'"' != "" {
+			capture frame `_eplotframe_name': quietly count
+			if _rc == 0 {
+				if `_eplotframe_replace' {
+					frame drop `_eplotframe_name'
+				}
+				else {
+					noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+					exit 110
+				}
+			}
+			frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
+				double pvalue int model str244 model_label str24 rowtype str244 section ///
+				long source_row str32 source_frame
+			forvalues _ep_obs = 3/`=_N' {
+				local _ep_source_row = `_ep_obs' - 2
+				local _ep_label = A[`_ep_obs']
+				forvalues _ep_m = 1/`_n_models' {
+					local _ep_est = .
+					local _ep_ll = .
+					local _ep_ul = .
+					local _ep_p = .
+					capture local _ep_est = _eplot_est`_ep_m'[`_ep_obs']
+					capture local _ep_ll = _eplot_ll`_ep_m'[`_ep_obs']
+					capture local _ep_ul = _eplot_ul`_ep_m'[`_ep_obs']
+					capture local _ep_p = _eplot_p`_ep_m'[`_ep_obs']
+					local _ep_model_col = (`_ep_m' - 1) * 3 + 1
+					local _ep_model_label = c`_ep_model_col'[1]
+					if `"`_ep_model_label'"' == "" local _ep_model_label "Model `_ep_m'"
+					local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
+					local _ep_rowtype "effect"
+					if lower(`"`_ep_cell'"') == "reference" local _ep_rowtype "reference"
+					if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
+						frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+							(`_ep_p') (`_ep_m') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ("") ///
+							(`_ep_source_row') ("")
+					}
+				}
+				}
+				frame `_eplotframe_name': char _dta[tabtools_source] "effecttab"
+			}
+		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
 
 	* =========================================================================
 	* ADD CUSTOM ROWS (addrow option)
@@ -979,9 +1084,10 @@ quietly {
 	}
 	return scalar N_rows = `num_rows'
 	return scalar N_cols = `num_cols'
-	return local effect_label "`effect'"
-	return local type "`type'"
-	return local methods "`_methods'"
+		return local effect_label "`effect'"
+		return local type "`type'"
+		return local methods "`_methods'"
+		if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
 
 		if `_has_xlsx' {
 			capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
@@ -1092,6 +1198,9 @@ quietly {
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
 		local frame "`_frame_name'"
+		if `"`_eplotframe_name'"' != "" {
+			frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+		}
 		return local frame "`frame'"
 	}
 	if `"`_ret_markdown'"' != "" {

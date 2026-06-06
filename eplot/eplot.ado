@@ -1,6 +1,6 @@
-*! eplot Version 1.1.1  2026/04/30
+*! eplot Version 1.2.0  2026/06/06
 *! Unified effect plotting command for forest plots and coefficient plots
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -15,11 +15,15 @@ Unified syntax for effect visualization:
   From matrix:
     eplot matrix(matname), [options]
 
+  From graph-ready frame:
+    eplot, frame(framename) [options]
+
 Recent additions:
   - Shared style/range/annotation helpers across plotting modes
   - Effect-axis xlabel() passthrough
   - gap() support for grouped layouts
   - Dynamic values-column margin sizing
+  - Frame input for graph-ready tabtools output
 
 See help eplot for complete documentation
 */
@@ -30,7 +34,7 @@ program define eplot, rclass
     set varabbrev off
 
     capture noisily {
-        // Determine mode: data, estimates, or matrix
+        // Determine mode: data, estimates, matrix, or frame
         _eplot_parse_mode `0'
         local mode "`s(mode)'"
 
@@ -42,6 +46,9 @@ program define eplot, rclass
         }
         else if "`mode'" == "matrix" {
             _eplot_matrix `0'
+        }
+        else if "`mode'" == "frame" {
+            _eplot_frame `0'
         }
         else {
             display as error "Could not determine eplot mode"
@@ -94,11 +101,17 @@ program define _eplot_parse_mode, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax [anything] [if] [in] [, Matrix(name) *]
+        syntax [anything] [if] [in] [, Matrix(name) FRame(name) *]
 
         // Matrix mode is explicit
         if "`matrix'" != "" {
             sreturn local mode "matrix"
+            exit
+        }
+
+        // Frame mode is explicit
+        if "`frame'" != "" {
+            sreturn local mode "frame"
             exit
         }
 
@@ -155,6 +168,180 @@ program define _eplot_parse_mode, sclass
 end
 
 // =============================================================================
+// Frame Mode: Plot from a graph-ready frame
+// =============================================================================
+
+capture program drop _eplot_frame
+program define _eplot_frame, rclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _orig_frame "`c(frame)'"
+    local _frame_created 0
+    set varabbrev off
+
+    capture noisily {
+        syntax [if] [in] , FRame(name) ///
+            [ ///
+            ESTimate(name) ///
+            LL(name) ///
+            UL(name) ///
+            LABels(name) ///
+            Type(name) ///
+            ROWType(name) ///
+            PValue(name) ///
+            WEIghts(name) ///
+            PI(string asis) ///
+            * ///
+            ]
+
+        capture confirm frame `frame'
+        if _rc {
+            display as error "frame(`frame') not found"
+            exit 111
+        }
+
+        if "`estimate'" == "" local estimate "estimate"
+        if "`ll'" == "" local ll "ll"
+        if "`ul'" == "" local ul "ul"
+
+        if "`type'" != "" & "`rowtype'" != "" {
+            display as error "specify only one of type() or rowtype()"
+            exit 198
+        }
+
+        tempname _workframe
+        frame copy `frame' `_workframe'
+        local _frame_created 1
+        frame change `_workframe'
+
+        capture confirm numeric variable `estimate'
+        if _rc {
+            display as error "frame(`frame') must contain numeric variable `estimate'"
+            exit 111
+        }
+        capture confirm numeric variable `ll'
+        if _rc {
+            display as error "frame(`frame') must contain numeric variable `ll'"
+            exit 111
+        }
+        capture confirm numeric variable `ul'
+        if _rc {
+            display as error "frame(`frame') must contain numeric variable `ul'"
+            exit 111
+        }
+
+        if "`labels'" == "" {
+            capture confirm string variable label
+            if _rc == 0 local labels "label"
+        }
+        else {
+            capture confirm string variable `labels'
+            if _rc {
+                display as error "labels(`labels') must name a string variable in frame(`frame')"
+                exit 111
+            }
+        }
+
+        if "`rowtype'" != "" {
+            local type "`rowtype'"
+        }
+        else if "`type'" == "" {
+            capture confirm variable rowtype
+            if _rc == 0 local type "rowtype"
+            else {
+                capture confirm variable type
+                if _rc == 0 local type "type"
+            }
+        }
+        if "`type'" != "" {
+            capture confirm variable `type'
+            if _rc {
+                display as error "type(`type') must name a variable in frame(`frame')"
+                exit 111
+            }
+        }
+
+        if "`weights'" == "" {
+            capture confirm numeric variable weight
+            if _rc == 0 local weights "weight"
+            else {
+                capture confirm numeric variable weights
+                if _rc == 0 local weights "weights"
+            }
+        }
+        else {
+            capture confirm numeric variable `weights'
+            if _rc {
+                display as error "weights(`weights') must name a numeric variable in frame(`frame')"
+                exit 111
+            }
+        }
+
+        if "`pvalue'" == "" {
+            capture confirm numeric variable pvalue
+            if _rc == 0 local pvalue "pvalue"
+        }
+        else {
+            capture confirm numeric variable `pvalue'
+            if _rc {
+                display as error "pvalue(`pvalue') must name a numeric variable in frame(`frame')"
+                exit 111
+            }
+        }
+
+        local _data_opts `"`options'"'
+        if "`labels'" != "" {
+            local _data_opts `"labels(`labels') `_data_opts'"'
+        }
+        if "`type'" != "" {
+            local _data_opts `"type(`type') `_data_opts'"'
+        }
+        if "`weights'" != "" {
+            local _data_opts `"weights(`weights') `_data_opts'"'
+        }
+        if "`pvalue'" != "" {
+            local _data_opts `"pvalue(`pvalue') `_data_opts'"'
+        }
+        if `"`pi'"' != "" {
+            local _data_opts `"pi(`pi') `_data_opts'"'
+        }
+
+        _eplot_data `estimate' `ll' `ul' `if' `in', `_data_opts'
+
+        local _r_N = r(N)
+        local _r_k = r(k)
+        local _r_cmd `"`r(cmd)'"'
+        tempname _r_table
+        capture matrix `_r_table' = r(table)
+        local _has_table = (_rc == 0)
+        tempname _r_pvalues
+        capture matrix `_r_pvalues' = r(pvalues)
+        local _has_pvalues = (_rc == 0)
+    }
+    local rc = _rc
+
+    capture frame change `_orig_frame'
+    if `_frame_created' {
+        capture frame drop `_workframe'
+    }
+
+    if `rc' == 0 {
+        return scalar N = `_r_N'
+        return scalar k = `_r_k'
+        return local cmd `"`_r_cmd'"'
+        if `_has_table' {
+            return matrix table = `_r_table'
+        }
+        if `_has_pvalues' {
+            return matrix pvalues = `_r_pvalues'
+        }
+    }
+
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
 // Data Mode: Plot from variables in memory
 // =============================================================================
 
@@ -195,6 +382,7 @@ program define _eplot_data, rclass
             VALues ///
             VFormat(string) ///
             STARs ///
+            PValue(varname numeric) ///
             SIGColors ///
             SIGColor(string) ///
             INSIGColor(string) ///
@@ -272,7 +460,7 @@ program define _eplot_data, rclass
         }
         else {
             quietly replace `touse' = 1 ///
-                if inlist(`type', "header", "missing", "hetinfo", "blank") & `ifin_ok'
+                if inlist(lower(strtrim(`type')), "header", "section", "missing", "reference", "hetinfo", "blank") & `ifin_ok'
         }
     }
 
@@ -356,12 +544,12 @@ program define _eplot_data, rclass
         }
         else {
             quietly gen int `rowtype' = 1
-            quietly replace `rowtype' = 0 if `type' == "header"
-            quietly replace `rowtype' = 2 if `type' == "missing"
-            quietly replace `rowtype' = 3 if `type' == "subgroup"
-            quietly replace `rowtype' = 4 if `type' == "hetinfo"
-            quietly replace `rowtype' = 5 if `type' == "overall"
-            quietly replace `rowtype' = 6 if `type' == "blank"
+            quietly replace `rowtype' = 0 if inlist(lower(strtrim(`type')), "header", "section")
+            quietly replace `rowtype' = 2 if inlist(lower(strtrim(`type')), "missing", "reference")
+            quietly replace `rowtype' = 3 if lower(strtrim(`type')) == "subgroup"
+            quietly replace `rowtype' = 4 if lower(strtrim(`type')) == "hetinfo"
+            quietly replace `rowtype' = 5 if lower(strtrim(`type')) == "overall"
+            quietly replace `rowtype' = 6 if lower(strtrim(`type')) == "blank"
         }
     }
     else {
@@ -437,6 +625,7 @@ program define _eplot_data, rclass
 
     // Significance coloring flag (data mode)
     tempvar _dm_sig
+    tempvar _dm_star
     if "`sigcolors'" != "" {
         if "`sigcolor'" == "" local sigcolor "cranberry"
         if "`insigncolor'" == "" local insigncolor "gs10"
@@ -446,6 +635,23 @@ program define _eplot_data, rclass
     }
     else {
         quietly gen byte `_dm_sig' = .
+    }
+    if "`stars'" != "" {
+        if "`pvalue'" == "" {
+            display as text "(note: stars requires pvalue() in data/frame mode)"
+        }
+        quietly gen str3 `_dm_star' = "" if inlist(`rowtype', 1, 3, 5)
+        if "`pvalue'" != "" {
+            quietly replace `_dm_star' = "*" ///
+                if inlist(`rowtype', 1, 3, 5) & `pvalue' < 0.05 & !missing(`pvalue')
+            quietly replace `_dm_star' = "**" ///
+                if inlist(`rowtype', 1, 3, 5) & `pvalue' < 0.01 & !missing(`pvalue')
+            quietly replace `_dm_star' = "***" ///
+                if inlist(`rowtype', 1, 3, 5) & `pvalue' < 0.001 & !missing(`pvalue')
+        }
+    }
+    else {
+        quietly gen str3 `_dm_star' = ""
     }
 
 
@@ -495,7 +701,7 @@ program define _eplot_data, rclass
         tempvar val_text val_x
         quietly gen str `val_text' = string(`es', "`vformat'") ///
             + " (" + string(`lci', "`vformat'") ///
-            + ", " + string(`uci', "`vformat'") + ")" ///
+            + ", " + string(`uci', "`vformat'") + ")" + `_dm_star' ///
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
         local val_xpos = `xmax' + 0.15 * `xrange'
@@ -854,6 +1060,27 @@ program define _eplot_data, rclass
         }
         matrix rownames `_rtable' = `_rnames'
         return matrix table = `_rtable'
+    }
+    if "`pvalue'" != "" {
+        quietly count if inlist(`rowtype', 1, 3, 5) & !missing(`es')
+        local _npv = r(N)
+        if `_npv' > 0 {
+            tempname _rpvals
+            matrix `_rpvals' = J(`_npv', 1, .)
+            matrix colnames `_rpvals' = "pvalue"
+            local _pi 0
+            local _pnames ""
+            forvalues i = 1/`=_N' {
+                if !inlist(`rowtype'[`i'], 1, 3, 5) continue
+                if missing(`es'[`i']) continue
+                local `++_pi'
+                matrix `_rpvals'[`_pi', 1] = `pvalue'[`i']
+                local _pnm = `label_str'[`i']
+                local _pnames `"`_pnames' `"`_pnm'"'"'
+            }
+            matrix rownames `_rpvals' = `_pnames'
+            return matrix pvalues = `_rpvals'
+        }
     }
 
         return scalar N = `N'

@@ -23,8 +23,9 @@ d Commands apply consistent Excel formatting and can emit GitHub-Flavored
 d Markdown tables for report workflows.
 d
 d Requires: Stata version 16+ (tabtools, table1_tc), 17+ (all other commands)
+d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d
-d Distribution-Date: 20260605
+d Distribution-Date: 20260606
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.4.0  2026/06/05
+*! hrcomptab Version 1.5.0  2026/06/06
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,7 +44,8 @@ program define hrcomptab, rclass
             BORDERstyle(string) THEme(string) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
-            CSV(string) MARKdown(string) MDAPPend FRAme(string) DISplay]
+            CSV(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
+            FOREST EPLOTOptions(string asis) DISplay]
 
         * rows() xor rownames()
         if `"`rows'"' == "" & `"`rownames'"' == "" {
@@ -63,6 +64,39 @@ program define hrcomptab, rclass
         if "`sheet'" == "" local sheet "Composite"
         if "`effect'" == "" local effect "aHR"
         if "`reflabel'" == "" local reflabel "Reference"
+
+        local _eplotframe_name ""
+        local _eplotframe_replace 0
+        local _eplotframe_temporary 0
+        if `"`eplotframe'"' != "" {
+            local _ep_spec = strtrim(`"`eplotframe'"')
+            gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
+            local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
+            if `"`_eplotframe_name'"' == "" {
+                display as error "eplotframe() requires a frame name"
+                exit 198
+            }
+            capture confirm name `_eplotframe_name'
+            if _rc {
+                display as error "eplotframe() must start with a valid Stata frame name"
+                exit 198
+            }
+            local _ep_rest : subinstr local _ep_rest "," "", all
+            local _ep_rest = lower(strtrim(`"`_ep_rest'"'))
+            if `"`_ep_rest'"' != "" {
+                if `"`_ep_rest'"' == "replace" local _eplotframe_replace 1
+                else {
+                    display as error "eplotframe() only allows the replace suboption"
+                    exit 198
+                }
+            }
+        }
+        if "`forest'" != "" & `"`_eplotframe_name'"' == "" {
+            tempname _forest_eplotframe
+            local _eplotframe_name "`_forest_eplotframe'"
+            local _eplotframe_replace 1
+            local _eplotframe_temporary 1
+        }
 
         if "`open'" != "" & !`_has_xlsx' {
             display as error "open requires xlsx() or excel()"
@@ -462,6 +496,75 @@ program define hrcomptab, rclass
             exit 198
         }
 
+        if `"`_eplotframe_name'"' != "" {
+            capture frame `_eplotframe_name': quietly count
+            if _rc == 0 {
+                if `_eplotframe_replace' {
+                    frame drop `_eplotframe_name'
+                }
+                else {
+                    display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+                    exit 110
+                }
+            }
+            frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
+                double pvalue int model str244 model_label str24 rowtype str244 section ///
+                long source_row str32 source_frame
+
+            local _section_rows_sp " `section_rows' "
+            local _ref_rows_sp " `ref_rows' "
+            local _next_model_ep = 0
+            local _current_section ""
+            forvalues _r = 4/`_rate_rows' {
+                frame `rateframe' {
+                    local _rate_lab_ep = c1[`_r']
+                }
+                if strpos("`_section_rows_sp'", " `_r' ") {
+                    local _current_section = strtrim(`"`_rate_lab_ep'"')
+                    frame post `_eplotframe_name' (`"`_current_section'"') (.) (.) (.) (.) ///
+                        (.) ("") ("section") (`"`_current_section'"') (.) (`"`rateframe'"')
+                    continue
+                }
+                if strpos("`_ref_rows_sp'", " `_r' ") {
+                    frame post `_eplotframe_name' (`"`_rate_lab_ep'"') (.) (.) (.) (.) ///
+                        (.) ("") ("reference") (`"`_current_section'"') (.) (`"`rateframe'"')
+                    continue
+                }
+
+                local ++_next_model_ep
+                local _mfname_ep "`_map_frame`_next_model_ep''"
+                local _src_row_ep = `_map_row`_next_model_ep'' - 3
+                local _src_ep ""
+                capture frame `_mfname_ep': local _src_ep : char _dta[tabtools_eplotframe]
+                local _src_ep_rc = _rc
+                if `_src_ep_rc' == 0 & `"`_src_ep'"' != "" {
+                    capture frame `_src_ep': quietly count
+                    local _src_ep_rc = _rc
+                    if `_src_ep_rc' == 0 {
+                        frame `_src_ep' {
+                            local _ep_N = _N
+                            forvalues _ep_i = 1/`_ep_N' {
+                                if source_row[`_ep_i'] == `_src_row_ep' {
+                                    local _ep_label = label[`_ep_i']
+                                    local _ep_est = estimate[`_ep_i']
+                                    local _ep_ll = ll[`_ep_i']
+                                    local _ep_ul = ul[`_ep_i']
+                                    local _ep_p = pvalue[`_ep_i']
+                                    local _ep_model = model[`_ep_i']
+                                    local _ep_model_label = model_label[`_ep_i']
+                                    local _ep_rowtype = rowtype[`_ep_i']
+                                    frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
+                                        (`"`_current_section'"') (`_src_row_ep') (`"`_mfname_ep'"')
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            frame `_eplotframe_name': char _dta[tabtools_source] "hrcomptab"
+        }
+
         * Build output table
         local ncols = 1 + 5 * `outcomes'
         local _out_title `"`title'"'
@@ -639,6 +742,9 @@ program define hrcomptab, rclass
         if `"`frame'"' != "" {
             _tabtools_frame_put `"`frame'"'
             local frame "`_frame_name'"
+            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+                frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+            }
             return local frame "`frame'"
         }
 
@@ -650,6 +756,7 @@ program define hrcomptab, rclass
         return local rateframe "`rateframe'"
         return local modelframes "`modelframes'"
         return local effect "`effect'"
+        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
         if "`csv'" != "" return local csv "`csv'"
         if `"`_ret_markdown'"' != "" {
             return local markdown `"`_ret_markdown'"'
@@ -816,7 +923,66 @@ program define hrcomptab, rclass
     }
 
     local _rc = _rc
+    if `_rc' {
+        quietly use "`_userdata_path'", clear
+        set varabbrev `_orig_varabbrev'
+        exit `_rc'
+    }
+
+    local _forest_rc_hold 0
+    if "`forest'" != "" {
+        capture which eplot
+        local _which_eplot_rc = _rc
+        if `_which_eplot_rc' {
+            display as error "forest requires eplot"
+            display as error `"Install with: net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace"'
+            if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+            local _forest_rc_hold 111
+        }
+        else {
+            local _eplotoptions_clean = strtrim(`"`eplotoptions'"')
+            if substr(`"`_eplotoptions_clean'"', 1, 1) == "," {
+                local _eplotoptions_clean = strtrim(substr(`"`_eplotoptions_clean'"', 2, .))
+            }
+            frame `_eplotframe_name': quietly count if rowtype == "effect"
+            if r(N) == 0 {
+                display as error "forest requires an eplotframe with effect rows"
+                if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+                local _forest_rc_hold 2000
+            }
+            else {
+                capture noisily eplot, frame(`_eplotframe_name') labels(label) rowtype(rowtype) ///
+                    style(forest) effect("`effect'") values `_eplotoptions_clean'
+                local _eplot_rc = _rc
+                if `_eplot_rc' local _forest_rc_hold = `_eplot_rc'
+            }
+        }
+        if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
+    }
+
+    if `_forest_rc_hold' != 0 local _rc = `_forest_rc_hold'
     quietly use "`_userdata_path'", clear
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+    return clear
+    if `"`frame'"' != "" return local frame "`frame'"
+    return scalar N_rows = `lastrow'
+    return scalar N_outcomes = `outcomes'
+    return scalar N_sections = `n_sections'
+    return scalar N_modelrows = `_selected_total'
+    return scalar N_modelframes = `n_frames'
+    return local rateframe "`rateframe'"
+    return local modelframes "`modelframes'"
+    return local effect "`effect'"
+    if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
+    if "`csv'" != "" return local csv "`csv'"
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `_xlsx_ok' {
+        return local xlsx "`xlsx'"
+        return local sheet "`sheet'"
+    }
 end
