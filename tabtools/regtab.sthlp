@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  03jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
@@ -71,7 +71,9 @@ for treatment effects and margins tables.
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as a named Excel color or RGB triplet (default: {cmd:"219 229 241"}).{p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a named Excel color or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv("filename")}}Also export as CSV.{p_end}
+{synopt:{opt csv("filename")} {opt markdown(filename)} {opt mdappend}}Also export as CSV.{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame for programmatic access. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching specified variable names. Cannot be combined with {cmd:drop()}.{p_end}
@@ -81,7 +83,7 @@ for treatment effects and margins tables.
 {synopt:{opt ref:cat(string)}}Label for reference category rows. Default is {cmd:"Reference"}. Set to customize, e.g., {cmd:refcat("Ref.")}.{p_end}
 {synopt:{opt cutl:abels(string)}}Custom labels for ordered-model cutpoint rows. Separate labels with backslashes, e.g., {cmd:cutlabels("Low to moderate \ Moderate to high")}. Use {opt keepintercept} when you want cutpoints displayed; otherwise {opt noint} and ratio-scale auto-hiding remove them.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}
-{synopt:{opt nop:value}}Suppress p-value columns in the console, frame, CSV, and Excel output. With {opt compact}, this leaves one estimate-and-CI column per model. P-values remain available internally for {opt stars} and row highlighting.{p_end}
+{synopt:{opt nop:value}}Suppress p-value columns in the console, frame, CSV, and Excel and Markdown output. With {opt compact}, this leaves one estimate-and-CI column per model. P-values remain available internally for {opt stars} and row highlighting.{p_end}
 {synopt:{opt addr:ow(string asis)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
 {synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
 {synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
@@ -118,7 +120,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed with {opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you intentionally want ordered-model cutpoints displayed with publication-friendly labels.{p_end}
 {p 4 8 2}- P-value columns can be removed from the rendered table with {opt nopvalue}. If {opt stars} is also specified, significance stars are still computed from the collected p-values before the p-value columns are dropped.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
-{p 4 8 2}- The command writes Excel output through the shared tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
+{p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. For GEE models ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full maximum likelihood; when {cmd:aic} is requested, {cmd:regtab} automatically computes and displays QIC (deviance + 2p) instead. QIC can also be requested directly via {cmd:stats(qic)}. ICC is computed per model from variance components in the collected results when that variance decomposition is defined. For model families without a closed-form level-1 variance, ICC is left blank rather than guessed. If the primary collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
@@ -222,10 +224,16 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(coef_label)}}shared coefficient label, or {cmd:mixed} when auto headers differ by model{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}coefficient values matrix for the displayed coefficient body (rows = variables, columns = models; excludes title and appended stats/addrows). Row names are derived from each variable's display label with periods, spaces, commas, and colons substituted for underscores or stripped, then truncated to 32 characters.{p_end}

@@ -1,4 +1,4 @@
-*! survtab Version 1.3.1  2026/05/27
+*! survtab Version 1.4.0  2026/06/05
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -65,7 +65,7 @@ capture noisily {
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
-        csv(string) FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
+        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
         ADDRow(string asis)]
 
     * Accept excel() as synonym for xlsx()
@@ -134,6 +134,21 @@ capture noisily {
     }
     if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    if "`mdappend'" != "" & `"`markdown'"' == "" {
+        noisily display as error "mdappend requires markdown()"
+        exit 198
+    }
+    if `"`markdown'"' != "" {
+        _tabtools_validate_path `"`markdown'"' "markdown()"
+        local _md_lower = lower(`"`markdown'"')
+        if !(strmatch(`"`_md_lower'"', "*.md") | ///
+             strmatch(`"`_md_lower'"', "*.markdown") | ///
+             strmatch(`"`_md_lower'"', "*.qmd") | ///
+             strmatch(`"`_md_lower'"', "*.rmd")) {
+            noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            exit 198
+        }
+    }
 
     * Auto-enable median when by() is specified
     if "`by'" != "" & "`median'" == "" local median "median"
@@ -714,6 +729,26 @@ capture noisily {
         noisily display as text "CSV exported to `csv'"
     }
 
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+        if _rc {
+            local _md_rc = _rc
+            noisily display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        noisily display as text "Markdown exported to `markdown'"
+    }
+
 **# Frame Output
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
@@ -893,6 +928,11 @@ capture noisily {
     }
     if "`csv'" != "" {
         return local csv "`csv'"
+    }
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
     }
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 

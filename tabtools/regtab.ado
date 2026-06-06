@@ -1,4 +1,4 @@
-*! regtab Version 1.3.7  2026/06/03
+*! regtab Version 1.4.0  2026/06/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -72,7 +72,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	title(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
-	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
+	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
 	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0)]
@@ -123,6 +123,21 @@ if `pdp' < 1 | `pdp' > 10 {
 if `highpdp' < 1 | `highpdp' > 10 {
 	noisily display as error "highpdp() must be between 1 and 10"
 	exit 198
+}
+if "`mdappend'" != "" & `"`markdown'"' == "" {
+	noisily display as error "mdappend requires markdown()"
+	exit 198
+}
+if `"`markdown'"' != "" {
+	_tabtools_validate_path `"`markdown'"' "markdown()"
+	local _md_lower = lower(`"`markdown'"')
+	if !(strmatch(`"`_md_lower'"', "*.md") | ///
+		 strmatch(`"`_md_lower'"', "*.markdown") | ///
+		 strmatch(`"`_md_lower'"', "*.qmd") | ///
+		 strmatch(`"`_md_lower'"', "*.rmd")) {
+		noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+		exit 198
+	}
 }
 
 * Auto-detect coefficient label from model type
@@ -2440,11 +2455,37 @@ if "`csv'" != "" {
 * Console display
 noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
 
+* Markdown export
+local _ret_markdown ""
+local _ret_markdown_rows .
+local _ret_markdown_cols .
+if `"`markdown'"' != "" {
+	local _mdappend_opt ""
+	if "`mdappend'" != "" local _mdappend_opt "append"
+	capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+		`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"')
+	if _rc {
+		local _md_rc = _rc
+		noisily display as error "Failed to export Markdown to `markdown'"
+		restore
+		exit `_md_rc'
+	}
+	local _ret_markdown `"`markdown'"'
+	local _ret_markdown_rows = r(n_rows)
+	local _ret_markdown_cols = r(n_cols)
+	noisily display as text "Markdown exported to `markdown'"
+}
+
 * Store output in frame if requested
 if `"`frame'"' != "" {
-    _tabtools_frame_put `"`frame'"'
-    local frame "`_frame_name'"
-    return local frame "`frame'"
+	_tabtools_frame_put `"`frame'"'
+	local frame "`_frame_name'"
+	return local frame "`frame'"
+}
+if `"`_ret_markdown'"' != "" {
+	return local markdown `"`_ret_markdown'"'
+	return scalar markdown_rows = `_ret_markdown_rows'
+	return scalar markdown_cols = `_ret_markdown_cols'
 }
 
 clear

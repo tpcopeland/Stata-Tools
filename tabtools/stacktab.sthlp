@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.6  01jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
@@ -60,7 +60,9 @@ a deprecated alias.
 
 {syntab:Additional outputs}
 {synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame; use {cmd:frame("name, replace")} to replace{p_end}
-{synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export the composed table to CSV{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt dis:play}}list the composed table in the Results window before writing{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
 {synopt:{opt sheet:replace}}replace the output sheet if it exists{p_end}
@@ -141,7 +143,7 @@ The border specification currently supports {cmd:outer(all)},
 {title:Frame and CSV output}
 
 {p 4 4 2}
-{opt frame()} stores the composed table before Excel export. Title and note
+{opt frame()} stores the composed table before Excel and Markdown export. Title and note
 cells are Excel-only formatting elements and are not added to the frame or CSV.
 Specify
 {cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
@@ -172,10 +174,16 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synopt:{cmd:r(note_row)}}Excel row of the note/footnote, when specified{p_end}
 {synopt:{cmd:r(layout)}}layout used: {cmd:vstack} or {cmd:hstack}{p_end}
 {synopt:{cmd:r(sheet)}}output sheet name{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(book)}}workbook path{p_end}
 {synopt:{cmd:r(table_start)}}top-left Excel cell of the composed table, usually {cmd:B2}{p_end}
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}
 {synopt:{cmd:r(frame)}}frame name, when {opt frame()} is specified{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when {opt csv()} is specified{p_end}
 
 {marker alsosee}{...}
@@ -192,6 +200,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.3.6
+Version 1.4.0
 {p 4 4 2}
 {hline}

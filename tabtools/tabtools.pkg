@@ -1,8 +1,8 @@
 v 3
-d 'TABTOOLS': Suite of table export commands for publication-ready Excel output
+d 'TABTOOLS': Suite of table export commands for publication-ready Excel and Markdown output
 d
 d tabtools is a comprehensive suite of Stata commands for exporting
-d tables to professionally formatted Excel files. Includes:
+d tables to professionally formatted Excel and Markdown files. Includes:
 d
 d   table1_tc      - Descriptive statistics (Table 1) with automatic tests
 d   desctab        - Per-statistic formatted descriptive table collects
@@ -19,12 +19,12 @@ d   corrtab        - Correlation matrix with significance stars
 d   puttab         - Style an in-memory dataset, frame, or matrix as one sheet
 d   stacktab       - Assemble multi-sheet composite Excel tables from blocks
 d
-d All commands apply consistent Excel formatting: column widths,
-d borders, fonts, merged headers, and professional styling.
+d Commands apply consistent Excel formatting and can emit GitHub-Flavored
+d Markdown tables for report workflows.
 d
 d Requires: Stata version 16+ (tabtools, table1_tc), 17+ (all other commands)
 d
-d Distribution-Date: 20260603
+d Distribution-Date: 20260605
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -33,6 +33,7 @@ f tabtools.ado
 f tabtools.sthlp
 f _tabtools_common.ado
 f _tabtools_xlsx_write_current.ado
+f _tabtools_markdown_write_current.ado
 f _tabtools_xlsx_read_current.ado
 f _tabtools_collect_render_current.ado
 f _tabtools_table_metadata_current.ado

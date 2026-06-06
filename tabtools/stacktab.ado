@@ -1,4 +1,4 @@
-*! stacktab Version 1.3.6  2026/06/01
+*! stacktab Version 1.4.0  2026/06/05
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,12 +35,23 @@ program define stacktab, rclass
              BOrders(string asis) ///
              SPacing(integer 0) ///
              CSV(string asis) ///
+             MARKdown(string asis) ///
+             MDAPPend ///
              FRAme(string asis) ///
              DISplay ///
              APPend ///
              SHEetreplace]
 
         confirm file `"`using'"'
+
+        capture _tabtools_helpers_ready
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+        }
+        _tabtools_require_helpers
 
         if "`layout'" == "" local layout "vstack"
         local layout = lower("`layout'")
@@ -76,6 +87,21 @@ program define stacktab, rclass
         if `"`csv'"' != "" & !strmatch(lower(`"`csv'"'), "*.csv") {
             display as error "csv() must have .csv extension"
             exit 198
+        }
+        if "`mdappend'" != "" & `"`markdown'"' == "" {
+            display as error "mdappend requires markdown()"
+            exit 198
+        }
+        if `"`markdown'"' != "" {
+            _tabtools_validate_path `"`markdown'"' "markdown()"
+            local _md_lower = lower(`"`markdown'"')
+            if !(strmatch(`"`_md_lower'"', "*.md") | ///
+                 strmatch(`"`_md_lower'"', "*.markdown") | ///
+                 strmatch(`"`_md_lower'"', "*.qmd") | ///
+                 strmatch(`"`_md_lower'"', "*.rmd")) {
+                display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+                exit 198
+            }
         }
 
         * ================================================================
@@ -461,6 +487,24 @@ program define stacktab, rclass
             quietly export delimited using `"`csv'"', replace
         }
 
+        local _ret_markdown ""
+        local _ret_markdown_rows .
+        local _ret_markdown_cols .
+        if `"`markdown'"' != "" {
+            local _mdappend_opt ""
+            if "`mdappend'" != "" local _mdappend_opt "append"
+            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+                `_mdappend_opt' title(`"`title'"') footnote(`"`note'"')
+            if _rc {
+                local _md_rc = _rc
+                display as error "Failed to export Markdown to `markdown'"
+                exit `_md_rc'
+            }
+            local _ret_markdown `"`markdown'"'
+            local _ret_markdown_rows = r(n_rows)
+            local _ret_markdown_cols = r(n_cols)
+        }
+
         * ================================================================
         * EXPORT TO SHEET
         * ================================================================
@@ -575,6 +619,11 @@ program define stacktab, rclass
     if `"`_ret_title_cell'"' != "" return local title_cell `"`_ret_title_cell'"'
     if `"`_ret_frame'"' != "" return local frame `"`_ret_frame'"'
     if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
 
     display as text "stacktab: `_ret_blocks_loaded' blocks -> `_ret_rows_written' rows written -> sheet `_ret_sheet'"
 end

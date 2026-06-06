@@ -6,9 +6,11 @@
       user.
 
     Produces:
-      Console (1 SMCL file + 1 markdown file):
-        1. console_output.smcl        - consolidated display log
+      Console (1 text log + 1 markdown file):
+        1. console_output.log         - consolidated display log
         2. console_output.md          - markdown console output for README
+      Markdown report:
+        3. demo_markdown_report.md    - sequential Markdown exports with mdappend
       Per-command workbooks (14 xlsx files, 72 sheets total):
         demo_table1.xlsx    (11 sheets) - table1_tc + themes
         demo_desctab.xlsx   (6 sheets)  - desctab table collect formatting
@@ -43,7 +45,7 @@ local _demo_success ""
 capture noisily {
 set more off
 set varabbrev off
-set linesize 250
+set linesize 120
 
 **# Setup
 
@@ -61,6 +63,8 @@ if _rc {
 
 local pkg_dir "`repo_root'/tabtools/demo"
 capture mkdir "`pkg_dir'"
+local pkg_ref "tabtools/demo"
+if "`c(pwd)'" != "`repo_root'" local pkg_ref "."
 
 * Install tc_schemes for consistent graph appearance
 local tc_schemes_dir "`repo_root'/tc_schemes"
@@ -97,12 +101,15 @@ local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
 local xlsx_puttab    "`pkg_dir'/demo_puttab.xlsx"
 local xlsx_stacktab "`pkg_dir'/demo_stacktab.xlsx"
-local console_log    "`pkg_dir'/console_output.smcl"
+local markdown_report "`pkg_dir'/demo_markdown_report.md"
+local markdown_report_export "`pkg_ref'/demo_markdown_report.md"
+local console_log    "`pkg_dir'/console_output.log"
 local console_md     "`pkg_dir'/console_output.md"
 foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
     capture erase "`xlsx_`_f''"
 }
 capture erase "`pkg_dir'/demo_tabtools.xlsx"
+capture erase "`markdown_report'"
 capture erase "`console_md'"
 
 **# Build analysis dataset
@@ -176,7 +183,7 @@ foreach legacy_log in console_survtab.smcl console_tabtools.smcl console_regtab.
     capture erase "`pkg_dir'/`legacy_log'"
 }
 
-log using "`console_log'", replace smcl name(demo) nomsg
+log using "`console_log'", replace text name(demo) nomsg
 
 **# Console: tabtools set/get/list/detail
 tabtools set font Calibri
@@ -232,7 +239,7 @@ noisily survtab, times(365 730 1095 1460) by(treated) ///
     rmst(1460) difference median timeunit(days)
 
 log off demo
-set linesize 250
+set linesize 120
 
 **# Console: regtab display
 collect clear
@@ -410,8 +417,67 @@ log off demo
 capture erase "`_pipe_xlsx'"
 restore
 
+**# Console: Markdown export report
+use `analysis', clear
+capture erase "`markdown_report'"
+
+log on demo
+
+* # Markdown report export
+noisily table1_tc, by(treated) ///
+    vars(index_age contn %5.1f \ female bin \ diabetes bin \ hypertension bin) ///
+    title("Table 1. Baseline Characteristics") ///
+    markdown("`markdown_report_export'")
+
+noisily crosstab treated female, or label ///
+    title("Table 2. Treatment by Sex") ///
+    markdown("`markdown_report_export'") mdappend
+
+noisily corrtab index_age crp prior_hosp, star(0.05 0.01 0.001) ///
+    title("Table 3. Correlation Matrix") ///
+    markdown("`markdown_report_export'") mdappend
+
+preserve
+keep id index_age treated female cv_event
+keep in 1/6
+noisily puttab id index_age treated female cv_event, ///
+    varlabels ///
+    title("Table 4. First Six Analysis Records") ///
+    markdown("`markdown_report_export'") mdappend
+restore
+
+noisily display as text "Markdown report written to tabtools/demo/demo_markdown_report.md"
+noisily display as text "The file contains multiple GitHub-Flavored Markdown tables appended in one report."
+noisily type "`markdown_report'"
+
+log off demo
+
+**# Verify Markdown report content
+tempname _md_fh
+file open `_md_fh' using "`markdown_report'", read text
+local _has_table1 0
+local _has_crosstab 0
+local _has_corrtab 0
+local _has_puttab 0
+local _has_pipe_table 0
+file read `_md_fh' _md_line
+while r(eof) == 0 {
+    if strpos(`"`_md_line'"', "### Table 1. Baseline Characteristics") local _has_table1 1
+    if strpos(`"`_md_line'"', "### Table 2. Treatment by Sex") local _has_crosstab 1
+    if strpos(`"`_md_line'"', "### Table 3. Correlation Matrix") local _has_corrtab 1
+    if strpos(`"`_md_line'"', "### Table 4. First Six Analysis Records") local _has_puttab 1
+    if strpos(`"`_md_line'"', "| --- |") local _has_pipe_table 1
+    file read `_md_fh' _md_line
+}
+file close `_md_fh'
+assert `_has_table1' == 1
+assert `_has_crosstab' == 1
+assert `_has_corrtab' == 1
+assert `_has_puttab' == 1
+assert `_has_pipe_table' == 1
+
 log close demo
-drop phat_display
+capture drop phat_display
 
 
 **# Sheet 1: Table 1 -- Baseline Characteristics
@@ -1511,8 +1577,9 @@ logdoc using "`console_log'", ///
 **# Cleanup
 clear
 display as result "Demo complete. Outputs:"
-display as result "  `pkg_dir'/console_output.smcl"
+display as result "  `pkg_dir'/console_output.log"
 display as result "  `pkg_dir'/console_output.md"
+display as result "  `markdown_report'"
 foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab puttab stacktab {
     capture confirm file "`xlsx_`_f''"
     if _rc == 0 display as result "  `xlsx_`_f''"

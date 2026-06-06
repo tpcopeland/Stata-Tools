@@ -1,4 +1,4 @@
-*! comptab Version 1.3.7  2026/06/03
+*! comptab Version 1.4.0  2026/06/05
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -122,7 +122,7 @@ program define comptab, rclass
         THEme(string) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
-        csv(string) FRAme(string) DISplay LABELWidth(integer 0)]
+        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay LABELWidth(integer 0)]
 
     * Label-column width cap (0 -> default 45): keeps a lone verbose label from
     * stretching the whole column; longer labels wrap (text-wrap rule below).
@@ -170,6 +170,21 @@ program define comptab, rclass
     if `has_boldp' & (`boldp' <= 0 | `boldp' >= 1) {
         noisily display as error "boldp() must be between 0 and 1"
         exit 198
+    }
+    if "`mdappend'" != "" & `"`markdown'"' == "" {
+        noisily display as error "mdappend requires markdown()"
+        exit 198
+    }
+    if `"`markdown'"' != "" {
+        _tabtools_validate_path `"`markdown'"' "markdown()"
+        local _md_lower = lower(`"`markdown'"')
+        if !(strmatch(`"`_md_lower'"', "*.md") | ///
+             strmatch(`"`_md_lower'"', "*.markdown") | ///
+             strmatch(`"`_md_lower'"', "*.qmd") | ///
+             strmatch(`"`_md_lower'"', "*.rmd")) {
+            noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            exit 198
+        }
     }
 
     * =====================================================================
@@ -714,12 +729,40 @@ program define comptab, rclass
     noisily _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
 
     * =====================================================================
+    * MARKDOWN EXPORT
+    * =====================================================================
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            `_mdappend_opt' labelvar(A) datastart(4) title(`"`title'"') footnote(`"`footnote'"')
+        if _rc {
+            local _md_rc = _rc
+            noisily display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        noisily display as text "Markdown exported to `markdown'"
+    }
+
+    * =====================================================================
     * STORE IN FRAME
     * =====================================================================
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
         return local frame "`frame'"
+    }
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
     }
 
     * =====================================================================

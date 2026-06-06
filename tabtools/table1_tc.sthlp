@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -100,7 +100,9 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt smdt:hreshold(#)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color; named Excel color or RGB triplet such as {cmd:"200 220 240"}{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra stripe color; named Excel color or RGB triplet such as {cmd:"240 245 250"}{p_end}
-{synopt:{opt csv("filename")}}also export as CSV file{p_end}
+{synopt:{opt csv("filename")} {opt markdown(filename)} {opt mdappend}}also export as CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {syntab:Frame & Pipeline}
 {synopt:{opt fra:me(name[, replace])}}store output in a named Stata frame{p_end}
@@ -134,7 +136,7 @@ type keyword, each variable's type is automatically classified:{p_end}
 {p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
 
 {pstd}This command is a fork of {cmd:table1_mc} version 3.5 by Mark Chatfield, with enhancements
-including Excel export, journal themes, auto-type detection, IPTW weighting, SMD, and a methods
+including Excel and Markdown export, journal themes, auto-type detection, IPTW weighting, SMD, and a methods
 paragraph generator.{p_end}
 
 {pstd}{bf:Themes:} The {opt theme()} option applies journal-inspired formatting presets that
@@ -168,7 +170,7 @@ directly to a regression model:{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. table1_tc rep78 foreign, by(foreign)}{p_end}
 
-{pstd}{bf:With Excel export and formatting:}{p_end}
+{pstd}{bf:With Excel and Markdown export and formatting:}{p_end}
 
 {phang2}{cmd:. table1_tc price mpg weight rep78, by(foreign) ///}{p_end}
 {phang3}{cmd:xlsx("table1.xlsx") title("Table 1") smd theme(lancet)}{p_end}
@@ -211,6 +213,9 @@ directly to a regression model:{p_end}
 {synopt:{cmd:r(xlsx)}}path to exported Excel file (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric matrix of raw {cmd:p_value} and absolute {cmd:smd} for top-level variable rows; omitted when no such columns exist or when the table has more than 200 rows{p_end}
@@ -227,7 +232,7 @@ directly to a regression model:{p_end}
 {pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
 deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
 
-{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel output.
+{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel and Markdown output.
 Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}
 
 {pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups only.

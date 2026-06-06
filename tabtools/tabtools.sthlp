@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.6  01jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -26,7 +26,7 @@
 {title:Title}
 
 {p2colset 5 17 19 2}{...}
-{p2col:{cmd:tabtools} {hline 2}}Suite of table export commands for publication-ready Excel output{p_end}
+{p2col:{cmd:tabtools} {hline 2}}Suite of table export commands for publication-ready Excel and Markdown output{p_end}
 {p2colreset}{...}
 
 
@@ -35,12 +35,12 @@
 
 {pstd}
 {cmd:tabtools} is a suite of Stata commands for exporting tables to professionally
-formatted Excel files. It covers descriptive statistics, regression results,
+formatted Excel and Markdown files. It covers descriptive statistics, regression results,
 treatment effects, survival analysis, diagnostic accuracy, incidence rates,
 and composite manuscript tables.
 
 {pstd}
-All commands apply consistent Excel formatting: column widths, borders, fonts,
+All commands apply consistent Excel and Markdown formatting: column widths, borders, fonts,
 merged headers, and professional styling suitable for journal submissions. Use
 {cmd:tabtools set} to configure session-wide formatting defaults that every
 command respects.

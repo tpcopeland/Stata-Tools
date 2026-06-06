@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  03jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -42,10 +42,12 @@
 {synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select rows by rendered row-label substring{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
+{synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
-{synopt:{opt csv(filename)}}export to CSV file{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export to CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -253,6 +255,9 @@ smaller than the specified threshold.
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
 
 

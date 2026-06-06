@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -20,7 +20,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt border:style(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
+{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt border:style(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play}]
 
 
 {marker description}{...}
@@ -53,7 +53,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {dlgtab:Optional}
 
 {phang}
-{opt xlsx(string)} specifies the Excel output file name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()}, or populate {opt frame()}.
+{opt xlsx(string)} specifies the Excel and Markdown output file name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()}, or populate {opt frame()}.
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
@@ -105,7 +105,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a named Excel color or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
-{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
+{phang2}{opt csv(string)} {opt markdown(filename)} {opt mdappend} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
@@ -217,6 +217,9 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 
 {marker author}{...}

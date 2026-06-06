@@ -1,4 +1,4 @@
-*! stratetab Version 1.3.1  2026/05/27
+*! stratetab Version 1.4.0  2026/06/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -72,7 +72,7 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) THEme(string) HEADERShade ///
-	HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay]
+	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -90,6 +90,21 @@ if `_has_xlsx' & !strmatch("`xlsx'", "*.xlsx") {
 * Sanitize file path and sheet name to prevent injection
 if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
 if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+if "`mdappend'" != "" & `"`markdown'"' == "" {
+	di as err "mdappend requires markdown()"
+	exit 198
+}
+if `"`markdown'"' != "" {
+	_tabtools_validate_path `"`markdown'"' "markdown()"
+	local _md_lower = lower(`"`markdown'"')
+	if !(strmatch(`"`_md_lower'"', "*.md") | ///
+		 strmatch(`"`_md_lower'"', "*.markdown") | ///
+		 strmatch(`"`_md_lower'"', "*.qmd") | ///
+		 strmatch(`"`_md_lower'"', "*.rmd")) {
+		di as err "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+		exit 198
+	}
+}
 if "`sheet'" != "" {
 	_tabtools_validate_sheet "`sheet'" "sheet()"
 }
@@ -488,6 +503,26 @@ if "`csv'" != "" {
 
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
 _tabtools_validate_sheet "`sht'" "sheet()"
+local _ret_markdown ""
+local _ret_markdown_rows .
+local _ret_markdown_cols .
+if `"`markdown'"' != "" {
+	local _mdappend_opt ""
+	if "`mdappend'" != "" local _mdappend_opt "append"
+	capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+		`_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+	if _rc {
+		local _md_rc = _rc
+		noi di as err "Failed to export Markdown to `markdown'"
+		qui use "`_userdata_path'", clear
+		set varabbrev `_orig_varabbrev'
+		exit `_md_rc'
+	}
+	local _ret_markdown `"`markdown'"'
+	local _ret_markdown_rows = r(n_rows)
+	local _ret_markdown_cols = r(n_cols)
+	noi di as text "Markdown exported to `markdown'"
+}
 * Console display
 noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 
@@ -608,6 +643,11 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 		capture return matrix ratios = `_rratios'
 	}
 if "`frame'" != "" return local frame "`frame'"
+if `"`_ret_markdown'"' != "" {
+	return local markdown `"`_ret_markdown'"'
+	return scalar markdown_rows = `_ret_markdown_rows'
+	return scalar markdown_cols = `_ret_markdown_cols'
+}
 return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'

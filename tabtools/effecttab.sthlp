@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  03jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
@@ -70,7 +70,9 @@ collection must remain unchanged.{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}Custom header background color as a named Excel color or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
 {synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a named Excel color or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv(string)}}Also export as CSV to the specified filename.{p_end}
+{synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}Also export as CSV to the specified filename.{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt addr:ow(string asis)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows.{p_end}
 {synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
 {synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
@@ -180,10 +182,16 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(type)}}detected or specified result type; {cmd:from()} with {cmd:type(auto)} returns {cmd:margins}{p_end}
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric matrix of effect estimates and p-values for all displayed effect rows (columns = estimate and p-value per model){p_end}

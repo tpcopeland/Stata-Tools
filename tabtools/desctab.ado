@@ -1,4 +1,4 @@
-*! desctab Version 1.3.1  2026/05/27
+*! desctab Version 1.4.0  2026/06/05
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -39,7 +39,7 @@ program define desctab, rclass
         VALUELABELS FACTORLabel KEEP(string asis) DROP(string asis) ///
         STATORDER(string) STATLABELS(string asis) NOMISsing zebra ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
-        BORDERstyle(string) THEme(string) open csv(string) ///
+        BORDERstyle(string) THEme(string) open csv(string) MARKdown(string) MDAPPend ///
         FRAme(string) DISplay HIGHlight(real -1) HIGHlightStat(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -86,6 +86,21 @@ program define desctab, rclass
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    if "`mdappend'" != "" & `"`markdown'"' == "" {
+        display as error "mdappend requires markdown()"
+        exit 198
+    }
+    if `"`markdown'"' != "" {
+        _tabtools_validate_path `"`markdown'"' "markdown()"
+        local _md_lower = lower(`"`markdown'"')
+        if !(strmatch(`"`_md_lower'"', "*.md") | ///
+             strmatch(`"`_md_lower'"', "*.markdown") | ///
+             strmatch(`"`_md_lower'"', "*.qmd") | ///
+             strmatch(`"`_md_lower'"', "*.rmd")) {
+            display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            exit 198
+        }
+    }
     _tabtools_validate_sheet "`sheet'" "sheet()"
 
     local _requested_headershade "`headershade'"
@@ -663,7 +678,7 @@ program define desctab, rclass
         }
     }
 
-    * Add title row/column so Excel output follows the suite convention:
+    * Add title row/column so Excel and Markdown output follows the suite convention:
     * title in A1, row labels in B, table body starting at B2/C2.
     quietly gen long _desctab_id = _n
     local _oldN = _N
@@ -726,7 +741,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.3.1"
+    return local version "1.4.0"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"
@@ -739,6 +754,28 @@ program define desctab, rclass
 
     if "`csv'" != "" {
         export delimited using "`csv'", replace
+    }
+
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            `_mdappend_opt' labelvar(A) headerstart(`header_start') ///
+            datastart(`data_start') title(`"`title'"') footnote(`"`footnote'"')
+        if _rc {
+            local _md_rc = _rc
+            display as error "Failed to export Markdown to `markdown'"
+            error `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
     }
 
     if `"`frame'"' != "" {
@@ -867,7 +904,7 @@ program define desctab, rclass
             local _fmt_rc = _rc
             capture mata: b.close_book()
             capture mata: mata drop b
-            display as error "Excel formatting failed with error `_fmt_rc'"
+            display as error "Excel and Markdown formatting failed with error `_fmt_rc'"
             error `_fmt_rc'
         }
         capture mata: mata drop b

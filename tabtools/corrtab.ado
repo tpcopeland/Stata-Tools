@@ -1,4 +1,4 @@
-*! corrtab Version 1.3.1  2026/05/27
+*! corrtab Version 1.4.0  2026/06/05
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -37,7 +37,7 @@ program define corrtab, rclass
             title(string) ///
             FOOTnote(string) THEme(string) BORDERstyle(string) ///
             HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-            csv(string) FRAme(string) DISplay open]
+            csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open]
 
         if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
         local _has_xlsx = (`"`xlsx'"' != "")
@@ -56,6 +56,21 @@ program define corrtab, rclass
             _tabtools_validate_path "`xlsx'" "xlsx()"
         }
         if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+        if "`mdappend'" != "" & `"`markdown'"' == "" {
+            noisily display as error "mdappend requires markdown()"
+            exit 198
+        }
+        if `"`markdown'"' != "" {
+            _tabtools_validate_path `"`markdown'"' "markdown()"
+            local _md_lower = lower(`"`markdown'"')
+            if !(strmatch(`"`_md_lower'"', "*.md") | ///
+                 strmatch(`"`_md_lower'"', "*.markdown") | ///
+                 strmatch(`"`_md_lower'"', "*.qmd") | ///
+                 strmatch(`"`_md_lower'"', "*.rmd")) {
+                noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+                exit 198
+            }
+        }
 
         if `digits' == -1 {
             if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
@@ -276,6 +291,26 @@ program define corrtab, rclass
             }
         }
 
+        local _ret_markdown ""
+        local _ret_markdown_rows .
+        local _ret_markdown_cols .
+        if `"`markdown'"' != "" {
+            local _mdappend_opt ""
+            if "`mdappend'" != "" local _mdappend_opt "append"
+            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+                `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+            if _rc {
+                local _md_rc = _rc
+                noisily display as error "Failed to export Markdown to `markdown'"
+                restore
+                exit `_md_rc'
+            }
+            local _ret_markdown `"`markdown'"'
+            local _ret_markdown_rows = r(n_rows)
+            local _ret_markdown_cols = r(n_cols)
+            noisily display as text "Markdown exported to `markdown'"
+        }
+
         if `"`frame'"' != "" {
             _tabtools_frame_put `"`frame'"'
             local frame "`_frame_name'"
@@ -285,6 +320,11 @@ program define corrtab, rclass
         capture return matrix P = `_pmat'
         capture return matrix N = `_nmat'
         if "`frame'" != "" return local frame "`frame'"
+        if `"`_ret_markdown'"' != "" {
+            return local markdown `"`_ret_markdown'"'
+            return scalar markdown_rows = `_ret_markdown_rows'
+            return scalar markdown_cols = `_ret_markdown_cols'
+        }
 
         local _method_type = cond("`spearman'" != "", "Spearman rank", "Pearson")
         local _methods "`_method_type' correlation coefficients are reported."

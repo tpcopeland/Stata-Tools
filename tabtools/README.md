@@ -1,8 +1,8 @@
-# tabtools - Publication-ready Excel tables across common Stata workflows
+# tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.3.7** | 2026-06-03
+**Version 1.4.0** | 2026-06-05
 
-`tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
+`tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
 ## Requirements
 
@@ -19,6 +19,17 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 ```
 
 After installation, start with `help tabtools` for the suite overview, `help tabtools_cheatsheet` for common option patterns, and `help tabtools_cookbook` for longer worked workflows.
+
+## Markdown Export
+
+Every table-producing command accepts `markdown(filename)` to write the rendered table as GitHub-Flavored Markdown. Use `mdappend` to append several tables into one report file. Markdown can be requested alone where a workbook is not structurally required, or in the same call as `xlsx()`/`excel()`, `csv()`, and `frame()`.
+
+```stata
+table1_tc age bmi sex, by(treated) markdown("table1.md")
+regtab, xlsx("models.xlsx") markdown("models.md")
+crosstab sex treated, markdown("tables.md")
+corrtab age bmi sbp, markdown("tables.md") mdappend
+```
 
 ## Commands
 
@@ -91,7 +102,7 @@ In short: style one raw table → `puttab`; combine estimation results still in 
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 14 Excel workbooks (72 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output, a sequential Markdown report, and 14 Excel workbooks (72 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 
@@ -100,6 +111,42 @@ stata-mp -b do tabtools/demo/demo_tabtools.do
 ```
 
 Installed users should start with `help tabtools`, `help tabtools_cheatsheet`, and `help tabtools_cookbook`; those help files are shipped by `net install`.
+
+### Markdown report export
+
+The demo builds `demo/demo_markdown_report.md` by exporting one table and appending additional tables with `mdappend`:
+
+```stata
+table1_tc, by(treated) ///
+    vars(index_age contn %5.1f \ female bin \ diabetes bin \ hypertension bin) ///
+    title("Table 1. Baseline Characteristics") ///
+    markdown("tabtools/demo/demo_markdown_report.md")
+
+crosstab treated female, or label ///
+    title("Table 2. Treatment by Sex") ///
+    markdown("tabtools/demo/demo_markdown_report.md") mdappend
+
+corrtab index_age crp prior_hosp, star(0.05 0.01 0.001) ///
+    title("Table 3. Correlation Matrix") ///
+    markdown("tabtools/demo/demo_markdown_report.md") mdappend
+
+puttab id index_age treated female cv_event, varlabels ///
+    title("Table 4. First Six Analysis Records") ///
+    markdown("tabtools/demo/demo_markdown_report.md") mdappend
+```
+
+Excerpt from the generated Markdown report:
+
+```markdown
+### Table 1. Baseline Characteristics
+
+| No. (Column %) or Mean (SD) | N=8,934 | N=6,066 | p-value |
+| --- | --- | --- | --- |
+| Age at cohort entry (years) | 58.3 (13.4) | 58.5 (13.3) | 0.24 |
+| Female sex | 5,351 (59.9%) | 3,621 (59.7%) | 0.80 |
+| Diabetes | 4,107 (46.0%) | 2,818 (46.5%) | 0.56 |
+| Hypertension | 4,112 (46.0%) | 2,935 (48.4%) | 0.005 |
+```
 
 ### Suite overview
 
@@ -505,6 +552,7 @@ The demo generates 14 workbooks (72 sheets) covering every command and option co
 
 ## Version History
 
+- **1.4.0** (2026-06-05): Add `markdown()` and `mdappend` exports across tabtools table commands, including same-call Excel plus Markdown export and sequential Markdown report building. Add `_tabtools_markdown_write_current.ado` as the shared Markdown writer and allow `puttab` to run Markdown-only without `using`.
 - **1.3.7** (2026-06-03): Cap the label (first) column width in `regtab`, `effecttab`, and `comptab` so a single verbose row label — most commonly an unstructured random-effects `Covariance: ... (slope, Intercept)` row from a mixed model — can no longer stretch the whole column to 60-76 characters and balloon the table. The label column now caps at 45 characters by default; labels longer than the cap wrap onto extra lines (top-aligned) instead of being clipped by the adjacent estimate cell. The cap is tunable via the new `labelwidth()` option on all three commands.
 - **1.3.6** (2026-06-01): Add `puttab`, a first-mile styled-block producer that writes a table already in memory — the current dataset, a named `frame()`, or a Stata `matrix()` such as `e(b)`, `r(table)`, or `collapse`/`tabulate` output — as one house-styled Excel sheet with the shared title/header/zebra/border geometry. For a matrix source the row and column names become the label column and header row; for a dataset or frame source numeric columns honor `digits()`, integers stay integer, and value labels are resolved. Repeated calls build a multi-sheet workbook that `stacktab` can assemble, closing the raw-input gap between `desctab` (needs a `collect`) and `stacktab` (needs pre-exported sheets). Fold the former standalone `xlsxcompose` package into the suite as `stacktab` (block-assembly of composite sheets); `xlsxcompose` is retained as a deprecated alias that forwards to `stacktab` and returns the same `r()` results. Together `puttab` and `stacktab` form the emit-then-assemble export pipeline.
 - **1.3.5** (2026-06-01): Fix `effecttab, digits()` so collect-rendered 95% CI bounds use the requested decimal precision. Add `regtab, cutlabels()` for ordered-model cutpoints, make `noint` hide cutpoint and ancillary-only rows such as `lnalpha`, `alpha`, and `/sigma`, and split model-family demos into `demo_regtab_models.xlsx` with richer zero-inflated examples.
@@ -513,7 +561,7 @@ The demo generates 14 workbooks (72 sheets) covering every command and option co
 - **1.3.2** (2026-05-29): Make `regtab, stats()` accept `n_sub` and `subjects` as synonyms for `n` (the N row, which already reports subjects for survival models), and warn instead of silently ignoring unrecognized `stats()` tokens.
 - **1.3.1** (2026-05-27): Make `regtab, relabel` random-effect rows identify variance and covariance parameters explicitly, including linear mixed-model random-slope covariance rows such as `cov(months_since_tx,_cons)`.
 - **1.3.0** (2026-05-23): Replace final Excel writers with a shared Mata `xl()` backend, add Mata workbook read/write helpers for collect parsing and backend contracts, and remove `export excel`/`import excel` from command implementations.
-- **1.2.0** (2026-05-20): Add `regtab, nopvalue` to suppress p-value columns from console, frame, CSV, and Excel outputs while preserving internal p-values for significance stars and row highlighting.
+- **1.2.0** (2026-05-20): Add `regtab, nopvalue` to suppress p-value columns from console, frame, CSV, and Excel and Markdown outputs while preserving internal p-values for significance stars and row highlighting.
 - **1.1.0** (2026-05-13): Add `desctab`, a formatter for active `table` collections with per-statistic number formats, `events / N (%)` and other composite cells, Excel/CSV/frame/display outputs, and shared tabtools styling defaults.
 - **1.0.15** (2026-05-07): Fix `regtab` ICC cross-pollution where a multi-model collection ending in `mepoisson`/`menbreg` silently suppressed ICC for all earlier mixed-effects models (now skipped per-model). Strip thousands separators from coefficient and CI cells so `digits()`, `stars`, `boldp`, `dimnonsig`, and `r(table)` work for coefficients ≥ 1000. Make reference-category detection match the underlying numeric value (0 or 1 with empty CI) instead of the rendered string, so non-default precision still labels rows "Reference". Emit a noisily warning when the per-model stats fallback fires for a multi-model collection. Document `table1_tc` reserved `by()` variable name prefixes (`N_`, `m_`, `_c…`). Plug a Mata workspace leak in `table1_tc` Excel error path. Use a tempname instead of the literal `beatles` value-label fallback. Replace ad-hoc `…2` suffix scratch columns in `headerperc` with tempvars to avoid name collisions. Move integer check before `recast long, force` to prevent silent truncation. Sthlp `boldp` colon-position fix.
 - **1.0.14** (2026-05-05): Add QIC (Quasi-likelihood Information Criterion) support to `regtab` for GEE models. When `stats(aic)` is requested after `xtgee`, QIC is automatically computed and displayed since AIC is undefined for quasi-likelihood estimators. QIC can also be requested explicitly via `stats(qic)`.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table" "help table"}{...}
 {vieweralsosee "collect" "help collect"}{...}
@@ -30,7 +30,7 @@
 {opt statlabels(string)} {opt nomis:sing} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)}
 {opt zebrac:olor(string)} {opt borders:tyle(string)}
-{opt the:me(string)} {opt open} {opt csv(string)}
+{opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt fra:me(name)} {opt dis:play} {opt high:light(#)}
 {opt highs:tat(string)}]{p_end}
 
@@ -89,7 +89,9 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt borders:tyle(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt the:me(string)}}journal-style font and border theme shared with other tabtools commands; use {opt headershade} and {opt zebra} explicitly when shaded fills are desired.{p_end}
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
-{synopt:{opt csv(string)}}also export the display table as CSV.{p_end}
+{synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}also export the display table as CSV.{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt high:light(#)}}highlight rows where {opt highlightstat()} is below the threshold.{p_end}
@@ -138,6 +140,9 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{cmd:r(xlsx)}}Excel filename, if exported{p_end}
 {synopt:{cmd:r(sheet)}}sheet name, if exported{p_end}
 {synopt:{cmd:r(frame)}}frame name, if {opt frame()} was specified{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(methods)}}short methods sentence{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}

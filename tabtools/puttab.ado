@@ -1,4 +1,4 @@
-*! puttab Version 1.3.6  2026/06/01
+*! puttab Version 1.4.0  2026/06/05
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -54,22 +54,35 @@ program define puttab, rclass
         }
         _tabtools_require_helpers
 
-        syntax [anything(name=vlist)] [if] [in] using/ , SHeet(string) ///
+        syntax [anything(name=vlist)] [if] [in] [using/] , ///
             [ FRAme(string) Matrix(name) ///
+              SHeet(string) ///
               TItle(string) FOOTnote(string) ///
               THEme(string) BORDERstyle(string) ///
               HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
               DIGits(integer -1) VARLabels NOHeader ///
-              CSV(string) open ]
+              CSV(string) MARKdown(string) MDAPPend open ]
 
         * ----- output file validation -----
-        if !strmatch(lower(`"`using'"'), "*.xlsx") {
-            noisily display as error "using file must have a .xlsx extension"
+        local _has_using = `"`using'"' != ""
+        local _has_markdown = `"`markdown'"' != ""
+        if !`_has_using' & !`_has_markdown' {
+            noisily display as error "specify using or markdown()"
             exit 198
         }
-        _tabtools_validate_path `"`using'"' "using"
-
-        _tabtools_validate_sheet "`sheet'" "sheet()"
+        if "`open'" != "" & !`_has_using' {
+            noisily display as error "open requires using"
+            exit 198
+        }
+        if `_has_using' {
+            if !strmatch(lower(`"`using'"'), "*.xlsx") {
+                noisily display as error "using file must have a .xlsx extension"
+                exit 198
+            }
+            _tabtools_validate_path `"`using'"' "using"
+        }
+        if "`sheet'" == "" local sheet "Table"
+        if `_has_using' _tabtools_validate_sheet "`sheet'" "sheet()"
 
         local csv = strtrim(subinstr(`"`csv'"', char(34), "", .))
         if `"`csv'"' != "" {
@@ -78,6 +91,21 @@ program define puttab, rclass
                 exit 198
             }
             _tabtools_validate_path `"`csv'"' "csv()"
+        }
+        if "`mdappend'" != "" & !`_has_markdown' {
+            noisily display as error "mdappend requires markdown()"
+            exit 198
+        }
+        if `_has_markdown' {
+            _tabtools_validate_path `"`markdown'"' "markdown()"
+            local _md_lower = lower(`"`markdown'"')
+            if !(strmatch(`"`_md_lower'"', "*.md") | ///
+                 strmatch(`"`_md_lower'"', "*.markdown") | ///
+                 strmatch(`"`_md_lower'"', "*.qmd") | ///
+                 strmatch(`"`_md_lower'"', "*.rmd")) {
+                noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+                exit 198
+            }
         }
 
         * ----- digits -----
@@ -227,6 +255,28 @@ program define puttab, rclass
             }
         }
 
+        local _ret_markdown ""
+        local _ret_markdown_rows .
+        local _ret_markdown_cols .
+        if `_has_markdown' {
+            local _mdappend_opt ""
+            if "`mdappend'" != "" local _mdappend_opt "append"
+            local _md_novarnames ""
+            if "`noheader'" != "" local _md_novarnames "novarnames"
+            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+                `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
+                title(`"`title'"') footnote(`"`footnote'"') `_md_novarnames'
+            if _rc {
+                local _md_rc = _rc
+                noisily display as error "Failed to export Markdown to `markdown'"
+                exit `_md_rc'
+            }
+            local _ret_markdown `"`markdown'"'
+            local _ret_markdown_rows = r(n_rows)
+            local _ret_markdown_cols = r(n_cols)
+            noisily display as text "Markdown exported to `markdown'"
+        }
+
         * ===== border code (thin=1, medium=2, thick=3, none=4) =====
         local _hbc = 1
         if "`_hborder'" == "medium" local _hbc = 2
@@ -317,22 +367,24 @@ program define puttab, rclass
                 (5, `_foot_row', `_foot_row', 1, `K', 0, 1, 0, 0)
         }
 
-        * ===== write the sheet and apply the styling =====
-        _tabtools_xlsx_write_current using `"`using'"', sheet(`"`sheet'"') book(b)
-        local _book_open = 1
+        if `_has_using' {
+            * ===== write the sheet and apply the styling =====
+            _tabtools_xlsx_write_current using `"`using'"', sheet(`"`sheet'"') book(b)
+            local _book_open = 1
 
-        _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
-            rules(`_rules') font("`_font'") ///
-            color1("`_headercolor'") color2("`_zebracolor'")
+            _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
+                rules(`_rules') font("`_font'") ///
+                color1("`_headercolor'") color2("`_zebracolor'")
 
-        mata: b.close_book()
-        local _book_open = 0
-        capture mata: mata drop b
+            mata: b.close_book()
+            local _book_open = 0
+            capture mata: mata drop b
 
-        capture confirm file `"`using'"'
-        if _rc {
-            noisily display as error "export command succeeded but file `using' was not found"
-            exit 601
+            capture confirm file `"`using'"'
+            if _rc {
+                noisily display as error "export command succeeded but file `using' was not found"
+                exit 601
+            }
         }
 
         * Stash results to post after cleanup
@@ -344,10 +396,12 @@ program define puttab, rclass
         local _ret_source  "`_src'"
         local _ret_csv     `"`csv'"'
 
-        noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
-            as text " data rows x " as result "`K'" as text " cols (" ///
-            as result "`_src'" as text " source) to sheet " ///
-            as result `"`sheet'"' as text " in " as result `"`using'"'
+        if `_has_using' {
+            noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
+                as text " data rows x " as result "`K'" as text " cols (" ///
+                as result "`_src'" as text " source) to sheet " ///
+                as result `"`sheet'"' as text " in " as result `"`using'"'
+        }
     }
     local rc = _rc
     if `_book_open' {
@@ -367,11 +421,18 @@ program define puttab, rclass
     return scalar n_cols    = `_ret_cols'
     return scalar n_datarows = `_ret_data'
     return local  source    "`_ret_source'"
-    return local  sheet     `"`_ret_sheet'"'
-    return local  file      `"`_ret_file'"'
+    if `"`_ret_file'"' != "" {
+        return local  sheet     `"`_ret_sheet'"'
+        return local  file      `"`_ret_file'"'
+    }
     if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
 
-    if "`open'" != "" _tabtools_open_file `"`_ret_file'"'
+    if "`open'" != "" & `"`_ret_file'"' != "" _tabtools_open_file `"`_ret_file'"'
 end
 
 

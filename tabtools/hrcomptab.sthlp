@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -47,10 +47,12 @@
 {synopt:{opt rown:ames(string)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
+{synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
-{synopt:{opt csv(filename)}}export to CSV file{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export to CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -236,8 +238,14 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(effect)}}effect header label used in the final table{p_end}
 {synopt:{cmd:r(xlsx)}}Excel path, when exported{p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name, when exported{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 
 {marker author}{...}

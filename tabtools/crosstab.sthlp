@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -14,7 +14,7 @@
 {title:Title}
 
 {phang}
-{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel export
+{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel and Markdown export
 
 {marker syntax}{title:Syntax}
 
@@ -25,7 +25,7 @@
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt boldp(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -70,7 +70,9 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synoptline}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
-{synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}also export the output dataset as CSV{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -127,6 +129,9 @@ exits with an error instead of silently omitting the measure.{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {marker alsosee}{title:Also see}
 

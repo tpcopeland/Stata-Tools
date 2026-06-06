@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.3.1  2026/05/27
+*! hrcomptab Version 1.4.0  2026/06/05
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,7 +44,7 @@ program define hrcomptab, rclass
             BORDERstyle(string) THEme(string) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
-            CSV(string) FRAme(string) DISplay]
+            CSV(string) MARKdown(string) MDAPPend FRAme(string) DISplay]
 
         * rows() xor rownames()
         if `"`rows'"' == "" & `"`rownames'"' == "" {
@@ -77,6 +77,21 @@ program define hrcomptab, rclass
             _tabtools_validate_path "`xlsx'" "xlsx()"
         }
         if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+        if "`mdappend'" != "" & `"`markdown'"' == "" {
+            display as error "mdappend requires markdown()"
+            exit 198
+        }
+        if `"`markdown'"' != "" {
+            _tabtools_validate_path `"`markdown'"' "markdown()"
+            local _md_lower = lower(`"`markdown'"')
+            if !(strmatch(`"`_md_lower'"', "*.md") | ///
+                 strmatch(`"`_md_lower'"', "*.markdown") | ///
+                 strmatch(`"`_md_lower'"', "*.qmd") | ///
+                 strmatch(`"`_md_lower'"', "*.rmd")) {
+                display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+                exit 198
+            }
+        }
         _tabtools_validate_sheet "`sheet'" "sheet()"
 
         * Resolve formatting
@@ -601,6 +616,25 @@ program define hrcomptab, rclass
             }
         }
 
+        local _ret_markdown ""
+        local _ret_markdown_rows .
+        local _ret_markdown_cols .
+        if `"`markdown'"' != "" {
+            local _mdappend_opt ""
+            if "`mdappend'" != "" local _mdappend_opt "append"
+            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+                `_mdappend_opt' title(`"`_out_title'"') footnote(`"`footnote'"')
+            if _rc {
+                local _md_rc = _rc
+                display as error "Failed to export Markdown to `markdown'"
+                exit `_md_rc'
+            }
+            local _ret_markdown `"`markdown'"'
+            local _ret_markdown_rows = r(n_rows)
+            local _ret_markdown_cols = r(n_cols)
+            display as text "Markdown exported to `markdown'"
+        }
+
         * Frame output
         if `"`frame'"' != "" {
             _tabtools_frame_put `"`frame'"'
@@ -617,6 +651,11 @@ program define hrcomptab, rclass
         return local modelframes "`modelframes'"
         return local effect "`effect'"
         if "`csv'" != "" return local csv "`csv'"
+        if `"`_ret_markdown'"' != "" {
+            return local markdown `"`_ret_markdown'"'
+            return scalar markdown_rows = `_ret_markdown_rows'
+            return scalar markdown_cols = `_ret_markdown_cols'
+        }
 
         * Excel export
         local _xlsx_ok 0

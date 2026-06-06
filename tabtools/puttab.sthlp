@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.6  01jun2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -40,7 +40,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt zeb:ra} {opt headers:hade}
 {opt dig:its(#)} {opt varl:abels} {opt noh:eader}
-{opt csv(filename)} {opt open}]{p_end}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
 (required when no {opt frame()} or {opt matrix()} is given), a named
@@ -94,7 +94,9 @@ memory are left unchanged.{p_end}
 {synoptset 26 tabbed}{...}
 {synopt:{cmd:using} {it:filename}}target workbook; must end in {cmd:.xlsx}; the {opt sheet()} is created or replaced{p_end}
 {synopt:{opt sh:eet(string)}}Excel sheet name (required){p_end}
-{synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}also write the assembled table to a CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 {synoptline}
 
@@ -151,6 +153,9 @@ memory are left unchanged.{p_end}
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}
 {synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(file)}}Excel filename{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
 

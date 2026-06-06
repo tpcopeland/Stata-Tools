@@ -1,4 +1,4 @@
-*! table1_tc Version 1.3.1  2026/05/27 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.4.0  2026/06/05 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -79,6 +79,8 @@ program define table1_tc, rclass
         [HEADERColor(string)]   /// Custom header background color (R G B)
         [ZEBRAColor(string)]    /// Custom zebra stripe color (R G B)
         [csv(string)]           /// Export data as CSV file
+        [MARKdown(string)]      /// Export data as Markdown file
+        [MDAPPend]              /// Append Markdown table
         [MISSINGSummary]        /// Add missing data summary row per variable
         [NOIsily]               /// Show auto-detection classification decisions
         [dots]                  /// Show progress dots per variable
@@ -86,6 +88,8 @@ program define table1_tc, rclass
         [NOPvalue]              /// Suppress p-value column
 
 **# Input Validation and Option Setup
+
+    local _markdown_title `"`title'"'
 
     /* Accept xlsx() as synonym for excel() */
     if "`excel'" == "" & "`xlsx'" != "" local excel "`xlsx'"
@@ -135,6 +139,7 @@ program define table1_tc, rclass
 
     /* Check if Excel options are properly specified */
     local has_excel = "`excel'" != ""  // Boolean flag for Excel option
+    local has_markdown = `"`markdown'"' != ""
     local has_sheet = "`sheet'" != ""  // Boolean flag for sheet option
     local has_title = "`title'" != ""  // Boolean flag for title option
     local has_open = "`open'" != ""    // Boolean flag for open option
@@ -153,9 +158,13 @@ program define table1_tc, rclass
     // Validate sheet name for Excel constraints
     if `has_sheet' _tabtools_validate_sheet "`sheet'" "sheet()"
 
-    // sheet() and title() only make sense with excel()
-    if !`has_excel' & (`has_sheet' | `has_title') {
-        display as error "sheet() and title() are only available when using excel()"
+    // sheet() only makes sense with excel(); title() also applies to Markdown.
+    if !`has_excel' & `has_sheet' {
+        display as error "sheet() is only available when using excel()"
+        error 498
+    }
+    if !`has_excel' & !`has_markdown' & `has_title' {
+        display as error "title() is only available when using excel() or markdown()"
         error 498
     }
     if `has_open' & !`has_excel' {
@@ -170,6 +179,21 @@ program define table1_tc, rclass
             error 198
         }
         _tabtools_validate_path "`excel'" "excel()"
+    }
+    if "`mdappend'" != "" & !`has_markdown' {
+        display as error "mdappend requires markdown()"
+        error 198
+    }
+    if `has_markdown' {
+        _tabtools_validate_path `"`markdown'"' "markdown()"
+        local _md_lower = lower(`"`markdown'"')
+        if !(strmatch(`"`_md_lower'"', "*.md") | ///
+             strmatch(`"`_md_lower'"', "*.markdown") | ///
+             strmatch(`"`_md_lower'"', "*.qmd") | ///
+             strmatch(`"`_md_lower'"', "*.rmd")) {
+            display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            error 198
+        }
     }
 
     /* Validate pdp and highpdp options */
@@ -1833,6 +1857,26 @@ program define table1_tc, rclass
         display as text "CSV exported to `csv'"
     }
 
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `has_markdown' {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"')
+        if _rc {
+            local _md_rc = _rc
+            display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        display as text "Markdown exported to `markdown'"
+    }
+
 **#  Store output in frame if requested (I5)
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
@@ -1849,6 +1893,11 @@ program define table1_tc, rclass
     if `_xlsx_ok' {
         return local xlsx "`excel'"
         return local sheet "`sheet'"
+    }
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
     }
 
     /* Open file if requested (W3) */

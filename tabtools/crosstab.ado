@@ -1,4 +1,4 @@
-*! crosstab Version 1.3.1  2026/05/27
+*! crosstab Version 1.4.0  2026/06/05
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -56,7 +56,7 @@ capture noisily {
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
-        csv(string) FRAme(string) DISplay open]
+        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open]
 
     gettoken rowvar colvar : varlist
 
@@ -105,6 +105,21 @@ capture noisily {
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    if "`mdappend'" != "" & `"`markdown'"' == "" {
+        noisily display as error "mdappend requires markdown()"
+        exit 198
+    }
+    if `"`markdown'"' != "" {
+        _tabtools_validate_path `"`markdown'"' "markdown()"
+        local _md_lower = lower(`"`markdown'"')
+        if !(strmatch(`"`_md_lower'"', "*.md") | ///
+             strmatch(`"`_md_lower'"', "*.markdown") | ///
+             strmatch(`"`_md_lower'"', "*.qmd") | ///
+             strmatch(`"`_md_lower'"', "*.rmd")) {
+            noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            exit 198
+        }
+    }
 
     local _pct_modes = 0
     if "`colpct'" != "" local ++_pct_modes
@@ -435,6 +450,27 @@ capture noisily {
         noisily display as text "CSV exported to `csv'"
     }
 
+**# Markdown Export
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+        if _rc {
+            local _md_rc = _rc
+            noisily display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        noisily display as text "Markdown exported to `markdown'"
+    }
+
 **# Frame Output
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
@@ -445,6 +481,11 @@ capture noisily {
     capture return matrix table = `_rtable'
     return scalar N = `_total_n'
     if "`frame'" != "" return local frame "`frame'"
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
 
     * Methods paragraph
     local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."

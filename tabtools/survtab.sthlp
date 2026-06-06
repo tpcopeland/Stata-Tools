@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  27may2026}{...}
+{* *! version 1.4.0  05jun2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -25,7 +25,7 @@ and restricted mean survival time.{p_end}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headers:hade} {opt headerc:olor(string)} {opt boldp(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
-{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}.{p_end}
@@ -69,12 +69,14 @@ colors — are supported.{p_end}
 {synopt:{opt ev:ents}}add aggregate Events / N row per group{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel output file; {opt excel()} is a synonym{p_end}
+{synopt:{opt xlsx(filename)}}Excel and Markdown output file; {opt excel()} is a synonym{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Survival"}{p_end}
 {synopt:{opt title(string)}}table title in row 1{p_end}
 {synopt:{opt foot:note(string)}}footnote below the table{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
-{synopt:{opt csv(filename)}}export a CSV file alongside Excel output{p_end}
+{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export a CSV file alongside Excel and Markdown output{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 
@@ -140,9 +142,15 @@ colors — are supported.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}survival estimates at each timepoint by group{p_end}
