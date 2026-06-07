@@ -18,14 +18,16 @@ d   diagtab        - Diagnostic accuracy (Se, Sp, PPV, NPV, ROC)
 d   corrtab        - Correlation matrix with significance stars
 d   puttab         - Style an in-memory dataset, frame, or matrix as one sheet
 d   stacktab       - Assemble multi-sheet composite Excel tables from blocks
+d   simtab         - Monte Carlo simulation performance table and export
 d
 d Commands apply consistent Excel formatting and can emit GitHub-Flavored
 d Markdown tables for report workflows.
 d
-d Requires: Stata version 16+ (tabtools, table1_tc), 17+ (all other commands)
+d Requires: Stata version 16+ (tabtools, table1_tc, simtab), 17+ (all other commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
+d Optional: simsum / siman for simtab ingest mode (from()) and analysis
 d
-d Distribution-Date: 20260606
+d Distribution-Date: 20260607
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -68,6 +70,9 @@ f puttab.ado
 f puttab.sthlp
 f stacktab.ado
 f stacktab.sthlp
+f simtab.ado
+f simtab.sthlp
+f _simtab_ingest.ado
 f xlsxcompose.ado
 f xlsxcompose.sthlp
 f tabtools_cheatsheet.sthlp

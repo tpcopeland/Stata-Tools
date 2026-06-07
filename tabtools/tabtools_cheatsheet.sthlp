@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  06jun2026}{...}
+{* *! version 1.6.0  07jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
@@ -14,7 +14,7 @@
 {vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
-{title:tabtools Quick Reference (v1.5.2)}
+{title:tabtools Quick Reference (v1.6.0)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -134,10 +134,18 @@ assembles them.{p_end}
 {phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide") blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)} {it:// place blocks side by side}{p_end}
 
 {hline}
+{title:simtab} {it:(Monte Carlo simulation performance table; pairs with simsum/siman)}
+
+{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) by(scenario) estimand(target) sim(rep) coverage(covered) display} {it:// compute mode (long reps)}{p_end}
+{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000) metrics(mean bias empse meanse coverage n nonconv) xlsx("t2.xlsx") sheet("Table 2")} {it:// non-convergence + Excel}{p_end}
+{phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear} {it:// analysis by simsum ...}{p_end}
+{phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display} {it:// ... table by simtab (ingest mode)}{p_end}
+
+{hline}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.5.2{p_end}
+{pstd}Version 1.6.0{p_end}
 
 {hline}

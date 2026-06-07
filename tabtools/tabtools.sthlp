@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  06jun2026}{...}
+{* *! version 1.6.0  07jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -18,6 +18,7 @@
 {vieweralsosee "hrcomptab" "help hrcomptab"}{...}
 {vieweralsosee "puttab" "help puttab"}{...}
 {vieweralsosee "stacktab" "help stacktab"}{...}
+{vieweralsosee "simtab" "help simtab"}{...}
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
@@ -91,6 +92,11 @@ worked examples.
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
 {synopt:{helpb diagtab}}Sensitivity, specificity, PPV, NPV, ROC{p_end}
+
+{pstd}
+{bf:Simulation studies}
+
+{synopt:{helpb simtab}}Monte Carlo simulation performance table (pairs with simsum/siman){p_end}
 
 {pstd}
 {bf:Utility}
@@ -348,6 +354,6 @@ across sessions.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.5.2{p_end}
+{pstd}{bf:Version} 1.6.0{p_end}
 
 {hline}

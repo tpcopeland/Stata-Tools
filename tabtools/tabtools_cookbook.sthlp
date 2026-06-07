@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  06jun2026}{...}
+{* *! version 1.6.0  07jun2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -528,6 +528,38 @@ deprecated alias for {cmd:stacktab}.{p_end}
 
 {hline}
 
+{title:Recipe 21. Monte Carlo simulation performance table with simtab}
+
+{pstd}{cmd:simtab} turns replication-level simulation results into a styled,
+exportable performance table. It pairs with {cmd:simsum}/{cmd:siman}, which own
+the statistics; {cmd:simtab} owns the publication table. The input is long: one
+row per replication x estimator x estimand x scenario.{p_end}
+
+{phang2}{cmd:* Compute mode: simtab summarizes the raw replications itself}{p_end}
+{phang2}{cmd:simtab estimator, estimate(estimate) se(se) true(true_value) ///}{p_end}
+{phang3}{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) ///}{p_end}
+{phang3}{cmd:nsim(1000) metrics(mean bias empse meanse coverage n nonconv) ///}{p_end}
+{phang3}{cmd:xlsx("sim.xlsx") sheet("Table 2") title("Simulation results") ///}{p_end}
+{phang3}{cmd:borderstyle(academic) digits(3) plotframe(sim_plot, replace) display}{p_end}
+
+{pstd}{cmd:nsim()} reports non-convergence ({cmd:nfail}/{cmd:pctfail}): failed
+fits dropped by a typical {cmd:capture ... if _rc==0 post} loop are otherwise
+invisible. {cmd:plotframe()} stores a numeric companion (one row per cell, with
+Monte Carlo SEs) for figures; it cannot drive zipper plots (use {cmd:siman}).{p_end}
+
+{phang2}{cmd:* Ingest mode: analysis by simsum, table by simtab}{p_end}
+{phang2}{cmd:use sim_results_long.dta, clear}{p_end}
+{phang2}{cmd:simsum estimate, true(true_value) se(se) methodvar(estimator) id(sim) mcse clear}{p_end}
+{phang2}{cmd:simtab, from(simsum) xlsx("sim.xlsx") sheet("Table 2") display}{p_end}
+
+{pstd}For any pre-summarized per-cell data, {cmd:from(summary)} maps columns
+explicitly and never depends on an external package:{p_end}
+
+{phang2}{cmd:simtab, from(summary) byvar(scenario) estimatorvar(method) ///}{p_end}
+{phang3}{cmd:estimandvar(target) measures(mean=m bias=b coverage=cov n=nrep) display}{p_end}
+
+{hline}
+
 {title:Also see}
 
 {pstd}{helpb tabtools} — overview and settings{p_end}
@@ -535,7 +567,7 @@ deprecated alias for {cmd:stacktab}.{p_end}
 {pstd}{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, {helpb stratetab},
 {helpb survtab}, {helpb crosstab}, {helpb diagtab},
 {helpb corrtab}, {helpb comptab}, {helpb hrcomptab}, {helpb puttab},
-{helpb stacktab} — individual command help{p_end}
+{helpb stacktab}, {helpb simtab} — individual command help{p_end}
 
 {hline}
 
@@ -543,6 +575,6 @@ deprecated alias for {cmd:stacktab}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.5.2{p_end}
+{pstd}{bf:Version} 1.6.0{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! tabtools Version 1.5.2  2026/06/06
+*! tabtools Version 1.6.0  2026/06/07
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -32,7 +32,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.5.2"
+        local _package_version "1.6.0"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -370,8 +370,8 @@ program define tabtools, rclass
 
         // Validate category option
         local category = lower("`category'")
-        if !inlist("`category'", "all", "descriptive", "models", "rates", "general", "survival", "diagnostics", "composite", "export") {
-            display as error "category() must be: all, descriptive, models, rates, survival, diagnostics, composite, export, or general"
+        if !inlist("`category'", "all", "descriptive", "models", "rates", "general", "survival", "diagnostics", "composite", "export", "simulation") {
+            display as error "category() must be: all, descriptive, models, rates, survival, diagnostics, composite, export, simulation, or general"
             exit 198
         }
 
@@ -383,6 +383,7 @@ program define tabtools, rclass
         local cmd_diagnostics "diagtab"
         local cmd_composite "comptab hrcomptab"
         local cmd_export "puttab stacktab"
+        local cmd_simulation "simtab"
         local cmd_general "tabtools"
 
         // Build selected list based on category
@@ -407,11 +408,14 @@ program define tabtools, rclass
         else if "`category'" == "export" {
             local selected_cmds "`cmd_export'"
         }
+        else if "`category'" == "simulation" {
+            local selected_cmds "`cmd_simulation'"
+        }
         else if "`category'" == "general" {
             local selected_cmds "`cmd_general'"
         }
         else {
-            local selected_cmds "`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_diagnostics' `cmd_composite' `cmd_export' `cmd_general'"
+            local selected_cmds "`cmd_descriptive' `cmd_models' `cmd_rates' `cmd_survival' `cmd_diagnostics' `cmd_composite' `cmd_export' `cmd_simulation' `cmd_general'"
         }
 
         // Count commands
@@ -487,6 +491,12 @@ program define tabtools, rclass
                 display as text ""
             }
 
+            if inlist("`category'", "all", "simulation") {
+                display as text "{bf:Simulation Studies}"
+                display as result "  simtab       " as text "- Monte Carlo performance table (pairs with simsum/siman)"
+                display as text ""
+            }
+
             if inlist("`category'", "all", "general") {
                 display as text "{bf:General Purpose}"
                 display as result "  tabtools     " as text "- Suite controller and persistent defaults"
@@ -506,7 +516,7 @@ program define tabtools, rclass
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
         return local version "`_package_version'"
-        return local categories "descriptive models rates survival diagnostics composite export general"
+        return local categories "descriptive models rates survival diagnostics composite export simulation general"
     }
 
     } // end capture noisily
@@ -616,6 +626,17 @@ program define _tabtools_detail
             display as result "  stacktab" as text "     Assemble multi-sheet composite Excel tables from"
             display as text "               source blocks (vstack or hstack), with column"
             display as text "               merges, titles, and notes. Formerly xlsxcompose."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "simulation") {
+            display as text "{bf:Simulation Studies}"
+            display as text "  {hline 60}"
+            display as result "  simtab" as text "       Render and export a Monte Carlo simulation"
+            display as text "               performance table (bias, empirical/model SE,"
+            display as text "               coverage, ...) from replication-level results,"
+            display as text "               or ingest a simsum/siman summary. Pairs with"
+            display as text "               simsum and siman for full analysis and graphs."
             display as text ""
         }
 

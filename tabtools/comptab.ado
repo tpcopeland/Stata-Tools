@@ -1,4 +1,4 @@
-*! comptab Version 1.5.2  2026/06/06
+*! comptab Version 1.6.0  2026/06/07
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
