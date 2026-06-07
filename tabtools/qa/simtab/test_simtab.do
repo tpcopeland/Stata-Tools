@@ -261,6 +261,11 @@ capture noisily {
     simtab estid, estimate(est) se(se) true(0.10) coverage(covered) csv("`c8'")
     assert "`r(csv)'" == "`c8'"
     confirm file "`c8'"
+    * footnote stays in the frame's full table even though the console preview
+    * drops it (so a long footnote cannot inflate the console column width)
+    simtab estid, estimate(est) se(se) true(0.10) coverage(covered) ///
+        footnote("My footnote line.") frame(ft8, replace) display
+    frame ft8: assert c1[_N] == "My footnote line."
 }
 if _rc == 0 {
     display as result "  PASS T8: csv + true literal"

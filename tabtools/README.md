@@ -157,6 +157,66 @@ Excerpt from the generated Markdown report:
 | Hypertension | 4,112 (46.0%) | 2,935 (48.4%) | 0.005 |
 ```
 
+### Simulation performance tables (`simtab`)
+
+`demo/demo_simtab.do` builds a Monte Carlo study of three estimators (Unweighted, IIW, IIW + log(test)) across three scenarios and two estimands, then renders it with `simtab`. The Unweighted estimator is biased — its coverage is flagged off-nominal (`*`) and its failed fits surface through `nsim()` as non-convergence (`Non-conv.`). Run it from a local checkout:
+
+```bash
+stata-mp -b do tabtools/demo/demo_simtab.do
+```
+
+**Compute mode** summarizes the raw replications into a styled, scenario-grouped table (console preview, with the off-nominal-coverage flag and per-cell non-convergence count):
+
+```stata
+. simtab estid, estimate(est) se(se) true(truev) by(scen) sim(sim) coverage(covered) ///
+      nsim(400) metrics(mean bias empse meanse coverage n nonconv) digits(3) ///
+      xlsx("demo_simtab.xlsx") sheet("Scenarios") display
+```
+
+```
+Simulation results by scenario (400 replications)
+  +----------------------------------------------------------------------------------------------+
+  | Scenario         Estimator    Mean     Bias   Emp. SE   Mean SE   Coverage     N   Non-conv. |
+  |        A        Unweighted   0.142   +0.042     0.040     0.042       86%*   372          28 |
+  |                        IIW   0.093   -0.007     0.039     0.042        95%   400           0 |
+  |            IIW + log(test)   0.109   +0.009     0.039     0.042        96%   400           0 |
+  |        B        Unweighted   0.151   +0.051     0.042     0.042       75%*   379          21 |
+  |                        IIW   0.102   +0.002     0.042     0.042        96%   400           0 |
+  |            IIW + log(test)   0.120   +0.020     0.039     0.042        94%   400           0 |
+  |        C        Unweighted   0.157   +0.057     0.041     0.042       74%*   379          21 |
+  |                        IIW   0.110   +0.010     0.040     0.042        96%   400           0 |
+  |            IIW + log(test)   0.128   +0.028     0.040     0.042       92%*   400           0 |
+  +----------------------------------------------------------------------------------------------+
+
+Coverage is empirical 95% CI coverage; * flags off-nominal coverage.
+```
+
+The numeric **`plotframe()`** companion stores one row per cell with the raw measures and their Monte Carlo SEs — the structured source for figures, replacing the "parse a text log" boundary:
+
+```
+  +-----------------------------------------------------------------------------------------+
+  | by_label   estimator_label    mean     bias   empse   coverage   mcse_c~e   nfail     n |
+  |        A        Unweighted   0.142    0.042   0.040      0.858      0.018      28   372 |
+  |        A               IIW   0.093   -0.007   0.039      0.952      0.011       0   400 |
+  |        A   IIW + log(test)   0.109    0.009   0.039      0.962      0.009       0   400 |
+  |       ...                                                                               |
+  +-----------------------------------------------------------------------------------------+
+```
+
+With **two estimands**, Excel gets merged column-group headers (one block per estimand) and Markdown/CSV get flattened `Estimand: metric` columns. The demo writes the `Multi-estimand` sheet of `demo/demo_simtab.xlsx` and this Markdown report (`demo/demo_simtab_report.md`):
+
+```markdown
+### Simulation results by scenario and estimand
+
+| Scenario | Estimator | Marginal slope: Mean | Marginal slope: Bias | Marginal slope: Coverage | Marginal slope: N | Treatment contrast: Mean | Treatment contrast: Bias | Treatment contrast: Coverage | Treatment contrast: N |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | Unweighted | 0.142 | +0.042 | 86%* | 372 | 0.540 | +0.040 | 85%* | 372 |
+|  | IIW | 0.093 | -0.007 | 95% | 400 | 0.493 | -0.007 | 95% | 400 |
+|  | IIW + log(test) | 0.109 | +0.009 | 96% | 400 | 0.512 | +0.012 | 94% | 400 |
+```
+
+**Ingest mode** renders an already-computed per-cell summary without recomputation — `from(summary)` is dependency-free, and `from(simsum)` / `from(siman)` read those packages' output directly (`simtab` cross-validates to exact agreement with both). `simtab` itself installs and runs with neither package present.
+
 ### Suite overview
 
 ```stata

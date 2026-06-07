@@ -123,19 +123,72 @@ else {
 }
 
 * =====================================================================
-**# T4: from(siman) -- capture-guarded against live siman
+**# T4: from(siman) -- capture-guarded; reproduces siman analyse values
+*   Requires siman (UCL) plus its sencode/labelsof dependencies. Under the
+*   run_all harness (temp PLUS adopath) these are hidden, so this SKIPs;
+*   a direct run against the real adopath exercises the live adapter.
 * =====================================================================
 local ++test_count
-capture which siman
-if _rc {
-    display as text "  SKIP T4: siman not installed"
+local _siman_ok = 1
+foreach _dep in siman sencode labelsof {
+    capture which `_dep'
+    if _rc local _siman_ok = 0
+}
+if !`_siman_ok' {
+    display as text "  SKIP T4: siman (or sencode/labelsof) not installed"
 }
 else {
     capture noisily {
-        display as text "  (siman present; adapter smoke only)"
+        clear
+        set seed 70
+        set obs 1200
+        gen long rep = ceil(_n/2)
+        gen byte methnum = mod(_n,2)
+        gen str8 estimator = cond(methnum==1, "B", "A")
+        gen byte scen = 1 + (rep>300)
+        label define _sc 1 "S1" 2 "S2", replace
+        label values scen _sc
+        gen double estimate = 0.5 + rnormal(cond(estimator=="A",0.04,0), 0.1)
+        gen double se = 0.1 + runiform()*0.01
+        drop methnum
+
+        siman setup, rep(rep) estimate(estimate) se(se) method(estimator) ///
+            dgm(scen) true(0.5)
+        siman analyse
+
+        * reference performance values straight from siman's rows
+        foreach mm in A B {
+            forvalues s = 1/2 {
+                foreach code in bias empse cover {
+                    quietly summarize estimate if _perfmeascode=="`code'" ///
+                        & estimator=="`mm'" & scen==`s', meanonly
+                    local ref_`code'_`mm'`s' = r(mean)
+                }
+            }
+        }
+
+        * simtab renders the siman output already in memory
+        simtab, from(siman) plotframe(spf, replace) display
+        assert r(source) == "siman"
+        assert r(n_by) == 2
+        assert r(n_estimators) == 2
+
+        foreach mm in A B {
+            forvalues s = 1/2 {
+                frame spf: quietly summarize bias ///
+                    if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert reldif(r(mean), `ref_bias_`mm'`s'') < 1e-5
+                frame spf: quietly summarize empse ///
+                    if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert reldif(r(mean), `ref_empse_`mm'`s'') < 1e-5
+                frame spf: quietly summarize coverage ///
+                    if estimator_label=="`mm'" & by_label=="S`s'", meanonly
+                assert reldif(r(mean)*100, `ref_cover_`mm'`s'') < 1e-4
+            }
+        }
     }
     if _rc == 0 {
-        display as result "  PASS T4: from(siman) smoke"
+        display as result "  PASS T4: from(siman) reproduces siman values"
         local ++pass_count
     }
     else {

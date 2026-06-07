@@ -360,9 +360,11 @@ end
 
 
 * ============================================================================
-* siman analyse output  (best-effort; long performance rows)
-*   Looks for a performance-measure code column + value column + method/dgm
-*   columns. Reached only through siman's public output contract.
+* siman analyse output  (long performance rows; reached only through siman's
+*   public output contract). siman setup/analyse appends performance rows
+*   flagged by a non-missing _perfmeascode; the measure VALUE is in `estimate'
+*   and its Monte Carlo SE in `se'. Structure variables (method/dgm/target/true)
+*   are read from the siman_* _dta characteristics setup leaves behind.
 * ============================================================================
 capture program drop _simtab_ingest_siman
 program _simtab_ingest_siman, rclass
@@ -373,7 +375,7 @@ program _simtab_ingest_siman, rclass
         display as text "note: siman is not installed; reading current data as siman analyse output"
     }
 
-    * locate the performance-measure code column
+    * performance-measure code column + value column
     local _codevar ""
     foreach v in _perfmeascode perfmeascode {
         capture confirm variable `v'
@@ -386,103 +388,144 @@ program _simtab_ingest_siman, rclass
     local _has_est = (_rc == 0)
     if "`_codevar'" == "" | !`_has_est' {
         display as error "data does not look like siman analyse output (no performance-measure code / estimate column)"
-        display as error "run `siman analyse ...' first, or use from(summary) with explicit column options"
+        display as error "run `siman setup' then `siman analyse' first, or use from(summary) with explicit column options"
         exit 459
     }
 
-    * keep only performance rows when a _dataset flag is present
-    capture confirm variable _dataset
-    if !_rc {
-        quietly keep if _dataset == 0 | missing(_dataset) == 0
-    }
-
-    * method / dgm / target columns (best-effort detection)
-    local _method ""
-    foreach v in method methodvar _method {
-        capture confirm variable `v'
-        if !_rc {
-            local _method "`v'"
-            continue, break
-        }
+    * structure variables from siman characteristics (robust), with fallbacks
+    local _method : char _dta[siman_method]
+    local _dgm    : char _dta[siman_dgm]
+    local _target : char _dta[siman_target]
+    local _truev  : char _dta[siman_true]
+    if "`_method'" == "" {
+        capture confirm variable method
+        if !_rc local _method "method"
     }
     if "`_method'" == "" {
-        display as error "siman ingest could not find a method column; use from(summary)"
+        display as error "siman ingest could not identify the method variable; use from(summary)"
         exit 459
     }
-    local _dgm ""
-    foreach v in dgm dgmvar {
-        capture confirm variable `v'
-        if !_rc {
-            local _dgm "`v'"
-            continue, break
-        }
-    }
-    local _target ""
-    foreach v in target targetvar estimand {
-        capture confirm variable `v'
-        if !_rc {
-            local _target "`v'"
-            continue, break
-        }
+    * dgm() may be a varlist; use the first variable for the by dimension
+    local _dgm1 : word 1 of `_dgm'
+
+    * keep performance rows only
+    quietly keep if !missing(`_codevar')
+    quietly count
+    if r(N) == 0 {
+        display as error "no siman performance rows found; run `siman analyse' first"
+        exit 459
     }
 
-    * standardized labels/ords
-    quietly gen str244 estlab = strtrim(string(`_method'))
+    * ----- standardized estimator labels/ords -----
+    quietly gen str244 estlab = ""
     capture confirm string variable `_method'
     if !_rc quietly replace estlab = `_method'
+    else {
+        local _vl : value label `_method'
+        if "`_vl'" != "" {
+            tempvar _de
+            quietly decode `_method', generate(`_de')
+            quietly replace estlab = `_de'
+        }
+        else quietly replace estlab = strtrim(string(`_method', "%14.0g"))
+    }
     quietly egen long estord = group(`_method')
+
+    * ----- by (dgm) -----
     local _has_by = 0
-    if "`_dgm'" != "" {
+    if "`_dgm1'" != "" {
         local _has_by = 1
-        quietly gen str244 bylab = strtrim(string(`_dgm'))
-        capture confirm string variable `_dgm'
-        if !_rc quietly replace bylab = `_dgm'
+        quietly gen str244 bylab = ""
+        capture confirm string variable `_dgm1'
+        if !_rc quietly replace bylab = `_dgm1'
+        else {
+            local _vl : value label `_dgm1'
+            if "`_vl'" != "" {
+                tempvar _db
+                quietly decode `_dgm1', generate(`_db')
+                quietly replace bylab = `_db'
+            }
+            else quietly replace bylab = strtrim(string(`_dgm1', "%14.0g"))
+        }
         quietly egen long byord = group(`_dgm')
     }
+    else {
+        quietly gen str1 bylab = ""
+        quietly gen byte byord = 1
+    }
+
+    * ----- estimand (target) -----
     local _has_emd = 0
     if "`_target'" != "" {
         local _has_emd = 1
-        quietly gen str244 emdlab = strtrim(string(`_target'))
+        quietly gen str244 emdlab = ""
         capture confirm string variable `_target'
         if !_rc quietly replace emdlab = `_target'
+        else {
+            local _vl : value label `_target'
+            if "`_vl'" != "" {
+                tempvar _det
+                quietly decode `_target', generate(`_det')
+                quietly replace emdlab = `_det'
+            }
+            else quietly replace emdlab = strtrim(string(`_target', "%14.0g"))
+        }
         quietly egen long emdord = group(`_target')
     }
+    else {
+        quietly gen str1 emdlab = ""
+        quietly gen byte emdord = 1
+    }
 
-    * pivot performance codes to measure columns
-    local _codes  "bias pctbias mean empse modelse relerror cover power mse rmse nsim"
-    local _tokens "bias pctbias mean empse meanse relerr  coverage power mse rmse n"
+    * ----- true value -----
+    quietly gen double truev = .
+    if "`_truev'" != "" {
+        capture confirm variable `_truev'
+        if !_rc quietly replace truev = `_truev'
+    }
+
+    * ----- pivot siman codes to measure value (estimate) + mcse (se) columns -----
+    local _codes  "estreps bias pctbias mean empse modelse relerror cover power mse rmse"
+    local _tokens "n       bias pctbias mean empse meanse  relerr   coverage power mse rmse"
     local _nc : word count `_codes'
-
-    tempvar _cellid
-    local _cellvars `_method'
-    if "`_dgm'" != "" local _cellvars "`_cellvars' `_dgm'"
-    if "`_target'" != "" local _cellvars "`_cellvars' `_target'"
-    quietly egen long `_cellid' = group(`_cellvars')
-
     forvalues _k = 1/`_nc' {
         local _code : word `_k' of `_codes'
         local _tok  : word `_k' of `_tokens'
-        tempvar _mt
         if "`_tok'" == "n" {
-            quietly gen double n = .
-            quietly replace n = estimate if `_codevar' == "`_code'"
+            quietly gen double n = estimate if `_codevar' == "`_code'"
         }
         else {
-            quietly gen double m_`_tok' = .
+            quietly gen double m_`_tok'  = .
+            quietly gen double mc_`_tok' = .
             if inlist("`_tok'", "coverage", "power") {
-                quietly replace m_`_tok' = estimate/100 if `_codevar' == "`_code'"
+                quietly replace m_`_tok'  = estimate/100 if `_codevar' == "`_code'"
+                quietly replace mc_`_tok' = se/100       if `_codevar' == "`_code'"
             }
-            else quietly replace m_`_tok' = estimate if `_codevar' == "`_code'"
+            else {
+                quietly replace m_`_tok'  = estimate if `_codevar' == "`_code'"
+                quietly replace mc_`_tok' = se       if `_codevar' == "`_code'"
+            }
         }
     }
+    * meanse/relerr have no mcse slot in the standardized schema; drop the temps
+    capture drop mc_meanse
+    capture drop mc_relerr
 
-    * collapse to one row per cell (carry the non-missing measure value)
-    collapse (firstnm) estlab bylab emdlab byord estord emdord ///
-        (max) n m_* if 1, by(`_cellid')
-    capture drop `_cellid'
+    * ----- collapse to one row per cell (each measure non-missing in one row) -----
+    tempvar _cellid
+    local _cellvars `_method'
+    if "`_dgm'" != ""    local _cellvars "`_cellvars' `_dgm'"
+    if "`_target'" != "" local _cellvars "`_cellvars' `_target'"
+    quietly egen long `_cellid' = group(`_cellvars')
+    collapse (firstnm) estlab estord bylab byord emdlab emdord truev ///
+        (max) n m_* mc_*, by(`_cellid')
+    quietly drop `_cellid'
 
+    local _by_header "DGM"
+    if "`_dgm1'" != "" local _by_header "`_dgm1'"
+    local _est_header "`_method'"
     return scalar has_by = `_has_by'
     return scalar has_emd = `_has_emd'
-    return local by_header "DGM"
-    return local est_header "Method"
+    return local by_header "`_by_header'"
+    return local est_header "`_est_header'"
 end

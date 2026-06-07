@@ -688,12 +688,7 @@ program define simtab, rclass
             local _ft_hdr  = `_has_title' + 1
             local _ft_data = `_ft_hdr' + 1
 
-            * ----- console display -----
-            if `_has_disp' {
-                noisily _tabtools_console_display `_Kcols' `"`title'"', ///
-                    datastart(`_ft_data') headerstart(`_ft_hdr')
-            }
-            * ----- CSV -----
+            * ----- CSV (full table, incl. footnote row) -----
             if `_has_csv' {
                 export delimited using `"`csv'"', replace novarnames
                 capture confirm file `"`csv'"'
@@ -702,7 +697,7 @@ program define simtab, rclass
                     exit 601
                 }
             }
-            * ----- frame -----
+            * ----- frame (full table, incl. footnote row) -----
             if `_has_frame' {
                 _tabtools_frame_put `"`frame'"'
                 local _frame_out "`_frame_name'"
@@ -710,9 +705,18 @@ program define simtab, rclass
                 frame `_frame_out': char _dta[tabtools_kind] "rendered_table"
                 frame `_frame_out': char _dta[tabtools_metrics] "`disp_metrics'"
             }
-            * ----- markdown (last: drops title/footnote rows) -----
-            if `_has_md' {
+            * ----- console display -----
+            * drop the footnote row first: in `list, table' a long footnote in
+            * c1 would otherwise inflate the whole first column's width.
+            if `_has_disp' {
                 if `_has_foot' quietly drop in L
+                noisily _tabtools_console_display `_Kcols' `"`title'"', ///
+                    datastart(`_ft_data') headerstart(`_ft_hdr')
+                if `"`footnote'"' != "" noisily display as text `"`footnote'"'
+            }
+            * ----- markdown (last: drops remaining title/footnote rows) -----
+            if `_has_md' {
+                if `_has_foot' & !`_has_disp' quietly drop in L
                 if `_has_title' quietly drop in 1
                 local _mdappend_opt ""
                 if "`mdappend'" != "" local _mdappend_opt "append"
