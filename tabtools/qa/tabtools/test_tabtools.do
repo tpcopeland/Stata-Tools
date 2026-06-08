@@ -592,8 +592,8 @@ capture noisily {
     1 6 .
     end
     table1_tc, by(g) vars(y contn \ z bin) headerperc clear
-    assert g_0[2] == "3 (50.0%)"
-    assert g_1[2] == "3 (50.0%)"
+    assert g_0[2] == "3 (50.0)"
+    assert g_1[2] == "3 (50.0)"
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc - headerperc uses true group totals"
@@ -2328,6 +2328,91 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools set ..., permanent writes a profile and tabtools use reloads it
+local ++test_count
+capture noisily {
+    local _profile "`output_dir'/tabtools_profile_roundtrip.do"
+    capture erase "`_profile'"
+    tabtools set clear
+    tabtools set font "Times New Roman", permanent profile("`_profile'")
+    assert "`r(permanent)'" == "permanent"
+    assert "`r(profile)'" == "`_profile'"
+    confirm file "`_profile'"
+    tabtools set fontsize 12
+    tabtools set digits 3, permanent profile("`_profile'")
+    tabtools set clear
+    assert "$TABTOOLS_FONT" == ""
+    assert "$TABTOOLS_FONTSIZE" == ""
+    assert "$TABTOOLS_DIGITS" == ""
+    tabtools use using "`_profile'"
+    assert "`r(action)'" == "loaded"
+    assert "`r(profile)'" == "`_profile'"
+    assert "$TABTOOLS_FONT" == "Times New Roman"
+    assert "$TABTOOLS_FONTSIZE" == "12"
+    assert "$TABTOOLS_DIGITS" == "3"
+    capture erase "`_profile'"
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools permanent profile round-trip"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools permanent profile round-trip (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: permanent custom-theme profile is valid when the first custom option is not font()
+local ++test_count
+capture noisily {
+    local _profile "`output_dir'/tabtools_profile_custom.do"
+    capture erase "`_profile'"
+    tabtools set clear
+    tabtools set theme custom, fontsize(12) headercolor("200 220 240") permanent profile("`_profile'")
+    confirm file "`_profile'"
+    tabtools set clear
+    tabtools use, profile("`_profile'")
+    assert "$TABTOOLS_THEME" == "custom"
+    assert "$TABTOOLS_FONTSIZE" == "12"
+    assert "$TABTOOLS_HEADERCOLOR" == "200 220 240"
+    capture erase "`_profile'"
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools permanent custom-theme profile reloads"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools custom-theme profile reload (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: tabtools set profile() without permanent is rejected
+local ++test_count
+capture noisily {
+    tabtools set font Calibri, profile("`output_dir'/invalid_profile.do")
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools set profile() without permanent - rc=198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools set profile() without permanent - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools use missing profile returns Stata file-not-found rc
+local ++test_count
+capture noisily {
+    tabtools use using "`output_dir'/missing_tabtools_profile.do"
+}
+if _rc == 601 {
+    display as result "  PASS: tabtools use missing profile - rc=601"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools use missing profile - expected rc=601, got `=_rc'"
+    local ++fail_count
+}
+
 * Test: tabtools set fontsize below range → rc=198
 local ++test_count
 capture noisily {
@@ -2398,26 +2483,31 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools set font/size/border reject direct overrides under named theme
+* Test: tabtools set font/size/border convert named theme to custom before overriding
 local ++test_count
 capture noisily {
     tabtools set clear
     tabtools set theme lancet
-    capture noisily tabtools set font Calibri
-    assert _rc == 198
-    capture noisily tabtools set fontsize 11
-    assert _rc == 198
-    capture noisily tabtools set borderstyle thin
-    assert _rc == 198
+    tabtools set font Calibri
+    assert "$TABTOOLS_THEME" == "custom"
+    assert "$TABTOOLS_FONT" == "Calibri"
+    tabtools set theme lancet
+    tabtools set fontsize 11
+    assert "$TABTOOLS_THEME" == "custom"
+    assert "$TABTOOLS_FONTSIZE" == "11"
+    tabtools set theme lancet
+    tabtools set borderstyle thin
+    assert "$TABTOOLS_THEME" == "custom"
+    assert "$TABTOOLS_BORDER" == "thin"
 }
 tabtools set clear
 if _rc == 0 {
-    display as result "  PASS: tabtools direct setters reject named-theme no-ops"
+    display as result "  PASS: tabtools direct setters convert named themes to custom"
     local ++pass_count
 }
 else {
     tabtools set clear
-    display as error "  FAIL: tabtools named-theme setter rejection (error `=_rc')"
+    display as error "  FAIL: tabtools named-theme setter conversion (error `=_rc')"
     local ++fail_count
 }
 

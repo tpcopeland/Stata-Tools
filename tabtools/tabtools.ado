@@ -1,4 +1,4 @@
-*! tabtools Version 1.6.0  2026/06/07
+*! tabtools Version 1.6.1  2026/06/08
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -10,8 +10,11 @@ Basic syntax:
 Subcommands:
   (none)           - Display available commands (default)
   set key value    - Set persistent formatting default (font, fontsize, borderstyle)
+  set key value, permanent
+                   - Save current defaults to a disk profile after setting
   set clear        - Clear all persistent defaults
   get              - Display current persistent defaults
+  use [using file] - Load defaults from a saved tabtools profile
 
 Optional options (display mode):
   list             - Display commands as a simple list
@@ -32,17 +35,18 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.6.0"
+        local _package_version "1.6.1"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
         font(string) fontsize(integer 0) HEADERColor(string) ///
-        ZEBRAColor(string) BORDERstyle(string)]
+        ZEBRAColor(string) BORDERstyle(string) PERManent PROFile(string)]
 
     local _has_display_opts = ("`list'" != "" | "`detail'" != "" | "`category'" != "")
     local _has_theme_builder_opts = ///
         (`"`font'"' != "" | `fontsize' > 0 | `"`headercolor'"' != "" | ///
         `"`zebracolor'"' != "" | `"`borderstyle'"' != "")
+    local _has_profile_opts = ("`permanent'" != "" | `"`profile'"' != "")
 
     capture findfile _tabtools_common.ado
     if _rc {
@@ -80,6 +84,10 @@ program define tabtools, rclass
         }
         if `_has_display_opts' {
             display as error "list, detail, and category() are only allowed in display mode"
+            exit 198
+        }
+        if `"`profile'"' != "" & "`permanent'" == "" {
+            display as error "profile() is only allowed with tabtools set ..., permanent"
             exit 198
         }
 
@@ -270,6 +278,23 @@ program define tabtools, rclass
             display as error `"Unknown setting "`setkey'". Valid: font, fontsize, borderstyle, theme, digits, boldp, clear"'
             exit 198
         }
+
+        if "`permanent'" != "" {
+            local _profile_path `"`profile'"'
+            if `"`_profile_path'"' == "" {
+                local _profile_path `"`c(sysdir_personal)'tabtools_profile.do"'
+            }
+            local _profile_path : subinstr local _profile_path `"""' "", all
+            local _profile_path = strtrim(`"`_profile_path'"')
+            if `"`_profile_path'"' == "" {
+                display as error "profile() must name a writable .do file"
+                exit 198
+            }
+            _tabtools_write_profile, profile(`"`_profile_path'"') version(`"`_package_version'"')
+            display as text "tabtools: defaults saved to " as result `"`_profile_path'"'
+            return local permanent "permanent"
+            return local profile `"`_profile_path'"'
+        }
     }
 
     * =========================================================================
@@ -278,6 +303,10 @@ program define tabtools, rclass
     else if "`subcmd'" == "get" {
         if "`rest'" != "" {
             display as error "tabtools get does not accept additional arguments"
+            exit 198
+        }
+        if `_has_profile_opts' {
+            display as error "permanent and profile() are only allowed with tabtools set ..., permanent"
             exit 198
         }
         if `_has_display_opts' {
@@ -352,6 +381,54 @@ program define tabtools, rclass
     }
 
     * =========================================================================
+    * SUBCOMMAND: use
+    * =========================================================================
+    else if "`subcmd'" == "use" {
+        if `_has_display_opts' {
+            display as error "list, detail, and category() are only allowed in display mode"
+            exit 198
+        }
+        if `_has_theme_builder_opts' {
+            display as error "font()/fontsize()/headercolor()/zebracolor()/borderstyle() are only allowed with tabtools set theme custom"
+            exit 198
+        }
+        if "`permanent'" != "" {
+            display as error "permanent is only allowed with tabtools set"
+            exit 198
+        }
+
+        local _profile_path `"`profile'"'
+        if `"`rest'"' != "" {
+            gettoken _use_word _use_rest : rest, quotes
+            local _use_word = lower(strtrim(`"`_use_word'"'))
+            local _use_rest = strtrim(`"`_use_rest'"')
+            if "`_use_word'" != "using" | `"`_use_rest'"' == "" {
+                display as error `"tabtools use syntax is: tabtools use [using "profile.do"]"'
+                exit 198
+            }
+            if `"`_profile_path'"' != "" {
+                display as error "specify the profile path with using or profile(), not both"
+                exit 198
+            }
+            local _profile_path `"`_use_rest'"'
+        }
+        if `"`_profile_path'"' == "" {
+            local _profile_path `"`c(sysdir_personal)'tabtools_profile.do"'
+        }
+        local _profile_path : subinstr local _profile_path `"""' "", all
+        local _profile_path = strtrim(`"`_profile_path'"')
+        if `"`_profile_path'"' == "" {
+            display as error "profile() must name a tabtools profile .do file"
+            exit 198
+        }
+
+        _tabtools_use_profile, profile(`"`_profile_path'"')
+        display as text "tabtools: defaults loaded from " as result `"`_profile_path'"'
+        return local action "loaded"
+        return local profile `"`_profile_path'"'
+    }
+
+    * =========================================================================
     * DEFAULT: Display commands (original behavior)
     * =========================================================================
     else {
@@ -359,9 +436,13 @@ program define tabtools, rclass
             display as error "font()/fontsize()/headercolor()/zebracolor()/borderstyle() are only allowed with tabtools set theme custom"
             exit 198
         }
+        if `_has_profile_opts' {
+            display as error "permanent and profile() are only allowed with tabtools set ..., permanent"
+            exit 198
+        }
         * If anything was passed that isn't a subcommand, error
         if "`subcmd'" != "" {
-            display as error `"Unknown subcommand "`subcmd'". Use: tabtools [set|get] or tabtools [, list detail]"'
+            display as error `"Unknown subcommand "`subcmd'". Use: tabtools [set|get|use] or tabtools [, list detail]"'
             exit 198
         }
 
@@ -370,7 +451,10 @@ program define tabtools, rclass
 
         // Validate category option
         local category = lower("`category'")
-        if !inlist("`category'", "all", "descriptive", "models", "rates", "general", "survival", "diagnostics", "composite", "export", "simulation") {
+        local _valid_category = ///
+            inlist("`category'", "all", "descriptive", "models", "rates", "general") | ///
+            inlist("`category'", "survival", "diagnostics", "composite", "export", "simulation")
+        if !`_valid_category' {
             display as error "category() must be: all, descriptive, models, rates, survival, diagnostics, composite, export, simulation, or general"
             exit 198
         }
@@ -520,6 +604,108 @@ program define tabtools, rclass
     }
 
     } // end capture noisily
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
+end
+
+* Write current tabtools defaults as a runnable Stata profile.
+capture program drop _tabtools_write_profile
+program define _tabtools_write_profile, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _fh_open = 0
+    capture noisily {
+        syntax , PROFile(string) Version(string)
+        local profile : subinstr local profile `"""' "", all
+        local profile = strtrim(`"`profile'"')
+        if `"`profile'"' == "" {
+            display as error "profile() must name a writable .do file"
+            exit 198
+        }
+
+        tempname fh
+        quietly file open `fh' using `"`profile'"', write text replace
+        local _fh_open = 1
+        file write `fh' "* tabtools profile" _n
+        file write `fh' "* Generated by tabtools `version' on `c(current_date)' `c(current_time)'" _n
+        file write `fh' "tabtools set clear" _n
+
+        if "$TABTOOLS_THEME" == "custom" {
+            file write `fh' "tabtools set theme custom"
+            local _has_custom_opts = ///
+                ("$TABTOOLS_FONT" != "" | "$TABTOOLS_FONTSIZE" != "" | ///
+                "$TABTOOLS_HEADERCOLOR" != "" | "$TABTOOLS_ZEBRACOLOR" != "" | ///
+                "$TABTOOLS_BORDER" != "")
+            if `_has_custom_opts' {
+                file write `fh' ","
+            }
+            if "$TABTOOLS_FONT" != "" {
+                file write `fh' " font(" `"""' "$TABTOOLS_FONT" `"""' ")"
+            }
+            if "$TABTOOLS_FONTSIZE" != "" {
+                file write `fh' " fontsize($TABTOOLS_FONTSIZE)"
+            }
+            if "$TABTOOLS_HEADERCOLOR" != "" {
+                file write `fh' " headercolor(" `"""' "$TABTOOLS_HEADERCOLOR" `"""' ")"
+            }
+            if "$TABTOOLS_ZEBRACOLOR" != "" {
+                file write `fh' " zebracolor(" `"""' "$TABTOOLS_ZEBRACOLOR" `"""' ")"
+            }
+            if "$TABTOOLS_BORDER" != "" {
+                file write `fh' " borderstyle($TABTOOLS_BORDER)"
+            }
+            file write `fh' _n
+        }
+        else if "$TABTOOLS_THEME" != "" {
+            file write `fh' "tabtools set theme $TABTOOLS_THEME" _n
+        }
+        else {
+            if "$TABTOOLS_FONT" != "" {
+                file write `fh' "tabtools set font " `"""' "$TABTOOLS_FONT" `"""' _n
+            }
+            if "$TABTOOLS_FONTSIZE" != "" {
+                file write `fh' "tabtools set fontsize $TABTOOLS_FONTSIZE" _n
+            }
+            if "$TABTOOLS_BORDER" != "" {
+                file write `fh' "tabtools set borderstyle $TABTOOLS_BORDER" _n
+            }
+        }
+
+        if "$TABTOOLS_DIGITS" != "" {
+            file write `fh' "tabtools set digits $TABTOOLS_DIGITS" _n
+        }
+        if "$TABTOOLS_BOLDP" != "" {
+            file write `fh' "tabtools set boldp $TABTOOLS_BOLDP" _n
+        }
+
+        file close `fh'
+        local _fh_open = 0
+    }
+    local _rc = _rc
+    if `_fh_open' capture file close `fh'
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
+end
+
+* Load a saved tabtools profile into the current session.
+capture program drop _tabtools_use_profile
+program define _tabtools_use_profile, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , PROFile(string)
+        local profile : subinstr local profile `"""' "", all
+        local profile = strtrim(`"`profile'"')
+        if `"`profile'"' == "" {
+            display as error "profile() must name a tabtools profile .do file"
+            exit 198
+        }
+        confirm file `"`profile'"'
+        quietly do `"`profile'"'
+    }
     local _rc = _rc
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_set_widths Version 1.6.0  2026/06/07
+*! _tabtools_xlsx_set_widths Version 1.6.1  2026/06/08
 *! Apply Excel column widths to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

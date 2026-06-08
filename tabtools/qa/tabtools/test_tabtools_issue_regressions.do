@@ -204,9 +204,9 @@ capture noisily {
     1 6 .
     end
     table1_tc, by(g) vars(y contn \ z bin) headerperc total(before) clear
-    assert g_T[2] == "6 (100.0%)"
-    assert g_0[2] == "3 (50.0%)"
-    assert g_1[2] == "3 (50.0%)"
+    assert g_T[2] == "6 (100.0)"
+    assert g_0[2] == "3 (50.0)"
+    assert g_1[2] == "3 (50.0)"
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc headerperc total(before)"
@@ -231,9 +231,9 @@ capture noisily {
     1 6 .
     end
     table1_tc, by(g) vars(y contn \ z bin) headerperc total(after) clear
-    assert g_T[2] == "6 (100.0%)"
-    assert g_0[2] == "3 (50.0%)"
-    assert g_1[2] == "3 (50.0%)"
+    assert g_T[2] == "6 (100.0)"
+    assert g_0[2] == "3 (50.0)"
+    assert g_1[2] == "3 (50.0)"
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc headerperc total(after)"

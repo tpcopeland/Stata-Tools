@@ -155,29 +155,29 @@ program define _t1fba_expected_unweighted
     replace exp_pvalue = "p-value" in 1
     replace exp_smd_str = "SMD" in 1
 
-    replace exp_factor = "No. (Column %), and Mean (SD) or Median (Q1-Q3)" in 2
+    replace exp_factor = "No. (Column %), and Mean (SD) or Median (Q1, Q3)" in 2
     replace exp_trt_0 = "N=4" in 2
     replace exp_trt_1 = "N=4" in 2
 
     replace exp_factor = "Age at entry" in 3
-    replace exp_trt_0 = "52.00 (2.00)" in 3
-    replace exp_trt_1 = "63.00 (2.58)" in 3
+    replace exp_trt_0 = "52.00±2.00" in 3
+    replace exp_trt_1 = "63.00±2.58" in 3
     replace exp_test = "Ind. t test" in 3
     replace exp_statistic = "t(5)= -6.09" in 3
     replace exp_pvalue = " 0.002" in 3
     replace exp_smd_str = "4.648" in 3
 
     replace exp_factor = "Inflammation marker" in 4
-    replace exp_trt_0 = "5.0 (4.0-8.0)" in 4
-    replace exp_trt_1 = "9.5 (8.0-10.5)" in 4
+    replace exp_trt_0 = "5.0 (4.0, 8.0)" in 4
+    replace exp_trt_1 = "9.5 (8.0, 10.5)" in 4
     replace exp_test = "Wilcoxon rank-sum" in 4
     replace exp_statistic = "Z= -1.77" in 4
     replace exp_pvalue = " 0.077" in 4
     replace exp_smd_str = "1.920" in 4
 
     replace exp_factor = "Female sex" in 5
-    replace exp_trt_0 = "2 (50.0%)" in 5
-    replace exp_trt_1 = "2 (66.7%)" in 5
+    replace exp_trt_0 = "2 (50.0)" in 5
+    replace exp_trt_1 = "2 (66.7)" in 5
     replace exp_test = "Chi-square" in 5
     replace exp_statistic = "Chi2(1)=  0.19" in 5
     replace exp_pvalue = " 0.66" in 5
@@ -190,20 +190,20 @@ program define _t1fba_expected_unweighted
     replace exp_smd_str = "2.000" in 6
 
     replace exp_factor = "   Stage I" in 7
-    replace exp_trt_0 = "2 (50.0%)" in 7
-    replace exp_trt_1 = "0 ( 0.0%)" in 7
+    replace exp_trt_0 = "2 (50.0)" in 7
+    replace exp_trt_1 = "0 (0.0)" in 7
 
     replace exp_factor = "   Stage II" in 8
-    replace exp_trt_0 = "1 (25.0%)" in 8
-    replace exp_trt_1 = "1 (25.0%)" in 8
+    replace exp_trt_0 = "1 (25.0)" in 8
+    replace exp_trt_1 = "1 (25.0)" in 8
 
     replace exp_factor = "   Stage III" in 9
-    replace exp_trt_0 = "0 ( 0.0%)" in 9
-    replace exp_trt_1 = "2 (50.0%)" in 9
+    replace exp_trt_0 = "0 (0.0)" in 9
+    replace exp_trt_1 = "2 (50.0)" in 9
 
     replace exp_factor = "   Missing" in 10
-    replace exp_trt_0 = "1 (25.0%)" in 10
-    replace exp_trt_1 = "1 (25.0%)" in 10
+    replace exp_trt_0 = "1 (25.0)" in 10
+    replace exp_trt_1 = "1 (25.0)" in 10
 end
 
 capture program drop _t1fba_expected_weighted
@@ -222,7 +222,7 @@ program define _t1fba_expected_weighted
     replace exp_trt_1 = "Active" in 1
     replace exp_smd_str = "SMD" in 1
 
-    replace exp_factor = "Column % (No.), and Mean (SD) or Median (Q1-Q3)" in 2
+    replace exp_factor = "Column % (No.), and Mean (SD) or Median (Q1, Q3)" in 2
     replace exp_trt_0 = "N=4" in 2
     replace exp_trt_1 = "N=4" in 2
 
@@ -231,38 +231,38 @@ program define _t1fba_expected_weighted
     replace exp_trt_1 = "ESS=3" in 3
 
     replace exp_factor = "Age at entry" in 4
-    replace exp_trt_0 = "52.00 (1.73)" in 4
-    replace exp_trt_1 = "63.00 (2.31)" in 4
+    replace exp_trt_0 = "52.00±1.73" in 4
+    replace exp_trt_1 = "63.00±2.31" in 4
     replace exp_smd_str = "5.389" in 4
 
     replace exp_factor = "Inflammation marker" in 5
-    replace exp_trt_0 = "6.5 (5.0-8.0)" in 5
-    replace exp_trt_1 = "10.0 (8.0-10.0)" in 5
+    replace exp_trt_0 = "6.5 (5.0, 8.0)" in 5
+    replace exp_trt_1 = "10.0 (8.0, 10.0)" in 5
     replace exp_smd_str = "1.568" in 5
 
     replace exp_factor = "Female sex" in 6
-    replace exp_trt_0 = "42.9% (2)" in 6
-    replace exp_trt_1 = "42.9% (2)" in 6
+    replace exp_trt_0 = "42.9 (2)" in 6
+    replace exp_trt_1 = "42.9 (2)" in 6
     replace exp_smd_str = "0.000" in 6
 
     replace exp_factor = "Clinical stage" in 7
     replace exp_smd_str = "1.727" in 7
 
     replace exp_factor = "   Stage I" in 8
-    replace exp_trt_0 = "42.9% (2)" in 8
-    replace exp_trt_1 = " 0.0% (0)" in 8
+    replace exp_trt_0 = "42.9 (2)" in 8
+    replace exp_trt_1 = "0.0 (0)" in 8
 
     replace exp_factor = "   Stage II" in 9
-    replace exp_trt_0 = "14.3% (1)" in 9
-    replace exp_trt_1 = "25.0% (1)" in 9
+    replace exp_trt_0 = "14.3 (1)" in 9
+    replace exp_trt_1 = "25.0 (1)" in 9
 
     replace exp_factor = "   Stage III" in 10
-    replace exp_trt_0 = " 0.0% (0)" in 10
-    replace exp_trt_1 = "62.5% (2)" in 10
+    replace exp_trt_0 = "0.0 (0)" in 10
+    replace exp_trt_1 = "62.5 (2)" in 10
 
     replace exp_factor = "   Missing" in 11
-    replace exp_trt_0 = "42.9% (1)" in 11
-    replace exp_trt_1 = "12.5% (1)" in 11
+    replace exp_trt_0 = "42.9 (1)" in 11
+    replace exp_trt_1 = "12.5 (1)" in 11
 end
 
 capture program drop _t1fba_style_data
@@ -498,8 +498,8 @@ capture noisily {
     tempvar _row
     gen long `_row' = _n
     quietly summarize `_row' if strtrim(factor) == "Missing", meanonly
-    assert trt_0[r(min)] == "1 (25.0%)"
-    assert trt_1[r(min)] == "1 (25.0%)"
+    assert trt_0[r(min)] == "1 (25.0)"
+    assert trt_1[r(min)] == "1 (25.0)"
 }
 if _rc == 0 {
     display as result "  PASS: missing option includes missing category only when requested"

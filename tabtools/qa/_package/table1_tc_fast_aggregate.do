@@ -176,7 +176,7 @@ capture noisily {
     _t1fa_dataset
     _tabtools_table1_fast_collect, by(group) ///
         vars(age contn \ female bin \ stage cat) wt(iptw) smd total(after) ///
-        saving("`fastwt'") stub(group_) format(%9.3f) percformat(%9.3f) nformat(%12.0f)
+        saving("`fastwt'") stub(group_) format(%9.3f) percformat(%9.3f) nformat(%12.0f) percsign("%")
     use "`fastwt'", clear
 
     assert factor[1] == "N"
@@ -201,7 +201,7 @@ capture noisily {
     _t1fa_dataset
     _tabtools_table1_fast_collect, by(group) ///
         vars(stage cat) missing catrowperc percent_n slashN total(after) ///
-        saving("`fastmissing'") stub(group_) percformat(%5.1f) nformat(%9.0f)
+        saving("`fastmissing'") stub(group_) percformat(%5.1f) nformat(%9.0f) percsign("%")
     use "`fastmissing'", clear
 
     count if factor == "   Missing" & cat_not_top_row == 1

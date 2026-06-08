@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  07jun2026}{...}
+{* *! version 1.6.1  08jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -66,17 +66,17 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt nop:value}}suppress the p-value column (and associated test/statistic columns){p_end}
 
 {syntab:Contents of Cells}
-{synopt:{opt f:ormat(%fmt)}}default display format for continuous variables{p_end}
-{synopt:{opt percf:ormat(%fmt)}}default display format for percentages{p_end}
+{synopt:{opt f:ormat(%fmt)}}default display format for continuous variables; default is %2.0f{p_end}
+{synopt:{opt percf:ormat(%fmt)}}default display format for percentages; default is %5.0f{p_end}
 {synopt:{opt nf:ormat(%fmt)}}display format for n and N; default is %12.0fc{p_end}
 {synopt:{opt varlabplus}}add data type description after variable labels{p_end}
-{synopt:{opt iqrmiddle("string")}}symbol between Q1 and Q3; default is "-"{p_end}
-{synopt:{opt sdleft("string")}}symbol before SD; default is " ("{p_end}
-{synopt:{opt sdright("string")}}symbol after SD; default is ")"{p_end}
+{synopt:{opt iqrmiddle("string")}}symbol between Q1 and Q3; default is ", "{p_end}
+{synopt:{opt sdleft("string")}}symbol before SD; default is "±"{p_end}
+{synopt:{opt sdright("string")}}symbol after SD; default is "" (none){p_end}
 {synopt:{opt gsdleft("string")}}symbol before GSD; default is " (×/"{p_end}
 {synopt:{opt gsdright("string")}}symbol after GSD; default is ")"{p_end}
-{synopt:{opt percsign("string")}}percent sign; default is "%"{p_end}
-{synopt:{opt nospace:lowpercent}}report (3%) instead of ( 3%){p_end}
+{synopt:{opt percsign("string")}}percent sign; default is "" (none){p_end}
+{synopt:{opt space:lowpercent}}report ( 3%) instead of (3%); no-space alignment is the default{p_end}
 {synopt:{opt extraspace}}helps alignment in .docx with non-monospaced fonts{p_end}
 {synopt:{opt percent}}report % only (no N) for categorical/binary vars{p_end}
 {synopt:{opt percent_n}}report % (n) rather than n (%){p_end}
@@ -89,7 +89,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {.xlsx}{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/{opt excel()}{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}; default is {cmd:thin}{p_end}
 {synopt:{opt the:me(string)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{opt foot:note(string)}}add footnote row below table{p_end}
@@ -264,7 +264,7 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.0{p_end}
+{pstd}{bf:Version} 1.6.1{p_end}
 
 {title:Also see}
 

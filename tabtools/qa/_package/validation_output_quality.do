@@ -410,7 +410,7 @@ capture noisily {
     local mean_for_fmt = strtrim("`mean_for_fmt'")
     local sd_for_fmt = strtrim("`sd_for_fmt'")
 
-    table1_tc, by(foreign) vars(price contn %12.4f) ///
+    table1_tc, by(foreign) vars(price contn %12.4f) sdleft(" (") sdright(")") ///
         xlsx("`output_dir'/_val_t1_stats.xlsx") sheet("stats") frame(_val_t1)
 
     frame _val_t1 {

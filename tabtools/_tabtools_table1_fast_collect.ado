@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.6.0  2026/06/07
+*! _tabtools_table1_fast_collect Version 1.6.1  2026/06/08
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -76,10 +76,10 @@ program define _tabtools_table1_fast_collect, rclass
         }
 
         if `"`nformat'"' == "" local nformat "%12.0fc"
-        if `"`percsign'"' == "" local percsign "%"
-        if `"`iqrmiddle'"' == "" local iqrmiddle "-"
-        if `"`sdleft'"' == "" local sdleft " ("
-        if `"`sdright'"' == "" local sdright ")"
+        if `"`percsign'"' == "" local percsign ""
+        if `"`iqrmiddle'"' == "" local iqrmiddle ", "
+        if `"`sdleft'"' == "" local sdleft "±"
+        if `"`sdright'"' == "" local sdright ""
         if `"`gsdleft'"' == "" local gsdleft " (×/"
         if `"`gsdright'"' == "" local gsdright ")"
 

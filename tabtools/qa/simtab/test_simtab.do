@@ -120,11 +120,12 @@ capture noisily {
     * Excel: title row, group header row, metric header row
     import excel using "`x3'", sheet("Tab") cellrange(A1:J3) clear allstring
     assert A[1] == "Multi"
-    assert C[2] == "Marginal"
-    * group header for 2nd estimand at column lead(2)+D(4)+1 = 7 (G)
-    assert G[2] == "Contrast"
-    assert A[3] == "sc"
-    assert C[3] == "Mean"
+    assert D[2] == "Marginal"
+    * by() and estimator columns precede the metric blocks; second estimand starts at H.
+    assert H[2] == "Contrast"
+    assert B[3] == "sc"
+    assert C[3] == "estid"
+    assert D[3] == "Mean"
 }
 if _rc == 0 {
     display as result "  PASS T3: multi-estimand merged Excel + markdown"

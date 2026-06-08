@@ -87,7 +87,7 @@ capture noisily {
     table1_tc, by(foreign) vars(price contn \ rep78 cat \ foreign bin) ///
         varlabplus xlsx("`output_dir'/_cov_t1_vlp.xlsx") sheet("varlabplus")
     confirm file "`output_dir'/_cov_t1_vlp.xlsx"
-    assert `"`r(Dapa)'"' == "Data are presented as mean (SD) for continuous measures, and No. (%) for categorical measures."
+    assert `"`r(Dapa)'"' == "Data are presented as mean±SD for continuous measures, and No. (%) for categorical measures."
     assert strpos(`"`r(methods)'"', `"`r(Dapa)'"') > 0
 }
 if _rc == 0 {

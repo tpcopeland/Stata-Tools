@@ -884,7 +884,7 @@ capture noisily {
     local ref_sd_for = r(sd)
 
     capture frame drop _ke_t1
-    table1_tc, by(foreign) vars(price contn %9.1f) frame(_ke_t1)
+    table1_tc, by(foreign) vars(price contn %9.1f) sdleft(" (") sdright(")") frame(_ke_t1)
     frame _ke_t1 {
         local dom_cell = foreign_0[3]
         local for_cell = foreign_1[3]
@@ -918,7 +918,7 @@ capture noisily {
     local p75_dom = r(p75)
 
     capture frame drop _ke_t1q
-    table1_tc, by(foreign) vars(price conts %9.0f) frame(_ke_t1q)
+    table1_tc, by(foreign) vars(price conts %9.0f) iqrmiddle("-") frame(_ke_t1q)
     frame _ke_t1q {
         local dom_cell = foreign_0[3]
         * "MED (LO-HI)"
@@ -947,7 +947,7 @@ capture noisily {
     sysuse auto, clear
     keep if !missing(rep78)
     capture frame drop _ke_t1c
-    table1_tc, by(foreign) vars(rep78 cat) frame(_ke_t1c)
+    table1_tc, by(foreign) vars(rep78 cat) percsign("%") frame(_ke_t1c)
     frame _ke_t1c {
         * Sum percentages in each by-group column for the rep78 rows.
         * Each cell is "n (pct%)". Find rows that begin with a number after trim

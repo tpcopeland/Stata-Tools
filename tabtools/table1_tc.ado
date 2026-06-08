@@ -1,4 +1,4 @@
-*! table1_tc Version 1.6.0  2026/06/07 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.6.1  2026/06/08 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -57,7 +57,7 @@ program define table1_tc, rclass
         [clear]                 /// Keep resulting table in memory
         [percent_n]             /// Display as % (n) rather than n (%)
         [percsign(string asis)] /// Percent sign; default is "%"
-        [NOSPACElowpercent]     /// Report e.g. (3%) rather than ( 3%)
+        [SPACElowpercent]       /// Report e.g. ( 3%) rather than (3%) (no-space is default)
         [extraspace]            /// Helps alignment in DOCX with non-monospaced fonts
         [slashN]                /// Report n/N instead of n
         [total(string)]         /// Include total column ("before" or "after" group columns)
@@ -296,10 +296,12 @@ program define table1_tc, rclass
 
     /* Set default formats if not specified */
     if `"`nformat'"' == "" local nformat "%12.0fc"        // Default format for counts
-    if `"`percsign'"' == "" local percsign `""%""'        // Default percent sign
-    if `"`iqrmiddle'"' == "" local iqrmiddle `""-""'      // Default separator for IQR
-    if `"`sdleft'"' == "" local sdleft `"" (""'           // Default format before SD
-    if `"`sdright'"' == "" local sdright `"")""'          // Default format after SD
+    if `"`format'"' == "" local format "%2.0f"            // Default format for continuous vars
+    if `"`percformat'"' == "" local percformat "%5.0f"    // Default format for percentages
+    if `"`percsign'"' == "" local percsign `""""'         // Default percent sign (none)
+    if `"`iqrmiddle'"' == "" local iqrmiddle `"", ""'     // Default separator for IQR
+    if `"`sdleft'"' == "" local sdleft `""±""'            // Default symbol before SD
+    if `"`sdright'"' == "" local sdright `""""'           // Default symbol after SD (none)
     local meanSD : display "mean"`sdleft'"SD"`sdright'    // Create mean±SD format string
 
     if `"`gsdleft'"' == "" local gsdleft `"" (×/""'       // Default format before GSD
@@ -471,7 +473,7 @@ program define table1_tc, rclass
     if "`slashN'" != "" local _fast_common_opts `"`_fast_common_opts' slashN"'
     if "`catrowperc'" != "" local _fast_common_opts `"`_fast_common_opts' catrowperc"'
     if "`varlabplus'" != "" local _fast_common_opts `"`_fast_common_opts' varlabplus"'
-    if "`nospacelowpercent'" != "" local _fast_common_opts `"`_fast_common_opts' nospacelowpercent"'
+    if "`spacelowpercent'" == "" local _fast_common_opts `"`_fast_common_opts' nospacelowpercent"'
     if "`extraspace'" != "" local _fast_common_opts `"`_fast_common_opts' extraspace"'
     if `"`format'"' != "" local _fast_common_opts `"`_fast_common_opts' format(`"`format'"')"'
     if `"`percformat'"' != "" local _fast_common_opts `"`_fast_common_opts' percformat(`"`percformat'"')"'

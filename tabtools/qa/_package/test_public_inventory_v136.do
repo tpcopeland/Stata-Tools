@@ -30,8 +30,8 @@ capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 discard
 
-local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab xlsxcompose"
-local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab tabtools"
+local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab simtab xlsxcompose"
+local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab simtab tabtools"
 
 **# Public Inventory
 
@@ -46,7 +46,7 @@ capture noisily {
     }
 
     local n_public : word count `public_ado'
-    assert `n_public' == 15
+    assert `n_public' == 16
 
     foreach cmd of local public_cmds {
         local ado_file "`cmd'.ado"
@@ -57,7 +57,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: source tree has exact 15-command public inventory"
+    display as result "  PASS: source tree has exact 16-command public inventory"
     local ++pass_count
 }
 else {
@@ -123,7 +123,7 @@ else {
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 14
+    assert r(n_commands) == 15
     local commands " `r(commands)' "
     foreach cmd of local advertised_cmds {
         assert strpos("`commands'", " `cmd' ") > 0
@@ -138,7 +138,7 @@ capture noisily {
     assert strpos("`export_commands'", " xlsxcompose ") == 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools advertises 14 current commands and keeps xlsxcompose as alias-only"
+    display as result "  PASS: tabtools advertises 15 current commands and keeps xlsxcompose as alias-only"
     local ++pass_count
 }
 else {

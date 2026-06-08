@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  07jun2026}{...}
+{* *! version 1.6.1  08jun2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -575,6 +575,6 @@ explicitly and never depends on an external package:{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.0{p_end}
+{pstd}{bf:Version} 1.6.1{p_end}
 
 {hline}

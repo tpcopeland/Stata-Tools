@@ -1,4 +1,4 @@
-*! desctab Version 1.6.0  2026/06/07
+*! desctab Version 1.6.1  2026/06/08
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -741,7 +741,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.6.0"
+    return local version "1.6.1"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"

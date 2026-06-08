@@ -38,7 +38,7 @@ capture noisily {
     local ref_mean_for = r(mean)
 
     capture frame drop _vc_t1
-    table1_tc, by(foreign) vars(price contn %9.1f) frame(_vc_t1)
+    table1_tc, by(foreign) vars(price contn %9.1f) sdleft(" (") sdright(")") frame(_vc_t1)
 
     frame _vc_t1 {
         * Row 3 = Price row (row 1=header, row 2=N=)
@@ -104,7 +104,7 @@ capture noisily {
     local ref_pct = `n3_dom' / `ntot_dom' * 100
 
     capture frame drop _vc_t1c
-    table1_tc, by(foreign) vars(rep78 cat) frame(_vc_t1c)
+    table1_tc, by(foreign) vars(rep78 cat) percsign("%") frame(_vc_t1c)
 
     frame _vc_t1c {
         * Find row with factor containing "3" (indented level)

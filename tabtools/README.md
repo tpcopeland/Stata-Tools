@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.6.0** | 2026-06-07
+**Version 1.6.1** | 2026-06-08
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -107,7 +107,23 @@ In short: style one raw table → `puttab`; combine estimation results still in 
 | Final table assembled from estimation results still in frames | `comptab` or `hrcomptab` | These second-stage builders consume `regtab`/`effecttab`/`stratetab` frames produced earlier in the pipeline |
 | A raw in-memory table (dataset, frame, or matrix) styled as one sheet | `puttab` | The generic styler for tables that have no dedicated tabtools command |
 | Composite assembled from sheets already exported to a workbook | `stacktab` | Spreadsheet-level assembly (vstack/hstack, column merges); pairs with `puttab` as emit-then-assemble |
-| Session-wide formatting defaults | `tabtools` | Use `tabtools set`, `tabtools get`, and `tabtools set clear` to control fonts, borders, themes, and digits |
+| Session-wide formatting defaults | `tabtools` | Use `tabtools set`, `tabtools get`, `tabtools set ..., permanent`, `tabtools use`, and `tabtools set clear` to control fonts, borders, themes, and digits |
+
+## Persistent Defaults Profiles
+
+`tabtools set` still applies defaults immediately through Stata session globals. Add `permanent` to save the current style to a runnable Stata profile, then load it in a later session or project with `tabtools use`.
+
+```stata
+tabtools set theme custom, font("Times New Roman") fontsize(10) ///
+    borderstyle(academic) permanent profile("tabtools_house_style.do")
+tabtools set digits 3, permanent profile("tabtools_house_style.do")
+
+tabtools set clear
+tabtools use using "tabtools_house_style.do"
+tabtools get
+```
+
+Without `profile()`, `tabtools set ..., permanent` writes `tabtools_profile.do` in Stata's PERSONAL ado directory, and `tabtools use` reads that default profile.
 
 ## Repository Checkout Demo
 
@@ -686,6 +702,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.6.1** (2026-06-08): Adds disk-backed tabtools defaults profiles. `tabtools set ... , permanent` writes the current house style to a runnable Stata do-file, using `tabtools_profile.do` in the PERSONAL ado directory by default or `profile(filename)` for project-specific profiles. `tabtools use [using filename]` reloads a saved profile into the current session, making fonts, themes, borders, digits, bold-p thresholds, and custom colors reproducible across sessions and projects. Refreshes `table1_tc` display defaults toward a compact house style: continuous variables now use `format(%2.0f)`, percentages `percformat(%5.0f)` with no percent sign (`percsign("")`), SDs render as `mean±SD` (`sdleft("±") sdright("")`), IQRs as `(Q1, Q3)` (`iqrmiddle(", ")`), and low percentages are reported without a leading alignment space (no-space is now the default — the old behavior is available via the new `spacelowpercent` option, replacing `nospacelowpercent`). `borderstyle(thin)` is the default Excel border for both `table1_tc` and `regtab`, and `regtab` defaults to `digits(2)`.
 - **1.6.0** (2026-06-07): New command `simtab` — a Monte Carlo simulation performance table and export layer. Compute mode summarizes long replication-level results into table-grade measures (`mean`, `bias`, `pctbias`, `empse`, `meanse`, `relerr`, `mse`, `rmse`, `coverage`, `power`, `n`, `nonconv`) with closed-form Monte Carlo SEs used to flag off-nominal coverage; ingest mode (`from(simsum)`/`from(siman)`/`from(summary)`) renders an already-computed summary without recomputation, following the optional-dependency pattern used by `comptab`/`hrcomptab` with `eplot`. Multi-estimand tables get merged Excel group headers and flattened Markdown/CSV headers; `nsim()` adds non-convergence reporting; `plotframe()` provides a numeric figure companion. Cross-validated to exact agreement with `simsum` on bias/empirical SE/coverage and their Monte Carlo SEs. Pairs with `simsum` (White, *Stata Journal* 2010) and `siman` (UCL); cites Morris, White & Crowther (*Stat Med* 2019). Adds `_simtab_ingest.ado`, `simtab.sthlp`, and `qa/simtab/`.
 - **1.5.2** (2026-06-06): Cleaner forest plots from `comptab` and `hrcomptab`. When a `section()` (or stratetab scaffold section) contributes exactly one plotted row, the eplot companion frame now folds the section label into that single row instead of emitting a standalone header row followed by one indented effect — the redundant header/child pair that made one-coefficient-per-model forests look cluttered. The rendered Excel and console tables are unchanged; only the `eplotframe()`/`forest` output differs. Added `qa/_package/test_eplot_section_fold.do`.
 - **1.5.1** (2026-06-06): Fix two correctness bugs found while auditing the v1.5.0 eplot bridge. `comptab` and `hrcomptab` could not export Markdown (`markdown()` failed with `rc=198` because of a malformed compound quote in the post-`forest` return block). `regtab` double-exponentiated `logit, or` and `ologit, or` models (the `logit`/`ologit` branch hardcoded `eform=1` instead of respecting a user-supplied `or` option, unlike `melogit`/`poisson`/`mlogit`), silently reporting `exp(OR)`; this also propagated into the eplot companion frame. Added regression tests for both in `qa/_package/test_markdown_exports.do` and `qa/regtab/test_regtab_model_families.do`.

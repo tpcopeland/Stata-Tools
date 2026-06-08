@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  07jun2026}{...}
+{* *! version 1.6.1  08jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -159,13 +159,13 @@ Display available commands
 Set a formatting default
 
 {p 8 17 2}
-{cmd:tabtools set} {it:key} {it:value}
+{cmd:tabtools set} {it:key} {it:value} [{cmd:,} {opt perm:anent} {opt prof:ile(filename)}]
 
 {pstd}
 Clear all formatting defaults
 
 {p 8 17 2}
-{cmd:tabtools set clear}
+{cmd:tabtools set clear} [{cmd:,} {opt perm:anent} {opt prof:ile(filename)}]
 
 {pstd}
 Display current formatting defaults
@@ -174,8 +174,15 @@ Display current formatting defaults
 {cmd:tabtools get}
 
 {pstd}
+Load formatting defaults from a saved tabtools profile
+
+{p 8 17 2}
+{cmd:tabtools use} [{cmd:using} {it:filename}]
+
+{pstd}
 {opt list}, {opt detail}, and {opt category()} are display-mode options only.
-They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
+They are not accepted with {cmd:tabtools set}, {cmd:tabtools get}, or
+{cmd:tabtools use}.
 
 
 {dlgtab:Display options}
@@ -183,7 +190,7 @@ They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
 {synoptset 22 tabbed}{...}
 {synopt:{opt list}}display commands as a simple list{p_end}
 {synopt:{opt detail}}show detailed information with descriptions{p_end}
-{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:general}, {cmd:all}{p_end}
+{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:simulation}, {cmd:general}, {cmd:all}{p_end}
 {synoptline}
 
 {dlgtab:Settings keys}
@@ -196,6 +203,13 @@ They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
 {synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting; number between 0 and 1{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
+{synoptline}
+
+{dlgtab:Profile options}
+
+{synoptset 22 tabbed}{...}
+{synopt:{opt perm:anent}}after applying {cmd:tabtools set}, write the current defaults to a disk profile{p_end}
+{synopt:{opt prof:ile(filename)}}write or read an alternate profile file; default is {cmd:tabtools_profile.do} in Stata's PERSONAL ado directory{p_end}
 {synoptline}
 
 {pstd}
@@ -229,7 +243,8 @@ The builder-style options {cmd:font()}, {cmd:fontsize()}, {cmd:headercolor()},
 {cmd:zebracolor()}, and {cmd:borderstyle()} are only valid with
 {cmd:tabtools set theme custom}. If a named non-{cmd:custom} theme is active,
 direct {cmd:tabtools set font}, {cmd:set fontsize}, and
-{cmd:set borderstyle} are rejected so they cannot silently do nothing.
+{cmd:set borderstyle} first resolve that named theme to {cmd:custom}, then
+apply the requested override.
 
 
 {marker defaults}{...}
@@ -242,9 +257,22 @@ its own defaults, so you can configure formatting once and have it apply
 everywhere.
 
 {pstd}
+Add {opt permanent} to save the current defaults as a runnable Stata profile.
+By default, {cmd:tabtools set ..., permanent} writes
+{cmd:tabtools_profile.do} in Stata's PERSONAL ado directory. Use
+{cmd:profile(filename)} to save a project-specific house style somewhere else.
+The saved profile contains ordinary {cmd:tabtools set} commands, so it can be
+read, version controlled, and run as a do-file.
+
+{pstd}
 {cmd:tabtools get} reports the effective values that commands will use. Under a
 named theme such as {cmd:lancet}, this means the resolved theme values rather
 than any stale raw globals left over from earlier custom settings.
+
+{pstd}
+{cmd:tabtools use} loads a saved profile into the current session. With no
+{cmd:using} file, it reads the default PERSONAL profile; with {cmd:using}, it
+reads the named project profile.
 
 {pstd}
 After {cmd:tabtools set clear} or in a fresh session, the baseline resolved
@@ -252,14 +280,17 @@ defaults reported by {cmd:tabtools get} are {cmd:Arial}, {cmd:10}, and
 {cmd:thin}.
 
 {pstd}
-Defaults are session-only: they are lost when Stata is closed or restarted.
-Add {cmd:tabtools set} commands to your {cmd:profile.do} for persistence
-across sessions.
+Defaults remain session globals while Stata is running. The disk profile is
+only read when you run {cmd:tabtools use} or source it from your own
+{cmd:profile.do}.
 
 {phang2}{cmd:. tabtools set font Calibri}{p_end}
 {phang2}{cmd:. tabtools set fontsize 11}{p_end}
 {phang2}{cmd:. tabtools set borderstyle academic}{p_end}
-{phang2}{cmd:. tabtools set theme lancet}{p_end}
+{phang2}{cmd:. tabtools set theme lancet, permanent}{p_end}
+{phang2}{cmd:. tabtools use}{p_end}
+{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) permanent profile("project_tabtools.do")}{p_end}
+{phang2}{cmd:. tabtools use using "project_tabtools.do"}{p_end}
 {phang2}{cmd:. tabtools get}{p_end}
 {phang2}{cmd:. tabtools set clear}{p_end}
 
@@ -282,12 +313,20 @@ across sessions.
 {pstd}
 {bf:Apply a journal theme}
 
-{phang2}{cmd:. tabtools set theme lancet}{p_end}
+{phang2}{cmd:. tabtools set theme lancet, permanent}{p_end}
+{phang2}{cmd:. tabtools use}{p_end}
 
 {pstd}
 {bf:Custom theme with specific colors}
 
 {phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor("200 220 240") borderstyle(thin)}{p_end}
+
+{pstd}
+{bf:Project-specific profile}
+
+{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor("200 220 240") borderstyle(thin) permanent profile("tabtools_project.do")}{p_end}
+{phang2}{cmd:. tabtools set clear}{p_end}
+{phang2}{cmd:. tabtools use using "tabtools_project.do"}{p_end}
 
 {pstd}
 {bf:Reset to command defaults}
@@ -333,6 +372,8 @@ across sessions.
 {synopt:{cmd:r(borderstyle)}}border style (when setting borderstyle){p_end}
 {synopt:{cmd:r(theme)}}theme name (when setting theme){p_end}
 {synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear}){p_end}
+{synopt:{cmd:r(permanent)}}{cmd:"permanent"} (when saving a disk profile){p_end}
+{synopt:{cmd:r(profile)}}profile path written by {cmd:permanent}{p_end}
 
 {pstd}
 {cmd:tabtools get} stores the following in {cmd:r()}:{p_end}
@@ -348,12 +389,20 @@ across sessions.
 {synopt:{cmd:r(digits)}}current digits setting{p_end}
 {synopt:{cmd:r(boldp)}}current boldp setting{p_end}
 
+{pstd}
+{cmd:tabtools use} stores the following in {cmd:r()}:{p_end}
+
+{synoptset 18 tabbed}{...}
+{p2col 5 18 22 2: Macros}{p_end}
+{synopt:{cmd:r(action)}}{cmd:"loaded"}{p_end}
+{synopt:{cmd:r(profile)}}profile path loaded{p_end}
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.0{p_end}
+{pstd}{bf:Version} 1.6.1{p_end}
 
 {hline}

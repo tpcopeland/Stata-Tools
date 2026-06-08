@@ -1,4 +1,4 @@
-*! simtab Version 1.6.0  2026/06/07
+*! simtab Version 1.6.1  2026/06/08
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -751,15 +751,16 @@ program define simtab, rclass
             local _xl_dbot = _N - `_has_foot'
             local _xl_foot = cond(`_has_foot', _N, 0)
             local _xl_rows = _N
+            local _xl_ctot = `_Kcols' + 1
 
             * ----- column widths -----
             local _xlsx_widths ""
-            forvalues j = 1/`_Kcols' {
+            forvalues j = 2/`_xl_ctot' {
                 tempvar _len
                 quietly gen long `_len' = length(c`j')
                 quietly summarize `_len' if c`j' != "" & inrange(_n, `_xl_hdr', `_xl_dbot'), meanonly
                 local _w = cond(r(N) > 0, ceil(r(max) * 0.95) + 2, 10)
-                if `j' <= `_lead' {
+                if `j' - 1 <= `_lead' {
                     if `_w' < 12 local _w = 12
                     if `_w' > 50 local _w = 50
                 }
@@ -783,66 +784,78 @@ program define simtab, rclass
 
             * ----- build style rules -----
             tempname _rules
-            local _spec ""
-            local _wcol = 1
+            * spacer column A (width 1)
+            local _spec "13 1 1 1 1 1 0 0 0"
+            * content column widths starting at col 2
+            local _wcol = 2
             foreach _w of local _xlsx_widths {
                 local _spec `"`_spec' | 13 1 1 `_wcol' `_wcol' `_w' 0 0 0"'
                 local ++_wcol
             }
             * base font + valign center over all
-            local _spec `"`_spec' | 1 1 `_xl_rows' 1 `_Kcols' `_fontsize' 1 0 0 | 6 1 `_xl_rows' 1 `_Kcols' 0 2 0 0"'
+            local _spec `"`_spec' | 1 1 `_xl_rows' 1 `_xl_ctot' `_fontsize' 1 0 0 | 6 1 `_xl_rows' 1 `_xl_ctot' 0 2 0 0"'
             * data alignment: lead left, metric right
-            local _spec `"`_spec' | 5 `_xl_data' `_xl_dbot' 1 `_lead' 0 1 0 0"'
+            local _spec `"`_spec' | 5 `_xl_data' `_xl_dbot' 2 `=`_lead'+1' 0 1 0 0"'
             if `_Kcols' > `_lead' {
-                local _spec `"`_spec' | 5 `_xl_data' `_xl_dbot' `=`_lead'+1' `_Kcols' 0 3 0 0"'
+                local _spec `"`_spec' | 5 `_xl_data' `_xl_dbot' `=`_lead'+2' `_xl_ctot' 0 3 0 0"'
             }
             * title row
             if `_has_title' {
-                local _spec `"`_spec' | 14 1 1 1 `_Kcols' 0 0 0 0 | 1 1 1 1 `_Kcols' `=`_fontsize'+2' 1 0 0 | 2 1 1 1 `_Kcols' 0 1 0 0 | 5 1 1 1 `_Kcols' 0 1 0 0"'
+                local _spec `"`_spec' | 14 1 1 1 `_xl_ctot' 0 0 0 0 | 1 1 1 1 `_xl_ctot' `=`_fontsize'+2' 1 0 0 | 2 1 1 1 `_xl_ctot' 0 1 0 0 | 5 1 1 1 `_xl_ctot' 0 1 0 0"'
             }
             * group header row (merge each estimand block)
             if `_xl_grp' > 0 {
                 forvalues e = 1/`_Nemd' {
-                    local _gc1 = `_lead' + (`e'-1)*`_D' + 1
-                    local _gc2 = `_lead' + `e'*`_D'
+                    local _gc1 = 1 + `_lead' + (`e'-1)*`_D' + 1
+                    local _gc2 = 1 + `_lead' + `e'*`_D'
                     local _spec `"`_spec' | 14 `_xl_grp' `_xl_grp' `_gc1' `_gc2' 0 0 0 0 | 2 `_xl_grp' `_xl_grp' `_gc1' `_gc1' 0 1 0 0 | 5 `_xl_grp' `_xl_grp' `_gc1' `_gc1' 0 2 0 0"'
                 }
-                local _spec `"`_spec' | 8 `_xl_grp' `_xl_grp' `=`_lead'+1' `_Kcols' 0 `_hbc' 0 0"'
+                local _spec `"`_spec' | 9 `_xl_grp' `_xl_grp' 2 `_xl_ctot' 0 `_hbc' 0 0"'
             }
             * metric header row: bold; lead headers left, metric headers center
-            local _spec `"`_spec' | 2 `_xl_hdr' `_xl_hdr' 1 `_Kcols' 0 1 0 0 | 5 `_xl_hdr' `_xl_hdr' 1 `_lead' 0 1 0 0"'
+            local _spec `"`_spec' | 2 `_xl_hdr' `_xl_hdr' 2 `_xl_ctot' 0 1 0 0 | 5 `_xl_hdr' `_xl_hdr' 2 `=`_lead'+1' 0 1 0 0"'
             if `_Kcols' > `_lead' {
-                local _spec `"`_spec' | 5 `_xl_hdr' `_xl_hdr' `=`_lead'+1' `_Kcols' 0 2 0 0"'
+                local _spec `"`_spec' | 5 `_xl_hdr' `_xl_hdr' `=`_lead'+2' `_xl_ctot' 0 2 0 0"'
             }
             * header shading
             if "`headershade'" != "" {
                 local _hs_top = cond(`_xl_grp' > 0, `_xl_grp', `_xl_hdr')
-                local _spec `"`_spec' | 7 `_hs_top' `_xl_hdr' 1 `_Kcols' 0 -1 0 0"'
+                local _spec `"`_spec' | 7 `_hs_top' `_xl_hdr' 2 `_xl_ctot' 0 -1 0 0"'
             }
-            * rules: top above header block, bottom below header, bottom below data
+            * horizontal rules
             local _hdr_top = cond(`_xl_grp' > 0, `_xl_grp', `_xl_hdr')
-            local _spec `"`_spec' | 8 `_hdr_top' `_hdr_top' 1 `_Kcols' 0 `_hbc' 0 0 | 9 `_xl_hdr' `_xl_hdr' 1 `_Kcols' 0 `_hbc' 0 0 | 9 `_xl_dbot' `_xl_dbot' 1 `_Kcols' 0 `_hbc' 0 0"'
-            * scenario group separators: rule above each new by-group (after first)
+            local _spec `"`_spec' | 8 `_hdr_top' `_hdr_top' 2 `_xl_ctot' 0 `_hbc' 0 0 | 9 `_xl_hdr' `_xl_hdr' 2 `_xl_ctot' 0 `_hbc' 0 0 | 9 `_xl_dbot' `_xl_dbot' 2 `_xl_ctot' 0 `_hbc' 0 0"'
+            * vertical separators
+            if `_has_by' {
+                local _spec `"`_spec' | 11 `_hdr_top' `_xl_dbot' 2 2 0 `_hbc' 0 0"'
+            }
+            local _spec `"`_spec' | 11 `_hdr_top' `_xl_dbot' `=`_lead'+1' `=`_lead'+1' 0 `_hbc' 0 0"'
+            if `_Nemd' > 1 {
+                forvalues e = 1/`=`_Nemd'-1' {
+                    local _emd_rc = 1 + `_lead' + `e'*`_D'
+                    local _spec `"`_spec' | 11 `_hdr_top' `_xl_dbot' `_emd_rc' `_emd_rc' 0 `_hbc' 0 0"'
+                }
+            }
+            * outside box borders
+            local _spec `"`_spec' | 10 `_hdr_top' `_xl_dbot' 2 2 0 `_hbc' 0 0 | 11 `_hdr_top' `_xl_dbot' `_xl_ctot' `_xl_ctot' 0 `_hbc' 0 0"'
+            * scenario group separators
             if `_has_by' & `_Nby' > 1 {
                 forvalues b = 2/`_Nby' {
                     local _gr = `_xl_data' + (`b'-1)*`_Nest'
-                    local _spec `"`_spec' | 8 `_gr' `_gr' 1 `_Kcols' 0 1 0 0"'
+                    local _spec `"`_spec' | 8 `_gr' `_gr' 2 `_xl_ctot' 0 1 0 0"'
                 }
             }
             * zebra striping over data rows
             if "`zebra'" != "" {
                 forvalues _zr = `=`_xl_data'+1'(2)`_xl_dbot' {
-                    local _spec `"`_spec' | 7 `_zr' `_zr' 1 `_Kcols' 0 -2 0 0"'
+                    local _spec `"`_spec' | 7 `_zr' `_zr' 2 `_xl_ctot' 0 -2 0 0"'
                 }
             }
-            * footnote row
+            * footnote row (aligned with the table box left border, column 2)
             if `_xl_foot' > 0 {
                 local _fnsz = max(`_fontsize' - 2, 6)
-                local _spec `"`_spec' | 14 `_xl_foot' `_xl_foot' 1 `_Kcols' 0 0 0 0 | 1 `_xl_foot' `_xl_foot' 1 `_Kcols' `_fnsz' 1 0 0 | 3 `_xl_foot' `_xl_foot' 1 `_Kcols' 0 1 0 0 | 5 `_xl_foot' `_xl_foot' 1 `_Kcols' 0 1 0 0"'
+                local _spec `"`_spec' | 14 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 0 0 0 | 1 `_xl_foot' `_xl_foot' 2 `_xl_ctot' `_fnsz' 1 0 0 | 3 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 1 0 0 | 5 `_xl_foot' `_xl_foot' 2 `_xl_ctot' 0 1 0 0"'
             }
-            * strip a leading separator from the spec
-            local _spec = strtrim(`"`_spec'"')
-            if substr(`"`_spec'"', 1, 1) == "|" local _spec = strtrim(substr(`"`_spec'"', 2, .))
 
             _tabtools_xlsx_build_styles, matrix(`_rules') rules(`"`_spec'"') cols(9)
             _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///
@@ -1210,8 +1223,9 @@ void _simtab_build(
     }
     else {
         // excel: title? + group(if Nemd>1) + metric header + body + foot?
+        // Column 1 is a narrow spacer (A); content starts at column 2 (B)
         total = hastitle + (Nemd > 1) + 1 + R + hasfoot
-        OUT = J(total, K, "")
+        OUT = J(total, K + 1, "")
         ri = 0
         if (hastitle) {
             ri = ri + 1
@@ -1221,28 +1235,29 @@ void _simtab_build(
             ri = ri + 1
             grp = ri
             for (e = 1; e <= Nemd; e++) {
-                OUT[grp, lead + (e - 1) * D + 1] = emdmap[e]
+                OUT[grp, 1 + lead + (e - 1) * D + 1] = emdmap[e]
             }
         }
         ri = ri + 1
         hdr = ri
         if (lead == 2) {
-            OUT[hdr, 1] = leadby
-            OUT[hdr, 2] = leadest
+            OUT[hdr, 2] = leadby
+            OUT[hdr, 3] = leadest
         }
         else {
-            OUT[hdr, 1] = leadest
+            OUT[hdr, 2] = leadest
         }
         for (e = 1; e <= Nemd; e++) {
             for (m = 1; m <= D; m++) {
-                OUT[hdr, lead + (e - 1) * D + m] = mlab[m]
+                OUT[hdr, 1 + lead + (e - 1) * D + m] = mlab[m]
             }
         }
         for (r = 1; r <= R; r++) {
-            OUT[hdr + r, .] = B[r, .]
+            OUT[hdr + r, 2..K+1] = B[r, .]
         }
         ri = hdr + R
-        if (hasfoot) OUT[ri + 1, 1] = foot
+        // footnote aligns with the table box left border (column B)
+        if (hasfoot) OUT[ri + 1, 2] = foot
     }
 
     _simtab_emit(OUT)

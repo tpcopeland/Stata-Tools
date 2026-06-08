@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  07jun2026}{...}
+{* *! version 1.6.1  08jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -63,7 +63,7 @@ for treatment effects and margins tables.
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold (e.g., {cmd:highlight(0.05)}).{p_end}
 {synopt:{opt bold:p(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
 {synopt:{opt headers:hade}}Apply background fill to the header row.{p_end}
-{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
+{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}. Default is {cmd:thin}.{p_end}
 {synopt:{opt cdisc}}CDISC formatting mode: sets digits to 4, coef label to "Estimate", and forces {cmd:stats(n)}.{p_end}
 {synopt:{opt relab:el}}Relabel random effects using variable labels and explicit parameter types. For single-level models, {cmd:var(_cons)} becomes {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes {it:Covariance: GroupLabel (X label, Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:Variance: District (Intercept)}, {it:Variance: School (Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
@@ -254,6 +254,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.0{p_end}
+{pstd}{bf:Version} 1.6.1{p_end}
 
 {hline}

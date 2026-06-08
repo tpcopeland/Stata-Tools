@@ -401,7 +401,8 @@ capture frame drop table1_tc_aggregation_current
 timer on 1
 capture noisily quietly table1_tc, by(group) vars(`vars') total(after) ///
     nopvalue frame(table1_tc_aggregation_current, replace) ///
-    format(`format') percformat(`percformat') nformat(`nformat')
+    format(`format') percformat(`percformat') nformat(`nformat') ///
+    sdleft(" (") sdright(")") percsign("%") spacelowpercent
 local current_rc = _rc
 timer off 1
 capture quietly timer list 1

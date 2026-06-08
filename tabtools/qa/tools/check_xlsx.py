@@ -834,6 +834,25 @@ def check_border_row(ws: Worksheet, row: int, side: str, style: str) -> CheckRes
     )
 
 
+def check_cell_border(ws: Worksheet, ref: str, side: str, style: str) -> CheckResult:
+    passed = _cell_border_matches(ws[ref], side, style)
+    return CheckResult(
+        name=f"Cell {ref} {style} {side} border",
+        passed=passed,
+        message="matched" if passed else f"no {style} {side} border on {ref}",
+    )
+
+
+def check_cell_no_fill(ws: Worksheet, ref: str) -> CheckResult:
+    rgb = _cell_fill_rgb(ws[ref])
+    passed = rgb is None
+    return CheckResult(
+        name=f"Cell {ref} has no fill",
+        passed=passed,
+        message="no fill" if passed else f"unexpected fill {rgb}",
+    )
+
+
 def check_min_merges(ws: Worksheet, n: int) -> CheckResult:
     actual = len(ws.merged_cells.ranges)
     passed = actual >= n
@@ -1079,6 +1098,12 @@ class CheckRunner:
         if args.border_row:
             for spec in args.border_row:
                 results.append(check_border_row(ws, int(spec[0]), spec[1], spec[2]))
+        if args.cell_border:
+            for spec in args.cell_border:
+                results.append(check_cell_border(ws, spec[0], spec[1], spec[2]))
+        if args.cell_no_fill:
+            for ref in args.cell_no_fill:
+                results.append(check_cell_no_fill(ws, ref))
         if args.min_merges is not None:
             results.append(check_min_merges(ws, args.min_merges))
         if args.no_empty_cols:
@@ -1298,6 +1323,11 @@ Available patterns for --has-pattern:
     style.add_argument("--border-row", nargs=3, action=CellPairAction,
                        metavar=("N", "SIDE", "STYLE"),
                        help="Row N has SIDE (top/bottom/left/right) border of STYLE")
+    style.add_argument("--cell-border", nargs=3, action=CellPairAction,
+                       metavar=("REF", "SIDE", "STYLE"),
+                       help="Cell REF has SIDE (top/bottom/left/right) border of STYLE")
+    style.add_argument("--cell-no-fill", nargs="+", metavar="REF",
+                       help="Cell(s) REF have no solid fill")
     style.add_argument("--min-merges", type=int, metavar="N",
                        help="At least N merged ranges")
     style.add_argument("--no-empty-cols", action="store_true",

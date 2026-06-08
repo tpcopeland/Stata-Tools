@@ -185,7 +185,7 @@ capture noisily {
     _t1agg_build_data
     table1_tc, by(trt) ///
         vars(age contn %6.2f \ marker conts %6.1f \ female bin \ stage cat) ///
-        smd test statistic missing total(after) clear nformat(%9.0f) percformat(%5.1f)
+        smd test statistic missing total(after) clear nformat(%9.0f) percformat(%5.1f) percsign("%")
 
     confirm variable factor
     confirm variable trt_0
@@ -243,7 +243,7 @@ local ++test_count
 capture noisily {
     _t1agg_build_data
     table1_tc, by(trt) vars(stage cat) total(before) headerperc percent clear ///
-        nformat(%9.0f) percformat(%5.1f)
+        nformat(%9.0f) percformat(%5.1f) percsign("%")
     confirm variable trt_T
     assert "`: variable label trt_T'" == "Total"
     assert strpos(trt_T[2], "100.0%") > 0
@@ -254,7 +254,7 @@ capture noisily {
 
     _t1agg_build_data
     table1_tc, by(trt) vars(stage cat) catrowperc percent_n slashN total(after) ///
-        missing clear nformat(%9.0f) percformat(%5.1f)
+        missing clear nformat(%9.0f) percformat(%5.1f) percsign("%")
     _t1agg_row "Stage II"
     local row = r(row)
     assert strpos(trt_0[`row'], "%") > 0
@@ -324,7 +324,7 @@ local ++test_count
 capture noisily {
     _t1agg_build_data
     table1_tc, by(trt) vars(age contn %6.2f \ female bin \ stage cat) ///
-        wt(w) wtcompare smd total(after) clear nformat(%9.0f) percformat(%5.1f)
+        wt(w) wtcompare smd total(after) clear nformat(%9.0f) percformat(%5.1f) percsign("%")
     confirm variable Cr_0
     confirm variable Cr_1
     confirm variable Cr_T

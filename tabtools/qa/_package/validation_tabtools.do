@@ -46,7 +46,7 @@ capture noisily {
     sysuse auto, clear
     summarize price if foreign == 0, meanonly
     local expected_mean = round(r(mean), 0.1)
-    table1_tc, vars(price contn %9.1f) by(foreign) frame(t1_val, replace)
+    table1_tc, vars(price contn %9.1f) by(foreign) sdleft(" (") sdright(")") frame(t1_val, replace)
 
     * table1_tc frame uses named columns: factor, foreign_0, foreign_1, etc.
     * The Price row has "mean (SD)" in foreign_0 column
