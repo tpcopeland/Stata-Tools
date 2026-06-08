@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.1  08jun2026}{...}
+{* *! version 1.6.2  08jun2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -166,6 +166,6 @@ colors — are supported.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.1{p_end}
+{pstd}{bf:Version} 1.6.2{p_end}
 
 {hline}

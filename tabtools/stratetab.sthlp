@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.1  08jun2026}{...}
+{* *! version 1.6.2  08jun2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -227,7 +227,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.1{p_end}
+{pstd}{bf:Version} 1.6.2{p_end}
 
 {title:Also see}
 

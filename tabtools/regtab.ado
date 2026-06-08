@@ -1,4 +1,4 @@
-*! regtab Version 1.6.1  2026/06/08
+*! regtab Version 1.6.2  2026/06/08
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -649,13 +649,19 @@ quietly{
                             local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
                         }
 
-                        * Compute AIC from ll + rank if not directly available
-                        if `stat_aic_`m'' == . & `stat_ll_`m'' != . & `stat_rank_`m'' != . {
+                        * AIC = -2*ll + 2*k. Always recompute from ll + rank when
+                        * both are present rather than trusting e(aic): glm (the GEE
+                        * backend) stores e(aic) as AIC/N (per observation), ~N times
+                        * too small. The formula matches estat ic for every ML/GLM
+                        * estimator and keeps glm and mixed models on one scale.
+                        if `stat_ll_`m'' != . & `stat_rank_`m'' != . {
                             local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `stat_rank_`m''
                         }
 
-                        * Compute BIC from ll + rank + N if not directly available
-                        if `stat_bic_`m'' == . & `stat_ll_`m'' != . & `stat_rank_`m'' != . & `stat_N_`m'' != . {
+                        * BIC = -2*ll + k*ln(N), likewise recomputed from ll + rank + N.
+                        * glm's e(bic) uses a deviance-based convention that is not
+                        * comparable to the likelihood BIC mixed models report.
+                        if `stat_ll_`m'' != . & `stat_rank_`m'' != . & `stat_N_`m'' != . {
                             local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
                         }
 
@@ -739,7 +745,11 @@ quietly{
             capture local stat_aic_1 = e(aic)
             capture local stat_bic_1 = e(bic)
 
-            if `stat_aic_1' == . & `stat_ll_1' != . {
+            * AIC = -2*ll + 2*k / BIC = -2*ll + k*ln(N): recompute from ll + rank
+            * whenever available, overriding e(aic)/e(bic). glm stores e(aic) as
+            * AIC/N (per observation) and a deviance-based e(bic); both are
+            * incomparable to the likelihood values mixed reports. Matches estat ic.
+            if `stat_ll_1' != . {
                 capture local stat_k_1 = e(rank)
                 if `stat_k_1' == . {
                     capture local stat_k_1 = e(k)
@@ -749,7 +759,7 @@ quietly{
                 }
             }
 
-            if `stat_bic_1' == . & `stat_ll_1' != . & `stat_N_1' != . {
+            if `stat_ll_1' != . & `stat_N_1' != . {
                 if `stat_k_1' == . {
                     capture local stat_k_1 = e(rank)
                     if `stat_k_1' == . {

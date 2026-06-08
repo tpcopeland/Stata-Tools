@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.1  08jun2026}{...}
+{* *! version 1.6.2  08jun2026}{...}
 {viewerjumpto "Syntax" "xlsxcompose##syntax"}{...}
 {viewerjumpto "Description" "xlsxcompose##description"}{...}
 {viewerjumpto "Examples" "xlsxcompose##examples"}{...}
@@ -63,6 +63,6 @@ See {helpb stacktab:stacktab Examples} for complete worked examples.
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.6.1
+Version 1.6.2
 {p 4 4 2}
 {hline}
