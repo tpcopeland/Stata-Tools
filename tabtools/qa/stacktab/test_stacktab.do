@@ -22,10 +22,32 @@ discard
 which stacktab
 which xlsxcompose
 
+* Assert a check_stacktab.py verdict file says PASS. Stata's `shell` does not
+* propagate the tool's exit code to _rc, so the verdict is read from the
+* --result-file the checker writes and asserted here.
+capture program drop _st_assert
+program define _st_assert
+    args result_file
+    capture confirm file "`result_file'"
+    if _rc {
+        display as error "checker verdict file not written: `result_file'"
+        exit 459
+    }
+    tempname fh
+    file open `fh' using "`result_file'", read text
+    file read `fh' _line
+    file close `fh'
+    if substr("`_line'", 1, 4) != "PASS" {
+        display as error "workbook check failed: `_line'"
+        exit 9
+    }
+end
+
 local tmpdir = c(tmpdir) + "/stacktab_qa"
 capture mkdir `"`tmpdir'"'
 local wb `"`tmpdir'/test_workbook.xlsx"'
 capture erase `"`wb'"'
+local _st_res `"`tmpdir'/_st_result.txt"'
 
 **# Build Source Workbook
 
@@ -71,11 +93,14 @@ capture noisily {
     assert "`r(layout)'" == "vstack"
 
     shell python3 `"`checker'"' `"`wb'"' "Composite" ///
+        --result-file `"`_st_res'"' ///
         --blank A1 ///
         --cell B2 "Category" ///
         --cell B6 "Dose category" ///
         --cell C7 "1.10" ///
         --cell D8 "(1.30, 2.15)"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: vstack writes expected workbook cells"
@@ -101,6 +126,7 @@ capture noisily {
     assert "`r(title_cell)'" == "A1"
 
     shell python3 `"`checker'"' `"`wb'"' "TitleNote" ///
+        --result-file `"`_st_res'"' ///
         --cell A1 "Table 3. HRT associations" ///
         --cell B2 "Binary HRT" ///
         --cell B4 "Recent" ///
@@ -109,6 +135,8 @@ capture noisily {
         --merged B5:D5 ///
         --bold A1 ///
         --italic B5
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: title and note rows are persisted"
@@ -131,12 +159,15 @@ capture noisily {
     assert r(rows_out) == 9
 
     shell python3 `"`checker'"' `"`wb'"' "Merged" ///
+        --result-file `"`_st_res'"' ///
         --cell B2 "Binary HRT" ///
         --cell C2 "HR (95% CI)" ///
         --cell C3 "1.23 (1.05, 1.44)" ///
         --blank B6 ///
         --blank C6 ///
         --cell B7 "Dose category (vs none)"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: label, postfix, spacing, and columnmerge are persisted"
@@ -157,9 +188,12 @@ capture noisily {
     assert r(rows_out) == 4
 
     shell python3 `"`checker'"' `"`wb'"' "Wide" ///
+        --result-file `"`_st_res'"' ///
         --cell B2 "Category" ///
         --cell E2 "Dose category" ///
         --cell G4 "(1.30, 2.15)"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: hstack aligns equal-height blocks"
@@ -206,8 +240,11 @@ capture noisily {
     assert "`r(table_start)'" == "B3"
 
     shell python3 `"`checker'"' `"`wb'"' "AppendMe" ///
+        --result-file `"`_st_res'"' ///
         --cell B2 "Binary HRT" ///
         --cell B3 "Active"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: append writes below existing sheet contents"
@@ -249,6 +286,7 @@ capture noisily {
     assert r(note_row) == 5
 
     shell python3 `"`checker'"' `"`wb'"' "SkipStyle" ///
+        --result-file `"`_st_res'"' ///
         --cell A1 "Styled table" ///
         --cell B2 "Category" ///
         --cell B3 "Active" ///
@@ -261,6 +299,8 @@ capture noisily {
         --row-height 1 30 --row-height 5 55 ///
         --col-width B 24 --col-width C 14 ///
         --outer-border B2 D4
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: skip, style, and border options preserve workbook content"
@@ -356,9 +396,12 @@ capture noisily {
     assert _xcol1[2] == "Active"
 
     shell python3 `"`checker'"' `"`wb'"' "FrameCsv" ///
+        --result-file `"`_st_res'"' ///
         --cell B4 "Footnote alias works" ///
         --merged B4:D4 ///
         --italic B4
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: footnote alias, frame output, and csv output"
@@ -380,9 +423,12 @@ capture noisily {
     assert r(rows_out) == 3
     assert "`r(table_start)'" == "B2"
     shell python3 `"`checker'"' `"`wb'"' "ColsOnly" ///
+        --result-file `"`_st_res'"' ///
         --cell B2 "00123" ///
         --cell C2 "<0.001" ///
         --cell B3 "alpha"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: cols() without rows() imports selected columns"
@@ -469,8 +515,11 @@ capture noisily {
     assert "`r(layout)'" == "vstack"
 
     shell python3 `"`checker'"' `"`wb'"' "AliasComposite" ///
+        --result-file `"`_st_res'"' ///
         --cell B2 "Category" ///
         --cell B6 "Dose category"
+    _st_assert `"`_st_res'"'
+    capture erase `"`_st_res'"'
 }
 if _rc == 0 {
     display as result "  PASS: xlsxcompose alias forwards to stacktab"

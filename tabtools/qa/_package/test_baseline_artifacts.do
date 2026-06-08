@@ -59,6 +59,27 @@ quietly net install tabtools, from("`pkg_dir'") replace
 discard
 tabtools set clear
 
+* Assert a summarize_xlsx.py verdict file says PASS. Stata's `shell` does not
+* propagate the tool's exit code to _rc, so the comparison result must be read
+* from the --status-file the tool writes and asserted here.
+capture program drop _assert_summary_status
+program define _assert_summary_status
+    args status_file
+    capture confirm file "`status_file'"
+    if _rc {
+        display as error "summary status file not written: `status_file'"
+        exit 459
+    }
+    tempname fh
+    file open `fh' using "`status_file'", read text
+    file read `fh' _line
+    file close `fh'
+    if substr("`_line'", 1, 4) != "PASS" {
+        display as error "summary comparison failed: `_line'"
+        exit 9
+    }
+end
+
 **# T1: Manifest lists only passing, materialized baseline summary artifacts
 local ++test_count
 capture noisily {
@@ -132,10 +153,15 @@ capture noisily {
     expand freq
     crosstab outcome exposure, xlsx("`xlsx'") sheet("Cross2x2") ///
         title("Refactor Baseline: crosstab 2x2")
+    local status "`output_dir'/_baseline_crosstab_2x2_status.txt"
+    capture erase "`status'"
     shell `python_cmd' "`summary_tool'" "`xlsx'" --sheet "Cross2x2" ///
         --result-file "`actual'" ///
         --expect-file "`summary_dir'/crosstab_2x2_chi2.tsv" ///
-        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest
+        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest ///
+        --status-file "`status'"
+    _assert_summary_status "`status'"
+    capture erase "`status'"
 }
 if _rc == 0 {
     display as result "  PASS: T3 - crosstab baseline payload reproduces"
@@ -157,10 +183,15 @@ capture noisily {
     collect clear
     collect: regress price mpg weight i.foreign
     regtab, xlsx("`xlsx'") sheet("Single") title("Refactor Baseline: regtab single")
+    local status "`output_dir'/_baseline_regtab_single_status.txt"
+    capture erase "`status'"
     shell `python_cmd' "`summary_tool'" "`xlsx'" --sheet "Single" ///
         --result-file "`actual'" ///
         --expect-file "`summary_dir'/regtab_single_model.tsv" ///
-        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest
+        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest ///
+        --status-file "`status'"
+    _assert_summary_status "`status'"
+    capture erase "`status'"
 }
 if _rc == 0 {
     display as result "  PASS: T4 - regtab baseline payload reproduces"
@@ -181,10 +212,15 @@ capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) vars(price auto \ mpg auto \ rep78 auto \ headroom auto) ///
         xlsx("`xlsx'") sheet("Auto") title("Refactor Baseline: table1 auto")
+    local status "`output_dir'/_baseline_table1_auto_status.txt"
+    capture erase "`status'"
     shell `python_cmd' "`summary_tool'" "`xlsx'" --sheet "Auto" ///
         --result-file "`actual'" ///
         --expect-file "`summary_dir'/table1_tc_autodetect.tsv" ///
-        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest
+        --compare-columns status sheet title max_row max_col n_merges nonempty_text_count content_digest ///
+        --status-file "`status'"
+    _assert_summary_status "`status'"
+    capture erase "`status'"
 }
 if _rc == 0 {
     display as result "  PASS: T5 - table1_tc baseline payload reproduces"

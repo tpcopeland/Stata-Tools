@@ -71,7 +71,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--result-file", required=True)
     parser.add_argument("--expect-file")
     parser.add_argument("--compare-columns", nargs="+")
+    parser.add_argument(
+        "--status-file",
+        help="Write PASS/FAIL verdict to this file for Stata integration "
+        "(exit codes are not reliably propagated by Stata's shell command).",
+    )
     return parser.parse_args()
+
+
+def write_verdict(path, verdict: str, details: str = "") -> None:
+    """Write a single-line PASS/FAIL verdict (tab-separated details) for Stata.
+
+    Stata's `shell` command does not propagate child exit codes to `_rc`, so a
+    comparison result must be recorded in a file the .do can read and assert.
+    """
+    if not path:
+        return
+    line = verdict if not details else f"{verdict}\t{details}"
+    Path(path).write_text(line)
 
 
 def write_status(path: Path, status: str, message: str) -> None:
@@ -170,12 +187,14 @@ def main() -> int:
 
     if load_workbook is None:
         write_status(result_file, "FAIL", "openpyxl not installed")
+        write_verdict(args.status_file, "FAIL", "openpyxl not installed")
         return 1
 
     try:
         summary = summarize_workbook(args.xlsx, args.sheet)
     except Exception as exc:  # pragma: no cover - defensive
         write_status(result_file, "FAIL", str(exc))
+        write_verdict(args.status_file, "FAIL", str(exc))
         return 1
 
     write_summary(result_file, summary)
@@ -184,6 +203,7 @@ def main() -> int:
             expected = read_expected(Path(args.expect_file))
         except Exception as exc:
             print(f"FAIL: could not read expected summary: {exc}", file=sys.stderr)
+            write_verdict(args.status_file, "FAIL", f"could not read expected summary: {exc}")
             return 1
         compare_columns = args.compare_columns or sorted(expected.keys() & summary.keys())
         failures = []
@@ -195,7 +215,9 @@ def main() -> int:
         if failures:
             for failure in failures:
                 print(f"FAIL: {failure}", file=sys.stderr)
+            write_verdict(args.status_file, "FAIL", "; ".join(failures))
             return 1
+    write_verdict(args.status_file, "PASS")
     return 0
 
 

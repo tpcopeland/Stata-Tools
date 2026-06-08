@@ -10,8 +10,21 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 
+# Path of the optional --result-file. Stata's `shell` command does not propagate
+# child exit codes to _rc, so the verdict is recorded here for the .do to assert.
+_RESULT_FILE: Path | None = None
+
+
+def _write_result(verdict: str, details: str = "") -> None:
+    if _RESULT_FILE is None:
+        return
+    line = verdict if not details else f"{verdict}\t{details}"
+    _RESULT_FILE.write_text(line)
+
+
 def fail(message: str) -> None:
     print(f"FAIL: {message}", file=sys.stderr)
+    _write_result("FAIL", message)
     raise SystemExit(1)
 
 
@@ -34,7 +47,17 @@ def main() -> int:
     parser.add_argument("--merged", action="append", metavar="RANGE")
     parser.add_argument("--bold", action="append", metavar="CELL")
     parser.add_argument("--italic", action="append", metavar="CELL")
+    parser.add_argument(
+        "--result-file",
+        metavar="PATH",
+        help="Write PASS/FAIL verdict to this file for Stata integration "
+        "(exit codes are not reliably propagated by Stata's shell command).",
+    )
     args = parser.parse_args()
+
+    global _RESULT_FILE
+    if args.result_file:
+        _RESULT_FILE = Path(args.result_file)
 
     path = Path(args.workbook)
     if not path.exists():
@@ -115,6 +138,7 @@ def main() -> int:
                 fail(f"{cell.coordinate} has no thin right border")
 
     print("PASS: workbook checks passed")
+    _write_result("PASS")
     return 0
 
 
