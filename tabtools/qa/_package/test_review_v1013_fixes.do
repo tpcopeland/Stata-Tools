@@ -22,6 +22,27 @@ local fail_count = 0
 
 local checker "`qa_dir'/tools/check_xlsx.py"
 
+* Assert a check_xlsx.py verdict file says PASS. Stata's `shell` does not
+* propagate the tool's exit code to _rc, so the verdict is read from the
+* --result-file the checker writes and asserted here.
+capture program drop _rv_assert
+program define _rv_assert
+    args result_file
+    capture confirm file "`result_file'"
+    if _rc {
+        display as error "checker verdict file not written: `result_file'"
+        exit 459
+    }
+    tempname fh
+    file open `fh' using "`result_file'", read text
+    file read `fh' _line
+    file close `fh'
+    if substr("`_line'", 1, 4) != "PASS" {
+        display as error "xlsx check failed: `_line'"
+        exit 9
+    }
+end
+
 * =========================================================================
 **# regtab headershade
 * =========================================================================
@@ -34,11 +55,16 @@ capture noisily {
     collect: regress price mpg weight foreign
 
     local _xlsx "`output_dir'/_test_headershade_off.xlsx"
+    local _res "`output_dir'/_test_headershade_off_res.txt"
     capture erase "`_xlsx'"
+    capture erase "`_res'"
     regtab, xlsx("`_xlsx'") sheet("NoShade") noint
 
     confirm file "`_xlsx'"
-    quietly shell python3 "`checker'" "`_xlsx'" "NoShade" --no-fill 2:B 3:B
+    shell python3 "`checker'" "`_xlsx'" --sheet "NoShade" ///
+        --cell-no-fill B2 B3 --result-file "`_res'" --quiet
+    _rv_assert "`_res'"
+    capture erase "`_res'"
 }
 if _rc == 0 {
     display as result "  PASS: regtab without headershade has no header fill"
@@ -57,11 +83,16 @@ capture noisily {
     collect: regress price mpg weight foreign
 
     local _xlsx "`output_dir'/_test_headershade_on.xlsx"
+    local _res "`output_dir'/_test_headershade_on_res.txt"
     capture erase "`_xlsx'"
+    capture erase "`_res'"
     regtab, xlsx("`_xlsx'") sheet("Shaded") noint headershade
 
     confirm file "`_xlsx'"
-    quietly shell python3 "`checker'" "`_xlsx'" "Shaded" --has-fill 2:B 3:B
+    shell python3 "`checker'" "`_xlsx'" --sheet "Shaded" ///
+        --has-fill 2 --has-fill 3 --result-file "`_res'" --quiet
+    _rv_assert "`_res'"
+    capture erase "`_res'"
 }
 if _rc == 0 {
     display as result "  PASS: regtab with headershade applies header fill"

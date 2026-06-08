@@ -101,8 +101,12 @@ def main() -> int:
     for col, width in args.col_width or []:
         expected = float(width)
         actual = ws.column_dimensions[col].width
-        if not close_enough(actual, expected):
-            fail(f"column {col} width {actual!r} != {expected}")
+        # A column width set via Mata's xl() is read back by openpyxl with a
+        # constant Excel padding offset of ~0.711 chars (5px / 7px-per-char),
+        # e.g. a requested width of 24 reads back as 24.7109375. Allow a
+        # tolerance wide enough to absorb that read-back artifact.
+        if not close_enough(actual, expected, tolerance=1.0):
+            fail(f"column {col} width {actual!r} != {expected} (+/-1.0)")
 
     for start, end in args.border_range or []:
         cells = ws[f"{start}:{end}"]

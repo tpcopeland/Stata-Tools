@@ -46,7 +46,7 @@ end
 local tmpdir = c(tmpdir) + "/stacktab_qa"
 capture mkdir `"`tmpdir'"'
 local wb `"`tmpdir'/test_workbook.xlsx"'
-capture erase `"`wb'"'
+capture erase "`wb'"
 local _st_res `"`tmpdir'/_st_result.txt"'
 
 **# Build Source Workbook
@@ -58,7 +58,7 @@ input str20 label str10 est str16 ci
 "Active"     "1.45"  "(1.20, 1.75)"
 "Recent"     "0.98"  "(0.82, 1.17)"
 end
-export excel `"`wb'"', sheet("SrcA") sheetreplace
+export excel "`wb'", sheet("SrcA") sheetreplace
 
 clear
 input str20 label str10 est str16 ci
@@ -66,20 +66,20 @@ input str20 label str10 est str16 ci
 "Low dose"      "1.10"   "(0.90, 1.35)"
 "High dose"     "1.67"   "(1.30, 2.15)"
 end
-export excel `"`wb'"', sheet("SrcB") sheetreplace
+export excel "`wb'", sheet("SrcB") sheetreplace
 
 clear
 input str8 id str8 keep1 str8 keep2
 "row1" "00123" "<0.001"
 "row2" "alpha" "beta"
 end
-export excel `"`wb'"', sheet("SrcC") sheetreplace
+export excel "`wb'", sheet("SrcC") sheetreplace
 
 **# Tests
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
         sheet("Composite") ///
         sheetreplace
@@ -92,15 +92,15 @@ capture noisily {
     assert "`r(title_cell)'" == ""
     assert "`r(layout)'" == "vstack"
 
-    shell python3 `"`checker'"' `"`wb'"' "Composite" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "Composite" ///
+        --result-file "`_st_res'" ///
         --blank A1 ///
         --cell B2 "Category" ///
         --cell B6 "Dose category" ///
         --cell C7 "1.10" ///
         --cell D8 "(1.30, 2.15)"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: vstack writes expected workbook cells"
@@ -113,7 +113,7 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(2/4) cols(A-C)) ///
         sheet("TitleNote") ///
         title("Table 3. HRT associations") ///
@@ -125,8 +125,8 @@ capture noisily {
     assert "`r(table_start)'" == "B2"
     assert "`r(title_cell)'" == "A1"
 
-    shell python3 `"`checker'"' `"`wb'"' "TitleNote" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "TitleNote" ///
+        --result-file "`_st_res'" ///
         --cell A1 "Table 3. HRT associations" ///
         --cell B2 "Binary HRT" ///
         --cell B4 "Recent" ///
@@ -135,8 +135,8 @@ capture noisily {
         --merged B5:D5 ///
         --bold A1 ///
         --italic B5
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: title and note rows are persisted"
@@ -149,7 +149,7 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C) label(Binary HRT) \ ///
                sheet(SrcB) rows(1/3) cols(A-C) postfix((vs none))) ///
         sheet("Merged") ///
@@ -158,16 +158,16 @@ capture noisily {
         sheetreplace
     assert r(rows_out) == 9
 
-    shell python3 `"`checker'"' `"`wb'"' "Merged" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "Merged" ///
+        --result-file "`_st_res'" ///
         --cell B2 "Binary HRT" ///
         --cell C2 "HR (95% CI)" ///
         --cell C3 "1.23 (1.05, 1.44)" ///
         --blank B6 ///
         --blank C6 ///
         --cell B7 "Dose category (vs none)"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: label, postfix, spacing, and columnmerge are persisted"
@@ -180,20 +180,20 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/3) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
         sheet("Wide") ///
         layout(hstack) ///
         sheetreplace
     assert r(rows_out) == 4
 
-    shell python3 `"`checker'"' `"`wb'"' "Wide" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "Wide" ///
+        --result-file "`_st_res'" ///
         --cell B2 "Category" ///
         --cell E2 "Dose category" ///
         --cell G4 "(1.30, 2.15)"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: hstack aligns equal-height blocks"
@@ -206,7 +206,7 @@ else {
 
 local ++test_count
 capture noisily {
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
         sheet("WideFail") ///
         layout(hstack) ///
@@ -224,14 +224,14 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(2/2) cols(A-C)) ///
         sheet("AppendMe") ///
         sheetreplace
     assert r(rows_out) == 2
     assert "`r(table_start)'" == "B2"
 
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(3/3) cols(A-C)) ///
         sheet("AppendMe") ///
         append
@@ -239,12 +239,12 @@ capture noisily {
     assert r(rows_out) == 3
     assert "`r(table_start)'" == "B3"
 
-    shell python3 `"`checker'"' `"`wb'"' "AppendMe" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "AppendMe" ///
+        --result-file "`_st_res'" ///
         --cell B2 "Binary HRT" ///
         --cell B3 "Active"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: append writes below existing sheet contents"
@@ -257,7 +257,7 @@ else {
 
 local ++test_count
 capture noisily {
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(2/2) cols(A-C)) ///
         sheet("AppendMe")
     assert _rc == 602
@@ -273,7 +273,7 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C) skip(2)) ///
         sheet("SkipStyle") ///
         title("Styled table") ///
@@ -285,8 +285,8 @@ capture noisily {
     assert r(rows_out) == 4
     assert r(note_row) == 5
 
-    shell python3 `"`checker'"' `"`wb'"' "SkipStyle" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "SkipStyle" ///
+        --result-file "`_st_res'" ///
         --cell A1 "Styled table" ///
         --cell B2 "Category" ///
         --cell B3 "Active" ///
@@ -299,8 +299,8 @@ capture noisily {
         --row-height 1 30 --row-height 5 55 ///
         --col-width B 24 --col-width C 14 ///
         --outer-border B2 D4
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: skip, style, and border options preserve workbook content"
@@ -313,7 +313,7 @@ else {
 
 local ++test_count
 capture noisily {
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(DoesNotExist) rows(1/3) cols(A-C)) ///
         sheet("MissingSheet") ///
         sheetreplace
@@ -337,7 +337,7 @@ capture noisily {
     3 "three"
     end
     set varabbrev on
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/2) cols(A-C)) ///
         sheet("PreserveOK") ///
         sheetreplace
@@ -345,7 +345,7 @@ capture noisily {
     assert marker[2] == "two"
     assert c(varabbrev) == "on"
 
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(DoesNotExist) rows(1/3) cols(A-C)) ///
         sheet("PreserveFail") ///
         sheetreplace
@@ -370,7 +370,7 @@ capture noisily {
     local csvout `"`tmpdir'/frame_csv.csv"'
     capture erase `"`csvout'"'
     capture frame drop stacktab_frame
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(2/3) cols(A-C)) ///
         sheet("FrameCsv") ///
         footnote("Footnote alias works") ///
@@ -395,13 +395,13 @@ capture noisily {
     assert _N == 2
     assert _xcol1[2] == "Active"
 
-    shell python3 `"`checker'"' `"`wb'"' "FrameCsv" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "FrameCsv" ///
+        --result-file "`_st_res'" ///
         --cell B4 "Footnote alias works" ///
         --merged B4:D4 ///
         --italic B4
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: footnote alias, frame output, and csv output"
@@ -414,7 +414,7 @@ else {
 
 local ++test_count
 capture noisily {
-    stacktab using `"`wb'"', ///
+    stacktab using "`wb'", ///
         blocks(sheet(SrcC) cols(B-C)) ///
         sheet("ColsOnly") ///
         sheetreplace
@@ -422,13 +422,13 @@ capture noisily {
 
     assert r(rows_out) == 3
     assert "`r(table_start)'" == "B2"
-    shell python3 `"`checker'"' `"`wb'"' "ColsOnly" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "ColsOnly" ///
+        --result-file "`_st_res'" ///
         --cell B2 "00123" ///
         --cell C2 "<0.001" ///
         --cell B3 "alpha"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: cols() without rows() imports selected columns"
@@ -441,21 +441,21 @@ else {
 
 local ++test_count
 capture noisily {
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadMerge") ///
         columnmerge(B+C "HR") ///
         sheetreplace
     assert _rc == 198
 
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadMerge2") ///
         columnmerge(B+B as "HR") ///
         sheetreplace
     assert _rc == 198
 
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadMerge3") ///
         columnmerge(B+Z as "HR") ///
@@ -473,20 +473,20 @@ else {
 
 local ++test_count
 capture noisily {
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadLayout") ///
         layout(diagonal) ///
         sheetreplace
     assert _rc == 198
 
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadReplace") ///
         append sheetreplace
     assert _rc == 198
 
-    capture noisily stacktab using `"`wb'"', ///
+    capture noisily stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C)) ///
         sheet("BadSpacing") ///
         spacing(-1) ///
@@ -505,7 +505,7 @@ else {
 **# Deprecated alias: xlsxcompose forwards to stacktab and returns r()
 local ++test_count
 capture noisily {
-    xlsxcompose using `"`wb'"', ///
+    xlsxcompose using "`wb'", ///
         blocks(sheet(SrcA) rows(1/4) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
         sheet("AliasComposite") ///
         sheetreplace
@@ -514,12 +514,12 @@ capture noisily {
     assert r(cols_out) == 3
     assert "`r(layout)'" == "vstack"
 
-    shell python3 `"`checker'"' `"`wb'"' "AliasComposite" ///
-        --result-file `"`_st_res'"' ///
+    shell python3 "`checker'" "`wb'" "AliasComposite" ///
+        --result-file "`_st_res'" ///
         --cell B2 "Category" ///
         --cell B6 "Dose category"
-    _st_assert `"`_st_res'"'
-    capture erase `"`_st_res'"'
+    _st_assert "`_st_res'"
+    capture erase "`_st_res'"
 }
 if _rc == 0 {
     display as result "  PASS: xlsxcompose alias forwards to stacktab"
@@ -533,7 +533,7 @@ else {
 **# Cleanup And Summary
 
 capture frame drop stacktab_frame
-capture erase `"`wb'"'
+capture erase "`wb'"
 capture rmdir `"`tmpdir'"'
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
