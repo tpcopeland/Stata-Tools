@@ -84,6 +84,18 @@ def get_used_cols(ws: Worksheet) -> int:
     return 0
 
 
+def freeze_pane_ref(ws: Worksheet) -> Optional[str]:
+    """Return the worksheet freeze-pane reference, normalized to A1 notation."""
+    pane = getattr(ws, "freeze_panes", None)
+    if pane is None:
+        return None
+    coordinate = getattr(pane, "coordinate", None)
+    if coordinate:
+        return str(coordinate)
+    pane_text = str(pane)
+    return pane_text or None
+
+
 def cell_value(ws: Worksheet, ref: str) -> Any:
     """Get value from a cell reference like 'A1' or 'B3'."""
     return ws[ref].value
@@ -864,11 +876,34 @@ def check_min_merges(ws: Worksheet, n: int) -> CheckResult:
 
 
 def check_no_empty_cols(ws: Worksheet) -> CheckResult:
-    for col in range(1, ws.max_column + 1):
+    max_row = get_used_rows(ws)
+    max_col = get_used_cols(ws)
+    for col in range(1, max_col + 1):
         if all(_stringify(ws.cell(row=r, column=col).value) == ""
-               for r in range(1, ws.max_row + 1)):
+               for r in range(1, max_row + 1)):
             return CheckResult("No empty columns", False, f"column {col} is empty")
     return CheckResult("No empty columns", True, "no empty columns")
+
+
+def check_has_freeze_panes(ws: Worksheet) -> CheckResult:
+    actual = freeze_pane_ref(ws)
+    return CheckResult(
+        name="Has freeze panes",
+        passed=actual is not None,
+        message=f"freeze panes at {actual}" if actual else "no freeze panes",
+    )
+
+
+def check_freeze_panes(ws: Worksheet, expected_ref: str) -> CheckResult:
+    actual = freeze_pane_ref(ws)
+    expected = expected_ref.strip().upper()
+    actual_norm = actual.upper() if actual else None
+    passed = actual_norm == expected
+    return CheckResult(
+        name=f"Freeze panes at {expected}",
+        passed=passed,
+        message=f"matched ({actual})" if passed else f"expected {expected}, got {actual or 'none'}",
+    )
 
 
 def check_number_format(ws: Worksheet, ref: str, fmt: str) -> CheckResult:
@@ -901,16 +936,6 @@ def check_col_width_at_most(ws: Worksheet, col: str, width: float) -> CheckResul
     )
 
 
-def check_cell_wrap(ws: Worksheet, ref: str) -> CheckResult:
-    align = ws[ref].alignment
-    passed = bool(align and align.wrap_text)
-    return CheckResult(
-        name=f"Cell {ref} text-wrap enabled",
-        passed=passed,
-        message="wrap on" if passed else "wrap off",
-    )
-
-
 def check_col_width_fits_content(ws: Worksheet, col: str, start_row: int) -> CheckResult:
     actual = _column_width(ws, col)
     max_len, max_row, sample = _column_max_length(ws, col, start_row)
@@ -920,6 +945,35 @@ def check_col_width_fits_content(ws: Worksheet, col: str, start_row: int) -> Che
         passed=passed,
         message=f"width {actual:.2f} >= {max_len}" if passed
         else f"width {actual:.2f} < content len {max_len} (row {max_row}: '{sample}')",
+    )
+
+
+def check_all_col_widths_fit(ws: Worksheet, start_row: int, slack: float) -> CheckResult:
+    max_col = get_used_cols(ws)
+    failures = []
+    for col_idx in range(1, max_col + 1):
+        col = get_column_letter(col_idx)
+        actual = _column_width(ws, col)
+        max_len, max_row, sample = _column_max_length(ws, col, start_row)
+        if max_len and actual + slack + 1e-9 < max_len:
+            failures.append({
+                "col": col,
+                "width": round(actual, 2),
+                "max_len": max_len,
+                "row": max_row,
+                "sample": sample[:40],
+            })
+    passed = not failures
+    preview = ", ".join(
+        f"{f['col']} width {f['width']:.2f} < len {f['max_len']} (row {f['row']})"
+        for f in failures[:5]
+    )
+    more = f"; +{len(failures) - 5} more" if len(failures) > 5 else ""
+    return CheckResult(
+        name=f"All column widths fit content from row {start_row} (slack {slack})",
+        passed=passed,
+        message="all fit" if passed else preview + more,
+        detail=f"failures: {failures}" if failures else "",
     )
 
 
@@ -1108,6 +1162,10 @@ class CheckRunner:
             results.append(check_min_merges(ws, args.min_merges))
         if args.no_empty_cols:
             results.append(check_no_empty_cols(ws))
+        if args.has_freeze_panes:
+            results.append(check_has_freeze_panes(ws))
+        if args.freeze_panes:
+            results.append(check_freeze_panes(ws, args.freeze_panes))
         if args.number_format:
             for spec in args.number_format:
                 results.append(check_number_format(ws, spec[0], spec[1]))
@@ -1126,9 +1184,9 @@ class CheckRunner:
         if args.col_width_fits_content:
             for spec in args.col_width_fits_content:
                 results.append(check_col_width_fits_content(ws, spec[0], int(spec[1])))
-        if args.cell_wrap:
-            for ref in args.cell_wrap:
-                results.append(check_cell_wrap(ws, ref))
+        if args.all_col_widths_fit:
+            for spec in args.all_col_widths_fit:
+                results.append(check_all_col_widths_fit(ws, int(spec[0]), float(spec[1])))
         if args.theme:
             for name in args.theme:
                 results.append(check_theme(ws, name))
@@ -1332,6 +1390,10 @@ Available patterns for --has-pattern:
                        help="At least N merged ranges")
     style.add_argument("--no-empty-cols", action="store_true",
                        help="No fully empty columns in used range")
+    style.add_argument("--has-freeze-panes", action="store_true",
+                       help="Sheet has freeze panes")
+    style.add_argument("--freeze-panes", metavar="REF",
+                       help="Sheet freeze panes exactly at REF, e.g. A3 or B2")
     style.add_argument("--number-format", nargs=2, action=CellPairAction,
                        metavar=("REF", "FORMAT"), help="Cell REF has number format FORMAT")
     style.add_argument("--col-width-at-least", nargs=2, action=CellPairAction,
@@ -1341,8 +1403,9 @@ Available patterns for --has-pattern:
     style.add_argument("--col-width-fits-content", nargs=2, action=CellPairAction,
                        metavar=("COL", "STARTROW"),
                        help="Column COL width >= max content length from STARTROW")
-    style.add_argument("--cell-wrap", action="append", metavar="REF",
-                       help="Cell REF has text-wrap enabled")
+    style.add_argument("--all-col-widths-fit", nargs=2, action=CellPairAction,
+                       metavar=("STARTROW", "SLACK"),
+                       help="Every used column width plus SLACK fits max content length from STARTROW")
     style.add_argument("--theme", action="append", metavar="NAME",
                        help="Dominant font/size/borders match theme: nejm, lancet, apa")
 
