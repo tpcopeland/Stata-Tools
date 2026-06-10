@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small workbook checks for xlsxcompose QA."""
+"""Small workbook checks for stacktab QA."""
 
 from __future__ import annotations
 

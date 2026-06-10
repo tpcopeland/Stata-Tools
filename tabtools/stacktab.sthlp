@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
@@ -26,9 +26,7 @@ Help for {hi:stacktab}{right:(tabtools)}
 {cmd:stacktab} is part of the {helpb tabtools} suite. It is the assembly end of
 the styled-export pipeline: emit one styled block per sheet with {helpb puttab}
 (from a dataset, frame, or matrix), then stack or place those sheets side by side
-into one composite sheet with {cmd:stacktab}. {cmd:stacktab} was previously
-distributed as the standalone command {cmd:xlsxcompose}; that name is retained as
-a deprecated alias.
+into one composite sheet with {cmd:stacktab}.
 
 {marker syntax}{...}
 {title:Syntax}
@@ -191,7 +189,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 
 {psee}
 {helpb tabtools}, {helpb puttab}, {helpb comptab}, {helpb hrcomptab},
-{helpb tabtools_cheatsheet}
+{helpb tabtools_tips}
 {p_end}
 
 {marker author}{...}
@@ -200,6 +198,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.6.2
+Version 1.6.4
 {p 4 4 2}
 {hline}

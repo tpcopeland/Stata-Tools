@@ -1,4 +1,4 @@
-* test_stacktab.do - QA for stacktab (migrated from xlsxcompose) in tabtools
+* test_stacktab.do - QA for stacktab in tabtools
 
 clear all
 version 16.0
@@ -13,14 +13,16 @@ local pass_count = 0
 local fail_count = 0
 
 local qa_dir = c(pwd)
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local checker "`qa_dir'/stacktab/tools/check_stacktab.py"
+local pkg_dir = subinstr("`qa_dir'", "/qa/stacktab", "", 1)
+if "`pkg_dir'" == "`qa_dir'" {
+    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+}
+local checker "`pkg_dir'/qa/stacktab/tools/check_stacktab.py"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 discard
 which stacktab
-which xlsxcompose
 
 * Assert a check_stacktab.py verdict file says PASS. Stata's `shell` does not
 * propagate the tool's exit code to _rc, so the verdict is read from the
@@ -499,34 +501,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: invalid option error contracts (error `=_rc')"
-    local ++fail_count
-}
-
-**# Deprecated alias: xlsxcompose forwards to stacktab and returns r()
-local ++test_count
-capture noisily {
-    xlsxcompose using "`wb'", ///
-        blocks(sheet(SrcA) rows(1/4) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
-        sheet("AliasComposite") ///
-        sheetreplace
-    assert r(blocks_loaded) == 2
-    assert r(rows_written) == 7
-    assert r(cols_out) == 3
-    assert "`r(layout)'" == "vstack"
-
-    shell python3 "`checker'" "`wb'" "AliasComposite" ///
-        --result-file "`_st_res'" ///
-        --cell B2 "Category" ///
-        --cell B6 "Dose category"
-    _st_assert "`_st_res'"
-    capture erase "`_st_res'"
-}
-if _rc == 0 {
-    display as result "  PASS: xlsxcompose alias forwards to stacktab"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: xlsxcompose alias forwards to stacktab (error `=_rc')"
     local ++fail_count
 }
 

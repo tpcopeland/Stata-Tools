@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -22,6 +22,7 @@
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
+{vieweralsosee "tabtools tips" "help tabtools_tips"}{...}
 {vieweralsosee "tabtools cheatsheet" "help tabtools_cheatsheet"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {title:Title}
@@ -51,9 +52,9 @@ Most commands require Stata 17. The suite controller {cmd:tabtools} and
 {helpb table1_tc} also support Stata 16.
 
 {pstd}
-See {helpb tabtools_cheatsheet:tabtools cheatsheet} for a quick-reference
-option guide and {helpb tabtools_cookbook:tabtools cookbook} for end-to-end
-worked examples.
+See {helpb tabtools_tips:tabtools tips} for the merged quick-reference option
+guide and end-to-end worked recipes. The older {helpb tabtools_cheatsheet} and
+{helpb tabtools_cookbook} topics remain as compatibility aliases.
 
 
 {marker commands}{...}
@@ -102,6 +103,7 @@ worked examples.
 {bf:Utility}
 
 {synopt:{helpb tabtools}}Suite controller and persistent defaults manager{p_end}
+{synopt:{helpb tabtools_tips}}Quick reference and worked recipes{p_end}
 {synoptline}
 
 
@@ -403,6 +405,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

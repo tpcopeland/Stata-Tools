@@ -19,6 +19,7 @@ d   corrtab        - Correlation matrix with significance stars
 d   puttab         - Style an in-memory dataset, frame, or matrix as one sheet
 d   stacktab       - Assemble multi-sheet composite Excel tables from blocks
 d   simtab         - Monte Carlo simulation performance table and export
+d   tabtools_tips  - Merged quick reference and worked recipes
 d
 d Commands apply consistent Excel formatting and can emit GitHub-Flavored
 d Markdown tables for report workflows.
@@ -27,13 +28,15 @@ d Requires: Stata version 16+ (tabtools, table1_tc, simtab), 17+ (all other comm
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d Optional: simsum / siman for simtab ingest mode (from()) and analysis
 d
-d Distribution-Date: 20260608
+d Distribution-Date: 20260610
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
 f tabtools.ado
 f tabtools.sthlp
+f tabtools_tips.ado
+f tabtools_tips.sthlp
 f _tabtools_common.ado
 f _tabtools_xlsx_write_current.ado
 f _tabtools_markdown_write_current.ado
@@ -73,7 +76,5 @@ f stacktab.sthlp
 f simtab.ado
 f simtab.sthlp
 f _simtab_ingest.ado
-f xlsxcompose.ado
-f xlsxcompose.sthlp
 f tabtools_cheatsheet.sthlp
 f tabtools_cookbook.sthlp

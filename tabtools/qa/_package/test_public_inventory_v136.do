@@ -1,5 +1,4 @@
-* test_public_inventory_v136.do - package inventory and installed-user aliases
-* Covers the v1.3.6 public command surface, including deprecated xlsxcompose.
+* test_public_inventory_v136.do - package inventory and installed-user surface
 
 clear all
 set more off
@@ -30,8 +29,8 @@ capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 discard
 
-local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab simtab xlsxcompose"
-local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab simtab tabtools"
+local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab simtab tabtools_tips"
+local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab puttab stacktab simtab tabtools tabtools_tips"
 
 **# Public Inventory
 
@@ -123,66 +122,25 @@ else {
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 15
+    assert r(n_commands) == 16
     local commands " `r(commands)' "
     foreach cmd of local advertised_cmds {
         assert strpos("`commands'", " `cmd' ") > 0
     }
-    assert strpos("`commands'", " xlsxcompose ") == 0
-
     tabtools, category(export)
     assert r(n_commands) == 2
     local export_commands " `r(commands)' "
     assert strpos("`export_commands'", " puttab ") > 0
     assert strpos("`export_commands'", " stacktab ") > 0
-    assert strpos("`export_commands'", " xlsxcompose ") == 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools advertises 15 current commands and keeps xlsxcompose as alias-only"
+    display as result "  PASS: tabtools advertises 16 current commands"
     local ++pass_count
 }
 else {
     display as error "  FAIL: tabtools dispatcher inventory contract (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' dispatcher_inventory"
-}
-
-**# Deprecated Alias
-
-local ++test_count
-capture noisily {
-    tempfile wb
-    local book "`wb'.xlsx"
-    clear
-    input str12 label str8 estimate
-    "term" "estimate"
-    "age"  "1.20"
-    "sex"  "0.95"
-    end
-    export excel using "`book'", sheet("Source") replace
-
-    xlsxcompose using "`book'", ///
-        blocks(sheet(Source) rows(1/3) cols(A-B)) ///
-        sheet("Alias") sheetreplace
-
-    assert r(blocks_loaded) == 1
-    assert r(rows_written) == 3
-    assert "`r(layout)'" == "vstack"
-
-    preserve
-    import excel using "`book'", sheet("Alias") cellrange(B2:C4) firstrow clear allstring
-    assert term[1] == "age"
-    assert estimate[1] == "1.20"
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: deprecated xlsxcompose alias forwards to stacktab and writes expected cells"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: xlsxcompose alias forwarding contract (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' xlsxcompose_alias"
 }
 
 **# Summary

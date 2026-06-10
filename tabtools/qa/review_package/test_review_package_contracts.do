@@ -7,7 +7,10 @@ capture log close _review_package
 log using "test_review_package_contracts.log", replace text name(_review_package)
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = subinstr("`qa_dir'", "/qa/review_package", "", 1)
+if "`pkg_dir'" == "`qa_dir'" {
+    local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+}
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
 tempname install_id
@@ -40,7 +43,8 @@ if `install_rc' {
 }
 
 local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
-    hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab xlsxcompose
+    hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab ///
+    simtab tabtools_tips
 local helper_files _tabtools_common.ado _tabtools_xlsx_write_current.ado ///
     _tabtools_xlsx_read_current.ado _tabtools_collect_render_current.ado ///
     _tabtools_table_metadata_current.ado _tabtools_xlsx_set_widths.ado ///
@@ -107,34 +111,6 @@ else {
     display as error "  FAIL: fresh-install public command/helper resolution (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' installed_resolution"
-}
-
-**## Deprecated xlsxcompose alias forwards to stacktab and preserves r() contract
-local ++test_count
-capture noisily {
-    tempfile wb
-    clear
-    input str8 label str8 est
-    "Header" "Estimate"
-    "Row 1"  "1.23"
-    end
-    export excel using "`wb'.xlsx", sheet("Source") replace
-    xlsxcompose using "`wb'.xlsx", ///
-        blocks(sheet(Source) rows(1/2) cols(A-B)) ///
-        sheet("Alias") sheetreplace
-    assert r(blocks_loaded) == 1
-    assert r(rows_written) == 2
-    assert r(cols_out) == 2
-    assert "`r(layout)'" == "vstack"
-}
-if _rc == 0 {
-    display as result "  PASS: xlsxcompose alias is installed and forwards r()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: xlsxcompose installed-user alias contract (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' xlsxcompose_alias"
 }
 
 **# Dispatcher And Documentation Contracts

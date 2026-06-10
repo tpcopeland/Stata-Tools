@@ -1,4 +1,4 @@
-*! tabtools Version 1.6.2  2026/06/08
+*! tabtools Version 1.6.4  2026/06/10
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -35,7 +35,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.6.2"
+        local _package_version "1.6.4"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -468,7 +468,7 @@ program define tabtools, rclass
         local cmd_composite "comptab hrcomptab"
         local cmd_export "puttab stacktab"
         local cmd_simulation "simtab"
-        local cmd_general "tabtools"
+        local cmd_general "tabtools tabtools_tips"
 
         // Build selected list based on category
         if "`category'" == "descriptive" {
@@ -584,6 +584,7 @@ program define tabtools, rclass
             if inlist("`category'", "all", "general") {
                 display as text "{bf:General Purpose}"
                 display as result "  tabtools     " as text "- Suite controller and persistent defaults"
+                display as result "  tabtools_tips " as text "- Quick reference and worked recipes"
                 display as text ""
             }
 
@@ -591,6 +592,7 @@ program define tabtools, rclass
             display as text "Total commands: " as result "`n_commands'"
             display as text ""
             display as text "Help:     " as result "help tabtools" as text " for overview"
+            display as text "          " as result "tabtools_tips" as text " for quick reference and recipes"
             display as text "          " as result "help <command>" as text " for individual command help"
             display as text "Settings: " as result "tabtools set font Calibri" as text " (persistent defaults)"
             display as text "          " as result "tabtools get" as text " (view current defaults)"
@@ -713,7 +715,7 @@ end
 
 * Subroutine for detailed display
 capture program drop _tabtools_detail
-program define _tabtools_detail
+program define _tabtools_detail, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -811,7 +813,7 @@ program define _tabtools_detail
             display as text ""
             display as result "  stacktab" as text "     Assemble multi-sheet composite Excel tables from"
             display as text "               source blocks (vstack or hstack), with column"
-            display as text "               merges, titles, and notes. Formerly xlsxcompose."
+            display as text "               merges, titles, and notes."
             display as text ""
         }
 
@@ -832,6 +834,10 @@ program define _tabtools_detail
             display as result "  tabtools" as text "     Suite controller for listing commands and"
             display as text "               managing persistent formatting defaults with"
             display as text "               set and get."
+            display as text ""
+            display as result "  tabtools_tips " as text "Quick reference and worked recipes."
+            display as text "               Merges the former cheatsheet and cookbook"
+            display as text "               help topics."
             display as text ""
         }
 

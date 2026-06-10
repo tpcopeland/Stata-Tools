@@ -1,12 +1,12 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.6.2** | 2026-06-08
+**Version 1.6.4** | 2026-06-10
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
 ## Requirements
 
-- Stata 16 or later for `tabtools` and `table1_tc`
+- Stata 16 or later for `tabtools`, `tabtools_tips`, `table1_tc`, `stacktab`, and `simtab`
 - Stata 17 or later for `desctab`, `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, `stratetab`, and `puttab`
 - `desctab`, `regtab`, and `effecttab` require Stata's `collect` framework
 - `survtab` requires `stset` data, and `stratetab` expects saved `strate, output()` datasets
@@ -19,7 +19,7 @@ capture ado uninstall tabtools
 net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
 ```
 
-After installation, start with `help tabtools` for the suite overview, `help tabtools_cheatsheet` for common option patterns, and `help tabtools_cookbook` for longer worked workflows.
+After installation, start with `help tabtools` for the suite overview and `tabtools_tips` for the merged quick reference and worked recipes. The older `help tabtools_cheatsheet` and `help tabtools_cookbook` topics still work as compatibility aliases.
 
 ## Markdown Export
 
@@ -94,6 +94,7 @@ In short: style one raw table → `puttab`; combine estimation results still in 
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `tabtools` | Browse commands and manage persistent formatting defaults for the current Stata session | 16+ |
+| `tabtools_tips` | Merged quick reference and worked recipes; replaces the separate cheatsheet and cookbook entry points | 16+ |
 
 ## Choosing a Workflow
 
@@ -135,7 +136,7 @@ From a local checkout, run:
 stata-mp -b do tabtools/demo/demo_tabtools.do
 ```
 
-Installed users should start with `help tabtools`, `help tabtools_cheatsheet`, and `help tabtools_cookbook`; those help files are shipped by `net install`.
+Installed users should start with `help tabtools` and `tabtools_tips`; the legacy `help tabtools_cheatsheet` and `help tabtools_cookbook` topics are shipped as compatibility aliases.
 
 ### Markdown report export
 
@@ -267,11 +268,19 @@ tabtools - Publication-Ready Table Export Suite
   comptab      - Combine regtab/effecttab frames into one table
   hrcomptab    - Attach regtab frames to a stratetab scaffold
 
+**Styled Export**
+  puttab       - Style an in-memory dataset, frame, or matrix as one sheet
+  stacktab     - Assemble multi-sheet composite Excel tables from blocks
+
+**Simulation Studies**
+  simtab       - Monte Carlo performance table
+
 **General Purpose**
   tabtools     - Suite controller and persistent defaults
+  tabtools_tips - Quick reference and worked recipes
 
 ──────────────────────────────────────────────────────────────────────
-Total commands: 12
+Total commands: 16
 ```
 
 ### table1_tc — Baseline characteristics
@@ -696,12 +705,14 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 ## Resources
 
 - `help tabtools` for the suite overview and persistent defaults
-- `help tabtools_cheatsheet` for compact option patterns across commands
-- `help tabtools_cookbook` for longer end-to-end recipes
+- `tabtools_tips` or `help tabtools_tips` for compact option patterns and longer end-to-end recipes
+- `help tabtools_cheatsheet` and `help tabtools_cookbook` as legacy aliases to `tabtools_tips`
 - `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, and `help stacktab` for command-specific syntax
 
 ## Version History
 
+- **1.6.4** (2026-06-10): Remove the retired workbook-composition alias from the shipped package. `stacktab` is now the only public command for assembling exported workbook blocks, and QA no longer installs or calls the old alias path.
+- **1.6.3** (2026-06-10): Add `tabtools_tips`, a merged quick-reference and cookbook command/help topic. The former `tabtools_cheatsheet` and `tabtools_cookbook` help files are retained as compatibility aliases. Update the visible help and README command inventory for recently added commands including `puttab`, `stacktab`, and `simtab`.
 - **1.6.2** (2026-06-08): Fix `regtab` AIC/BIC for GEE models. `regtab` reads model fit statistics from the active `e()`, but Stata's `glm` (the backend used by `iivw_fit` and `xtgee`-style GEE workflows) stores `e(aic)` as AIC *per observation* (AIC/N) and `e(bic)` under a deviance-based convention — neither comparable to the likelihood-scale values `mixed` and other ML estimators report. A `stats(aic)` table mixing GEE and mixed models therefore showed GEE AIC values roughly N times too small. `regtab` now always recomputes AIC as `-2*ll + 2*k` and BIC as `-2*ll + k*ln(N)` from `e(ll)`, `e(rank)`, and `e(N)` whenever those are available, overriding the per-observation/deviance-based stored values. Results now match `estat ic` for every model family and stay on one scale across rows. `mixed` output is unchanged (it already used this path). Added regression test `qa/regtab/test_regtab_aic_gee.do`.
 - **1.6.1** (2026-06-08): Adds disk-backed tabtools defaults profiles. `tabtools set ... , permanent` writes the current house style to a runnable Stata do-file, using `tabtools_profile.do` in the PERSONAL ado directory by default or `profile(filename)` for project-specific profiles. `tabtools use [using filename]` reloads a saved profile into the current session, making fonts, themes, borders, digits, bold-p thresholds, and custom colors reproducible across sessions and projects. Refreshes `table1_tc` display defaults toward a compact house style: continuous variables now use `format(%2.0f)`, percentages `percformat(%5.0f)` with no percent sign (`percsign("")`), SDs render as `mean±SD` (`sdleft("±") sdright("")`), IQRs as `(Q1, Q3)` (`iqrmiddle(", ")`), and low percentages are reported without a leading alignment space (no-space is now the default — the old behavior is available via the new `spacelowpercent` option, replacing `nospacelowpercent`). `borderstyle(thin)` is the default Excel border for both `table1_tc` and `regtab`, and `regtab` defaults to `digits(2)`.
 - **1.6.0** (2026-06-07): New command `simtab` — a Monte Carlo simulation performance table and export layer. Compute mode summarizes long replication-level results into table-grade measures (`mean`, `bias`, `pctbias`, `empse`, `meanse`, `relerr`, `mse`, `rmse`, `coverage`, `power`, `n`, `nonconv`) with closed-form Monte Carlo SEs used to flag off-nominal coverage; ingest mode (`from(simsum)`/`from(siman)`/`from(summary)`) renders an already-computed summary without recomputation, following the optional-dependency pattern used by `comptab`/`hrcomptab` with `eplot`. Multi-estimand tables get merged Excel group headers and flattened Markdown/CSV headers; `nsim()` adds non-convergence reporting; `plotframe()` provides a numeric figure companion. Cross-validated to exact agreement with `simsum` on bias/empirical SE/coverage and their Monte Carlo SEs. Pairs with `simsum` (White, *Stata Journal* 2010) and `siman` (UCL); cites Morris, White & Crowther (*Stat Med* 2019). Adds `_simtab_ingest.ado`, `simtab.sthlp`, and `qa/simtab/`.
@@ -710,7 +721,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 - **1.5.0** (2026-06-06): Add an `eplot` bridge for graph-ready estimate/CI companion frames. `regtab` and `effecttab` now support `eplotframe()`; `comptab` and `hrcomptab` can compose those companions and draw forest plots with `forest`, passing graph options through `eplotoptions()` while honoring the active graph scheme by default. `regtab` and `effecttab` now support `eplotframe()`; `comptab` and `hrcomptab` can compose those companions and draw forest plots with `forest`, passing graph options through `eplotoptions()` while honoring the active graph scheme by default.
 - **1.4.0** (2026-06-05): Add `markdown()` and `mdappend` exports across tabtools table commands, including same-call Excel plus Markdown export and sequential Markdown report building. Add `_tabtools_markdown_write_current.ado` as the shared Markdown writer and allow `puttab` to run Markdown-only without `using`.
 - **1.3.7** (2026-06-03): Cap the label (first) column width in `regtab`, `effecttab`, and `comptab` so a single verbose row label — most commonly an unstructured random-effects `Covariance: ... (slope, Intercept)` row from a mixed model — can no longer stretch the whole column to 60-76 characters and balloon the table. The label column now caps at 45 characters by default; labels longer than the cap wrap onto extra lines (top-aligned) instead of being clipped by the adjacent estimate cell. The cap is tunable via the new `labelwidth()` option on all three commands.
-- **1.3.6** (2026-06-01): Add `puttab`, a first-mile styled-block producer that writes a table already in memory — the current dataset, a named `frame()`, or a Stata `matrix()` such as `e(b)`, `r(table)`, or `collapse`/`tabulate` output — as one house-styled Excel sheet with the shared title/header/zebra/border geometry. For a matrix source the row and column names become the label column and header row; for a dataset or frame source numeric columns honor `digits()`, integers stay integer, and value labels are resolved. Repeated calls build a multi-sheet workbook that `stacktab` can assemble, closing the raw-input gap between `desctab` (needs a `collect`) and `stacktab` (needs pre-exported sheets). Fold the former standalone `xlsxcompose` package into the suite as `stacktab` (block-assembly of composite sheets); `xlsxcompose` is retained as a deprecated alias that forwards to `stacktab` and returns the same `r()` results. Together `puttab` and `stacktab` form the emit-then-assemble export pipeline.
+- **1.3.6** (2026-06-01): Add `puttab`, a first-mile styled-block producer that writes a table already in memory — the current dataset, a named `frame()`, or a Stata `matrix()` such as `e(b)`, `r(table)`, or `collapse`/`tabulate` output — as one house-styled Excel sheet with the shared title/header/zebra/border geometry. For a matrix source the row and column names become the label column and header row; for a dataset or frame source numeric columns honor `digits()`, integers stay integer, and value labels are resolved. Repeated calls build a multi-sheet workbook that `stacktab` can assemble, closing the raw-input gap between `desctab` (needs a `collect`) and `stacktab` (needs pre-exported sheets). Add `stacktab` for block assembly of composite sheets. Together `puttab` and `stacktab` form the emit-then-assemble export pipeline.
 - **1.3.5** (2026-06-01): Fix `effecttab, digits()` so collect-rendered 95% CI bounds use the requested decimal precision. Add `regtab, cutlabels()` for ordered-model cutpoints, make `noint` hide cutpoint and ancillary-only rows such as `lnalpha`, `alpha`, and `/sigma`, and split model-family demos into `demo_regtab_models.xlsx` with richer zero-inflated examples.
 - **1.3.4** (2026-06-01): Extend `regtab` multi-equation row handling to zero-inflated Poisson, zero-inflated negative binomial, and Cragg hurdle models, with equation labels for outcome, inflation, selection, scale, and ancillary rows. Expand QA and demos for the model families covered by the regression-family matrix.
 - **1.3.3** (2026-05-31): Make `regtab` preserve multi-equation row identity for estimators such as `mlogit`, auto-display multinomial logit output as relative risk ratios (RRR), and add a regression-family QA matrix covering `mlogit`, OLS, logit, probit, ologit, count, GLM, panel, survival, and quantile models.

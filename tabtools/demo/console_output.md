@@ -188,7 +188,7 @@ Styled Export
 
   stacktab     Assemble multi-sheet composite Excel tables from
                source blocks (vstack or hstack), with column
-               merges, titles, and notes. Formerly xlsxcompose.
+               merges, titles, and notes.
 
 General Purpose
   ------------------------------------------------------------
