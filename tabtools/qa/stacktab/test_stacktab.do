@@ -504,6 +504,32 @@ else {
     local ++fail_count
 }
 
+local ++test_count
+capture noisily {
+    capture noisily stacktab using "`wb'", ///
+        blocks(sheet(SrcA) rows(1/2) cols(A-C)) ///
+        sheet("Bad[name]") sheetreplace
+    assert _rc == 198
+
+    capture noisily stacktab using "`tmpdir'/not_workbook.xls", ///
+        blocks(sheet(SrcA) rows(1/2) cols(A-C)) ///
+        sheet("BadExt") sheetreplace
+    assert _rc == 198
+
+    capture noisily stacktab using "`wb'", ///
+        blocks(sheet(SrcA) rows(1/2) cols(A-C)) ///
+        sheet("BadCSV") csv("`tmpdir'/bad;name.csv") sheetreplace
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: output target validation rejects bad sheet, extension, and csv path"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: output target validation contracts (error `=_rc')"
+    local ++fail_count
+}
+
 **# Cleanup And Summary
 
 capture frame drop stacktab_frame

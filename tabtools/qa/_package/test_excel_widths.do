@@ -188,9 +188,21 @@ else {
 * =========================================================================
 local ++n_total
 capture noisily {
-    sysuse auto, clear
+    clear
+    set obs 40
+    gen byte foreign = _n > 20
+    gen double price = cond(foreign, 987654321 + _n * 100000, 123456789 + _n * 100000)
+    gen double mpg = cond(foreign, 25 + mod(_n, 7), 18 + mod(_n, 5))
+    gen double weight = cond(foreign, 2500 + _n * 11, 3200 + _n * 13)
+    gen byte rep78 = 1 + mod(_n, 5)
+    label define origin 0 "Domestic" 1 "Foreign", replace
+    label values foreign origin
+    label variable price "Price"
+    label variable mpg "Mileage (mpg)"
+    label variable weight "Weight (lbs.)"
+    label variable rep78 "Repair record 1978"
     capture erase "`output_dir'/_wx_table1.xlsx"
-    table1_tc, by(foreign) vars(price contn %9.0f \ mpg contn %9.1f \ weight contn \ rep78 cat) ///
+    table1_tc, by(foreign) vars(price contn %12.0fc \ mpg contn %9.1f \ weight contn \ rep78 cat) ///
         excel("`output_dir'/_wx_table1.xlsx") title("Baseline Characteristics")
 
     _wx_assert "`output_dir'/_wx_table1.txt" ///

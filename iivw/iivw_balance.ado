@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.5.0  2026/05/29
+*! iivw_balance Version 1.5.1  2026/06/11
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -35,6 +35,8 @@ program define iivw_balance, rclass
     local __iivw_export_xlsx ""
     local __iivw_export_sheet ""
     local __iivw_export_decimals = .
+    local __iivw_smcl_lb = char(123)
+    local __iivw_smcl_rb = char(125)
 
     capture noisily {
 
@@ -43,7 +45,7 @@ program define iivw_balance, rclass
          smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon ///
          XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(integer -1) DIGits(integer -1)]
+         DECimals(string) DIGits(string)]
 
     if `cvcut' < 0 {
         display as error "cvcut() must be greater than or equal to 0"
@@ -57,13 +59,37 @@ program define iivw_balance, rclass
         display as error "smdcut() must be greater than 0"
         error 198
     }
-    if `decimals' >= 0 & `digits' >= 0 & `decimals' != `digits' {
-        display as error "decimals() and digits() specify different values"
-        error 198
+    if "`decimals'" != "" {
+        capture confirm integer number `decimals'
+        if _rc {
+            display as error "decimals() must be an integer"
+            error 198
+        }
+        if `decimals' < 0 | `decimals' > 6 {
+            display as error "decimals() must be between 0 and 6"
+            error 198
+        }
+    }
+    if "`digits'" != "" {
+        capture confirm integer number `digits'
+        if _rc {
+            display as error "digits() must be an integer"
+            error 198
+        }
+        if `digits' < 0 | `digits' > 6 {
+            display as error "digits() must be between 0 and 6"
+            error 198
+        }
+    }
+    if "`decimals'" != "" & "`digits'" != "" {
+        if `decimals' != `digits' {
+            display as error "decimals() and digits() specify different values"
+            error 198
+        }
     }
     local __iivw_decimals = 4
-    if `decimals' >= 0 local __iivw_decimals = `decimals'
-    if `digits' >= 0 local __iivw_decimals = `digits'
+    if "`decimals'" != "" local __iivw_decimals = `decimals'
+    if "`digits'" != "" local __iivw_decimals = `digits'
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
@@ -376,23 +402,23 @@ program define iivw_balance, rclass
     }
 
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as result "iivw_balance" as text " - Visit-Model Balance Diagnostic"
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text ""
     display as text "Weight type:      " as result upper("`weighttype'")
     display as text "Weight variable:  " as result "`weight_var'"
     display as text "Observations:     " as result %9.0f `N'
     display as text "Subjects:         " as result %9.0f `n_ids'
     display as text ""
-    display as text "{bf:Leverage}"
+    display as text "`__iivw_smcl_lb'bf:Leverage`__iivw_smcl_rb'"
     display as text "  Weight CV:       " as result %9.4f `weight_cv' ///
         as text "  (low if < " as result %5.3f `cvcut' as text ")"
     display as text "  ESS/N:           " as result %9.4f `ess_ratio' ///
         as text "  (low if > " as result %5.3f `essratiocut' as text ")"
     display as text "  Verdict:         " as result "`leverage'"
     display as text ""
-    display as text "{bf:Weighted vs unweighted covariate means}"
+    display as text "`__iivw_smcl_lb'bf:Weighted vs unweighted covariate means`__iivw_smcl_rb'"
     display as text "  Covariate             Unweighted   Weighted       SMD   Missing"
     forvalues i = 1/`n_covars' {
         local v : word `i' of `balance_covars'
@@ -411,11 +437,13 @@ program define iivw_balance, rclass
     if `modeled_finite' == 0 {
         display as text "  Note: no modeled covariate had usable variation; diagnostic is uninformative"
     }
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
-    local __iivw_export_requested = ///
-        (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
-         `"`sheet'"' != "" | "`open'" != "")
+    local __iivw_export_requested = 0
+    if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+        `"`sheet'"' != "" | "`open'" != "" {
+        local __iivw_export_requested = 1
+    }
     if `__iivw_export_requested' {
         tempname __iivw_export_table
         frame create `__iivw_export_table' ///

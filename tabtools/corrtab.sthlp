@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -98,8 +98,8 @@ variables. The pairwise observation count matrix is stored in
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color as a named Excel color or RGB triplet (e.g., {cmd:"200 220 240"}){p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color as a named Excel color or RGB triplet{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color as a supported Stata color name or RGB triplet (e.g., {cmd:"200 220 240"}){p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synoptline}
 
@@ -158,6 +158,6 @@ variables. The pairwise observation count matrix is stored in
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

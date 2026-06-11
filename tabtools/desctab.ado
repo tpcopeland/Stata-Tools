@@ -1,4 +1,4 @@
-*! desctab Version 1.6.2  2026/06/08
+*! desctab Version 1.6.4  2026/06/10
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -621,9 +621,10 @@ program define desctab, rclass
                         local _sd = real(subinstr(`"`_raw_sd'"', ",", "", .))
                         local _se = `_sd' / sqrt(`_count')
                     }
-                    if `_mean' < . & `_se' < . {
-                        local _lo = `_mean' - invnormal(0.975) * `_se'
-                        local _hi = `_mean' + invnormal(0.975) * `_se'
+                    if `_mean' < . & `_se' < . & `_count' > 1 {
+                        local _crit = invttail(`_count' - 1, 0.025)
+                        local _lo = `_mean' - `_crit' * `_se'
+                        local _hi = `_mean' + `_crit' * `_se'
                         local _lo_s = strtrim(string(`_lo', "`fmt_mean'"))
                         local _hi_s = strtrim(string(`_hi', "`fmt_mean'"))
                         local _cell `"`_f_mean' (`_lo_s'-`_hi_s')"'
@@ -741,7 +742,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.6.2"
+    return local version "1.6.4"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"

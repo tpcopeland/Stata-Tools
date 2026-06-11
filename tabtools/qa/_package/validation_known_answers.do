@@ -25,6 +25,77 @@ quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
+* =========================================================================
+**# KE0: table1_tc fweight SMDs match expanded-data oracle
+* =========================================================================
+
+local ++n_total
+capture noisily {
+    clear
+    input byte(g b cat fw) double x
+    0 0 1 9 0
+    0 1 2 1 10
+    1 0 1 1 10
+    1 1 2 9 20
+    end
+
+    tempfile fwbase
+    save "`fwbase'", replace
+
+    table1_tc x b cat [fw=fw], by(g) vars(x contn \ b bin \ cat cat) smd clear
+    matrix _ke_t1_fw_smd = r(table)
+    local smd_col = colnumb(_ke_t1_fw_smd, "smd")
+    local smd_x = el(_ke_t1_fw_smd, rownumb(_ke_t1_fw_smd, "x"), `smd_col')
+    local smd_b = el(_ke_t1_fw_smd, rownumb(_ke_t1_fw_smd, "b"), `smd_col')
+    local smd_cat = el(_ke_t1_fw_smd, rownumb(_ke_t1_fw_smd, "cat"), `smd_col')
+
+    use "`fwbase'", clear
+    expand fw
+
+    quietly summarize x if g == 0
+    local m1 = r(mean)
+    local s1 = r(sd)
+    quietly summarize x if g == 1
+    local m2 = r(mean)
+    local s2 = r(sd)
+    local oracle_x = abs((`m1' - `m2') / sqrt((`s1'^2 + `s2'^2) / 2))
+
+    quietly summarize b if g == 0
+    local p1 = r(mean)
+    quietly summarize b if g == 1
+    local p2 = r(mean)
+    local oracle_b = abs((`p1' - `p2') / sqrt((`p1' * (1 - `p1') + `p2' * (1 - `p2')) / 2))
+
+    local oracle_cat_sq = 0
+    levelsof cat, local(cat_levels)
+    foreach lv of local cat_levels {
+        quietly count if g == 0
+        local n1 = r(N)
+        quietly count if g == 1
+        local n2 = r(N)
+        quietly count if g == 0 & cat == `lv'
+        local q1 = r(N) / `n1'
+        quietly count if g == 1 & cat == `lv'
+        local q2 = r(N) / `n2'
+        local qbar = (`q1' + `q2') / 2
+        local den = sqrt(`qbar' * (1 - `qbar'))
+        if `den' > 0 & `den' < . local oracle_cat_sq = `oracle_cat_sq' + ((`q1' - `q2') / `den')^2
+    }
+    local oracle_cat = sqrt(`oracle_cat_sq')
+
+    assert abs(`smd_x' - `oracle_x') < 1e-10
+    assert abs(`smd_b' - `oracle_b') < 1e-10
+    assert abs(`smd_cat' - `oracle_cat') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: KE0 — table1_tc fweight SMDs match expanded-data oracle"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: KE0 — table1_tc fweight SMD oracle (rc=`=_rc')"
+    local ++n_fail
+}
+
 
 * =========================================================================
 **# KE1: diagtab algebraic identities (LR+, LR-, DOR, accuracy, Youden, F1)
@@ -866,6 +937,43 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: KE6.5 — RMST bounds (rc=`=_rc')"
+    local ++n_fail
+}
+
+* --- KE6.6: RMST and SE match stci, rmean ---
+local ++n_total
+capture noisily {
+    clear
+    input byte(g died) double t
+    0 1 5
+    0 1 10
+    0 0 20
+    1 1 6
+    1 1 12
+    1 0 20
+    end
+    quietly stset t, failure(died)
+
+    survtab, times(20) by(g) rmst(20)
+    local got0 = r(rmst_1)
+    local se0 = r(rmst_se_1)
+    local got1 = r(rmst_2)
+    local se1 = r(rmst_se_2)
+
+    quietly stci if g == 0, rmean
+    assert abs(`got0' - r(rmean)) < 1e-8
+    assert abs(`se0' - r(se)) < 1e-8
+
+    quietly stci if g == 1, rmean
+    assert abs(`got1' - r(rmean)) < 1e-8
+    assert abs(`se1' - r(se)) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: KE6.6 — survtab RMST/SE match stci, rmean"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: KE6.6 — survtab RMST vs stci (rc=`=_rc')"
     local ++n_fail
 }
 

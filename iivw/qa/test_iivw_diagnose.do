@@ -15,7 +15,10 @@ if "`basename'" != "qa" {
     exit 198
 }
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-adopath ++ "`pkg_dir'"
+ado dir
+capture ado uninstall iivw
+quietly net install iivw, from("`pkg_dir'") replace
+discard
 
 local test_count = 0
 local pass_count = 0

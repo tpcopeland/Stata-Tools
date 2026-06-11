@@ -601,6 +601,32 @@ if `run_only' == 0 | `run_only' == 18 {
     }
 }
 
+**## 19. unlabeled negative categorical levels get valid dummy names
+local ++test_count
+if `run_only' == 0 | `run_only' == 19 {
+    capture noisily {
+        _adv_setup_panel, nids(36) visits(4) seed(20260611)
+        gen int dose = mod(id, 3) - 1
+
+        iivw_fit y dose, categorical(dose) basecat(0) ///
+            timespec(none) nolog
+
+        confirm variable _iivw_cat_dose_m1
+        confirm variable _iivw_cat_dose_1
+        assert strpos("`e(iivw_cat_vars)'", "_iivw_cat_dose_m1") > 0
+        assert strpos("`e(iivw_cat_vars)'", "_iivw_cat_dose_1") > 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: A19 - negative categorical levels generate valid names"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: A19 - negative categorical names (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' A19"
+    }
+}
+
 **# Summary
 
 display as text ""

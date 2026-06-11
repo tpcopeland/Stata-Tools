@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.5.0  2026/05/29
+*! iivw_fit Version 1.5.1  2026/06/11
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -35,6 +35,8 @@ program define iivw_fit, eclass
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
+    local __iivw_smcl_lb = char(123)
+    local __iivw_smcl_rb = char(125)
     capture noisily {
 
     * =========================================================================
@@ -264,9 +266,9 @@ program define iivw_fit, eclass
     }
 
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as result "iivw_fit" as text " - `header_wtype' `fit_display'"
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text ""
     display as text "Model type:       " as result "`model'"
     display as text "Outcome:          " as result "`depvar'"
@@ -648,7 +650,12 @@ program define iivw_fit, eclass
                 }
                 else {
                     * Numeric naming fallback
-                    local vname "`prefix'cat_`cvar'_`lev'"
+                    local lev_suffix : display %9.0g `lev'
+                    local lev_suffix = strtrim("`lev_suffix'")
+                    local lev_suffix = subinstr("`lev_suffix'", "-", "m", .)
+                    local lev_suffix = subinstr("`lev_suffix'", "+", "p", .)
+                    local lev_suffix = subinstr("`lev_suffix'", ".", "p", .)
+                    local vname "`prefix'cat_`cvar'_`lev_suffix'"
                     if "`base_label'" != "" {
                         local vlabel `"`cvar'=`lev' (vs. `base_label')"'
                     }
@@ -665,7 +672,12 @@ program define iivw_fit, eclass
                     foreach prev of local all_cat_names {
                         if "`vname'" == "`prev'" {
                             * Fall back to numeric naming
-                            local vname "`prefix'cat_`cvar'_`lev'"
+                            local lev_suffix : display %9.0g `lev'
+                            local lev_suffix = strtrim("`lev_suffix'")
+                            local lev_suffix = subinstr("`lev_suffix'", "-", "m", .)
+                            local lev_suffix = subinstr("`lev_suffix'", "+", "p", .)
+                            local lev_suffix = subinstr("`lev_suffix'", ".", "p", .)
+                            local vname "`prefix'cat_`cvar'_`lev_suffix'"
                             if strlen("`vname'") > 32 {
                                 local vname = substr("`vname'", 1, 32)
                             }
@@ -673,6 +685,12 @@ program define iivw_fit, eclass
                             continue, break
                         }
                     }
+                }
+
+                capture confirm name `vname'
+                if _rc {
+                    display as error "categorical level `lev' for `cvar' creates invalid generated name `vname'"
+                    error 198
                 }
 
                 capture confirm variable `vname'
@@ -958,7 +976,7 @@ program define iivw_fit, eclass
     * =========================================================================
 
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     if "`unweighted'" != "" {
         display as text "Unweighted effects:"
     }
@@ -966,12 +984,12 @@ program define iivw_fit, eclass
         display as text "`wtype_display'-weighted effects:"
     }
     display as text ""
-    display as text _col(4) "{ralign 18:Variable}" ///
-        _col(24) "{ralign 10:Coef.}" ///
-        _col(36) "{ralign 9:SE}" ///
-        _col(47) "{ralign 16:`level'% CI}" ///
-        _col(65) "{ralign 6:P}"
-    display as text "{hline 70}"
+    display as text _col(4) "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
+        _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
+        _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
+        _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
+        _col(65) "`__iivw_smcl_lb'ralign 6:P`__iivw_smcl_rb'"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     * Build list with intercept first when present
     local table_terms "`all_covars'"
@@ -1017,22 +1035,22 @@ program define iivw_fit, eclass
                 local p_fmt = strtrim("`p_fmt'")
             }
 
-            display as text _col(4) "{ralign 18:`vlab'}" ///
+            display as text _col(4) "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
                 as result _col(24) %10.4f `b_val' ///
                 _col(36) %9.4f `se_val' ///
                 _col(47) %7.4f `ci_lo' as text "," ///
                 as result %7.4f `ci_hi' ///
-                as text _col(65) "{ralign 6:`p_fmt'}"
+                as text _col(65) "`__iivw_smcl_lb'ralign 6:`p_fmt'`__iivw_smcl_rb'"
         }
         else {
             * Lookup failed (collinear-dropped or otherwise unestimated).
             * Show a visible "(omitted)" row so the user notices the gap.
-            display as text _col(4) "{ralign 18:`vlab'}" ///
-                _col(24) "{ralign 41:(omitted)}"
+            display as text _col(4) "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
+                _col(24) "`__iivw_smcl_lb'ralign 41:(omitted)`__iivw_smcl_rb'"
         }
     }
 
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     * Store eclass metadata
     ereturn local iivw_cmd "iivw_fit"

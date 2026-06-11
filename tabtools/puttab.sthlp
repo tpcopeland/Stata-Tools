@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -108,8 +108,8 @@ memory are left unchanged.{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color as a named Excel color or RGB triplet (e.g., {cmd:"200 220 240"}){p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color as a named Excel color or RGB triplet{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color as a supported Stata color name or RGB triplet (e.g., {cmd:"200 220 240"}){p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
 {synopt:{opt zeb:ra}}alternating row shading over data rows{p_end}
 {synoptline}
 
@@ -134,9 +134,13 @@ memory are left unchanged.{p_end}
 {phang3}{cmd:title("OLS coefficients") digits(3)}{p_end}
 
 {pstd}{bf:Example 4: Emit blocks, then assemble with stacktab}{p_end}
+{phang2}{cmd:. matrix MA = (1.23, 1.05, 1.44)}{p_end}
+{phang2}{cmd:. matrix colnames MA = HR LL UL}{p_end}
+{phang2}{cmd:. matrix MB = (1.67, 1.30, 2.15)}{p_end}
+{phang2}{cmd:. matrix colnames MB = HR LL UL}{p_end}
 {phang2}{cmd:. puttab using parts.xlsx, sheet("A") matrix(MA) title("Model A")}{p_end}
 {phang2}{cmd:. puttab using parts.xlsx, sheet("B") matrix(MB) title("Model B")}{p_end}
-{phang2}{cmd:. stacktab using final.xlsx, sheet("Table 2") ///}{p_end}
+{phang2}{cmd:. stacktab using parts.xlsx, sheet("Table 2") ///}{p_end}
 {phang3}{cmd:blocks(sheet("A") \ sheet("B"))}{p_end}
 
 {marker stored}{...}
@@ -172,6 +176,6 @@ memory are left unchanged.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

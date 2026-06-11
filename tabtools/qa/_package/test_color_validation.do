@@ -186,8 +186,38 @@ else {
 }
 capture erase "`output_dir'/_color_crosstab.xlsx"
 
+**## unsupported color names are rejected before existing sheets are touched
+local ++test_count
+capture noisily {
+    local preserve_wb "`output_dir'/_color_preserve.xlsx"
+    capture erase "`preserve_wb'"
+
+    clear
+    set obs 1
+    gen str8 A = "sentinel"
+    export excel using "`preserve_wb'", sheet("P") sheetreplace
+
+    sysuse auto, clear
+    capture noisily puttab make mpg in 1/2 using "`preserve_wb'", sheet("P") ///
+        headershade headercolor(notacolor)
+    local cmd_rc = _rc
+    assert `cmd_rc' == 198
+
+    import excel using "`preserve_wb'", sheet("P") clear allstring
+    assert A[1] == "sentinel"
+}
+if _rc == 0 {
+    display as result "  PASS: invalid color name rejected before workbook mutation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: invalid color name mutated existing workbook (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`output_dir'/_color_preserve.xlsx"
+
 **# Named Color Inputs
-**## stratetab accepts documented named Excel colors
+**## stratetab accepts documented Stata color names
 local ++test_count
 capture noisily {
     capture erase "`output_dir'/_color_stratetab_named.xlsx"
@@ -197,11 +227,11 @@ capture noisily {
     confirm file "`output_dir'/_color_stratetab_named.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: stratetab accepts named colors"
+    display as result "  PASS: stratetab accepts supported color names"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: stratetab named colors (rc=`=_rc')"
+    display as error "  FAIL: stratetab validated color names (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -212,8 +242,10 @@ quietly tabtools set clear
 
 display as result "color validation QA summary: `pass_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
+    display "RESULT: test_color_validation tests=`test_count' pass=`pass_count' fail=`fail_count'"
     log close _colorval
     exit 1
 }
 
+display "RESULT: test_color_validation tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _colorval

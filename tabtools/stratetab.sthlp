@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -101,9 +101,9 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 
-{phang2}{opt headerc:olor(string)} specifies a custom header color as a named Excel color or RGB triplet (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
+{phang2}{opt headerc:olor(string)} specifies a custom header color as a supported Stata color name or RGB triplet (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
 
-{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a named Excel color or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
+{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
 {phang2}{opt csv(string)} {opt markdown(filename)} {opt mdappend} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
 
@@ -227,7 +227,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {title:Also see}
 

@@ -1,4 +1,4 @@
-*! stacktab Version 1.6.2  2026/06/08
+*! stacktab Version 1.6.4  2026/06/10
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -42,8 +42,6 @@ program define stacktab, rclass
              APPend ///
              SHEetreplace]
 
-        confirm file `"`using'"'
-
         capture _tabtools_helpers_ready
         if _rc {
             capture findfile _tabtools_common.ado
@@ -52,6 +50,14 @@ program define stacktab, rclass
             }
         }
         _tabtools_require_helpers
+
+        if !strmatch(lower(`"`using'"'), "*.xlsx") {
+            display as error "using file must have a .xlsx extension"
+            exit 198
+        }
+        _tabtools_validate_path `"`using'"' "using"
+        confirm file `"`using'"'
+        _tabtools_validate_sheet `"`sheet'"' "sheet()"
 
         if "`layout'" == "" local layout "vstack"
         local layout = lower("`layout'")
@@ -88,6 +94,7 @@ program define stacktab, rclass
             display as error "csv() must have .csv extension"
             exit 198
         }
+        if `"`csv'"' != "" _tabtools_validate_path `"`csv'"' "csv()"
         if "`mdappend'" != "" & `"`markdown'"' == "" {
             display as error "mdappend requires markdown()"
             exit 198

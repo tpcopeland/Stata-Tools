@@ -865,6 +865,16 @@ def check_cell_no_fill(ws: Worksheet, ref: str) -> CheckResult:
     )
 
 
+def check_cell_wrap(ws: Worksheet, ref: str) -> CheckResult:
+    wrap_text = getattr(getattr(ws[ref], "alignment", None), "wrap_text", False)
+    passed = bool(wrap_text)
+    return CheckResult(
+        name=f"Cell {ref} wraps text",
+        passed=passed,
+        message="wrap_text enabled" if passed else "wrap_text not enabled",
+    )
+
+
 def check_min_merges(ws: Worksheet, n: int) -> CheckResult:
     actual = len(ws.merged_cells.ranges)
     passed = actual >= n
@@ -1158,6 +1168,9 @@ class CheckRunner:
         if args.cell_no_fill:
             for ref in args.cell_no_fill:
                 results.append(check_cell_no_fill(ws, ref))
+        if args.cell_wrap:
+            for ref in args.cell_wrap:
+                results.append(check_cell_wrap(ws, ref))
         if args.min_merges is not None:
             results.append(check_min_merges(ws, args.min_merges))
         if args.no_empty_cols:
@@ -1386,6 +1399,8 @@ Available patterns for --has-pattern:
                        help="Cell REF has SIDE (top/bottom/left/right) border of STYLE")
     style.add_argument("--cell-no-fill", nargs="+", metavar="REF",
                        help="Cell(s) REF have no solid fill")
+    style.add_argument("--cell-wrap", nargs="+", metavar="REF",
+                       help="Cell(s) REF have wrap_text enabled")
     style.add_argument("--min-merges", type=int, metavar="N",
                        help="At least N merged ranges")
     style.add_argument("--no-empty-cols", action="store_true",

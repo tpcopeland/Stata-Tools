@@ -97,8 +97,9 @@ else {
 local ++test_count
 capture noisily {
     tabtools, category(general)
-    assert r(n_commands) == 1
+    assert r(n_commands) == 2
     assert strpos("`r(commands)'", "tabtools") > 0
+    assert strpos("`r(commands)'", "tabtools_tips") > 0
     assert strpos("`r(commands)'", "hrcomptab") == 0
     assert strpos("`r(commands)'", "corrtab") == 0
 }

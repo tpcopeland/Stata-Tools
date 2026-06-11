@@ -156,9 +156,13 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {cmd:stacktab} to assemble those sheets:
 
 {p 8 12 2}
+{cmd:. matrix MA = (1.23, 1.05, 1.44)}{break}
+{cmd:. matrix colnames MA = HR LL UL}{break}
+{cmd:. matrix MB = (1.67, 1.30, 2.15)}{break}
+{cmd:. matrix colnames MB = HR LL UL}{break}
 {cmd:. puttab using parts.xlsx, sheet("A") matrix(MA) title("Model A")}{break}
 {cmd:. puttab using parts.xlsx, sheet("B") matrix(MB) title("Model B")}{break}
-{cmd:. stacktab using final.xlsx, sheet("Table 2") blocks(sheet(A) \ sheet(B))}
+{cmd:. stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(A) \ sheet(B))}
 
 {marker stored}{...}
 {title:Stored results}

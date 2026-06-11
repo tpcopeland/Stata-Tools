@@ -2,10 +2,10 @@
 
 | No. (Column %) or Mean (SD) | N=8,934 | N=6,066 | p-value |
 | --- | --- | --- | --- |
-| Age at cohort entry (years) | 58.3 (13.4) | 58.5 (13.3) | 0.24 |
-| Female sex | 5,351 (59.9%) | 3,621 (59.7%) | 0.80 |
-| Diabetes | 4,107 (46.0%) | 2,818 (46.5%) | 0.56 |
-| Hypertension | 4,112 (46.0%) | 2,935 (48.4%) | 0.005 |
+| Age at cohort entry (years) | 58.3±13.4 | 58.5±13.3 | 0.24 |
+| Female sex | 5,351 (60) | 3,621 (60) | 0.80 |
+| Diabetes | 4,107 (46) | 2,818 (46) | 0.56 |
+| Hypertension | 4,112 (46) | 2,935 (48) | 0.005 |
 
 ### Table 2. Treatment by Sex
 

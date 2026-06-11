@@ -106,8 +106,8 @@ else {
         assert r(eof) == 0
         file close `readmefh'
 
-        confirm file "`demo_dir'/console_output.smcl"
-        shell test -s "`demo_dir'/console_output.smcl"
+        confirm file "`demo_dir'/console_output.log"
+        shell test -s "`demo_dir'/console_output.log"
         confirm file "`demo_dir'/console_output.md"
         shell test -s "`demo_dir'/console_output.md"
         tempfile setget_hit corrupt_hit

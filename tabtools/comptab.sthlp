@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -71,8 +71,8 @@
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt headerc:olor(string)}}named Excel color or RGB triplet for header rows{p_end}
-{synopt:{opt zebrac:olor(string)}}named Excel color or RGB triplet for zebra shading{p_end}
+{synopt:{opt headerc:olor(string)}}supported Stata color name or RGB triplet for header rows{p_end}
+{synopt:{opt zebrac:olor(string)}}supported Stata color name or RGB triplet for zebra shading{p_end}
 {synoptline}
 
 
@@ -277,7 +277,7 @@ smaller than the specified threshold.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 
 {marker alsosee}{...}

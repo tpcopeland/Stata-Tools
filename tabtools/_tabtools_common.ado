@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.6.2  2026/06/08
+*! _tabtools_common Version 1.6.4  2026/06/10
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -90,7 +90,7 @@ end
 * =============================================================================
 * _tabtools_validate_color: Validate Excel color tokens
 * =============================================================================
-* Accepts either named colors (e.g. navy) or RGB triplets (e.g. 200 220 240).
+* Accepts supported Stata color names (e.g. navy) or RGB triplets (e.g. 200 220 240).
 *
 * Usage: _tabtools_validate_color "`color'" "headercolor()"
 
@@ -102,7 +102,21 @@ program _tabtools_validate_color
     local color = strtrim(`"`color'"')
     if `"`color'"' == "" exit
 
-    if regexm(`"`color'"', "^[A-Za-z][A-Za-z0-9_]*$") exit
+    if regexm(`"`color'"', "^[A-Za-z][A-Za-z0-9_]*$") {
+        local _named = lower(`"`color'"')
+        local _valid_named "black blue bluishgray brown cranberry cyan dimgray"
+        local _valid_named "`_valid_named' dkgreen dknavy dkorange ebblue eggshell eltblue"
+        local _valid_named "`_valid_named' emerald forest_green gold gray green khaki lavender"
+        local _valid_named "`_valid_named' lime ltblue ltbluishgray ltkhaki magenta maroon"
+        local _valid_named "`_valid_named' midblue midgreen mint navy olive orange orange_red"
+        local _valid_named "`_valid_named' pink purple red sand sienna stone teal white yellow"
+        local _valid_named "`_valid_named' gs0 gs1 gs2 gs3 gs4 gs5 gs6 gs7 gs8"
+        local _valid_named "`_valid_named' gs9 gs10 gs11 gs12 gs13 gs14 gs15 gs16"
+        if strpos(" `_valid_named' ", " `_named' ") exit
+        noisily display as error "`option_name' is not a supported Stata color name;"
+        noisily display as error "use a supported name such as navy or an RGB triplet like 200 220 240"
+        exit 198
+    }
 
     if regexm(`"`color'"', "^[0-9]+[ ]+[0-9]+[ ]+[0-9]+$") {
         tokenize `"`color'"'
@@ -115,7 +129,7 @@ program _tabtools_validate_color
         exit
     }
 
-    noisily display as error "`option_name' must be a named color or an RGB triplet like 200 220 240"
+    noisily display as error "`option_name' must be a supported Stata color name or an RGB triplet like 200 220 240"
     exit 198
 end
 

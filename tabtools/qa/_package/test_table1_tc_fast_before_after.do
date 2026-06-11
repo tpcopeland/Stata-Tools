@@ -246,7 +246,7 @@ program define _t1fba_expected_weighted
     replace exp_smd_str = "0.000" in 6
 
     replace exp_factor = "Clinical stage" in 7
-    replace exp_smd_str = "1.727" in 7
+    replace exp_smd_str = "2.151" in 7
 
     replace exp_factor = "   Stage I" in 8
     replace exp_trt_0 = "42.9 (2)" in 8
@@ -445,7 +445,7 @@ capture noisily {
     assert abs(el(`R', rownumb(`R', "Age_at_entry"), 1) - 5.3888774) < 1e-6
     assert abs(el(`R', rownumb(`R', "Inflammation_marker"), 1) - 1.5683875) < 1e-6
     assert abs(el(`R', rownumb(`R', "Female_sex"), 1) - 0) < 1e-10
-    assert abs(el(`R', rownumb(`R', "Clinical_stage"), 1) - 1.7267942) < 1e-6
+    assert abs(el(`R', rownumb(`R', "Clinical_stage"), 1) - 2.1514475) < 1e-6
     capture confirm variable pvalue
     assert _rc == 111
     capture confirm variable test

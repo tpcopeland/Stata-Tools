@@ -329,6 +329,44 @@ else {
     local failed_tests "`failed_tests' T11"
 }
 
+local ++test_count
+capture noisily {
+    _balance_manual_panel good
+    iivw_balance, cvcut(1)
+    assert "`r(leverage)'" == "low"
+
+    iivw_balance, cvcut(0) essratiocut(1)
+    assert "`r(leverage)'" == "adequate"
+
+    iivw_balance, cvcut(0) essratiocut(0.01)
+    assert "`r(leverage)'" == "low"
+
+    capture noisily iivw_balance, cvcut(-0.01)
+    assert _rc == 198
+    capture noisily iivw_balance, essratiocut(0)
+    assert _rc == 198
+    capture noisily iivw_balance, essratiocut(1.01)
+    assert _rc == 198
+
+    capture noisily iivw_balance, decimals(-1)
+    assert _rc == 198
+    capture noisily iivw_balance, decimals(7)
+    assert _rc == 198
+    capture noisily iivw_balance, digits(-1)
+    assert _rc == 198
+    capture noisily iivw_balance, digits(7)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T12 - threshold and decimal option contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T12 - threshold/decimal option contracts (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T12"
+}
+
 **# Summary
 
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

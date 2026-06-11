@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.5.0  2026/05/29
+*! iivw_weight Version 1.5.1  2026/06/11
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -39,6 +39,8 @@ program define iivw_weight, rclass sortpreserve
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
+    local __iivw_smcl_lb = char(123)
+    local __iivw_smcl_rb = char(125)
     capture noisily {
 
     * No sample marker: IIW requires full panel, no [if] [in] by design
@@ -189,7 +191,7 @@ program define iivw_weight, rclass sortpreserve
         error 198
     }
 
-    if "`entry'" != "" {
+    if "`entry'" != "" & !`exclude_base' {
         quietly count if missing(`entry')
         if r(N) > 0 {
             display as error "entry() contains missing values"
@@ -396,9 +398,9 @@ program define iivw_weight, rclass sortpreserve
 
     local wtype_display = upper("`wtype'")
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as result "iivw_weight" as text " - `wtype_display' Weight Computation"
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text ""
     display as text "ID variable:      " as result "`id'"
     display as text "Time variable:    " as result "`time'"
@@ -879,8 +881,8 @@ program define iivw_weight, rclass sortpreserve
 
     display as text ""
     display as text "Variables created: " as result "`created_vars'"
-    display as text "Next step: {cmd:iivw_fit} to fit weighted outcome model"
-    display as text "{hline 70}"
+    display as text "Next step: `__iivw_smcl_lb'cmd:iivw_fit`__iivw_smcl_rb' to fit weighted outcome model"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     * =========================================================================
     * RETURN RESULTS

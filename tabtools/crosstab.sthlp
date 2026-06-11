@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -65,8 +65,8 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt headerc:olor(string)}}custom header color as a named Excel color or RGB triplet{p_end}
-{synopt:{opt zebrac:olor(string)}}custom zebra color as a named Excel color or RGB triplet{p_end}
+{synopt:{opt headerc:olor(string)}}custom header color as a supported Stata color name or RGB triplet{p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra color as a supported Stata color name or RGB triplet{p_end}
 {synoptline}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
@@ -144,6 +144,6 @@ exits with an error instead of silently omitting the measure.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

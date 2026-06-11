@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.6.2  2026/06/08
+*! _tabtools_table1_fast_collect Version 1.6.4  2026/06/10
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -479,11 +479,11 @@ program define _tabtools_table1_fast_collect, rclass
                         local _poolsd = sqrt((`_s1'^2 + `_s2'^2) / 2)
                     }
                     else if `has_fw' & inlist("`typ'", "contn", "contln") {
-                        quietly summarize `testvar' if `_smd_if1'
+                        quietly summarize `testvar' [fw=`fwvar'] if `_smd_if1'
                         local _m1 = r(mean)
                         local _s1 = r(sd)
                         local _n1 = r(N)
-                        quietly summarize `testvar' if `_smd_if2'
+                        quietly summarize `testvar' [fw=`fwvar'] if `_smd_if2'
                         local _m2 = r(mean)
                         local _s2 = r(sd)
                         local _n2 = r(N)
@@ -510,9 +510,9 @@ program define _tabtools_table1_fast_collect, rclass
                         local _p2 = r(mean)
                     }
                     else if `has_fw' {
-                        quietly summarize `v' if `touse' & `by' == `level1' & `v' < .
+                        quietly summarize `v' [fw=`fwvar'] if `touse' & `by' == `level1' & `v' < .
                         local _p1 = r(mean)
-                        quietly summarize `v' if `touse' & `by' == `level2' & `v' < .
+                        quietly summarize `v' [fw=`fwvar'] if `touse' & `by' == `level2' & `v' < .
                         local _p2 = r(mean)
                     }
                     else {
@@ -529,12 +529,8 @@ program define _tabtools_table1_fast_collect, rclass
                     quietly levelsof `v' if `touse' & `by' < . & `v' < ., local(_smd_lvls)
                     foreach _clv of local _smd_lvls {
                         if `has_wt' {
-                            local _den_if1 "`touse' & `by' == `level1'"
-                            local _den_if2 "`touse' & `by' == `level2'"
-                            if !`include_missing' {
-                                local _den_if1 "`_den_if1' & `v' < ."
-                                local _den_if2 "`_den_if2' & `v' < ."
-                            }
+                            local _den_if1 "`touse' & `by' == `level1' & `v' < ."
+                            local _den_if2 "`touse' & `by' == `level2' & `v' < ."
                             quietly summarize `wt' if `_den_if1'
                             local _tot1 = r(sum)
                             quietly summarize `wt' if `_den_if2'
@@ -545,14 +541,16 @@ program define _tabtools_table1_fast_collect, rclass
                             local _num2 = r(sum)
                         }
                         else if `has_fw' {
-                            quietly count if `touse' & `by' == `level1' & `v' < .
-                            local _tot1 = r(N)
-                            quietly count if `touse' & `by' == `level2' & `v' < .
-                            local _tot2 = r(N)
-                            quietly count if `touse' & `by' == `level1' & `v' == `_clv'
-                            local _num1 = r(N)
-                            quietly count if `touse' & `by' == `level2' & `v' == `_clv'
-                            local _num2 = r(N)
+                            local _den_if1 "`touse' & `by' == `level1' & `v' < ."
+                            local _den_if2 "`touse' & `by' == `level2' & `v' < ."
+                            quietly summarize `fwvar' if `_den_if1', meanonly
+                            local _tot1 = r(sum)
+                            quietly summarize `fwvar' if `_den_if2', meanonly
+                            local _tot2 = r(sum)
+                            quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' == `_clv', meanonly
+                            local _num1 = r(sum)
+                            quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' == `_clv', meanonly
+                            local _num2 = r(sum)
                         }
                         else {
                             quietly count if `touse' & `by' == `level1' & `v' < .

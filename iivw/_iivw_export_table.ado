@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.5.0  2026/05/29
+*! _iivw_export_table Version 1.5.1  2026/06/11
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -100,6 +100,19 @@ program define _iivw_export_table, rclass
 
     if `"`title'"' == "" local title `"`sheet'"'
 
+    local __iivw_xlsx_exists = 0
+    local __iivw_sheet_exists = 0
+    capture confirm file `"`__iivw_xlsx'"'
+    local __iivw_xlsx_exists = (_rc == 0)
+    if `__iivw_xlsx_exists' {
+        mata: st_local("__iivw_sheet_exists", ///
+            strofreal(_iivw_xlsx_sheet_exists(`"`__iivw_xlsx'"', `"`sheet'"')))
+        if `__iivw_sheet_exists' & "`replace'" == "" {
+            display as error "sheet `sheet' already exists in `__iivw_xlsx'; use replace to overwrite it"
+            error 602
+        }
+    }
+
     if "`layout'" == "tabtools" {
         local __iivw_note_row = 0
         if `"`footnote'"' != "" {
@@ -150,8 +163,6 @@ program define _iivw_export_table, rclass
         }
     }
     else {
-    capture confirm file `"`__iivw_xlsx'"'
-    local __iivw_xlsx_exists = (_rc == 0)
     if `__iivw_xlsx_exists' {
         quietly putexcel set `"`__iivw_xlsx'"', modify sheet(`"`sheet'"', replace)
     }
@@ -275,6 +286,8 @@ program define _iivw_export_table, rclass
 end
 
 version 16.0
+capture mata: mata drop _iivw_xlsx_sheet_exists()
+local __iivw_mata_drop_rc = _rc
 capture mata: mata drop _iivw_xlsx_style()
 local __iivw_mata_drop_rc = _rc
 capture mata: mata drop _iivw_xlsx_write_tabtools()
@@ -286,6 +299,28 @@ local __iivw_mata_drop_rc = _rc
 
 mata:
 mata set matastrict on
+
+real scalar _iivw_xlsx_sheet_exists(string scalar filepath, string scalar sheet)
+{
+    class xl scalar b
+    string rowvector sheets
+    real scalar i, found
+
+    if (!fileexists(filepath)) return(0)
+
+    b = xl()
+    b.load_book(filepath)
+    sheets = b.get_sheets()
+    found = 0
+    for (i = 1; i <= length(sheets); i++) {
+        if (sheets[i] == sheet) {
+            found = 1
+            break
+        }
+    }
+    b.close_book()
+    return(found)
+}
 
 void _iivw_xlsx_style(
     string scalar filepath,

@@ -32,6 +32,9 @@ local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 * Each sub-suite's bootstrap uses `c(pwd)' to find the package — run from qa
 cd "`qa_dir'"
 
+ado dir
+capture ado uninstall iivw
+
 if "`mode'" == "sim" {
     local suites sim_scenarios_abc sim_scenario_d sim_scenario_e
 }

@@ -48,8 +48,9 @@ merged headers, and professional styling suitable for journal submissions. Use
 command respects.
 
 {pstd}
-Most commands require Stata 17. The suite controller {cmd:tabtools} and
-{helpb table1_tc} also support Stata 16.
+Most commands require Stata 17. The suite controller {cmd:tabtools},
+{helpb tabtools_tips}, {helpb table1_tc}, {helpb stacktab}, and {helpb simtab}
+also support Stata 16.
 
 {pstd}
 See {helpb tabtools_tips:tabtools tips} for the merged quick-reference option
@@ -229,13 +230,13 @@ A {cmd:custom} theme accepts additional options on the same line:
 {synoptline}
 {synopt:{opt font(string)}}font family for the custom theme{p_end}
 {synopt:{opt fontsize(#)}}font size in points for the custom theme{p_end}
-{synopt:{opt headerc:olor(string)}}header fill: named Excel color or RGB triplet{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill: named Excel color or RGB triplet{p_end}
+{synopt:{opt headerc:olor(string)}}header fill: supported Stata color name or RGB triplet{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra fill: supported Stata color name or RGB triplet{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synoptline}
 
 {pstd}
-{it:color} may be either a named Excel color such as {cmd:navy} or an RGB
+{it:color} may be either a supported Stata color name such as {cmd:navy} or an RGB
 triplet such as {cmd:"200 220 240"}. Omitted custom-theme suboptions reset
 that component to the command default the next time {cmd:tabtools set theme custom}
 is run.

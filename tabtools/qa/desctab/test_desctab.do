@@ -236,7 +236,7 @@ capture noisily {
     collect: table rep78, statistic(count price)
     capture frame drop _dt_returns
     desctab, frame(_dt_returns, replace)
-    assert "`r(version)'" == "1.6.1"
+    assert "`r(version)'" == "1.6.4"
     assert "`r(rowvar)'" == "rep78"
     assert "`r(stats)'" == "count"
     assert r(N_cells) > 0
@@ -542,26 +542,50 @@ else {
     local ++fail
 }
 
-**# T22 mean_ci preset derives an interval
+**# T22 mean_ci preset matches Stata's ci means interval
 local ++total
 capture noisily {
-    sysuse auto, clear
+    clear
+    input byte g double y
+    0 1
+    0 2
+    0 3
+    0 4
+    0 5
+    1 8
+    1 10
+    1 12
+    1 14
+    1 16
+    end
     collect clear
-    collect: table foreign, statistic(mean price) statistic(sd price) statistic(count price)
+    collect: table g, statistic(mean y) statistic(sd y) statistic(count y)
     capture frame drop _dt_ci
-    desctab, frame(_dt_ci, replace) compose(mean_ci) digits(1)
-    local cell ""
+    desctab, frame(_dt_ci, replace) compose(mean_ci) digits(3)
+    quietly ci means y if g == 0
+    local m0 = strtrim(string(r(mean), "%9.3f"))
+    local lb0 = strtrim(string(r(lb), "%9.3f"))
+    local ub0 = strtrim(string(r(ub), "%9.3f"))
+    local expected0 "`m0' (`lb0'-`ub0')"
+    quietly ci means y if g == 1
+    local m1 = strtrim(string(r(mean), "%9.3f"))
+    local lb1 = strtrim(string(r(lb), "%9.3f"))
+    local ub1 = strtrim(string(r(ub), "%9.3f"))
+    local expected1 "`m1' (`lb1'-`ub1')"
+    local cell0 ""
+    local cell1 ""
     frame _dt_ci {
         forvalues i = 1/`=_N' {
-            if strtrim(A[`i']) == "Domestic" local cell = strtrim(c1[`i'])
+            if strtrim(A[`i']) == "0" local cell0 = strtrim(c1[`i'])
+            if strtrim(A[`i']) == "1" local cell1 = strtrim(c1[`i'])
         }
     }
     frame drop _dt_ci
-    assert strpos("`cell'", "(") > 0
-    assert strpos("`cell'", "-") > 0
+    assert "`cell0'" == "`expected0'"
+    assert "`cell1'" == "`expected1'"
 }
 if _rc == 0 {
-    display as result "  PASS: mean_ci compose"
+    display as result "  PASS: mean_ci compose matches ci means"
     local ++pass
 }
 else {

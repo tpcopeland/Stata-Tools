@@ -103,7 +103,8 @@ capture noisily {
     local balxlsx "`balxlsx_stub'.xlsx"
     capture erase "`balxlsx'"
 
-    iivw_balance z x, xlsx("`balxlsx'") sheet(Balance) replace
+    iivw_balance z x, xlsx("`balxlsx'") sheet(Balance) replace ///
+        footnote("Custom balance footnote")
     matrix B1 = r(balance)
     assert "`r(xlsx)'" == "`balxlsx'"
     assert "`r(sheet)'" == "Balance"
@@ -138,6 +139,7 @@ capture noisily {
     assert H[3] == "Modeled"
     assert B[4] == "x"
     assert B[5] == "z"
+    assert B[6] == "Custom balance footnote"
     assert abs(real(C[4]) - B0[1,1]) < 0.0001
     assert abs(real(G[4]) - B0[1,5]) < 0.0001
     assert H[4] == "Yes"
@@ -235,6 +237,10 @@ capture noisily {
     capture noisily iivw_balance, decimals(2) digits(3) ///
         xlsx("`goodxlsx'") replace
     assert _rc == 198
+    capture noisily iivw_balance, decimals(-1)
+    assert _rc == 198
+    capture noisily iivw_balance, digits(7)
+    assert _rc == 198
     capture noisily iivw_balance, csv(bad_export.csv)
     assert _rc == 198
     capture noisily iivw_balance, frame(__iivw_collision)
@@ -252,6 +258,12 @@ capture noisily {
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) decimals(2) digits(3) xlsx("`goodxlsx'") replace
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) decimals(-1)
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) digits(7)
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) csv(bad_export.csv)
@@ -314,6 +326,77 @@ else {
     display as error "  FAIL: T5 - shared workbook multi-sheet export (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T5"
+}
+
+**# T6: iivw_diagnose export header honors level()
+
+local ++test_count
+capture noisily {
+    tempfile lvlstub
+    local lvlxlsx "`lvlstub'.xlsx"
+    capture erase "`lvlxlsx'"
+
+    _reporting_diag_known
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        level(90) xlsx("`lvlxlsx'") replace
+    assert "`r(sheet)'" == "Diagnostics"
+
+    import excel using "`lvlxlsx'", sheet("Diagnostics") clear allstring
+    assert E[3] == "90% CI"
+}
+if _rc == 0 {
+    display as result "  PASS: T6 - iivw_diagnose export honors level()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T6 - diagnose export level() header (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T6"
+}
+
+**# T7: existing workbook sheets require replace
+
+local ++test_count
+capture noisily {
+    tempfile protectstub
+    local protectxlsx "`protectstub'.xlsx"
+    capture erase "`protectxlsx'"
+
+    _reporting_balance_panel
+    iivw_balance, xlsx("`protectxlsx'") sheet(Balance) replace ///
+        title("Original balance")
+
+    _reporting_balance_panel
+    capture noisily iivw_balance, xlsx("`protectxlsx'") sheet(Balance) ///
+        title("Overwrite attempt")
+    assert _rc == 602
+
+    import excel using "`protectxlsx'", sheet("Balance") clear allstring
+    assert A[1] == "Original balance"
+
+    _reporting_diag_known
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        xlsx("`protectxlsx'") sheet(Diagnostics) replace
+
+    _reporting_balance_panel
+    iivw_balance, xlsx("`protectxlsx'") sheet(Balance) replace ///
+        title("Replacement balance")
+
+    import excel using "`protectxlsx'", sheet("Balance") clear allstring
+    assert A[1] == "Replacement balance"
+
+    import excel using "`protectxlsx'", sheet("Diagnostics") clear allstring
+    assert A[1] == "IIVW diagnostic decomposition"
+    assert B[12] == "Lower bound"
+}
+if _rc == 0 {
+    display as result "  PASS: T7 - existing workbook sheets require replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T7 - existing workbook sheet protection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T7"
 }
 
 **# Summary

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -69,8 +69,8 @@ for treatment effects and margins tables.
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
 {synopt:{opt starsl:evels(numlist)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as a named Excel color or RGB triplet (default: {cmd:"219 229 241"}).{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a named Excel color or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as a supported Stata color name or RGB triplet (default: {cmd:"219 229 241"}).{p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a supported Stata color name or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv("filename")} {opt markdown(filename)} {opt mdappend}}Also export as CSV.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
@@ -233,9 +233,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name (if {cmd:eplotframe()} specified){p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}coefficient values matrix for the displayed coefficient body (rows = variables, columns = models; excludes title and appended stats/addrows). Row names are derived from each variable's display label with periods, spaces, commas, and colons substituted for underscores or stripped, then truncated to 32 characters.{p_end}
@@ -254,6 +251,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

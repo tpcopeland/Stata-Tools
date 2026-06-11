@@ -72,7 +72,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 5
-        assert "`r(version)'" == "1.5.0"
+        assert "`r(version)'" == "1.5.1"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -2969,6 +2969,8 @@ if `run_only' == 0 | `run_only' == 119 {
         local tlbl : variable label _iivw_tcat_1
         assert `"`tlbl'"' == `"Visit wave: Second visit (vs. Baseline)"'
         assert strpos("`e(iivw_display_vars)'", "_iivw_tcat_1") > 0
+        assert "`e(iivw_time_vars)'" == "_iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3"
+        assert "`e(iivw_time_cat_vars)'" == "_iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3"
         local tv : char _dta[_iivw_time_cat_vars]
         assert "`tv'" == "_iivw_tcat_1 _iivw_tcat_2 _iivw_tcat_3"
     }

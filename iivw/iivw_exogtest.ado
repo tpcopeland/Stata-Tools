@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.5.0  2026/05/29
+*! iivw_exogtest Version 1.5.1  2026/06/11
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -45,6 +45,8 @@ program define iivw_exogtest, rclass sortpreserve
     local __iivw_exog_sheet_done ""
     local __iivw_exog_dec_done = .
     local __iivw_exog_export_rc = 0
+    local __iivw_smcl_lb = char(123)
+    local __iivw_smcl_rb = char(125)
 
     capture noisily {
 
@@ -171,8 +173,7 @@ program define iivw_exogtest, rclass sortpreserve
             `"`__iivw_term_labels'|`__iivw_term_label_`lag_index''"'
         local __iivw_lag_label `"`__iivw_term_label_`lag_index''"'
         if strlen(`"`__iivw_lag_label'"') > 80 {
-            local __iivw_lag_label = ///
-                substr(`"`__iivw_lag_label'"', 1, 77) + "..."
+            local __iivw_lag_label = substr(`"`__iivw_lag_label'"', 1, 77) + "..."
         }
         label variable `lagname' `"`__iivw_lag_label'"'
         local __iivw_created_vars "`__iivw_created_vars' `lagname'"
@@ -250,9 +251,9 @@ program define iivw_exogtest, rclass sortpreserve
     local __iivw_fitted_groups ""
 
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as result "iivw_exogtest" as text " - Exogeneity Diagnostic for Visit Timing"
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text "ID variable:      " as result "`id'"
     display as text "Time variable:    " as result "`time'"
     display as text "Lagged tests:     " as result "`generated_lags'"
@@ -343,12 +344,12 @@ program define iivw_exogtest, rclass sortpreserve
         local __iivw_jointp_`group_index' = `joint_p'
         local group_sig = (`joint_p' < `alpha')
 
-        display as text _col(4) "{ralign 22:Predictor}" ///
-            _col(30) "{ralign 9:HR}" ///
-            _col(41) "{ralign 9:CI lower}" ///
-            _col(52) "{ralign 9:CI upper}" ///
-            _col(64) "{ralign 8:p}"
-        display as text "{hline 70}"
+        display as text _col(4) "`__iivw_smcl_lb'ralign 22:Predictor`__iivw_smcl_rb'" ///
+            _col(30) "`__iivw_smcl_lb'ralign 9:HR`__iivw_smcl_rb'" ///
+            _col(41) "`__iivw_smcl_lb'ralign 9:CI lower`__iivw_smcl_rb'" ///
+            _col(52) "`__iivw_smcl_lb'ralign 9:CI upper`__iivw_smcl_rb'" ///
+            _col(64) "`__iivw_smcl_lb'ralign 8:p`__iivw_smcl_rb'"
+        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
         local term_index = 0
         foreach lv of local generated_lags {
@@ -404,19 +405,19 @@ program define iivw_exogtest, rclass sortpreserve
                     local p_fmt = strtrim("`p_fmt'")
                 }
             }
-            display as text _col(4) "{ralign 22:`__iivw_display_term'}" ///
+            display as text _col(4) "`__iivw_smcl_lb'ralign 22:`__iivw_display_term'`__iivw_smcl_rb'" ///
                 as result _col(30) %9.3f `hr' ///
                 _col(41) %9.3f `lb' ///
                 _col(52) %9.3f `ub' ///
-                as text _col(64) "{ralign 8:`p_fmt'}"
+                as text _col(64) "`__iivw_smcl_lb'ralign 8:`p_fmt'`__iivw_smcl_rb'"
         }
 
         if `joint_p' < . {
-            display as text "{hline 70}"
+            display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
             display as text "Joint test p-value: " as result %8.4f `joint_p'
         }
         else {
-            display as text "{hline 70}"
+            display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
             display as text "Joint test p-value: " as result "."
         }
 
@@ -450,17 +451,19 @@ program define iivw_exogtest, rclass sortpreserve
     }
 
     display as text ""
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text "Models fitted:     " as result `n_models'
     display as text "Groups skipped:    " as result `n_skipped'
     display as text "Minimum p-value:   " as result %8.4f `min_p'
     display as text "Minimum joint p:   " as result %8.4f `joint_min_p'
     display as text "Conclusion:        " as result "`conclusion'"
-    display as text "{hline 70}"
+    display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
-    local __iivw_exog_export_req = ///
-        (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
-         `"`sheet'"' != "" | "`open'" != "")
+    local __iivw_exog_export_req = 0
+    if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+        `"`sheet'"' != "" | "`open'" != "" {
+        local __iivw_exog_export_req = 1
+    }
     if `__iivw_exog_export_req' {
         local __iivw_n_fitted : word count `__iivw_fitted_groups'
         local __iivw_n_data_cols = 3 * `__iivw_n_fitted'
@@ -485,8 +488,9 @@ program define iivw_exogtest, rclass sortpreserve
         local __iivw_clean_title `"`title'"'
         local __iivw_clean_foot `"`footnote'"'
         foreach __iivw_clean in xlsx excel sheet title foot {
-            local __iivw_clean_`__iivw_clean' = ///
-                subinstr(`"`__iivw_clean_`__iivw_clean''"', `"`__iivw_dq'"', "", .)
+            local __iivw_clean_tmp `"`__iivw_clean_`__iivw_clean''"'
+            local __iivw_clean_tmp = subinstr(`"`__iivw_clean_tmp'"', `"`__iivw_dq'"', "", .)
+            local __iivw_clean_`__iivw_clean' `"`__iivw_clean_tmp'"'
         }
         if `"`__iivw_clean_sheet'"' == "" {
             local __iivw_clean_sheet "Exogeneity"

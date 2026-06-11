@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.5.0** | 2026-05-29
+**Version 1.5.1** | 2026-06-11
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -460,7 +460,19 @@ Before showing results, check:
 
 ## Validation
 
-The package ships with functional, validation, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
+The package ships with functional, validation, simulation, reporting-export, install-smoke, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
+
+Run the fast release gate from the package QA directory:
+
+```bash
+cd iivw/qa && stata-mp -b do run_all.do quick
+```
+
+Run the full release gate, including simulation and R cross-validation lanes:
+
+```bash
+cd iivw/qa && stata-mp -b do run_all.do
+```
 
 ## Demo
 
@@ -651,6 +663,16 @@ The generated model workbook asserts that the `Visit waves` sheet contains the r
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.5.1 (2026-06-11)
+
+- Enforced `decimals()`/`digits()` bounds in `iivw_balance` and `iivw_diagnose` before export dispatch
+- Fixed `iivw_diagnose` workbook exports so the diagnostics header honors the requested `level()`
+- Protected existing workbook sheets from accidental overwrite unless `replace` is specified
+- Fixed unlabeled negative categorical levels in `iivw_fit` so generated dummy names are valid Stata names
+- Made `entry()` validation match the documented `nobaseevent` behavior in `iivw_weight`
+- Hardened captured display paths so SMCL headings and error-help text do not produce spurious `r(199)` returns
+- Added regression QA for balance thresholds, export footnotes, diagnostics export confidence-level headers, categorical-time `e()` metadata, workbook sheet protection, negative categorical levels, `nobaseevent` entry handling, and deterministic diagnostic known answers
 
 ### v1.5.0 (2026-05-29)
 

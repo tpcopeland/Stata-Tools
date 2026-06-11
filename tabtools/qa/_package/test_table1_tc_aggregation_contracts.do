@@ -278,28 +278,33 @@ else {
 local ++test_count
 capture noisily {
     tempfile fwout expandedout
+    tempname FW EX
 
     _t1agg_build_data
     table1_tc [fw=fw], by(trt) vars(age contn %6.2f \ female bin \ stage cat) ///
-        missing total(after) nopvalue clear nformat(%9.0f) percformat(%5.1f)
+        missing total(after) smd nopvalue clear nformat(%9.0f) percformat(%5.1f)
+    matrix `FW' = r(table)
     gen long rowid = _n
     rename factor fw_factor
     rename trt_0 fw_trt_0
     rename trt_1 fw_trt_1
     rename trt_T fw_trt_T
-    keep rowid fw_factor fw_trt_0 fw_trt_1 fw_trt_T
+    rename smd_str fw_smd_str
+    keep rowid fw_factor fw_trt_0 fw_trt_1 fw_trt_T fw_smd_str
     save "`fwout'", replace
 
     _t1agg_build_data
     expand fw
     table1_tc, by(trt) vars(age contn %6.2f \ female bin \ stage cat) ///
-        missing total(after) nopvalue clear nformat(%9.0f) percformat(%5.1f)
+        missing total(after) smd nopvalue clear nformat(%9.0f) percformat(%5.1f)
+    matrix `EX' = r(table)
     gen long rowid = _n
     rename factor ex_factor
     rename trt_0 ex_trt_0
     rename trt_1 ex_trt_1
     rename trt_T ex_trt_T
-    keep rowid ex_factor ex_trt_0 ex_trt_1 ex_trt_T
+    rename smd_str ex_smd_str
+    keep rowid ex_factor ex_trt_0 ex_trt_1 ex_trt_T ex_smd_str
     save "`expandedout'", replace
 
     use "`fwout'", clear
@@ -308,6 +313,22 @@ capture noisily {
     assert fw_trt_0 == ex_trt_0
     assert fw_trt_1 == ex_trt_1
     assert fw_trt_T == ex_trt_T
+    assert fw_smd_str == ex_smd_str
+
+    local fw_rows : rownames `FW'
+    local ex_rows : rownames `EX'
+    assert `"`fw_rows'"' == `"`ex_rows'"'
+    local fw_smd_col = colnumb(`FW', "smd")
+    local ex_smd_col = colnumb(`EX', "smd")
+    assert `fw_smd_col' == `ex_smd_col'
+    forvalues i = 1/`=rowsof(`FW')' {
+        local fwv = el(`FW', `i', `fw_smd_col')
+        local exv = el(`EX', `i', `ex_smd_col')
+        assert (`fwv' < . & `exv' < .) | (`fwv' >= . & `exv' >= .)
+        if (`fwv' < . & `exv' < .) {
+            assert abs(`fwv' - `exv') < 1e-10
+        }
+    }
 }
 if _rc == 0 {
     display as result "  PASS: fweight output matches expanded-data output"

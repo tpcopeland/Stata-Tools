@@ -17,6 +17,7 @@ set varabbrev off
 *   T9  entry() is ignored under nobaseevent (identical follow-up weights)
 *   T10 _iivw_baseevent is invalidated when a later iptw-only run follows a
 *       nobaseevent run (the metadata-reset fix found in v1.3.0 review)
+*   T11 invalid entry() is ignored under nobaseevent
 *
 * Usage:
 *   cd iivw/qa
@@ -278,6 +279,35 @@ else {
     display as error "  FAIL: T10 - baseevent char invalidation (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T10"
+}
+
+**# T11: invalid entry() is ignored under nobaseevent
+
+local ++test_count
+capture noisily {
+    _iivw_v130_panel
+    keep if id <= 30
+    bysort id (days): gen double entry_bad = days[1]
+
+    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) ///
+        nobaseevent replace nolog
+    gen double w_noentry_bad = _iivw_iw
+
+    iivw_weight, id(id) time(days) visit_cov(sev) entry(entry_bad) ///
+        wtype(iivw) nobaseevent replace nolog
+    gen double w_entry_bad = _iivw_iw
+
+    quietly count if reldif(w_noentry_bad, w_entry_bad) > 1e-10
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: T11 - invalid entry() ignored under nobaseevent"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T11 - invalid entry() under nobaseevent (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T11"
 }
 
 **# Summary

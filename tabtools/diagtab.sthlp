@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -75,8 +75,8 @@ window and may also be exported to Excel or CSV, or stored in a Stata frame.{p_e
 {synopt:{opt the:me(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header rows{p_end}
-{synopt:{opt headerc:olor(string)}}custom header color as a named Excel color or RGB triplet (for example, {cmd:"200 220 240"}){p_end}
-{synopt:{opt zebrac:olor(string)}}custom zebra stripe color as a named Excel color or RGB triplet{p_end}
+{synopt:{opt headerc:olor(string)}}custom header color as a supported Stata color name or RGB triplet (for example, {cmd:"200 220 240"}){p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synoptline}
 
@@ -215,6 +215,6 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

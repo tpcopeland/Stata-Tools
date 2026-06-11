@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table" "help table"}{...}
 {vieweralsosee "collect" "help collect"}{...}
@@ -84,8 +84,8 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt nomis:sing}}drop rows labeled missing, {cmd:.}, or {cmd:.m}.{p_end}
 {synopt:{opt zebra}}apply alternating row shading in Excel. Shading is off by default.{p_end}
 {synopt:{opt headers:hade}}shade header rows in Excel. Header shading is off by default.{p_end}
-{synopt:{opt headerc:olor(string)}}header fill color as a named color or RGB triplet.{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill color as a named color or RGB triplet.{p_end}
+{synopt:{opt headerc:olor(string)}}header fill color as a supported Stata color name or RGB triplet.{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra fill color as a supported Stata color name or RGB triplet.{p_end}
 {synopt:{opt borders:tyle(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt the:me(string)}}journal-style font and border theme shared with other tabtools commands; use {opt headershade} and {opt zebra} explicitly when shaded fills are desired.{p_end}
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
@@ -153,6 +153,6 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

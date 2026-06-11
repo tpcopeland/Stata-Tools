@@ -24,7 +24,7 @@ d
 d Commands apply consistent Excel formatting and can emit GitHub-Flavored
 d Markdown tables for report workflows.
 d
-d Requires: Stata version 16+ (tabtools, table1_tc, simtab), 17+ (all other commands)
+d Requires: Stata version 16+ (tabtools, tabtools_tips, table1_tc, stacktab, simtab), 17+ (all other commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d Optional: simsum / siman for simtab ingest mode (from()) and analysis
 d

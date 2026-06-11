@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  08jun2026}{...}
+{* *! version 1.6.4  10jun2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -69,8 +69,8 @@ collection must remain unchanged.{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
 {synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt headerc:olor(string)}}Custom header background color as a named Excel color or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
-{synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a named Excel color or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
+{synopt:{opt headerc:olor(string)}}Custom header background color as a supported Stata color name or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
+{synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}Also export as CSV to the specified filename.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
@@ -191,9 +191,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name (if {cmd:eplotframe()} specified){p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric matrix of effect estimates and p-values for all displayed effect rows (columns = estimate and p-value per model){p_end}
@@ -209,6 +206,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.2{p_end}
+{pstd}{bf:Version} 1.6.4{p_end}
 
 {hline}

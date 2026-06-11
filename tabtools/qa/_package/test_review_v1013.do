@@ -629,7 +629,7 @@ else {
     local ++fail_count
 }
 
-**## 13b. tabtools_cheatsheet.sthlp title version matches .ado version
+**## 13b. tabtools_cheatsheet.sthlp body version matches .ado version
 local ++test_count
 capture noisily {
     tempname fh_ado2
@@ -644,10 +644,9 @@ capture noisily {
     file open `fh_cs' using "`pkg_dir'/tabtools_cheatsheet.sthlp", read text
     file read `fh_cs' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "Quick Reference (v") > 0 {
-            local vstart = strpos(`"`line'"', "(v") + 2
-            local vend = strpos(`"`line'"', ")}")
-            local cs_version = substr(`"`line'"', `vstart', `vend' - `vstart')
+        if strpos(`"`line'"', "{bf:Version}") > 0 {
+            local cs_version = strtrim(subinstr(`"`line'"', "{pstd}{bf:Version}", "", 1))
+            local cs_version = strtrim(subinstr(`"`cs_version'"', "{p_end}", "", .))
         }
         file read `fh_cs' line
     }
@@ -655,7 +654,7 @@ capture noisily {
     assert "`cs_version'" == "`ado_version'"
 }
 if _rc == 0 {
-    display as result "  PASS [13b]: tabtools_cheatsheet.sthlp title version matches .ado version"
+    display as result "  PASS [13b]: tabtools_cheatsheet.sthlp body version matches .ado version"
     local ++pass_count
 }
 else {

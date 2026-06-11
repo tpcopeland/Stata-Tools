@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.5.0  2026/05/29
+*! iivw_diagnose Version 1.5.1  2026/06/11
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,210 +14,18 @@ program define iivw_diagnose, rclass
     local _export_xlsx ""
     local _export_sheet ""
     local _export_decimals = .
+    local _smcl_lb = char(123)
+    local _smcl_rb = char(125)
 
     capture noisily {
 
-        syntax anything(name=coefficient id="coefficient") , [*]
-
-        local unweighted ""
-        local weighted ""
-        local adjusted ""
-        local exogeneity ""
-        local estimand ""
-        local true ""
-        local level 95
-        local xlsx ""
-        local excel ""
-        local sheet ""
-        local title ""
-        local footnote ""
-        local decimals ""
-        local digits ""
-        local replace ""
-        local open ""
-        local leftover ""
-        local optlist `"`options'"'
-        while `"`optlist'"' != "" {
-            gettoken opt optlist : optlist, bind
-            local opt_l = lower(`"`opt'"')
-            if `"`opt_l'"' == "replace" {
-                if "`replace'" != "" {
-                    display as error "replace specified more than once"
-                    error 198
-                }
-                local replace "replace"
-                continue
-            }
-            if `"`opt_l'"' == "open" {
-                if "`open'" != "" {
-                    display as error "open specified more than once"
-                    error 198
-                }
-                local open "open"
-                continue
-            }
-            if regexm(`"`opt_l'"', "^([a-z]+)\(.+\)$") {
-                local optname = regexs(1)
-                local p1 = strpos(`"`opt'"', "(")
-                local p2 = strrpos(`"`opt'"', ")")
-                local optval = substr(`"`opt'"', `p1' + 1, `p2' - `p1' - 1)
-
-                if strlen("`optname'") >= 3 & ///
-                    substr("unweighted", 1, strlen("`optname'")) == "`optname'" {
-                    if "`unweighted'" != "" {
-                        display as error "unweighted() specified more than once"
-                        error 198
-                    }
-                    local unweighted `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 2 & ///
-                    substr("weighted", 1, strlen("`optname'")) == "`optname'" {
-                    if "`weighted'" != "" {
-                        display as error "weighted() specified more than once"
-                        error 198
-                    }
-                    local weighted `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 2 & ///
-                    substr("adjusted", 1, strlen("`optname'")) == "`optname'" {
-                    if "`adjusted'" != "" {
-                        display as error "adjusted() specified more than once"
-                        error 198
-                    }
-                    local adjusted `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 2 & ///
-                    substr("exogeneity", 1, strlen("`optname'")) == "`optname'" {
-                    if "`exogeneity'" != "" {
-                        display as error "exogeneity() specified more than once"
-                        error 198
-                    }
-                    local exogeneity `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 3 & ///
-                    substr("estimand", 1, strlen("`optname'")) == "`optname'" {
-                    if "`estimand'" != "" {
-                        display as error "estimand() specified more than once"
-                        error 198
-                    }
-                    local estimand `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 2 & ///
-                    substr("true", 1, strlen("`optname'")) == "`optname'" {
-                    if "`true'" != "" {
-                        display as error "true() specified more than once"
-                        error 198
-                    }
-                    local true `"`optval'"'
-                    continue
-                }
-                if "`optname'" == "xlsx" {
-                    if `"`xlsx'"' != "" {
-                        display as error "xlsx() specified more than once"
-                        error 198
-                    }
-                    local xlsx `"`optval'"'
-                    continue
-                }
-                if "`optname'" == "excel" {
-                    if `"`excel'"' != "" {
-                        display as error "excel() specified more than once"
-                        error 198
-                    }
-                    local excel `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 2 & ///
-                    substr("sheet", 1, strlen("`optname'")) == "`optname'" {
-                    if `"`sheet'"' != "" {
-                        display as error "sheet() specified more than once"
-                        error 198
-                    }
-                    local sheet `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 1 & ///
-                    substr("title", 1, strlen("`optname'")) == "`optname'" {
-                    if `"`title'"' != "" {
-                        display as error "title() specified more than once"
-                        error 198
-                    }
-                    local title `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 1 & ///
-                    substr("footnote", 1, strlen("`optname'")) == "`optname'" {
-                    if `"`footnote'"' != "" {
-                        display as error "footnote() specified more than once"
-                        error 198
-                    }
-                    local footnote `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 3 & ///
-                    substr("decimals", 1, strlen("`optname'")) == "`optname'" {
-                    if "`decimals'" != "" {
-                        display as error "decimals() specified more than once"
-                        error 198
-                    }
-                    local decimals `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 3 & ///
-                    substr("digits", 1, strlen("`optname'")) == "`optname'" {
-                    if "`digits'" != "" {
-                        display as error "digits() specified more than once"
-                        error 198
-                    }
-                    local digits `"`optval'"'
-                    continue
-                }
-                if strlen("`optname'") >= 1 & ///
-                    substr("level", 1, strlen("`optname'")) == "`optname'" {
-                    if "`level_seen'" != "" {
-                        display as error "level() specified more than once"
-                        error 198
-                    }
-                    local level `"`optval'"'
-                    local level_seen 1
-                    continue
-                }
-            }
-            local leftover `"`leftover' `opt'"'
-        }
-        if "`unweighted'" == "" {
-            display as error "option unweighted() required"
-            error 198
-        }
-        if "`weighted'" == "" {
-            display as error "option weighted() required"
-            error 198
-        }
-        if "`adjusted'" == "" {
-            display as error "option adjusted() required"
-            error 198
-        }
-        foreach role in unweighted weighted adjusted {
-            capture confirm name ``role''
-            if _rc {
-                display as error "`role'() must name stored estimation results"
-                error 198
-            }
-        }
-        if trim(`"`leftover'"') != "" {
-            display as error "option(s) not allowed: `leftover'"
-            error 198
-        }
-        capture confirm number `level'
-        if _rc {
-            display as error "level() must be numeric"
-            error 198
-        }
+        syntax anything(name=coefficient id="coefficient") , ///
+            UNWeighted(name) WEighted(name) ADjusted(name) ///
+            [EXogeneity(string) ESTimand(string) TRue(string) ///
+             Level(real 95) XLSX(string asis) EXCEL(string asis) ///
+             SHeet(string asis) Title(string asis) Footnote(string asis) ///
+             DECimals(string) DIGits(string) REPLACE OPEN]
+        if "`level'" == "" local level 95
         if `level' <= 10 | `level' >= 99.99 {
             display as error "level() must be between 10 and 99.99"
             error 198
@@ -236,6 +44,10 @@ program define iivw_diagnose, rclass
                 display as error "decimals() must be an integer"
                 error 198
             }
+            if `decimals' < 0 | `decimals' > 6 {
+                display as error "decimals() must be between 0 and 6"
+                error 198
+            }
             local _decimals_final = `decimals'
         }
         if "`digits'" != "" {
@@ -244,9 +56,15 @@ program define iivw_diagnose, rclass
                 display as error "digits() must be an integer"
                 error 198
             }
-            if "`decimals'" != "" & `decimals' != `digits' {
-                display as error "decimals() and digits() specify different values"
+            if `digits' < 0 | `digits' > 6 {
+                display as error "digits() must be between 0 and 6"
                 error 198
+            }
+            if "`decimals'" != "" {
+                if `decimals' != `digits' {
+                    display as error "decimals() and digits() specify different values"
+                    error 198
+                }
             }
             local _decimals_final = `digits'
         }
@@ -381,7 +199,7 @@ program define iivw_diagnose, rclass
         display as text ""
         display as text %28s "Model" _col(34) %10s "Estimate" ///
             _col(47) %9s "SE" _col(59) "`level'% CI"
-        display as text "{hline 78}"
+        display as text "`_smcl_lb'hline 78`_smcl_rb'"
         display as text %28s "Unweighted" ///
             as result _col(34) %10.4f `b_unweighted' ///
             _col(47) %9.4f `se_unweighted' ///
@@ -397,10 +215,10 @@ program define iivw_diagnose, rclass
             _col(47) %9.4f `se_adjusted' ///
             _col(59) %9.4f `ll_adjusted' ///
             as text "," as result %9.4f `ul_adjusted'
-        display as text "{hline 78}"
+        display as text "`_smcl_lb'hline 78`_smcl_rb'"
 
         display as text ""
-        display as text "{bf:Diagnostic movement}"
+        display as text "`_smcl_lb'bf:Diagnostic movement`_smcl_rb'"
         display as text "Sampling gap:       " as result %10.4f `sampling_gap'
         display as text "Artifact gap:       " as result %10.4f `artifact_gap'
         display as text "Total gap:          " as result %10.4f `total_gap'
@@ -454,16 +272,18 @@ program define iivw_diagnose, rclass
             local bias_weighted   = `b_weighted'   - `true_value'
             local bias_adjusted   = `b_adjusted'   - `true_value'
             display as text ""
-            display as text "{bf:Bias versus true value}"
+            display as text "`_smcl_lb'bf:Bias versus true value`_smcl_rb'"
             display as text "True value:         " as result %10.4f `true_value'
             display as text "Unweighted bias:    " as result %10.4f `bias_unweighted'
             display as text "Weighted bias:      " as result %10.4f `bias_weighted'
             display as text "Adjusted bias:      " as result %10.4f `bias_adjusted'
         }
 
-        local _export_requested = ///
-            (`"`xlsx'"' != "" | `"`excel'"' != "" | ///
-             `"`sheet'"' != "" | "`open'" != "")
+        local _export_requested = 0
+        if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+            `"`sheet'"' != "" | "`open'" != "" {
+            local _export_requested = 1
+        }
         if `_export_requested' {
             tempname _diagnose_export
             frame create `_diagnose_export' ///
@@ -502,7 +322,7 @@ program define iivw_diagnose, rclass
             frame post `_diagnose_export' ///
                 ("") ("") ("Model estimates") ("") ("") ("Diagnostic values")
             frame post `_diagnose_export' ///
-                ("") ("Quantity") ("Estimate") ("SE") ("95% CI") ("Value")
+                ("") ("Quantity") ("Estimate") ("SE") ("`level'% CI") ("Value")
 
             local _b_str ""
             local _se_str ""
