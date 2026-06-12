@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -168,7 +168,7 @@ memory are left unchanged.{p_end}
 
 {psee}
 {helpb tabtools}, {helpb stacktab}, {helpb desctab}, {helpb regtab},
-{helpb tabtools_cheatsheet}, {helpb export_excel:export excel}, {helpb putexcel}
+{helpb tabtools_tips}, {helpb export_excel:export excel}, {helpb putexcel}
 {p_end}
 
 {marker author}{...}
@@ -176,6 +176,6 @@ memory are left unchanged.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

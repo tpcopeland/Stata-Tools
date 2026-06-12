@@ -236,11 +236,23 @@ capture noisily {
     collect: table rep78, statistic(count price)
     capture frame drop _dt_returns
     desctab, frame(_dt_returns, replace)
-    assert "`r(version)'" == "1.6.4"
-    assert "`r(rowvar)'" == "rep78"
-    assert "`r(stats)'" == "count"
-    assert r(N_cells) > 0
+    * r(version) must match the .ado header, parsed live so the assertion
+    * cannot drift when the package version is bumped. Save r(version) first:
+    * file read below overwrites r().
+    local _ret_version "`r(version)'"
+    local _ret_rowvar "`r(rowvar)'"
+    local _ret_stats "`r(stats)'"
+    local _ret_ncells = r(N_cells)
     matrix M = r(table)
+    tempname _fh_ver
+    file open `_fh_ver' using "`pkg_root'/desctab.ado", read text
+    file read `_fh_ver' _hdr_line
+    file close `_fh_ver'
+    local _ado_version = word(`"`_hdr_line'"', 4)
+    assert "`_ret_version'" == "`_ado_version'"
+    assert "`_ret_rowvar'" == "rep78"
+    assert "`_ret_stats'" == "count"
+    assert `_ret_ncells' > 0
     assert M[1,1] == 2
     frame drop _dt_returns
 }

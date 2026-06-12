@@ -1,4 +1,4 @@
-*! stratetab Version 1.6.4  2026/06/10
+*! stratetab Version 1.7.0  2026/06/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -509,7 +509,7 @@ local _ret_markdown_cols .
 if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
-	capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
 		`_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
 	if _rc {
 		local _md_rc = _rc
@@ -655,7 +655,7 @@ return scalar N_outcomes = `outcomes'
 	* Export to Excel
 	if `_has_xlsx' {
 		order title c*
-		capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sht'") book(b)
+		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sht'") book(b)
 		if _rc {
 			local saved_rc = _rc
 			noi di as err "Failed to export to `xlsx'"
@@ -667,7 +667,7 @@ return scalar N_outcomes = `outcomes'
 	}
 	else {
 			* Apply formatting (Mata xl()) in the open workbook returned by
-			* _tabtools_xlsx_write_current; avoid a save/reload pass.
+			* _tabtools_xlsx_write; avoid a save/reload pass.
 			local _total_cols = `ncols' + 1
 			local _xlsx_widths "1 18"
 			forvalues col = 3/`_total_cols' {

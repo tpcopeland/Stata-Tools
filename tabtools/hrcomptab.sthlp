@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -181,7 +181,7 @@ frame output.
 {pstd}
 The examples below are workflow sketches. They assume source frames have already
 been created by {helpb stratetab} and {helpb regtab}. For a runnable public-data
-workflow, see {help tabtools_cookbook:tabtools cookbook}.{p_end}
+workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 
 {pstd}
 {bf:Example 1: Table 2 from existing stratetab/regtab frames}
@@ -264,7 +264,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 
 {marker alsosee}{...}

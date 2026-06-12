@@ -1,4 +1,4 @@
-*! stacktab Version 1.6.4  2026/06/10
+*! stacktab Version 1.7.0  2026/06/13
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -500,7 +500,7 @@ program define stacktab, rclass
         if `"`markdown'"' != "" {
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
-            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' title(`"`title'"') footnote(`"`note'"')
             if _rc {
                 local _md_rc = _rc

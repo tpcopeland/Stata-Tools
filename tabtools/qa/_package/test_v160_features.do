@@ -1,5 +1,5 @@
 * test_v160_features.do — Tests for tabtools v1.6.0 new features
-* Tests: 1.1 (r(version) fix), 1.2 (cheatsheet version), 1.3 (academic border doc),
+* Tests: 1.1 (r(version) fix), 1.3 (academic border doc),
 *        2.1 (effecttab digits), 2.2-2.3 (frame for regtab/effecttab),
 *        2.5 (persistent theme), 2.6 (r(table) matrix),
 *        3.1 (regtab console display), 3.2 (effecttab console display),

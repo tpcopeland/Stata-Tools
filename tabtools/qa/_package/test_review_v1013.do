@@ -629,38 +629,8 @@ else {
     local ++fail_count
 }
 
-**## 13b. tabtools_cheatsheet.sthlp body version matches .ado version
-local ++test_count
-capture noisily {
-    tempname fh_ado2
-    local ado_version ""
-    file open `fh_ado2' using "`pkg_dir'/tabtools.ado", read text
-    file read `fh_ado2' line
-    local ado_version = strtrim(word(`"`line'"', 4))
-    file close `fh_ado2'
-
-    tempname fh_cs
-    local cs_version ""
-    file open `fh_cs' using "`pkg_dir'/tabtools_cheatsheet.sthlp", read text
-    file read `fh_cs' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', "{bf:Version}") > 0 {
-            local cs_version = strtrim(subinstr(`"`line'"', "{pstd}{bf:Version}", "", 1))
-            local cs_version = strtrim(subinstr(`"`cs_version'"', "{p_end}", "", .))
-        }
-        file read `fh_cs' line
-    }
-    file close `fh_cs'
-    assert "`cs_version'" == "`ado_version'"
-}
-if _rc == 0 {
-    display as result "  PASS [13b]: tabtools_cheatsheet.sthlp body version matches .ado version"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL [13b]: tabtools_cheatsheet.sthlp version mismatch (rc=`=_rc')"
-    local ++fail_count
-}
+* 13b removed in v1.7.0: tabtools_cheatsheet.sthlp was retired (merged into
+* tabtools_tips), so its version-consistency check no longer applies.
 
 
 **# 14. table1_tc zero-denominator group does not produce ".%" (M10 regression)

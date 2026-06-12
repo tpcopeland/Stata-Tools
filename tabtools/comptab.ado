@@ -1,4 +1,4 @@
-*! comptab Version 1.6.4  2026/06/10
+*! comptab Version 1.7.0  2026/06/13
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -847,7 +847,7 @@ program define comptab, rclass
     if `"`markdown'"' != "" {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) datastart(4) title(`"`title'"') footnote(`"`footnote'"')
         if _rc {
             local _md_rc = _rc
@@ -893,7 +893,7 @@ program define comptab, rclass
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
 
     if `_has_xlsx' {
-        capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             noisily display as error `"Failed to export to `xlsx', sheet `sheet'"'

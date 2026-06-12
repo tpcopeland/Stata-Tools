@@ -1,4 +1,4 @@
-*! corrtab Version 1.6.4  2026/06/10
+*! corrtab Version 1.7.0  2026/06/13
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -297,7 +297,7 @@ program define corrtab, rclass
         if `"`markdown'"' != "" {
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
-            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
             if _rc {
                 local _md_rc = _rc
@@ -344,7 +344,7 @@ program define corrtab, rclass
             local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
 
             order title c*
-            capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+            capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
             if _rc {
                 local _export_rc = _rc
                 noisily display as error "Failed to export to `xlsx'"

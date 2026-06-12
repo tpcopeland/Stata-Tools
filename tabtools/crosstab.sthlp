@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -137,13 +137,13 @@ exits with an error instead of silently omitting the measure.{p_end}
 
 {psee}
 {helpb tabtools}, {helpb corrtab}, {helpb diagtab},
-{helpb tabtools_cheatsheet}, {helpb tabulate twoway}
+{helpb tabtools_tips}, {helpb tabulate twoway}
 {p_end}
 
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

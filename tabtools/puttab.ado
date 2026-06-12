@@ -1,4 +1,4 @@
-*! puttab Version 1.6.4  2026/06/10
+*! puttab Version 1.7.0  2026/06/13
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -263,7 +263,7 @@ program define puttab, rclass
             if "`mdappend'" != "" local _mdappend_opt "append"
             local _md_novarnames ""
             if "`noheader'" != "" local _md_novarnames "novarnames"
-            capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
                 title(`"`title'"') footnote(`"`footnote'"') `_md_novarnames'
             if _rc {
@@ -369,7 +369,7 @@ program define puttab, rclass
 
         if `_has_using' {
             * ===== write the sheet and apply the styling =====
-            _tabtools_xlsx_write_current using `"`using'"', sheet(`"`sheet'"') book(b)
+            _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(b)
             local _book_open = 1
 
             _tabtools_xlsx_apply_styles, book(b) sheet(`"`sheet'"') ///

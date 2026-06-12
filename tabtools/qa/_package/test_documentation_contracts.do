@@ -101,7 +101,7 @@ foreach helpfile in stratetab hrcomptab {
         file read `fh' line
         while r(eof) == 0 {
             if strpos(`"`line'"', "workflow sketches") > 0 local saw_sketch 1
-            if strpos(`"`line'"', "tabtools cookbook") > 0 local saw_cookbook 1
+            if strpos(`"`line'"', "tabtools_tips") > 0 local saw_cookbook 1
             file read `fh' line
         }
         file close `fh'

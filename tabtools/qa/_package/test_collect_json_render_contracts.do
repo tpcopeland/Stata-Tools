@@ -24,7 +24,7 @@ local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 discard
-which _tabtools_collect_render_current
+which _tabtools_collect_render
 
 local test_count = 0
 local pass_count = 0
@@ -41,7 +41,7 @@ capture noisily {
 
     collect layout (cmdset) (result[cmd cmdline])
     preserve
-    _tabtools_collect_render_current, type(meta) rowdim(cmdset) ///
+    _tabtools_collect_render, type(meta) rowdim(cmdset) ///
         results(cmd cmdline) dropempty
     assert _N == 3
     assert c(k) == 3
@@ -73,7 +73,7 @@ capture noisily {
     collect layout (colname) (cmdset#result[_r_b _r_ci _r_p])
 
     preserve
-    _tabtools_collect_render_current, type(main) rowdim(colname) coldim(cmdset) ///
+    _tabtools_collect_render, type(main) rowdim(colname) coldim(cmdset) ///
         results(_r_b _r_ci _r_p) sep(", ")
     assert _N == 6
     assert c(k) == 7
@@ -118,7 +118,7 @@ capture noisily {
     collect layout (coleq#colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 
     preserve
-    _tabtools_collect_render_current, type(main) rowdim(coleq#colname) ///
+    _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
         coldim(cmdset) results(_r_b _r_ci _r_p) sep(", ")
     assert _N == 11
     assert c(k) == 4
@@ -157,14 +157,14 @@ capture noisily {
     collect layout (colname) (cmdset#result[_r_b _r_ci _r_p])
 
     preserve
-    _tabtools_collect_render_current, type(main) rowdim(colname) coldim(cmdset) ///
+    _tabtools_collect_render, type(main) rowdim(colname) coldim(cmdset) ///
         results(_r_b _r_ci _r_p) sep(", ")
     quietly count if A == "foreign"
     assert r(N) == 0
     restore
 
     preserve
-    _tabtools_collect_render_current, type(main) rowdim(colname) coldim(cmdset) ///
+    _tabtools_collect_render, type(main) rowdim(colname) coldim(cmdset) ///
         results(_r_b _r_ci _r_p) sep(", ") factorparents
     quietly count if A == "foreign"
     assert r(N) == 1
@@ -236,7 +236,7 @@ capture noisily {
     collect layout (cmdset) (result[N ll rank not_a_result])
 
     preserve
-    _tabtools_collect_render_current, type(stats) rowdim(cmdset) ///
+    _tabtools_collect_render, type(stats) rowdim(cmdset) ///
         results(N ll rank not_a_result) dropempty
     assert _N == 3
     assert c(k) == 4
@@ -292,7 +292,7 @@ capture noisily {
 
     collect layout (cmdset) (colname[var(_cons) var(e)]#result[_r_b])
     preserve
-    _tabtools_collect_render_current, type(icc) rowdim(cmdset) coldim(colname) ///
+    _tabtools_collect_render, type(icc) rowdim(cmdset) coldim(colname) ///
         collevels("var(_cons) var(e)") results(_r_b)
     local got_re = real(B[2])
     local got_resid = real(C[2])
@@ -319,7 +319,7 @@ capture noisily {
     collect layout (rep78) (foreign#result[mean sd frequency])
 
     preserve
-    _tabtools_collect_render_current, type(desctab) rowdim(rep78) coldim(foreign) ///
+    _tabtools_collect_render, type(desctab) rowdim(rep78) coldim(foreign) ///
         results(mean sd frequency)
     assert _N >= 8
     assert c(k) == 10
@@ -350,7 +350,7 @@ capture noisily {
     collect layout (rep78#foreign) (result[mean frequency])
 
     preserve
-    _tabtools_collect_render_current, type(desctab) rowdim(rep78#foreign) ///
+    _tabtools_collect_render, type(desctab) rowdim(rep78#foreign) ///
         results(mean frequency)
     assert _N == 18
     assert c(k) == 3
@@ -395,7 +395,7 @@ capture noisily {
     collect layout (rep78) (foreign#highmpg#result[mean frequency])
 
     preserve
-    _tabtools_collect_render_current, type(desctab) rowdim(rep78) ///
+    _tabtools_collect_render, type(desctab) rowdim(rep78) ///
         coldim(foreign#highmpg) results(mean frequency)
     assert _N == 10
     assert c(k) == 19

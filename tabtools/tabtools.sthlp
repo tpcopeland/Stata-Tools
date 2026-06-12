@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -23,8 +23,6 @@
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "tabtools tips" "help tabtools_tips"}{...}
-{vieweralsosee "tabtools cheatsheet" "help tabtools_cheatsheet"}{...}
-{vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {title:Title}
 
 {p2colset 5 17 19 2}{...}
@@ -53,9 +51,8 @@ Most commands require Stata 17. The suite controller {cmd:tabtools},
 also support Stata 16.
 
 {pstd}
-See {helpb tabtools_tips:tabtools tips} for the merged quick-reference option
-guide and end-to-end worked recipes. The older {helpb tabtools_cheatsheet} and
-{helpb tabtools_cookbook} topics remain as compatibility aliases.
+See {helpb tabtools_tips:tabtools tips} for the quick-reference option
+guide and end-to-end worked recipes.
 
 
 {marker commands}{...}
@@ -406,6 +403,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

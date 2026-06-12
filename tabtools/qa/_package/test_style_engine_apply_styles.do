@@ -187,8 +187,8 @@ local ++test_count
 capture noisily {
     which _tabtools_xlsx_apply_styles
     which _tabtools_xlsx_build_styles
-    which _tabtools_xlsx_write_current
-    which _tabtools_xlsx_read_current
+    which _tabtools_xlsx_write
+    which _tabtools_xlsx_read
 }
 if _rc == 0 {
     display as result "  PASS: style engine helper autoloads after isolated net install"
@@ -234,7 +234,7 @@ local ++test_count
 capture noisily {
     _style_engine_make_data
     capture erase "`output_dir'/style_engine_apply_legacy.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/style_engine_apply_legacy.xlsx", ///
+    _tabtools_xlsx_write using "`output_dir'/style_engine_apply_legacy.xlsx", ///
         sheet("Style") book(b)
     _style_engine_apply_legacy, sheet("Style")
     mata: b.close_book()
@@ -242,14 +242,14 @@ capture noisily {
 
     _style_engine_make_data
     capture erase "`output_dir'/style_engine_apply_engine.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/style_engine_apply_engine.xlsx", ///
+    _tabtools_xlsx_write using "`output_dir'/style_engine_apply_engine.xlsx", ///
         sheet("Style") book(b)
     _tabtools_xlsx_apply_styles, book(b) sheet("Style") rules(style_engine_rules)
     assert r(n_rules) == rowsof(style_engine_rules)
     mata: b.close_book()
     mata: mata drop b
 
-    _tabtools_xlsx_read_current using "`output_dir'/style_engine_apply_engine.xlsx", ///
+    _tabtools_xlsx_read using "`output_dir'/style_engine_apply_engine.xlsx", ///
         sheet("Style")
     assert _N == 6
     assert c(k) == 5
@@ -284,7 +284,7 @@ local ++test_count
 capture noisily {
     _style_engine_make_data
     capture erase "`output_dir'/style_engine_apply_invalid_rule.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/style_engine_apply_invalid_rule.xlsx", ///
+    _tabtools_xlsx_write using "`output_dir'/style_engine_apply_invalid_rule.xlsx", ///
         sheet("Style") book(b)
     matrix style_engine_bad_rules = (99, 1, 1, 1, 1, 0, 0, 0, 0)
     capture noisily _tabtools_xlsx_apply_styles, book(b) sheet("Style") ///
@@ -313,7 +313,7 @@ capture noisily {
     capture erase "`output_dir'/style_engine_apply_timing_engine.xlsx"
 
     _style_engine_make_data
-    _tabtools_xlsx_write_current using "`output_dir'/style_engine_apply_timing_legacy.xlsx", ///
+    _tabtools_xlsx_write using "`output_dir'/style_engine_apply_timing_legacy.xlsx", ///
         sheet("Style") book(b)
     timer clear 1
     timer on 1
@@ -325,7 +325,7 @@ capture noisily {
     mata: mata drop b
 
     _style_engine_make_data
-    _tabtools_xlsx_write_current using "`output_dir'/style_engine_apply_timing_engine.xlsx", ///
+    _tabtools_xlsx_write using "`output_dir'/style_engine_apply_timing_engine.xlsx", ///
         sheet("Style") book(b)
     timer clear 2
     timer on 2

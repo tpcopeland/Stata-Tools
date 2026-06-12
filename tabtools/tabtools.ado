@@ -1,4 +1,4 @@
-*! tabtools Version 1.6.4  2026/06/10
+*! tabtools Version 1.7.0  2026/06/13
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -35,7 +35,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.6.4"
+        local _package_version "1.7.0"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -836,8 +836,6 @@ program define _tabtools_detail, nclass
             display as text "               set and get."
             display as text ""
             display as result "  tabtools_tips " as text "Quick reference and worked recipes."
-            display as text "               Merges the former cheatsheet and cookbook"
-            display as text "               help topics."
             display as text ""
         }
 

@@ -1,4 +1,4 @@
-*! simtab Version 1.6.4  2026/06/10
+*! simtab Version 1.7.0  2026/06/13
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -241,18 +241,18 @@ program define simtab, rclass
             * --------------------------------------------------------------
             * INGEST MODE  (delegate to the isolated adapter helper)
             * --------------------------------------------------------------
-            capture _simtab_ingest_ready
+            capture _tabtools_simtab_ingest_ready
             if _rc {
-                capture findfile _simtab_ingest.ado
+                capture findfile _tabtools_simtab_ingest.ado
                 if _rc == 0 {
                     run "`r(fn)'"
                 }
                 else {
-                    display as error "_simtab_ingest.ado not found; reinstall tabtools"
+                    display as error "_tabtools_simtab_ingest.ado not found; reinstall tabtools"
                     exit 111
                 }
             }
-            _simtab_ingest, source("`_from'") byvar(`byvar') ///
+            _tabtools_simtab_ingest, source("`_from'") byvar(`byvar') ///
                 estimatorvar(`estimatorvar') estimandvar(`estimandvar') ///
                 measures(`measures')
             local _source   "`r(source)'"
@@ -720,7 +720,7 @@ program define simtab, rclass
                 if `_has_title' quietly drop in 1
                 local _mdappend_opt ""
                 if "`mdappend'" != "" local _mdappend_opt "append"
-                capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+                capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                     `_mdappend_opt' headerstart(1) datastart(2) ///
                     title(`"`title'"') footnote(`"`footnote'"')
                 if _rc {
@@ -779,7 +779,7 @@ program define simtab, rclass
             if "`_hborder'" == "none"   local _hbc = 4
 
             * ----- write the sheet -----
-            _tabtools_xlsx_write_current using `"`xlsx'"', sheet(`"`sheet'"') book(b)
+            _tabtools_xlsx_write using `"`xlsx'"', sheet(`"`sheet'"') book(b)
             local _book_open = 1
 
             * ----- build style rules -----

@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.6.4** | 2026-06-10
+**Version 1.7.0** | 2026-06-13
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -19,7 +19,7 @@ capture ado uninstall tabtools
 net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
 ```
 
-After installation, start with `help tabtools` for the suite overview and `tabtools_tips` for the merged quick reference and worked recipes. The older `help tabtools_cheatsheet` and `help tabtools_cookbook` topics still work as compatibility aliases.
+After installation, start with `help tabtools` for the suite overview and `tabtools_tips` for the quick reference and worked recipes.
 
 ## Markdown Export
 
@@ -94,7 +94,7 @@ In short: style one raw table → `puttab`; combine estimation results still in 
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `tabtools` | Browse commands and manage persistent formatting defaults for the current Stata session | 16+ |
-| `tabtools_tips` | Merged quick reference and worked recipes; replaces the separate cheatsheet and cookbook entry points | 16+ |
+| `tabtools_tips` | Quick reference and worked recipes for the whole suite | 16+ |
 
 ## Choosing a Workflow
 
@@ -136,7 +136,7 @@ From a local checkout, run:
 stata-mp -b do tabtools/demo/demo_tabtools.do
 ```
 
-Installed users should start with `help tabtools` and `tabtools_tips`; the legacy `help tabtools_cheatsheet` and `help tabtools_cookbook` topics are shipped as compatibility aliases.
+Installed users should start with `help tabtools` and `tabtools_tips`.
 
 ### Markdown report export
 
@@ -706,11 +706,11 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 - `help tabtools` for the suite overview and persistent defaults
 - `tabtools_tips` or `help tabtools_tips` for compact option patterns and longer end-to-end recipes
-- `help tabtools_cheatsheet` and `help tabtools_cookbook` as legacy aliases to `tabtools_tips`
 - `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, and `help stacktab` for command-specific syntax
 
 ## Version History
 
+- **1.7.0** (2026-06-13): Internal and packaging cleanup; no command behavior changes. Helper programs renamed to one consistent `_tabtools_` convention: the `_current` suffix is dropped (`_tabtools_xlsx_write`, `_tabtools_xlsx_read`, `_tabtools_markdown_write`, `_tabtools_collect_render`) and `_simtab_ingest` becomes `_tabtools_simtab_ingest`. Two unused internal helpers (`_tabtools_xlsx_set_widths`, `_tabtools_table_metadata_current`) are removed from the shipped package. The `tabtools_cheatsheet` and `tabtools_cookbook` compatibility-alias help files are retired; `tabtools_tips` is the single quick-reference and recipes entry point, and all help cross-references now point there. The QA suite is consolidated from per-directory fragments into one complete command-level file per command plus a small set of package-level suites, with a full index in `qa/README.md`.
 - **1.6.4** (2026-06-10): Remove the retired workbook-composition alias from the shipped package. `stacktab` is now the only public command for assembling exported workbook blocks, and QA no longer installs or calls the old alias path.
 - **1.6.3** (2026-06-10): Add `tabtools_tips`, a merged quick-reference and cookbook command/help topic. The former `tabtools_cheatsheet` and `tabtools_cookbook` help files are retained as compatibility aliases. Update the visible help and README command inventory for recently added commands including `puttab`, `stacktab`, and `simtab`.
 - **1.6.2** (2026-06-08): Fix `regtab` AIC/BIC for GEE models. `regtab` reads model fit statistics from the active `e()`, but Stata's `glm` (the backend used by `iivw_fit` and `xtgee`-style GEE workflows) stores `e(aic)` as AIC *per observation* (AIC/N) and `e(bic)` under a deviance-based convention — neither comparable to the likelihood-scale values `mixed` and other ML estimators report. A `stats(aic)` table mixing GEE and mixed models therefore showed GEE AIC values roughly N times too small. `regtab` now always recomputes AIC as `-2*ll + 2*k` and BIC as `-2*ll + k*ln(N)` from `e(ll)`, `e(rank)`, and `e(N)` whenever those are available, overriding the per-observation/deviance-based stored values. Results now match `estat ic` for every model family and stay on one scale across rows. `mixed` output is unchanged (it already used this path). Added regression test `qa/regtab/test_regtab_aic_gee.do`.

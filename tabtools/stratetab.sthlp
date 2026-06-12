@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -119,7 +119,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 The examples below are workflow sketches. They assume you have already run
 {helpb strate} with {cmd:output()} to create the named .dta files in the
 current working directory. For a runnable public-data workflow, see
-{help tabtools_cookbook:tabtools cookbook}.{p_end}
+{help tabtools_tips:tabtools_tips}.{p_end}
 
 {pstd}
 {bf:Example 1: Two outcomes by antidepressant class}
@@ -227,7 +227,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {title:Also see}
 

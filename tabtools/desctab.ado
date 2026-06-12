@@ -1,4 +1,4 @@
-*! desctab Version 1.6.4  2026/06/10
+*! desctab Version 1.7.0  2026/06/13
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -310,11 +310,11 @@ program define desctab, rclass
     preserve
     local _preserved 1
     if "`coldim'" != "" {
-        capture _tabtools_collect_render_current, type(desctab) rowdim(`rowdim') ///
+        capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
             coldim(`coldim') results(`stats_layout')
     }
     else {
-        capture _tabtools_collect_render_current, type(desctab) rowdim(`rowdim') ///
+        capture _tabtools_collect_render, type(desctab) rowdim(`rowdim') ///
             results(`stats_layout')
     }
     local _collect_render_rc = _rc
@@ -328,7 +328,7 @@ program define desctab, rclass
         }
         preserve
         local _preserved 1
-        capture _tabtools_xlsx_read_current using "`_temp_xlsx'", sheet("Sheet1")
+        capture _tabtools_xlsx_read using "`_temp_xlsx'", sheet("Sheet1")
         if _rc {
             display as error "Failed to import the temporary collect workbook"
             exit _rc
@@ -742,7 +742,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.6.4"
+    return local version "1.7.0"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"
@@ -763,7 +763,7 @@ program define desctab, rclass
     if `"`markdown'"' != "" {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) headerstart(`header_start') ///
             datastart(`data_start') title(`"`title'"') footnote(`"`footnote'"')
         if _rc {
@@ -789,7 +789,7 @@ program define desctab, rclass
         labelvar(A) datastart(`data_start') headerstart(`header_start')
 
     if `_has_xlsx' {
-        capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             display as error "Failed to export to `xlsx', sheet `sheet'"

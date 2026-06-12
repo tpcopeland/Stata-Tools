@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -150,7 +150,7 @@ variables. The pairwise observation count matrix is stored in
 
 {psee}
 {helpb tabtools}, {helpb crosstab}, {helpb diagtab},
-{helpb tabtools_cheatsheet}, {helpb pwcorr}, {helpb spearman}
+{helpb tabtools_tips}, {helpb pwcorr}, {helpb spearman}
 {p_end}
 
 {marker author}{...}
@@ -158,6 +158,6 @@ variables. The pairwise observation count matrix is stored in
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

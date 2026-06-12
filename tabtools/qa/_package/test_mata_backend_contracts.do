@@ -64,7 +64,7 @@ capture noisily {
     "First row" "1" "2"
     end
     capture erase "`output_dir'/_mb_helper.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/_mb_helper.xlsx", sheet("Backend") book(b)
+    _tabtools_xlsx_write using "`output_dir'/_mb_helper.xlsx", sheet("Backend") book(b)
     mata: b.close_book()
     mata: mata drop b
 
@@ -73,12 +73,12 @@ capture noisily {
     "Second title" "C" "D"
     "Second row" "3" "4"
     end
-    _tabtools_xlsx_write_current using "`output_dir'/_mb_helper.xlsx", sheet("Backend") book(b)
+    _tabtools_xlsx_write using "`output_dir'/_mb_helper.xlsx", sheet("Backend") book(b)
     mata: b.close_book()
     mata: mata drop b
 
     clear
-    _tabtools_xlsx_read_current using "`output_dir'/_mb_helper.xlsx", sheet("Backend")
+    _tabtools_xlsx_read using "`output_dir'/_mb_helper.xlsx", sheet("Backend")
     assert _N == 2
     assert c(k) == 3
     assert A[1] == "Second title"
@@ -94,55 +94,9 @@ else {
     local ++fail_count
 }
 
-local ++test_count
-capture noisily {
-    clear
-    input str20 title str20 c1 str20 c2
-    "Width title" "A" "B"
-    "Width row" "1" "2"
-    end
-    capture erase "`output_dir'/_mb_widths.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/_mb_widths.xlsx", sheet("Widths") book(b)
-    _tabtools_xlsx_set_widths, book(b) widths(5 18 27)
-    mata: b.close_book()
-    mata: mata drop b
-
-    _mb_assert_xlsx "`output_dir'/_mb_widths.txt" ///
-        `"`python_cmd' "`checker'" "`output_dir'/_mb_widths.xlsx" --sheet "Widths" --col-width-at-least A 5 --col-width-at-least B 18 --col-width-at-least C 27 --result-file "`output_dir'/_mb_widths.txt" --quiet"'
-}
-if _rc == 0 {
-    display as result "  PASS: shared width helper formats an open workbook"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: shared width helper contract (rc=`=_rc')"
-    local ++fail_count
-}
-
-local ++test_count
-capture noisily {
-    clear
-    input str12 label str12 estimate str10 pvalue
-    "Dose" "1.23" "0.04"
-    "Comparator" "Reference" "<0.001"
-    end
-    _tabtools_table_metadata_current, pvaluevars(pvalue) reflabel("Reference")
-    assert r(n_rows) == 2
-    assert r(n_cols) == 3
-    assert r(nonempty) == 6
-    assert r(n_pvalues) == 2
-    assert r(min_pvalue) == 0
-    assert r(n_refrows) == 1
-    assert "`r(ref_rows)'" == "2"
-}
-if _rc == 0 {
-    display as result "  PASS: metadata helper counts widths, p-values, references"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: metadata helper contract (rc=`=_rc')"
-    local ++fail_count
-}
+* _tabtools_xlsx_set_widths and _tabtools_table_metadata_current contract tests
+* removed in v1.7.0: both helpers were dead code (no production callers) and
+* were dropped from the shipped package.
 
 **# Public Writer Contracts
 

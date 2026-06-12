@@ -1,4 +1,4 @@
-*! effecttab Version 1.6.4  2026/06/10
+*! effecttab Version 1.7.0  2026/06/13
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -239,7 +239,7 @@ quietly {
 			if _rc == 0 {
 				preserve
 				capture {
-					_tabtools_collect_render_current, type(meta) rowdim(cmdset) ///
+					_tabtools_collect_render, type(meta) rowdim(cmdset) ///
 						results(cmd cmdline) dropempty
 
 					local _meta_col_cmd ""
@@ -607,7 +607,7 @@ quietly {
 		* Preserve user data before rendering the collect table into strings
 		preserve
 
-		capture _tabtools_collect_render_current, type(main) rowdim(colname) ///
+		capture _tabtools_collect_render, type(main) rowdim(colname) ///
 			rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
 			results(_r_b _r_ci _r_p) sep("`sep'")
 		local _collect_render_rc = _rc
@@ -621,7 +621,7 @@ quietly {
 				exit _rc
 			}
 			preserve
-			capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
+			capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
 			if _rc {
 				noisily display as error "Failed to import temporary Excel file"
 				capture erase "`temp_xlsx'"
@@ -1090,7 +1090,7 @@ quietly {
 		if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
 
 		if `_has_xlsx' {
-			capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+			capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
 			if _rc {
 				local _export_rc = _rc
 				noisily display as error "Failed to export to `xlsx', sheet `sheet'"
@@ -1180,7 +1180,7 @@ quietly {
 	if `"`markdown'"' != "" {
 		local _mdappend_opt ""
 		if "`mdappend'" != "" local _mdappend_opt "append"
-		capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
 			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"')
 		if _rc {
 			local _md_rc = _rc

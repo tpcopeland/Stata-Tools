@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Syntax" "tabtools_tips##syntax"}{...}
 {viewerjumpto "Description" "tabtools_tips##description"}{...}
 {viewerjumpto "Quick reference" "tabtools_tips##quick"}{...}
@@ -27,21 +27,16 @@
 {cmd:tabtools_tips} [{cmd:,} {opt open}]
 
 {synoptset 18 tabbed}{...}
-{synopt:{opt open}}open the merged tips help file directly instead of printing the compact command-line index{p_end}
+{synopt:{opt open}}open the tips help file directly instead of printing the compact command-line index{p_end}
 {synoptline}
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:tabtools_tips} is the merged quick-reference and cookbook guide for the
+{cmd:tabtools_tips} is the quick-reference and worked-recipe guide for the
 {helpb tabtools} suite. Type {cmd:tabtools_tips} for a compact index, or
 {cmd:tabtools_tips, open} to open this help file from the command line.
-{p_end}
-
-{pstd}
-The older help topics {helpb tabtools_cheatsheet} and {helpb tabtools_cookbook}
-are retained as compatibility aliases and point here.
 {p_end}
 
 {marker quick}{...}
@@ -189,7 +184,7 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {title:Examples and Recipes}
 
 {pstd}
-These recipes are the merged cookbook path. They are intentionally compact here:
+These worked recipes are intentionally compact here:
 the individual command help files carry full option tables and stored-result
 contracts.
 {p_end}
@@ -344,6 +339,6 @@ contracts.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

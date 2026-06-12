@@ -33,11 +33,13 @@ local ++test_count
 capture noisily {
     which tabtools_tips
     findfile tabtools_tips.sthlp
-    findfile tabtools_cheatsheet.sthlp
-    findfile tabtools_cookbook.sthlp
+    capture findfile tabtools_cheatsheet.sthlp
+    assert _rc != 0
+    capture findfile tabtools_cookbook.sthlp
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools_tips command and help aliases resolve"
+    display as result "  PASS: tabtools_tips resolves; retired alias help files absent"
     local ++pass_count
 }
 else {

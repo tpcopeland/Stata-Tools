@@ -68,7 +68,7 @@ capture noisily {
     replace A = "Row | one" in 3
     replace c1 = "1" in 3
     replace c2 = "2" in 3
-    _tabtools_markdown_write_current using "`md_writer'", labelvar(A) title("Writer")
+    _tabtools_markdown_write using "`md_writer'", labelvar(A) title("Writer")
     assert r(n_rows) == 1
     assert r(n_cols) == 3
     _md_assert_contains using "`md_writer'", text("Writer")

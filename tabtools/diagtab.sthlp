@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -208,13 +208,13 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {psee}
 {helpb tabtools}, {helpb crosstab}, {helpb corrtab},
-{helpb tabtools_cheatsheet}, {helpb roctab}, {helpb diagt}
+{helpb tabtools_tips}, {helpb roctab}, {helpb diagt}
 {p_end}
 
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

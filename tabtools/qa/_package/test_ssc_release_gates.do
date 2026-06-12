@@ -48,8 +48,7 @@ capture noisily {
         stratetab.ado stratetab.sthlp hrcomptab.ado hrcomptab.sthlp ///
         comptab.ado comptab.sthlp survtab.ado survtab.sthlp ///
         crosstab.ado crosstab.sthlp diagtab.ado diagtab.sthlp ///
-        corrtab.ado corrtab.sthlp tabtools_cheatsheet.sthlp ///
-        tabtools_cookbook.sthlp {
+        corrtab.ado corrtab.sthlp tabtools_tips.ado tabtools_tips.sthlp {
         confirm file "`pkg_dir'/`f'"
     }
 }

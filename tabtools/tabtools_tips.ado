@@ -1,5 +1,5 @@
-*! tabtools_tips Version 1.6.4  2026/06/10
-*! Quick links to tabtools tips, cheatsheet, and cookbook content
+*! tabtools_tips Version 1.7.0  2026/06/13
+*! Quick links to the tabtools tips reference and worked recipes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
@@ -25,10 +25,6 @@ program define tabtools_tips, nclass
                 as text "  - common option patterns by command"
             display as text "  " as result "{help tabtools_tips##recipes:recipes}" ///
                 as text "          - end-to-end workflows"
-            display as text ""
-            display as text "Legacy help topics still work:"
-            display as text "  " as result "{help tabtools_cheatsheet:help tabtools_cheatsheet}"
-            display as text "  " as result "{help tabtools_cookbook:help tabtools_cookbook}"
             display as text ""
         }
     }

@@ -1,4 +1,4 @@
-* test_xlsx_read_current_contracts.do - _tabtools_xlsx_read_current contracts
+* test_xlsx_read_current_contracts.do - _tabtools_xlsx_read contracts
 * Run from tabtools/qa or tabtools/qa/_package.
 
 clear all
@@ -55,7 +55,7 @@ capture noisily {
     putexcel close
 
     clear
-    _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_cells.xlsx", sheet("Raw")
+    _tabtools_xlsx_read using "`output_dir'/_xlsx_read_cells.xlsx", sheet("Raw")
     assert _N == 3
     assert c(k) == 5
     assert r(N) == 3
@@ -102,12 +102,12 @@ capture noisily {
         gen str8 v`j' = "v`j'"
     }
     capture erase "`output_dir'/_xlsx_read_wide.xlsx"
-    _tabtools_xlsx_write_current using "`output_dir'/_xlsx_read_wide.xlsx", sheet("Wide") book(b)
+    _tabtools_xlsx_write using "`output_dir'/_xlsx_read_wide.xlsx", sheet("Wide") book(b)
     mata: b.close_book()
     mata: mata drop b
 
     clear
-    _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_wide.xlsx", sheet("Wide")
+    _tabtools_xlsx_read using "`output_dir'/_xlsx_read_wide.xlsx", sheet("Wide")
     assert _N == 1
     assert c(k) == 130
     confirm variable A
@@ -147,7 +147,7 @@ capture noisily {
     putexcel close
 
     clear
-    _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_storage.xlsx", sheet("Storage")
+    _tabtools_xlsx_read using "`output_dir'/_xlsx_read_storage.xlsx", sheet("Storage")
     assert _N == 1
     assert A[1] == "short"
     assert B[1] == "Ångström"
@@ -183,7 +183,7 @@ capture noisily {
     putexcel close
 
     clear
-    _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_multisheet.xlsx", sheet(temp)
+    _tabtools_xlsx_read using "`output_dir'/_xlsx_read_multisheet.xlsx", sheet(temp)
     assert _N == 2
     assert c(k) == 2
     assert A[1] == "target sheet"
@@ -204,7 +204,7 @@ capture noisily {
     input byte sentinel
     7
     end
-    capture noisily _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_wide.xlsx", ///
+    capture noisily _tabtools_xlsx_read using "`output_dir'/_xlsx_read_wide.xlsx", ///
         sheet("Wide") maxcols(10)
     local rc = _rc
     assert `rc' == 908
@@ -226,7 +226,7 @@ capture noisily {
     input byte sentinel
     9
     end
-    capture noisily _tabtools_xlsx_read_current using "`output_dir'/_xlsx_read_wide.xlsx", ///
+    capture noisily _tabtools_xlsx_read using "`output_dir'/_xlsx_read_wide.xlsx", ///
         sheet("MissingSheet")
     local rc = _rc
     assert `rc' == 111

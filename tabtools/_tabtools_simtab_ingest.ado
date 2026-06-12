@@ -1,4 +1,4 @@
-*! _simtab_ingest Version 1.6.4  2026/06/10
+*! _tabtools_simtab_ingest Version 1.7.0  2026/06/13
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,13 +25,13 @@ DESCRIPTION:
              r(est_header) r(n_by) r(n_estimators) r(n_estimands)
 */
 
-capture program drop _simtab_ingest_ready
-program _simtab_ingest_ready
+capture program drop _tabtools_simtab_ingest_ready
+program _tabtools_simtab_ingest_ready
     version 16.0
 end
 
-capture program drop _simtab_ingest
-program define _simtab_ingest, rclass
+capture program drop _tabtools_simtab_ingest
+program define _tabtools_simtab_ingest, rclass
     version 16.0
     syntax , SOURCE(string) [BYVar(name) ESTIMATORVar(name) ///
         ESTIMANDVar(name) MEASures(string asis)]
@@ -39,14 +39,14 @@ program define _simtab_ingest, rclass
     local source = strtrim(lower("`source'"))
 
     if "`source'" == "summary" {
-        _simtab_ingest_summary, byvar(`byvar') estimatorvar(`estimatorvar') ///
+        _tabtools_simtab_ingest_summary, byvar(`byvar') estimatorvar(`estimatorvar') ///
             estimandvar(`estimandvar') measures(`measures')
     }
     else if "`source'" == "simsum" {
-        _simtab_ingest_simsum
+        _tabtools_simtab_ingest_simsum
     }
     else if "`source'" == "siman" {
-        _simtab_ingest_siman
+        _tabtools_simtab_ingest_siman
     }
     else {
         display as error "from() must be one of: simsum, siman, summary"
@@ -112,8 +112,8 @@ end
 * ============================================================================
 * Generic per-cell summary (the stable, dependency-free contract)
 * ============================================================================
-capture program drop _simtab_ingest_summary
-program _simtab_ingest_summary, rclass
+capture program drop _tabtools_simtab_ingest_summary
+program _tabtools_simtab_ingest_summary, rclass
     version 16.0
     syntax , ESTIMATORVar(name) [BYVar(name) ESTIMANDVar(name) MEASures(string)]
 
@@ -221,8 +221,8 @@ end
 *   vars: perfmeascode (str codes), estimate0 estimate1 ... (var label=method),
 *         optional estimateK_mcse, optional single by-variable column.
 * ============================================================================
-capture program drop _simtab_ingest_simsum
-program _simtab_ingest_simsum, rclass
+capture program drop _tabtools_simtab_ingest_simsum
+program _tabtools_simtab_ingest_simsum, rclass
     version 16.0
 
     capture which simsum
@@ -366,8 +366,8 @@ end
 *   and its Monte Carlo SE in `se'. Structure variables (method/dgm/target/true)
 *   are read from the siman_* _dta characteristics setup leaves behind.
 * ============================================================================
-capture program drop _simtab_ingest_siman
-program _simtab_ingest_siman, rclass
+capture program drop _tabtools_simtab_ingest_siman
+program _tabtools_simtab_ingest_siman, rclass
     version 16.0
 
     capture which siman

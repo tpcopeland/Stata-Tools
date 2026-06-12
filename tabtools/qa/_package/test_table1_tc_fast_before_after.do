@@ -542,14 +542,14 @@ capture noisily {
     }
 
     _t1fba_style_data
-    _tabtools_xlsx_write_current using "`before_xlsx'", sheet("BeforeAfter") book(b)
+    _tabtools_xlsx_write using "`before_xlsx'", sheet("BeforeAfter") book(b)
     _t1fba_apply_table1_style, sheet("BeforeAfter")
     mata: b.close_book()
     mata: mata drop b
     confirm file "`before_xlsx'"
 
     _t1fba_style_data
-    _tabtools_xlsx_write_current using "`after_xlsx'", sheet("BeforeAfter") book(b)
+    _tabtools_xlsx_write using "`after_xlsx'", sheet("BeforeAfter") book(b)
     _tabtools_xlsx_apply_styles, book(b) sheet("BeforeAfter") ///
         rules(t1fba_style_rules) font("Arial")
     mata: b.close_book()

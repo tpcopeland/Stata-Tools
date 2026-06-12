@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.4  10jun2026}{...}
+{* *! version 1.7.0  13jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -243,7 +243,7 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {pstd}{helpb effecttab} for treatment effects and margins tables{p_end}
 {pstd}{helpb tabtools} for suite overview and persistent formatting defaults{p_end}
 {pstd}{helpb collect} for the underlying collection framework{p_end}
-{pstd}{helpb tabtools_cheatsheet} for quick reference{p_end}
+{pstd}{helpb tabtools_tips} for quick reference{p_end}
 
 
 {marker author}{...}
@@ -251,6 +251,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.6.4{p_end}
+{pstd}{bf:Version} 1.7.0{p_end}
 
 {hline}

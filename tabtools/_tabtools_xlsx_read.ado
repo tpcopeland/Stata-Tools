@@ -1,9 +1,9 @@
-*! _tabtools_xlsx_read_current Version 1.6.4  2026/06/10
+*! _tabtools_xlsx_read Version 1.7.0  2026/06/13
 *! Read an Excel sheet into the current dataset through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
-program define _tabtools_xlsx_read_current, rclass
+program define _tabtools_xlsx_read, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off

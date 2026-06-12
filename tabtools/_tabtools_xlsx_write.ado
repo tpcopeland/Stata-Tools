@@ -1,9 +1,9 @@
-*! _tabtools_xlsx_write_current Version 1.6.4  2026/06/10
+*! _tabtools_xlsx_write Version 1.7.0  2026/06/13
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
-program define _tabtools_xlsx_write_current, rclass
+program define _tabtools_xlsx_write, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off

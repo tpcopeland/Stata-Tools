@@ -1,4 +1,4 @@
-*! regtab Version 1.6.4  2026/06/10
+*! regtab Version 1.7.0  2026/06/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -311,7 +311,7 @@ quietly{
     if _rc == 0 {
         preserve
         capture {
-            _tabtools_collect_render_current, type(meta) rowdim(cmdset) ///
+            _tabtools_collect_render, type(meta) rowdim(cmdset) ///
                 results(cmd cmdline) dropempty
 
             local meta_col_cmd ""
@@ -591,7 +591,7 @@ quietly{
             if `_stats_rc' == 0 {
                 preserve
                 capture {
-                    _tabtools_collect_render_current, type(stats) rowdim(cmdset) ///
+                    _tabtools_collect_render, type(stats) rowdim(cmdset) ///
                         results(`result_levels') dropempty
 
                     * Map header row to column positions
@@ -849,7 +849,7 @@ quietly{
             if _rc == 0 {
                 preserve
                 capture {
-                    _tabtools_collect_render_current, type(icc) rowdim(cmdset) ///
+                    _tabtools_collect_render, type(icc) rowdim(cmdset) ///
                         coldim(colname) collevels("var(_cons) var(e)") results(_r_b)
 
                     * Find first data row (column A has cmdset number)
@@ -1232,12 +1232,12 @@ preserve
 
 local _collect_render_rc = 0
 if `_use_coleq_layout' {
-    capture _tabtools_collect_render_current, type(main) rowdim(coleq#colname) ///
+    capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
         coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'")
     local _collect_render_rc = _rc
 }
 else {
-    capture _tabtools_collect_render_current, type(main) rowdim(colname) ///
+    capture _tabtools_collect_render, type(main) rowdim(colname) ///
         coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents
     local _collect_render_rc = _rc
 }
@@ -1252,7 +1252,7 @@ if `_collect_render_rc' {
         exit _rc
     }
     preserve
-    capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
+    capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
     if _rc {
         noisily display as error "Failed to import temporary Excel file"
         capture erase "`temp_xlsx'"
@@ -2453,7 +2453,7 @@ return scalar N_cols = `num_cols'
 	if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
 
 if `_has_xlsx' {
-    capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+    capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
     if _rc {
         local _export_rc = _rc
         noisily display as error "Failed to export to `xlsx', sheet `sheet'"
@@ -2563,7 +2563,7 @@ local _ret_markdown_cols .
 if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
-	capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
 		`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"')
 	if _rc {
 		local _md_rc = _rc

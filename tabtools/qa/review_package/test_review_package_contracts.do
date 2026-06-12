@@ -45,9 +45,9 @@ if `install_rc' {
 local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
     hrcomptab comptab survtab crosstab diagtab corrtab puttab stacktab ///
     simtab tabtools_tips
-local helper_files _tabtools_common.ado _tabtools_xlsx_write_current.ado ///
-    _tabtools_xlsx_read_current.ado _tabtools_collect_render_current.ado ///
-    _tabtools_table_metadata_current.ado _tabtools_xlsx_set_widths.ado ///
+local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
+    _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
+    _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
     _tabtools_table1_fast_collect.ado
 

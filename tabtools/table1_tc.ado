@@ -1,4 +1,4 @@
-*! table1_tc Version 1.6.4  2026/06/10 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.7.0  2026/06/13 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1435,7 +1435,7 @@ program define table1_tc, rclass
 	            capture drop _columnb_*
 	            capture drop m_*
 	            capture drop _uwn*
-		            capture noisily _tabtools_xlsx_write_current using "`excel'", sheet("`sheet'") book(b)
+		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(b)
 		            local _xlsx_write_rc = _rc
 		            if `_had_p_raw' {
 		                gen double _p_raw = .
@@ -1865,7 +1865,7 @@ program define table1_tc, rclass
     if `has_markdown' {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write_current using `"`markdown'"', ///
+        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"')
         if _rc {
             local _md_rc = _rc

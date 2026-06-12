@@ -1,9 +1,9 @@
-*! _tabtools_collect_render_current Version 1.6.4  2026/06/10
+*! _tabtools_collect_render Version 1.7.0  2026/06/13
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
-program define _tabtools_collect_render_current, rclass
+program define _tabtools_collect_render, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
