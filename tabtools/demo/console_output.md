@@ -712,7 +712,7 @@ stacktab: 2 blocks -> 8 rows written -> sheet Composite
   |-----------------------------------------------------------------|
   | Hypertension                  4,112 (46)   2,935 (48)    0.005  |
   +-----------------------------------------------------------------+
-Markdown exported to ./demo_markdown_report.md
+Markdown exported to tabtools/demo/demo_markdown_report.md
 ```
 
 ```stata
@@ -733,7 +733,7 @@ Table 2. Treatment by Sex
   |                        OR = 1.0 (95% CI: 0.9, 1.1)                                          |
   +---------------------------------------------------------------------------------------------+
 
-Markdown exported to ./demo_markdown_report.md
+Markdown exported to tabtools/demo/demo_markdown_report.md
 ```
 
 ```stata
@@ -753,7 +753,7 @@ Table 3. Correlation Matrix
 
 * p<.05, ** p<.01, *** p<.001
 
-Markdown exported to ./demo_markdown_report.md
+Markdown exported to tabtools/demo/demo_markdown_report.md
 ```
 
 ```stata
@@ -780,7 +780,7 @@ Markdown exported to ./demo_markdown_report.md
 ```
 
 ```
-Markdown exported to ./demo_markdown_report.md
+Markdown exported to tabtools/demo/demo_markdown_report.md
 ```
 
 ```stata

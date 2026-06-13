@@ -26,14 +26,13 @@ title: "console_simtab"
 
 ```
 (3,524 observations deleted)
-
 ```
 
 ```stata
 . noisily simtab estid, estimate(est) se(se) true(truev)
 >     by(scen) sim(sim) coverage(covered) nsim(400)
 >     metrics(mean bias empse meanse coverage n nonconv)
->     digits(3) xlsx("`pkg_dir'/demo_simtab.xlsx") sheet("Scenarios")
+>     digits(3) xlsx("`xlsx_simtab'") sheet("Scenarios")
 >     title("Simulation results by scenario (400 replications)")
 >     footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.")
 >     display
@@ -61,8 +60,7 @@ Simulation results by scenario (400 replications)
   +----------------------------------------------------------------------------------------------+
 
 Coverage is empirical 95% CI coverage; * flags off-nominal coverage.
-simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simtab.xlsx
-
+simtab: wrote 9 data rows x 9 cols to sheet Scenarios in /home/tpcopeland/Stata-Tools/tabtools/demo/demo_simtab.xlsx
 ```
 
 ### Figure-ready companion frame (plotframe)
@@ -83,7 +81,6 @@ simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simt
 
 ```
 (3,524 observations deleted)
-
 ```
 
 ```stata
@@ -121,7 +118,6 @@ simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simt
   |        C               IIW   0.110    0.010   0.040      0.960      0.010       0   400 |
   |        C   IIW + log(test)   0.128    0.028   0.040      0.915      0.014       0   400 |
   +-----------------------------------------------------------------------------------------+
-
 ```
 
 ### Ingest mode: render a pre-computed summary (from(summary))
@@ -142,7 +138,6 @@ simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simt
 
 ```
 (3,524 observations deleted)
-
 ```
 
 ```stata
@@ -151,7 +146,6 @@ simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simt
 
 ```
 >     (count) nrep=est, by(scen estid)
-
 ```
 
 ```stata
@@ -178,7 +172,6 @@ simtab: wrote 9 data rows x 9 cols to sheet Scenarios in tabtools/demo/demo_simt
   |    C               IIW   .10993618   .00993618   .04010997       .96    400 |
   |    C   IIW + log(test)   .12765362   .02765362   .04022542      .915    400 |
   +-----------------------------------------------------------------------------+
-
 ```
 
 ```stata
@@ -202,6 +195,5 @@ Ingested per-cell summary (no recomputation)
   |                    IIW   0.11   +0.01      0.04        96%   400 |
   |        IIW + log(test)   0.13   +0.03      0.04        92%   400 |
   +------------------------------------------------------------------+
-
 
 ```
