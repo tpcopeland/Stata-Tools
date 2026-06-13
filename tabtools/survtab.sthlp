@@ -130,7 +130,7 @@ colors — are supported.{p_end}
 {synopt:{cmd:r(N_rows)}}number of rows in output table{p_end}
 {synopt:{cmd:r(logrank_p)}}log-rank test p-value (when {cmd:by()} specified){p_end}
 {synopt:{cmd:r(logrank_chi2)}}log-rank test chi-squared statistic{p_end}
-{synopt:{cmd:r(median_{it:#})}}median survival for group {it:#}{p_end}
+{synopt:{cmd:r(median_{it:#})}}median survival for group {it:#} (when {cmd:median}){p_end}
 {synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(rmst_diff)}}RMST difference (when {cmd:rmst()} and exactly 2 groups are compared){p_end}

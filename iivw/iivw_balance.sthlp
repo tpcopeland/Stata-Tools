@@ -39,10 +39,10 @@
 {synopt:{opt smdcut(#)}}absolute standardized-difference threshold; default {cmd:0.10}{p_end}
 
 {syntab:Supplementary AG refit}
-{synopt:{opt agrefit}}also refit unweighted and weighted visit-timing Cox models{p_end}
-{synopt:{opt efron}}use Efron method for tied event times in AG refits{p_end}
+{synopt:{opt agr:efit}}also refit unweighted and weighted visit-timing Cox models{p_end}
+{synopt:{opt efr:on}}use Efron method for tied event times in AG refits{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
-{synopt:{opt level(#)}}confidence level for AG-refit hazard-ratio intervals; default {cmd:c(level)}{p_end}
+{synopt:{opt l:evel(#)}}confidence level for AG-refit hazard-ratio intervals; default {cmd:c(level)}{p_end}
 
 {syntab:Reporting}
 {synopt:{opt xlsx(filename)}}write the balance table to an Excel workbook{p_end}
@@ -105,21 +105,21 @@ deviation.  This is a heuristic composition check, not a formal test.
 {dlgtab:Supplementary AG refit}
 
 {phang}
-{opt agrefit} refits one Andersen-Gill style Cox model per stored visit-model
+{opt agr:efit} refits one Andersen-Gill style Cox model per stored visit-model
 covariate, once without weights and once with the stored IIVW/FIPTIW weights.
 It returns hazard-ratio matrices as a supplementary model-matched view.
 Covariates that have no usable variation or fail to fit are skipped with a
 note and a nonzero row-specific return code.
 
 {phang}
-{opt efron} uses Efron's method for tied event times in the supplementary Cox
+{opt efr:on} uses Efron's method for tied event times in the supplementary Cox
 models.
 
 {phang}
 {opt nolog} suppresses iteration logs in the supplementary Cox models.
 
 {phang}
-{opt level(#)} sets the confidence level for the supplementary hazard-ratio
+{opt l:evel(#)} sets the confidence level for the supplementary hazard-ratio
 intervals.
 
 {dlgtab:Reporting}

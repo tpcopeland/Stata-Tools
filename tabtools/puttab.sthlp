@@ -33,8 +33,8 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {title:Syntax}
 
 {p 4 8 2}{cmd:puttab} [{varlist}] [{it:if}] [{it:in}] {cmd:using} {it:filename}{cmd:.xlsx}{cmd:,}
-{opt sh:eet(string)}
-[{opt fra:me(name)} {opt m:atrix(name)}
+[{opt sh:eet(string)}
+{opt fra:me(name)} {opt m:atrix(name)}
 {opt ti:tle(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
@@ -93,9 +93,9 @@ memory are left unchanged.{p_end}
 
 {synoptset 26 tabbed}{...}
 {synopt:{cmd:using} {it:filename}}target workbook; must end in {cmd:.xlsx}; the {opt sheet()} is created or replaced{p_end}
-{synopt:{opt sh:eet(string)}}Excel sheet name (required){p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}also write the assembled table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
+{synopt:{opt sh:eet(string)}}Excel sheet name; default is {cmd:Table}{p_end}
+{synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel and CSV exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 {synoptline}

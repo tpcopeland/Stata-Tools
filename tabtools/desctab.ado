@@ -40,7 +40,7 @@ program define desctab, rclass
         STATORDER(string) STATLABELS(string asis) NOMISsing zebra ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BORDERstyle(string) THEme(string) open csv(string) MARKdown(string) MDAPPend ///
-        FRAme(string) DISplay HIGHlight(real -1) HIGHlightStat(string)]
+        FRAme(string) DISplay HIGHlight(real -1) HLStat(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local title : subinstr local title `"""' "", all
@@ -438,8 +438,8 @@ program define desctab, rclass
                 quietly replace `_v' = `_v' + "%" if _n >= `raw_data_start' ///
                     & strtrim(`_v') != "" & strpos(`_v', "%") == 0
             }
-            if "`highlightstat'" == "" local highlightstat "mean"
-            if `highlight' != -1 & "`_stat'" == "`highlightstat'" {
+            if "`hlstat'" == "" local hlstat "mean"
+            if `highlight' != -1 & "`_stat'" == "`hlstat'" {
                 forvalues _r = `raw_data_start'/`=_N' {
                     local _hraw = subinstr(strtrim(`_v'[`_r']), ",", "", .)
                     local _hnum = real("`_hraw'")
@@ -579,9 +579,9 @@ program define desctab, rclass
                 if `"`_f_median'"' != "" local _f_p50 `"`_f_median'"'
                 if `"`_raw_median'"' != "" local _raw_p50 `"`_raw_median'"'
 
-                if "`highlightstat'" == "" local highlightstat "mean"
+                if "`hlstat'" == "" local hlstat "mean"
                 if `highlight' != -1 {
-                    capture local _hraw = subinstr(strtrim(`"`_raw_`highlightstat''"'), ",", "", .)
+                    capture local _hraw = subinstr(strtrim(`"`_raw_`hlstat''"'), ",", "", .)
                     if !_rc {
                         local _hnum = real("`_hraw'")
                         if `_hnum' < . & `_hnum' < `highlight' {

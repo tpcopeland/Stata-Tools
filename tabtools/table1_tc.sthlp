@@ -208,7 +208,7 @@ directly to a regression model:{p_end}
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(Dapa)}}data-presentation description built from the resolved variable types; returned even with {opt varlabplus}{p_end}
-{synopt:{cmd:r(methods)}}extended methods paragraph describing statistical tests used (when {opt by()} specified without {opt wt()}){p_end}
+{synopt:{cmd:r(methods)}}methods paragraph describing the tests used (when {opt by()} is specified and p-values are not suppressed){p_end}
 {synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
 {synopt:{cmd:r(xlsx)}}path to exported Excel file (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}

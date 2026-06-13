@@ -71,7 +71,7 @@ for treatment effects and margins tables.
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color (Stata color name or RGB triplet; default {cmd:"219 229 241"}).{p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color (Stata color name or RGB triplet; default {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv("filename")} {opt markdown(filename)} {opt mdappend}}Also export as CSV.{p_end}
+{synopt:{opt csv(filename)}}Also export the table as a CSV file.{p_end}
 {synopt:{opt markdown(filename)}}Export the table as GitHub-Flavored Markdown.{p_end}
 {synopt:{opt mdappend}}Append the Markdown table to an existing file; requires {opt markdown()}.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named frame; {cmd:frame(name, replace)} replaces an existing frame.{p_end}

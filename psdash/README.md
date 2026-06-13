@@ -214,9 +214,9 @@ matrix list r(balance)
 * assert r(max_smd_adj) < 0.1
 ```
 
-## Relationship to Existing Packages
+## Relationship to Existing Tools
 
-`psdash balance` incorporates the computation from [`balancetab`](../balancetab/) and `psdash weights` from [`iptw_diag`](../iptw_diag/). Both use identical methods. The `overlap` and `support` subcommands are new.
+`psdash` consolidates diagnostics that Stata otherwise spreads across `tebalance`, `teoverlap`, and ad-hoc `summarize`/`tabstat` calls. `psdash balance` reports raw and weighted standardized mean differences, variance ratios, and Kolmogorov-Smirnov statistics in one table — richer than the `tebalance summarize` default — while `psdash weights` adds effective sample size, extreme-weight detection, and on-the-fly trimming, truncation, and stabilization that have no direct built-in equivalent. The `overlap` and `support` subcommands round out the four standard PS checks under a single command family.
 
 ## Demo
 
@@ -256,3 +256,11 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 - **v1.0.2** (17 May 2026): Rejected invalid manual `estimand()` values, added clean multi-group treatment-level validation, isolated remaining QA installs, and made the demo path handling relocatable with failure-safe cleanup.
 - **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support threshold validation, and binary variance-ratio summaries.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands
+
+## Author
+
+Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT

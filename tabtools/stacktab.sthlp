@@ -183,9 +183,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synopt:{cmd:r(table_start)}}top-left Excel cell of the composed table, usually {cmd:B2}{p_end}
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}
 {synopt:{cmd:r(frame)}}frame name, when {opt frame()} is specified{p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when {opt csv()} is specified{p_end}
 
 {marker alsosee}{...}

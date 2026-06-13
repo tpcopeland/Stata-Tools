@@ -50,7 +50,7 @@
 {synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export to CSV file{p_end}
+{synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
@@ -241,6 +241,8 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(N_sections)}}number of scaffold sections{p_end}
 {synopt:{cmd:r(N_modelrows)}}number of selected model rows injected{p_end}
 {synopt:{cmd:r(N_modelframes)}}number of source model frames{p_end}
+{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown (if exported){p_end}
+{synopt:{cmd:r(markdown_cols)}}columns written to Markdown (if exported){p_end}
 
 {p2col 5 22 28 2: Macros}{p_end}
 {synopt:{cmd:r(rateframe)}}source stratetab frame name{p_end}
@@ -249,14 +251,9 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(xlsx)}}Excel path, when exported{p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name, when exported{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name, when {cmd:eplotframe()} specified{p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
-{synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
-{synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 
 {marker author}{...}

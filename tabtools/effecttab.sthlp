@@ -71,7 +71,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}Custom header background color as a supported Stata color name or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
 {synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}Also export as CSV to the specified filename.{p_end}
+{synopt:{opt csv(filename)}}Also export the table as a CSV file.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt addr:ow(string asis)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows.{p_end}

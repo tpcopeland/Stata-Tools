@@ -5,9 +5,12 @@
 {viewerjumpto "Options" "stratetab##options"}{...}
 {viewerjumpto "Examples" "stratetab##examples"}{...}
 {viewerjumpto "Remarks" "stratetab##remarks"}{...}
-{viewerjumpto "Author" "stratetab##author"}{...}
 {viewerjumpto "Stored results" "stratetab##stored"}{...}
+{viewerjumpto "Also see" "stratetab##alsosee"}{...}
+{viewerjumpto "Author" "stratetab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "survtab" "help survtab"}{...}
+{vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "strate" "help strate"}{...}
 {title:Title}
 
@@ -229,9 +232,12 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 {pstd}{bf:Version} 1.7.0{p_end}
 
+{marker alsosee}{...}
 {title:Also see}
 
 {psee}
-Online:  {helpb strate}
+{helpb tabtools}, {helpb survtab}, {helpb effecttab},
+{helpb tabtools_tips}, {helpb strate}
+{p_end}
 
 {hline}

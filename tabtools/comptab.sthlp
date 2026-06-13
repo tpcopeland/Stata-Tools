@@ -45,7 +45,7 @@
 {synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export to CSV file{p_end}
+{synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
@@ -68,7 +68,7 @@
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt labelw:idth(#)}}maximum width (characters) of the label (first) column (default 45); labels longer than the cap wrap onto extra lines{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
-{synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
+{synopt:{opt bold:p(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}supported Stata color name or RGB triplet for header rows{p_end}

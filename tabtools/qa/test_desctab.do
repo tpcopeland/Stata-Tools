@@ -1165,6 +1165,34 @@ else {
     local ++fail
 }
 
+**# T42 hlstat() option reachable (HIGHlightStat->HLStat collision fix)
+* Regression (2026-06-13): HIGHlightStat() was a strict prefix-collision with
+* HIGHlight() and returned rc=198 for every form, so the highlight statistic
+* could never be changed. Renamed to HLStat(). Assert the full name and the
+* minimum abbreviation hls() parse, and the retired name now errors.
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table foreign, statistic(mean price) statistic(sd price)
+
+    * full name parses
+    desctab, compose(mean_sd) display highlight(5000) hlstat(mean)
+    * minimum abbreviation parses
+    desctab, compose(mean_sd) display highlight(5000) hls(mean)
+    * retired colliding name is rejected
+    capture desctab, compose(mean_sd) display highlight(5000) highlightstat(mean)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: hlstat() reachable, highlightstat() retired"
+    local ++pass
+}
+else {
+    display as error "  FAIL: hlstat() collision-fix regression (rc=`=_rc')"
+    local ++fail
+}
+
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"

@@ -545,7 +545,7 @@ so the multinomial model converges in a small demonstration dataset.
 {phang2}{cmd:. psdash support arm , psvars(ps0 ps1 ps2) threshold(0.1)}{p_end}
 
 {pstd}
-{bf:7. Multi-group with explicit reference group.}
+{bf:8. Multi-group with explicit reference group.}
 Specify {opt reference()} to change the comparator group for pairwise
 SMD calculations.
 

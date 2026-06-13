@@ -32,7 +32,7 @@
 {opt zebrac:olor(string)} {opt borders:tyle(string)}
 {opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt fra:me(name)} {opt dis:play} {opt high:light(#)}
-{opt highs:tat(string)}]{p_end}
+{opt hls:tat(string)}]{p_end}
 
 {pstd}
 Prerequisite: an active {helpb collect} created by {helpb table}. {cmd:desctab}
@@ -94,8 +94,8 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically.{p_end}
-{synopt:{opt high:light(#)}}highlight rows where {opt highlightstat()} is below the threshold.{p_end}
-{synopt:{opt highs:tat(string)}}statistic used for {opt highlight()}. Default is {cmd:mean}.{p_end}
+{synopt:{opt high:light(#)}}highlight rows where {opt hls:tat()} is below the threshold.{p_end}
+{synopt:{opt hls:tat(string)}}statistic used for {opt high:light()}. Default is {cmd:mean}.{p_end}
 {synoptline}
 
 {pstd}

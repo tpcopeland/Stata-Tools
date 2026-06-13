@@ -17,6 +17,7 @@ Outcome models are fit via GEE-style estimation (GLM with clustered robust SEs) 
 - Stata 16 or later
 - Stata 17 or later for `iivw_fit, model(mixed)`
 - Optional: `tabtools` for the `regtab` model-table Excel examples
+- Optional: `psdash` for treatment-propensity diagnostics (`psdash combined`, `psdash weights`) in IPTW/FIPTIW workflows
 
 ## Installation
 
