@@ -86,7 +86,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt highpdp(#)}}max decimal places for p >= 0.10; default is 2{p_end}
 
 {syntab:Excel Output}
-{synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {.xlsx}{p_end}
+{synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {cmd:.xlsx}{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/{opt excel()}{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}; default is {cmd:thin}{p_end}

@@ -64,7 +64,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt sheet(string)}}worksheet name. Default is {cmd:Descriptive}.{p_end}
 {synopt:{opt title(string)}}title written to cell A1 and used in console display.{p_end}
 {synopt:{opt foot:note(string)}}footnote written below the Excel table.{p_end}
-{synopt:{opt compose(string)}}collapse multiple statistics into one cell. Presets include {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct}, {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and {cmd:mean_ci}. Custom templates such as {cmd:"{total} / {count} ({mean})"} are also allowed.{p_end}
+{synopt:{opt compose(string)}}collapse multiple statistics into one cell. Presets include {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct}, {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and {cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.{p_end}
 {synopt:{opt nformats(string)}}override statistic formats using pairs such as {cmd:"count %4.0f mean %5.2f"}.{p_end}
 {synopt:{opt digits(#)}}digits for continuous statistics. Default is 2, or the session default set by {cmd:tabtools set digits}.{p_end}
 {synopt:{opt pctdigits(#)}}digits for displayed percents in composite cells. Default is 1.{p_end}

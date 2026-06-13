@@ -120,7 +120,7 @@ styled sheet. It does no analysis: it is the generic styler for raw tables that
 have no dedicated tabtools command. Broad on input, single sheet on output.
 
 {pstd}
-{bf:{helpb comptab}} reads tabtools {helpb regtab}/{helpb effecttab} {it:frames}
+{bf:{helpb comptab}} reads tabtools {helpb regtab} / {helpb effecttab} {it:frames}
 (live estimation results stored with the {cmd:frame()} option) and cherry-picks
 selected rows into one composite sheet. Assembly happens at the
 {it:estimation} level, so rows can be reordered, relabeled, and grouped before
