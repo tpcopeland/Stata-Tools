@@ -210,8 +210,8 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(rates)}}incidence rates matrix (rows=all category rows across exposures, cols=outcomes). When more than one exposure is supplied, rownames use the form {cmd:e#_category}.{p_end}
-{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (rows=categories from exposures 2, 3, ..., cols=outcomes; when {cmd:rateratio} specified). When more than two exposures are supplied, rownames use the form {cmd:e#_category}.{p_end}
+{synopt:{cmd:r(rates)}}incidence rates matrix (rows = category rows across exposures, cols = outcomes){p_end}
+{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (cols = outcomes; present when {cmd:rateratio} specified){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}

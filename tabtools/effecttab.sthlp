@@ -45,15 +45,15 @@ collection must remain unchanged.{p_end}
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. The completed table is always displayed in the Results window.{p_end}
+{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}.{p_end}
-{synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection inspects the active {cmd:collect} metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one active collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()}, {cmd:auto} uses margins-style defaults and does not inspect or relabel the active collection.{p_end}
-{synopt:{opt effect(string)}}Header label for the effect column. Examples: {cmd:ATE}, {cmd:ATET}, {cmd:RD} (risk difference), {cmd:RR} (risk ratio), {cmd:AME} (average marginal effect), {cmd:Pr(Y)}. Default is "Effect" for teffects, "Estimate" for margins.{p_end}
+{synopt:{opt type(string)}}Collected results type: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default; see Remarks).{p_end}
+{synopt:{opt effect(string)}}Header for the effect column (e.g., {cmd:ATE}, {cmd:RD}, {cmd:RR}, {cmd:AME}); default "Effect"/"Estimate".{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
 {synopt:{opt title(string)}}Text written into cell {cmd:A1} and merged across the table width.{p_end}
 {synopt:{opt clean}}clean up teffects row labels; uses value labels when available (e.g., {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
-{synopt:{opt tlab:els(string asis)}}explicit treatment level labels as value-label pairs; implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")}. Takes priority over auto-detected value labels{p_end}
+{synopt:{opt tlab:els(string asis)}}Explicit treatment-level label pairs; implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")}.{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
@@ -62,12 +62,12 @@ collection must remain unchanged.{p_end}
 {synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
-{synopt:{opt labelw:idth(#)}}Maximum width (in characters) of the label (first) column (default 45). Caps how wide a single long row label can stretch the column; labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
+{synopt:{opt labelw:idth(#)}}Maximum width of the label column in characters (default 45); longer labels wrap.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot}. The frame contains {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row metadata. When {opt frame()} is also specified, the display frame records the companion in characteristic {cmd:_dta[tabtools_eplotframe]}.{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot} (see Remarks).{p_end}
 {synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
-{synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
+{synopt:{opt from(name)}}Read results from a named matrix instead of {cmd:collect} (see Remarks).{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}Custom header background color as a supported Stata color name or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
 {synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
@@ -118,6 +118,12 @@ from the treatment variable when available:{p_end}
 
 {p 4 8 2}Use {cmd:tlabels()} to explicitly specify treatment level labels when value labels
 are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clean}.{p_end}
+
+{pstd}{bf:Option details}{p_end}
+{p 4 8 2}- {opt type()}: {cmd:auto} (default) inspects the active {cmd:collect} metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()}, {cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
+{p 4 8 2}- {opt from()}: read results from a named matrix instead of {cmd:collect}; the matrix must hold estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
+{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
+
 
 {marker examples}{title:Examples}
 

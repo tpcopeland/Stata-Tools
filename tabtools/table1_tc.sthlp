@@ -53,7 +53,7 @@ use {cmd:table1_tc}.{p_end}
 {synopthdr}
 {synoptline}
 {syntab:Weighting}
-{synopt:{opt wt(varname)}}importance/probability weight variable (e.g., IPTW); shows weighted statistics with unweighted N; categorical/binary variables default to percent-only display (override with {opt percent_n}); p-values are suppressed{p_end}
+{synopt:{opt wt(varname)}}Weight variable (e.g., IPTW): weighted statistics with unweighted N; p-values suppressed (see Technical notes).{p_end}
 
 {syntab:Columns/Rows}
 {synopt:{opt by(varname)}}group observations by {it:varname}{p_end}
@@ -218,7 +218,7 @@ directly to a regression model:{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}numeric matrix of raw {cmd:p_value} and absolute {cmd:smd} for top-level variable rows; omitted when no such columns exist or when the table has more than 200 rows{p_end}
+{synopt:{cmd:r(table)}}numeric matrix of raw {cmd:p_value} and absolute {cmd:smd} for top-level rows (omitted if absent or > 200 rows){p_end}
 
 
 {marker technical}{...}
@@ -231,6 +231,10 @@ directly to a regression model:{p_end}
 
 {pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
 deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
+
+{pstd}Under {opt wt()}, weighted statistics are reported with an unweighted N, p-values are
+suppressed, and categorical/binary variables default to percent-only display; use {opt percent_n}
+to report {it:percent (n)} instead.{p_end}
 
 {pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel and Markdown output.
 Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}

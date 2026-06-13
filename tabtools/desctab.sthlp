@@ -64,12 +64,12 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt sheet(string)}}worksheet name. Default is {cmd:Descriptive}.{p_end}
 {synopt:{opt title(string)}}title written to cell A1 and used in console display.{p_end}
 {synopt:{opt foot:note(string)}}footnote written below the Excel table.{p_end}
-{synopt:{opt compose(string)}}collapse multiple statistics into one cell. Presets include {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct}, {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and {cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.{p_end}
+{synopt:{opt compose(string)}}Collapse multiple statistics into one cell using a preset or custom template (see below).{p_end}
 {synopt:{opt nformats(string)}}override statistic formats using pairs such as {cmd:"count %4.0f mean %5.2f"}.{p_end}
 {synopt:{opt digits(#)}}digits for continuous statistics. Default is 2, or the session default set by {cmd:tabtools set digits}.{p_end}
 {synopt:{opt pctdigits(#)}}digits for displayed percents in composite cells. Default is 1.{p_end}
 {synopt:{opt nintegerfmt(string)}}format for counts and integer totals. Default is {cmd:%12.0fc}.{p_end}
-{synopt:{opt pctscale(string)}}percent scale for proportion-like statistics: {cmd:auto}, {cmd:0to1}, or {cmd:0to100}. In percentage composite modes, {cmd:auto} behaves as {cmd:0to100}; otherwise it preserves the native scale.{p_end}
+{synopt:{opt pctscale(string)}}Percent scale for proportions: {cmd:auto} (default), {cmd:0to1}, or {cmd:0to100}.{p_end}
 {synopt:{opt pctsign}}append a percent sign to percent/proportion display values. Compose mode enables this by default.{p_end}
 {synopt:{opt rowtotals}}keep row totals when {opt nototals} is also specified.{p_end}
 {synopt:{opt coltotals}}keep column totals when {opt nototals} is also specified.{p_end}
@@ -87,7 +87,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt headerc:olor(string)}}header fill color as a supported Stata color name or RGB triplet.{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill color as a supported Stata color name or RGB triplet.{p_end}
 {synopt:{opt borders:tyle(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
-{synopt:{opt the:me(string)}}journal-style font and border theme shared with other tabtools commands; use {opt headershade} and {opt zebra} explicitly when shaded fills are desired.{p_end}
+{synopt:{opt the:me(string)}}Journal-style font and border theme shared across tabtools; use {opt headershade}/{opt zebra} for shaded fills.{p_end}
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}also export the display table as CSV.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
@@ -97,6 +97,10 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt high:light(#)}}highlight rows where {opt highlightstat()} is below the threshold.{p_end}
 {synopt:{opt highs:tat(string)}}statistic used for {opt highlight()}. Default is {cmd:mean}.{p_end}
 {synoptline}
+
+{pstd}
+{opt compose()} presets: {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct}, {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and {cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.
+
 
 {marker examples}{...}
 {title:Examples}
