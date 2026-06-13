@@ -95,7 +95,14 @@ else {
 
 local ++test_count
 tempfile x1b_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`report_xlsx'" ///
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+capture noisily shell python3 "`checker'" "`report_xlsx'" ///
     --sheet Keep ///
     --cell A1 sentinel ///
     --result-file "`x1b_status'"
@@ -112,7 +119,7 @@ else {
 
 local ++test_count
 tempfile x2_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`report_xlsx'" ///
+capture noisily shell python3 "`checker'" "`report_xlsx'" ///
     --sheet Summary ///
     --exact-rows 12 ///
     --exact-cols 2 ///
@@ -142,7 +149,7 @@ else {
 
 local ++test_count
 tempfile x3_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`report_xlsx'" ///
+capture noisily shell python3 "`checker'" "`report_xlsx'" ///
     --sheet Coefficients ///
     --exact-rows 7 ///
     --exact-cols 4 ///
@@ -192,7 +199,7 @@ else {
 
 local ++test_count
 tempfile x4b_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_all_xlsx'" ///
     --sheet-order Coefficients Predictions Balance Weights Sensitivity ///
     --result-file "`x4b_status'"
 quietly _read_check_status "`x4b_status'"
@@ -208,7 +215,7 @@ else {
 
 local ++test_count
 tempfile x5_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_all_xlsx'" ///
     --sheet Predictions ///
     --exact-rows 7 ///
     --exact-cols 7 ///
@@ -238,7 +245,7 @@ else {
 
 local ++test_count
 tempfile x6_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_all_xlsx'" ///
     --sheet Balance ///
     --exact-rows 8 ///
     --exact-cols 5 ///
@@ -269,7 +276,7 @@ else {
 
 local ++test_count
 tempfile x7_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_all_xlsx'" ///
     --sheet Weights ///
     --exact-rows 12 ///
     --exact-cols 2 ///
@@ -297,7 +304,7 @@ else {
 
 local ++test_count
 tempfile x8_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_all_xlsx'" ///
     --sheet Sensitivity ///
     --exact-rows 7 ///
     --exact-cols 2 ///
@@ -346,7 +353,7 @@ else {
 
 local ++test_count
 tempfile x10_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_coef_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_coef_xlsx'" ///
     --sheet Coefficients ///
     --exact-rows 7 ///
     --exact-cols 4 ///
@@ -376,7 +383,7 @@ else {
 
 local ++test_count
 tempfile x10b_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_coef_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_coef_xlsx'" ///
     --sheet-order Coefficients ///
     --result-file "`x10b_status'"
 quietly _read_check_status "`x10b_status'"
@@ -408,7 +415,7 @@ else {
 
 local ++test_count
 tempfile x10d_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_default_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_default_xlsx'" ///
     --sheet-order Coefficients Predictions Balance Weights Sensitivity ///
     --result-file "`x10d_status'"
 quietly _read_check_status "`x10d_status'"
@@ -440,7 +447,7 @@ else {
 
 local ++test_count
 tempfile x10f_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_pred_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_pred_xlsx'" ///
     --sheet-order Predictions ///
     --result-file "`x10f_status'"
 quietly _read_check_status "`x10f_status'"
@@ -472,7 +479,7 @@ else {
 
 local ++test_count
 tempfile x10h_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_bal_wt_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_bal_wt_xlsx'" ///
     --sheet-order Balance Weights ///
     --result-file "`x10h_status'"
 quietly _read_check_status "`x10h_status'"
@@ -504,7 +511,7 @@ else {
 
 local ++test_count
 tempfile x10j_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_sens_xlsx'" ///
+capture noisily shell python3 "`checker'" "`table_sens_xlsx'" ///
     --sheet-order Sensitivity ///
     --result-file "`x10j_status'"
 quietly _read_check_status "`x10j_status'"
@@ -549,7 +556,7 @@ local _x10l_ok = 0
 capture noisily msm_table, xlsx("`table_preserve_xlsx'") coefficients replace
 if _rc == 0 {
     tempfile x10l_status
-    capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_preserve_xlsx'" ///
+    capture noisily shell python3 "`checker'" "`table_preserve_xlsx'" ///
         --sheet Keep ///
         --cell A1 sentinel ///
         --result-file "`x10l_status'"
@@ -637,7 +644,7 @@ else {
 
 local ++test_count
 tempfile x12b_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`protocol_xlsx'" ///
+capture noisily shell python3 "`checker'" "`protocol_xlsx'" ///
     --sheet Keep ///
     --cell A1 sentinel ///
     --result-file "`x12b_status'"

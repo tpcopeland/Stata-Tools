@@ -21,7 +21,14 @@ local tools_dir "`qa_dir'/tools"
 
 * check_xlsx availability for Excel-content assertions in migrated sections
 local has_check_xlsx = 0
-capture confirm file "`tools_dir'/check_xlsx.py"
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+capture confirm file "`checker'"
 if _rc == 0 local has_check_xlsx = 1
 
 
@@ -659,7 +666,7 @@ capture noisily {
     confirm file "`output_dir'/_val_regtab_single.xlsx"
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_single.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_regtab_single.xlsx" ///
             --sheet Single --min-rows 5 --min-cols 4 ///
             --has-borders ///
             --result-file "`output_dir'/_check.txt"
@@ -729,7 +736,7 @@ capture noisily {
         title("Progressive Adjustment") noint
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_multi.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_regtab_multi.xlsx" ///
             --sheet Multi --min-cols 10 --min-rows 5 ///
             --bold-row 1 --merged-row 1 --has-borders ///
             --result-file "`output_dir'/_check.txt"
@@ -850,7 +857,7 @@ else {
 * V2.7: Title cell content via check_xlsx.py
 capture noisily {
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_single.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_regtab_single.xlsx" ///
             --sheet Single --cell-contains A1 "Table 1. Odds Ratios" ///
             --result-file "`output_dir'/_check.txt"
 
@@ -881,7 +888,7 @@ else {
 capture noisily {
     if `has_check_xlsx' {
         * Note: no "reference" pattern — model has only continuous predictors
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_single.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_regtab_single.xlsx" ///
             --sheet Single --has-pattern p-values ci ///
             --result-file "`output_dir'/_check.txt"
 
@@ -1212,7 +1219,7 @@ capture noisily {
         coef("HR") title("Hazard Ratios") stats(n ll)
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_cox.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_regtab_cox.xlsx" ///
             --sheet Cox --min-rows 4 --min-cols 4 ///
             --bold-row 1 --has-borders --font Arial ///
             --result-file "`output_dir'/_check.txt"
@@ -1713,9 +1720,9 @@ else {
 
 local checker ""
 foreach _trypath in "`qa_dir'/tools" {
-    capture confirm file "`_trypath'/check_xlsx.py"
+    capture confirm file "`checker'"
     if _rc == 0 {
-        local checker "`_trypath'/check_xlsx.py"
+        local checker "`checker'"
         continue, break
     }
 }

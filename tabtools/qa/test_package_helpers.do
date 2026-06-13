@@ -21,7 +21,14 @@ local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
-local checker "`tools_dir'/check_xlsx.py"
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`checker'"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
@@ -735,7 +742,7 @@ tabtools set clear
 **# Migrated: Mata xlsx backend contracts
 
 
-local checker "`qa_dir'/tools/check_xlsx.py"
+local checker "`checker'"
 capture confirm file "`checker'"
 if _rc {
     display as error "FAIL: check_xlsx.py not available"
@@ -1442,7 +1449,7 @@ else {
 **# Migrated: column width behavior
 
 
-local checker "`qa_dir'/tools/check_xlsx.py"
+local checker "`checker'"
 capture confirm file "`checker'"
 if _rc {
     display as error "FAIL: check_xlsx.py not available"
@@ -3292,9 +3299,9 @@ tabtools set clear
 * Locate optional package-local check_xlsx.py validator
 local checker ""
 foreach _trypath in "`qa_dir'/tools" {
-    capture confirm file "`_trypath'/check_xlsx.py"
+    capture confirm file "`checker'"
     if _rc == 0 {
-        local checker "`_trypath'/check_xlsx.py"
+        local checker "`checker'"
         continue, break
     }
 }

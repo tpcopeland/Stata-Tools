@@ -127,7 +127,14 @@ else {
 
 local ++test_count
 tempfile t3_status
-capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`wd_xlsx'" ///
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+capture noisily shell python3 "`checker'" "`wd_xlsx'" ///
     --sheet WD ///
     --exact-rows 5 ///
     --exact-cols 10 ///
@@ -183,7 +190,7 @@ local ++test_count
 capture noisily msm_diagtab, frame(wdn) xlsx("`wdn_xlsx'")
 if _rc == 0 {
     tempfile t5_status
-    capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`wdn_xlsx'" ///
+    capture noisily shell python3 "`checker'" "`wdn_xlsx'" ///
         --sheet "Weight Diagnostics" ///
         --exact-rows 4 ///
         --cell I3 "n/a" ///

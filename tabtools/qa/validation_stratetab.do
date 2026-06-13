@@ -20,7 +20,14 @@ local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
-local checker "`tools_dir'/check_xlsx.py"
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`checker'"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
@@ -43,7 +50,7 @@ tabtools set clear
 
 * check_xlsx availability for Excel-content assertions in migrated sections
 local has_check_xlsx = 0
-capture confirm file "`tools_dir'/check_xlsx.py"
+capture confirm file "`checker'"
 if _rc == 0 local has_check_xlsx = 1
 
 **# Migrated: structure and content
@@ -116,7 +123,7 @@ capture noisily {
     confirm file "`output_dir'/_val_stratetab_basic.xlsx"
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_basic.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_stratetab_basic.xlsx" ///
             --sheet Basic --min-rows 5 --min-cols 5 ///
             --has-borders ///
             --bold-row 1 --merged-row 1 ///
@@ -166,7 +173,7 @@ else {
 * V4.3: Rate patterns present
 capture noisily {
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_basic.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_stratetab_basic.xlsx" ///
             --sheet Basic --min-rows 3 --min-cols 3 ///
             --result-file "`output_dir'/_check.txt"
 
@@ -223,7 +230,7 @@ capture noisily {
         sheet("Scale") pyscale(1000) ratescale(1000)
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_scale.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_stratetab_scale.xlsx" ///
             --sheet Scale --min-rows 4 --min-cols 4 --has-borders ///
             --result-file "`output_dir'/_check.txt"
 
@@ -272,7 +279,7 @@ capture noisily {
         sheet("Single") title("Single Outcome Table")
 
     if `has_check_xlsx' {
-        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_single.xlsx" ///
+        ! python3 "`checker'" "`output_dir'/_val_stratetab_single.xlsx" ///
             --sheet Single --min-rows 4 --min-cols 3 ///
             --cell-contains A1 "Single Outcome Table" ///
             --result-file "`output_dir'/_check.txt"

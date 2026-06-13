@@ -21,7 +21,14 @@ local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
-local checker "`tools_dir'/check_xlsx.py"
+* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
+local _statadev : env STATA_DEV_DIR
+if "`_statadev'" == "" {
+    local _home : env HOME
+    local _statadev "`_home'/Stata-Dev"
+}
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`checker'"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
@@ -44,7 +51,7 @@ tabtools set clear
 
 * check_xlsx availability for Excel-content assertions in migrated sections
 local has_check_xlsx = 0
-capture confirm file "`tools_dir'/check_xlsx.py"
+capture confirm file "`checker'"
 if _rc == 0 local has_check_xlsx = 1
 
 
@@ -391,7 +398,7 @@ if `has_check_xlsx' {
         tabtools set clear
 
         capture erase "`output_dir'/_chk_v10.txt"
-        shell python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_font_test.xlsx" ///
+        shell python3 "`checker'" "`output_dir'/_val_font_test.xlsx" ///
             --font Calibri --result-file "`output_dir'/_chk_v10.txt"
         tempname fh10
         file open `fh10' using "`output_dir'/_chk_v10.txt", read text
@@ -884,9 +891,9 @@ else {
 
 local checker ""
 foreach _trypath in "`qa_dir'/tools" {
-    capture confirm file "`_trypath'/check_xlsx.py"
+    capture confirm file "`checker'"
     if _rc == 0 {
-        local checker "`_trypath'/check_xlsx.py"
+        local checker "`checker'"
         continue, break
     }
 }
