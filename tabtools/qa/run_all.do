@@ -1,5 +1,15 @@
-* run_all.do - auto-discovering QA runner for tabtools
+* run_all.do - QA runner for tabtools (flat layout, v1.7.0)
 * Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
+*
+* Lanes:
+*   full      - every test_*.do, validation_*.do, and crossval_*.do (default)
+*   quick     - test_*.do only, minus the adversarial suite
+*   release   - full plus benchmark_tabtools_speed.do
+*   benchmark - benchmark_tabtools_speed.do only
+*
+* The runner installs the package into a sandboxed PLUS/PERSONAL so the
+* user's real ado tree is never touched, and restores it afterwards.
+* Individual files can be skipped via _skip.txt ("file.do | reason" lines).
 
 clear all
 
@@ -37,52 +47,26 @@ if `install_rc' {
     exit `install_rc'
 }
 
-local scan_dirs "."
-local child_dirs : dir "`qa_dir'" dirs "*"
-local child_dirs : list sort child_dirs
-foreach d of local child_dirs {
-    if inlist("`d'", "baseline", "data", "output", "output_issue_regressions", ///
-        "output_issue_rendering", "tools") {
-        continue
-    }
-    local scan_dirs `"`scan_dirs' `d'"'
-}
-
+* Discover QA files at the qa/ root only
 local all_files ""
 if "`lane'" != "benchmark" {
-    foreach d of local scan_dirs {
-        local scan_path "`qa_dir'"
-        if "`d'" != "." {
-            local scan_path "`qa_dir'/`d'"
-        }
-
-        local test_files : dir "`scan_path'" files "test_*.do"
-        local val_files : dir "`scan_path'" files "validation_*.do"
-        local xval_files : dir "`scan_path'" files "crossval_*.do"
-        local dir_files : list test_files | val_files
-        local dir_files : list dir_files | xval_files
-        local dir_files : list sort dir_files
-
-        foreach f of local dir_files {
-            local rel_file "`f'"
-            if "`d'" != "." {
-                local rel_file "`d'/`f'"
-            }
-            local all_files : list all_files | rel_file
-        }
-    }
+    local test_files : dir "`qa_dir'" files "test_*.do"
+    local val_files : dir "`qa_dir'" files "validation_*.do"
+    local xval_files : dir "`qa_dir'" files "crossval_*.do"
+    local all_files : list test_files | val_files
+    local all_files : list all_files | xval_files
+    local all_files : list sort all_files
 }
 
 if inlist("`lane'", "release", "benchmark") {
-    local benchmark_files "_package/benchmark_tabtools_speed.do"
-    foreach f of local benchmark_files {
-        capture confirm file "`qa_dir'/`f'"
-        if _rc == 0 {
-            local all_files : list all_files | f
-        }
+    capture confirm file "`qa_dir'/benchmark_tabtools_speed.do"
+    if _rc == 0 {
+        local bench "benchmark_tabtools_speed.do"
+        local all_files : list all_files | bench
     }
 }
 
+* Read skip list
 local skip_names ""
 capture confirm file "`skip_file'"
 if _rc == 0 {
@@ -101,7 +85,7 @@ if _rc == 0 {
                 if "`skip_reason'" == "" {
                     local skip_reason "listed in _skip.txt"
                 }
-                local skip_key = subinstr(subinstr("`skip_name'", "/", "_", .), ".", "_", .)
+                local skip_key = subinstr("`skip_name'", ".", "_", .)
                 local skip_reason_`skip_key' `"`skip_reason'"'
             }
         }
@@ -110,27 +94,16 @@ if _rc == 0 {
     file close `skipfh'
 }
 
+* Quick lane drops validation/crossval files and the adversarial suite
+local quick_drop "test_package_adversarial.do"
+
 local n_discovered = 0
-local quick_package_files "test_collect_json_render_contracts.do test_console_display_contracts.do test_export_failure_returns.do test_mata_backend_contracts.do test_public_inventory_v136.do test_refactor_contracts.do test_regression_fixes.do test_shared_style_engine_after_migration.do test_style_engine_apply_styles.do test_table1_tc_aggregation_contracts.do test_table1_tc_before_fixtures_parity.do test_xlsx_read_current_contracts.do"
 foreach f of local all_files {
-    local base "`f'"
-    if regexm("`f'", ".*/([^/]+)$") {
-        local base = regexs(1)
-    }
-    if "`base'" != "run_all.do" & "`base'" != "refactor_baseline.do" {
-        local is_quick_package_drop = 0
-        if "`lane'" == "quick" & substr("`f'", 1, 9) == "_package/" {
-            local quick_keep : list base in quick_package_files
-            if !`quick_keep' local is_quick_package_drop = 1
-        }
-        if "`lane'" == "quick" & (substr("`base'", 1, 11) == "validation_" | ///
-            substr("`base'", 1, 9) == "crossval_" | `is_quick_package_drop' | ///
-            "`base'" == "test_stress.do" | "`base'" == "test_coverage_gaps.do" | ///
-            "`base'" == "test_adversarial_breakage.do") {
-            continue
-        }
-        local ++n_discovered
-    }
+    if "`f'" == "run_all.do" continue
+    if "`lane'" == "quick" & (substr("`f'", 1, 11) == "validation_" | ///
+        substr("`f'", 1, 9) == "crossval_" | ///
+        `: list f in quick_drop') continue
+    local ++n_discovered
 }
 
 local n_run = 0
@@ -146,38 +119,18 @@ if "`skip_names'" != "" {
 }
 
 foreach f of local all_files {
-    local base "`f'"
-    if regexm("`f'", ".*/([^/]+)$") {
-        local base = regexs(1)
-    }
-    if "`base'" == "run_all.do" | "`base'" == "refactor_baseline.do" {
-        continue
-    }
-    local is_quick_package_drop = 0
-    if "`lane'" == "quick" & substr("`f'", 1, 9) == "_package/" {
-        local quick_keep : list base in quick_package_files
-        if !`quick_keep' local is_quick_package_drop = 1
-    }
-    if "`lane'" == "quick" & (substr("`base'", 1, 11) == "validation_" | ///
-        substr("`base'", 1, 9) == "crossval_" | `is_quick_package_drop' | ///
-        "`base'" == "test_stress.do" | "`base'" == "test_coverage_gaps.do" | ///
-        "`base'" == "test_adversarial_breakage.do") {
-        continue
-    }
+    if "`f'" == "run_all.do" continue
+    if "`lane'" == "quick" & (substr("`f'", 1, 11) == "validation_" | ///
+        substr("`f'", 1, 9) == "crossval_" | ///
+        `: list f in quick_drop') continue
 
     local in_skip : list f in skip_names
-    local in_skip_base : list base in skip_names
-    if `in_skip' | `in_skip_base' {
+    if `in_skip' {
         local ++n_skip
-        local skip_name "`f'"
-        if `in_skip_base' {
-            local skip_name "`base'"
-        }
-        local skip_key = subinstr(subinstr("`skip_name'", "/", "_", .), ".", "_", .)
-        local skip_reason `"`skip_reason_`skip_key''"'
+        local skip_key = subinstr("`f'", ".", "_", .)
         display _newline
         display as text "=== Skipping: `f' ==="
-        display as text "  Reason: `skip_reason'"
+        display as text "  Reason: `skip_reason_`skip_key''"
         continue
     }
 

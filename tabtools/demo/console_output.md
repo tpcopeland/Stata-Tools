@@ -210,8 +210,6 @@ General Purpose
                set and get.
 
   tabtools_tips Quick reference and worked recipes.
-               Merges the former cheatsheet and cookbook
-               help topics.
 
 ```
 

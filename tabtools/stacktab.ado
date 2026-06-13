@@ -557,7 +557,7 @@ program define stacktab, rclass
             local export_start_row = 2
         }
 
-        _stacktab_xlsx_write_current using `"`using'"', sheet(`"`sheet'"') ///
+        _stacktab_xlsx_write using `"`using'"', sheet(`"`sheet'"') ///
             startrow(`export_start_row') startcol(`export_start_col') ///
             `sheetreplace'
 
@@ -636,8 +636,8 @@ program define stacktab, rclass
 end
 
 
-capture program drop _stacktab_xlsx_write_current
-program define _stacktab_xlsx_write_current, rclass
+capture program drop _stacktab_xlsx_write
+program define _stacktab_xlsx_write, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
