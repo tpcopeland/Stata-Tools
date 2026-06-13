@@ -8,7 +8,7 @@
     This same demo ships in both the tabtools/demo and eplot/demo folders.
 
     Produces:
-      1. Console output (regtab + comptab tables) -> .log -> .md via logdoc
+      1. Console output (regtab + comptab tables) -> console_tabtools_eplot.log
       2. Single-model forest plot (regtab -> eplot)   -> forest_regtab.png
       3. Model-comparison forest plot (comptab forest) -> forest_comptab.png
 */
@@ -120,13 +120,6 @@ comptab g_crude g_adj, rows(1 \ 1) ///
         name(forest_comptab, replace))
 graph export "`pkg_dir'/forest_comptab.png", replace width(1400)
 capture graph close _all
-
-**# Convert console log to markdown via logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`repo_root'/logdoc") replace
-logdoc using "`pkg_dir'/console_tabtools_eplot.log", ///
-    output("`pkg_dir'/console_tabtools_eplot.md") ///
-    format(md) replace quiet
 
 * --- Cleanup ---
 clear

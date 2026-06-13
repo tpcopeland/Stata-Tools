@@ -176,10 +176,10 @@ Excerpt from the generated Markdown report:
 
 ### Simulation performance tables (`simtab`)
 
-`demo/demo_simtab.do` builds a Monte Carlo study of three estimators (Unweighted, IIW, IIW + log(test)) across three scenarios and two estimands, then renders it with `simtab`. The Unweighted estimator is biased — its coverage is flagged off-nominal (`*`) and its failed fits surface through `nsim()` as non-convergence (`Non-conv.`). Run it from a local checkout:
+The `simtab` section of `demo/demo_tabtools.do` builds a Monte Carlo study of three estimators (Unweighted, IIW, IIW + log(test)) across three scenarios and two estimands, then renders it with `simtab`. The Unweighted estimator is biased — its coverage is flagged off-nominal (`*`) and its failed fits surface through `nsim()` as non-convergence (`Non-conv.`). Run just that section from a local checkout:
 
 ```bash
-stata-mp -b do tabtools/demo/demo_simtab.do
+stata-mp -b do tabtools/demo/demo_tabtools.do simtab
 ```
 
 **Compute mode** summarizes the raw replications into a styled, scenario-grouped table (console preview, with the off-nominal-coverage flag and per-cell non-convergence count):
@@ -220,7 +220,7 @@ The numeric **`plotframe()`** companion stores one row per cell with the raw mea
   +-----------------------------------------------------------------------------------------+
 ```
 
-With **two estimands**, Excel gets merged column-group headers (one block per estimand) and Markdown/CSV get flattened `Estimand: metric` columns. The demo writes the `Multi-estimand` sheet of `demo/demo_simtab.xlsx` and this Markdown report (`demo/demo_simtab_report.md`):
+With **two estimands**, Excel gets merged column-group headers (one block per estimand) and Markdown/CSV get flattened `Estimand: metric` columns. The demo writes the `Multi-estimand` sheet of `demo/demo_simtab.xlsx` and appends this table to the consolidated `demo/demo_markdown_report.md`:
 
 ```markdown
 ### Simulation results by scenario and estimand

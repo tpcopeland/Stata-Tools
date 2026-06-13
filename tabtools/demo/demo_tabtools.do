@@ -15,9 +15,10 @@
         1. console_output.log         - consolidated display log
         2. console_output.md          - markdown console output for README
       simtab section (folded in; runs for "all" or "simtab"):
-        console_simtab.log / .md      - Monte Carlo performance-table log
-        demo_simtab.xlsx   (2 sheets) - simtab scenarios + multi-estimand
-        demo_simtab_report.md         - flattened multi-estimand Markdown report
+        demo_simtab.xlsx   (2 sheets) - scenarios + multi-estimand workbook
+        In "all" mode the simtab console tables fold into console_output.md and
+        the multi-estimand report folds into demo_markdown_report.md, so no
+        separate simtab .md files are emitted.
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
       Per-command workbooks (14 xlsx files, 72 sheets total):
@@ -135,27 +136,24 @@ if `do_main' {
     capture erase "`console_md'"
 }
 
-**# simtab -- Monte Carlo simulation performance tables
-* Folded-in former demo_simtab.do. Runs for "all" or "simtab"; self-contained
-* (own synthetic data, own console log + logdoc conversion, own workbook).
-local xlsx_simtab        "`pkg_dir'/demo_simtab.xlsx"
-local md_simtab_report   "`pkg_dir'/demo_simtab_report.md"
-local console_simtab_log "`pkg_dir'/console_simtab.log"
-local console_simtab_md  "`pkg_dir'/console_simtab.md"
+**# simtab data + workbook (folded-in former demo_simtab.do)
+* Runs for "all" and "simtab". Builds the synthetic replication-level results
+* and writes demo_simtab.xlsx (Scenarios + Multi-estimand sheets). In "all" mode
+* the simtab console tables and the multi-estimand Markdown report are woven into
+* console_output.md and demo_markdown_report.md by the main body below, so no
+* separate simtab .md files are produced. In "simtab"-only mode just the workbook
+* is regenerated.
+local xlsx_simtab "`pkg_dir'/demo_simtab.xlsx"
 
 if `do_simtab' {
 
-* Clean prior simtab artifacts so the section is idempotent
 capture erase "`xlsx_simtab'"
-capture erase "`md_simtab_report'"
-capture erase "`console_simtab_log'"
-capture erase "`console_simtab_md'"
 
 * Synthetic replication-level results (IIVW-style):
-*   3 scenarios x 3 estimators x 2 estimands, ~400 replications each.
-*   Unweighted is biased (low coverage); IIW is well-calibrated; IIW + log(test)
-*   carries a small residual bias. ~6% of Unweighted fits "fail" to converge and
-*   are dropped, so n < nsim.
+*   3 scenarios x 3 estimators x 2 estimands, ~400 replications each. Unweighted
+*   is biased (low coverage); IIW is well-calibrated; IIW + log(test) carries a
+*   small residual bias. ~6% of Unweighted fits "fail" to converge and are
+*   dropped, so n < nsim.
 clear
 set seed 20260608
 local R 400
@@ -196,75 +194,25 @@ label variable est "Slope estimate"
 tempfile reps
 quietly save "`reps'"
 
-capture log close demo
-log using "`console_simtab_log'", replace text name(demo) nomsg
-
-* # simtab: Monte Carlo simulation performance tables
-
-* simtab summarizes one row per replication x estimator x estimand x scenario
-* into table-grade performance measures, then styles and exports the table.
-
-* ## Compute mode: scenarios, estimators, non-convergence, coverage flag
-
-* The intended replication count is nsim(400). Estimators whose fits failed
-* to converge show nfail > 0 via the nonconv column. Coverage that deviates
-* from the nominal 95% by more than 2 Monte Carlo SEs is flagged with "*".
-
+* Workbook sheet 1: per-scenario performance (single estimand)
 use "`reps'", clear
 keep if emd == 1
-noisily simtab estid, estimate(est) se(se) true(truev)              ///
+quietly simtab estid, estimate(est) se(se) true(truev)              ///
     by(scen) sim(sim) coverage(covered) nsim(400)                   ///
     metrics(mean bias empse meanse coverage n nonconv)              ///
     digits(3) xlsx("`xlsx_simtab'") sheet("Scenarios")              ///
     title("Simulation results by scenario (400 replications)")      ///
-    footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.") ///
-    display
+    footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.")
 
-* ## Figure-ready companion frame (plotframe)
-
-* plotframe() stores one row per by x estimator x estimand cell with the raw
-* measures and their Monte Carlo SEs - the structured source for figures,
-* replacing the fragile "parse a text log" boundary.
-
+* Workbook sheet 2: merged-header multi-estimand block
 use "`reps'", clear
-keep if emd == 1
-quietly simtab estid, estimate(est) se(se) true(truev)   ///
-    by(scen) sim(sim) coverage(covered) nsim(400)        ///
-    metrics(mean bias empse coverage n) plotframe(simfig, replace)
-frame simfig: format mean bias empse %6.3f
-frame simfig: format coverage mcse_coverage %5.3f
-noisily frame simfig: list by_label estimator_label mean bias empse ///
-    coverage mcse_coverage nfail n, noobs sepby(by_label)
-
-* ## Ingest mode: render a pre-computed summary (from(summary))
-
-* When the per-cell numbers already exist - computed by simsum, siman, or any
-* collapse - simtab renders them without recomputation. from(summary) maps the
-* columns explicitly and never depends on an external package.
-
-use "`reps'", clear
-keep if emd == 1
-collapse (mean) avg=est (sd) sdest=est (mean) cov=covered ///
-    (count) nrep=est, by(scen estid)
-gen double b = avg - 0.10
-noisily list scen estid avg b sdest cov nrep, noobs sepby(scen)
-noisily simtab, from(summary) byvar(scen) estimatorvar(estid)         ///
-    measures(mean=avg bias=b empse=sdest coverage=cov n=nrep)         ///
-    title("Ingested per-cell summary (no recomputation)") display
-
-log close demo
-
-* Multi-estimand: merged-header Excel + flattened Markdown report.
-* Two estimands become a merged column group in Excel (one block per estimand)
-* and flattened "Estimand: metric" columns in Markdown/CSV.
-use "`reps'", clear
-simtab estid, estimate(est) se(se) true(truev)                       ///
+quietly simtab estid, estimate(est) se(se) true(truev)               ///
     by(scen) estimand(emd) sim(sim) coverage(covered) nsim(400)      ///
     metrics(mean bias coverage n)                                    ///
     digits(3) xlsx("`xlsx_simtab'") sheet("Multi-estimand")          ///
     title("Simulation results by scenario and estimand")             ///
     footnote("Coverage is empirical 95% CI coverage.")               ///
-    markdown("`md_simtab_report'") borderstyle(academic) zebra
+    borderstyle(academic) zebra
 
 * verify the Excel merged-header row was written
 * layout: blank margin col A, Scenario/Estimator in B/C, then 4 metrics x 2
@@ -275,26 +223,10 @@ import excel using "`xlsx_simtab'", sheet("Multi-estimand") ///
 assert D[1] == "Marginal slope"
 assert H[1] == "Treatment contrast"
 
-* Convert the simtab console log to markdown via logdoc
-local logdoc_dir "`repo_root'/logdoc"
-capture confirm file "`logdoc_dir'/stata.toc"
-if _rc {
-    display as error "logdoc package not found at `logdoc_dir'"
-    exit 601
+if "`_demo_part'" == "simtab" {
+    clear
+    display as result "simtab section complete. Output: `xlsx_simtab'"
 }
-capture ado uninstall logdoc
-quietly net install logdoc, from("`logdoc_dir'") replace
-logdoc using "`console_simtab_log'",   ///
-    output("`console_simtab_md'")      ///
-    format(md) replace quiet
-
-capture frame drop simfig
-clear
-display as result "simtab section complete. Outputs:"
-display as result "  `console_simtab_log'"
-display as result "  `console_simtab_md'"
-display as result "  `xlsx_simtab'"
-display as result "  `md_simtab_report'"
 
 }
 
@@ -605,6 +537,66 @@ log off demo
 capture erase "`_pipe_xlsx'"
 restore
 
+**# Console: simtab Monte Carlo performance tables
+if `do_simtab' {
+log on demo
+
+* # simtab: Monte Carlo simulation performance tables
+
+* simtab summarizes one row per replication x estimator x estimand x scenario
+* into table-grade performance measures, then styles and exports the table.
+
+* ## Compute mode: scenarios, estimators, non-convergence, coverage flag
+
+* The intended replication count is nsim(400). Estimators whose fits failed to
+* converge show nfail > 0 via the nonconv column. Coverage that deviates from
+* the nominal 95% by more than 2 Monte Carlo SEs is flagged with "*".
+
+use "`reps'", clear
+keep if emd == 1
+noisily simtab estid, estimate(est) se(se) true(truev)              ///
+    by(scen) sim(sim) coverage(covered) nsim(400)                   ///
+    metrics(mean bias empse meanse coverage n nonconv)              ///
+    digits(3)                                                       ///
+    title("Simulation results by scenario (400 replications)")      ///
+    footnote("Coverage is empirical 95% CI coverage; * flags off-nominal coverage.") ///
+    display
+
+* ## Figure-ready companion frame (plotframe)
+
+* plotframe() stores one row per by x estimator x estimand cell with the raw
+* measures and their Monte Carlo SEs - the structured source for figures.
+
+use "`reps'", clear
+keep if emd == 1
+quietly simtab estid, estimate(est) se(se) true(truev)   ///
+    by(scen) sim(sim) coverage(covered) nsim(400)        ///
+    metrics(mean bias empse coverage n) plotframe(simfig, replace)
+frame simfig: format mean bias empse %6.3f
+frame simfig: format coverage mcse_coverage %5.3f
+noisily frame simfig: list by_label estimator_label mean bias empse ///
+    coverage mcse_coverage nfail n, noobs sepby(by_label)
+capture frame drop simfig
+
+* ## Ingest mode: render a pre-computed summary (from(summary))
+
+* When the per-cell numbers already exist - computed by simsum, siman, or any
+* collapse - simtab renders them without recomputation. from(summary) maps the
+* columns explicitly and never depends on an external package.
+
+use "`reps'", clear
+keep if emd == 1
+collapse (mean) avg=est (sd) sdest=est (mean) cov=covered ///
+    (count) nrep=est, by(scen estid)
+gen double b = avg - 0.10
+noisily list scen estid avg b sdest cov nrep, noobs sepby(scen)
+noisily simtab, from(summary) byvar(scen) estimatorvar(estid)         ///
+    measures(mean=avg bias=b empse=sdest coverage=cov n=nrep)         ///
+    title("Ingested per-cell summary (no recomputation)") display
+
+log off demo
+}
+
 **# Console: Markdown export report
 use `analysis', clear
 capture erase "`markdown_report'"
@@ -634,6 +626,16 @@ noisily puttab id index_age treated female cv_event, ///
     markdown("`markdown_report_export'") mdappend
 restore
 
+* Append the simtab multi-estimand performance table when the simtab section ran
+if `do_simtab' {
+use "`reps'", clear
+noisily simtab estid, estimate(est) se(se) true(truev)               ///
+    by(scen) estimand(emd) sim(sim) coverage(covered) nsim(400)      ///
+    metrics(mean bias coverage n) digits(3)                          ///
+    title("Simulation results by scenario and estimand")             ///
+    markdown("`markdown_report_export'") mdappend borderstyle(academic) zebra
+}
+
 noisily display as text "Markdown report written to tabtools/demo/demo_markdown_report.md"
 noisily display as text "The file contains multiple GitHub-Flavored Markdown tables appended in one report."
 noisily type "`markdown_report'"
@@ -648,12 +650,14 @@ local _has_crosstab 0
 local _has_corrtab 0
 local _has_puttab 0
 local _has_pipe_table 0
+local _has_simtab 0
 file read `_md_fh' _md_line
 while r(eof) == 0 {
     if strpos(`"`_md_line'"', "### Table 1. Baseline Characteristics") local _has_table1 1
     if strpos(`"`_md_line'"', "### Table 2. Treatment by Sex") local _has_crosstab 1
     if strpos(`"`_md_line'"', "### Table 3. Correlation Matrix") local _has_corrtab 1
     if strpos(`"`_md_line'"', "### Table 4. First Six Analysis Records") local _has_puttab 1
+    if strpos(`"`_md_line'"', "### Simulation results by scenario and estimand") local _has_simtab 1
     if strpos(`"`_md_line'"', "| --- |") local _has_pipe_table 1
     file read `_md_fh' _md_line
 }
@@ -663,6 +667,7 @@ assert `_has_crosstab' == 1
 assert `_has_corrtab' == 1
 assert `_has_puttab' == 1
 assert `_has_pipe_table' == 1
+if `do_simtab' assert `_has_simtab' == 1
 
 log close demo
 capture drop phat_display
