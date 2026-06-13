@@ -149,6 +149,45 @@ else {
 capture frame drop hrc_final
 
 * -------------------------------------------------------------------------
+* 1b. reflabel() overrides inferred reference text; r(rateframe) returns source
+*     Clarity audit MINOR-4 (2026-06-13): reflabel and r(rateframe) untested.
+*     Same rows()/effect() as test 1 so reference-row positions match.
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    capture frame drop hrc_reflab
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) effect("aHR") reflabel("Ref. group") ///
+        frame(hrc_reflab, replace)
+
+    assert "`r(rateframe)'" == "hrc_rates"
+
+    frame hrc_reflab {
+        assert c5[5]  == "Ref. group"
+        assert c10[5] == "Ref. group"
+        assert c5[8]  == "Ref. group"
+        assert c10[8] == "Ref. group"
+        * The default "Reference" text must no longer appear anywhere.
+        local _saw_default 0
+        foreach _v of varlist c* {
+            quietly count if strtrim(`_v') == "Reference"
+            if r(N) > 0 local _saw_default 1
+        }
+        assert `_saw_default' == 0
+    }
+    capture frame drop hrc_reflab
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab reflabel() + r(rateframe)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab reflabel()/r(rateframe) (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_reflab
+
+* -------------------------------------------------------------------------
 * 2. rownames() workflow
 * -------------------------------------------------------------------------
 local ++test_count

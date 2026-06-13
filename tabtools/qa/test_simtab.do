@@ -368,6 +368,70 @@ else {
     local ++fail_count
 }
 
+* =====================================================================
+**# T11: nosign / sedigits options + r(n_reps_min/max) returns
+* =====================================================================
+* Clarity audit MINOR-2 (2026-06-13): nosign, sedigits and the
+* r(n_reps_min)/r(n_reps_max) returns were undocumented-by-test.
+* nosign was also a no-op until wired to _sgn — assert it actually
+* removes the leading "+" on positive bias cells.
+capture noisily {
+    _simtab_make_data, reps(80) estimands(1)
+    keep if emd == 1
+
+    * Default: positive bias cells carry a leading "+" before the number.
+    * Match "+<digit>" so the "IIW+log" estimator label can't false-positive.
+    simtab estid, estimate(est) se(se) true(truev) metrics(bias) ///
+        frame(ft11a, replace)
+    local _saw_plus 0
+    frame ft11a {
+        foreach _v of varlist c* {
+            quietly count if regexm(`_v', "\+[0-9.]")
+            if r(N) > 0 local _saw_plus 1
+        }
+    }
+    assert `_saw_plus' == 1
+
+    * nosign: no "+<digit>" sign prefix anywhere in the rendered table.
+    simtab estid, estimate(est) se(se) true(truev) metrics(bias) ///
+        nosign frame(ft11b, replace)
+    local _saw_plus 0
+    frame ft11b {
+        foreach _v of varlist c* {
+            quietly count if regexm(`_v', "\+[0-9.]")
+            if r(N) > 0 local _saw_plus 1
+        }
+    }
+    assert `_saw_plus' == 0
+
+    * sedigits controls SE-class metric decimals independently of digits().
+    * by(sc) keeps sim() x cell unique (the fixture carries a latent scenario).
+    simtab estid, estimate(est) se(se) true(truev) by(sc) sim(sim) ///
+        metrics(empse) digits(2) sedigits(4) frame(ft11c, replace)
+    local _saw_4dp 0
+    frame ft11c {
+        foreach _v of varlist c* {
+            quietly count if regexm(`_v', "\.[0-9][0-9][0-9][0-9]")
+            if r(N) > 0 local _saw_4dp 1
+        }
+    }
+    assert `_saw_4dp' == 1
+
+    * Compute mode returns replication-count bounds; this fixture is balanced
+    * (every cell has 80 reps) so min == max == 80.
+    simtab estid, estimate(est) se(se) true(truev) by(sc) sim(sim) display
+    assert r(n_reps_min) == 80
+    assert r(n_reps_max) == 80
+}
+if _rc == 0 {
+    display as result "  PASS T11: nosign/sedigits/n_reps_min/max"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T11 (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Migrated from test_simtab_ingest.do
 
 
@@ -428,6 +492,66 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T2 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =====================================================================
+**# T2b: from(summary) byvar() + estimandvar() column overrides
+* =====================================================================
+* Clarity audit MINOR-2 (2026-06-13): byvar() and estimandvar() ingest
+* overrides were untested. Build a per-cell summary crossing estimator x
+* scenario x estimand and assert simtab renders all three dimensions.
+capture noisily {
+    clear
+    input str3 method str2 scenario str2 target double m double b double cov double nr
+    "A" "S1" "T1" 0.50 0.00 0.94 400
+    "B" "S1" "T1" 0.54 0.04 0.91 400
+    "A" "S2" "T1" 0.48 -0.02 0.95 400
+    "B" "S2" "T1" 0.55 0.05 0.90 400
+    "A" "S1" "T2" 0.10 0.00 0.96 400
+    "B" "S1" "T2" 0.13 0.03 0.92 400
+    "A" "S2" "T2" 0.09 -0.01 0.95 400
+    "B" "S2" "T2" 0.14 0.04 0.91 400
+    end
+
+    simtab, from(summary) estimatorvar(method) byvar(scenario) ///
+        estimandvar(target) measures(mean=m bias=b coverage=cov n=nr) ///
+        frame(fbe, replace) display
+    assert r(mode) == "ingest"
+    assert r(source) == "summary"
+    assert r(n_estimators) == 2
+    assert r(n_by) == 2
+    assert r(n_estimands) == 2
+
+    * by-group (scenario) and estimator labels render as standalone cells;
+    * estimand (target) labels render as a header prefix ("T1: Mean", ...).
+    foreach _lbl in S1 S2 A B {
+        local _saw 0
+        frame fbe {
+            foreach _v of varlist c* {
+                quietly count if strtrim(`_v') == "`_lbl'"
+                if r(N) > 0 local _saw 1
+            }
+        }
+        assert `_saw' == 1
+    }
+    foreach _lbl in T1 T2 {
+        local _saw 0
+        frame fbe {
+            foreach _v of varlist c* {
+                quietly count if strpos(`_v', "`_lbl':") > 0
+                if r(N) > 0 local _saw 1
+            }
+        }
+        assert `_saw' == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS T2b: from(summary) byvar/estimandvar overrides"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T2b (rc=`=_rc')"
     local ++fail_count
 }
 

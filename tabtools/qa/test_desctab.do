@@ -1045,6 +1045,126 @@ else {
     local ++fail
 }
 
+**# T39 nintegerfmt controls count/integer formatting
+* Clarity audit MINOR-3 (2026-06-13): nintegerfmt was untested. Default
+* %12.0fc inserts thousands separators; an override without `c' removes them.
+local ++total
+capture noisily {
+    clear
+    set obs 5000
+    gen byte grp = mod(_n, 2)
+    collect clear
+    collect: table grp, statistic(frequency)
+
+    capture frame drop _dt_ifc
+    desctab, frame(_dt_ifc, replace)
+    local _saw_comma 0
+    frame _dt_ifc {
+        foreach _v of varlist c* {
+            quietly count if strpos(`_v', "2,500") > 0
+            if r(N) > 0 local _saw_comma 1
+        }
+    }
+    frame drop _dt_ifc
+    assert `_saw_comma' == 1
+
+    capture frame drop _dt_ifp
+    desctab, frame(_dt_ifp, replace) nintegerfmt("%12.0f")
+    local _saw_plain 0
+    local _saw_comma 0
+    frame _dt_ifp {
+        foreach _v of varlist c* {
+            quietly count if strtrim(`_v') == "2500"
+            if r(N) > 0 local _saw_plain 1
+            quietly count if strpos(`_v', "2,500") > 0
+            if r(N) > 0 local _saw_comma 1
+        }
+    }
+    frame drop _dt_ifp
+    assert `_saw_plain' == 1
+    assert `_saw_comma' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: nintegerfmt controls count formatting"
+    local ++pass
+}
+else {
+    display as error "  FAIL: nintegerfmt formatting"
+    local ++fail
+}
+
+**# T40 nomissing drops the missing-category row
+* Clarity audit MINOR-3 (2026-06-13): nomissing was untested.
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table rep78, statistic(frequency) missing
+
+    capture frame drop _dt_miss
+    desctab, frame(_dt_miss, replace)
+    local _has_missrow 0
+    frame _dt_miss {
+        forvalues i = 1/`=_N' {
+            if inlist(lower(strtrim(A[`i'])), ".", "missing", ".m") local _has_missrow 1
+        }
+    }
+    frame drop _dt_miss
+    assert `_has_missrow' == 1
+
+    capture frame drop _dt_nomiss
+    desctab, frame(_dt_nomiss, replace) nomissing
+    local _has_missrow 0
+    frame _dt_nomiss {
+        forvalues i = 1/`=_N' {
+            if inlist(lower(strtrim(A[`i'])), ".", "missing", ".m") local _has_missrow 1
+        }
+    }
+    frame drop _dt_nomiss
+    assert `_has_missrow' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: nomissing drops missing-category row"
+    local ++pass
+}
+else {
+    display as error "  FAIL: nomissing missing-row drop"
+    local ++fail
+}
+
+**# T41 valuelabels is accepted as a documented no-op
+* Clarity audit MINOR-3 (2026-06-13): valuelabels is "accepted for suite
+* consistency" (sthlp) — assert it runs and leaves output unchanged.
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table foreign, statistic(mean price) statistic(frequency)
+
+    capture frame drop _dt_vl0
+    desctab, frame(_dt_vl0, replace)
+    frame _dt_vl0: local _n0 = _N
+    frame _dt_vl0: local _a2_0 = strtrim(A[2])
+
+    capture frame drop _dt_vl1
+    desctab, frame(_dt_vl1, replace) valuelabels
+    frame _dt_vl1: local _n1 = _N
+    frame _dt_vl1: local _a2_1 = strtrim(A[2])
+
+    frame drop _dt_vl0
+    frame drop _dt_vl1
+    assert `_n0' == `_n1'
+    assert "`_a2_0'" == "`_a2_1'"
+}
+if _rc == 0 {
+    display as result "  PASS: valuelabels accepted as no-op"
+    local ++pass
+}
+else {
+    display as error "  FAIL: valuelabels no-op"
+    local ++fail
+}
+
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"

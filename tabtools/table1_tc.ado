@@ -491,6 +491,18 @@ program define table1_tc, rclass
     if "`statistic'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' statistic"'
     if "`nopvalue'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' nopvalue"'
 
+    * Progress dots (opt-in): one dot per analysis variable about to be
+    * processed. Help documents this; it was declared but unwired before.
+    if "`dots'" != "" {
+        local _ndelim = length(`"`vars'"') - length(subinstr(`"`vars'"', "\", "", .))
+        local _nspec = `_ndelim' + 1
+        display as text "Processing `_nspec' variable(s): " _continue
+        forvalues _d = 1/`_nspec' {
+            display as text "." _continue
+        }
+        display as text ""
+    }
+
     if !`has_wtcompare' {
         local _fast_single_opts `"`_fast_common_opts' `_fast_analysis_opts'"'
         if `has_wt' local _fast_single_opts `"`_fast_single_opts' wt(`wt')"'
@@ -724,10 +736,15 @@ program define table1_tc, rclass
     sort sort*  // Sort by primary and secondary sort variables
 
     drop sort*  // Remove sort variables
-    * Preserve raw numeric p-values for boldp/highlight formatting
+    * Preserve raw numeric p-values for boldp/highlight formatting.
+    * Drop any stale column first so a name collision can't silently feed
+    * old values into the boldp/highlight pass (the capture on gen only
+    * guards the nopvalue case where `p' does not exist).
+    capture drop _p_raw
     capture gen double _p_raw = p
     capture drop p  // Drop raw p-value variable
     * Preserve raw SMD values for conditional formatting (O2)
+    capture drop _smd_raw
     capture gen double _smd_raw = abs(smd_val)
     capture drop smd_val  // Drop raw SMD values
     

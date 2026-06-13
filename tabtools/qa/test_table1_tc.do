@@ -2824,6 +2824,68 @@ else {
 }
 
 
+**# dots option emits progress and preserves the table
+* Clarity audit MINOR-5 (2026-06-13): the dots option was declared and
+* documented ("show progress dots while processing variables") but unwired.
+* Assert it now emits one progress line and leaves the table unchanged.
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+
+    capture frame drop _t1_nodot
+    table1_tc price mpg weight, by(foreign) frame(_t1_nodot, replace)
+    frame _t1_nodot {
+        local _n_nodot = _N
+        ds
+        local _fv_nodot : word 1 of `r(varlist)'
+        local _cell_nodot = `_fv_nodot'[2]
+    }
+
+    * Capture console output to confirm the progress dots are emitted.
+    tempname _dotlog
+    tempfile _dotlogf
+    log using "`_dotlogf'", replace text name(`_dotlog')
+    capture frame drop _t1_dot
+    table1_tc price mpg weight, by(foreign) dots frame(_t1_dot, replace)
+    log close `_dotlog'
+    frame _t1_dot {
+        local _n_dot = _N
+        ds
+        local _fv_dot : word 1 of `r(varlist)'
+        local _cell_dot = `_fv_dot'[2]
+    }
+
+    * Output identical with and without dots.
+    assert `_n_nodot' == `_n_dot'
+    assert "`_fv_nodot'" == "`_fv_dot'"
+    assert "`_cell_nodot'" == "`_cell_dot'"
+
+    * Progress line ("Processing N variable(s): ...") reached the log.
+    local _saw_dots 0
+    file open _dfh using "`_dotlogf'", read text
+    file read _dfh _dl
+    while r(eof) == 0 {
+        if strpos(`"`_dl'"', "Processing") > 0 & strpos(`"`_dl'"', "variable") > 0 ///
+            local _saw_dots 1
+        file read _dfh _dl
+    }
+    file close _dfh
+    assert `_saw_dots' == 1
+
+    frame drop _t1_nodot
+    frame drop _t1_dot
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc dots emits progress and preserves table"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc dots option (rc=`=_rc')"
+    local ++fail_count
+    capture log close `_dotlog'
+}
+
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""

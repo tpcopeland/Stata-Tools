@@ -872,6 +872,112 @@ else {
 
 }  // close `if has_checker' block (Excel-checker VA tests)
 
+* =========================================================================
+
+**# VC13: diagtab CI-bound stored-result coverage
+* =========================================================================
+* Clarity audit IMPORTANT-1 (2026-06-13): diagtab returns 18 CI-bound
+* scalars (r(sensitivity_lb/ub), specificity_*, ppv_*, npv_*, accuracy_*,
+* lr_pos_*, lr_neg_*, dor_*, auc_*) that no QA file asserted. A swapped
+* bound or wrong method dispatch would have passed silently. These tests
+* exercise the full interval surface for both `wilson' and `exact', verify
+* every bound is non-missing/finite/ordered (and in [0,1] for proportions),
+* and pin the Se/Sp bounds to a hand-computed `cii proportions' oracle.
+* Reference 2x2 (via _ke_diag2x2): TP=80, FP=10, FN=20, TN=90, N=200.
+
+* --- VC13.1/.2: full CI surface for wilson and exact ---
+foreach _m in wilson exact {
+    local ++n_total
+    capture noisily {
+        _ke_diag2x2
+        diagtab test gold, `_m'
+
+        * Proportion-scale measures: bounds present, in [0,1], lb<=point<=ub
+        foreach _s in sensitivity specificity ppv npv accuracy {
+            assert !missing(r(`_s'_lb)) & !missing(r(`_s'_ub))
+            assert r(`_s'_lb) >= 0 & r(`_s'_lb) <= 1
+            assert r(`_s'_ub) >= 0 & r(`_s'_ub) <= 1
+            assert r(`_s'_lb) <= r(`_s') + 1e-9
+            assert r(`_s') <= r(`_s'_ub) + 1e-9
+        }
+
+        * Ratio-scale measures: bounds present, strictly positive, finite,
+        * lb<=point<=ub (LR/DOR CI method is the same regardless of `_m').
+        foreach _s in lr_pos lr_neg dor {
+            assert !missing(r(`_s'_lb)) & !missing(r(`_s'_ub))
+            assert r(`_s'_lb) > 0 & r(`_s'_ub) < .
+            assert r(`_s'_lb) <= r(`_s') + 1e-9
+            assert r(`_s') <= r(`_s'_ub) + 1e-9
+        }
+    }
+    if _rc == 0 {
+        display as result "  PASS: VC13 — diagtab `_m' CI surface non-missing/in-range/ordered"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: VC13 — diagtab `_m' CI surface (rc=`=_rc')"
+        local ++fail_count
+    }
+}
+
+* --- VC13.3: Se/Sp bounds match hand-computed cii proportions oracle ---
+* diagtab computes Se CI as `cii proportions (TP+FN) TP' and Sp CI as
+* `cii proportions (TN+FP) TN', so the returned bounds must reproduce cii
+* exactly for both methods.
+foreach _m in wilson exact {
+    local ++n_total
+    capture noisily {
+        _ke_diag2x2
+        diagtab test gold, `_m'
+        local _se_lb = r(sensitivity_lb)
+        local _se_ub = r(sensitivity_ub)
+        local _sp_lb = r(specificity_lb)
+        local _sp_ub = r(specificity_ub)
+
+        qui cii proportions 100 80, `_m'
+        assert abs(`_se_lb' - r(lb)) < 1e-9
+        assert abs(`_se_ub' - r(ub)) < 1e-9
+
+        qui cii proportions 100 90, `_m'
+        assert abs(`_sp_lb' - r(lb)) < 1e-9
+        assert abs(`_sp_ub' - r(ub)) < 1e-9
+    }
+    if _rc == 0 {
+        display as result "  PASS: VC13.3 — diagtab `_m' Se/Sp bounds match cii proportions"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: VC13.3 — diagtab `_m' Se/Sp vs cii (rc=`=_rc')"
+        local ++fail_count
+    }
+}
+
+* --- VC13.4: AUC CI bounds present, in [0,1], ordered (auc option) ---
+local ++n_total
+capture noisily {
+    clear
+    set seed 12345
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen double score = cond(gold, 0.70 + runiform() * 0.20, 0.10 + runiform() * 0.20)
+
+    diagtab score gold, cutoff(0.5) auc
+    assert !missing(r(auc)) & !missing(r(auc_lb)) & !missing(r(auc_ub))
+    assert r(auc_lb) >= 0 & r(auc_ub) <= 1
+    assert r(auc_lb) <= r(auc) + 1e-9
+    assert r(auc) <= r(auc_ub) + 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.4 — diagtab auc CI bounds in [0,1] and ordered"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.4 — diagtab auc CI bounds (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =========================================================================
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""

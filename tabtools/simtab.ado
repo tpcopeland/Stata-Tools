@@ -630,7 +630,7 @@ program define simtab, rclass
             if "`tok'" == "n"        local _lbl "N"
             if "`tok'" == "nonconv"  local _lbl "Non-conv."
 
-            if inlist("`tok'", "bias", "pctbias", "relerr") local _sgn 1
+            if "`nosign'" == "" & inlist("`tok'", "bias", "pctbias", "relerr") local _sgn 1
             if inlist("`tok'", "pctbias", "relerr", "coverage", "power") local _suf "%"
             if inlist("`tok'", "coverage", "power") local _sf 100
             if inlist("`tok'", "empse", "meanse", "rmse") local _dec `sedigits'

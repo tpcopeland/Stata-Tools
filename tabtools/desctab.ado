@@ -375,25 +375,26 @@ program define desctab, rclass
         local data_vars = strtrim("`data_vars'")
     }
 
-    quietly gen byte _desctab_drop = 0
+    tempvar _desctab_drop
+    quietly gen byte `_desctab_drop' = 0
     if `drop_row_totals' {
-        quietly replace _desctab_drop = 1 if _n >= `raw_data_start' ///
+        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
             & lower(strtrim(A)) == "total"
     }
     if "`nomissing'" != "" {
-        quietly replace _desctab_drop = 1 if _n >= `raw_data_start' ///
+        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
             & inlist(lower(strtrim(A)), "missing", ".", ".m")
     }
     if `"`keep'"' != "" {
-        quietly replace _desctab_drop = 1 if _n >= `raw_data_start' ///
+        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
             & strpos(" `keep' ", " " + strtrim(A) + " ") == 0
     }
     if `"`drop'"' != "" {
-        quietly replace _desctab_drop = 1 if _n >= `raw_data_start' ///
+        quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
             & strpos(" `drop' ", " " + strtrim(A) + " ") > 0
     }
-    quietly drop if _desctab_drop
-    drop _desctab_drop
+    quietly drop if `_desctab_drop'
+    drop `_desctab_drop'
 
     local n_data_vars : word count `data_vars'
     if `n_data_vars' == 0 {
@@ -681,12 +682,13 @@ program define desctab, rclass
 
     * Add title row/column so Excel and Markdown output follows the suite convention:
     * title in A1, row labels in B, table body starting at B2/C2.
-    quietly gen long _desctab_id = _n
+    tempvar _desctab_id
+    quietly gen long `_desctab_id' = _n
     local _oldN = _N
     quietly set obs `=`_oldN' + 1'
-    quietly replace _desctab_id = 0 if missing(_desctab_id)
-    quietly sort _desctab_id
-    drop _desctab_id
+    quietly replace `_desctab_id' = 0 if missing(`_desctab_id')
+    quietly sort `_desctab_id'
+    drop `_desctab_id'
     foreach _v of varlist A c* {
         quietly replace `_v' = "" in 1
     }

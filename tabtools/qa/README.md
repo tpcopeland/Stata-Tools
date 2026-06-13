@@ -48,8 +48,8 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Covers | Notes |
 |------|--------|-------|
-| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, edge cases (all-missing, single obs/group, long labels), v1.0.13–v1.5 regressions |
-| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, returns (r(version) parsed live from the .ado header) |
+| `test_table1_tc.do` | table1_tc | Core + weighted stats, nopvalue, auto-detect types, SMD guards, aggregation fast-path contracts, edge cases (all-missing, single obs/group, long labels), dots progress option, v1.0.13–v1.5 regressions |
+| `test_desctab.do` | desctab | Collect-driven descriptive tables: compose(), per-stat formats, totals, nintegerfmt/nomissing/valuelabels options, returns (r(version) parsed live from the .ado header) |
 | `test_crosstab.do` | crosstab | Association measures (OR/RR/RD/chi2/Fisher/trend), zebra, digits, boldp bounds, zero-denominator and auto-Fisher regressions |
 | `test_corrtab.do` | corrtab | Pearson/Spearman, stars, shapes, pairwise-N p-value regression |
 | `test_regtab.do` | regtab | Model families (OLS/logit/Cox/GEE/mixed/multilevel), stats() incl. AIC/BIC recompute and n_sub aliases, compact mode, keep/drop, refcat, frames, console display, nopvalue |
@@ -58,10 +58,10 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_stratetab.do` | stratetab | strate-file workflows, multi-outcome/exposure scaffolds, rateratio, console/frame modes without xlsx(), sheet validation, row-order regression, error handling, varabbrev restore |
 | `test_diagtab.do` | diagtab | Se/Sp/PPV/NPV/AUC, cutoff sweeps, prevalence adjustment, degenerate 2x2 markers, single-cutoff zebra layout |
 | `test_comptab.do` | comptab | Composite tables from regtab/effecttab frames, varabbrev restore on error |
-| `test_hrcomptab.do` | hrcomptab | stratetab scaffold + regtab model frames, rownames() patterns, xlsx success message |
+| `test_hrcomptab.do` | hrcomptab | stratetab scaffold + regtab model frames, rownames() patterns, reflabel() override + r(rateframe), xlsx success message |
 | `test_puttab.do` | puttab | Dataset/frame/matrix sources, styling options, markdown-only mode |
 | `test_stacktab.do` | stacktab | Workbook block assembly (vstack/hstack, columnmerge), frame replacement guard |
-| `test_simtab.do` | simtab | Compute mode (bias/empse/coverage + MC SEs), ingest mode (simsum/siman/summary), styling (uses `tools/check_xlsx.py`) |
+| `test_simtab.do` | simtab | Compute mode (bias/empse/coverage + MC SEs), nosign/sedigits options + r(n_reps_min/max), ingest mode (simsum/siman/summary) incl. byvar/estimandvar overrides, styling (uses `tools/check_xlsx.py`) |
 | `test_tabtools.do` | tabtools (controller) | Command listing/categories, set/get/clear round-trips, detail re-load, disk-backed profiles (sandboxes PERSONAL for the profile section), r(version) vs header |
 | `test_tabtools_tips.do` | tabtools_tips | Index display, retired cheatsheet/cookbook aliases stay absent |
 
@@ -84,7 +84,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `validation_stratetab.do` | Structure/content of rate scaffolds, return values |
 | `validation_survtab.do` | KM estimates vs `sts`, events/atrisk conservation, log-rank cross-checks, Excel survival probabilities, rendering checks (`tools/check_tabtools_render.py`) |
 | `validation_crosstab.do` | Hand-computed 2x2 OR/RR/RD/chi2, counts vs `tabulate` |
-| `validation_diagtab.do` | Algebraic identities (LR+/-, DOR, Youden, F1), PPV/NPV CIs, cutoff-table monotonicity, confusion matrix in Excel |
+| `validation_diagtab.do` | Algebraic identities (LR+/-, DOR, Youden, F1), full CI-bound surface for both wilson and exact (Se/Sp/PPV/NPV/accuracy/LR/DOR/AUC bounds vs `cii proportions` oracle, ordering + in-range), cutoff-table monotonicity, confusion matrix in Excel |
 | `validation_corrtab.do` | Correlations vs `pwcorr`, symmetry, Excel accuracy |
 | `validation_simtab.do` | Exact known-answer + simsum oracle for performance measures |
 | `validation_package.do` | Cross-command consistency (commands agree on shared statistics), universal sanity bounds, detect_vartype accuracy, set/get round-trip, comptab source-frame preservation, frame-Excel parity |
