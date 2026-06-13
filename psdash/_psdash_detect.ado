@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.1.0  2026/05/29
+*! _psdash_detect Version 1.2.0  2026/06/14
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -422,6 +422,185 @@ program define _psdash_detect
             c_local _psd_iivw_treatment_wvar "`iivw_twvar'"
             c_local _psd_iivw_final_wvar "`iivw_wvar_final'"
             c_local _psd_iivw_visit_wvar "`iivw_iwvar'"
+            exit
+        }
+    }
+
+    * -----------------------------------------------------------------
+    * Strategy 1b-msm: Auto-detect from longitudinal msm contract state
+    * -----------------------------------------------------------------
+    * Checked before the e(cmd) strategies because msm_weight fits logit
+    * internally, leaving a stale e(cmd)=="logit" that would otherwise mis-route.
+    if `nargs' == 0 & "`psvars'" == "" {
+        local msm_weighted : char _dta[_msm_weighted]
+        if "`msm_weighted'" == "1" {
+            if "`allowlongitudinal'" == "" {
+                display as error "last msm_weight run is longitudinal"
+                display as error "  pooled psdash subcommands are not run automatically after msm_weight"
+                display as error "  use {cmd:psdash combined} for longitudinal diagnostics"
+                display as error "  or specify treatment and propensity score variables explicitly"
+                exit 198
+            }
+
+            local msm_treat   : char _dta[_msm_treatment]
+            local msm_psvar   : char _dta[_msm_ps_var]
+            local msm_period  : char _dta[_msm_period]
+            local msm_id      : char _dta[_msm_id]
+            local msm_twvar   : char _dta[_msm_tw_var]
+            local msm_wfinal  : char _dta[_msm_weight_var]
+            local msm_covars  : char _dta[_msm_ps_covars]
+            if "`msm_covars'" == "" local msm_covars : char _dta[_msm_covariates]
+            local msm_estimand : char _dta[_msm_estimand]
+            local msm_contract : char _dta[_msm_contract_version]
+
+            if "`msm_treat'" == "" {
+                display as error "msm contract does not identify a treatment variable"
+                exit 198
+            }
+            confirm variable `msm_treat'
+            confirm numeric variable `msm_treat'
+
+            if "`msm_psvar'" == "" {
+                display as error "msm contract does not identify a treatment propensity score variable"
+                display as error "  rerun {cmd:msm_weight} to generate _msm_ps"
+                exit 198
+            }
+            confirm variable `msm_psvar'
+            confirm numeric variable `msm_psvar'
+
+            if "`msm_period'" == "" {
+                display as error "msm contract does not identify a period variable"
+                exit 198
+            }
+            confirm variable `msm_period'
+            confirm numeric variable `msm_period'
+            if "`msm_id'" != "" confirm variable `msm_id'
+
+            * Weight: explicit wvar, else treatment weight, else final IP weight
+            local msm_wvar "`wvar'"
+            if "`msm_wvar'" == "" local msm_wvar "`msm_twvar'"
+            if "`msm_wvar'" == "" local msm_wvar "`msm_wfinal'"
+            if "`msm_wvar'" == "" {
+                display as error "msm contract does not identify a weight variable"
+                exit 198
+            }
+            confirm variable `msm_wvar'
+            confirm numeric variable `msm_wvar'
+
+            if "`msm_estimand'" == "" local msm_estimand "ate"
+            local msm_estimand = strlower("`msm_estimand'")
+
+            if "`covariates'" != "" {
+                c_local _psd_covariates "`covariates'"
+            }
+            else if "`msm_covars'" != "" {
+                _psdash_strip_fv `"`msm_covars'"'
+                c_local _psd_covariates "`_psd_stripped_covars'"
+            }
+
+            c_local _psd_treatment "`msm_treat'"
+            c_local _psd_psvar "`msm_psvar'"
+            c_local _psd_psvar_auto "0"
+            c_local _psd_wvar "`msm_wvar'"
+            c_local _psd_wvar_auto "0"
+            c_local _psd_source "msm"
+            c_local _psd_contract_version "`msm_contract'"
+            c_local _psd_longitudinal "1"
+            c_local _psd_id "`msm_id'"
+            c_local _psd_period "`msm_period'"
+            c_local _psd_multigroup "0"
+            c_local _psd_K "2"
+            c_local _psd_levels "0 1"
+            c_local _psd_reference "0"
+            c_local _psd_estimand "`msm_estimand'"
+            exit
+        }
+    }
+
+    * -----------------------------------------------------------------
+    * Strategy 1b-tte: Auto-detect from longitudinal tte contract state
+    * -----------------------------------------------------------------
+    * Checked before the e(cmd) strategies for the same reason as msm:
+    * tte_weight fits logit internally and leaves a stale e(cmd).
+    if `nargs' == 0 & "`psvars'" == "" {
+        local tte_weighted : char _dta[_tte_weighted]
+        if "`tte_weighted'" == "1" {
+            if "`allowlongitudinal'" == "" {
+                display as error "last tte_weight run is longitudinal"
+                display as error "  pooled psdash subcommands are not run automatically after tte_weight"
+                display as error "  use {cmd:psdash combined} for longitudinal diagnostics"
+                display as error "  or specify treatment and propensity score variables explicitly"
+                exit 198
+            }
+
+            local tte_treat    : char _dta[_tte_treatment]
+            local tte_psvar    : char _dta[_tte_pscore_var]
+            local tte_period   : char _dta[_tte_period]
+            local tte_id       : char _dta[_tte_id]
+            local tte_wfinal   : char _dta[_tte_weight_var]
+            local tte_covars   : char _dta[_tte_covariates]
+            local tte_estimand : char _dta[_tte_estimand]
+            local tte_contract : char _dta[_tte_contract_version]
+
+            if "`tte_treat'" == "" {
+                display as error "tte contract does not identify a treatment variable"
+                exit 198
+            }
+            confirm variable `tte_treat'
+            confirm numeric variable `tte_treat'
+
+            if "`tte_psvar'" == "" {
+                display as error "tte contract does not identify a treatment propensity score variable"
+                display as error "  rerun {cmd:tte_weight} with {cmd:save_ps} to keep the switch/treatment score,"
+                display as error "  or specify treatment and propensity score variables explicitly"
+                exit 198
+            }
+            confirm variable `tte_psvar'
+            confirm numeric variable `tte_psvar'
+
+            if "`tte_period'" == "" {
+                display as error "tte contract does not identify a period variable"
+                exit 198
+            }
+            confirm variable `tte_period'
+            confirm numeric variable `tte_period'
+            if "`tte_id'" != "" confirm variable `tte_id'
+
+            local tte_wvar "`wvar'"
+            if "`tte_wvar'" == "" local tte_wvar "`tte_wfinal'"
+            if "`tte_wvar'" == "" {
+                display as error "tte contract does not identify a weight variable"
+                exit 198
+            }
+            confirm variable `tte_wvar'
+            confirm numeric variable `tte_wvar'
+
+            if "`tte_estimand'" == "" local tte_estimand "ate"
+            local tte_estimand = strlower("`tte_estimand'")
+
+            if "`covariates'" != "" {
+                c_local _psd_covariates "`covariates'"
+            }
+            else if "`tte_covars'" != "" {
+                _psdash_strip_fv `"`tte_covars'"'
+                c_local _psd_covariates "`_psd_stripped_covars'"
+            }
+
+            c_local _psd_treatment "`tte_treat'"
+            c_local _psd_psvar "`tte_psvar'"
+            c_local _psd_psvar_auto "0"
+            c_local _psd_wvar "`tte_wvar'"
+            c_local _psd_wvar_auto "0"
+            c_local _psd_source "tte"
+            c_local _psd_contract_version "`tte_contract'"
+            c_local _psd_longitudinal "1"
+            c_local _psd_id "`tte_id'"
+            c_local _psd_period "`tte_period'"
+            c_local _psd_multigroup "0"
+            c_local _psd_K "2"
+            c_local _psd_levels "0 1"
+            c_local _psd_reference "0"
+            c_local _psd_estimand "`tte_estimand'"
             exit
         }
     }

@@ -1,4 +1,4 @@
-*! msm_weight Version 1.0.4  2026/05/29
+*! msm_weight Version 1.1.0  2026/06/14
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -252,7 +252,7 @@ program define msm_weight, rclass
     }
     else {
         * Check weight variables
-        foreach wvar in _msm_weight _msm_tw_weight _msm_cw_weight {
+        foreach wvar in _msm_weight _msm_tw_weight _msm_cw_weight _msm_ps {
             capture confirm variable `wvar'
             if _rc == 0 {
                 if "`replace'" == "" {
@@ -423,6 +423,15 @@ program define msm_weight, rclass
         char _dta[_msm_weighted] "1"
         char _dta[_msm_weight_var] "_msm_weight"
 
+        * psdash contract: treatment propensity score, treatment-only weight,
+        * estimand, and contract version so {cmd:psdash combined} can auto-detect
+        * the treatment model after msm_weight.
+        char _dta[_msm_ps_var] "_msm_ps"
+        char _dta[_msm_tw_var] "_msm_tw_weight"
+        char _dta[_msm_ps_covars] "`treat_d_cov'"
+        char _dta[_msm_estimand] "ate"
+        char _dta[_msm_contract_version] "1.0"
+
         * =========================================================================
         * DISPLAY RESULTS
         * =========================================================================
@@ -466,8 +475,8 @@ program define msm_weight, rclass
 
         display as text ""
         display as text "Variables created: " as result "_msm_weight _msm_tw_weight" ///
-            cond("`censor_d_cov'" != "", " _msm_cw_weight", "")
-        display as text "Next step: {cmd:msm_diagnose} or {cmd:msm_fit}"
+            cond("`censor_d_cov'" != "", " _msm_cw_weight", "") as result " _msm_ps"
+        display as text "Next step: {cmd:msm_diagnose}, {cmd:msm_fit}, or {cmd:psdash combined}"
         display as text "{hline 70}"
 
         * =========================================================================
@@ -709,6 +718,15 @@ program define _msm_weight_treatment, rclass
         }
         replace `_denom_pr' = `_denom_pr0' if missing(`_denom_pr') & ///
             `_at_risk' & `_first_obs'
+
+        * Persist the per-period treatment propensity P(A_t=1|history) from the
+        * denominator model so psdash can run overlap/support/balance panels on
+        * the treatment model. Defined only on at-risk person-periods; missing
+        * elsewhere, which psdash drops from its diagnostic sample.
+        capture drop _msm_ps
+        gen double _msm_ps = `_denom_pr'
+        label variable _msm_ps "MSM treatment propensity P(A_t=1|history)"
+
         drop `_denom_pr0' `_denom_complete' `_denom_drop' `_denom0_complete' `_denom0_drop'
 
         * ---------------------------------------------------------------

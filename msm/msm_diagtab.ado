@@ -1,4 +1,4 @@
-*! msm_diagtab Version 1.0.4  2026/05/29
+*! msm_diagtab Version 1.1.0  2026/06/14
 *! Export an accumulated cross-contrast MSM weight-diagnostics frame to Excel
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

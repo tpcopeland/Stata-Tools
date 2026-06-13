@@ -1,4 +1,4 @@
-*! _msm_clear_downstream_state Version 1.0.4  2026/05/29
+*! _msm_clear_downstream_state Version 1.1.0  2026/06/14
 *! Clear downstream MSM pipeline artifacts after re-prepare
 *! Author: Timothy P Copeland
 
@@ -11,6 +11,7 @@ program define _msm_clear_downstream_state
             _msm_weight ///
             _msm_tw_weight ///
             _msm_cw_weight ///
+            _msm_ps ///
             _msm_esample ///
             _msm_period_sq ///
             _msm_period_cu ///
@@ -30,6 +31,11 @@ program define _msm_clear_downstream_state
             _msm_time_vars ///
             _msm_fit_level ///
             _msm_weight_var ///
+            _msm_ps_var ///
+            _msm_tw_var ///
+            _msm_ps_covars ///
+            _msm_estimand ///
+            _msm_contract_version ///
             _msm_pred_saved ///
             _msm_pred_type ///
             _msm_pred_strategy ///

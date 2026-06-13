@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.1.0** | 2026-05-29
+**Version 1.2.0** | 2026-06-14
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
@@ -24,11 +24,13 @@ net install psdash, from("/path/to/psdash") replace
 
 ## How It Works
 
-`psdash` is designed to work in seven modes:
+`psdash` is designed to work in nine modes:
 
 - **After `teffects`**: treatment, covariates, propensity scores, and the implied weighting scheme are auto-detected from `e()`. This is the shortest workflow: fit `teffects`, then run `psdash combined` or one of the individual subcommands.
 - **After cross-sectional `tmle`**: treatment, `_tmle_ps`, covariates, and `estimand()` are read from the tmle contract state. `psdash combined` and individual subcommands can be called without retyping those inputs.
 - **After `ltmle`**: run `psdash combined`. It reports period-by-period PS overlap and the contract weight distribution using the LTMLE PS and weight variables. Pooled individual subcommands require explicit variables rather than silently treating the longitudinal data as cross-sectional.
+- **After `msm_weight`**: treatment, the per-period treatment propensity `_msm_ps`, the treatment weight `_msm_tw_weight`, and the id/period structure are read from the msm dataset contract. Run `psdash combined` for the longitudinal period-by-period diagnostic; it complements `msm_diagnose` by adding the per-period overlap panel. Pooled subcommands require explicit variables.
+- **After `tte_weight ..., save_ps`**: treatment, the saved switch/treatment propensity, the IP weight, and the id/period structure are read from the tte dataset contract. Run `psdash combined` for the longitudinal trial-emulation diagnostic. The `save_ps` option is required so the propensity score survives in the dataset. Pooled subcommands require explicit variables.
 - **After `iivw_weight`**: treatment, `_iivw_ps`, treatment-model covariates, and `_iivw_tw` are read from the iivw dataset contract. Run `psdash combined` for treatment-propensity diagnostics, then `iivw_balance` for visit-intensity diagnostics.
 - **After `logit`/`probit`**: treatment and covariates are read from the estimation context, but you still supply the PS variable created by `predict`.
 - **After `mlogit` (multi-group)**: for multi-valued treatments with nonnegative integer levels, treatment and covariates are auto-detected from `e()`. Run `predict ps1 ps2 ps3, pr` and pass the GPS variables via `psvars(ps1 ps2 ps3)`.
@@ -55,6 +57,36 @@ psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
 iivw_balance, agrefit nolog
 iivw_fit sdmt treated age sex bl_edss, timespec(ns(3)) nolog
 ```
+
+## Using psdash with msm
+
+After `msm_weight` builds inverse-probability-of-treatment weights, the per-period treatment propensity `P(A_t = 1 \mid \text{history})` is kept as `_msm_ps` and the diagnostic contract is recorded in the dataset. Run `psdash combined` with no arguments to get the longitudinal period-by-period overlap and weight-distribution dashboard, then continue the MSM pipeline:
+
+```stata
+msm_prepare, id(id) period(period) treatment(treatment) ///
+    outcome(outcome) covariates(biomarker comorbidity age sex)
+msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex) nolog
+
+psdash combined
+msm_fit, ...
+```
+
+`psdash combined` complements `msm_diagnose`: `msm_diagnose` reports pooled balance, weight summaries, and effective sample size, while `psdash combined` adds the per-period propensity-score overlap panel and a period-by-period weight table. The pooled individual subcommands (`psdash overlap`, `balance`, `weights`, `support`) require explicit treatment and PS variables, since silently pooling the longitudinal data would mix periods.
+
+## Using psdash with tte
+
+After `tte_weight` fits the treatment/switch model in an expanded trial-emulation dataset, pass `save_ps` so the propensity score survives in the data. `psdash combined` then auto-detects the trial arm, the saved propensity score, the IP weight, and the trial/period structure:
+
+```stata
+tte_prepare, id(patid) period(period) treatment(treatment) outcome(outcome) ///
+    eligible(eligible) censor(censored) covariates(age sex comorbidity biomarker) estimand(PP)
+tte_expand, maxfollowup(4) grace(1)
+tte_weight, switch_d_cov(age sex comorbidity biomarker) switch_n_cov(age sex) save_ps nolog
+
+psdash combined
+```
+
+Without `save_ps`, `psdash` reports that the tte contract does not identify a propensity score and tells you to rerun with `save_ps`. As with msm and ltmle, the pooled individual subcommands require explicit variables.
 
 ## What Should I Run?
 
@@ -252,6 +284,7 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.2.0** (14 Jun 2026): Added longitudinal dataset-contract auto-detection after `msm_weight` and `tte_weight` (`save_ps`). `psdash combined` now produces period-by-period overlap and weight diagnostics for both, complementing `msm_diagnose`. Generalized the longitudinal diagnostics engine with a `source()` label and added focused msm/tte contract QA.
 - **v1.1.0** (29 May 2026): Added iivw dataset-contract auto-detection, `psdash weights, iivwcomponent()`, iivw source labels, and focused iivw contract QA.
 - **v1.0.2** (17 May 2026): Rejected invalid manual `estimand()` values, added clean multi-group treatment-level validation, isolated remaining QA installs, and made the demo path handling relocatable with failure-safe cleanup.
 - **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support threshold validation, and binary variance-ratio summaries.

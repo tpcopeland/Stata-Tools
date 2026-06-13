@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  29may2026}{...}
+{* *! version 1.2.0  14jun2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -45,6 +45,8 @@ where {it:subcommand} is one of:
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
 After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the estimand are read from the tmle contract state.
 After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled subcommands require explicit variables.
+After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity {cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm contract for the same longitudinal diagnostic.
+After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved switch/treatment propensity, IP weight, and trial/period structure from the tte contract.
 After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
 propensity-score, treatment-covariate, and treatment-weight variables are read
 from the iivw dataset contract.
@@ -128,8 +130,9 @@ always override by providing explicit arguments.
 For most analyses, start with {cmd:psdash combined}. It runs overlap, balance,
 weight, and support diagnostics together. Then rerun the individual panel named
 in any warning message when you need a graph, export, or modified weights.
-After {cmd:ltmle}, {cmd:psdash combined} switches to longitudinal diagnostics:
-per-period PS overlap plus contract-weight summaries.
+After {cmd:ltmle}, {cmd:msm_weight}, or {cmd:tte_weight} (with {opt save_ps}),
+{cmd:psdash combined} switches to longitudinal diagnostics: per-period PS overlap
+plus contract-weight summaries.
 
 {pstd}
 The four diagnostics answer different practical questions: {cmd:overlap} asks
@@ -356,7 +359,7 @@ the combined dashboard. It is not passed to the support panel.
 {title:Remarks}
 
 {pstd}
-{cmd:psdash} is designed to work in seven modes:
+{cmd:psdash} is designed to work in nine modes:
 
 {phang2}
 1. {bf:After teffects}: treatment, covariates, PS, and weights are fully
@@ -373,23 +376,36 @@ overlap and contract-weight summaries instead of silently pooling person-period
 rows as if they were cross-sectional observations.
 
 {phang2}
-4. {bf:After iivw_weight}: treatment, {cmd:_iivw_ps}, treatment-model
+4. {bf:After msm_weight}: treatment, the per-period treatment propensity
+{cmd:_msm_ps}, the treatment weight {cmd:_msm_tw_weight}, and the id/period
+structure are auto-detected from msm dataset metadata. Run {cmd:psdash combined}
+for the longitudinal diagnostic; it complements {cmd:msm_diagnose} by adding the
+per-period overlap panel.
+
+{phang2}
+5. {bf:After tte_weight ..., save_ps}: the trial arm, the saved switch/treatment
+propensity, the IP weight, and the trial/period structure are auto-detected from
+tte dataset metadata. Run {cmd:psdash combined}. The {opt save_ps} option is
+required so the propensity score survives in the dataset.
+
+{phang2}
+6. {bf:After iivw_weight}: treatment, {cmd:_iivw_ps}, treatment-model
 covariates, and {cmd:_iivw_tw} are auto-detected from iivw dataset metadata.
 Run {cmd:psdash combined}. Use {cmd:psdash weights, iivwcomponent(final)}
 when you want the final FIPTIW/IPTW analysis-weight distribution.
 
 {phang2}
-5. {bf:After logit/probit}: treatment and covariates are auto-detected from
+7. {bf:After logit/probit}: treatment and covariates are auto-detected from
 {cmd:e()}. The user must provide the PS variable (from {cmd:predict}).
 
 {phang2}
-6. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
+8. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
 and covariates are auto-detected from {cmd:e()}. The user runs
 {cmd:predict ps1 ps2 ps3, pr} and passes the GPS variables via
 {opt psvars(ps1 ps2 ps3)}.
 
 {phang2}
-7. {bf:Manual}: the user provides treatment and PS variables explicitly,
+9. {bf:Manual}: the user provides treatment and PS variables explicitly,
 along with covariates and/or weights via options.
 
 {pstd}
@@ -714,11 +730,11 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, {cmd:"ltmle"}, or {cmd:"iivw"}){p_end}
-{synopt:{cmd:r(wvar)}}weight variable name for combined diagnostics or LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(wvar)}}weight variable name for combined diagnostics or longitudinal (ltmle/msm/tte) diagnostics{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
-{synopt:{cmd:r(period)}}period variable for LTMLE longitudinal diagnostics{p_end}
-{synopt:{cmd:r(periods)}}period values included in LTMLE longitudinal diagnostics{p_end}
-{synopt:{cmd:r(id)}}ID variable for LTMLE longitudinal diagnostics, when available{p_end}
+{synopt:{cmd:r(period)}}period variable for longitudinal (ltmle/msm/tte) diagnostics{p_end}
+{synopt:{cmd:r(periods)}}period values included in longitudinal (ltmle/msm/tte) diagnostics{p_end}
+{synopt:{cmd:r(id)}}ID variable for longitudinal (ltmle/msm/tte) diagnostics, when available{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
 {synopt:{cmd:r(contract_version)}}LTMLE contract version metadata, when available{p_end}
@@ -728,8 +744,8 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
 {synopt:{cmd:r(N)}}observations in the LTMLE diagnostic sample{p_end}
-{synopt:{cmd:r(longitudinal)}}1 for LTMLE longitudinal diagnostics{p_end}
-{synopt:{cmd:r(N_periods)}}number of periods for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(longitudinal)}}1 for longitudinal (ltmle/msm/tte) diagnostics{p_end}
+{synopt:{cmd:r(N_periods)}}number of periods for longitudinal (ltmle/msm/tte) diagnostics{p_end}
 {synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap, LTMLE only{p_end}
 {synopt:{cmd:r(mean_wt)}, {cmd:r(sd_wt)}}mean and SD of LTMLE contract weights{p_end}
 {synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}minimum and maximum LTMLE contract weights{p_end}

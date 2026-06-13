@@ -1,4 +1,4 @@
-*! _psdash_pscheck Version 1.1.0  2026/05/29
+*! _psdash_pscheck Version 1.2.0  2026/06/14
 *! Validate propensity score ranges and positivity warnings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

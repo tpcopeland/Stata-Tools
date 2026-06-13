@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.1.0  2026/05/29
+*! psdash_combined Version 1.2.0  2026/06/14
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -136,11 +136,13 @@ program define psdash_combined, rclass
         }
         local regime_opt ""
         if "`regime'" != "" local regime_opt `"regime("`regime'")"'
+        local source_opt ""
+        if "`source'" != "" local source_opt `"source("`source'")"'
         _psdash_ltmle_diagnostics, treatment(`treatment') ///
             period(`period') psvar("`psvar'") wvar("`wvar'") ///
             samplevar(`touse') `id_opt' ///
             estimand(`"`estimand'"') `regime_opt' ///
-            `method_opt' `contract_opt' ///
+            `method_opt' `contract_opt' `source_opt' ///
             title(`"`title'"')
         return add
         return local treatment "`treatment'"

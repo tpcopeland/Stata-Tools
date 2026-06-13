@@ -1,4 +1,4 @@
-*! _msm_tbl_coef Version 1.0.4  2026/05/29
+*! _msm_tbl_coef Version 1.1.0  2026/06/14
 program define _msm_tbl_coef, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

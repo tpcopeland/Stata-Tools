@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  29may2026}{...}
+{* *! version 1.1.0  14jun2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
@@ -67,19 +67,28 @@ specify {cmd:censor_d_cov()}, it also produces inverse probability of
 censoring weights (IPCW) and combines both into a single final weight.
 
 {pstd}
-Three new variables are created in the dataset:
+New variables are created in the dataset:
 
 {phang2}{cmd:_msm_weight} {hline 2} the final combined cumulative weight
 (treatment x censoring){p_end}
 {phang2}{cmd:_msm_tw_weight} {hline 2} cumulative treatment weight only{p_end}
 {phang2}{cmd:_msm_cw_weight} {hline 2} cumulative censoring weight
 (only if IPCW is requested){p_end}
+{phang2}{cmd:_msm_ps} {hline 2} the per-period treatment propensity
+P(A_t = 1 | history) from the denominator model, kept for diagnostics{p_end}
 
 {pstd}
 Well-specified stabilized weights should have a mean close to 1.0 and moderate
 variability.  If the mean deviates substantially from 1 or the max/min ratio
 is extreme, the command prints a diagnostic note suggesting you review the
 treatment model specification.
+
+{pstd}
+After {cmd:msm_weight}, run {helpb psdash:psdash combined} for a longitudinal
+period-by-period propensity-score overlap and weight diagnostic. It reads the
+treatment, {cmd:_msm_ps}, the treatment weight, and the id/period structure
+from the msm contract and complements {helpb msm_diagnose} (which reports pooled
+balance, weight summaries, and effective sample size).
 
 
 {marker mechanics}{...}
@@ -179,9 +188,9 @@ time-consuming weighting run.
 
 {phang}
 {opt replace} allows overwriting existing {cmd:_msm_weight},
-{cmd:_msm_tw_weight}, and {cmd:_msm_cw_weight} variables from a previous
-run.  Without this option, {cmd:msm_weight} refuses to overwrite and exits
-with an error.
+{cmd:_msm_tw_weight}, {cmd:_msm_cw_weight}, and {cmd:_msm_ps} variables from a
+previous run.  Without this option, {cmd:msm_weight} refuses to overwrite and
+exits with an error.
 
 {phang}
 {opt nolog} suppresses the iteration log from the logistic models.

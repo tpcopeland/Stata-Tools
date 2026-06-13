@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.4** | 2026-05-29
+**Version 1.1.0** | 2026-05-29
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -136,6 +136,7 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 | You want to know whether the data are usable | `msm_validate` | Checks panel structure, binary variables, missingness, positivity, and outcome timing |
 | You need the pseudo-population | `msm_weight` | Creates `_msm_weight`, the stabilized inverse-probability weight used downstream |
 | You are worried about extreme weights or imbalance | `msm_diagnose` and `msm_plot` | Summarizes weights and checks whether weighting improved covariate balance |
+| You want a per-period propensity-score overlap and weight dashboard | `psdash combined` | Auto-detects the msm treatment model (`_msm_ps`, treatment weight, id/period) and reports period-by-period overlap; complements `msm_diagnose` (requires the `psdash` package) |
 | You need the causal effect estimate | `msm_fit` | Fits the weighted outcome model and stores the treatment effect |
 | You want absolute risks under treatment strategies | `msm_predict` | Converts a fitted logistic MSM into standardized counterfactual predictions |
 | You need a paper/report table | `msm_report` or `msm_table` | Produces a compact summary or a multi-sheet Excel workbook |
@@ -398,6 +399,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.1.0** (2026-06-14): `msm_weight` now keeps the per-period treatment propensity `P(A_t=1|history)` as `_msm_ps` and records a psdash diagnostic contract in the dataset, so `psdash combined` auto-detects the treatment model and produces a longitudinal period-by-period overlap and weight diagnostic with no retyping. Complements `msm_diagnose`.
 - **1.0.4** (2026-05-29): Added cross-contrast weight diagnostics: `msm_diagnose` gains `accumulate()`/`contrast()`/`outcome()` to append one summary row per weighted panel to a frame, and the new `msm_diagtab` command exports that accumulated frame as a single styled Excel sheet
 - **1.0.3** (2026-05-06): Added explicit `msm_fit` `vce()` control, Cox `strata()` support, and external R/Python validation of robust and clustered standard errors
 - **1.0.2** (2026-05-06): Added adversarial QA for state invalidation, missing treatment/censoring weights, output export restoration, and clarified binary-outcome model scope

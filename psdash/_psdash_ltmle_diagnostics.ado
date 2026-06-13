@@ -1,5 +1,5 @@
-*! _psdash_ltmle_diagnostics Version 1.1.0  2026/05/29
-*! Longitudinal propensity score diagnostics for LTMLE contract state
+*! _psdash_ltmle_diagnostics Version 1.2.0  2026/06/14
+*! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
@@ -12,20 +12,22 @@ program define _psdash_ltmle_diagnostics, rclass
         syntax , TREATment(varname numeric) PERiod(varname numeric) ///
             PSVAR(string) WVAR(string) SAMPLEvar(varname) ///
             [ID(string) ESTIMand(string) REGime(string) METHOD(string) ///
-             CONTRACT(string) TItle(string)]
+             CONTRACT(string) TItle(string) SOURCE(string)]
 
         local psvar = strtrim("`psvar'")
         local wvar = strtrim("`wvar'")
         local id = strtrim("`id'")
+        local source = strtrim("`source'")
+        if "`source'" == "" local source "ltmle"
 
         if "`psvar'" == "" {
-            display as error "ltmle contract does not identify a propensity score variable"
-            display as error "  psdash combined requires e(ps_var) or _dta[_ltmle_ps_var]"
+            display as error "`source' contract does not identify a propensity score variable"
+            display as error "  psdash combined requires a longitudinal propensity score variable"
             exit 198
         }
         if "`wvar'" == "" {
-            display as error "ltmle contract does not identify a weight variable"
-            display as error "  psdash combined requires e(weight_var) or _dta[_ltmle_weight_var]"
+            display as error "`source' contract does not identify a weight variable"
+            display as error "  psdash combined requires a longitudinal weight variable"
             exit 198
         }
 
@@ -41,27 +43,27 @@ program define _psdash_ltmle_diagnostics, rclass
 
         quietly count if `samplevar'
         if r(N) == 0 {
-            display as error "no observations in LTMLE diagnostic sample"
+            display as error "no observations in `source' diagnostic sample"
             exit 2000
         }
         local N = r(N)
 
         capture assert inlist(`treatment', 0, 1) if `samplevar'
         if _rc {
-            display as error "ltmle treatment variable must be binary (0/1)"
+            display as error "`source' treatment variable must be binary (0/1)"
             exit 198
         }
 
         quietly count if `samplevar' & (`psvar' < 0 | `psvar' > 1)
         if r(N) > 0 {
-            display as error "ltmle propensity scores must be in [0,1]"
+            display as error "`source' propensity scores must be in [0,1]"
             exit 198
         }
 
         quietly levelsof `period' if `samplevar', local(period_values)
         local n_periods : word count `period_values'
         if `n_periods' == 0 {
-            display as error "no period values in LTMLE diagnostic sample"
+            display as error "no period values in `source' diagnostic sample"
             exit 2000
         }
 
@@ -195,7 +197,7 @@ program define _psdash_ltmle_diagnostics, rclass
         }
 
         display as text _n as result `"`title'"'
-        display as text "Source:        " as result "ltmle"
+        display as text "Source:        " as result "`source'"
         if "`method'" != "" {
             display as text "Method:        " as result "`method'"
         }
@@ -319,7 +321,7 @@ program define _psdash_ltmle_diagnostics, rclass
         return local regime "`regime'"
         return local method "`method'"
         return local contract_version "`contract'"
-        return local source "ltmle"
+        return local source "`source'"
         return matrix weights_by_period = `wtperiod'
         return matrix overlap_by_period = `overlap'
     }
