@@ -231,8 +231,12 @@ program define _logdoc_convert, rclass
         * binary that matches the running flavor and OS.  stataexe() lets a
         * user with a nonstandard install name or off-PATH binary override.
         if `"`stataexe'"' != "" {
-            if regexm(`"`stataexe'"', "[;&|><`$]") | strpos(`"`stataexe'"', `"""') {
-                display as error "stataexe() contains illegal shell characters"
+            * Allowlist legal executable-name/path characters (letters,
+            * digits, dot, underscore, hyphen, slash, backslash, colon,
+            * space).  Anything else -- shell metacharacters, quotes --
+            * is rejected before the value reaches `shell'.
+            if regexm(`"`stataexe'"', "[^A-Za-z0-9._/\: -]") {
+                display as error "stataexe() contains illegal characters"
                 exit 198
             }
             local _stataexe `"`stataexe'"'
