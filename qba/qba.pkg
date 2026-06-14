@@ -1,5 +1,5 @@
 v 3
-d 'qba': Quantitative Bias Analysis for epidemiologic data
+d 'QBA': Quantitative Bias Analysis for epidemiologic data
 d
 d Implements simple and probabilistic bias analysis for
 d misclassification, selection bias, and unmeasured confounding.

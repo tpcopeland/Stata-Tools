@@ -1,5 +1,5 @@
 v 3
-d psdash: Propensity Score Diagnostics Dashboard
+d 'PSDASH': Propensity Score Diagnostics Dashboard
 d
 d Unified interface for propensity score diagnostics including overlap
 d assessment, covariate balance (SMD + Love plot), weight diagnostics
