@@ -214,41 +214,6 @@ The demo runs the full pipeline on the bundled `msm_example.dta` dataset. Consol
 
 ### Console output
 
-<details>
-<summary>Setup, protocol, and validation (click to expand)</summary>
-
-[View HTML](demo/console_pipeline_setup.html) | [Source .do file](demo/demo_msm.do)
-
-![Setup output](demo/console_pipeline_setup_p1.png)
-![Setup output](demo/console_pipeline_setup_p2.png)
-![Setup output](demo/console_pipeline_setup_p3.png)
-![Setup output](demo/console_pipeline_setup_p4.png)
-
-</details>
-
-<details>
-<summary>Weighting and diagnostics (click to expand)</summary>
-
-[View HTML](demo/console_pipeline_diagnostics.html)
-
-![Diagnostics output](demo/console_pipeline_diagnostics_p1.png)
-![Diagnostics output](demo/console_pipeline_diagnostics_p2.png)
-
-</details>
-
-<details>
-<summary>Estimation, prediction, and reporting (click to expand)</summary>
-
-[View HTML](demo/console_pipeline_results.html)
-
-![Results output](demo/console_pipeline_results_p1.png)
-![Results output](demo/console_pipeline_results_p2.png)
-![Results output](demo/console_pipeline_results_p3.png)
-![Results output](demo/console_pipeline_results_p4.png)
-![Results output](demo/console_pipeline_results_p5.png)
-
-</details>
-
 ### Graphs
 
 ![Counterfactual cumulative incidence](demo/survival_plot.png)

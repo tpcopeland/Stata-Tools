@@ -92,59 +92,6 @@ The demo script (`rangematch/demo/demo_rangematch.do`) installs the local packag
 stata-mp -b do rangematch/demo/demo_rangematch.do
 ```
 
-<details>
-<summary>Exposure-window console output (click to expand — uses a richer dataset than the Worked Example above)</summary>
-
-```stata
-. noisily rangematch event_date exposure_start exposure_end using "`adverse_events'",
->     by(patient_id) keepusing(event_id event_date event_type severity)
->     generate(match_status) masterid(exposure_row) usingid(event_row)
->     frame(exposure_events) replace stats
-```
-
-```
-    Result                       Number of obs
-    -------------------------------------------------
-    Not matched                                       0
-    Matched                                           4
-    -------------------------------------------------
-    Total output                                      4
-    Output frame                           exposure_events
-
-    Match density                Value
-    -------------------------------------------------
-    Matched master rows                               4
-    Unmatched master rows                             0
-    Unmatched using rows                              3
-    Max matches/master row                            1
-    Mean matches/master row                       1.000
-    p50 matches/master row                        1.000
-    p90 matches/master row                        1.000
-    p99 matches/master row                        1.000
-    Master groups with no using keys                  0
-    Master groups considered                          3
-```
-
-```stata
-. noisily frame exposure_events: list patient_id drug exposure_start exposure_end
->     event_id event_date event_type severity match_status, sepby(patient_id) noobs
-```
-
-```
-  +----------------------------------------------------------------------------------------------------+
-  | patien~d     drug   exposur~t   exposur~d   event_id   event_d~e   event_t~e   severity   match_~s |
-  |----------------------------------------------------------------------------------------------------|
-  |      101   drug_a   15jan2020   14feb2020       1001   20jan2020        rash          2    matched |
-  |      101   drug_b   01mar2020   15mar2020       1003   10mar2020      nausea          2    matched |
-  |----------------------------------------------------------------------------------------------------|
-  |      102   drug_a   10feb2020   02mar2020       1004   15feb2020   dizziness          3    matched |
-  |----------------------------------------------------------------------------------------------------|
-  |      103   drug_c   20feb2020   01mar2020       1006   25feb2020        rash          1    matched |
-  +----------------------------------------------------------------------------------------------------+
-```
-
-</details>
-
 ## Syntax
 
 ```stata
@@ -369,30 +316,6 @@ pure-overlap benchmark. `rangematch` adds features not covered by this
 comparison, including frame output, using-frame input, unmatched-row modes,
 nearest matching, distance variables, explicit output saving, and deterministic
 default output sorting.
-
-<details>
-<summary>Benchmark console output (click to expand)</summary>
-
-```stata
-. list scenario pairs rangematch_sec rangejoin_sec rj_over_rm status,
->     noobs abbreviate(16)
-```
-
-```
-  +--------------------------------------------------------------------------------+
-  |    scenario       pairs   rangematch_sec   rangejoin_sec   rj_over_rm   status |
-  |--------------------------------------------------------------------------------|
-  |  sparse_10k      10,000            0.072           0.154        2.139       ok |
-  |   dense_10k     207,800            0.161           0.152        0.944       ok |
-  | sparse_100k     100,000            0.382           0.435        1.139       ok |
-  |  dense_100k   1,098,500            0.772           1.081        1.400       ok |
-  |   sparse_1m   1,000,000            2.953           4.245        1.438       ok |
-  |--------------------------------------------------------------------------------|
-  |    dense_1m   2,999,800            3.937           5.781        1.468       ok |
-  +--------------------------------------------------------------------------------+
-```
-
-</details>
 
 The package also ships `bench_rangematch.do`, a self-contained timing script that always benchmarks `rangematch` and optionally compares SSC `rangejoin` when it is installed. After installation, retrieve the ancillary benchmark file with `net get`:
 
