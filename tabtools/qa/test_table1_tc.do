@@ -1455,8 +1455,9 @@ else {
 
 capture noisily {
     _t1agg_build_data
+    * wtn restores weighted n (%) so the side-by-side count format is exercised.
     table1_tc, by(trt) vars(age contn %6.2f \ female bin \ stage cat) ///
-        wt(w) wtcompare smd total(after) clear nformat(%9.0f) percformat(%5.1f) percsign("%")
+        wt(w) wtcompare wtn smd total(after) clear nformat(%9.0f) percformat(%5.1f) percsign("%")
     confirm variable Cr_0
     confirm variable Cr_1
     confirm variable Cr_T
@@ -1502,10 +1503,10 @@ else {
 }
 
 **# Weighted effective count: weighted n differs from crude and is consistent
-* Regression guard for the 1.7.1 fix. In wt()/wtcompare mode the displayed
-* count is the effective count (weighted % x group N), so the weighted count
-* differs from the crude raw count and satisfies n/N = weighted %. Before the
-* fix the weighted column showed the raw unweighted count (identical to crude).
+* Regression guard for the weighted-count fix. With wtn, the displayed weighted
+* count is the effective count (weighted % x group N), so it differs from the
+* crude raw count and satisfies n/N = weighted %. (The original bug rendered the
+* weighted count as the raw unweighted count, identical to crude.)
 local ++test_count
 capture noisily {
     clear
@@ -1528,7 +1529,7 @@ capture noisily {
     local _wprop = (60 * 2) / (60 * 2 + 40 * 0.5)   // 120/140 = .857
     local _eff = round(`_wprop' * `_rawN')          // round(85.7) = 86
 
-    table1_tc, by(grp) vars(female bin) wt(w) wtcompare ///
+    table1_tc, by(grp) vars(female bin) wt(w) wtcompare wtn ///
         clear nformat(%9.0f) percformat(%5.1f) percsign("%")
 
     _t1agg_row "Female"
@@ -1555,6 +1556,87 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: weighted effective-count contract (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Weighted display policy: recommended defaults + wtn override
+* Standalone weighted and wtcompare default to percent-only weighted columns;
+* wtn restores the weighted effective count. Crude columns always keep n (%).
+local ++test_count
+capture noisily {
+    clear
+    set obs 200
+    gen byte grp = _n > 100
+    gen byte female = mod(_n - 1, 100) + 1 <= 60
+    gen double w = cond(female, 2, 0.5)
+    label variable female "Female"
+
+    * (a) standalone weighted default: percent-only (no count, so no "(").
+    table1_tc, by(grp) vars(female bin) wt(w) clear ///
+        nformat(%9.0f) percformat(%5.1f) percsign("%")
+    _t1agg_row "Female"
+    assert strpos(grp_0[r(row)], "(") == 0
+    assert strpos(grp_0[r(row)], "%") > 0
+
+    * (b) standalone weighted + wtn: effective count shown as n (%).
+    clear
+    set obs 200
+    gen byte grp = _n > 100
+    gen byte female = mod(_n - 1, 100) + 1 <= 60
+    gen double w = cond(female, 2, 0.5)
+    label variable female "Female"
+    table1_tc, by(grp) vars(female bin) wt(w) wtn clear ///
+        nformat(%9.0f) percformat(%5.1f) percsign("%")
+    _t1agg_row "Female"
+    assert strpos(grp_0[r(row)], "(") > 0
+
+    * (c) wtcompare default: crude keeps n (%), weighted is percent-only.
+    clear
+    set obs 200
+    gen byte grp = _n > 100
+    gen byte female = mod(_n - 1, 100) + 1 <= 60
+    gen double w = cond(female, 2, 0.5)
+    label variable female "Female"
+    table1_tc, by(grp) vars(female bin) wt(w) wtcompare smd clear ///
+        nformat(%9.0f) percformat(%5.1f) percsign("%")
+    _t1agg_row "Female"
+    local frow = r(row)
+    assert strpos(Cr_0[`frow'], "(") > 0
+    assert strpos(Wt_0[`frow'], "(") == 0
+    assert strpos(Wt_0[`frow'], "%") > 0
+    confirm variable smd_str
+}
+if _rc == 0 {
+    display as result "  PASS: weighted display policy (percent-only default, wtn override)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: weighted display policy (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# wtn option guards
+local ++test_count
+capture noisily {
+    clear
+    set obs 100
+    gen byte grp = _n > 50
+    gen byte female = mod(_n, 2)
+    gen double w = 1 + mod(_n, 3)
+
+    * wtn requires wt()
+    capture table1_tc, by(grp) vars(female bin) wtn clear
+    assert _rc == 198
+    * wtn is incompatible with percent (which suppresses all counts)
+    capture table1_tc, by(grp) vars(female bin) wt(w) wtn percent clear
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: wtn guards (requires wt(); incompatible with percent)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: wtn guards (rc=`=_rc')"
     local ++fail_count
 }
 

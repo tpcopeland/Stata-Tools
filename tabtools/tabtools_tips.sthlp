@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.1  14jun2026}{...}
+{* *! version 1.8.0  14jun2026}{...}
 {viewerjumpto "Syntax" "tabtools_tips##syntax"}{...}
 {viewerjumpto "Description" "tabtools_tips##description"}{...}
 {viewerjumpto "Quick reference" "tabtools_tips##quick"}{...}
@@ -339,6 +339,6 @@ contracts.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.7.1{p_end}
+{pstd}{bf:Version} 1.8.0{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.7.1  2026/06/14
+*! _tabtools_table1_fast_collect Version 1.8.0  2026/06/14
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -101,7 +101,9 @@ program define _tabtools_table1_fast_collect, rclass
         if `"`percfootnote2'"' == "" local percfootnote2 "`percfootnote'"
 
         local has_wt = "`wt'" != ""
-        if `has_wt' & "`percent_n'" == "" & "`wtcompare'" == "" local percent "percent"
+        /* Display policy (percent-only vs n) is owned by the caller (table1_tc),
+           which passes `percent' explicitly when counts should be suppressed.
+           This helper no longer auto-suppresses counts for weighted data. */
         local has_fw = "`weight'" == "fweight"
         if `has_wt' & `has_fw' {
             display as error "wt() and fweight cannot be used together"

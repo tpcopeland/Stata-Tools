@@ -1,4 +1,4 @@
-*! table1_tc Version 1.7.1  2026/06/14 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.8.0  2026/06/14 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -85,6 +85,7 @@ program define table1_tc, rclass
         [NOIsily]               /// Show auto-detection classification decisions
         [dots]                  /// Show progress dots per variable
         [WTCompare]             /// Side-by-side crude vs weighted comparison
+        [WTN]                   /// Show weighted (effective) counts in weighted columns
         [NOPvalue]              /// Suppress p-value column
 
 **# Input Validation and Option Setup
@@ -232,12 +233,27 @@ program define table1_tc, rclass
     local has_wt = "`wt'" != ""
     local _suppress_p = `has_wt' | "`nopvalue'" == "nopvalue"
 
-    /* When wt() specified without wtcompare: default to percent-only for
-       binary/categorical variables. In IPTW analyses, showing unweighted counts
-       with weighted percentages is misleading (n/N ≠ %). Users can override
-       with percent_n to see counts. wtcompare excluded: it has its own two-pass
-       loop where crude columns need n(%) and the layout is already labeled. */
-    if `has_wt' & "`percent_n'" == "" & "`wtcompare'" == "" {
+    /* Weighted display policy. The recommended weighted table reports
+       percentages (plus SMD for balance), not counts: once weighted, the
+       displayed count is a function of the percentage and N (effective
+       n = % × N), so "n (%)" prints the same number twice and dresses a
+       synthetic quantity up as a real frequency. Counts are therefore shown
+       only on request, via wtn (or percent_n):
+         - standalone weighted: percent-only by default; wtn restores the
+           effective count as n (%), percent_n as % (n).
+         - wtcompare: crude columns always keep n (%); weighted columns are
+           percent-only by default, with wtn/percent_n restoring weighted n.
+       See the weighted-data Technical note in help table1_tc. */
+    if "`wtn'" != "" & !`has_wt' {
+        display as error "wtn requires wt() to be specified"
+        exit 198
+    }
+    if "`wtn'" != "" & "`percent'" != "" {
+        display as error "wtn and percent are incompatible (percent suppresses all counts)"
+        exit 198
+    }
+    local _show_wtn = ("`percent_n'" != "" | "`wtn'" != "")
+    if `has_wt' & !`_show_wtn' & "`wtcompare'" == "" {
         local percent "percent"
     }
 
@@ -531,6 +547,10 @@ program define table1_tc, rclass
             `_fast_common_opts' nopvalue
 
         local _fast_weighted_opts `"`_fast_common_opts' `_fast_analysis_opts' wt(`wt') wtcompare"'
+        /* Recommended default: weighted columns are percent-only. wtn/percent_n
+           (captured in _show_wtn) restore the weighted effective count. The
+           crude pass above always keeps n (%). */
+        if !`_show_wtn' local _fast_weighted_opts `"`_fast_weighted_opts' percent"'
         _tabtools_table1_fast_collect if `touse', ///
             by(`groupnum') vars(`vars') saving("`resultstable'") ///
             `_fast_weighted_opts'

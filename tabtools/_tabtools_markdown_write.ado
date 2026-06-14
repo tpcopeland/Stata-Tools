@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.7.1  2026/06/14
+*! _tabtools_markdown_write Version 1.8.0  2026/06/14
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

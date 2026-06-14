@@ -1,4 +1,4 @@
-*! eplot Version 1.2.1  2026/06/14
+*! eplot Version 1.2.2  2026/06/14
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -927,7 +927,7 @@ program define _eplot_data, rclass
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid valuelabel)"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
         local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
@@ -941,7 +941,7 @@ program define _eplot_data, rclass
         if `"`favors'"' != "" {
             local ypad_hi = `pos_max' + 2
         }
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid valuelabel)"'
@@ -1629,17 +1629,21 @@ program define _eplot_estimates, rclass
         }
     }
 
-    // ====== Auto-label from variable labels (before coeflabels override) ======
+    // ====== Apply coefficient labels (highest precedence) ======
+    // coeflabels() is applied FIRST, while coef_name still holds the original
+    // estimation names that coeflabels() keys on. The auto-label pass below
+    // then only touches coefficients coeflabels() did not rename, so a
+    // user-supplied label always wins over the variable-label default.
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
+    }
+
+    // ====== Auto-label remaining coefficients from variable labels ======
     if `_n_autolabels' > 0 {
         forvalues _ai = 1/`_n_autolabels' {
             quietly replace coef_name = `"`_autoval_`_ai''"' ///
                 if coef_name == `"`_autokey_`_ai''"'
         }
-    }
-
-    // ====== Apply coefficient labels (AFTER auto-labels, overrides them) ======
-    if `"`coeflabels'"' != "" {
-        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
     }
 
     // ====== Significance stars (string labels from pre-eform p-values) ======
@@ -2415,7 +2419,7 @@ program define _eplot_matrix, rclass
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
         local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
             local _val_hdr_y = 0.3
@@ -2428,7 +2432,7 @@ program define _eplot_matrix, rclass
         if `"`favors'"' != "" {
             local ypad_hi = `pos_max' + 2
         }
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'

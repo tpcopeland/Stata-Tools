@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.1  14jun2026}{...}
+{* *! version 1.8.0  14jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -53,7 +53,7 @@ use {cmd:table1_tc}.{p_end}
 {synopthdr}
 {synoptline}
 {syntab:Weighting}
-{synopt:{opt wt(varname)}}Weight variable (e.g., IPTW): weighted statistics with unweighted N; p-values suppressed (see Technical notes).{p_end}
+{synopt:{opt wt(varname)}}probability/IP weight (e.g. IPTW); weighted columns are % only (see {opt wtn}, Technical notes){p_end}
 
 {syntab:Columns/Rows}
 {synopt:{opt by(varname)}}group observations by {it:varname}{p_end}
@@ -113,6 +113,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
 {synopt:{opt noi:sily}}display detailed processing output{p_end}
 {synopt:{opt wtc:ompare}}show unweighted statistics alongside weighted (requires {opt wt()}){p_end}
+{synopt:{opt wtn}}show weighted (effective) counts as {it:n (%)} in weighted columns (requires {opt wt()}){p_end}
 {synoptline}
 
 
@@ -183,9 +184,14 @@ directly to a regression model:{p_end}
 {phang3}{cmd:xlsx("table1_detail.xlsx") sheet("Baseline") ///}{p_end}
 {phang3}{cmd:title("Table 1. Baseline Characteristics") smd zebra}{p_end}
 
-{pstd}{bf:IPTW-weighted Table 1:}{p_end}
+{pstd}{bf:IPTW-weighted Table 1:} (weighted columns show % + SMD; add {opt wtn} for weighted counts){p_end}
 
-{phang2}{cmd:. table1_tc, by(treated) wt(iptw) ///}{p_end}
+{phang2}{cmd:. table1_tc, by(treated) wt(iptw) smd ///}{p_end}
+{phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
+
+{pstd}{bf:Crude vs IPTW-weighted, side by side:}{p_end}
+
+{phang2}{cmd:. table1_tc, by(treated) wt(iptw) wtcompare smd ///}{p_end}
 {phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
 
 {pstd}{bf:Custom SMD threshold (0.2 instead of 0.1):}{p_end}
@@ -232,9 +238,29 @@ directly to a regression model:{p_end}
 {pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
 deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
 
-{pstd}Under {opt wt()}, weighted statistics are reported with an unweighted N, p-values are
-suppressed, and categorical/binary variables default to percent-only display; use {opt percent_n}
-to report {it:percent (n)} instead.{p_end}
+{pstd}{bf:Weight type.} {opt wt()} is intended for probability / inverse-probability
+weights (IPTW, survey, or sampling weights), {it:not} frequency weights -- pass true
+frequency counts as an {opt fweight} instead. The weight is applied analytically
+(like an {opt aweight}) for point estimates: weighted means and proportions equal
+{it:(sum of w*x) / (sum of w)}, which is identical whether the weight is regarded
+as a probability or an analytic weight. The two differ only in variance / standard-error
+estimation -- which is exactly why p-values are suppressed under {opt wt()}: correct
+inference would require survey ({helpb svy:}) or robust treatment that this descriptive
+command does not attempt.{p_end}
+
+{pstd}{bf:Weighted display.} Under {opt wt()}, weighted statistics are reported on the
+{it:unweighted}-N scale (the header N and ESS count real observations). Weighted columns
+show {it:percentages only} by default: once weighted, the cell count is just
+{it:(weighted %) x N}, so {it:n (%)} would print the same number twice and dress a
+synthetic quantity up as a real frequency. The percentage -- together with the {opt smd}
+balance column -- is what carries meaning. To display the weighted {it:effective} count
+anyway, add {opt wtn} (shows {it:n (%)}) or {opt percent_n} (shows {it:% (n)}); the
+effective count is {it:(weighted %) x N}, a normalized pseudo-count on the
+real-observation scale, not the sum of weights.{p_end}
+
+{pstd}With {opt wtcompare} the crude columns always show {it:n (%)} (real counts), while
+the weighted columns follow the same rule: percent-only by default, {opt wtn} or
+{opt percent_n} to add the weighted effective count.{p_end}
 
 {pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel and Markdown output.
 Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}
@@ -268,7 +294,7 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.7.1{p_end}
+{pstd}{bf:Version} 1.8.0{p_end}
 
 {title:Also see}
 
