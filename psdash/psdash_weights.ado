@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.2.1  2026/06/14
+*! psdash_weights Version 1.3.0  2026/06/14
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -88,9 +88,16 @@ program define psdash_weights, rclass
          SCHeme(string) ///
          GRAPHOPTions(string asis) ///
          name(string) ///
+         xlsx(string) ///
+         sheet(string) ///
          ESTImand(string) ///
          PSVars(varlist numeric) ///
          IIVWComponent(string)]
+
+    if "`xlsx'" != "" {
+        _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
+    }
+    if "`sheet'" == "" local sheet "Weights"
 
     if "`iivwcomponent'" != "" {
         local iivwcomponent = strlower("`iivwcomponent'")
@@ -695,6 +702,19 @@ program define psdash_weights, rclass
         }
     }
 
+    * EXPORT TO EXCEL (binary, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "Total N" "N (treated)" "N (control)" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N" "ESS % (treated)" "ESS % (control)" "Weights > extreme (N)" "Weights > extreme (%)" "Weights > very-extreme (N)" "p1" "p5" "p95""'
+            local _xv `""`treatment'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'" "`=string(`ess_pct_t',"%5.1f")'" "`=string(`ess_pct_c',"%5.1f")'" "`n_extreme'" "`=string(`pct_extreme',"%5.2f")'" "`n_very_extreme'" "`=string(`p1',"%8.4f")'" "`=string(`p5',"%8.4f")'" "`=string(`p95',"%8.4f")'""'
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("Weight Diagnostics") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Weights table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+    }
+
     local _psdash_return_mode "binary"
 
     } // end binary path
@@ -1133,6 +1153,25 @@ program define psdash_weights, rclass
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
         }
+    }
+
+    * EXPORT TO EXCEL (multi-group, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "Groups (K)" "Total N" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N""'
+            local _xv `""`treatment'" "`K'" "`N'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'""'
+            foreach lev of local levels {
+                local _xk `"`_xk' "N (group `lev')" "ESS % (group `lev')""'
+                local _xv `"`_xv' "`n_group_`lev''" "`=string(`ess_pct_`lev'',"%5.1f")'""'
+            }
+            local _xk `"`_xk' "Weights > extreme (N)" "Weights > extreme (%)" "Weights > very-extreme (N)""'
+            local _xv `"`_xv' "`n_extreme'" "`=string(`pct_extreme',"%5.2f")'" "`n_very_extreme'""'
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("Weight Diagnostics (Multi-Group)") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Weights table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "multigroup"

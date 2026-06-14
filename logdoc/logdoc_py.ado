@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.0.2  2026/06/14
+*! logdoc_py Version 1.1.0  2026/06/14
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -124,8 +124,12 @@ program define logdoc_py, rclass
     return scalar ok = 1
     return scalar python_ok = 1
     return scalar renderer_ok = ("`_renderer'" != "")
-    if "`pdf'" != "" return scalar pdf_ok = `_pdf_ok'
-    if "`action'" == "install" return scalar installed = `_installed'
+    if "`pdf'" != "" {
+        return scalar pdf_ok = `_pdf_ok'
+    }
+    if "`action'" == "install" {
+        return scalar installed = `_installed'
+    }
 
     return local python `"`_selected'"'
     return local python_version `"`_version'"'
@@ -636,7 +640,7 @@ program define _logdoc_py_check_xhtml2pdf, rclass
     set varabbrev off
     capture noisily {
 
-    syntax , python(string) [Verbose]
+    syntax , PYthon(string) [Verbose]
 
     tempfile _xh2p_out
     quietly shell "`python'" -c "from xhtml2pdf import pisa; print('OK')" ///

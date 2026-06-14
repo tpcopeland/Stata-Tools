@@ -1,0 +1,170 @@
+Dataset Documentation
+Generated: 15 Jun 2026 00:05:30
+
+========================================
+DATASET: _demo_cohort.dta
+========================================
+
+METADATA
+--------
+Observations: 160
+Variables: 17
+Label: Synthetic Clinical Trial Cohort (N=160)
+Data Signature: 160:17(68284):1184352066:4157885057
+
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 3
+Small-cell threshold: 5
+Date-safe mode: on
+Likely identifiers not excluded: 0
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 160 observations and 17 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, outcomes.
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  patient_id              double    excluded        0.0%     160
+  subject_id              double    excluded        0.0%     160
+  patient_name            str32     excluded        0.0%     160
+  age                     double    continuous      0.0%     136
+  sex                     double    categorical     0.0%       2
+  smoking                 double    categorical    16.3%       3
+  bmi                     double    continuous      8.1%     104
+  sbp                     double    continuous      6.3%      64
+  creatinine              double    continuous     14.4%      84
+  pct_adherence           double    continuous     23.8%     110
+  enroll_date             double    date            0.0%     152
+  birth_date              double    date            0.0%     160
+  follow_up_time          double    continuous      0.0%      72
+  event                   double    categorical     0.0%       2
+  treatment               double    categorical     0.0%       2
+  site                    double    categorical     0.0%       7
+  rare_marker             double    categorical     0.0%       2
+----------------------------------------
+
+  patient_id
+    Type: double
+    Format: %10.0g
+    Label: Patient identifier
+    Missing: 0 (0.0%)
+    Classification: excluded
+
+  subject_id
+    Type: double
+    Format: %10.0g
+    Label: Study subject identifier
+    Missing: 0 (0.0%)
+    Classification: excluded
+
+  patient_name
+    Type: str32
+    Format: %32s
+    Label: Patient full name
+    Missing: 0 (0.0%)
+    Classification: excluded
+
+  age
+    Type: double
+    Format: %10.0g
+    Label: Age at enrollment (years)
+    Missing: 0 (0.0%)
+    Classification: continuous
+
+  sex
+    Type: double
+    Format: %10.0g
+    Label: Biological sex
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  smoking
+    Type: double
+    Format: %10.0g
+    Label: Smoking status
+    Missing: 26 (16.3%)
+    Classification: categorical
+
+  bmi
+    Type: double
+    Format: %10.0g
+    Label: Body mass index (kg/m2)
+    Missing: 13 (8.1%)
+    Classification: continuous
+
+  sbp
+    Type: double
+    Format: %10.0g
+    Label: Systolic blood pressure (mmHg)
+    Missing: 10 (6.3%)
+    Classification: continuous
+
+  creatinine
+    Type: double
+    Format: %10.0g
+    Label: Serum creatinine (mg/dL)
+    Missing: 23 (14.4%)
+    Classification: continuous
+
+  pct_adherence
+    Type: double
+    Format: %10.0g
+    Label: Medication adherence (%)
+    Missing: 38 (23.8%)
+    Classification: continuous
+
+  enroll_date
+    Type: double
+    Format: %td
+    Label: Date of enrollment
+    Missing: 0 (0.0%)
+    Classification: date
+
+  birth_date
+    Type: double
+    Format: %td
+    Label: Date of birth
+    Missing: 0 (0.0%)
+    Classification: date
+
+  follow_up_time
+    Type: double
+    Format: %10.0g
+    Label: Follow-up time (years)
+    Missing: 0 (0.0%)
+    Classification: continuous
+
+  event
+    Type: double
+    Format: %10.0g
+    Label: Primary endpoint
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  treatment
+    Type: double
+    Format: %10.0g
+    Label: Randomization arm
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  site
+    Type: double
+    Format: %16.0g
+    Label: Study site
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  rare_marker
+    Type: double
+    Format: %10.0g
+    Label: Rare clinical marker
+    Missing: 0 (0.0%)
+    Classification: categorical
+

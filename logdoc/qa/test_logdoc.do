@@ -205,7 +205,7 @@ else {
 * T8: Replace option required
 * -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     * File already exists from T1
     logdoc using "`smcl_fixture'", output("`outdir'/test_basic.html")
 }
@@ -282,7 +282,7 @@ else {
 * T11: Invalid theme
 * -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     logdoc using "`smcl_fixture'", output("`outdir'/bad.html") theme(blue) replace
 }
 if _rc == 198 {
@@ -295,18 +295,18 @@ else {
 }
 
 * -----------------------------------------------------------------------
-* T12: File not found
+* T12: Missing input file
 * -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     logdoc using "/nonexistent/file.smcl", output("`outdir'/bad.html") replace
 }
 if _rc == 601 {
-    display as result "PASS: T12 - File not found (rc=601)"
+    display as result "PASS: T12 - Missing input rejected (rc=601)"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error "FAIL: T12 - File not found (got rc = " _rc ", expected 601)"
+    display as error "FAIL: T12 - Missing input (got rc = " _rc ", expected 601)"
     local test_fail = `test_fail' + 1
 }
 
@@ -314,7 +314,7 @@ else {
 * T13: Run option rejects non-.do file
 * -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     logdoc using "`smcl_fixture'", output("`outdir'/bad.html") run replace
 }
 if _rc == 198 {

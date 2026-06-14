@@ -10,6 +10,7 @@
       - OCE mediation (categorical exposure)
       - Time-varying confounding (longitudinal)
       - gcomptab Excel export
+      - Component-model capture (savemodels) + gcomptab models table
 
     Note: Bootstrap samples kept low (50) for demo speed.
     Use samples(1000) for real analyses.
@@ -143,6 +144,23 @@ gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Normal CI") ///
 
 gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Percentile CI") ///
     ci(percentile) title("Table 2. Mediation Results (Percentile CIs)")
+
+**# Component-model capture and export (savemodels + gcomptab models)
+
+* Re-run with savemodels to capture the fitted component models, then export the
+* multi-model coefficient table to Markdown (for the README) and Excel.
+gcomp y m x c, outcome(y) mediation obe ///
+    exposure(x) mediator(m) ///
+    commands(m: logit, y: logit) ///
+    equations(m: x c, y: m x c) ///
+    base_confs(c) sim(500) samples(50) seed(42) savemodels
+
+gcomptab, models markdown("`demo_dir'/component_models.md") ///
+    modellabels("Mediator (m) \ Outcome (y)") stats(n)
+
+gcomptab, models xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Component models") ///
+    modellabels("Mediator (m) \ Outcome (y)") stats(n) stars ///
+    title("Table 3. Fitted component models (odds ratios)")
 
 **# Convert console log to markdown via logdoc
 

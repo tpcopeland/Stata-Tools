@@ -9,6 +9,9 @@ d SMCL input/result/error coloring, and table spacing are preserved.
 d Syntax highlighting, parsed HTML tables, collapsible output, copy
 d buttons, and Download .do controls are opt-in. Uses Python 3
 d (standard library only, no external dependencies).
+d Combine mode merges several logs into one report; accent() applies
+d a simple brand color without custom CSS. Global ~/.logdocrc defaults
+d can be overridden by project-level .logdocrc files.
 d
 d KW: log
 d KW: SMCL

@@ -210,9 +210,7 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 
 ## Demo
 
-The demo runs the full pipeline on the bundled `msm_example.dta` dataset. Console output is rendered as self-contained HTML documents using [logdoc](https://github.com/tpcopeland/Stata-Tools/tree/main/logdoc).
-
-### Console output
+The demo runs the full pipeline on the bundled `msm_example.dta` dataset.
 
 ### Graphs
 

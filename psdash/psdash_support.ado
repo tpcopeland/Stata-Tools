@@ -1,4 +1,4 @@
-*! psdash_support Version 1.2.1  2026/06/14
+*! psdash_support Version 1.3.0  2026/06/14
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -81,15 +81,23 @@ program define psdash_support, rclass
          THReshold(real -1) ///
          GENerate(name) ///
          replace ///
+         COMPare ///
          NOGraph ///
          SAVing(string) ///
          SCHeme(string) ///
          GRAPHOPTions(string asis) ///
          TItle(string) ///
          name(string) ///
+         xlsx(string) ///
+         sheet(string) ///
          ESTImand(string) ///
          REFerence(string) ///
          PSVars(varlist numeric)]
+
+    if "`xlsx'" != "" {
+        _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
+    }
+    if "`sheet'" == "" local sheet "Support"
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto
@@ -430,6 +438,92 @@ program define psdash_support, rclass
             as text " (" as result %4.1f `pct_outside' as text "% outside support)"
     }
 
+    * PRE/POST-TRIMMING COMPARISON (F3, binary)
+    local _has_compare = 0
+    if "`compare'" != "" {
+        if !`has_trimming' {
+            display as text _n "note: compare requires trimming (crump or threshold()); skipped"
+        }
+        else {
+            tempvar _tt
+            quietly gen byte `_tt' = `touse' & ///
+                (`psvar' >= `trim_lower' & `psvar' <= `trim_upper')
+            quietly count if `_tt'
+            local cmp_n_post = r(N)
+
+            * Outside-support % recomputed on the trimmed sample
+            local cmp_pct_pre = `pct_outside'
+            local cmp_pct_post = .
+            capture _psdash_support_stats, treatment(`treatment') ///
+                samplevar(`_tt') psvar(`psvar') n(`cmp_n_post')
+            if _rc == 0 local cmp_pct_post = r(pct_outside)
+
+            * ESS% pre/post from estimand IPTW weights derived from the PS
+            local cmp_ess_pre = .
+            local cmp_ess_post = .
+            tempvar _cmpw
+            quietly {
+                gen double `_cmpw' = .
+                if "`estimand'" == "att" {
+                    replace `_cmpw' = 1 if `treatment' == 1 & `touse'
+                    replace `_cmpw' = `psvar'/(1-`psvar') if `treatment' == 0 & `psvar' < 1 & `touse'
+                }
+                else if "`estimand'" == "atc" {
+                    replace `_cmpw' = (1-`psvar')/`psvar' if `treatment' == 1 & `psvar' > 0 & `touse'
+                    replace `_cmpw' = 1 if `treatment' == 0 & `touse'
+                }
+                else {
+                    replace `_cmpw' = 1/`psvar' if `treatment' == 1 & `psvar' > 0 & `touse'
+                    replace `_cmpw' = 1/(1-`psvar') if `treatment' == 0 & `psvar' < 1 & `touse'
+                }
+            }
+            quietly count if `touse' & !missing(`_cmpw')
+            local _npre = r(N)
+            quietly count if `_tt' & !missing(`_cmpw')
+            local _npost = r(N)
+            capture _psdash_weights_stats, wvar(`_cmpw') treatment(`treatment') ///
+                samplevar(`touse') n(`_npre')
+            if _rc == 0 local cmp_ess_pre = r(ess_pct)
+            capture _psdash_weights_stats, wvar(`_cmpw') treatment(`treatment') ///
+                samplevar(`_tt') n(`_npost')
+            if _rc == 0 local cmp_ess_post = r(ess_pct)
+
+            * Max |SMD| (raw) pre/post when covariates are available
+            local cmp_smd_pre = .
+            local cmp_smd_post = .
+            local cmp_covs "`covariates'"
+            if "`cmp_covs'" == "" local cmp_covs "`_psd_covariates'"
+            if "`cmp_covs'" != "" {
+                capture _psdash_balance_binary `cmp_covs', treatment(`treatment') ///
+                    samplevar(`touse') threshold(0.1)
+                if _rc == 0 local cmp_smd_pre = r(max_smd_raw)
+                capture _psdash_balance_binary `cmp_covs', treatment(`treatment') ///
+                    samplevar(`_tt') threshold(0.1)
+                if _rc == 0 local cmp_smd_post = r(max_smd_raw)
+            }
+
+            * Display comparison
+            display as text _n "Pre/Post-Trimming Comparison"
+            display as text %28s "Metric" %13s "Pre" %13s "Post"
+            display as text %28s "N retained" ///
+                as result %13.0fc `N' %13.0fc `cmp_n_post'
+            display as text %28s "Outside support (%)" ///
+                as result %13.2f `cmp_pct_pre' %13.2f `cmp_pct_post'
+            if !missing(`cmp_ess_pre') {
+                display as text %28s "ESS (% of N)" ///
+                    as result %13.1f `cmp_ess_pre' %13.1f `cmp_ess_post'
+            }
+            if !missing(`cmp_smd_pre') {
+                display as text %28s "Max |SMD| (raw)" ///
+                    as result %13.3f `cmp_smd_pre' %13.3f `cmp_smd_post'
+            }
+            else {
+                display as text "note: max |SMD| delta skipped (no covariates supplied/detected)"
+            }
+            local _has_compare = 1
+        }
+    }
+
     * GRAPH
     if "`nograph'" == "" {
         capture noisily {
@@ -467,6 +561,27 @@ program define psdash_support, rclass
         }
     }
 
+    * EXPORT TO EXCEL (binary, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "PS variable" "Total N" "N (treated)" "N (control)" "Lower bound" "Upper bound" "Outside support (N)" "Outside support (%)" "Treated outside" "Control outside""'
+            local _xv `""`treatment'" "`psvar_label'" "`N'" "`n_treated'" "`n_control'" "`=string(`lower_bound',"%6.4f")'" "`=string(`upper_bound',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'" "`n_outside_t'" "`n_outside_c'""'
+            if `has_trimming' {
+                local _xk `"`_xk' "Trim lower" "Trim upper" "Trimmed (N)" "Trimmed (%)" "Remaining N""'
+                local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`=string(`trim_upper',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
+                if "`crump'" != "" {
+                    local _xk `"`_xk' "Crump alpha""'
+                    local _xv `"`_xv' "`=string(`crump_alpha',"%6.4f")'""'
+                }
+            }
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("`title'") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Support table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+    }
+
     local _psdash_return_mode "binary"
 
     }
@@ -477,6 +592,12 @@ program define psdash_support, rclass
     if "`crump'" != "" {
         display as error "crump trimming is defined for binary treatment only"
         display as error "  use {cmd:threshold()} for multi-group trimming"
+        exit 198
+    }
+
+    * Pre/post-trimming comparison is binary-only
+    if "`compare'" != "" {
+        display as error "compare is supported for binary treatment only"
         exit 198
     }
 
@@ -765,6 +886,29 @@ program define psdash_support, rclass
         }
     }
 
+    * EXPORT TO EXCEL (multi-group, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "PS variable" "Groups (K)" "Reference" "Total N""'
+            local _xv `""`treatment'" "`psvar_label'" "`K'" "`reference_grp'" "`N'""'
+            foreach lev of local levels {
+                local _xk `"`_xk' "N (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')" "Outside (group `lev')""'
+                local _xv `"`_xv' "`n_group_`lev''" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'" "`n_outside_`lev''""'
+            }
+            local _xk `"`_xk' "Lower bound" "Upper bound" "Outside support (N)" "Outside support (%)""'
+            local _xv `"`_xv' "`=string(`lower_bound',"%6.4f")'" "`=string(`upper_bound',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
+            if `has_trimming' {
+                local _xk `"`_xk' "Trim lower" "Trim upper" "Trimmed (N)" "Trimmed (%)" "Remaining N""'
+                local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`=string(`trim_upper',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
+            }
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("`title'") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Support table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+    }
+
     local _psdash_return_mode "multigroup"
 
     }
@@ -802,6 +946,19 @@ program define psdash_support, rclass
             return local psvar "`psvar_label'"
             return local estimand "`estimand'"
             return local source "`source'"
+            if `_has_compare' {
+                return scalar n_post = `cmp_n_post'
+                return scalar pct_outside_pre = `cmp_pct_pre'
+                return scalar pct_outside_post = `cmp_pct_post'
+                if !missing(`cmp_ess_pre') {
+                    return scalar ess_pct_pre = `cmp_ess_pre'
+                    return scalar ess_pct_post = `cmp_ess_post'
+                }
+                if !missing(`cmp_smd_pre') {
+                    return scalar max_smd_pre = `cmp_smd_pre'
+                    return scalar max_smd_post = `cmp_smd_post'
+                }
+            }
         }
         else if "`_psdash_return_mode'" == "multigroup" {
             return scalar N = `N'

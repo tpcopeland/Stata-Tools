@@ -12,8 +12,8 @@
       Other:     sample.tex, sample.docx (Stata 17+), sample_pdf.pdf (wkhtmltopdf)
       Console:   console_output.smcl
 
-    Run from the Stata-Dev repository root:
-      stata -b do logdoc/demo/demo_logdoc.do
+    Run from the repository root:
+      stata-mp -b do logdoc/demo/demo_logdoc.do
 */
 
 version 16.0

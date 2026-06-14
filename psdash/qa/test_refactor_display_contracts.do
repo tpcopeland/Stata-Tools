@@ -34,60 +34,47 @@ end
 **# README and demo transcript contracts
 
 local ++test_count
-display as text _n "--- C1: README delegates display transcripts to demo markdown ---"
+display as text _n "--- C1: README presents demo graph images, not embedded transcripts ---"
 capture noisily {
     assert strpos(fileread("`pkg_dir'/README.md"), "Demo output is generated from") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/demo_psdash.do") > 0
-    assert strpos(fileread("`pkg_dir'/README.md"), "curated console markdown") > 0
+    * No embedded console transcripts (curated console markdown was retired)
     assert strpos(fileread("`pkg_dir'/README.md"), "<summary>") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "Propensity Score Distribution") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "Effective Sample Size (ESS)") == 0
+    assert strpos(fileread("`pkg_dir'/README.md"), "demo/console_overlap.md") == 0
 }
 _disp_result "C1" `=_rc'
 
 local ++test_count
-display as text _n "--- C2: curated console markdown files exist and stay bounded ---"
+display as text _n "--- C2: demo graph image artifacts exist ---"
 capture noisily {
-    foreach f in console_overlap console_balance_weights console_support ///
-        console_mg_overlap console_mg_balance console_mg_weights ///
-        console_mg_support {
-        confirm file "`pkg_dir'/demo/`f'.md"
-        assert strpos(fileread("`pkg_dir'/demo/`f'.md"), "title: " + char(34) + "`f'" + char(34)) > 0
-        assert strpos(fileread("`pkg_dir'/demo/`f'.md"), "```stata") > 0
-        assert strlen(fileread("`pkg_dir'/demo/`f'.md")) < 12000
+    foreach f in overlap_density overlap_histogram love_plot ///
+        weight_distribution support_region dashboard dashboard_teffects ///
+        mg_overlap_density mg_love_plot mg_dashboard {
+        confirm file "`pkg_dir'/demo/`f'.png"
     }
+    confirm file "`pkg_dir'/demo/demo_psdash.do"
 }
 _disp_result "C2" `=_rc'
 
 local ++test_count
-display as text _n "--- C3: binary demo markdown preserves informative status lines ---"
+display as text _n "--- C3: demo exercises the binary subcommands ---"
 capture noisily {
-    assert strpos(fileread("`pkg_dir'/demo/console_overlap.md"), "Overlap: Good") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_overlap.md"), "Outside support:") > 0
-
-    assert strpos(fileread("`pkg_dir'/demo/console_balance_weights.md"), "Balance: Adequate") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_balance_weights.md"), "Weights: Acceptable") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_balance_weights.md"), "Warning: 3 extreme weights detected") > 0
-
-    assert strpos(fileread("`pkg_dir'/demo/console_support.md"), "Crump et al. (2009) Optimal Trimming") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_support.md"), "Support: Trimmed") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psdash overlap") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psdash balance") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psdash weights") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psdash support") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psdash combined") > 0
 }
 _disp_result "C3" `=_rc'
 
 local ++test_count
-display as text _n "--- C4: multi-group demo markdown preserves warnings and actions ---"
+display as text _n "--- C4: demo exercises the multi-group workflow ---"
 capture noisily {
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_overlap.md"), "Overlap: WARNING") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_overlap.md"), "Consider: psdash support, threshold(0.05)") > 0
-
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_balance.md"), "Covariate Balance Assessment (Multi-Group)") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_balance.md"), "Balance: Adequate") > 0
-
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_weights.md"), "Weights: Acceptable") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_weights.md"), "Consider truncation") > 0
-
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_support.md"), "Manual Threshold Trimming") > 0
-    assert strpos(fileread("`pkg_dir'/demo/console_mg_support.md"), "Support: Trimmed") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "mlogit") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "psvars(") > 0
+    assert strpos(fileread("`pkg_dir'/demo/demo_psdash.do"), "mg_dashboard.png") > 0
 }
 _disp_result "C4" `=_rc'
 

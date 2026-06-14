@@ -17,6 +17,15 @@
      12. Graph (manual combined dashboard)         -> dashboard.png
      13. Graph (teffects dashboard)                -> dashboard_teffects.png
 
+    v1.3.0 features (binary):
+     B1. Console output (detect + machine-readable verdict) -> console_detect_verdict.log -> .md
+     B2. Console output (SMD matrix for table1_tc)          -> console_smd_matrix.log -> .md
+     B3. Console output (pre/post-trimming comparison)      -> console_trimming_compare.log -> .md
+     B4. Graph (multi-strategy Love plot overlay)           -> strategies_loveplot.png
+     B5. Graph (per-covariate distributional balance)       -> distribution_balance.png
+     B6. Excel (one-call publication report workbook)       -> psdash_report.xlsx
+     B7. Excel (single-panel export parity)                 -> weights_table.xlsx
+
     Multi-group treatment (3 groups):
      14. Console output (multi-group overlap)      -> console_mg_overlap.log -> .md
      15. Console output (multi-group balance)      -> console_mg_balance.log -> .md
@@ -183,6 +192,57 @@ log close teffects_auto
 psdash combined, saving("`demo_dir'/dashboard_teffects.png")
 capture graph close _all
 
+**# B1. Auto-detection inspection + machine-readable verdict (v1.3.0)
+log using "`demo_dir'/console_detect_verdict.log", replace text ///
+    name(detect_verdict) nomsg
+* # Auto-detection report and machine-readable verdict
+* ## psdash detect — inspect detection without running panels
+noisily psdash detect statin ps, covariates(age female bmi sbp cholesterol)
+* ## Returned verdict with configurable thresholds
+noisily psdash combined statin ps, ///
+    covariates(age female bmi sbp cholesterol) wvar(ipw) ///
+    overlapmax(5) essmin(60) nooverlap nosupport
+noisily display "verdict = " r(verdict) "  (n_warnings = " r(n_warnings) ")"
+noisily display "warnings = " r(warnings)
+log close detect_verdict
+
+**# B2. SMD matrix for manuscript Table 1 (v1.3.0)
+log using "`demo_dir'/console_smd_matrix.log", replace text ///
+    name(smd_matrix) nomsg
+* # Balance SMD matrix for table1_tc / puttab
+noisily psdash balance statin ps, ///
+    covariates(age female bmi sbp cholesterol) wvar(ipw) smdmatrix(smd_table)
+noisily matrix list smd_table
+log close smd_matrix
+
+**# B3. Pre/post-trimming comparison (v1.3.0)
+log using "`demo_dir'/console_trimming_compare.log", replace text ///
+    name(trim_compare) nomsg
+* # Did trimming help? pre/post-trimming comparison
+noisily psdash support statin ps, crump compare ///
+    covariates(age female bmi sbp cholesterol) nograph
+log close trim_compare
+
+**# B4. Multi-strategy Love plot overlay (v1.3.0)
+psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
+    strategies(raw ate att) saving("`demo_dir'/strategies_loveplot.png")
+capture graph close _all
+
+**# B5. Per-covariate distributional balance (v1.3.0)
+psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
+    wvar(ipw) distribution(age bmi sbp) ///
+    saving("`demo_dir'/distribution_balance.png")
+capture graph close _all
+
+**# B6/B7. Excel report workbook + single-panel export parity (v1.3.0)
+capture erase "`demo_dir'/psdash_report.xlsx"
+quietly psdash combined statin ps, ///
+    covariates(age female bmi sbp cholesterol) wvar(ipw) ///
+    report("`demo_dir'/psdash_report.xlsx")
+capture graph close _all
+capture erase "`demo_dir'/weights_table.xlsx"
+quietly psdash weights statin ps, wvar(ipw) xlsx("`demo_dir'/weights_table.xlsx")
+
 **# Multi-group treatment setup (3 arms)
 clear
 set seed 20260226
@@ -290,6 +350,7 @@ quietly net install logdoc, from("`logdoc_dir'") replace
 
 foreach f in console_overlap console_balance_weights console_weight_options ///
     console_support console_return_values console_teffects_auto ///
+    console_detect_verdict console_smd_matrix console_trimming_compare ///
     console_mg_overlap console_mg_balance console_mg_weights ///
     console_mg_support console_mg_reference {
     logdoc using "`demo_dir'/`f'.log", ///

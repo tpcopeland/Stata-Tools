@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.2.1  2026/06/14
+*! psdash_overlap Version 1.3.0  2026/06/14
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -81,9 +81,16 @@ program define psdash_overlap, rclass
          GRAPHOPTions(string asis) ///
          TItle(string) ///
          name(string) ///
+         xlsx(string) ///
+         sheet(string) ///
          ESTImand(string) ///
          REFerence(string) ///
          PSVars(varlist numeric)]
+
+    if "`xlsx'" != "" {
+        _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
+    }
+    if "`sheet'" == "" local sheet "Overlap"
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto
@@ -347,6 +354,23 @@ program define psdash_overlap, rclass
         }
     }
 
+    * EXPORT TO EXCEL (binary, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "PS variable" "Total N" "N (treated)" "N (control)" "Mean PS (treated)" "Mean PS (control)" "Min PS (treated)" "Max PS (treated)" "Min PS (control)" "Max PS (control)" "Overlap lower" "Overlap upper" "Outside support (N)" "Outside support (%)""'
+            local _xv `""`treatment'" "`psvar_label'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_ps_t',"%6.4f")'" "`=string(`mean_ps_c',"%6.4f")'" "`=string(`min_ps_t',"%6.4f")'" "`=string(`max_ps_t',"%6.4f")'" "`=string(`min_ps_c',"%6.4f")'" "`=string(`max_ps_c',"%6.4f")'" "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
+            if !missing(`auc') {
+                local _xk `"`_xk' "C-statistic (AUC)""'
+                local _xv `"`_xv' "`=string(`auc',"%6.4f")'""'
+            }
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("`title'") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+    }
+
     local _psdash_return_mode "binary"
 
     }
@@ -594,6 +618,25 @@ program define psdash_overlap, rclass
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
         }
+    }
+
+    * EXPORT TO EXCEL (multi-group, O1)
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _xk `""Treatment" "PS variable" "Groups (K)" "Reference" "Total N""'
+            local _xv `""`treatment'" "`psvar_label'" "`K'" "`reference_grp'" "`N'""'
+            foreach lev of local levels {
+                local _xk `"`_xk' "N (group `lev')" "Mean PS (group `lev')" "Min PS (group `lev')" "Max PS (group `lev')""'
+                local _xv `"`_xv' "`n_group_`lev''" "`=string(`mean_ps_`lev'',"%6.4f")'" "`=string(`min_ps_`lev'',"%6.4f")'" "`=string(`max_ps_`lev'',"%6.4f")'""'
+            }
+            local _xk `"`_xk' "Overlap lower" "Overlap upper" "Outside support (N)" "Outside support (%)""'
+            local _xv `"`_xv' "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
+            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+                title("`title'") keys(`_xk') vals(`_xv')
+            noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
+        }
+        local xlsx_rc = _rc
+        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "multigroup"

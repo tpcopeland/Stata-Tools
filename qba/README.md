@@ -163,7 +163,7 @@ qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
 
 ## Demo
 
-The demo script (`qba/demo/demo_qba.do`) produces five console sections and three plots. It is a development artifact run from the full Stata-Tools checkout, not from a `net install qba` install: in addition to `qba` it requires the sibling packages `tc_schemes` and `logdoc` (for the plot scheme and console logging), which it locates next to the repository directory. Run it from the repository root with:
+The demo script (`qba/demo/demo_qba.do`) produces three plots. It is a development artifact run from the full Stata-Tools checkout, not from a `net install qba` install: in addition to `qba` it requires the sibling packages `tc_schemes` and `logdoc` (for the plot scheme), which it locates next to the repository directory. Run it from the repository root with:
 
 ```bash
 stata-mp -b do qba/demo/demo_qba.do

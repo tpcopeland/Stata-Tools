@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 15 May 2026 22:32:26
+Generated: 15 Jun 2026 00:05:30
 
 ========================================
 DATASET: _demo_missing.dta
@@ -10,11 +10,18 @@ METADATA
 Observations: 80
 Variables: 6
 Label: Biomarker Study with Missing Data Patterns
-Data Signature: 80:6(26080):3233229532:551577311
+Data Signature: 80:6(26080):323884870:1380290782
+
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 1
+Small-cell threshold: 5
+Date-safe mode: off
+Likely identifiers not excluded: 0
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 80 observations and 6 variables. Key variable categories include: identifiers, outcomes. 
+This dataset contains cross-sectional data. It includes 80 observations and 6 variables. Key variable categories include: identifiers, outcomes.
 
 Missing Data Summary
   Variables with >50% missing: 0
@@ -28,20 +35,20 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  id                      int       continuous      0.0%      80
+  id                      double    excluded        0.0%      80
   x1                      double    continuous     25.0%      60
   x2                      double    continuous     25.0%      60
   x3                      double    continuous     35.0%      52
   x4                      double    continuous     12.5%      70
-  outcome                 byte      categorical     0.0%       2
+  outcome                 double    categorical     0.0%       2
 ----------------------------------------
 
   id
-    Type: int
-    Format: %8.0g
+    Type: double
+    Format: %10.0g
     Label: Subject ID
     Missing: 0 (0.0%)
-    Classification: continuous
+    Classification: excluded
 
   x1
     Type: double
@@ -72,8 +79,8 @@ QUICK REFERENCE
     Classification: continuous
 
   outcome
-    Type: byte
-    Format: %8.0g
+    Type: double
+    Format: %10.0g
     Label: Binary outcome
     Missing: 0 (0.0%)
     Classification: categorical
@@ -85,8 +92,8 @@ CATEGORICAL VARIABLES
 VARIABLE: outcome
 --------------------
 Position: 6
-Storage Type: byte
-Display Format: %8.0g
+Storage Type: double
+Display Format: %10.0g
 Label: Binary outcome
 Value Label: yn
 Classification: categorical
@@ -97,31 +104,9 @@ Unique Values: 2
     0 = No: 50 (62.5%)
     1 = Yes: 30 (37.5%)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
-
 ========================================
 CONTINUOUS VARIABLES
 ========================================
-
-VARIABLE: id
---------------------
-Position: 1
-Storage Type: int
-Display Format: %8.0g
-Label: Subject ID
-Classification: continuous
-Missing: 0 obs (0.0%)
-Unique Values: 80
-
-DISTRIBUTION:
-  Valid N: 80
-  Mean: 40.5
-  SD: 23.24
-  Median: 40.5
-  IQR: 20.5-60.5
-  Range: 1 to 80
-
-ANALYSIS GUIDANCE: Use as continuous variable. 
 
 VARIABLE: x1
 --------------------
@@ -141,8 +126,6 @@ DISTRIBUTION:
   IQR: -.66-.36
   Range: -3.15 to 3.33
 
-ANALYSIS GUIDANCE: Use as continuous variable. 25.0% missing - verify missingness mechanism before analysis. 
-
 VARIABLE: x2
 --------------------
 Position: 3
@@ -160,8 +143,6 @@ DISTRIBUTION:
   Median: .13
   IQR: -.79-.86
   Range: -2.79 to 2.81
-
-ANALYSIS GUIDANCE: Use as continuous variable. 25.0% missing - verify missingness mechanism before analysis. 
 
 VARIABLE: x3
 --------------------
@@ -181,8 +162,6 @@ DISTRIBUTION:
   IQR: -.71-.8200000000000001
   Range: -2.16 to 2.37
 
-ANALYSIS GUIDANCE: Use as continuous variable. 35.0% missing - verify missingness mechanism before analysis. 
-
 VARIABLE: x4
 --------------------
 Position: 5
@@ -201,7 +180,19 @@ DISTRIBUTION:
   IQR: -.68-.43
   Range: -2 to 4.66
 
-ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality. 
+========================================
+EXCLUDED VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: double
+Display Format: %10.0g
+Label: Subject ID
+Classification: excluded (privacy)
+Missing: 0 obs (0.0%)
+(values excluded from documentation)
 
 ========================================
 VALUE LABEL DEFINITIONS

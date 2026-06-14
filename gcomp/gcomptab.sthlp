@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  29may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -70,6 +70,30 @@ implied exposure-years, and risk differences versus a reference strategy).
 {synopt:{opt expy:ears(numlist)}}implied mean cumulative exposure-years, one per PO# column{p_end}
 {synopt:{opt ref:erence(#)}}PO index used as the risk-difference reference; default is {cmd:1}{p_end}
 {synopt:{opt nord}}suppress the risk-difference-vs-reference column{p_end}
+
+{syntab:Component models (models mode)}
+{synopt:{opt models}}enter component-model mode (required to enter; reads stored {cmd:gcomp} models){p_end}
+{synopt:{opt usemod:els(namelist)}}stored estimates to include; default {cmd:e(model_names)}{p_end}
+{synopt:{opt modell:abels(string)}}column header per model, backslash-separated{p_end}
+{synopt:{opt terml:abels(string)}}row (term) labels, backslash-separated{p_end}
+{synopt:{opt markd:own(filename)}}write the table to a Markdown file{p_end}
+{synopt:{opt csv(filename)}}write the table to a CSV file{p_end}
+{synopt:{opt disp:lay}}echo the table to the Results window{p_end}
+{synopt:{opt eform}}force exponentiation{p_end}
+{synopt:{opt noeform}}suppress exponentiation{p_end}
+{synopt:{opt raw}}report raw coefficients (alias of {opt noeform}){p_end}
+{synopt:{opt coef(string)}}override the scale (estimate) column label{p_end}
+{synopt:{opt se}}show standard errors instead of 95% CI{p_end}
+{synopt:{opt comp:act}}merge estimate and CI/SE into one column per model{p_end}
+{synopt:{opt nopv:alue}}drop the p-value column{p_end}
+{synopt:{opt stars}}append significance stars{p_end}
+{synopt:{opt starsl:evels(numlist)}}star thresholds; default {cmd:0.05 0.01 0.001}{p_end}
+{synopt:{opt noint:ercept}}drop {cmd:_cons} and {cmd:ologit} cutpoints{p_end}
+{synopt:{opt keepint:ercept}}keep {cmd:_cons} and cutpoints (default){p_end}
+{synopt:{opt keep(string)}}keep only the listed terms{p_end}
+{synopt:{opt drop(string)}}drop the listed terms{p_end}
+{synopt:{opt dig:its(#)}}numeric precision (alias of {opt decimal()}){p_end}
+{synopt:{opt stat:s(string)}}per-model footer statistics ({cmd:n} supported){p_end}
 
 {syntab:Other}
 {synopt:{opt open}}open the Excel file after export{p_end}
@@ -264,6 +288,58 @@ between 1 and the number of {cmd:PO#} columns.
 {opt nord} suppresses the {cmd:RD vs ref} column, leaving only the strategy,
 optional exposure-years, and risk columns.
 
+{dlgtab:Component-model mode (models)}
+
+{phang}
+{opt models} enters component-model mode: instead of formatting the {cmd:e(b)}
+effect vector, {cmd:gcomptab} reads the parametric component models stored by
+{cmd:gcomp} (run with {opt savemodels} or {opt showmodels}) and writes a
+multi-model coefficient table. The flag is required to enter this mode; it never
+auto-triggers, so mediation and dose-response detection are unaffected. It is
+mutually exclusive with {opt doseresponse} and with the mediation-only options
+{opt ci()}, {opt effect()}, and {opt labels()}. At least one output target
+({opt xlsx()}, {opt markdown()}, {opt csv()}, or {opt display}) is required.
+
+{phang}
+{opt usemodels(namelist)} selects which stored estimates to include; the default
+is {cmd:e(model_names)}.
+
+{phang}
+{opt modellabels(string)} sets the column header per model (backslash-separated);
+default is the dependent variable. {opt termlabels(string)} overrides the row
+(term) labels (backslash-separated).
+
+{phang}
+{opt eform}, {opt noeform}, {opt raw}, and {opt coef(string)} control the scale.
+By default the scale is auto-detected per command ({cmd:logit}{c 174}OR,
+{cmd:mlogit}{c 174}RRR, {cmd:ologit}{c 174}OR, {cmd:regress}{c 174}Coef.).
+{opt eform} forces exponentiation, {opt noeform}/{opt raw} suppress it, and
+{opt coef()} overrides the scale label. When models mix scales,
+{cmd:r(coef_label)} is {cmd:mixed}.
+
+{phang}
+{opt se} shows standard errors instead of the 95% CI. {opt nopvalue} drops the
+p-value column. {opt compact} merges the estimate and CI/SE into one column per
+model. {opt stars} appends significance stars at the thresholds in
+{opt starslevels(numlist)} (default {cmd:0.05 0.01 0.001}).
+
+{phang}
+{opt nointercept} drops {cmd:_cons} and {cmd:ologit} cutpoints; {opt keepintercept}
+keeps them (the default). {opt keep(string)} and {opt drop(string)} filter rows
+by term name.
+
+{phang}
+{opt digits(#)} (or {opt decimal(#)}) sets numeric precision (default 3).
+{opt stats(string)} adds a per-model footer; {cmd:n} (sample size) is supported.
+
+{phang}
+{opt markdown(filename)} and {opt csv(filename)} write the table to Markdown and
+CSV files; {opt display} echoes it to the Results window. These may be combined
+with {opt xlsx()}. The {opt title()}, {opt footnote()}, {opt font()},
+{opt fontsize()}, {opt borderstyle()}, {opt zebra}, {opt headershade},
+{opt boldp()}, {opt highlight()}, and {opt open} options apply to the xlsx output
+as in the other modes.
+
 {dlgtab:Other}
 
 {phang}
@@ -402,6 +478,20 @@ observed regime), so three strategy labels and three exposure-years are supplied
 {phang2}{cmd:      strategylabels("Always HE \ Never HE \ Observed regime") ///}{p_end}
 {phang2}{cmd:      expyears(5 0 2) reference(1) effect("Risk")}{p_end}
 
+    {hline}
+{pstd}
+{bf:Example 8: Component-model table (models mode)}
+
+{pstd}
+Capture the fitted component models during a mediation run, then export them as
+a multi-model coefficient table to Excel and Markdown:
+
+{phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///}{p_end}
+{phang2}{cmd:      commands(m: logit, y: logit) equations(m: x c, y: m x c) savemodels}{p_end}
+{phang2}{cmd:. gcomptab, models xlsx(models.xlsx) sheet("Component models") ///}{p_end}
+{phang2}{cmd:      modellabels("Mediator \ Outcome") stats(n) stars title("Component models")}{p_end}
+{phang2}{cmd:. gcomptab, models markdown(models.md) compact}{p_end}
+
 
 {marker output}{...}
 {title:Output format}
@@ -466,6 +556,23 @@ In {bf:dose-response} mode {cmd:gcomptab} stores instead:
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}{it:k} x 5 matrix (rows {cmd:PO1..POk}; columns {cmd:risk}, {cmd:ci_lower}, {cmd:ci_upper}, {cmd:exp_years}, {cmd:rd}){p_end}
 
+{pstd}
+In {bf:models} mode {cmd:gcomptab} stores instead:
+
+{synoptset 18 tabbed}{...}
+{p2col 5 18 22 2: Scalars}{p_end}
+{synopt:{cmd:r(N_models)}}number of model columns{p_end}
+{synopt:{cmd:r(N_rows)}}number of body rows{p_end}
+{synopt:{cmd:r(N_cols)}}number of table columns{p_end}
+
+{p2col 5 18 22 2: Macros}{p_end}
+{synopt:{cmd:r(coef_label)}}shared scale label, or {cmd:mixed}{p_end}
+{synopt:{cmd:r(methods)}}auto methods sentence{p_end}
+{synopt:{cmd:r(xlsx)} {cmd:r(sheet)} {cmd:r(markdown)} {cmd:r(csv)}}output targets written{p_end}
+
+{p2col 5 18 22 2: Matrices}{p_end}
+{synopt:{cmd:r(table)}}matrix of displayed estimates (rows = terms, columns = models){p_end}
+
 
 {marker author}{...}
 {title:Author}
@@ -474,7 +581,7 @@ In {bf:dose-response} mode {cmd:gcomptab} stores instead:
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.2.0, 2026-05-29{p_end}
+{pstd}Version 1.3.0, 2026-06-14{p_end}
 
 
 {marker seealso}{...}

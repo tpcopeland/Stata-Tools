@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.2.1  2026/06/14
+*! psdash_balance Version 1.3.0  2026/06/14
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -84,6 +84,9 @@ program define psdash_balance, rclass
          name(string) ///
          KS ///
          ESTImand(string) ///
+         SMDMatrix(name) ///
+         STRATegies(string) ///
+         DISTribution(varlist numeric) ///
          PSVars(varlist numeric)]
 
     if "`noweights'" != "" {
@@ -273,13 +276,31 @@ program define psdash_balance, rclass
 
     * Validate Excel options
     if "`xlsx'" != "" {
-        if !strmatch("`xlsx'", "*.xlsx") {
-            display as error "Excel filename must have .xlsx extension"
+        _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
+    }
+
+    * Validate strategies()/distribution() (F2/F1, binary path)
+    local strategies = lower(strtrim("`strategies'"))
+    if "`strategies'" != "" {
+        if "`psvar'" == "" {
+            display as error "strategies() requires a propensity score variable"
             exit 198
         }
-        if regexm("`xlsx'", "[;&|><\$\`]") {
-            display as error "Excel filename contains invalid characters"
-            exit 198
+        foreach s of local strategies {
+            if !inlist("`s'", "raw", "ate", "att", "atc") {
+                display as error "strategies() must be a subset of: raw ate att atc"
+                exit 198
+            }
+        }
+        local strategies : list uniq strategies
+    }
+    if "`distribution'" != "" {
+        foreach dv of local distribution {
+            local _dvok : list dv in varlist
+            if !`_dvok' {
+                display as error "distribution() variable `dv' is not among the assessed covariates"
+                exit 198
+            }
         }
     }
 
@@ -298,6 +319,7 @@ program define psdash_balance, rclass
     if "`sheet'" == "" local sheet "Balance"
     if "`title'" == "" local title "Covariate Balance Assessment"
     if "`name'" == "" local name "psdash_balance"
+    local _graphopts0 "`graphoptions'"
 
     * Count covariates
     local nvars : word count `varlist'
@@ -499,8 +521,8 @@ program define psdash_balance, rclass
             as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
     }
 
-    * LOVE PLOT (binary)
-    if "`loveplot'" != "" {
+    * LOVE PLOT (binary) — standard raw/adjusted; superseded by strategies() overlay
+    if "`loveplot'" != "" & "`strategies'" == "" {
         capture noisily {
             quietly {
                 preserve
@@ -582,6 +604,170 @@ program define psdash_balance, rclass
         local graph_rc = _rc
         if `graph_rc' {
             capture restore
+            local _psdash_side_rc = `graph_rc'
+        }
+    }
+
+    * MULTI-STRATEGY LOVE PLOT OVERLAY (F2, binary)
+    if "`strategies'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local nstrat : word count `strategies'
+            tempname smd_strat _bs
+            matrix `smd_strat' = J(`nvars', `nstrat', .)
+            tempvar wt_s
+            local sidx = 0
+            local strat_labels ""
+            foreach s of local strategies {
+                local sidx = `sidx' + 1
+                if "`s'" == "raw" {
+                    forvalues i = 1/`nvars' {
+                        matrix `smd_strat'[`i', `sidx'] = `balance_mat'[`i', 3]
+                    }
+                    local strat_labels `"`strat_labels' `sidx' "Unadjusted""'
+                }
+                else {
+                    quietly {
+                        capture drop `wt_s'
+                        gen double `wt_s' = .
+                        if "`s'" == "ate" {
+                            replace `wt_s' = 1/`psvar' if `treatment'==1 & `psvar'>0 & `touse'
+                            replace `wt_s' = 1/(1-`psvar') if `treatment'==0 & `psvar'<1 & `touse'
+                        }
+                        else if "`s'" == "att" {
+                            replace `wt_s' = 1 if `treatment'==1 & `touse'
+                            replace `wt_s' = `psvar'/(1-`psvar') if `treatment'==0 & `psvar'<1 & `touse'
+                        }
+                        else if "`s'" == "atc" {
+                            replace `wt_s' = (1-`psvar')/`psvar' if `treatment'==1 & `psvar'>0 & `touse'
+                            replace `wt_s' = 1 if `treatment'==0 & `touse'
+                        }
+                    }
+                    _psdash_balance_binary `varlist', treatment(`treatment') ///
+                        samplevar(`touse') threshold(`threshold') wvar(`wt_s')
+                    matrix `_bs' = r(balance)
+                    forvalues i = 1/`nvars' {
+                        matrix `smd_strat'[`i', `sidx'] = `_bs'[`i', 8]
+                    }
+                    local slab = strupper("`s'")
+                    local strat_labels `"`strat_labels' `sidx' "`slab'""'
+                }
+            }
+
+            quietly {
+                preserve
+                clear
+                set obs `nvars'
+                gen str80 covariate = ""
+                forvalues s = 1/`nstrat' {
+                    gen double smd_`s' = .
+                }
+                forvalues i = 1/`nvars' {
+                    local cv : word `i' of `varlist'
+                    replace covariate = "`cv'" in `i'
+                    forvalues s = 1/`nstrat' {
+                        replace smd_`s' = `smd_strat'[`i', `s'] in `i'
+                    }
+                }
+                gen double abs_smd_max = 0
+                forvalues s = 1/`nstrat' {
+                    replace abs_smd_max = max(abs_smd_max, abs(smd_`s'))
+                }
+                gen order = _n
+                gsort +abs_smd_max
+                replace order = _n
+                cap label drop orderlab
+                forvalues j = 1/`nvars' {
+                    local covname = covariate[`j']
+                    label define orderlab `j' "`covname'", add
+                }
+                label values order orderlab
+
+                local _go "`_graphopts0'"
+                if "`scheme'" != "" local _go `"scheme(`scheme') `_go'"'
+
+                summarize abs_smd_max
+                local xmax = max(r(max), `threshold') * 1.1
+                local xmax = max(`xmax', 0.5)
+                local xmax = ceil(`xmax' * 4) / 4
+                local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
+
+                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+                local symbol_list "circle diamond triangle square plus X smcircle smsquare"
+                local plot_cmd ""
+                forvalues s = 1/`nstrat' {
+                    local col : word `s' of `color_list'
+                    local sym : word `s' of `symbol_list'
+                    local plot_cmd `"`plot_cmd' (scatter order smd_`s', msymbol(`sym') mcolor(`col'))"'
+                }
+
+                local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
+                local plotopts "`plotopts' xline(0, lcolor(gs8) lpattern(solid))"
+                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small))"
+                local plotopts "`plotopts' xlabel(-`xmax'(`xstep')`xmax')"
+                local plotopts "`plotopts' ytitle("") xtitle("Standardized Mean Difference")"
+                local plotopts `"`plotopts' title(`"`title'"')"'
+                local plotopts `"`plotopts' legend(order(`strat_labels') rows(1) position(6))"'
+
+                noisily twoway `plot_cmd', `plotopts' `_go' name(`name', replace)
+
+                if "`saving'" != "" {
+                    _psdash_graph_export, saving("`saving'")
+                }
+                restore
+            }
+        }
+        local graph_rc = _rc
+        if `graph_rc' {
+            capture restore
+            local _psdash_side_rc = `graph_rc'
+        }
+    }
+
+    * DISTRIBUTIONAL BALANCE PLOT (F1, binary)
+    if "`distribution'" != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            quietly {
+                local _other_graph = ("`loveplot'" != "" | "`strategies'" != "")
+                local _go "`_graphopts0'"
+                if "`scheme'" != "" local _go `"scheme(`scheme') `_go'"'
+                local _dist_names ""
+                local _dk = 0
+                foreach dv of local distribution {
+                    local _dk = `_dk' + 1
+                    local _gname "`name'_dist`_dk'"
+                    if `has_adj' {
+                        noisily twoway ///
+                            (kdensity `dv' if `treatment'==1 & `touse', lcolor(navy) lpattern(solid)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', lcolor(cranberry) lpattern(solid)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==1 & `touse', lcolor(navy) lpattern(dash)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', lcolor(cranberry) lpattern(dash)), ///
+                            legend(order(1 "Treated (raw)" 2 "Control (raw)" ///
+                                3 "Treated (wtd)" 4 "Control (wtd)") size(vsmall) rows(2) position(6)) ///
+                            xtitle("`dv'") ytitle("Density") title("`dv'", size(medium)) ///
+                            name(`_gname', replace) `_go'
+                    }
+                    else {
+                        noisily twoway ///
+                            (kdensity `dv' if `treatment'==1 & `touse', lcolor(navy)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', lcolor(cranberry)), ///
+                            legend(order(1 "Treated" 2 "Control") size(small) rows(1) position(6)) ///
+                            xtitle("`dv'") ytitle("Density") title("`dv'", size(medium)) ///
+                            name(`_gname', replace) `_go'
+                    }
+                    local _dist_names "`_dist_names' `_gname'"
+                }
+                local _ndist : word count `_dist_names'
+                if `_ndist' > 1 {
+                    graph combine `_dist_names', name(`name'_dist, replace) ///
+                        title(`"`title' — covariate distributions"')
+                }
+                if "`saving'" != "" & !`_other_graph' {
+                    _psdash_graph_export, saving("`saving'")
+                }
+            }
+        }
+        local graph_rc = _rc
+        if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
         }
     }
@@ -711,14 +897,7 @@ program define psdash_balance, rclass
 
     * Validate Excel options
     if "`xlsx'" != "" {
-        if !strmatch("`xlsx'", "*.xlsx") {
-            display as error "Excel filename must have .xlsx extension"
-            exit 198
-        }
-        if regexm("`xlsx'", "[;&|><\$\`]") {
-            display as error "Excel filename contains invalid characters"
-            exit 198
-        }
+        _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
 
     * Set defaults
@@ -736,6 +915,16 @@ program define psdash_balance, rclass
     if "`sheet'" == "" local sheet "Balance"
     if "`title'" == "" local title "Covariate Balance Assessment (Multi-Group)"
     if "`name'" == "" local name "psdash_balance"
+
+    * strategies()/distribution() overlays are defined for binary treatment only
+    if "`strategies'" != "" {
+        display as error "strategies() is supported for binary treatment only"
+        exit 198
+    }
+    if "`distribution'" != "" {
+        display as error "distribution() is supported for binary treatment only"
+        exit 198
+    }
 
     local nvars : word count `varlist'
     local has_adj = ("`wvar'" != "")
@@ -1213,6 +1402,18 @@ program define psdash_balance, rclass
                     return local wvar "`wvar'"
                 }
             }
+            * SMD matrix keyed by covariate, consumable by puttab/table1_tc (I1)
+            tempname _smd_out
+            if `has_adj' {
+                matrix `_smd_out' = `balance_mat'[1..., 3], `balance_mat'[1..., 8]
+                matrix colnames `_smd_out' = SMD_unadj SMD_adj
+            }
+            else {
+                matrix `_smd_out' = `balance_mat'[1..., 3]
+                matrix colnames `_smd_out' = SMD_unadj
+            }
+            if "`smdmatrix'" != "" matrix `smdmatrix' = `_smd_out'
+            return matrix smd = `_smd_out'
             return matrix balance = `balance_mat'
         }
         else if "`_psdash_return_mode'" == "multigroup" {
@@ -1243,6 +1444,42 @@ program define psdash_balance, rclass
                     return local wvar "`wvar'"
                 }
             }
+            * Per-contrast SMD matrix consumable by puttab/table1_tc (I1)
+            tempname _smd_out
+            local _smd_ncols = `n_contrasts'
+            if `has_adj' local _smd_ncols = `_smd_ncols' * 2
+            matrix `_smd_out' = J(`nvars', `_smd_ncols', .)
+            forvalues i = 1/`nvars' {
+                local cnum = 0
+                local outc = 0
+                foreach clev of local contrasts {
+                    local cnum = `cnum' + 1
+                    local outc = `outc' + 1
+                    matrix `_smd_out'[`i', `outc'] = `balance_mat'[`i', `=(`cnum'-1)*5+3']
+                }
+                if `has_adj' {
+                    local cnum = 0
+                    foreach clev of local contrasts {
+                        local cnum = `cnum' + 1
+                        local outc = `outc' + 1
+                        matrix `_smd_out'[`i', `outc'] = `balance_mat'[`i', `=`ncols_raw'+(`cnum'-1)*5+3']
+                    }
+                }
+            }
+            local _smd_cnames ""
+            foreach clev of local contrasts {
+                local _smd_cnames "`_smd_cnames' SMD_`clev'v`mg_reference'"
+            }
+            if `has_adj' {
+                foreach clev of local contrasts {
+                    local _smd_cnames "`_smd_cnames' SMDadj_`clev'v`mg_reference'"
+                }
+            }
+            matrix colnames `_smd_out' = `_smd_cnames'
+            local _balrn : rownames `balance_mat'
+            matrix rownames `_smd_out' = `_balrn'
+            if "`smdmatrix'" != "" matrix `smdmatrix' = `_smd_out'
+            return matrix smd = `_smd_out'
             return matrix balance = `balance_mat'
         }
     }

@@ -1,4 +1,4 @@
-*! _psdash_manual_detect Version 1.2.1  2026/06/14
+*! _psdash_manual_detect Version 1.3.0  2026/06/14
 *! Shared treatment-only detection for balance and weights
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper - rclass

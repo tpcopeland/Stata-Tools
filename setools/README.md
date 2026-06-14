@@ -64,53 +64,6 @@ Start with `setools` or `setools, detail` inside Stata if you want a menu-style 
 | Define confirmed disability progression from baseline EDSS | `cdp` |
 | Separate confirmed progression into PIRA versus relapse-associated worsening | `pira` |
 
-## Demo
-
-### Package overview
-
-![setools overview](demo/setools_overview.png)
-
-### Registry code utilities
-
-<details>
-<summary>cci_se — Swedish Charlson Comorbidity Index (click to expand)</summary>
-
-![cci_se output](demo/cci_se.png)
-
-</details>
-
-### Cohort construction
-
-<details>
-<summary>migrations — migration exclusions and censoring (click to expand)</summary>
-
-![migrations output](demo/migrations.png)
-
-</details>
-
-### MS disability progression
-
-<details>
-<summary>sustainedss — sustained EDSS progression (click to expand)</summary>
-
-![sustainedss output](demo/sustainedss.png)
-
-</details>
-
-<details>
-<summary>cdp — confirmed disability progression (click to expand)</summary>
-
-![cdp output](demo/cdp.png)
-
-</details>
-
-<details>
-<summary>pira — progression independent of relapse activity (click to expand)</summary>
-
-![pira output](demo/pira.png)
-
-</details>
-
 ## Quick Start
 
 ### Swedish Charlson Comorbidity Index

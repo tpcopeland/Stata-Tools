@@ -128,7 +128,7 @@ BEGIN
   * =========================================================================
   * PYTHON AND CSS
   * =========================================================================
-  GROUPBOX gb_python     10  10  620  75, label("Python and Styling")
+  GROUPBOX gb_python     10  10  620  100, label("Python and Styling")
 
   TEXT     tx_python     20  +20 140  ., label("Python path:")
   EDIT     ed_python     165 @   465  ., label("Python path")
@@ -136,6 +136,9 @@ BEGIN
   TEXT     tx_css        20  +25 140  ., label("CSS file:")
   FILE     fi_css        165 @   465  ., label("Browse...") ///
            filter("CSS Files (*.css)|*.css|All Files (*.*)|*.*")
+
+  TEXT     tx_accent     20  +25 140  ., label("Accent color:")
+  EDIT     ed_accent     165 @   140  ., label("Accent color")
 
   * =========================================================================
   * FOOTER AND FILTERING
@@ -284,6 +287,15 @@ BEGIN
 		put " css("
 		put `"""'
 		put advanced.fi_css
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: accent color
+	if advanced.ed_accent {
+		put " accent("
+		put `"""'
+		put advanced.ed_accent
 		put `"""'
 		put ")"
 	}

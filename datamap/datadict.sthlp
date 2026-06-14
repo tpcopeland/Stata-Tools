@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  14jun2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] labelbook" "help labelbook"}{...}
@@ -73,10 +73,11 @@ Values/Notes.  When {opt missing} or {opt stats} is specified, additional
 columns are added.
 
 {pstd}
-The command automatically extracts variable labels, classifies variables
-(Numeric, String, Date), and formats value labels for categorical variables.
-For variables with more than {opt maxfreq()} unique values it displays a count
-rather than listing every value.
+The command uses the same shared classification engine as {help datamap}: string,
+date, categorical, and continuous variables are identified using one consistent
+rule set.  It formats value labels for categorical variables.  For variables
+with more than {opt maxfreq()} unique values it displays a count rather than
+listing every value.
 
 {pstd}
 The generated Markdown files are valid CommonMark and render in GitHub, GitLab,
@@ -214,7 +215,7 @@ count.  Default is {bf:25}.  Must be positive.
 The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
 ({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
 quarterly, and other non-daily types retain their native format regardless of
-this setting.
+this setting.  The format must begin with {cmd:%t} or {cmd:%d}.
 
 
 {marker remarks}{...}
@@ -341,12 +342,12 @@ Or pass a short note inline:{p_end}
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 {hline 2} 08apr2026{p_end}
+{pstd}Version 1.1.0 {hline 2} 14jun2026{p_end}
 
 
 {title:Also see}
@@ -354,3 +355,5 @@ Or pass a short note inline:{p_end}
 {psee}
 {help datamap}, {manlink D describe}, {manlink D codebook}, {manlink D labelbook}
 {p_end}
+
+{hline}

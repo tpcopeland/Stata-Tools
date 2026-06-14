@@ -128,7 +128,7 @@ Without `profile()`, `tabtools set ..., permanent` writes `tabtools_profile.do` 
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output, a sequential Markdown report, and 14 Excel workbooks (72 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates a sequential Markdown report and 14 Excel workbooks (72 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 

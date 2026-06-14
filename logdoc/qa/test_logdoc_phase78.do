@@ -328,7 +328,7 @@ local test_total = `test_total' + 1
 * Clear the replay global to ensure clean state
 global LOGDOC_LAST_ARGS ""
 global LOGDOC_LAST_INPUT ""
-capture noisily {
+capture {
     logdoc replay
 }
 if _rc == 198 {

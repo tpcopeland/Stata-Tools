@@ -97,13 +97,13 @@ local g1b = _rc
 capture noisily logdoc using "`smcl_fixture'", output("`outdir'/bad_height.html") ///
     graphheight(foo) replace quiet
 local g1c = _rc
-capture noisily logdoc using "`smcl_fixture'", output("`outdir'/missing_css.html") ///
+capture logdoc using "`smcl_fixture'", output("`outdir'/missing_css.html") ///
     css("`outdir'/does_not_exist.css") replace quiet
 local g1d = _rc
-capture noisily logdoc using "`smcl_fixture'", output("`outdir'/missing_annot.html") ///
+capture logdoc using "`smcl_fixture'", output("`outdir'/missing_annot.html") ///
     annotate("`outdir'/does_not_exist.txt") replace quiet
 local g1e = _rc
-capture noisily logdoc using "`smcl_fixture'", output("`outdir'/quiet_verbose.html") ///
+capture logdoc using "`smcl_fixture'", output("`outdir'/quiet_verbose.html") ///
     quiet verbose replace
 local g1f = _rc
 if `g1a' == 198 & `g1b' == 198 & `g1c' == 198 & ///
@@ -239,8 +239,9 @@ else {
 local test_total = `test_total' + 1
 capture noisily logdoc using "`smcl_fixture'", output("`outdir'/metadata.html") ///
     replace quiet
-if _rc == 0 & r(nblocks) > 0 & r(filesize) > 0 {
-    display as result "G6 PASS: r(nblocks) and r(filesize) populated"
+if _rc == 0 & r(nblocks) > 0 & r(filesize) > 0 & ///
+    r(ngraphs) >= 0 & r(ntables) >= 0 & r(nwarnings) >= 0 {
+    display as result "G6 PASS: conversion metadata scalars populated"
     local test_pass = `test_pass' + 1
 }
 else {
@@ -444,6 +445,96 @@ else {
 }
 
 * ---------------------------------------------------------------------------
+* G13: combine creates one TOC'd document and returns aggregate metadata
+* ---------------------------------------------------------------------------
+local test_total = `test_total' + 1
+local g13_out "`outdir'/combined.html"
+capture erase "`g13_out'"
+capture noisily logdoc combine using "`smcl_fixture'" "`smcl_compare'", ///
+    output("`g13_out'") accent("#005ea8") replace quiet
+local g13_rc = _rc
+if `g13_rc' == 0 {
+    _logdoc_guard_contains "`g13_out'" "Contents" g13_toc
+    _logdoc_guard_contains "`g13_out'" "guard_input" g13_src1
+    _logdoc_guard_contains "`g13_out'" "guard_compare" g13_src2
+    _logdoc_guard_contains "`g13_out'" "#005ea8" g13_accent
+    if r(n_sources) == 2 & r(nblocks) > 0 & r(filesize) > 0 & ///
+        r(ngraphs) >= 0 & r(ntables) >= 0 & r(nwarnings) >= 0 & ///
+        `g13_toc' & `g13_src1' & `g13_src2' & `g13_accent' {
+        display as result "G13 PASS: combine output, accent, and metadata preserved"
+        local test_pass = `test_pass' + 1
+    }
+    else {
+        display as error "G13 FAIL: combine output or metadata missing"
+        local test_fail = `test_fail' + 1
+    }
+}
+else {
+    display as error "G13 FAIL: combine command failed with rc=`g13_rc'"
+    local test_fail = `test_fail' + 1
+}
+
+* ---------------------------------------------------------------------------
+* G14: global .logdocrc applies below project .logdocrc
+* ---------------------------------------------------------------------------
+local test_total = `test_total' + 1
+local g14_home "`outdir'/homecfg"
+local g14_project "`outdir'/projectcfg"
+local g14_plain "`outdir'/plaincfg"
+capture mkdir "`g14_home'"
+capture mkdir "`g14_project'"
+capture mkdir "`g14_plain'"
+tempname g14fh
+file open `g14fh' using "`g14_home'/.logdocrc", write text replace
+file write `g14fh' "theme=dark" _n
+file write `g14fh' "accent=#005ea8" _n
+file close `g14fh'
+file open `g14fh' using "`g14_project'/.logdocrc", write text replace
+file write `g14fh' "theme=light" _n
+file close `g14fh'
+
+local g14_child "`outdir'/g14_child.do"
+local g14_marker "`outdir'/g14_ok.txt"
+capture erase "`g14_marker'"
+file open `g14fh' using "`g14_child'", write text replace
+file write `g14fh' "clear all" _n
+file write `g14fh' "set more off" _n
+file write `g14fh' `"capture ado uninstall logdoc"' _n
+file write `g14fh' `"net install logdoc, from("`pkgdir'") replace"' _n
+file write `g14fh' `"cd "`g14_plain'""' _n
+file write `g14fh' `"logdoc using "`smcl_fixture'", output("`outdir'/g14_global.html") replace quiet"' _n
+file write `g14fh' `"cd "`g14_project'""' _n
+file write `g14fh' `"logdoc using "`smcl_fixture'", output("`outdir'/g14_project.html") replace quiet"' _n
+file write `g14fh' `"file open okfh using "`g14_marker'", write text replace"' _n
+file write `g14fh' `"file write okfh "ok" _n"' _n
+file write `g14fh' "file close okfh" _n
+file write `g14fh' "exit" _n
+file close `g14fh'
+
+local g14_out "`outdir'/g14_child.out"
+shell HOME="`g14_home'" stata-mp -b do "`g14_child'" > "`g14_out'" 2>&1
+local g14_global_dark = 0
+local g14_global_accent = 0
+local g14_project_light = 0
+local g14_project_accent = 0
+capture confirm file "`g14_marker'"
+if _rc == 0 {
+    _logdoc_guard_contains "`outdir'/g14_global.html" "#191a1f" g14_global_dark
+    _logdoc_guard_contains "`outdir'/g14_global.html" "#005ea8" g14_global_accent
+    _logdoc_guard_contains "`outdir'/g14_project.html" "#ffffff" g14_project_light
+    _logdoc_guard_contains "`outdir'/g14_project.html" "#005ea8" g14_project_accent
+}
+if _rc == 0 & `g14_global_dark' & `g14_global_accent' & ///
+    `g14_project_light' & `g14_project_accent' {
+    display as result "G14 PASS: global .logdocrc precedence preserved"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "G14 FAIL: global .logdocrc child smoke failed"
+    local test_fail = `test_fail' + 1
+}
+
+* ---------------------------------------------------------------------------
 * Cleanup
 * ---------------------------------------------------------------------------
 capture cd "`oldpwd'"
@@ -453,6 +544,14 @@ capture erase "`outdir'/g11_b.smcl"
 capture erase "`outdir'/g11_diff.html"
 capture erase "`outdir'/g12_run.do"
 capture erase "`outdir'/g12.html"
+capture erase "`outdir'/combined.html"
+capture erase "`outdir'/homecfg/.logdocrc"
+capture erase "`outdir'/projectcfg/.logdocrc"
+capture erase "`outdir'/g14_child.do"
+capture erase "`outdir'/g14_child.out"
+capture erase "`outdir'/g14_ok.txt"
+capture erase "`outdir'/g14_global.html"
+capture erase "`outdir'/g14_project.html"
 capture erase "`smcl_fixture'"
 capture erase "`smcl_compare'"
 capture erase "`outdir'/bad_format.html"

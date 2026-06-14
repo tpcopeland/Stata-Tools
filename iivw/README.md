@@ -487,7 +487,6 @@ do iivw/demo/demo_iivw.do
 
 Generated outputs:
 
-- [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
 - [`demo/iivw_psdash_dashboard.png`](demo/iivw_psdash_dashboard.png) — psdash treatment-propensity overlap, support, balance, and treatment-weight dashboard using `_iivw_ps` and `_iivw_tw`
 - [`demo/iivw_psdash_final_weights.png`](demo/iivw_psdash_final_weights.png) — final FIPTIW analysis-weight distribution from `psdash weights, iivwcomponent(final)`
 - `demo/iivw_results.xlsx` — Excel workbook with a diagnostic model-comparison sheet and a `Visit waves` sheet showing categorical-time interaction labels

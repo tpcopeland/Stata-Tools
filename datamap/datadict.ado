@@ -1,6 +1,6 @@
-*! datadict Version 1.0.0  2026/04/08
+*! datadict Version 1.1.0  2026/06/14
 *! Generate clean Markdown data dictionaries matching professional documentation style
-*! Author: Timothy P. Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define datadict, rclass
 	version 16.0
@@ -18,6 +18,10 @@ program define datadict, rclass
 
 	// Set default date format (ISO 8601: YYYY/MM/DD)
 	if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"
+	if strpos(`"`dateformat'"', "%t") != 1 & strpos(`"`dateformat'"', "%d") != 1 {
+		noisily di as error "dateformat() must be a Stata date/time display format beginning with %t or %d"
+		exit 198
+	}
 
 	// Preserve current dataset
 	preserve
@@ -130,7 +134,10 @@ end
 // =============================================================================
 // Helper: CollectDatasetNames - extract display names for TOC
 // =============================================================================
-program define _datadict_CollectDatasetNames
+capture program drop _datadict_CollectDatasetNames
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_CollectDatasetNames, nclass
 	version 16.0
 	args filelist namesfile nfiles
 
@@ -166,6 +173,9 @@ end
 // =============================================================================
 // Helper: MakeAnchor - create markdown anchor from text
 // =============================================================================
+capture program drop _datadict_MakeAnchor
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_MakeAnchor, rclass
 	version 16.0
 	args idx name
@@ -181,6 +191,9 @@ end
 // =============================================================================
 // Helper: EscapeMarkdown - escape special markdown characters
 // =============================================================================
+capture program drop _datadict_EscapeMarkdown
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_EscapeMarkdown, rclass
 	version 16.0
 	args text
@@ -202,6 +215,9 @@ end
 // =============================================================================
 // Helper: ParseNameLine - parse basename|label metadata line
 // =============================================================================
+capture program drop _datadict_ParseNameLine
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_ParseNameLine, rclass
 	version 16.0
 	local _varabbrev = c(varabbrev)
@@ -230,6 +246,9 @@ end
 // =============================================================================
 // Helper: FormatDisplayName - format dataset name for Markdown display
 // =============================================================================
+capture program drop _datadict_FormatDisplayName
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_FormatDisplayName, rclass
 	version 16.0
 	local _varabbrev = c(varabbrev)
@@ -249,7 +268,10 @@ end
 // =============================================================================
 // Helper: ProcessCombined
 // =============================================================================
-program define _datadict_ProcessCombined
+capture program drop _datadict_ProcessCombined
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_ProcessCombined, nclass
 	version 16.0
 	args filelist namesfile output title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq dateformat
 
@@ -386,7 +408,10 @@ end
 // =============================================================================
 // Helper: ProcessSeparate
 // =============================================================================
-program define _datadict_ProcessSeparate
+capture program drop _datadict_ProcessSeparate
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_ProcessSeparate, nclass
 	version 16.0
 	args filelist namesfile title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq dateformat
 
@@ -452,7 +477,10 @@ end
 // =============================================================================
 // Helper: ProcessOneDataset
 // =============================================================================
-program define _datadict_ProcessOneDataset
+capture program drop _datadict_ProcessOneDataset
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_ProcessOneDataset, nclass
 	version 16.0
 	args fh filepath dsname dslabel idx showmissing showstats maxcat maxfreq dateformat
 
@@ -497,15 +525,31 @@ program define _datadict_ProcessOneDataset
 		file write `fh' "|----------|-------|------|--------------|" _n
 	}
 
-	// Load dataset (already preserved by main program)
-	quietly use `"`macval(filepath)'"', clear
-
-	// Process each variable
-	quietly describe, varlist
-	local allvars `r(varlist)'
+	// Shared classification engine leaves the source dataset loaded for row stats.
+	tempfile classifications
+	_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
+		maxcat(`maxcat') obs(`obs')
+	local allvars "`r(all_vars)'"
+	local categorical_vars "`r(categorical_vars)'"
+	local continuous_vars "`r(continuous_vars)'"
+	local date_vars "`r(date_vars)'"
+	local string_vars "`r(string_vars)'"
 
 	foreach vn of local allvars {
-		_datadict_WriteVariableRow `fh' `"`vn'"' `obs' "`showmissing'" "`showstats'" `maxcat' `maxfreq' "`dateformat'"
+		local varclass "continuous"
+		foreach cv of local categorical_vars {
+			if "`vn'" == "`cv'" local varclass "categorical"
+		}
+		foreach cv of local continuous_vars {
+			if "`vn'" == "`cv'" local varclass "continuous"
+		}
+		foreach cv of local date_vars {
+			if "`vn'" == "`cv'" local varclass "date"
+		}
+		foreach cv of local string_vars {
+			if "`vn'" == "`cv'" local varclass "string"
+		}
+		_datadict_WriteVariableRow `fh' `"`vn'"' `obs' "`showmissing'" "`showstats'" `maxcat' `maxfreq' "`dateformat'" "`varclass'"
 	}
 
 	file write `fh' _n _n
@@ -514,12 +558,15 @@ end
 // =============================================================================
 // Helper: WriteVariableRow
 // =============================================================================
+capture program drop _datadict_DateDisplayFormat
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_DateDisplayFormat, rclass
 	version 16.0
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-		syntax, VFMT(string) DATEFORMAT(string)
+		syntax, VFMT(string) DATEFormat(string)
 
 		local datefmt "`vfmt'"
 		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
@@ -536,9 +583,12 @@ program define _datadict_DateDisplayFormat, rclass
 	if `rc' exit `rc'
 end
 
-program define _datadict_WriteVariableRow
+capture program drop _datadict_WriteVariableRow
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_WriteVariableRow, nclass
 	version 16.0
-	args fh vname obs showmissing showstats maxcat maxfreq dateformat
+	args fh vname obs showmissing showstats maxcat maxfreq dateformat varclass
 
 	local vtype: type `vname'
 	local vfmt: format `vname'
@@ -551,27 +601,11 @@ program define _datadict_WriteVariableRow
 
 	// Determine Type column
 	local typestr "Numeric"
-	local varclass "continuous"
 	if substr("`vtype'", 1, 3) == "str" {
 		local typestr "String"
-		local varclass "string"
 	}
 	else if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
 		local typestr "Date"
-		local varclass "date"
-	}
-	else {
-		// Check if categorical
-		if "`vallabname'" != "" {
-			local varclass "categorical"
-		}
-		else {
-			// Check unique values
-			capture quietly tab `vname'
-			if _rc == 0 & r(r) <= `maxcat' {
-				local varclass "categorical"
-			}
-		}
 	}
 
 	// Calculate missing if requested
@@ -740,6 +774,9 @@ end
 // =============================================================================
 // Helper: GetValueLabelString - format value labels for display
 // =============================================================================
+capture program drop _datadict_GetValueLabelString
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetValueLabelString, rclass
 	version 16.0
 	args vname vallabname maxlevels
@@ -803,6 +840,9 @@ end
 // =============================================================================
 // Helper: FormatStatNumber - format numbers intelligently based on magnitude
 // =============================================================================
+capture program drop _datadict_FormatStatNumber
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_FormatStatNumber, rclass
 	version 16.0
 	args num
@@ -845,6 +885,9 @@ end
 // =============================================================================
 // Helper: GetCategoricalStats - get frequencies with percentages for labeled categoricals
 // =============================================================================
+capture program drop _datadict_GetCategoricalStats
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetCategoricalStats, rclass
 	version 16.0
 	args vname vallabname maxlevels totalobs
@@ -903,6 +946,9 @@ end
 // =============================================================================
 // Helper: GetUnlabeledStats - get frequencies with percentages for unlabeled categoricals
 // =============================================================================
+capture program drop _datadict_GetUnlabeledStats
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetUnlabeledStats, rclass
 	version 16.0
 	args vname maxlevels totalobs

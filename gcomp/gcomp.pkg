@@ -13,7 +13,7 @@ d bug fixes, modernization, and SSC dependency removal.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260529
+d Distribution-Date: 20260614
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -33,6 +33,8 @@ f _gcomp_detangle.ado
 f _gcomp_formatline.ado
 f _gcomp_bootstrap.ado
 f _gcomp_bootstrap_impl.ado
+f _gcomp_refit_models.ado
+f _gcomp_display_models.ado
 f gcomp.sthlp
 f gcomptab.ado
 f gcomptab.sthlp

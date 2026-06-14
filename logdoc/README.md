@@ -1,6 +1,6 @@
 # logdoc
 
-![version](https://img.shields.io/badge/version-1.0.2-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+![version](https://img.shields.io/badge/version-1.1.0-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
 Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents.
 
@@ -20,18 +20,20 @@ Semantic enhancements are now opt-in. Syntax highlighting, parsed HTML tables, c
 - **Opt-in copy/download controls** with `copy` and `download`
 - **Base64-embedded graphs** -- fully standalone HTML, no external image files
 - **Light and dark themes** -- faithful Stata-style light and dark rendering
+- **Accent color** -- apply a project or institutional brand color with `accent(#RRGGBB)`
 - **Live session mode** -- `logdoc start` / `logdoc stop` wraps your interactive session
 - **Notebook mode** -- Jupyter-style cell layout with In/Out labels
 - **Table of contents** -- auto-generated from `* # Section` comment markers
 - **Keep/drop filtering** -- show only specific commands in the output
 - **Batch conversion** -- convert all logs in a directory with one command
+- **Combine mode** -- merge several logs into one source-sectioned report
 - **Diff view** -- compare two log files side by side
 - **Email-safe HTML** -- inline CSS for email client compatibility
 - **Annotations** -- embed notes alongside commands
 - **Stamp** -- add Stata version, date, and data filename to the header
 - **Line numbers** -- numbered command blocks for reference
 - **Legacy mode** -- `legacy` enables the pre-1.4 HTML enhancement defaults
-- **Project config** -- `.logdocrc` file for per-project defaults
+- **Project config** -- global `~/.logdocrc` defaults with per-project `.logdocrc` overrides
 - **Print-optimized CSS** -- clean output for paper/PDF
 - **Dialog box** -- GUI interface via `db logdoc`
 
@@ -115,6 +117,7 @@ logdoc stop
 
 logdoc diff using file1, compare(file2) output(filename) [replace]
 logdoc batch, input(pattern) outdir(path) [options]
+logdoc combine using file1 file2 [...], output(filename) [options]
 logdoc replay [, theme() format() open]
 ```
 
@@ -126,6 +129,7 @@ logdoc replay [, theme() format() open]
 | `format(html\|md\|qmd\|both\|docx\|tex\|pdf)` | Output format; default `html` (auto-detected from extension) |
 | `theme(light\|dark)` | CSS theme; default `light` |
 | `css(filename)` | Custom CSS file (overrides theme) |
+| `accent(#RRGGBB)` | Brand/accent color for built-in HTML styling |
 | `title(string)` | Document title; defaults to input filename |
 | `date(string)` | Date subtitle shown below the title |
 | `footer(string)` | Custom footer text |
@@ -185,6 +189,18 @@ or location, e.g. `stataexe(/opt/stata18/stata-mp)`.
 | `tex` | LaTeX with listings and booktabs |
 | `pdf` | PDF via wkhtmltopdf |
 
+## When to Use logdoc
+
+| Tool | Best fit |
+|------|----------|
+| `logdoc` | Post-hoc conversion of existing `.smcl` or `.log` files to faithful, shareable documents |
+| `translate` | Plain SMCL-to-text/PostScript/basic PDF conversion with minimal styling |
+| `dyndoc` | Dynamic documents that execute embedded Stata code while building the report |
+| `markstat` | Literate analysis documents mixing prose, Stata code, and output |
+| `texdoc` / `webdoc` | LaTeX or web documents authored from annotated Stata source files |
+| Quarto | Executable multi-language reports; `logdoc` `.qmd` output is rendered Markdown, not executable chunks |
+| `markdown` | Convert Markdown text to HTML or Word, not Stata log files |
+
 ## Examples
 
 ```stata
@@ -197,6 +213,9 @@ logdoc using "results.smcl", output("results.md") replace
 * Dark theme with title and date
 logdoc using "output.smcl", output("output.html") theme(dark) ///
     title("Survival Analysis") date("March 2026") replace
+
+* Institutional accent color
+logdoc using "output.smcl", output("report.html") accent("#005ea8") replace
 
 * Word document
 logdoc using "results.smcl", output("results.docx") replace
@@ -227,6 +246,10 @@ logdoc stop
 
 * Batch convert all SMCL files
 logdoc batch, input("*.smcl") outdir("reports/") replace
+
+* Combine several logs into one project report
+logdoc combine using "setup.smcl" "models.smcl" "tables.smcl", ///
+    output("project_report.html") toc replace
 
 * Compare two logs
 logdoc diff using "old.smcl", compare("new.smcl") ///
@@ -318,6 +341,10 @@ logdoc using "analysis.smcl", output("filtered.html") ///
 * Batch convert all SMCL files in a directory
 logdoc batch, input("logs/*.smcl") outdir("reports/") replace
 
+* Combine selected logs into one report
+logdoc combine using "logs/setup.smcl" "logs/models.smcl" ///
+    "logs/tables.smcl", output("reports/project.html") toc replace
+
 * Side-by-side diff of two logs
 logdoc diff using "old.smcl", compare("new.smcl") output("diff.html") replace
 ```
@@ -332,6 +359,7 @@ logdoc diff using "old.smcl", compare("new.smcl") output("diff.html") replace
 | `logdoc start` / `logdoc stop` | Live session mode |
 | `logdoc diff` | Side-by-side diff of two log files |
 | `logdoc batch` | Batch convert multiple log files |
+| `logdoc combine` | Combine multiple logs into one report |
 | `logdoc replay` | Re-run the last conversion with optional overrides |
 | `logdoc_py` | Find, check, and save Python configuration for logdoc |
 
@@ -352,14 +380,15 @@ Actions: `check` (default), `set`, `save`, `install()`. At most one may be speci
 
 ## Project Configuration (.logdocrc)
 
-Create a `.logdocrc` file in your project directory to set defaults for every `logdoc` call made from that directory. Format is one `key=value` per line:
+Create `~/.logdocrc` to set defaults across projects, then add a project-level `.logdocrc` in your working directory when a project needs overrides. Command-line options override both files. Format is one `key=value` per line:
 
 ```
 theme=dark
+accent=#005ea8
 python=/usr/local/bin/python3
 ```
 
-Use `logdoc_py, save` to write the `python=` line automatically. Other keys correspond to logdoc options (e.g., `theme`, `format`).
+Use `logdoc_py, save` to write the `python=` line automatically. Other keys correspond to logdoc options (e.g., `theme`, `format`, `accent`, `toc`, `tables`).
 
 ## Stored Results
 
@@ -371,9 +400,21 @@ Use `logdoc_py, save` to write the `python=` line automatically. Other keys corr
 | `r(input)` | Macro | Input file path |
 | `r(format)` | Macro | Output format used |
 | `r(theme)` | Macro | Theme used |
+| `r(accent)` | Macro | Accent color used, if specified |
 | `r(secondary)` | Macro | Secondary output path (`format(both)` only) |
 | `r(nblocks)` | Scalar | Number of rendered content blocks parsed |
 | `r(filesize)` | Scalar | Output file size in bytes |
+| `r(ngraphs)` | Scalar | Number of graph export commands detected |
+| `r(ntables)` | Scalar | Number of table blocks detected |
+| `r(nwarnings)` | Scalar | Number of renderer warnings |
+
+**logdoc combine**:
+
+Includes the `logdoc` conversion results above, plus:
+
+| Result | Type | Contents |
+|--------|------|----------|
+| `r(n_sources)` | Scalar | Number of source files combined |
 
 **logdoc batch**:
 
@@ -397,12 +438,28 @@ Use `logdoc_py, save` to write the `python=` line automatically. Other keys corr
 - `logdoc start` and `logdoc using ..., run` set Stata's line size to the maximum (`255`) while capturing output; existing logs must be rerun if they were already wrapped
 - Structure .do files with `* # Section Title` comments for navigable documents with `toc`
 - Use `legacy` when you want the pre-1.4 enhanced HTML defaults in one switch
-- Create a `.logdocrc` file with `theme=dark` (or other defaults) for per-project settings
+- Use `~/.logdocrc` for personal defaults, then `.logdocrc` in a project directory for project-specific overrides
 - Run `python query` or `logdoc_py, check verbose` when diagnosing Python setup; the default path uses Stata's configured Python before project or PATH fallbacks
+
+## QA
+
+Run the full suite from `logdoc/qa`:
+
+```bash
+stata-mp -b do run_all.do
+```
+
+The suite contains 5 QA files: 4 functional test files and 1 validation file.
+
+- `test_logdoc.do` - 23 tests
+- `test_logdoc_py.do` - 90 tests
+- `validation_logdoc.do` - 54 validations
+- `test_logdoc_phase78.do` - 1 test
+- `test_logdoc_refactor_guards.do` - 13 tests
 
 ## Version
 
-Version 1.0.2
+Version 1.1.0
 
 ## Author
 

@@ -1,6 +1,6 @@
 *! _datamap_collect_from_dir Version 1.0.0  2026/04/08
 *! Shared datamap/datadict directory scanner
-*! Author: Timothy P. Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _datamap_collect_from_dir, nclass
 	version 16.0
@@ -38,6 +38,9 @@ program define _datamap_collect_from_dir, nclass
 	if `rc' exit `rc'
 end
 
+capture program drop _datamap_recursive_scan
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_recursive_scan, nclass
 	version 16.0
 	local _varabbrev = c(varabbrev)

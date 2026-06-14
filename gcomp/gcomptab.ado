@@ -1,4 +1,4 @@
-*! gcomptab Version 1.2.0  2026/05/29
+*! gcomptab Version 1.3.0  2026/06/14
 *! Format gcomp mediation or time-varying dose-response results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -86,13 +86,20 @@ program define gcomptab, rclass
 capture noisily {
     return clear
 
-    syntax, xlsx(string) sheet(string) [ci(string) effect(string) title(string) ///
+    syntax [, xlsx(string) sheet(string) ci(string) effect(string) title(string) ///
             labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
             BORDERstyle(string) THEme(string) HEADERShade NOSHAde ///
             HEADERColor(string) ZEBRA ZEBRAColor(string) NOZEbra ///
             FOOTnote(string) OPEN BOLDp(real 0) ///
             HIGHlight(real 0) DOSEresponse STRATEGYlabels(string) ///
-            EXPYears(numlist) REFerence(integer 1) noRD]
+            EXPYears(numlist) REFerence(integer 1) noRD ///
+            MODELS USEMODels(string) MODELLabels(string) TERMLabels(string) ///
+            MARKDown(string) CSV(string) COEF(string) EFORM NOEFORM RAW ///
+            SE COMPact NOPValue STARS STARSLevels(numlist) ///
+            NOINTercept KEEPINTercept KEEP(string) DROP(string) ///
+            DIGits(integer -1) STATs(string) DISPlay]
+
+    if `digits' >= 0 local decimal = `digits'
 
     * Auto-load bundled Excel helpers on demand
     capture _gcomp_xl_helpers_ready
@@ -139,6 +146,34 @@ capture noisily {
     if "`nozebra'" != "" local zebra ""
     if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
+
+    * ----- Models mode (regtab-lite): explicit switch, never auto-detected -----
+    if "`models'" != "" {
+        if "`doseresponse'" != "" {
+            noisily display as error "models and doseresponse are mutually exclusive"
+            exit 198
+        }
+        if `"`ci'"' != "" | `"`effect'"' != "" | `"`labels'"' != "" {
+            noisily display as error "ci(), effect(), and labels() are mediation-mode options; in models mode use se, modellabels(), and termlabels()"
+            exit 198
+        }
+        _gcomptab_models, usemodels(`"`usemodels'"') modellabels(`"`modellabels'"') ///
+            termlabels(`"`termlabels'"') xlsx(`"`xlsx'"') sheet(`"`sheet'"') ///
+            markdown(`"`markdown'"') csv(`"`csv'"') coef(`"`coef'"') ///
+            `eform' `noeform' `raw' `se' `compact' `nopvalue' `stars' ///
+            starslevels(`starslevels') `nointercept' `keepintercept' ///
+            keep(`"`keep'"') drop(`"`drop'"') decimal(`decimal') stats(`"`stats'"') ///
+            title(`"`title'"') footnote(`"`footnote'"') font(`"`font'"') ///
+            fontsize(`fontsize') borderstyle(`"`borderstyle'"') `zebra' ///
+            zebracolor(`"`zebracolor'"') `headershade' headercolor(`"`headercolor'"') ///
+            boldp(`boldp') highlight(`highlight') `open' `display'
+        return add
+    }
+    else {
+    if `"`xlsx'"' == "" | `"`sheet'"' == "" {
+        noisily display as error "xlsx() and sheet() are required"
+        exit 198
+    }
 
     * ----- Mode detection: dose-response (time-varying PO#) vs mediation -----
     local _drmode 0
@@ -249,6 +284,7 @@ quietly {
     return add
 }
     }
+    } /* end: else (non-models modes) */
 } /* end capture noisily */
 local _gc_rc = _rc
 set varabbrev `_gc_varabbrev'
@@ -1130,6 +1166,594 @@ program define _gcomptab_dr_style
         exit `saved_rc'
     }
     capture mata: mata drop b
+end
+
+* =============================================================================
+* _gcomptab_models: regtab-lite component-model table (models mode)
+* =============================================================================
+* Harvests the stored component models captured by gcomp (savemodels), builds a
+* multi-model coefficient table with scale auto-detection, row union/alignment,
+* and writes it to xlsx (putexcel), markdown, csv, and/or the Results window.
+capture program drop _gcomptab_models
+program define _gcomptab_models, rclass
+    version 16.0
+    local _orig_va = c(varabbrev)
+    set varabbrev off
+    local _est_held 0
+    tempname _esthold
+capture noisily {
+    syntax , [USEMODels(string) MODELLabels(string) TERMLabels(string) ///
+        XLSX(string) SHEET(string) MARKDown(string) CSV(string) COEF(string) ///
+        EFORM NOEFORM RAW SE COMPact NOPValue STARS STARSLevels(numlist) ///
+        NOINTercept KEEPINTercept KEEP(string) DROP(string) DECimal(integer 3) ///
+        STATs(string) TITLE(string) FOOTnote(string) Font(string) ///
+        FONTSize(integer 10) BORDERstyle(string) ZEBRA ZEBRAColor(string) ///
+        HEADERShade HEADERColor(string) BOLDp(real 0) HIGHlight(real 0) ///
+        OPEN DISPlay]
+
+    if `decimal' < 0 | `decimal' > 12 local decimal 3
+    if "`font'" == "" local font "Arial"
+    if `"`headercolor'"' == "" local headercolor "219 229 241"
+    if `"`zebracolor'"' == "" local zebracolor "237 242 249"
+    if "`starslevels'" == "" local starslevels "0.05 0.01 0.001"
+    * scale override precedence: raw/noeform > eform ; coef() overrides label only
+    if "`raw'" != "" local noeform noeform
+
+    * ----- Resolve and validate the model list -----
+    if `"`usemodels'"' != "" local _names "`usemodels'"
+    else local _names "`e(model_names)'"
+    if "`_names'" == "" {
+        noisily display as error "models: no stored component models found."
+        noisily display as error "  Rerun gcomp with savemodels (or showmodels), or pass usemodels()."
+        exit 198
+    }
+    * Preserve the caller's active e() across our estimates restore calls so a
+    * chained gcomptab (or anything reading e(model_names)) still works afterwards.
+    _estimates hold `_esthold', restore copy nullok
+    local _est_held 1
+    foreach _nm of local _names {
+        capture estimates restore `_nm'
+        if _rc {
+            noisily display as error "models: stored estimate `_nm' not found (rerun gcomp with savemodels)"
+            exit 301
+        }
+    }
+
+    * ----- Output targets -----
+    if `"`xlsx'"' == "" & `"`markdown'"' == "" & `"`csv'"' == "" & "`display'" == "" {
+        noisily display as error "models: specify at least one of xlsx(), markdown(), csv(), or display"
+        exit 198
+    }
+    if `"`xlsx'"' != "" {
+        _gcomp_validate_path `"`xlsx'"' "xlsx"
+        if `"`sheet'"' == "" local sheet "Models"
+        _gcomp_xl_validate_sheet "`sheet'" "sheet"
+    }
+    if `"`markdown'"' != "" _gcomp_validate_path `"`markdown'"' "markdown"
+    if `"`csv'"' != ""      _gcomp_validate_path `"`csv'"' "csv"
+
+    local _M : word count `_names'
+
+    * ----- Harvest each model: terms, estimates, scale -----
+    local _keys ""           // ordered union of term keys
+    local _do_n = (strpos(" `stats' ", " n ") > 0)
+    forvalues k = 1/`_M' {
+        local _nm : word `k' of `_names'
+        qui estimates restore `_nm'
+        tempname b`k' V`k'
+        matrix `b`k'' = e(b)
+        matrix `V`k'' = e(V)
+        local cmd`k'    "`e(cmd)'"
+        local depvar`k' "`e(depvar)'"
+        local N`k'      = e(N)
+
+        * Scale + label per command (auto), then apply overrides
+        if "`cmd`k''" == "logit"       local _sc "OR"
+        else if "`cmd`k''" == "mlogit" local _sc "RRR"
+        else if "`cmd`k''" == "ologit" local _sc "OR"
+        else                            local _sc "Coef."
+        local _ef = ("`cmd`k''" != "regress")
+        if "`noeform'" != "" {
+            local _ef 0
+            local _sc "Coef."
+        }
+        else if "`eform'" != "" {
+            local _ef 1
+            if "`_sc'" == "Coef." local _sc "exp(b)"
+        }
+        if `"`coef'"' != "" local _sc "`coef'"
+        local eform`k' = `_ef'
+        local scale`k' "`_sc'"
+
+        * Column meta
+        local _cn : colnames `b`k''
+        local _eq : coleq `b`k''
+        local _nc = colsof(`b`k'')
+        local nc`k' = `_nc'
+        forvalues j = 1/`_nc' {
+            local _vn : word `j' of `_cn'
+            local _en : word `j' of `_eq'
+            * skip Stata-omitted/base-level coefficients (e.g. mlogit base outcome)
+            if strpos("`_vn'", "o.") > 0 continue
+            * key for cross-model alignment
+            local _cut = (strpos("`_vn'", "cut") > 0) | ("`_en'" == "/")
+            if "`cmd`k''" == "mlogit" | "`cmd`k''" == "ologit" {
+                local _key "`_en'::`_vn'"
+                if "`_en'" == "" | "`_en'" == "_" local _key "`_vn'"
+            }
+            else local _key "`_vn'"
+            * sanitize key so it is a legal local-macro-name fragment
+            local _key = subinstr("`_key'", ":", "_", .)
+            local _key = subinstr("`_key'", ".", "_", .)
+            local _key = subinstr("`_key'", "#", "_", .)
+            * display label
+            local _lab "`_vn'"
+            if ("`cmd`k''" == "mlogit" | "`cmd`k''" == "ologit") & ///
+               "`_en'" != "" & "`_en'" != "_" & "`_en'" != "`depvar`k''" {
+                local _lab "`_en': `_vn'"
+            }
+            * stash per (k, key)
+            local val_`k'_`_key' = `b`k''[1, `j']
+            local var_`k'_`_key' = `V`k''[`j', `j']
+            local lab_`_key' "`_lab'"
+            local cut_`_key' = `_cut'
+            local cons_`_key' = ("`_vn'" == "_cons")
+            * base var name for keep/drop matching
+            local _bv = "`_vn'"
+            local _bv = regexr("`_bv'", "^[0-9bo]+\.", "")
+            local bv_`_key' "`_bv'"
+            local has_`_key'_`k' 1
+            * add to ordered union on first sight
+            local _seen : list posof "`_key'" in _keys
+            if `_seen' == 0 local _keys "`_keys' `_key'"
+        }
+    }
+    local _keys : list clean _keys
+
+    * ----- Filter rows: intercept/cutpoints, keep(), drop() -----
+    local _rows ""
+    foreach _key of local _keys {
+        if "`nointercept'" != "" & "`keepintercept'" == "" {
+            if `cons_`_key'' | `cut_`_key'' continue
+        }
+        if `"`keep'"' != "" {
+            local _ok 0
+            foreach _t of local keep {
+                if "`_t'" == "`bv_`_key''" | "`_t'" == "`lab_`_key''" local _ok 1
+            }
+            if !`_ok' continue
+        }
+        if `"`drop'"' != "" {
+            local _skip 0
+            foreach _t of local drop {
+                if "`_t'" == "`bv_`_key''" | "`_t'" == "`lab_`_key''" local _skip 1
+            }
+            if `_skip' continue
+        }
+        local _rows "`_rows' `_key'"
+    }
+    local _rows : list clean _rows
+    local _T : word count `_rows'
+    if `_T' == 0 {
+        noisily display as error "models: no rows remain after keep()/drop()/nointercept filtering"
+        exit 198
+    }
+
+    * ----- Model column labels (modellabels backslash-separated) -----
+    if `"`modellabels'"' != "" {
+        local _mi 0
+        local _ml `"`modellabels'"'
+        while `"`_ml'"' != "" {
+            gettoken _one _ml : _ml, parse("\")
+            if `"`_one'"' == "\" continue
+            local ++_mi
+            local _userml`_mi' = strtrim(`"`_one'"')
+        }
+    }
+    forvalues k = 1/`_M' {
+        if `"`modellabels'"' != "" & "`_userml`k''" != "" local mlab`k' "`_userml`k''"
+        else local mlab`k' "`depvar`k''"
+    }
+
+    * ----- Term row labels (termlabels overrides, backslash-separated) -----
+    if `"`termlabels'"' != "" {
+        local _ti 0
+        local _tl `"`termlabels'"'
+        * split on backslash
+        while `"`_tl'"' != "" {
+            gettoken _one _tl : _tl, parse("\")
+            if `"`_one'"' == "\" continue
+            local ++_ti
+            local rlbl`_ti' = strtrim(`"`_one'"')
+        }
+    }
+
+    * ----- Assemble formatted cells -----
+    local _efmt "%14.`decimal'f"
+    local _pdec = `decimal'
+    tempname _rtab
+    matrix `_rtab' = J(`_T', `_M', .)
+    * safe matrix names (no ':' or leading digits)
+    local _rn ""
+    foreach _key of local _rows {
+        local _s = subinstr("`_key'", ":", "_", .)
+        local _s = subinstr("`_s'", ".", "_", .)
+        if regexm("`_s'", "^[0-9]") local _s "t`_s'"
+        local _rn "`_rn' `_s'"
+    }
+    local _cn_mat ""
+    forvalues k = 1/`_M' {
+        local _cn_mat "`_cn_mat' `depvar`k''"
+    }
+    matrix rownames `_rtab' = `_rn'
+    matrix colnames `_rtab' = `_cn_mat'
+    local _coeflbl ""
+    local _coefmixed 0
+    forvalues k = 1/`_M' {
+        if "`_coeflbl'" == "" local _coeflbl "`scale`k''"
+        else if "`_coeflbl'" != "`scale`k''" local _coefmixed 1
+    }
+    if `_coefmixed' local _coeflbl "mixed"
+
+    forvalues i = 1/`_T' {
+        local _key : word `i' of `_rows'
+        * row label
+        if `"`termlabels'"' != "" & "`rlbl`i''" != "" local tlab`i' "`rlbl`i''"
+        else local tlab`i' "`lab_`_key''"
+        forvalues k = 1/`_M' {
+            local est`i'_`k' ""
+            local unc`i'_`k' ""
+            local p`i'_`k'   ""
+            local pn`i'_`k'  = .
+            if "`has_`_key'_`k''" == "" continue   // term absent in this model
+            local _b = `val_`k'_`_key''
+            local _v = `var_`k'_`_key''
+            if `_v' <= 0 | `_v' >= . {
+                local est`i'_`k' "(omitted)"
+                continue
+            }
+            local _se = sqrt(`_v')
+            local _z  = `_b' / `_se'
+            local _p  = 2 * normal(-abs(`_z'))
+            local _lo = `_b' - 1.959964 * `_se'
+            local _hi = `_b' + 1.959964 * `_se'
+            local _docut = `cut_`_key''
+            if `eform`k'' & !`_docut' {
+                local _pt = exp(`_b')
+                local _lo = exp(`_lo')
+                local _hi = exp(`_hi')
+                local _sed = `_pt' * `_se'
+            }
+            else {
+                local _pt = `_b'
+                local _sed = `_se'
+            }
+            matrix `_rtab'[`i', `k'] = `_pt'
+            local pn`i'_`k' = `_p'
+            * estimate (+ stars)
+            local _es : display `_efmt' `_pt'
+            local _es = strtrim("`_es'")
+            if "`stars'" != "" {
+                local _st ""
+                foreach _lv of numlist `starslevels' {
+                    if `_p' < `_lv' local _st "`_st'*"
+                }
+                local _es "`_es'`_st'"
+            }
+            local est`i'_`k' "`_es'"
+            * uncertainty
+            if "`se'" != "" {
+                local _ss : display `_efmt' `_sed'
+                local unc`i'_`k' "(`=strtrim("`_ss'")')"
+            }
+            else {
+                local _ls : display `_efmt' `_lo'
+                local _hs : display `_efmt' `_hi'
+                local unc`i'_`k' "[`=strtrim("`_ls'")', `=strtrim("`_hs'")']"
+            }
+            * p-value
+            local _thr = 10^(-`_pdec')
+            if `_p' < `_thr' {
+                local p`i'_`k' "<0.`=substr("0000000000", 1, `_pdec'-1)'1"
+            }
+            else {
+                local _ps : display %12.`_pdec'f `_p'
+                local p`i'_`k' = strtrim("`_ps'")
+            }
+        }
+    }
+
+    * ----- Column geometry -----
+    * per model: compact -> 1 col; else est + unc (+ p unless nopvalue)
+    if "`compact'" != "" local _percol 1
+    else {
+        local _percol 2
+        if "`nopvalue'" == "" local _percol 3
+    }
+    local _ncols = 1 + `_M' * `_percol'
+
+    * ----- Methods sentence -----
+    local _methods "Component models fit on the analytic sample."
+    forvalues k = 1/`_M' {
+        local _mm "`cmd`k'' (`scale`k'')"
+        local _seen : list posof "`_mm'" in _methodseen
+        if `_seen' == 0 {
+            local _methodseen "`_methodseen' `_mm'"
+            local _methods "`_methods' `depvar`k'': `cmd`k'' reported as `scale`k''."
+        }
+    }
+
+    * Uncertainty header label
+    if "`se'" != "" local _unchdr "SE"
+    else local _unchdr "95% CI"
+
+    * ===================== XLSX (putexcel) =====================
+    if `"`xlsx'"' != "" {
+        _gcomp_xl_require_helpers
+        * Preserve peer sheets: replace the whole file only if it does not exist;
+        * otherwise modify it and replace just our sheet.
+        capture confirm file `"`xlsx'"'
+        if _rc {
+            putexcel set `"`xlsx'"', sheet(`"`sheet'"') replace
+        }
+        else {
+            putexcel set `"`xlsx'"', modify sheet(`"`sheet'"', replace)
+        }
+        local _r 1
+        if `"`title'"' != "" {
+            putexcel A1 = `"`title'"', bold
+            _gcomp_col_letter `_ncols'
+            putexcel (A1:`result'1), merge
+            local _r = 2
+        }
+        local _hA = `_r'          // model-label header row
+        local _hB = `_r' + 1      // content header row
+        putexcel A`_hB' = "Term", bold
+        forvalues k = 1/`_M' {
+            local _c0 = 2 + (`k'-1)*`_percol'
+            local _c1 = `_c0' + `_percol' - 1
+            _gcomp_col_letter `_c0'
+            local _L0 "`result'"
+            _gcomp_col_letter `_c1'
+            local _L1 "`result'"
+            putexcel `_L0'`_hA' = "`mlab`k''", bold hcenter
+            if `_percol' > 1 putexcel (`_L0'`_hA':`_L1'`_hA'), merge hcenter
+            * content sub-headers
+            if "`compact'" != "" {
+                putexcel `_L0'`_hB' = "`scale`k'' [`_unchdr']", bold hcenter
+            }
+            else {
+                putexcel `_L0'`_hB' = "`scale`k''", bold hcenter
+                _gcomp_col_letter `=`_c0'+1'
+                putexcel `result'`_hB' = "`_unchdr'", bold hcenter
+                if "`nopvalue'" == "" {
+                    _gcomp_col_letter `=`_c0'+2'
+                    putexcel `result'`_hB' = "p", bold hcenter
+                }
+            }
+        }
+        * header shade
+        if "`headershade'" != "" {
+            _gcomp_col_letter `_ncols'
+            putexcel (A`_hA':`result'`_hB'), fpattern(solid, "`headercolor'")
+        }
+        * body
+        local _br = `_hB' + 1
+        forvalues i = 1/`_T' {
+            local _row = `_br' + `i' - 1
+            putexcel A`_row' = "`tlab`i''"
+            forvalues k = 1/`_M' {
+                local _c0 = 2 + (`k'-1)*`_percol'
+                _gcomp_col_letter `_c0'
+                if "`compact'" != "" {
+                    local _cell = strtrim("`est`i'_`k'' `unc`i'_`k''")
+                    putexcel `result'`_row' = "`_cell'"
+                }
+                else {
+                    local _bold ""
+                    if `boldp' > 0 & `pn`i'_`k'' < `boldp' & `pn`i'_`k'' < . local _bold ", bold"
+                    putexcel `result'`_row' = "`est`i'_`k''"`_bold'
+                    _gcomp_col_letter `=`_c0'+1'
+                    putexcel `result'`_row' = "`unc`i'_`k''"
+                    if "`nopvalue'" == "" {
+                        _gcomp_col_letter `=`_c0'+2'
+                        putexcel `result'`_row' = "`p`i'_`k''"
+                    }
+                }
+            }
+            if "`zebra'" != "" & mod(`i',2)==0 {
+                _gcomp_col_letter `_ncols'
+                putexcel (A`_row':`result'`_row'), fpattern(solid, "`zebracolor'")
+            }
+            * highlight rows with a significant p (overrides zebra)
+            if `highlight' > 0 {
+                local _rowsig 0
+                forvalues k = 1/`_M' {
+                    if `pn`i'_`k'' < `highlight' & `pn`i'_`k'' < . local _rowsig 1
+                }
+                if `_rowsig' {
+                    _gcomp_col_letter `_ncols'
+                    putexcel (A`_row':`result'`_row'), fpattern(solid, "255 255 153")
+                }
+            }
+        }
+        local _lastrow = `_br' + `_T' - 1
+        * stats: N row
+        if `_do_n' {
+            local ++_lastrow
+            putexcel A`_lastrow' = "N", italic
+            forvalues k = 1/`_M' {
+                local _c0 = 2 + (`k'-1)*`_percol'
+                _gcomp_col_letter `_c0'
+                putexcel `result'`_lastrow' = `N`k''
+            }
+        }
+        * borders + font
+        _gcomp_col_letter `_ncols'
+        local _lastL "`result'"
+        if "`borderstyle'" != "none" {
+            putexcel (A`_hA':`_lastL'`_lastrow'), border(all, thin)
+        }
+        putexcel (A`_hA':`_lastL'`_lastrow'), font("`font'", `fontsize')
+        * footnote
+        if `"`footnote'"' != "" {
+            _gcomp_xl_footnote `"`footnote'"' "`_lastL'" `_lastrow' "`font'" "`fontsize'"
+        }
+        putexcel close
+        if "`open'" != "" _gcomp_xl_open "`xlsx'"
+    }
+
+    * ===================== Markdown =====================
+    if `"`markdown'"' != "" {
+        tempname _fh
+        file open `_fh' using `"`markdown'"', write replace text
+        if `"`title'"' != "" {
+            file write `_fh' "### `title'" _n _n
+        }
+        * header
+        local _hdr "| Term "
+        local _sep "| --- "
+        forvalues k = 1/`_M' {
+            if "`compact'" != "" {
+                local _hdr "`_hdr'| `mlab`k'' (`scale`k'') "
+                local _sep "`_sep'| --- "
+            }
+            else {
+                local _hdr "`_hdr'| `mlab`k'' `scale`k'' | `mlab`k'' `_unchdr' "
+                local _sep "`_sep'| --- | --- "
+                if "`nopvalue'" == "" {
+                    local _hdr "`_hdr'| `mlab`k'' p "
+                    local _sep "`_sep'| --- "
+                }
+            }
+        }
+        file write `_fh' "`_hdr'|" _n "`_sep'|" _n
+        forvalues i = 1/`_T' {
+            local _line "| `tlab`i'' "
+            forvalues k = 1/`_M' {
+                if "`compact'" != "" {
+                    local _line "`_line'| `=strtrim("`est`i'_`k'' `unc`i'_`k''")' "
+                }
+                else {
+                    local _line "`_line'| `est`i'_`k'' | `unc`i'_`k'' "
+                    if "`nopvalue'" == "" local _line "`_line'| `p`i'_`k'' "
+                }
+            }
+            file write `_fh' "`_line'|" _n
+        }
+        if `_do_n' {
+            local _line "| N "
+            forvalues k = 1/`_M' {
+                local _line "`_line'| `N`k'' "
+                if "`compact'" == "" {
+                    local _line "`_line'|  "
+                    if "`nopvalue'" == "" local _line "`_line'|  "
+                }
+            }
+            file write `_fh' "`_line'|" _n
+        }
+        if `"`footnote'"' != "" file write `_fh' _n "_`footnote'_" _n
+        file close `_fh'
+    }
+
+    * ===================== CSV =====================
+    if `"`csv'"' != "" {
+        tempname _fc
+        file open `_fc' using `"`csv'"', write replace text
+        local _hdr `""Term""'
+        forvalues k = 1/`_M' {
+            if "`compact'" != "" {
+                local _hdr `"`_hdr',"`mlab`k'' (`scale`k'')""'
+            }
+            else {
+                local _hdr `"`_hdr',"`mlab`k'' `scale`k''","`mlab`k'' `_unchdr'""'
+                if "`nopvalue'" == "" local _hdr `"`_hdr',"`mlab`k'' p""'
+            }
+        }
+        file write `_fc' `"`_hdr'"' _n
+        forvalues i = 1/`_T' {
+            local _line `""`tlab`i''""'
+            forvalues k = 1/`_M' {
+                if "`compact'" != "" {
+                    local _line `"`_line',"`=strtrim("`est`i'_`k'' `unc`i'_`k''")'""'
+                }
+                else {
+                    local _line `"`_line',"`est`i'_`k''","`unc`i'_`k''""'
+                    if "`nopvalue'" == "" local _line `"`_line',"`p`i'_`k''""'
+                }
+            }
+            file write `_fc' `"`_line'"' _n
+        }
+        if `_do_n' {
+            local _line `""N""'
+            forvalues k = 1/`_M' {
+                local _line `"`_line',"`N`k''""'
+                if "`compact'" == "" {
+                    local _line `"`_line',"""'
+                    if "`nopvalue'" == "" local _line `"`_line',"""'
+                }
+            }
+            file write `_fc' `"`_line'"' _n
+        }
+        file close `_fc'
+    }
+
+    * ===================== Results window =====================
+    if "`display'" != "" {
+        noi di
+        if `"`title'"' != "" noi di as text "   `title'"
+        forvalues k = 1/`_M' {
+            noi di as text "   " as result "`mlab`k''" as text " (`cmd`k'', `scale`k'')" _cont
+            if `k' < `_M' noi di as text "    " _cont
+        }
+        noi di
+        forvalues i = 1/`_T' {
+            noi di as result "   " %-18s abbrev("`tlab`i''",18) _cont
+            forvalues k = 1/`_M' {
+                if "`est`i'_`k''" == "" {
+                    noi di as result "  ." _cont
+                }
+                else if "`compact'" != "" {
+                    noi di as result "  " "`est`i'_`k'' `unc`i'_`k''" _cont
+                }
+                else {
+                    noi di as result "  " "`est`i'_`k'' `unc`i'_`k''" _cont
+                    if "`nopvalue'" == "" noi di as result " p=`p`i'_`k''" _cont
+                }
+            }
+            noi di
+        }
+        if `_do_n' {
+            noi di as text "   " %-18s "N" _cont
+            forvalues k = 1/`_M' {
+                noi di as result "  `N`k''" _cont
+            }
+            noi di
+        }
+        if `"`footnote'"' != "" noi di as text "   `footnote'"
+    }
+
+    * ----- Returns -----
+    return scalar N_models = `_M'
+    return scalar N_rows   = `_T'
+    return scalar N_cols   = `_ncols'
+    return local coef_label "`_coeflbl'"
+    return local methods `"`_methods'"'
+    if `"`xlsx'"' != "" {
+        return local xlsx  `"`xlsx'"'
+        return local sheet `"`sheet'"'
+    }
+    if `"`markdown'"' != "" return local markdown `"`markdown'"'
+    if `"`csv'"' != ""      return local csv `"`csv'"'
+    return matrix table = `_rtab'
+}
+    local _rc = _rc
+    if `_est_held' {
+        capture _estimates unhold `_esthold'
+        if `_rc' == 0 & _rc local _rc = _rc
+    }
+    set varabbrev `_orig_va'
+    if `_rc' exit `_rc'
 end
 
 *

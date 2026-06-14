@@ -1148,10 +1148,12 @@ capture {
     confirm file "`pkg_dir'/demo/overlap_density.png"
     confirm file "`pkg_dir'/demo/love_plot.png"
     confirm file "`pkg_dir'/demo/dashboard.png"
+    * Demo presents graph images (no embedded console transcripts).
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "README links to curated console markdown instead of embedding the full transcripts.") > 0
+        "Demo output is generated from") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "demo/console_overlap.md") > 0
+        "demo/overlap_density.png") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), "demo/console_overlap.md") == 0
 }
 _test_result `=_rc'
 

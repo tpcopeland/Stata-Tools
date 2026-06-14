@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.2.1** | 2026-06-14
+**Version 1.3.0** | 2026-06-14
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
@@ -111,7 +111,7 @@ Most users can start with `psdash combined`. It runs the four diagnostic panels 
 
 ## Worked Examples
 
-The README keeps one binary and one multi-group workflow. The installed help file (`help psdash`) remains the authoritative source for complete examples, including `teffects`, ATT, pre-computed weights, focused option examples, and stored-result details. Full demo console transcripts are linked in the [Demo](#demo) section instead of embedded here.
+The README keeps one binary and one multi-group workflow. The installed help file (`help psdash`) remains the authoritative source for complete examples, including `teffects`, ATT, pre-computed weights, focused option examples, and stored-result details.
 
 ### 1. Binary manual workflow with `sysuse auto`
 
@@ -168,6 +168,7 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 | `weights` | Weight distribution, ESS, extreme weights, trim/stabilize |
 | `support` | Common support assessment, Crump optimal trimming |
 | `combined` | All diagnostics in a combined dashboard |
+| `detect` | Report auto-detection results without running diagnostics |
 
 ## Key Options
 
@@ -183,6 +184,8 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `bins(#)` - histogram bins; default is 30
 - `bwidth(#)` - kernel density bandwidth; Stata's default is used when omitted
 - `nograph` - show the overlap table without drawing a graph
+- `xlsx(filename)` - export overlap summary statistics to Excel
+- `sheet(string)` - Excel sheet name; default is `"Overlap"`
 
 ### balance
 - `covariates(varlist)` — covariates to assess (auto-detected if omitted)
@@ -192,6 +195,9 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `matched` - report matched/unweighted balance; mutually exclusive with `wvar()`
 - `nowvar`, `noweights` - suppress automatic weight generation and show raw balance only
 - `loveplot` — generate Love plot
+- `strategies(raw ate att atc)` — overlay SMD under multiple weighting strategies in one Love plot (binary; cobalt-style)
+- `distribution(varlist)` — per-covariate kernel-density balance plots by group, with weighted overlays (binary; cobalt `bal.plot`-style)
+- `smdmatrix(name)` — save a covariate-by-SMD matrix (raw + adjusted) for `puttab`/`table1_tc`; also returned in `r(smd)`
 - `threshold(#)` — SMD threshold (default: 0.1)
 - `ks` - display Kolmogorov-Smirnov statistics; KS values are stored either way
 - `xlsx(filename)` — export to Excel
@@ -208,6 +214,8 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `detail` — show percentile distribution
 - `graph` — weight distribution histogram
 - `xlabel(numlist)` - custom x-axis labels for the histogram
+- `xlsx(filename)` — export weight summary statistics to Excel
+- `sheet(string)` - Excel sheet name; default is `"Weights"`
 - `iivwcomponent(treatment|final|visit)` - choose the stored iivw treatment, final, or visit component for `psdash weights`
 
 ### support
@@ -215,11 +223,20 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `threshold(#)` — manual PS trimming threshold, strictly between 0 and 0.5
 - `generate(name)` — create an in-support indicator. With `crump` or `threshold()`, this marks the trimmed region; otherwise it marks the empirical common-support interval.
 - `replace` - allow `generate()` to replace an existing variable
+- `compare` — report a pre/post-trimming delta (outside-support %, ESS %, max |SMD|); requires trimming, binary only
 - `nograph` - show the support table without drawing a graph
+- `xlsx(filename)` — export support summary statistics to Excel
+- `sheet(string)` - Excel sheet name; default is `"Support"`
 
 ### combined
 - `nooverlap`, `nobalance`, `noweights`, `nosupport` — suppress panels
 - `threshold(#)` — SMD imbalance threshold for the balance panel only
+- `overlapmax(#)`, `essmin(#)`, `imbalmax(#)` — configurable verdict thresholds (defaults 10, 50, 0)
+- `dryrun` — report auto-detection and exit without running panels (same as `psdash detect`)
+- `report(filename)` — write a multi-sheet `.xlsx` workbook (one sheet per panel + a Summary sheet)
+
+### detect
+- `psdash detect [treatment] [psvar] [, covariates() wvar() estimand() psvars() reference()]` — run only auto-detection; prints and returns what it resolved, runs no diagnostics
 
 ## Stored Results
 
@@ -228,10 +245,11 @@ Each subcommand stores results in `r()`. Technical users can use these values in
 | Subcommand | Key scalars/macros | Matrix |
 |------------|--------------------|--------|
 | `overlap` | `r(N)`, `r(overlap_lower)`, `r(overlap_upper)`, `r(n_outside)`, `r(pct_outside)`, `r(auc)`, `r(treatment)`, `r(psvar)`, `r(source)` | none |
-| `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)`, `r(source)` | `r(balance)` |
+| `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)`, `r(source)` | `r(balance)`, `r(smd)` |
 | `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(wvar)`, `r(source)`, `r(iivwcomponent)`, `r(generate)` | none |
-| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)`, `r(source)` | none |
-| `combined` | Inherits subcommand results via `return add`; also stores `r(treatment)`, `r(psvar)`, `r(wvar)`, `r(estimand)`, `r(source)`, `r(iivwcomponent)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
+| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)`, `r(source)`; with `compare`: `r(*_pre)`/`r(*_post)` | none |
+| `combined` | Inherits subcommand results via `return add`; also stores `r(verdict)`, `r(n_warnings)`, `r(warnings)`, `r(overlapmax)`, `r(essmin)`, `r(imbalmax)`, `r(report)`, `r(treatment)`, `r(psvar)`, `r(wvar)`, `r(estimand)`, `r(source)`, `r(iivwcomponent)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
+| `detect` | `r(source)`, `r(treatment)`, `r(psvar)`, `r(covariates)`, `r(wvar)`, `r(estimand)`, `r(n_covariates)`, `r(multigroup)`, `r(longitudinal)`, `r(K)`, `r(levels)`, `r(reference)` | none |
 | `combined` after `ltmle` | Stores LTMLE metadata (`r(longitudinal)`, `r(period)`, `r(periods)`, `r(id)`, `r(wvar)`, `r(method)`, `r(contract_version)`), weight diagnostics (`r(mean_wt)`, `r(ess)`, `r(ess_pct)`, percentiles), and `r(max_pct_outside)` | `r(overlap_by_period)`, `r(weights_by_period)` |
 
 For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels.
@@ -252,38 +270,44 @@ matrix list r(balance)
 
 ## Demo
 
-Demo output is generated from `demo/demo_psdash.do`. Run it from the `Stata-Tools` repo root with `stata-mp -b do psdash/demo/demo_psdash.do`. The README links to curated console markdown instead of embedding the full transcripts.
+Demo output is generated from `demo/demo_psdash.do`. Run it from the `Stata-Tools` repo root with `stata-mp -b do psdash/demo/demo_psdash.do`.
 
 ### Binary treatment (2 groups)
 
 Synthetic data: 800 observations, confounded treatment assignment, propensity scores via `logit`, IPTW weights, a continuous outcome for the automatic `teffects` workflow, and generated support/modified-weight variables.
 
-| Output | Console markdown | Image |
-|--------|------------------|-------|
-| Overlap diagnostics | [`demo/console_overlap.md`](demo/console_overlap.md) | ![PS overlap density](demo/overlap_density.png) |
-| Overlap histogram | [`demo/console_overlap.md`](demo/console_overlap.md) | ![PS overlap histogram](demo/overlap_histogram.png) |
-| Balance and weight diagnostics | [`demo/console_balance_weights.md`](demo/console_balance_weights.md) | ![Love plot](demo/love_plot.png) |
-| Detailed and modified weights | [`demo/console_weight_options.md`](demo/console_weight_options.md) | ![Weight distribution](demo/weight_distribution.png) |
-| Common support assessment | [`demo/console_support.md`](demo/console_support.md) | ![Common support region](demo/support_region.png) |
-| Stored results and balance matrix | [`demo/console_return_values.md`](demo/console_return_values.md) | |
-| Combined dashboard | | ![Combined dashboard](demo/dashboard.png) |
-| Automatic workflow after `teffects` | [`demo/console_teffects_auto.md`](demo/console_teffects_auto.md) | ![Teffects dashboard](demo/dashboard_teffects.png) |
+| Output | Image |
+|--------|-------|
+| Overlap diagnostics | ![PS overlap density](demo/overlap_density.png) |
+| Overlap histogram | ![PS overlap histogram](demo/overlap_histogram.png) |
+| Balance and weight diagnostics | ![Love plot](demo/love_plot.png) |
+| Detailed and modified weights | ![Weight distribution](demo/weight_distribution.png) |
+| Common support assessment | ![Common support region](demo/support_region.png) |
+| Combined dashboard | ![Combined dashboard](demo/dashboard.png) |
+| Automatic workflow after `teffects` | ![Teffects dashboard](demo/dashboard_teffects.png) |
+
+### v1.3.0 features (binary)
+
+| Output | Image |
+|--------|-------|
+| Multi-strategy Love-plot overlay (`strategies()`) | ![Multi-strategy Love plot](demo/strategies_loveplot.png) |
+| Per-covariate distributional balance (`distribution()`) | ![Distributional balance](demo/distribution_balance.png) |
+
+The demo also exercises the non-graph v1.3.0 additions: `psdash detect` and the machine-readable `combined` verdict with configurable thresholds (`overlapmax()`/`essmin()`/`imbalmax()`), the `table1_tc`/`puttab`-ready SMD matrix (`smdmatrix()`/`r(smd)`), and the pre/post-trimming comparison (`support, compare`). It writes a one-call publication workbook to `demo/psdash_report.xlsx` (Overlap, Balance, Weights, Support, and Summary sheets) via `combined, report()`, plus a single-panel export (`demo/weights_table.xlsx`) showing the `xlsx()`/`sheet()` parity.
 
 ### Multi-group treatment (3 arms)
 
 Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial logit, generalized propensity scores via `mlogit`, generalized IPTW weights, threshold-based support indicators, and an alternate reference-arm balance check.
 
-| Output | Console markdown | Image |
-|--------|------------------|-------|
-| Multi-group overlap | [`demo/console_mg_overlap.md`](demo/console_mg_overlap.md) | ![Multi-group overlap density](demo/mg_overlap_density.png) |
-| Multi-group balance | [`demo/console_mg_balance.md`](demo/console_mg_balance.md) | ![Multi-group Love plot](demo/mg_love_plot.png) |
-| Multi-group weight diagnostics | [`demo/console_mg_weights.md`](demo/console_mg_weights.md) | |
-| Multi-group common support | [`demo/console_mg_support.md`](demo/console_mg_support.md) | |
-| Multi-group reference arm change | [`demo/console_mg_reference.md`](demo/console_mg_reference.md) | |
-| Multi-group combined dashboard | | ![Multi-group dashboard](demo/mg_dashboard.png) |
+| Output | Image |
+|--------|-------|
+| Multi-group overlap | ![Multi-group overlap density](demo/mg_overlap_density.png) |
+| Multi-group balance | ![Multi-group Love plot](demo/mg_love_plot.png) |
+| Multi-group combined dashboard | ![Multi-group dashboard](demo/mg_dashboard.png) |
 
 ## Version History
 
+- **v1.3.0** (14 Jun 2026): Forward-looking enhancements. New `psdash detect` subcommand and `combined, dryrun` report auto-detection without running panels. `combined` now returns a machine-readable verdict (`r(verdict)`, `r(n_warnings)`, `r(warnings)`) with configurable thresholds (`overlapmax()`, `essmin()`, `imbalmax()`), and a one-call publication workbook via `report()`. `balance` adds a multi-strategy Love-plot overlay (`strategies()`), per-covariate distributional balance plots (`distribution()`), and a `table1_tc`/`puttab`-ready SMD matrix (`smdmatrix()`/`r(smd)`). `support` adds a pre/post-trimming comparison (`compare`). `overlap`, `weights`, and `support` gain Excel export parity (`xlsx()`/`sheet()`). Added a Detection-sources reference table to the help file.
 - **v1.2.1** (14 Jun 2026): Documentation polish — clarified that `saving()` exports an image file by extension (use `graph save` for `.gph`), documented the per-subcommand graph defaults (`nograph` vs `loveplot`/`graph`), and added validator-note comments to the `mark`+`markout` sample blocks. No behavior change.
 - **v1.2.0** (14 Jun 2026): Added longitudinal dataset-contract auto-detection after `msm_weight` and `tte_weight` (`save_ps`). `psdash combined` now produces period-by-period overlap and weight diagnostics for both, complementing `msm_diagnose`. Generalized the longitudinal diagnostics engine with a `source()` label and added focused msm/tte contract QA.
 - **v1.1.0** (29 May 2026): Added iivw dataset-contract auto-detection, `psdash weights, iivwcomponent()`, iivw source labels, and focused iivw contract QA.

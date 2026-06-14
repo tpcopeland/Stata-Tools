@@ -8,6 +8,9 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local failures 0
 
+capture ado uninstall datamap
+quietly net install datamap, from("`pkg_dir'") replace
+
 capture noisily include "`qa_dir'/test_datamap.do"
 local rc = _rc
 if `rc' {
@@ -30,6 +33,15 @@ capture noisily include "`qa_dir'/test_datamap_v2.do"
 local rc = _rc
 if `rc' {
     display as error "test_datamap_v2.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datamap_v11.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datamap_v11.do failed with rc `rc'"
     local ++failures
 }
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  29may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -137,6 +137,11 @@ or {opt baseline(string)}.
 {synopt:{opt graph}}graph potential outcomes{p_end}
 {synopt:{opt saving(filename)}}save the simulated dataset{p_end}
 {synopt:{opt replace}}overwrite existing saved file{p_end}
+
+{syntab:Component models}
+{synopt:{opt savem:odels}}refit and store component models for inspection/export{p_end}
+{synopt:{opt show:models}}implies {opt savemodels}; also display fitted models in-window{p_end}
+{synopt:{opt models:tyle(string)}}display style with {opt showmodels}: {cmd:compact} (default) or {cmd:native}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -537,6 +542,33 @@ replication data.
 {phang}
 {opt replace} allows {opt saving()} to overwrite an existing file.
 
+{dlgtab:Component models}
+
+{phang}
+{opt savemodels} refits each parametric component model
+({cmd:commands()}/{cmd:equations()}) once on the analytic sample after
+estimation, outside the bootstrap loop, and stores them as
+{cmd:_gcomp_m_1}, {cmd:_gcomp_m_2}, ... For mediation analyses the refit
+reproduces the simulation's fit exactly (same command, equation, and observed
+sample); for non-pooled time-varying runs the captured models are pooled across
+visits. A manifest is posted to {cmd:e(model_names)}, {cmd:e(model_cmds)},
+{cmd:e(model_depvars)}, {cmd:e(N_models)}, and {cmd:e(model_eq_}{it:k}{cmd:)}.
+The stored estimates persist in memory and can be exported with
+{helpb gcomptab:gcomptab, models}. This option is a no-op by default; it adds no
+behavioural change to the estimates.
+
+{phang}
+{opt showmodels} implies {opt savemodels} and additionally displays the fitted
+component models in the Results window, after the parametric-model specification
+summary and before the bootstrap progress.
+
+{phang}
+{opt modelstyle(style)} sets how {opt showmodels} renders the models:
+{cmd:compact} (default) prints a gcomp-styled coefficient table per model with
+the scale applied automatically (odds ratios for {cmd:logit}/{cmd:ologit},
+relative risk ratios for {cmd:mlogit}, coefficients for {cmd:regress});
+{cmd:native} replays each model with Stata's own output.
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -783,6 +815,7 @@ commands:
 {synopt:{cmd:e(N)}}number of subjects (mediation) or total person-time observations (time-varying){p_end}
 {synopt:{cmd:e(MC_sims)}}Monte Carlo simulation size used{p_end}
 {synopt:{cmd:e(samples)}}number of bootstrap replications{p_end}
+{synopt:{cmd:e(N_models)}}number of stored component models (with {cmd:savemodels}){p_end}
 
 {pstd}
 {bf:Matrices:}
@@ -812,6 +845,10 @@ commands:
 {synopt:{cmd:e(mediation_type)}}effect type used: {cmd:obe}, {cmd:oce}, {cmd:linexp}, {cmd:specific}, or {cmd:baseline}{p_end}
 {synopt:{cmd:e(scale)}}reporting scale: {cmd:RD} (default), {cmd:logOR}, or {cmd:logRR}{p_end}
 {synopt:{cmd:e(msm)}}MSM specification (time-varying with {cmd:msm()} only){p_end}
+{synopt:{cmd:e(model_names)}}stored component-model names {cmd:_gcomp_m_*} (with {cmd:savemodels}){p_end}
+{synopt:{cmd:e(model_cmds)}}component-model commands (with {cmd:savemodels}){p_end}
+{synopt:{cmd:e(model_depvars)}}component-model dependent variables (with {cmd:savemodels}){p_end}
+{synopt:{cmd:e(model_eq_}{it:k}{cmd:)}}prediction equation for model {it:k} (with {cmd:savemodels}){p_end}
 
 {pstd}
 {bf:Convenience scalars} (mediation without {cmd:oce}):
@@ -878,7 +915,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.2.0, 2026-05-29{p_end}
+{pstd}Version 1.3.0, 2026-06-14{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

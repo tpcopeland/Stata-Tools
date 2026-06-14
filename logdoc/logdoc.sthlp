@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  14jun2026}{...}
+{* *! version 1.1.0  14jun2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -56,13 +56,23 @@ Other subcommands:
 {cmd:,}
 {opt comp:are(filename)}
 {opt out:put(filename)}
-[{opt rep:lace} {opt th:eme(string)} {opt py:thon(string)} {opt css(filename)} {opt q:uiet}]
+[{opt rep:lace} {opt th:eme(string)} {opt py:thon(string)} {opt css(filename)} {opt acc:ent(#RRGGBB)} {opt q:uiet}]
 
 {p 8 17 2}
 {cmd:logdoc batch}
 {cmd:,}
 {opt in:put(string)}
 {opt out:dir(string)}
+[{it:options}]
+
+{p 8 17 2}
+{cmd:logdoc combine}
+{cmd:using}
+{it:file1}
+{it:file2}
+[{it:...}]
+{cmd:,}
+{opt out:put(filename)}
 [{it:options}]
 
 {p 8 17 2}
@@ -78,10 +88,11 @@ Other subcommands:
 {synopt:{opt f:ormat(string)}}output format: {bf:html} (default), {bf:md}, {bf:qmd}, {bf:both}, {bf:docx}, {bf:tex}, or {bf:pdf}{p_end}
 {synopt:{opt th:eme(string)}}CSS theme: {bf:light} (default) or {bf:dark}{p_end}
 {synopt:{opt css(filename)}}custom CSS file (overrides theme){p_end}
+{synopt:{opt acc:ent(#RRGGBB)}}brand/accent color for headings, links, and controls{p_end}
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; defaults to input filename{p_end}
-{synopt:{opt dat:e(string)}}date subtitle shown in document header{p_end}
+{synopt:{opt date(string)}}date subtitle shown in document header{p_end}
 {synopt:{opt foot:er(string)}}custom footer text{p_end}
 {synopt:{opt gen:erated}}add "Generated YYYY-MM-DD HH:MM" footer{p_end}
 {synopt:{opt st:amp}}add Stata version, date/time, and data filename to header{p_end}
@@ -200,6 +211,15 @@ Converts multiple files matching a glob pattern in one command.
 
 {phang2}{cmd:. logdoc batch, input("*.smcl") outdir("/reports/") replace}{p_end}
 
+{dlgtab:logdoc combine}
+
+{pstd}
+Combines two or more log files into one document with source-level sections
+and a table of contents. Supported output formats are HTML, Markdown,
+Quarto Markdown, LaTeX, and {opt format(both)}.
+
+{phang2}{cmd:. logdoc combine using "model.smcl" "tables.smcl", output("report.html") toc replace}{p_end}
+
 {dlgtab:logdoc replay}
 
 {pstd}
@@ -230,6 +250,12 @@ compact Stata-style dark background.
 {phang}
 {opt css(filename)} specifies a custom CSS file, overriding the built-in
 theme. The file must exist on disk.
+
+{phang}
+{opt accent(#RRGGBB)} applies a single brand color to built-in HTML styling
+without requiring a custom CSS file. The value must be a six-digit hex color,
+for example {cmd:accent("#005ea8")}. If {opt css()} is also specified,
+{opt accent()} is applied after the custom CSS.
 
 {dlgtab:Document metadata}
 
@@ -382,12 +408,15 @@ Stata's Python is unavailable.
 3. Share the self-contained HTML file by email, upload, or print to PDF.{p_end}
 
 {pstd}
-{bf:When to use logdoc vs. built-in commands:}
+{bf:When to use logdoc vs. related tools:}
 
 {p2colset 5 24 26 2}{...}
-{p2col:{cmd:logdoc}}Post-hoc conversion of existing SMCL/log files to faithful, shareable HTML{p_end}
-{p2col:{cmd:translate}}Convert SMCL to plain text, PostScript, or basic PDF (no styling){p_end}
-{p2col:{cmd:dyndoc}}Author dynamic documents with embedded Stata code and output{p_end}
+{p2col:{cmd:logdoc}}Post-hoc conversion of existing SMCL/log files to faithful, shareable documents{p_end}
+{p2col:{cmd:translate}}Convert SMCL to plain text, PostScript, or basic PDF with minimal styling{p_end}
+{p2col:{cmd:dyndoc}}Author dynamic documents that execute Stata code embedded in Markdown-like source{p_end}
+{p2col:{cmd:markstat}}Write literate analysis documents that mix prose, Stata code, and output{p_end}
+{p2col:{cmd:texdoc/webdoc}}Write LaTeX or web documents from annotated Stata source files{p_end}
+{p2col:{cmd:Quarto}}Author executable multi-language reports; logdoc's {bf:.qmd} output is rendered Markdown, not executable chunks{p_end}
 {p2col:{cmd:markdown}}Convert Markdown text to HTML or Word (not log files){p_end}
 {p2colreset}{...}
 
@@ -417,6 +446,11 @@ Markdown (auto-detected from extension):
 Dark theme with title and date:
 
 {phang2}{cmd:. logdoc using "results.smcl", output("results.html") theme(dark) title("Survival Analysis") date("March 2026") replace}
+
+{pstd}
+Institutional accent color:
+
+{phang2}{cmd:. logdoc using "results.smcl", output("report.html") accent("#005ea8") replace}
 
 {pstd}
 Both HTML and Markdown:
@@ -478,6 +512,11 @@ Batch convert all SMCL files:
 {phang2}{cmd:. logdoc batch, input("*.smcl") outdir("reports/") replace}
 
 {pstd}
+Combine several logs into one project report:
+
+{phang2}{cmd:. logdoc combine using "setup.smcl" "models.smcl" "tables.smcl", output("project_report.html") toc replace}
+
+{pstd}
 Replay with different theme:
 
 {phang2}{cmd:. logdoc replay, theme(dark)}
@@ -493,13 +532,24 @@ Replay with different theme:
 {p2col 5 18 22 2: Scalars}{p_end}
 {synopt:{cmd:r(nblocks)}}number of rendered content blocks parsed{p_end}
 {synopt:{cmd:r(filesize)}}output file size in bytes{p_end}
+{synopt:{cmd:r(ngraphs)}}number of graph export commands detected{p_end}
+{synopt:{cmd:r(ntables)}}number of table blocks detected{p_end}
+{synopt:{cmd:r(nwarnings)}}number of renderer warnings, such as missing graph files{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output file path{p_end}
 {synopt:{cmd:r(input)}}input file path (may differ from {it:using} if {opt run} was specified){p_end}
 {synopt:{cmd:r(format)}}output format used{p_end}
 {synopt:{cmd:r(theme)}}theme used{p_end}
+{synopt:{cmd:r(accent)}}accent color used, if specified{p_end}
 {synopt:{cmd:r(secondary)}}secondary output path (only with {opt format(both)}){p_end}
+
+{pstd}
+{cmd:logdoc combine} stores the same conversion results plus:
+
+{synoptset 18 tabbed}{...}
+{p2col 5 18 22 2: Scalars}{p_end}
+{synopt:{cmd:r(n_sources)}}number of source files combined{p_end}
 
 {pstd}
 {cmd:logdoc batch} stores:
@@ -549,8 +599,11 @@ For graph quality, set dimensions before export:{break}
 {cmd:graph export "plot.png", width(800) replace}
 
 {phang}
-A {cmd:.logdocrc} file in the working directory can set default options.
-Format: one {it:key}{cmd:=}{it:value} per line (e.g., {cmd:theme=dark}).
+A global {cmd:~/.logdocrc} file can set defaults across projects, and a
+project {cmd:.logdocrc} file in the working directory overrides those
+defaults. Command-line options override both files. Format: one
+{it:key}{cmd:=}{it:value} per line (e.g., {cmd:theme=dark} or
+{cmd:accent=#005ea8}).
 For Python setup diagnostics, run {helpb logdoc_py}; it follows the same
 Stata-first Python convention as {cmd:logdoc}.
 

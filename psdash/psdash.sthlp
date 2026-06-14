@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  14jun2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -40,6 +40,7 @@ where {it:subcommand} is one of:
 {synopt:{opt weights}}Weight distribution, ESS, extreme weights{p_end}
 {synopt:{opt support}}Common support assessment and trimming{p_end}
 {synopt:{opt combined}}All diagnostics in a combined dashboard{p_end}
+{synopt:{opt detect}}Report auto-detection results without running diagnostics{p_end}
 
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
@@ -68,6 +69,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt cov:ariates(varlist)} {opt hist:ogram} {opt bins(#)}
 {opt bwid:th(#)} {opt nog:raph} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt ti:tle(string)} {opt name(string)}
+{opt xlsx(filename)} {opt sheet(string)}
 {opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:balance}
@@ -76,7 +78,8 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {cmd:psdash balance} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt match:ed}
 {opt thr:eshold(#)} {opt now:var} {opt now:eights} {opt xlsx(filename)} {opt sheet(string)}
-{opt love:plot} {opt sav:ing(filename)} {opt sch:eme(schemename)}
+{opt love:plot} {opt strat:egies(strategylist)} {opt dist:ribution(varlist)}
+{opt smdm:atrix(name)} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt f:ormat(string)} {opt ti:tle(string)}
 {opt name(string)} {opt ks} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
@@ -88,7 +91,8 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt w:var(varname)} {opt trim(#)} {opt trunc:ate(#)} {opt stab:ilize}
 {opt gen:erate(name)} {opt replace} {opt det:ail} {opt gr:aph}
 {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
-{opt graphopt:ions(string)} {opt name(string)} {opt esti:mand(string)}
+{opt graphopt:ions(string)} {opt name(string)} {opt xlsx(filename)} {opt sheet(string)}
+{opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwcomponent(string)}]
 
 {dlgtab:support}
@@ -96,9 +100,9 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {phang}
 {cmd:psdash support} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)}
-{opt gen:erate(name)} {opt replace} {opt nog:raph} {opt sav:ing(filename)}
+{opt gen:erate(name)} {opt replace} {opt comp:are} {opt nog:raph} {opt sav:ing(filename)}
 {opt sch:eme(schemename)} {opt graphopt:ions(string)} {opt ti:tle(string)}
-{opt name(string)} {opt esti:mand(string)}
+{opt name(string)} {opt xlsx(filename)} {opt sheet(string)} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:combined}
@@ -106,9 +110,17 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {phang}
 {cmd:psdash combined} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt thr:eshold(#)}
-{opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport}
-{opt sav:ing(filename)} {opt sch:eme(schemename)} {opt ti:tle(string)}
+{opt overlap:max(#)} {opt ess:min(#)} {opt imbal:max(#)}
+{opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport} {opt dry:run}
+{opt rep:ort(filename)} {opt sav:ing(filename)} {opt sch:eme(schemename)} {opt ti:tle(string)}
 {opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
+
+{dlgtab:detect}
+
+{phang}
+{cmd:psdash detect} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
+[{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt esti:mand(string)}
+{opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 
 {marker description}{...}
@@ -236,6 +248,13 @@ If not specified, Stata's default bandwidth is used.
 {phang}
 {opt nograph} suppresses the graph and shows only the summary table.
 
+{phang}
+{opt xlsx(filename)} exports the overlap summary statistics to an Excel file
+(a two-column Metric/Value sheet).
+
+{phang}
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Overlap"}.
+
 {dlgtab:balance options}
 
 {phang}
@@ -251,6 +270,29 @@ Mutually exclusive with {opt wvar()}.
 
 {phang}
 {opt loveplot} generates a Love plot showing SMDs for each covariate.
+
+{phang}
+{opt strategies(strategylist)} overlays the SMD for several weighting strategies
+in one Love plot, replacing the default raw/adjusted plot. {it:strategylist} is a
+space-separated subset of {cmd:raw} (unadjusted), {cmd:ate}, {cmd:att}, and
+{cmd:atc} (each IPTW-weighted under that estimand). Requires a propensity score
+and binary treatment. This mirrors R {cmd:cobalt}'s multi-strategy {cmd:love.plot}.
+
+{phang}
+{opt distribution(varlist)} draws per-covariate distributional balance plots
+(kernel densities by treatment group, with weighted overlays when weights are
+present), one panel per covariate combined into a single graph. The covariates
+must be among those assessed. Binary treatment only. This mirrors R
+{cmd:cobalt}'s {cmd:bal.plot} and surfaces distributional differences that SMD
+alone can miss.
+
+{phang}
+{opt smdmatrix(name)} saves a covariate-by-SMD matrix to the named matrix in the
+caller, with one column for the unadjusted SMD and (when weighted) one for the
+adjusted SMD; for multi-group treatment, one column per contrast. The same matrix
+is returned in {cmd:r(smd)}. The matrix is keyed by covariate name so it can be
+passed to {helpb puttab} or appended as a balance column in a {help table1_tc}
+manuscript table.
 
 {phang}
 {opt ks} displays Kolmogorov-Smirnov statistics in the balance table. KS
@@ -310,6 +352,13 @@ support diagnostics remain treatment-propensity diagnostics.
 {opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram.
 It is ignored unless {opt graph} is also specified.
 
+{phang}
+{opt xlsx(filename)} exports the weight summary statistics to an Excel file
+(a two-column Metric/Value sheet).
+
+{phang}
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Weights"}.
+
 {pstd}
 {bf:Interpretation:} An ESS above 50% of the original sample size is typical.
 A coefficient of variation (CV) greater than 1 indicates substantial weight
@@ -341,7 +390,22 @@ support interval.
 {opt generate()}.
 
 {phang}
+{opt compare} reports a pre/post-trimming comparison of key diagnostics:
+observations retained, percentage outside common support, effective sample size
+(ESS) as a percentage of N, and maximum |SMD| (when covariates are available).
+Requires trimming ({opt crump} or {opt threshold()}); binary treatment only.
+This closes the "did trimming help?" loop. The pre/post values are returned in
+{cmd:r(*_pre)} and {cmd:r(*_post)}.
+
+{phang}
 {opt nograph} suppresses the PS density graph.
+
+{phang}
+{opt xlsx(filename)} exports the support summary statistics to an Excel file
+(a two-column Metric/Value sheet).
+
+{phang}
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Support"}.
 
 {pstd}
 {bf:Interpretation:} Observations outside common support lack counterparts
@@ -361,9 +425,42 @@ the corresponding panel from the combined dashboard.
 the combined dashboard. It is not passed to the support panel.
 
 {phang}
+{opt overlapmax(#)} sets the threshold (percent outside common support) above
+which the overlap and support panels are flagged in the overall verdict. Default
+is 10.
+
+{phang}
+{opt essmin(#)} sets the minimum effective sample size (percent of N) below which
+the weight panel is flagged. Default is 50.
+
+{phang}
+{opt imbalmax(#)} sets the maximum number of imbalanced covariates tolerated
+before the balance panel is flagged. Default is 0.
+
+{phang}
+{opt dryrun} reports the auto-detection result (treatment, PS, covariates,
+weights, estimand, source, longitudinal flag) and exits without running any
+panel. Equivalent to {cmd:psdash detect}.
+
+{phang}
+{opt report(filename)} writes a multi-sheet Excel workbook ({cmd:.xlsx}) bundling
+each panel's table (Overlap, Balance, Weights, Support) plus a Summary sheet with
+the overall verdict and thresholds. The path is returned in {cmd:r(report)}.
+
+{phang}
 {opt saving(filename)} exports the combined graph (not individual panels) to an
 image file; the format is set by the filename extension ({cmd:.png}, {cmd:.pdf},
 etc.). Use {helpb graph save} for a {cmd:.gph} file.
+
+{dlgtab:detect options}
+
+{phang}
+{cmd:psdash detect} accepts the common detection options
+({opt covariates()}, {opt wvar()}, {opt estimand()}, {opt psvars()},
+{opt reference()}) and runs only the auto-detection layer, printing what it
+resolved and returning it in {cmd:r()}. It runs no diagnostics and creates no
+graphs, so it is a safe way to inspect the 9-mode detector before committing to a
+full run. See {help psdash##detection:Detection sources} below.
 
 
 {marker remarks}{...}
@@ -418,6 +515,25 @@ and covariates are auto-detected from {cmd:e()}. The user runs
 {phang2}
 9. {bf:Manual}: the user provides treatment and PS variables explicitly,
 along with covariates and/or weights via options.
+
+{marker detection}{...}
+{pstd}
+{bf:Detection sources.} The table below summarizes, for each detection source,
+what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
+{cmd:psdash combined, dryrun}) to see which source fired for your data.
+
+{synoptset 12 tabbed}{...}
+{p2col 5 18 22 2: Source}{space 2}Reads{space 16}Routes to{p_end}
+{synopt:{cmd:teffects}}treatment, PS, covariates, weight, estimand from {cmd:e()}{space 2}cross-sectional panels{p_end}
+{synopt:{cmd:tmle}}treatment, {cmd:_tmle_ps}, covariates, estimand (contract){space 2}cross-sectional panels{p_end}
+{synopt:{cmd:ltmle}}id/period, per-period PS and weights (contract){space 2}longitudinal diagnostics{p_end}
+{synopt:{cmd:msm}}{cmd:_msm_ps}, {cmd:_msm_tw_weight}, id/period (metadata){space 2}longitudinal diagnostics{p_end}
+{synopt:{cmd:tte}}saved switch/treatment PS, IP weight, trial/period (metadata){space 2}longitudinal diagnostics{p_end}
+{synopt:{cmd:iivw}}{cmd:_iivw_ps}, treatment covariates, {cmd:_iivw_tw} (metadata){space 2}cross-sectional panels{p_end}
+{synopt:{cmd:logit}/{cmd:probit}}treatment and covariates from {cmd:e()}; PS user-supplied{space 2}binary panels{p_end}
+{synopt:{cmd:mlogit}}treatment and covariates from {cmd:e()}; GPS via {opt psvars()}{space 2}multi-group panels{p_end}
+{synopt:{cmd:manual}}treatment and PS supplied as arguments; options for the rest{space 2}binary or multi-group panels{p_end}
+{p2colreset}{...}
 
 {pstd}
 {bf:Default behavior of {cmd:balance}:} When a PS variable is available,
@@ -648,6 +764,7 @@ identifies the reference group.
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}balance-statistics matrix; rows are covariates{p_end}
+{synopt:{cmd:r(smd)}}covariate-by-SMD matrix (unadjusted and, when weighted, adjusted; per-contrast for multi-group); also saved to {opt smdmatrix()}{p_end}
 
 {pstd}
 For binary treatments, the balance matrix columns are: {cmd:Mean_T}, {cmd:Mean_C}, {cmd:SMD_Raw},
@@ -729,6 +846,14 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 
+{pstd}
+With {opt compare} (and active trimming) the support command also returns
+{cmd:r(n_post)} (observations retained after trimming),
+{cmd:r(pct_outside_pre)}/{cmd:r(pct_outside_post)},
+{cmd:r(ess_pct_pre)}/{cmd:r(ess_pct_post)}, and
+{cmd:r(max_smd_pre)}/{cmd:r(max_smd_post)} (the last pair only when covariates
+are available).
+
 {dlgtab:combined}
 
 {pstd}
@@ -751,8 +876,13 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(contract_version)}}LTMLE contract version metadata, when available{p_end}
 {synopt:{cmd:r(levels)}}multi-group treatment levels, if applicable{p_end}
 {synopt:{cmd:r(reference)}}multi-group reference level, if applicable{p_end}
+{synopt:{cmd:r(verdict)}}overall verdict, {cmd:"PASS"} or {cmd:"CAUTION"}{p_end}
+{synopt:{cmd:r(warnings)}}space-separated list of flagged panels{p_end}
+{synopt:{cmd:r(report)}}report workbook path, when {opt report()} is used{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
+{synopt:{cmd:r(n_warnings)}}number of flagged panels{p_end}
+{synopt:{cmd:r(overlapmax)}, {cmd:r(essmin)}, {cmd:r(imbalmax)}}verdict thresholds used{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
 {synopt:{cmd:r(N)}}observations in the LTMLE diagnostic sample{p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal (ltmle/msm/tte) diagnostics{p_end}
@@ -768,6 +898,26 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table, LTMLE only{p_end}
 {synopt:{cmd:r(weights_by_period)}}period-specific contract-weight table, LTMLE only{p_end}
+
+{dlgtab:detect}
+
+{synoptset 30 tabbed}{...}
+{p2col 5 30 34 2: Macros}{p_end}
+{synopt:{cmd:r(source)}}detection source{p_end}
+{synopt:{cmd:r(treatment)}}treatment variable name{p_end}
+{synopt:{cmd:r(psvar)}}PS variable, or {cmd:auto-generated}{p_end}
+{synopt:{cmd:r(covariates)}}detected/supplied covariate list{p_end}
+{synopt:{cmd:r(wvar)}}weight variable, if any{p_end}
+{synopt:{cmd:r(estimand)}}target estimand{p_end}
+{synopt:{cmd:r(levels)}, {cmd:r(reference)}}treatment levels and reference (multi-group){p_end}
+{synopt:{cmd:r(id)}, {cmd:r(period)}, {cmd:r(regime)}, {cmd:r(method)}, {cmd:r(contract_version)}}longitudinal metadata, when applicable{p_end}
+
+{p2col 5 30 34 2: Scalars}{p_end}
+{synopt:{cmd:r(n_covariates)}}number of covariates{p_end}
+{synopt:{cmd:r(psvar_auto)}}1 if the PS is auto-generated{p_end}
+{synopt:{cmd:r(multigroup)}}1 for multi-group treatment{p_end}
+{synopt:{cmd:r(K)}}number of treatment groups (multi-group){p_end}
+{synopt:{cmd:r(longitudinal)}}1 for longitudinal contract state{p_end}
 
 
 {marker author}{...}

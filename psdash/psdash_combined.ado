@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.2.1  2026/06/14
+*! psdash_combined Version 1.3.0  2026/06/14
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,16 +40,38 @@ program define psdash_combined, rclass
         [COVariates(varlist numeric) ///
          Wvar(varname) ///
          THReshold(real 0.1) ///
+         OVERLAPmax(real 10) ///
+         ESSmin(real 50) ///
+         IMBALmax(integer 0) ///
          NOOverlap ///
          NOBalance ///
          NOWeights ///
          NOSupport ///
+         DRYrun ///
+         REPort(string) ///
          SAVing(string) ///
          SCHeme(string) ///
          TItle(string) ///
          ESTImand(string) ///
          REFerence(string) ///
          PSVars(varlist numeric)]
+
+    * Validate verdict-threshold options (U2)
+    if `overlapmax' < 0 | `overlapmax' > 100 {
+        display as error "overlapmax() must be between 0 and 100"
+        exit 198
+    }
+    if `essmin' < 0 | `essmin' > 100 {
+        display as error "essmin() must be between 0 and 100"
+        exit 198
+    }
+    if `imbalmax' < 0 {
+        display as error "imbalmax() must be non-negative"
+        exit 198
+    }
+    if `"`report'"' != "" {
+        _psdash_validate_path, path(`"`report'"') option(report) extension(xlsx)
+    }
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto wt_auto
@@ -63,6 +85,15 @@ program define psdash_combined, rclass
     local psvars_opt ""
     if "`psvars'" != "" {
         local psvars_opt "psvars(`psvars')"
+    }
+
+    * DRY RUN — report auto-detection and exit without running panels (U1)
+    if "`dryrun'" != "" {
+        psdash_detect `anything' `if' `in', covariates(`covariates') ///
+            wvar(`wvar') estimand(`estimand') `ref_opt' `psvars_opt'
+        return add
+        set varabbrev `_vao'   // exit below bypasses the post-block restore
+        exit
     }
 
     _psdash_detect `anything' , covariates(`covariates') wvar(`wvar') ///
@@ -156,6 +187,7 @@ program define psdash_combined, rclass
         return local period "`period'"
         return local regime "`regime'"
         return scalar longitudinal = 1
+        set varabbrev `_vao'   // exit below bypasses the post-block restore
         exit
     }
 
@@ -194,6 +226,18 @@ program define psdash_combined, rclass
     }
     else if "`psvars'" != "" {
         local psvars_subcmd_opt "psvars(`psvars')"
+    }
+
+    * Build per-panel report() pass-through (O2): one workbook, one sheet/panel
+    local rep_overlap ""
+    local rep_balance ""
+    local rep_weights ""
+    local rep_support ""
+    if `"`report'"' != "" {
+        local rep_overlap `"xlsx("`report'") sheet(Overlap)"'
+        local rep_balance `"xlsx("`report'") sheet(Balance)"'
+        local rep_weights `"xlsx("`report'") sheet(Weights)"'
+        local rep_support `"xlsx("`report'") sheet(Support)"'
     }
 
     * Build if/in for subcommands from touse
@@ -238,9 +282,9 @@ program define psdash_combined, rclass
         psdash_overlap `treatment' `psvar' `if' `in', ///
             name(psdash_c_overlap) `scheme_opt' ///
             title("PS Overlap") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_overlap'
         local graph_list "`graph_list' psdash_c_overlap"
-        if r(pct_outside) > 10 {
+        if r(pct_outside) > `overlapmax' {
             local verdict_warnings "`verdict_warnings' overlap"
         }
         return add
@@ -256,9 +300,9 @@ program define psdash_combined, rclass
             threshold(`threshold') loveplot ///
             name(psdash_c_balance) `scheme_opt' ///
             title("Covariate Balance") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_balance'
         local graph_list "`graph_list' psdash_c_balance"
-        if r(n_imbalanced) > 0 {
+        if r(n_imbalanced) > `imbalmax' {
             local verdict_warnings "`verdict_warnings' balance"
         }
         return add
@@ -275,9 +319,9 @@ program define psdash_combined, rclass
         psdash_weights `treatment' `psvar' `if' `in', ///
             `wvar_opt' graph ///
             name(psdash_c_weights) `scheme_opt' estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights'
         local graph_list "`graph_list' psdash_c_weights"
-        if r(ess_pct) < 50 {
+        if r(ess_pct) < `essmin' {
             local verdict_warnings "`verdict_warnings' weights"
         }
         return add
@@ -289,9 +333,9 @@ program define psdash_combined, rclass
         psdash_support `treatment' `psvar' `if' `in', ///
             name(psdash_c_support) `scheme_opt' ///
             title("Common Support") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt'
+            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_support'
         local graph_list "`graph_list' psdash_c_support"
-        if r(pct_outside) > 10 {
+        if r(pct_outside) > `overlapmax' {
             local verdict_warnings "`verdict_warnings' support"
         }
         return add
@@ -333,16 +377,45 @@ program define psdash_combined, rclass
 
     * Overall verdict
     local verdict_warnings = strtrim("`verdict_warnings'")
+    local n_warnings : word count `verdict_warnings'
     if "`verdict_warnings'" == "" {
+        local verdict "PASS"
         display as text "Overall: " as result "PASS"
     }
     else {
+        local verdict "CAUTION"
         display as text "Overall: " as error "CAUTION" ///
             as text " — see " as result "`verdict_warnings'"
         display as text "  Consider: rerun failing panels individually for targeted diagnostics"
     }
 
+    * REPORT WORKBOOK summary sheet (O2)
+    if `"`report'"' != "" & `_psdash_side_rc' == 0 {
+        capture noisily {
+            local _rk `""Treatment" "PS variable" "Estimand" "Source" "Verdict" "Warnings (N)" "Warnings" "overlapmax" "essmin" "imbalmax""'
+            local _rv `""`treatment'" "`psvar_label'" "`=strupper("`estimand'")'" "`source'" "`verdict'" "`n_warnings'" "`verdict_warnings'" "`overlapmax'" "`essmin'" "`imbalmax'""'
+            _psdash_export_kv, xlsx("`report'") sheet("Summary") ///
+                title("Propensity Score Diagnostics — Summary") keys(`_rk') vals(`_rv')
+        }
+        local _rep_rc = _rc
+        if `_rep_rc' {
+            local _psdash_side_rc = `_rep_rc'
+        }
+        else {
+            display as text _n "Report workbook written to: " as result "`report'"
+        }
+    }
+
     * Store shared return values
+    return local verdict "`verdict'"
+    return scalar n_warnings = `n_warnings'
+    return local warnings "`verdict_warnings'"
+    if `"`report'"' != "" {
+        return local report "`report'"
+    }
+    return scalar overlapmax = `overlapmax'
+    return scalar essmin = `essmin'
+    return scalar imbalmax = `imbalmax'
     return local treatment "`treatment'"
     return local psvar "`psvar_label'"
     return local wvar "`wvar'"

@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 15 May 2026 22:32:26
+Generated: 15 Jun 2026 00:05:30
 
 ========================================
 DATASET: _demo_auto.dta
@@ -12,9 +12,16 @@ Variables: 12
 Label: 1978 automobile data
 Data Signature: 74:12(71728):3831085005:1395876116
 
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 1
+Small-cell threshold: 5
+Date-safe mode: off
+Likely identifiers not excluded: 0
+
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 74 observations and 12 variables. 
+This dataset contains cross-sectional data. It includes 74 observations and 12 variables.
 
 ========================================
 VARIABLE SUMMARY
@@ -23,7 +30,7 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  make                    str18     excluded        0.0%       .
+  make                    str18     excluded        0.0%      74
   price                   int       continuous      0.0%      74
   mpg                     int       categorical     0.0%      21
   rep78                   int       categorical     6.8%       5
@@ -136,29 +143,29 @@ Missing: 0 obs (0.0%)
 Unique Values: 21
 
   Frequencies:
-    12 = 12: 2 (2.7%)
+    12 = 12: suppressed (<5)
     14 = 14: 6 (8.1%)
-    15 = 15: 2 (2.7%)
-    16 = 16: 4 (5.4%)
-    17 = 17: 4 (5.4%)
+    15 = 15: suppressed (<5)
+    16 = 16: suppressed (<5)
+    17 = 17: suppressed (<5)
     18 = 18: 9 (12.2%)
     19 = 19: 8 (10.8%)
-    20 = 20: 3 (4.1%)
+    20 = 20: suppressed (<5)
     21 = 21: 5 (6.8%)
     22 = 22: 5 (6.8%)
-    23 = 23: 3 (4.1%)
-    24 = 24: 4 (5.4%)
+    23 = 23: suppressed (<5)
+    24 = 24: suppressed (<5)
     25 = 25: 5 (6.8%)
-    26 = 26: 3 (4.1%)
-    28 = 28: 3 (4.1%)
-    29 = 29: 1 (1.4%)
-    30 = 30: 2 (2.7%)
-    31 = 31: 1 (1.4%)
-    34 = 34: 1 (1.4%)
-    35 = 35: 2 (2.7%)
-    41 = 41: 1 (1.4%)
+    26 = 26: suppressed (<5)
+    28 = 28: suppressed (<5)
+    29 = 29: suppressed (<5)
+    30 = 30: suppressed (<5)
+    31 = 31: suppressed (<5)
+    34 = 34: suppressed (<5)
+    35 = 35: suppressed (<5)
+    41 = 41: suppressed (<5)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline.
 
 VARIABLE: rep78
 --------------------
@@ -171,13 +178,13 @@ Missing: 5 obs (6.8%)
 Unique Values: 5
 
   Frequencies:
-    1 = 1: 2 (2.7%)
+    1 = 1: suppressed (<5)
     2 = 2: 8 (10.8%)
     3 = 3: 30 (40.5%)
     4 = 4: 18 (24.3%)
     5 = 5: 11 (14.9%)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms.
 
 VARIABLE: headroom
 --------------------
@@ -190,16 +197,16 @@ Missing: 0 obs (0.0%)
 Unique Values: 8
 
   Frequencies:
-    1.5 = 1.5: 4 (5.4%)
+    1.5 = 1.5: suppressed (<5)
     2 = 2: 13 (17.6%)
     2.5 = 2.5: 14 (18.9%)
     3 = 3: 13 (17.6%)
     3.5 = 3.5: 15 (20.3%)
     4 = 4: 10 (13.5%)
-    4.5 = 4.5: 4 (5.4%)
-    5 = 5: 1 (1.4%)
+    4.5 = 4.5: suppressed (<5)
+    5 = 5: suppressed (<5)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline.
 
 VARIABLE: trunk
 --------------------
@@ -212,26 +219,26 @@ Missing: 0 obs (0.0%)
 Unique Values: 18
 
   Frequencies:
-    5 = 5: 1 (1.4%)
-    6 = 6: 1 (1.4%)
-    7 = 7: 3 (4.1%)
+    5 = 5: suppressed (<5)
+    6 = 6: suppressed (<5)
+    7 = 7: suppressed (<5)
     8 = 8: 5 (6.8%)
-    9 = 9: 4 (5.4%)
+    9 = 9: suppressed (<5)
     10 = 10: 5 (6.8%)
     11 = 11: 8 (10.8%)
-    12 = 12: 3 (4.1%)
-    13 = 13: 4 (5.4%)
-    14 = 14: 4 (5.4%)
+    12 = 12: suppressed (<5)
+    13 = 13: suppressed (<5)
+    14 = 14: suppressed (<5)
     15 = 15: 5 (6.8%)
     16 = 16: 12 (16.2%)
     17 = 17: 8 (10.8%)
-    18 = 18: 1 (1.4%)
+    18 = 18: suppressed (<5)
     20 = 20: 6 (8.1%)
-    21 = 21: 2 (2.7%)
-    22 = 22: 1 (1.4%)
-    23 = 23: 1 (1.4%)
+    21 = 21: suppressed (<5)
+    22 = 22: suppressed (<5)
+    23 = 23: suppressed (<5)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline.
 
 VARIABLE: turn
 --------------------
@@ -244,26 +251,26 @@ Missing: 0 obs (0.0%)
 Unique Values: 18
 
   Frequencies:
-    31 = 31: 1 (1.4%)
-    32 = 32: 1 (1.4%)
-    33 = 33: 2 (2.7%)
+    31 = 31: suppressed (<5)
+    32 = 32: suppressed (<5)
+    33 = 33: suppressed (<5)
     34 = 34: 6 (8.1%)
     35 = 35: 6 (8.1%)
     36 = 36: 9 (12.2%)
-    37 = 37: 4 (5.4%)
-    38 = 38: 3 (4.1%)
-    39 = 39: 1 (1.4%)
+    37 = 37: suppressed (<5)
+    38 = 38: suppressed (<5)
+    39 = 39: suppressed (<5)
     40 = 40: 6 (8.1%)
-    41 = 41: 4 (5.4%)
+    41 = 41: suppressed (<5)
     42 = 42: 7 (9.5%)
     43 = 43: 12 (16.2%)
-    44 = 44: 3 (4.1%)
-    45 = 45: 3 (4.1%)
-    46 = 46: 3 (4.1%)
-    48 = 48: 2 (2.7%)
-    51 = 51: 1 (1.4%)
+    44 = 44: suppressed (<5)
+    45 = 45: suppressed (<5)
+    46 = 46: suppressed (<5)
+    48 = 48: suppressed (<5)
+    51 = 51: suppressed (<5)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline.
 
 VARIABLE: foreign
 --------------------
@@ -280,7 +287,7 @@ Unique Values: 2
     0 = Domestic: 52 (70.3%)
     1 = Foreign: 22 (29.7%)
 
-ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
 
 ========================================
 CONTINUOUS VARIABLES
@@ -304,7 +311,7 @@ DISTRIBUTION:
   IQR: 4195-6342
   Range: 3291 to 15906
 
-ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality. 
+ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality.
 
 VARIABLE: weight
 --------------------
@@ -324,7 +331,7 @@ DISTRIBUTION:
   IQR: 2240-3600
   Range: 1760 to 4840
 
-ANALYSIS GUIDANCE: Use as continuous variable. 
+ANALYSIS GUIDANCE: Use as continuous variable.
 
 VARIABLE: length
 --------------------
@@ -344,7 +351,7 @@ DISTRIBUTION:
   IQR: 170-204
   Range: 142 to 233
 
-ANALYSIS GUIDANCE: Use as continuous variable. 
+ANALYSIS GUIDANCE: Use as continuous variable.
 
 VARIABLE: displacement
 --------------------
@@ -364,7 +371,7 @@ DISTRIBUTION:
   IQR: 119-250
   Range: 79 to 425
 
-ANALYSIS GUIDANCE: Use as continuous variable. 
+ANALYSIS GUIDANCE: Use as continuous variable.
 
 VARIABLE: gear_ratio
 --------------------
@@ -384,7 +391,7 @@ DISTRIBUTION:
   IQR: 2.73-3.37
   Range: 2.19 to 3.89
 
-ANALYSIS GUIDANCE: Use as continuous variable. 
+ANALYSIS GUIDANCE: Use as continuous variable.
 
 ========================================
 EXCLUDED VARIABLES

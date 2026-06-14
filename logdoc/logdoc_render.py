@@ -760,7 +760,7 @@ def filter_blocks(blocks, keep=None, drop=None):
                 try:
                     re.compile(_p)
                 except re.error as exc:
-                    print(f"LOGDOC_META: blocks=0 filesize=0")
+                    print_metadata(0, 0)
                     print(f"Error: invalid {_label} regex '{_p}': {exc}",
                           file=sys.stderr)
                     sys.exit(1)
@@ -1310,18 +1310,23 @@ def detect_graph_exports(blocks, nograph=False):
     return graph_files
 
 
+def _resolve_graph_path(filepath, base_dir):
+    """Return an absolute graph path if it exists, otherwise None."""
+    filepath = filepath.replace('\\', '/')
+    if os.path.isabs(filepath):
+        return filepath if os.path.isfile(filepath) else None
+    if os.path.isfile(filepath):
+        return os.path.abspath(filepath)
+    candidate = os.path.join(base_dir, filepath)
+    if os.path.isfile(candidate):
+        return os.path.abspath(candidate)
+    return None
+
+
 def embed_image_base64(filepath, base_dir):
     """Read an image file and return a base64 data URI, or None."""
-    # R3: Normalize Windows backslashes to forward slashes
-    filepath = filepath.replace('\\', '/')
-    if not os.path.isabs(filepath):
-        # Try relative to CWD first, then relative to base_dir
-        if os.path.isfile(filepath):
-            filepath = os.path.abspath(filepath)
-        else:
-            filepath = os.path.join(base_dir, filepath)
-
-    if not os.path.isfile(filepath):
+    filepath = _resolve_graph_path(filepath, base_dir)
+    if filepath is None:
         return None
 
     mime, _ = mimetypes.guess_type(filepath)
@@ -2540,6 +2545,71 @@ def find_css_file(name, script_dir):
     return None
 
 
+def read_text_file(path):
+    """Read a text file with the same encoding cascade used for logs."""
+    for encoding in ("utf-8", "latin-1"):
+        try:
+            with open(path, "r", encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, ValueError):
+            continue
+    with open(path, "r", errors="replace") as f:
+        return f.read()
+
+
+def read_combine_manifest(path):
+    """Read newline-delimited source paths for combine mode."""
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def validate_accent(accent):
+    """Validate a CSS hex accent color."""
+    if accent is None:
+        return True
+    return re.fullmatch(r"#[0-9A-Fa-f]{6}", accent) is not None
+
+
+def apply_accent_css(theme_css, accent):
+    """Append accent-color overrides without requiring a custom CSS file."""
+    if not accent:
+        return theme_css
+    return theme_css + f"""
+
+:root {{ --logdoc-accent: {accent}; }}
+.logdoc-header {{ border-bottom-color: var(--logdoc-accent); }}
+.code-block {{ border-left-color: var(--logdoc-accent); }}
+.logdoc-toc {{ border-color: var(--logdoc-accent); }}
+.logdoc-toc a, .help-link {{ color: var(--logdoc-accent); }}
+.toolbar-btn:focus {{ outline: 2px solid var(--logdoc-accent); outline-offset: 2px; }}
+.section-header {{ border-bottom-color: var(--logdoc-accent); }}
+"""
+
+
+def metadata_for_blocks(blocks, base_dir=".", nograph=False):
+    """Return composable metadata counts for a parsed block list."""
+    graph_files = detect_graph_exports(blocks, nograph=nograph)
+    nwarnings = 0
+    for gfile in graph_files:
+        if _resolve_graph_path(gfile, base_dir) is None:
+            nwarnings += 1
+    return {
+        "blocks": len(blocks),
+        "graphs": len(graph_files),
+        "tables": sum(1 for block in blocks if block.kind == "table"),
+        "warnings": nwarnings,
+    }
+
+
+def print_metadata(nblocks, filesize, ngraphs=0, ntables=0, nwarnings=0):
+    """Emit the metadata line parsed by logdoc.ado."""
+    print(
+        "LOGDOC_META: "
+        f"blocks={nblocks} filesize={filesize} "
+        f"graphs={ngraphs} tables={ntables} warnings={nwarnings}"
+    )
+
+
 _MD_FRONT_MATTER_RE = re.compile(r"\A---\n.*?\n---\n*", re.DOTALL)
 _LATEX_DOC_RE = re.compile(
     r"(?ms)^\\begin\{document\}\s*$(.*?)^\\end\{document\}\s*$"
@@ -2607,6 +2677,296 @@ def _append_latex_document(existing, new_content):
     return prefix + "\n\n" + new_body + "\n\n" + suffix
 
 
+def _extract_html_main(content):
+    """Extract the rendered body from a complete logdoc HTML document."""
+    match = re.search(
+        r'<main class="logdoc-body">\s*(.*?)\s*</main>',
+        content, re.DOTALL
+    )
+    if match:
+        return match.group(1).strip()
+    return content.strip()
+
+
+def _source_title(path):
+    """Return the default combine section title for a source path."""
+    base = os.path.basename(path)
+    stem, _ = os.path.splitext(base)
+    return stem or base or path
+
+
+def _source_id(index):
+    return f"logdoc-source-{index}"
+
+
+def render_combined_html(sources, args, theme_css, annotations=None,
+                         use_enhanced_html=False):
+    """Render several logs into one HTML document with source-level TOC."""
+    bodies = []
+    toc_items = []
+    totals = {"blocks": 0, "graphs": 0, "tables": 0, "warnings": 0}
+
+    for idx, source in enumerate(sources, 1):
+        raw_text = read_text_file(source)
+        blocks = parse_blocks(raw_text.split("\n"))
+        blocks = filter_blocks(blocks, keep=args.keep, drop=args.drop)
+        if not blocks:
+            totals["warnings"] += 1
+            continue
+
+        base_dir = os.path.dirname(os.path.abspath(source))
+        stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
+        for key in totals:
+            totals[key] += stats[key]
+
+        section_title = _source_title(source)
+        section_id = _source_id(idx)
+        toc_items.append((section_title, section_id))
+
+        if use_enhanced_html:
+            source_doc = render_html(
+                blocks, title=section_title, theme_css=theme_css,
+                preformatted=args.preformatted, nofold=args.nofold,
+                nodots=args.nodots, date=None, base_dir=base_dir,
+                footer=None, stamp=None, nograph=args.nograph,
+                graphwidth=args.graphwidth, graphheight=args.graphheight,
+                linenumbers=args.linenumbers, toc=False,
+                notebook=args.notebook, email=False,
+                annotations=annotations,
+                fold=(args.fold or args.legacy) and not args.nofold,
+                highlight=args.highlight or args.legacy,
+                tables=(args.tables or args.legacy) and not args.preformatted,
+                copy=args.copy or args.legacy,
+                download=False,
+                generated=False,
+            )
+        else:
+            source_doc = render_html_faithful(
+                blocks, title=section_title, theme_css=theme_css,
+                nodots=args.nodots, date=None, base_dir=base_dir,
+                footer=None, stamp=None, nograph=args.nograph,
+                graphwidth=args.graphwidth, graphheight=args.graphheight,
+                generated=False,
+            )
+
+        bodies.append(
+            f'<section class="logdoc-source" id="{section_id}">\n'
+            f'<h2 class="section-header">{html_mod.escape(section_title)}</h2>\n'
+            f'{_extract_html_main(source_doc)}\n'
+            f'</section>'
+        )
+
+    if not bodies:
+        print_metadata(0, 0, 0, 0, totals["warnings"])
+        print("Error: No content blocks found in combined inputs", file=sys.stderr)
+        sys.exit(1)
+
+    title = args.title or "Combined logdoc report"
+    escaped_title = html_mod.escape(title)
+    subtitle_html = ""
+    if args.date:
+        subtitle_html = f'\n<p class="subtitle">{html_mod.escape(args.date)}</p>'
+
+    stamp_html = ""
+    if args.stamp:
+        stamp_html = f'\n<p class="stamp">{html_mod.escape(args.stamp)}</p>'
+
+    footer_html = ""
+    if args.footer:
+        footer_html = f'<p>{html_mod.escape(args.footer)}</p>'
+    elif args.generated:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        footer_html = f'<p>Generated {timestamp}</p>'
+
+    footer_block = ""
+    if footer_html:
+        footer_block = f"""
+<footer class="logdoc-footer">
+{footer_html}
+</footer>"""
+
+    toc_html = ""
+    if args.toc or len(toc_items) > 1:
+        items = "".join(
+            f'<li><a href="#{sec_id}">{html_mod.escape(sec_title)}</a></li>'
+            for sec_title, sec_id in toc_items
+        )
+        toc_html = (
+            f'\n<nav class="logdoc-toc"><strong>Contents</strong>'
+            f'<ol>{items}</ol></nav>'
+        )
+
+    download_btn = ""
+    if args.download or args.legacy:
+        safe_title_js = title.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
+        download_btn = (
+            f'<button class="toolbar-btn" onclick="(function(){{var c=Array.from(document.querySelectorAll(\'.code-block pre\')).map(function(e){{return e.textContent.trim()}}).join(\'\\n\\n\');var b=new Blob([c],{{type:\'text/plain\'}});var a=document.createElement(\'a\');a.href=URL.createObjectURL(b);a.download=\'{safe_title_js}.do\';a.click()}})()">Download .do</button>'
+        )
+    toolbar_html = f'\n<div class="logdoc-toolbar">{download_btn}</div>' if download_btn else ""
+
+    html_doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{escaped_title}</title>
+<style>
+{theme_css}
+</style>
+</head>
+<body>
+<article class="logdoc">
+<header class="logdoc-header">
+<h1>{escaped_title}</h1>{subtitle_html}{stamp_html}
+</header>{toolbar_html}{toc_html}
+<main class="logdoc-body">
+{chr(10).join(bodies)}
+</main>{footer_block}
+</article>
+</body>
+</html>"""
+
+    if args.email:
+        html_doc = _inline_css(html_doc)
+
+    return html_doc, totals
+
+
+def render_combined_markdown(sources, args, fmt="md"):
+    """Render several logs into one Markdown or Quarto Markdown document."""
+    title = args.title or "Combined logdoc report"
+    safe_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    parts = ["---", f'title: "{safe_title}"']
+    if args.date:
+        safe_date = args.date.replace('\\', '\\\\').replace('"', '\\"')
+        parts.append(f'date: "{safe_date}"')
+    parts.extend(["---", ""])
+    totals = {"blocks": 0, "graphs": 0, "tables": 0, "warnings": 0}
+
+    for source in sources:
+        raw_text = read_text_file(source)
+        blocks = parse_blocks(raw_text.split("\n"))
+        blocks = filter_blocks(blocks, keep=args.keep, drop=args.drop)
+        if not blocks:
+            totals["warnings"] += 1
+            continue
+
+        base_dir = os.path.dirname(os.path.abspath(source))
+        stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
+        for key in totals:
+            totals[key] += stats[key]
+
+        section_title = _source_title(source)
+        md_content = render_markdown(
+            blocks, title=section_title, nofold=args.nofold,
+            nodots=args.nodots, date=None, base_dir=base_dir,
+            output_dir=os.path.dirname(os.path.abspath(args.output)),
+            footer=None, stamp=None, nograph=args.nograph,
+            generated=False,
+        )
+        md_body = _MD_FRONT_MATTER_RE.sub("", md_content, count=1).lstrip()
+        parts.append(f"## {section_title}")
+        parts.append("")
+        parts.append(md_body.rstrip())
+        parts.append("")
+
+    if args.stamp:
+        parts.extend(["---", f"*{args.stamp}*", ""])
+    if args.footer:
+        parts.extend(["---", f"*{args.footer}*", ""])
+    elif args.generated:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        parts.extend(["---", f"*Generated {timestamp}*", ""])
+
+    if totals["blocks"] == 0:
+        print_metadata(0, 0, 0, 0, totals["warnings"])
+        print("Error: No content blocks found in combined inputs", file=sys.stderr)
+        sys.exit(1)
+
+    return "\n".join(parts), totals
+
+
+def render_combined_latex(sources, args):
+    """Render several logs into one LaTeX document."""
+    title = args.title or "Combined logdoc report"
+    parts = []
+    parts.append(r"\documentclass{article}")
+    parts.append(r"\usepackage[utf8]{inputenc}")
+    parts.append(r"\usepackage[T1]{fontenc}")
+    parts.append(r"\usepackage{listings}")
+    parts.append(r"\usepackage{booktabs}")
+    parts.append(r"\usepackage{xcolor}")
+    parts.append(r"\usepackage{graphicx}")
+    parts.append(r"\usepackage[margin=1in]{geometry}")
+    parts.append("")
+    parts.append(r"\definecolor{statacommand}{RGB}{0,85,170}")
+    parts.append(r"\definecolor{stataerror}{RGB}{192,57,43}")
+    parts.append(r"\definecolor{stataoutput}{RGB}{73,80,87}")
+    parts.append(r"\definecolor{statabg}{RGB}{248,249,250}")
+    parts.append("")
+    parts.append(r"\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false}")
+    parts.append(r"\lstdefinestyle{statacommand}{basicstyle=\ttfamily\small\color{statacommand},backgroundcolor=\color{statabg},frame=l,framerule=2pt,rulecolor=\color{statacommand}}")
+    parts.append(r"\lstdefinestyle{stataoutput}{basicstyle=\ttfamily\footnotesize\color{stataoutput}}")
+    parts.append(r"\lstdefinestyle{stataerror}{basicstyle=\ttfamily\footnotesize\color{stataerror}}")
+    parts.append("")
+    parts.append(r"\title{" + _latex_escape(title) + "}")
+    if args.date:
+        parts.append(r"\date{" + _latex_escape(args.date) + "}")
+    else:
+        parts.append(r"\date{\today}")
+    parts.append(r"\author{}")
+    parts.append(r"\begin{document}")
+    parts.append(r"\maketitle")
+    parts.append("")
+    totals = {"blocks": 0, "graphs": 0, "tables": 0, "warnings": 0}
+
+    for source in sources:
+        raw_text = read_text_file(source)
+        blocks = parse_blocks(raw_text.split("\n"))
+        blocks = filter_blocks(blocks, keep=args.keep, drop=args.drop)
+        if not blocks:
+            totals["warnings"] += 1
+            continue
+        base_dir = os.path.dirname(os.path.abspath(source))
+        stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
+        for key in totals:
+            totals[key] += stats[key]
+
+        section_title = _source_title(source)
+        tex_doc = render_latex(
+            blocks, title=section_title, nodots=args.nodots, date=None,
+            base_dir=base_dir, footer=None, stamp=None,
+            nograph=args.nograph, generated=False,
+        )
+        parts.append(r"\section{" + _latex_escape(section_title) + "}")
+        parts.append(_extract_latex_body(tex_doc))
+        parts.append("")
+
+    if args.stamp:
+        parts.append(r"\vfill")
+        parts.append(r"\noindent\small\texttt{" + _latex_escape(args.stamp) + "}")
+    if args.footer:
+        parts.append(r"\vfill")
+        parts.append(r"\begin{center}")
+        parts.append(r"\small " + _latex_escape(args.footer))
+        parts.append(r"\end{center}")
+    elif args.generated:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        parts.append(r"\vfill")
+        parts.append(r"\begin{center}")
+        parts.append(r"\small Generated " + timestamp)
+        parts.append(r"\end{center}")
+    parts.append(r"\end{document}")
+    parts.append("")
+
+    if totals["blocks"] == 0:
+        print_metadata(0, 0, 0, 0, totals["warnings"])
+        print("Error: No content blocks found in combined inputs", file=sys.stderr)
+        sys.exit(1)
+
+    return "\n".join(parts), totals
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Convert Stata SMCL/log files to shareable documents"
@@ -2647,6 +3007,8 @@ def main():
                         help="Read date from file (avoids shell quoting)")
     parser.add_argument("--css", default=None,
                         help="Custom CSS file path")
+    parser.add_argument("--accent", default=None,
+                        help="Accent color as #RRGGBB")
     parser.add_argument("--light-css", default=None,
                         help="Path to light theme CSS")
     parser.add_argument("--dark-css", default=None,
@@ -2687,6 +3049,8 @@ def main():
                         help="Jupyter-style notebook cell rendering")
     parser.add_argument("--compare", default=None,
                         help="Second file for diff comparison")
+    parser.add_argument("--combine-file", default=None,
+                        help="Newline-delimited source manifest for combine mode")
     parser.add_argument("--email", action="store_true",
                         help="Email-safe HTML with inline CSS")
     parser.add_argument("--annotate", default=None,
@@ -2695,6 +3059,11 @@ def main():
                         help="Convert an HTML file to PDF via xhtml2pdf (standalone mode)")
 
     args = parser.parse_args()
+
+    if not validate_accent(args.accent):
+        print_metadata(0, 0)
+        print("Error: --accent must be a #RRGGBB color", file=sys.stderr)
+        sys.exit(1)
 
     # Standalone HTML-to-PDF conversion (called from .ado)
     if args.html_to_pdf:
@@ -2719,7 +3088,7 @@ def main():
         _path = getattr(args, _attr)
         if _path:
             if not os.path.isfile(_path):
-                print(f"LOGDOC_META: blocks=0 filesize=0")
+                print_metadata(0, 0)
                 print(f"Error: --{_attr.replace('_', '-')} not found: {_path}",
                       file=sys.stderr)
                 sys.exit(1)
@@ -2729,7 +3098,7 @@ def main():
         _path = getattr(args, _attr)
         if _path:
             if not os.path.isfile(_path):
-                print(f"LOGDOC_META: blocks=0 filesize=0")
+                print_metadata(0, 0)
                 print(f"Error: --{_attr.replace('_', '-')} not found: {_path}",
                       file=sys.stderr)
                 sys.exit(1)
@@ -2746,18 +3115,8 @@ def main():
         print(f"Error: Input file not found: {args.input}", file=sys.stderr)
         sys.exit(1)
 
-    # R2: Read input with encoding cascade: UTF-8 → Latin-1 → errors="replace"
-    raw_text = None
-    for encoding in ("utf-8", "latin-1"):
-        try:
-            with open(args.input, "r", encoding=encoding) as f:
-                raw_text = f.read()
-            break
-        except (UnicodeDecodeError, ValueError):
-            continue
-    if raw_text is None:
-        with open(args.input, "r", errors="replace") as f:
-            raw_text = f.read()
+    # R2: Read input with encoding cascade: UTF-8 -> Latin-1 -> replace.
+    raw_text = read_text_file(args.input)
 
     # Determine title
     title = args.title or os.path.splitext(os.path.basename(args.input))[0]
@@ -2780,7 +3139,7 @@ def main():
 
     if not blocks:
         print("Warning: No content blocks found in input", file=sys.stderr)
-        print("LOGDOC_META: blocks=0 filesize=0")
+        print_metadata(0, 0)
         sys.exit(1)
 
     use_enhanced_html = any((
@@ -2802,11 +3161,102 @@ def main():
     else:
         css_path = args.light_css or find_css_file("logdoc_light.css", script_dir)
         theme_css = load_css(css_path) or CSS_LIGHT
+    theme_css = apply_accent_css(theme_css, args.accent)
 
     # C7: Load annotations if provided
     annot = {'block': {}, 'command': {}}
     if args.annotate:
         annot = parse_annotations(args.annotate)
+
+    # Combine mode — source manifest is written by logdoc.ado.
+    if args.combine_file:
+        if not os.path.isfile(args.combine_file):
+            print_metadata(0, 0)
+            print(f"Error: Combine manifest not found: {args.combine_file}",
+                  file=sys.stderr)
+            sys.exit(1)
+        sources = read_combine_manifest(args.combine_file)
+        if not sources:
+            print_metadata(0, 0)
+            print("Error: Combine manifest is empty", file=sys.stderr)
+            sys.exit(1)
+        for source in sources:
+            if not os.path.isfile(source):
+                print_metadata(0, 0)
+                print(f"Error: Combine source not found: {source}",
+                      file=sys.stderr)
+                sys.exit(1)
+
+        fmt = args.format
+        output_path = args.output
+        totals = {"blocks": 0, "graphs": 0, "tables": 0, "warnings": 0}
+
+        if fmt in ("html", "both"):
+            html_out = output_path if fmt == "html" else _swap_ext(output_path, ".html")
+            html_content, html_totals = render_combined_html(
+                sources, args, theme_css, annotations=annot,
+                use_enhanced_html=use_enhanced_html,
+            )
+            totals = html_totals
+            if args.append and os.path.isfile(html_out):
+                with open(html_out, "r") as f:
+                    existing = f.read()
+                html_content = _append_html_document(existing, html_content)
+            os.makedirs(os.path.dirname(os.path.abspath(html_out)), exist_ok=True)
+            with open(html_out, "w") as f:
+                f.write(html_content)
+            print(f"Generated: {html_out}")
+
+        if fmt in ("md", "qmd", "both"):
+            md_out = output_path if fmt in ("md", "qmd") else _swap_ext(output_path, ".md")
+            md_content, md_totals = render_combined_markdown(sources, args, fmt=fmt)
+            if totals["blocks"] == 0:
+                totals = md_totals
+            if args.append and os.path.isfile(md_out):
+                with open(md_out, "r") as f:
+                    existing_md = f.read()
+                md_content = _append_markdown_document(existing_md, md_content)
+            os.makedirs(os.path.dirname(os.path.abspath(md_out)), exist_ok=True)
+            with open(md_out, "w") as f:
+                f.write(md_content)
+            print(f"Generated: {md_out}")
+
+        if fmt == "tex":
+            tex_content, totals = render_combined_latex(sources, args)
+            if args.append and os.path.isfile(output_path):
+                with open(output_path, "r") as f:
+                    existing_tex = f.read()
+                tex_content = _append_latex_document(existing_tex, tex_content)
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            with open(output_path, "w") as f:
+                f.write(tex_content)
+            print(f"Generated: {output_path}")
+
+        total_size = 0
+        if fmt == "both":
+            for candidate in (_swap_ext(output_path, ".html"),
+                              _swap_ext(output_path, ".md")):
+                try:
+                    total_size += os.path.getsize(candidate)
+                except OSError:
+                    pass
+        else:
+            try:
+                total_size = os.path.getsize(output_path)
+            except OSError:
+                total_size = 0
+
+        print_metadata(
+            totals["blocks"], total_size, totals["graphs"],
+            totals["tables"], totals["warnings"]
+        )
+        if args.verbose:
+            elapsed = _time.time() - _t0
+            print(
+                f"logdoc: {totals['blocks']} blocks processed in {elapsed:.2f}s",
+                file=sys.stderr,
+            )
+        return
 
     # C2: Diff mode — compare two files
     if args.compare:
@@ -2814,17 +3264,7 @@ def main():
             print(f"Error: Compare file not found: {args.compare}",
                   file=sys.stderr)
             sys.exit(1)
-        raw_text_b = None
-        for encoding in ("utf-8", "latin-1"):
-            try:
-                with open(args.compare, "r", encoding=encoding) as f:
-                    raw_text_b = f.read()
-                break
-            except (UnicodeDecodeError, ValueError):
-                continue
-        if raw_text_b is None:
-            with open(args.compare, "r", errors="replace") as f:
-                raw_text_b = f.read()
+        raw_text_b = read_text_file(args.compare)
         blocks_b = parse_blocks(raw_text_b.split("\n"))
         diff_html = render_diff_html(
             blocks, blocks_b, title=f"Diff: {title}",
@@ -2839,7 +3279,16 @@ def main():
         print(f"Generated: {args.output}")
         nblocks = len(blocks) + len(blocks_b)
         total_size = os.path.getsize(args.output)
-        print(f"LOGDOC_META: blocks={nblocks} filesize={total_size}")
+        stats_a = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
+        base_dir_b = os.path.dirname(os.path.abspath(args.compare))
+        stats_b = metadata_for_blocks(blocks_b, base_dir_b,
+                                      nograph=args.nograph)
+        print_metadata(
+            nblocks, total_size,
+            stats_a["graphs"] + stats_b["graphs"],
+            stats_a["tables"] + stats_b["tables"],
+            stats_a["warnings"] + stats_b["warnings"],
+        )
         if args.verbose:
             elapsed = _time.time() - _t0
             print(f"logdoc: {nblocks} blocks processed in {elapsed:.2f}s",
@@ -2941,6 +3390,7 @@ def main():
 
     # I1: Print metadata for .ado to capture
     nblocks = len(blocks)
+    stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
     # Compute total output filesize
     total_size = 0
     if fmt in ("html", "both"):
@@ -2958,7 +3408,10 @@ def main():
             total_size += os.path.getsize(tex_out)
         except OSError:
             pass
-    print(f"LOGDOC_META: blocks={nblocks} filesize={total_size}")
+    print_metadata(
+        nblocks, total_size, stats["graphs"],
+        stats["tables"], stats["warnings"]
+    )
 
     # Verbose output
     if args.verbose:

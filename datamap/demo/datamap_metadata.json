@@ -1,0 +1,501 @@
+{
+  "datamap_version": "1.1.0",
+  "generated": "15 Jun 2026 00:05:30",
+  "format": "json",
+  "datasets": [
+    {
+      "name": "_demo_cohort.dta",
+      "observations": 160,
+      "variables": 17,
+      "label": "Synthetic Clinical Trial Cohort (N=160)",
+      "data_signature": "160:17(68284):1184352066:4157885057",
+      "sort_order": "",
+      "privacy": {
+        "mincell": 5,
+        "datesafe": true,
+        "excluded_variables": 3,
+        "likely_identifiers_not_excluded": 0,
+        "suggested_exclude": ""
+      },
+      "class_counts": {
+        "categorical": 6,
+        "continuous": 6,
+        "date": 2,
+        "string": 0,
+        "excluded": 3
+      },
+      "variable_metadata": [
+        {
+          "name": "patient_id",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Patient identifier",
+          "value_label": "",
+          "classification": "excluded",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 160,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "subject_id",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Study subject identifier",
+          "value_label": "",
+          "classification": "excluded",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 160,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "patient_name",
+          "type": "str32",
+          "format": "%32s",
+          "label": "Patient full name",
+          "value_label": "",
+          "classification": "excluded",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 160,
+          "max_length": 11,
+          "summary": {
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "age",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Age at enrollment (years)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 136,
+          "max_length": null,
+          "summary": {
+            "n": 160,
+            "mean": 57.26625,
+            "sd": 13.4331837664,
+            "p25": 48.8,
+            "median": 56.8,
+            "p75": 65.35,
+            "min": -3,
+            "max": 96.8
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "sex",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Biological sex",
+          "value_label": "sex_lbl",
+          "classification": "categorical",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 2,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "0",
+              "label": "Female",
+              "count": 77,
+              "pct": 48.1,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "1",
+              "label": "Male",
+              "count": 83,
+              "pct": 51.9,
+              "suppressed": false,
+              "threshold": 5
+            }
+          ]
+        },
+        {
+          "name": "smoking",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Smoking status",
+          "value_label": "smoke_lbl",
+          "classification": "categorical",
+          "missing_n": 26,
+          "missing_pct": 16.3,
+          "unique_values": 3,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "0",
+              "label": "Never",
+              "count": 46,
+              "pct": 28.7,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "1",
+              "label": "Former",
+              "count": 48,
+              "pct": 30,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "2",
+              "label": "Current",
+              "count": 40,
+              "pct": 25,
+              "suppressed": false,
+              "threshold": 5
+            }
+          ]
+        },
+        {
+          "name": "bmi",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Body mass index (kg/m2)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 13,
+          "missing_pct": 8.1,
+          "unique_values": 104,
+          "max_length": null,
+          "summary": {
+            "n": 147,
+            "mean": 27.1503401361,
+            "sd": 5.15013464579,
+            "p25": 23.4,
+            "median": 27.1,
+            "p75": 30.8,
+            "min": 13.1,
+            "max": 41.8
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "sbp",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Systolic blood pressure (mmHg)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 10,
+          "missing_pct": 6.3,
+          "unique_values": 64,
+          "max_length": null,
+          "summary": {
+            "n": 150,
+            "mean": 135.593333333,
+            "sd": 19.069317802,
+            "p25": 122,
+            "median": 137,
+            "p75": 148,
+            "min": 74,
+            "max": 192
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "creatinine",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Serum creatinine (mg/dL)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 23,
+          "missing_pct": 14.4,
+          "unique_values": 84,
+          "max_length": null,
+          "summary": {
+            "n": 137,
+            "mean": 1.03182481752,
+            "sd": 0.332992710965,
+            "p25": 0.81,
+            "median": 1.05,
+            "p75": 1.24,
+            "min": 0.16,
+            "max": 1.73
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "pct_adherence",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Medication adherence (%)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 38,
+          "missing_pct": 23.8,
+          "unique_values": 110,
+          "max_length": null,
+          "summary": {
+            "n": 122,
+            "mean": 76.9647540984,
+            "sd": 20.0986571737,
+            "p25": 63.4,
+            "median": 78.55,
+            "p75": 91.3,
+            "min": 34.1,
+            "max": 120.5
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "enroll_date",
+          "type": "double",
+          "format": "%td",
+          "label": "Date of enrollment",
+          "value_label": "",
+          "classification": "date",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 152,
+          "max_length": null,
+          "summary": {
+            "n": 160,
+            "span": 895,
+            "span_unit": "days"
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "birth_date",
+          "type": "double",
+          "format": "%td",
+          "label": "Date of birth",
+          "value_label": "",
+          "classification": "date",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 160,
+          "max_length": null,
+          "summary": {
+            "n": 160,
+            "span": 27442,
+            "span_unit": "days"
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "follow_up_time",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Follow-up time (years)",
+          "value_label": "",
+          "classification": "continuous",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 72,
+          "max_length": null,
+          "summary": {
+            "n": 160,
+            "mean": 0.3085625,
+            "sd": 0.282493049672,
+            "p25": 0.1,
+            "median": 0.24,
+            "p75": 0.445,
+            "min": 0,
+            "max": 1.72
+          },
+          "frequencies": [
+          ]
+        },
+        {
+          "name": "event",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Primary endpoint",
+          "value_label": "event_lbl",
+          "classification": "categorical",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 2,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "0",
+              "label": "Censored",
+              "count": 120,
+              "pct": 75,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "1",
+              "label": "Event",
+              "count": 40,
+              "pct": 25,
+              "suppressed": false,
+              "threshold": 5
+            }
+          ]
+        },
+        {
+          "name": "treatment",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Randomization arm",
+          "value_label": "treat_lbl",
+          "classification": "categorical",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 2,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "0",
+              "label": "Control",
+              "count": 88,
+              "pct": 55,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "1",
+              "label": "Active",
+              "count": 72,
+              "pct": 45,
+              "suppressed": false,
+              "threshold": 5
+            }
+          ]
+        },
+        {
+          "name": "site",
+          "type": "double",
+          "format": "%16.0g",
+          "label": "Study site",
+          "value_label": "site_lbl",
+          "classification": "categorical",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 7,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "1",
+              "label": "Stockholm",
+              "count": 31,
+              "pct": 19.4,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "2",
+              "label": "Gothenburg",
+              "count": 34,
+              "pct": 21.3,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "3",
+              "label": "Malmo",
+              "count": 23,
+              "pct": 14.4,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "4",
+              "label": "Uppsala",
+              "count": 24,
+              "pct": 15,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "5",
+              "label": "Linkoping",
+              "count": 19,
+              "pct": 11.9,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "6",
+              "label": "Lund",
+              "count": 26,
+              "pct": 16.3,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "9",
+              "label": "Satellite clinic",
+              "count": null,
+              "pct": null,
+              "suppressed": true,
+              "threshold": 5
+            }
+          ]
+        },
+        {
+          "name": "rare_marker",
+          "type": "double",
+          "format": "%10.0g",
+          "label": "Rare clinical marker",
+          "value_label": "rare_lbl",
+          "classification": "categorical",
+          "missing_n": 0,
+          "missing_pct": 0,
+          "unique_values": 2,
+          "max_length": null,
+          "summary": {
+          },
+          "frequencies": [
+            {
+              "value": "0",
+              "label": "Absent",
+              "count": 157,
+              "pct": 98.1,
+              "suppressed": false,
+              "threshold": 5
+            },
+            {
+              "value": "1",
+              "label": "Present",
+              "count": null,
+              "pct": null,
+              "suppressed": true,
+              "threshold": 5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

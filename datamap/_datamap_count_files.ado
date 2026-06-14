@@ -1,6 +1,6 @@
 *! _datamap_count_files Version 1.0.0  2026/04/08
 *! Count file paths in a datamap/datadict filelist
-*! Author: Timothy P. Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _datamap_count_files, rclass
 	version 16.0

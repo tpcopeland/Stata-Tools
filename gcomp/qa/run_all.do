@@ -38,6 +38,7 @@ foreach f in ///
     test_interactions ///
     test_gcomptab_regressions ///
     test_gcomptab_doseresponse ///
+    test_models ///
     test_adversarial_gcomptab ///
     test_install_smoke ///
     test_errors ///

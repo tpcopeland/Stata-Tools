@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.2.0** | 2026-05-29
+**Version 1.3.0** | 2026-06-14
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -94,6 +94,29 @@ gcomptab, xlsx("demo_gcomptab.xlsx") sheet("Percentile CI") ///
     ci(percentile) title("Table 2. Mediation Results (Percentile CIs)")
 ```
 
+### Inspect the fitted component models
+
+Add `savemodels` to capture the parametric component models gcomp actually fit, then `gcomptab, models` exports them as a multi-model coefficient table. Scales are applied automatically (logit → odds ratios here). This makes the engine behind a gcomp estimate inspectable and reportable.
+
+```stata
+gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
+    commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
+    base_confs(c) sim(500) samples(50) seed(42) savemodels
+
+gcomptab, models markdown("component_models.md") ///
+    modellabels("Mediator (m) \ Outcome (y)") stats(n)
+```
+
+| Term | Mediator (m) OR | Mediator (m) 95% CI | Mediator (m) p | Outcome (y) OR | Outcome (y) 95% CI | Outcome (y) p |
+| --- | --- | --- | --- | --- | --- | --- |
+| x | 1.627 | [1.226, 2.160] | <0.001 | 1.251 | [0.873, 1.792] | 0.223 |
+| c | 1.009 | [0.996, 1.021] | 0.180 | 1.028 | [1.012, 1.045] | <0.001 |
+| _cons | 0.420 | [0.222, 0.795] | 0.008 | 0.036 | [0.015, 0.087] | <0.001 |
+| m |  |  |  | 1.803 | [1.292, 2.516] | <0.001 |
+| N | 1000 |  |  | 1000 |  |  |
+
+The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Component models")`) — the demo adds it as a third sheet in `demo_gcomptab.xlsx`.
+
 ## Key Options
 
 ### gcomp
@@ -116,6 +139,8 @@ gcomptab, xlsx("demo_gcomptab.xlsx") sheet("Percentile CI") ///
 | `diagnostics` | Display model-fit statistics during initial estimation |
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
 | `seed(#)` | Set random number seed for reproducibility |
+| `savemodels` | Refit each component model once on the analytic sample and store them (`_gcomp_m_*`) for later inspection/export with `gcomptab, models` |
+| `showmodels` | Implies `savemodels`; also displays the fitted component models in-window during the run (`modelstyle(compact)` default, or `modelstyle(native)`) |
 
 ### gcomptab
 
@@ -135,6 +160,32 @@ gcomptab, xlsx("demo_gcomptab.xlsx") sheet("Percentile CI") ///
 | `zebra` | Alternating row shading |
 | `footnote(string)` | Footnote text below the table |
 
+#### `gcomptab, models` (component-model tables)
+
+After a `gcomp ..., savemodels` (or `showmodels`) run, `gcomptab, models` builds a publication-ready multi-model coefficient table from the stored component models — a self-contained, limited port of `regtab` (no `tabtools` dependency). The `models` flag is required to enter this mode; it never auto-triggers, so the existing mediation and dose-response modes are unchanged.
+
+| Option | Role |
+|--------|------|
+| `models` | Enter component-model mode (required) |
+| `xlsx(filename)` / `sheet(string)` | Excel target (sheet defaults to `Models`) |
+| `markdown(filename)` / `csv(filename)` | Markdown / CSV targets |
+| `display` | Echo the table to the Results window |
+| `usemodels(namelist)` | Which stored estimates to include (default `e(model_names)`) |
+| `modellabels(string)` | Column headers per model, backslash-separated (default: depvar) |
+| `termlabels(string)` | Row (term) labels, backslash-separated |
+| `eform` / `noeform` / `raw` / `coef(string)` | Force/suppress exponentiation; override the scale label |
+| `se` | Show standard errors instead of 95% CI |
+| `compact` | Merge estimate and CI into one column per model |
+| `nopvalue` | Drop the p-value column |
+| `stars` / `starslevels(numlist)` | Significance stars (default `0.05 0.01 0.001`) |
+| `nointercept` / `keepintercept` | Drop / keep `_cons` and `ologit` cutpoints |
+| `keep(string)` / `drop(string)` | Row filtering by term |
+| `digits(#)` / `decimal(#)` | Numeric precision (default 3) |
+| `stats(string)` | Per-model footer stats (`n` supported) |
+| `title()` / `footnote()` / `font()` / `fontsize()` / `borderstyle()` / `zebra` / `headershade` / `boldp()` / `highlight()` / `open` | Styling (shared with the other modes) |
+
+Scale auto-detection: `logit`→OR, `mlogit`→RRR, `ologit`→OR, `regress`→Coef. When models on one table mix scales, `r(coef_label)` is `"mixed"`.
+
 ## Returned Results
 
 ### After `gcomp`
@@ -147,6 +198,8 @@ All results are stored in `e()`:
 
 **Macros:** `e(cmd)` (`"gcomp"`), `e(analysis_type)` (`"mediation"` or `"time_varying"`), `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(msm)`.
 
+**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (stored-estimate names `_gcomp_m_*`), `e(model_cmds)`, `e(model_depvars)`, and `e(model_eq_k)` (prediction equation per model).
+
 **Convenience scalars (mediation, non-oce):** `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, `e(cde)`, and their SEs (`e(se_tce)`, etc.).
 
 **Convenience scalars (mediation, oce):** `e(tce_j)`, `e(nde_j)`, `e(nie_j)`, `e(pm_j)`, `e(cde_j)` for each contrast *j*.
@@ -157,6 +210,8 @@ All results are stored in `e()`:
 
 Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie)`, `r(pm)`, `r(cde)` (if applicable), `r(xlsx)`, `r(sheet)`, `r(ci)`.
 
+**After `gcomptab, models`:** `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)` (shared scale label or `"mixed"`), `r(table)` (matrix of displayed estimates, rows = terms, cols = models), `r(methods)` (auto methods sentence), and `r(xlsx)`/`r(sheet)`/`r(markdown)`/`r(csv)` for the targets written.
+
 ## References
 
 - Robins JM. 1986. A new approach to causal inference in mortality studies with sustained exposure periods. *Mathematical Modelling* 7(9-12):1393-1512.
@@ -165,6 +220,8 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 - VanderWeele TJ. 2015. *Explanation in causal inference: methods for mediation and interaction*. Oxford University Press.
 
 ## Version History
+
+- **1.3.0** (2026-06-14): **Component-model display & export.** `gcomp` gains `savemodels` and `showmodels` (with `modelstyle(compact|native)`): after estimation it refits each parametric component model once on the analytic sample (faithful to what was simulated — exact for mediation), stores them as `_gcomp_m_*`, and records a manifest in `e(model_names)`/`e(model_cmds)`/`e(model_depvars)`/`e(model_eq_k)`. `showmodels` also prints the fitted coefficient tables in-window. A new `gcomptab, models` mode reads those stored estimates and writes a multi-model publication table (a self-contained, limited port of `regtab`) to xlsx/markdown/csv/Results-window, with scale auto-detection (logit→OR, mlogit→RRR, ologit→OR, regress→Coef), `eform`/`noeform`/`raw`/`coef()`, `se`, `compact`, `stars`, `nopvalue`, `keep()`/`drop()`, `nointercept`/`keepintercept`, `usemodels()`, `modellabels()`/`termlabels()`, `stats(n)`, and full styling parity. New returns `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)`, `r(table)`, `r(methods)`. Captured component models for non-pooled time-varying runs are pooled across visits (faithful per-visit columns are a planned follow-up). All earlier modes are unchanged.
 
 - **1.2.0** (2026-05-29): `gcomptab` gains a **time-varying dose-response mode**. After a `gcomp ..., interventions(...)` run it now formats the `PO#` counterfactual-risk columns into a per-strategy Excel table — strategy label, risk and 95% CI, optional implied mean cumulative exposure-years (`expyears()`), and a point risk-difference-versus-reference column (`reference()`, suppressible with `nord`). Strategy names are supplied with `strategylabels()`; the mode is auto-detected when `e(b)` has `PO#` columns and no `tce` column, or forced with `doseresponse`. New `r(table)`, `r(k)`, `r(reference)`, and `r(ref_label)` returns. Mediation mode is unchanged.
 - **1.1.2** (2026-05-06): Restored full bootstrap covariance posting in `e(V)` instead of rebuilding a diagonal-only matrix from `e(se)`, preserving valid covariance-aware postestimation for mediation and time-varying estimates. `samples(1)` is now rejected by package validation before Stata's bootstrap machinery runs.

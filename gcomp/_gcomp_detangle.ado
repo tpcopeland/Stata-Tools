@@ -1,4 +1,4 @@
-*! _gcomp_detangle Version 1.2.0  2026/05/29
+*! _gcomp_detangle Version 1.3.0  2026/06/14
 *! Parsing helper for gcomp option groups
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

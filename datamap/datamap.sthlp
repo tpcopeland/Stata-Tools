@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  14jun2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -37,8 +37,8 @@
 {synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt o:utput(filename)}}output file name; default is {bf:datamap.txt}{p_end}
-{synopt:{opt f:ormat(string)}}output format; currently only {bf:text}{p_end}
+{synopt:{opt o:utput(filename)}}output file name; default is {bf:datamap.txt} or {bf:datamap.json}{p_end}
+{synopt:{opt f:ormat(string)}}output format: {bf:text} or {bf:json}{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 {synopt:{opt app:end}}append to an existing output file{p_end}
 
@@ -48,6 +48,9 @@
 {synopt:{opt nola:bels}}suppress the value-label definitions section{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to tabulate; default {bf:25}{p_end}
 {synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
+{synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}; {bf:0} disables{p_end}
+{synopt:{opt nog:uidance}}suppress ANALYSIS GUIDANCE prose{p_end}
+{synopt:{opt com:pact}}write a token-compact map; implies {opt noguidance}{p_end}
 
 {syntab:Privacy}
 {synopt:{opt exc:lude(varlist)}}variables to document structure only (no values/stats){p_end}
@@ -79,9 +82,10 @@ omitted.
 {title:Description}
 
 {pstd}
-{cmd:datamap} writes a structured, plain-text description of one or more Stata
-datasets.  The output is designed to be pasted into an LLM prompt window so the
-model can write code against your data without ever seeing a single observation.
+{cmd:datamap} writes a structured description of one or more Stata datasets in
+plain text or JSON.  Text output is designed to be pasted into an LLM prompt
+window.  JSON output is designed for automated pipelines and programmatic
+metadata checks.
 
 {pstd}
 The command automatically classifies every variable as categorical, continuous,
@@ -92,8 +96,9 @@ Variables listed in {opt exclude()} appear in the output with their type and
 missingness but no values or statistics.
 
 {pstd}
-All output is aggregate-level.  No cross-variable combinations or individual
-observations are ever exported unless you explicitly request sample rows with
+Default output is aggregate-level.  Frequency cells smaller than {opt mincell()}
+are suppressed by default.  No cross-variable combinations or individual
+observations are exported unless you explicitly request sample rows with
 {opt samples()}.
 
 {pstd}
@@ -141,11 +146,14 @@ specified.  Specifying more than one is an error.
 {dlgtab:Output}
 
 {phang}
-{opt o:utput(filename)} names the output file.  The default is {bf:datamap.txt}.
+{opt o:utput(filename)} names the output file.  The default is {bf:datamap.txt}
+for text output and {bf:datamap.json} for JSON output.
 
 {phang}
-{opt f:ormat(string)} selects the output format.  The only value currently
-accepted is {bf:text}.  For Markdown output, use {help datadict} instead.
+{opt f:ormat(string)} selects the output format.  Valid values are {bf:text}
+and {bf:json}.  JSON output includes dataset metadata, privacy settings, class
+counts, per-variable metadata, continuous summaries, and suppressed frequency
+arrays.  For Markdown output, use {help datadict} instead.
 
 {phang}
 {opt sep:arate} writes a separate output file for each dataset instead of
@@ -155,7 +163,7 @@ combining them into one file.  Output files are named
 {phang}
 {opt app:end} appends to an existing output file rather than replacing it.
 Useful for incrementally building documentation.  Note that no header is added
-when appending.
+when appending.  {opt append} is not allowed with {cmd:format(json)}.
 
 {dlgtab:Content control}
 
@@ -183,6 +191,22 @@ Numeric variables with value labels or with {it:#} or fewer unique values are
 classified as categorical; the rest are continuous.  Default is {bf:25}.  Must
 be positive.
 
+{phang}
+{opt minc:ell(#)} suppresses categorical and binary frequency cells with counts
+smaller than {it:#}.  Suppressed text output shows {bf:suppressed (<#)}; JSON
+sets the count and percent to {bf:null} and marks {bf:suppressed: true}.  The
+default is {bf:5}.  Specify {cmd:mincell(0)} to show all cells.
+
+{phang}
+{opt nog:uidance} removes the ANALYSIS GUIDANCE and privacy-note prose while
+leaving statistics, frequency tables, and metadata in place.
+
+{phang}
+{opt com:pact} writes a shorter text map containing dataset metadata,
+disclosure-risk summary, description, and the quick-reference variable table.
+It implies {opt noguidance}.  JSON output is already structured and ignores this
+text-only shortening.
+
 {dlgtab:Privacy}
 
 {phang}
@@ -204,7 +228,7 @@ identifying dates are present.
 The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
 ({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
 quarterly, and other non-daily types retain their native format regardless of
-this setting.
+this setting.  The format must begin with {cmd:%t} or {cmd:%d}.
 
 {dlgtab:Detection}
 
@@ -239,7 +263,7 @@ patterns ({it:time*}, {it:event*}, {it:death*}, etc.).
 
 {phang}
 {opt qu:ality} enables basic data quality flags.  The command checks for
-negative ages, negative counts, and percentages outside 0{en_dash}100.  Flags are
+negative ages, negative counts, and percentages outside 0-100.  Flags are
 printed in a "Data Quality Flags" section.
 
 {phang}
@@ -257,9 +281,11 @@ above 120).
 
 {phang}
 {opt sam:ples(#)} appends a table of the first {it:#} observations.  Variables
-in {opt exclude()} are shown as {bf:[MASKED]}.  Use with caution: even
-aggregate-safe documentation becomes identifiable once raw rows are included.
-Always combine with {opt exclude()} when sample rows are enabled.
+in {opt exclude()} are shown as {bf:[MASKED]}.  When {opt datesafe} is also
+specified, date variables in the sample table are shown as
+{bf:[DATE SUPPRESSED]}.  Use with caution: even aggregate-safe documentation
+becomes identifiable once raw rows are included.  Always combine with
+{opt exclude()} when sample rows are enabled.
 
 
 {marker classification}{...}
@@ -278,7 +304,7 @@ Always combine with {opt exclude()} when sample rows are enabled.
 Each class gets a dedicated output section:
 
 {p2colset 5 28 30 2}{...}
-{p2col:{bf:Categorical}}frequency table with counts and percentages (suppressed by {opt nofreq}){p_end}
+{p2col:{bf:Categorical}}frequency table with counts and percentages; small cells suppressed by {opt mincell()} and tables suppressed by {opt nofreq}{p_end}
 {p2col:{bf:Continuous}}mean, SD, median, IQR, range (suppressed by {opt nostats}){p_end}
 {p2col:{bf:Date}}earliest/latest date and span (exact dates suppressed by {opt datesafe}){p_end}
 {p2col:{bf:String}}maximum string length and unique-value count; values are always suppressed{p_end}
@@ -304,9 +330,14 @@ accept the same input modes and preserve the dataset in memory.
 
 {phang2}{hline 2} Always use {opt exclude()} for direct identifiers: names, national IDs, addresses, phone numbers.{p_end}
 {phang2}{hline 2} Add {opt datesafe} when the dataset contains dates of birth, death dates, or admission dates that could help re-identify individuals.{p_end}
-{phang2}{hline 2} Consider lowering {opt maxfreq()} to limit how much detail appears for high-cardinality categorical variables.{p_end}
-{phang2}{hline 2} Use {opt samples()} sparingly and always combine it with {opt exclude()}.{p_end}
+{phang2}{hline 2} Keep the default {cmd:mincell(5)} unless you have reviewed the disclosure risk.{p_end}
+{phang2}{hline 2} Use {opt samples()} sparingly and always combine it with {opt exclude()} and {opt datesafe} when date variables are sensitive.{p_end}
 {phang2}{hline 2} Review the output file before sharing to confirm that no personally identifiable information leaked through.{p_end}
+
+{pstd}
+{cmd:datamap} also warns when variable names look like identifiers but are not
+listed in {opt exclude()}.  The same count and suggested list appear in the
+disclosure-risk summary and in JSON privacy metadata.
 
 {pstd}
 {bf:Input modes}
@@ -339,6 +370,12 @@ To give the output a different name:{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. datamap, output(auto_codebook.txt)}{p_end}
 
+{pstd}
+To write machine-readable JSON:{p_end}
+
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datamap, format(json) output(auto_map.json)}{p_end}
+
     {title:Privacy controls}
 
 {pstd}
@@ -349,7 +386,7 @@ Exclude sensitive variables and suppress exact dates in one step:{p_end}
 {pstd}
 For a minimal output that shows only structure and classification:{p_end}
 
-{phang2}{cmd:. datamap, single(patients) exclude(patient_id ssn) nostats nofreq nolabels}{p_end}
+{phang2}{cmd:. datamap, single(patients) exclude(patient_id ssn) compact}{p_end}
 
     {title:Detection and quality}
 
@@ -396,6 +433,11 @@ values are treated as categorical:{p_end}
 {phang2}{cmd:. datamap, single(survey) maxcat(10) maxfreq(10)}{p_end}
 
 {pstd}
+Disable small-cell suppression only after disclosure review:{p_end}
+
+{phang2}{cmd:. datamap, single(survey) mincell(0)}{p_end}
+
+{pstd}
 Include sample observations (use with caution):{p_end}
 
 {phang2}{cmd:. datamap, single(demo_data) samples(5) exclude(id name)}{p_end}
@@ -420,16 +462,29 @@ Combine multiple privacy and content options:{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
-{synopt:{cmd:r(nobs)}}number of observations (single-file and in-memory modes only){p_end}
-{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
-{synoptline}
+	{synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
+	{synopt:{cmd:r(nobs)}}number of observations (single-file and in-memory modes only){p_end}
+	{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
+	{synopt:{cmd:r(mincell)}}small-cell threshold used{p_end}
+	{synopt:{cmd:r(n_categorical)}}number of categorical variables documented{p_end}
+	{synopt:{cmd:r(n_continuous)}}number of continuous variables documented{p_end}
+	{synopt:{cmd:r(n_date)}}number of date variables documented{p_end}
+	{synopt:{cmd:r(n_string)}}number of string variables documented{p_end}
+	{synopt:{cmd:r(n_excluded)}}number of variables excluded by {opt exclude()}{p_end}
+	{synopt:{cmd:r(n_suggested_exclude)}}number of likely identifier variables not excluded{p_end}
+	{synoptline}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(format)}}output format used ({bf:text}){p_end}
+{synopt:{cmd:r(format)}}output format used ({bf:text} or {bf:json}){p_end}
 {synopt:{cmd:r(output)}}name of the output file created{p_end}
 {synopt:{cmd:r(input_source)}}input mode: {bf:memory}, {bf:single}, {bf:directory}, or {bf:filelist}{p_end}
+{synopt:{cmd:r(categorical_vars)}}categorical variable names{p_end}
+{synopt:{cmd:r(continuous_vars)}}continuous variable names{p_end}
+{synopt:{cmd:r(date_vars)}}date variable names{p_end}
+{synopt:{cmd:r(string_vars)}}string variable names{p_end}
+{synopt:{cmd:r(excluded_vars)}}excluded variable names{p_end}
+{synopt:{cmd:r(suggested_exclude)}}likely identifier variables not listed in {opt exclude()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -437,12 +492,12 @@ Combine multiple privacy and content options:{p_end}
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 {hline 2} 08apr2026{p_end}
+{pstd}Version 1.1.0 {hline 2} 14jun2026{p_end}
 
 
 {title:Also see}
@@ -450,3 +505,5 @@ Combine multiple privacy and content options:{p_end}
 {psee}
 {help datadict}, {manlink D describe}, {manlink D codebook}, {manlink R summarize}
 {p_end}
+
+{hline}

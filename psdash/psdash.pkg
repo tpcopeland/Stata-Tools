@@ -23,6 +23,7 @@ f psdash.sthlp
 f _psdash_balance_binary.ado
 f _psdash_balance_multigroup.ado
 f _psdash_detect.ado
+f _psdash_export_kv.ado
 f _psdash_graph_export.ado
 f _psdash_ltmle_diagnostics.ado
 f _psdash_manual_detect.ado
@@ -31,6 +32,7 @@ f _psdash_pscheck.ado
 f _psdash_support_stats.ado
 f _psdash_strip_fv.ado
 f _psdash_validate_levels.ado
+f _psdash_validate_path.ado
 f _psdash_validate_psvars.ado
 f _psdash_weights_modify.ado
 f _psdash_weights_stats.ado
@@ -39,3 +41,4 @@ f psdash_balance.ado
 f psdash_weights.ado
 f psdash_support.ado
 f psdash_combined.ado
+f psdash_detect.ado

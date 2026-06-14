@@ -1,4 +1,4 @@
-*! psdash Version 1.2.1  2026/06/14
+*! psdash Version 1.3.0  2026/06/14
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,7 +30,7 @@ program define psdash, rclass
             exit
         }
 
-        local known_subcmds "overlap balance weights support combined"
+        local known_subcmds "overlap balance weights support combined detect"
 
         local is_subcmd = 0
         foreach s of local known_subcmds {
@@ -78,6 +78,7 @@ program define _psdash_overview
     display as text "  {cmd:psdash weights}    Weight distribution, ESS, extreme weights"
     display as text "  {cmd:psdash support}    Common support assessment and trimming"
     display as text "  {cmd:psdash combined}   All diagnostics in a combined dashboard"
+    display as text "  {cmd:psdash detect}     Report auto-detection without running panels"
     display as text ""
     display as text "Examples:"
     display as text "  {cmd:teffects ipw (y) (treat x1 x2 x3)}"

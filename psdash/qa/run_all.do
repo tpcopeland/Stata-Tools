@@ -21,7 +21,8 @@ local suite_files test_psdash.do validation_psdash.do validation_known_answers.d
     test_adversarial.do test_detect_dispatch_adversarial.do ///
     test_binary_balance_weights_adversarial.do ///
     test_overlap_support_multigroup_adversarial.do ///
-    test_multigroup_psvars_regression.do
+    test_multigroup_psvars_regression.do ///
+    test_v130_features.do
 
 foreach f of local suite_files {
     capture noisily do "`qa_dir'/`f'"

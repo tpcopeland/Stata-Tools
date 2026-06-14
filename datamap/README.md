@@ -1,10 +1,10 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.1.0** | 2026-06-14
 
 `datamap` documents Stata datasets without exporting row-level data. It produces two kinds of output:
 
-- **`datamap`** writes a structured plain-text file designed to be pasted into an LLM prompt, attached to an internal data handoff, or fed into an automated pipeline. It includes privacy controls (`exclude()`, `datesafe`), automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
+- **`datamap`** writes structured text or JSON designed for LLM prompts, internal data handoffs, or automated pipelines. It includes privacy controls (`exclude()`, `datesafe`, `mincell()`), likely-identifier warnings, compact output, automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
 - **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value and statistics columns, and a table of contents when documenting multiple datasets.
 
 Both commands preserve the dataset in memory, accept the same input modes (data in memory, a single `.dta` file, a directory scan, or a named file list), and handle the `.dta` extension automatically.
@@ -25,14 +25,14 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 | Command    | Output format | Purpose |
 |------------|---------------|---------|
-| `datamap`  | Plain text    | LLM context, internal documentation, QA, privacy-controlled sharing |
+| `datamap`  | Plain text or JSON | LLM context, internal documentation, QA, privacy-controlled sharing, automated metadata pipelines |
 | `datadict` | Markdown      | GitHub repos, report appendices, Pandoc conversion, IRB submissions |
 
 ## How It Works
 
 1. **Choose the input source.** Load data into memory (the default), or point at a file with `single()`, a folder with `directory()`, or a list of names with `filelist()`.
 2. **Pick the output command.** Use `datamap` for plain text or `datadict` for Markdown.
-3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`) and descriptive statistics (`stats`, `missing`) to `datadict`.
+3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`, `mincell()`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), compact output (`compact`), JSON output (`format(json)`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`) and descriptive statistics (`stats`, `missing`) to `datadict`.
 4. **Write the output.** One combined file by default, or separate files per dataset with `separate`.
 
 ## Worked Examples
@@ -64,7 +64,14 @@ sysuse auto, clear
 datamap, exclude(make) quality missing(detail) autodetect output(auto_map.txt)
 ```
 
-### 4. Markdown dictionary with statistics and metadata
+### 4. JSON for a metadata pipeline
+
+```stata
+sysuse auto, clear
+datamap, format(json) output(auto_map.json)
+```
+
+### 5. Markdown dictionary with statistics and metadata
 
 `datadict` is the presentation-oriented companion. Add document metadata and optional columns:
 
@@ -76,7 +83,7 @@ datadict, output(auto_dictionary.md) ///
     missing stats
 ```
 
-### 5. Document a saved dataset by filename
+### 6. Document a saved dataset by filename
 
 Both commands work on `.dta` files without loading them first:
 
@@ -88,7 +95,7 @@ datamap, single(auto_example) output(auto_example_map.txt)
 datadict, single(auto_example) output(auto_example_dict.md) title("Saved auto")
 ```
 
-### 6. Scale up to a directory
+### 7. Scale up to a directory
 
 Document every `.dta` file in a folder — combined or one file per dataset:
 
@@ -97,6 +104,211 @@ datamap, directory("analysis_data") recursive output(project_map.txt)
 datadict, directory("analysis_data") recursive separate
 ```
 
+## Demo
+
+The demo script (`datamap/demo/demo_datamap.do`) builds synthetic datasets, installs `datamap` from the local package manifest, runs the updated syntax, verifies generated file content, and converts console logs to Markdown with `logdoc`.
+
+Run it from the Stata-Tools repo root:
+
+```bash
+stata-mp -b do datamap/demo/demo_datamap.do
+```
+
+Generated demo artifacts include:
+
+- `demo/datamap_privacy_warning.txt` and `demo/console_privacy.md`
+- `demo/datamap_clinical.txt` and `demo/console_clinical.md`
+- `demo/datamap_json.json`, `demo/datamap_compact.txt`, and `demo/console_json_compact.md`
+- `demo/datamap_missing.txt`
+- `demo/datadict_auto.md`
+- `demo/datadict_clinical.md` and `demo/console_datadict.md`
+
+### Privacy Controls And Identifier Warnings
+
+This example leaves identifier-like variables unexcluded first so the warning is visible, then reruns with `exclude()`, `datesafe`, `mincell(5)`, `autodetect`, `quality`, `samples(3)`, and detailed missingness.
+
+<details>
+<summary>Privacy demo output</summary>
+
+```stata
+. datamap, single("datamap/demo/_demo_cohort.dta") ///
+>     output("datamap/demo/datamap_privacy_warning.txt") ///
+>     exclude(patient_name) compact
+```
+
+```
+warning: likely identifier variable(s) not in exclude(): patient_id subject_id
+Output written to: datamap/demo/datamap_privacy_warning.txt
+```
+
+```
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 1
+Small-cell threshold: 5
+Date-safe mode: off
+Likely identifiers not excluded: patient_id subject_id
+```
+
+```stata
+. datamap, single("datamap/demo/_demo_cohort.dta") ///
+>     output("datamap/demo/datamap_clinical.txt") ///
+>     exclude(patient_id subject_id patient_name) ///
+>     datesafe mincell(5) autodetect quality samples(3) missing(detail)
+```
+
+```
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 3
+Small-cell threshold: 5
+Date-safe mode: on
+Likely identifiers not excluded: 0
+```
+
+```
+Survival Analysis Variables Detected
+  Likely time variables: follow_up_time
+  Likely event indicators: event
+    event rate: 25%
+
+Missing Data Summary
+  Variables with >50% missing: 0
+  Variables with >10% missing: 3
+  Observations with complete data: 79 (49.40000000000001%)
+```
+
+```
+Suppressed frequency cells:
+    9 = Satellite clinic: suppressed (<5)
+    1 = Present: suppressed (<5)
+    1 (Present): suppressed (<5)
+```
+
+```
+Date-safe sample rows:
+| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 1 | 27.5 | 157 | 1.39 | 83.7 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .29 | 1 | 1 | 9 | 1 |
+```
+
+</details>
+
+### JSON Metadata
+
+`format(json)` writes structured metadata for downstream tools while preserving disclosure controls such as `mincell()` and `datesafe`.
+
+<details>
+<summary>JSON demo output</summary>
+
+```stata
+. datamap, single("datamap/demo/_demo_cohort.dta") ///
+>     output("datamap/demo/datamap_json.json") ///
+>     format(json) exclude(patient_id subject_id patient_name) ///
+>     datesafe
+```
+
+```json
+{
+  "datamap_version": "1.1.0",
+  "format": "json",
+  "datasets": [
+    {
+      "name": "_demo_cohort.dta",
+      "observations": 160,
+      "variables": 17,
+      "privacy": {
+        "mincell": 5,
+        "datesafe": true,
+        "excluded_variables": 3,
+        "likely_identifiers_not_excluded": 0
+      },
+      "class_counts": {
+        "categorical": 6,
+        "continuous": 6,
+        "date": 2,
+        "string": 0,
+        "excluded": 3
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+### Compact Output
+
+`compact` keeps the disclosure summary and quick-reference table, then omits guidance-heavy sections.
+
+<details>
+<summary>Compact demo output</summary>
+
+```stata
+. datamap, single("datamap/demo/_demo_cohort.dta") ///
+>     output("datamap/demo/datamap_compact.txt") ///
+>     compact exclude(patient_id subject_id patient_name) datesafe
+```
+
+```
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 3
+Small-cell threshold: 5
+Date-safe mode: on
+Likely identifiers not excluded: 0
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  patient_id              double    excluded        0.0%     160
+  subject_id              double    excluded        0.0%     160
+  patient_name            str32     excluded        0.0%     160
+  age                     double    continuous      0.0%     136
+  sex                     double    categorical     0.0%       2
+  smoking                 double    categorical    16.3%       3
+  site                    double    categorical     0.0%       7
+```
+
+</details>
+
+### Missingness And Markdown Dictionaries
+
+The demo also shows `missing(pattern)` for structured missingness and `datadict` with metadata, statistics, and missing-value columns.
+
+<details>
+<summary>Missingness and dictionary output</summary>
+
+```stata
+. datamap, single("datamap/demo/_demo_missing.dta") ///
+>     output("datamap/demo/datamap_missing.txt") ///
+>     missing(pattern) quality
+```
+
+```
+Missing Data Summary
+  Variables with >50% missing: 0
+  Variables with >10% missing: 4
+  Observations with complete data: 38 (47.5%)
+```
+
+```stata
+. datadict, single("datamap/demo/_demo_cohort.dta") ///
+>     output("datamap/demo/datadict_clinical.md") ///
+>     title("SYNTH-01 Clinical Trial Data Dictionary") ///
+>     author("Timothy P Copeland, Karolinska Institutet") ///
+>     missing stats
+```
+
+```markdown
+# SYNTH-01 Clinical Trial Data Dictionary
+
+| Variable | Label | Type | Missing | Statistics/Values |
+|----------|-------|------|---------|-------------------|
+| `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=160<br>Median=100,080; IQR=100,040-100,120 |
+| `enroll_date` | Date of enrollment | Date | 0 (0.0%) | N=160<br>Range: 2021/01/02 to 2023/06/16 |
+```
+
+</details>
+
 ## Feature Reference
 
 ### datamap options
@@ -104,9 +316,9 @@ datadict, directory("analysis_data") recursive separate
 | Category | Options |
 |----------|---------|
 | Input | `single()`, `directory()`, `filelist()`, `recursive` |
-| Output | `output()`, `format()`, `separate`, `append` |
-| Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()` |
-| Privacy | `exclude()`, `datesafe`, `dateformat()` |
+| Output | `output()`, `format(text\|json)`, `separate`, `append` (text only) |
+| Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()`, `noguidance`, `compact` |
+| Privacy | `exclude()`, `datesafe`, `dateformat()`, `mincell()` |
 | Detection | `detect()`, `autodetect`, `panelid()`, `survivalvars()` |
 | Quality | `quality`, `quality2(strict)`, `missing(detail\|pattern)` |
 | Sample data | `samples()` |
@@ -136,6 +348,31 @@ datadict, directory("analysis_data") recursive separate
 - **`datadict`** when you need a publication-quality Markdown document: GitHub repositories, report appendices, IRB submissions, or Pandoc conversion.
 - Use **`separate`** with either command when each dataset should get its own output file.
 - Start with a single dataset; switch to **`directory()`** + **`recursive`** once the output looks right.
+
+## Privacy Notes
+
+- `datamap` suppresses categorical and binary frequency cells smaller than `mincell()`; the default is `mincell(5)`.
+- Set `mincell(0)` only after reviewing disclosure risk.
+- `datamap` warns when variable names look like identifiers but are not listed in `exclude()`.
+- `samples()` prints raw rows by design; excluded variables are masked, and date variables are suppressed when `datesafe` is specified.
+
+## QA
+
+Run the full Stata QA suite from the package root:
+
+```bash
+cd qa
+stata-mp -b do run_all.do
+```
+
+The suite covers all two public commands with 6 QA files: 5 functional test files, 1 validation file, and 0 cross-validation suites.
+
+- `test_datamap.do` - 57 tests
+- `test_datamap_bugfixes.do` - 13 tests
+- `test_datamap_v2.do` - 54 tests
+- `test_datamap_v11.do` - 42 tests
+- `validation_datamap.do` - 56 validations
+- `test_datamap_golden.do` - 0 tests
 
 ## Author
 

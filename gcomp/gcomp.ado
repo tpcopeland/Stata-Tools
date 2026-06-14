@@ -1,4 +1,4 @@
-*! gcomp Version 1.2.0  2026/05/29
+*! gcomp Version 1.3.0  2026/06/14
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -95,7 +95,18 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
     derived(varlist) derrules(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
     mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
-	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace]
+	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace ///
+	SAVEModels SHOWmodels MODELStyle(string)]
+* --- Component-model capture (savemodels/showmodels): normalize options ---
+if "`showmodels'"!="" local savemodels savemodels
+if "`modelstyle'"=="" local modelstyle compact
+if "`modelstyle'"!="" {
+	local modelstyle = lower("`modelstyle'")
+	if !inlist("`modelstyle'", "compact", "native") {
+		noi di as err "modelstyle() must be compact or native"
+		exit 198
+	}
+}
 local _gc_keepvars `varlist'
 foreach _gc_varblock in outcome idvar tvar varyingcovariates intvars death derived fixedcovariates laggedvars exposure mediator base_confs post_confs impute {
 	local _gc_keepvars `"`_gc_keepvars' ``_gc_varblock''"'
@@ -886,6 +897,38 @@ forvalues i=1/`nvar' {
 noi di as text "   {hline 12}{c BT}{hline 9}{c BT}{hline `longstring'}"
 noi di
 noi di
+* === Component-model capture (savemodels/showmodels) ===
+* Refit each simulation model ONCE on the analytic sample (data is still in its
+* original long form here, before rename/reshape), est store as _gcomp_m_*, and
+* record a manifest in gcomp-scope locals for posting to e() after bootstrap.
+local _gc_n_models 0
+if "`savemodels'"!="" {
+	capture noisily _gcomp_refit_models, vars(`varlist2') ///
+		commands(`commands') equations(`equations') stub(_gcomp_m) ///
+		analysis(`=cond("`mediation'"!="","mediation","time_varying")') `pooled'
+	if _rc {
+		noi di as err "Warning: component-model capture (savemodels) failed; continuing without it."
+	}
+	else {
+		local _gc_n_models     = r(n_models)
+		local _gc_model_names   "`r(model_names)'"
+		local _gc_model_cmds    "`r(model_cmds)'"
+		local _gc_model_depvars "`r(model_depvars)'"
+		local _gc_model_skipped "`r(skipped)'"
+		forvalues _gck = 1/`_gc_n_models' {
+			local _gc_model_eq_`_gck' "`r(model_eq_`_gck')'"
+		}
+		if "`_gc_model_skipped'"!="" {
+			noi di as text "   Note: component-model capture skipped (predictors unavailable at fit time): " as result "`_gc_model_skipped'"
+		}
+		if "`mediation'"=="" & "`pooled'"=="" & `_gc_n_models'>0 {
+			noi di as text "   Note: captured component models are pooled across visits (faithful per-visit columns are not yet available)."
+		}
+		if "`showmodels'"!="" & `_gc_n_models'>0 {
+			_gcomp_display_models, names(`_gc_model_names') style(`modelstyle') digits(4)
+		}
+	}
+}
 if "`impute'"!="" {
 	* Display in a table the parametric models that have been specified for imputation
 	local imp_nvar: word count `impute'
@@ -2644,6 +2687,16 @@ else {
 		`mediation' `oce' `obe' `linexp' `specific' `_post_logor' `_post_logrr'
 	if "`mediation'"=="" & "`msm'"!="" {
 		ereturn local msm "`msm'"
+	}
+	* --- Component-model manifest (savemodels): record what was captured ---
+	if "`savemodels'"!="" & `_gc_n_models'>0 {
+		ereturn local model_names   "`_gc_model_names'"
+		ereturn local model_cmds    "`_gc_model_cmds'"
+		ereturn local model_depvars "`_gc_model_depvars'"
+		ereturn scalar N_models = `_gc_n_models'
+		forvalues _gck = 1/`_gc_n_models' {
+			ereturn local model_eq_`_gck' "`_gc_model_eq_`_gck''"
+		}
 	}
 
 } /* end capture noisily */

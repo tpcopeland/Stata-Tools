@@ -579,7 +579,7 @@ else {
 * V23: format(both) no-extension replace check works
 * =======================================================================
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     * Files exist from V22 — try without replace, should fail
     logdoc using "`smcl_fixture'", output("`outdir'/v22_noext") format(both)
 }
@@ -685,7 +685,7 @@ else {
 * V27: Empty log file — Python should fail gracefully
 * =======================================================================
 local test_total = `test_total' + 1
-capture noisily {
+capture {
     local emptylog "`outdir'/_test_empty.log"
     file open fh using "`emptylog'", write replace
     file close fh

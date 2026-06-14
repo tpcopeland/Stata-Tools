@@ -534,17 +534,17 @@ else {
 **## PY-T18: invalid option combinations return rc=198
 local ++test_total
 capture noisily {
-    capture noisily logdoc_py, quiet verbose
+    capture logdoc_py, quiet verbose
     assert _rc == 198
-    capture noisily logdoc_py, check set
+    capture logdoc_py, check set
     assert _rc == 198
-    capture noisily logdoc_py, set save
+    capture logdoc_py, set save
     assert _rc == 198
-    capture noisily logdoc_py, save install(required)
+    capture logdoc_py, save install(required)
     assert _rc == 198
-    capture noisily logdoc_py, dryrun
+    capture logdoc_py, dryrun
     assert _rc == 198
-    capture noisily logdoc_py, replace
+    capture logdoc_py, replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -560,7 +560,7 @@ else {
 local ++test_total
 capture noisily {
     set varabbrev on
-    capture noisily logdoc_py, python("/definitely/not/logdoc/python3") quiet
+    capture logdoc_py, python("/definitely/not/logdoc/python3") quiet
     assert _rc == 601
     assert c(varabbrev) == "on"
     set varabbrev `orig_varabbrev'
@@ -589,7 +589,7 @@ capture noisily {
         file write `oldfh' "echo 'Python 2.7.18'" _n
         file close `oldfh'
         quietly shell chmod +x "`fake_old'"
-        capture noisily logdoc_py, python("`fake_old'") quiet
+        capture logdoc_py, python("`fake_old'") quiet
         assert _rc == 601
     }
 }
@@ -617,7 +617,7 @@ capture noisily {
         file write `brokenfh' "exit 1" _n
         file close `brokenfh'
         quietly shell chmod +x "`fake_broken'"
-        capture noisily logdoc_py, python("`fake_broken'") quiet
+        capture logdoc_py, python("`fake_broken'") quiet
         assert _rc == 601
     }
 }
