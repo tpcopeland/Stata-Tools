@@ -1600,7 +1600,7 @@ run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 * V11.1: setools stored results
 setools
 local t = ("`r(commands)'" == "cci_se migrations sustainedss cdp pira" & ///
-    r(n_commands) == 5 & "`r(version)'" == "1.2.3" & ///
+    r(n_commands) == 5 & "`r(version)'" == "1.3.0" & ///
     "`r(categories)'" == "all codes migration ms" & ///
     "`r(category)'" == "all" & "`r(display)'" == "grouped")
 run_val "V11.1: setools exact stored results" `t'

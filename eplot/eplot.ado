@@ -1,4 +1,4 @@
-*! eplot Version 1.2.0  2026/06/06
+*! eplot Version 1.2.1  2026/06/14
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -28,6 +28,7 @@ Recent additions:
 See help eplot for complete documentation
 */
 
+capture program drop eplot
 program define eplot, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -96,6 +97,7 @@ end
 // Mode Detection
 // =============================================================================
 
+capture program drop _eplot_parse_mode
 program define _eplot_parse_mode, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -137,29 +139,39 @@ program define _eplot_parse_mode, sclass
             }
         }
 
-        // Check if it looks like estimate names
-        if `nwords' == 1 & "`anything'" == "." {
-            sreturn local mode "estimates"
-            exit
-        }
-
-        // Try to see if these are stored estimates
-        local is_est 1
+        // Classify the remaining tokens: stored estimates vs variables.
+        // "." always denotes the active estimates.
+        local _all_est 1
+        local _any_est 0
+        local _any_var 0
         foreach name of local anything {
-            if "`name'" == "." continue
-            capture estimates dir `name'
-            if _rc {
-                local is_est 0
-                continue, break
+            if "`name'" == "." {
+                local _any_est 1
+                continue
             }
+            capture estimates dir `name'
+            if _rc local _all_est 0
+            else   local _any_est 1
+            capture confirm variable `name'
+            if _rc == 0 local _any_var 1
         }
 
-        if `is_est' {
+        // Every token resolves to a stored estimate (or "."): estimates mode.
+        if `_all_est' {
             sreturn local mode "estimates"
             exit
         }
 
-        // Default: try data mode
+        // Not all tokens are estimates. If any token is a valid estimate, or no
+        // token names an existing variable, the user intended estimates mode --
+        // route there so a mistyped name raises the proper "estimation results
+        // not found" error instead of a misleading "variable not found".
+        if `_any_est' | !`_any_var' {
+            sreturn local mode "estimates"
+            exit
+        }
+
+        // Tokens are existing variables: data mode.
         sreturn local mode "data"
     }
     local rc = _rc
@@ -345,6 +357,7 @@ end
 // Data Mode: Plot from variables in memory
 // =============================================================================
 
+capture program drop _eplot_data
 program define _eplot_data, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -385,7 +398,7 @@ program define _eplot_data, rclass
             PValue(varname numeric) ///
             SIGColors ///
             SIGColor(string) ///
-            INSIGColor(string) ///
+            INSIGNColor(string) ///
             /// Layout
             HORizontal ///
             VERTical ///
@@ -584,7 +597,7 @@ program define _eplot_data, rclass
         local o 0
         local _unmatched ""
         foreach coef of local order {
-            local `++o'
+            local ++o
             quietly count if `label_str' == `"`coef'"'
             if r(N) == 0 {
                 local _unmatched "`_unmatched' `coef'"
@@ -1051,7 +1064,7 @@ program define _eplot_data, rclass
         forvalues i = 1/`=_N' {
             if !inlist(`rowtype'[`i'], 1, 3, 5) continue
             if missing(`es'[`i']) continue
-            local `++_ri'
+            local ++_ri
             matrix `_rtable'[`_ri', 1] = `es'[`i']
             matrix `_rtable'[`_ri', 2] = `lci'[`i']
             matrix `_rtable'[`_ri', 3] = `uci'[`i']
@@ -1073,7 +1086,7 @@ program define _eplot_data, rclass
             forvalues i = 1/`=_N' {
                 if !inlist(`rowtype'[`i'], 1, 3, 5) continue
                 if missing(`es'[`i']) continue
-                local `++_pi'
+                local ++_pi
                 matrix `_rpvals'[`_pi', 1] = `pvalue'[`i']
                 local _pnm = `label_str'[`i']
                 local _pnames `"`_pnames' `"`_pnm'"'"'
@@ -1099,6 +1112,7 @@ end
 // Estimates Mode: Plot from stored estimates (single or multi-model)
 // =============================================================================
 
+capture program drop _eplot_estimates
 program define _eplot_estimates, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -1135,7 +1149,7 @@ program define _eplot_estimates, rclass
             STARs ///
             SIGColors ///
             SIGColor(string) ///
-            INSIGColor(string) ///
+            INSIGNColor(string) ///
             /// Favors annotation
             Favors(string asis) ///
             /// Style presets
@@ -1343,7 +1357,7 @@ program define _eplot_estimates, rclass
 
             // Interaction terms: skip complex patterns with #
             if strpos("`_basevar'", "#") > 0 {
-                local `++_n_interactions'
+                local ++_n_interactions
                 continue
             }
 
@@ -1372,7 +1386,7 @@ program define _eplot_estimates, rclass
             }
 
             if `"`_label'"' != "" {
-                local `++_n_autolabels'
+                local ++_n_autolabels
                 local _autokey_`_n_autolabels' `"`_cn'"'
                 local _autoval_`_n_autolabels' `"`_label'"'
             }
@@ -1525,7 +1539,7 @@ program define _eplot_estimates, rclass
         local o 0
         local _unmatched ""
         foreach coef of local order {
-            local `++o'
+            local ++o
             quietly count if coef_name == `"`coef'"'
             if r(N) == 0 {
                 local _unmatched "`_unmatched' `coef'"
@@ -1544,6 +1558,12 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Assign base positions ======
+    // Capture the display order established by the sort/order/default block
+    // above: the bysort on coef_name below reorders rows alphabetically, so
+    // without this _base_pos would be assigned in coefficient-name order
+    // instead of the intended display order.
+    gen long _disp_order = _n
+
     // Tag first occurrence of each coefficient
     bysort coef_name (_orig_row) : gen byte _coef_tag = (_n == 1)
 
@@ -1556,6 +1576,7 @@ program define _eplot_estimates, rclass
     quietly save `fulldata'
 
     keep if _coef_tag
+    sort _disp_order
     gen long _base_pos = _n
     keep coef_name _base_pos
     quietly save `posmap'
@@ -1691,7 +1712,7 @@ program define _eplot_estimates, rclass
 
             // CI lines
             if "`noci'" == "" {
-                local `++_plot_elem'
+                local ++_plot_elem
                 if "`horizontal'" != "" {
                     if "`cicap'" != "" {
                         local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`mc') lwidth(`ciwidth'))"'
@@ -1711,7 +1732,7 @@ program define _eplot_estimates, rclass
             }
 
             // Markers
-            local `++_plot_elem'
+            local ++_plot_elem
             local _leg_idx_`m' = `_plot_elem'
             if "`horizontal'" != "" {
                 local graphcmd `"`graphcmd' (scatter _plot_pos es if model_id == `m' & _rowtype == 1, msymbol(`msymbol') mcolor(`mc') msize(`msize'))"'
@@ -1954,7 +1975,7 @@ program define _eplot_estimates, rclass
             local _rnames ""
             forvalues i = 1/`=_N' {
                 if _rowtype[`i'] != 1 continue
-                local `++_ri'
+                local ++_ri
                 matrix `_rtable'[`_ri', 1] = es[`i']
                 matrix `_rtable'[`_ri', 2] = lci[`i']
                 matrix `_rtable'[`_ri', 3] = uci[`i']
@@ -1987,7 +2008,7 @@ program define _eplot_estimates, rclass
             local _rnames ""
             forvalues i = 1/`=_N' {
                 if _coef_tag[`i'] != 1 continue
-                local `++_ri'
+                local ++_ri
                 local _rnm = coef_name[`i']
                 local _rnames `"`_rnames' `"`_rnm'"'"'
 
@@ -2018,7 +2039,7 @@ program define _eplot_estimates, rclass
             local _pnames ""
             forvalues i = 1/`=_N' {
                 if _rowtype[`i'] != 1 continue
-                local `++_pi'
+                local ++_pi
                 capture {
                     matrix `_rpvals'[`_pi', 1] = _pval[`i']
                 }
@@ -2047,6 +2068,7 @@ end
 // Matrix Mode: Plot from matrix
 // =============================================================================
 
+capture program drop _eplot_matrix
 program define _eplot_matrix, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2078,7 +2100,7 @@ program define _eplot_matrix, rclass
             ORDer(string asis) ///
             SIGColors ///
             SIGColor(string) ///
-            INSIGColor(string) ///
+            INSIGNColor(string) ///
             STARS ///
             Favors(string asis) ///
             /// Layout
@@ -2263,7 +2285,7 @@ program define _eplot_matrix, rclass
         local o 0
         local _unmatched ""
         foreach coef of local order {
-            local `++o'
+            local ++o
             quietly count if coef_name == `"`coef'"'
             if r(N) == 0 {
                 local _unmatched "`_unmatched' `coef'"
@@ -2484,6 +2506,7 @@ end
 // Shared helpers
 // =============================================================================
 
+capture program drop _eplot_apply_style
 program define _eplot_apply_style, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2543,6 +2566,7 @@ program define _eplot_apply_style, sclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_calc_range
 program define _eplot_calc_range, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2594,6 +2618,7 @@ program define _eplot_calc_range, sclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_effect_axis_labels
 program define _eplot_effect_axis_labels, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2606,6 +2631,9 @@ program define _eplot_effect_axis_labels, sclass
             sreturn local axisopts `"`xlabel'"'
         }
         else {
+            // _natscale is an undocumented Stata internal (used by graph) that
+            // returns "nice" axis ticks in r(min)/r(delta)/r(max). Stable across
+            // releases; kept here to match Stata's native axis-labelling.
             _natscale `min' `max' 5
             sreturn local axisopts ///
                 `"`r(min)'(`r(delta)')`r(max)', grid glcolor(gs12) glwidth(vthin)"'
@@ -2616,6 +2644,7 @@ program define _eplot_effect_axis_labels, sclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_build_reflines
 program define _eplot_build_reflines, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2652,6 +2681,7 @@ program define _eplot_build_reflines, sclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_build_favors
 program define _eplot_build_favors, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2678,6 +2708,7 @@ program define _eplot_build_favors, sclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_value_margin
 program define _eplot_value_margin, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2708,6 +2739,7 @@ end
 // Helper: Apply coefficient labels
 // =============================================================================
 
+capture program drop _eplot_apply_coeflabels
 program define _eplot_apply_coeflabels
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2743,6 +2775,7 @@ end
 // Helper: Apply keep filter
 // =============================================================================
 
+capture program drop _eplot_apply_keep
 program define _eplot_apply_keep
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2775,6 +2808,7 @@ end
 // Helper: Apply drop filter
 // =============================================================================
 
+capture program drop _eplot_apply_drop
 program define _eplot_apply_drop
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2802,6 +2836,7 @@ end
 // Helper: Apply rename
 // =============================================================================
 
+capture program drop _eplot_apply_rename
 program define _eplot_apply_rename
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2837,6 +2872,7 @@ end
 // Helper: Process groups
 // =============================================================================
 
+capture program drop _eplot_process_groups
 program define _eplot_process_groups, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2871,7 +2907,7 @@ program define _eplot_process_groups, rclass
                     local label = substr(`"`label'"', 2, `labellen' - 2)
                 }
 
-                local `++n_groups'
+                local ++n_groups
                 local first_coef : word 1 of `group_coefs'
                 local n_group_coefs : word count `group_coefs'
                 local last_coef : word `n_group_coefs' of `group_coefs'
@@ -2922,6 +2958,7 @@ end
 // Helper: Process headers
 // =============================================================================
 
+capture program drop _eplot_process_headers
 program define _eplot_process_headers, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

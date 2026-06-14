@@ -1,4 +1,4 @@
-*! migrations Version 1.2.3  2026/05/06
+*! migrations Version 1.3.0  2026/06/14
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -103,6 +103,17 @@ program define migrations, rclass
             display as error "Drop or rename it before running migrations"
             exit 110
         }
+    }
+
+    * Preflight the reserved internal working namespace. migrations creates
+    * _mig_*/_neg_* working variables on the merged master (it cannot use
+    * tempvars across dataset switching), so a user column in that namespace
+    * would collide. Fail early with a clear message rather than a cryptic gen.
+    capture ds _mig_* _neg_*
+    if "`r(varlist)'" != "" {
+        display as error "Master data contains reserved internal variable(s): `r(varlist)'"
+        display as error "Drop or rename _mig_*/_neg_* columns before running migrations"
+        exit 110
     }
 
     * Sanitize save targets before processing.
@@ -824,8 +835,10 @@ program define migrations, rclass
     * Restore master and merge results
     qui use `master', clear
 
-    * Remove excluded individuals
-    qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen
+    * Remove excluded individuals. keepusing(`idvar') brings no payload from the
+    * exclude file (it carries exclude_reason for the saved file only), so that
+    * column never leaks into the user's returned dataset.
+    qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen keepusing(`idvar')
 
     * Merge censoring dates
     qui merge 1:1 `idvar' using `censor_data', keep(1 3) nogen

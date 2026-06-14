@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.5.2  2026/06/14
+*! iivw_diagnose Version 1.5.3  2026/06/14
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,7 +25,6 @@ program define iivw_diagnose, rclass
              Level(real 95) XLSX(string asis) EXCEL(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
              DECimals(string) DIGits(string) REPLACE OPEN]
-        if "`level'" == "" local level 95
         if `level' <= 10 | `level' >= 99.99 {
             display as error "level() must be between 10 and 99.99"
             error 198
@@ -487,8 +486,20 @@ program define iivw_diagnose, rclass
                 local _export_sheet `"`r(sheet)'"'
                 local _export_decimals = r(decimals)
             }
+            else if `_export_rc' == 602 {
+                * Soft failure: worksheet already exists and replace was not
+                * given.  The diagnostic succeeded, so warn and return its
+                * results.  Genuine option errors (rc 198 etc.) propagate below.
+                display as error ///
+                    "warning: worksheet already exists; specify replace to overwrite it"
+                display as error ///
+                    "  iivw_diagnose results are still returned in r()"
+            }
             capture frame drop `_diagnose_export'
             local _drop_rc = _rc
+            if `_export_rc' != 0 & `_export_rc' != 602 {
+                exit `_export_rc'
+            }
         }
     }
     local rc = _rc
@@ -533,5 +544,4 @@ program define iivw_diagnose, rclass
         return scalar bias_unweighted = `bias_unweighted'
         return scalar true = `true_value'
     }
-    if `_export_rc' exit `_export_rc'
 end

@@ -1,4 +1,4 @@
-*! cci_se Version 1.2.3  2026/05/06
+*! cci_se Version 1.3.0  2026/06/14
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -8,7 +8,8 @@
 *!   Computes the Swedish adaptation of the Charlson Comorbidity Index
 *!   from diagnosis-level (long format) registry data. Supports ICD-7
 *!   through ICD-10 codes as used in Swedish national health registries.
-*!   Handles ICD codes with or without dots automatically.
+*!   Handles ICD codes with or without separators: dots and Swedish comma
+*!   decimals are stripped, so "412.01", "412,01", and "41201" all match.
 *!   Accepts date variables as Stata dates, YYYYMMDD integers, or strings.
 *!
 *! v1.2.3: restrict dual ICD-9/ICD-10 matching to the 1997 overlap year
@@ -26,7 +27,7 @@ program define cci_se, rclass
     syntax [if] [in], ID(varname) ICD(varlist) ///
         DATE(varname) ///
         [GENerate(name) COMPonents DATEs PREFIX(string) ///
-         DATEFormat(string) NOIsily]
+         DATEFormat(string) INDEXDate(varname) LOOKback(integer -1) NOIsily]
 
     * ---------------------------------------------------------------
     * Defaults
@@ -114,6 +115,35 @@ program define cci_se, rclass
     quietly count if `touse'
     if r(N) == 0 error 2000
 
+    * Validate lookback-windowing options
+    if "`indexdate'" != "" {
+        capture confirm numeric variable `indexdate'
+        if _rc {
+            display as error "indexdate() must be a numeric Stata daily date variable"
+            exit 109
+        }
+        local _cci_ix_fmt : format `indexdate'
+        if lower(substr("`_cci_ix_fmt'", 1, 3)) != "%td" {
+            display as error "indexdate() must be a Stata daily date variable with %td format"
+            exit 109
+        }
+        quietly count if `touse' & !missing(`indexdate') & `indexdate' != floor(`indexdate')
+        if r(N) > 0 {
+            display as error "indexdate() must contain whole-number Stata daily dates"
+            exit 109
+        }
+    }
+    if `lookback' != -1 {
+        if "`indexdate'" == "" {
+            display as error "lookback() requires indexdate()"
+            exit 198
+        }
+        if `lookback' < 1 {
+            display as error "lookback() must be a positive integer (days)"
+            exit 198
+        }
+    }
+
     if "`generate'" == "`id'" {
         display as error "generate() name cannot be same as id() variable"
         exit 198
@@ -134,13 +164,14 @@ program define cci_se, rclass
 
     quietly keep if `touse'
 
-    * Normalize one or more ICD code fields: uppercase, strip dots,
-    * prepend spaces between codes for regex matching
+    * Normalize one or more ICD code fields: uppercase, strip BOTH dot and
+    * Swedish comma decimal separators (so "412.01", "412,01", and "41201" all
+    * match the comma-free hash keys), space-separate codes for tokenizing.
     tempvar code yr parsed_date
     quietly gen strL `code' = ""
     foreach icd_var of local icd_vars {
         quietly replace `code' = `code' + " " + ///
-            upper(subinstr(trim(`icd_var'), ".", "", .)) ///
+            upper(subinstr(subinstr(trim(`icd_var'), ".", "", .), ",", "", .)) ///
             if trim(`icd_var') != ""
     }
 
@@ -196,6 +227,28 @@ program define cci_se, rclass
         local n_bad = r(N)
         display as text "Warning: `n_bad' observations with unparseable dates (dropped)"
         quietly drop if missing(`parsed_date')
+    }
+
+    * Restrict diagnoses to the lookback window before the index date.
+    * indexdate() alone excludes post-index diagnoses (avoids immortal-time /
+    * post-index contamination); adding lookback() also sets a lower bound at
+    * indexdate - lookback days. Rows with missing indexdate cannot be windowed.
+    local N_excluded_window = 0
+    if "`indexdate'" != "" {
+        quietly count
+        local _n_prewin = r(N)
+        quietly count if missing(`indexdate')
+        local _n_missix = r(N)
+        if `_n_missix' > 0 {
+            display as text "Note: `_n_missix' observations with missing indexdate() dropped"
+            quietly drop if missing(`indexdate')
+        }
+        quietly drop if `parsed_date' > `indexdate'
+        if `lookback' != -1 {
+            quietly drop if `parsed_date' < `indexdate' - `lookback'
+        }
+        quietly count
+        local N_excluded_window = `_n_prewin' - r(N)
     }
 
     quietly count
@@ -373,6 +426,9 @@ program define cci_se, rclass
         display as text "Swedish Charlson Comorbidity Index (Ludvigsson et al. 2021)"
         display as text "{hline 60}"
         display as text "Input observations:     " as result %12.0fc `N_input'
+        if "`indexdate'" != "" {
+            display as text "Excluded by window:     " as result %12.0fc `N_excluded_window'
+        }
         display as text "Patients:               " as result %12.0fc `N_out'
         display as text "Patients with CCI > 0:  " as result %12.0fc `N_any'
         display as text "Mean CCI:               " as result %12.2f `mean_cci'
@@ -406,6 +462,10 @@ program define cci_se, rclass
     return scalar N_any      = `N_any'
     return scalar mean_cci   = `mean_cci'
     return scalar max_cci    = `max_cci'
+    return scalar N_excluded_window = `N_excluded_window'
+    if `lookback' != -1 {
+        return scalar lookback = `lookback'
+    }
 
     }
     local rc = _rc
@@ -449,7 +509,7 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     ht10 = asarray_create()
 
     // --- 1. Myocardial infarction ---
-    asarray(ht7, "420,1", 1)
+    asarray(ht7, "4201", 1)
     _cci_aa_multi(ht8, "410 411 412,01 412,91", 1)
     _cci_aa_multi(ht9, "410 412", 1)
     _cci_aa_multi(ht10, "I21 I22 I252", 1)
@@ -503,7 +563,7 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     _cci_aa_multi(ht10, "G114 G80 G81 G82 G830 G831 G832 G833 G838", 9)
 
     // --- 10. Diabetes without complications ---
-    asarray(ht7, "260,09", 10)
+    asarray(ht7, "26009", 10)
     _cci_aa_multi(ht8, "250,00 250,07 250,08", 10)
     _cci_aa_multi(ht9, "250A 250B 250C", 10)
     _cci_aa_multi(ht10, "E100 E101 E106 E109 E110 E111 E119 E120 E121 E129 E130 E131 E139 E140 E141 E149", 10)
@@ -527,12 +587,12 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     _cci_aa_multi(ht10, "B15 B16 B17 B18 B19 K703 K709 K73 K746 K754", 13)
 
     // --- 14. Ascites (internal, for liver hierarchy) ---
-    asarray(ht8, "785,3", 14)
+    asarray(ht8, "7853", 14)
     asarray(ht9, "789F", 14)
     asarray(ht10, "R18", 14)
 
     // --- 15. Moderate/severe liver disease ---
-    asarray(ht7, "462,1", 15)
+    asarray(ht7, "4621", 15)
     _cci_aa_multi(ht8, "456,0 571,9 573,02", 15)
     _cci_aa_multi(ht9, "456A 456B 456C 572C 572D 572E", 15)
     _cci_aa_multi(ht10, "I850 I859 I982 I983", 15)
@@ -565,7 +625,7 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
 
     // --- 18. Metastatic cancer ---
     // ICD-7: 156,91 198 199
-    asarray(ht7, "156,91", 18)
+    asarray(ht7, "15691", 18)
     _cci_aa_multi(ht7, "198 199", 18)
     // ICD-8: 196-199
     _cci_aa_multi(ht8, "196 197 198 199", 18)
@@ -638,7 +698,9 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     }
 }
 
-// Helper: add multiple space-separated prefixes to an asarray
+// Helper: add multiple space-separated prefixes to an asarray.
+// Commas (Swedish decimal separator) are stripped so keys are separator-free
+// and match the comma/dot-stripped input tokens.
 void _cci_aa_multi(transmorphic ht, string scalar prefixes, real scalar idx)
 {
     string vector  toks
@@ -646,7 +708,7 @@ void _cci_aa_multi(transmorphic ht, string scalar prefixes, real scalar idx)
 
     toks = tokens(prefixes)
     for (j = 1; j <= cols(toks); j++) {
-        asarray(ht, toks[j], idx)
+        asarray(ht, subinstr(toks[j], ",", ""), idx)
     }
 }
 

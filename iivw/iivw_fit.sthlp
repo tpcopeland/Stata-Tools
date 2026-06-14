@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  14jun2026}{...}
+{* *! version 1.5.3  14jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -272,6 +272,13 @@ This is the standard approach in the IIW literature (Buzkova & Lumley 2007).
 If you need standard errors that account for weight estimation, implement a
 custom bootstrap that re-runs both {cmd:iivw_weight} and {cmd:iivw_fit}
 within each replicate.
+
+{pmore}
+The compact effects table printed by {cmd:iivw_fit} reports
+normal-approximation confidence intervals (coefficient {+/-} {it:z} {cmd:*} SE)
+for every fit, including bootstrap fits.  The full bootstrap results, including
+{cmd:bootstrap}'s bias-corrected and percentile intervals, remain available in
+{cmd:e()}; display them with {helpb estat bootstrap} after the command.
 
 {dlgtab:Reporting}
 
@@ -848,7 +855,7 @@ doi:10.1177/09622802241313289.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.2, 2026-06-14{p_end}
+{pstd}Version 1.5.3, 2026-06-14{p_end}
 
 
 {title:Also see}

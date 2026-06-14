@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 1.1.3
+*   T7: Version header reports 1.1.4
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T10: generate() + hierarchy() with bare names (M8)
@@ -20,6 +20,7 @@
 *   T16: matched_code() not leaked by multi-window sensitivity supplementary scan
 *   T17: bundled helper files are idempotent on reload (cap program drop fix) —
 *        re-running a helper file in one session must not crash "already defined"
+*   T18: level() is inert in mode(regex) — patterns not truncated (1.1.4)
 
 clear all
 set seed 12345
@@ -218,7 +219,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 1.1.3
+* T7: header advertises version 1.1.4
 * ============================================================
 
 local ++test_count
@@ -229,14 +230,40 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "1.1.3") > 0
+    assert strpos("`_line1'", "1.1.4") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 1.1.3"
+    display as result "  PASS T7: version header is 1.1.4"
     local ++pass_count
 }
 else {
     display as error "  FAIL T7: version header (rc=`=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* T18: level() is inert in mode(regex) — patterns not truncated (1.1.4)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input str6 dx1
+    "E110"
+    "E660"
+    end
+    * level(1) would truncate a prefix to "E" in prefix mode, but must be
+    * ignored in regex mode: "E11" still matches only E11*, not E66*.
+    codescan dx1, define(dm "E11") mode(regex) level(1)
+    assert dm[1] == 1
+    assert dm[2] == 0
+}
+if _rc == 0 {
+    display as result "  PASS T18: level() ignored in regex mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T18: level() in regex mode (rc=`=_rc')"
     local ++fail_count
 }
 

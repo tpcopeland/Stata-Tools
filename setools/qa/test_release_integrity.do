@@ -20,9 +20,9 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
-local version "1.2.3"
+local version "1.3.0"
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
-local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp"
+local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado"
 local metadata_files "README.md setools.pkg stata.toc"
 
 capture program drop _assert_file_contains
@@ -108,7 +108,7 @@ capture noisily {
         _assert_file_contains "`pkg_dir'/setools.pkg", pattern("f `f'")
     }
     _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Author: Timothy P Copeland, Karolinska Institutet")
-    _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Distribution-Date: 20260506")
+    _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Distribution-Date: 20260614")
 }
 if _rc == 0 {
     local ++pass_count

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.5.2  2026/06/14
+*! _iivw_export_table Version 1.5.3  2026/06/14
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -173,7 +173,6 @@ program define _iivw_export_table, rclass
 
     local __iivw_header_row = 3
     local __iivw_first_data = `__iivw_header_row' + 1
-    local __iivw_last_col = char(64 + `__iivw_return_cols')
     quietly putexcel A1 = (`"`title'"')
 
     local __iivw_decimal_format "0"

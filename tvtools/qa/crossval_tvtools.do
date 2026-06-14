@@ -5,7 +5,7 @@
 *          Compares tvtools outputs against manual Stata computations
 *
 * Usage:
-*   cd ~/Stata-Tools/tvtools/qa
+*   cd tvtools/qa
 *   do crossval_tvtools.do
 *
 * Author: Timothy P Copeland
@@ -23,8 +23,8 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall tvtools
-quietly net install tvtools, from("`c(pwd)'/..") replace
+do "`c(pwd)'/_tvtools_qa_common.do"
+_tvtools_qa_bootstrap
 
 * Initialize test counters
 local test_count = 0
@@ -304,6 +304,7 @@ if `fail_count' > 0 {
     display as text "Failed tests: `failed_tests'"
 }
 display as text _dup(70) "="
+display "RESULT: crossval_tvtools tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"

@@ -3,7 +3,7 @@
 * Known-answer validation for tvexpose → tvmerge → tvage → tvevent workflows
 * Every expected value is hand-computed from first principles
 *
-* Usage: cd ~/Stata-Tools/tvtools/qa && stata-mp -b do validation_known_answers.do
+* Usage: cd tvtools/qa && stata-mp -b do validation_known_answers.do
 *
 * Author: Timothy P Copeland
 * Date: 2026-04-14
@@ -17,8 +17,8 @@ version 16.0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall tvtools
-quietly net install tvtools, from("`pkg_dir'") replace
+do "`c(pwd)'/_tvtools_qa_common.do"
+_tvtools_qa_bootstrap
 
 local test_count = 0
 local pass_count = 0
@@ -2618,6 +2618,7 @@ display as result _newline "=== Known-Answer Validation Results -- $S_DATE $S_TI
 display as text "Tests run:  `test_count'"
 display as text "Passed:     `pass_count'"
 display as text "Failed:     `fail_count'"
+display "RESULT: validation_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     display as error "FAILED: `failed_tests'"

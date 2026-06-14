@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  06jun2026}{...}
+{* *! version 1.2.1  14jun2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -417,6 +417,9 @@ is {cmd:2}.  Ignored if {opt vformat()} is specified.
 sets the x-axis title (or y-axis title in vertical layout).  Default is
 "Estimate (95% CI)", or "Effect (95% CI)" when {opt eform} is specified.
 Override with a custom label such as {cmd:effect("Odds Ratio (95% CI)")}.
+In data and frame modes the default label always reads "95% CI" because the
+confidence limits are supplied directly and {cmd:eplot} cannot know their
+level; set {opt effect()} explicitly if your intervals are not 95%.
 
 {phang}
 {opt values} {bf:[D,F]} {bf:[E single-model]} {bf:[M]}
@@ -818,7 +821,11 @@ automatically.  No {opt coeflabels()} needed unless you want custom text.
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}k x 3 matrix of plotted effects ({it:b}, {it:ll}, {it:ul}); k x 3m for multi-model{p_end}
-{synopt:{cmd:r(pvalues)}}p-values per plotted effect when available (data/frame modes with {opt pvalue()}, estimates mode single-model, or 2-column matrix mode){p_end}
+{synopt:{cmd:r(pvalues)}}p-values per plotted effect, when available{p_end}
+
+{pstd}
+{cmd:r(pvalues)} is returned in data and frame modes when {opt pvalue()} is
+supplied, in estimates mode for a single model, and in 2-column matrix mode.
 
 
 {marker author}{...}

@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.1.3** | 2026-06-14
+**Version 1.1.4** | 2026-06-14
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -202,8 +202,10 @@ This is the transition from ad hoc rule drafting to a reusable dictionary workfl
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)
-codescan dx1 dx2, codefile(dm_rules.csv)
+codescan dx1 dx2, codefile(dm_rules.csv) replace
 ```
+
+The first run leaves the `dm2` and `htn` indicators in memory, so the codefile re-run adds `replace` to overwrite them.  A fresh session that loads only the saved rules does not need `replace`.
 
 ### 8. Compute a Charlson score from the bundled example codefile
 
@@ -549,6 +551,10 @@ useful for automated checks before freezing a code dictionary.
 - van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system adaptation of the Elixhauser comorbidity measure for hospital mortality.
 
 ## Changelog
+
+### 1.1.4 (2026-06-14)
+- Docs: the "save reusable definitions, then load them back as a codefile" example (help Example 5 / README Example 7) now adds `replace` to the second run. The first run leaves the condition indicators in memory, so the verbatim two-line block previously stopped with `variable dm2 already exists` (`r(110)`) when copy-pasted. A regression test now runs the documented sequence as printed.
+- Usability: `codescan` now prints a note when `level()` is supplied with `mode(regex)`, where it has no effect (it applies only in `mode(prefix)`). Previously the option was silently ignored.
 
 ### 1.1.3 (2026-06-14)
 - Cleanup: removed a dead duplicate copy of the internal `_codescan_validate_regex()` Mata function from `codescan.ado`. The live definition and its only callers live in `_codescan_definitions.ado`; the unused copy was dead weight and a divergence risk. No user-facing behavior change.

@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.5.2  2026/06/14
+*! iivw_balance Version 1.5.3  2026/06/14
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -358,6 +358,11 @@ program define iivw_balance, rclass
                     noisily display as text "note: unweighted AG refit failed for `v' (rc=`hr_rc'); skipped"
                 }
 
+                * Note: stset forbids weights together with id() (rc 459), so
+                * the weighted Andersen-Gill refit is set without id().  The
+                * counting-process (start, stop] intervals already define the
+                * recurrent-event risk sets, and no cluster-robust SE is
+                * requested here, so the omission does not change the HRs.
                 quietly stset `__iivw_stop' [pw=`weight_var'], ///
                     enter(time `__iivw_start') failure(`__iivw_event') ///
                     exit(time .)
@@ -580,8 +585,21 @@ program define iivw_balance, rclass
             local __iivw_export_sheet `"`r(sheet)'"'
             local __iivw_export_decimals = r(decimals)
         }
+        else if `__iivw_export_rc' == 602 {
+            * Soft failure: the worksheet already exists and replace was not
+            * given.  The diagnostic succeeded, so warn and return its results
+            * rather than discarding them.  Genuine option errors (rc 198 etc.)
+            * fall through and propagate below.
+            display as error ///
+                "warning: worksheet already exists; specify replace to overwrite it"
+            display as error ///
+                "  iivw_balance results are still returned in r()"
+        }
         capture frame drop `__iivw_export_table'
         local __iivw_drop_rc = _rc
+        if `__iivw_export_rc' != 0 & `__iivw_export_rc' != 602 {
+            exit `__iivw_export_rc'
+        }
     }
 
     local __iivw_return_ok = 1
@@ -623,5 +641,4 @@ program define iivw_balance, rclass
         return matrix hr_weighted = `__iivw_hr_weighted'
     }
     return matrix balance = `__iivw_balance'
-    if `__iivw_export_rc' exit `__iivw_export_rc'
 end

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  14jun2026}{...}
+{* *! version 1.5.3  14jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
@@ -45,7 +45,7 @@
 {synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}; not abbreviated, so {cmd:ex()} remains {opt exogeneity()}{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
-{synopt:{opt replace}}accepted for compatibility; Excel output updates only the named sheet{p_end}
+{synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
 {synopt:{opt t:itle(string)}}optional Excel title row{p_end}
 {synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
@@ -130,10 +130,12 @@ abbreviated so that {cmd:ex()} continues to mean {opt exogeneity()}.
 {cmd:Diagnostics}.  This option requires {opt xlsx()} or {opt excel()}.
 
 {phang}
-{opt replace} is accepted for compatibility with earlier reporting examples.
-Excel output follows the tabtools workbook convention: if the workbook
-exists, only the named sheet is cleared and rewritten; other sheets are
-preserved.
+{opt replace} overwrites the target worksheet when it already exists.  Excel
+output follows the tabtools workbook convention: only the named sheet is
+cleared and rewritten; other sheets in the workbook are preserved.  Without
+{opt replace}, an existing worksheet of the same name is left untouched, the
+export is skipped with a warning, and the diagnostic results are still
+returned in {cmd:r()}.
 
 {phang}
 {opt open} opens the Excel workbook after writing it.  This option requires
@@ -339,6 +341,6 @@ doi:10.1002/cjs.5550350402.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.2, 2026-06-14{p_end}
+{pstd}Version 1.5.3, 2026-06-14{p_end}
 
 {hline}

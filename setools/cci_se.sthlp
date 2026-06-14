@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  06may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -46,6 +46,8 @@
 {synopt:{opt date:s}}generate earliest diagnosis date for each comorbidity; implies {opt components}{p_end}
 {synopt:{opt prefix(string)}}prefix for component variable names; default is {cmd:cci_}{p_end}
 {synopt:{opt datef:ormat(string)}}date format: {cmd:stata}, {cmd:yyyymmdd}, or {cmd:ymd}{p_end}
+{synopt:{opt indexd:ate(varname)}}restrict diagnoses to on/before this index date{p_end}
+{synopt:{opt look:back(#)}}days before the index date to include; requires {opt indexdate()}{p_end}
 {synopt:{opt noi:sily}}display summary of results{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -153,6 +155,21 @@ slashes (e.g., "2020-01-15", "2020/01/15") by stripping separators first.{p_end}
 {phang2}{cmd:ymd} {hline 2} Exact YYYY-MM-DD string format. May only be used with
 string {opt date()}
 variables.{p_end}
+
+{phang}
+{opt indexdate(varname)} restricts the diagnoses that contribute to each patient's
+score to those occurring on or before the row's index date (cohort entry).  This
+avoids scoring comorbidities recorded after follow-up begins (immortal-time /
+post-index contamination).  It must be a Stata daily date with a {cmd:%td} display
+format and whole-number values; it should be constant within {opt id()}.  Rows with
+a missing index date cannot be windowed and are dropped with a note.
+
+{phang}
+{opt lookback(#)} additionally sets a lower bound, keeping only diagnoses in
+[{it:indexdate} - {it:#}, {it:indexdate}] (a {it:#}-day lookback window, e.g.
+{cmd:lookback(1825)} for 5 years).  It requires {opt indexdate()} and must be a
+positive integer.  Without {opt lookback()}, all history on or before the index
+date is included.
 
 {phang}
 {opt noisily} displays a summary table including patient counts, mean CCI, and
@@ -332,6 +349,8 @@ missing {opt date()}, and dates that cannot be parsed under the chosen
 {synopt:{cmd:r(N_any)}}number of patients with CCI > 0{p_end}
 {synopt:{cmd:r(mean_cci)}}mean Charlson score{p_end}
 {synopt:{cmd:r(max_cci)}}maximum Charlson score{p_end}
+{synopt:{cmd:r(N_excluded_window)}}diagnoses dropped by {opt indexdate()}/{opt lookback()} (0 if unused){p_end}
+{synopt:{cmd:r(lookback)}}lookback window in days (only if {opt lookback()} specified){p_end}
 
 
 {marker references}{...}

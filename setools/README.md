@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.2.3** | 2026-05-06
+**Version 1.3.0** | 2026-06-14
 
 `setools` provides practical Stata commands for working with Swedish health registries. Instead of writing one-off data-management code for each new project, you get tested, documented building blocks for the steps that recur across register-based cohort studies: comorbidity scoring, migration-based exclusions, and MS disability-progression endpoints.
 
@@ -167,6 +167,7 @@ Use `confirmwindow()` / `confirmdays()` when your study uses a different confirm
 
 ## Version History
 
+- **1.3.0** (2026-06-14): New methodological options on the MS progression commands, all opt-in (released defaults unchanged): `threetier` (Lublin 2014 / Kappos three-tier EDSS threshold) and `confirmtype(sustained|visit)` on `cdp`/`pira`; `eventvar()` stset-ready 0/1 event indicator on `cdp`/`pira`/`sustainedss`; `converged` stored result + warning parity on `cdp`/`pira`. `cci_se` gains `indexdate()`/`lookback()` windowing to score comorbidities in a pre-index lookback window. Internals: the CDP engine shared by `cdp` and `pira` is consolidated into shared helpers (no more copy-paste desync). Bug fixes: `cci_se` now matches ICD-7/8 sub-codes regardless of separator (comma/dot/none — previously dotted input silently scored 0); `migrations` no longer leaks a blank `exclude_reason` column into the returned dataset; `migrations` preflights the `_mig_*`/`_neg_*` working namespace.
 - **1.2.3** (2026-05-06): Hardened known-answer and adversarial QA; restricted ICD-10 Charlson matching to valid Swedish ICD-10 eras; fixed CDP/PIRA baseline-window selection when pre-diagnosis EDSS visits exist; preserved row order after CDP/PIRA keepall merges
 - **1.2.2** (2026-05-04): Removed `procmatch` (superseded by `codescan` package); documentation fixes — abbreviation corrections across help files
 - **1.2.1** (2026-04-26): Documentation improvements — richer help files for all Stata fluency levels, consistent cross-references across all commands, "Choosing the right command" guidance in the overview help file

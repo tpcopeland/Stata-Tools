@@ -1,0 +1,3 @@
+# QA build artifacts — never tracked or shipped
+*.log
+*.smcl

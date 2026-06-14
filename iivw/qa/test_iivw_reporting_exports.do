@@ -354,7 +354,7 @@ else {
     local failed_tests "`failed_tests' T6"
 }
 
-**# T7: existing workbook sheets require replace
+**# T7: existing sheets are protected without replace (warn-and-return)
 
 local ++test_count
 capture noisily {
@@ -366,10 +366,19 @@ capture noisily {
     iivw_balance, xlsx("`protectxlsx'") sheet(Balance) replace ///
         title("Original balance")
 
+    * New contract (v1.5.3): exporting to an existing worksheet without replace
+    * does not error.  The export is skipped with a warning, the sheet is left
+    * untouched, no export metadata is returned, and the diagnostic results
+    * still survive in r().
     _reporting_balance_panel
     capture noisily iivw_balance, xlsx("`protectxlsx'") sheet(Balance) ///
         title("Overwrite attempt")
-    assert _rc == 602
+    assert _rc == 0
+    assert "`r(xlsx)'" == ""
+    assert "`r(sheet)'" == ""
+    assert "`r(leverage)'" != ""
+    matrix _b_survive = r(balance)
+    assert rowsof(_b_survive) >= 1
 
     import excel using "`protectxlsx'", sheet("Balance") clear allstring
     assert A[1] == "Original balance"
@@ -377,6 +386,15 @@ capture noisily {
     _reporting_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         xlsx("`protectxlsx'") sheet(Diagnostics) replace
+
+    * iivw_diagnose follows the same warn-and-return contract
+    _reporting_diag_known
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) xlsx("`protectxlsx'") sheet(Diagnostics) ///
+        title("Diag overwrite attempt")
+    assert _rc == 0
+    assert "`r(xlsx)'" == ""
+    assert r(sampling_gap) < .
 
     _reporting_balance_panel
     iivw_balance, xlsx("`protectxlsx'") sheet(Balance) replace ///
@@ -390,11 +408,11 @@ capture noisily {
     assert B[12] == "Lower bound"
 }
 if _rc == 0 {
-    display as result "  PASS: T7 - existing workbook sheets require replace"
+    display as result "  PASS: T7 - existing sheets protected without replace"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T7 - existing workbook sheet protection (error `=_rc')"
+    display as error "  FAIL: T7 - existing sheet protection (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T7"
 }

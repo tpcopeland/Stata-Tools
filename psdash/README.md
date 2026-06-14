@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.2.0** | 2026-06-14
+**Version 1.2.1** | 2026-06-14
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
@@ -284,6 +284,7 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.2.1** (14 Jun 2026): Documentation polish — clarified that `saving()` exports an image file by extension (use `graph save` for `.gph`), documented the per-subcommand graph defaults (`nograph` vs `loveplot`/`graph`), and added validator-note comments to the `mark`+`markout` sample blocks. No behavior change.
 - **v1.2.0** (14 Jun 2026): Added longitudinal dataset-contract auto-detection after `msm_weight` and `tte_weight` (`save_ps`). `psdash combined` now produces period-by-period overlap and weight diagnostics for both, complementing `msm_diagnose`. Generalized the longitudinal diagnostics engine with a `source()` label and added focused msm/tte contract QA.
 - **v1.1.0** (29 May 2026): Added iivw dataset-contract auto-detection, `psdash weights, iivwcomponent()`, iivw source labels, and focused iivw contract QA.
 - **v1.0.2** (17 May 2026): Rejected invalid manual `estimand()` values, added clean multi-group treatment-level validation, isolated remaining QA installs, and made the demo path handling relocatable with failure-safe cleanup.

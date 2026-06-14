@@ -1,4 +1,4 @@
-*! cdp Version 1.2.3  2026/05/06
+*! cdp Version 1.3.0  2026/06/14
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -8,10 +8,11 @@ Confirmed Disability Progression (CDP) Algorithm:
 
 1. Baseline EDSS: First measurement within baselinewindow of diagnosis date
    (or earliest available if none within window)
-2. Progression threshold:
-   - If baseline EDSS ≤5.5: requires ≥1.0 point increase
-   - If baseline EDSS >5.5: requires ≥0.5 point increase
-3. Confirmation: Must be sustained at subsequent measurement ≥confirmdays later
+2. Progression threshold (two-tier default; threetier for Lublin/Kappos rule):
+   - two-tier:  ≥1.0 if baseline ≤5.5, ≥0.5 if baseline >5.5
+   - threetier: ≥1.5 if baseline 0, ≥1.0 if 1.0-5.5, ≥0.5 if >5.5
+3. Confirmation (confirmtype): sustained (min of all later EDSS, default) or
+   visit (EDSS at the first measurement ≥confirmdays later)
 
 Basic syntax:
   cdp idvar edssvar datevar, dxdate(varname) [options]
@@ -22,7 +23,10 @@ Required:
 Options:
   generate(name)       - Name for CDP date variable (default: cdp_date)
   confirmdays(#)       - Days for confirmation (default: 180 = 6 months)
+  confirmtype(type)    - sustained (default) or visit
   baselinewindow(#)    - Days from diagnosis for baseline EDSS (default: 730 = 24 months)
+  threetier            - Use the three-tier progression threshold (default two-tier)
+  eventvar(name)       - Create a 0/1 stset-ready CDP event indicator
   roving               - Use roving baseline (reset after each confirmed progression)
   allevents            - Track all CDP events, not just first
   keepall              - Retain all observations (default: keep only those with CDP)
@@ -44,6 +48,9 @@ program define cdp, rclass
         GENerate(name) ///
         CONFirmdays(integer 180) ///
         BASElinewindow(integer 730) ///
+        THREEtier ///
+        CONFIRMType(string) ///
+        EVENTvar(name) ///
         ROVING ///
         ALLevents ///
         KEEPall ///
@@ -102,6 +109,16 @@ program define cdp, rclass
         di as text "Note: allevents has no effect without roving"
     }
 
+    // Confirmation type
+    if "`confirmtype'" == "" {
+        local confirmtype "sustained"
+    }
+    local confirmtype = lower("`confirmtype'")
+    if !inlist("`confirmtype'", "sustained", "visit") {
+        di as error "confirmtype() must be sustained or visit"
+        exit 198
+    }
+
     // Default generate name
     if "`generate'" == "" {
         local generate "cdp_date"
@@ -112,6 +129,19 @@ program define cdp, rclass
     if _rc == 0 {
         di as error "variable `generate' already exists"
         exit 110
+    }
+
+    // Check eventvar name (must be new and distinct from generate)
+    if "`eventvar'" != "" {
+        if "`eventvar'" == "`generate'" {
+            di as error "eventvar() and generate() must specify different names"
+            exit 198
+        }
+        capture confirm variable `eventvar'
+        if _rc == 0 {
+            di as error "variable `eventvar' already exists"
+            exit 110
+        }
     }
 
     // Mark sample (strok: allow string ID variables)
@@ -137,9 +167,12 @@ program define cdp, rclass
 
     // =========================================================================
     // MAIN ALGORITHM
-    // NOTE: The CDP algorithm below is also implemented in pira.ado (lines
-    // ~200-314). Changes to the baseline determination, progression threshold,
-    // or confirmation logic here MUST be mirrored in pira.ado.
+    // NOTE: Baseline determination, progression threshold, and confirmation
+    // are factored into shared helpers (_setools_cdp_baseline,
+    // _setools_cdp_thresh, _setools_cdp_confirm, _setools_cdp_core) so cdp and
+    // pira share one engine and cannot silently desync. The non-roving path
+    // calls _setools_cdp_core; the roving path below reuses the thresh/confirm
+    // helpers inline.
     // =========================================================================
 
     // Temporary variables
@@ -176,114 +209,27 @@ program define cdp, rclass
 
     // -------------------------------------------------------------------------
     // Step 1: Determine baseline EDSS for each person
+    // (shared helper: _setools_cdp_baseline)
     // -------------------------------------------------------------------------
-
-    // First, try to find EDSS within baseline window of diagnosis
-    qui gen double `baseline_edss' = .
-    qui gen long `baseline_date' = .
-
-    // For each person, find first EDSS within window. On same-day ties,
-    // use the lower EDSS value because sort order alone is not a contract.
-    qui gen byte `in_window' = (`datevar' >= `dxdate' & `datevar' <= `dxdate' + `baselinewindow')
-    qui egen double `first_win_dt' = min(cond(`in_window', `datevar', .)), by(`idvar')
-    qui egen double `first_win_edss' = min(cond(`datevar' == `first_win_dt', `edssvar', .)), by(`idvar')
-    qui replace `baseline_edss' = `first_win_edss' if !missing(`first_win_edss')
-    qui replace `baseline_date' = `first_win_dt' if !missing(`first_win_dt')
-    qui drop `in_window' `first_win_dt' `first_win_edss'
-
-    // If no EDSS within window, use earliest available
-    qui egen double `first_any_dt' = min(`datevar'), by(`idvar')
-    qui egen double `first_any_edss' = min(cond(`datevar' == `first_any_dt', `edssvar', .)), by(`idvar')
-    qui replace `baseline_edss' = `first_any_edss' if missing(`baseline_edss')
-    qui replace `baseline_date' = `first_any_dt' if missing(`baseline_date')
-    qui drop `first_any_dt' `first_any_edss'
+    _setools_cdp_baseline `idvar' `edssvar' `datevar', dxdate(`dxdate') ///
+        baselinewindow(`baselinewindow') edssout(`baseline_edss') dateout(`baseline_date')
 
     // -------------------------------------------------------------------------
     // Step 2: Identify progression events
     // -------------------------------------------------------------------------
 
     if "`roving'" == "" {
-        // Standard CDP: compare all measurements to initial baseline
-        // Uses iterative approach: if the first candidate progression date
-        // fails confirmation, exclude it and try the next candidate.
+        // Standard CDP: shared engine (threshold -> iterative confirmation),
+        // factored into _setools_cdp_core so cdp and pira cannot silently
+        // desync. Reduces data to one row per person carrying the CDP date.
+        _setools_cdp_core `idvar' `edssvar' `datevar', ///
+            baseedss(`baseline_edss') basedate(`baseline_date') ///
+            confirmdays(`confirmdays') genname(`generate') ///
+            `threetier' confirmtype("`confirmtype'")
+        local cdp_converged  = r(converged)
+        local cdp_iterations = r(iterations)
 
-        // Progression threshold: ≥1.0 if baseline ≤5.5, ≥0.5 if baseline >5.5
-        qui gen double `prog_thresh' = cond(`baseline_edss' <= 5.5, 1.0, 0.5)
-
-        // Calculate change from baseline
-        qui gen double `edss_change' = `edssvar' - `baseline_edss'
-
-        // Flag measurements that meet progression threshold (after baseline)
-        qui gen byte `is_prog' = (`edss_change' >= `prog_thresh') & ///
-            (`datevar' > `baseline_date')
-
-        // Iterative confirmation: try each candidate progression date in order
-        // until one is confirmed or none remain
-        tempvar candidate_dt confirm_edss min_confirm candidate_ok
-        qui gen byte `candidate_ok' = 0
-
-        local max_cdp_iter = 100
-        local cdp_iter = 1
-        local cdp_found = 0
-        while `cdp_found' == 0 & `cdp_iter' <= `max_cdp_iter' {
-            // Find earliest remaining candidate progression date per person
-            capture drop `candidate_dt'
-            qui egen long `candidate_dt' = min(cond(`is_prog' == 1, `datevar', .)), by(`idvar')
-
-            // Check if any candidates remain
-            qui count if !missing(`candidate_dt')
-            if r(N) == 0 {
-                continue, break
-            }
-
-            // Check for confirmation (sustained-throughout definition):
-            // The MINIMUM of all EDSS measurements at or after confirmdays must
-            // still meet the progression threshold.
-            capture drop `confirm_edss'
-            capture drop `min_confirm'
-            qui gen double `confirm_edss' = .
-            qui replace `confirm_edss' = `edssvar' if `datevar' >= `candidate_dt' + `confirmdays'
-            qui egen double `min_confirm' = min(`confirm_edss'), by(`idvar')
-
-            // Check if confirmed for each person
-            capture drop `candidate_ok'
-            qui gen byte `candidate_ok' = (`min_confirm' >= `baseline_edss' + `prog_thresh') & ///
-                !missing(`min_confirm')
-
-            // Check if ANY person has a confirmed event
-            qui count if `candidate_ok' == 1 & `datevar' == `candidate_dt'
-            local n_confirmed = r(N)
-
-            // For persons whose candidate failed: exclude that date and retry
-            // For persons whose candidate succeeded: mark as found
-            qui count if `candidate_ok' == 0 & !missing(`candidate_dt') & `datevar' == `candidate_dt'
-            local n_failed = r(N)
-
-            if `n_failed' == 0 {
-                // All remaining candidates are confirmed (or no candidates)
-                local cdp_found = 1
-            }
-            else {
-                // Exclude failed candidate dates from future consideration
-                qui replace `is_prog' = 0 if `candidate_ok' == 0 & `datevar' == `candidate_dt'
-                local cdp_iter = `cdp_iter' + 1
-            }
-
-            qui drop `min_confirm'
-        }
-
-        // CDP date is the confirmed candidate date
-        tempvar cdp_dt
-        qui gen long `cdp_dt' = `candidate_dt' if `candidate_ok' == 1
-        format `cdp_dt' %tdCCYY/NN/DD
-
-        // Keep one record per person
-        qui keep `idvar' `cdp_dt' `baseline_edss' `prog_thresh'
-        qui duplicates drop `idvar', force
-        qui drop if missing(`cdp_dt')
-        qui rename `cdp_dt' `generate'
-
-        // Generate event number (always 1 for non-roving)
+        // Event number (always 1 for non-roving)
         qui gen byte `event_num' = 1
     }
     else {
@@ -314,17 +260,20 @@ program define cdp, rclass
         local event_counter = 1
         local keep_going = 1
         local max_roving_iter = 100
+        local roving_converged = 1
 
         while `keep_going' == 1 {
             if `event_counter' > `max_roving_iter' {
                 di as error "Warning: roving baseline exceeded `max_roving_iter' iterations"
+                local roving_converged = 0
                 local keep_going = 0
                 continue
             }
             qui use `working', clear
 
             // Recalculate progression threshold based on current baseline
-            qui gen double `prog_thresh' = cond(`baseline_edss' <= 5.5, 1.0, 0.5)
+            // (shared helper: two- or three-tier)
+            _setools_cdp_thresh `baseline_edss', generate(`prog_thresh') `threetier'
 
             // Calculate change from current baseline
             qui gen double `edss_change' = `edssvar' - `baseline_edss'
@@ -336,12 +285,12 @@ program define cdp, rclass
             // Find first potential progression date per person
             qui egen long `first_prog_dt' = min(cond(`is_prog' == 1, `datevar', .)), by(`idvar')
 
-            // Check for confirmation
-            qui gen double `confirm_edss' = .
-            qui replace `confirm_edss' = `edssvar' if `datevar' >= `first_prog_dt' + `confirmdays'
-            qui egen double `min_confirm' = min(`confirm_edss'), by(`idvar')
+            // Check for confirmation (sustained or visit; shared helper)
+            _setools_cdp_confirm `idvar' `edssvar' `datevar', ///
+                canddate(`first_prog_dt') confirmdays(`confirmdays') ///
+                generate(`min_confirm') confirmtype("`confirmtype'")
 
-            // Confirmed if minimum EDSS in confirmation period still meets threshold
+            // Confirmed if confirmation EDSS still meets threshold
             qui gen byte `confirmed' = (`min_confirm' >= `baseline_edss' + `prog_thresh') & ///
                 !missing(`min_confirm')
             qui drop `min_confirm'
@@ -394,6 +343,9 @@ program define cdp, rclass
                 }
             }
         }
+
+        local cdp_converged  = `roving_converged'
+        local cdp_iterations = `event_counter'
 
         // Load results
         qui use `results_all', clear
@@ -471,6 +423,12 @@ program define cdp, rclass
         if !_rc label var baseline_edss_at_event "Baseline EDSS at CDP event"
     }
 
+    // stset-ready event indicator (0/1 within the analytic sample)
+    if "`eventvar'" != "" {
+        qui gen byte `eventvar' = !missing(`generate') if `touse'
+        label var `eventvar' "CDP event (1 = confirmed progression)"
+    }
+
     // =========================================================================
     // OUTPUT AND RETURN
     // =========================================================================
@@ -479,12 +437,20 @@ program define cdp, rclass
         di as text _n "Confirmed Disability Progression (CDP) complete"
         di as text "  Baseline window: `baselinewindow' days from diagnosis"
         di as text "  Confirmation period: `confirmdays' days"
+        di as text "  Confirmation type: `confirmtype'"
+        di as text "  Threshold rule: " cond("`threetier'" != "", "three-tier", "two-tier")
         di as text "  Roving baseline: " cond("`roving'" != "", "Yes", "No")
         di as text "  Persons with CDP: `n_persons'"
         if "`allevents'" != "" & "`roving'" != "" {
             di as text "  Total CDP events: `n_events'"
         }
         di as text "  Variable created: `generate'"
+        if "`eventvar'" != "" {
+            di as text "  Event indicator: `eventvar'"
+        }
+        if `cdp_converged' == 0 {
+            di as text "  Note: confirmation did not converge (results may be approximate)"
+        }
     }
 
     // Return values
@@ -492,8 +458,14 @@ program define cdp, rclass
     return scalar N_events = `n_events'
     return scalar confirmdays = `confirmdays'
     return scalar baselinewindow = `baselinewindow'
+    return scalar converged = `cdp_converged'
     return local varname "`generate'"
+    return local confirmtype "`confirmtype'"
+    return local threetier = cond("`threetier'" != "", "yes", "no")
     return local roving = cond("`roving'" != "", "yes", "no")
+    if "`eventvar'" != "" {
+        return local eventvar "`eventvar'"
+    }
 
     }
     local _rc = _rc

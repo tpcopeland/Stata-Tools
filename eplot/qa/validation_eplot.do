@@ -27,6 +27,8 @@ if "`pkg_dir'" == "" {
 }
 local qa_dir "`pkg_dir'/qa"
 
+// Remove any installed copy so the local package is the one tested
+cap ado uninstall eplot
 // Add eplot directory to adopath so Stata can find the command
 adopath ++ "`pkg_dir'"
 

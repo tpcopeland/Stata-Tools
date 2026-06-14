@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.5.2** | 2026-06-14
+**Version 1.5.3** | 2026-06-14
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -664,6 +664,15 @@ The generated model workbook asserts that the `Visit waves` sheet contains the r
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.5.3 (2026-06-14)
+
+- Unified the Excel-export contract across the three reporting commands (`iivw_balance`, `iivw_diagnose`, `iivw_exogtest`): writing to a worksheet that already exists without `replace` now warns and still returns the diagnostic results in `r()` (rc 602 is softened) instead of `iivw_balance`/`iivw_diagnose` erroring out and discarding `r()`; genuine option errors (missing/invalid `xlsx()`, conflicting files, out-of-range `decimals()`) still hard-fail as before
+- Fixed `iivw_exogtest` so `replace` is forwarded to the workbook writer, allowing an existing worksheet to be overwritten (previously the sheet could never be replaced)
+- Corrected the `replace` help text in `iivw_balance` and `iivw_diagnose`, which described the option as a compatibility no-op; it is required to overwrite an existing worksheet
+- `iivw` now derives its displayed version from the `.ado` header so it cannot drift on a bump
+- Documented that the `iivw_fit` effects table reports normal-approximation intervals for bootstrap fits, with full bootstrap CIs available via `estat bootstrap`
+- Minor internal cleanups (removed a dead `level()` guard in `iivw_diagnose` and an unused local in the export helper)
 
 ### v1.5.2 (2026-06-14)
 

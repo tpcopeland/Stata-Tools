@@ -6,7 +6,7 @@
 * message appears; with verbose, detailed listings are shown.
 *
 * Usage:
-*   cd ~/Stata-Tools/tvtools/qa
+*   cd tvtools/qa
 *   do test_verbose.do
 *
 * Author: Timothy P Copeland
@@ -26,8 +26,8 @@ global DATA_DIR "`c(pwd)'/data"
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall tvtools
-quietly net install tvtools, from("`c(pwd)'/..") replace
+do "`c(pwd)'/_tvtools_qa_common.do"
+_tvtools_qa_bootstrap
 
 * Initialize test counters
 local test_count = 0
@@ -164,11 +164,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit)
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs and dates")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("First invalid records")
@@ -182,7 +182,7 @@ else {
     display as error "  FAIL: tvexpose invalid periods without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_invalid_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Invalid periods: with verbose
@@ -190,11 +190,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("First invalid records")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list")
@@ -208,7 +208,7 @@ else {
     display as error "  FAIL: tvexpose invalid periods with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_invalid_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Overlapping categories: without verbose
@@ -216,11 +216,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_overlap', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit)
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("List of IDs stored in r(overlap_ids)")
@@ -234,7 +234,7 @@ else {
     display as error "  FAIL: tvexpose overlap warning without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_overlap_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Overlapping categories: with verbose
@@ -242,11 +242,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_overlap', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("List of IDs stored in r(overlap_ids)")
     assert r(found) == 1
 }
@@ -258,7 +258,7 @@ else {
     display as error "  FAIL: tvexpose overlap warning with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_overlap_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Coverage check: without verbose — per-person table suppressed
@@ -268,11 +268,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_gaps', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) check
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("Coverage Summary")
     assert r(found) == 1
     * Per-person listing table should NOT appear without verbose
@@ -288,7 +288,7 @@ else {
     display as error "  FAIL: tvexpose check without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_check_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Coverage check: with verbose — per-person table shown
@@ -296,11 +296,11 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_gaps', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) check verbose
-    log close
+    log close _vlog
     * Stata abbreviates column to pct_co~d in list output
     _check_log, logfile(`_log_verb') needle("pct_co~d")
     assert r(found) == 1
@@ -313,7 +313,7 @@ else {
     display as error "  FAIL: tvexpose check with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_check_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## Gap/overlap diagnostics: verbose accepted without error
@@ -335,7 +335,7 @@ else {
     display as error "  FAIL: tvexpose gaps+overlaps verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_diag_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **# TVDIAGNOSE VERBOSE TESTS
@@ -422,9 +422,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("Coverage Summary")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("specify verbose to list per-person details")
@@ -441,7 +441,7 @@ else {
     display as error "  FAIL: tvdiagnose coverage without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_cov_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvdiagnose coverage: with verbose
@@ -449,9 +449,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list per-person")
@@ -465,7 +465,7 @@ else {
     display as error "  FAIL: tvdiagnose coverage with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_cov_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvdiagnose gaps: without verbose
@@ -473,9 +473,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) gaps
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("Gap Statistics")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs and dates")
@@ -491,7 +491,7 @@ else {
     display as error "  FAIL: tvdiagnose gaps without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_gaps_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvdiagnose gaps: with verbose
@@ -499,9 +499,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) gaps verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first 20 gaps")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list affected IDs and dates")
@@ -515,7 +515,7 @@ else {
     display as error "  FAIL: tvdiagnose gaps with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_gaps_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvdiagnose overlaps: without verbose
@@ -523,9 +523,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) overlaps
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("Total overlapping periods")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs and dates")
@@ -541,7 +541,7 @@ else {
     display as error "  FAIL: tvdiagnose overlaps without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_overlaps_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvdiagnose overlaps: with verbose
@@ -549,9 +549,9 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) overlaps verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first 50 overlapping periods")
     assert r(found) == 1
 }
@@ -563,7 +563,7 @@ else {
     display as error "  FAIL: tvdiagnose overlaps with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvdiag_overlaps_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **# TVMERGE VERBOSE TESTS
@@ -641,11 +641,11 @@ quietly {
 local ++test_count
 capture noisily {
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validatecoverage
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs and dates")
     local hint_found = r(found)
     _check_log, logfile(`_log_noverb') needle("Validating coverage")
@@ -665,18 +665,18 @@ else {
     display as error "  FAIL: tvmerge validatecoverage without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvmerge_valcov_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvmerge validatecoverage: with verbose
 local ++test_count
 capture noisily {
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validatecoverage verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("Validating coverage")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list")
@@ -690,18 +690,18 @@ else {
     display as error "  FAIL: tvmerge validatecoverage with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvmerge_valcov_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvmerge validateoverlap: without verbose
 local ++test_count
 capture noisily {
     tempfile _log_noverb
-    log using `_log_noverb', text replace
+    log using `_log_noverb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validateoverlap
-    log close
+    log close _vlog
     _check_log, logfile(`_log_noverb') needle("Validating overlaps")
     assert r(found) == 1
     * If overlaps found, hint should appear
@@ -720,18 +720,18 @@ else {
     display as error "  FAIL: tvmerge validateoverlap without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvmerge_valoverlap_noverb"
-    capture log close
+    capture log close _vlog
 }
 
 **## tvmerge validateoverlap: with verbose
 local ++test_count
 capture noisily {
     tempfile _log_verb
-    log using `_log_verb', text replace
+    log using `_log_verb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validateoverlap verbose
-    log close
+    log close _vlog
     _check_log, logfile(`_log_verb') needle("Validating overlaps")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list")
@@ -745,7 +745,7 @@ else {
     display as error "  FAIL: tvmerge validateoverlap with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvmerge_valoverlap_verb"
-    capture log close
+    capture log close _vlog
 }
 
 **# VARABBREV RESTORE TEST
@@ -774,6 +774,7 @@ set varabbrev off
 **# SUMMARY
 display _newline
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+display "RESULT: test_verbose tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

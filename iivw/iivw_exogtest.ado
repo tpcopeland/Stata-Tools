@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.5.2  2026/06/14
+*! iivw_exogtest Version 1.5.3  2026/06/14
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -643,6 +643,9 @@ program define iivw_exogtest, rclass sortpreserve
         if "`open'" != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' open"'
         }
+        if "`replace'" != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' replace"'
+        }
 
         capture noisily _iivw_export_table, `__iivw_exog_opts'
         local __iivw_exog_export_rc = _rc
@@ -651,13 +654,21 @@ program define iivw_exogtest, rclass sortpreserve
             local __iivw_exog_sheet_done `"`r(sheet)'"'
             local __iivw_exog_dec_done = r(decimals)
         }
-        else {
+        else if `__iivw_exog_export_rc' == 602 {
+            * Soft failure: worksheet already exists and replace was not given.
+            * The diagnostic succeeded, so warn and return its results.  Genuine
+            * option errors (rc 198 etc.) propagate below.
             display as error ///
-                "warning: iivw_exogtest Excel export failed (rc=`__iivw_exog_export_rc'); diagnostic results still returned"
+                "warning: worksheet already exists; specify replace to overwrite it"
+            display as error ///
+                "  iivw_exogtest results are still returned in r()"
         }
         capture frame drop `__iivw_exog_frame'
         local __iivw_exog_drop_rc = _rc
         local __iivw_exog_frame_created = 0
+        if `__iivw_exog_export_rc' != 0 & `__iivw_exog_export_rc' != 602 {
+            exit `__iivw_exog_export_rc'
+        }
     }
 
     local __iivw_return_ok = 1

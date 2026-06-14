@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  06may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -40,6 +40,7 @@
 {synopt:{opt gen:erate(name)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
 {synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {cmd:182}{p_end}
 {synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default equals {opt threshold()}{p_end}
+{synopt:{opt event:var(name)}}create a 0/1 stset-ready sustained-event indicator{p_end}
 {synopt:{opt keep:all}}retain all observations; default keeps only patients with events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
@@ -121,6 +122,12 @@ tolerant of temporary dips: only a drop all the way below 3 would disqualify
 the event.
 
 {phang}
+{opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a sustained
+date and 0 otherwise, within the estimation sample, ready for {helpb stset}.  It is
+most useful together with {opt keepall}.  The name must be new and differ from
+{opt generate()}.
+
+{phang}
 {opt keepall} retains all observations from the original dataset, adding the
 sustained date variable with missing values for patients without sustained events.
 By default, only rows for patients who experienced a sustained event are kept.
@@ -159,7 +166,7 @@ both a diagnosis date and a relapse file.{p_end}
 If a patient reaches the threshold but has no subsequent EDSS measurements within
 {opt confirmwindow()} days, the event is treated as sustained (absence of evidence
 is not evidence of reversal).  This differs from {helpb cdp}, which requires at
-least one confirming measurement after {opt confirmdays()}.
+least one confirming measurement after its {cmd:confirmdays()} window.
 
 {pstd}
 {bf:Duplicate EDSS on the same date}
@@ -251,6 +258,7 @@ date.{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated date variable{p_end}
+{synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
 
 
 {marker references}{...}

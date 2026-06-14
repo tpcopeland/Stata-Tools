@@ -324,6 +324,35 @@ else {
     local ++fail_count
 }
 
+* Regression: help Example 5 / README Example 7 run verbatim. The save() run
+* leaves dm2/htn in memory; the codefile re-run on the SAME data must succeed
+* (with the documented `replace`) and reproduce identical indicators. Without
+* `replace` this stopped with r(110) "variable dm2 already exists".
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    capture erase "`qa_dir'/dm_rules.csv"
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)
+    confirm file "`qa_dir'/dm_rules.csv"
+    * Capture the define()-pass indicators before re-running from the codefile
+    tempvar dm2_def htn_def
+    gen `dm2_def' = dm2
+    gen `htn_def' = htn
+    * Verbatim documented second line (same in-memory data, no reload)
+    codescan dx1 dx2, codefile(dm_rules.csv) replace
+    assert dm2 == `dm2_def'
+    assert htn == `htn_def'
+    capture erase "`qa_dir'/dm_rules.csv"
+}
+if _rc == 0 {
+    display as result "  PASS: save() then codefile() reuse example (Example 5/7)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: save() then codefile() reuse example (error `=_rc')"
+    local ++fail_count
+}
+
 display ""
 display as result "RESULT: test_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

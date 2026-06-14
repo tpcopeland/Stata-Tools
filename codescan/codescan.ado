@@ -1,4 +1,4 @@
-*! codescan Version 1.1.3  2026/06/14
+*! codescan Version 1.1.4  2026/06/14
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -248,6 +248,9 @@ program define codescan, rclass
         if `level' < 1 | `level' > 10 {
             display as error "level() must be between 1 and 10"
             exit 198
+        }
+        if "`mode'" == "regex" {
+            display as text "(note: level() applies only in mode(prefix); ignored in regex mode)"
         }
     }
 

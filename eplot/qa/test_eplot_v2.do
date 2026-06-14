@@ -30,6 +30,7 @@ if "`pkg_dir'" == "" {
 }
 local qa_dir "`pkg_dir'/qa"
 
+cap ado uninstall eplot   // remove any installed copy so the local package is tested
 adopath ++ "`pkg_dir'"
 
 capture log close _all

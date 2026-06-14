@@ -10,11 +10,19 @@ version 16.0
 capture log close _all
 
 local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+
+* Install the local package under test so an SSC/GitHub copy on the adopath
+* cannot shadow the source being validated (path derived from c(pwd)).
+capture ado uninstall setools
+quietly net install setools, from("`pkg_dir'") replace
+
 local pass = 0
 local fail = 0
 
 foreach f in ///
     test_setools ///
+    test_setools_v130_features ///
     test_release_integrity ///
     test_documentation_examples ///
     _test_cci_mata ///

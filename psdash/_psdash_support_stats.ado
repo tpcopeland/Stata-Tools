@@ -1,4 +1,4 @@
-*! _psdash_support_stats Version 1.2.0  2026/06/14
+*! _psdash_support_stats Version 1.2.1  2026/06/14
 *! Common support bounds and outside-count statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

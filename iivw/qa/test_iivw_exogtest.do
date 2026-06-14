@@ -436,28 +436,24 @@ if `run_only' == 0 | `run_only' == 12 {
     }
 }
 
-**## 13. Missing workbook for sheet() warns softly and preserves returns
+**## 13. sheet() without a workbook is a hard option error
 local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _exog_dependent_panel
-        iivw_exogtest y, id(id) time(months) adjust(age female) ///
-            level(90) nolog sheet("OnlySheet")
-
-        assert r(n_models) == 1
-        assert r(N) == 480
-        assert "`r(xlsx)'" == ""
-        assert "`r(sheet)'" == ""
-        matrix R = r(results)
-        assert rowsof(R) == 1
-        assert colsof(R) == 11
+        * Requesting a sheet (or open) without xlsx()/excel() is a user-input
+        * error and hard-fails 198, matching iivw_balance/iivw_diagnose.  Only a
+        * pre-existing worksheet without replace (rc 602) is softened.
+        capture noisily iivw_exogtest y, id(id) time(months) ///
+            adjust(age female) level(90) nolog sheet("OnlySheet")
+        assert _rc == 198
     }
     if _rc == 0 {
-        display as result "  PASS: 13 - sheet-only export failure is soft"
+        display as result "  PASS: 13 - sheet() without xlsx() rejected"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: 13 - sheet-only export failure (error `=_rc')"
+        display as error "  FAIL: 13 - sheet() without xlsx() (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 13"
     }
@@ -524,6 +520,56 @@ if `run_only' == 0 | `run_only' == 15 {
         display as error "  FAIL: 15 - decimals abbreviation/synonym (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 15"
+    }
+}
+
+**## 16. replace overwrites an existing worksheet (v1.5.3)
+local ++test_count
+if `run_only' == 0 | `run_only' == 16 {
+    capture noisily {
+        _exog_independent_panel
+        tempfile xlstub
+        local xl "`xlstub'.xlsx"
+        capture erase "`xl'"
+
+        * First write establishes the workbook and the Exog sheet
+        iivw_exogtest y marker, id(id) time(months) adjust(age female) ///
+            nolog xlsx("`xl'") sheet("Exog") title("First title")
+        assert "`r(sheet)'" == "Exog"
+        import excel using "`xl'", sheet("Exog") cellrange(A1:A1) allstring clear
+        assert A[1] == "First title"
+
+        * Re-export to the SAME existing sheet WITH replace now overwrites it
+        * (regression: previously replace was not forwarded to the writer, so
+        * the sheet could never be replaced)
+        _exog_independent_panel
+        iivw_exogtest y marker, id(id) time(months) adjust(age female) ///
+            nolog xlsx("`xl'") sheet("Exog") title("Second title") replace
+        assert "`r(xlsx)'" == "`xl'"
+        assert "`r(sheet)'" == "Exog"
+        import excel using "`xl'", sheet("Exog") cellrange(A1:A1) allstring clear
+        assert A[1] == "Second title"
+
+        * Without replace, the existing sheet is left untouched (warn-and-return)
+        _exog_independent_panel
+        capture noisily iivw_exogtest y marker, id(id) time(months) ///
+            adjust(age female) nolog xlsx("`xl'") sheet("Exog") ///
+            title("Third title")
+        assert _rc == 0
+        assert "`r(xlsx)'" == ""
+        matrix R = r(results)
+        assert rowsof(R) == 2
+        import excel using "`xl'", sheet("Exog") cellrange(A1:A1) allstring clear
+        assert A[1] == "Second title"
+    }
+    if _rc == 0 {
+        display as result "  PASS: 16 - replace overwrites existing sheet"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 16 - replace overwrites existing sheet (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 16"
     }
 }
 

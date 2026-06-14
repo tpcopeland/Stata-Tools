@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  06may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -47,12 +47,15 @@
 {synopt:{opt gen:erate(name)}}name for the PIRA date variable; default is {cmd:pira_date}{p_end}
 {synopt:{opt raw:generate(name)}}name for the RAW date variable; default is {cmd:raw_date}{p_end}
 {synopt:{opt conf:irmdays(#)}}days required for CDP confirmation; default is {cmd:180}{p_end}
+{synopt:{opt confirmt:ype(type)}}confirmation rule: {cmd:sustained} (default) or {cmd:visit}{p_end}
 {synopt:{opt base:linewindow(#)}}days from diagnosis for baseline EDSS; default is {cmd:730}{p_end}
+{synopt:{opt three:tier}}use the three-tier progression threshold (default two-tier){p_end}
 
 {syntab:Baseline}
 {synopt:{opt rebase:linerelapse}}reset the baseline EDSS after each relapse{p_end}
 
 {syntab:Output}
+{synopt:{opt event:var(name)}}create a 0/1 stset-ready PIRA event indicator{p_end}
 {synopt:{opt keep:all}}retain all observations (including patients without progression){p_end}
 {synopt:{opt q:uietly}}suppress output messages{p_end}
 {synoptline}
@@ -166,15 +169,25 @@ after] forms the exclusion zone around each relapse.  CDP events that fall outsi
 
 {phang}
 {opt confirmdays(#)} specifies the minimum number of days between the progression
-event and the confirming measurement.  Default is {cmd:180} (6 months).  The
-confirmation logic uses the same {it:sustained-throughout} definition as
-{helpb cdp}: the minimum EDSS across all measurements at or after
-{opt confirmdays()} must still meet the threshold.
+event and the confirming measurement.  Default is {cmd:180} (6 months).
+
+{phang}
+{opt confirmtype(type)} selects the CDP confirmation rule, exactly as in
+{helpb cdp}.  {cmd:sustained} (the default) requires the minimum EDSS across all
+measurements at or after {opt confirmdays()} to meet the threshold.  {cmd:visit}
+requires only the EDSS at the first visit at least {opt confirmdays()} days after the
+candidate to meet the threshold.
 
 {phang}
 {opt baselinewindow(#)} specifies how many days after diagnosis to look for the
 baseline EDSS measurement.  Default is {cmd:730} (2 years).  If no measurement
 exists within this window, the earliest available EDSS is used.
+
+{phang}
+{opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
+progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
+{ul:>}= 0.5 if > 5.5), exactly as in {helpb cdp}.  The default two-tier rule is
+preserved for backward compatibility.
 
 {dlgtab:Baseline}
 
@@ -186,6 +199,12 @@ for subsequent progression detection.  This prevents relapse-induced EDSS
 fluctuations from inflating or suppressing the change-from-baseline calculation.
 
 {dlgtab:Output}
+
+{phang}
+{opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a PIRA date
+(matching {opt generate()}) and 0 otherwise, within the estimation sample, ready for
+{helpb stset}.  RAW-only progressors are coded 0.  Most useful with {opt keepall}.
+The name must be new and differ from {opt generate()} and {opt rawgenerate()}.
 
 {phang}
 {opt keepall} specifies that all observations should be retained in the output,
@@ -302,11 +321,15 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(windowafter)}}days after relapse in the exclusion window{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
+{synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(pira_varname)}}name of the generated PIRA date variable{p_end}
 {synopt:{cmd:r(raw_varname)}}name of the generated RAW date variable{p_end}
+{synopt:{cmd:r(confirmtype)}}{cmd:sustained} or {cmd:visit}{p_end}
+{synopt:{cmd:r(threetier)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(rebaselinerelapse)}}{cmd:yes} or {cmd:no}{p_end}
+{synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
 
 
 {marker references}{...}

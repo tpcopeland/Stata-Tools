@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  14jun2026}{...}
+{* *! version 1.5.3  14jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -46,7 +46,7 @@
 
 {syntab:Generated lags}
 {synopt:{opt gen:erate(name)}}prefix for generated lag variables; default {cmd:_iivw_exog_}{p_end}
-{synopt:{opt replace}}overwrite generated lag variables from a previous run{p_end}
+{synopt:{opt replace}}overwrite generated lag variables and an existing Excel worksheet{p_end}
 
 {syntab:Estimation}
 {synopt:{opt efr:on}}use Efron method for tied event times in {cmd:stcox}{p_end}
@@ -131,8 +131,10 @@ in the dataset after a successful command.
 
 {phang}
 {opt replace} allows overwriting generated lag variables from a previous
-{cmd:iivw_exogtest} call.  Without {opt replace}, the command errors if any
-target lag variable already exists.
+{cmd:iivw_exogtest} call, and also overwrites the target Excel worksheet when
+{opt xlsx()} or {opt excel()} writes to a sheet that already exists.  Without
+{opt replace}, the command errors if any target lag variable already exists,
+and an existing worksheet of the same name is left untouched.
 
 {dlgtab:Estimation}
 
@@ -164,18 +166,20 @@ footnote.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Exogeneity}.  If no {opt xlsx()} or {opt excel()} file is supplied, no
-workbook is written and the diagnostic results are still returned.
+{cmd:Exogeneity}.  This option requires {opt xlsx()} or {opt excel()}.
 
 {phang}
-Excel output follows the tabtools workbook convention: if the workbook
-exists, only the named sheet is cleared and rewritten; other sheets are
-preserved.  The {opt replace} option keeps its existing meaning for generated
-lag variables and is not an Excel overwrite option.
+Excel output follows the tabtools workbook convention: only the named sheet is
+cleared and rewritten; other sheets in the workbook are preserved.  The
+{opt replace} option overwrites both the target worksheet (when it already
+exists) and any generated lag variables from a previous run.  Without
+{opt replace}, an existing worksheet of the same name is left untouched, the
+export is skipped with a warning, and the diagnostic results are still
+returned in {cmd:r()}.
 
 {phang}
-{opt open} opens the Excel workbook after writing it.  It has an effect only
-when {opt xlsx()} or {opt excel()} supplies a workbook.
+{opt open} opens the Excel workbook after writing it.  This option requires
+{opt xlsx()} or {opt excel()}.
 
 {phang}
 {opt title(string)} and {opt footnote(string)} add optional title and footnote
@@ -351,6 +355,6 @@ doi:10.1111/j.1467-9868.2004.b5543.x.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.2, 2026-06-14{p_end}
+{pstd}Version 1.5.3, 2026-06-14{p_end}
 
 {hline}

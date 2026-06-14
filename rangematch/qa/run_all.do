@@ -11,6 +11,16 @@ if !inlist("`mode'", "full", "quick") {
 capture log close _all
 log using "run_all.log", replace text nomsg
 
+* Remove any installed rangematch copy so the per-suite `adopath ++` resolves to
+* the local dev directory. `adopath ++` appends at lowest priority, so a copy in
+* PLUS (SSC/GitHub or a stale net install) would otherwise silently shadow the
+* package under test. Uninstall by index until none remain (uninstall-by-name
+* fails rc=111 when multiple copies are present).
+forvalues _i = 1/20 {
+    capture ado uninstall rangematch
+    if _rc != 0 continue, break
+}
+
 local suites ///
     test_install.do ///
     test_rangematch_basic.do ///
@@ -28,6 +38,7 @@ local suites ///
     test_rangematch_v101.do ///
     test_rangematch_missing_option.do ///
     test_rangematch_missing_option_extra.do ///
+    test_rangematch_abbrev.do ///
     test_rangematch_adversarial.do ///
     test_rangematch_return_contract.do ///
     test_rangematch_display_contract.do ///

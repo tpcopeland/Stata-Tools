@@ -140,11 +140,34 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.5.1"
-    local ado_date "2026/06/11"
-    local sthlp_date "11jun2026"
-    local iso_date "2026-06-11"
-    local pkg_date "20260611"
+    * Derive the expected version and dates from the canonical iivw.ado and
+    * iivw.sthlp headers so this release gate never goes stale on a version
+    * bump.  The per-file assertions below still fail if any single file is not
+    * bumped in lockstep with these two canonical headers.
+    tempname _relvh
+    file open `_relvh' using "`pkg_dir'/iivw.ado", read text
+    file read `_relvh' _relvline
+    file close `_relvh'
+    local version ""
+    local ado_date ""
+    if regexm(`"`_relvline'"', "Version ([0-9.]+) +([0-9/]+)") {
+        local version = regexs(1)
+        local ado_date = regexs(2)
+    }
+    assert "`version'" != "" & "`ado_date'" != ""
+    local iso_date = subinstr("`ado_date'", "/", "-", .)
+    local pkg_date = subinstr("`ado_date'", "/", "", .)
+
+    tempname _relsh
+    file open `_relsh' using "`pkg_dir'/iivw.sthlp", read text
+    file read `_relsh' _relsline
+    file read `_relsh' _relsline
+    file close `_relsh'
+    local sthlp_date ""
+    if regexm(`"`_relsline'"', "version [0-9.]+ +([0-9a-z]+)") {
+        local sthlp_date = regexs(1)
+    }
+    assert "`sthlp_date'" != ""
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
@@ -431,7 +454,7 @@ capture noisily {
 
     iivw
     assert r(n_commands) == 5
-    assert "`r(version)'" == "1.5.1"
+    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

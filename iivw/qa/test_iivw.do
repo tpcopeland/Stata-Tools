@@ -72,7 +72,10 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 5
-        assert "`r(version)'" == "1.5.1"
+        * Dispatcher derives its version from the .ado header; assert it is a
+        * well-formed semantic version rather than pinning a literal that goes
+        * stale on every bump (currency is enforced by the CLI version check).
+        assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"

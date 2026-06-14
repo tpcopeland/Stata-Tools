@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.2.0  2026/06/14
+*! psdash_weights Version 1.2.1  2026/06/14
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -102,7 +102,7 @@ program define psdash_weights, rclass
 
     * MARK SAMPLE
     tempvar touse ps_auto wt_auto
-    mark `touse' `if' `in'
+    mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
 
     * AUTO-DETECT PS COMPONENTS
     * For weights, user may provide treatment + wvar without a PS variable.

@@ -12,6 +12,7 @@ local suite_files test_psdash.do validation_psdash.do validation_known_answers.d
     test_refactor_doc_contract.do test_refactor_display_contracts.do ///
     test_refactor_option_abbrev_contract.do ///
     test_refactor_return_contracts.do test_refactor_graph_export_failures.do ///
+    test_saving_format_contract.do ///
     test_tmle_ltmle_contract.do ///
     test_msm_tte_contract.do ///
     test_iivw_contract.do ///

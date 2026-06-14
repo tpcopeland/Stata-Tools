@@ -1,4 +1,4 @@
-*! pira Version 1.2.3  2026/05/06
+*! pira Version 1.3.0  2026/06/14
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,7 +30,10 @@ Options:
   generate(name)        - Name for PIRA date variable (default: pira_date)
   rawgenerate(name)     - Name for RAW date variable (default: raw_date)
   confirmdays(#)        - Days for CDP confirmation (default: 180)
+  confirmtype(type)     - sustained (default) or visit
   baselinewindow(#)     - Days from diagnosis for baseline EDSS (default: 730)
+  threetier             - Use the three-tier progression threshold (default two-tier)
+  eventvar(name)        - Create a 0/1 stset-ready PIRA event indicator
   rebaselinerelapse     - Reset baseline EDSS after each relapse
   keepall               - Retain all observations
   quietly               - Suppress output messages
@@ -58,6 +61,9 @@ program define pira, rclass
         RAWgenerate(name) ///
         CONFirmdays(integer 180) ///
         BASElinewindow(integer 730) ///
+        THREEtier ///
+        CONFIRMType(string) ///
+        EVENTvar(name) ///
         REBASElinerelapse ///
         KEEPall ///
         Quietly ///
@@ -136,6 +142,16 @@ program define pira, rclass
         exit 198
     }
 
+    // Confirmation type
+    if "`confirmtype'" == "" {
+        local confirmtype "sustained"
+    }
+    local confirmtype = lower("`confirmtype'")
+    if !inlist("`confirmtype'", "sustained", "visit") {
+        di as error "confirmtype() must be sustained or visit"
+        exit 198
+    }
+
     // Default generate names
     if "`generate'" == "" {
         local generate "pira_date"
@@ -147,10 +163,11 @@ program define pira, rclass
         di as error "generate() and rawgenerate() must specify different variable names"
         exit 198
     }
-    foreach _pira_out in `generate' `rawgenerate' {
+    foreach _pira_out in `generate' `rawgenerate' `eventvar' {
         if substr(lower("`_pira_out'"), 1, 6) == "_pira_" | ///
+            substr(lower("`_pira_out'"), 1, 9) == "_setools_" | ///
             lower("`_pira_out'") == "_relapse_dt" {
-            di as error "generate() and rawgenerate() may not use reserved internal names"
+            di as error "generate(), rawgenerate(), and eventvar() may not use reserved internal names"
             exit 198
         }
     }
@@ -165,6 +182,19 @@ program define pira, rclass
     if _rc == 0 {
         di as error "variable `rawgenerate' already exists"
         exit 110
+    }
+
+    // Check eventvar name (must be new and distinct from generate/rawgenerate)
+    if "`eventvar'" != "" {
+        if "`eventvar'" == "`generate'" | "`eventvar'" == "`rawgenerate'" {
+            di as error "eventvar() must differ from generate() and rawgenerate()"
+            exit 198
+        }
+        capture confirm variable `eventvar'
+        if _rc == 0 {
+            di as error "variable `eventvar' already exists"
+            exit 110
+        }
     }
 
     // Mark sample (strok: allow string ID variables)
@@ -271,9 +301,9 @@ program define pira, rclass
 
     // =========================================================================
     // STEP 1: RUN CDP ALGORITHM
-    // NOTE: The CDP logic below mirrors cdp.ado. Changes to baseline
-    // determination, progression threshold, or confirmation logic in
-    // cdp.ado MUST be mirrored here, and vice versa.
+    // Baseline, threshold, and confirmation come from the shared helpers
+    // (_setools_cdp_baseline, _setools_cdp_thresh, _setools_cdp_confirm,
+    // _setools_cdp_core) — the same engine cdp uses, so the two cannot desync.
     // =========================================================================
 
     qui use `master_data', clear
@@ -305,28 +335,10 @@ program define pira, rclass
     qui gen long _pira_obs_id = _n
 
     // -------------------------------------------------------------------------
-    // Determine baseline EDSS
+    // Determine baseline EDSS (shared helper: _setools_cdp_baseline)
     // -------------------------------------------------------------------------
-
-    qui gen double _pira_bl_edss = .
-    qui gen long _pira_bl_date = .
-
-    // First EDSS within baseline window of diagnosis. On same-day ties,
-    // use the lower EDSS value because sort order alone is not a contract.
-    qui gen byte _pira_in_win = (`datevar' >= `dxdate' & `datevar' <= `dxdate' + `baselinewindow')
-    qui egen double _pira_1st_win = min(cond(_pira_in_win, `datevar', .)), by(`idvar')
-    qui egen double _pira_1st_win_edss = min(cond(`datevar' == _pira_1st_win, `edssvar', .)), by(`idvar')
-    qui replace _pira_bl_edss = _pira_1st_win_edss if !missing(_pira_1st_win_edss)
-    qui replace _pira_bl_date = _pira_1st_win if !missing(_pira_1st_win)
-
-    qui drop _pira_in_win _pira_1st_win _pira_1st_win_edss
-
-    // If no EDSS within window, use earliest available (lowest EDSS on ties)
-    qui egen double _pira_1st_any = min(`datevar'), by(`idvar')
-    qui egen double _pira_1st_any_edss = min(cond(`datevar' == _pira_1st_any, `edssvar', .)), by(`idvar')
-    qui replace _pira_bl_edss = _pira_1st_any_edss if missing(_pira_bl_edss)
-    qui replace _pira_bl_date = _pira_1st_any if missing(_pira_bl_date)
-    qui drop _pira_1st_any _pira_1st_any_edss
+    _setools_cdp_baseline `idvar' `edssvar' `datevar', dxdate(`dxdate') ///
+        baselinewindow(`baselinewindow') edssout(_pira_bl_edss) dateout(_pira_bl_date)
 
     // -------------------------------------------------------------------------
     // Re-baseline after relapse (if requested)
@@ -403,78 +415,19 @@ program define pira, rclass
     }
 
     // -------------------------------------------------------------------------
-    // Identify CDP events (iterative confirmation)
+    // Identify CDP events via the shared engine (_setools_cdp_core)
+    // Reduces data to one row per person carrying the confirmed CDP date.
     // -------------------------------------------------------------------------
-    // If the first candidate progression date fails confirmation, exclude it
-    // and try the next candidate. Mirrors logic in cdp.ado.
-
-    // Progression threshold
-    qui gen double _pira_pthresh = cond(_pira_bl_edss <= 5.5, 1.0, 0.5)
-
-    // Calculate change from baseline
-    qui gen double _pira_edss_chg = `edssvar' - _pira_bl_edss
-
-    // Flag measurements that meet progression threshold (after baseline)
-    qui gen byte _pira_is_prog = (_pira_edss_chg >= _pira_pthresh) & (`datevar' > _pira_bl_date)
-
-    // Iterative confirmation: try each candidate progression date in order
-    qui gen byte _pira_candidate_ok = 0
-
-    local max_cdp_iter = 100
-    local cdp_iter = 1
-    local cdp_found = 0
-    while `cdp_found' == 0 & `cdp_iter' <= `max_cdp_iter' {
-        // Find earliest remaining candidate progression date per person
-        capture drop _pira_1st_prog
-        qui egen long _pira_1st_prog = min(cond(_pira_is_prog == 1, `datevar', .)), by(`idvar')
-
-        // Check if any candidates remain
-        qui count if !missing(_pira_1st_prog)
-        if r(N) == 0 {
-            continue, break
-        }
-
-        // Check for confirmation (sustained-throughout definition)
-        capture drop _pira_conf_edss
-        capture drop _pira_min_conf
-        qui gen double _pira_conf_edss = .
-        qui replace _pira_conf_edss = `edssvar' if `datevar' >= _pira_1st_prog + `confirmdays'
-        qui egen double _pira_min_conf = min(_pira_conf_edss), by(`idvar')
-
-        // Check if confirmed for each person
-        capture drop _pira_candidate_ok
-        qui gen byte _pira_candidate_ok = (_pira_min_conf >= _pira_bl_edss + _pira_pthresh) & !missing(_pira_min_conf)
-
-        // For persons whose candidate failed: exclude that date and retry
-        qui count if _pira_candidate_ok == 0 & !missing(_pira_1st_prog) & `datevar' == _pira_1st_prog
-        local n_failed = r(N)
-
-        if `n_failed' == 0 {
-            local cdp_found = 1
-        }
-        else {
-            qui replace _pira_is_prog = 0 if _pira_candidate_ok == 0 & `datevar' == _pira_1st_prog
-            local cdp_iter = `cdp_iter' + 1
-        }
-
-        qui drop _pira_min_conf
-    }
-
-    // CDP date is the confirmed candidate date
-    qui gen long _pira_cdp_dt = _pira_1st_prog if _pira_candidate_ok == 1
-    format _pira_cdp_dt %tdCCYY/NN/DD
+    _setools_cdp_core `idvar' `edssvar' `datevar', ///
+        baseedss(_pira_bl_edss) basedate(_pira_bl_date) ///
+        confirmdays(`confirmdays') genname(_pira_cdp_dt) ///
+        `threetier' confirmtype("`confirmtype'")
+    local pira_converged  = r(converged)
+    local pira_iterations = r(iterations)
 
     // =========================================================================
     // STEP 2: CLASSIFY AS PIRA OR RAW
     // =========================================================================
-
-    // Rename working variable to keep name before keep
-    qui rename _pira_bl_edss _pira_baseline
-
-    // Keep one record per person with CDP
-    qui keep `idvar' _pira_cdp_dt _pira_baseline
-    qui duplicates drop `idvar', force
-    qui drop if missing(_pira_cdp_dt)
 
     // Check if any CDP events exist before attempting relapse classification
     qui count
@@ -499,7 +452,7 @@ program define pira, rclass
         format `generate' `rawgenerate' %tdCCYY/NN/DD
 
         // Keep one record per person
-        qui keep `idvar' `generate' `rawgenerate' _pira_baseline
+        qui keep `idvar' `generate' `rawgenerate'
         qui duplicates drop `idvar', force
     }
     else {
@@ -509,8 +462,7 @@ program define pira, rclass
         format `generate' `rawgenerate' %tdCCYY/NN/DD
     }
 
-    // Clean up internal variables (drop separately so one missing doesn't block the other)
-    capture qui drop _pira_baseline
+    // Clean up internal variables
     capture qui drop _pira_cdp_dt
 
     // Count results
@@ -544,6 +496,12 @@ program define pira, rclass
     label var `generate' "PIRA date (progression independent of relapse)"
     label var `rawgenerate' "RAW date (relapse-associated worsening)"
 
+    // stset-ready event indicator (1 = PIRA event, matches generate())
+    if "`eventvar'" != "" {
+        qui gen byte `eventvar' = !missing(`generate') if `touse'
+        label var `eventvar' "PIRA event (1 = progression independent of relapse)"
+    }
+
     // =========================================================================
     // OUTPUT AND RETURN
     // =========================================================================
@@ -553,12 +511,20 @@ program define pira, rclass
         di as text "  Relapse window: `windowbefore' days before to `windowafter' days after"
         di as text "  Baseline window: `baselinewindow' days from diagnosis"
         di as text "  Confirmation period: `confirmdays' days"
+        di as text "  Confirmation type: `confirmtype'"
+        di as text "  Threshold rule: " cond("`threetier'" != "", "three-tier", "two-tier")
         di as text "  Re-baseline after relapse: " cond("`rebaselinerelapse'" != "", "Yes", "No")
         di as text _n "Results:"
         di as text "  Total CDP events: `n_cdp'"
         di as text "  PIRA events: `n_pira'"
         di as text "  RAW events: `n_raw'"
         di as text _n "  Variables created: `generate', `rawgenerate'"
+        if "`eventvar'" != "" {
+            di as text "  Event indicator: `eventvar'"
+        }
+        if `pira_converged' == 0 {
+            di as text "  Note: confirmation did not converge (results may be approximate)"
+        }
     }
 
     // Return values
@@ -569,9 +535,15 @@ program define pira, rclass
     return scalar windowafter = `windowafter'
     return scalar confirmdays = `confirmdays'
     return scalar baselinewindow = `baselinewindow'
+    return scalar converged = `pira_converged'
     return local pira_varname "`generate'"
     return local raw_varname "`rawgenerate'"
+    return local confirmtype "`confirmtype'"
+    return local threetier = cond("`threetier'" != "", "yes", "no")
     return local rebaselinerelapse = cond("`rebaselinerelapse'" != "", "yes", "no")
+    if "`eventvar'" != "" {
+        return local eventvar "`eventvar'"
+    }
 
     }
     local _rc = _rc

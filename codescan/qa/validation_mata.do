@@ -1,4 +1,4 @@
-* _test_known_answers.do - Known-answer validation for Mata optimizations
+* validation_mata.do - Known-answer validation for Mata optimizations
 * Verifies numerical equivalence with hand-computed expected values
 
 clear all
@@ -273,7 +273,7 @@ else {
 * Summary
 
 display ""
-display as result "RESULT: _test_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "RESULT: validation_mata tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {

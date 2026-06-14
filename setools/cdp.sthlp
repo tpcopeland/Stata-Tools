@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  06may2026}{...}
+{* *! version 1.3.0  14jun2026}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -9,6 +9,7 @@
 {viewerjumpto "Remarks" "cdp##remarks"}{...}
 {viewerjumpto "Examples" "cdp##examples"}{...}
 {viewerjumpto "Stored results" "cdp##results"}{...}
+{viewerjumpto "References" "cdp##references"}{...}
 {viewerjumpto "Author" "cdp##author"}{...}
 
 {title:Title}
@@ -35,7 +36,10 @@
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for CDP date variable; default is {cmd:cdp_date}{p_end}
 {synopt:{opt conf:irmdays(#)}}days required for confirmation; default is {cmd:180}{p_end}
+{synopt:{opt confirmt:ype(type)}}confirmation rule: {cmd:sustained} (default) or {cmd:visit}{p_end}
 {synopt:{opt base:linewindow(#)}}days from diagnosis for baseline EDSS; default is {cmd:730}{p_end}
+{synopt:{opt three:tier}}use the three-tier progression threshold (default two-tier){p_end}
+{synopt:{opt event:var(name)}}create a 0/1 stset-ready CDP event indicator{p_end}
 {synopt:{opt roving}}use roving baseline (reset after each confirmed progression){p_end}
 {synopt:{opt all:events}}track all CDP events, not just the first; requires {opt roving}{p_end}
 {synopt:{opt keep:all}}retain all observations (including patients without CDP){p_end}
@@ -68,18 +72,25 @@ outcome in multiple sclerosis clinical trials and observational studies.
 falls within this window, the patient's earliest available EDSS is used
 instead.{p_end}
 
-{phang2}2. {bf:Calculates the progression threshold} based on baseline EDSS:{p_end}
+{phang2}2. {bf:Calculates the progression threshold} based on baseline EDSS.
+By default a {bf:two-tier} rule is used:{p_end}
 {phang3}{hline 2} Baseline EDSS {ul:<}= 5.5: requires {ul:>}= 1.0 point increase{p_end}
 {phang3}{hline 2} Baseline EDSS > 5.5: requires {ul:>}= 0.5 point increase{p_end}
+{phang2}With {opt threetier}, the canonical Lublin (2014) / Kappos three-tier rule
+is used instead: {ul:>}= 1.5 if baseline is 0, {ul:>}= 1.0 if baseline is 1.0-5.5,
+{ul:>}= 0.5 if baseline > 5.5.{p_end}
 
 {phang2}3. {bf:Identifies progression events} where EDSS increases by at least the
 threshold from baseline (after the baseline date).{p_end}
 
-{phang2}4. {bf:Confirms progression} using a {bf:sustained-throughout} definition:
-the {it:minimum} EDSS across all measurements at or after {opt confirmdays()} days
-must still meet the progression threshold.  This is stricter than a
-"confirmed at next visit" definition, because any subsequent EDSS measurement that
-falls below baseline + threshold invalidates the event.{p_end}
+{phang2}4. {bf:Confirms progression}.  With the default {cmd:confirmtype(sustained)},
+a {bf:sustained-throughout} definition is used: the {it:minimum} EDSS across all
+measurements at or after {opt confirmdays()} days must still meet the progression
+threshold, so any later EDSS that falls below baseline + threshold invalidates the
+event.  With {cmd:confirmtype(visit)}, the looser {bf:next-confirmed-visit}
+definition is used: only the EDSS at the first visit occurring at least
+{opt confirmdays()} days after the candidate must meet the threshold (later dips are
+ignored).{p_end}
 
 {pstd}
 {bf:Confirmation requirement:}  At least one EDSS measurement must exist at or
@@ -113,10 +124,31 @@ event and the confirming measurement.  The default is {cmd:180} (approximately
 a 3-month confirmation rule.
 
 {phang}
+{opt confirmtype(type)} selects the confirmation rule.  {cmd:sustained} (the
+default) requires the minimum EDSS across all measurements at or after
+{opt confirmdays()} days to meet the threshold.  {cmd:visit} requires only the EDSS
+at the first visit at least {opt confirmdays()} days after the candidate to meet the
+threshold (the "N-week confirmed" definition common in clinical trials).  The
+default preserves the behavior of earlier versions.
+
+{phang}
 {opt baselinewindow(#)} specifies the maximum number of days after diagnosis within
 which to search for the baseline EDSS measurement.  The default is {cmd:730}
 (2 years).  If no EDSS measurement exists within this window, the earliest
 available measurement is used.
+
+{phang}
+{opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
+progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
+{ul:>}= 0.5 if > 5.5).  Without it, the two-tier rule ({ul:>}= 1.0 if {ul:<}= 5.5,
+{ul:>}= 0.5 if > 5.5) is used.  The default is two-tier for backward compatibility;
+choose {opt threetier} to match modern phase-3 MS trial protocols.
+
+{phang}
+{opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a confirmed
+CDP date and 0 otherwise (within the estimation sample), ready for
+{helpb stset}.  It is most useful together with {opt keepall}.  The name must be new
+and differ from {opt generate()}.
 
 {phang}
 {opt roving} specifies that the baseline should be reset after each confirmed
@@ -242,10 +274,36 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(N_events)}}total number of CDP events{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
+{synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated CDP date variable{p_end}
+{synopt:{cmd:r(confirmtype)}}{cmd:sustained} or {cmd:visit}{p_end}
+{synopt:{cmd:r(threetier)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(roving)}}{cmd:yes} or {cmd:no}{p_end}
+{synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{pstd}
+Lublin FD, Reingold SC, Cohen JA, et al. 2014.
+Defining the clinical course of multiple sclerosis: the 2013 revisions.
+{it:Neurology} 83: 278-286.
+
+{pstd}
+Kappos L, Butzkueven H, Wiendl H, et al. 2018.
+Greater sensitivity to multiple sclerosis disability worsening and progression
+events using a roving versus a fixed reference value in a prospective cohort study.
+{it:Multiple Sclerosis Journal} 24: 963-973.
+
+{pstd}
+Kappos L, Wolinsky JS, Giovannoni G, et al. 2020.
+Contribution of relapse-independent progression vs relapse-associated worsening to
+overall confirmed disability accumulation in typical relapsing multiple sclerosis in
+a pooled analysis of 2 randomized clinical trials.
+{it:JAMA Neurology} 77: 1132-1140.
 
 
 {marker author}{...}

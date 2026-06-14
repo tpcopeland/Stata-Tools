@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.0** | 2026-06-06
+**Version 1.2.1** | 2026-06-14
 
 `eplot` creates forest plots and coefficient plots from four sources — variables in memory, active or stored estimation results, preassembled matrices, and graph-ready frames — under one command with one set of options.
 
@@ -267,6 +267,7 @@ Options are organized by function. Not every option works in every mode — see 
 
 ## Version History
 
+- **1.2.1** (2026-06-14): Fixed `insigncolor()` — the option was silently ignored in all modes (non-significant markers always drew in `gs10`) and the documented spelling aborted; it now applies. Estimates-mode coefficients now plot in model order by default (they were incorrectly sorted alphabetically by coefficient name); `sort` and `order()` are unaffected. A mistyped estimate name no longer misreports as a missing variable. Added `capture program drop` guards so the file is safe to re-run in a session.
 - **1.2.0** (2026-06-06): Added frame input mode via `eplot, frame(framename)` with default `estimate`, `ll`, `ul`, `label`, `rowtype`, `pvalue`, and weight-variable detection for tabtools companion frames
 - **1.1.1** (2026-04-30): Fixed y-axis ordering bug where categorical labels appeared in reverse order across all plotting modes (data, estimates, matrix)
 - **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, effect-axis `xlabel()` passthrough, automatic value-annotation margin sizing, and clearer mode-detection documentation

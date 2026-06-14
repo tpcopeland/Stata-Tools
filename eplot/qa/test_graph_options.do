@@ -7,8 +7,12 @@ version 16.0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
+
+* Remove any installed copy and put the local eplot first on the adopath
+cap ado uninstall eplot
+adopath ++ "`pkg_dir'"
 
 set varabbrev off
 clear all

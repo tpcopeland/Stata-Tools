@@ -1,4 +1,4 @@
-* _test_mata_opt.do - Test Mata optimizations for codescan v1.1.0
+* test_mata_opt.do - Test Mata optimizations for codescan v1.1.0
 * Tests: match count accumulation, co-occurrence overlap detection,
 *        multi-window single-pass, describe hash tabulation
 
@@ -306,7 +306,7 @@ else {
 * Summary
 
 display ""
-display as result "RESULT: _test_mata_opt tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "RESULT: test_mata_opt tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {

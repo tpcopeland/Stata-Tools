@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  14jun2026}{...}
+{* *! version 1.2.1  14jun2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -196,11 +196,20 @@ computed for each non-reference group vs the reference.
 
 {dlgtab:Graph options}
 
+{pstd}
+Subcommands differ in whether a graph is drawn by default. {cmd:overlap} and
+{cmd:support} draw a graph automatically; suppress it with {opt nograph}.
+{cmd:balance} and {cmd:weights} draw none by default; request one with
+{opt loveplot} and {opt graph} respectively. {cmd:combined} always assembles the
+dashboard. The options below apply wherever a graph is produced.
+
 {phang}
 {opt scheme(schemename)} specifies the graph scheme.
 
 {phang}
-{opt saving(filename)} saves the graph to a file.
+{opt saving(filename)} exports the graph to an image file. The format is
+determined by the filename extension ({cmd:.png}, {cmd:.pdf}, {cmd:.eps}, etc.);
+use Stata's {helpb graph save} for a {cmd:.gph} file.
 
 {phang}
 {opt title(string)} specifies a custom title for the output header and/or graph.
@@ -352,7 +361,9 @@ the corresponding panel from the combined dashboard.
 the combined dashboard. It is not passed to the support panel.
 
 {phang}
-{opt saving(filename)} saves the combined graph to {it:filename} (not individual panels).
+{opt saving(filename)} exports the combined graph (not individual panels) to an
+image file; the format is set by the filename extension ({cmd:.png}, {cmd:.pdf},
+etc.). Use {helpb graph save} for a {cmd:.gph} file.
 
 
 {marker remarks}{...}

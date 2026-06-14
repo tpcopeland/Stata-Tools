@@ -1,4 +1,4 @@
-*! iivw Version 1.5.2  2026/06/14
+*! iivw Version 1.5.3  2026/06/14
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -26,7 +26,21 @@ program define iivw, rclass
 
     syntax
 
-    local version "1.5.2"
+    * Derive the displayed version from this file's *! header so it can never
+    * drift from the package version on a bump.
+    local version "unknown"
+    capture findfile iivw.ado
+    if !_rc {
+        tempname __iivw_fh
+        capture file open `__iivw_fh' using "`r(fn)'", read text
+        if !_rc {
+            file read `__iivw_fh' __iivw_header_line
+            file close `__iivw_fh'
+            if regexm("`__iivw_header_line'", "Version ([0-9.]+)") {
+                local version = regexs(1)
+            }
+        }
+    }
 
     display as text ""
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"

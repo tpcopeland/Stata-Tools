@@ -1,4 +1,4 @@
-*! sustainedss Version 1.2.3  2026/05/06
+*! sustainedss Version 1.3.0  2026/06/14
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -16,6 +16,7 @@ program define sustainedss, rclass
         GENerate(name) ///
         CONFirmwindow(integer 182) ///
         BASElinethreshold(real -1) ///
+        EVENTvar(name) ///
         KEEPall ///
         Quietly ///
         ]
@@ -80,7 +81,20 @@ program define sustainedss, rclass
         di as error "variable `generate' already exists"
         exit 110
     }
-    
+
+    // Check eventvar name (must be new and distinct from generate)
+    if "`eventvar'" != "" {
+        if "`eventvar'" == "`generate'" {
+            di as error "eventvar() and generate() must specify different names"
+            exit 198
+        }
+        capture confirm variable `eventvar'
+        if _rc == 0 {
+            di as error "variable `eventvar' already exists"
+            exit 110
+        }
+    }
+
     // Mark sample (strok: allow string ID variables)
     marksample touse, strok
     qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
@@ -244,7 +258,13 @@ program define sustainedss, rclass
 
     // Label variable
     label var `generate' "Sustained EDSS >= `threshold' date"
-    
+
+    // stset-ready event indicator (0/1 within the analytic sample)
+    if "`eventvar'" != "" {
+        qui gen byte `eventvar' = !missing(`generate') if `touse'
+        label var `eventvar' "Sustained EDSS event (1 = threshold reached)"
+    }
+
     // Count retained observations
     qui count
     local n_retained = r(N)
@@ -275,6 +295,9 @@ program define sustainedss, rclass
     return scalar threshold = `threshold'
     return scalar confirmwindow = `confirmwindow'
     return local varname "`generate'"
+    if "`eventvar'" != "" {
+        return local eventvar "`eventvar'"
+    }
 
     }
     local _rc = _rc

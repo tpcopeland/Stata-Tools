@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.3  14jun2026}{...}
+{* *! version 1.1.4  14jun2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -731,7 +731,12 @@ freeze them to a CSV with {cmd:save()}, then switch future runs to
 {cmd:codefile()}.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)}{p_end}
-{phang2}{cmd:. codescan dx1 dx2, codefile(dm_rules.csv)}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, codefile(dm_rules.csv) replace}{p_end}
+
+{pstd}
+The first run leaves the {cmd:dm2} and {cmd:htn} indicators in memory, so the
+codefile re-run adds {cmd:replace} to overwrite them.  In a fresh session that
+loads only the saved rules, {cmd:replace} is unnecessary.
 
 {pstd}
 {bf:Example 6: Charlson scoring with the bundled codefile}

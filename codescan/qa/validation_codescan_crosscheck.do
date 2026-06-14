@@ -1,6 +1,7 @@
-* crossval_codescan.do - Cross-validation tests for codescan
-* Compares codescan output to manual computation
-* Tests: 30
+* validation_codescan_crosscheck.do - Cross-check validation for codescan
+* Compares codescan output to hand-computed Stata oracles (regexm() loops,
+* manual collapses). No external R/Python reference is involved, so this is
+* validation, not cross-validation.
 * Date: 2026-04-01
 
 clear all
@@ -1254,8 +1255,8 @@ else {
 
 * Summary
 display ""
-display as result "RESULT: crossval_codescan tests=`test_count' pass=`pass_count' fail=`fail_count'"
-display as result "Cross-Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
+display as result "RESULT: validation_codescan_crosscheck tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "Cross-check Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {
     display as error "SOME CROSS-VALIDATIONS FAILED"
