@@ -1,4 +1,4 @@
-*! table1_tc Version 1.7.0  2026/06/13 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.7.1  2026/06/14 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options

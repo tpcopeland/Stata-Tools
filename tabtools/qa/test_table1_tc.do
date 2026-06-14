@@ -1501,6 +1501,63 @@ else {
     local ++fail_count
 }
 
+**# Weighted effective count: weighted n differs from crude and is consistent
+* Regression guard for the 1.7.1 fix. In wt()/wtcompare mode the displayed
+* count is the effective count (weighted % x group N), so the weighted count
+* differs from the crude raw count and satisfies n/N = weighted %. Before the
+* fix the weighted column showed the raw unweighted count (identical to crude).
+local ++test_count
+capture noisily {
+    clear
+    set obs 200
+    gen byte grp = _n > 100
+    * 60 of 100 are female in each group; weight is informative within group
+    * (2 for female, 0.5 otherwise) so the weighted female proportion -- and
+    * hence the effective count -- differs from the crude count of 60.
+    gen byte female = mod(_n - 1, 100) + 1 <= 60
+    gen double w = cond(female, 2, 0.5)
+    label define _t1eff_gl 0 "A" 1 "B", replace
+    label values grp _t1eff_gl
+    label variable female "Female"
+
+    * Known answers for group A (grp == 0), computed by hand:
+    quietly count if grp == 0
+    local _rawN = r(N)                              // 100
+    quietly count if grp == 0 & female == 1
+    local _crude = r(N)                             // 60
+    local _wprop = (60 * 2) / (60 * 2 + 40 * 0.5)   // 120/140 = .857
+    local _eff = round(`_wprop' * `_rawN')          // round(85.7) = 86
+
+    table1_tc, by(grp) vars(female bin) wt(w) wtcompare ///
+        clear nformat(%9.0f) percformat(%5.1f) percsign("%")
+
+    _t1agg_row "Female"
+    local frow = r(row)
+    assert regexm(Cr_0[`frow'], "([0-9]+)")
+    local _crn = real(regexs(1))
+    assert regexm(Wt_0[`frow'], "([0-9]+)")
+    local _wtn = real(regexs(1))
+    assert regexm(Wt_0[`frow'], "\(([ 0-9.]+)%")
+    local _wtp = real(strtrim(regexs(1)))
+
+    * Crude column still shows the raw count.
+    assert `_crn' == `_crude'
+    * Weighted count differs from crude (the bug rendered them identical).
+    assert `_wtn' != `_crn'
+    * Weighted count equals the rounded effective count (known answer).
+    assert `_wtn' == `_eff'
+    * Internal consistency: displayed n / N matches the displayed weighted %.
+    assert abs(`_wtn' / `_rawN' * 100 - `_wtp') < 1
+}
+if _rc == 0 {
+    display as result "  PASS: weighted effective count differs from crude and is consistent"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: weighted effective-count contract (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Public Excel style smoke
 
 capture noisily {

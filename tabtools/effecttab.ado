@@ -1,4 +1,4 @@
-*! effecttab Version 1.7.0  2026/06/13
+*! effecttab Version 1.7.1  2026/06/14
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

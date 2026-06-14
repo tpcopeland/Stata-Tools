@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.7.0  2026/06/13
+*! _tabtools_table1_fast_collect Version 1.7.1  2026/06/14
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -716,6 +716,15 @@ program define _tabtools_table1_fast_collect, rclass
                     local _grpN = `catmat'[`_mrow', 6]
                     local _num = `catmat'[`_mrow', 7]
                     local _den = `catmat'[`_mrow', 8]
+                    // Weighted display: show effective count (weighted % x group
+                    // N) so n (%) is internally consistent (n/N = weighted %).
+                    // col 5 is the raw count; cols 7/8 are weighted num/denom.
+                    // r(categorical) keeps the raw count for programmatic use.
+                    if `has_wt' {
+                        local _gw = `catmat'[`_mrow', 8]
+                        if `_gw' > 0 & `_gw' < . & !missing(`_num') ///
+                            local _cnt = (`_num' / `_gw') * `_grpN'
+                    }
                     if `_den' <= 0 | `_den' >= . local _pct = .
                     else local _pct = 100 * `_num' / `_den'
                     local _pfmt "`fmt1'"
@@ -794,6 +803,14 @@ program define _tabtools_table1_fast_collect, rclass
                         local _num = `catmat'[`_mrow', 7]
                         if "`catrowperc'" == "" local _den = `catmat'[`_mrow', 8]
                         else local _den = `catmat'[`_mrow', 9]
+                        // Weighted display: effective count (weighted % x group N)
+                        // for an internally consistent n (%). col 8 is the column
+                        // weighted denom regardless of catrowperc.
+                        if `has_wt' {
+                            local _gw = `catmat'[`_mrow', 8]
+                            if `_gw' > 0 & `_gw' < . & !missing(`_num') ///
+                                local _cnt = (`_num' / `_gw') * `_grpN'
+                        }
                         if `_den' <= 0 | `_den' >= . local _pct = .
                         else local _pct = 100 * `_num' / `_den'
                         local _pfmt "`fmt1'"
