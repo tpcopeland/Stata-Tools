@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.5.1  2026/06/11
+*! iivw_exogtest Version 1.5.2  2026/06/14
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -55,12 +55,41 @@ program define iivw_exogtest, rclass sortpreserve
         [ADJust(varlist numeric) BY(varname) ENTry(varname numeric) ///
          GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
          XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
-         TITLE(string asis) FOOTNOTE(string asis) DECIMALS(integer 3) OPEN]
+         TITLE(string asis) FOOTNOTE(string asis) ///
+         DECimals(string) DIGits(string) OPEN]
 
-    if `decimals' < 0 | `decimals' > 6 {
-        display as error "decimals() must be between 0 and 6"
-        error 198
+    if "`decimals'" != "" {
+        capture confirm integer number `decimals'
+        if _rc {
+            display as error "decimals() must be an integer"
+            error 198
+        }
+        if `decimals' < 0 | `decimals' > 6 {
+            display as error "decimals() must be between 0 and 6"
+            error 198
+        }
     }
+    if "`digits'" != "" {
+        capture confirm integer number `digits'
+        if _rc {
+            display as error "digits() must be an integer"
+            error 198
+        }
+        if `digits' < 0 | `digits' > 6 {
+            display as error "digits() must be between 0 and 6"
+            error 198
+        }
+    }
+    if "`decimals'" != "" & "`digits'" != "" {
+        if `decimals' != `digits' {
+            display as error "decimals() and digits() specify different values"
+            error 198
+        }
+    }
+    local __iivw_dec_final = 3
+    if "`decimals'" != "" local __iivw_dec_final = `decimals'
+    if "`digits'" != "" local __iivw_dec_final = `digits'
+    local decimals = `__iivw_dec_final'
 
     if "`generate'" == "" local generate "_iivw_exog_"
     local prefix "`generate'"

@@ -86,7 +86,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile marker
-    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 1.1.2  2026/05/30" codescan.ado && grep -Fq "codescan_describe Version 1.1.2  2026/05/30" codescan_describe.ado && grep -Fq "{* *! version 1.1.2  30may2026}" codescan.sthlp && grep -Fq "{* *! version 1.1.2  30may2026}" codescan_describe.sthlp && grep -Fq "**Version 1.1.2** | 2026-05-30" README.md && grep -Fq "d Distribution-Date: 20260530" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
+    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 1.1.3  2026/06/14" codescan.ado && grep -Fq "codescan_describe Version 1.1.3  2026/06/14" codescan_describe.ado && grep -Fq "{* *! version 1.1.3  14jun2026}" codescan.sthlp && grep -Fq "{* *! version 1.1.3  14jun2026}" codescan_describe.sthlp && grep -Fq "**Version 1.1.3** | 2026-06-14" README.md && grep -Fq "d Distribution-Date: 20260614" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
     _assert_marker_pass "`marker'"
 }
 if _rc == 0 {

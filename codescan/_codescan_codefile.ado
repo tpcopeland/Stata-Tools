@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 1.1.2  2026/05/30
+*! _codescan_codefile Version 1.1.3  2026/06/14
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland
 
@@ -10,7 +10,7 @@ program define _codescan_parse_codefile, rclass
     local _did_preserve = 0
     capture noisily {
 
-    syntax , CODEFILE(string) [SCOREType(string)]
+    syntax , CODEFile(string) [SCOREType(string)]
 
     local resolved_codefile `"`codefile'"'
     local ext = lower(substr(`"`resolved_codefile'"', -4, .))

@@ -487,6 +487,46 @@ if `run_only' == 0 | `run_only' == 14 {
     }
 }
 
+**## 15. decimals() abbreviation, digits() synonym, and default match siblings
+local ++test_count
+if `run_only' == 0 | `run_only' == 15 {
+    capture noisily {
+        _exog_independent_panel
+        tempfile xlstub
+        local xl "`xlstub'.xlsx"
+        * dec() abbreviation accepted and honored
+        capture confirm file "`xl'"
+        if _rc == 0 erase "`xl'"
+        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
+            xlsx("`xl'") dec(2) replace
+        assert r(decimals) == 2
+        * digits() synonym accepted and honored
+        erase "`xl'"
+        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
+            xlsx("`xl'") digits(5) replace
+        assert r(decimals) == 5
+        * default remains 3
+        erase "`xl'"
+        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
+            xlsx("`xl'") replace
+        assert r(decimals) == 3
+        * conflicting dec()/digits() rejected
+        capture noisily iivw_exogtest y, id(id) time(months) adjust(age female) ///
+            nolog xlsx("`xl'") decimals(2) digits(4) replace
+        assert _rc == 198
+        capture erase "`xl'"
+    }
+    if _rc == 0 {
+        display as result "  PASS: 15 - decimals abbreviation/synonym"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 15 - decimals abbreviation/synonym (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 15"
+    }
+}
+
 **# Summary
 
 capture adopath - "`pkg_dir'"

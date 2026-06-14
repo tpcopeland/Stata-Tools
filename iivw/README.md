@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.5.1** | 2026-06-11
+**Version 1.5.2** | 2026-06-14
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -664,6 +664,10 @@ The generated model workbook asserts that the `Visit waves` sheet contains the r
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.5.2 (2026-06-14)
+
+- Harmonized the `decimals()` option across the Excel-exporting diagnostics: `iivw_exogtest` now accepts the `dec()` abbreviation and a `digits()` synonym, matching `iivw_balance` and `iivw_diagnose` (default remains 3)
 
 ### v1.5.1 (2026-06-11)
 

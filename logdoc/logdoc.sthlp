@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  15may2026}{...}
+{* *! version 1.0.2  14jun2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -54,7 +54,7 @@ Other subcommands:
 {cmd:using}
 {it:filename}
 {cmd:,}
-{opt com:pare(filename)}
+{opt comp:are(filename)}
 {opt out:put(filename)}
 [{opt rep:lace} {opt th:eme(string)} {opt py:thon(string)} {opt css(filename)} {opt q:uiet}]
 
@@ -88,6 +88,7 @@ Other subcommands:
 
 {syntab:Display & layout}
 {synopt:{opt run}}execute .do file first, then convert the resulting log{p_end}
+{synopt:{opt statae:xe(string)}}name of the Stata batch executable used by {opt run} (default: auto-detected from flavor/OS){p_end}
 {synopt:{opt pre:formatted}}compatibility option; HTML tables are monospace by default{p_end}
 {synopt:{opt nof:old}}compatibility option; folding is off by default{p_end}
 {synopt:{opt nod:ots}}strip dot prompts from commands for cleaner display{p_end}
@@ -254,7 +255,17 @@ edition, date/time, and current data filename.
 
 {phang}
 {opt run} executes the input .do file in batch mode before converting.
-Automatically sets {opt replace} for the output file.
+Automatically sets {opt replace} for the output file. The child session is
+launched with the batch Stata executable matching the running flavor and
+operating system: {bf:stata-mp}/{bf:stata-se}/{bf:stata} on Unix and macOS,
+{bf:StataMP-64}/{bf:StataSE-64}/{bf:Stata-64} on Windows. The chosen binary
+must be on the system {cmd:PATH}.
+
+{phang}
+{opt stataexe(string)} overrides the auto-detected batch executable used by
+{opt run}. Use it when your Stata binary has a nonstandard name or is not on
+{cmd:PATH}. Example: {cmd:stataexe(/opt/stata18/stata-mp)}. Ignored unless
+{opt run} is also specified.
 
 {phang}
 {opt preformatted} is retained for compatibility. HTML tables are already

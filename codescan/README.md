@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.1.2** | 2026-05-30
+**Version 1.1.3** | 2026-06-14
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -549,6 +549,10 @@ useful for automated checks before freezing a code dictionary.
 - van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system adaptation of the Elixhauser comorbidity measure for hospital mortality.
 
 ## Changelog
+
+### 1.1.3 (2026-06-14)
+- Cleanup: removed a dead duplicate copy of the internal `_codescan_validate_regex()` Mata function from `codescan.ado`. The live definition and its only callers live in `_codescan_definitions.ado`; the unused copy was dead weight and a divergence risk. No user-facing behavior change.
+- Consistency: the private `_codescan_parse_codefile` helper now declares `CODEFile()` (matching the public `codefile()` abbreviation capitalization) instead of `CODEFILE()`. No user-facing behavior change.
 
 ### 1.1.2 (2026-05-30)
 - Fix: bundled helper files (`_codescan_codefile`, `_codescan_definitions`, `_codescan_hierarchy`, `_codescan_outputs`, `_codescan_score`) now precede every `program define` with `capture program drop`. Because the loader re-runs a whole helper file whenever any one of its programs is missing from memory, a partial-load state could otherwise crash a second in-session invocation with `program ... already defined`. All sub-programs are now idempotent on reload.

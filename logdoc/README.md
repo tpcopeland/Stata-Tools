@@ -1,6 +1,6 @@
 # logdoc
 
-![version](https://img.shields.io/badge/version-1.0.1-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+![version](https://img.shields.io/badge/version-1.0.2-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
 Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents.
 
@@ -132,6 +132,7 @@ logdoc replay [, theme() format() open]
 | `generated` | Add "Generated YYYY-MM-DD HH:MM" timestamp footer |
 | `stamp` | Add Stata version, date/time, and data filename to header |
 | `run` | Execute a `.do` file first, then convert (auto-sets `replace`) |
+| `stataexe(string)` | Override the batch Stata executable used by `run` (default: auto-detected from flavor/OS) |
 | `preformatted` | Compatibility option; HTML tables are monospace by default |
 | `nofold` | Compatibility option; folding is off by default |
 | `nodots` | Strip dot prompts for script-style display |
@@ -165,6 +166,12 @@ logdoc replay [, theme() format() open]
 | `.smcl` | Faithful SMCL rendering with Stata input/result/error colors |
 | `.log` | Plain text log file conversion |
 | `.do` | Requires `run` option; executes in batch mode, then converts |
+
+The `run` option launches a batch Stata child session using the executable that
+matches your flavor and OS (`stata-mp`/`stata-se`/`stata` on Unix/macOS,
+`StataMP-64`/`StataSE-64`/`Stata-64` on Windows); the binary must be on your
+`PATH`. Override it with `stataexe()` when your install uses a nonstandard name
+or location, e.g. `stataexe(/opt/stata18/stata-mp)`.
 
 ### Output formats
 
@@ -395,7 +402,7 @@ Use `logdoc_py, save` to write the `python=` line automatically. Other keys corr
 
 ## Version
 
-Version 1.0.1
+Version 1.0.2
 
 ## Author
 

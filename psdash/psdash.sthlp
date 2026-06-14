@@ -729,7 +729,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, {cmd:"ltmle"}, or {cmd:"iivw"}){p_end}
+{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, {cmd:"ltmle"}, {cmd:"iivw"}, {cmd:"msm"}, or {cmd:"tte"}){p_end}
 {synopt:{cmd:r(wvar)}}weight variable name for combined diagnostics or longitudinal (ltmle/msm/tte) diagnostics{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
 {synopt:{cmd:r(period)}}period variable for longitudinal (ltmle/msm/tte) diagnostics{p_end}

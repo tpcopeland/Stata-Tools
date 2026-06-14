@@ -1,4 +1,4 @@
-*! logdoc Version 1.0.1  2026/05/15
+*! logdoc Version 1.0.2  2026/06/14
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -71,7 +71,7 @@ program define _logdoc_convert, rclass
         PYthon(string) CSS(string) OPEN REPlace Quiet Verbose ///
         FOOTer(string) STamp NOGraph GRAPHWidth(string) GRAPHHeight(string) ///
         LINEnumbers TOC KEEP(string) DROP(string) ///
-        APPend NOTEbook EMAil ANNotate(string) ///
+        APPend NOTEbook EMAil ANNotate(string) STATAexe(string) ///
         FOLD HIGHlight TABles COPY DOWNload LEGacy GENerated]
 
     * --- U3: quiet/verbose mutual exclusion ---
@@ -225,7 +225,29 @@ program define _logdoc_convert, rclass
         file write `_runfh' "quietly set linesize 255" _n
         file write `_runfh' `"do "`input_file'""' _n
         file close `_runfh'
-        shell stata-mp -b do "`_runwrapper_path'"
+
+        * Derive the batch Stata executable for the child session.  A
+        * hardcoded "stata-mp" excludes SE/BE and Windows users; pick the
+        * binary that matches the running flavor and OS.  stataexe() lets a
+        * user with a nonstandard install name or off-PATH binary override.
+        if `"`stataexe'"' != "" {
+            if regexm(`"`stataexe'"', "[;&|><`$]") | strpos(`"`stataexe'"', `"""') {
+                display as error "stataexe() contains illegal shell characters"
+                exit 198
+            }
+            local _stataexe `"`stataexe'"'
+        }
+        else if "`c(os)'" == "Windows" {
+            if c(MP)       local _stataexe "StataMP-64"
+            else if c(SE)  local _stataexe "StataSE-64"
+            else           local _stataexe "Stata-64"
+        }
+        else {
+            if c(MP)       local _stataexe "stata-mp"
+            else if c(SE)  local _stataexe "stata-se"
+            else           local _stataexe "stata"
+        }
+        shell `_stataexe' -b do "`_runwrapper_path'"
 
         * Find the resulting .smcl log
         * Check both in the .do file's directory and in CWD
@@ -906,9 +928,14 @@ program define _logdoc_start
     global LOGDOC_ORIG_LINESIZE "`_orig_linesize'"
 
     * Open SMCL log to temp file (use time-based unique name since c(pid)
-    * is not available in Stata 17)
+    * is not available in Stata 17).  The uniqueness draw uses runiform(),
+    * which would otherwise advance the caller's RNG state and silently
+    * perturb a seeded session (bootstrap/simulate); preserve and restore
+    * c(rngstate) so `logdoc start` is reproducibility-neutral.
     local _ts = subinstr(c(current_time), ":", "", .)
+    local _rngstate = c(rngstate)
     local _rand = string(floor(runiform() * 1000000000), "%09.0f")
+    set rngstate `_rngstate'
     local _tmplog "`c(tmpdir)'/logdoc_session_`_ts'_`_rand'.smcl"
     global LOGDOC_TMPLOG "`_tmplog'"
 

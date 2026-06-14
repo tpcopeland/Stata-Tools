@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.1  11jun2026}{...}
+{* *! version 1.5.2  14jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -59,7 +59,8 @@
 {synopt:{opt sheet(sheetname)}}Excel worksheet name; default {cmd:Exogeneity}{p_end}
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
-{synopt:{opt decimals(#)}}Excel decimal places (0-6, default 3){p_end}
+{synopt:{opt dec:imals(#)}}Excel decimal places (0-6, default 3){p_end}
+{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synopt:{opt open}}open the workbook after writing{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -182,8 +183,8 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used for exported hazard
-ratios, confidence intervals, and p-values.  The allowed range is 0 through
-6; the default is 3.
+ratios, confidence intervals, and p-values.  {opt digits(#)} is a synonym.
+The allowed range is 0 through 6; the default is 3.
 
 
 {marker remarks}{...}
@@ -350,6 +351,6 @@ doi:10.1111/j.1467-9868.2004.b5543.x.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.1, 2026-06-11{p_end}
+{pstd}Version 1.5.2, 2026-06-14{p_end}
 
 {hline}

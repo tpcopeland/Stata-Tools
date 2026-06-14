@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.5.1  2026/06/11
+*! _iivw_export_table Version 1.5.2  2026/06/14
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

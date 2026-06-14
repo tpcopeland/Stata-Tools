@@ -1,4 +1,4 @@
-*! _codescan_hierarchy Version 1.1.2  2026/05/30
+*! _codescan_hierarchy Version 1.1.3  2026/06/14
 *! Private hierarchy helpers for codescan
 *! Author: Timothy P Copeland
 

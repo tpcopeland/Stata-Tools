@@ -1,4 +1,4 @@
-*! codescan Version 1.1.2  2026/05/30
+*! codescan Version 1.1.3  2026/06/14
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -2027,51 +2027,6 @@ string rowvector _codescan_split_prefixes(string scalar s)
         }
     }
     return(result)
-}
-
-// R1: Validate regex pattern structure (check balanced brackets/parens)
-void _codescan_validate_regex(string scalar pat, string scalar cname, string scalar ptype)
-{
-    real scalar i, n, depth_paren, depth_bracket, escaped
-    string scalar ch
-
-    n = strlen(pat)
-    depth_paren = 0
-    depth_bracket = 0
-    escaped = 0
-
-    for (i = 1; i <= n; i++) {
-        ch = substr(pat, i, 1)
-        if (escaped) {
-            escaped = 0
-            continue
-        }
-        if (ch == "\") {
-            escaped = 1
-            continue
-        }
-        if (depth_bracket == 0) {
-            if (ch == "(") depth_paren = depth_paren + 1
-            else if (ch == ")") {
-                depth_paren = depth_paren - 1
-                if (depth_paren < 0) {
-                    errprintf("{err}" + ptype + " for %s: unmatched ')' in pattern: %s\n", cname, pat)
-                    exit(198)
-                }
-            }
-            else if (ch == "[") depth_bracket = depth_bracket + 1
-        }
-        else {
-            if (ch == "]") depth_bracket = depth_bracket - 1
-        }
-    }
-    if (depth_paren != 0) {
-        errprintf("{err}" + ptype + " for %s: unmatched '(' in pattern: %s\n", cname, pat)
-        exit(198)
-    }
-    if (depth_bracket != 0) {
-        printf("{txt}(note: " + ptype + " for %s has unclosed '[' in pattern: %s)\n", cname, pat)
-    }
 }
 
 // P1: Compute co-occurrence matrix in a single Mata pass

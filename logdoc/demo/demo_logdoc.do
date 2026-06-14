@@ -13,7 +13,7 @@
       Console:   console_output.smcl
 
     Run from the Stata-Dev repository root:
-      stata-mp -b do logdoc/demo/demo_logdoc.do
+      stata -b do logdoc/demo/demo_logdoc.do
 */
 
 version 16.0

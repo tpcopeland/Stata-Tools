@@ -7,3 +7,10 @@
 *.swp
 *~
 *.tmp
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Editor / R debris
+.Rhistory

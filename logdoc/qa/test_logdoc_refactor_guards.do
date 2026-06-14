@@ -368,9 +368,91 @@ else {
 }
 
 * ---------------------------------------------------------------------------
+* G10: logdoc start is RNG-neutral (does not perturb c(rngstate))
+* ---------------------------------------------------------------------------
+* The uniqueness draw for the temp-log name must not advance the caller's
+* RNG, or a seeded bootstrap/simulate wrapped in a logdoc session would
+* silently change results. See clarity audit IMPORTANT #1.
+local test_total = `test_total' + 1
+local g10_out "`outdir'/rng_neutral.html"
+set seed 123456
+local g10_before = c(rngstate)
+capture noisily {
+    logdoc start, output("`g10_out'") replace quiet
+    logdoc stop
+}
+local g10_rc = _rc
+local g10_after = c(rngstate)
+if `g10_rc' == 0 & "`g10_before'" == "`g10_after'" {
+    display as result "G10 PASS: logdoc start preserves c(rngstate)"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "G10 FAIL: rngstate perturbed (rc=`g10_rc')"
+    capture logdoc stop
+    local test_fail = `test_fail' + 1
+}
+
+* ---------------------------------------------------------------------------
+* G11: diff compare() accepts its documented minimum abbreviation (comp)
+* ---------------------------------------------------------------------------
+* sthlp documents {opt comp:are(...)}; COMPare(string) min abbrev is `comp'.
+* Typing `comp(...)' must not raise rc 198. See clarity audit IMPORTANT #3.
+local test_total = `test_total' + 1
+local g11_in "`outdir'/g11_a.smcl"
+local g11_cmp "`outdir'/g11_b.smcl"
+tempname g11fh
+file open `g11fh' using "`g11_in'", write text replace
+file write `g11fh' "{smcl}" _n `"{com}. display "G11_A""' _n "{res}G11_A" _n
+file close `g11fh'
+file open `g11fh' using "`g11_cmp'", write text replace
+file write `g11fh' "{smcl}" _n `"{com}. display "G11_B""' _n "{res}G11_B" _n
+file close `g11fh'
+capture noisily logdoc diff using "`g11_in'", comp("`g11_cmp'") ///
+    output("`outdir'/g11_diff.html") replace quiet
+local g11_rc = _rc
+if `g11_rc' != 198 {
+    display as result "G11 PASS: comp() abbreviation parses (rc=`g11_rc')"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "G11 FAIL: comp() rejected with rc 198"
+    local test_fail = `test_fail' + 1
+}
+
+* ---------------------------------------------------------------------------
+* G12: stataexe() rejects shell metacharacters in the run executable
+* ---------------------------------------------------------------------------
+* stataexe() is interpolated into a shell command; metacharacters must be
+* refused with rc 198 before any shell call. See clarity audit IMPORTANT #2.
+local test_total = `test_total' + 1
+local g12_do "`outdir'/g12_run.do"
+tempname g12fh
+file open `g12fh' using "`g12_do'", write text replace
+file write `g12fh' "display 1" _n
+file close `g12fh'
+capture noisily logdoc using "`g12_do'", run output("`outdir'/g12.html") ///
+    stataexe("stata|evil") replace
+local g12_rc = _rc
+if `g12_rc' == 198 {
+    display as result "G12 PASS: stataexe() metacharacter guard fires (rc=198)"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "G12 FAIL: stataexe() guard did not fire (rc=`g12_rc')"
+    local test_fail = `test_fail' + 1
+}
+
+* ---------------------------------------------------------------------------
 * Cleanup
 * ---------------------------------------------------------------------------
 capture cd "`oldpwd'"
+capture erase "`outdir'/rng_neutral.html"
+capture erase "`outdir'/g11_a.smcl"
+capture erase "`outdir'/g11_b.smcl"
+capture erase "`outdir'/g11_diff.html"
+capture erase "`outdir'/g12_run.do"
+capture erase "`outdir'/g12.html"
 capture erase "`smcl_fixture'"
 capture erase "`smcl_compare'"
 capture erase "`outdir'/bad_format.html"

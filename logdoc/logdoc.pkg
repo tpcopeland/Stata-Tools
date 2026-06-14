@@ -23,11 +23,11 @@ d KW: Quarto
 d
 d Requires: Stata version 16, Python 3.6+
 d
-d Distribution-Date: 20260515
+d Distribution-Date: 20260614
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
-d Support: tcopeland@berkeley.edu
+d Support: timothy.copeland@ki.se
 d
 f logdoc.ado
 f logdoc.sthlp
