@@ -3297,13 +3297,15 @@ capture erase "`md_hr'"
 tabtools set clear
 
 * Locate optional package-local check_xlsx.py validator
-local checker ""
-foreach _trypath in "`qa_dir'/tools" {
+* Resolve the canonical xlsx checker: central Stata-Dev copy, then a
+* package-local tools/ fallback. (A prior migration reset this to "" and
+* confirmed the wrong macro, silently disabling every VA Excel-cell check.)
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+capture confirm file "`checker'"
+if _rc != 0 {
+    local checker "`tools_dir'/check_xlsx.py"
     capture confirm file "`checker'"
-    if _rc == 0 {
-        local checker "`checker'"
-        continue, break
-    }
+    if _rc != 0 local checker ""
 }
 local has_checker = ("`checker'" != "")
 if !`has_checker' {

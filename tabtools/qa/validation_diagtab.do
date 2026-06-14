@@ -627,13 +627,15 @@ else {
 
 **# Migrated: shared Excel-checking helpers
 
-local checker ""
-foreach _trypath in "`qa_dir'/tools" {
+* Resolve the canonical xlsx checker: central Stata-Dev copy, then a
+* package-local tools/ fallback. (A prior migration reset this to "" and
+* confirmed the wrong macro, silently disabling every VA Excel-cell check.)
+local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+capture confirm file "`checker'"
+if _rc != 0 {
+    local checker "`tools_dir'/check_xlsx.py"
     capture confirm file "`checker'"
-    if _rc == 0 {
-        local checker "`checker'"
-        continue, break
-    }
+    if _rc != 0 local checker ""
 }
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
@@ -957,6 +959,78 @@ foreach _m in wilson exact {
         display as error "  FAIL: VC13.3 — diagtab `_m' Se/Sp vs cii (rc=`=_rc')"
         local ++fail_count
     }
+}
+
+* --- VC13.5: PPV/NPV/accuracy bounds match hand-computed cii oracle ---
+* diagtab computes these as cii proportions (TP+FP) TP, (TN+FN) TN, and
+* N (TP+TN) respectively (diagtab.ado:243/248/253), so the returned bounds
+* must reproduce cii exactly for both methods. Literal r(ppv_lb) etc. (vs the
+* looped surface check in VC13.1/.2) pins them to a known answer.
+foreach _m in wilson exact {
+    local ++n_total
+    capture noisily {
+        _ke_diag2x2
+        diagtab test gold, `_m'
+
+        qui cii proportions 90 80, `_m'      // PPV = TP/(TP+FP) = 80/90
+        local _ppv_lb = r(lb)
+        local _ppv_ub = r(ub)
+        qui cii proportions 110 90, `_m'     // NPV = TN/(TN+FN) = 90/110
+        local _npv_lb = r(lb)
+        local _npv_ub = r(ub)
+        qui cii proportions 200 170, `_m'    // accuracy = (TP+TN)/N = 170/200
+        local _acc_lb = r(lb)
+        local _acc_ub = r(ub)
+
+        diagtab test gold, `_m'
+        assert abs(r(ppv_lb) - `_ppv_lb') < 1e-9
+        assert abs(r(ppv_ub) - `_ppv_ub') < 1e-9
+        assert abs(r(npv_lb) - `_npv_lb') < 1e-9
+        assert abs(r(npv_ub) - `_npv_ub') < 1e-9
+        assert abs(r(accuracy_lb) - `_acc_lb') < 1e-9
+        assert abs(r(accuracy_ub) - `_acc_ub') < 1e-9
+    }
+    if _rc == 0 {
+        display as result "  PASS: VC13.5 — diagtab `_m' PPV/NPV/accuracy bounds match cii proportions"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: VC13.5 — diagtab `_m' PPV/NPV/accuracy vs cii (rc=`=_rc')"
+        local ++fail_count
+    }
+}
+
+* --- VC13.6: LR+/LR-/DOR bounds match hand-computed log-method oracle ---
+* diagtab uses log-method CIs with z=1.96 (diagtab.ado:501-510): LR+/LR- use
+* the Simel/Altman SE, DOR uses Woolf's SE. Reproduce exactly for the
+* reference 2x2 (TP=80, FP=10, FN=20, TN=90). Pins r(lr_pos_lb) etc. with
+* literal names (VC13.1/.2 only range/order-check the ratio bounds).
+local ++n_total
+capture noisily {
+    _ke_diag2x2
+    diagtab test gold
+
+    local _lrp = 8.0
+    local _lrn = 0.2/0.9
+    local _dor = 36.0
+    local _se_lrp = sqrt(1/80 - 1/100 + 1/10 - 1/100)
+    local _se_lrn = sqrt(1/20 - 1/100 + 1/90 - 1/100)
+    local _se_dor = sqrt(1/80 + 1/10 + 1/20 + 1/90)
+
+    assert abs(r(lr_pos_lb) - exp(ln(`_lrp') - 1.96*`_se_lrp')) < 1e-9
+    assert abs(r(lr_pos_ub) - exp(ln(`_lrp') + 1.96*`_se_lrp')) < 1e-9
+    assert abs(r(lr_neg_lb) - exp(ln(`_lrn') - 1.96*`_se_lrn')) < 1e-9
+    assert abs(r(lr_neg_ub) - exp(ln(`_lrn') + 1.96*`_se_lrn')) < 1e-9
+    assert abs(r(dor_lb) - exp(ln(`_dor') - 1.96*`_se_dor')) < 1e-9
+    assert abs(r(dor_ub) - exp(ln(`_dor') + 1.96*`_se_dor')) < 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.6 — diagtab LR+/LR-/DOR bounds match log-method oracle"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.6 — diagtab LR+/LR-/DOR bounds vs oracle (rc=`=_rc')"
+    local ++fail_count
 }
 
 * --- VC13.4: AUC CI bounds present, in [0,1], ordered (auc option) ---
