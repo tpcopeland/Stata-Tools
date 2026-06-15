@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  15jun2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -851,10 +851,10 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Version 1.0.1, 2026-06-15{p_end}
 
 
 {title:Also see}

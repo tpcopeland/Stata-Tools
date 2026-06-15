@@ -1,0 +1,4 @@
+# QA build artifacts — never track
+*.log
+*.smcl
+output/

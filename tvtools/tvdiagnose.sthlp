@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  15jun2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
@@ -239,7 +239,7 @@ options such as {cmd:layer}, {cmd:priority()}, or {cmd:split}.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
+Timothy P Copeland, Karolinska Institutet{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet, Stockholm, Sweden{break}
 Email: timothy.copeland@ki.se

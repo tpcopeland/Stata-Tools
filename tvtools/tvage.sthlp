@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  15jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
@@ -263,7 +263,7 @@ band are constant, ready for age-stratified or age-adjusted analysis.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{break}
+{pstd}Timothy P Copeland, Karolinska Institutet{break}
 Karolinska Institutet{break}
 Stockholm, Sweden{p_end}
 

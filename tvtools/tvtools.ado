@@ -1,6 +1,6 @@
-*! tvtools Version 1.0.0  2026/04/08
+*! tvtools Version 1.0.1  2026/06/15
 *! A suite of commands for time-varying exposure analysis
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
@@ -115,9 +115,22 @@ program define tvtools, rclass
     }
 
     // Return results
+    * Derive version from the *! header so the literal cannot drift on a bump
+    local version "unknown"
+    capture findfile tvtools.ado
+    if !_rc {
+        tempname _fh
+        capture file open `_fh' using "`r(fn)'", read text
+        if !_rc {
+            file read `_fh' _header_line
+            file close `_fh'
+            if regexm("`_header_line'", "Version ([0-9.]+)") local version = regexs(1)
+        }
+    }
+
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.0.0"
+    return local version "`version'"
     return local categories "prep diag weight"
 
     } // end capture noisily

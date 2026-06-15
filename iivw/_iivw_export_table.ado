@@ -18,12 +18,12 @@ program define _iivw_export_table, rclass
     capture noisily {
 
     syntax , TABLEFRAME(name) ///
-        [XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
+        [XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(integer 4) LAYout(string)]
 
     local __iivw_dq = char(34)
-    foreach __iivw_opt in xlsx excel sheet title footnote {
+    foreach __iivw_opt in xlsx sheet title footnote {
         local __iivw_tmp `"``__iivw_opt''"'
         local __iivw_tmp = strtrim(`"`__iivw_tmp'"')
         local __iivw_tmp = subinstr(`"`__iivw_tmp'"', `"`__iivw_dq'"', "", .)
@@ -61,15 +61,8 @@ program define _iivw_export_table, rclass
     }
 
     local __iivw_xlsx `"`xlsx'"'
-    if `"`excel'"' != "" {
-        if `"`__iivw_xlsx'"' != "" & `"`__iivw_xlsx'"' != `"`excel'"' {
-            display as error "xlsx() and excel() specify different files"
-            error 198
-        }
-        local __iivw_xlsx `"`excel'"'
-    }
     if `"`__iivw_xlsx'"' == "" {
-        display as error "xlsx() or excel() is required for reporting export"
+        display as error "xlsx() is required for reporting export"
         error 198
     }
 
@@ -82,7 +75,7 @@ program define _iivw_export_table, rclass
     local __iivw_xlsx_len = strlen(`"`__iivw_xlsx'"')
     if `__iivw_xlsx_len' < 6 | ///
         lower(substr(`"`__iivw_xlsx'"', `__iivw_xlsx_len' - 4, 5)) != ".xlsx" {
-        display as error "xlsx()/excel() must name a .xlsx file"
+        display as error "xlsx() must name a .xlsx file"
         error 198
     }
 

@@ -43,9 +43,9 @@ program define iivw_balance, rclass
     syntax [varlist(default=none numeric)] [if] [in] , ///
         [cvcut(real 0.10) essratiocut(real 0.95) ///
          smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon ///
-         XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
+         XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(string) DIGits(string)]
+         DECimals(string)]
 
     if `cvcut' < 0 {
         display as error "cvcut() must be greater than or equal to 0"
@@ -70,26 +70,8 @@ program define iivw_balance, rclass
             error 198
         }
     }
-    if "`digits'" != "" {
-        capture confirm integer number `digits'
-        if _rc {
-            display as error "digits() must be an integer"
-            error 198
-        }
-        if `digits' < 0 | `digits' > 6 {
-            display as error "digits() must be between 0 and 6"
-            error 198
-        }
-    }
-    if "`decimals'" != "" & "`digits'" != "" {
-        if `decimals' != `digits' {
-            display as error "decimals() and digits() specify different values"
-            error 198
-        }
-    }
     local __iivw_decimals = 4
     if "`decimals'" != "" local __iivw_decimals = `decimals'
-    if "`digits'" != "" local __iivw_decimals = `digits'
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
@@ -445,7 +427,7 @@ program define iivw_balance, rclass
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     local __iivw_export_requested = 0
-    if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+    if `"`xlsx'"' != "" | ///
         `"`sheet'"' != "" | "`open'" != "" {
         local __iivw_export_requested = 1
     }
@@ -561,17 +543,14 @@ program define iivw_balance, rclass
 
         local __iivw_sheet `"`sheet'"'
         if `"`__iivw_sheet'"' == "" & ///
-            (`"`xlsx'"' != "" | `"`excel'"' != "") local __iivw_sheet "Balance"
+            `"`xlsx'"' != "" local __iivw_sheet "Balance"
 
         local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_excel `"`excel'"'
         local __iivw_clean_xlsx = subinstr(`"`__iivw_clean_xlsx'"', `"`__iivw_dq'"', "", .)
-        local __iivw_clean_excel = subinstr(`"`__iivw_clean_excel'"', `"`__iivw_dq'"', "", .)
         local __iivw_clean_sheet = subinstr(`"`__iivw_sheet'"', `"`__iivw_dq'"', "", .)
 
         local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
         if `"`__iivw_clean_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_clean_xlsx'")"'
-        if `"`__iivw_clean_excel'"' != "" local __iivw_export_opts `"`__iivw_export_opts' excel("`__iivw_clean_excel'")"'
         if `"`__iivw_clean_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_clean_sheet'")"'
         if `"`__iivw_clean_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_clean_title'")"'
         if `"`__iivw_clean_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_clean_footnote'")"'

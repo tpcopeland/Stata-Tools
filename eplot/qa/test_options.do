@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v2.do
+* test_options.do
 * Functional tests for eplot v2.0.0 new features
 *
 * Tests: multi-model, values, vformat, dp, sort, order, cicap, marker/CI
@@ -34,8 +34,8 @@ cap ado uninstall eplot   // remove any installed copy so the local package is t
 adopath ++ "`pkg_dir'"
 
 capture log close _all
-log using "`qa_dir'/test_eplot_v2.log", replace text nomsg ///
-    name(test_v2)
+log using "`qa_dir'/test_options.log", replace text nomsg ///
+    name(test_options)
 
 local test_count 0
 local pass_count 0
@@ -985,4 +985,4 @@ else {
     display as result "ALL TESTS PASSED!"
 }
 
-log close test_v2
+log close test_options

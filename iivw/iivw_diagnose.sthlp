@@ -43,14 +43,12 @@
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
 {synopt:{opt l:evel(#)}}confidence level for coefficient intervals; must be greater than 10 and less than 99.99; default is {cmd:95}{p_end}
 {synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
-{synopt:{opt excel(filename)}}synonym for {opt xlsx()}; not abbreviated, so {cmd:ex()} remains {opt exogeneity()}{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
 {synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
 {synopt:{opt t:itle(string)}}optional Excel title row{p_end}
 {synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
-{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -122,12 +120,8 @@ title, grouped headers, estimate rows under {cmd:Estimate}, {cmd:SE}, and
 row labels, column widths, borders, and an explanatory footnote.
 
 {phang}
-{opt excel(filename)} is a synonym for {opt xlsx()}.  This option is not
-abbreviated so that {cmd:ex()} continues to mean {opt exogeneity()}.
-
-{phang}
 {opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Diagnostics}.  This option requires {opt xlsx()} or {opt excel()}.
+{cmd:Diagnostics}.  This option requires {opt xlsx()}.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists.  Excel
@@ -139,7 +133,7 @@ returned in {cmd:r()}.
 
 {phang}
 {opt open} opens the Excel workbook after writing it.  This option requires
-{opt xlsx()} or {opt excel()}.
+{opt xlsx()}.
 
 {phang}
 {opt title(string)} and {opt footnote(string)} add optional title and footnote
@@ -147,8 +141,7 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used in Excel numeric
-cell formatting.  {opt digits(#)} is a synonym.  The allowed range is
-0 through 6; the default is 4.
+cell formatting.  The allowed range is 0 through 6; the default is 4.
 
 
 {marker estimand}{...}
@@ -282,23 +275,7 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synoptset 28 tabbed}{...}
 {synopthdr:Scalars}
 {synoptline}
-{synopt:{cmd:r(b_unweighted)}}unweighted coefficient estimate{p_end}
-{synopt:{cmd:r(se_unweighted)}}standard error for unweighted estimate{p_end}
-{synopt:{cmd:r(b_weighted)}}weighted coefficient estimate{p_end}
-{synopt:{cmd:r(se_weighted)}}standard error for weighted estimate{p_end}
-{synopt:{cmd:r(b_adjusted)}}weighted plus measurement-adjusted coefficient estimate{p_end}
-{synopt:{cmd:r(se_adjusted)}}standard error for adjusted estimate{p_end}
-{synopt:{cmd:r(sampling_gap)}}unweighted minus weighted estimate{p_end}
-{synopt:{cmd:r(artifact_gap)}}weighted minus adjusted estimate{p_end}
-{synopt:{cmd:r(total_gap)}}unweighted minus adjusted estimate{p_end}
-{synopt:{cmd:r(sampling_share)}}sampling share; missing for contrasts or tiny total gaps{p_end}
-{synopt:{cmd:r(artifact_share)}}artifact share; missing for contrasts or tiny total gaps{p_end}
-{synopt:{cmd:r(bounds_lower)}}lower endpoint of weighted/adjusted diagnostic range{p_end}
-{synopt:{cmd:r(bounds_upper)}}upper endpoint of weighted/adjusted diagnostic range{p_end}
-{synopt:{cmd:r(true)}}known true value, if {opt true()} is specified{p_end}
-{synopt:{cmd:r(bias_unweighted)}}unweighted estimate minus true value{p_end}
-{synopt:{cmd:r(bias_weighted)}}weighted estimate minus true value{p_end}
-{synopt:{cmd:r(bias_adjusted)}}adjusted estimate minus true value{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 {synoptline}
 
 {synopthdr:Macros}
@@ -310,18 +287,15 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
 {synopt:{cmd:r(conclusion)}}interpretation category{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
-{synoptline}
-
-{synopthdr:Export scalars}
-{synoptline}
-{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 {synoptline}
 
 {synopthdr:Matrices}
 {synoptline}
 {synopt:{cmd:r(estimates)}}rows {cmd:unweighted}, {cmd:weighted}, {cmd:adjusted}; columns {cmd:b}, {cmd:se}, {cmd:ll}, {cmd:ul}{p_end}
+{synopt:{cmd:r(decomp)}}column {cmd:value}; rows {cmd:sampling_gap}, {cmd:artifact_gap}, {cmd:total_gap}, {cmd:sampling_share}, {cmd:artifact_share}, {cmd:bounds_lower}, {cmd:bounds_upper} (shares are missing for contrasts or tiny total gaps){p_end}
+{synopt:{cmd:r(bias)}}only with {opt true()}; column {cmd:value}; rows {cmd:true}, {cmd:bias_unweighted}, {cmd:bias_weighted}, {cmd:bias_adjusted}{p_end}
 {synoptline}
 {p2colreset}{...}
 

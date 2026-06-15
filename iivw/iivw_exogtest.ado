@@ -24,7 +24,7 @@ Options:
   efron              - Use Efron ties in stcox
   nolog              - Suppress Cox iteration log
   level(#)           - Confidence level for displayed HR intervals
-  xlsx()/excel()     - Export diagnostic table to a styled Excel sheet
+  xlsx()             - Export diagnostic table to a styled Excel sheet
 
 See help iivw_exogtest for complete documentation
 */
@@ -54,9 +54,9 @@ program define iivw_exogtest, rclass sortpreserve
         ID(varname) TIME(varname numeric) ///
         [ADJust(varlist numeric) BY(varname) ENTry(varname numeric) ///
          GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
-         XLSX(string asis) EXCEL(string asis) SHEET(string asis) ///
+         XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(string) DIGits(string) OPEN]
+         DECimals(string) OPEN]
 
     if "`decimals'" != "" {
         capture confirm integer number `decimals'
@@ -69,26 +69,8 @@ program define iivw_exogtest, rclass sortpreserve
             error 198
         }
     }
-    if "`digits'" != "" {
-        capture confirm integer number `digits'
-        if _rc {
-            display as error "digits() must be an integer"
-            error 198
-        }
-        if `digits' < 0 | `digits' > 6 {
-            display as error "digits() must be between 0 and 6"
-            error 198
-        }
-    }
-    if "`decimals'" != "" & "`digits'" != "" {
-        if `decimals' != `digits' {
-            display as error "decimals() and digits() specify different values"
-            error 198
-        }
-    }
     local __iivw_dec_final = 3
     if "`decimals'" != "" local __iivw_dec_final = `decimals'
-    if "`digits'" != "" local __iivw_dec_final = `digits'
     local decimals = `__iivw_dec_final'
 
     if "`generate'" == "" local generate "_iivw_exog_"
@@ -489,7 +471,7 @@ program define iivw_exogtest, rclass sortpreserve
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     local __iivw_exog_export_req = 0
-    if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+    if `"`xlsx'"' != "" | ///
         `"`sheet'"' != "" | "`open'" != "" {
         local __iivw_exog_export_req = 1
     }
@@ -512,11 +494,10 @@ program define iivw_exogtest, rclass sortpreserve
 
         local __iivw_dq = char(34)
         local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_excel `"`excel'"'
         local __iivw_clean_sheet `"`sheet'"'
         local __iivw_clean_title `"`title'"'
         local __iivw_clean_foot `"`footnote'"'
-        foreach __iivw_clean in xlsx excel sheet title foot {
+        foreach __iivw_clean in xlsx sheet title foot {
             local __iivw_clean_tmp `"`__iivw_clean_`__iivw_clean''"'
             local __iivw_clean_tmp = subinstr(`"`__iivw_clean_tmp'"', `"`__iivw_dq'"', "", .)
             local __iivw_clean_`__iivw_clean' `"`__iivw_clean_tmp'"'
@@ -636,9 +617,6 @@ program define iivw_exogtest, rclass sortpreserve
             `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_clean_sheet'") title("`__iivw_clean_title'") footnote("`__iivw_clean_foot'") layout(tabtools)"'
         if `"`__iivw_clean_xlsx'"' != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_clean_xlsx'")"'
-        }
-        if `"`__iivw_clean_excel'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' excel("`__iivw_clean_excel'")"'
         }
         if "`open'" != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' open"'

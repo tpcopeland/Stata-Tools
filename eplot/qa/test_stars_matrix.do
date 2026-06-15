@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v230.do
+* test_stars_matrix.do
 *
 * Purpose: Tests for eplot v2.3.0 bug fixes and new features
 *
@@ -69,8 +69,8 @@ if "`pkg_dir'" == "" local pkg_dir "`c(pwd)'"
 local qa_dir "`pkg_dir'/qa"
 
 capture log close _all
-log using "`qa_dir'/test_eplot_v230.log", replace text nomsg ///
-    name(test_v230)
+log using "`qa_dir'/test_stars_matrix.log", replace text nomsg ///
+    name(test_stars_matrix)
 
 local test_count 0
 local pass_count 0
@@ -922,4 +922,4 @@ else {
     display as result "ALL TESTS PASSED!"
 }
 
-log close test_v230
+log close test_stars_matrix

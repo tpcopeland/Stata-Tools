@@ -1,6 +1,6 @@
-*! tvmerge Version 1.0.0  2026/04/08
+*! tvmerge Version 1.0.1  2026/06/15
 *! Merge multiple time-varying exposure datasets
-*! Author: Tim Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -438,7 +438,7 @@ program define tvmerge, rclass
         * CRITICAL FIX: Ensure all new variables use double type
         capture confirm variable `id'
         if _rc != 0 {
-            di as error "Variable `id' not found in `first_ds'"
+            noisily di as error "Variable `id' not found in `first_ds'"
             exit 111
         }
         
@@ -446,19 +446,19 @@ program define tvmerge, rclass
         local stop1: word 1 of `stops'
         capture confirm variable `start1'
         if _rc != 0 {
-            di as error "Variable `start1' not found in `first_ds'"
+            noisily di as error "Variable `start1' not found in `first_ds'"
             exit 111
         }
         capture confirm variable `stop1'
         if _rc != 0 {
-            di as error "Variable `stop1' not found in `first_ds'"
+            noisily di as error "Variable `stop1' not found in `first_ds'"
             exit 111
         }
         
         local exp1: word 1 of `exposures_raw'
         capture confirm variable `exp1'
         if _rc != 0 {
-            di as error "Variable `exp1' not found in `first_ds'"
+            noisily di as error "Variable `exp1' not found in `first_ds'"
             exit 111
         }
         
@@ -574,18 +574,18 @@ program define tvmerge, rclass
 
             * Validate that we got valid variable names
             if "`start_k_varname'" == "" {
-                di as error "Could not extract start variable name for dataset `k' from start() option"
-                di as error "start() option contains: `starts'"
+                noisily di as error "Could not extract start variable name for dataset `k' from start() option"
+                noisily di as error "start() option contains: `starts'"
                 exit 198
             }
             if "`stop_k_varname'" == "" {
-                di as error "Could not extract stop variable name for dataset `k' from stop() option"
-                di as error "stop() option contains: `stops'"
+                noisily di as error "Could not extract stop variable name for dataset `k' from stop() option"
+                noisily di as error "stop() option contains: `stops'"
                 exit 198
             }
             if "`exp_k_raw'" == "" {
-                di as error "Could not extract exposure variable name for dataset `k' from exposure() option"
-                di as error "exposure() option contains: `exposures_raw'"
+                noisily di as error "Could not extract exposure variable name for dataset `k' from exposure() option"
+                noisily di as error "exposure() option contains: `exposures_raw'"
                 exit 198
             }
 
@@ -609,7 +609,7 @@ program define tvmerge, rclass
             }
 
             if "`exp_k_list'" == "" {
-                di as error "No exposure variables found in `ds_k'"
+                noisily di as error "No exposure variables found in `ds_k'"
                 exit 111
             }
 
@@ -622,32 +622,32 @@ program define tvmerge, rclass
             * If user's variable is NOT named start_k but dataset already has start_k,
             * we'll have a conflict during rename
             if `has_start_k' & "`start_k_varname'" != "start_k" {
-                di as error "Dataset `ds_k' already contains a variable named 'start_k'"
-                di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
+                noisily di as error "Dataset `ds_k' already contains a variable named 'start_k'"
+                noisily di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
                 exit 110
             }
             if `has_stop_k' & "`stop_k_varname'" != "stop_k" {
-                di as error "Dataset `ds_k' already contains a variable named 'stop_k'"
-                di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
+                noisily di as error "Dataset `ds_k' already contains a variable named 'stop_k'"
+                noisily di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
                 exit 110
             }
 
             * Verify required variables exist
             capture confirm variable `id'
             if _rc != 0 {
-                di as error "Variable `id' not found in `ds_k'"
+                noisily di as error "Variable `id' not found in `ds_k'"
                 exit 111
             }
             capture confirm variable `start_k_varname'
             if _rc != 0 {
-                di as error "Variable `start_k_varname' not found in `ds_k'"
-                di as error "(This is variable `k' from start() option: `starts')"
+                noisily di as error "Variable `start_k_varname' not found in `ds_k'"
+                noisily di as error "(This is variable `k' from start() option: `starts')"
                 exit 111
             }
             capture confirm variable `stop_k_varname'
             if _rc != 0 {
-                di as error "Variable `stop_k_varname' not found in `ds_k'"
-                di as error "(This is variable `k' from stop() option: `stops')"
+                noisily di as error "Variable `stop_k_varname' not found in `ds_k'"
+                noisily di as error "(This is variable `k' from stop() option: `stops')"
                 exit 111
             }
             * Note: exp_k_raw (word k of exposure list) may not exist in this dataset
@@ -1089,7 +1089,7 @@ program define tvmerge, rclass
             foreach var in `keep' {
                 local var_found: list var in keep_vars_found
                 if `var_found' == 0 {
-                    di as error "Variable '`var'' specified in keep() was not found in any dataset"
+                    noisily di as error "Variable '`var'' specified in keep() was not found in any dataset"
                     exit 111
                 }
             }

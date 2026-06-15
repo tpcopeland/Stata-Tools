@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v110.do
+* test_layout.do
 * Focused regression tests for eplot v1.1.0
 *
 * Covers:
@@ -20,7 +20,7 @@ capture ado uninstall eplot
 quietly net install eplot, from("`pkg_dir'") replace
 
 capture log close _all
-log using "`qa_dir'/test_eplot_v110.log", replace text nomsg name(test_v110)
+log using "`qa_dir'/test_layout.log", replace text nomsg name(test_layout)
 
 local test_count 0
 local pass_count 0
@@ -273,4 +273,4 @@ if `fail_count' > 0 {
     exit 1
 }
 
-log close test_v110
+log close test_layout

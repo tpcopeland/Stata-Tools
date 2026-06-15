@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v202.do
+* test_edge_cases.do
 * Tests for eplot v2.0.2 bug fixes
 *
 * Tests:
@@ -40,8 +40,8 @@ capture program drop _eplot_process_headers
 run "`pkg_dir'/eplot.ado"
 
 capture log close _all
-log using "`pkg_dir'/qa/test_eplot_v202.log", replace text nomsg ///
-    name(test_v202)
+log using "`pkg_dir'/qa/test_edge_cases.log", replace text nomsg ///
+    name(test_edge_cases)
 
 local test_count 0
 local pass_count 0
@@ -517,4 +517,4 @@ else {
     display as result "ALL TESTS PASSED!"
 }
 
-log close test_v202
+log close test_edge_cases

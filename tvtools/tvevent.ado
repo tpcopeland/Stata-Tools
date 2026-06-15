@@ -1,6 +1,6 @@
-*! tvevent Version 1.0.0  2026/04/08
+*! tvevent Version 1.0.1  2026/06/15
 *! Add event/failure flags to time-varying datasets
-*! Author: Tim Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *!
 *! Program class: rclass (returns results in r())
 
@@ -59,6 +59,10 @@ program define tvevent, rclass
          STOPvar(name) ///
          VALidate ///
          REPlace]
+
+    * Row-id used as a reshape uniqueness key; a tempvar avoids colliding with a
+    * user column that survives the keep below (previously a hardcoded _obs).
+    tempvar obs
 
     **# 1. INPUT VALIDATION
 
@@ -326,7 +330,7 @@ program define tvevent, rclass
         if "`type'" == "single" {
             keep `id' `date' `compete'
             * Stack primary + competing dates into one column
-            gen long _obs = _n
+            gen long `obs' = _n
             local _all_dates "`date'"
             if "`compete'" != "" {
                 local _all_dates "`date' `compete'"
@@ -337,19 +341,19 @@ program define tvevent, rclass
                 local ++_j
             }
             local _nj = `_j' - 1
-            reshape long _edate_, i(`id' _obs) j(_eventnum)
+            reshape long _edate_, i(`id' `obs') j(_eventnum)
             drop if missing(_edate_)
             rename _edate_ _event_date
-            drop _obs _eventnum
+            drop `obs' _eventnum
         }
         else {
             keep `id' `eventvars'
             * Reshape to long for checking
-            gen long _obs = _n
-            reshape long `date', i(`id' _obs) j(_eventnum)
+            gen long `obs' = _n
+            reshape long `date', i(`id' `obs') j(_eventnum)
             drop if missing(`date')
             rename `date' _event_date
-            drop _obs _eventnum
+            drop `obs' _eventnum
         }
         save `master_events', replace
 
@@ -433,13 +437,13 @@ program define tvevent, rclass
 
             * Reshape wide event dates to long format
             * eventvars are: date1 date2 date3 ...
-            * _obs ensures uniqueness when duplicate IDs exist (warned but allowed)
-            gen long _obs = _n
-            reshape long `date', i(`id' _obs) j(_eventnum)
+            * `obs' ensures uniqueness when duplicate IDs exist (warned but allowed)
+            gen long `obs' = _n
+            reshape long `date', i(`id' `obs') j(_eventnum)
 
             * Drop missing event dates and temporary variables
             drop if missing(`date')
-            drop _obs _eventnum
+            drop `obs' _eventnum
 
             * Floor dates and set event type (all are type 1 for recurring)
             replace `date' = floor(`date')
@@ -950,8 +954,8 @@ end
 cap program drop _tvevent_empty_output
 program define _tvevent_empty_output, rclass
     version 16.0
-    syntax , using(string) id(name) startvar(name) stopvar(name) ///
-        generate(name) timeunit(string) [timegen(name) REPlace]
+    syntax , using(string) id(name) STARTvar(name) STOPvar(name) ///
+        GENerate(name) TIMEUnit(string) [TIMEGen(name) REPlace]
 
     use "`using'", clear
 

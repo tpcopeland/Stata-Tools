@@ -46,14 +46,12 @@
 
 {syntab:Reporting}
 {synopt:{opt xlsx(filename)}}write the balance table to an Excel workbook{p_end}
-{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(sheetname)}}Excel worksheet name; default is {cmd:Balance}{p_end}
 {synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
-{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -132,11 +130,8 @@ when available, column widths, borders, and an explanatory footnote.  The
 numeric values are rendered from {cmd:r(balance)} for presentation.
 
 {phang}
-{opt excel(filename)} is a synonym for {opt xlsx()}.
-
-{phang}
 {opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Balance}.  This option requires {opt xlsx()} or {opt excel()}.
+{cmd:Balance}.  This option requires {opt xlsx()}.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists.  Excel
@@ -148,7 +143,7 @@ returned in {cmd:r()}.
 
 {phang}
 {opt open} opens the Excel workbook after writing it.  This option requires
-{opt xlsx()} or {opt excel()}.
+{opt xlsx()}.
 
 {phang}
 {opt title(string)} and {opt footnote(string)} add optional title and footnote
@@ -156,8 +151,7 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used in Excel numeric
-cell formatting.  {opt digits(#)} is a synonym.  The allowed range is
-0 through 6; the default is 4.
+cell formatting.  The allowed range is 0 through 6; the default is 4.
 
 
 {marker remarks}{...}
@@ -261,7 +255,7 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
 {synopt:{cmd:r(balance_flag)}}{cmd:good} or {cmd:poor}{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
 
 {p2col 5 28 32 2:Export scalars}{p_end}

@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.1** | 2026-06-15
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, and create age-band intervals.
 
@@ -138,6 +138,7 @@ Creates time-varying age intervals from dates of birth and follow-up dates. Expa
 
 ## Version History
 
+- **1.0.1** (2026-06-15): Bug fixes. `tvmerge` now shows variable-not-found and option-parsing errors that were previously suppressed inside a `quietly` block (silent `exit` with no message). `tvevent` uses a tempvar for its reshape row-id instead of a hardcoded `_obs`. Internal `tvevent` helper option abbreviations aligned with the documented forms. Canonical author/affiliation standardized across all files.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release
 
 ## Author

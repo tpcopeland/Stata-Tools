@@ -22,9 +22,9 @@ program define iivw_diagnose, rclass
         syntax anything(name=coefficient id="coefficient") , ///
             UNWeighted(name) WEighted(name) ADjusted(name) ///
             [EXogeneity(string) ESTimand(string) TRue(string) ///
-             Level(real 95) XLSX(string asis) EXCEL(string asis) ///
+             Level(real 95) XLSX(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
-             DECimals(string) DIGits(string) REPLACE OPEN]
+             DECimals(string) REPLACE OPEN]
         if `level' <= 10 | `level' >= 99.99 {
             display as error "level() must be between 10 and 99.99"
             error 198
@@ -48,24 +48,6 @@ program define iivw_diagnose, rclass
                 error 198
             }
             local _decimals_final = `decimals'
-        }
-        if "`digits'" != "" {
-            capture confirm integer number `digits'
-            if _rc {
-                display as error "digits() must be an integer"
-                error 198
-            }
-            if `digits' < 0 | `digits' > 6 {
-                display as error "digits() must be between 0 and 6"
-                error 198
-            }
-            if "`decimals'" != "" {
-                if `decimals' != `digits' {
-                    display as error "decimals() and digits() specify different values"
-                    error 198
-                }
-            }
-            local _decimals_final = `digits'
         }
 
         local coefficient : list clean coefficient
@@ -279,7 +261,7 @@ program define iivw_diagnose, rclass
         }
 
         local _export_requested = 0
-        if `"`xlsx'"' != "" | `"`excel'"' != "" | ///
+        if `"`xlsx'"' != "" | ///
             `"`sheet'"' != "" | "`open'" != "" {
             local _export_requested = 1
         }
@@ -295,16 +277,14 @@ program define iivw_diagnose, rclass
 
             local _sheet `"`sheet'"'
             if `"`_sheet'"' == "" & ///
-                (`"`xlsx'"' != "" | `"`excel'"' != "") local _sheet "Diagnostics"
+                `"`xlsx'"' != "" local _sheet "Diagnostics"
 
             local _clean_xlsx `"`xlsx'"'
-            local _clean_excel `"`excel'"'
             local _clean_title `"`title'"'
             local _clean_footnote `"`footnote'"'
             local _dq = char(34)
             local _num_fmt "%9.`_decimals_final'f"
             local _clean_xlsx = subinstr(`"`_clean_xlsx'"', `"`_dq'"', "", .)
-            local _clean_excel = subinstr(`"`_clean_excel'"', `"`_dq'"', "", .)
             local _clean_sheet = subinstr(`"`_sheet'"', `"`_dq'"', "", .)
             local _clean_title = subinstr(`"`_clean_title'"', `"`_dq'"', "", .)
             local _clean_footnote = subinstr(`"`_clean_footnote'"', `"`_dq'"', "", .)
@@ -472,7 +452,6 @@ program define iivw_diagnose, rclass
 
             local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools)"'
             if `"`_clean_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_clean_xlsx'")"'
-            if `"`_clean_excel'"' != "" local _export_opts `"`_export_opts' excel("`_clean_excel'")"'
             if `"`_clean_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_clean_sheet'")"'
             if `"`_clean_title'"' != "" local _export_opts `"`_export_opts' title("`_clean_title'")"'
             if `"`_clean_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_clean_footnote'")"'
@@ -510,6 +489,23 @@ program define iivw_diagnose, rclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 
+    tempname _decomp _bias
+    if "`true'" != "" {
+        matrix `_bias' = (`true_value' \ `bias_unweighted' \ ///
+            `bias_weighted' \ `bias_adjusted')
+        matrix rownames `_bias' = true bias_unweighted bias_weighted bias_adjusted
+        matrix colnames `_bias' = value
+    }
+    matrix `_decomp' = (`sampling_gap' \ `artifact_gap' \ `total_gap' \ ///
+        `sampling_share' \ `artifact_share' \ `bounds_lower' \ `bounds_upper')
+    matrix rownames `_decomp' = sampling_gap artifact_gap total_gap ///
+        sampling_share artifact_share bounds_lower bounds_upper
+    matrix colnames `_decomp' = value
+
+    if "`true'" != "" {
+        return matrix bias = `_bias'
+    }
+    return matrix decomp = `_decomp'
     return matrix estimates = `_estimates'
     return local conclusion "`conclusion'"
     return local estimand "`estimand'"
@@ -524,24 +520,5 @@ program define iivw_diagnose, rclass
     }
     if `_export_decimals' < . {
         return scalar decimals = `_export_decimals'
-    }
-    return scalar bounds_upper = `bounds_upper'
-    return scalar bounds_lower = `bounds_lower'
-    return scalar artifact_share = `artifact_share'
-    return scalar sampling_share = `sampling_share'
-    return scalar total_gap = `total_gap'
-    return scalar artifact_gap = `artifact_gap'
-    return scalar sampling_gap = `sampling_gap'
-    return scalar se_adjusted = `se_adjusted'
-    return scalar b_adjusted = `b_adjusted'
-    return scalar se_weighted = `se_weighted'
-    return scalar b_weighted = `b_weighted'
-    return scalar se_unweighted = `se_unweighted'
-    return scalar b_unweighted = `b_unweighted'
-    if "`true'" != "" {
-        return scalar bias_adjusted = `bias_adjusted'
-        return scalar bias_weighted = `bias_weighted'
-        return scalar bias_unweighted = `bias_unweighted'
-        return scalar true = `true_value'
     }
 end

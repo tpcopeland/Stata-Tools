@@ -1,4 +1,4 @@
-*! eplot Version 1.2.2  2026/06/14
+*! eplot Version 1.2.3  2026/06/15
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1503,7 +1503,8 @@ program define _eplot_estimates, rclass
 
     // ====== P-values (compute BEFORE eform so z = b/se is valid) ======
     if `n_models' == 1 {
-        quietly gen double _pval = 2 * normal(-abs(es / se)) if se > 0 & !missing(se)
+        quietly gen double _pval = 2 * normal(-abs(es / se)) ///
+            if se > 0 & !missing(se) & !missing(es)
     }
 
     // Apply eform
@@ -2744,7 +2745,7 @@ end
 // =============================================================================
 
 capture program drop _eplot_apply_coeflabels
-program define _eplot_apply_coeflabels
+program define _eplot_apply_coeflabels, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -2780,7 +2781,7 @@ end
 // =============================================================================
 
 capture program drop _eplot_apply_keep
-program define _eplot_apply_keep
+program define _eplot_apply_keep, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -2813,7 +2814,7 @@ end
 // =============================================================================
 
 capture program drop _eplot_apply_drop
-program define _eplot_apply_drop
+program define _eplot_apply_drop, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -2841,7 +2842,7 @@ end
 // =============================================================================
 
 capture program drop _eplot_apply_rename
-program define _eplot_apply_rename
+program define _eplot_apply_rename, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off

@@ -178,8 +178,8 @@ if r(endogenous_flag) local exo "endogenous"
 iivw_diagnose years, ///
     unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) ///
     estimand(marginal) exogeneity(`exo') ///
-    excel("`export_xlsx'") sheet("Diagnostics") replace
-display as text "Diagnostic export: " as result "excel() sheet Diagnostics"
+    xlsx("`export_xlsx'") sheet("Diagnostics") replace
+display as text "Diagnostic export: " as result "xlsx() sheet Diagnostics"
 
 * # Step 7: categorical visit-wave interactions for regtab
 preserve

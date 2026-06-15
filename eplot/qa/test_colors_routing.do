@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v121.do
+* test_colors_routing.do
 *
 * Purpose: Regression tests for the v1.2.1 bug fixes
 *   - insigncolor() now parses and is honored in all modes (was a silent no-op;
@@ -126,9 +126,9 @@ set varabbrev off
 
 *------------------------------------------------------------------------------
 if `nfail' == 0 {
-    di as result "ALL test_eplot_v121 CHECKS PASSED"
+    di as result "ALL test_colors_routing CHECKS PASSED"
 }
 else {
-    di as error "`nfail' test_eplot_v121 CHECK(S) FAILED"
+    di as error "`nfail' test_colors_routing CHECK(S) FAILED"
     exit 9
 }

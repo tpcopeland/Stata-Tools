@@ -515,6 +515,13 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 
 ## Changelog
 
+### v1.6.0 (2026-06-15)
+
+- **Breaking:** Removed the `excel()` option synonym from `iivw_balance`, `iivw_diagnose`, and `iivw_exogtest`. Use `xlsx()` (the documented canonical name) instead
+- **Breaking:** Removed the `digits()` option synonym from `iivw_balance`, `iivw_diagnose`, and `iivw_exogtest`. Use `decimals()` (which still abbreviates to `dec()`) instead
+- **Breaking:** `iivw_diagnose` no longer returns the individual decomposition scalars (`r(b_unweighted)`, `r(se_weighted)`, `r(sampling_gap)`, `r(artifact_share)`, `r(bounds_lower)`, `r(bias_*)`, `r(true)`, etc.). The estimate columns remain in the existing `r(estimates)` matrix; the derived diagnostics are now grouped in a new `r(decomp)` matrix (rows `sampling_gap`, `artifact_gap`, `total_gap`, `sampling_share`, `artifact_share`, `bounds_lower`, `bounds_upper`), and the bias quantities in a new `r(bias)` matrix (rows `true`, `bias_unweighted`, `bias_weighted`, `bias_adjusted`, returned only with `true()`). Read a value with, e.g., `r(decomp)["sampling_gap", "value"]`. The numeric values are unchanged
+- The `decimals()`/`xlsx()` numeric and file behaviour is otherwise identical to v1.5.3
+
 ### v1.5.3 (2026-06-14)
 
 - Unified the Excel-export contract across the three reporting commands (`iivw_balance`, `iivw_diagnose`, `iivw_exogtest`): writing to a worksheet that already exists without `replace` now warns and still returns the diagnostic results in `r()` (rc 602 is softened) instead of `iivw_balance`/`iivw_diagnose` erroring out and discarding `r()`; genuine option errors (missing/invalid `xlsx()`, conflicting files, out-of-range `decimals()`) still hard-fail as before

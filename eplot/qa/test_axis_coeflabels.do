@@ -1,5 +1,5 @@
 /*******************************************************************************
-* test_eplot_v122.do
+* test_axis_coeflabels.do
 *
 * Purpose: Regression tests for the v1.2.2 fixes
 *   - The category (y) axis line and ticks are suppressed by default in
@@ -139,8 +139,8 @@ if !(`_p_dim' > 0 & `_p_dim' < `_p_len' & `_p_len' < `_p_head' & `_p_head' < `_p
 * Summary
 *------------------------------------------------------------------------------
 if `nfail' == 0 {
-    di as result "ALL test_eplot_v122 CHECKS PASSED"
+    di as result "ALL test_axis_coeflabels CHECKS PASSED"
 }
 else {
-    di as error "`nfail' test_eplot_v122 CHECK(S) FAILED"
+    di as error "`nfail' test_axis_coeflabels CHECK(S) FAILED"
 }

@@ -601,7 +601,7 @@ else {
     local ++fail_count
 }
 
-* TEST 14: Version is 1.0.0
+* TEST 14: Header carries a semantic version (drift-proof: matches any X.Y.Z)
 local ++test_count
 
 capture findfile tvage.ado
@@ -611,8 +611,8 @@ if _rc == 0 {
     file read `fh' line
     file close `fh'
 
-    if strpos("`line'", "1.0.0") > 0 {
-        display as result "  PASS: Version is 1.0.0"
+    if regexm("`line'", "Version ([0-9]+\.[0-9]+\.[0-9]+)") {
+        display as result "  PASS: Version is `=regexs(1)'"
         local ++pass_count
     }
     else {

@@ -2128,20 +2128,69 @@ else {
     local failed_tests "`failed_tests' 20.2"
 }
 
-* Test 20.3: tvtools version returns 1.0.0
+* Test 20.3: tvtools r(version) is derived from the .ado header (drift-proof)
 local ++test_count
 capture noisily {
+    capture findfile tvtools.ado
+    tempname fh
+    file open `fh' using "`r(fn)'", read text
+    file read `fh' line
+    file close `fh'
+    assert regexm("`line'", "Version ([0-9]+\.[0-9]+\.[0-9]+)")
+    local hdr_version = regexs(1)
     tvtools
-    assert "`r(version)'" == "1.0.0"
+    assert "`r(version)'" == "`hdr_version'"
 }
 if _rc == 0 {
-    display as result "  PASS: tvtools version is 1.0.0"
+    display as result "  PASS: tvtools version matches header (`hdr_version')"
     local ++pass_count
 }
 else {
     display as error "  FAIL: tvtools version check (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 20.3"
+}
+
+* Test 20.4: tvmerge surfaces its guarded errors to the user.
+* Regression (v1.0.1): the variable-not-found / option-parse error messages were
+* bare `di as error` inside tvmerge's `quietly {}` block, so a bad call exited
+* silently (rc set, no message). They now carry `noisily`; assert the message
+* reaches a log when the guarded path fires.
+local ++test_count
+capture noisily {
+    tempfile rds_a rds_b
+    clear
+    input int(id) double(exp_a start_a stop_a)
+    1 1 100 200
+    end
+    save "`rds_a'.dta", replace
+    clear
+    input int(id) double(exp_b start_b stop_b)
+    1 0 100 200
+    end
+    save "`rds_b'.dta", replace
+
+    * id() names a variable absent from the data -> guarded error path inside quietly{}
+    tempfile vlog
+    log using "`vlog'.txt", replace text name(tvmergevis)
+    capture noisily tvmerge "`rds_a'.dta" "`rds_b'.dta", ///
+        id(nosuchid) start(start_a start_b) stop(stop_a stop_b) ///
+        exposure(exp_a exp_b)
+    local merge_rc = _rc
+    capture log close tvmergevis
+
+    assert `merge_rc' != 0
+    assert strpos(fileread("`vlog'.txt"), "not found") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge guarded error is visible (not swallowed by quietly)"
+    local ++pass_count
+}
+else {
+    capture log close tvmergevis
+    display as error "  FAIL: tvmerge error visibility (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.4"
 }
 
 

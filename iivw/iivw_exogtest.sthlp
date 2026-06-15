@@ -55,12 +55,10 @@
 
 {syntab:Excel export}
 {synopt:{opt xlsx(filename)}}write the exogeneity table to an Excel workbook{p_end}
-{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(sheetname)}}Excel worksheet name; default {cmd:Exogeneity}{p_end}
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}Excel decimal places (0-6, default 3){p_end}
-{synopt:{opt dig:its(#)}}synonym for {opt decimals()}{p_end}
 {synopt:{opt open}}open the workbook after writing{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -132,7 +130,7 @@ in the dataset after a successful command.
 {phang}
 {opt replace} allows overwriting generated lag variables from a previous
 {cmd:iivw_exogtest} call, and also overwrites the target Excel worksheet when
-{opt xlsx()} or {opt excel()} writes to a sheet that already exists.  Without
+{opt xlsx()} writes to a sheet that already exists.  Without
 {opt replace}, the command errors if any target lag variable already exists,
 and an existing worksheet of the same name is left untouched.
 
@@ -162,11 +160,8 @@ group headers, statistic headers, column widths, borders, and an explanatory
 footnote.
 
 {phang}
-{opt excel(filename)} is a synonym for {opt xlsx()}.
-
-{phang}
 {opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Exogeneity}.  This option requires {opt xlsx()} or {opt excel()}.
+{cmd:Exogeneity}.  This option requires {opt xlsx()}.
 
 {phang}
 Excel output follows the tabtools workbook convention: only the named sheet is
@@ -179,7 +174,7 @@ returned in {cmd:r()}.
 
 {phang}
 {opt open} opens the Excel workbook after writing it.  This option requires
-{opt xlsx()} or {opt excel()}.
+{opt xlsx()}.
 
 {phang}
 {opt title(string)} and {opt footnote(string)} add optional title and footnote
@@ -187,7 +182,7 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used for exported hazard
-ratios, confidence intervals, and p-values.  {opt digits(#)} is a synonym.
+ratios, confidence intervals, and p-values.
 The allowed range is 0 through 6; the default is 3.
 
 
@@ -325,7 +320,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(result_row_labels)}}row labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(conclusion)}}short diagnostic conclusion{p_end}
-{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} or {opt excel()} succeeds{p_end}
+{synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}

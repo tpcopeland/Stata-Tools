@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  15jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvdiagnose" "help tvdiagnose"}{...}
 {viewerjumpto "Syntax" "tvweight##syntax"}{...}
@@ -361,7 +361,7 @@ W = 1/P(A=a|X)
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
+Timothy P Copeland, Karolinska Institutet{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 
