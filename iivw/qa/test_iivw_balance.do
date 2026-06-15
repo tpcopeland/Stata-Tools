@@ -352,9 +352,10 @@ capture noisily {
     assert _rc == 198
     capture noisily iivw_balance, decimals(7)
     assert _rc == 198
-    capture noisily iivw_balance, digits(-1)
+    * v1.6.0: digits() and excel() synonyms removed; now invalid options
+    capture noisily iivw_balance, digits(2)
     assert _rc == 198
-    capture noisily iivw_balance, digits(7)
+    capture noisily iivw_balance, excel("removed.xlsx")
     assert _rc == 198
 }
 if _rc == 0 {

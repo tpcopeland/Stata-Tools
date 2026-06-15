@@ -171,10 +171,6 @@ capture noisily {
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
-    _qa_iivw_must_contain, file("`pkg_dir'/demo/console_output.md") ///
-        pattern("Version `version'")
-    _qa_iivw_must_not_contain, file("`pkg_dir'/demo/console_output.md") ///
-        pattern("Version 1.2.2")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
         pattern("d Distribution-Date: `pkg_date'")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
@@ -302,8 +298,7 @@ capture noisily {
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
         _iivw_export_table.ado ///
-        demo/demo_iivw.do ///
-        demo/console_output.md
+        demo/demo_iivw.do
 
     local slash = char(47)
     local dot = char(46)

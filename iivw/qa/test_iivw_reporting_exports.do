@@ -174,10 +174,12 @@ capture noisily {
 
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) exogeneity(exogenous) true(0.10) ///
-        excel("`diagxlsx'") replace
+        xlsx("`diagxlsx'") replace
     matrix E = r(estimates)
-    local sampling_gap = r(sampling_gap)
-    local bias_adjusted = r(bias_adjusted)
+    matrix D = r(decomp)
+    matrix Bm = r(bias)
+    local sampling_gap = D[1,1]
+    local bias_adjusted = Bm[4,1]
     assert "`r(xlsx)'" == "`diagxlsx'"
     assert "`r(sheet)'" == "Diagnostics"
     assert "`r(csv)'" == ""
@@ -232,18 +234,16 @@ capture noisily {
     assert _rc == 198
     capture noisily iivw_balance, xlsx("`badxls'")
     assert _rc == 198
-    capture noisily iivw_balance, xlsx("`goodxlsx'") excel("`otherxlsx'")
-    assert _rc == 198
-    capture noisily iivw_balance, decimals(2) digits(3) ///
-        xlsx("`goodxlsx'") replace
-    assert _rc == 198
     capture noisily iivw_balance, decimals(-1)
-    assert _rc == 198
-    capture noisily iivw_balance, digits(7)
     assert _rc == 198
     capture noisily iivw_balance, csv(bad_export.csv)
     assert _rc == 198
     capture noisily iivw_balance, frame(__iivw_collision)
+    assert _rc == 198
+    * v1.6.0: excel() and digits() synonyms removed; now invalid options
+    capture noisily iivw_balance, excel("`otherxlsx'")
+    assert _rc == 198
+    capture noisily iivw_balance, xlsx("`goodxlsx'") digits(3) replace
     assert _rc == 198
 
     _reporting_diag_known
@@ -251,25 +251,23 @@ capture noisily {
         adjusted(M_adj) open
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
-        adjusted(M_adj) excel("`badxls'")
-    assert _rc == 198
-    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
-        adjusted(M_adj) xlsx("`goodxlsx'") excel("`otherxlsx'")
-    assert _rc == 198
-    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
-        adjusted(M_adj) decimals(2) digits(3) xlsx("`goodxlsx'") replace
+        adjusted(M_adj) xlsx("`badxls'")
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) decimals(-1)
-    assert _rc == 198
-    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
-        adjusted(M_adj) digits(7)
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) csv(bad_export.csv)
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) frame(__diag_bad)
+    assert _rc == 198
+    * v1.6.0: excel() and digits() synonyms removed; now invalid options
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) excel("`otherxlsx'")
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) xlsx("`goodxlsx'") digits(3) replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -394,7 +392,8 @@ capture noisily {
         title("Diag overwrite attempt")
     assert _rc == 0
     assert "`r(xlsx)'" == ""
-    assert r(sampling_gap) < .
+    matrix Dsoft = r(decomp)
+    assert Dsoft[1,1] < .
 
     _reporting_balance_panel
     iivw_balance, xlsx("`protectxlsx'") sheet(Balance) replace ///

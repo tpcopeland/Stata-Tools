@@ -179,14 +179,22 @@ capture noisily {
     assert "`r(exogeneity)'" == "unknown"
     assert inlist("`r(conclusion)'", "descriptive", "unstable", ///
         "sign_inconsistent")
-    foreach s in b_unweighted se_unweighted b_weighted se_weighted ///
-        b_adjusted se_adjusted sampling_gap artifact_gap total_gap {
-        scalar _check = r(`s')
-        _assert_scalar_finite _check
-    }
     matrix DIAG = r(estimates)
+    matrix DDEC = r(decomp)
     assert rowsof(DIAG) == 3
     assert colsof(DIAG) == 4
+    * estimate b (col 1) and se (col 2) finite for all three model rows
+    forvalues i = 1/3 {
+        scalar _check = DIAG[`i',1]
+        _assert_scalar_finite _check
+        scalar _check = DIAG[`i',2]
+        _assert_scalar_finite _check
+    }
+    * sampling/artifact/total gaps finite (r(decomp) rows 1-3)
+    forvalues i = 1/3 {
+        scalar _check = DDEC[`i',1]
+        _assert_scalar_finite _check
+    }
 }
 if _rc == 0 {
     display as result "  PASS: T2 - installed-user diagnostic workflow"

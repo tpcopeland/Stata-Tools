@@ -56,16 +56,17 @@ capture noisily {
     _iivw_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         exogeneity(exogenous)
-    assert reldif(r(b_unweighted), 0.42) < 1e-12
-    assert reldif(r(b_weighted), 0.31) < 1e-12
-    assert reldif(r(b_adjusted), 0.10) < 1e-12
-    assert reldif(r(sampling_gap), 0.11) < 1e-12
-    assert reldif(r(artifact_gap), 0.21) < 1e-12
-    assert reldif(r(total_gap), 0.32) < 1e-12
-    assert reldif(r(sampling_share), 0.34375) < 1e-12
-    assert reldif(r(artifact_share), 0.65625) < 1e-12
-    assert "`r(conclusion)'" == "point_decomposition"
     matrix E = r(estimates)
+    matrix D = r(decomp)
+    assert reldif(E[1,1], 0.42) < 1e-12
+    assert reldif(E[2,1], 0.31) < 1e-12
+    assert reldif(E[3,1], 0.10) < 1e-12
+    assert reldif(D[1,1], 0.11) < 1e-12
+    assert reldif(D[2,1], 0.21) < 1e-12
+    assert reldif(D[3,1], 0.32) < 1e-12
+    assert reldif(D[4,1], 0.34375) < 1e-12
+    assert reldif(D[5,1], 0.65625) < 1e-12
+    assert "`r(conclusion)'" == "point_decomposition"
     assert rowsof(E) == 3
     assert colsof(E) == 4
 }
@@ -86,10 +87,11 @@ capture noisily {
     _iivw_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         true(0.10) exogeneity(unknown)
-    assert reldif(r(true), 0.10) < 1e-12
-    assert reldif(r(bias_unweighted), 0.32) < 1e-12
-    assert reldif(r(bias_weighted), 0.21) < 1e-12
-    assert reldif(r(bias_adjusted), 0.00) < 1e-12
+    matrix B = r(bias)
+    assert reldif(B[1,1], 0.10) < 1e-12
+    assert reldif(B[2,1], 0.32) < 1e-12
+    assert reldif(B[3,1], 0.21) < 1e-12
+    assert abs(B[4,1]) < 1e-12
 }
 if _rc == 0 {
     display as result "  PASS: T2 - true() bias returns"
@@ -148,8 +150,9 @@ capture noisily {
     _iivw_diag_post M_wgt 0.1000000005 0.01
     _iivw_diag_post M_adj 0.100000000 0.01
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj)
-    assert missing(r(sampling_share))
-    assert missing(r(artifact_share))
+    matrix D = r(decomp)
+    assert missing(D[4,1])
+    assert missing(D[5,1])
     assert "`r(conclusion)'" == "unstable"
 }
 if _rc == 0 {
@@ -171,8 +174,9 @@ capture noisily {
     _iivw_diag_post M_wgt 0.20 0.01
     _iivw_diag_post M_adj 0.00 0.01
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj)
-    assert r(sampling_share) < 0
-    assert r(artifact_share) > 1
+    matrix D = r(decomp)
+    assert D[4,1] < 0
+    assert D[5,1] > 1
     assert "`r(conclusion)'" == "sign_inconsistent"
 }
 if _rc == 0 {
@@ -192,8 +196,9 @@ capture noisily {
     _iivw_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         exogeneity(endogenous)
-    assert reldif(r(bounds_lower), 0.10) < 1e-12
-    assert reldif(r(bounds_upper), 0.31) < 1e-12
+    matrix D = r(decomp)
+    assert reldif(D[6,1], 0.10) < 1e-12
+    assert reldif(D[7,1], 0.31) < 1e-12
     assert "`r(conclusion)'" == "bounds"
 }
 if _rc == 0 {
@@ -251,9 +256,10 @@ capture noisily {
     glm y t visits [pw=w], family(gaussian) link(identity) vce(cluster id)
     estimates store G_adj
     iivw_diagnose t, unweighted(G_unw) weighted(G_wgt) adjusted(G_adj)
-    assert r(b_unweighted) != .
-    assert r(b_weighted) != .
-    assert r(b_adjusted) != .
+    matrix E = r(estimates)
+    assert E[1,1] != .
+    assert E[2,1] != .
+    assert E[3,1] != .
     assert "`r(coefficient)'" == "t"
 }
 if _rc == 0 {
@@ -273,8 +279,9 @@ capture noisily {
     _iivw_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         estimand(contrast)
-    assert missing(r(sampling_share))
-    assert missing(r(artifact_share))
+    matrix D = r(decomp)
+    assert missing(D[4,1])
+    assert missing(D[5,1])
     assert "`r(conclusion)'" == "movement_only"
 }
 if _rc == 0 {
@@ -328,7 +335,8 @@ capture noisily {
     assert "`r(estimand)'" == "marginal"
     iivw_diagnose mpg, unweighted(M_unweighted) we(M_weighted) ///
         ad(M_adjusted) tr(0) ex(unknown)
-    assert r(true) == 0
+    matrix B = r(bias)
+    assert B[1,1] == 0
 }
 if _rc == 0 {
     display as result "  PASS: T12 - help-file example pattern and abbreviations"
@@ -366,7 +374,8 @@ capture noisily {
 
     iivw_diagnose x, unweighted(F_unweighted) weighted(F_weighted) ///
         adjusted(F_adjusted)
-    assert reldif(r(b_unweighted), `fit_b') < 1e-10
+    matrix E = r(estimates)
+    assert reldif(E[1,1], `fit_b') < 1e-10
     assert "`r(unweighted)'" == "F_unweighted"
 }
 if _rc == 0 {
@@ -377,6 +386,28 @@ else {
     display as error "  FAIL: T13 - iivw_fit unweighted stored estimates (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T13"
+}
+
+**# T14: removed excel()/digits() synonyms are rejected (v1.6.0 breaking change)
+
+local ++test_count
+capture noisily {
+    _iivw_diag_known
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) excel("nope.xlsx")
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) digits(2)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T14 - removed excel()/digits() synonyms rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T14 - removed synonyms rejected (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T14"
 }
 
 capture adopath - "`pkg_dir'"

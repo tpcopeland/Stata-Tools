@@ -78,26 +78,32 @@ capture noisily {
         adjusted(D_adjusted) exogeneity(exogenous) true(5) ///
         level(`level_1se')
 
-    assert abs(r(b_unweighted) - 10) < 1e-12
-    assert abs(r(se_unweighted) - 2) < 1e-12
-    assert abs(r(b_weighted) - 7) < 1e-12
-    assert abs(r(se_weighted) - 1) < 1e-12
-    assert abs(r(b_adjusted) - 4) < 1e-12
-    assert abs(r(se_adjusted) - 0.5) < 1e-12
-    assert abs(r(sampling_gap) - 3) < 1e-12
-    assert abs(r(artifact_gap) - 3) < 1e-12
-    assert abs(r(total_gap) - 6) < 1e-12
-    assert abs(r(sampling_share) - 0.5) < 1e-12
-    assert abs(r(artifact_share) - 0.5) < 1e-12
-    assert abs(r(bounds_lower) - 4) < 1e-12
-    assert abs(r(bounds_upper) - 7) < 1e-12
-    assert abs(r(true) - 5) < 1e-12
-    assert abs(r(bias_unweighted) - 5) < 1e-12
-    assert abs(r(bias_weighted) - 2) < 1e-12
-    assert abs(r(bias_adjusted) + 1) < 1e-12
-    assert "`r(conclusion)'" == "point_decomposition"
-
     matrix E = r(estimates)
+    matrix D = r(decomp)
+    matrix B = r(bias)
+    local dconc "`r(conclusion)'"
+
+    * Decomposition quantities now live in r(decomp); values unchanged from v1.5.3
+    local drn : rownames D
+    assert "`drn'" == "sampling_gap artifact_gap total_gap sampling_share artifact_share bounds_lower bounds_upper"
+    assert abs(D[1,1] - 3) < 1e-12
+    assert abs(D[2,1] - 3) < 1e-12
+    assert abs(D[3,1] - 6) < 1e-12
+    assert abs(D[4,1] - 0.5) < 1e-12
+    assert abs(D[5,1] - 0.5) < 1e-12
+    assert abs(D[6,1] - 4) < 1e-12
+    assert abs(D[7,1] - 7) < 1e-12
+
+    * Bias quantities now live in r(bias); values unchanged from v1.5.3
+    local brn : rownames B
+    assert "`brn'" == "true bias_unweighted bias_weighted bias_adjusted"
+    assert abs(B[1,1] - 5) < 1e-12
+    assert abs(B[2,1] - 5) < 1e-12
+    assert abs(B[3,1] - 2) < 1e-12
+    assert abs(B[4,1] + 1) < 1e-12
+
+    assert "`dconc'" == "point_decomposition"
+
     local rn : rownames E
     local cn : colnames E
     assert "`rn'" == "unweighted weighted adjusted"
@@ -136,8 +142,9 @@ capture noisily {
         adjusted(D_adjusted) exogeneity(endogenous)
     local ret_exogeneity "`r(exogeneity)'"
     local ret_conclusion "`r(conclusion)'"
-    scalar ret_bounds_lower = r(bounds_lower)
-    scalar ret_bounds_upper = r(bounds_upper)
+    matrix Dret = r(decomp)
+    scalar ret_bounds_lower = Dret[6,1]
+    scalar ret_bounds_upper = Dret[7,1]
     log close diag
 
     assert "`ret_exogeneity'" == "endogenous"
@@ -178,8 +185,9 @@ capture noisily {
     _diag_known_triplet
     iivw_diagnose x, unweighted(D_unweighted) weighted(D_weighted) ///
         adjusted(D_adjusted) estimand(contrast)
-    assert missing(r(sampling_share))
-    assert missing(r(artifact_share))
+    matrix Dc = r(decomp)
+    assert missing(Dc[4,1])
+    assert missing(Dc[5,1])
     assert "`r(conclusion)'" == "movement_only"
     assert "`r(estimand)'" == "contrast"
 }

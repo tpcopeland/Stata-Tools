@@ -394,7 +394,7 @@ if `run_only' == 0 | `run_only' == 11 {
     }
 }
 
-**## 12. excel() export with by() includes per-group joint rows
+**## 12. xlsx() export with by() includes per-group joint rows
 local ++test_count
 if `run_only' == 0 | `run_only' == 12 {
     capture noisily {
@@ -405,7 +405,7 @@ if `run_only' == 0 | `run_only' == 12 {
 
         iivw_exogtest y, id(id) time(months) by(treatment) ///
             adjust(age female) level(90) nolog ///
-            excel("`xl'") sheet("ByExog") decimals(2)
+            xlsx("`xl'") sheet("ByExog") decimals(2)
 
         confirm file "`xl'"
         assert "`r(xlsx)'" == "`xl'"
@@ -426,11 +426,11 @@ if `run_only' == 0 | `run_only' == 12 {
         assert B[6] != ""
     }
     if _rc == 0 {
-        display as result "  PASS: 12 - by() excel() export rows"
+        display as result "  PASS: 12 - by() xlsx() export rows"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: 12 - by() excel() export rows (error `=_rc')"
+        display as error "  FAIL: 12 - by() xlsx() export rows (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 12"
     }
@@ -441,7 +441,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _exog_dependent_panel
-        * Requesting a sheet (or open) without xlsx()/excel() is a user-input
+        * Requesting a sheet (or open) without xlsx() is a user-input
         * error and hard-fails 198, matching iivw_balance/iivw_diagnose.  Only a
         * pre-existing worksheet without replace (rc 602) is softened.
         capture noisily iivw_exogtest y, id(id) time(months) ///
@@ -483,7 +483,7 @@ if `run_only' == 0 | `run_only' == 14 {
     }
 }
 
-**## 15. decimals() abbreviation, digits() synonym, and default match siblings
+**## 15. decimals() abbreviation and default; removed digits()/excel() synonyms
 local ++test_count
 if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
@@ -496,28 +496,26 @@ if `run_only' == 0 | `run_only' == 15 {
         iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
             xlsx("`xl'") dec(2) replace
         assert r(decimals) == 2
-        * digits() synonym accepted and honored
-        erase "`xl'"
-        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
-            xlsx("`xl'") digits(5) replace
-        assert r(decimals) == 5
         * default remains 3
         erase "`xl'"
         iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
             xlsx("`xl'") replace
         assert r(decimals) == 3
-        * conflicting dec()/digits() rejected
+        * v1.6.0: digits() and excel() synonyms removed; now invalid options
         capture noisily iivw_exogtest y, id(id) time(months) adjust(age female) ///
-            nolog xlsx("`xl'") decimals(2) digits(4) replace
+            nolog xlsx("`xl'") digits(4) replace
+        assert _rc == 198
+        capture noisily iivw_exogtest y, id(id) time(months) adjust(age female) ///
+            nolog excel("`xl'") replace
         assert _rc == 198
         capture erase "`xl'"
     }
     if _rc == 0 {
-        display as result "  PASS: 15 - decimals abbreviation/synonym"
+        display as result "  PASS: 15 - decimals abbreviation; removed synonyms"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: 15 - decimals abbreviation/synonym (error `=_rc')"
+        display as error "  FAIL: 15 - decimals abbreviation; removed synonyms (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' 15"
     }
