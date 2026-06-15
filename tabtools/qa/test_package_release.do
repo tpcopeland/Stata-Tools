@@ -164,30 +164,38 @@ else {
 
 **## Shipped text artifacts do not contain dev-only paths or legacy repo refs
 capture noisily {
-    local scan_files "README.md stata.toc tabtools.pkg qa/README.md qa/run_all.do qa/crossval_tabtools_companion.R qa/baseline/baseline_manifest.tsv demo/demo_tabtools.do"
+    * Distribution surface — what installs/ships to users, plus the demo doc.
+    * Zero tolerance: any dev-only token (machine path, cross-repo ref, the bare
+    * /Stata-Dev token, .codex, legacy _examples/) is a release blocker here.
+    local ship_files "README.md stata.toc tabtools.pkg demo/demo_tabtools.do"
 
     local root_ado : dir "`pkg_dir'" files "*.ado"
     foreach f of local root_ado {
-        local scan_files `"`scan_files' `f'"'
+        local ship_files `"`ship_files' `f'"'
     }
 
     local root_sthlp : dir "`pkg_dir'" files "*.sthlp"
     foreach f of local root_sthlp {
-        local scan_files `"`scan_files' `f'"'
+        local ship_files `"`ship_files' `f'"'
     }
 
-    * Flat qa layout (v1.7.0): scan every shipped/runnable qa file at the root
-    * plus the tools/ helpers. This release gate test itself legitimately names
-    * dev tokens (to search for them), so it is excluded from the scan.
+    * QA tooling — dev-time test scaffolding, never shipped to SSC/net-install
+    * users (the bundle is .ado + .sthlp only). These legitimately resolve the
+    * central xlsx checker via the relocatable `: env STATA_DEV_DIR' /
+    * `<HOME>/Stata-Dev' shim, so the bare /Stata-Dev token is allowed here.
+    * Machine paths, ~/Stata-Tools, tilde-hardcoded ~/Stata-Dev, .codex, and
+    * legacy _examples/ are still forbidden. This release gate test itself
+    * legitimately names dev tokens (to search for them), so it is excluded.
+    local qa_files "qa/README.md qa/run_all.do qa/crossval_tabtools_companion.R qa/baseline/baseline_manifest.tsv"
     foreach ext in do py R md {
         local rootfiles : dir "`pkg_dir'/qa" files "*.`ext'"
         foreach f of local rootfiles {
             if "`f'" == "test_package_release.do" continue
-            local scan_files `"`scan_files' qa/`f'"'
+            local qa_files `"`qa_files' qa/`f'"'
         }
         local toolfiles : dir "`pkg_dir'/qa/tools" files "*.`ext'"
         foreach f of local toolfiles {
-            local scan_files `"`scan_files' qa/tools/`f'"'
+            local qa_files `"`qa_files' qa/tools/`f'"'
         }
     }
 
@@ -208,19 +216,38 @@ capture noisily {
     local examples_ref "`examples_ref'examples/"
     local slash_dev "/"
     local slash_dev "`slash_dev'`dev_name'"
-    local dev_patterns "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
+    * Shipped artifacts: all patterns (including the bare /Stata-Dev token).
+    * QA tooling: same set minus /Stata-Dev, so the relocatable central-checker
+    * shim (<HOME>/Stata-Dev) is permitted while tilde-hardcoded ~/Stata-Dev and
+    * absolute machine paths still fail.
+    local patterns_ship "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
+    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'"
     tempfile _grep_out
-    foreach relpath of local scan_files {
+    foreach relpath of local ship_files {
         capture confirm file "`pkg_dir'/`relpath'"
         if _rc continue
 
-        shell grep -cE "`dev_patterns'" "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
+        shell grep -cE "`patterns_ship'" "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
         tempname gfh
         file open `gfh' using "`_grep_out'", read text
         file read `gfh' _gline
         file close `gfh'
         if real("`_gline'") > 0 {
-            display as error "  DEV REF: `relpath'"
+            display as error "  DEV REF (shipped): `relpath'"
+            local ++devref_count
+        }
+    }
+    foreach relpath of local qa_files {
+        capture confirm file "`pkg_dir'/`relpath'"
+        if _rc continue
+
+        shell grep -cE "`patterns_qa'" "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
+        tempname gfhqa
+        file open `gfhqa' using "`_grep_out'", read text
+        file read `gfhqa' _gline
+        file close `gfhqa'
+        if real("`_gline'") > 0 {
+            display as error "  DEV REF (qa): `relpath'"
             local ++devref_count
         }
     }
@@ -235,6 +262,79 @@ else {
     display as error "  FAIL: shipped text artifacts include dev-only paths (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' dev_refs"
+}
+
+**## Dev-path gate discrimination — forbidden tokens flagged, relocatable checker shim exempt in qa
+* Locks in the v1.8.0 contract: the qa-tooling scan exempts the relocatable
+* central xlsx-checker reference (a macro-ref followed by /Stata-Dev, resolved
+* via `: env STATA_DEV_DIR' / `<HOME>/Stata-Dev') but still rejects absolute
+* machine paths, ~/Stata-Tools, and tilde-hardcoded ~/Stata-Dev. Shipped
+* artifacts stay zero-tolerance, including the bare /Stata-Dev token. Without
+* this guard, a future scan-pattern edit could silently neuter the gate.
+capture noisily {
+    * Rebuild the token pieces (kept split so this file's own scan stays clean).
+    local home_user "/home/"
+    local home_user "`home_user'tpcopeland/"
+    local tools_ref "~/"
+    local tools_ref "`tools_ref'Stata-Tools"
+    local dev_name "Stata"
+    local dev_suffix "-D"
+    local dev_suffix "`dev_suffix'ev"
+    local dev_name "`dev_name'`dev_suffix'"
+    local dev_ref "~/"
+    local dev_ref "`dev_ref'`dev_name'"
+    local codex_ref ".codex"
+    local codex_ref "`codex_ref'/skills/"
+    local examples_ref "_"
+    local examples_ref "`examples_ref'examples/"
+    local slash_dev "/"
+    local slash_dev "`slash_dev'`dev_name'"
+    local patterns_ship "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
+    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'"
+
+    * Probe lines synthesised from the split tokens (never literals). Each mirrors
+    * how the real source text would read, so the scan sees realistic content.
+    local probe_machine "local p `home_user'pkg/foo.ado"
+    local probe_tilde   "local p `dev_ref'/_devkit/check_xlsx.py"
+    local probe_tools   "local p `tools_ref'/tabtools/x.do"
+    * The relocatable checker shim: a macro-ref dir followed by /Stata-Dev. In the
+    * source file this is `local _statadev "`_home'`slash_dev'"', whose only dev
+    * token is the bare /Stata-Dev — no machine path, no tilde.
+    local probe_shim    "local checker DIR`slash_dev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+
+    tempfile _probe _gout
+    foreach probe in machine tilde tools shim {
+        tempname pfh
+        file open `pfh' using "`_probe'", write replace text
+        file write `pfh' `"`probe_`probe''"' _n
+        file close `pfh'
+        foreach scan in ship qa {
+            shell grep -cE "`patterns_`scan''" "`_probe'" > "`_gout'" 2>/dev/null
+            tempname gfh
+            file open `gfh' using "`_gout'", read text
+            file read `gfh' _gl
+            file close `gfh'
+            local cnt_`probe'_`scan' = real("`_gl'")
+        }
+    }
+
+    * Forbidden tokens must be caught by BOTH the shipped and qa scans.
+    assert `cnt_machine_ship' > 0 & `cnt_machine_qa' > 0
+    assert `cnt_tilde_ship'   > 0 & `cnt_tilde_qa'   > 0
+    assert `cnt_tools_ship'   > 0 & `cnt_tools_qa'   > 0
+    * The relocatable central-checker shim is blocked for shipped artifacts
+    * (bare /Stata-Dev) but exempt in qa tooling.
+    assert `cnt_shim_ship' > 0
+    assert `cnt_shim_qa'  == 0
+}
+if _rc == 0 {
+    display as result "  PASS: dev-path gate flags forbidden tokens, exempts relocatable checker shim in qa"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: dev-path gate discrimination (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' dev_gate_discrimination"
 }
 
 **## tabtools.ado package version literal matches the header version

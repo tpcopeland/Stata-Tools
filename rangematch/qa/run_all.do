@@ -51,6 +51,7 @@ local suites ///
 
 if "`mode'" == "full" {
     local suites `suites' validation_rangematch_oracle.do
+    local suites `suites' validation_rangematch_manual.do
 }
 
 local suite_count = 0

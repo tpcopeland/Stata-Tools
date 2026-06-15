@@ -1253,6 +1253,282 @@ else {
 }
 
 
+* XV31: hierarchy() vs manual collapse + zero-out of inferior condition
+* hierarchy applies AFTER collapse: inferior=0 wherever superior=1 (patient level)
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "S00" "M00"
+    2 "M00" ""
+    3 "S00" ""
+    4 "Z00" ""
+    end
+
+    * Manual: row-level OR per condition, collapse to patient max, then zero mild
+    gen byte m_sev = 0
+    gen byte m_mild = 0
+    foreach v in dx1 dx2 {
+        replace m_sev  = 1 if regexm(`v', "^(S)")
+        replace m_mild = 1 if regexm(`v', "^(M)")
+    }
+    collapse (max) m_sev m_mild, by(pid)
+    replace m_mild = 0 if m_sev == 1
+    tempfile _hier_manual
+    save `_hier_manual'
+
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "S00" "M00"
+    2 "M00" ""
+    3 "S00" ""
+    4 "Z00" ""
+    end
+    codescan dx1 dx2, define(severe "S" | mild "M") id(pid) collapse ///
+        hierarchy(severe > mild)
+
+    merge 1:1 pid using `_hier_manual', nogenerate
+    assert severe == m_sev
+    assert mild   == m_mild
+    * Patient 1 has both: mild must be suppressed to 0
+    assert mild == 0 if pid == 1
+}
+if _rc == 0 {
+    display as result "  PASS: XV31 - hierarchy() vs manual collapse + zero inferior"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV31 - hierarchy() (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV32: Elixhauser score vs manual van Walraven weights
+* define() names recognized by score(elixhauser); weights summed at patient level
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "I50"  "E66"
+    2 "K70"  "C78"
+    3 "Z00"  ""
+    end
+
+    codescan dx1 dx2, ///
+        define(chf "I50" | obesity "E66" | liver "K70" | metastatic "C78") ///
+        id(pid) collapse score(elixhauser)
+
+    * Manual van Walraven weights: chf=7, obesity=-4, liver=11, metastatic=12
+    * Pid 1: chf(7) + obesity(-4) = 3
+    * Pid 2: liver(11) + metastatic(12) = 23
+    * Pid 3: none = 0
+    assert _score == 3  if pid == 1
+    assert _score == 23 if pid == 2
+    assert _score == 0  if pid == 3
+}
+if _rc == 0 {
+    display as result "  PASS: XV32 - Elixhauser score vs manual (van Walraven)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV32 - Elixhauser score (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV33: Custom codefile score vs manual weighted sum
+* score(custom) reads the weight column; patient-level presence x weight
+local ++test_count
+capture noisily {
+    tempfile _csvbase
+    local _csvf "`_csvbase'.csv"
+
+    clear
+    input str8 name str4 pattern double weight
+    "acond" "A" 3
+    "bcond" "B" 5
+    end
+    export delimited using "`_csvf'", replace
+
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "A01" "B02"
+    2 "A01" ""
+    3 "Z00" ""
+    end
+    codescan dx1 dx2, codefile("`_csvf'") id(pid) collapse score(custom)
+
+    * Manual: presence-weighted (acond=3, bcond=5)
+    * Pid 1: 3 + 5 = 8; Pid 2: 3; Pid 3: 0
+    assert _score == 8 if pid == 1
+    assert _score == 3 if pid == 2
+    assert _score == 0 if pid == 3
+}
+if _rc == 0 {
+    display as result "  PASS: XV33 - Custom codefile score vs manual weighted sum"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV33 - Custom score (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV34: Wilson score CI in r(summary) vs manual Wilson formula
+local ++test_count
+capture noisily {
+    clear
+    set obs 100
+    gen str10 dx1 = "Z00"
+    replace dx1 = "E110" in 1/20
+
+    codescan dx1, define(dm2 "E11")
+    matrix S = r(summary)
+    local cnt = S[1, 1]
+    local NN  = r(N)
+
+    * Manual Wilson 95% CI (matches ado lines: max(0,..)*100, min(100,..)*100)
+    local z      = invnormal(1 - (1 - c(level)/100)/2)
+    local phat   = `cnt' / `NN'
+    local z2n    = `z'^2 / `NN'
+    local denom  = 1 + `z2n'
+    local center = (`phat' + `z2n'/2) / `denom'
+    local margin = `z' * sqrt((`phat'*(1 - `phat') + `z2n'/4) / `NN') / `denom'
+    local lo     = max(0,   (`center' - `margin') * 100)
+    local hi     = min(100, (`center' + `margin') * 100)
+
+    assert S[1, 1] == 20
+    assert reldif(S[1, 3], `lo') < 1e-8
+    assert reldif(S[1, 4], `hi') < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: XV34 - Wilson CI vs manual formula"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV34 - Wilson CI (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV35: unmatched() vs manual no-condition-matched flag (strict 0/1)
+local ++test_count
+capture noisily {
+    clear
+    input str10 dx1 str10 dx2 str10 dx3
+    "E110" "I10"  "Z00"
+    "Z00"  "Z01"  ""
+    "I10"  ""     ""
+    ""     ""     ""
+    "Q99"  "R10"  "S20"
+    end
+
+    * Manual: row matches no condition iff neither dm2 nor htn hits any column
+    gen byte m_dm2 = 0
+    gen byte m_htn = 0
+    foreach v in dx1 dx2 dx3 {
+        replace m_dm2 = 1 if regexm(`v', "^(E11)")
+        replace m_htn = 1 if regexm(`v', "^(I10)")
+    }
+    gen byte manual_unmatched = (m_dm2 == 0 & m_htn == 0)
+    drop m_dm2 m_htn
+
+    codescan dx1 dx2 dx3, define(dm2 "E11" | htn "I10") unmatched(nomatch)
+    assert nomatch == manual_unmatched
+}
+if _rc == 0 {
+    display as result "  PASS: XV35 - unmatched() vs manual no-match flag"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV35 - unmatched() (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV36: matched_code() vs manual first-matched code (varlist order)
+* Mata scans variable-by-variable, so the captured code is the first var
+* (in varlist order) on that row that matches any condition.
+local ++test_count
+capture noisily {
+    clear
+    input str10 dx1 str10 dx2 str10 dx3
+    "Z00"  "E110" "I10"
+    "E119" "I10"  ""
+    "Z00"  "Z01"  "I10"
+    "X99"  ""     ""
+    end
+
+    * Manual: first var in dx1,dx2,dx3 order matching any pattern
+    gen str10 manual_mc = ""
+    foreach v in dx1 dx2 dx3 {
+        replace manual_mc = `v' if manual_mc == "" & ///
+            (regexm(`v', "^(E11)") | regexm(`v', "^(I10)"))
+    }
+
+    codescan dx1 dx2 dx3, define(dm2 "E11" | htn "I10") matched_code(firstcode)
+    assert firstcode == manual_mc
+}
+if _rc == 0 {
+    display as result "  PASS: XV36 - matched_code() vs manual first-match"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV36 - matched_code() (error `=_rc')"
+    local ++fail_count
+}
+
+
+* XV37: countrows vs manual per-patient row-match sum
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "E110" "I10"
+    1 "E119" ""
+    1 "Z00"  ""
+    2 "E110" "E119"
+    2 "Z00"  ""
+    3 "Z00"  ""
+    end
+
+    * Manual: a row "matches dm2" if any column hits E11; sum matching rows per pid
+    gen byte rowmatch = 0
+    foreach v in dx1 dx2 {
+        replace rowmatch = 1 if regexm(`v', "^(E11)")
+    }
+    collapse (sum) manual_nrows = rowmatch, by(pid)
+    tempfile _nrows_manual
+    save `_nrows_manual'
+
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "E110" "I10"
+    1 "E119" ""
+    1 "Z00"  ""
+    2 "E110" "E119"
+    2 "Z00"  ""
+    3 "Z00"  ""
+    end
+    codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countrows
+
+    merge 1:1 pid using `_nrows_manual', nogenerate
+    assert dm2_nrows == manual_nrows
+    * Sanity: pid 1 has 2 matching rows, pid 2 has 1, pid 3 has 0
+    assert dm2_nrows == 2 if pid == 1
+    assert dm2_nrows == 1 if pid == 2
+    assert dm2_nrows == 0 if pid == 3
+}
+if _rc == 0 {
+    display as result "  PASS: XV37 - countrows vs manual per-patient row sum"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: XV37 - countrows (error `=_rc')"
+    local ++fail_count
+}
+
+
 * Summary
 display ""
 display as result "RESULT: validation_codescan_crosscheck tests=`test_count' pass=`pass_count' fail=`fail_count'"

@@ -1,6 +1,11 @@
 clear all
 version 17.0
 
+* This suite only inspects package files on disk; it never invokes rangematch,
+* so an installed copy cannot shadow it. Uninstall anyway to keep every QA file
+* uniform and leave no installed build behind for later suites.
+capture ado uninstall rangematch
+
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -116,15 +121,30 @@ local needle_codex ".codex"
 local needle_codex "`needle_codex'/skills"
 local needle_examples "_examples"
 local needle_examples "`needle_examples'/"
+* demo/workflow.md and demo/benchmark.md are regenerated logdoc artifacts, not
+* committed (removed in commit e6168bb, "remove stale demo outputs"). Scan only
+* the committed shipped/doc files, and scan any demo .md only if present so a
+* freshly regenerated demo output is still checked without being mandatory.
 foreach f in rangematch.ado _rangematch_mata.ado rangematch.sthlp ///
     rangematch.pkg stata.toc README.md bench_rangematch.do ///
-    demo/demo_rangematch.do demo/workflow.md demo/benchmark.md {
+    demo/demo_rangematch.do {
     confirm file "`pkg_dir'/`f'"
     local path "`pkg_dir'/`f'"
     foreach needle in "`needle_home'" "`needle_stata'" "`needle_claude'" ///
         "`needle_codex'" "`needle_examples'" {
         mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
         assert scalar(__found) == 0
+    }
+}
+foreach f in demo/workflow.md demo/benchmark.md {
+    capture confirm file "`pkg_dir'/`f'"
+    if !_rc {
+        local path "`pkg_dir'/`f'"
+        foreach needle in "`needle_home'" "`needle_stata'" "`needle_claude'" ///
+            "`needle_codex'" "`needle_examples'" {
+            mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
+            assert scalar(__found) == 0
+        }
     }
 }
 display as result "PASS: no forbidden release paths"
