@@ -23,6 +23,7 @@ local fail = 0
 foreach f in ///
     test_setools ///
     test_setools_v130_features ///
+    test_setools_v140_features ///
     test_release_integrity ///
     test_documentation_examples ///
     _test_cci_mata ///

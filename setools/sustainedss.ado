@@ -1,4 +1,4 @@
-*! sustainedss Version 1.3.0  2026/06/14
+*! sustainedss Version 1.4.0  2026/06/15
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -17,6 +17,7 @@ program define sustainedss, rclass
         CONFirmwindow(integer 182) ///
         BASElinethreshold(real -1) ///
         EVENTvar(name) ///
+        EXIT(varname) ///
         KEEPall ///
         Quietly ///
         ]
@@ -101,6 +102,26 @@ program define sustainedss, rclass
     if r(N) > 0 {
         di as error "`datevar' must contain whole-number Stata daily dates"
         exit 109
+    }
+
+    // Validate exit() study-exit date (used to censor post-exit events)
+    local n_censored_exit = 0
+    if "`exit'" != "" {
+        capture confirm numeric variable `exit'
+        if _rc {
+            di as error "exit() must be a numeric Stata daily date variable"
+            exit 109
+        }
+        local _ss_exit_fmt : format `exit'
+        if lower(substr("`_ss_exit_fmt'", 1, 3)) != "%td" {
+            di as error "exit() must be a Stata daily date variable with %td format"
+            exit 109
+        }
+        qui count if `touse' & !missing(`exit') & `exit' != floor(`exit')
+        if r(N) > 0 {
+            di as error "exit() must contain whole-number Stata daily dates"
+            exit 109
+        }
     }
 
     // Check for valid observations BEFORE preserve
@@ -252,6 +273,22 @@ program define sustainedss, rclass
         qui merge m:1 `idvar' using `results', nogen
     }
     
+    // exit() censoring: drop the event date when it falls after a person's
+    // study-exit date (replaces the hand-written post-exit clipping every
+    // study writes). The observation is retained; eventvar() (computed below)
+    // and the n_events count reflect the censored status. Done before the
+    // sort-order restore so the by-person tag does not disturb output order.
+    if "`exit'" != "" {
+        tempvar _ss_exit_tag
+        qui bysort `idvar': gen byte `_ss_exit_tag' = (_n == 1)
+        qui count if `_ss_exit_tag' & !missing(`generate') & !missing(`exit') & `generate' > `exit'
+        local n_censored_exit = r(N)
+        qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
+        qui count if `_ss_exit_tag' & !missing(`generate')
+        local n_events = r(N)
+        qui drop `_ss_exit_tag'
+    }
+
     // Restore original sort order
     sort `sortorder'
     qui drop `sortorder'
@@ -275,6 +312,9 @@ program define sustainedss, rclass
         di as text "  Confirmation window: `confirmwindow' days"
         di as text "  Baseline threshold: `baselinethreshold'"
         di as text "  Events identified: `n_events'"
+        if "`exit'" != "" {
+            di as text "  Events censored after study exit: `n_censored_exit'"
+        }
         if `converged' {
             di as text "  Iterations required: `iteration'"
         }
@@ -297,6 +337,10 @@ program define sustainedss, rclass
     return local varname "`generate'"
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
+    }
+    if "`exit'" != "" {
+        return local exit "`exit'"
+        return scalar N_censored_exit = `n_censored_exit'
     }
 
     }

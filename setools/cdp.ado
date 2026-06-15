@@ -1,4 +1,4 @@
-*! cdp Version 1.3.0  2026/06/14
+*! cdp Version 1.4.0  2026/06/15
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -51,6 +51,7 @@ program define cdp, rclass
         THREEtier ///
         CONFIRMType(string) ///
         EVENTvar(name) ///
+        EXIT(varname) ///
         ROVING ///
         ALLevents ///
         KEEPall ///
@@ -156,6 +157,26 @@ program define cdp, rclass
     if r(N) > 0 {
         di as error "`dxdate' must contain whole-number Stata daily dates"
         exit 109
+    }
+
+    // Validate exit() study-exit date (used to censor post-exit events)
+    local n_censored_exit = 0
+    if "`exit'" != "" {
+        capture confirm numeric variable `exit'
+        if _rc {
+            di as error "exit() must be a numeric Stata daily date variable"
+            exit 109
+        }
+        local _cdp_exit_fmt : format `exit'
+        if lower(substr("`_cdp_exit_fmt'", 1, 3)) != "%td" {
+            di as error "exit() must be a Stata daily date variable with %td format"
+            exit 109
+        }
+        qui count if `touse' & !missing(`exit') & `exit' != floor(`exit')
+        if r(N) > 0 {
+            di as error "exit() must contain whole-number Stata daily dates"
+            exit 109
+        }
     }
 
     // Check for valid observations
@@ -406,6 +427,38 @@ program define cdp, rclass
             qui merge m:1 `idvar' using `results', nogen
         }
     }
+    // exit() censoring: drop the CDP date when it falls after a person's
+    // study-exit date (replaces hand-written post-exit clipping). Observations
+    // are retained; eventvar() and the person/event counts reflect censoring.
+    // Done before the sort-order restore so the by-person tag does not disturb
+    // output order. In the default (one-row-per-person) layout `generate' is
+    // constant within person; in allevents+roving it is event-level.
+    if "`exit'" != "" {
+        if "`allevents'" != "" & "`roving'" != "" {
+            qui count if !missing(`generate') & !missing(`exit') & `generate' > `exit'
+            local n_censored_exit = r(N)
+            qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
+            qui count if !missing(`generate')
+            local n_events = r(N)
+            tempvar _cdp_exit_tag
+            qui bysort `idvar' (`generate'): gen byte `_cdp_exit_tag' = (_n == 1) & !missing(`generate')
+            qui count if `_cdp_exit_tag'
+            local n_persons = r(N)
+            qui drop `_cdp_exit_tag'
+        }
+        else {
+            tempvar _cdp_exit_tag
+            qui bysort `idvar': gen byte `_cdp_exit_tag' = (_n == 1)
+            qui count if `_cdp_exit_tag' & !missing(`generate') & !missing(`exit') & `generate' > `exit'
+            local n_censored_exit = r(N)
+            qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
+            qui count if `_cdp_exit_tag' & !missing(`generate')
+            local n_persons = r(N)
+            local n_events = `n_persons'
+            qui drop `_cdp_exit_tag'
+        }
+    }
+
     qui sort `sortorder'
     qui drop `sortorder'
 
@@ -444,6 +497,9 @@ program define cdp, rclass
         if "`allevents'" != "" & "`roving'" != "" {
             di as text "  Total CDP events: `n_events'"
         }
+        if "`exit'" != "" {
+            di as text "  Events censored after study exit: `n_censored_exit'"
+        }
         di as text "  Variable created: `generate'"
         if "`eventvar'" != "" {
             di as text "  Event indicator: `eventvar'"
@@ -465,6 +521,10 @@ program define cdp, rclass
     return local roving = cond("`roving'" != "", "yes", "no")
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
+    }
+    if "`exit'" != "" {
+        return local exit "`exit'"
+        return scalar N_censored_exit = `n_censored_exit'
     }
 
     }

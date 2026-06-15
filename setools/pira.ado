@@ -1,4 +1,4 @@
-*! pira Version 1.3.0  2026/06/14
+*! pira Version 1.4.0  2026/06/15
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -64,6 +64,7 @@ program define pira, rclass
         THREEtier ///
         CONFIRMType(string) ///
         EVENTvar(name) ///
+        EXIT(varname) ///
         REBASElinerelapse ///
         KEEPall ///
         Quietly ///
@@ -223,6 +224,26 @@ program define pira, rclass
     if r(N) > 0 {
         di as error "`dxdate' must contain whole-number Stata daily dates"
         exit 109
+    }
+
+    // Validate exit() study-exit date (used to censor post-exit events)
+    local n_censored_exit = 0
+    if "`exit'" != "" {
+        capture confirm numeric variable `exit'
+        if _rc {
+            di as error "exit() must be a numeric Stata daily date variable"
+            exit 109
+        }
+        local _pira_exit_fmt : format `exit'
+        if lower(substr("`_pira_exit_fmt'", 1, 3)) != "%td" {
+            di as error "exit() must be a Stata daily date variable with %td format"
+            exit 109
+        }
+        qui count if `touse' & !missing(`exit') & `exit' != floor(`exit')
+        if r(N) > 0 {
+            di as error "exit() must contain whole-number Stata daily dates"
+            exit 109
+        }
     }
 
     // =========================================================================
@@ -489,6 +510,28 @@ program define pira, rclass
         // keepall: retain all original observations
         qui merge m:1 `idvar' using `results', nogen
     }
+    // exit() censoring: drop PIRA and RAW dates that fall after a person's
+    // study-exit date (replaces hand-written post-exit clipping). Observations
+    // are retained; eventvar() and the event counts reflect censoring. Both
+    // dates are person-constant after the m:1 merge, so a by-person tag counts
+    // persons; done before the sort-order restore so the tag does not disturb
+    // output order.
+    if "`exit'" != "" {
+        tempvar _pira_exit_tag
+        qui bysort `idvar': gen byte `_pira_exit_tag' = (_n == 1)
+        qui count if `_pira_exit_tag' & !missing(`exit') & ///
+            ((!missing(`generate') & `generate' > `exit') | ///
+             (!missing(`rawgenerate') & `rawgenerate' > `exit'))
+        local n_censored_exit = r(N)
+        qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
+        qui replace `rawgenerate' = . if !missing(`rawgenerate') & !missing(`exit') & `rawgenerate' > `exit'
+        qui count if `_pira_exit_tag' & !missing(`generate')
+        local n_pira = r(N)
+        qui count if `_pira_exit_tag' & !missing(`rawgenerate')
+        local n_raw = r(N)
+        qui drop `_pira_exit_tag'
+    }
+
     qui sort `_pira_sortorder'
     qui drop `_pira_sortorder'
 
@@ -518,6 +561,9 @@ program define pira, rclass
         di as text "  Total CDP events: `n_cdp'"
         di as text "  PIRA events: `n_pira'"
         di as text "  RAW events: `n_raw'"
+        if "`exit'" != "" {
+            di as text "  Events censored after study exit: `n_censored_exit'"
+        }
         di as text _n "  Variables created: `generate', `rawgenerate'"
         if "`eventvar'" != "" {
             di as text "  Event indicator: `eventvar'"
@@ -543,6 +589,10 @@ program define pira, rclass
     return local rebaselinerelapse = cond("`rebaselinerelapse'" != "", "yes", "no")
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
+    }
+    if "`exit'" != "" {
+        return local exit "`exit'"
+        return scalar N_censored_exit = `n_censored_exit'
     }
 
     }

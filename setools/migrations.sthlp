@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -40,6 +40,9 @@
 {synopt:{opt replace}}allow overwriting files specified in {opt saveexclude()} and {opt savecensor()}{p_end}
 {synopt:{opt verb:ose}}display processing messages{p_end}
 {synopt:{opt keep:immigrants}}include (do not exclude) post-start immigrants; creates {it:migration_in_dt}{p_end}
+{synopt:{opt flag}}flag excluded individuals in {it:mig_excluded}/{it:mig_exclude_reason} instead of dropping them{p_end}
+{synopt:{opt intype(codes)}}long-format {cmd:event_type} values denoting immigration{p_end}
+{synopt:{opt outtype(codes)}}long-format {cmd:event_type} values denoting emigration{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -75,9 +78,12 @@ either of two formats:
 variables must be Stata daily dates with {cmd:%td} formats.{p_end}
 
 {phang2}{bf:Long format:}  One row per migration event with variables
-{cmd:event_date} (Stata daily date with {cmd:%td} format) and {cmd:event_type}
-({cmd:Inv} for immigration, {cmd:Utv} for emigration, case-insensitive).  The
-command normalizes this into the wide layout internally.{p_end}
+{cmd:event_date} (Stata daily date with {cmd:%td} format) and {cmd:event_type}.
+{cmd:event_type} may be a string or labeled numeric; the command recognizes the
+Swedish register vocabulary ({cmd:Invandring}/{cmd:Utvandring}), English variants
+({cmd:Immigration}/{cmd:Emigration}, {cmd:in}/{cmd:out}) and the {cmd:Inv}/{cmd:Utv}
+abbreviations (all case-insensitive).  Map any other coding with {opt intype()} and
+{opt outtype()}.  The command normalizes this into the wide layout internally.{p_end}
 
 {pstd}
 {bf:Exclusion criteria applied (in order):}
@@ -111,9 +117,14 @@ one row per person.  All date variables must use Stata daily {cmd:%td} formats w
 whole-number daily values.{p_end}
 
 {phang2}{bf:Long:}  variables {cmd:event_date} and {cmd:event_type}, with one row
-per migration event.  {cmd:event_type} must be {cmd:Inv} for immigration or
-{cmd:Utv} for emigration (case-insensitive).  {cmd:event_date} must be a Stata daily
-{cmd:%td} date with whole-number daily values.{p_end}
+per migration event.  {cmd:event_date} must be a Stata daily {cmd:%td} date with
+whole-number daily values.  {cmd:event_type} is classified as immigration when it
+begins with {cmd:inv} or {cmd:imm} or equals {cmd:in}/{cmd:i}, and as emigration
+when it begins with {cmd:utv} or {cmd:emi} or equals {cmd:ut}/{cmd:out}/{cmd:u}/{cmd:e}
+(all case-insensitive).  This recognizes the Swedish register words
+{cmd:Invandring}/{cmd:Utvandring} and the historical {cmd:Inv}/{cmd:Utv}
+abbreviations.  Use {opt intype()}/{opt outtype()} for any other coding, including
+unlabeled numeric codes.{p_end}
 
 {dlgtab:Optional}
 
@@ -164,6 +175,24 @@ contribute person-time from their arrival date rather than being dropped entirel
 Individuals who were in Sweden at study start have {cmd:migration_in_dt} set to
 missing.
 
+{phang}
+{opt flag} retains every cohort member instead of dropping the excluded ones.  Two
+variables are added: {cmd:mig_excluded} (a 0/1 indicator, 1 for excluded persons)
+and {cmd:mig_exclude_reason} (the exclusion reason string, empty for retained
+persons).  This matches the common {opt saveexclude()} + {cmd:merge ... keep(1)}
+workaround and lets you build CONSORT diagrams or run sensitivity analyses on the
+excluded group.  {cmd:migration_out_dt} (and {cmd:migration_in_dt} under
+{opt keepimmigrants}) are still added.
+
+{phang}
+{opt intype(codes)} and {opt outtype(codes)} map custom long-format
+{cmd:event_type} values onto immigration and emigration respectively.  Each takes a
+space-separated list of values (case-insensitive, matched exactly), and the two
+lists must be disjoint.  These overrides take precedence over the built-in
+recognition and are the way to support unlabeled numeric codes (e.g.
+{cmd:intype(1) outtype(2)}) or any registry-specific vocabulary.  They are ignored
+for wide-format migration files.
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -190,6 +219,9 @@ is added for every remaining person.  It contains the first permanent emigration
 date after study start, or missing if the person did not emigrate.{p_end}
 {phang2}{hline 2} If {opt keepimmigrants} was specified, a variable
 {cmd:migration_in_dt} is also added.{p_end}
+{phang2}{hline 2} If {opt flag} was specified, excluded individuals are retained
+(not dropped) and marked in {cmd:mig_excluded} (0/1) and
+{cmd:mig_exclude_reason}.{p_end}
 
 {pstd}
 {bf:Typical workflow}
@@ -302,6 +334,14 @@ lookback for comorbidity scoring is complete.{p_end}
 {synopt:{cmd:r(N_censored)}}number of individuals with emigration censoring dates{p_end}
 {synopt:{cmd:r(N_included_inmigration)}}post-start immigrants included (with {opt keepimmigrants}){p_end}
 {synopt:{cmd:r(N_final)}}final sample size after exclusions{p_end}
+
+{p2col 5 28 32 2: Matrices}{p_end}
+{synopt:{cmd:r(flow)}}CONSORT-style exclusion-flow column vector (named rows){p_end}
+
+{pstd}
+{cmd:r(flow)} carries one row per flow step {hline 1} starting cohort, each
+exclusion type, total excluded, censored, and final cohort {hline 1} ready to
+tabulate or feed into {cmd:consort_step}.
 
 
 {marker author}{...}

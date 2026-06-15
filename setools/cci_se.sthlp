@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -328,6 +328,21 @@ with an error. Numeric YYYYMMDD values are not auto-detected; specify
 {phang2}{stata "gen byte cci_cat = cond(charlson == 0, 0, cond(charlson <= 2, 1, cond(charlson <= 4, 2, 3)))":. gen byte cci_cat = cond(charlson == 0, 0, cond(charlson <= 2, 1, cond(charlson <= 4, 2, 3)))}{p_end}
 {phang2}{stata `"label define cci_cat 0 "0" 1 "1-2" 2 "3-4" 3 "5+""':. label define cci_cat 0 "0" 1 "1-2" 2 "3-4" 3 "5+"}{p_end}
 {phang2}{stata "label values cci_cat cci_cat":. label values cci_cat cci_cat}{p_end}
+
+
+{marker diagnostics}{...}
+{title:Diagnostics}
+
+{pstd}
+{bf:Zero-match warning.}  If the input contains ICD diagnosis codes but {ul:no}
+patient matches {ul:any} Charlson component (every patient scores 0), {cmd:cci_se}
+prints a warning.  An all-zero index across a cohort that clearly carries diagnoses
+usually signals a code-format or ICD-era problem rather than a genuinely healthy
+cohort {hline 1} for example codes stored with an unexpected separator, or
+{opt date()} values that place the codes in the wrong ICD version (ICD-7/8/9/10 are
+selected by diagnosis year).  Dot and comma separators are stripped automatically;
+check that {opt date()} spans the era of your codes.  The warning is informational
+and never stops execution.
 
 
 {marker results}{...}

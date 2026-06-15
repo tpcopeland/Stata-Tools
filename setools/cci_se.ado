@@ -1,4 +1,4 @@
-*! cci_se Version 1.3.0  2026/06/14
+*! cci_se Version 1.4.0  2026/06/15
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -259,6 +259,11 @@ program define cci_se, rclass
     }
     local N_input = r(N)
 
+    * Count diagnosis rows carrying at least one ICD code (for the zero-match
+    * smell diagnostic emitted after classification).
+    quietly count if trim(`code') != ""
+    local _cci_n_withcodes = r(N)
+
     * dates implies components
     if "`dates'" != "" & "`components'" == "" {
         local components "components"
@@ -416,6 +421,19 @@ program define cci_se, rclass
     quietly summarize `generate'
     local mean_cci = r(mean)
     local max_cci = r(max)
+
+    * ---------------------------------------------------------------
+    * Zero-match smell diagnostic: ICD codes were present in the input but
+    * no patient matched any Charlson component. This catches separator/era
+    * mismatches (the class of bug fixed in v1.3.0) before they produce a
+    * silently all-zero index. Always shown; not gated by noisily.
+    * ---------------------------------------------------------------
+    if `_cci_n_withcodes' > 0 & `N_any' == 0 {
+        display as text "Warning: `_cci_n_withcodes' diagnosis row(s) present but no patient matched any"
+        display as text "  Charlson component (CCI = 0 for all `N_out' patients)."
+        display as text "  Check the ICD code format (dot/comma separators are stripped automatically)"
+        display as text "  and that date() spans the ICD era of your codes (ICD-7/8/9/10 by year)."
+    }
 
     * ---------------------------------------------------------------
     * Display results

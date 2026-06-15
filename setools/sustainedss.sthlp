@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -41,6 +41,7 @@
 {synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {cmd:182}{p_end}
 {synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default equals {opt threshold()}{p_end}
 {synopt:{opt event:var(name)}}create a 0/1 stset-ready sustained-event indicator{p_end}
+{synopt:{opt exit(varname)}}censor events that fall after a per-person study-exit date{p_end}
 {synopt:{opt keep:all}}retain all observations; default keeps only patients with events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
@@ -126,6 +127,16 @@ the event.
 date and 0 otherwise, within the estimation sample, ready for {helpb stset}.  It is
 most useful together with {opt keepall}.  The name must be new and differ from
 {opt generate()}.
+
+{phang}
+{opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
+with a {cmd:%td} format).  When the computed sustained date falls strictly after a
+person's exit date, the date is set to missing and {opt eventvar()} (if requested)
+is set to 0 {hline 1} the event is censored as occurring outside the observation
+window.  This replaces the hand-written {cmd:replace sustained#_dt = . if}
+{cmd:sustained#_dt > study_exit} that follows most {cmd:sustainedss} calls.  Persons
+with a missing exit date are left unchanged.  The observation is retained; pair with
+{opt eventvar()} for a clean {helpb stset}-ready indicator.
 
 {phang}
 {opt keepall} retains all observations from the original dataset, adding the
@@ -255,10 +266,12 @@ date.{p_end}
 {synopt:{cmd:r(converged)}}{cmd:1} if algorithm converged; {cmd:0} if iteration limit reached{p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit (if {opt exit()} specified){p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated date variable{p_end}
 {synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
+{synopt:{cmd:r(exit)}}name of the study-exit date variable (if {opt exit()} specified){p_end}
 
 
 {marker references}{...}

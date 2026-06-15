@@ -1,4 +1,4 @@
-*! migrations Version 1.3.0  2026/06/14
+*! migrations Version 1.4.0  2026/06/15
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -10,7 +10,7 @@ program define migrations, rclass
 
     capture noisily {
 
-    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose KEEPimmigrants]
+    syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) MINresidence(integer 0) SAVEExclude(string) SAVECensor(string) REPLACE VERBose KEEPimmigrants INTYPE(string) OUTTYPE(string) FLAG]
 
     * Note: using _mig_* prefix (not tempvar) for working variables because
     * tempvars get lost on dataset switching (use/clear within program scope).
@@ -29,6 +29,22 @@ program define migrations, rclass
     }
     local n_exclude4 = 0
     local n_included_inmig = 0
+
+    * Normalize and validate user-supplied event-type code overrides.
+    * These map custom long-format event_type codes onto immigration/emigration
+    * and take precedence over the built-in recognition.
+    local intype_lc  = lower(strtrim("`intype'"))
+    local outtype_lc = lower(strtrim("`outtype'"))
+    if "`intype_lc'" != "" & "`outtype_lc'" != "" {
+        foreach _it of local intype_lc {
+            foreach _ot of local outtype_lc {
+                if "`_it'" == "`_ot'" {
+                    display as error "intype() and outtype() share the value '`_it'' (must be disjoint)"
+                    exit 198
+                }
+            }
+        }
+    }
 
     * Sanitize file path - prevent injection
     if regexm("`migfile'", "[;&|><\$\`]") {
@@ -104,6 +120,16 @@ program define migrations, rclass
             exit 110
         }
     }
+    if "`flag'" != "" {
+        foreach _fv in mig_excluded mig_exclude_reason {
+            capture confirm variable `_fv'
+            if !_rc {
+                display as error "Variable `_fv' already exists in master data"
+                display as error "Drop or rename it before running migrations with flag"
+                exit 110
+            }
+        }
+    }
 
     * Preflight the reserved internal working namespace. migrations creates
     * _mig_*/_neg_* working variables on the merged master (it cannot use
@@ -166,6 +192,10 @@ program define migrations, rclass
             exit 198
         }
     }
+
+    * Starting cohort size (for the CONSORT-style exclusion-flow matrix)
+    qui count
+    local n_cohort_start = r(N)
 
     * Preserve master data
     preserve
@@ -270,22 +300,57 @@ program define migrations, rclass
 
         tempvar _mig_event_order _mig_event_type_str _mig_is_in _mig_is_out
 
+        * Normalize the event-type field to a lowercased, trimmed string.
+        * String types are used as-is; numeric coded types are decoded via
+        * their value label; unlabeled numeric types are only supported when
+        * intype()/outtype() map the raw codes (matched in their string form).
         capture confirm string variable `mig_event_type_var'
         if _rc == 0 {
-            qui gen str12 `_mig_event_type_str' = lower(trim(`mig_event_type_var'))
+            qui gen `_mig_event_type_str' = lower(strtrim(`mig_event_type_var'))
         }
         else {
             local _mig_event_vlab : value label `mig_event_type_var'
-            if "`_mig_event_vlab'" == "" {
-                display as error "`mig_event_type_var' must be string or labeled numeric with values like Inv/Utv"
+            if "`_mig_event_vlab'" != "" {
+                qui decode `mig_event_type_var', gen(`_mig_event_type_str')
+                qui replace `_mig_event_type_str' = lower(strtrim(`_mig_event_type_str'))
+            }
+            else if "`intype_lc'" != "" | "`outtype_lc'" != "" {
+                qui gen `_mig_event_type_str' = lower(strtrim(strofreal(`mig_event_type_var', "%18.0g")))
+            }
+            else {
+                display as error "`mig_event_type_var' must be string or labeled numeric"
+                display as error "For unlabeled numeric codes, map them with intype() and outtype()"
                 exit 109
             }
-            qui decode `mig_event_type_var', gen(`_mig_event_type_str')
-            qui replace `_mig_event_type_str' = lower(trim(`_mig_event_type_str'))
         }
 
-        qui gen byte `_mig_is_in' = (`_mig_event_type_str' == "inv")
-        qui gen byte `_mig_is_out' = (`_mig_event_type_str' == "utv")
+        * Classify each event as immigration or emigration.
+        qui gen byte `_mig_is_in'  = 0
+        qui gen byte `_mig_is_out' = 0
+
+        * 1) User-supplied overrides take precedence (exact, case-insensitive).
+        if "`intype_lc'" != "" {
+            foreach _it of local intype_lc {
+                qui replace `_mig_is_in' = 1 if `_mig_event_type_str' == "`_it'"
+            }
+        }
+        if "`outtype_lc'" != "" {
+            foreach _ot of local outtype_lc {
+                qui replace `_mig_is_out' = 1 if `_mig_event_type_str' == "`_ot'"
+            }
+        }
+
+        * 2) Built-in recognition for rows the overrides did not classify.
+        *    Covers Swedish (invandring/utvandring), English (immigration/
+        *    emigration, in/out) and the historical Inv/Utv abbreviations.
+        qui replace `_mig_is_in' = 1 if `_mig_is_in' == 0 & `_mig_is_out' == 0 & ///
+            (substr(`_mig_event_type_str', 1, 3) == "inv" | ///
+             substr(`_mig_event_type_str', 1, 3) == "imm" | ///
+             inlist(`_mig_event_type_str', "in", "i"))
+        qui replace `_mig_is_out' = 1 if `_mig_is_in' == 0 & `_mig_is_out' == 0 & ///
+            (substr(`_mig_event_type_str', 1, 3) == "utv" | ///
+             substr(`_mig_event_type_str', 1, 3) == "emi" | ///
+             inlist(`_mig_event_type_str', "ut", "out", "u", "e"))
 
         quietly count if missing(`mig_event_date_var')
         if r(N) > 0 {
@@ -293,10 +358,16 @@ program define migrations, rclass
             exit 198
         }
 
+        * Clear, actionable diagnostic listing the unrecognized codes.
         quietly count if missing(`_mig_event_type_str') | !(`_mig_is_in' | `_mig_is_out')
         if r(N) > 0 {
-            display as error "Long-format migration file has unsupported `mig_event_type_var' values"
-            display as error "Supported values are Inv and Utv (case-insensitive)"
+            local _mig_nbad = r(N)
+            qui levelsof `_mig_event_type_str' if !(`_mig_is_in' | `_mig_is_out'), local(_mig_badvals) clean
+            display as error "Long-format migration file has `_mig_nbad' row(s) with unrecognized `mig_event_type_var' values"
+            display as error `"Unrecognized value(s): `_mig_badvals'"'
+            display as error "Recognized immigration codes: Inv*, Imm*, in, i (case-insensitive)"
+            display as error "Recognized emigration codes:  Utv*, Emi*, ut, out, u, e (case-insensitive)"
+            display as error "Map other codes explicitly with intype() and outtype()"
             exit 198
         }
 
@@ -835,10 +906,27 @@ program define migrations, rclass
     * Restore master and merge results
     qui use `master', clear
 
-    * Remove excluded individuals. keepusing(`idvar') brings no payload from the
-    * exclude file (it carries exclude_reason for the saved file only), so that
-    * column never leaks into the user's returned dataset.
-    qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen keepusing(`idvar')
+    if "`flag'" != "" {
+        * flag mode: retain ALL cohort members and mark exclusions in
+        * mig_excluded (0/1) + mig_exclude_reason instead of dropping rows.
+        * Matches the saveexclude()+merge keep(1) workaround studies hand-write.
+        qui merge 1:1 `idvar' using `exclude_data', keep(1 3) nogen keepusing(`idvar' exclude_reason)
+        capture confirm variable exclude_reason
+        if _rc {
+            qui gen str80 exclude_reason = ""
+        }
+        qui replace exclude_reason = "" if missing(exclude_reason)
+        qui gen byte mig_excluded = (trim(exclude_reason) != "")
+        qui rename exclude_reason mig_exclude_reason
+        qui label var mig_excluded "Excluded by migration criteria (1 = excluded)"
+        qui label var mig_exclude_reason "Migration exclusion reason"
+    }
+    else {
+        * Remove excluded individuals. keepusing(`idvar') brings no payload from
+        * the exclude file (it carries exclude_reason for the saved file only),
+        * so that column never leaks into the user's returned dataset.
+        qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen keepusing(`idvar')
+    }
 
     * Merge censoring dates
     qui merge 1:1 `idvar' using `censor_data', keep(1 3) nogen
@@ -856,6 +944,37 @@ program define migrations, rclass
     * Commit changes (don't restore to original)
     restore, not
 
+    * CONSORT-style exclusion-flow matrix (O1): one row per flow step, ready to
+    * tabulate or feed into consort_step. Built fresh and returned last (it is
+    * not referenced after the return, so the matrix-MOVES rule is satisfied).
+    tempname _mig_flow
+    local _mig_rn "Cohort_start"
+    matrix `_mig_flow' = (`n_cohort_start')
+    matrix `_mig_flow' = `_mig_flow' \ (`n_exclude1')
+    local _mig_rn "`_mig_rn' Excl_emigrated"
+    if "`keepimmigrants'" != "" {
+        matrix `_mig_flow' = `_mig_flow' \ (`n_included_inmig')
+        local _mig_rn "`_mig_rn' Incl_inmigration"
+    }
+    else {
+        matrix `_mig_flow' = `_mig_flow' \ (`n_exclude2')
+        local _mig_rn "`_mig_rn' Excl_inmigration"
+    }
+    matrix `_mig_flow' = `_mig_flow' \ (`n_exclude3')
+    local _mig_rn "`_mig_rn' Excl_abroad"
+    if `minresidence' > 0 {
+        matrix `_mig_flow' = `_mig_flow' \ (`n_exclude4')
+        local _mig_rn "`_mig_rn' Excl_minresidence"
+    }
+    matrix `_mig_flow' = `_mig_flow' \ (`n_exclude_total')
+    local _mig_rn "`_mig_rn' Excluded_total"
+    matrix `_mig_flow' = `_mig_flow' \ (`n_censor')
+    local _mig_rn "`_mig_rn' With_censoring_date"
+    matrix `_mig_flow' = `_mig_flow' \ (_N)
+    local _mig_rn "`_mig_rn' Final_cohort"
+    matrix colnames `_mig_flow' = n
+    matrix rownames `_mig_flow' = `_mig_rn'
+
     if `no_cohort_matches' {
         display as text "Note: No cohort members found in migration file"
         display as text "No exclusions or censoring dates applied"
@@ -867,6 +986,7 @@ program define migrations, rclass
         return scalar N_censored = 0
         return scalar N_included_inmigration = 0
         return scalar N_final = _N
+        return matrix flow = `_mig_flow'
         exit
     }
 
@@ -889,6 +1009,10 @@ program define migrations, rclass
     display as text "Individuals with emigration censoring date:      " as result `n_censor'
     display as text "Final sample size:                               " as result _N
     display as text "{hline 55}"
+    if "`flag'" != "" {
+        display as text "Flag mode: excluded individuals retained and marked in"
+        display as text "  mig_excluded (0/1) and mig_exclude_reason"
+    }
 
     if _N == 0 {
         display as error "Warning: All observations were excluded by migration criteria"
@@ -903,6 +1027,7 @@ program define migrations, rclass
     return scalar N_censored = `n_censor'
     return scalar N_included_inmigration = `n_included_inmig'
     return scalar N_final = _N
+    return matrix flow = `_mig_flow'
 
     }
     local rc = _rc

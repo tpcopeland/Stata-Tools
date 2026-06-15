@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -40,6 +40,7 @@
 {synopt:{opt base:linewindow(#)}}days from diagnosis for baseline EDSS; default is {cmd:730}{p_end}
 {synopt:{opt three:tier}}use the three-tier progression threshold (default two-tier){p_end}
 {synopt:{opt event:var(name)}}create a 0/1 stset-ready CDP event indicator{p_end}
+{synopt:{opt exit(varname)}}censor CDP events that fall after a per-person study-exit date{p_end}
 {synopt:{opt roving}}use roving baseline (reset after each confirmed progression){p_end}
 {synopt:{opt all:events}}track all CDP events, not just the first; requires {opt roving}{p_end}
 {synopt:{opt keep:all}}retain all observations (including patients without CDP){p_end}
@@ -149,6 +150,15 @@ choose {opt threetier} to match modern phase-3 MS trial protocols.
 CDP date and 0 otherwise (within the estimation sample), ready for
 {helpb stset}.  It is most useful together with {opt keepall}.  The name must be new
 and differ from {opt generate()}.
+
+{phang}
+{opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
+with a {cmd:%td} format).  When the confirmed CDP date falls strictly after a
+person's exit date, the date is set to missing and {opt eventvar()} (if requested)
+is set to 0 {hline 1} the event is censored as occurring outside the observation
+window.  This replaces the hand-written post-exit clipping that follows most
+{cmd:cdp} calls.  Persons with a missing exit date are left unchanged; observations
+are retained.  Under {opt allevents}, censoring is applied per event.
 
 {phang}
 {opt roving} specifies that the baseline should be reset after each confirmed
@@ -275,6 +285,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
+{synopt:{cmd:r(N_censored_exit)}}CDP events censored after study exit (if {opt exit()} specified){p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated CDP date variable{p_end}
@@ -282,6 +293,7 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(threetier)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(roving)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
+{synopt:{cmd:r(exit)}}name of the study-exit date variable (if {opt exit()} specified){p_end}
 
 
 {marker references}{...}

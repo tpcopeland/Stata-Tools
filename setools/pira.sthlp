@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -56,6 +56,7 @@
 
 {syntab:Output}
 {synopt:{opt event:var(name)}}create a 0/1 stset-ready PIRA event indicator{p_end}
+{synopt:{opt exit(varname)}}censor PIRA/RAW events that fall after a per-person study-exit date{p_end}
 {synopt:{opt keep:all}}retain all observations (including patients without progression){p_end}
 {synopt:{opt q:uietly}}suppress output messages{p_end}
 {synoptline}
@@ -207,6 +208,14 @@ fluctuations from inflating or suppressing the change-from-baseline calculation.
 The name must be new and differ from {opt generate()} and {opt rawgenerate()}.
 
 {phang}
+{opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
+with a {cmd:%td} format).  Both the PIRA date and the RAW date are set to missing
+when they fall strictly after a person's exit date, and {opt eventvar()} (if
+requested) is recomputed from the censored PIRA date.  This replaces the
+hand-written post-exit clipping that follows most {cmd:pira} calls.  Persons with a
+missing exit date are left unchanged; observations are retained.
+
+{phang}
 {opt keepall} specifies that all observations should be retained in the output,
 including patients without any CDP.  By default, {cmd:pira} drops all rows for
 patients who do not experience CDP (either PIRA or RAW).  Patients without
@@ -322,6 +331,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
+{synopt:{cmd:r(N_censored_exit)}}PIRA/RAW events censored after study exit (if {opt exit()} specified){p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(pira_varname)}}name of the generated PIRA date variable{p_end}
@@ -330,6 +340,7 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(threetier)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(rebaselinerelapse)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
+{synopt:{cmd:r(exit)}}name of the study-exit date variable (if {opt exit()} specified){p_end}
 
 
 {marker references}{...}
