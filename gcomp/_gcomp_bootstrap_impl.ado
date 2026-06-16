@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.3.0  2026/06/14
+*! _gcomp_bootstrap_impl Version 1.3.1  2026/06/16
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
@@ -356,11 +356,22 @@ if "`impute'"!="" {
 					}
 					local k=matvis[`j',1]
 					if `visitcalc`i'_`j''==1 {
+						* mlogit requires a fixed baseoutcome() when refit under the bootstrap prefix
+						local _gc_impbaseopt ""
+						if "`imp_cmd`i''"=="mlogit" {
+							if "`pooled'"=="" {
+								qui summarize `imp_imp_var`i'' if `tvar'==`k', meanonly
+							}
+							else {
+								qui summarize `imp_imp_var`i'', meanonly
+							}
+							local _gc_impbaseopt ", baseoutcome(`r(min)')"
+						}
 						if "`pooled'"=="" {
-							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' if `tvar'==`k'
+							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' if `tvar'==`k' `_gc_impbaseopt'
 						}
 						else {
-							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i''
+							qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
 						}
 						if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 							if "`imp_cmd`i''"=="mlogit" {
@@ -375,7 +386,7 @@ if "`impute'"!="" {
 								local out_mlogit_`l'=out_mlogit[1,`l']
 								capture drop _gc_pred_imp`i'_`l'
 							}
-							qui predict _gc_pred_imp`i'_1'-_gc_pred_imp`i'_`maxl'
+							qui predict _gc_pred_imp`i'_1-_gc_pred_imp`i'_`maxl'
 						}
 						else {
 							tempvar pred_imp_var`i'
@@ -453,7 +464,12 @@ if "`impute'"!="" {
 						local limit_could=`limit_could'+1
 					}
 				}
-				qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i''
+				local _gc_impbaseopt ""
+				if "`imp_cmd`i''"=="mlogit" {
+					qui summarize `imp_imp_var`i'', meanonly
+					local _gc_impbaseopt ", baseoutcome(`r(min)')"
+				}
+				qui `imp_cmd`i'' `imp_imp_var`i'' `imp_eq`i'' `_gc_impbaseopt'
 				if "`imp_cmd`i''"=="mlogit" | "`imp_cmd`i''"=="ologit" {
 					if "`imp_cmd`i''"=="mlogit" {
 						local maxl=e(k_out)
@@ -1446,26 +1462,26 @@ if "`mediation'"=="" {
 					if "`eofu'"!="" {
 						if "`pooled'"=="" {
 							if "`monotreat'"=="" | `is_intvar_`i''==0 {
-								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
+								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
 							}
 							else {
 								if `j'==1 {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
+									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
 								}
 								else {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 & `simvar`i''[_n-1]==0
+									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 & `simvar`i''[_n-1]==0 `commandopts`i''
 								}
 							}
 						}
 						else {
 							if "`monotreat'"=="" | `is_intvar_`i''==0 {
-								qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
+								qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `commandopts`i''
 							}
 							else {
 								tempvar checkmono
 								gen `checkmono'=(`int_no'==0)
 								qui replace `checkmono'=0 if `idvar'[_n]==`idvar'[_n-1] & `simvar`i''[_n-1]==1
-								qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0
+								qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0 `commandopts`i''
 								drop `checkmono'
 							}
 						}
@@ -1589,10 +1605,10 @@ if "`mediation'"=="" {
 						if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) | ///
 							rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`death'")) {
 							if "`pooled'"=="" {
-								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k'  & `int_no'==0
+								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k'  & `int_no'==0 `commandopts`i''
 							}
 							else {
-								qui `command`i'' `simvar`i'' `equation`i''  if `int_no'==0
+								qui `command`i'' `simvar`i'' `equation`i''  if `int_no'==0 `commandopts`i''
 							}
 							if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
 								if e(converged)==0 {
@@ -1682,26 +1698,26 @@ if "`mediation'"=="" {
 						else {
 							if "`pooled'"=="" {
 								if "`monotreat'"=="" | `is_intvar_`i''==0 {
-									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
+									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
 								}
 								else {
 									if `j'==1 {
-										qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
+										qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 `commandopts`i''
 									}
 									else {
-										qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 & `simvar`i''[_n-1]==0
+										qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0 & `simvar`i''[_n-1]==0 `commandopts`i''
 									}
 								}
 							}
 							else {
 								if "`monotreat'"=="" | `is_intvar_`i''==0 {
-									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
+									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0 `commandopts`i''
 								}
 								else {
 									tempvar checkmono
 									gen `checkmono'=(`int_no'==0)
 									qui replace `checkmono'=0 if `idvar'[_n]==`idvar'[_n-1] & `simvar`i''[_n-1]==1
-									qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0
+									qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0 `commandopts`i''
 									drop `checkmono'
 								}
 							}
@@ -2181,6 +2197,14 @@ if "`mediation'"=="" {
     }
     local nintplus1=`nint'+1
     local nintplus2=`nint'+2
+    * Guard: every arm (plus the baseline column) must contribute an outcome mean.
+    * A short EPO means an intervention arm had no usable outcome observations
+    * (e.g. an interventions() rule that references a variable not in intvars()).
+    if colsof(EPO) < `nintplus2' {
+        noi di as err "Error: one or more intervention arms produced no usable outcome observations."
+        noi di as err "       Check that each interventions() rule assigns a variable listed in intvars()."
+        exit 459
+    }
     forvalues i=1/`nintplus1' {
     	mat EPO[1,`i']=EPO[1,`i']+EPO[1,`nintplus2']
     }

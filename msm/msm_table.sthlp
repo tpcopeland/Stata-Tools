@@ -35,7 +35,7 @@
 {synopt:{opt xlsx(filename)}}Excel output file ({cmd:.xlsx} extension){p_end}
 
 {syntab:Table selection}
-{synopt:{opt coef:icients}}model coefficients from {helpb msm_fit}{p_end}
+{synopt:{opt coef:ficients}}model coefficients from {helpb msm_fit}{p_end}
 {synopt:{opt pred:ictions}}counterfactual predictions from {helpb msm_predict}{p_end}
 {synopt:{opt bal:ance}}covariate balance (SMD) from {helpb msm_diagnose}{p_end}
 {synopt:{opt weight:s}}weight distribution summary from {helpb msm_diagnose}{p_end}
@@ -105,7 +105,7 @@ results behind for later commands.
 {dlgtab:Table selection}
 
 {phang}
-{opt coef:icients} exports model coefficients from {helpb msm_fit}.  Columns
+{opt coef:ficients} exports model coefficients from {helpb msm_fit}.  Columns
 include the point estimate, 95% CI, and p-value.  The column header adapts
 to model type: OR (logistic), HR (Cox), or Coef. (linear).
 
@@ -273,8 +273,8 @@ Run the MSM pipeline before calling {cmd:msm_table}:
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet{break}
+Department of Clinical Neuroscience
 {p_end}
 
 {hline}

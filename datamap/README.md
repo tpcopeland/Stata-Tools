@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.1.0** | 2026-06-14
+**Version 1.1.1** | 2026-06-16
 
 `datamap` documents Stata datasets without exporting row-level data. It produces two kinds of output:
 
@@ -208,7 +208,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.1.0",
+  "datamap_version": "1.1.1",
   "format": "json",
   "datasets": [
     {
@@ -365,14 +365,15 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all two public commands with 6 QA files: 5 functional test files, 1 validation file, and 0 cross-validation suites.
+The suite covers both public commands with 7 QA files: 6 functional test files, 1 validation file, and 0 cross-validation suites.
 
-- `test_datamap.do` - 57 tests
-- `test_datamap_bugfixes.do` - 13 tests
+- `test_datamap.do` - 81 tests
+- `test_datamap_bugfixes.do` - 10 tests
 - `test_datamap_v2.do` - 54 tests
-- `test_datamap_v11.do` - 42 tests
-- `validation_datamap.do` - 56 validations
-- `test_datamap_golden.do` - 0 tests
+- `test_datamap_v11.do` - 9 tests
+- `test_datamap_privacy.do` - 5 tests
+- `test_datamap_golden.do` - 9 golden cases
+- `validation_datamap.do` - 37 validations
 
 ## Author
 

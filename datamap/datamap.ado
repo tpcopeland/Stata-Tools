@@ -1,4 +1,4 @@
-*! datamap Version 1.1.0  2026/06/14
+*! datamap Version 1.1.1  2026/06/16
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -63,12 +63,25 @@ EXAMPLES
 
 STORED RESULTS
 --------------
-r(nfiles)        - number of datasets processed
-r(nobs)          - number of observations (single-file/memory mode)
-r(nvars)         - number of variables (single-file/memory mode)
-r(format)        - output format used (text or json)
-r(output)        - output filename (for combined mode)
-r(input_source)  - input mode (memory, single, directory, filelist)
+r(nfiles)               - number of datasets processed
+r(nobs)                 - number of observations (single-file/memory mode)
+r(nvars)                - number of variables (single-file/memory mode)
+r(mincell)              - small-cell threshold used
+r(n_categorical)        - number of categorical variables documented
+r(n_continuous)         - number of continuous variables documented
+r(n_date)               - number of date variables documented
+r(n_string)             - number of string variables documented
+r(n_excluded)           - number of variables excluded by exclude()
+r(n_suggested_exclude)  - number of likely identifiers not excluded
+r(format)               - output format used (text or json)
+r(output)               - output filename (for combined mode)
+r(input_source)         - input mode (memory, single, directory, filelist)
+r(categorical_vars)     - categorical variable names
+r(continuous_vars)      - continuous variable names
+r(date_vars)            - date variable names
+r(string_vars)          - string variable names
+r(excluded_vars)        - excluded variable names
+r(suggested_exclude)    - likely identifiers not listed in exclude()
 
 NOTES
 -----
@@ -391,7 +404,7 @@ program define _datamap_ProcessCombined, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.1.0","' _n
+				file write `fh' `"  "datamap_version": "1.1.1","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -549,7 +562,7 @@ program define _datamap_ProcessSeparate, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.1.0","' _n
+				file write `fh' `"  "datamap_version": "1.1.1","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -834,8 +847,6 @@ program define _datamap_ProcessVariables, nclass
 	local nvars = _N
 
 	// Write compact quick reference table
-	assert _N == `nvars'  // Verify expected row count
-
 	file write `fh' "QUICK REFERENCE" _n
 	file write `fh' "----------------------------------------" _n
 	// Header row
@@ -1328,7 +1339,7 @@ program define _datamap_ProcessDatasetJson, nclass
 
 		file write `fh' `"          "frequencies": ["' _n
 		local wrote_freq = 0
-		if inlist("`vclass'", "categorical", "date") & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' & "`vclass'" != "date" {
+		if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' {
 			capture quietly tab `vname', matrow(vals) matcell(freqs)
 			if _rc == 0 {
 				local nvals = r(r)

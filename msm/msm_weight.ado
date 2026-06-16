@@ -50,7 +50,7 @@ program define msm_weight, rclass
     syntax , [TREAT_d_cov(varlist numeric) ///
          TREAT_n_cov(varlist numeric) ///
          CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
-         TRUNCate(numlist min=1 max=2) ///
+         TRUncate(numlist min=1 max=2) ///
          FITFailure(string) ///
          PREVIEW REPLACE noLOG]
 
@@ -521,6 +521,7 @@ end
 * _msm_weight_treatment: Fit treatment weight models and compute
 *   cumulative stabilized IPTW
 * =========================================================================
+cap program drop _msm_weight_treatment
 program define _msm_weight_treatment, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -1067,6 +1068,7 @@ end
 * _msm_weight_censor: Fit censoring weight models and compute
 *   cumulative stabilized IPCW
 * =========================================================================
+cap program drop _msm_weight_censor
 program define _msm_weight_censor, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

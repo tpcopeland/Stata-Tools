@@ -258,6 +258,7 @@ program define msm, rclass
     if `_rc' exit `_rc'
 end
 
+cap program drop _msm_protocol_overview
 program define _msm_protocol_overview
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -307,6 +308,7 @@ program define _msm_protocol_overview
     if `_rc' exit `_rc'
 end
 
+cap program drop _msm_overview_detail
 program define _msm_overview_detail
     version 16.0
     local _orig_varabbrev = c(varabbrev)

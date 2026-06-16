@@ -8,7 +8,7 @@ program define _psdash_weights_modify, rclass
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax , WVar(varname numeric) TREATment(varname numeric) ///
+        syntax , Wvar(varname numeric) TREATment(varname numeric) ///
             SAMPLEvar(varname) N(real) GENerate(name) WVARLabel(string asis) ///
             [TRIM(real 0) TRUNCate(real 0) STABilize replace ///
              LEVELS(string asis) MULTIgroup(string)]

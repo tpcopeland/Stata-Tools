@@ -213,8 +213,8 @@ introducing the E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet{break}
+Department of Clinical Neuroscience
 {p_end}
 
 {hline}

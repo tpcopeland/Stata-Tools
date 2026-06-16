@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.1.0  2026/06/14
+*! _datamap_classify Version 1.1.1  2026/06/16
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -80,25 +80,31 @@ program define _datamap_classify, rclass
             local is_binary = 0
             local maxlen .
 
-            if strpos("`vtype'", "str") == 1 {
-                capture quietly duplicates report `vname'
-                if _rc == 0 local nuniq = r(unique_value)
-
-                tempvar _slen
-                quietly gen double `_slen' = length(`vname')
-                quietly summarize `_slen'
-                if r(N) > 0 local maxlen = r(max)
-                quietly drop `_slen'
-            }
-            else {
-                capture quietly tab `vname'
-                if _rc == 0 {
-                    local nuniq = r(r)
-                    if `detect_binary' & r(r) == 2 local is_binary = 1
-                }
-                else {
+            // Privacy: never compute values/stats for excluded variables.
+            // Leaving unique_vals/is_binary/max_length unset is what stops the
+            // Binary section, QUICK REFERENCE, and JSON from leaking an excluded
+            // variable's cardinality, max length, or frequency distribution.
+            if !`isexcluded' {
+                if strpos("`vtype'", "str") == 1 {
                     capture quietly duplicates report `vname'
                     if _rc == 0 local nuniq = r(unique_value)
+
+                    tempvar _slen
+                    quietly gen double `_slen' = length(`vname')
+                    quietly summarize `_slen'
+                    if r(N) > 0 local maxlen = r(max)
+                    quietly drop `_slen'
+                }
+                else {
+                    capture quietly tab `vname'
+                    if _rc == 0 {
+                        local nuniq = r(r)
+                        if `detect_binary' & r(r) == 2 local is_binary = 1
+                    }
+                    else {
+                        capture quietly duplicates report `vname'
+                        if _rc == 0 local nuniq = r(unique_value)
+                    }
                 }
             }
 
@@ -181,8 +187,17 @@ program define _datamap_classify, rclass
                 local suggested_exclude "`suggested_exclude' `vname'"
             }
 
+            // Privacy: do not attribute a value label to an excluded variable.
+            // Blanking it here drops the variable from the VALUE LABEL
+            // DEFINITIONS section and the JSON value_label field, so an excluded
+            // variable's coding (e.g. 0=Negative/1=Positive) is not disclosed.
+            // A label shared with a non-excluded variable still prints via that
+            // variable; classification above already used the real `valab'.
+            local valab_post `"`valab'"'
+            if `isexcluded' local valab_post ""
+
             post `posth' (`"`vname'"') (`"`vtype'"') (`"`vfmt'"') ///
-                (`"`macval(vlab)'"') (`"`valab'"') (`nmiss') (`pctmiss') ///
+                (`"`macval(vlab)'"') (`"`valab_post'"') (`nmiss') (`pctmiss') ///
                 (`"`class'"') (`nuniq') (`is_binary') (`"`qflag'"') (`i') (`maxlen')
         }
 

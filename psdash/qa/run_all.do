@@ -7,6 +7,7 @@ local fail = 0
 local skip = 0
 
 local suite_files test_psdash.do validation_psdash.do validation_known_answers.do ///
+    validation_multigroup_longitudinal.do ///
     crossval_psdash.do crossval_python_psdash.do crossval_external_references.do ///
     test_refactor_qa_bootstrap_contract.do test_refactor_install_autoload.do ///
     test_refactor_doc_contract.do test_refactor_display_contracts.do ///

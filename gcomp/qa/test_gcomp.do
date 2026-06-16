@@ -1511,31 +1511,45 @@ else {
 }
 
 * 60. Time-varying with continuous outcome (eofu + regress)
-* NOTE: gcomp eofu continuous in time-varying mode hits r(503) conformability
-* in "Estimating mean potential outcomes" — known limitation of SSC gformula fork.
-* Test verifies the command is attempted (not a test error).
+* Previously this was documented as a "known r(503) limitation"; that crash was
+* actually caused by a malformed interventions() rule (A_=1 targets a variable
+* not in intvars()) leaving an arm with no outcome data. With a valid rule the
+* continuous-outcome eofu path runs and returns nondegenerate potential outcomes.
 local ++test_count
 capture noisily {
     clear
     set seed 33334
-    set obs 900
-    gen long id = ceil(_n / 3)
+    set obs 300
+    gen long id = _n
+    gen double L0 = rnormal()
+    expand 3
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Ycont = 2 + 0.5*L + 0.3*A + rnormal(0, 1)
-    capture gcomp Ycont L A id time, outcome(Ycont) ///
+    gen double L = 0
+    gen byte A = 0
+    gen byte Alag = 0
+    gen double Llag = 0
+    bysort id (time): replace L = 0.15 + 0.65*L0 + rnormal(0,0.35) if time==1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35+0.70*L+0.20*L0)) if time==1
+    bysort id (time): replace L = 0.10 + 0.60*L[_n-1] - 0.55*A[_n-1] + 0.15*L0 + rnormal(0,0.35) if time==2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25+0.60*L+0.20*L0)) if time==2
+    bysort id (time): replace L = 0.05 + 0.55*L[_n-1] - 0.55*A[_n-1] + 0.10*L0 + rnormal(0,0.35) if time==3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15+0.55*L+0.20*L0)) if time==3
+    bysort id (time): replace Alag = A[_n-1] if _n>1
+    bysort id (time): replace Llag = L[_n-1] if _n>1
+    gen double Ycont = .
+    bysort id (time): replace Ycont = 2 + 0.5*L0 + 0.3*Alag + 0.4*Llag + rnormal(0,1) if time==3
+    gcomp Ycont L0 A L Alag Llag id time, outcome(Ycont) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Ycont: regress, A: logit) ///
-        equations(L: A, Ycont: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Ycont: regress, L: regress) ///
+        equations(A: L0 L, Ycont: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
-    * Known limitation: eofu continuous in time-varying mode hits r(503)
-    assert inlist(_rc, 0, 503)
+    assert "`e(analysis_type)'" == "time_varying"
+    confirm matrix e(b)
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying eofu continuous (known r(503) limitation documented)"
+    display as result "  PASS: Time-varying eofu continuous outcome"
     local ++pass_count
 }
 else {

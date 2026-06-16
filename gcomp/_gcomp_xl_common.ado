@@ -1,4 +1,4 @@
-*! _gcomp_xl_common Version 1.3.0  2026/06/14
+*! _gcomp_xl_common Version 1.3.1  2026/06/16
 *! Shared Excel export utility programs for gcomp package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -18,7 +18,7 @@ PROGRAMS INCLUDED:
 
 USAGE:
     Called internally by gcomptab. Not intended for direct use.
-    Callers set varabbrev off; helpers do not need to set it independently.
+    Callers disable variable abbreviation; helpers do not need to change it.
 */
 
 * =============================================================================

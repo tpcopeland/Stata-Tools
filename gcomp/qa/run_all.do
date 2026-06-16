@@ -36,6 +36,7 @@ foreach f in ///
     test_gcomp_diagnostics ///
     test_stress ///
     test_interactions ///
+    test_gcomp_imputation_mlogit ///
     test_gcomptab_regressions ///
     test_gcomptab_doseresponse ///
     test_models ///
@@ -51,6 +52,7 @@ foreach f in ///
     crossval_external_replication ///
     crossval_mediation_se ///
     crossval_timevarying_se ///
+    crossval_intervention_imputation ///
     crossval_timevarying {
     display _n as text "=============================================="
     display as text "Running: `f'.do"

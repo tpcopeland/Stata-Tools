@@ -10,8 +10,8 @@ program define _psdash_ltmle_diagnostics, rclass
     capture noisily {
 
         syntax , TREATment(varname numeric) PERiod(varname numeric) ///
-            PSVAR(string) WVAR(string) SAMPLEvar(varname) ///
-            [ID(string) ESTIMand(string) REGime(string) METHOD(string) ///
+            PSVAR(string) Wvar(string) SAMPLEvar(varname) ///
+            [ID(string) ESTImand(string) REGime(string) METHOD(string) ///
              CONTRACT(string) TItle(string) SOURCE(string)]
 
         local psvar = strtrim("`psvar'")

@@ -97,11 +97,11 @@ balance, weight summaries, and effective sample size).
 {pstd}
 For each person-period, {cmd:msm_weight} fits two logistic regression models:
 
-{phang2}{bf:Denominator model:}  P(A_t = 1 | A_{{t-1}}, L_t, V, period){p_end}
+{phang2}{bf:Denominator model:}  P(A_t = 1 | A_{c -(}t-1{c )-}, L_t, V, period){p_end}
 {phang2}{space 4}Predicts treatment from the full set of confounders, lagged
 treatment, and period.  This is the "full" model.{p_end}
 
-{phang2}{bf:Numerator model:}  P(A_t = 1 | A_{{t-1}}, V){p_end}
+{phang2}{bf:Numerator model:}  P(A_t = 1 | A_{c -(}t-1{c )-}, V){p_end}
 {phang2}{space 4}Predicts treatment from baseline covariates only (or just
 lagged treatment if no numerator covariates are specified).  This is the
 "stabilizing" model that reduces weight variability.{p_end}
@@ -330,8 +330,8 @@ substantially reduced usable information.{p_end}
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet{break}
+Department of Clinical Neuroscience
 {p_end}
 
 {hline}

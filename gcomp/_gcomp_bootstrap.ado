@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap Version 1.3.0  2026/06/14
+*! _gcomp_bootstrap Version 1.3.1  2026/06/16
 *! Install-discoverable bootstrap entry point for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

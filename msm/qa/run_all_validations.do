@@ -15,6 +15,7 @@
 *   - test_msm_state_guards.do
 *   - test_export_surface.do
 *   - test_msm_output_adversarial.do
+*   - test_msm_abbrev_reload.do
 *   - validation_msm.do
 *   - validation_msm_known_answers.do
 *   - validation_msm_expanded.do
@@ -50,10 +51,10 @@ if "`mode'" == "full" local mode "all"
 
 local suite_list ""
 if "`mode'" == "stata" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
 }
 else if "`mode'" == "tests" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload"
 }
 else if "`mode'" == "validations" {
     local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
@@ -62,7 +63,7 @@ else if "`mode'" == "crossval" {
     local suite_list "crossval_msm crossval_external_models"
 }
 else if "`mode'" == "all" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity crossval_msm crossval_external_models"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_weight_adversarial test_msm_prepare_validate_adversarial test_msm_state_guards test_export_surface test_msm_diagtab test_msm_output_adversarial test_msm_abbrev_reload validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity crossval_msm crossval_external_models"
 }
 else {
     display as error "Unknown run_all_validations mode: `mode'"

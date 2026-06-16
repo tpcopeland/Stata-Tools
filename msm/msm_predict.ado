@@ -45,7 +45,7 @@ program define msm_predict, rclass
 
     syntax , TIMEs(numlist sort integer >=0) ///
         [STRAtegy(string) TYPe(string) SAMPles(integer 100) ///
-         SEED(integer -1) Level(cilevel) DIFFerence EXTRAPolate]
+         SEED(integer -1) Level(cilevel) DIFFerence EXTRApolate]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -611,6 +611,7 @@ end
 * _msm_predict_xb: Compute predicted probabilities at a time point
 *   for a given treatment value, using provided coefficient vector.
 * =========================================================================
+cap program drop _msm_predict_xb
 program define _msm_predict_xb
     version 16.0
     local _orig_varabbrev = c(varabbrev)

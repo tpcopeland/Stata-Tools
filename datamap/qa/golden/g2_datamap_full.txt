@@ -12,6 +12,13 @@ Variables: 8
 Label: Test cohort dataset
 Data Signature: 100:8(64926):2117236361:54269459
 
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 2
+Small-cell threshold: 5
+Date-safe mode: on
+Likely identifiers not excluded: 0
+
 DESCRIPTION
 -----------
 This dataset contains cross-sectional data. It includes 100 observations and 8 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics. 
@@ -38,8 +45,8 @@ QUICK REFERENCE
   sex                     byte      categorical     0.0%       2
   bmi                     double    continuous     11.0%      89
   region                  byte      categorical     6.0%       4
-  entry_date              double    date            0.0%       .
-  exit_date               double    date            0.0%       .
+  entry_date              double    date            0.0%      91
+  exit_date               double    date            0.0%      92
   name                    str20     excluded        0.0%       .
 ----------------------------------------
 
@@ -254,13 +261,13 @@ sex: Sex of participant
 SAMPLE OBSERVATIONS
 ========================================
 
-First 3 observations (excluded variables masked):
+First 3 observations (excluded variables masked; date variables suppressed):
 
 | id(masked) | age | sex | bmi | region | entry_date | exit_date | name(masked) | 
 |---|---|---|---|---|---|---|---|
-| [MASKED] | . | 1 | 18.86556997754468 | 2 | 22190 | 22393 | [MASKED] | 
-| [MASKED] | . | 1 | 23.85505611204963 | 2 | 21960 | 22005 | [MASKED] | 
-| [MASKED] | . | 0 | 25.80522985751514 | 3 | 22057 | 22094 | [MASKED] | 
+| [MASKED] | . | 1 | 18.86556997754468 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
+| [MASKED] | . | 1 | 23.85505611204963 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
+| [MASKED] | . | 0 | 25.80522985751514 | 3 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
 
 ========================================
 VALUE LABEL DEFINITIONS

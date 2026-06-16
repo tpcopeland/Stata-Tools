@@ -813,6 +813,47 @@ else {
     local test_fail = `test_fail' + 1
 }
 
+* -----------------------------------------------------------------------
+* T33: r(accent) and r(secondary) return contract for format(both)
+* (closes the documented-return coverage gap; both are dispatcher-forwarded)
+* -----------------------------------------------------------------------
+local test_total = `test_total' + 1
+capture noisily {
+    capture erase "`outdir'/test_ret_both.html"
+    capture erase "`outdir'/test_ret_both.md"
+    logdoc using "`smcl_fixture'", output("`outdir'/test_ret_both.html") ///
+        format(both) accent(#1A2B3C) replace
+    assert "`r(accent)'" == "#1A2B3C"
+    assert "`r(secondary)'" == "`outdir'/test_ret_both.md"
+    confirm file "`r(secondary)'"
+}
+if _rc == 0 {
+    display as result "PASS: T33 - r(accent)/r(secondary) returned for format(both)"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "FAIL: T33 - r(accent)/r(secondary) contract (rc = " _rc ")"
+    local test_fail = `test_fail' + 1
+}
+
+* -----------------------------------------------------------------------
+* T34: r(accent) empty without accent(); single-format omits r(secondary)
+* -----------------------------------------------------------------------
+local test_total = `test_total' + 1
+capture noisily {
+    logdoc using "`smcl_fixture'", output("`outdir'/test_ret_single.html") replace
+    assert "`r(accent)'" == ""
+    assert "`r(secondary)'" == ""
+}
+if _rc == 0 {
+    display as result "PASS: T34 - empty r(accent)/no r(secondary) for single format"
+    local test_pass = `test_pass' + 1
+}
+else {
+    display as error "FAIL: T34 - single-format return contract (rc = " _rc ")"
+    local test_fail = `test_fail' + 1
+}
+
 * =======================================================================
 * RESULTS
 * =======================================================================

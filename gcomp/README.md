@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.3.0** | 2026-06-14
+**Version 1.3.1** | 2026-06-16
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -220,6 +220,12 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 - VanderWeele TJ. 2015. *Explanation in causal inference: methods for mediation and interaction*. Oxford University Press.
 
 ## Version History
+
+- **1.3.1** (2026-06-16): **Bug fixes for categorical (mlogit/ologit) models and a degenerate-intervention guard.**
+  - **Imputation predict range.** `impute()` with `imp_cmd(mlogit)` or `imp_cmd(ologit)` in a time-varying model aborted with `r(198) "' invalid name"` due to a stray macro-quote in the predicted-probability `predict` varlist range. Categorical imputation now runs.
+  - **`baseoutcome()` under the bootstrap prefix.** Every internal `mlogit` refit (both imputation and time-varying component models) is run under `bootstrap:`, which requires a fixed `baseoutcome()`. The imputation fits never supplied it, and the time-varying component-model fits supplied it at only one of the simulation sites — so `imp_cmd(mlogit)` and `commands(X: mlogit)` failed under bootstrap. All internal `mlogit` fits now pin `baseoutcome()` to the estimation sample's lowest category (predicted probabilities are invariant to the choice, so estimates are unchanged).
+  - **Degenerate intervention guard.** An `interventions()` rule that targets a variable not in `intvars()` could leave an arm with no usable outcome data, which crashed the eofu potential-outcome step with an opaque Mata `r(503)` conformability error. This now fails cleanly with `r(459)` and a message pointing at the `interventions()`/`intvars()` mismatch.
+  - **QA.** New `test_gcomp_imputation_mlogit.do` (mlogit/ologit imputation and component models in mediation and time-varying modes, plus a validation that the multinomial sampler reproduces the fitted model's predicted category marginals); `test_stress.do` S6/S11 rewritten to validly exercise `pooled`/`monotreat` and a new S12 covers the degenerate-intervention guard.
 
 - **1.3.0** (2026-06-14): **Component-model display & export.** `gcomp` gains `savemodels` and `showmodels` (with `modelstyle(compact|native)`): after estimation it refits each parametric component model once on the analytic sample (faithful to what was simulated — exact for mediation), stores them as `_gcomp_m_*`, and records a manifest in `e(model_names)`/`e(model_cmds)`/`e(model_depvars)`/`e(model_eq_k)`. `showmodels` also prints the fitted coefficient tables in-window. A new `gcomptab, models` mode reads those stored estimates and writes a multi-model publication table (a self-contained, limited port of `regtab`) to xlsx/markdown/csv/Results-window, with scale auto-detection (logit→OR, mlogit→RRR, ologit→OR, regress→Coef), `eform`/`noeform`/`raw`/`coef()`, `se`, `compact`, `stars`, `nopvalue`, `keep()`/`drop()`, `nointercept`/`keepintercept`, `usemodels()`, `modellabels()`/`termlabels()`, `stats(n)`, and full styling parity. New returns `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)`, `r(table)`, `r(methods)`. Captured component models for non-pooled time-varying runs are pooled across visits (faithful per-visit columns are a planned follow-up). All earlier modes are unchanged.
 

@@ -12,6 +12,13 @@ Variables: 8
 Label: Test cohort dataset
 Data Signature: 100:8(64926):392615947:797463798
 
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 0
+Small-cell threshold: 5
+Date-safe mode: off
+Likely identifiers not excluded: id
+
 DESCRIPTION
 -----------
 This dataset contains cross-sectional data. It includes 100 observations and 8 variables. The data spans from 2020/01/03 to 2021/11/09. Key variable categories include: identifiers, demographics. 
@@ -28,9 +35,9 @@ QUICK REFERENCE
   sex                     byte      categorical     0.0%       2
   bmi                     double    continuous      0.0%     100
   region                  byte      categorical     0.0%       4
-  entry_date              double    date            0.0%       .
-  exit_date               double    date            0.0%       .
-  name                    str20     string          0.0%       .
+  entry_date              double    date            0.0%      91
+  exit_date               double    date            0.0%      92
+  name                    str20     string          0.0%     100
 ----------------------------------------
 
   id

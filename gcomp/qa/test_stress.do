@@ -185,24 +185,47 @@ else {
 }
 
 * ============================================================
+* Shared builder: longitudinal eofu dataset (outcome at last visit only,
+* lagged-treatment outcome model) used by S6/S11/S12.
+* ============================================================
+capture program drop _s_make_eofu_data
+program define _s_make_eofu_data
+    version 16.0
+    args seed
+    clear
+    set seed `seed'
+    set obs 250
+    gen long id = _n
+    gen double L0 = rnormal()
+    expand 3
+    bysort id: gen int time = _n
+    gen double L = 0
+    gen byte A = 0
+    gen byte Alag = 0
+    gen double Llag = 0
+    bysort id (time): replace L = 0.15 + 0.65*L0 + rnormal(0,0.35) if time==1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35+0.70*L+0.20*L0)) if time==1
+    bysort id (time): replace L = 0.10 + 0.60*L[_n-1] - 0.55*A[_n-1] + 0.15*L0 + rnormal(0,0.35) if time==2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25+0.60*L+0.20*L0)) if time==2
+    bysort id (time): replace L = 0.05 + 0.55*L[_n-1] - 0.55*A[_n-1] + 0.10*L0 + rnormal(0,0.35) if time==3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15+0.55*L+0.20*L0)) if time==3
+    bysort id (time): replace Alag = A[_n-1] if _n>1
+    bysort id (time): replace Llag = L[_n-1] if _n>1
+    gen byte Y = 0
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90*A[_n-1] + 0.75*L[_n-1] + 0.20*L0)) if time==3
+end
+
+* ============================================================
 * S6: Time-varying — pooled option (pools across time for model fit)
 * ============================================================
 
 local ++test_count
 capture noisily {
-    clear
-    set seed 36
-    set obs 300
-    gen long id = ceil(_n / 3)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
-    gcomp Y L A id time, outcome(Y) ///
-        idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+    _s_make_eofu_data 36
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) idvar(id) tvar(time) ///
+        varyingcovariates(L) fixedcovariates(L0) laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         pooled sim(50) samples(5) seed(6) eofu
     assert "`e(analysis_type)'" == "time_varying"
     confirm matrix e(b)
@@ -226,19 +249,11 @@ else {
 
 local ++test_count
 capture noisily {
-    clear
-    set seed 41
-    set obs 300
-    gen long id = ceil(_n / 3)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
-    gcomp Y L A id time, outcome(Y) ///
-        idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+    _s_make_eofu_data 41
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) idvar(id) tvar(time) ///
+        varyingcovariates(L) fixedcovariates(L0) laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         monotreat sim(50) samples(5) seed(11) eofu
     assert "`e(analysis_type)'" == "time_varying"
     confirm matrix e(b)
@@ -249,6 +264,39 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: S11 monotreat regression (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* S12: Degenerate intervention guard — an interventions() rule that targets a
+* variable not in intvars() leaves an arm with no usable outcome data. The
+* eofu PO step must fail cleanly (rc=459) rather than crash in Mata (was r(503)).
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    set seed 36
+    set obs 300
+    gen long id = ceil(_n / 3)
+    bysort id: gen int time = _n
+    gen double L = rnormal()
+    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
+    * Outcome depends on CURRENT A, so a no-op intervention leaves arms with no outcome data
+    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    capture gcomp Y L A id time, outcome(Y) idvar(id) tvar(time) ///
+        varyingcovariates(L) commands(L: regress, Y: logit, A: logit) ///
+        equations(L: A, Y: L A, A: L) ///
+        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        pooled sim(50) samples(5) seed(6) eofu
+    assert _rc == 459
+}
+if _rc == 0 {
+    display as result "  PASS: S12 degenerate intervention fails cleanly (rc=459, not r(503))"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S12 degenerate intervention guard (error `=_rc')"
     local ++fail_count
 }
 

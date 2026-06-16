@@ -177,8 +177,8 @@ application.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet{break}
+Department of Clinical Neuroscience
 {p_end}
 
 {hline}

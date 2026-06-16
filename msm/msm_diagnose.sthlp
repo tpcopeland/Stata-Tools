@@ -236,8 +236,8 @@ this is a side effect and is not part of {cmd:r()}.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet{break}
+Department of Clinical Neuroscience
 {p_end}
 
 {hline}

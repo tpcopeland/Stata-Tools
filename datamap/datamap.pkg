@@ -11,7 +11,7 @@ d - datamap: Generate privacy-safe dataset documentation (text)
 d - datadict: Generate Markdown data dictionaries
 d
 d Requires: Stata version 16
-d Distribution-Date: 20260614
+d Distribution-Date: 20260616
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

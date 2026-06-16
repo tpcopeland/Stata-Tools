@@ -1,4 +1,5 @@
 *! _msm_tbl_bal Version 1.1.0  2026/06/14
+*! Author: Timothy P Copeland
 program define _msm_tbl_bal, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)

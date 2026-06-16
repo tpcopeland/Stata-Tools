@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.3.1  16jun2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -915,7 +915,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.0, 2026-06-14{p_end}
+{pstd}Version 1.3.1, 2026-06-16{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,
