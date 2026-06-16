@@ -20,14 +20,7 @@ local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
-* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
-local _statadev : env STATA_DEV_DIR
-if "`_statadev'" == "" {
-    local _home : env HOME
-    local _statadev "`_home'/Stata-Dev"
-}
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
-local checker "`checker'"
+local checker "`tools_dir'/check_xlsx.py"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
@@ -164,9 +157,8 @@ else {
 
 **## Shipped text artifacts do not contain dev-only paths or legacy repo refs
 capture noisily {
-    * Distribution surface — what installs/ships to users, plus the demo doc.
-    * Zero tolerance: any dev-only token (machine path, cross-repo ref, the bare
-    * /Stata-Dev token, .codex, legacy _examples/) is a release blocker here.
+    * Distribution surface: what installs/ships to users, plus the demo doc.
+    * Zero tolerance: any dev-only token is a release blocker here.
     local ship_files "README.md stata.toc tabtools.pkg demo/demo_tabtools.do"
 
     local root_ado : dir "`pkg_dir'" files "*.ado"
@@ -179,13 +171,8 @@ capture noisily {
         local ship_files `"`ship_files' `f'"'
     }
 
-    * QA tooling — dev-time test scaffolding, never shipped to SSC/net-install
-    * users (the bundle is .ado + .sthlp only). These legitimately resolve the
-    * central xlsx checker via the relocatable `: env STATA_DEV_DIR' /
-    * `<HOME>/Stata-Dev' shim, so the bare /Stata-Dev token is allowed here.
-    * Machine paths, ~/Stata-Tools, tilde-hardcoded ~/Stata-Dev, .codex, and
-    * legacy _examples/ are still forbidden. This release gate test itself
-    * legitimately names dev tokens (to search for them), so it is excluded.
+    * QA tooling is also self-contained. This release gate test itself
+    * builds dev-token probes below, so it is excluded from the scanned set.
     local qa_files "qa/README.md qa/run_all.do qa/crossval_tabtools_companion.R qa/baseline/baseline_manifest.tsv"
     foreach ext in do py R md {
         local rootfiles : dir "`pkg_dir'/qa" files "*.`ext'"
@@ -216,12 +203,8 @@ capture noisily {
     local examples_ref "`examples_ref'examples/"
     local slash_dev "/"
     local slash_dev "`slash_dev'`dev_name'"
-    * Shipped artifacts: all patterns (including the bare /Stata-Dev token).
-    * QA tooling: same set minus /Stata-Dev, so the relocatable central-checker
-    * shim (<HOME>/Stata-Dev) is permitted while tilde-hardcoded ~/Stata-Dev and
-    * absolute machine paths still fail.
     local patterns_ship "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
-    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'"
+    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
     tempfile _grep_out
     foreach relpath of local ship_files {
         capture confirm file "`pkg_dir'/`relpath'"
@@ -264,13 +247,10 @@ else {
     local failed_tests "`failed_tests' dev_refs"
 }
 
-**## Dev-path gate discrimination — forbidden tokens flagged, relocatable checker shim exempt in qa
-* Locks in the v1.8.0 contract: the qa-tooling scan exempts the relocatable
-* central xlsx-checker reference (a macro-ref followed by /Stata-Dev, resolved
-* via `: env STATA_DEV_DIR' / `<HOME>/Stata-Dev') but still rejects absolute
-* machine paths, ~/Stata-Tools, and tilde-hardcoded ~/Stata-Dev. Shipped
-* artifacts stay zero-tolerance, including the bare /Stata-Dev token. Without
-* this guard, a future scan-pattern edit could silently neuter the gate.
+**## Dev-path gate discrimination — forbidden tokens flagged everywhere
+* Locks in the release contract: shipped files and QA tooling are both
+* self-contained. Without this guard, a future scan-pattern edit could
+* silently weaken the gate.
 capture noisily {
     * Rebuild the token pieces (kept split so this file's own scan stays clean).
     local home_user "/home/"
@@ -290,17 +270,14 @@ capture noisily {
     local slash_dev "/"
     local slash_dev "`slash_dev'`dev_name'"
     local patterns_ship "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
-    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'"
+    local patterns_qa   "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
 
     * Probe lines synthesised from the split tokens (never literals). Each mirrors
     * how the real source text would read, so the scan sees realistic content.
     local probe_machine "local p `home_user'pkg/foo.ado"
-    local probe_tilde   "local p `dev_ref'/_devkit/check_xlsx.py"
+    local probe_tilde   "local p `dev_ref'/tool/check_xlsx.py"
     local probe_tools   "local p `tools_ref'/tabtools/x.do"
-    * The relocatable checker shim: a macro-ref dir followed by /Stata-Dev. In the
-    * source file this is `local _statadev "`_home'`slash_dev'"', whose only dev
-    * token is the bare /Stata-Dev — no machine path, no tilde.
-    local probe_shim    "local checker DIR`slash_dev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+    local probe_shim    "local checker DIR`slash_dev'/tool/check_xlsx.py"
 
     tempfile _probe _gout
     foreach probe in machine tilde tools shim {
@@ -322,13 +299,12 @@ capture noisily {
     assert `cnt_machine_ship' > 0 & `cnt_machine_qa' > 0
     assert `cnt_tilde_ship'   > 0 & `cnt_tilde_qa'   > 0
     assert `cnt_tools_ship'   > 0 & `cnt_tools_qa'   > 0
-    * The relocatable central-checker shim is blocked for shipped artifacts
-    * (bare /Stata-Dev) but exempt in qa tooling.
+    * A macro-ref plus bare dev-repo token is blocked in both scans.
     assert `cnt_shim_ship' > 0
-    assert `cnt_shim_qa'  == 0
+    assert `cnt_shim_qa'   > 0
 }
 if _rc == 0 {
-    display as result "  PASS: dev-path gate flags forbidden tokens, exempts relocatable checker shim in qa"
+    display as result "  PASS: dev-path gate flags forbidden tokens in shipped files and qa"
     local ++pass_count
 }
 else {
@@ -1129,6 +1105,8 @@ else {
             demo_stacktab.xlsx
 
         local actual_sheets 0
+        confirm file "`checker'"
+        assert "`python_cmd'" != ""
         foreach f of local xlsx_files {
             local artifact "`demo_dir'/`f'"
             confirm file "`artifact'"
@@ -1156,6 +1134,15 @@ else {
                     assert r(N) == 0
                 }
             }
+
+            tempfile width_status
+            shell "`python_cmd'" "`checker'" "`artifact'" --all-col-widths-fit 1 4 ///
+                --quiet --result-file "`width_status'"
+            tempname widthfh
+            file open `widthfh' using "`width_status'", read text
+            file read `widthfh' width_line
+            file close `widthfh'
+            assert substr("`width_line'", 1, 4) == "PASS"
         }
         assert `actual_sheets' == 72
         tempfile readme_hit
@@ -1186,7 +1173,7 @@ else {
         file close `corruptfh'
     }
     if _rc == 0 {
-        display as result "  PASS: demo workbooks and console output are readable and free of release text anomalies"
+        display as result "  PASS: demo workbooks and console output are readable, width-fit, and free of release text anomalies"
         local ++pass_count
     }
     else {
@@ -1385,4 +1372,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_package_release tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _pkgrel
-

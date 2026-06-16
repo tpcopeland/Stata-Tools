@@ -10,14 +10,8 @@ log using "test_corrtab.log", replace text name(_corrtab)
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
-* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
-local _statadev : env STATA_DEV_DIR
-if "`_statadev'" == "" {
-    local _home : env HOME
-    local _statadev "`_home'/Stata-Dev"
-}
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
-local checker "`checker'"
+local tools_dir "`qa_dir'/tools"
+local checker "`tools_dir'/check_xlsx.py"
 capture mkdir "`output_dir'"
 
 capture ado uninstall tabtools

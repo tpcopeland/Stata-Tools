@@ -2,8 +2,8 @@
 * Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
 *
 * Lanes:
-*   full      - every test_*.do, validation_*.do, and crossval_*.do (default)
-*   quick     - test_*.do only, minus the adversarial suite
+*   full      - curated functional, validation, and crossval suite (default)
+*   quick     - curated functional suite, minus the adversarial suite
 *   release   - full plus benchmark_tabtools_speed.do
 *   benchmark - benchmark_tabtools_speed.do only
 *
@@ -47,23 +47,62 @@ if `install_rc' {
     exit `install_rc'
 }
 
-* Discover QA files at the qa/ root only
-local all_files ""
-if "`lane'" != "benchmark" {
-    local test_files : dir "`qa_dir'" files "test_*.do"
-    local val_files : dir "`qa_dir'" files "validation_*.do"
-    local xval_files : dir "`qa_dir'" files "crossval_*.do"
-    local all_files : list test_files | val_files
-    local all_files : list all_files | xval_files
-    local all_files : list sort all_files
-}
+* Explicit lane membership. Do not auto-discover files here; new suites should
+* be reviewed and added deliberately so release coverage cannot drift silently.
+local test_files ""
+local test_files "`test_files' test_comptab.do"
+local test_files "`test_files' test_corrtab.do"
+local test_files "`test_files' test_crosstab.do"
+local test_files "`test_files' test_desctab.do"
+local test_files "`test_files' test_diagtab.do"
+local test_files "`test_files' test_effecttab.do"
+local test_files "`test_files' test_hrcomptab.do"
+local test_files "`test_files' test_package_adversarial.do"
+local test_files "`test_files' test_package_helpers.do"
+local test_files "`test_files' test_package_integration.do"
+local test_files "`test_files' test_package_release.do"
+local test_files "`test_files' test_puttab.do"
+local test_files "`test_files' test_regtab.do"
+local test_files "`test_files' test_simtab.do"
+local test_files "`test_files' test_stacktab.do"
+local test_files "`test_files' test_stratetab.do"
+local test_files "`test_files' test_survtab.do"
+local test_files "`test_files' test_table1_tc.do"
+local test_files "`test_files' test_tabtools.do"
+local test_files "`test_files' test_tabtools_tips.do"
 
-if inlist("`lane'", "release", "benchmark") {
-    capture confirm file "`qa_dir'/benchmark_tabtools_speed.do"
-    if _rc == 0 {
-        local bench "benchmark_tabtools_speed.do"
-        local all_files : list all_files | bench
-    }
+local validation_files ""
+local validation_files "`validation_files' validation_corrtab.do"
+local validation_files "`validation_files' validation_crosstab.do"
+local validation_files "`validation_files' validation_diagtab.do"
+local validation_files "`validation_files' validation_effecttab.do"
+local validation_files "`validation_files' validation_package.do"
+local validation_files "`validation_files' validation_regtab.do"
+local validation_files "`validation_files' validation_simtab.do"
+local validation_files "`validation_files' validation_stratetab.do"
+local validation_files "`validation_files' validation_survtab.do"
+local validation_files "`validation_files' validation_table1_tc.do"
+
+local crossval_files "crossval_tabtools.do"
+local benchmark_files "benchmark_tabtools_speed.do"
+
+local quick_files "`test_files'"
+local adversarial "test_package_adversarial.do"
+local quick_files : list quick_files - adversarial
+
+local full_files "`test_files' `validation_files' `crossval_files'"
+
+if "`lane'" == "quick" {
+    local all_files "`quick_files'"
+}
+else if "`lane'" == "benchmark" {
+    local all_files "`benchmark_files'"
+}
+else if "`lane'" == "release" {
+    local all_files "`full_files' `benchmark_files'"
+}
+else {
+    local all_files "`full_files'"
 }
 
 * Read skip list
@@ -94,15 +133,8 @@ if _rc == 0 {
     file close `skipfh'
 }
 
-* Quick lane drops validation/crossval files and the adversarial suite
-local quick_drop "test_package_adversarial.do"
-
 local n_discovered = 0
 foreach f of local all_files {
-    if "`f'" == "run_all.do" continue
-    if "`lane'" == "quick" & (substr("`f'", 1, 11) == "validation_" | ///
-        substr("`f'", 1, 9) == "crossval_" | ///
-        `: list f in quick_drop') continue
     local ++n_discovered
 }
 
@@ -119,11 +151,6 @@ if "`skip_names'" != "" {
 }
 
 foreach f of local all_files {
-    if "`f'" == "run_all.do" continue
-    if "`lane'" == "quick" & (substr("`f'", 1, 11) == "validation_" | ///
-        substr("`f'", 1, 9) == "crossval_" | ///
-        `: list f in quick_drop') continue
-
     local in_skip : list f in skip_names
     if `in_skip' {
         local ++n_skip

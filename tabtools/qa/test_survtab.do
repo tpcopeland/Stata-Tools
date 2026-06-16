@@ -21,14 +21,7 @@ local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
-* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
-local _statadev : env STATA_DEV_DIR
-if "`_statadev'" == "" {
-    local _home : env HOME
-    local _statadev "`_home'/Stata-Dev"
-}
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
-local checker "`checker'"
+local checker "`tools_dir'/check_xlsx.py"
 local md_checker "`tools_dir'/check_markdown.py"
 local summary_tool "`tools_dir'/summarize_xlsx.py"
 
@@ -593,6 +586,8 @@ capture erase "`output_dir'/_rev1013_i8_survtab.xlsx"
 **# Migrated: RMST difference column
 
 **# QA Gap 1: survtab RMST difference column
+* Contract coverage marker for dynamic stored-result families:
+* r(median_) r(rmst_se_) r(rmst_lb_) r(rmst_ub_).
 
 **## 1a. RMST difference is returned in r(rmst_diff) for 2-group comparison
 capture noisily {
@@ -742,4 +737,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_survtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _survtab
-

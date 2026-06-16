@@ -23,6 +23,17 @@ restores them afterwards.
 
 Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
+## Lane membership
+
+`run_all.do` uses explicit, reviewed file lists rather than glob discovery.
+
+| Lane | Files |
+|------|-------|
+| `quick` | All `test_*.do` files except `test_package_adversarial.do` |
+| `full` | All `test_*.do` files, all `validation_*.do` files, plus `crossval_tabtools.do` |
+| `release` | `full` plus `benchmark_tabtools_speed.do` |
+| `benchmark` | `benchmark_tabtools_speed.do` only |
+
 ## Conventions
 
 - `test_*` — functional/regression tests. `validation_*` — known-answer and

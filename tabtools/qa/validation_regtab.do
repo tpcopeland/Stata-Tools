@@ -21,13 +21,7 @@ local tools_dir "`qa_dir'/tools"
 
 * check_xlsx availability for Excel-content assertions in migrated sections
 local has_check_xlsx = 0
-* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
-local _statadev : env STATA_DEV_DIR
-if "`_statadev'" == "" {
-    local _home : env HOME
-    local _statadev "`_home'/Stata-Dev"
-}
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`tools_dir'/check_xlsx.py"
 capture confirm file "`checker'"
 if _rc == 0 local has_check_xlsx = 1
 
@@ -1718,16 +1712,9 @@ else {
 
 **# Migrated: shared Excel-checking helpers
 
-* Resolve the canonical xlsx checker: central Stata-Dev copy, then a
-* package-local tools/ fallback. (A prior migration reset this to "" and
-* confirmed the wrong macro, silently disabling every VA Excel-cell check.)
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`tools_dir'/check_xlsx.py"
 capture confirm file "`checker'"
-if _rc != 0 {
-    local checker "`tools_dir'/check_xlsx.py"
-    capture confirm file "`checker'"
-    if _rc != 0 local checker ""
-}
+if _rc != 0 local checker ""
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
     display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
