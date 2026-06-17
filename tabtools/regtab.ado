@@ -1,4 +1,4 @@
-*! regtab Version 1.8.1  2026/06/17
+*! regtab Version 1.8.2  2026/06/17
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1227,6 +1227,21 @@ else {
     collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 }
 
+* Capture the colname level<->label map while collect is still active.
+* collect renders the variable LABEL into column A, so keep()/drop() by raw
+* variable name cannot match A directly. This map lets us reconstruct the raw
+* coefficient name per row (see _raw_colname construction after rendering).
+local _cnmap_n = 0
+capture quietly collect label list colname
+if _rc == 0 {
+    local _cnmap_n = real("`s(k)'")
+    if missing(`_cnmap_n') local _cnmap_n = 0
+    forvalues _ci = 1/`_cnmap_n' {
+        local _cnmap_level_`_ci' `"`s(level`_ci')'"'
+        local _cnmap_label_`_ci' `"`s(label`_ci')'"'
+    }
+}
+
 * Preserve user data before rendering the collect table into a string dataset
 preserve
 
@@ -1268,6 +1283,22 @@ if _N < 3 {
 	capture erase "`temp_xlsx'"
 	restore
 	exit 2000
+}
+
+* Build the raw coefficient-name column BEFORE any A relabeling/flattening, so
+* keep()/drop() can match by variable name. Column A holds the rendered label
+* (collect substitutes variable labels); default _raw_colname to A (correct for
+* unlabeled coefficients, where A already is the raw name) and reverse-map the
+* labeled levels back to their raw colname using the map captured above. This
+* rides along through all subsequent row drops/sorts as a real variable.
+capture confirm variable _raw_colname
+if _rc {
+	quietly gen strL _raw_colname = ""
+	quietly replace _raw_colname = strtrim(A) if _n > 2
+	forvalues _ci = 1/`_cnmap_n' {
+		quietly replace _raw_colname = `"`_cnmap_level_`_ci''"' ///
+			if _n > 2 & strtrim(A) == `"`_cnmap_label_`_ci''"'
+	}
 }
 
 * Flatten coleq#colname hierarchical layout for multi-level models
@@ -1590,7 +1621,7 @@ else if "`re_transform'" == "mhr" & "`nore'" == "" {
 * Get all variables - first variable is row labels, rest are data columns
 ds
 local allvars `r(varlist)'
-local _helper_vars "_is_re _is_re_intercept _re_group_label"
+local _helper_vars "_is_re _is_re_intercept _re_group_label _raw_colname"
 local allvars : list allvars - _helper_vars
 
 * Get the first variable name (row labels column)
@@ -1612,7 +1643,16 @@ local n2 `=`n'-3'
 local n `=`n'-1'
 * Model count (used by stats() and ICC placement)
 local n_models = `n' / 3
-clonevar _raw_A = A
+* _raw_colname carries the true coefficient name (built before A was relabeled);
+* use it so keep()/drop() match by variable name. Fall back to A for the xlsx
+* import path, which bypasses the collect renderer and has no _raw_colname.
+capture confirm variable _raw_colname
+if _rc == 0 {
+	rename _raw_colname _raw_A
+}
+else {
+	clonevar _raw_A = A
+}
 
 if "`models'" != "" {
     * Split models string by backslashes
@@ -1707,8 +1747,9 @@ if `"`cutlabels'"' != "" {
 }
 
 * Filter rows by keep/drop list
-* Note: A contains variable labels from collect, not variable names
-* Match against exact label, variable name within label, or factor prefix
+* A holds the rendered label; _raw_A holds the raw coefficient/variable name.
+* Match tokens against either, by exact value or substring (covers factor
+* prefixes like 2.arm and label substrings).
 if "`keep'" != "" {
     gen byte _keep = 0
     replace _keep = 1 if _n <= 2

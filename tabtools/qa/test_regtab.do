@@ -4753,6 +4753,97 @@ else {
 
 
 
+**# Migrated: keep()/drop() match by variable name when vars are labeled
+**# Regression for the empty-body bug: collect renders the variable LABEL into
+**# column A, so keep()/drop() by raw variable name must match a separately
+**# tracked raw-name column. Before the fix, keep(rawname) on labeled vars
+**# dropped every coefficient row (headers-only table). Asserts on BODY content,
+**# not just file existence, because the buggy table still wrote a file.
+
+* keep() by raw name on LABELED variables retains exactly those rows
+capture noisily {
+    sysuse auto, clear
+    label variable mpg "Fuel economy"
+    label variable weight "Curb mass"
+    label variable length "Body length"
+    collect clear
+    collect: regress price mpg weight length
+    regtab, frame(_keepname) keep(mpg weight)
+    frame _keepname {
+        * body rows live below the two header rows; labels must survive
+        quietly count if strpos(A, "Fuel economy") > 0
+        assert r(N) == 1
+        quietly count if strpos(A, "Curb mass") > 0
+        assert r(N) == 1
+        * filtered-out rows must be gone
+        quietly count if strpos(A, "Body length") > 0
+        assert r(N) == 0
+        quietly count if strtrim(A) == "Intercept"
+        assert r(N) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: regtab keep() by raw name with labeled vars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab keep() by raw name with labeled vars (rc=`=_rc')"
+    local ++fail_count
+}
+
+* drop() by raw name on LABELED variables removes exactly that row
+capture noisily {
+    sysuse auto, clear
+    label variable mpg "Fuel economy"
+    label variable weight "Curb mass"
+    label variable length "Body length"
+    collect clear
+    collect: regress price mpg weight length
+    regtab, frame(_dropname) drop(mpg)
+    frame _dropname {
+        quietly count if strpos(A, "Fuel economy") > 0
+        assert r(N) == 0
+        quietly count if strpos(A, "Curb mass") > 0
+        assert r(N) == 1
+        quietly count if strpos(A, "Body length") > 0
+        assert r(N) == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: regtab drop() by raw name with labeled vars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab drop() by raw name with labeled vars (rc=`=_rc')"
+    local ++fail_count
+}
+
+* label-substring matching still works (no regression for label-based filtering)
+capture noisily {
+    sysuse auto, clear
+    label variable mpg "Fuel economy"
+    label variable weight "Curb mass"
+    collect clear
+    collect: regress price mpg weight
+    regtab, frame(_keeplbl) keep("Fuel")
+    frame _keeplbl {
+        quietly count if strpos(A, "Fuel economy") > 0
+        assert r(N) == 1
+        quietly count if strpos(A, "Curb mass") > 0
+        assert r(N) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: regtab keep() by label substring still works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab keep() by label substring (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""
