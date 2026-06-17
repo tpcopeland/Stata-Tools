@@ -419,7 +419,7 @@ else {
     local failed_tests "`failed_tests' T7"
 }
 
-**# T8: default export renders the thin full grid with no header shade
+**# T8: default export renders the thin house grid (frame + group separators) with no header shade
 
 local ++test_count
 capture noisily {
@@ -435,7 +435,7 @@ capture noisily {
     confirm file "`gridmark'"
 }
 if _rc == 0 {
-    display as result "  PASS: T8 - default thin full grid, no shade"
+    display as result "  PASS: T8 - default thin house grid, no shade"
     local ++pass_count
 }
 else {

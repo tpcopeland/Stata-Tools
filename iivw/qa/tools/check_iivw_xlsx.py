@@ -46,7 +46,8 @@ SPECS = {
         "merges": ("C2:E2",),
         "probe": "C4",
         # Single-value diagnostic block: a bold "Diagnostic values" divider
-        # row merged across C:E, with each value row below it merged C:E.
+        # row bracketed by full-width horizontal rules (not merged), with each
+        # value below it sitting plainly in column C (not merged).
         "divider": {"row": 7, "label": "Diagnostic values"},
     },
 }
@@ -130,16 +131,22 @@ def check(
             fail(f"divider row {drow} label mismatch: {ws.cell(drow, 3).value!r}")
         if not ws.cell(drow, 3).font.bold:
             fail(f"divider row {drow} is not bold")
+        # House style: the divider is bracketed by full-width horizontal rules
+        # and is NOT merged; diagnostic values sit plainly in column C.
         divider_merge = f"C{drow}:{last_col}{drow}"
-        if divider_merge not in merged_ranges:
-            fail(f"divider row is not merged across {divider_merge}")
+        if divider_merge in merged_ranges:
+            fail(f"divider row should not be merged: {divider_merge}")
+        if ws.cell(drow, 2).border.top.style is None:
+            fail(f"divider row {drow} has no top border")
+        if ws.cell(drow, 2).border.bottom.style is None:
+            fail(f"divider row {drow} has no bottom border")
         if expected_rows is not None:
             # Value rows run from the divider+1 to just above the footnote.
             note_row = 4 + expected_rows
             for vrow in range(drow + 1, note_row):
                 value_merge = f"C{vrow}:{last_col}{vrow}"
-                if value_merge not in merged_ranges:
-                    fail(f"value row is not merged across {value_merge}")
+                if value_merge in merged_ranges:
+                    fail(f"value row should not be merged: {value_merge}")
 
     string_probe = ws[spec["probe"]]
     if string_probe.value not in (None, "") and not isinstance(string_probe.value, str):

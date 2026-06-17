@@ -49,7 +49,7 @@
 {synopt:{opt t:itle(string)}}optional Excel title row{p_end}
 {synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
-{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (full grid; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
+{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (framed grid with column-group separators; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
@@ -156,7 +156,7 @@ cell formatting.  The allowed range is 0 through 6; the default is 4.
 {opt borderstyle(string)} selects the Excel border scheme and requires
 {opt xlsx()}.  {cmd:thin} (the default) draws a full thin grid -- an outer box
 plus interior horizontal and vertical rules -- matching the tabtools house
-style.  {cmd:medium} draws the same full grid with medium lines.
+style.  {cmd:medium} draws the same framed grid with medium lines.
 {cmd:academic} uses a three-rule (top/header/bottom) layout with no vertical
 rules.  {cmd:default} is an alias for {cmd:thin}.
 

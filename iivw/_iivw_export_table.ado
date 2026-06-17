@@ -44,7 +44,8 @@ program define _iivw_export_table, rclass
     }
 
     * ---- Resolve styling options (tabtools-parity, self-contained) ----
-    * Defaults match the tabtools house style: thin full grid, no header shade.
+    * Defaults match the tabtools house style: thin framed grid (frame plus
+    * group separators, no full interior grid), no header shade.
     local borderstyle = lower(strtrim(subinstr(`"`borderstyle'"', `"`__iivw_dq'"', "", .)))
     local theme = lower(strtrim(subinstr(`"`theme'"', `"`__iivw_dq'"', "", .)))
     local __iivw_font "Arial"
@@ -647,20 +648,16 @@ void _iivw_xlsx_style_tabtools(
         }
     }
 
-    // Single-value diagnostic block (iivw_diagnose only).  When
-    // valuespanfrom marks a divider row, bold and merge it across C:E, then
-    // merge each value row below it so a lone number reads as one cell
-    // instead of sitting narrowly under the "Estimate" column.  Default 0
-    // leaves the generic exogeneity/gap callers untouched.
+    // Single-value diagnostic block (iivw_diagnose only).  When valuespanfrom
+    // marks a divider row, bracket it with full-width horizontal rules and bold
+    // its label -- no merging.  Diagnostic values below stay plainly in column
+    // C with no merge, matching the regtab house style.  Default 0 leaves the
+    // generic exogeneity/gap callers untouched.
     if (valuespanfrom > 0 & n_cols >= 3 & valuespanfrom <= data_last) {
-        b.set_sheet_merge(sheet, (valuespanfrom, valuespanfrom), (3, n_cols))
-        b.set_font_bold((valuespanfrom, valuespanfrom), (3, n_cols), "on")
-        b.set_horizontal_align((valuespanfrom, valuespanfrom), (3, n_cols),
-            "left")
-        for (i = valuespanfrom + 1; i <= data_last; i++) {
-            b.set_sheet_merge(sheet, (i, i), (3, n_cols))
-            b.set_horizontal_align((i, i), (3, n_cols), "center")
-        }
+        b.set_font_bold((valuespanfrom, valuespanfrom), (3, 3), "on")
+        b.set_horizontal_align((valuespanfrom, valuespanfrom), (3, 3), "left")
+        b.set_top_border((valuespanfrom, valuespanfrom), (2, n_cols), "medium")
+        b.set_bottom_border((valuespanfrom, valuespanfrom), (2, n_cols), "medium")
     }
 
     // Group merges in the super-header (3-column blocks from column 3).
@@ -674,7 +671,8 @@ void _iivw_xlsx_style_tabtools(
         }
     }
 
-    // Borders: full grid for thin/medium, three-rule book layout for academic.
+    // Borders: framed grid (frame + group separators) for thin/medium,
+    // three-rule book layout for academic.
     if (n_cols >= 2 & data_last >= 2) {
         if (bcode == 3) {
             b.set_top_border((2, 2), (2, n_cols), "medium")
@@ -686,10 +684,21 @@ void _iivw_xlsx_style_tabtools(
         }
         else {
             gridstyle = (bcode == 2 ? "medium" : "thin")
-            b.set_top_border((2, data_last), (2, n_cols), gridstyle)
-            b.set_bottom_border((2, data_last), (2, n_cols), gridstyle)
-            b.set_left_border((2, data_last), (2, n_cols), gridstyle)
-            b.set_right_border((2, data_last), (2, n_cols), gridstyle)
+            // Regtab house style (Tables 1-3): outer frame plus vertical
+            // separators after the label column and between 3-column model
+            // groups, with horizontal rules only in the header band -- not a
+            // full interior grid.
+            b.set_top_border((2, 2), (2, n_cols), "medium")
+            if (n_rows >= 3) {
+                b.set_bottom_border((2, 2), (2, n_cols), "thin")
+                b.set_bottom_border((3, 3), (2, n_cols), "medium")
+            }
+            b.set_bottom_border((data_last, data_last), (2, n_cols), "medium")
+            b.set_left_border((2, data_last), (2, 2), gridstyle)
+            b.set_right_border((2, data_last), (2, 2), gridstyle)
+            for (j = 5; j <= n_cols; j = j + 3) {
+                b.set_right_border((2, data_last), (j, j), gridstyle)
+            }
         }
     }
 
