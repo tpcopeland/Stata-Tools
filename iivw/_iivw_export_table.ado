@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.7.0  2026/06/17
+*! _iivw_export_table Version 1.7.1  2026/06/17
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,7 +20,7 @@ program define _iivw_export_table, rclass
     syntax , TABLEFRAME(name) ///
         [XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(integer 4) LAYout(string) ///
+         DECimals(integer 4) LAYout(string) VALUESPANFROM(integer 0) ///
          BORDERstyle(string) HEADERShade THEme(string) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
@@ -36,6 +36,10 @@ program define _iivw_export_table, rclass
     if `"`layout'"' == "regtab" local layout "tabtools"
     if !inlist(`"`layout'"', "standard", "tabtools") {
         display as error "layout() must be standard or tabtools"
+        error 198
+    }
+    if `valuespanfrom' < 0 {
+        display as error "valuespanfrom() must be a non-negative row index"
         error 198
     }
 
@@ -271,7 +275,8 @@ program define _iivw_export_table, rclass
             `__iivw_note_row', `"`__iivw_widths'"', ///
             `"`__iivw_font'"', `__iivw_fontsize', `__iivw_bcode', ///
             `__iivw_headershade_flag', `__iivw_zebra_flag', ///
-            `"`__iivw_headercolor'"', `"`__iivw_zebracolor'"')
+            `"`__iivw_headercolor'"', `"`__iivw_zebracolor'"', ///
+            `valuespanfrom')
 
         local __iivw_return_xlsx `"`__iivw_xlsx'"'
         local __iivw_return_sheet `"`sheet'"'
@@ -528,7 +533,8 @@ void _iivw_xlsx_write_tabtools(
     real scalar headershade,
     real scalar zebra,
     string scalar headercolor,
-    string scalar zebracolor)
+    string scalar zebracolor,
+    real scalar valuespanfrom)
 {
     class xl scalar b
     string rowvector sheets
@@ -564,7 +570,8 @@ void _iivw_xlsx_write_tabtools(
     b.put_string(1, 1, table)
 
     _iivw_xlsx_style_tabtools(b, sheet, n_rows, n_cols, note_row, widths,
-        font, fontsize, bcode, headershade, zebra, headercolor, zebracolor)
+        font, fontsize, bcode, headershade, zebra, headercolor, zebracolor,
+        valuespanfrom)
     b.close_book()
 }
 
@@ -581,7 +588,8 @@ void _iivw_xlsx_style_tabtools(
     real scalar headershade,
     real scalar zebra,
     string scalar headercolor,
-    string scalar zebracolor)
+    string scalar zebracolor,
+    real scalar valuespanfrom)
 {
     real rowvector w
     real scalar data_last, j, cend, i, title_size, foot_size
@@ -636,6 +644,22 @@ void _iivw_xlsx_style_tabtools(
         b.set_vertical_align((4, data_last), (2, n_cols), "center")
         if (n_cols >= 3) {
             b.set_horizontal_align((4, data_last), (3, n_cols), "center")
+        }
+    }
+
+    // Single-value diagnostic block (iivw_diagnose only).  When
+    // valuespanfrom marks a divider row, bold and merge it across C:E, then
+    // merge each value row below it so a lone number reads as one cell
+    // instead of sitting narrowly under the "Estimate" column.  Default 0
+    // leaves the generic exogeneity/gap callers untouched.
+    if (valuespanfrom > 0 & n_cols >= 3 & valuespanfrom <= data_last) {
+        b.set_sheet_merge(sheet, (valuespanfrom, valuespanfrom), (3, n_cols))
+        b.set_font_bold((valuespanfrom, valuespanfrom), (3, n_cols), "on")
+        b.set_horizontal_align((valuespanfrom, valuespanfrom), (3, n_cols),
+            "left")
+        for (i = valuespanfrom + 1; i <= data_last; i++) {
+            b.set_sheet_merge(sheet, (i, i), (3, n_cols))
+            b.set_horizontal_align((i, i), (3, n_cols), "center")
         }
     }
 

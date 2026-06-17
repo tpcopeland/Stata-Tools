@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  14jun2026}{...}
+{* *! version 1.8.1  17jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}

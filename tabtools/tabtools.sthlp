@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  14jun2026}{...}
+{* *! version 1.8.1  17jun2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}

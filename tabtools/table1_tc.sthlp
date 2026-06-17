@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  14jun2026}{...}
+{* *! version 1.8.1  17jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}

@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.7.0** | 2026-06-17
+**Version 1.7.1** | 2026-06-17
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -514,6 +514,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.7.1 (2026-06-17)
+
+- **Restructured the `iivw_diagnose` Excel sheet** from six columns (A-F) to five (A-E). The standalone "Value" column (F) is removed; each diagnostic and bias value now sits in the `Estimate` column, merged across the estimate columns
+- Added a bold **`Diagnostic values` divider row** between the model-estimate rows and the single-value diagnostic rows, so the gaps, shares, bounds, and bias rows read as their own labeled block instead of lone numbers under `Estimate`
+- Internal-only: `_iivw_export_table` gains a `valuespanfrom()` option driving the new divider/value-row merges; the generic `iivw_exogtest` and gap exports are unaffected (default `0` preserves prior behavior)
 
 ### v1.7.0 (2026-06-17)
 

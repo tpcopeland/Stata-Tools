@@ -525,8 +525,8 @@ log on demo
 noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Dose") varlabels
 
 noisily stacktab using "`_pipe_xlsx'", sheet("Composite") ///
-    blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \ ///
-           sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///
+    blocks(sheet(Block Primary) rows(2/5) cols(B-D) label(Any HRT use) \ ///
+           sheet(Block Dose) rows(2/4) cols(B-D) label(By estrogen dose)) ///
     columnmerge(B+C as "aHR (95% CI)") ///
     spacing(1) display ///
     title("Hormone therapy and recurrent events") ///
@@ -1625,8 +1625,8 @@ puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Dose") varlabels
 
 * Step 2 (vstack): merge estimate+CI columns, label each block as a section.
 stacktab using "`xlsx_stacktab'", sheet("Composite") ///
-    blocks(sheet(Block Primary) rows(1/4) cols(A-C) label(Any HRT use) \ ///
-           sheet(Block Dose) rows(1/3) cols(A-C) label(By estrogen dose)) ///
+    blocks(sheet(Block Primary) rows(2/5) cols(B-D) label(Any HRT use) \ ///
+           sheet(Block Dose) rows(2/4) cols(B-D) label(By estrogen dose)) ///
     columnmerge(B+C as "aHR (95% CI)") ///
     spacing(1) ///
     title("Table 2. Hormone Therapy and Recurrent Events") ///
@@ -1634,8 +1634,8 @@ stacktab using "`xlsx_stacktab'", sheet("Composite") ///
 
 * Step 2 (hstack): place two equal-height blocks side by side.
 stacktab using "`xlsx_stacktab'", sheet("SideBySide") ///
-    blocks(sheet(Block Primary) rows(2/3) cols(A-C) \ ///
-           sheet(Block Dose) rows(2/3) cols(A-C)) ///
+    blocks(sheet(Block Primary) rows(3/4) cols(B-D) \ ///
+           sheet(Block Dose) rows(3/4) cols(B-D)) ///
     layout(hstack) ///
     title("Primary and Dose-Response Estimates Side by Side")
 

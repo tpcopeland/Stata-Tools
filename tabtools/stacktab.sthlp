@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  14jun2026}{...}
+{* *! version 1.8.1  17jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}

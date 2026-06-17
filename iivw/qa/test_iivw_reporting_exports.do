@@ -189,24 +189,26 @@ capture noisily {
 
     tempfile diagmark
     shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
-        "`diagxlsx'" Diagnostics diagnostics 14 "`diagmark'"
+        "`diagxlsx'" Diagnostics diagnostics 15 "`diagmark'"
     confirm file "`diagmark'"
 
     import excel using "`diagxlsx'", sheet("Diagnostics") clear allstring
-    assert _N == 18
+    * 5-column layout (A-E): value sits in column C beneath a "Diagnostic
+    * values" divider row (Excel row 7), pushing the value rows down one.
+    assert _N == 19
     assert A[1] == "IIVW diagnostic decomposition"
     assert C[2] == "Model estimates"
-    assert F[2] == "Diagnostic values"
     assert B[3] == "Quantity"
     assert C[3] == "Estimate"
     assert E[3] == "95% CI"
-    assert F[3] == "Value"
     assert B[4] == "Unweighted"
     assert abs(real(C[4]) - E[1,1]) < 0.0001
-    assert B[7] == "Sampling gap"
-    assert abs(real(F[7]) - `sampling_gap') < 0.0001
-    assert B[17] == "Adjusted bias"
-    assert abs(real(F[17]) - `bias_adjusted') < 0.0001
+    assert C[7] == "Diagnostic values"
+    assert B[7] == ""
+    assert B[8] == "Sampling gap"
+    assert abs(real(C[8]) - `sampling_gap') < 0.0001
+    assert B[18] == "Adjusted bias"
+    assert abs(real(C[18]) - `bias_adjusted') < 0.0001
 }
 if _rc == 0 {
     display as result "  PASS: T3 - iivw_diagnose styled workbook"
@@ -302,7 +304,7 @@ capture noisily {
         "`workbook'" Balance balance 1 "`bookbalmark'"
     confirm file "`bookbalmark'"
     shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
-        "`workbook'" Diagnostics diagnostics 10 "`bookdiagmark'"
+        "`workbook'" Diagnostics diagnostics 11 "`bookdiagmark'"
     confirm file "`bookdiagmark'"
 
     import excel using "`workbook'", sheet("Balance") clear allstring
@@ -310,11 +312,12 @@ capture noisily {
     assert B[4] == "x"
 
     import excel using "`workbook'", sheet("Diagnostics") clear allstring
-    assert _N == 14
-    assert B[12] == "Lower bound"
-    assert abs(real(F[12]) - 0.10) < 0.0001
-    assert B[13] == "Upper bound"
-    assert abs(real(F[13]) - 0.31) < 0.0001
+    * No true(): divider row at 7 shifts the bound rows down one; value in C.
+    assert _N == 15
+    assert B[13] == "Lower bound"
+    assert abs(real(C[13]) - 0.10) < 0.0001
+    assert B[14] == "Upper bound"
+    assert abs(real(C[14]) - 0.31) < 0.0001
 }
 if _rc == 0 {
     display as result "  PASS: T5 - shared workbook multi-sheet export"
@@ -404,7 +407,7 @@ capture noisily {
 
     import excel using "`protectxlsx'", sheet("Diagnostics") clear allstring
     assert A[1] == "IIVW diagnostic decomposition"
-    assert B[12] == "Lower bound"
+    assert B[13] == "Lower bound"
 }
 if _rc == 0 {
     display as result "  PASS: T7 - existing sheets protected without replace"

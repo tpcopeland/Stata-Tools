@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  17jun2026}{...}
+{* *! version 1.7.1  17jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -725,7 +725,7 @@ doi:10.1177/09622802241313289.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.0, 2026-06-17{p_end}
+{pstd}Version 1.7.1, 2026-06-17{p_end}
 
 
 {title:Also see}

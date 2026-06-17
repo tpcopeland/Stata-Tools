@@ -1,4 +1,4 @@
-*! puttab Version 1.8.0  2026/06/14
+*! puttab Version 1.8.1  2026/06/17
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -9,7 +9,8 @@ DESCRIPTION:
     takes a table that already lives in memory -- the current dataset, a named
     frame, or a Stata matrix (e(b), r(table), a collapse/tabulate result) -- and
     writes it as one house-styled Excel sheet with the shared tabtools geometry:
-    merged title, header rule, optional header shading and zebra striping,
+    a left-justified title in cell A1, a thin spacer column A so the table body
+    is anchored at B2, a header rule, optional header shading and zebra striping,
     column widths, borders, and an italic footnote.
 
     It complements the rest of the suite at the raw-input end: desctab needs a
@@ -277,97 +278,134 @@ program define puttab, rclass
             noisily display as text "Markdown exported to `markdown'"
         }
 
-        * ===== border code (thin=1, medium=2, thick=3, none=4) =====
-        local _hbc = 1
-        if "`_hborder'" == "medium" local _hbc = 2
-        if "`_hborder'" == "thick"  local _hbc = 3
-        if "`_hborder'" == "none"   local _hbc = 4
-
-        * ===== column widths (measured over header + data rows only) =====
-        tempname _rules
-        local _first_rule_done = 0
-        local _content_top = `_titlerows' + 1
-        forvalues j = 1/`K' {
-            tempvar _len
-            quietly gen long `_len' = length(c`j')
-            quietly summarize `_len' ///
-                if c`j' != "" & inrange(_n, `_content_top', `_last_data_row'), ///
-                meanonly
-            local _w = cond(r(N) > 0, ceil(r(max) * 0.95) + 2, 10)
-            if `j' == 1 {
-                if `_w' < 12 local _w = 12
-                if `_w' > 50 local _w = 50
-            }
-            else {
-                if `_w' < 8  local _w = 8
-                if `_w' > 32 local _w = 32
-            }
-            drop `_len'
-            if !`_first_rule_done' {
-                matrix `_rules' = (13, 1, 1, `j', `j', `_w', 0, 0, 0)
-                local _first_rule_done = 1
-            }
-            else {
-                matrix `_rules' = `_rules' \ (13, 1, 1, `j', `j', `_w', 0, 0, 0)
-            }
-        }
-
-        * ===== base font, wrap, vertical centering, left alignment =====
-        matrix `_rules' = `_rules' \ ///
-            (1, 1, `_total_rows', 1, `K', `_fontsize', 1, 0, 0) \ ///
-            (4, 1, `_total_rows', 1, `K', 0, 1, 0, 0) \ ///
-            (6, 1, `_total_rows', 1, `K', 0, 2, 0, 0) \ ///
-            (5, 1, `_total_rows', 1, `K', 0, 1, 0, 0)
-
-        * ===== title row =====
-        if `_titlerows' {
-            matrix `_rules' = `_rules' \ ///
-                (14, 1, 1, 1, `K', 0, 0, 0, 0) \ ///
-                (1, 1, 1, 1, `K', `=`_fontsize' + 2', 1, 0, 0) \ ///
-                (2, 1, 1, 1, `K', 0, 1, 0, 0) \ ///
-                (5, 1, 1, 1, `K', 0, 2, 0, 0)
-        }
-
-        * ===== header row (or top rule above first data row) =====
-        if `_headerrows' {
-            matrix `_rules' = `_rules' \ ///
-                (2, `_header_row', `_header_row', 1, `K', 0, 1, 0, 0) \ ///
-                (5, `_header_row', `_header_row', 1, `K', 0, 2, 0, 0) \ ///
-                (8, `_header_row', `_header_row', 1, `K', 0, `_hbc', 0, 0) \ ///
-                (9, `_header_row', `_header_row', 1, `K', 0, `_hbc', 0, 0)
-            if "`headershade'" != "" {
-                matrix `_rules' = `_rules' \ ///
-                    (7, `_header_row', `_header_row', 1, `K', 0, -1, 0, 0)
-            }
-        }
-        else {
-            matrix `_rules' = `_rules' \ ///
-                (8, `_data_start', `_data_start', 1, `K', 0, `_hbc', 0, 0)
-        }
-
-        * ===== bottom rule below the last data row =====
-        matrix `_rules' = `_rules' \ ///
-            (9, `_last_data_row', `_last_data_row', 1, `K', 0, `_hbc', 0, 0)
-
-        * ===== zebra striping over data rows =====
-        if "`zebra'" != "" {
-            forvalues _zr = `=`_data_start' + 1'(2)`_last_data_row' {
-                matrix `_rules' = `_rules' \ ///
-                    (7, `_zr', `_zr', 1, `K', 0, -2, 0, 0)
-            }
-        }
-
-        * ===== footnote row =====
-        if `_foot_row' > 0 {
-            local _fn_size = max(`_fontsize' - 2, 6)
-            matrix `_rules' = `_rules' \ ///
-                (14, `_foot_row', `_foot_row', 1, `K', 0, 0, 0, 0) \ ///
-                (1, `_foot_row', `_foot_row', 1, `K', `_fn_size', 1, 0, 0) \ ///
-                (3, `_foot_row', `_foot_row', 1, `K', 0, 1, 0, 0) \ ///
-                (5, `_foot_row', `_foot_row', 1, `K', 0, 1, 0, 0)
-        }
-
+        * ===== Excel sheet geometry (shared house style with regtab/table1_tc) =====
+        * The CSV/Markdown mirrors above use the compact in-memory table as built.
+        * The Excel sheet adds the shared layout: a thin spacer column A, the title
+        * spanning row 1 (cell A1, left-justified), and the table body anchored at
+        * B2. Apply it to the (already-CSV/Markdown-exported) data; the dataset is
+        * discarded by the restore at the end either way.
         if `_has_using' {
+
+            tempvar _spacer _roworder
+
+            * Reserve a blank title row when no title was supplied, so the body
+            * always begins on row 2 (table top-left cell = B2).
+            if !`_titlerows' {
+                quietly gen long `_roworder' = _n
+                quietly set obs `=_N + 1'
+                quietly replace `_roworder' = 0 in L
+                sort `_roworder'
+                drop `_roworder'
+            }
+            * Prepend the spacer column (Excel column A) and carry the title text,
+            * if any, into A1 so it shows from the left of the merged title row.
+            local _c1type : type c1
+            quietly gen `_c1type' `_spacer' = ""
+            quietly replace `_spacer' = c1 in 1
+            quietly replace c1 = "" in 1
+            order `_spacer', first
+
+            * Excel coordinates: content column j -> Excel column j+1; the title
+            * occupies row 1, and the body shifts down by one when a title row was
+            * inserted above (`_x_roff' = 1 when no title was supplied).
+            local _xK = `K' + 1
+            local _x_roff = 1 - `_titlerows'
+            local _x_header_row = cond(`_headerrows', `_header_row' + `_x_roff', 0)
+            local _x_data_start = `_data_start' + `_x_roff'
+            local _x_last_data  = `_last_data_row' + `_x_roff'
+            local _x_total_rows = `_total_rows' + `_x_roff'
+            local _x_foot_row   = cond(`_foot_row' > 0, `_foot_row' + `_x_roff', 0)
+
+            * ===== border code (thin=1, medium=2, thick=3, none=4) =====
+            local _hbc = 1
+            if "`_hborder'" == "medium" local _hbc = 2
+            if "`_hborder'" == "thick"  local _hbc = 3
+            if "`_hborder'" == "none"   local _hbc = 4
+
+            * ===== spacer column width + content widths (header + data rows) =====
+            tempname _rules
+            matrix `_rules' = (13, 1, 1, 1, 1, 1, 0, 0, 0)
+            forvalues j = 1/`K' {
+                tempvar _len
+                quietly gen long `_len' = length(c`j')
+                quietly summarize `_len' ///
+                    if c`j' != "" & inrange(_n, 2, `_x_last_data'), meanonly
+                local _w = cond(r(N) > 0, ceil(r(max) * 0.95) + 2, 10)
+                if `j' == 1 {
+                    if `_w' < 12 local _w = 12
+                    if `_w' > 50 local _w = 50
+                }
+                else {
+                    if `_w' < 8  local _w = 8
+                    if `_w' > 32 local _w = 32
+                }
+                drop `_len'
+                local _xcol = `j' + 1
+                matrix `_rules' = `_rules' \ (13, 1, 1, `_xcol', `_xcol', `_w', 0, 0, 0)
+            }
+
+            * ===== base font, wrap, vertical centering, left alignment =====
+            matrix `_rules' = `_rules' \ ///
+                (1, 1, `_x_total_rows', 1, `_xK', `_fontsize', 1, 0, 0) \ ///
+                (4, 1, `_x_total_rows', 1, `_xK', 0, 1, 0, 0) \ ///
+                (6, 1, `_x_total_rows', 1, `_xK', 0, 2, 0, 0) \ ///
+                (5, 1, `_x_total_rows', 1, `_xK', 0, 1, 0, 0)
+
+            * ===== title row (row 1, merged A1 across the width, left-justified) =====
+            matrix `_rules' = `_rules' \ ///
+                (12, 1, 1, 1, 1, 30, 0, 0, 0) \ ///
+                (14, 1, 1, 1, `_xK', 0, 0, 0, 0) \ ///
+                (1, 1, 1, 1, `_xK', `=`_fontsize' + 2', 1, 0, 0) \ ///
+                (2, 1, 1, 1, `_xK', 0, 1, 0, 0) \ ///
+                (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (5, 1, 1, 1, `_xK', 0, 1, 0, 0) \ ///
+                (6, 1, 1, 1, 1, 0, 2, 0, 0)
+
+            * ===== header row (or top rule above first data row); columns B onward =====
+            if `_headerrows' {
+                matrix `_rules' = `_rules' \ ///
+                    (2, `_x_header_row', `_x_header_row', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (5, `_x_header_row', `_x_header_row', 2, `_xK', 0, 2, 0, 0) \ ///
+                    (8, `_x_header_row', `_x_header_row', 2, `_xK', 0, `_hbc', 0, 0) \ ///
+                    (9, `_x_header_row', `_x_header_row', 2, `_xK', 0, `_hbc', 0, 0)
+                if "`headershade'" != "" {
+                    matrix `_rules' = `_rules' \ ///
+                        (7, `_x_header_row', `_x_header_row', 2, `_xK', 0, -1, 0, 0)
+                }
+            }
+            else {
+                matrix `_rules' = `_rules' \ ///
+                    (8, `_x_data_start', `_x_data_start', 2, `_xK', 0, `_hbc', 0, 0)
+            }
+
+            * ===== center data columns; the first (label) column stays left =====
+            if `K' >= 2 {
+                matrix `_rules' = `_rules' \ ///
+                    (5, `_x_data_start', `_x_last_data', 3, `_xK', 0, 2, 0, 0)
+            }
+
+            * ===== bottom rule below the last data row =====
+            matrix `_rules' = `_rules' \ ///
+                (9, `_x_last_data', `_x_last_data', 2, `_xK', 0, `_hbc', 0, 0)
+
+            * ===== zebra striping over data rows =====
+            if "`zebra'" != "" {
+                forvalues _zr = `=`_x_data_start' + 1'(2)`_x_last_data' {
+                    matrix `_rules' = `_rules' \ ///
+                        (7, `_zr', `_zr', 2, `_xK', 0, -2, 0, 0)
+                }
+            }
+
+            * ===== footnote row (column B onward, smaller italic) =====
+            if `_x_foot_row' > 0 {
+                local _fn_size = max(`_fontsize' - 2, 6)
+                matrix `_rules' = `_rules' \ ///
+                    (14, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 0, 0, 0) \ ///
+                    (1, `_x_foot_row', `_x_foot_row', 2, `_xK', `_fn_size', 1, 0, 0) \ ///
+                    (3, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (5, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0)
+            }
+
             * ===== write the sheet and apply the styling =====
             _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(b)
             local _book_open = 1

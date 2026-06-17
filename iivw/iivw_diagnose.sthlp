@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  17jun2026}{...}
+{* *! version 1.7.1  17jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
@@ -121,9 +121,12 @@ less than 99.99; the default is 95.
 {phang}
 {opt xlsx(filename)} writes a diagnostics table to an Excel {cmd:.xlsx}
 workbook.  The exported worksheet uses a tabtools-style layout with a merged
-title, grouped headers, estimate rows under {cmd:Estimate}, {cmd:SE}, and
-{cmd:95% CI}, diagnostic and optional bias rows under {cmd:Value}, readable
-row labels, column widths, borders, and an explanatory footnote.
+title, grouped headers, and estimate rows under {cmd:Estimate}, {cmd:SE}, and
+{cmd:95% CI}.  A bold {cmd:Diagnostic values} divider row then introduces the
+single-value diagnostic and optional bias rows, each of which reports its
+value in the {cmd:Estimate} column merged across the estimate columns.  The
+sheet also carries readable row labels, column widths, borders, and an
+explanatory footnote.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name.  The default is
@@ -346,6 +349,6 @@ doi:10.1002/cjs.5550350402.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.0, 2026-06-17{p_end}
+{pstd}Version 1.7.1, 2026-06-17{p_end}
 
 {hline}

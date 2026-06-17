@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  17jun2026}{...}
+{* *! version 1.7.1  17jun2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -427,7 +427,7 @@ R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.0, 2026-06-17{p_end}
+{pstd}Version 1.7.1, 2026-06-17{p_end}
 
 
 {title:Also see}

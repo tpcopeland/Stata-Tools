@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  14jun2026}{...}
+{* *! version 1.8.1  17jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -58,9 +58,10 @@ a Stata {it:matrix} such as {cmd:e(b)}, {cmd:r(table)}, or the result of a
 {helpb collapse} or {helpb tabulate}. It closes the gap between raw in-memory
 results and a formatted sheet, replacing ad hoc
 {cmd:export excel ..., firstrow()} dumps and hand-built {helpb putexcel} blocks
-with the shared tabtools geometry: a merged title row, a header rule, optional
-header shading and zebra striping, automatic column widths, borders, and an
-italic footnote.{p_end}
+with the shared tabtools geometry: a left-justified title in cell A1, a thin
+spacer column A so the table body is always anchored at cell B2, a header rule,
+optional header shading and zebra striping, automatic column widths, borders, and
+an italic footnote.{p_end}
 
 {pstd}For a {opt matrix()} source, the matrix row names become the first
 (label) column and the column names become the header row; equation names are
@@ -103,7 +104,7 @@ memory are left unchanged.{p_end}
 {dlgtab:Formatting}
 
 {synoptset 26 tabbed}{...}
-{synopt:{opt ti:tle(string)}}title written to the first row and merged across the table{p_end}
+{synopt:{opt ti:tle(string)}}title written to cell A1, left-justified and merged across the table{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote below the table in smaller italic font{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -150,8 +151,8 @@ memory are left unchanged.{p_end}
 
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
-{synopt:{cmd:r(n_rows)}}total rows written to the sheet (title + header + data + footnote){p_end}
-{synopt:{cmd:r(n_cols)}}number of columns written{p_end}
+{synopt:{cmd:r(n_rows)}}rows in the assembled table (title + header + data + footnote){p_end}
+{synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
 {synopt:{cmd:r(n_datarows)}}number of data rows (excluding title, header, footnote){p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}

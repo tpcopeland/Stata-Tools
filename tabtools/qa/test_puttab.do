@@ -37,17 +37,20 @@ capture noisily {
 
     import excel using "`f1'", sheet("ByOrigin") clear allstring
     assert _N == 5
+    * title in cell A1; column A is the layout spacer, body anchored at B2
     assert A[1] == "Means by origin"
-    * row 2 header: varlabels -> Car origin label, value-label honored in col 1
-    assert strpos(A[2], "rigin") > 0 | A[2] == "Car origin" | A[2] == "Car type"
-    assert A[3] == "Domestic"
-    assert A[4] == "Foreign"
-    assert A[5] == "note"
+    assert A[2] == ""
+    * row 2 header: varlabels -> Car origin label, value-label honored in col B
+    assert strpos(B[2], "rigin") > 0 | B[2] == "Car origin" | B[2] == "Car type"
+    assert B[3] == "Domestic"
+    assert B[4] == "Foreign"
+    * footnote sits in column B (cell B5)
+    assert B[5] == "note"
     * price mean for Domestic = 6072.4 -> 1 decimal "6072.4"
-    assert B[3] == "6072.4"
+    assert C[3] == "6072.4"
     * n is integer-valued -> no decimals despite digits(1)
-    assert C[3] == "52"
-    assert C[4] == "22"
+    assert D[3] == "52"
+    assert D[4] == "22"
 }
 if _rc == 0 {
     display as result "  PASS: data source known-answer readback"
@@ -93,8 +96,10 @@ capture noisily {
     import excel using "`f3'", sheet("NH") clear allstring
     assert _N == 4
     assert A[1] == "t"
-    * no header row: row 2 is first data row (make of obs 1)
-    assert A[2] != "make"
+    * column A is the spacer; no header row: row 2 (col B) is the first data row
+    assert A[2] == ""
+    assert B[2] != "make"
+    assert B[2] != ""
 }
 if _rc == 0 {
     display as result "  PASS: varlist subset + noheader"
@@ -124,8 +129,10 @@ capture noisily {
     * frame still intact
     frame fmini: assert _N == 5
     import excel using "`f4'", sheet("FR") clear allstring
-    assert _N == 6
-    assert A[1] == "make"
+    * no title -> Excel reserves a blank title row; header anchored at B2
+    assert _N == 7
+    assert A[1] == ""
+    assert B[2] == "make"
 }
 if _rc == 0 {
     display as result "  PASS: frame source + frame/data unchanged"
@@ -175,19 +182,20 @@ capture noisily {
     import excel using "`f6'", sheet("M") clear allstring
     assert _N == 4
     assert A[1] == "Coefs"
-    * header: corner blank, est, df
+    * header row 2: spacer (A), matrix corner blank (B), est, df
     assert A[2] == ""
-    assert B[2] == "est"
-    assert C[2] == "df"
-    * rownames as label column
-    assert A[3] == "alpha"
-    assert A[4] == "beta"
+    assert B[2] == ""
+    assert C[2] == "est"
+    assert D[2] == "df"
+    * rownames as label column (column B)
+    assert B[3] == "alpha"
+    assert B[4] == "beta"
     * per-column: est col has a fractional value -> 2 decimals
-    assert B[3] == "1.50"
-    assert B[4] == "3.25"
+    assert C[3] == "1.50"
+    assert C[4] == "3.25"
     * df column is integer-valued -> no decimals
-    assert C[3] == "70"
-    assert C[4] == "70"
+    assert D[3] == "70"
+    assert D[4] == "70"
 }
 if _rc == 0 {
     display as result "  PASS: matrix source per-column formatting"
@@ -208,9 +216,10 @@ capture noisily {
     matrix B = e(b)
     puttab using "`f7'", sheet("B") matrix(B) noheader
     import excel using "`f7'", sheet("B") clear allstring
-    * single-row e(b): label column holds the (blank-eq) rowname, data are coefs
-    assert _N == 1
-    assert C[1] != ""
+    * single-row e(b), no title: blank title row reserved, data on row 2;
+    * label column (B) holds the rowname, coefficients in columns C onward
+    assert _N == 2
+    assert C[2] != ""
 }
 if _rc == 0 {
     display as result "  PASS: e(b) matrix source"
@@ -242,7 +251,8 @@ capture noisily {
     import excel using "`f8'", describe
     assert r(N_worksheet) == 2
     import excel using "`f8'", sheet("A") clear allstring
-    assert A[1] == "foreign"
+    * no title -> blank title row reserved; header "foreign" anchored at B2
+    assert B[2] == "foreign"
 }
 if _rc == 0 {
     display as result "  PASS: multi-sheet workbook + CSV mirror + sheet replace"
@@ -359,9 +369,11 @@ capture noisily {
     assert r(n_rows) == 9
     assert r(n_datarows) == 6
     import excel using "`fg'", sheet("S") clear allstring
+    * title in A1 (left-justified), body at B2, footnote in column B
     assert A[1] == "My Title"
-    assert A[2] == "make"
-    assert A[9] == "My footnote"
+    assert A[2] == ""
+    assert B[2] == "make"
+    assert B[9] == "My footnote"
 }
 if _rc == 0 {
     display as result "  PASS: geometry title/footnote/extent"

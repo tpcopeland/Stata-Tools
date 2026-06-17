@@ -905,6 +905,29 @@ else {
     local ++fail_count
 }
 
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_mb_puttab.xlsx"
+    puttab make mpg price in 1/6 using "`output_dir'/_mb_puttab.xlsx", ///
+        sheet("Put") title("Backend Puttab") footnote("Backend puttab footnote") ///
+        headershade zebra
+    assert "`r(file)'" == "`output_dir'/_mb_puttab.xlsx"
+    assert "`r(sheet)'" == "Put"
+
+    * House geometry: title in A1 merged across row 1, thin spacer column A so
+    * the table body is anchored at B2, and the footnote text present.
+    _mb_assert_xlsx "`output_dir'/_mb_puttab.txt" ///
+        `"`python_cmd' "`checker'" "`output_dir'/_mb_puttab.xlsx" --sheet "Put" --cell A1 "Backend Puttab" --cell B2 "make" --contains "Backend puttab footnote" --merged-row 1 --has-borders --col-width-at-most A 3 --result-file "`output_dir'/_mb_puttab.txt" --quiet"'
+}
+if _rc == 0 {
+    display as result "  PASS: puttab backend formatting contract (B2 anchor, merged title)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: puttab backend formatting contract (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Failure Path
 
 capture noisily {
