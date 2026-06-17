@@ -50,6 +50,8 @@
 {synopt:{opt d:etail}}full per-variable output: percentiles for continuous variables{p_end}
 {synopt:{opt maxf:req(#)}}cap categorical/string levels shown; default {bf:20}{p_end}
 {synopt:{opt rare(#)}}flag categorical levels with a count below {it:#}{p_end}
+{synopt:{opt min:cell(#)}}flag tabulated cells below {it:#}{p_end}
+{synopt:{opt mask:rare(#)}}mask tabulated cells below {it:#} in console output{p_end}
 {synopt:{opt out:liers(#)}}flag continuous values beyond {it:#} IQRs from the quartiles{p_end}
 
 {syntab:Missingness}
@@ -57,16 +59,28 @@
 {synopt:{opt patterns}}add the {help datamvp} missing-value pattern table{p_end}
 
 {syntab:Gate {it:(any gate option turns on gate mode)}}
+{synopt:{opt gates:only}}run gates without printing the descriptive profile{p_end}
 {synopt:{opt expectn(numlist)}}assert {cmd:_N}; one number is exact, two are an inclusive range{p_end}
 {synopt:{opt isid(varlist)}}assert the dataset is unique by this key{p_end}
 {synopt:{opt nodups}}assert no fully duplicated rows{p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
 {synopt:{opt notmiss:ing(varlist)}}assert zero missing values in these variables{p_end}
 {synopt:{opt inrange(spec)}}assert variables fall in declared ranges; {cmd:\}-separate{p_end}
+{synopt:{opt all:owed(spec)}}assert variables contain only allowed values{p_end}
+{synopt:{opt for:bid(spec)}}assert variables do not contain forbidden values{p_end}
+{synopt:{opt regex(spec)}}assert string variables match regular expressions{p_end}
+{synopt:{opt notv:alues(spec)}}assert variables do not contain sentinel or disallowed values{p_end}
+{synopt:{opt by(varlist)}}evaluate gates within groups defined by {it:varlist}{p_end}
+{synopt:{opt over(varlist)}}synonym for {opt by()}{p_end}
+{synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
+{synopt:{opt makes:pec(filename[, replace])}}write a starter checks file from the current dataset{p_end}
 {synopt:{opt warn}}downgrade every gate from halt to warning; report but do not stop{p_end}
 
 {syntab:Output}
 {synopt:{opt sav:ing(name[, replace])}}save the per-variable profile to a {opt .dta} or a frame{p_end}
+{synopt:{opt only:flagged}}show only variables or groups with warnings or violations{p_end}
+{synopt:{opt show(flagged)}}same display filter as {opt onlyflagged}{p_end}
+{synopt:{opt viol:ations(name[, replace])}}save the violation-level results to a {opt .dta} or a frame{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -147,6 +161,16 @@ default is 20.  Levels beyond the cap are summarized in a "more levels" line.
 {opt rare(#)} flags categorical levels whose count falls below {it:#}.
 
 {phang}
+{opt min:cell(#)} flags any tabulated cell with a count below {it:#}.  This is
+useful for disclosure checks where a rare level is a warning even when the
+variable itself is otherwise valid.
+
+{phang}
+{opt mask:rare(#)} masks tabulated cells with counts below {it:#} in console
+output.  The underlying data are not changed.  Use this when logs may be shared
+outside the analysis environment and small cells should not appear in plain text.
+
+{phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
 ranges beyond the first or third quartile.  {cmd:outliers(3)} is a sensible
 start.  The default of 0 disables the check.
@@ -161,6 +185,11 @@ start.  The default of 0 disables the check.
 with this package).  This option is independent of {opt nomissing}.
 
 {dlgtab:Gate}
+
+{phang}
+{opt gates:only} suppresses the descriptive profile and runs only the requested
+gates.  This keeps batch logs short when {cmd:datacheck} is being used as a
+preflight check in a larger pipeline.
 
 {phang}
 {opt expectn(numlist)} asserts the number of observations.  One number is an
@@ -183,7 +212,45 @@ values.
 {phang}
 {opt inrange(spec)} asserts that variables fall within declared ranges.  The
 specification is {cmd:\}-separated triples of {it:var lo hi}:
-{cmd:inrange(age 18 110 \ edss 0 10)}.
+{cmd:inrange(age 18 110 \ edss 0 10)}.  Bounds may be numeric values or Stata
+date literals, such as {cmd:inrange(index_date td(01jan2010) td(31dec2025))}.
+
+{phang}
+{opt all:owed(spec)} asserts that variables contain only declared values.  The
+specification is {cmd:\}-separated entries of the form {it:var values}:
+{cmd:allowed(sex 0 1 \ arm "usual" "active")}.  String values may be quoted.
+
+{phang}
+{opt for:bid(spec)} asserts that variables do not contain declared forbidden
+values.  Use it for values that are syntactically valid but impossible in a
+clean analysis file, such as a withdrawn treatment code.
+
+{phang}
+{opt regex(spec)} asserts that string variables match regular expressions.  Each
+{cmd:\}-separated entry is {it:var pattern}, for example
+{cmd:regex(person_id "^[0-9]{12}$" \ center "^[A-Z]{2}[0-9]{3}$")}.
+
+{phang}
+{opt notv:alues(spec)} asserts that variables do not contain sentinel or
+placeholder values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}.  The syntax
+matches {opt allowed()} and {opt forbid()}:
+{cmd:notvalues(age -9 999 \ outcome "UNKNOWN")}.
+
+{phang}
+{opt by(varlist)} evaluates gates within groups defined by {it:varlist}.  Use
+this when a rule is meaningful within strata, for example checking duplicate
+visit numbers within each site.  {opt over(varlist)} is a synonym for
+{opt by(varlist)}.
+
+{phang}
+{opt check:s(filename)} reads gate specifications from {it:filename}.  This is
+intended for project-level QC specs that should be versioned and reused across
+imports, refreshes, and batch runs.
+
+{phang}
+{opt makes:pec(filename[, replace])} writes a starter checks file from the
+current dataset.  The generated file is a template: review the proposed ranges,
+allowed values, and required variables before treating it as a gate contract.
 
 {phang}
 {opt warn} downgrades every gate from a halt to a warning: violations are
@@ -198,6 +265,19 @@ classifier columns plus a {cmd:dc_class} column reflecting any manual group
 overrides).  If {it:name} ends in {opt .dta} or contains a path separator the
 profile is written to that file; otherwise it is copied into a frame of that
 name.  A bad path is reported and skipped without aborting the report.
+
+{phang}
+{opt only:flagged} filters console output to variables, groups, or gates with a
+warning or violation.  It is equivalent to {cmd:show(flagged)}.
+
+{phang}
+{opt show(flagged)} requests the flagged-only display.  Future display values
+may expand this option; {cmd:flagged} is the privacy- and batch-oriented filter.
+
+{phang}
+{opt viol:ations(name[, replace])} saves one row per warning or violation.  If
+{it:name} ends in {opt .dta} or contains a path separator the violation table is
+written to that file; otherwise it is copied into a frame of that name.
 
 
 {marker gate}{...}
@@ -222,6 +302,11 @@ and execution continues.  Because Stata batch ({cmd:-b}) mode does not propagate
 the return code to the shell exit status, automated harnesses detect a gate
 failure by scanning the log for {cmd:r(9)}, not by the process exit code.
 
+{pstd}
+For production pipelines, put the gate contract in a checks file and call
+{cmd:datacheck} with {opt gatesonly}.  Save the violation table when downstream
+steps need structured diagnostics rather than console text.
+
 
 {marker examples}{...}
 {title:Examples}
@@ -241,6 +326,21 @@ failure by scanning the log for {cmd:r(9)}, not by the process exit code.
 {pstd}Run the same gates diagnostically, without halting:{p_end}
 {phang2}{cmd:. datacheck, expectn(282252) isid(lopnr) warn}{p_end}
 
+{pstd}Run a batch preflight from a versioned checks file and save violations:{p_end}
+{phang2}{cmd:. datacheck, gatesonly checks("qc_checks.do") violations("qc_violations.dta", replace)}{p_end}
+
+{pstd}Show only flagged variables and mask rare cells before sharing a log:{p_end}
+{phang2}{cmd:. datacheck, rare(5) mincell(5) maskrare(5) show(flagged)}{p_end}
+
+{pstd}Gate dates using Stata date literals:{p_end}
+{phang2}{cmd:. datacheck, inrange(index_date td(01jan2010) td(31dec2025) \ birth_date td(01jan1900) td(31dec2025))}{p_end}
+
+{pstd}Apply value and format rules within site:{p_end}
+{phang2}{cmd:. datacheck, by(site) allowed(sex 0 1 \ arm "usual" "active") regex(person_id "^[0-9]{12}$") notvalues(age -9 999)}{p_end}
+
+{pstd}Create a starter checks file to review and edit:{p_end}
+{phang2}{cmd:. datacheck, makespec("qc_checks.do", replace)}{p_end}
+
 {pstd}Profile a saved file, leaving the data in memory untouched:{p_end}
 {phang2}{cmd:. datacheck, single(cohort_final)}{p_end}
 
@@ -256,11 +356,22 @@ failure by scanning the log for {cmd:r(9)}, not by the process exit code.
 {synopt:{cmd:r(N)}}number of observations profiled{p_end}
 {synopt:{cmd:r(complete_cases)}}observations with no missing in the profiled varlist (excluded variables do not count){p_end}
 {synopt:{cmd:r(complete_pct)}}percent complete{p_end}
+{synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
 {synopt:{cmd:r(n_violations)}}number of failed gates (0 when no gate ran or all passed){p_end}
+{synopt:{cmd:r(n_warnings)}}number of warning-level findings{p_end}
+{synopt:{cmd:r(n_flagged)}}number of variables or groups shown by {opt show(flagged)}{p_end}
+{synopt:{cmd:r(n_masked)}}number of cells masked by {opt maskrare()}{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}duplicate-key count for each declared {opt id()} key{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(violations)}}space-separated list of failed gate names{p_end}
+{synopt:{cmd:r(warnings)}}space-separated list of warning-level gate names{p_end}
+{synopt:{cmd:r(flagged_vars)}}variables with warnings or violations{p_end}
+{synopt:{cmd:r(checks_file)}}checks file used by {opt checks()}{p_end}
+{synopt:{cmd:r(violations_file)}}violation dataset written by {opt violations()}{p_end}
+{synopt:{cmd:r(violations_frame)}}violation frame created by {opt violations()}{p_end}
+{synopt:{cmd:r(profile_file)}}profile dataset written by {opt saving()}{p_end}
+{synopt:{cmd:r(profile_frame)}}profile frame created by {opt saving()}{p_end}
 {synopt:{cmd:r(continuous_vars)}}continuous variables (post-override){p_end}
 {synopt:{cmd:r(categorical_vars)}}categorical variables (post-override){p_end}
 {synopt:{cmd:r(date_vars)}}date variables (post-override){p_end}

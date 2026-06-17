@@ -9,7 +9,13 @@ program define datacheck, rclass
     set varabbrev off
     local _preserved   = 0
     local _pframe_made = 0
+    local _cframe_made = 0
+    local _vframe_made = 0
+    local _sframe_made = 0
     local _pframe      = ""
+    local _cframe      = ""
+    local _vframe      = ""
+    local _sframe      = ""
     capture noisily {
 
         syntax [anything(name=varlistspec)] [if] [in] , [ ///
@@ -18,9 +24,13 @@ program define datacheck, rclass
             CONTinuous(string) CATegorical(string) date(string) ///
             ID(string) ///
             Detail MAXFreq(integer 20) RARE(integer 0) OUTliers(real 0) ///
+            GATESOnly ONLYFlagged SHOW(string) MINCell(integer 0) MASKRare(integer 0) ///
             NOMISSing PATTERNS ///
             EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
             REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
+            ALLOWed(string) FORBid(string) REGEX(string) NOTValues(string) ///
+            BY(varlist) OVER(varname) ///
+            CHECKS(string) MAKESPEC(string) VIOLations(string) ///
             SAVing(string) ]
 
         if `maxcat' <= 0 {
@@ -35,6 +45,35 @@ program define datacheck, rclass
             display as error "outliers() must be non-negative"
             exit 198
         }
+        if `mincell' < 0 {
+            display as error "mincell() must be non-negative"
+            exit 198
+        }
+        if `maskrare' < 0 {
+            display as error "maskrare() must be non-negative"
+            exit 198
+        }
+        local _maskcell = max(`mincell', `maskrare')
+        local show = lower(trim(`"`show'"'))
+        local showflagged = 0
+        if "`onlyflagged'" != "" local showflagged = 1
+        if `"`show'"' != "" {
+            if `"`show'"' == "flagged" local showflagged = 1
+            else {
+                display as error `"show() must be "flagged""'
+                exit 198
+            }
+        }
+        if "`gatesonly'" != "" & `showflagged' {
+            display as error "cannot specify both gatesonly and onlyflagged/show(flagged)"
+            exit 198
+        }
+        if `"`by'"' != "" & `"`over'"' != "" {
+            display as error "cannot specify both by() and over()"
+            exit 198
+        }
+        local byvars `"`by'"'
+        if `"`over'"' != "" local byvars `"`over'"'
 
         // ---- preserve the user's data; everything below runs on a copy ----
         preserve
@@ -62,6 +101,152 @@ program define datacheck, rclass
         if c(k) == 0 {
             display as error "no variables"
             exit 102
+        }
+
+        // ---- checks(): read reusable gate specs from a Stata dataset ----
+        if `"`checks'"' != "" {
+            gettoken cfile crest : checks, parse(" ,")
+            if trim(`"`crest'"') != "" {
+                display as error "checks() accepts one Stata dataset filename"
+                exit 198
+            }
+            _datacheck_pathok `"`cfile'"'
+            capture confirm file `"`cfile'"'
+            if _rc {
+                capture confirm file `"`cfile'.dta"'
+                if _rc {
+                    display as error `"checks() file `cfile' not found"'
+                    exit 601
+                }
+                local cfile `"`cfile'.dta"'
+            }
+            tempname cframe
+            local _cframe "`cframe'"
+            frame create `cframe'
+            local _cframe_made = 1
+            frame `cframe' {
+                quietly use `"`cfile'"', clear
+                capture confirm variable gate
+                if _rc {
+                    display as error "checks() spec must contain string variable gate"
+                    exit 198
+                }
+                capture confirm string variable gate
+                if _rc {
+                    display as error "checks() variable gate must be string"
+                    exit 198
+                }
+                local has_var = 0
+                local has_arg1 = 0
+                local has_arg2 = 0
+                local has_values = 0
+                local has_pattern = 0
+                capture confirm string variable var
+                if !_rc local has_var = 1
+                capture confirm string variable arg1
+                if !_rc local has_arg1 = 1
+                capture confirm string variable arg2
+                if !_rc local has_arg2 = 1
+                capture confirm string variable values
+                if !_rc local has_values = 1
+                capture confirm string variable pattern
+                if !_rc local has_pattern = 1
+                quietly count
+                local C = r(N)
+                forvalues ci = 1/`C' {
+                    local cg = lower(strtrim(gate[`ci']))
+                    local cv ""
+                    local carg1 ""
+                    local carg2 ""
+                    local cvalues ""
+                    local cpattern ""
+                    if `has_var'     local cv = strtrim(var[`ci'])
+                    if `has_arg1'    local carg1 = strtrim(arg1[`ci'])
+                    if `has_arg2'    local carg2 = strtrim(arg2[`ci'])
+                    if `has_values'  local cvalues = strtrim(values[`ci'])
+                    if `has_pattern' local cpattern = strtrim(pattern[`ci'])
+                    if "`cg'" == "" continue
+                    if "`cg'" == "expectn" {
+                        if "`carg1'" == "" {
+                            display as error "checks(): expectn row requires arg1"
+                            exit 198
+                        }
+                        local expectn "`carg1' `carg2'"
+                        local expectn = trim("`expectn'")
+                    }
+                    else if "`cg'" == "isid" | "`cg'" == "id" {
+                        if "`cv'" == "" local cv "`cvalues'"
+                        if "`cv'" == "" {
+                            display as error "checks(): isid row requires var or values"
+                            exit 198
+                        }
+                        local isid "`cv'"
+                    }
+                    else if "`cg'" == "nodups" {
+                        local nodups "nodups"
+                    }
+                    else if "`cg'" == "require" {
+                        if "`cv'" == "" local cv "`cvalues'"
+                        if "`cv'" == "" {
+                            display as error "checks(): require row requires var or values"
+                            exit 198
+                        }
+                        local require "`require' `cv'"
+                    }
+                    else if "`cg'" == "notmissing" {
+                        if "`cv'" == "" local cv "`cvalues'"
+                        if "`cv'" == "" {
+                            display as error "checks(): notmissing row requires var or values"
+                            exit 198
+                        }
+                        local notmissing "`notmissing' `cv'"
+                    }
+                    else if "`cg'" == "inrange" {
+                        if "`cv'" == "" | "`carg1'" == "" | "`carg2'" == "" {
+                            display as error "checks(): inrange row requires var, arg1, and arg2"
+                            exit 198
+                        }
+                        if `"`inrange'"' == "" local inrange `"`cv' `carg1' `carg2'"'
+                        else local inrange `"`inrange' \ `cv' `carg1' `carg2'"'
+                    }
+                    else if "`cg'" == "allowed" {
+                        if "`cv'" == "" | "`cvalues'" == "" {
+                            display as error "checks(): allowed row requires var and values"
+                            exit 198
+                        }
+                        if `"`allowed'"' == "" local allowed `"`cv' `cvalues'"'
+                        else local allowed `"`allowed' \ `cv' `cvalues'"'
+                    }
+                    else if "`cg'" == "forbid" | "`cg'" == "forbidden" {
+                        if "`cv'" == "" | "`cvalues'" == "" {
+                            display as error "checks(): forbid row requires var and values"
+                            exit 198
+                        }
+                        if `"`forbid'"' == "" local forbid `"`cv' `cvalues'"'
+                        else local forbid `"`forbid' \ `cv' `cvalues'"'
+                    }
+                    else if "`cg'" == "notvalues" | "`cg'" == "sentinel" {
+                        if "`cv'" == "" | "`cvalues'" == "" {
+                            display as error "checks(): notvalues row requires var and values"
+                            exit 198
+                        }
+                        if `"`notvalues'"' == "" local notvalues `"`cv' `cvalues'"'
+                        else local notvalues `"`notvalues' \ `cv' `cvalues'"'
+                    }
+                    else if "`cg'" == "regex" {
+                        if "`cv'" == "" | "`cpattern'" == "" {
+                            display as error "checks(): regex row requires var and pattern"
+                            exit 198
+                        }
+                        if `"`regex'"' == "" local regex `"`cv' `cpattern'"'
+                        else local regex `"`regex' \ `cv' `cpattern'"'
+                    }
+                    else {
+                        display as error "checks(): unsupported gate `cg'"
+                        exit 198
+                    }
+                }
+            }
         }
 
         // ---- resolve the profile varlist against the (now correct) data ----
@@ -101,6 +286,7 @@ program define datacheck, rclass
         if "`date'"        != "" unab date        : `date'
         if "`isid'"        != "" unab isid        : `isid'
         if "`notmissing'"  != "" unab notmissing  : `notmissing'
+        if "`byvars'"      != "" unab byvars      : `byvars'
 
         // ---- parse inrange(): backslash-separated "var lo hi" specs ----
         local n_inr = 0
@@ -121,13 +307,108 @@ program define datacheck, rclass
                 local lo : word 2 of `part'
                 local hi : word 3 of `part'
                 unab iv : `iv'
-                confirm number `lo'
-                confirm number `hi'
+                _datacheck_bound `iv' `"`lo'"'
+                local lo_num = r(value)
+                _datacheck_bound `iv' `"`hi'"'
+                local hi_num = r(value)
+                if `lo_num' > `hi_num' {
+                    display as error `"inrange() lower bound exceeds upper bound: `part'"'
+                    exit 198
+                }
                 local ++n_inr
                 local inr_var`n_inr' "`iv'"
-                local inr_lo`n_inr'  "`lo'"
-                local inr_hi`n_inr'  "`hi'"
+                local inr_lo`n_inr'  "`lo_num'"
+                local inr_hi`n_inr'  "`hi_num'"
+                local inr_lolab`n_inr' `"`lo'"'
+                local inr_hilab`n_inr' `"`hi'"'
                 local inrvars "`inrvars' `iv'"
+            }
+        }
+
+        // ---- parse value-domain gates: "var value [value ...]" specs ----
+        local n_allowed = 0
+        local n_forbid = 0
+        local n_notvalues = 0
+        local n_regex = 0
+        local value_gatevars ""
+        if `"`allowed'"' != "" {
+            local rest `"`allowed'"'
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = trim(`"`part'"')
+                if `"`part'"' == "" continue
+                gettoken vv vals : part, quotes
+                local vals = trim(`"`vals'"')
+                if `"`vv'"' == "" | `"`vals'"' == "" {
+                    display as error `"allowed() spec must be "var value [value ...]": `part'"'
+                    exit 198
+                }
+                unab vv : `vv'
+                local ++n_allowed
+                local allowed_var`n_allowed' "`vv'"
+                local allowed_vals`n_allowed' `"`vals'"'
+                local value_gatevars "`value_gatevars' `vv'"
+            }
+        }
+        if `"`forbid'"' != "" {
+            local rest `"`forbid'"'
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = trim(`"`part'"')
+                if `"`part'"' == "" continue
+                gettoken vv vals : part, quotes
+                local vals = trim(`"`vals'"')
+                if `"`vv'"' == "" | `"`vals'"' == "" {
+                    display as error `"forbid() spec must be "var value [value ...]": `part'"'
+                    exit 198
+                }
+                unab vv : `vv'
+                local ++n_forbid
+                local forbid_var`n_forbid' "`vv'"
+                local forbid_vals`n_forbid' `"`vals'"'
+                local value_gatevars "`value_gatevars' `vv'"
+            }
+        }
+        if `"`notvalues'"' != "" {
+            local rest `"`notvalues'"'
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = trim(`"`part'"')
+                if `"`part'"' == "" continue
+                gettoken vv vals : part, quotes
+                local vals = trim(`"`vals'"')
+                if `"`vv'"' == "" | `"`vals'"' == "" {
+                    display as error `"notvalues() spec must be "var value [value ...]": `part'"'
+                    exit 198
+                }
+                unab vv : `vv'
+                local ++n_notvalues
+                local notvalues_var`n_notvalues' "`vv'"
+                local notvalues_vals`n_notvalues' `"`vals'"'
+                local value_gatevars "`value_gatevars' `vv'"
+            }
+        }
+        if `"`regex'"' != "" {
+            local rest `"`regex'"'
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = trim(`"`part'"')
+                if `"`part'"' == "" continue
+                gettoken rv rpat : part, quotes
+                local rpat = trim(`"`rpat'"')
+                if `"`rv'"' == "" | `"`rpat'"' == "" {
+                    display as error `"regex() spec must be "var pattern": `part'"'
+                    exit 198
+                }
+                unab rv : `rv'
+                local ++n_regex
+                local regex_var`n_regex' "`rv'"
+                local regex_pat`n_regex' `"`rpat'"'
+                local value_gatevars "`value_gatevars' `rv'"
             }
         }
 
@@ -157,9 +438,20 @@ program define datacheck, rclass
         local unionvars : list unionvars | isid
         local unionvars : list unionvars | notmissing
         local unionvars : list unionvars | inrvars
+        local unionvars : list unionvars | value_gatevars
         local unionvars : list unionvars | keyvars_all
+        local unionvars : list unionvars | byvars
         if `"`varlistspec'"' != "" {
             quietly keep `unionvars'
+        }
+
+        tempvar dc_group
+        local has_groups = 0
+        local group_levels ""
+        if "`byvars'" != "" {
+            quietly egen long `dc_group' = group(`byvars'), label missing
+            quietly levelsof `dc_group', local(group_levels)
+            local has_groups = 1
         }
 
         // ---- classify via the shared engine ----

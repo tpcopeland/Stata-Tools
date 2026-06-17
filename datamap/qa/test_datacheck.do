@@ -306,6 +306,218 @@ capture {
 _dc `=_rc' "varlist + if subset profiles only requested vars and rows"
 
 * ============================================================
+* 11. Planned additions: focused contract coverage
+* ============================================================
+capture program drop _dc_make_planned
+program define _dc_make_planned
+    clear
+    set obs 40
+    gen long pid = _n
+    gen str1 sex = cond(mod(_n, 2), "F", "M")
+    gen byte status = mod(_n, 2)
+    gen byte site = cond(_n <= 20, 1, 2)
+    gen double age = 20 + mod(_n, 35)
+    gen double bmi = 18 + mod(_n, 14)
+    gen double visitdt = td(01jan2020) + _n - 1
+    format visitdt %td
+    gen str20 email = "person" + string(_n) + "@x.org"
+    gen byte consent = 1
+    gen int code = _n
+    gen byte raregrp = cond(_n <= 3, 1, 2)
+    gen byte constvar = 1
+end
+
+* gatesonly: run expectation gates without requiring full profile output
+_dc_make_planned
+capture {
+    capture quietly datacheck, gatesonly expectn(40) isid(pid) nodups ///
+        require(pid sex age) notmissing(pid sex)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 0
+    assert r(gatesonly) == 1
+}
+_dc `=_rc' "planned gatesonly: passing gates complete without violations"
+
+* onlyflagged/show(flagged): compact flagged-variable review paths
+_dc_make_planned
+replace age = . in 1/4
+replace bmi = 999 in 5
+capture {
+    capture quietly datacheck, onlyflagged rare(5) outliers(3)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_flagged) >= 1
+    assert strpos("`r(flagged_vars)'", "age") > 0 | ///
+        strpos("`r(flagged_vars)'", "bmi") > 0 | ///
+        strpos("`r(flagged_vars)'", "raregrp") > 0
+    capture quietly datacheck, show(flagged) rare(5) outliers(3)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_flagged) >= 1
+}
+_dc `=_rc' "planned onlyflagged/show(flagged): flagged-only views run and return flagged vars"
+
+* violations(): write violation details to both frame and .dta targets
+_dc_make_planned
+replace age = . in 1
+tempfile viofile
+capture {
+    capture quietly datacheck, notmissing(age) inrange(age 20 80) ///
+        violations(dc_violations) warn
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 1
+    frame dc_violations: assert _N == 1
+    frame dc_violations: confirm variable check
+    frame dc_violations: confirm variable variable
+    capture frame drop dc_violations
+
+    capture quietly datacheck, notmissing(age) violations("`viofile'.dta", replace) warn
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 1
+    preserve
+    quietly use "`viofile'.dta", clear
+    assert _N == 1
+    confirm variable check
+    confirm variable variable
+    restore
+}
+_dc `=_rc' "planned violations(): frame and .dta violation outputs contain detail rows"
+capture frame drop dc_violations
+capture erase "`viofile'.dta"
+
+* checks(): load simple external spec dataset
+_dc_make_planned
+tempfile spec
+preserve
+clear
+input str16 check str32 variable str40 arg1 str40 arg2
+"require"    "pid sex age" ""   ""
+"notmissing" "pid sex"     ""   ""
+"inrange"    "age"         "20" "60"
+"allowed"    "sex"         "F M" ""
+"forbid"     "code"        "999" ""
+end
+quietly save "`spec'", replace
+restore
+capture {
+    capture quietly datacheck, checks("`spec'")
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 0
+    assert r(n_checks) == 5
+}
+_dc `=_rc' "planned checks(): simple spec dataset drives five passing checks"
+
+* makespec(): generate a portable starter spec file
+_dc_make_planned
+tempfile made_spec
+capture {
+    capture quietly datacheck, makespec("`made_spec'.dta", replace)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    preserve
+    quietly use "`made_spec'.dta", clear
+    assert _N >= 1
+    confirm variable check
+    confirm variable variable
+    restore
+}
+_dc `=_rc' "planned makespec(): starter spec .dta is created with core columns"
+capture erase "`made_spec'.dta"
+
+* allowed()/forbid()/regex()/notvalues(): value-domain gates
+_dc_make_planned
+capture {
+    capture quietly datacheck, allowed("sex F M \ status 0 1") ///
+        forbid("code 999") regex("email @") notvalues("consent -9 99")
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 0
+}
+_dc `=_rc' "planned domain gates pass: allowed/forbid/regex/notvalues"
+
+_dc_make_planned
+replace sex = "X" in 1
+replace code = 999 in 2
+replace email = "bad-address" in 3
+replace consent = -9 in 4
+capture {
+    capture quietly datacheck, allowed("sex F M \ status 0 1") ///
+        forbid("code 999") regex("email @") notvalues("consent -9 99") warn
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 4
+    assert strpos("`r(violations)'", "allowed") > 0
+    assert strpos("`r(violations)'", "forbid") > 0
+    assert strpos("`r(violations)'", "regex") > 0
+    assert strpos("`r(violations)'", "notvalues") > 0
+}
+_dc `=_rc' "planned domain gates fail/warn with four named violations"
+
+* over(): apply gates groupwise
+_dc_make_planned
+capture {
+    capture quietly datacheck, over(site) expectn(20) notmissing(age)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 0
+    assert r(n_groups) == 2
+}
+_dc `=_rc' "planned over(): groupwise gates pass for two equal-sized groups"
+
+_dc_make_planned
+replace age = . in 1
+capture {
+    capture quietly datacheck, over(site) notmissing(age) warn
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 1
+    assert strpos("`r(violations)'", "notmissing") > 0
+}
+_dc `=_rc' "planned over(): groupwise gate violations are counted and named"
+
+* mincell()/maskrare(): privacy smoke path for small categorical cells
+_dc_make_planned
+capture {
+    capture quietly datacheck, mincell(5) maskrare rare(5)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(mincell) == 5
+    assert r(maskrare) == 1
+}
+_dc `=_rc' "planned mincell()/maskrare(): privacy smoke path runs and returns settings"
+
+* richer r() return surface for gate accounting
+_dc_make_planned
+replace age = . in 1
+capture {
+    capture quietly datacheck, expectn(40) isid(pid) notmissing(age) ///
+        inrange(age 20 60) warn
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_checks) == 4
+    assert r(n_passed) == 2
+    assert r(n_failed) == 2
+    assert r(n_violations) == 2
+    assert strpos("`r(failed_checks)'", "notmissing") > 0
+    assert strpos("`r(failed_checks)'", "inrange") > 0
+}
+_dc `=_rc' "planned richer r(): check/pass/fail counts and failed_checks are returned"
+
+* date literal support in inrange()
+_dc_make_planned
+capture {
+    capture quietly datacheck, inrange(visitdt td(01jan2020) td(31dec2020))
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_violations) == 0
+}
+_dc `=_rc' "planned inrange(): td() date literals are accepted for date variables"
+
+* ============================================================
 * Summary
 * ============================================================
 display as result "Results: $PASS/$TC passed, $FAIL failed"
