@@ -72,6 +72,42 @@ if `rc' {
     local ++failures
 }
 
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datacheck.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datacheck.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datamvp.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datamvp.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datamvp_labels.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datamvp_labels.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/validation_datamvp.do"
+local rc = _rc
+if `rc' {
+    display as error "validation_datamvp.do failed with rc `rc'"
+    local ++failures
+}
+
 if `failures' {
     display as error "`failures' datamap QA file(s) failed."
     exit 1

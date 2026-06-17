@@ -1,13 +1,15 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.1.1** | 2026-06-16
+**Version 1.2.0** | 2026-06-17
 
-`datamap` documents Stata datasets without exporting row-level data. It produces two kinds of output:
+`datamap` documents Stata datasets without exporting row-level data. It produces three kinds of output:
 
 - **`datamap`** writes structured text or JSON designed for LLM prompts, internal data handoffs, or automated pipelines. It includes privacy controls (`exclude()`, `datesafe`, `mincell()`), likely-identifier warnings, compact output, automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
 - **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value and statistics columns, and a table of contents when documenting multiple datasets.
+- **`datacheck`** profiles a dataset to the console — per-class distributions, missingness, and key-structure/uniqueness — and can gate a do-file on declared expectations (`expectn()`, `isid()`, `inrange()`, `notmissing()`, ...), halting with `r(9)` when reality does not match what you declared.
+- **`datamvp`** analyzes missing-value patterns: pattern-frequency tables, monotone-missingness tests for multiple imputation, stratified analysis, and missingness graphics (a fork of Jeroen Weesie's `mvpatterns`). `datacheck`'s `patterns` option calls it.
 
-Both commands preserve the dataset in memory, accept the same input modes (data in memory, a single `.dta` file, a directory scan, or a named file list), and handle the `.dta` extension automatically.
+`datamap`, `datadict`, and `datacheck` share one classification engine and preserve the dataset in memory. `datamap` and `datadict` accept the same input modes (data in memory, a single `.dta` file, a directory scan, or a named file list); `datacheck` profiles data in memory or a single saved file.
 
 ## Requirements
 
@@ -27,6 +29,8 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 |------------|---------------|---------|
 | `datamap`  | Plain text or JSON | LLM context, internal documentation, QA, privacy-controlled sharing, automated metadata pipelines |
 | `datadict` | Markdown      | GitHub repos, report appendices, Pandoc conversion, IRB submissions |
+| `datacheck`| Console (+ optional saved profile) | Interactive QC, distribution review, key/uniqueness checks, expectation gates before an analysis or export |
+| `datamvp`  | Console + graphics | Missing-value pattern tables, monotone-missingness tests, stratified analysis, missingness graphs |
 
 ## How It Works
 
@@ -103,6 +107,22 @@ Document every `.dta` file in a folder — combined or one file per dataset:
 datamap, directory("analysis_data") recursive output(project_map.txt)
 datadict, directory("analysis_data") recursive separate
 ```
+
+### 8. Interactive QC and an expectation gate with `datacheck`
+
+`datacheck` profiles the data to the console — distributions, missingness, and key structure — and can gate a do-file on declared expectations. Run it as the last line before an analysis:
+
+```stata
+sysuse auto, clear
+
+* Descriptive: classify, profile by type, report missingness and key structure
+datacheck, id(make)
+
+* Gated: halt the do-file unless the data matches what you declared
+datacheck, expectn(74) isid(make) notmissing(mpg weight) inrange(mpg 10 50)
+```
+
+The gate evaluates every expectation, prints all violations at once, and exits with `r(9)` (Stata's assertion code) on any failure — or add `warn` to report violations without halting while you build the script.
 
 ## Demo
 
@@ -208,7 +228,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.1.1",
+  "datamap_version": "1.2.0",
   "format": "json",
   "datasets": [
     {
@@ -309,6 +329,100 @@ Missing Data Summary
 
 </details>
 
+### Console QC And Expectation Gates (datacheck)
+
+`datacheck` profiles the cohort to the console — per-class distributions, missingness, key structure, and quality flags — then re-runs the expectations as a gate. The cohort carries a deliberate `age = -3`, a 120.5% adherence value, and a rare "Satellite clinic" site, so the flags and gate violations are populated.
+
+<details>
+<summary>datacheck QC profile and gate output</summary>
+
+```stata
+. datacheck age sex smoking bmi pct_adherence site, id(patient_id) outliers(3) rare(5)
+```
+
+```
+datacheck: 160 obs, 6 variables profiled  (complete cases: 99 = 61.9%)
+
+QUICK REFERENCE
+  Variable              Class       Type       Miss%   Unique  Flag
+  age                   continuous  double      0.0%      136  outliers
+  sex                   categorical double      0.0%        2
+  smoking               categorical double     16.3%        3
+  bmi                   continuous  double      8.1%      104
+  pct_adherence         continuous  double     23.8%      110
+  site                  categorical double      0.0%        7  rare
+
+CONTINUOUS
+  age:  N=160  mean=57.27  sd=13.43
+    min=-3  p25=48.8  p50=56.8  p75=65.35  max=96.8
+    1 outlier(s) (0.6%) beyond 3 IQR
+```
+
+```stata
+. datacheck age pct_adherence, expectn(160) isid(patient_id) ///
+>     notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
+```
+
+```
+KEY STRUCTURE
+  (id() not given; inferred from identifier-like names)
+  key (patient_id):  160 obs, 160 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
+
+WARNINGS (2)
+  inrange(age): 1 obs outside [18, 110]  (min -3, max 96.8)
+  inrange(pct_adherence): 14 obs outside [0, 100]  (min 34.1, max 120.5)
+```
+
+With `warn` the violations are reported and execution continues; drop `warn` to halt the do-file with `r(9)` instead.
+
+</details>
+
+### Missing-Value Patterns (datamvp)
+
+`datamvp` tabulates which variables are jointly missing and tests for monotone missingness (the precondition for sequential multiple imputation). `datacheck`'s `patterns` option calls it.
+
+![Missingness by variable](demo/missingness_bar.png)
+
+<details>
+<summary>datamvp pattern table and monotone test</summary>
+
+```stata
+. datamvp x1 x2 x3 x4, percent sort
+```
+
+```
+Missing value patterns
+
+  +----------------------------------+
+  | _pattern   _miss   _freq    _pct |
+  |----------------------------------|
+  |     ++++       0      38   47.50 |
+  |     ++.+       1      14   17.50 |
+  |     ..++       2       8   10.00 |
+  |     .+++       1       7    8.75 |
+  |     ..+.       3       7    8.75 |
+  |     ....       4       3    3.75 |
+  |     ...+       3       2    2.50 |
+  |     .+.+       2       1    1.25 |
+  +----------------------------------+
+
+Total observations:              80
+Complete cases:                  38  ( 47.5%)
+Unique patterns:                  8
+```
+
+```stata
+. datamvp x1 x2 x3 x4, monotone
+```
+
+```
+Monotone missingness test:
+  Observations with monotone pattern:       41 ( 51.2%)
+  Pattern is non-monotone
+```
+
+</details>
+
 ## Feature Reference
 
 ### datamap options
@@ -346,7 +460,9 @@ Missing Data Summary
 
 - **`datamap`** when you need a technical inventory: LLM context windows, internal handoffs, automated pipelines, or privacy-controlled documentation.
 - **`datadict`** when you need a publication-quality Markdown document: GitHub repositories, report appendices, IRB submissions, or Pandoc conversion.
-- Use **`separate`** with either command when each dataset should get its own output file.
+- **`datacheck`** when you need to eyeball distributions interactively or enforce expectations: run it as the last line before an analysis or export and have it stop the do-file when the data does not match what you declared.
+- **`datamvp`** when you need to understand the *structure* of missingness: which patterns occur, whether they are monotone (relevant for multiple imputation), and how missingness varies across groups.
+- Use **`separate`** with `datamap`/`datadict` when each dataset should get its own output file.
 - Start with a single dataset; switch to **`directory()`** + **`recursive`** once the output looks right.
 
 ## Privacy Notes
@@ -365,7 +481,7 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers both public commands with 7 QA files: 6 functional test files, 1 validation file, and 0 cross-validation suites.
+The suite covers all four public commands with 11 QA files: 9 functional test files, 2 validation files, and 0 cross-validation suites.
 
 - `test_datamap.do` - 81 tests
 - `test_datamap_bugfixes.do` - 10 tests
@@ -373,7 +489,11 @@ The suite covers both public commands with 7 QA files: 6 functional test files, 
 - `test_datamap_v11.do` - 9 tests
 - `test_datamap_privacy.do` - 5 tests
 - `test_datamap_golden.do` - 9 golden cases
+- `test_datacheck.do` - 27 tests
+- `test_datamvp.do` - functional tests for datamvp (missing-value patterns)
+- `test_datamvp_labels.do` - gby/over value-label regression tests
 - `validation_datamap.do` - 37 validations
+- `validation_datamvp.do` - datamvp known-answer/invariant validations
 
 ## Author
 

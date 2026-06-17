@@ -1,4 +1,4 @@
-* validation_mvp.do — Known-answer and invariant tests for mvp v1.2.1
+* validation_datamvp.do — Known-answer and invariant tests for datamvp v1.2.1
 * Self-contained: generates own test data
 
 clear all
@@ -10,8 +10,8 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall mvp
-net install mvp, from("`pkg_dir'/") replace force
+capture ado uninstall datamap
+net install datamap, from("`pkg_dir'/") replace force
 
 local test_count = 0
 local pass_count = 0
@@ -24,7 +24,7 @@ capture noisily {
     set obs 100
     gen x = _n
     gen y = _n * 2
-    mvp x y
+    datamvp x y
     assert r(N) == 100
     assert r(N_complete) == 100
     assert r(N_incomplete) == 0
@@ -49,7 +49,7 @@ capture noisily {
     set obs 50
     gen x = _n
     gen y = .
-    mvp x y
+    datamvp x y
     assert r(N) == 50
     assert r(N_complete) == 0
     assert r(N_incomplete) == 50
@@ -80,7 +80,7 @@ capture noisily {
     replace a = . if runiform() < 0.1
     replace b = . if runiform() < 0.2
     replace c = . if runiform() < 0.15
-    mvp a b c
+    datamvp a b c
     assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
@@ -100,7 +100,7 @@ capture noisily {
     gen x = 1
     gen y = 1
     replace y = . in 61/100
-    mvp x y, nodrop
+    datamvp x y, nodrop
     assert r(N_patterns) == 2
     assert r(N_complete) == 60
     assert r(N_incomplete) == 40
@@ -125,7 +125,7 @@ capture noisily {
     gen c = 1
     replace c = . in 51/100
     replace b = . in 71/100
-    mvp a b c, nodrop monotone
+    datamvp a b c, nodrop monotone
     assert "`r(monotone_status)'" == "monotone"
     assert r(pct_monotone) == 100
 }
@@ -148,7 +148,7 @@ capture noisily {
     gen c = 1
     replace a = . in 1/20
     replace c = . in 50/70
-    mvp a b c, nodrop monotone
+    datamvp a b c, nodrop monotone
     assert "`r(monotone_status)'" == "non-monotone"
 }
 if _rc == 0 {
@@ -169,7 +169,7 @@ capture noisily {
     gen b = _n
     replace a = . in 1/10
     replace b = . in 5/15
-    mvp a b, generate(m)
+    datamvp a b, generate(m)
     assert m_a == 1 in 1/10
     assert m_a == 0 in 11/50
     assert m_b == 1 in 5/15
@@ -198,7 +198,7 @@ capture noisily {
     gen b = 1
     replace b = . in 1/30
     capture frame drop val_pats
-    mvp a b, nodrop save(val_pats)
+    datamvp a b, nodrop save(val_pats)
     frame val_pats {
         assert _N == 2
         qui summ freq
@@ -227,7 +227,7 @@ capture noisily {
     replace a = . if runiform() < 0.3
     replace b = . if runiform() < 0.3
     replace c = . if runiform() < 0.3
-    mvp a b c, correlate
+    datamvp a b c, correlate
     matrix C = r(corr_miss)
     assert abs(C[1,1] - 1) < 0.001
     assert abs(C[2,2] - 1) < 0.001
@@ -258,9 +258,9 @@ capture noisily {
     gen b = 1
     replace a = . in 1/40
     replace b = . in 30/50
-    mvp a b, percent
+    datamvp a b, percent
     local total_pats = r(N_patterns)
-    mvp a b, minfreq(20) percent
+    datamvp a b, minfreq(20) percent
     assert r(N_patterns) <= `total_pats'
 }
 if _rc == 0 {
@@ -279,7 +279,7 @@ capture noisily {
     set obs 50
     gen x = _n
     gen y = _n * 2
-    mvp x y
+    datamvp x y
     assert "`r(varlist_nomiss)'" != ""
     assert r(N_vars) == 0
 }
@@ -303,7 +303,7 @@ capture noisily {
     replace a = . in 1/20
     replace b = . in 1/40
     replace c = . in 1/60
-    mvp a b c
+    datamvp a b c
     assert r(N_mv_total) == 120
     assert abs(r(mean_miss) - 0.6) < 0.001
 }
@@ -328,7 +328,7 @@ capture noisily {
     gen str4 grp = cond(_n <= 50, "AA", "BB")
     * Group AA: obs 1-50, a miss=20 (40%), b miss=10 (20%)
     * Group BB: obs 51-100, b miss=10 (20%), a miss=0 (0%)
-    mvp a b, graph(bar) gby(grp) nodraw
+    datamvp a b, graph(bar) gby(grp) nodraw
     assert r(N) == 100
     assert "`r(gby)'" == "grp"
 }
@@ -351,7 +351,7 @@ capture noisily {
     replace a = . in 1/30
     replace b = . in 20/50
     gen str5 grp = cond(_n <= 50, "Grp_A", "Grp_B")
-    mvp a b, graph(bar) over(grp) nodraw
+    datamvp a b, graph(bar) over(grp) nodraw
     assert r(N) == 100
     assert "`r(over)'" == "grp"
 }
@@ -364,7 +364,7 @@ else {
     local ++fail_count
 }
 
-* V15: Varabbrev OFF preserved through mvp (v1.2.1 fix)
+* V15: Varabbrev OFF preserved through datamvp (v1.2.1 fix)
 local ++test_count
 capture noisily {
     clear
@@ -372,7 +372,7 @@ capture noisily {
     gen a = _n
     replace a = . in 1/10
     set varabbrev off
-    mvp a
+    datamvp a
     assert "`c(varabbrev)'" == "off"
     set varabbrev on
 }
@@ -393,7 +393,7 @@ capture noisily {
     set obs 1
     gen a = .
     gen b = 5
-    mvp a b, nodrop
+    datamvp a b, nodrop
     assert r(N) == 1
     assert r(N_complete) == 0
     assert r(N_incomplete) == 1
@@ -422,7 +422,7 @@ capture noisily {
     gen c = .
     replace a = . if runiform() < 0.3
     replace b = . if runiform() < 0.3
-    mvp a b c, correlate
+    datamvp a b c, correlate
     matrix C = r(corr_miss)
     * c is always missing, so corr(a,c) and corr(b,c) may be undefined
     * Diagonal should still be 1 for a and b
@@ -449,7 +449,7 @@ capture noisily {
     replace a = . in 1/10
     replace b = . in 1/25
     replace c = . in 1/15
-    mvp a b c
+    datamvp a b c
     assert r(N_mv_total) == 50
 }
 if _rc == 0 {

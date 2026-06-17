@@ -1,4 +1,4 @@
-* test_mvp.do — Comprehensive functional tests for mvp v1.2.1
+* test_datamvp.do — Comprehensive functional tests for datamvp v1.2.1
 * Tests all options, error handling, edge cases, return values, data preservation
 * Self-contained: generates own test data
 
@@ -11,8 +11,8 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall mvp
-net install mvp, from("`pkg_dir'/") replace force
+capture ado uninstall datamap
+net install datamap, from("`pkg_dir'/") replace force
 
 local test_count = 0
 local pass_count = 0
@@ -57,7 +57,7 @@ quietly {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking
+    datamvp age bmi income education smoking
     assert r(N) == 1000
     assert r(N_vars) > 0
     assert r(N_patterns) > 0
@@ -75,7 +75,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp
+    datamvp
     assert r(N) == 1000
 }
 if _rc == 0 {
@@ -95,7 +95,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, notable
+    datamvp age bmi income, notable
 }
 if _rc == 0 {
     display as result "  PASS `test_count': notable option"
@@ -109,7 +109,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, skip
+    datamvp age bmi income education smoking, skip
 }
 if _rc == 0 {
     display as result "  PASS `test_count': skip option"
@@ -123,7 +123,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, sort
+    datamvp age bmi income education smoking, sort
 }
 if _rc == 0 {
     display as result "  PASS `test_count': sort option"
@@ -137,7 +137,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi female, nodrop
+    datamvp age bmi female, nodrop
 }
 if _rc == 0 {
     display as result "  PASS `test_count': nodrop option"
@@ -151,7 +151,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, wide
+    datamvp age bmi income education smoking, wide
 }
 if _rc == 0 {
     display as result "  PASS `test_count': wide option"
@@ -165,7 +165,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, nosummary
+    datamvp age bmi income, nosummary
 }
 if _rc == 0 {
     display as result "  PASS `test_count': nosummary option"
@@ -184,7 +184,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, minfreq(5)
+    datamvp age bmi income education smoking, minfreq(5)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': minfreq() option"
@@ -198,7 +198,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, minmissing(2)
+    datamvp age bmi income education smoking, minmissing(2)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': minmissing() option"
@@ -212,7 +212,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, maxmissing(3)
+    datamvp age bmi income education smoking, maxmissing(3)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': maxmissing() option"
@@ -226,7 +226,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education, ascending
+    datamvp age bmi income education, ascending
 }
 if _rc == 0 {
     display as result "  PASS `test_count': ascending option"
@@ -245,7 +245,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, percent
+    datamvp age bmi income, percent
 }
 if _rc == 0 {
     display as result "  PASS `test_count': percent option"
@@ -259,7 +259,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, percent cumulative
+    datamvp age bmi income, percent cumulative
 }
 if _rc == 0 {
     display as result "  PASS `test_count': cumulative option"
@@ -273,7 +273,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, correlate
+    datamvp age bmi income education smoking, correlate
     matrix list r(corr_miss)
 }
 if _rc == 0 {
@@ -288,7 +288,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education, monotone
+    datamvp age bmi income education, monotone
     assert "`r(monotone_status)'" != ""
     assert !missing(r(N_monotone))
     assert !missing(r(pct_monotone))
@@ -310,7 +310,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, generate(m)
+    datamvp age bmi income, generate(m)
     confirm variable m_age m_bmi m_income
     confirm variable m_pattern m_nmiss
     * Verify indicator correctness
@@ -330,7 +330,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     capture frame drop mvp_pats
-    mvp age bmi income, save(mvp_pats)
+    datamvp age bmi income, save(mvp_pats)
     frame mvp_pats: describe, short
     frame drop mvp_pats
 }
@@ -347,7 +347,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     tempfile savefile
-    mvp age bmi income, save("`savefile'.dta")
+    datamvp age bmi income, save("`savefile'.dta")
     confirm file "`savefile'.dta"
 }
 if _rc == 0 {
@@ -367,7 +367,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, graph(bar) nodraw
+    datamvp age bmi income education smoking, graph(bar) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(bar)"
@@ -381,7 +381,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) sort vertical barcolor(maroon) nodraw
+    datamvp age bmi income, graph(bar) sort vertical barcolor(maroon) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(bar) vertical+sort+barcolor"
@@ -395,7 +395,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, graph(patterns) nodraw
+    datamvp age bmi income education smoking, graph(patterns) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(patterns)"
@@ -409,7 +409,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(patterns) top(5) title("Top 5") nodraw
+    datamvp age bmi income, graph(patterns) top(5) title("Top 5") nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(patterns) top() title()"
@@ -423,7 +423,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(matrix) nodraw
+    datamvp age bmi income, graph(matrix) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(matrix)"
@@ -437,7 +437,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(matrix, sample(100) sort) misscolor(red) obscolor(green*0.2) nodraw
+    datamvp age bmi income, graph(matrix, sample(100) sort) misscolor(red) obscolor(green*0.2) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(matrix) suboptions+colors"
@@ -451,7 +451,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, graph(correlation) nodraw
+    datamvp age bmi income education smoking, graph(correlation) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(correlation)"
@@ -465,7 +465,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(correlation) textlabels colorramp(grayscale) nodraw
+    datamvp age bmi income, graph(correlation) textlabels colorramp(grayscale) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(correlation) textlabels+colorramp"
@@ -484,7 +484,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) gname(mvp_test) nodraw
+    datamvp age bmi income, graph(bar) gname(mvp_test) nodraw
     graph describe mvp_test
     graph drop mvp_test
 }
@@ -501,7 +501,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     tempfile gph
-    mvp age bmi income, graph(bar) gsaving("`gph'.gph", replace) nodraw
+    datamvp age bmi income, graph(bar) gsaving("`gph'.gph", replace) nodraw
     confirm file "`gph'.gph"
 }
 if _rc == 0 {
@@ -516,7 +516,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) scheme(s1mono) title("Test") subtitle("Sub") nodraw
+    datamvp age bmi income, graph(bar) scheme(s1mono) title("Test") subtitle("Sub") nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': scheme() title() subtitle()"
@@ -535,7 +535,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) gby(female) nodraw
+    datamvp age bmi income, graph(bar) gby(female) nodraw
     assert "`r(gby)'" == "female"
 }
 if _rc == 0 {
@@ -550,7 +550,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) over(female) nodraw
+    datamvp age bmi income, graph(bar) over(female) nodraw
     assert "`r(over)'" == "female"
 }
 if _rc == 0 {
@@ -565,7 +565,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) stacked nodraw
+    datamvp age bmi income, graph(bar) stacked nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': stacked option"
@@ -579,7 +579,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) over(female) groupgap(20) legendopts(rows(1) position(6)) nodraw
+    datamvp age bmi income, graph(bar) over(female) groupgap(20) legendopts(rows(1) position(6)) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': over() + groupgap() + legendopts()"
@@ -593,7 +593,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education, graph(patterns) gby(female) top(5) nodraw
+    datamvp age bmi income education, graph(patterns) gby(female) top(5) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': gby() with graph(patterns)"
@@ -612,7 +612,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income if female == 1
+    datamvp age bmi income if female == 1
     assert r(N) < 1000
 }
 if _rc == 0 {
@@ -627,7 +627,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income in 1/200
+    datamvp age bmi income in 1/200
     assert r(N) == 200
 }
 if _rc == 0 {
@@ -642,7 +642,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    bysort female: mvp age bmi income
+    bysort female: datamvp age bmi income
 }
 if _rc == 0 {
     display as result "  PASS `test_count': by prefix"
@@ -661,7 +661,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp female region
+    datamvp female region
     assert r(N_vars) == 0
     assert r(N_complete) == r(N)
 }
@@ -678,7 +678,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen all_miss = .
-    mvp age all_miss bmi
+    datamvp age all_miss bmi
     assert r(N_vars) >= 2
     drop all_miss
 }
@@ -694,7 +694,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking, ///
+    datamvp age bmi income education smoking, ///
         sort skip wide percent cumulative minfreq(3) minmissing(1) maxmissing(4)
 }
 if _rc == 0 {
@@ -717,7 +717,7 @@ capture noisily {
     local orig_N = _N
     sort id
     local orig_sort : sortedby
-    mvp age bmi income education smoking, correlate monotone graph(bar) nodraw
+    datamvp age bmi income education smoking, correlate monotone graph(bar) nodraw
     assert _N == `orig_N'
     assert "`orig_sort'" == "`: sortedby'"
     confirm variable id age bmi income education smoking female region
@@ -740,10 +740,10 @@ local ++test_count
 capture noisily {
     set varabbrev on
     use `testdata', clear
-    mvp age bmi income
+    datamvp age bmi income
     assert "`c(varabbrev)'" == "on"
     * Also test on error path
-    capture mvp, graph(bar) scheme(s1mono)
+    capture datamvp, graph(bar) scheme(s1mono)
     assert "`c(varabbrev)'" == "on"
 }
 if _rc == 0 {
@@ -763,9 +763,9 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, graph(bar) scheme(s1mono) over(female)
+    capture datamvp age bmi, graph(bar) scheme(s1mono) over(female)
     assert _rc == 0
-    capture mvp age bmi, scheme(s1mono)
+    capture datamvp age bmi, scheme(s1mono)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -780,7 +780,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, horizontal vertical
+    capture datamvp age bmi, horizontal vertical
     assert _rc == 198
 }
 if _rc == 0 {
@@ -795,7 +795,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, graph(bar) gby(female) over(female)
+    capture datamvp age bmi, graph(bar) gby(female) over(female)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -810,7 +810,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, minmissing(3) maxmissing(1)
+    capture datamvp age bmi, minmissing(3) maxmissing(1)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -825,7 +825,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, graph(invalid)
+    capture datamvp age bmi, graph(invalid)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -840,7 +840,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, graph(correlation) over(female)
+    capture datamvp age bmi, graph(correlation) over(female)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -855,7 +855,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, graph(matrix) gby(female)
+    capture datamvp age bmi, graph(matrix) gby(female)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -876,7 +876,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi, generate(this_stub_is_way_too_long_for_stata)
+    capture datamvp age bmi, generate(this_stub_is_way_too_long_for_stata)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -892,7 +892,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age, correlate
+    datamvp age, correlate
     * Should not error — just skip with message
 }
 if _rc == 0 {
@@ -908,7 +908,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp female region
+    datamvp female region
     assert "`r(varlist_nomiss)'" != ""
 }
 if _rc == 0 {
@@ -924,7 +924,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education, graph(bar) stacked nodraw
+    datamvp age bmi income education, graph(bar) stacked nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': stacked bar (v1.2.0 reimplementation)"
@@ -939,7 +939,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi income, graph(patterns) over(female)
+    capture datamvp age bmi income, graph(patterns) over(female)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -955,7 +955,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi income, graph(correlation) gby(female)
+    capture datamvp age bmi income, graph(correlation) gby(female)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -971,7 +971,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi income, graph(patterns) stacked
+    capture datamvp age bmi income, graph(patterns) stacked
     assert _rc == 198
 }
 if _rc == 0 {
@@ -987,7 +987,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(bar) graphoptions(ysize(5) xsize(8)) nodraw
+    datamvp age bmi income, graph(bar) graphoptions(ysize(5) xsize(8)) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graphoptions() passthrough"
@@ -1006,7 +1006,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income education smoking
+    datamvp age bmi income education smoking
     assert !missing(r(N))
     assert !missing(r(N_complete))
     assert !missing(r(N_incomplete))
@@ -1034,15 +1034,15 @@ else {
 * v1.2.1 FIX TESTS (Tests 60-72)
 * =========================================================================
 
-* Test 60: varabbrev OFF stays OFF after mvp (was leaked as ON)
+* Test 60: varabbrev OFF stays OFF after datamvp (was leaked as ON)
 local ++test_count
 capture noisily {
     set varabbrev off
     use `testdata', clear
-    mvp age bmi income
+    datamvp age bmi income
     assert "`c(varabbrev)'" == "off"
     * Also test error path
-    capture mvp, graph(bar) scheme(s1mono)
+    capture datamvp, graph(bar) scheme(s1mono)
     assert "`c(varabbrev)'" == "off"
     set varabbrev on
 }
@@ -1061,7 +1061,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
-    mvp age bmi income, graph(bar) gby(sex) nodraw
+    datamvp age bmi income, graph(bar) gby(sex) nodraw
     assert "`r(gby)'" == "sex"
 }
 if _rc == 0 {
@@ -1078,7 +1078,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
-    mvp age bmi income, graph(bar) over(sex) nodraw
+    datamvp age bmi income, graph(bar) over(sex) nodraw
     assert "`r(over)'" == "sex"
 }
 if _rc == 0 {
@@ -1095,7 +1095,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
-    mvp age bmi income, graph(patterns) gby(sex) top(5) nodraw
+    datamvp age bmi income, graph(patterns) gby(sex) top(5) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': String gby() with graph(patterns) (v1.2.1)"
@@ -1111,7 +1111,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     capture drop gen_*
-    mvp age bmi, gen(gen)
+    datamvp age bmi, gen(gen)
     confirm variable gen_age gen_bmi gen_pattern gen_nmiss
     drop gen_*
 }
@@ -1129,7 +1129,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen all_miss = .
-    mvp age bmi all_miss, graph(correlation) nodraw
+    datamvp age bmi all_miss, graph(correlation) nodraw
     drop all_miss
 }
 if _rc == 0 {
@@ -1145,7 +1145,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp age bmi if id > 9999
+    capture datamvp age bmi if id > 9999
     assert _rc == 2000
 }
 if _rc == 0 {
@@ -1161,7 +1161,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income in 1
+    datamvp age bmi income in 1
     assert r(N) == 1
     assert r(N_patterns) == 1
 }
@@ -1182,7 +1182,7 @@ capture noisily {
     gen a = .
     gen b = .
     gen c = .
-    mvp a b c
+    datamvp a b c
     assert r(N) == 50
     assert r(N_complete) == 0
     assert r(N_incomplete) == 50
@@ -1205,7 +1205,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
-    mvp age bmi income, graph(bar) over(sex) groupgap(20) legendopts(rows(1)) nodraw
+    datamvp age bmi income, graph(bar) over(sex) groupgap(20) legendopts(rows(1)) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': String over()+groupgap+legendopts (v1.2.1)"
@@ -1221,7 +1221,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     gen str3 grp = cond(_n <= 500, "A", "B")
-    mvp age bmi income, graph(bar) gby(grp) nodraw
+    datamvp age bmi income, graph(bar) gby(grp) nodraw
     assert "`r(gby)'" == "grp"
 }
 if _rc == 0 {
@@ -1237,7 +1237,7 @@ else {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp age bmi income, graph(correlation) colorramp(redblue) nodraw
+    datamvp age bmi income, graph(correlation) colorramp(redblue) nodraw
 }
 if _rc == 0 {
     display as result "  PASS `test_count': colorramp(redblue) (v1.2.1)"
@@ -1253,7 +1253,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     capture drop combo_*
-    mvp age bmi income, monotone correlate graph(bar) generate(combo) nodraw
+    datamvp age bmi income, monotone correlate graph(bar) generate(combo) nodraw
     assert "`r(monotone_status)'" != ""
     matrix list r(corr_miss)
     confirm variable combo_age combo_bmi combo_income combo_pattern combo_nmiss

@@ -1,13 +1,16 @@
 /*  demo_datamap.do - Demo output for datamap
 
     Produces:
-      1. Console output (privacy warning)        -> .log -> .md via logdoc
-      2. Console output (privacy-safe text map)  -> .log -> .md via logdoc
-      3. Console output (JSON + compact output)  -> .log -> .md via logdoc
-      4. Console output (Markdown dictionary)    -> .log -> .md via logdoc
-      5. Text maps                               -> .txt
-      6. JSON map                                -> .json
-      7. Markdown dictionaries                   -> .md
+      1. Console output (privacy warning)          -> .log -> .md via logdoc
+      2. Console output (privacy-safe text map)    -> .log -> .md via logdoc
+      3. Console output (JSON + compact output)    -> .log -> .md via logdoc
+      4. Console output (Markdown dictionary)      -> .log -> .md via logdoc
+      5. Console output (datacheck QC + gates)     -> .log -> .md via logdoc
+      6. Console output (datamvp missing patterns) -> .log -> .md via logdoc
+      7. Text maps                                 -> .txt
+      8. JSON map                                  -> .json
+      9. Markdown dictionaries                     -> .md
+     10. Missingness bar graph (datamvp)           -> .png
 */
 
 version 16.0
@@ -26,7 +29,9 @@ foreach f in datamap_auto.txt datamap_clinical.txt datamap_missing.txt ///
     console_privacy.log console_privacy.md ///
     console_clinical.log console_clinical.md ///
     console_json_compact.log console_json_compact.md ///
-    console_datadict.log console_datadict.md {
+    console_datadict.log console_datadict.md ///
+    console_datacheck.log console_datacheck.md ///
+    console_datamvp.log console_datamvp.md {
     capture erase "`pkg_dir'/`f'"
 }
 
@@ -34,6 +39,11 @@ foreach f in datamap_auto.txt datamap_clinical.txt datamap_missing.txt ///
 capture ado uninstall datamap
 quietly net install datamap, from("`c(pwd)'/datamap") replace
 discard
+
+**# Graph scheme (datamvp missingness graph)
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+set scheme plotplainblind
 
 **# Demo helper programs
 capture program drop _demo_type_head
@@ -342,6 +352,61 @@ noisily _demo_type_head using "`pkg_dir'/datadict_clinical.md", lines(76)
 
 log close datadict
 
+**# datacheck: console QC profile and expectation gates
+capture log close _all
+log using "`pkg_dir'/console_datacheck.log", replace text name(datacheck) nomsg
+
+* # Console QC profile
+
+* datacheck profiles the data in memory: per-class distributions, missingness,
+* key structure, and quality flags. The cohort carries a deliberate age = -3
+* outlier, a 115% adherence value, a rare "Satellite clinic" site, and missing
+* biomarkers, so the flags and missingness blocks are populated.
+
+use "`pkg_dir'/_demo_cohort.dta", clear
+noisily datacheck age sex smoking bmi pct_adherence site, ///
+    id(patient_id) outliers(3) rare(5)
+
+* # Expectation gate (warn mode)
+
+* The same expectations run as a gate. With warn, violations are reported and
+* execution continues; drop warn to halt the do-file with r(9) instead.
+
+noisily datacheck age pct_adherence, expectn(160) isid(patient_id) ///
+    notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
+
+log close datacheck
+
+**# datamvp: missing-value pattern analysis
+capture log close _all
+log using "`pkg_dir'/console_datamvp.log", replace text name(datamvp) nomsg
+
+* # Missing-value pattern table
+
+* datamvp (datacheck's patterns engine) tabulates which variables are jointly
+* missing. The biomarker dataset has nested missingness (x1 absent after obs 60,
+* x4 after obs 70), so a few patterns dominate.
+
+use "`pkg_dir'/_demo_missing.dta", clear
+noisily datamvp x1 x2 x3 x4, percent sort
+
+* # Monotone-missingness test
+
+* Monotone missingness is the key precondition for sequential multiple
+* imputation; datamvp tests for it directly.
+
+noisily datamvp x1 x2 x3 x4, monotone
+
+log close datamvp
+
+**# datamvp missingness bar graph
+use "`pkg_dir'/_demo_missing.dta", clear
+datamvp x1 x2 x3 x4, graph(bar) ///
+    title("Missingness by variable") nodraw gname(dmvp_bar)
+graph display dmvp_bar
+graph export "`pkg_dir'/missingness_bar.png", as(png) width(1400) replace
+capture graph close _all
+
 **# Verify generated artifact content
 _demo_assert_contains using "`pkg_dir'/datamap_warning.txt", ///
     text("Likely identifiers not excluded")
@@ -359,12 +424,21 @@ _demo_assert_contains using "`pkg_dir'/datamap_missing.txt", ///
     text("Missing Data Summary")
 _demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
     text("| Variable | Label | Type | Missing | Statistics/Values |")
+_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+    text("QUICK REFERENCE")
+_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+    text("WARNINGS (2)")
+_demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
+    text("Missing value patterns")
+_demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
+    text("Monotone missingness test")
 
 **# Convert console logs to markdown via logdoc
 capture ado uninstall logdoc
 quietly net install logdoc, from("`c(pwd)'/logdoc") replace
 
-foreach section in datamap_privacy datamap_json datamap_compact datamap_missing datadict {
+foreach section in datamap_privacy datamap_json datamap_compact datamap_missing ///
+    datadict datacheck datamvp {
     logdoc using "`pkg_dir'/console_`section'.log", ///
         output("`pkg_dir'/console_`section'.md") ///
         format(md) replace quiet

@@ -12,7 +12,7 @@ title: "console_datamap_compact"
 
 ```
 (file datamap/demo/datamap_compact.txt not found)
-(file /tmp/St3996715.000003 not found)
+(file /tmp/St1678980.000003 not found)
 Output written to: datamap/demo/datamap_compact.txt
 Documentation generated successfully
 
@@ -23,7 +23,7 @@ Documentation generated successfully
 ```
 
 ```
-(file /tmp/St3996715.000001 not found)
+(file /tmp/St1678980.000001 not found)
 
 ```
 
@@ -33,7 +33,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 15 Jun 2026 00:05:30
+Generated: 17 Jun 2026 21:48:47
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -71,9 +71,9 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  patient_id              double    excluded        0.0%     160
-  subject_id              double    excluded        0.0%     160
-  patient_name            str32     excluded        0.0%     160
+  patient_id              double    excluded        0.0%       .
+  subject_id              double    excluded        0.0%       .
+  patient_name            str32     excluded        0.0%       .
   age                     double    continuous      0.0%     136
   sex                     double    categorical     0.0%       2
   smoking                 double    categorical    16.3%       3

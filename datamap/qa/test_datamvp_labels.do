@@ -1,4 +1,4 @@
-* test_mvp_labels.do — Regression tests for gby/over value label fix
+* test_datamvp_labels.do — Regression tests for gby/over value label fix
 * Verifies that value labels survive preserve/clear in graph code
 * Tests 2-level, 3-level, unlabeled, and string gby/over variables
 * Self-contained: generates own test data
@@ -11,8 +11,8 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall mvp
-net install mvp, from("`pkg_dir'/") replace force
+capture ado uninstall datamap
+net install datamap, from("`pkg_dir'/") replace force
 
 local test_count = 0
 local pass_count = 0
@@ -59,7 +59,7 @@ quietly {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) gby(arm) nodraw
+    datamvp bmi sbp ldl, graph(bar) gby(arm) nodraw
     assert "`r(gby)'" == "arm"
     assert "`r(gby_levels)'" == "0 1 2"
     local ++pass_count
@@ -74,7 +74,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) over(arm) nodraw
+    datamvp bmi sbp ldl, graph(bar) over(arm) nodraw
     assert "`r(over)'" == "arm"
     assert "`r(over_levels)'" == "0 1 2"
     local ++pass_count
@@ -89,7 +89,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(patterns) gby(arm) top(3) nodraw
+    datamvp bmi sbp ldl, graph(patterns) gby(arm) top(3) nodraw
     assert "`r(gby)'" == "arm"
     local ++pass_count
     display as result "  PASS `test_count': gby(arm) patterns 3-level labeled"
@@ -103,7 +103,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) gby(group3) nodraw
+    datamvp bmi sbp ldl, graph(bar) gby(group3) nodraw
     assert "`r(gby)'" == "group3"
     assert "`r(gby_levels)'" == "1 2 3"
     local ++pass_count
@@ -118,7 +118,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) over(group3) nodraw
+    datamvp bmi sbp ldl, graph(bar) over(group3) nodraw
     assert "`r(over)'" == "group3"
     local ++pass_count
     display as result "  PASS `test_count': over(group3) 3-level unlabeled"
@@ -132,7 +132,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) gby(site) nodraw
+    datamvp bmi sbp ldl, graph(bar) gby(site) nodraw
     assert "`r(gby)'" == "site"
     local ++pass_count
     display as result "  PASS `test_count': gby(site) string variable"
@@ -146,7 +146,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(patterns) gby(site) top(3) nodraw
+    datamvp bmi sbp ldl, graph(patterns) gby(site) top(3) nodraw
     assert "`r(gby)'" == "site"
     local ++pass_count
     display as result "  PASS `test_count': gby(site) patterns string variable"
@@ -160,7 +160,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) gby(female) nodraw
+    datamvp bmi sbp ldl, graph(bar) gby(female) nodraw
     assert "`r(gby)'" == "female"
     assert "`r(gby_levels)'" == "0 1"
     local ++pass_count
@@ -175,7 +175,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) over(female) nodraw
+    datamvp bmi sbp ldl, graph(bar) over(female) nodraw
     assert "`r(over)'" == "female"
     assert "`r(over_levels)'" == "0 1"
     local ++pass_count
@@ -191,7 +191,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     local N_before = _N
-    mvp bmi sbp ldl, graph(bar) gby(arm) nodraw
+    datamvp bmi sbp ldl, graph(bar) gby(arm) nodraw
     assert _N == `N_before'
     confirm variable age bmi sbp ldl arm female group3 site
     local ++pass_count
@@ -207,7 +207,7 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     local N_before = _N
-    mvp bmi sbp ldl, graph(bar) over(arm) nodraw
+    datamvp bmi sbp ldl, graph(bar) over(arm) nodraw
     assert _N == `N_before'
     confirm variable age bmi sbp ldl arm female group3 site
     local ++pass_count
@@ -222,7 +222,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp bmi sbp ldl, graph(bar) gby(arm) stacked nodraw
+    capture datamvp bmi sbp ldl, graph(bar) gby(arm) stacked nodraw
     assert _rc == 0
     local ++pass_count
     display as result "  PASS `test_count': gby(arm) + stacked runs without error"
@@ -236,7 +236,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    capture mvp bmi sbp ldl, graph(bar) over(site) nodraw
+    capture datamvp bmi sbp ldl, graph(bar) over(site) nodraw
     assert _rc == 0
     local ++pass_count
     display as result "  PASS `test_count': over(site) 3-level string variable"
@@ -250,7 +250,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl if age > 40 | missing(age), graph(bar) gby(arm) nodraw
+    datamvp bmi sbp ldl if age > 40 | missing(age), graph(bar) gby(arm) nodraw
     assert "`r(gby)'" == "arm"
     local ++pass_count
     display as result "  PASS `test_count': gby(arm) with if condition"
@@ -264,7 +264,7 @@ if _rc {
 local ++test_count
 capture noisily {
     use `testdata', clear
-    mvp bmi sbp ldl, graph(bar) over(arm) sort nodraw
+    datamvp bmi sbp ldl, graph(bar) over(arm) sort nodraw
     assert "`r(over)'" == "arm"
     local ++pass_count
     display as result "  PASS `test_count': over(arm) + sort"

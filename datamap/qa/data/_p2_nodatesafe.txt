@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 27 Apr 2026 00:04:46
+Generated: 17 Jun 2026 18:28:02
 
 ========================================
 DATASET: _p2_dates.dta
@@ -9,11 +9,18 @@ METADATA
 --------
 Observations: 100
 Variables: 3
-Data Signature: 100:3(46560):251104457:1227126408
+Data Signature: 100:3(46560):867290675:3544830558
+
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 0
+Small-cell threshold: 5
+Date-safe mode: off
+Likely identifiers not excluded: id
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 100 observations and 3 variables. The data spans from 2020/01/02 to 2022/10/25. Key variable categories include: identifiers. 
+This dataset contains cross-sectional data. It includes 100 observations and 3 variables. The data spans from 2020/01/03 to 2022/11/13. Key variable categories include: identifiers. 
 
 ========================================
 VARIABLE SUMMARY
@@ -23,8 +30,8 @@ QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
   id                      float     continuous      0.0%     100
-  entry                   float     date            0.0%       .
-  exit                    float     date            0.0%       .
+  entry                   float     date            0.0%      87
+  exit                    float     date            0.0%      97
 ----------------------------------------
 
   id
@@ -81,9 +88,9 @@ Classification: date
 Missing: 0 obs (0.0%)
 
 DATE RANGE:
-  Earliest: 2020/01/02
-  Latest: 2020/12/26
-  Span: 359 days
+  Earliest: 2020/01/03
+  Latest: 2020/12/29
+  Span: 361 days
 
 ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
 
@@ -96,9 +103,9 @@ Classification: date
 Missing: 0 obs (0.0%)
 
 DATE RANGE:
-  Earliest: 2020/01/12
-  Latest: 2022/10/25
-  Span: 1017 days
+  Earliest: 2020/01/16
+  Latest: 2022/11/13
+  Span: 1032 days
 
 ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
 

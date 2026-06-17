@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 27 Apr 2026 00:04:46
+Generated: 17 Jun 2026 18:28:02
 
 ========================================
 DATASET: _p2_dates.dta
@@ -9,7 +9,14 @@ METADATA
 --------
 Observations: 100
 Variables: 3
-Data Signature: 100:3(46560):251104457:1227126408
+Data Signature: 100:3(46560):867290675:3544830558
+
+DISCLOSURE RISK SUMMARY
+-----------------------
+Excluded variables: 0
+Small-cell threshold: 5
+Date-safe mode: on
+Likely identifiers not excluded: id
 
 DESCRIPTION
 -----------
@@ -23,8 +30,8 @@ QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
   id                      float     continuous      0.0%     100
-  entry                   float     date            0.0%       .
-  exit                    float     date            0.0%       .
+  entry                   float     date            0.0%      87
+  exit                    float     date            0.0%      97
 ----------------------------------------
 
   id
@@ -80,7 +87,7 @@ Display Format: %td
 Classification: date
 Missing: 0 obs (0.0%)
 
-DATE RANGE: 359 days span (exact dates suppressed for privacy)
+DATE RANGE: 361 days span (exact dates suppressed for privacy)
 
 ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
 
@@ -92,7 +99,7 @@ Display Format: %td
 Classification: date
 Missing: 0 obs (0.0%)
 
-DATE RANGE: 1017 days span (exact dates suppressed for privacy)
+DATE RANGE: 1032 days span (exact dates suppressed for privacy)
 
 ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
 

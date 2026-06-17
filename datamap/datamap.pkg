@@ -6,12 +6,14 @@ d datasets. It automatically classifies variables and generates appropriate
 d documentation for each type, with privacy controls to exclude sensitive
 d variables or limit date precision.
 d
-d The package includes two commands:
+d The package includes four commands:
 d - datamap: Generate privacy-safe dataset documentation (text)
 d - datadict: Generate Markdown data dictionaries
+d - datacheck: Console QC profiling and expectation gates
+d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20260616
+d Distribution-Date: 20260617
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -26,6 +28,10 @@ f datamap.ado
 f datamap.sthlp
 f datadict.ado
 f datadict.sthlp
+f datacheck.ado
+f datacheck.sthlp
+f datamvp.ado
+f datamvp.sthlp
 f _datamap_classify.ado
 f _datamap_collect_filelist.ado
 f _datamap_collect_from_dir.ado

@@ -1,9 +1,9 @@
-*! mvp Version 1.0.0  2026/04/08
+*! datamvp Version 1.2.0  2026/06/17
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
 
-program define mvp, rclass byable(recall) sortpreserve
+program define datamvp, rclass byable(recall) sortpreserve
     version 16.0
     local _uservarabbrev `c(varabbrev)'
     set varabbrev off

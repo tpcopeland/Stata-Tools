@@ -12,8 +12,7 @@ title: "console_datamap_json"
 ```
 
 ```
-(file datamap/demo/datamap_metadata.json not found)
-(file /tmp/St3996715.000003 not found)
+(file /tmp/St1678980.000003 not found)
 Output written to: datamap/demo/datamap_metadata.json
 Documentation generated successfully
 
@@ -25,8 +24,8 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.1.0",
-  "generated": "15 Jun 2026 00:05:30",
+  "datamap_version": "1.2.0",
+  "generated": "17 Jun 2026 21:48:47",
   "format": "json",
   "datasets": [
     {
@@ -60,7 +59,7 @@ Documentation generated successfully
           "classification": "excluded",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 160,
+          "unique_values": null,
           "max_length": null,
           "summary": {
           },
@@ -76,7 +75,7 @@ Documentation generated successfully
           "classification": "excluded",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 160,
+          "unique_values": null,
           "max_length": null,
           "summary": {
           },
@@ -92,8 +91,8 @@ Documentation generated successfully
           "classification": "excluded",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 160,
-          "max_length": 11,
+          "unique_values": null,
+          "max_length": null,
 ... [output truncated]
 
 ```

@@ -1,7 +1,7 @@
 /*******************************************************************************
 * generate_test_data.do
 *
-* Purpose: Generate synthetic test datasets for testing tvtools, mvp, and
+* Purpose: Generate synthetic test datasets for testing tvtools, datamvp, and
 *          related Stata commands
 *
 * Instructions:

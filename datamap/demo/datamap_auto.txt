@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 15 Jun 2026 00:05:30
+Generated: 17 Jun 2026 21:48:47
 
 ========================================
 DATASET: _demo_auto.dta
@@ -30,7 +30,7 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  make                    str18     excluded        0.0%      74
+  make                    str18     excluded        0.0%       .
   price                   int       continuous      0.0%      74
   mpg                     int       categorical     0.0%      21
   rep78                   int       categorical     6.8%       5

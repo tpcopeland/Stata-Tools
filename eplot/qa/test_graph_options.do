@@ -98,25 +98,25 @@ else {
 }
 
 * {smcl}
-* {* Test 4: mvp graphoptions}{...}
-capture which mvp
+* {* Test 4: datamvp graphoptions}{...}
+capture which datamvp
 if _rc == 0 {
-    display _newline as text "--- Test 4: mvp graphoptions() ---"
-    * Replace some values with missing to give mvp something to work with
+    display _newline as text "--- Test 4: datamvp graphoptions() ---"
+    * Replace some values with missing to give datamvp something to work with
     quietly replace index_age = . in 1/5
-    capture noisily mvp index_age female education, graph(bar) ///
+    capture noisily datamvp index_age female education, graph(bar) ///
         scheme(plotplainblind) graphoptions(note("test"))
     if _rc {
-        display as error "  FAIL: mvp with graphoptions"
+        display as error "  FAIL: datamvp with graphoptions"
         local failures = `failures' + 1
     }
     else {
-        display as result "  PASS: mvp scheme() + graphoptions()"
+        display as result "  PASS: datamvp scheme() + graphoptions()"
     }
     quietly graph drop _all
 }
 else {
-    display _newline as text "  SKIP: mvp not installed"
+    display _newline as text "  SKIP: datamvp not installed"
     local skipped = `skipped' + 1
 }
 

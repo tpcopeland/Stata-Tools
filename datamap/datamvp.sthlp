@@ -1,22 +1,22 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.2.0  17jun2026}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
-{viewerjumpto "Syntax" "mvp##syntax"}{...}
-{viewerjumpto "Description" "mvp##description"}{...}
-{viewerjumpto "Options" "mvp##options"}{...}
-{viewerjumpto "Examples" "mvp##examples"}{...}
-{viewerjumpto "Stored results" "mvp##results"}{...}
-{viewerjumpto "Authors" "mvp##authors"}{...}
+{viewerjumpto "Syntax" "datamvp##syntax"}{...}
+{viewerjumpto "Description" "datamvp##description"}{...}
+{viewerjumpto "Options" "datamvp##options"}{...}
+{viewerjumpto "Examples" "datamvp##examples"}{...}
+{viewerjumpto "Stored results" "datamvp##results"}{...}
+{viewerjumpto "Authors" "datamvp##authors"}{...}
 {hline}
-help for {cmd:mvp}{right:version 1.0.0}
+help for {cmd:datamvp}{right:version 1.2.0}
 {hline}
 
 {title:Title}
 
 {p2colset 5 12 14 2}{...}
-{p2col:{cmd:mvp} {hline 2}}Missing value pattern analysis with enhanced features{p_end}
+{p2col:{cmd:datamvp} {hline 2}}Missing value pattern analysis with enhanced features{p_end}
 {p2colreset}{...}
 
 
@@ -24,7 +24,7 @@ help for {cmd:mvp}{right:version 1.0.0}
 {title:Syntax}
 
 {p 8 15 2}
-{cmd:mvp}
+{cmd:datamvp}
 [{varlist}]
 {ifin}
 [{cmd:,} {it:options}]
@@ -97,7 +97,7 @@ help for {cmd:mvp}{right:version 1.0.0}
 {title:Description}
 
 {pstd}
-{cmd:mvp} analyzes and displays missing value patterns in the data. For each
+{cmd:datamvp} analyzes and displays missing value patterns in the data. For each
 unique combination of missing and nonmissing values across the specified
 variables, it shows the pattern, frequency, and number of missing variables.
 
@@ -335,121 +335,121 @@ Example: {cmd:legendopts(rows(2) position(3))}
 
 {pstd}Basic usage{p_end}
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
-{phang2}{stata "mvp":. mvp}{p_end}
+{phang2}{stata "datamvp":. datamvp}{p_end}
 
 {pstd}Analyze specific variables with percentages{p_end}
-{phang2}{stata "mvp price mpg rep78 headroom, percent":. mvp price mpg rep78 headroom, percent}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, percent":. datamvp price mpg rep78 headroom, percent}{p_end}
 
 {pstd}Sort variables by missingness, show rare patterns first{p_end}
-{phang2}{stata "mvp, sort ascending":. mvp, sort ascending}{p_end}
+{phang2}{stata "datamvp, sort ascending":. datamvp, sort ascending}{p_end}
 
 {pstd}Show only patterns appearing at least 5 times with cumulative stats{p_end}
-{phang2}{stata "mvp, minfreq(5) percent cumulative":. mvp, minfreq(5) percent cumulative}{p_end}
+{phang2}{stata "datamvp, minfreq(5) percent cumulative":. datamvp, minfreq(5) percent cumulative}{p_end}
 
 {pstd}Filter to patterns with 1-3 missing variables{p_end}
-{phang2}{stata "mvp, minmissing(1) maxmissing(3)":. mvp, minmissing(1) maxmissing(3)}{p_end}
+{phang2}{stata "datamvp, minmissing(1) maxmissing(3)":. datamvp, minmissing(1) maxmissing(3)}{p_end}
 
 {pstd}Test for monotone missingness{p_end}
-{phang2}{stata "mvp price mpg rep78 headroom trunk, monotone":. mvp price mpg rep78 headroom trunk, monotone}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom trunk, monotone":. datamvp price mpg rep78 headroom trunk, monotone}{p_end}
 
 {pstd}Show correlations among missingness indicators{p_end}
-{phang2}{stata "mvp price mpg rep78, correlate":. mvp price mpg rep78, correlate}{p_end}
+{phang2}{stata "datamvp price mpg rep78, correlate":. datamvp price mpg rep78, correlate}{p_end}
 
 {pstd}Generate missingness indicators for further analysis{p_end}
-{phang2}{stata "mvp, generate(m)":. mvp, generate(m)}{p_end}
+{phang2}{stata "datamvp, generate(m)":. datamvp, generate(m)}{p_end}
 {phang2}{stata "tab m_pattern":. tab m_pattern}{p_end}
 
 {pstd}Save patterns to a frame for later use{p_end}
-{phang2}{stata "mvp, save(patterns)":. mvp, save(patterns)}{p_end}
+{phang2}{stata "datamvp, save(patterns)":. datamvp, save(patterns)}{p_end}
 {phang2}{stata "frame patterns: list":. frame patterns: list}{p_end}
 
 {pstd}Save patterns to a file{p_end}
-{phang2}{stata "mvp, save(mypatterns.dta)":. mvp, save(mypatterns.dta)}{p_end}
+{phang2}{stata "datamvp, save(mypatterns.dta)":. datamvp, save(mypatterns.dta)}{p_end}
 
 {pstd}Use with by prefix{p_end}
-{phang2}{stata "bysort foreign: mvp price mpg rep78":. bysort foreign: mvp price mpg rep78}{p_end}
+{phang2}{stata "bysort foreign: datamvp price mpg rep78":. bysort foreign: datamvp price mpg rep78}{p_end}
 
 {pstd}{bf:Graphics examples}{p_end}
 
 {pstd}Bar chart of missingness by variable{p_end}
-{phang2}{stata "mvp, graph(bar) scheme(plotplainblind)":. mvp, graph(bar) scheme(plotplainblind)}{p_end}
+{phang2}{stata "datamvp, graph(bar) scheme(plotplainblind)":. datamvp, graph(bar) scheme(plotplainblind)}{p_end}
 
 {pstd}Bar chart with variables sorted by missingness{p_end}
-{phang2}{stata "mvp, sort graph(bar)":. mvp, sort graph(bar)}{p_end}
+{phang2}{stata "datamvp, sort graph(bar)":. datamvp, sort graph(bar)}{p_end}
 
 {pstd}Vertical bar chart with custom color{p_end}
-{phang2}{stata "mvp, graph(bar) vertical barcolor(maroon)":. mvp, graph(bar) vertical barcolor(maroon)}{p_end}
+{phang2}{stata "datamvp, graph(bar) vertical barcolor(maroon)":. datamvp, graph(bar) vertical barcolor(maroon)}{p_end}
 
 {pstd}Pattern frequency bar chart{p_end}
-{phang2}{stata "mvp, graph(patterns)":. mvp, graph(patterns)}{p_end}
+{phang2}{stata "datamvp, graph(patterns)":. datamvp, graph(patterns)}{p_end}
 
 {pstd}Show top 10 patterns with custom title{p_end}
-{phang2}{stata `"mvp, graph(patterns) top(10) title("Missing Data Patterns")"':. mvp, graph(patterns) top(10) title("Missing Data Patterns")}{p_end}
+{phang2}{stata `"datamvp, graph(patterns) top(10) title("Missing Data Patterns")"':. datamvp, graph(patterns) top(10) title("Missing Data Patterns")}{p_end}
 
 {pstd}Missingness matrix heatmap{p_end}
-{phang2}{stata "mvp, graph(matrix)":. mvp, graph(matrix)}{p_end}
+{phang2}{stata "datamvp, graph(matrix)":. datamvp, graph(matrix)}{p_end}
 
 {pstd}Matrix with 1000 sampled observations, sorted by pattern{p_end}
-{phang2}{stata "mvp, graph(matrix, sample(1000) sort)":. mvp, graph(matrix, sample(1000) sort)}{p_end}
+{phang2}{stata "datamvp, graph(matrix, sample(1000) sort)":. datamvp, graph(matrix, sample(1000) sort)}{p_end}
 
 {pstd}Matrix with custom colors{p_end}
-{phang2}{stata "mvp, graph(matrix) misscolor(red) obscolor(green*0.2)":. mvp, graph(matrix) misscolor(red) obscolor(green*0.2)}{p_end}
+{phang2}{stata "datamvp, graph(matrix) misscolor(red) obscolor(green*0.2)":. datamvp, graph(matrix) misscolor(red) obscolor(green*0.2)}{p_end}
 
 {pstd}Correlation heatmap of missingness{p_end}
-{phang2}{stata "mvp, graph(correlation)":. mvp, graph(correlation)}{p_end}
+{phang2}{stata "datamvp, graph(correlation)":. datamvp, graph(correlation)}{p_end}
 
 {pstd}Correlation heatmap with values displayed{p_end}
-{phang2}{stata "mvp, graph(correlation) textlabels":. mvp, graph(correlation) textlabels}{p_end}
+{phang2}{stata "datamvp, graph(correlation) textlabels":. datamvp, graph(correlation) textlabels}{p_end}
 
 {pstd}Correlation heatmap with grayscale color scheme{p_end}
-{phang2}{stata "mvp, graph(correlation) colorramp(grayscale)":. mvp, graph(correlation) colorramp(grayscale)}{p_end}
+{phang2}{stata "datamvp, graph(correlation) colorramp(grayscale)":. datamvp, graph(correlation) colorramp(grayscale)}{p_end}
 
 {pstd}Save graph to file without displaying{p_end}
-{phang2}{stata "mvp, graph(bar) gsaving(missingness.gph, replace) nodraw":. mvp, graph(bar) gsaving(missingness.gph, replace) nodraw}{p_end}
+{phang2}{stata "datamvp, graph(bar) gsaving(missingness.gph, replace) nodraw":. datamvp, graph(bar) gsaving(missingness.gph, replace) nodraw}{p_end}
 
 {pstd}Name graph in memory for later use{p_end}
-{phang2}{stata "mvp, graph(correlation) gname(mycorr)":. mvp, graph(correlation) gname(mycorr)}{p_end}
+{phang2}{stata "datamvp, graph(correlation) gname(mycorr)":. datamvp, graph(correlation) gname(mycorr)}{p_end}
 
 {pstd}Use a specific graph scheme{p_end}
-{phang2}{stata "mvp, graph(bar) scheme(plotplainblind)":. mvp, graph(bar) scheme(plotplainblind)}{p_end}
+{phang2}{stata "datamvp, graph(bar) scheme(plotplainblind)":. datamvp, graph(bar) scheme(plotplainblind)}{p_end}
 
 {pstd}{bf:Stratified graphics examples}{p_end}
 
 {pstd}Compare missingness by group (faceted display){p_end}
-{phang2}{stata "mvp price mpg rep78, graph(bar) gby(foreign)":. mvp price mpg rep78, graph(bar) gby(foreign)}{p_end}
+{phang2}{stata "datamvp price mpg rep78, graph(bar) gby(foreign)":. datamvp price mpg rep78, graph(bar) gby(foreign)}{p_end}
 
 {pstd}Overlay groups in same chart (grouped bars){p_end}
-{phang2}{stata "mvp price mpg rep78, graph(bar) over(foreign)":. mvp price mpg rep78, graph(bar) over(foreign)}{p_end}
+{phang2}{stata "datamvp price mpg rep78, graph(bar) over(foreign)":. datamvp price mpg rep78, graph(bar) over(foreign)}{p_end}
 
 {pstd}Compare patterns by group{p_end}
-{phang2}{stata "mvp price mpg rep78 headroom trunk, graph(patterns) gby(foreign) top(10)":. mvp price mpg rep78 headroom trunk, graph(patterns) gby(foreign) top(10)}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom trunk, graph(patterns) gby(foreign) top(10)":. datamvp price mpg rep78 headroom trunk, graph(patterns) gby(foreign) top(10)}{p_end}
 
 {pstd}Stacked bar chart showing variable contributions{p_end}
-{phang2}{stata "mvp, graph(bar) stacked":. mvp, graph(bar) stacked}{p_end}
+{phang2}{stata "datamvp, graph(bar) stacked":. datamvp, graph(bar) stacked}{p_end}
 
 {pstd}Grouped bars with custom legend and spacing{p_end}
-{phang2}{stata "mvp price mpg rep78, graph(bar) over(foreign) groupgap(20) legendopts(rows(1) position(6))":. mvp price mpg rep78, graph(bar) over(foreign) groupgap(20) legendopts(rows(1) position(6))}{p_end}
+{phang2}{stata "datamvp price mpg rep78, graph(bar) over(foreign) groupgap(20) legendopts(rows(1) position(6))":. datamvp price mpg rep78, graph(bar) over(foreign) groupgap(20) legendopts(rows(1) position(6))}{p_end}
 
 {pstd}{bf:Registry data examples}{p_end}
 
 {pstd}Missing patterns in LISA data{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
-{phang2}{stata "mvp disp_income employment education_level, percent sort":. mvp disp_income employment education_level, percent sort}{p_end}
+{phang2}{stata "datamvp disp_income employment education_level, percent sort":. datamvp disp_income employment education_level, percent sort}{p_end}
 
 {pstd}Missing data visualization for cohort{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata "mvp death_date, graph(bar)":. mvp death_date, graph(bar)}{p_end}
+{phang2}{stata "datamvp death_date, graph(bar)":. datamvp death_date, graph(bar)}{p_end}
 
 {pstd}Generate missingness indicators for imputation planning{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
-{phang2}{stata "mvp disp_income employment, generate(m) monotone":. mvp disp_income employment, generate(m) monotone}{p_end}
+{phang2}{stata "datamvp disp_income employment, generate(m) monotone":. datamvp disp_income employment, generate(m) monotone}{p_end}
 
 
 {marker results}{...}
 {title:Stored results}
 
 {pstd}
-{cmd:mvp} stores the following in {cmd:r()}:
+{cmd:datamvp} stores the following in {cmd:r()}:
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
@@ -486,9 +486,8 @@ Example: {cmd:legendopts(rows(2) position(3))}
 {marker authors}{...}
 {title:Authors}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
 
 {pstd}
 This is a fork of {cmd:mvpatterns} version 2.0.0 (STB-61: dm91) by:

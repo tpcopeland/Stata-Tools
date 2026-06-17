@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 15 Jun 2026 00:05:30
+Generated: 17 Jun 2026 21:48:47
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -30,9 +30,9 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  patient_id              double    excluded        0.0%     160
-  subject_id              double    excluded        0.0%     160
-  patient_name            str32     excluded        0.0%     160
+  patient_id              double    excluded        0.0%       .
+  subject_id              double    excluded        0.0%       .
+  patient_name            str32     excluded        0.0%       .
   age                     double    continuous      0.0%     136
   sex                     double    categorical     0.0%       2
   smoking                 double    categorical    16.3%       3

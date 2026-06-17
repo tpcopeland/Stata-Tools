@@ -1,6 +1,5 @@
 # Data Dictionary: test_cohort
 
----
 
 ## 1. Test Cohort
 
@@ -20,13 +19,11 @@
 | `exit_date` | Study exit date | Date | Date |
 | `name` | Participant name | String |  |
 
----
 
 ## Notes
 
 - All date variables are displayed using %tdCCYY/NN/DD format
 - Missing values coded as . (numeric missing) or empty string
 
----
 
-**Last Updated:**  2 Apr 2026
+**Last Updated:** 17 Jun 2026

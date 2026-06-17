@@ -12,7 +12,7 @@ title: "console_datamap_missing"
 
 ```
 (file datamap/demo/datamap_missing.txt not found)
-(file /tmp/St3996715.000003 not found)
+(file /tmp/St1678980.000003 not found)
 Output written to: datamap/demo/datamap_missing.txt
 Documentation generated successfully
 
@@ -23,7 +23,7 @@ Documentation generated successfully
 ```
 
 ```
-(file /tmp/St3996715.000001 not found)
+(file /tmp/St1678980.000001 not found)
 
 ```
 
@@ -33,7 +33,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 15 Jun 2026 00:05:30
+Generated: 17 Jun 2026 21:48:47
 
 ========================================
 DATASET: _demo_missing.dta
@@ -70,7 +70,7 @@ VARIABLE SUMMARY
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  id                      double    excluded        0.0%      80
+  id                      double    excluded        0.0%       .
   x1                      double    continuous     25.0%      60
   x2                      double    continuous     25.0%      60
   x3                      double    continuous     35.0%      52
