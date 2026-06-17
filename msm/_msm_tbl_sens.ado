@@ -1,4 +1,4 @@
-*! _msm_tbl_sens Version 1.1.0  2026/06/14
+*! _msm_tbl_sens Version 1.2.0  2026/06/17
 *! Author: Timothy P Copeland
 program define _msm_tbl_sens, nclass
     version 16.0

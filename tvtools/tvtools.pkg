@@ -56,3 +56,5 @@ f tvtools_menu_setup.do
 f tvtools.sthlp
 f tvage.ado
 f tvage.sthlp
+f tvpanel.ado
+f tvpanel.sthlp

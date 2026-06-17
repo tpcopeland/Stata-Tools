@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  15jun2026}{...}
+{* *! version 1.7.0  17jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -60,6 +60,12 @@
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}Excel decimal places (0-6, default 3){p_end}
 {synopt:{opt open}}open the workbook after writing{p_end}
+{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (full grid; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
+{synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
+{synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
+{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
+{synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
+{synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -184,6 +190,31 @@ rows to Excel output.
 {opt decimals(#)} sets the number of decimal places used for exported hazard
 ratios, confidence intervals, and p-values.
 The allowed range is 0 through 6; the default is 3.
+
+{phang}
+{opt borderstyle(string)} selects the Excel border scheme and requires
+{opt xlsx()}.  {cmd:thin} (the default) draws a full thin grid -- an outer box
+plus interior horizontal and vertical rules -- matching the tabtools house
+style.  {cmd:medium} draws the same full grid with medium lines.
+{cmd:academic} uses a three-rule (top/header/bottom) layout with no vertical
+rules.  {cmd:default} is an alias for {cmd:thin}.
+
+{phang}
+{opt headershade} shades the header rows.  It is off by default so that output
+matches the unshaded house style.  {opt headercolor(string)} sets the header
+fill as three space-separated 0-255 RGB values, for example
+{cmd:headercolor("219 229 241")}.
+
+{phang}
+{opt zebra} shades alternating data rows, and {opt zebracolor(string)} sets
+that fill as {cmd:"R G B"} values.
+
+{phang}
+{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm},
+{cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, or
+{cmd:annals}) that sets the font, font size, and border scheme together.
+Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options
+override the matching theme setting.
 
 
 {marker remarks}{...}
@@ -350,6 +381,6 @@ doi:10.1111/j.1467-9868.2004.b5543.x.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.6.0, 2026-06-15{p_end}
+{pstd}Version 1.7.0, 2026-06-17{p_end}
 
 {hline}

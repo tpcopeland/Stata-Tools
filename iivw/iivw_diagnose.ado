@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.6.0  2026/06/15
+*! iivw_diagnose Version 1.7.0  2026/06/17
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -24,7 +24,9 @@ program define iivw_diagnose, rclass
             [EXogeneity(string) ESTimand(string) TRue(string) ///
              Level(real 95) XLSX(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
-             DECimals(string) REPLACE OPEN]
+             DECimals(string) REPLACE OPEN ///
+             BORDERstyle(string) HEADERShade THEme(string) ///
+             HEADERColor(string) ZEBRAColor(string) ZEBra]
         if `level' <= 10 | `level' >= 99.99 {
             display as error "level() must be between 10 and 99.99"
             error 198
@@ -457,6 +459,12 @@ program define iivw_diagnose, rclass
             if `"`_clean_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_clean_footnote'")"'
             if "`replace'" != "" local _export_opts `"`_export_opts' replace"'
             if "`open'" != "" local _export_opts `"`_export_opts' open"'
+            if `"`borderstyle'"' != "" local _export_opts `"`_export_opts' borderstyle(`borderstyle')"'
+            if "`headershade'" != "" local _export_opts `"`_export_opts' headershade"'
+            if `"`theme'"' != "" local _export_opts `"`_export_opts' theme(`theme')"'
+            if `"`headercolor'"' != "" local _export_opts `"`_export_opts' headercolor("`headercolor'")"'
+            if `"`zebracolor'"' != "" local _export_opts `"`_export_opts' zebracolor("`zebracolor'")"'
+            if "`zebra'" != "" local _export_opts `"`_export_opts' zebra"'
 
             capture noisily _iivw_export_table, `_export_opts'
             local _export_rc = _rc

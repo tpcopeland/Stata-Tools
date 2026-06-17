@@ -1,4 +1,4 @@
-*! msm_table Version 1.1.0  2026/06/14
+*! msm_table Version 1.2.0  2026/06/17
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

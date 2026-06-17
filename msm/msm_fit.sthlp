@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  14jun2026}{...}
+{* *! version 1.2.0  17jun2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -9,6 +9,7 @@
 {viewerjumpto "Syntax" "msm_fit##syntax"}{...}
 {viewerjumpto "Description" "msm_fit##description"}{...}
 {viewerjumpto "Choosing a model" "msm_fit##choosing"}{...}
+{viewerjumpto "Continuous and time-varying exposure" "msm_fit##continuous"}{...}
 {viewerjumpto "Options" "msm_fit##options"}{...}
 {viewerjumpto "Stored results" "msm_fit##stored"}{...}
 {viewerjumpto "Examples" "msm_fit##examples"}{...}
@@ -32,6 +33,8 @@
 {synoptline}
 {synopt:{opt mod:el(string)}}model type: {cmd:logistic} (default), {cmd:linear}, or {cmd:cox}{p_end}
 {synopt:{opt outcome_cov(varlist)}}additional time-fixed outcome covariates{p_end}
+{synopt:{opt exp:osure(varname)}}continuous/time-varying exposure term that replaces the binary treatment in the outcome model{p_end}
+{synopt:{opt tvc:ov(varlist)}}time-varying outcome covariates ({cmd:cox}/{cmd:logistic} only){p_end}
 {synopt:{opt per:iod_spec(string)}}period functional form: {cmd:linear}, {cmd:quadratic} (default), {cmd:cubic}, {cmd:ns(#)}, or {cmd:none}{p_end}
 {synopt:{opt cl:uster(varname)}}cluster variable for robust SE; default is the ID variable{p_end}
 {synopt:{opt vce(string)}}standard-error estimator: {cmd:robust} or {cmd:cluster} {it:varname}{p_end}
@@ -106,6 +109,48 @@ After fitting, run {cmd:msm, status} to confirm the current pipeline stage
 and see which downstream commands are available.
 
 
+{marker continuous}{...}
+{title:Continuous and time-varying exposure}
+
+{pstd}
+By default {cmd:msm_fit} estimates the effect of the mapped {bf:binary}
+treatment.  Some studies instead target a {bf:dose-duration} estimand {hline 1}
+the effect of an additional unit of a continuous, time-varying cumulative
+exposure summary (for example, the hazard ratio per lagged cumulative
+class-exposure-year).  Two backward-compatible options express this:
+
+{phang2}{opt exp:osure(varname)} swaps the binary treatment term for a
+continuous exposure variable, and{p_end}
+{phang2}{opt tvc:ov(varlist)} adds time-varying companion covariates that are
+not subject to the {opt outcome_cov()} time-fixed restriction.{p_end}
+
+{pstd}
+{bf:Methods contract.}  The IP weights from {helpb msm_weight} are built for the
+{bf:binary} treatment process.  Using them for a continuous or time-varying
+outcome term is valid {bf:only} when that term is a deterministic function of
+the same treatment history the weights balance:
+
+{phang2}o  An {opt exp:osure()} term is licensed when it summarizes that
+treatment history {hline 1} cumulative duration, cumulative dose, or a lagged
+cumulative exposure.{p_end}
+{phang2}o  A {opt tvc:ov()} term is for time-varying companions that are
+themselves functions of the treatment process (e.g., comparator-class
+cumulative exposure), or for pre-baseline-fixed confounders re-expressed over
+time {hline 1} {bf:not} for arbitrary time-varying confounders that should have
+been handled in the weight model.{p_end}
+
+{pstd}
+Passing a term the weights do not justify yields a biased estimate that only
+looks package-blessed.  Because there is no binary regime to standardize,
+{helpb msm_predict} and counterfactual standardization are {bf:not defined} in
+this mode and {cmd:msm_predict} will refuse; use {helpb msm_report},
+{helpb msm_table}, or {helpb msm_sensitivity} for downstream output.  The
+relaxation of the {opt outcome_cov()} time-fixed restriction is gated to
+{cmd:model(cox)} and {cmd:model(logistic)} via {opt tvc:ov()}; the restriction
+existed only to support {cmd:msm_predict} standardization, which is already
+unavailable in this mode.
+
+
 {marker options}{...}
 {title:Options}
 
@@ -119,7 +164,28 @@ model beyond treatment and period.  These must be {bf:time-fixed} (constant
 within person).  {cmd:msm_fit} rejects variables that vary within the mapped
 ID because downstream prediction standardizes them at baseline values.  Common
 choices are the same baseline covariates used in the weight numerator (e.g.,
-age, sex).
+age, sex).  For time-varying companions, use {opt tvc:ov()} instead.
+
+{phang}
+{opth exp:osure(varname)} replaces the mapped binary treatment term in the
+outcome model with an arbitrary, possibly {bf:continuous}, exposure variable.
+When omitted (the default), the mapped binary treatment is used exactly as
+before.  The reported coefficient/HR is then interpreted "per one unit of the
+{opt exp:osure()} variable" rather than as the binary on-treatment contrast.
+This is intended for dose-duration estimands such as a lagged cumulative
+class-exposure summary.  See {help msm_fit##continuous:Continuous and
+time-varying exposure} for the methods contract; {helpb msm_predict} is not
+available when {opt exp:osure()} is specified.
+
+{phang}
+{opth tvc:ov(varlist)} specifies {bf:time-varying} outcome covariates that are
+exempt from the {opt outcome_cov()} time-fixed restriction.  It is allowed only
+with {cmd:model(cox)} or {cmd:model(logistic)}.  Use it for time-varying
+companions of the exposure that are themselves functions of the treatment
+process (e.g., a comparator-class cumulative exposure).  Variables in
+{opt tvc:ov()} may not also appear in {opt outcome_cov()}, and may not be the
+mapped treatment.  {helpb msm_predict} is not available when {opt tvc:ov()} is
+specified.
 
 {phang}
 {opt per:iod_spec(string)} specifies the functional form for the period
@@ -177,13 +243,15 @@ Default is 95.
 {synopt:{cmd:e(msm_cmd)}}{cmd:"msm_fit"}{p_end}
 {synopt:{cmd:e(msm_model)}}model type ({cmd:logistic}, {cmd:linear}, or {cmd:cox}){p_end}
 {synopt:{cmd:e(msm_treatment)}}treatment variable name{p_end}
+{synopt:{cmd:e(msm_exposure)}}{opt exp:osure()} variable name, if specified{p_end}
+{synopt:{cmd:e(msm_tvcov)}}{opt tvc:ov()} variables, if specified{p_end}
 {synopt:{cmd:e(msm_period_spec)}}period specification used{p_end}
 {synopt:{cmd:e(msm_vce)}}variance estimator ({cmd:robust} or {cmd:cluster}){p_end}
 {synopt:{cmd:e(msm_cluster)}}cluster variable when clustered SEs are used{p_end}
 {synopt:{cmd:e(msm_strata)}}Cox strata variables, if specified{p_end}
 
 {p2col 5 25 29 2: Matrices}{p_end}
-{synopt:{cmd:e(effects)}}1 x 4 matrix (estimate, ci_lower, ci_upper, pvalue) for treatment{p_end}
+{synopt:{cmd:e(effects)}}1 x 4 matrix (estimate, ci_lower, ci_upper, pvalue) for the primary effect term (treatment, or the {opt exp:osure()} override){p_end}
 
 {pstd}
 Additionally, {cmd:_msm_fit_b} and {cmd:_msm_fit_V} are saved as named Stata
@@ -214,6 +282,19 @@ in person-period data:{p_end}
 {bf:Cox MSM with stratum-specific baseline hazards:}{p_end}
 
 {phang2}{cmd:. msm_fit, model(cox) outcome_cov(age) strata(sex) vce(cluster id) nolog}{p_end}
+
+{pstd}
+{bf:Continuous cumulative-exposure Cox MSM (dose-duration estimand).}  The
+hazard ratio per unit of a lagged cumulative class-exposure summary, with a
+comparator-class cumulative exposure as a time-varying companion:{p_end}
+
+{phang2}{cmd:. msm_fit, model(cox) exposure(cum_test_yrs) tvcov(cum_comp_yrs) outcome_cov(age) vce(cluster id) nolog}{p_end}
+
+{pstd}
+{cmd:msm_predict} is unavailable after this fit; use {helpb msm_report},
+{helpb msm_table}, or {helpb msm_sensitivity}.  See
+{help msm_fit##continuous:Continuous and time-varying exposure} for the methods
+contract.
 
 {pstd}
 {bf:Linear probability MSM for an identity-scale risk difference:}{p_end}

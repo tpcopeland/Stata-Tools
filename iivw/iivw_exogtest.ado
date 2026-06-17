@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.6.0  2026/06/15
+*! iivw_exogtest Version 1.7.0  2026/06/17
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -56,7 +56,9 @@ program define iivw_exogtest, rclass sortpreserve
          GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
          XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(string) OPEN]
+         DECimals(string) OPEN ///
+         BORDERstyle(string) HEADERShade THEme(string) ///
+         HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     if "`decimals'" != "" {
         capture confirm integer number `decimals'
@@ -623,6 +625,24 @@ program define iivw_exogtest, rclass sortpreserve
         }
         if "`replace'" != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' replace"'
+        }
+        if `"`borderstyle'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' borderstyle(`borderstyle')"'
+        }
+        if "`headershade'" != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' headershade"'
+        }
+        if `"`theme'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' theme(`theme')"'
+        }
+        if `"`headercolor'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' headercolor("`headercolor'")"'
+        }
+        if `"`zebracolor'"' != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' zebracolor("`zebracolor'")"'
+        }
+        if "`zebra'" != "" {
+            local __iivw_exog_opts `"`__iivw_exog_opts' zebra"'
         }
 
         capture noisily _iivw_export_table, `__iivw_exog_opts'

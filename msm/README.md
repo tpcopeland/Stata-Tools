@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.1.0** | 2026-05-29
+**Version 1.2.0** | 2026-06-17
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -170,6 +170,24 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 
 `msm_fit` supports `vce(robust)` and `vce(cluster varname)` for weighted linear, pooled logistic, and Cox models. For Cox models, `strata(varlist)` fits separate baseline hazards by stratum while retaining the treatment effect and requested robust or clustered standard errors.
 
+### Continuous / time-varying exposure (dose-duration estimands)
+
+By default `msm_fit` estimates the effect of the mapped binary treatment. For dose-duration estimands — the effect of an additional unit of a continuous, time-varying cumulative-exposure summary (e.g. the hazard ratio per lagged cumulative class-exposure-year) — two backward-compatible options on `msm_fit` express the model directly:
+
+- `exposure(varname)` swaps the binary treatment term in the outcome model for a continuous exposure variable. The reported coefficient/HR is then "per one unit of `exposure()`".
+- `tvcov(varlist)` adds time-varying outcome covariates exempt from the `outcome_cov()` time-fixed restriction (`model(cox)` and `model(logistic)` only).
+
+```stata
+msm_fit, model(cox) exposure(cum_test_yrs) tvcov(cum_comp_yrs) ///
+    outcome_cov(age) vce(cluster id) nolog
+```
+
+**Methods contract.** The IP weights from `msm_weight` are built for the binary treatment process. A continuous/time-varying outcome term is licensed *only* when it is a deterministic function of the same treatment history those weights balance:
+
+- An `exposure()` term is valid when it summarizes that treatment history (cumulative duration, cumulative dose, lagged cumulative exposure).
+- `tvcov()` is for time-varying companions that are themselves functions of the treatment process (e.g. comparator-class cumulative exposure), or pre-baseline-fixed confounders re-expressed over time — **not** for arbitrary time-varying confounders that should have been handled in the weight model.
+- `msm_predict` and counterfactual standardization are **not defined** in this mode; `msm_predict` refuses, and `msm, status` reports counterfactuals as unavailable. Use `msm_report`, `msm_table`, or `msm_sensitivity`.
+
 ## Data Requirements
 
 - Data must be in **person-period format**, with one row per individual-period.
@@ -203,8 +221,8 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 ## Current Scope and Limits
 
 - `msm` targets static binary treatment strategies. Prediction is implemented for always-treated, never-treated, or both; dynamic and stochastic regimes are not supported.
-- `msm_predict` requires a prior `msm_fit, model(logistic)` run. Linear and Cox fits can be estimated, diagnosed, and reported, but they do not feed into `msm_predict`.
-- `outcome_cov()` is limited to covariates that are time-fixed within individual; time-varying confounders belong in the weight model.
+- `msm_predict` requires a prior `msm_fit, model(logistic)` run *without* `exposure()` or `tvcov()`. Linear and Cox fits, and any fit using `exposure()`/`tvcov()`, can be estimated, diagnosed, and reported, but they do not feed into `msm_predict`.
+- `outcome_cov()` is limited to covariates that are time-fixed within individual; time-varying confounders belong in the weight model. For time-varying companions of a continuous `exposure()` that are themselves functions of the treatment process, use `tvcov()` (Cox/logistic only) — see [Continuous / time-varying exposure](#continuous--time-varying-exposure-dose-duration-estimands).
 - `msm_weight` assumes a shared baseline period. Late entry/left truncation is not supported.
 - By default, `msm_predict` only allows `times()` within the observed follow-up range. Use `extrapolate` only when you deliberately want out-of-range predictions.
 
@@ -362,6 +380,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.2.0** (2026-06-17): `msm_fit` gains `exposure(varname)` and `tvcov(varlist)` for continuous / time-varying exposure outcome models (dose-duration estimands). `exposure()` swaps the binary treatment term for a continuous exposure summary; `tvcov()` adds time-varying outcome covariates exempt from the `outcome_cov()` time-fixed restriction (`model(cox)`/`model(logistic)` only). Both disable `msm_predict` (counterfactual standardization is undefined for a continuous/time-varying exposure), which `msm, status` now reports. Defaults are unchanged: omitting both options reproduces prior behavior exactly.
 - **1.1.0** (2026-06-14): `msm_weight` now keeps the per-period treatment propensity `P(A_t=1|history)` as `_msm_ps` and records a psdash diagnostic contract in the dataset, so `psdash combined` auto-detects the treatment model and produces a longitudinal period-by-period overlap and weight diagnostic with no retyping. Complements `msm_diagnose`.
 - **1.0.4** (2026-05-29): Added cross-contrast weight diagnostics: `msm_diagnose` gains `accumulate()`/`contrast()`/`outcome()` to append one summary row per weighted panel to a frame, and the new `msm_diagtab` command exports that accumulated frame as a single styled Excel sheet
 - **1.0.3** (2026-05-06): Added explicit `msm_fit` `vce()` control, Cox `strata()` support, and external R/Python validation of robust and clustered standard errors

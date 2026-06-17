@@ -1,4 +1,4 @@
-*! msm_weight Version 1.1.0  2026/06/14
+*! msm_weight Version 1.2.0  2026/06/17
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

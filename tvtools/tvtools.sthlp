@@ -55,6 +55,7 @@ weighting and estimation.
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
 {synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
 {synopt:{helpb tvage}}Add time-varying age to stset data{p_end}
+{synopt:{helpb tvpanel}}Build a fixed-width, entry-anchored person-period panel for MSMs{p_end}
 
 {pstd}
 {bf:Diagnostics}

@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.1.0  2026/06/14
+*! msm_sensitivity Version 1.2.0  2026/06/17
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -48,6 +48,10 @@ program define msm_sensitivity, rclass
     _msm_get_settings
 
     local treatment "`_msm_treatment'"
+    local exposure : char _dta[_msm_exposure]
+    * The primary effect term is the binary treatment, or the exposure()
+    * override from msm_fit; the saved fit matrices carry that column name.
+    local effect_term = cond("`exposure'" != "", "`exposure'", "`treatment'")
     local model : char _dta[_msm_model]
     local id "`_msm_id'"
     local period "`_msm_period'"
@@ -73,12 +77,12 @@ program define msm_sensitivity, rclass
     local _idx = 0
     foreach _cname of local coef_names {
         local ++_idx
-        if "`_cname'" == "`treatment'" {
+        if "`_cname'" == "`effect_term'" {
             local _treat_idx = `_idx'
         }
     }
     if `_treat_idx' == 0 {
-        display as error "treatment variable `treatment' not found in saved model"
+        display as error "effect term `effect_term' not found in saved model"
         exit 111
     }
     local b_treat = `_fit_b'[1, `_treat_idx']
@@ -210,7 +214,12 @@ program define msm_sensitivity, rclass
     display as text "{hline 70}"
     display as text ""
 
-    display as text "Treatment effect:"
+    if "`exposure'" != "" {
+        display as text "Exposure effect (per unit of `exposure'):"
+    }
+    else {
+        display as text "Treatment effect:"
+    }
     display as text "  `effect_label':             " as result %9.4f `effect'
     display as text "  `level'% CI:          " as result %9.4f `effect_lo' ///
         as text " - " as result %9.4f `effect_hi'

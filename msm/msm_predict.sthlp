@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  14jun2026}{...}
+{* *! version 1.2.0  17jun2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_plot" "help msm_plot"}{...}
@@ -73,8 +73,11 @@ time point.
 
 {pstd}
 {cmd:msm_predict} requires a prior {helpb msm_fit} run with
-{cmd:model(logistic)}.  Use {cmd:msm, status} to confirm that prediction is
-available before calling this command.
+{cmd:model(logistic)}.  It is additionally unavailable when that fit used
+{cmd:msm_fit}'s {opt exp:osure()} or {opt tvc:ov()} options, because
+counterfactual standardization is not defined for a continuous or time-varying
+exposure model.  Use {cmd:msm, status} to confirm that prediction is available
+before calling this command.
 
 
 {marker how}{...}

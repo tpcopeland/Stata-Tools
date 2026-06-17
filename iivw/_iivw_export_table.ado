@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.6.0  2026/06/15
+*! _iivw_export_table Version 1.7.0  2026/06/17
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,7 +20,9 @@ program define _iivw_export_table, rclass
     syntax , TABLEFRAME(name) ///
         [XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(integer 4) LAYout(string)]
+         DECimals(integer 4) LAYout(string) ///
+         BORDERstyle(string) HEADERShade THEme(string) ///
+         HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     local __iivw_dq = char(34)
     foreach __iivw_opt in xlsx sheet title footnote {
@@ -35,6 +37,129 @@ program define _iivw_export_table, rclass
     if !inlist(`"`layout'"', "standard", "tabtools") {
         display as error "layout() must be standard or tabtools"
         error 198
+    }
+
+    * ---- Resolve styling options (tabtools-parity, self-contained) ----
+    * Defaults match the tabtools house style: thin full grid, no header shade.
+    local borderstyle = lower(strtrim(subinstr(`"`borderstyle'"', `"`__iivw_dq'"', "", .)))
+    local theme = lower(strtrim(subinstr(`"`theme'"', `"`__iivw_dq'"', "", .)))
+    local __iivw_font "Arial"
+    local __iivw_fontsize = 10
+    if "`theme'" != "" {
+        local __iivw_t_border ""
+        local __iivw_t_shade = 0
+        local __iivw_t_zebra = 0
+        if "`theme'" == "lancet" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 9
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "nejm" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 9
+            local __iivw_t_border "academic"
+            local __iivw_t_zebra = 1
+        }
+        else if "`theme'" == "bmj" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 10
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "apa" {
+            local __iivw_font "Times New Roman"
+            local __iivw_fontsize = 12
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "jama" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 10
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "plos" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 10
+            local __iivw_t_border "thin"
+        }
+        else if "`theme'" == "nature" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 7
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "cell" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 8
+            local __iivw_t_border "academic"
+        }
+        else if "`theme'" == "annals" {
+            local __iivw_font "Arial"
+            local __iivw_fontsize = 10
+            local __iivw_t_border "academic"
+        }
+        else {
+            display as error ///
+                "theme() must be one of: lancet, nejm, bmj, apa, jama, plos, nature, cell, annals"
+            error 198
+        }
+        * Explicit options override the theme; theme only fills the gaps.
+        if "`borderstyle'" == "" local borderstyle "`__iivw_t_border'"
+        if "`headershade'" == "" & `__iivw_t_shade' local headershade "headershade"
+        if "`zebra'" == "" & `__iivw_t_zebra' local zebra "zebra"
+    }
+
+    if "`borderstyle'" == "" local borderstyle "thin"
+    if !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
+        display as error "borderstyle() must be: default, thin, medium, or academic"
+        error 198
+    }
+    if "`borderstyle'" == "default" local borderstyle "thin"
+    local __iivw_bcode = 1
+    if "`borderstyle'" == "medium"   local __iivw_bcode = 2
+    if "`borderstyle'" == "academic" local __iivw_bcode = 3
+
+    local __iivw_headershade_flag = ("`headershade'" != "")
+    local __iivw_zebra_flag = ("`zebra'" != "")
+
+    local __iivw_headercolor "219 229 241"
+    local headercolor = strtrim(subinstr(`"`headercolor'"', `"`__iivw_dq'"', "", .))
+    if `"`headercolor'"' != "" {
+        local __iivw_nrgb : word count `headercolor'
+        if `__iivw_nrgb' != 3 {
+            display as error "headercolor() must be three integers: R G B (each 0-255)"
+            error 198
+        }
+        foreach __iivw_rgb of local headercolor {
+            capture confirm integer number `__iivw_rgb'
+            if _rc {
+                display as error "headercolor() values must be integers between 0 and 255"
+                error 198
+            }
+            if `__iivw_rgb' < 0 | `__iivw_rgb' > 255 {
+                display as error "headercolor() values must be integers between 0 and 255"
+                error 198
+            }
+        }
+        local __iivw_headercolor `"`headercolor'"'
+    }
+    local __iivw_zebracolor "237 242 249"
+    local zebracolor = strtrim(subinstr(`"`zebracolor'"', `"`__iivw_dq'"', "", .))
+    if `"`zebracolor'"' != "" {
+        local __iivw_nrgb : word count `zebracolor'
+        if `__iivw_nrgb' != 3 {
+            display as error "zebracolor() must be three integers: R G B (each 0-255)"
+            error 198
+        }
+        foreach __iivw_rgb of local zebracolor {
+            capture confirm integer number `__iivw_rgb'
+            if _rc {
+                display as error "zebracolor() values must be integers between 0 and 255"
+                error 198
+            }
+            if `__iivw_rgb' < 0 | `__iivw_rgb' > 255 {
+                display as error "zebracolor() values must be integers between 0 and 255"
+                error 198
+            }
+        }
+        local __iivw_zebracolor `"`zebracolor'"'
     }
 
     capture frame `tableframe': count
@@ -143,7 +268,10 @@ program define _iivw_export_table, rclass
         frame `tableframe': mata: _iivw_xlsx_write_tabtools( ///
             `"`__iivw_xlsx'"', `"`sheet'"', `"`__iivw_vars'"', ///
             `__iivw_return_rows', `__iivw_return_cols', ///
-            `__iivw_note_row', `"`__iivw_widths'"')
+            `__iivw_note_row', `"`__iivw_widths'"', ///
+            `"`__iivw_font'"', `__iivw_fontsize', `__iivw_bcode', ///
+            `__iivw_headershade_flag', `__iivw_zebra_flag', ///
+            `"`__iivw_headercolor'"', `"`__iivw_zebracolor'"')
 
         local __iivw_return_xlsx `"`__iivw_xlsx'"'
         local __iivw_return_sheet `"`sheet'"'
@@ -393,7 +521,14 @@ void _iivw_xlsx_write_tabtools(
     real scalar n_rows,
     real scalar n_cols,
     real scalar note_row,
-    string scalar widths)
+    string scalar widths,
+    string scalar font,
+    real scalar fontsize,
+    real scalar bcode,
+    real scalar headershade,
+    real scalar zebra,
+    string scalar headercolor,
+    string scalar zebracolor)
 {
     class xl scalar b
     string rowvector sheets
@@ -428,7 +563,8 @@ void _iivw_xlsx_write_tabtools(
     table = _iivw_xlsx_cur_strmat(varlist)
     b.put_string(1, 1, table)
 
-    _iivw_xlsx_style_tabtools(b, sheet, n_rows, n_cols, note_row, widths)
+    _iivw_xlsx_style_tabtools(b, sheet, n_rows, n_cols, note_row, widths,
+        font, fontsize, bcode, headershade, zebra, headercolor, zebracolor)
     b.close_book()
 }
 
@@ -438,20 +574,33 @@ void _iivw_xlsx_style_tabtools(
     real scalar n_rows,
     real scalar n_cols,
     real scalar note_row,
-    string scalar widths)
+    string scalar widths,
+    string scalar font,
+    real scalar fontsize,
+    real scalar bcode,
+    real scalar headershade,
+    real scalar zebra,
+    string scalar headercolor,
+    string scalar zebracolor)
 {
     real rowvector w
-    real scalar data_last, j, cend
+    real scalar data_last, j, cend, i, title_size, foot_size
+    string scalar gridstyle
 
     if (n_rows < 1 | n_cols < 1) return
 
     data_last = n_rows
     if (note_row > 0) data_last = note_row - 1
 
-    b.set_font((1, n_rows), (1, n_cols), "Arial", 10)
+    title_size = fontsize + 2
+    foot_size = fontsize - 2
+    if (foot_size < 6) foot_size = 6
+
+    b.set_font((1, n_rows), (1, n_cols), font, fontsize)
     b.set_vertical_align((1, n_rows), (1, n_cols), "bottom")
 
-    b.set_font((1, 1), (1, n_cols), "Arial", 12)
+    // Title row 1 (merged, no fill: house style keeps the title above the grid).
+    b.set_font((1, 1), (1, n_cols), font, title_size)
     b.set_font_bold((1, 1), (1, n_cols), "on")
     b.set_sheet_merge(sheet, (1, 1), (1, n_cols))
     b.set_horizontal_align((1, 1), (1, 1), "left")
@@ -461,10 +610,10 @@ void _iivw_xlsx_style_tabtools(
 
     if (n_cols >= 1) b.set_column_width(1, 1, 1)
 
+    // Super-header row 2 (group spanners).
     if (n_rows >= 2 & n_cols >= 2) {
         b.set_font_bold((2, 2), (2, n_cols), "on")
         b.set_vertical_align((2, 2), (2, n_cols), "center")
-        b.set_top_border((2, 2), (2, n_cols), "thin")
         if (n_cols >= 3) {
             b.set_horizontal_align((2, 2), (3, n_cols), "center")
             b.set_text_wrap((2, 2), (3, n_cols), "on")
@@ -472,31 +621,25 @@ void _iivw_xlsx_style_tabtools(
         b.set_row_height(2, 2, 24)
     }
 
+    // Column-header row 3.
     if (n_rows >= 3 & n_cols >= 2) {
         b.set_font_bold((3, 3), (2, n_cols), "on")
-        b.set_top_border((3, 3), (2, n_cols), "thin")
-        b.set_bottom_border((3, 3), (2, n_cols), "thin")
         b.set_vertical_align((3, 3), (2, n_cols), "center")
         if (n_cols >= 3) {
             b.set_horizontal_align((3, 3), (3, n_cols), "center")
         }
     }
 
+    // Data rows.
     if (data_last >= 4 & n_cols >= 2) {
         b.set_horizontal_align((4, data_last), (2, 2), "left")
         b.set_vertical_align((4, data_last), (2, n_cols), "center")
-        b.set_bottom_border((data_last, data_last), (2, n_cols), "thin")
         if (n_cols >= 3) {
             b.set_horizontal_align((4, data_last), (3, n_cols), "center")
         }
     }
 
-    if (n_cols >= 2 & data_last >= 2) {
-        b.set_left_border((2, data_last), (2, 2), "thin")
-        b.set_right_border((2, data_last), (2, 2), "thin")
-        b.set_right_border((2, data_last), (n_cols, n_cols), "thin")
-    }
-
+    // Group merges in the super-header (3-column blocks from column 3).
     if (n_cols >= 3) {
         for (j = 3; j <= n_cols; j = j + 3) {
             cend = min((j + 2, n_cols))
@@ -504,15 +647,51 @@ void _iivw_xlsx_style_tabtools(
                 b.set_sheet_merge(sheet, (2, 2), (j, cend))
                 b.set_horizontal_align((2, 2), (j, cend), "center")
             }
-            if (data_last >= 2) {
-                b.set_right_border((2, data_last), (cend, cend), "thin")
+        }
+    }
+
+    // Borders: full grid for thin/medium, three-rule book layout for academic.
+    if (n_cols >= 2 & data_last >= 2) {
+        if (bcode == 3) {
+            b.set_top_border((2, 2), (2, n_cols), "medium")
+            if (n_rows >= 3) {
+                b.set_bottom_border((2, 2), (2, n_cols), "thin")
+                b.set_bottom_border((3, 3), (2, n_cols), "medium")
+            }
+            b.set_bottom_border((data_last, data_last), (2, n_cols), "medium")
+        }
+        else {
+            gridstyle = (bcode == 2 ? "medium" : "thin")
+            b.set_top_border((2, data_last), (2, n_cols), gridstyle)
+            b.set_bottom_border((2, data_last), (2, n_cols), gridstyle)
+            b.set_left_border((2, data_last), (2, n_cols), gridstyle)
+            b.set_right_border((2, data_last), (2, n_cols), gridstyle)
+        }
+    }
+
+    // Header shading (off in the house style; on for headershade/theme).
+    if (headershade == 1 & n_cols >= 2) {
+        if (n_rows >= 2) {
+            b.set_fill_pattern((2, 2), (2, n_cols), "solid", headercolor)
+        }
+        if (n_rows >= 3) {
+            b.set_fill_pattern((3, 3), (2, n_cols), "solid", headercolor)
+        }
+    }
+
+    // Zebra striping on alternating data rows.
+    if (zebra == 1 & n_cols >= 2 & data_last >= 4) {
+        for (i = 4; i <= data_last; i++) {
+            if (mod(i - 4, 2) == 1) {
+                b.set_fill_pattern((i, i), (2, n_cols), "solid", zebracolor)
             }
         }
     }
 
+    // Footnote row.
     if (note_row > 0 & note_row <= n_rows & n_cols >= 2) {
         b.set_sheet_merge(sheet, (note_row, note_row), (2, n_cols))
-        b.set_font((note_row, note_row), (2, n_cols), "Arial", 8)
+        b.set_font((note_row, note_row), (2, n_cols), font, foot_size)
         b.set_font_italic((note_row, note_row), (2, n_cols), "on")
         b.set_text_wrap((note_row, note_row), (2, n_cols), "on")
         b.set_horizontal_align((note_row, note_row), (2, 2), "left")

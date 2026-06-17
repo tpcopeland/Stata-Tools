@@ -1,4 +1,4 @@
-*! _msm_pipeline_state Version 1.1.0  2026/06/14
+*! _msm_pipeline_state Version 1.2.0  2026/06/17
 *! Compute current MSM pipeline stage and saved-artifact state
 *! Author: Timothy P Copeland
 
@@ -25,6 +25,9 @@ program define _msm_pipeline_state
         local fit_level : char _dta[_msm_fit_level]
         local period_spec : char _dta[_msm_period_spec]
         local outcome_cov : char _dta[_msm_outcome_cov]
+        local exposure : char _dta[_msm_exposure]
+        local tvcov : char _dta[_msm_tvcov]
+        local predict_disabled : char _dta[_msm_predict_disabled]
 
         local pred_flag : char _dta[_msm_pred_saved]
         local pred_type : char _dta[_msm_pred_type]
@@ -156,6 +159,9 @@ program define _msm_pipeline_state
             local fit_level ""
             local period_spec ""
             local outcome_cov ""
+            local exposure ""
+            local tvcov ""
+            local predict_disabled ""
             local pred_saved = 0
             local bal_saved = 0
             local diag_saved = 0
@@ -194,7 +200,7 @@ program define _msm_pipeline_state
                 local next_step "msm_fit"
             }
         }
-        else if "`model'" == "logistic" {
+        else if "`model'" == "logistic" & "`predict_disabled'" != "1" {
             if !`pred_saved' {
                 local next_step "msm_predict"
             }
@@ -205,7 +211,7 @@ program define _msm_pipeline_state
                 local next_step "msm_report or msm_table"
             }
         }
-        else if "`model'" == "cox" {
+        else if "`model'" == "cox" | ("`model'" == "logistic" & "`predict_disabled'" == "1") {
             if !`sens_saved' {
                 local next_step "msm_sensitivity"
             }
@@ -248,6 +254,9 @@ program define _msm_pipeline_state
         c_local _msm_state_fit_level "`fit_level'"
         c_local _msm_state_period_spec "`period_spec'"
         c_local _msm_state_outcome_cov "`outcome_cov'"
+        c_local _msm_state_exposure "`exposure'"
+        c_local _msm_state_tvcov "`tvcov'"
+        c_local _msm_state_predict_disabled "`predict_disabled'"
 
         c_local _msm_state_pred_type "`pred_type'"
         c_local _msm_state_pred_strategy "`pred_strategy'"

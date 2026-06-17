@@ -416,6 +416,151 @@ else {
     local failed_tests "`failed_tests' T7"
 }
 
+**# T8: default export renders the thin full grid with no header shade
+
+local ++test_count
+capture noisily {
+    _reporting_diag_known
+    tempfile gridstub
+    local gridxlsx "`gridstub'.xlsx"
+    capture erase "`gridxlsx'"
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        xlsx("`gridxlsx'") sheet(Grid) replace
+    tempfile gridmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`gridxlsx'" Grid thin 0 0 "`gridmark'"
+    confirm file "`gridmark'"
+}
+if _rc == 0 {
+    display as result "  PASS: T8 - default thin full grid, no shade"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T8 - default thin full grid (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T8"
+}
+
+**# T9: borderstyle(academic) renders three rules, no vertical grid
+
+local ++test_count
+capture noisily {
+    _reporting_diag_known
+    tempfile acstub
+    local acxlsx "`acstub'.xlsx"
+    capture erase "`acxlsx'"
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        xlsx("`acxlsx'") sheet(Academic) replace borderstyle(academic)
+    tempfile acmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`acxlsx'" Academic academic 0 0 "`acmark'"
+    confirm file "`acmark'"
+}
+if _rc == 0 {
+    display as result "  PASS: T9 - borderstyle(academic) three-rule layout"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T9 - borderstyle(academic) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T9"
+}
+
+**# T10: headershade + zebra + custom colors render fills atop the grid
+
+local ++test_count
+capture noisily {
+    _reporting_diag_known
+    tempfile shstub
+    local shxlsx "`shstub'.xlsx"
+    capture erase "`shxlsx'"
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        xlsx("`shxlsx'") sheet(Shaded) replace ///
+        headershade zebra headercolor("200 200 200") zebracolor("240 240 240")
+    tempfile shmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`shxlsx'" Shaded thin 1 1 "`shmark'"
+    confirm file "`shmark'"
+}
+if _rc == 0 {
+    display as result "  PASS: T10 - headershade + zebra + custom colors"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T10 - headershade/zebra (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T10"
+}
+
+**# T11: theme() preset applies its border scheme (apa -> academic)
+
+local ++test_count
+capture noisily {
+    _reporting_diag_known
+    tempfile thstub
+    local thxlsx "`thstub'.xlsx"
+    capture erase "`thxlsx'"
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        xlsx("`thxlsx'") sheet(Apa) replace theme(apa)
+    tempfile thmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`thxlsx'" Apa academic 0 0 "`thmark'"
+    confirm file "`thmark'"
+}
+if _rc == 0 {
+    display as result "  PASS: T11 - theme(apa) academic preset"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T11 - theme(apa) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T11"
+}
+
+**# T12: invalid style options are rejected (rc 198) across all three commands
+
+local ++test_count
+capture noisily {
+    tempfile vstub
+    local vxlsx "`vstub'.xlsx"
+    capture erase "`vxlsx'"
+
+    _reporting_balance_panel
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace borderstyle(fancy)
+    assert _rc == 198
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace theme(bogus)
+    assert _rc == 198
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace headercolor("300 0 0")
+    assert _rc == 198
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace zebracolor("1 2")
+    assert _rc == 198
+    * non-numeric RGB tokens must give the clean rc 198, not "var not found" rc 199
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace headercolor("blue grn red")
+    assert _rc == 198
+    capture noisily iivw_balance, xlsx("`vxlsx'") replace zebracolor("a b c")
+    assert _rc == 198
+
+    _reporting_diag_known
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) xlsx("`vxlsx'") replace borderstyle(fancy)
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) xlsx("`vxlsx'") replace headercolor("0 0 999")
+    assert _rc == 198
+    capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
+        adjusted(M_adj) xlsx("`vxlsx'") replace zebracolor("x y z")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T12 - invalid style options rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T12 - invalid style options (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T12"
+}
+
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"

@@ -1,4 +1,4 @@
-*! msm_predict Version 1.1.0  2026/06/14
+*! msm_predict Version 1.2.0  2026/06/17
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -60,9 +60,10 @@ program define msm_predict, rclass
     local outcome   "`_msm_outcome'"
 
     * Get model info
-    local model       : char _dta[_msm_model]
-    local period_spec : char _dta[_msm_period_spec]
-    local outcome_cov : char _dta[_msm_outcome_cov]
+    local model            : char _dta[_msm_model]
+    local period_spec      : char _dta[_msm_period_spec]
+    local outcome_cov      : char _dta[_msm_outcome_cov]
+    local predict_disabled : char _dta[_msm_predict_disabled]
 
     * =========================================================================
     * DEFAULTS AND VALIDATION
@@ -81,6 +82,12 @@ program define msm_predict, rclass
     }
     if `samples' < 10 {
         display as error "samples() must be at least 10"
+        exit 198
+    }
+    if "`predict_disabled'" == "1" {
+        display as error "msm_predict is not available for this fit"
+        display as error "msm_fit used exposure() or tvcov(); counterfactual standardization is undefined for a continuous or time-varying exposure model."
+        display as error "Use msm_report, msm_table, or msm_sensitivity instead."
         exit 198
     }
     if "`model'" != "logistic" {

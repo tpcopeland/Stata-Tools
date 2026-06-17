@@ -34,6 +34,7 @@ do tvtools_menu_setup.do
 | `tvdiagnose` | Check coverage, gaps, overlaps, and exposure summaries | `help tvdiagnose` |
 | `tvweight` | Estimate inverse probability of treatment weights for interval data | `help tvweight` |
 | `tvage` | Create time-varying age intervals from dates of birth and follow-up dates | `help tvage` |
+| `tvpanel` | Build a fixed-width, entry-anchored person-period panel for marginal structural models | `help tvpanel` |
 
 ## How It Works
 

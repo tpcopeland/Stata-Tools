@@ -1,4 +1,4 @@
-*! msm Version 1.1.0  2026/06/14
+*! msm Version 1.2.0  2026/06/17
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -26,7 +26,7 @@ program define msm, rclass
 
     syntax [, List Detail PROTocol STATus]
 
-    local version "1.1.0"
+    local version "1.2.0"
     local n_commands = 11
 
     * All user-facing commands
@@ -148,6 +148,16 @@ program define msm, rclass
         display as text "  Fitted:           " as result "`fitted_label'"
         if "`_msm_state_model'" != "" {
             display as text "  Fitted model:     " as result "`_msm_state_model'"
+        }
+        if "`_msm_state_exposure'" != "" {
+            display as text "  Exposure term:    " as result "`_msm_state_exposure'"
+        }
+        if "`_msm_state_tvcov'" != "" {
+            display as text "  Time-varying cov: " as result "`_msm_state_tvcov'"
+        }
+        if "`_msm_state_predict_disabled'" == "1" {
+            display as text "  Counterfactuals:  " as result "unavailable" ///
+                as text " (continuous/time-varying exposure mode)"
         }
         display as text ""
         display as text "Mapped variables:"

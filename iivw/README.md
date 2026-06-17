@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.6.0** | 2026-06-15
+**Version 1.7.0** | 2026-06-17
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -514,6 +514,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.7.0 (2026-06-17)
+
+- Added Excel styling options to `iivw_balance`, `iivw_diagnose`, and `iivw_exogtest`, matching the `tabtools` house style: `borderstyle()` (`thin` | `medium` | `academic` | `default`), `headershade`, `theme()` (journal presets), `headercolor()`, `zebracolor()`, and `zebra`
+- **Changed default Excel appearance:** styled worksheets now render a full thin grid (`borderstyle(thin)`) with no header shading by default, so exports match `table1_tc`/`regtab`/`puttab` output in a combined workbook. Pass `borderstyle(academic)` for the previous three-rule look
+- The numeric values, cell contents, and `r()` surface of every reporting command are unchanged
 
 ### v1.6.0 (2026-06-15)
 

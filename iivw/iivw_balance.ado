@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.6.0  2026/06/15
+*! iivw_balance Version 1.7.0  2026/06/17
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -45,7 +45,9 @@ program define iivw_balance, rclass
          smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon ///
          XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
-         DECimals(string)]
+         DECimals(string) ///
+         BORDERstyle(string) HEADERShade THEme(string) ///
+         HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     if `cvcut' < 0 {
         display as error "cvcut() must be greater than or equal to 0"
@@ -556,6 +558,12 @@ program define iivw_balance, rclass
         if `"`__iivw_clean_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_clean_footnote'")"'
         if "`replace'" != "" local __iivw_export_opts `"`__iivw_export_opts' replace"'
         if "`open'" != "" local __iivw_export_opts `"`__iivw_export_opts' open"'
+        if `"`borderstyle'"' != "" local __iivw_export_opts `"`__iivw_export_opts' borderstyle(`borderstyle')"'
+        if "`headershade'" != "" local __iivw_export_opts `"`__iivw_export_opts' headershade"'
+        if `"`theme'"' != "" local __iivw_export_opts `"`__iivw_export_opts' theme(`theme')"'
+        if `"`headercolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' headercolor("`headercolor'")"'
+        if `"`zebracolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' zebracolor("`zebracolor'")"'
+        if "`zebra'" != "" local __iivw_export_opts `"`__iivw_export_opts' zebra"'
 
         capture noisily _iivw_export_table, `__iivw_export_opts'
         local __iivw_export_rc = _rc

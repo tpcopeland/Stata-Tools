@@ -1,4 +1,4 @@
-*! msm_fit Version 1.1.0  2026/06/14
+*! msm_fit Version 1.2.0  2026/06/17
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -43,6 +43,7 @@ program define msm_fit, eclass
     * =========================================================================
 
     syntax , [MODel(string) OUTcome_cov(varlist numeric) ///
+        EXPosure(varname numeric) TVCov(varlist numeric) ///
         PERiod_spec(string) CLuster(varname) ///
         VCE(string asis) STRata(varlist numeric) ///
         BOOTstrap(integer 0) Level(cilevel) noLOG]
@@ -107,6 +108,50 @@ program define msm_fit, eclass
     if "`strata'" != "" & "`model'" != "cox" {
         display as error "strata() is only allowed with model(cox)"
         exit 198
+    }
+
+    * -------------------------------------------------------------------------
+    * Continuous / time-varying exposure model (backward-compatible)
+    * -------------------------------------------------------------------------
+    * exposure() replaces the mapped binary treatment term in the OUTCOME model
+    * with an arbitrary (possibly continuous) exposure summary; tvcov() carries
+    * time-varying companion covariates that are exempt from the outcome_cov()
+    * time-fixed restriction. Both are licensed only when they are deterministic
+    * functions of the same binary treatment process msm_weight balances (see
+    * help). Because counterfactual standardization is undefined for a
+    * continuous or time-varying exposure model, msm_predict is hard-disabled
+    * whenever either option is in play; the default (neither set) is unchanged.
+    local effect_term "`treatment'"
+    local predict_disabled ""
+    if "`exposure'" != "" {
+        local effect_term "`exposure'"
+        local predict_disabled "1"
+    }
+    if "`tvcov'" != "" {
+        if !inlist("`model'", "cox", "logistic") {
+            display as error "tvcov() is only allowed with model(cox) or model(logistic)"
+            exit 198
+        }
+        local predict_disabled "1"
+    }
+    * Reject overlapping term lists that would silently collinear-drop or
+    * double-count a variable in the outcome model.
+    if "`exposure'" != "" {
+        if `: list exposure in outcome_cov' | `: list exposure in tvcov' {
+            display as error "exposure() variable `exposure' may not also appear in outcome_cov() or tvcov()"
+            exit 198
+        }
+    }
+    if "`tvcov'" != "" {
+        local _tvcov_dup : list tvcov & outcome_cov
+        if "`_tvcov_dup'" != "" {
+            display as error "tvcov() and outcome_cov() may not share variables: `_tvcov_dup'"
+            exit 198
+        }
+        if `: list treatment in tvcov' {
+            display as error "tvcov() may not contain the mapped treatment `treatment'"
+            exit 198
+        }
     }
 
     local vce_type ""
@@ -228,12 +273,15 @@ program define msm_fit, eclass
     * BUILD COVARIATE LIST
     * =========================================================================
 
-    local all_covars "`treatment'"
+    local all_covars "`effect_term'"
     if "`time_vars'" != "" {
         local all_covars "`all_covars' `time_vars'"
     }
     if "`outcome_cov'" != "" {
         local all_covars "`all_covars' `outcome_cov'"
+    }
+    if "`tvcov'" != "" {
+        local all_covars "`all_covars' `tvcov'"
     }
 
     * =========================================================================
@@ -243,9 +291,15 @@ program define msm_fit, eclass
     display as text "Model type:       " as result "`model'"
     display as text "Outcome:          " as result "`outcome'"
     display as text "Treatment var:    " as result "`treatment'"
+    if "`exposure'" != "" {
+        display as text "Exposure term:    " as result "`exposure'"
+    }
     display as text "Period spec:      " as result "`period_spec'"
     if "`outcome_cov'" != "" {
         display as text "Covariates:       " as result "`outcome_cov'"
+    }
+    if "`tvcov'" != "" {
+        display as text "Time-varying cov: " as result "`tvcov'"
     }
     display as text "Weight var:       " as result "_msm_weight"
     display as text "SE type:          " as result "`vce_type'"
@@ -382,9 +436,12 @@ program define msm_fit, eclass
         display as text ""
 
         * Remove period from covariates for Cox (time is the outcome)
-        local cox_covars "`treatment'"
+        local cox_covars "`effect_term'"
         if "`outcome_cov'" != "" {
             local cox_covars "`cox_covars' `outcome_cov'"
+        }
+        if "`tvcov'" != "" {
+            local cox_covars "`cox_covars' `tvcov'"
         }
         local cox_strata_opt ""
         if "`strata'" != "" {
@@ -442,6 +499,9 @@ program define msm_fit, eclass
     char _dta[_msm_model] "`model'"
     char _dta[_msm_period_spec] "`period_spec'"
     char _dta[_msm_outcome_cov] "`outcome_cov'"
+    char _dta[_msm_exposure] "`exposure'"
+    char _dta[_msm_tvcov] "`tvcov'"
+    char _dta[_msm_predict_disabled] "`predict_disabled'"
     char _dta[_msm_per_ns_knots] "`per_ns_knots'"
     char _dta[_msm_per_ns_df] "`per_ns_df'"
     char _dta[_msm_cluster] "`vce_cluster'"
@@ -470,10 +530,10 @@ program define msm_fit, eclass
     local _ii = 0
     foreach _cn of local _coef_names {
         local ++_ii
-        if "`_cn'" == "`treatment'" local _tidx = `_ii'
+        if "`_cn'" == "`effect_term'" local _tidx = `_ii'
     }
     if `_tidx' == 0 {
-        display as error "treatment variable `treatment' not found in model coefficients"
+        display as error "exposure term `effect_term' not found in model coefficients"
         exit 111
     }
     local b_treat = _msm_fit_b[1, `_tidx']
@@ -481,12 +541,17 @@ program define msm_fit, eclass
     local z_treat = `b_treat' / `se_treat'
     local p_treat = 2 * normal(-abs(`z_treat'))
 
+    local _effect_header "Treatment effect (MSM causal estimate):"
+    if "`exposure'" != "" {
+        local _effect_header "Exposure effect, per unit of `exposure' (MSM causal estimate):"
+    }
+
     if "`model'" == "logistic" {
         local or = exp(`b_treat')
         local or_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
         local or_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
 
-        display as text "Treatment effect (MSM causal estimate):"
+        display as text "`_effect_header'"
         display as text "  Log-odds:   " as result %9.4f `b_treat' ///
             as text " (SE: " as result %7.4f `se_treat' as text ")"
         display as text "  Odds ratio: " as result %9.4f `or' ///
@@ -498,7 +563,7 @@ program define msm_fit, eclass
         local ci_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
         local ci_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
 
-        display as text "Treatment effect (MSM causal estimate):"
+        display as text "`_effect_header'"
         display as text "  Coefficient: " as result %9.6f `b_treat' ///
             as text " (SE: " as result %7.6f `se_treat' as text ")"
         display as text "  `level'% CI: " as result %9.6f `ci_lo' ///
@@ -510,7 +575,7 @@ program define msm_fit, eclass
         local hr_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
         local hr_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
 
-        display as text "Treatment effect (MSM causal estimate):"
+        display as text "`_effect_header'"
         display as text "  Log-HR:       " as result %9.4f `b_treat' ///
             as text " (SE: " as result %7.4f `se_treat' as text ")"
         display as text "  Hazard ratio: " as result %9.4f `hr' ///
@@ -520,16 +585,20 @@ program define msm_fit, eclass
     }
 
     display as text ""
-    if "`model'" == "logistic" {
+    if "`model'" == "logistic" & "`predict_disabled'" == "" {
         display as text "Next step: {cmd:msm_predict} for counterfactual predictions"
-    }
-    else if "`model'" == "linear" {
-        display as text "Next step: {cmd:msm_report}, {cmd:msm_table}, or {cmd:msm_sensitivity}"
-        display as text "           {cmd:msm_predict} is not available after {cmd:model(linear)}"
     }
     else {
         display as text "Next step: {cmd:msm_report}, {cmd:msm_table}, or {cmd:msm_sensitivity}"
-        display as text "           {cmd:msm_predict} is not available after {cmd:model(cox)}"
+        if "`predict_disabled'" != "" {
+            display as text "           {cmd:msm_predict} is not available with {cmd:exposure()} or {cmd:tvcov()}"
+        }
+        else if "`model'" == "linear" {
+            display as text "           {cmd:msm_predict} is not available after {cmd:model(linear)}"
+        }
+        else {
+            display as text "           {cmd:msm_predict} is not available after {cmd:model(cox)}"
+        }
     }
     display as text "State check: {cmd:msm, status}"
     display as text "{hline 70}"
@@ -538,6 +607,8 @@ program define msm_fit, eclass
     ereturn local msm_cmd "msm_fit"
     ereturn local msm_model "`model'"
     ereturn local msm_treatment "`treatment'"
+    ereturn local msm_exposure "`exposure'"
+    ereturn local msm_tvcov "`tvcov'"
     ereturn local msm_period_spec "`period_spec'"
     ereturn local msm_vce "`vce_type'"
     ereturn local msm_cluster "`vce_cluster'"
@@ -547,15 +618,15 @@ program define msm_fit, eclass
     tempname _msm_b _msm_V _msm_effects
     matrix `_msm_b' = e(b)
     matrix `_msm_V' = e(V)
-    * Find treatment coefficient (first coefficient)
+    * Find the primary effect coefficient (treatment, or exposure() override)
     local _msm_ncols = colsof(`_msm_b')
     local _msm_trt_idx = 1
-    * Search for treatment variable column
+    * Search for the effect-term column
     local _msm_cnames : colnames `_msm_b'
     local _cidx 0
     foreach _cn of local _msm_cnames {
         local _cidx = `_cidx' + 1
-        if "`_cn'" == "`treatment'" {
+        if "`_cn'" == "`effect_term'" {
             local _msm_trt_idx = `_cidx'
             continue, break
         }
