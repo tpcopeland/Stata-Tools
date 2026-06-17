@@ -260,6 +260,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.0{p_end}
+{pstd}{bf:Version} 1.8.1{p_end}
 
 {hline}
