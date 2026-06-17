@@ -607,6 +607,33 @@ program define datacheck, rclass
         local n_outlier_vars : word count `outlier_vars'
         local n_rare_vars : word count `rare_vars'
 
+        // ---- groupwise profile summaries ----
+        local group_missing_vars ""
+        if `has_groups' {
+            foreach v of local profilevars {
+                if "`FC_`v''" == "excluded" continue
+                local has_group_miss = 0
+                foreach gg of local group_levels {
+                    quietly count if `dc_group' == `gg' & missing(`v')
+                    if r(N) > 0 local has_group_miss = 1
+                }
+                if `has_group_miss' local group_missing_vars "`group_missing_vars' `v'"
+            }
+        }
+        local group_missing_vars : list uniq group_missing_vars
+        local n_group_missing_vars : word count `group_missing_vars'
+        local group_vallab ""
+        if `has_groups' {
+            local group_vallab : value label `dc_group'
+            foreach gg of local group_levels {
+                local group_label`gg' "`gg'"
+                if "`group_vallab'" != "" {
+                    local _gtxt : label `group_vallab' `gg'
+                    if `"`_gtxt'"' != "" local group_label`gg' `"`_gtxt'"'
+                }
+            }
+        }
+
         // ===================== DISPLAY =====================
         local nv : word count `profilevars'
         if "`gatesonly'" == "" {
@@ -810,11 +837,12 @@ program define datacheck, rclass
         }
 
         // ---- GROUPWISE SUMMARY ----
-        if "`gatesonly'" == "" & `has_groups' & !`showflagged' {
+        if "`gatesonly'" == "" & `has_groups' & (!`showflagged' | `n_group_missing_vars' > 0) {
             display ""
             display as text "GROUPWISE SUMMARY"
             display as text "  by: " as result "`byvars'"
-            display as text "  " %-16s "Group" %9s "N" %12s "Complete" %10s "Complete%"
+            display as text "  " %-20s "Group" %9s "N" %12s "Complete" ///
+                %10s "Complete%" %9s "MissVars"
             foreach gg of local group_levels {
                 quietly count if `dc_group' == `gg'
                 local gn = r(N)
@@ -822,8 +850,41 @@ program define datacheck, rclass
                 local gc = r(N)
                 local gpct = 0
                 if `gn' > 0 local gpct = round(100 * `gc' / `gn', 0.1)
-                display as text "  " as result %-16s "`gg'" ///
-                    as result %9.0f `gn' %12.0f `gc' %9.1f `gpct' as text "%"
+                local gmissvars ""
+                foreach v of local profilevars {
+                    if "`FC_`v''" == "excluded" continue
+                    quietly count if `dc_group' == `gg' & missing(`v')
+                    if r(N) > 0 local gmissvars "`gmissvars' `v'"
+                }
+                local gmissvars : list uniq gmissvars
+                local gmissct : word count `gmissvars'
+                if `showflagged' & `gmissct' == 0 continue
+                local gshow = substr(`"`group_label`gg''"', 1, 20)
+                display as text "  " as result %-20s `"`gshow'"' ///
+                    as result %9.0f `gn' %12.0f `gc' %9.1f `gpct' ///
+                    as text "%" as result %9.0f `gmissct'
+            }
+        }
+
+        if "`gatesonly'" == "" & `has_groups' & `n_group_missing_vars' > 0 {
+            display ""
+            display as text "GROUPWISE MISSINGNESS"
+            display as text "  " %-20s "Group" %-22s "Variable" ///
+                %9s "Missing" %10s "Missing%"
+            foreach gg of local group_levels {
+                quietly count if `dc_group' == `gg'
+                local gn = r(N)
+                foreach v of local group_missing_vars {
+                    quietly count if `dc_group' == `gg' & missing(`v')
+                    local gm = r(N)
+                    if `gm' == 0 continue
+                    local gmpct = 0
+                    if `gn' > 0 local gmpct = round(100 * `gm' / `gn', 0.1)
+                    local gshow = substr(`"`group_label`gg''"', 1, 20)
+                    display as text "  " as result %-20s `"`gshow'"' ///
+                        as result %-22s "`v'" %9.0f `gm' %9.1f `gmpct' ///
+                        as text "%"
+                }
             }
         }
 
@@ -1265,6 +1326,24 @@ program define datacheck, rclass
             frame `sframe': quietly replace arg1 = "`nobs'" in `srow'
             frame `sframe': quietly replace arg2 = "`nobs'" in `srow'
             frame `sframe': quietly replace note = "observed N" in `srow'
+            local spec_key ""
+            foreach v of local profilevars {
+                capture isid `v'
+                if !_rc {
+                    local spec_key "`v'"
+                    continue, break
+                }
+            }
+            if "`spec_key'" != "" {
+                local ++srow
+                frame `sframe': quietly set obs `srow'
+                frame `sframe': quietly replace check = "isid" in `srow'
+                frame `sframe': quietly replace gate = "isid" in `srow'
+                frame `sframe': quietly replace variable = "`spec_key'" in `srow'
+                frame `sframe': quietly replace var = "`spec_key'" in `srow'
+                frame `sframe': quietly replace values = "`spec_key'" in `srow'
+                frame `sframe': quietly replace note = "candidate key: unique nonmissing" in `srow'
+            }
             local ++srow
             frame `sframe': quietly set obs `srow'
             frame `sframe': quietly replace check = "require" in `srow'
@@ -1374,6 +1453,7 @@ program define datacheck, rclass
         return scalar n_missing_vars = `n_missing_vars'
         return scalar n_outlier_vars = `n_outlier_vars'
         return scalar n_rare_vars    = `n_rare_vars'
+        return scalar n_group_missing_vars = `n_group_missing_vars'
         return scalar mincell        = `mincell'
         return scalar maskrare       = ("`maskrare'" != "")
         return local  violations     "`viol_names'"
@@ -1389,6 +1469,7 @@ program define datacheck, rclass
         return local  missing_vars   "`missing_vars'"
         return local  outlier_vars   "`outlier_vars'"
         return local  rare_vars      "`rare_vars'"
+        return local  group_missing_vars "`group_missing_vars'"
 
         // ---- optional saving() of the per-variable profile ----
         // Non-fatal: a bad saving() path must not strand the console report or
