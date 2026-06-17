@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.2.0** | 2026-06-17
+**Version 1.3.0** | 2026-06-17
 
 `datamap` documents Stata datasets without exporting row-level data. It produces three kinds of output:
 
@@ -228,7 +228,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.2.0",
+  "datamap_version": "1.3.0",
   "format": "json",
   "datasets": [
     {
@@ -483,17 +483,17 @@ stata-mp -b do run_all.do
 
 The suite covers all four public commands with 11 QA files: 9 functional test files, 2 validation files, and 0 cross-validation suites.
 
-- `test_datamap.do` - 81 tests
-- `test_datamap_bugfixes.do` - 10 tests
+- `test_datamap.do` - 57 tests
+- `test_datamap_bugfixes.do` - 13 tests
 - `test_datamap_v2.do` - 54 tests
-- `test_datamap_v11.do` - 9 tests
-- `test_datamap_privacy.do` - 5 tests
-- `test_datamap_golden.do` - 9 golden cases
-- `test_datacheck.do` - 27 tests
-- `test_datamvp.do` - functional tests for datamvp (missing-value patterns)
-- `test_datamvp_labels.do` - gby/over value-label regression tests
-- `validation_datamap.do` - 37 validations
-- `validation_datamvp.do` - datamvp known-answer/invariant validations
+- `test_datamap_v11.do` - 42 tests
+- `test_datamap_privacy.do` - 22 tests
+- `test_datamap_golden.do` - 0 tests (9 golden cases)
+- `test_datacheck.do` - 39 tests
+- `test_datamvp.do` - 62 tests
+- `test_datamvp_labels.do` - 20 tests
+- `validation_datamap.do` - 56 validations
+- `validation_datamvp.do` - 60 validations
 
 ## Author
 

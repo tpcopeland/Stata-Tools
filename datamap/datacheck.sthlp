@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  17jun2026}{...}
+{* *! version 1.3.0  17jun2026}{...}
 {vieweralsosee "datamap" "help datamap"}{...}
 {vieweralsosee "datadict" "help datadict"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
@@ -51,7 +51,7 @@
 {synopt:{opt maxf:req(#)}}cap categorical/string levels shown; default {bf:20}{p_end}
 {synopt:{opt rare(#)}}flag categorical levels with a count below {it:#}{p_end}
 {synopt:{opt min:cell(#)}}flag tabulated cells below {it:#}{p_end}
-{synopt:{opt mask:rare(#)}}mask tabulated cells below {it:#} in console output{p_end}
+{synopt:{opt mask:rare}}mask low-count cells in console output using {opt mincell()} or {opt rare()}{p_end}
 {synopt:{opt out:liers(#)}}flag continuous values beyond {it:#} IQRs from the quartiles{p_end}
 
 {syntab:Missingness}
@@ -71,7 +71,7 @@
 {synopt:{opt regex(spec)}}assert string variables match regular expressions{p_end}
 {synopt:{opt notv:alues(spec)}}assert variables do not contain sentinel or disallowed values{p_end}
 {synopt:{opt by(varlist)}}evaluate gates within groups defined by {it:varlist}{p_end}
-{synopt:{opt over(varlist)}}synonym for {opt by()}{p_end}
+{synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
 {synopt:{opt makes:pec(filename[, replace])}}write a starter checks file from the current dataset{p_end}
 {synopt:{opt warn}}downgrade every gate from halt to warning; report but do not stop{p_end}
@@ -166,9 +166,9 @@ useful for disclosure checks where a rare level is a warning even when the
 variable itself is otherwise valid.
 
 {phang}
-{opt mask:rare(#)} masks tabulated cells with counts below {it:#} in console
-output.  The underlying data are not changed.  Use this when logs may be shared
-outside the analysis environment and small cells should not appear in plain text.
+{opt mask:rare} masks low-count cells in console output.  The threshold is
+{opt mincell(#)} when specified; otherwise it uses {opt rare(#)}, and defaults
+to 5 if neither threshold is given.  The underlying data are not changed.
 
 {phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
@@ -239,8 +239,8 @@ matches {opt allowed()} and {opt forbid()}:
 {phang}
 {opt by(varlist)} evaluates gates within groups defined by {it:varlist}.  Use
 this when a rule is meaningful within strata, for example checking duplicate
-visit numbers within each site.  {opt over(varlist)} is a synonym for
-{opt by(varlist)}.
+visit numbers within each site.  {opt over(varname)} is a single-variable
+synonym for {opt by(varlist)}.
 
 {phang}
 {opt check:s(filename)} reads gate specifications from {it:filename}.  This is
@@ -327,10 +327,10 @@ steps need structured diagnostics rather than console text.
 {phang2}{cmd:. datacheck, expectn(282252) isid(lopnr) warn}{p_end}
 
 {pstd}Run a batch preflight from a versioned checks file and save violations:{p_end}
-{phang2}{cmd:. datacheck, gatesonly checks("qc_checks.do") violations("qc_violations.dta", replace)}{p_end}
+{phang2}{cmd:. datacheck, gatesonly checks("qc_checks.dta") violations("qc_violations.dta", replace)}{p_end}
 
 {pstd}Show only flagged variables and mask rare cells before sharing a log:{p_end}
-{phang2}{cmd:. datacheck, rare(5) mincell(5) maskrare(5) show(flagged)}{p_end}
+{phang2}{cmd:. datacheck, rare(5) mincell(5) maskrare show(flagged)}{p_end}
 
 {pstd}Gate dates using Stata date literals:{p_end}
 {phang2}{cmd:. datacheck, inrange(index_date td(01jan2010) td(31dec2025) \ birth_date td(01jan1900) td(31dec2025))}{p_end}
@@ -339,7 +339,7 @@ steps need structured diagnostics rather than console text.
 {phang2}{cmd:. datacheck, by(site) allowed(sex 0 1 \ arm "usual" "active") regex(person_id "^[0-9]{12}$") notvalues(age -9 999)}{p_end}
 
 {pstd}Create a starter checks file to review and edit:{p_end}
-{phang2}{cmd:. datacheck, makespec("qc_checks.do", replace)}{p_end}
+{phang2}{cmd:. datacheck, makespec("qc_checks.dta", replace)}{p_end}
 
 {pstd}Profile a saved file, leaving the data in memory untouched:{p_end}
 {phang2}{cmd:. datacheck, single(cohort_final)}{p_end}
@@ -357,33 +357,47 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(complete_cases)}}observations with no missing in the profiled varlist (excluded variables do not count){p_end}
 {synopt:{cmd:r(complete_pct)}}percent complete{p_end}
 {synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
+{synopt:{cmd:r(n_passed)}}number of check families without violations{p_end}
+{synopt:{cmd:r(n_failed)}}number of check families with at least one violation{p_end}
 {synopt:{cmd:r(n_violations)}}number of failed gates (0 when no gate ran or all passed){p_end}
-{synopt:{cmd:r(n_warnings)}}number of warning-level findings{p_end}
-{synopt:{cmd:r(n_flagged)}}number of variables or groups shown by {opt show(flagged)}{p_end}
-{synopt:{cmd:r(n_masked)}}number of cells masked by {opt maskrare()}{p_end}
+{synopt:{cmd:r(n_groups)}}number of groups evaluated by {opt by()} or {opt over()}{p_end}
+{synopt:{cmd:r(gatesonly)}}1 when {opt gatesonly} was specified; otherwise 0{p_end}
+{synopt:{cmd:r(onlyflagged)}}1 when {opt onlyflagged} or {cmd:show(flagged)} was specified; otherwise 0{p_end}
+{synopt:{cmd:r(n_continuous)}}number of continuous variables{p_end}
+{synopt:{cmd:r(n_categorical)}}number of categorical variables{p_end}
+{synopt:{cmd:r(n_date)}}number of date variables{p_end}
+{synopt:{cmd:r(n_string)}}number of string variables{p_end}
+{synopt:{cmd:r(n_excluded)}}number of excluded variables{p_end}
+{synopt:{cmd:r(n_flagged)}}number of flagged variables{p_end}
+{synopt:{cmd:r(n_constant)}}number of constant variables{p_end}
+{synopt:{cmd:r(n_highcard)}}number of high-cardinality variables{p_end}
+{synopt:{cmd:r(n_missing_vars)}}number of variables with missing values{p_end}
+{synopt:{cmd:r(n_outlier_vars)}}number of variables with outlier flags{p_end}
+{synopt:{cmd:r(n_rare_vars)}}number of variables with rare-level flags{p_end}
+{synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
+{synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}duplicate-key count for each declared {opt id()} key{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(violations)}}space-separated list of failed gate names{p_end}
-{synopt:{cmd:r(warnings)}}space-separated list of warning-level gate names{p_end}
-{synopt:{cmd:r(flagged_vars)}}variables with warnings or violations{p_end}
-{synopt:{cmd:r(checks_file)}}checks file used by {opt checks()}{p_end}
-{synopt:{cmd:r(violations_file)}}violation dataset written by {opt violations()}{p_end}
-{synopt:{cmd:r(violations_frame)}}violation frame created by {opt violations()}{p_end}
-{synopt:{cmd:r(profile_file)}}profile dataset written by {opt saving()}{p_end}
-{synopt:{cmd:r(profile_frame)}}profile frame created by {opt saving()}{p_end}
+{synopt:{cmd:r(failed_checks)}}unique failed gate names{p_end}
 {synopt:{cmd:r(continuous_vars)}}continuous variables (post-override){p_end}
 {synopt:{cmd:r(categorical_vars)}}categorical variables (post-override){p_end}
 {synopt:{cmd:r(date_vars)}}date variables (post-override){p_end}
 {synopt:{cmd:r(string_vars)}}string variables{p_end}
 {synopt:{cmd:r(excluded_vars)}}excluded variables{p_end}
+{synopt:{cmd:r(flagged_vars)}}flagged variables{p_end}
+{synopt:{cmd:r(constant_vars)}}constant variables{p_end}
+{synopt:{cmd:r(highcard_vars)}}high-cardinality variables{p_end}
+{synopt:{cmd:r(missing_vars)}}variables with missing values{p_end}
+{synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}
+{synopt:{cmd:r(rare_vars)}}variables with rare-level flags{p_end}
 {p2colreset}{...}
 
 {pstd}
 The stored results let a wrapper script branch on {cmd:r(n_violations)} without
-parsing console text.  Note that a halting gate failure exits with {cmd:r(9)}
-before the results are committed; use {opt warn} when you need to inspect the
-results programmatically.
+parsing console text.  Use {opt warn} when you need execution to continue after
+violations so subsequent Stata code can inspect the results programmatically.
 
 
 {marker author}{...}
@@ -394,7 +408,7 @@ results programmatically.
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.2.0 {hline 2} 17jun2026{p_end}
+{pstd}Version 1.3.0 {hline 2} 17jun2026{p_end}
 
 
 {title:Also see}

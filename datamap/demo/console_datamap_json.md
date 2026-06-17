@@ -24,7 +24,7 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.2.0",
+  "datamap_version": "1.3.0",
   "generated": "17 Jun 2026 21:48:47",
   "format": "json",
   "datasets": [

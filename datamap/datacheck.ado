@@ -1,4 +1,4 @@
-*! datacheck Version 1.2.0  2026/06/17
+*! datacheck Version 1.3.0  2026/06/17
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -24,13 +24,13 @@ program define datacheck, rclass
             CONTinuous(string) CATegorical(string) date(string) ///
             ID(string) ///
             Detail MAXFreq(integer 20) RARE(integer 0) OUTliers(real 0) ///
-            GATESOnly ONLYFlagged SHOW(string) MINCell(integer 0) MASKRare(integer 0) ///
+            GATESonly ONLYflagged SHOW(string) MINcell(integer 0) MASKrare ///
             NOMISSing PATTERNS ///
             EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
             REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
-            ALLOWed(string) FORBid(string) REGEX(string) NOTValues(string) ///
+            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
             BY(varlist) OVER(varname) ///
-            CHECKS(string) MAKESPEC(string) VIOLations(string) ///
+            CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) ]
 
         if `maxcat' <= 0 {
@@ -49,11 +49,9 @@ program define datacheck, rclass
             display as error "mincell() must be non-negative"
             exit 198
         }
-        if `maskrare' < 0 {
-            display as error "maskrare() must be non-negative"
-            exit 198
-        }
-        local _maskcell = max(`mincell', `maskrare')
+        local _maskcell = `mincell'
+        if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = `rare'
+        if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = 5
         local show = lower(trim(`"`show'"'))
         local showflagged = 0
         if "`onlyflagged'" != "" local showflagged = 1
@@ -128,13 +126,22 @@ program define datacheck, rclass
                 quietly use `"`cfile'"', clear
                 capture confirm variable gate
                 if _rc {
-                    display as error "checks() spec must contain string variable gate"
-                    exit 198
+                    capture confirm variable check
+                    if _rc {
+                        display as error "checks() spec must contain string variable check or gate"
+                        exit 198
+                    }
+                    rename check gate
                 }
                 capture confirm string variable gate
                 if _rc {
-                    display as error "checks() variable gate must be string"
+                    display as error "checks() variable check/gate must be string"
                     exit 198
+                }
+                capture confirm variable var
+                if _rc {
+                    capture confirm variable variable
+                    if !_rc rename variable var
                 }
                 local has_var = 0
                 local has_arg1 = 0
@@ -165,6 +172,8 @@ program define datacheck, rclass
                     if `has_arg2'    local carg2 = strtrim(arg2[`ci'])
                     if `has_values'  local cvalues = strtrim(values[`ci'])
                     if `has_pattern' local cpattern = strtrim(pattern[`ci'])
+                    if "`cvalues'" == "" local cvalues "`carg1'"
+                    if "`cpattern'" == "" local cpattern "`carg1'"
                     if "`cg'" == "" continue
                     if "`cg'" == "expectn" {
                         if "`carg1'" == "" {
@@ -520,73 +529,156 @@ program define datacheck, rclass
         local pct_complete = 0
         if `nobs' > 0 local pct_complete = round(100 * `n_complete' / `nobs', 0.1)
 
+        // ---- cache issue flags and continuous summaries once ----
+        local flagged_vars ""
+        local constant_vars ""
+        local highcard_vars ""
+        local missing_vars ""
+        local outlier_vars ""
+        local rare_vars ""
+        foreach v of local profilevars {
+            local fc "`FC_`v''"
+            local flg ""
+            local i = `idx_`v''
+            if `m_mn`i'' > 0 & `m_mn`i'' < . {
+                local missing_vars "`missing_vars' `v'"
+            }
+            if "`fc'" == "continuous" {
+                quietly summarize `v', detail
+                local c_N_`v' = r(N)
+                local c_mean_`v' = r(mean)
+                local c_sd_`v' = r(sd)
+                local c_min_`v' = r(min)
+                local c_p1_`v' = r(p1)
+                local c_p5_`v' = r(p5)
+                local c_p10_`v' = r(p10)
+                local c_p25_`v' = r(p25)
+                local c_p50_`v' = r(p50)
+                local c_p75_`v' = r(p75)
+                local c_p90_`v' = r(p90)
+                local c_p95_`v' = r(p95)
+                local c_p99_`v' = r(p99)
+                local c_max_`v' = r(max)
+                local c_var_`v' = r(Var)
+                local c_nout_`v' = 0
+                if r(N) > 0 & r(Var) == 0 {
+                    local flg "constant"
+                    local constant_vars "`constant_vars' `v'"
+                }
+                else if r(N) > 0 & `outliers' > 0 {
+                    local iqr = r(p75) - r(p25)
+                    local lof = r(p25) - `outliers' * `iqr'
+                    local hif = r(p75) + `outliers' * `iqr'
+                    quietly count if (`v' < `lof' | `v' > `hif') & !missing(`v')
+                    local c_nout_`v' = r(N)
+                    if r(N) > 0 {
+                        local flg "outliers"
+                        local outlier_vars "`outlier_vars' `v'"
+                    }
+                }
+            }
+            else if "`fc'" == "categorical" {
+                _datacheck_flag `v' "`fc'" `maxcat' `rare' `outliers'
+                local flg "`r(flag)'"
+                if "`flg'" == "constant" local constant_vars "`constant_vars' `v'"
+                else if "`flg'" == "hi-card" local highcard_vars "`highcard_vars' `v'"
+                else if "`flg'" == "rare" local rare_vars "`rare_vars' `v'"
+            }
+            else if "`fc'" == "string" {
+                if `m_uv`i'' > `maxcat' & `m_uv`i'' < . {
+                    local flg "hi-card"
+                    local highcard_vars "`highcard_vars' `v'"
+                }
+            }
+            if "`flg'" == "" & `m_mn`i'' > 0 & `m_mn`i'' < . local flg "missing"
+            if "`flg'" != "" local flagged_vars "`flagged_vars' `v'"
+            local flag_`v' "`flg'"
+        }
+        local flagged_vars : list uniq flagged_vars
+        local constant_vars : list uniq constant_vars
+        local highcard_vars : list uniq highcard_vars
+        local missing_vars : list uniq missing_vars
+        local outlier_vars : list uniq outlier_vars
+        local rare_vars : list uniq rare_vars
+        local n_flagged : word count `flagged_vars'
+        local n_constant : word count `constant_vars'
+        local n_highcard : word count `highcard_vars'
+        local n_missing_vars : word count `missing_vars'
+        local n_outlier_vars : word count `outlier_vars'
+        local n_rare_vars : word count `rare_vars'
+
         // ===================== DISPLAY =====================
         local nv : word count `profilevars'
-        display ""
-        display as text "datacheck: " as result "`nobs'" as text " obs, " ///
-            as result "`nv'" as text " variables profiled" ///
-            as text "  (complete cases: " as result "`n_complete'" ///
-            as text " = " as result %4.1f `pct_complete' as text "%)"
+        if "`gatesonly'" == "" {
+            display ""
+            display as text "datacheck: " as result "`nobs'" as text " obs, " ///
+                as result "`nv'" as text " variables profiled" ///
+                as text "  (complete cases: " as result "`n_complete'" ///
+                as text " = " as result %4.1f `pct_complete' as text "%)"
+        }
 
         // ---- QUICK REFERENCE ----
-        display ""
-        display as text "QUICK REFERENCE"
-        display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
-            %7s "Miss%" %9s "Unique" "  " %-14s "Flag"
-        foreach v of local profilevars {
-            local i = `idx_`v''
-            local fc "`FC_`v''"
-            local vt "`m_type`i''"
-            local mp = `m_mp`i''
-            if missing(`mp') local mp = 0
-            local uq "."
-            if `m_uv`i'' < . local uq = string(`m_uv`i'', "%9.0f")
-            local uq = strtrim("`uq'")
-            local flg ""
-            _datacheck_flag `v' "`fc'" `maxcat' `rare' `outliers'
-            local flg "`r(flag)'"
-            local vshow = substr("`v'", 1, 21)
-            display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
-                %-9s "`vt'" %6.1f `mp' as text "%" ///
-                as result %9s "`uq'" "  " %-14s "`flg'"
+        if "`gatesonly'" == "" {
+            display ""
+            if `showflagged' display as text "QUICK REFERENCE (FLAGGED)"
+            else display as text "QUICK REFERENCE"
+            display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
+                %7s "Miss%" %9s "Unique" "  " %-14s "Flag"
+            local n_shown = 0
+            foreach v of local profilevars {
+                local flg "`flag_`v''"
+                if `showflagged' & "`flg'" == "" continue
+                local ++n_shown
+                local i = `idx_`v''
+                local fc "`FC_`v''"
+                local vt "`m_type`i''"
+                local mp = `m_mp`i''
+                if missing(`mp') local mp = 0
+                local uq "."
+                if `m_uv`i'' < . local uq = string(`m_uv`i'', "%9.0f")
+                local uq = strtrim("`uq'")
+                local vshow = substr("`v'", 1, 21)
+                display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
+                    %-9s "`vt'" %6.1f `mp' as text "%" ///
+                    as result %9s "`uq'" "  " %-14s "`flg'"
+            }
+            if `showflagged' & `n_shown' == 0 {
+                display as text "  no flagged variables"
+            }
         }
 
         // ---- CONTINUOUS ----
-        if "`f_continuous'" != "" {
+        if "`gatesonly'" == "" & "`f_continuous'" != "" {
             display ""
             display as text "CONTINUOUS"
             foreach v of local f_continuous {
-                quietly summarize `v', detail
-                local n = r(N)
+                if `showflagged' & "`flag_`v''" == "" continue
+                local n = `c_N_`v''
                 if `n' == 0 {
                     display as text "  " as result "`v'" as text ": all missing"
                     continue
                 }
                 display as text "  " as result "`v'" as text ":  N=" ///
-                    as result r(N) as text "  mean=" as result %10.4g r(mean) ///
-                    as text "  sd=" as result %10.4g r(sd)
-                display as text "    min=" as result %10.4g r(min) ///
-                    as text "  p25=" as result %10.4g r(p25) ///
-                    as text "  p50=" as result %10.4g r(p50) ///
-                    as text "  p75=" as result %10.4g r(p75) ///
-                    as text "  max=" as result %10.4g r(max)
+                    as result `c_N_`v'' as text "  mean=" as result %10.4g `c_mean_`v'' ///
+                    as text "  sd=" as result %10.4g `c_sd_`v''
+                display as text "    min=" as result %10.4g `c_min_`v'' ///
+                    as text "  p25=" as result %10.4g `c_p25_`v'' ///
+                    as text "  p50=" as result %10.4g `c_p50_`v'' ///
+                    as text "  p75=" as result %10.4g `c_p75_`v'' ///
+                    as text "  max=" as result %10.4g `c_max_`v''
                 if "`detail'" != "" {
-                    display as text "    p1=" as result %10.4g r(p1) ///
-                        as text "  p5=" as result %10.4g r(p5) ///
-                        as text "  p10=" as result %10.4g r(p10) ///
-                        as text "  p90=" as result %10.4g r(p90) ///
-                        as text "  p95=" as result %10.4g r(p95) ///
-                        as text "  p99=" as result %10.4g r(p99)
+                    display as text "    p1=" as result %10.4g `c_p1_`v'' ///
+                        as text "  p5=" as result %10.4g `c_p5_`v'' ///
+                        as text "  p10=" as result %10.4g `c_p10_`v'' ///
+                        as text "  p90=" as result %10.4g `c_p90_`v'' ///
+                        as text "  p95=" as result %10.4g `c_p95_`v'' ///
+                        as text "  p99=" as result %10.4g `c_p99_`v''
                 }
-                if r(Var) == 0 {
+                if `c_var_`v'' == 0 {
                     display as text "    " as error "zero variance (constant)"
                 }
                 if `outliers' > 0 {
-                    local iqr = r(p75) - r(p25)
-                    local lof = r(p25) - `outliers' * `iqr'
-                    local hif = r(p75) + `outliers' * `iqr'
-                    quietly count if (`v' < `lof' | `v' > `hif') & !missing(`v')
-                    local nout = r(N)
+                    local nout = `c_nout_`v''
                     if `nout' > 0 {
                         local pout = round(100 * `nout' / `n', 0.1)
                         display as text "    " as error "`nout' outlier(s)" ///
@@ -598,10 +690,11 @@ program define datacheck, rclass
         }
 
         // ---- CATEGORICAL ----
-        if "`f_categorical'" != "" {
+        if "`gatesonly'" == "" & "`f_categorical'" != "" {
             display ""
             display as text "CATEGORICAL"
             foreach v of local f_categorical {
+                if `showflagged' & "`flag_`v''" == "" continue
                 local i = `idx_`v''
                 local nlev = `m_uv`i''
                 display as text "  " as result "`v'" as text ":  " ///
@@ -613,15 +706,16 @@ program define datacheck, rclass
                     display as text "    " as error "level count exceeds maxcat(" ///
                         "`maxcat')" as text " — possible free-text/misclassification"
                 }
-                _datacheck_freq `v' `maxfreq' `rare'
+                _datacheck_freq `v' `maxfreq' `rare' `_maskcell'
             }
         }
 
         // ---- DATE ----
-        if "`f_date'" != "" {
+        if "`gatesonly'" == "" & "`f_date'" != "" {
             display ""
             display as text "DATE"
             foreach v of local f_date {
+                if `showflagged' & "`flag_`v''" == "" continue
                 local i = `idx_`v''
                 local vfmt : format `v'
                 quietly summarize `v'
@@ -648,10 +742,11 @@ program define datacheck, rclass
         }
 
         // ---- STRING ----
-        if "`f_string'" != "" {
+        if "`gatesonly'" == "" & "`f_string'" != "" {
             display ""
             display as text "STRING"
             foreach v of local f_string {
+                if `showflagged' & "`flag_`v''" == "" continue
                 local i = `idx_`v''
                 quietly count if `v' == ""
                 local nblank = r(N)
@@ -664,19 +759,19 @@ program define datacheck, rclass
                 display as text "  " as result "`v'" as text ":  unique=" ///
                     as result "`uq'" as text "  blank=" as result `nblank' ///
                     as text "  maxlen=" as result "`ml'"
-                _datacheck_freq `v' `maxfreq' `rare'
+                _datacheck_freq `v' `maxfreq' `rare' `_maskcell'
             }
         }
 
         // ---- EXCLUDED ----
-        if "`f_excluded'" != "" {
+        if "`gatesonly'" == "" & "`f_excluded'" != "" & !`showflagged' {
             display ""
             display as text "EXCLUDED (listed, contents withheld)"
             display as text "  " as result "`f_excluded'"
         }
 
         // ---- MISSINGNESS ----
-        if "`nomissing'" == "" {
+        if "`gatesonly'" == "" & "`nomissing'" == "" & !`showflagged' {
             display ""
             display as text "MISSINGNESS"
             local any_miss = 0
@@ -696,7 +791,7 @@ program define datacheck, rclass
         }
 
         // ---- MISSING-VALUE PATTERNS (independent of nomissing) ----
-        if "`patterns'" != "" {
+        if "`gatesonly'" == "" & "`patterns'" != "" & !`showflagged' {
             capture which datamvp
             if _rc {
                 display ""
@@ -714,6 +809,24 @@ program define datacheck, rclass
             }
         }
 
+        // ---- GROUPWISE SUMMARY ----
+        if "`gatesonly'" == "" & `has_groups' & !`showflagged' {
+            display ""
+            display as text "GROUPWISE SUMMARY"
+            display as text "  by: " as result "`byvars'"
+            display as text "  " %-16s "Group" %9s "N" %12s "Complete" %10s "Complete%"
+            foreach gg of local group_levels {
+                quietly count if `dc_group' == `gg'
+                local gn = r(N)
+                quietly count if `dc_group' == `gg' & `cc'
+                local gc = r(N)
+                local gpct = 0
+                if `gn' > 0 local gpct = round(100 * `gc' / `gn', 0.1)
+                display as text "  " as result %-16s "`gg'" ///
+                    as result %9.0f `gn' %12.0f `gc' %9.1f `gpct' as text "%"
+            }
+        }
+
         // ---- KEY STRUCTURE / UNIQUENESS ----
         if `n_key' == 0 & `"`sugg_exclude'"' != "" {
             // default to inferred identifier-like keys, one per variable
@@ -723,7 +836,7 @@ program define datacheck, rclass
                 local key`n_key' "`v'"
             }
         }
-        if `n_key' > 0 {
+        if "`gatesonly'" == "" & `n_key' > 0 & !`showflagged' {
             display ""
             display as text "KEY STRUCTURE"
             if `id_inferred' {
@@ -756,7 +869,8 @@ program define datacheck, rclass
         // ===================== GATES =====================
         local gate_on = 0
         if `"`expectn'"' != "" | "`isid'" != "" | "`nodups'" != "" | ///
-           "`require'" != "" | "`notmissing'" != "" | `"`inrange'"' != "" {
+           "`require'" != "" | "`notmissing'" != "" | `"`inrange'"' != "" | ///
+           `n_allowed' > 0 | `n_forbid' > 0 | `n_regex' > 0 | `n_notvalues' > 0 {
             local gate_on = 1
         }
 
@@ -764,98 +878,517 @@ program define datacheck, rclass
         local viol_names ""
 
         if `gate_on' {
-            // expectn
-            if `"`expectn'"' != "" {
-                local enw : word count `expectn'
-                local elo : word 1 of `expectn'
-                if `enw' == 1 {
-                    if `nobs' != `elo' {
-                        local ++n_viol
-                        local viol_names "`viol_names' expectn"
-                        local vmsg`n_viol' "expectn: expected N = `elo', observed `nobs'"
-                    }
-                }
-                else {
-                    local ehi : word 2 of `expectn'
-                    if `nobs' < `elo' | `nobs' > `ehi' {
-                        local ++n_viol
-                        local viol_names "`viol_names' expectn"
-                        local vmsg`n_viol' "expectn: expected N in [`elo', `ehi'], observed `nobs'"
-                    }
-                }
-            }
-            // isid
-            if "`isid'" != "" {
-                tempvar in_tag
-                quietly bysort `isid' : gen byte `in_tag' = (_n == 1)
-                quietly count if `in_tag'
-                local idist = r(N)
-                quietly drop `in_tag'
-                if `idist' != `nobs' {
-                    local ++n_viol
-                    local viol_names "`viol_names' isid"
-                    local vmsg`n_viol' "isid(`isid'): not unique — `nobs' rows, `idist' distinct"
-                }
-            }
-            // nodups
-            if "`nodups'" != "" {
-                quietly duplicates report
-                local ndup = r(N) - r(unique_value)
-                if `ndup' > 0 {
-                    local ++n_viol
-                    local viol_names "`viol_names' nodups"
-                    local vmsg`n_viol' "nodups: `ndup' duplicated row(s)"
-                }
-            }
             // require
             if "`require'" != "" {
                 local req_missing = trim("`req_missing'")
                 if "`req_missing'" != "" {
                     local ++n_viol
                     local viol_names "`viol_names' require"
+                    local vgate`n_viol' "require"
+                    local vvar`n_viol' "`req_missing'"
+                    local vobs`n_viol' "missing"
+                    local vexp`n_viol' "present"
+                    local vgroup`n_viol' ""
+                    local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
                     local vmsg`n_viol' "require: missing variable(s) `req_missing'"
                 }
             }
-            // notmissing
-            if "`notmissing'" != "" {
-                foreach v of local notmissing {
-                    quietly count if missing(`v')
-                    if r(N) > 0 {
-                        local ++n_viol
-                        local viol_names "`viol_names' notmissing"
-                        local vmsg`n_viol' "notmissing: `v' has `r(N)' missing value(s)"
-                    }
+
+            local n_scope = 1
+            local scope_if1 "1"
+            local scope_lab1 ""
+            if `has_groups' {
+                local n_scope : word count `group_levels'
+                local si = 0
+                foreach gg of local group_levels {
+                    local ++si
+                    local scope_if`si' "`dc_group' == `gg'"
+                    local scope_lab`si' "by(`byvars' group `gg')"
                 }
             }
-            // inrange
-            forvalues k = 1/`n_inr' {
-                local iv "`inr_var`k''"
-                local lo "`inr_lo`k''"
-                local hi "`inr_hi`k''"
-                quietly count if (`iv' < `lo' | `iv' > `hi') & !missing(`iv')
-                if r(N) > 0 {
-                    local noutr = r(N)
-                    quietly summarize `iv'
-                    local ++n_viol
-                    local viol_names "`viol_names' inrange"
-                    local vmsg`n_viol' "inrange(`iv'): `noutr' obs outside [`lo', `hi']  (min `=r(min)', max `=r(max)')"
+
+            forvalues si = 1/`n_scope' {
+                local IF "`scope_if`si''"
+                local GP "`scope_lab`si''"
+                local PFX ""
+                if "`GP'" != "" local PFX "`GP': "
+                quietly count if `IF'
+                local scope_n = r(N)
+
+                // expectn
+                if `"`expectn'"' != "" {
+                    local enw : word count `expectn'
+                    local elo : word 1 of `expectn'
+                    if `enw' == 1 {
+                        if `scope_n' != `elo' {
+                            local ++n_viol
+                            local viol_names "`viol_names' expectn"
+                            local vgate`n_viol' "expectn"
+                            local vvar`n_viol' ""
+                            local vobs`n_viol' "`scope_n'"
+                            local vexp`n_viol' "`elo'"
+                            local vgroup`n_viol' "`GP'"
+                            local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                            local vmsg`n_viol' "`PFX'expectn: expected N = `elo', observed `scope_n'"
+                        }
+                    }
+                    else {
+                        local ehi : word 2 of `expectn'
+                        if `scope_n' < `elo' | `scope_n' > `ehi' {
+                            local ++n_viol
+                            local viol_names "`viol_names' expectn"
+                            local vgate`n_viol' "expectn"
+                            local vvar`n_viol' ""
+                            local vobs`n_viol' "`scope_n'"
+                            local vexp`n_viol' "[`elo', `ehi']"
+                            local vgroup`n_viol' "`GP'"
+                            local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                            local vmsg`n_viol' "`PFX'expectn: expected N in [`elo', `ehi'], observed `scope_n'"
+                        }
+                    }
+                }
+
+                // isid
+                if "`isid'" != "" {
+                    tempvar in_tag
+                    quietly egen byte `in_tag' = tag(`isid') if `IF'
+                    quietly count if `IF' & `in_tag'
+                    local idist = r(N)
+                    quietly drop `in_tag'
+                    if `idist' != `scope_n' {
+                        local ++n_viol
+                        local viol_names "`viol_names' isid"
+                        local vgate`n_viol' "isid"
+                        local vvar`n_viol' "`isid'"
+                        local vobs`n_viol' "`scope_n' rows, `idist' distinct"
+                        local vexp`n_viol' "unique"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'isid(`isid'): not unique — `scope_n' rows, `idist' distinct"
+                    }
+                }
+
+                // nodups
+                if "`nodups'" != "" {
+                    quietly duplicates report if `IF'
+                    local ndup = r(N) - r(unique_value)
+                    if `ndup' > 0 {
+                        local ++n_viol
+                        local viol_names "`viol_names' nodups"
+                        local vgate`n_viol' "nodups"
+                        local vvar`n_viol' ""
+                        local vobs`n_viol' "`ndup'"
+                        local vexp`n_viol' "0 duplicated rows"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'nodups: `ndup' duplicated row(s)"
+                    }
+                }
+
+                // notmissing
+                if "`notmissing'" != "" {
+                    foreach v of local notmissing {
+                        quietly count if `IF' & missing(`v')
+                        if r(N) > 0 {
+                            local nmiss = r(N)
+                            local ++n_viol
+                            local viol_names "`viol_names' notmissing"
+                            local vgate`n_viol' "notmissing"
+                            local vvar`n_viol' "`v'"
+                            local vobs`n_viol' "`nmiss' missing"
+                            local vexp`n_viol' "0 missing"
+                            local vgroup`n_viol' "`GP'"
+                            local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                            local vmsg`n_viol' "`PFX'notmissing: `v' has `nmiss' missing value(s)"
+                        }
+                    }
+                }
+
+                // inrange
+                forvalues k = 1/`n_inr' {
+                    local iv "`inr_var`k''"
+                    local lo "`inr_lo`k''"
+                    local hi "`inr_hi`k''"
+                    quietly count if `IF' & (`iv' < `lo' | `iv' > `hi') & !missing(`iv')
+                    if r(N) > 0 {
+                        local noutr = r(N)
+                        quietly summarize `iv' if `IF'
+                        local omin = r(min)
+                        local omax = r(max)
+                        local ++n_viol
+                        local viol_names "`viol_names' inrange"
+                        local vgate`n_viol' "inrange"
+                        local vvar`n_viol' "`iv'"
+                        local vobs`n_viol' "`noutr' outside; min `omin', max `omax'"
+                        local vexp`n_viol' "[`inr_lolab`k'', `inr_hilab`k'']"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'inrange(`iv'): `noutr' obs outside [`inr_lolab`k'', `inr_hilab`k'']  (min `omin', max `omax')"
+                    }
+                }
+
+                // allowed
+                forvalues k = 1/`n_allowed' {
+                    local av "`allowed_var`k''"
+                    local vals `"`allowed_vals`k''"'
+                    tempvar ok
+                    quietly gen byte `ok' = 0 if `IF' & !missing(`av')
+                    capture confirm numeric variable `av'
+                    if !_rc {
+                        foreach val of local vals {
+                            quietly replace `ok' = 1 if `IF' & `av' == `val' & !missing(`av')
+                        }
+                    }
+                    else {
+                        foreach val of local vals {
+                            local sval = subinstr(`"`val'"', char(34), "", .)
+                            quietly replace `ok' = 1 if `IF' & `av' == `"`sval'"' & !missing(`av')
+                        }
+                    }
+                    quietly count if `IF' & !missing(`av') & `ok' == 0
+                    if r(N) > 0 {
+                        local nbad = r(N)
+                        local ++n_viol
+                        local viol_names "`viol_names' allowed"
+                        local vgate`n_viol' "allowed"
+                        local vvar`n_viol' "`av'"
+                        local vobs`n_viol' "`nbad' disallowed"
+                        local vexp`n_viol' "`vals'"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'allowed(`av'): `nbad' obs outside allowed values {`vals'}"
+                    }
+                    quietly drop `ok'
+                }
+
+                // forbid
+                forvalues k = 1/`n_forbid' {
+                    local fv "`forbid_var`k''"
+                    local vals `"`forbid_vals`k''"'
+                    tempvar bad
+                    quietly gen byte `bad' = 0 if `IF' & !missing(`fv')
+                    capture confirm numeric variable `fv'
+                    if !_rc {
+                        foreach val of local vals {
+                            quietly replace `bad' = 1 if `IF' & `fv' == `val' & !missing(`fv')
+                        }
+                    }
+                    else {
+                        foreach val of local vals {
+                            local sval = subinstr(`"`val'"', char(34), "", .)
+                            quietly replace `bad' = 1 if `IF' & `fv' == `"`sval'"' & !missing(`fv')
+                        }
+                    }
+                    quietly count if `IF' & `bad' == 1
+                    if r(N) > 0 {
+                        local nbad = r(N)
+                        local ++n_viol
+                        local viol_names "`viol_names' forbid"
+                        local vgate`n_viol' "forbid"
+                        local vvar`n_viol' "`fv'"
+                        local vobs`n_viol' "`nbad' forbidden"
+                        local vexp`n_viol' "none of `vals'"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'forbid(`fv'): `nbad' obs contain forbidden values {`vals'}"
+                    }
+                    quietly drop `bad'
+                }
+
+                // notvalues / sentinel
+                forvalues k = 1/`n_notvalues' {
+                    local nv "`notvalues_var`k''"
+                    local vals `"`notvalues_vals`k''"'
+                    tempvar bad
+                    quietly gen byte `bad' = 0 if `IF' & !missing(`nv')
+                    capture confirm numeric variable `nv'
+                    if !_rc {
+                        foreach val of local vals {
+                            quietly replace `bad' = 1 if `IF' & `nv' == `val' & !missing(`nv')
+                        }
+                    }
+                    else {
+                        foreach val of local vals {
+                            local sval = subinstr(`"`val'"', char(34), "", .)
+                            quietly replace `bad' = 1 if `IF' & `nv' == `"`sval'"' & !missing(`nv')
+                        }
+                    }
+                    quietly count if `IF' & `bad' == 1
+                    if r(N) > 0 {
+                        local nbad = r(N)
+                        local ++n_viol
+                        local viol_names "`viol_names' notvalues"
+                        local vgate`n_viol' "notvalues"
+                        local vvar`n_viol' "`nv'"
+                        local vobs`n_viol' "`nbad' sentinel"
+                        local vexp`n_viol' "none of `vals'"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'notvalues(`nv'): `nbad' obs contain sentinel values {`vals'}"
+                    }
+                    quietly drop `bad'
+                }
+
+                // regex
+                forvalues k = 1/`n_regex' {
+                    local rv "`regex_var`k''"
+                    local pat `"`regex_pat`k''"'
+                    capture confirm string variable `rv'
+                    if !_rc {
+                        quietly count if `IF' & !missing(`rv') & !regexm(`rv', `"`pat'"')
+                    }
+                    else {
+                        quietly count if `IF' & !missing(`rv') & !regexm(string(`rv'), `"`pat'"')
+                    }
+                    if r(N) > 0 {
+                        local nbad = r(N)
+                        local ++n_viol
+                        local viol_names "`viol_names' regex"
+                        local vgate`n_viol' "regex"
+                        local vvar`n_viol' "`rv'"
+                        local vobs`n_viol' "`nbad' nonmatching"
+                        local vexp`n_viol' "`pat'"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'regex(`rv'): `nbad' obs do not match `pat'"
+                    }
                 }
             }
         }
 
         local viol_names = trim("`viol_names'")
+        local failed_checks : list uniq viol_names
+        local n_failed : word count `failed_checks'
+        local n_checks = 0
+        if `"`expectn'"' != "" local ++n_checks
+        if "`isid'" != "" local ++n_checks
+        if "`nodups'" != "" local ++n_checks
+        if "`require'" != "" local ++n_checks
+        if "`notmissing'" != "" local ++n_checks
+        if `n_inr' > 0 local ++n_checks
+        if `n_allowed' > 0 local ++n_checks
+        if `n_forbid' > 0 local ++n_checks
+        if `n_regex' > 0 local ++n_checks
+        if `n_notvalues' > 0 local ++n_checks
+        local n_passed = `n_checks' - `n_failed'
+        if `n_passed' < 0 local n_passed = 0
+        local n_groups = 0
+        if `has_groups' local n_groups : word count `group_levels'
+
+        // ---- violations(): structured one-row-per-failed-gate artifact ----
+        if `"`violations'"' != "" {
+            gettoken vdest vrest : violations, parse(" ,")
+            local vreplace = 0
+            if regexm(`"`vrest'"', "replace") local vreplace = 1
+            tempname vframe
+            local _vframe "`vframe'"
+            frame create `vframe'
+            local _vframe_made = 1
+            frame `vframe' {
+                clear
+                quietly set obs `n_viol'
+                quietly generate str32 check = ""
+                quietly generate str32 gate = ""
+                quietly generate str80 variable = ""
+                quietly generate str80 group = ""
+                quietly generate str80 observed = ""
+                quietly generate str120 expected = ""
+                quietly generate str12 severity = ""
+                quietly generate str244 message = ""
+                forvalues j = 1/`n_viol' {
+                    quietly replace check = "`vgate`j''" in `j'
+                    quietly replace gate = "`vgate`j''" in `j'
+                    quietly replace variable = "`vvar`j''" in `j'
+                    quietly replace group = "`vgroup`j''" in `j'
+                    quietly replace observed = "`vobs`j''" in `j'
+                    quietly replace expected = "`vexp`j''" in `j'
+                    quietly replace severity = "`vsev`j''" in `j'
+                    quietly replace message = "`vmsg`j''" in `j'
+                }
+            }
+            local _isfile = 0
+            if substr(`"`vdest'"', -4, 4) == ".dta" local _isfile = 1
+            else if strpos(`"`vdest'"', "/") | strpos(`"`vdest'"', "\") local _isfile = 1
+            if `_isfile' {
+                _datacheck_pathok `"`vdest'"'
+                if `vreplace' frame `vframe': quietly save `"`vdest'"', replace
+                else          frame `vframe': quietly save `"`vdest'"'
+            }
+            else {
+                capture confirm name `vdest'
+                if _rc {
+                    display as error "violations() frame name is invalid"
+                    exit 198
+                }
+                capture frame `vdest': describe
+                if !_rc & !`vreplace' {
+                    display as error "violations() frame `vdest' already exists; specify replace"
+                    exit 110
+                }
+                if `vreplace' {
+                    capture frame drop `vdest'
+                    if _rc {
+                        display as error "violations() could not replace frame `vdest'"
+                        exit _rc
+                    }
+                }
+                frame copy `vframe' `vdest'
+            }
+        }
+
+        // ---- makespec(): starter reusable check spec from observed data ----
+        if `"`makespec'"' != "" {
+            gettoken sdest srest : makespec, parse(" ,")
+            local sreplace = 0
+            if regexm(`"`srest'"', "replace") local sreplace = 1
+            tempname sframe
+            local _sframe "`sframe'"
+            frame create `sframe'
+            local _sframe_made = 1
+            frame `sframe' {
+                clear
+                quietly generate str16 check = ""
+                quietly generate str16 gate = ""
+                quietly generate str80 variable = ""
+                quietly generate str80 var = ""
+                quietly generate str80 arg1 = ""
+                quietly generate str80 arg2 = ""
+                quietly generate str2045 values = ""
+                quietly generate str244 pattern = ""
+                quietly generate str244 note = ""
+            }
+            local srow = 0
+            local ++srow
+            frame `sframe': quietly set obs `srow'
+            frame `sframe': quietly replace check = "expectn" in `srow'
+            frame `sframe': quietly replace gate = "expectn" in `srow'
+            frame `sframe': quietly replace arg1 = "`nobs'" in `srow'
+            frame `sframe': quietly replace arg2 = "`nobs'" in `srow'
+            frame `sframe': quietly replace note = "observed N" in `srow'
+            local ++srow
+            frame `sframe': quietly set obs `srow'
+            frame `sframe': quietly replace check = "require" in `srow'
+            frame `sframe': quietly replace gate = "require" in `srow'
+            frame `sframe': quietly replace values = "`profilevars'" in `srow'
+            frame `sframe': quietly replace note = "profiled variables" in `srow'
+            foreach v of local f_continuous {
+                if `c_N_`v'' == 0 continue
+                local ++srow
+                frame `sframe': quietly set obs `srow'
+                frame `sframe': quietly replace check = "inrange" in `srow'
+                frame `sframe': quietly replace gate = "inrange" in `srow'
+                frame `sframe': quietly replace variable = "`v'" in `srow'
+                frame `sframe': quietly replace var = "`v'" in `srow'
+                frame `sframe': quietly replace arg1 = "`c_min_`v''" in `srow'
+                frame `sframe': quietly replace arg2 = "`c_max_`v''" in `srow'
+                frame `sframe': quietly replace note = "observed continuous range" in `srow'
+            }
+            foreach v of local f_date {
+                quietly summarize `v'
+                if r(N) == 0 continue
+                local ++srow
+                frame `sframe': quietly set obs `srow'
+                frame `sframe': quietly replace check = "inrange" in `srow'
+                frame `sframe': quietly replace gate = "inrange" in `srow'
+                frame `sframe': quietly replace variable = "`v'" in `srow'
+                frame `sframe': quietly replace var = "`v'" in `srow'
+                frame `sframe': quietly replace arg1 = "`=r(min)'" in `srow'
+                frame `sframe': quietly replace arg2 = "`=r(max)'" in `srow'
+                frame `sframe': quietly replace note = "observed date range" in `srow'
+            }
+            foreach v of local f_categorical {
+                local i = `idx_`v''
+                if `m_uv`i'' > `maxcat' continue
+                quietly levelsof `v' if !missing(`v'), local(_levels) clean
+                local ++srow
+                frame `sframe': quietly set obs `srow'
+                frame `sframe': quietly replace check = "allowed" in `srow'
+                frame `sframe': quietly replace gate = "allowed" in `srow'
+                frame `sframe': quietly replace variable = "`v'" in `srow'
+                frame `sframe': quietly replace var = "`v'" in `srow'
+                frame `sframe': quietly replace values = `"`_levels'"' in `srow'
+                frame `sframe': quietly replace note = "observed levels" in `srow'
+            }
+            foreach v of local f_string {
+                local i = `idx_`v''
+                if `m_uv`i'' > `maxcat' continue
+                quietly levelsof `v' if !missing(`v'), local(_levels) clean
+                local ++srow
+                frame `sframe': quietly set obs `srow'
+                frame `sframe': quietly replace check = "allowed" in `srow'
+                frame `sframe': quietly replace gate = "allowed" in `srow'
+                frame `sframe': quietly replace variable = "`v'" in `srow'
+                frame `sframe': quietly replace var = "`v'" in `srow'
+                frame `sframe': quietly replace values = `"`_levels'"' in `srow'
+                frame `sframe': quietly replace note = "observed levels" in `srow'
+            }
+            local _isfile = 0
+            if substr(`"`sdest'"', -4, 4) == ".dta" local _isfile = 1
+            else if strpos(`"`sdest'"', "/") | strpos(`"`sdest'"', "\") local _isfile = 1
+            if `_isfile' {
+                _datacheck_pathok `"`sdest'"'
+                if `sreplace' frame `sframe': quietly save `"`sdest'"', replace
+                else          frame `sframe': quietly save `"`sdest'"'
+            }
+            else {
+                capture confirm name `sdest'
+                if _rc {
+                    display as error "makespec() frame name is invalid"
+                    exit 198
+                }
+                capture frame `sdest': describe
+                if !_rc & !`sreplace' {
+                    display as error "makespec() frame `sdest' already exists; specify replace"
+                    exit 110
+                }
+                if `sreplace' {
+                    capture frame drop `sdest'
+                    if _rc {
+                        display as error "makespec() could not replace frame `sdest'"
+                        exit _rc
+                    }
+                }
+                frame copy `sframe' `sdest'
+            }
+        }
 
         // ---- return surface (posted after all work succeeds) ----
         return scalar N              = `nobs'
         return scalar complete_cases = `n_complete'
         return scalar complete_pct   = `pct_complete'
         return scalar n_violations   = `n_viol'
+        return scalar n_checks       = `n_checks'
+        return scalar n_passed       = `n_passed'
+        return scalar n_failed       = `n_failed'
+        return scalar n_groups       = `n_groups'
+        return scalar gatesonly      = ("`gatesonly'" != "")
+        return scalar onlyflagged    = (`showflagged')
+        return scalar n_continuous   = `: word count `f_continuous''
+        return scalar n_categorical  = `: word count `f_categorical''
+        return scalar n_date         = `: word count `f_date''
+        return scalar n_string       = `: word count `f_string''
+        return scalar n_excluded     = `: word count `f_excluded''
+        return scalar n_flagged      = `n_flagged'
+        return scalar n_constant     = `n_constant'
+        return scalar n_highcard     = `n_highcard'
+        return scalar n_missing_vars = `n_missing_vars'
+        return scalar n_outlier_vars = `n_outlier_vars'
+        return scalar n_rare_vars    = `n_rare_vars'
+        return scalar mincell        = `mincell'
+        return scalar maskrare       = ("`maskrare'" != "")
         return local  violations     "`viol_names'"
+        return local  failed_checks  "`failed_checks'"
         return local  continuous_vars "`f_continuous'"
         return local  categorical_vars "`f_categorical'"
         return local  date_vars      "`f_date'"
         return local  string_vars    "`f_string'"
         return local  excluded_vars  "`f_excluded'"
+        return local  flagged_vars   "`flagged_vars'"
+        return local  constant_vars  "`constant_vars'"
+        return local  highcard_vars  "`highcard_vars'"
+        return local  missing_vars   "`missing_vars'"
+        return local  outlier_vars   "`outlier_vars'"
+        return local  rare_vars      "`rare_vars'"
 
         // ---- optional saving() of the per-variable profile ----
         // Non-fatal: a bad saving() path must not strand the console report or
@@ -887,8 +1420,18 @@ program define datacheck, rclass
                         else          frame `pframe': quietly save `"`sfile'"'
                     }
                     else {
-                        capture frame drop `sfile'
-                        frame copy `pframe' `sfile'
+                        capture frame `sfile': describe
+                        if !_rc & !`sreplace' {
+                            display as text "  " as error ///
+                                "saving: frame `sfile' already exists; specify replace — skipped"
+                        }
+                        else {
+                            if `sreplace' {
+                                capture frame drop `sfile'
+                                if _rc exit _rc
+                            }
+                            frame copy `pframe' `sfile'
+                        }
                     }
                 }
                 if _rc {
@@ -916,10 +1459,30 @@ program define datacheck, rclass
         }
     }
     local rc = _rc
-    if `_pframe_made' capture frame drop `pframe'
-    if `_preserved'   capture restore
+    local cleanup_rc = 0
+    if `_sframe_made' {
+        capture frame drop `_sframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
+    if `_vframe_made' {
+        capture frame drop `_vframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
+    if `_cframe_made' {
+        capture frame drop `_cframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
+    if `_pframe_made' {
+        capture frame drop `pframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
+    if `_preserved' {
+        capture restore
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+    if `cleanup_rc' exit `cleanup_rc'
 end
 
 // ---------------------------------------------------------------------------
@@ -927,6 +1490,7 @@ end
 // ---------------------------------------------------------------------------
 
 capture program drop _datacheck_pathok
+local _drop_pathok_rc = _rc
 program define _datacheck_pathok, nclass
     // Reject shell metacharacters / quotes in user-supplied file paths.
     // char(96) = backtick, char(34) = double quote — built via char() so the
@@ -943,7 +1507,60 @@ program define _datacheck_pathok, nclass
     }
 end
 
+capture program drop _datacheck_bound
+local _drop_bound_rc = _rc
+program define _datacheck_bound, rclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        gettoken v raw : 0
+        local raw = trim(`"`raw'"')
+        if `"`raw'"' == "" {
+            display as error "empty range bound"
+            exit 198
+        }
+        tempname val
+        capture scalar `val' = `raw'
+        if !_rc {
+            local out = scalar(`val')
+        }
+        else {
+            local clean = subinstr(`"`raw'"', char(34), "", .)
+            local vfmt : format `v'
+            local vfmt = lower("`vfmt'")
+            if strpos("`vfmt'", "%tm") {
+                scalar `val' = monthly(`"`clean'"', "YM")
+            }
+            else if strpos("`vfmt'", "%tq") {
+                scalar `val' = quarterly(`"`clean'"', "YQ")
+            }
+            else if strpos("`vfmt'", "%tw") {
+                scalar `val' = weekly(`"`clean'"', "YW")
+            }
+            else if strpos("`vfmt'", "%ty") {
+                scalar `val' = yearly(`"`clean'"', "Y")
+            }
+            else {
+                scalar `val' = daily(`"`clean'"', "DMY")
+                if missing(`val') scalar `val' = daily(`"`clean'"', "YMD")
+                if missing(`val') scalar `val' = daily(`"`clean'"', "MDY")
+            }
+            if missing(`val') {
+                display as error `"could not parse range bound `raw' for `v'"'
+                exit 198
+            }
+            local out = scalar(`val')
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    return scalar value = `out'
+end
+
 capture program drop _datacheck_flag
+local _drop_flag_rc = _rc
 program define _datacheck_flag, rclass
     // Compact one-word flag for the QUICK REFERENCE table.
     args v fc maxcat rare outliers
@@ -978,9 +1595,11 @@ program define _datacheck_flag, rclass
 end
 
 capture program drop _datacheck_freq
+local _drop_freq_rc = _rc
 program define _datacheck_freq, nclass
     // Frequency table sorted by descending count, capped at maxfreq.
-    args v maxfreq rare
+    args v maxfreq rare maskcell
+    if "`maskcell'" == "" local maskcell = 0
     tempname fr
     frame put `v', into(`fr')
     frame `fr' {
@@ -1003,9 +1622,16 @@ program define _datacheck_freq, nclass
             }
             local rflag ""
             if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
-            display as text "    " as result %-28s `"`disp'"' ///
-                as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
-                as text "%)" as error "`rflag'"
+            if `maskcell' > 0 & `ct' < `maskcell' {
+                display as text "    " as result %-28s "[suppressed]" ///
+                    as text "  suppressed (<" as result `maskcell' as text ")" ///
+                    as error "`rflag'"
+            }
+            else {
+                display as text "    " as result %-28s `"`disp'"' ///
+                    as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
+                    as text "%)" as error "`rflag'"
+            }
         }
         if `nlev' > `maxfreq' {
             display as text "    ... " as result `=`nlev'-`maxfreq'' ///

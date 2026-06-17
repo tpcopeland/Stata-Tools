@@ -2,7 +2,7 @@ clear all
 set more off
 version 16.0
 
-* test_datacheck.do - Functional tests for the datacheck command (datamap 1.2.0)
+* test_datacheck.do - Functional tests for the datacheck command (datamap 1.3.0)
 * Covers the QA plan in the datacheck spec:
 *   classification parity with datamap, per-class rendering, id()/uniqueness,
 *   every gate (pass + r(9) fail), warn downgrade, single() preservation,
@@ -97,6 +97,7 @@ gen double y   = mod(_n, 7)
 capture {
     quietly datacheck, id(pid)
     assert r(n_dup_pid) == 20
+    * r(n_dup_) wildcard returns are exercised through concrete key-specific names.
     * r(complete_cases)/r(complete_pct) on fully-complete data
     assert r(complete_cases) == 60
     assert r(complete_pct) == 100
@@ -130,7 +131,7 @@ capture qui datacheck, expectn(60)
 _dc `=_rc' "expectn pass (N=60)"
 capture qui datacheck, expectn(999)
 capture assert _rc == 9
-_dc `=_rc' "expectn fail halts with r(9)"
+_dc `=_rc' "expectn violation halts with r(9)"
 * expectn range
 capture qui datacheck, expectn(50 70)
 _dc `=_rc' "expectn range pass (50..70)"
@@ -143,7 +144,7 @@ preserve
 replace pid = 1 in 2
 capture qui datacheck, isid(pid)
 capture assert _rc == 9
-_dc `=_rc' "isid fail halts with r(9)"
+_dc `=_rc' "isid violation halts with r(9)"
 restore
 
 * nodups
@@ -153,7 +154,7 @@ preserve
 expand 2 in 1
 capture qui datacheck, nodups
 capture assert _rc == 9
-_dc `=_rc' "nodups fail halts with r(9)"
+_dc `=_rc' "nodups violation halts with r(9)"
 restore
 
 * require
@@ -161,7 +162,7 @@ capture qui datacheck, require(pid age)
 _dc `=_rc' "require pass (vars exist)"
 capture qui datacheck, require(pid no_such_var)
 capture assert _rc == 9
-_dc `=_rc' "require fail halts with r(9)"
+_dc `=_rc' "require violation halts with r(9)"
 
 * notmissing
 capture qui datacheck, notmissing(pid)
@@ -170,7 +171,7 @@ preserve
 replace age = . in 1
 capture qui datacheck, notmissing(age)
 capture assert _rc == 9
-_dc `=_rc' "notmissing fail halts with r(9)"
+_dc `=_rc' "notmissing violation halts with r(9)"
 restore
 
 * inrange
@@ -178,7 +179,7 @@ capture qui datacheck, inrange(age 0 200)
 _dc `=_rc' "inrange pass (age within 0..200)"
 capture qui datacheck, inrange(age 0 30)
 capture assert _rc == 9
-_dc `=_rc' "inrange fail halts with r(9)"
+_dc `=_rc' "inrange violation halts with r(9)"
 
 * ============================================================
 * 5. warn downgrades violations to non-halting, still sets returns
@@ -342,19 +343,30 @@ _dc `=_rc' "planned gatesonly: passing gates complete without violations"
 * onlyflagged/show(flagged): compact flagged-variable review paths
 _dc_make_planned
 replace age = . in 1/4
-replace bmi = 999 in 5
+replace age = 999 in 5
 capture {
     capture quietly datacheck, onlyflagged rare(5) outliers(3)
     local cmdrc = _rc
     assert `cmdrc' == 0
-    assert r(n_flagged) >= 1
-    assert strpos("`r(flagged_vars)'", "age") > 0 | ///
-        strpos("`r(flagged_vars)'", "bmi") > 0 | ///
-        strpos("`r(flagged_vars)'", "raregrp") > 0
+    assert r(n_flagged) >= 5
+    assert strpos("`r(flagged_vars)'", "age") > 0
+    assert strpos("`r(flagged_vars)'", "email") > 0
+    assert strpos("`r(flagged_vars)'", "raregrp") > 0
+    assert strpos("`r(flagged_vars)'", "constvar") > 0
+    assert r(n_missing_vars) >= 1
+    assert strpos("`r(missing_vars)'", "age") > 0
+    assert r(n_outlier_vars) >= 1
+    assert strpos("`r(outlier_vars)'", "age") > 0
+    assert r(n_rare_vars) >= 1
+    assert strpos("`r(rare_vars)'", "raregrp") > 0
+    assert r(n_constant) >= 1
+    assert strpos("`r(constant_vars)'", "constvar") > 0
+    assert r(n_highcard) >= 1
+    assert strpos("`r(highcard_vars)'", "email") > 0
     capture quietly datacheck, show(flagged) rare(5) outliers(3)
     local cmdrc = _rc
     assert `cmdrc' == 0
-    assert r(n_flagged) >= 1
+    assert r(n_flagged) >= 5
 }
 _dc `=_rc' "planned onlyflagged/show(flagged): flagged-only views run and return flagged vars"
 
@@ -436,6 +448,8 @@ capture {
     local cmdrc = _rc
     assert `cmdrc' == 0
     assert r(n_violations) == 0
+    assert r(n_checks) == 4
+    assert r(n_passed) == 4
 }
 _dc `=_rc' "planned domain gates pass: allowed/forbid/regex/notvalues"
 
@@ -455,7 +469,7 @@ capture {
     assert strpos("`r(violations)'", "regex") > 0
     assert strpos("`r(violations)'", "notvalues") > 0
 }
-_dc `=_rc' "planned domain gates fail/warn with four named violations"
+_dc `=_rc' "planned domain gates warn with four named violations"
 
 * over(): apply gates groupwise
 _dc_make_planned
@@ -475,6 +489,7 @@ capture {
     local cmdrc = _rc
     assert `cmdrc' == 0
     assert r(n_violations) == 1
+    assert r(n_groups) == 2
     assert strpos("`r(violations)'", "notmissing") > 0
 }
 _dc `=_rc' "planned over(): groupwise gate violations are counted and named"
@@ -495,7 +510,7 @@ _dc_make_planned
 replace age = . in 1
 capture {
     capture quietly datacheck, expectn(40) isid(pid) notmissing(age) ///
-        inrange(age 20 60) warn
+        inrange(age 20 30) warn
     local cmdrc = _rc
     assert `cmdrc' == 0
     assert r(n_checks) == 4
@@ -505,7 +520,7 @@ capture {
     assert strpos("`r(failed_checks)'", "notmissing") > 0
     assert strpos("`r(failed_checks)'", "inrange") > 0
 }
-_dc `=_rc' "planned richer r(): check/pass/fail counts and failed_checks are returned"
+_dc `=_rc' "planned richer r(): check/pass/violation counts and failed_checks are returned"
 
 * date literal support in inrange()
 _dc_make_planned
