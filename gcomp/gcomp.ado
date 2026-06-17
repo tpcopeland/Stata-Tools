@@ -395,8 +395,7 @@ if "`mediation'"=="" & "`tvar'"=="" {
 	exit 198
 }
 if "`mediation'"=="" & "`varyingcovariates'"=="" {
-	noi di as err "Error: varyingcovariates() must be specified for a time-varying confounding analysis."
-	exit 198
+	noi di as text "Note: no varyingcovariates() supplied; running baseline-standardized g-computation (no post-baseline confounder simulation). Intervention and outcome are simulated forward over fixedcovariates() held at baseline."
 }
 if "`mediation'"=="" & "`intvars'"=="" {
 	noi di as err "Error: intvars() must be specified for a time-varying confounding analysis."
