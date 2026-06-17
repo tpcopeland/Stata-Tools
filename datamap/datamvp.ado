@@ -225,7 +225,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
 
     * Scratch variables and names
-    tempvar touse g isf mv_patt mv_n ng pct cpct order
+    tempvar touse grpseq isf mv_patt mv_n ng patpct cpct order
     tempname nsmall nsmallg patmat corrmat
 
     * Mark sample
@@ -464,13 +464,13 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
 
         * Identify unique patterns
-        bys `touse' `mv_patt': gen byte `g' = 1 if _n == 1 & `touse' == 1
-        replace `g' = sum(`g')
-        replace `g' = . if `touse' != 1
+        bys `touse' `mv_patt': gen byte `grpseq' = 1 if _n == 1 & `touse' == 1
+        replace `grpseq' = sum(`grpseq')
+        replace `grpseq' = . if `touse' != 1
 
         * Frequency per pattern
-        bys `g': gen `isf' = (_n == 1) & `touse'
-        bys `g': gen long `ng' = _N if `touse'
+        bys `grpseq': gen `isf' = (_n == 1) & `touse'
+        bys `grpseq': gen long `ng' = _N if `touse'
 
         * Apply filters
         count if `ng' < `minfreq' & `touse'
@@ -496,10 +496,10 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
 
         * Generate percent and cumulative
-        gen double `pct' = 100 * `ng' / `N' if `touse'
+        gen double `patpct' = 100 * `ng' / `N' if `touse'
         gen `order' = _n if `isf'
         sort `order'
-        gen double `cpct' = sum(`pct' * `isf') if `touse'
+        gen double `cpct' = sum(`patpct' * `isf') if `touse'
     }
 
     * ===================================================================
@@ -538,7 +538,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             rename `mv_patt' _pattern
             rename `mv_n' _miss
             rename `ng' _freq
-            rename `pct' _pct
+            rename `patpct' _pct
             rename `cpct' _cumpct
             format _freq %8.0fc
             format _miss %4.0f
@@ -724,13 +724,16 @@ program define datamvp, rclass byable(recall) sortpreserve
         forv i = 1/`nvar' {
             local vname = substr("``i''", 1, `maxvlen')
             capture drop `generate'_`vname'
+            local _drop_missvar_rc = _rc
             qui gen byte `generate'_`vname' = missing(``i'') if `touse'
             label var `generate'_`vname' "Missing: ``i''"
         }
         
         * Also generate pattern variable
         capture drop `generate'_pattern
+        local _drop_pattern_rc = _rc
         capture drop `generate'_nmiss
+        local _drop_nmiss_rc = _rc
         qui gen str`nstr' `generate'_pattern = `mv_patt' if `touse'
         label var `generate'_pattern "Missing value pattern"
         qui gen int `generate'_nmiss = `mv_n' if `touse'
@@ -746,11 +749,11 @@ program define datamvp, rclass byable(recall) sortpreserve
     if "`save'" != "" {
         preserve
         qui keep if `isf'
-        qui keep `mv_patt' `mv_n' `ng' `pct' `cpct'
+        qui keep `mv_patt' `mv_n' `ng' `patpct' `cpct'
         qui rename `mv_patt' pattern
         qui rename `mv_n' nmiss
         qui rename `ng' freq
-        qui rename `pct' percent
+        qui rename `patpct' percent
         qui rename `cpct' cumpct
         qui compress
         
@@ -763,6 +766,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             * Frames require Stata 16+
             if c(stata_version) >= 16 {
                 capture frame drop `save'
+                local _drop_save_frame_rc = _rc
+                if `_drop_save_frame_rc' != 0 & `_drop_save_frame_rc' != 111 {
+                    exit `_drop_save_frame_rc'
+                }
                 frame put *, into(`save')
                 di _n as txt "Patterns saved to frame: {res}`save'"
             }
@@ -1204,6 +1211,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 di as txt "(sampling 500 observations for matrix display; use graph(matrix, sample(#)) to adjust)"
             }
 
+            tempvar obsid missflag varid
             qui {
                 keep if `touse'
 
@@ -1218,23 +1226,23 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Create observation ID
-                gen long _obsid = _n
+                gen long `obsid' = _n
                 local nobs = _N
 
                 * Reshape to long format for heatmap
                 tokenize `varlist'
                 forv i = 1/`nvar' {
-                    gen byte _m`i' = missing(``i'')
+                    gen byte `missflag'`i' = missing(``i'')
                 }
 
-                keep _obsid _m*
-                reshape long _m, i(_obsid) j(_varid)
+                keep `obsid' `missflag'*
+                reshape long `missflag', i(`obsid') j(`varid')
 
                 * Create value labels for variable axis
                 forv i = 1/`nvar' {
                     label define _varlab `i' "``i''", add
                 }
-                label values _varid _varlab
+                label values `varid' _varlab
             }
 
             * Set default title if not specified
@@ -1253,9 +1261,9 @@ program define datamvp, rclass byable(recall) sortpreserve
             if `nvar' <= 10 local xlabsz "small"
 
             * Draw heatmap using twoway
-            twoway (scatter _obsid _varid if _m == 1, ///
+            twoway (scatter `obsid' `varid' if `missflag' == 1, ///
                     msymbol(square) msize(`msize') mcolor(`misscolor')) ///
-                   (scatter _obsid _varid if _m == 0, ///
+                   (scatter `obsid' `varid' if `missflag' == 0, ///
                     msymbol(square) msize(`msize') mcolor(`obscolor')), ///
                 xlabel(1(1)`nvar', valuelabel angle(90) labsize(`xlabsz')) ///
                 ylabel(, labsize(tiny) nogrid) ///
@@ -1287,68 +1295,69 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             preserve
+            tempvar rowid colid corr corrlabel colorint
             qui {
                 clear
                 local ncells = `nvar' * `nvar'
                 set obs `ncells'
-                gen int _rowid = .
-                gen int _colid = .
-                gen double _corr = .
-                gen str10 _corr_label = ""
+                gen int `rowid' = .
+                gen int `colid' = .
+                gen double `corr' = .
+                gen str10 `corrlabel' = ""
                 local obs = 1
                 forv r = 1/`nvar' {
                     forv c = 1/`nvar' {
-                        replace _rowid = `r' in `obs'
-                        replace _colid = `c' in `obs'
+                        replace `rowid' = `r' in `obs'
+                        replace `colid' = `c' in `obs'
                         * Use pre-extracted correlation value
                         local corrval = `corrval_`r'_`c''
-                        replace _corr = `corrval' in `obs'
+                        replace `corr' = `corrval' in `obs'
                         * Format correlation label
                         if abs(`corrval') < 0.01 {
-                            replace _corr_label = "" in `obs'
+                            replace `corrlabel' = "" in `obs'
                         }
                         else {
-                            replace _corr_label = string(`corrval', "%4.2f") in `obs'
+                            replace `corrlabel' = string(`corrval', "%4.2f") in `obs'
                         }
                         local ++obs
                     }
                 }
 
                 * Create color intensity variable (0-10 scale for granularity)
-                gen int _color_int = .
+                gen int `colorint' = .
 
                 * Handle missing correlations (set to 0 = neutral)
-                replace _color_int = 0 if missing(_corr)
-                replace _corr_label = "" if missing(_corr)
+                replace `colorint' = 0 if missing(`corr')
+                replace `corrlabel' = "" if missing(`corr')
 
                 * Assign colors based on ramp selection
                 if "`colorramp'" == "bluered" | "`colorramp'" == "redblue" {
                     * For positive correlations (blue)
-                    replace _color_int = 1 if _corr >= 0 & _corr < 0.1 & !missing(_corr)
-                    replace _color_int = 2 if _corr >= 0.1 & _corr < 0.2
-                    replace _color_int = 3 if _corr >= 0.2 & _corr < 0.3
-                    replace _color_int = 4 if _corr >= 0.3 & _corr < 0.4
-                    replace _color_int = 5 if _corr >= 0.4 & _corr < 0.5
-                    replace _color_int = 6 if _corr >= 0.5 & _corr < 0.6
-                    replace _color_int = 7 if _corr >= 0.6 & _corr < 0.7
-                    replace _color_int = 8 if _corr >= 0.7 & _corr < 0.8
-                    replace _color_int = 9 if _corr >= 0.8 & _corr < 0.9
-                    replace _color_int = 10 if _corr >= 0.9 & !missing(_corr)
+                    replace `colorint' = 1 if `corr' >= 0 & `corr' < 0.1 & !missing(`corr')
+                    replace `colorint' = 2 if `corr' >= 0.1 & `corr' < 0.2
+                    replace `colorint' = 3 if `corr' >= 0.2 & `corr' < 0.3
+                    replace `colorint' = 4 if `corr' >= 0.3 & `corr' < 0.4
+                    replace `colorint' = 5 if `corr' >= 0.4 & `corr' < 0.5
+                    replace `colorint' = 6 if `corr' >= 0.5 & `corr' < 0.6
+                    replace `colorint' = 7 if `corr' >= 0.6 & `corr' < 0.7
+                    replace `colorint' = 8 if `corr' >= 0.7 & `corr' < 0.8
+                    replace `colorint' = 9 if `corr' >= 0.8 & `corr' < 0.9
+                    replace `colorint' = 10 if `corr' >= 0.9 & !missing(`corr')
                     * For negative correlations (red)
-                    replace _color_int = -1 if _corr < 0 & _corr >= -0.1
-                    replace _color_int = -2 if _corr < -0.1 & _corr >= -0.2
-                    replace _color_int = -3 if _corr < -0.2 & _corr >= -0.3
-                    replace _color_int = -4 if _corr < -0.3 & _corr >= -0.4
-                    replace _color_int = -5 if _corr < -0.4 & _corr >= -0.5
-                    replace _color_int = -6 if _corr < -0.5 & _corr >= -0.6
-                    replace _color_int = -7 if _corr < -0.6 & _corr >= -0.7
-                    replace _color_int = -8 if _corr < -0.7 & _corr >= -0.8
-                    replace _color_int = -9 if _corr < -0.8 & _corr >= -0.9
-                    replace _color_int = -10 if _corr < -0.9
+                    replace `colorint' = -1 if `corr' < 0 & `corr' >= -0.1
+                    replace `colorint' = -2 if `corr' < -0.1 & `corr' >= -0.2
+                    replace `colorint' = -3 if `corr' < -0.2 & `corr' >= -0.3
+                    replace `colorint' = -4 if `corr' < -0.3 & `corr' >= -0.4
+                    replace `colorint' = -5 if `corr' < -0.4 & `corr' >= -0.5
+                    replace `colorint' = -6 if `corr' < -0.5 & `corr' >= -0.6
+                    replace `colorint' = -7 if `corr' < -0.6 & `corr' >= -0.7
+                    replace `colorint' = -8 if `corr' < -0.7 & `corr' >= -0.8
+                    replace `colorint' = -9 if `corr' < -0.8 & `corr' >= -0.9
+                    replace `colorint' = -10 if `corr' < -0.9
                 }
                 else {
                     * Grayscale: use absolute value
-                    replace _color_int = round(abs(_corr) * 10) if !missing(_corr)
+                    replace `colorint' = round(abs(`corr') * 10) if !missing(`corr')
                 }
             }
 
@@ -1399,11 +1408,11 @@ program define datamvp, rclass byable(recall) sortpreserve
             local twoway_cmd "twoway"
             forv i = 1/10 {
                 local pcol : word `i' of `pos_colors'
-                local twoway_cmd `"`twoway_cmd' (scatter _rowid _colid if _color_int == `i', msymbol(square) msize(`msize') mcolor(`pcol') mlcolor(none))"'
+                local twoway_cmd `"`twoway_cmd' (scatter `rowid' `colid' if `colorint' == `i', msymbol(square) msize(`msize') mcolor(`pcol') mlcolor(none))"'
             }
             forv i = 1/10 {
                 local ncol : word `i' of `neg_colors'
-                local twoway_cmd `"`twoway_cmd' (scatter _rowid _colid if _color_int == -`i', msymbol(square) msize(`msize') mcolor(`ncol') mlcolor(none))"'
+                local twoway_cmd `"`twoway_cmd' (scatter `rowid' `colid' if `colorint' == -`i', msymbol(square) msize(`msize') mcolor(`ncol') mlcolor(none))"'
             }
 
             * Add text labels if requested
@@ -1412,7 +1421,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local textlabsz "vsmall"
                 if `nvar' > 10 local textlabsz "tiny"
                 if `nvar' > 20 local textlabsz "half_tiny"
-                local textlayer `"(scatter _rowid _colid, msymbol(none) mlabel(_corr_label) mlabposition(0) mlabsize(`textlabsz') mlabcolor(black))"'
+                local textlayer `"(scatter `rowid' `colid', msymbol(none) mlabel(`corrlabel') mlabposition(0) mlabsize(`textlabsz') mlabcolor(black))"'
             }
 
             * Build variable name labels for axes
