@@ -2,7 +2,7 @@ clear all
 set more off
 version 16.0
 
-* test_datacheck.do - Functional tests for the datacheck command (datamap 1.3.0)
+* test_datacheck.do - Functional tests for the datacheck command (datamap 1.4.0)
 * Covers the QA plan in the datacheck spec:
 *   classification parity with datamap, per-class rendering, id()/uniqueness,
 *   every gate (pass + r(9) fail), warn downgrade, single() preservation,
@@ -435,9 +435,11 @@ capture {
     assert _N >= 1
     confirm variable check
     confirm variable variable
+    quietly count if check == "isid" & variable == "pid"
+    assert r(N) == 1
     restore
 }
-_dc `=_rc' "planned makespec(): starter spec .dta is created with core columns"
+_dc `=_rc' "planned makespec(): starter spec .dta is created with core columns and candidate key"
 capture erase "`made_spec'.dta"
 
 * allowed()/forbid()/regex()/notvalues(): value-domain gates
@@ -490,9 +492,11 @@ capture {
     assert `cmdrc' == 0
     assert r(n_violations) == 1
     assert r(n_groups) == 2
+    assert r(n_group_missing_vars) == 1
     assert strpos("`r(violations)'", "notmissing") > 0
+    assert trim("`r(group_missing_vars)'") == "age"
 }
-_dc `=_rc' "planned over(): groupwise gate violations are counted and named"
+_dc `=_rc' "planned over(): groupwise gate violations and missingness are counted and named"
 
 * mincell()/maskrare(): privacy smoke path for small categorical cells
 _dc_make_planned
@@ -543,3 +547,4 @@ if $FAIL > 0 {
 }
 display as result "ALL TESTS PASSED"
 display "RESULT: test_datacheck tests=$TC pass=$PASS fail=$FAIL"
+exit 0

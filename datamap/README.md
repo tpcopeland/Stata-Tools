@@ -1,15 +1,15 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.3.0** | 2026-06-17
+**Version 1.4.0** | 2026-06-18
 
 `datamap` documents Stata datasets without exporting row-level data. It produces three kinds of output:
 
 - **`datamap`** writes structured text or JSON designed for LLM prompts, internal data handoffs, or automated pipelines. It includes privacy controls (`exclude()`, `datesafe`, `mincell()`), likely-identifier warnings, compact output, automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
-- **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value and statistics columns, and a table of contents when documenting multiple datasets.
+- **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value/statistics/detail columns, structured metadata export via `saving()`, manifests, and separate-output routing with `outdir()`/`suffix()`.
 - **`datacheck`** profiles a dataset to the console — per-class distributions, missingness, and key-structure/uniqueness — and can gate a do-file on declared expectations (`expectn()`, `isid()`, `inrange()`, `notmissing()`, ...), halting with `r(9)` when reality does not match what you declared.
 - **`datamvp`** analyzes missing-value patterns: pattern-frequency tables, monotone-missingness tests for multiple imputation, stratified analysis, and missingness graphics (a fork of Jeroen Weesie's `mvpatterns`). `datacheck`'s `patterns` option calls it.
 
-`datamap`, `datadict`, and `datacheck` share one classification engine and preserve the dataset in memory. `datamap` and `datadict` accept the same input modes (data in memory, a single `.dta` file, a directory scan, or a named file list); `datacheck` profiles data in memory or a single saved file.
+`datamap`, `datadict`, and `datacheck` share one classification engine and preserve the dataset in memory. `datamap` and `datadict` accept data in memory, a single `.dta` file, a directory scan, or a named file list; `datadict` also accepts line-delimited manifests for path-safe batch dictionaries.
 
 ## Requirements
 
@@ -36,7 +36,7 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 1. **Choose the input source.** Load data into memory (the default), or point at a file with `single()`, a folder with `directory()`, or a list of names with `filelist()`.
 2. **Pick the output command.** Use `datamap` for plain text or `datadict` for Markdown.
-3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`, `mincell()`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), compact output (`compact`), JSON output (`format(json)`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`) and descriptive statistics (`stats`, `missing`) to `datadict`.
+3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`, `mincell()`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), compact output (`compact`), JSON output (`format(json)`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`), descriptive statistics (`stats`, `missing`), technical columns (`detail`, `columns()`), provenance (`datasignature`), and metadata export (`saving()`) to `datadict`.
 4. **Write the output.** One combined file by default, or separate files per dataset with `separate`.
 
 ## Worked Examples
@@ -87,6 +87,15 @@ datadict, output(auto_dictionary.md) ///
     missing stats
 ```
 
+Write structured metadata alongside the Markdown dictionary:
+
+```stata
+sysuse auto, clear
+datadict price mpg foreign, output(auto_dictionary.md) ///
+    detail missing stats datasignature ///
+    saving(auto_dictionary_meta.dta, replace)
+```
+
 ### 6. Document a saved dataset by filename
 
 Both commands work on `.dta` files without loading them first:
@@ -105,7 +114,7 @@ Document every `.dta` file in a folder — combined or one file per dataset:
 
 ```stata
 datamap, directory("analysis_data") recursive output(project_map.txt)
-datadict, directory("analysis_data") recursive separate
+datadict, directory("analysis_data") recursive separate outdir("docs") suffix("_dict")
 ```
 
 ### 8. Interactive QC and an expectation gate with `datacheck`
@@ -228,7 +237,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.3.0",
+  "datamap_version": "1.4.0",
   "format": "json",
   "datasets": [
     {
@@ -445,6 +454,8 @@ Monotone missingness test:
 | Output | `output()`, `separate` |
 | Metadata | `title()`, `subtitle()`, `version()`, `author()`, `date()` |
 | Content | `notes()`, `changelog()`, `missing`, `stats`, `maxcat()`, `maxfreq()`, `dateformat()` |
+| Technical metadata | `detail`, `columns()`, `datasignature`, `saving()` |
+| Batch/project workflow | `manifest()`, `outdir()`, `suffix()`, `config()` |
 
 ### Variable classification (both commands)
 

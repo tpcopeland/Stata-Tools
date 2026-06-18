@@ -1242,6 +1242,104 @@ else {
     local ++fail_count
 }
 
+* Test: datadict selected variables, custom columns, metadata saving, datasignature
+local ++test_count
+capture noisily {
+    datadict age bmi, single("`tmp_dir'/test_cohort") ///
+        output("`tmp_dir'/_dd_subset.md") ///
+        columns(variable label type stats) ///
+        saving("`tmp_dir'/_dd_subset_meta.dta", replace) datasignature
+    assert r(nfiles) == 1
+    assert r(nvars_total) == 2
+    assert r(nobs_total) == 100
+    assert "`r(mode)'" == "single"
+    assert strpos("`r(metadata)'", "_dd_subset_meta.dta") > 0
+    confirm file "`tmp_dir'/_dd_subset.md"
+    confirm file "`tmp_dir'/_dd_subset_meta.dta"
+    preserve
+    use "`tmp_dir'/_dd_subset_meta.dta", clear
+    assert _N == 2
+    confirm variable source
+    confirm variable output
+    confirm variable mean
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - varlist columns() saving() datasignature and totals"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - v1.4 metadata export (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datadict manifest with separate outdir and custom suffix
+local ++test_count
+capture noisily {
+    file open ddmf using "`tmp_dir'/_dd_manifest.txt", write text replace
+    file write ddmf "`tmp_dir'/test_cohort.dta" _n
+    file write ddmf "`tmp_dir'/test_small.dta" _n
+    file close ddmf
+
+    datadict, manifest("`tmp_dir'/_dd_manifest.txt") separate ///
+        outdir("`tmp_dir'") suffix("_dict")
+    assert r(nfiles) == 2
+    assert r(nvars_total) == 10
+    assert r(nobs_total) == 105
+    assert "`r(mode)'" == "manifest"
+    assert strpos("`r(files)'", "test_cohort.dta") > 0
+    assert strpos("`r(outputs)'", "test_cohort_dict.md") > 0
+    confirm file "`tmp_dir'/test_cohort_dict.md"
+    confirm file "`tmp_dir'/test_small_dict.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - manifest separate outdir() suffix()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - manifest/outdir/suffix (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datadict config file defaults
+local ++test_count
+capture noisily {
+    file open ddcfg using "`tmp_dir'/_dd_config.conf", write text replace
+    file write ddcfg "title = Configured Dictionary" _n
+    file write ddcfg "columns = variable label type" _n
+    file write ddcfg "datasignature = yes" _n
+    file close ddcfg
+
+    datadict, single("`tmp_dir'/test_small") config("`tmp_dir'/_dd_config.conf") ///
+        output("`tmp_dir'/_dd_config.md")
+    confirm file "`tmp_dir'/_dd_config.md"
+    assert "`r(mode)'" == "single"
+
+    local saw_title = 0
+    local saw_header = 0
+    local saw_signature = 0
+    file open ddcfgout using "`tmp_dir'/_dd_config.md", read text
+    file read ddcfgout line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "# Configured Dictionary") > 0 local saw_title = 1
+        if strpos(`"`macval(line)'"', "| Variable | Label | Type |") > 0 local saw_header = 1
+        if strpos(`"`macval(line)'"', "**Data signature:**") > 0 local saw_signature = 1
+        file read ddcfgout line
+    }
+    file close ddcfgout
+    assert `saw_title' == 1
+    assert `saw_header' == 1
+    assert `saw_signature' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - config() defaults"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - config() defaults (error `=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 **# v1.0.7 Feature Tests
 * ============================================================
@@ -1667,7 +1765,7 @@ capture noisily {
         if regexm(`"`macval(line)'"', "anonymous identifiers") {
             local found_anonymous 1
         }
-        if regexm(`"`macval(line)'"', "No additional notes provided") {
+        if regexm(`"`macval(line)'"', "All date variables are displayed") {
             local found_no_notes 1
         }
         file read `fh' line
@@ -1729,8 +1827,19 @@ local md_files : dir "`tmp_dir'" files "_dd_*.md"
 foreach f of local md_files {
     capture erase "`tmp_dir'/`f'"
 }
+local meta_files : dir "`tmp_dir'" files "_dd_*.dta"
+foreach f of local meta_files {
+    capture erase "`tmp_dir'/`f'"
+}
+local conf_files : dir "`tmp_dir'" files "_dd_*.conf"
+foreach f of local conf_files {
+    capture erase "`tmp_dir'/`f'"
+}
+capture erase "`tmp_dir'/_dd_manifest.txt"
 capture erase "`tmp_dir'/test_cohort_map.txt"
 capture erase "`tmp_dir'/test_small_map.txt"
+capture erase "`tmp_dir'/test_cohort_dict.md"
+capture erase "`tmp_dir'/test_small_dict.md"
 capture erase "`qa_dir'/test_cohort_dictionary.md"
 capture erase "`qa_dir'/test_small_dictionary.md"
 
@@ -1743,8 +1852,11 @@ display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' 
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
+    display "RESULT: test_datamap tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+display "RESULT: test_datamap tests=`test_count' pass=`pass_count' fail=`fail_count'"
+exit 0

@@ -10,12 +10,18 @@
 ## 1. Test Cohort Miss
 
 **Filename:** `test_cohort_miss.dta`  
+**Source path:** <normalized>
 **Description:** Dataset containing 8 variables and 100 observations.
+**Observations:** 100
+**Variables in file:** 8
+**Variables documented:** 8
+**File size:** <normalized>
+**File modified:** <normalized>
 
 ### Variables
 
 | Variable | Label | Type | Missing | Statistics/Values |
-|----------|-------|------|---------|-------------------|
+|---|---|---|---|---|
 | `id` | Unique identifier | Numeric | 0 (0.0%) | N=100<br>Median=50.50; IQR=25.50-75.50<br>Mean=50.50 (SD=29.01)<br>Range=1.00-100 |
 | `age` | Age in years | Numeric | 10 (10.0%) | N=90<br>Median=46.00; IQR=31.00-68.00<br>Mean=49.31 (SD=18.87)<br>Range=20.00-79.00 |
 | `sex` | Sex of participant | Numeric | 0 (0.0%) | Unique=2<br>0 Female (46; 46.0%)<br>1 Male (54; 54.0%) |
@@ -28,7 +34,8 @@
 
 ## Notes
 
-- No additional notes provided
+- All date variables are displayed using %tdCCYY/NN/DD format
+- Missing values coded as . (numeric missing) or empty string
 
 
 ## Change Log

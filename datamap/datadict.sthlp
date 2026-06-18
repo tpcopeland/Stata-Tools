@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  17jun2026}{...}
+{* *! version 1.4.0  18jun2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] labelbook" "help labelbook"}{...}
@@ -23,21 +23,26 @@
 
 {p 8 17 2}
 {cmd:datadict}
+[{it:varlist}]
 [{cmd:,}
 {it:options}]
 
-{synoptset 28 tabbed}{...}
+{synoptset 34 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Input {it:(choose at most one; default is data in memory)}}
 {synopt:{opt si:ngle(filename)}}document one {opt .dta} file{p_end}
 {synopt:{opt dir:ectory(path)}}document every {opt .dta} file in {it:path}{p_end}
 {synopt:{opt file:list(names)}}space-separated dataset names to document{p_end}
+{synopt:{opt man:ifest(filename)}}line-delimited dataset path manifest{p_end}
 {synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
 {synopt:{opt ou:tput(filename)}}output Markdown file; default is {bf:data_dictionary.md}{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
+{synopt:{opt outd:ir(path)}}with {opt separate}, write dictionaries to {it:path}{p_end}
+{synopt:{opt suf:fix(string)}}with {opt separate}, filename suffix; default {bf:_dictionary}{p_end}
+{synopt:{opt sav:ing(filename[, replace])}}save variable-level metadata dataset{p_end}
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; default is {bf:Data Dictionary}{p_end}
@@ -51,6 +56,10 @@
 {synopt:{opt change:log(string)}}changelog text, or path to a text file{p_end}
 {synopt:{opt miss:ing}}add a Missing column with count and percent{p_end}
 {synopt:{opt st:ats}}add descriptive statistics to the Values column{p_end}
+{synopt:{opt det:ail}}add storage type, format, value-label, notes, and characteristics columns{p_end}
+{synopt:{opt col:umns(fields)}}select and order variable table columns{p_end}
+{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
+{synopt:{opt datasig:nature}}include Stata {cmd:datasignature} in provenance{p_end}
 {synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to show individually; default {bf:25}{p_end}
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
@@ -58,8 +67,9 @@
 {p2colreset}{...}
 
 {pstd}
-The {opt .dta} extension is optional everywhere and is added automatically when
-omitted.
+The {opt .dta} extension is optional for named dataset inputs and is added
+automatically when omitted.  {it:varlist} may be specified only with data in
+memory or {opt single()}.
 
 
 {marker description}{...}
@@ -126,8 +136,12 @@ Hidden directories (names beginning with {cmd:.}) and {cmd:__pycache__} are
 always skipped.
 
 {pstd}
-Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
-specified.  Specifying more than one is an error.
+{opt man:ifest(filename)} reads one dataset path per line.  Blank lines and
+lines beginning with {cmd:#} are ignored.
+
+{pstd}
+Only one of {opt single()}, {opt directory()}, {opt filelist()}, or
+{opt manifest()} may be specified.  Specifying more than one is an error.
 
 {dlgtab:Output}
 
@@ -136,11 +150,27 @@ specified.  Specifying more than one is an error.
 {bf:data_dictionary.md}.  When {opt separate} is specified this option is
 ignored; instead each dataset produces a file named
 {it:datasetname}{cmd:_dictionary.md} in the same directory as the source
-dataset.
+dataset, or in {opt outdir()} if specified.
 
 {phang}
 {opt sep:arate} writes a separate Markdown file for each dataset instead of
 combining them into one document.
+
+{phang}
+{opt outd:ir(path)} writes all separate dictionaries to {it:path}.  The
+directory must already exist.
+
+{phang}
+{opt suf:fix(string)} sets the suffix appended before {cmd:.md} in
+{opt separate} mode.  Default is {bf:_dictionary}.
+
+{phang}
+{opt sav:ing(filename[, replace])} writes a Stata metadata dataset with one row
+per documented variable per source dataset.  It includes source path, output
+path, dataset name and label, variable name, storage type, display format, value
+label name, class, N, number of variables in the source dataset, missing count,
+unique count, variable label, notes, characteristics, and numeric summary
+statistics when available.  Specify {cmd:replace} to overwrite an existing file.
 
 {dlgtab:Document metadata}
 
@@ -201,6 +231,30 @@ type of statistics depends on variable classification:
 {p_end}
 
 {phang}
+{opt det:ail} adds technical metadata columns: storage type, display format,
+value-label name, variable notes, and variable characteristics.
+
+{phang}
+{opt col:umns(fields)} selects and orders the variable table columns.  Allowed
+fields are {cmd:name}, {cmd:label}, {cmd:type}, {cmd:class}, {cmd:storage},
+{cmd:format}, {cmd:vallabel}, {cmd:missing}, {cmd:values}, {cmd:stats},
+{cmd:notes}, and {cmd:chars}.  If {opt columns()} is specified, it controls the
+table layout; include {cmd:missing} or {cmd:stats} in the field list to display
+those columns.
+
+{phang}
+{opt conf:ig(filename)} reads reusable defaults from a text file containing
+{cmd:key = value} lines.  Supported keys are {cmd:title}, {cmd:subtitle},
+{cmd:version}, {cmd:author}, {cmd:date}, {cmd:notes}, {cmd:changelog},
+{cmd:output}, {cmd:outdir}, {cmd:suffix}, {cmd:columns}, {cmd:missing},
+{cmd:stats}, {cmd:detail}, and {cmd:datasignature}.  Command-line options
+override config-file defaults.
+
+{phang}
+{opt datasig:nature} computes and reports Stata's {cmd:datasignature} for each
+source dataset in the provenance block.
+
+{phang}
 {opt maxc:at(#)} sets the cutoff that separates categorical from continuous.
 Numeric variables with value labels or with {it:#} or fewer unique values are
 treated as categorical.  Default is {bf:25}.  Must be positive.
@@ -249,9 +303,20 @@ Variable classification follows the same hierarchy as {help datamap}:
 {pstd}
 The {opt notes()} and {opt changelog()} options accept either a literal string
 or a file path.  If the argument is a path to an existing file, the file's
-contents are read and inserted verbatim; otherwise the string itself is used.
+contents are read and inserted after Markdown table-breaking characters are
+escaped; otherwise the string itself is used.
 This lets you maintain notes in a separate file and reference it across
 multiple dictionaries.
+
+{pstd}
+{bf:Output naming}
+
+{pstd}
+Combined mode writes one Markdown file named by {opt output()}.  Separate mode
+writes one file per source dataset.  By default, those files are written beside
+the source data as {it:datasetname}{cmd:_dictionary.md}.  Use
+{opt outdir()} and {opt suffix()} to write them to a documentation directory,
+for example {cmd:outdir(docs) suffix(_codebook)}.
 
 
 {marker examples}{...}
@@ -305,6 +370,27 @@ Document every dataset in a directory, one file each:{p_end}
 
 {phang2}{cmd:. datadict, directory(data) recursive separate}{p_end}
 
+{pstd}
+Write separate dictionaries to a documentation directory with a custom suffix:{p_end}
+
+{phang2}{cmd:. datadict, directory(data) recursive separate outdir(docs) suffix(_dict)}{p_end}
+
+    {title:Technical metadata and automation}
+
+{pstd}
+Document a subset of variables, add detailed columns, and save structured
+metadata for QA checks:{p_end}
+
+{phang2}{cmd:. datadict age sex bmi, single(analysis/cohort) ///}{p_end}
+{phang2}{cmd:     output(docs/cohort_dictionary.md) ///}{p_end}
+{phang2}{cmd:     detail missing stats datasignature ///}{p_end}
+{phang2}{cmd:     saving(qa/cohort_dictionary_meta.dta, replace)}{p_end}
+
+{pstd}
+Use a line-delimited manifest when paths are long or contain spaces:{p_end}
+
+{phang2}{cmd:. datadict, manifest(data_manifest.txt) separate outdir(docs)}{p_end}
+
     {title:Notes and changelog from files}
 
 {pstd}
@@ -331,10 +417,16 @@ Or pass a short note inline:{p_end}
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
+{synopt:{cmd:r(nvars_total)}}total variables documented across datasets{p_end}
+{synopt:{cmd:r(nobs_total)}}sum of source-dataset observations across datasets{p_end}
 {synoptline}
 
 {p2col 5 15 19 2: Macros}{p_end}
-{synopt:{cmd:r(output)}}output filename{p_end}
+{synopt:{cmd:r(output)}}combined output filename, or semicolon-delimited separate outputs{p_end}
+{synopt:{cmd:r(outputs)}}semicolon-delimited output filename list{p_end}
+{synopt:{cmd:r(files)}}semicolon-delimited source file list, or {bf:memory}{p_end}
+{synopt:{cmd:r(mode)}}input mode: {bf:memory}, {bf:single}, {bf:filelist}, {bf:manifest}, {bf:directory}, or {bf:directory_recursive}{p_end}
+{synopt:{cmd:r(metadata)}}metadata dataset path, when {opt saving()} is specified{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -347,7 +439,7 @@ Or pass a short note inline:{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.3.0 {hline 2} 17jun2026{p_end}
+{pstd}Version 1.4.0 {hline 2} 18jun2026{p_end}
 
 
 {title:Also see}

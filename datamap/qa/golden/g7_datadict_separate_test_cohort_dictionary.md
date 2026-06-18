@@ -4,12 +4,18 @@
 ## 1. Test Cohort
 
 **Filename:** `test_cohort.dta`  
+**Source path:** <normalized>
 **Description:** Dataset containing 8 variables and 100 observations.
+**Observations:** 100
+**Variables in file:** 8
+**Variables documented:** 8
+**File size:** <normalized>
+**File modified:** <normalized>
 
 ### Variables
 
 | Variable | Label | Type | Values/Notes |
-|----------|-------|------|--------------|
+|---|---|---|---|
 | `id` | Unique identifier | Numeric | Unique identifier |
 | `age` | Age in years | Numeric |  |
 | `sex` | Sex of participant | Numeric | 0=Female, 1=Male |
@@ -24,6 +30,11 @@
 
 - All date variables are displayed using %tdCCYY/NN/DD format
 - Missing values coded as . (numeric missing) or empty string
+
+
+## Change Log
+
+*No changes recorded.*
 
 
 **Last Updated:** <normalized>

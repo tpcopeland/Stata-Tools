@@ -1,4 +1,4 @@
-*! datacheck Version 1.3.0  2026/06/17
+*! datacheck Version 1.4.0  2026/06/18
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1328,6 +1328,8 @@ program define datacheck, rclass
             frame `sframe': quietly replace note = "observed N" in `srow'
             local spec_key ""
             foreach v of local profilevars {
+                quietly count if missing(`v')
+                if r(N) > 0 continue
                 capture isid `v'
                 if !_rc {
                     local spec_key "`v'"

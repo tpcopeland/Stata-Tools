@@ -1,4 +1,4 @@
-*! datamap Version 1.3.0  2026/06/17
+*! datamap Version 1.4.0  2026/06/18
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -404,7 +404,7 @@ program define _datamap_ProcessCombined, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.3.0","' _n
+				file write `fh' `"  "datamap_version": "1.4.0","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -562,7 +562,7 @@ program define _datamap_ProcessSeparate, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.3.0","' _n
+				file write `fh' `"  "datamap_version": "1.4.0","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n

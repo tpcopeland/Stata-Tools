@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  17jun2026}{...}
+{* *! version 1.4.0  18jun2026}{...}
 {vieweralsosee "datamap" "help datamap"}{...}
 {vieweralsosee "datadict" "help datadict"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
@@ -70,7 +70,7 @@
 {synopt:{opt for:bid(spec)}}assert variables do not contain forbidden values{p_end}
 {synopt:{opt regex(spec)}}assert string variables match regular expressions{p_end}
 {synopt:{opt notv:alues(spec)}}assert variables do not contain sentinel or disallowed values{p_end}
-{synopt:{opt by(varlist)}}evaluate gates within groups defined by {it:varlist}{p_end}
+{synopt:{opt by(varlist)}}evaluate gates and missingness summaries within groups defined by {it:varlist}{p_end}
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
 {synopt:{opt makes:pec(filename[, replace])}}write a starter checks file from the current dataset{p_end}
@@ -237,8 +237,9 @@ matches {opt allowed()} and {opt forbid()}:
 {cmd:notvalues(age -9 999 \ outcome "UNKNOWN")}.
 
 {phang}
-{opt by(varlist)} evaluates gates within groups defined by {it:varlist}.  Use
-this when a rule is meaningful within strata, for example checking duplicate
+{opt by(varlist)} evaluates gates within groups defined by {it:varlist} and
+adds a groupwise completeness and missingness profile to the console report.
+Use this when a rule is meaningful within strata, for example checking duplicate
 visit numbers within each site.  {opt over(varname)} is a single-variable
 synonym for {opt by(varlist)}.
 
@@ -249,8 +250,11 @@ imports, refreshes, and batch runs.
 
 {phang}
 {opt makes:pec(filename[, replace])} writes a starter checks file from the
-current dataset.  The generated file is a template: review the proposed ranges,
-allowed values, and required variables before treating it as a gate contract.
+current dataset.  The generated file includes the observed row count, required
+variables, observed ranges or allowed values, and the first unique nonmissing
+variable as a candidate {cmd:isid} key when one is found.  Review the proposed
+ranges, allowed values, and required variables before treating it as a gate
+contract.
 
 {phang}
 {opt warn} downgrades every gate from a halt to a warning: violations are
@@ -278,6 +282,12 @@ may expand this option; {cmd:flagged} is the privacy- and batch-oriented filter.
 {opt viol:ations(name[, replace])} saves one row per warning or violation.  If
 {it:name} ends in {opt .dta} or contains a path separator the violation table is
 written to that file; otherwise it is copied into a frame of that name.
+
+{pstd}
+Privacy-oriented logs should combine {opt show(flagged)} with {opt maskrare}
+and {opt mincell()}.  Excluded variables are named but their contents are not
+displayed, and low-frequency cells are suppressed when rare-cell masking is
+enabled.
 
 
 {marker gate}{...}
@@ -374,6 +384,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(n_missing_vars)}}number of variables with missing values{p_end}
 {synopt:{cmd:r(n_outlier_vars)}}number of variables with outlier flags{p_end}
 {synopt:{cmd:r(n_rare_vars)}}number of variables with rare-level flags{p_end}
+{synopt:{cmd:r(n_group_missing_vars)}}number of variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
 {synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}duplicate-key count for each declared {opt id()} key{p_end}
@@ -392,6 +403,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(missing_vars)}}variables with missing values{p_end}
 {synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}
 {synopt:{cmd:r(rare_vars)}}variables with rare-level flags{p_end}
+{synopt:{cmd:r(group_missing_vars)}}variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -408,7 +420,7 @@ violations so subsequent Stata code can inspect the results programmatically.
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.3.0 {hline 2} 17jun2026{p_end}
+{pstd}Version 1.4.0 {hline 2} 18jun2026{p_end}
 
 
 {title:Also see}

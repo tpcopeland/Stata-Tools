@@ -13,7 +13,8 @@ program define _golden_normalize
 
     tempname fh_in fh_out
     file open `fh_in' using `"`using'"', read text
-    file open `fh_out' using `"`saving'"', write text replace
+    capture erase `"`saving'"'
+    file open `fh_out' using `"`saving'"', write text
 
     file read `fh_in' line
     while r(eof) == 0 {
@@ -26,7 +27,29 @@ program define _golden_normalize
         }
 
         if `"`datadict'"' != "" {
-            if regexm(`"`macval(norm)'"', "^\*\*Last Updated:\*\* .*") {
+            if regexm(`"`macval(norm)'"', "^\*\*Source path:\*\* `.*`  $") {
+                local norm "**Source path:** <normalized>"
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*Description:\*\* .*  $") {
+                local norm = substr(`"`macval(norm)'"', 1, length(`"`macval(norm)'"') - 2)
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*Observations:\*\* .*  $") {
+                local norm = substr(`"`macval(norm)'"', 1, length(`"`macval(norm)'"') - 2)
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*Variables in file:\*\* .*  $") {
+                local norm = substr(`"`macval(norm)'"', 1, length(`"`macval(norm)'"') - 2)
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*Variables documented:\*\* .*  $") {
+                local norm = substr(`"`macval(norm)'"', 1, length(`"`macval(norm)'"') - 2)
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*File size:\*\* .* bytes") {
+                local norm "**File size:** <normalized>"
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*File modified:\*\* .*") {
+                local norm "**File modified:** <normalized>"
+            }
+            if regexm(`"`macval(norm)'"', "^\*\*Last Updated:\*\* .*") & ///
+               !regexm(`"`macval(norm)'"', "^\*\*Last Updated:\*\* [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$") {
                 local norm "**Last Updated:** <normalized>"
             }
         }
@@ -125,7 +148,7 @@ local golden_dir "`qa_dir'/golden"
 capture mkdir "`golden_dir'"
 
 capture ado uninstall datamap
-quietly net install datamap, from("`pkg_dir'") force
+quietly net install datamap, from("`pkg_dir'") replace
 
 tempname tmpstub
 local tmp_dir "`c(tmpdir)'/datamap_golden_`tmpstub'"
@@ -140,7 +163,7 @@ local test_count 0
 local ++test_count
 local raw  "`tmp_dir'/g1_datamap_compact.txt"
 local norm "`tmp_dir'/g1_datamap_compact.norm.txt"
-datamap, single("`data_dir'/test_small") output("`raw'")
+quietly datamap, single("`data_dir'/test_small") output("`raw'")
 _golden_check, name("G1 compact datamap single default text") ///
     raw("`raw'") norm("`norm'") ///
     expected("`golden_dir'/g1_datamap_compact.txt") datamap
@@ -148,7 +171,7 @@ _golden_check, name("G1 compact datamap single default text") ///
 local ++test_count
 local raw  "`tmp_dir'/g2_datamap_full.txt"
 local norm "`tmp_dir'/g2_datamap_full.norm.txt"
-datamap, single("`data_dir'/test_cohort_miss") output("`raw'") ///
+quietly datamap, single("`data_dir'/test_cohort_miss") output("`raw'") ///
     exclude(id name) datesafe autodetect quality missing(pattern) samples(3)
 _golden_check, name("G2 full datamap privacy quality missing samples") ///
     raw("`raw'") norm("`norm'") ///
@@ -157,17 +180,19 @@ _golden_check, name("G2 full datamap privacy quality missing samples") ///
 local ++test_count
 local raw  "`tmp_dir'/g3_datamap_append.txt"
 local norm "`tmp_dir'/g3_datamap_append.norm.txt"
-datamap, single("`data_dir'/test_small") output("`raw'")
-datamap, single("`data_dir'/test_single") output("`raw'") append
+quietly datamap, single("`data_dir'/test_small") output("`raw'")
+quietly datamap, single("`data_dir'/test_single") output("`raw'") append
 _golden_check, name("G3 datamap append two calls") ///
     raw("`raw'") norm("`norm'") ///
     expected("`golden_dir'/g3_datamap_append.txt") datamap
 
 local sep_dir "`tmp_dir'/separate_datamap"
 capture mkdir "`sep_dir'"
-copy "`data_dir'/test_cohort.dta" "`sep_dir'/test_cohort.dta", replace
-copy "`data_dir'/test_small.dta" "`sep_dir'/test_small.dta", replace
-datamap, filelist("`sep_dir'/test_cohort" "`sep_dir'/test_small") separate
+capture erase "`sep_dir'/test_cohort.dta"
+capture erase "`sep_dir'/test_small.dta"
+copy "`data_dir'/test_cohort.dta" "`sep_dir'/test_cohort.dta"
+copy "`data_dir'/test_small.dta" "`sep_dir'/test_small.dta"
+quietly datamap, filelist("`sep_dir'/test_cohort" "`sep_dir'/test_small") separate
 
 local ++test_count
 local raw  "`sep_dir'/test_cohort_map.txt"
@@ -190,7 +215,7 @@ _golden_check, name("G4 datamap separate filelist test_small") ///
 local ++test_count
 local raw  "`tmp_dir'/g5_datadict_basic.md"
 local norm "`tmp_dir'/g5_datadict_basic.norm.md"
-datadict, single("`data_dir'/test_cohort_miss") output("`raw'") missing stats
+quietly datadict, single("`data_dir'/test_cohort_miss") output("`raw'") missing stats
 _golden_check, name("G5 basic datadict single missing stats") ///
     raw("`raw'") norm("`norm'") ///
     expected("`golden_dir'/g5_datadict_basic.md") datadict
@@ -198,20 +223,22 @@ _golden_check, name("G5 basic datadict single missing stats") ///
 local ++test_count
 local raw  "`tmp_dir'/g6_datadict_full.md"
 local norm "`tmp_dir'/g6_datadict_full.norm.md"
-datadict, single("`data_dir'/test_cohort_miss") output("`raw'") ///
+quietly datadict, single("`data_dir'/test_cohort_miss") output("`raw'") ///
     title("MS Cohort") subtitle("Golden data dictionary") ///
     version("2.0") author("Timothy P Copeland, Karolinska Institutet") ///
     date("2026-01-01") notes("Golden notes for refactor safety.") ///
     changelog("v2.0: Golden harness baseline") missing stats
 _golden_check, name("G6 full datadict metadata explicit date") ///
     raw("`raw'") norm("`norm'") ///
-    expected("`golden_dir'/g6_datadict_full.md")
+    expected("`golden_dir'/g6_datadict_full.md") datadict
 
 local sep_dd_dir "`tmp_dir'/separate_datadict"
 capture mkdir "`sep_dd_dir'"
-copy "`data_dir'/test_cohort.dta" "`sep_dd_dir'/test_cohort.dta", replace
-copy "`data_dir'/test_small.dta" "`sep_dd_dir'/test_small.dta", replace
-datadict, filelist("`sep_dd_dir'/test_cohort" "`sep_dd_dir'/test_small") separate
+capture erase "`sep_dd_dir'/test_cohort.dta"
+capture erase "`sep_dd_dir'/test_small.dta"
+copy "`data_dir'/test_cohort.dta" "`sep_dd_dir'/test_cohort.dta"
+copy "`data_dir'/test_small.dta" "`sep_dd_dir'/test_small.dta"
+quietly datadict, filelist("`sep_dd_dir'/test_cohort" "`sep_dd_dir'/test_small") separate
 
 local ++test_count
 local raw  "`sep_dd_dir'/test_cohort_dictionary.md"
@@ -258,3 +285,6 @@ capture rmdir "`sep_dd_dir'"
 capture rmdir "`tmp_dir'"
 
 display as result "Golden-output tests passed: `test_count'"
+display as result "ALL TESTS PASSED"
+display "RESULT: test_datamap_golden tests=`test_count' pass=`test_count' fail=0"
+exit 0
