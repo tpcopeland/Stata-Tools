@@ -1,7 +1,7 @@
 /*******************************************************************************
 * test_stars_matrix.do
 *
-* Purpose: Tests for eplot v2.3.0 bug fixes and new features
+* Purpose: Regression tests for eplot stars, matrix, and style behavior
 *
 * Bug fixes tested:
 *   - Stars + eform p-value computation (CRITICAL)
@@ -18,6 +18,10 @@
 *   - r(k) return scalar
 *   - style(nejm) and style(bmj) presets
 *   - version 16.0 in helper programs
+*
+* Run modes:
+*   Standalone: do test_stars_matrix.do
+*   Via runner: do run_all.do [core|full]
 *
 * Author: Timothy Copeland
 * Date: 2026-04-01
@@ -77,7 +81,7 @@ local pass_count 0
 local fail_count 0
 local failed_tests ""
 
-display _newline "EPLOT v2.3.0 TESTS"
+display _newline "EPLOT STARS AND MATRIX REGRESSION TESTS"
 display "Date: `c(current_date)' `c(current_time)'"
 display _dup(70) "="
 

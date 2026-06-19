@@ -107,36 +107,6 @@ else {
     local ++fail_count
 }
 
-local ++test_count
-capture noisily {
-    capture erase "charlson_icd10_example.csv"
-    capture erase "elixhauser_icd10_example.csv"
-    net get codescan, from("`pkg_dir'") replace
-    confirm file "charlson_icd10_example.csv"
-    confirm file "elixhauser_icd10_example.csv"
-
-    import delimited using "charlson_icd10_example.csv", clear varnames(1)
-    confirm variable name
-    confirm variable pattern
-    confirm variable weight
-    count if name == "dm_uncomp" & pattern == "E100|E101|E106|E108|E109|E110|E111|E116|E118|E119|E120|E121|E126|E128|E129|E130|E131|E136|E138|E139|E140|E141|E146|E148|E149" & weight == 1
-    assert r(N) == 1
-
-    import delimited using "elixhauser_icd10_example.csv", clear varnames(1)
-    confirm variable name
-    confirm variable pattern
-    confirm variable weight
-    count if name == "chf" & pattern == "I099|I110|I130|I132|I255|I420|I425|I426|I427|I428|I429|I43|I50|P290" & weight == 7
-    assert r(N) == 1
-}
-if _rc == 0 {
-    display as result "  PASS: net get retrieves example codefiles with expected content"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: net get example codefiles (error `=_rc')"
-    local ++fail_count
-}
 
 **# README and help examples as installed workflows
 
@@ -296,27 +266,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: README prefix example (error `=_rc')"
-    local ++fail_count
-}
-
-local ++test_count
-capture noisily {
-    _load_codescan_doc_data
-    codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///
-        score(charlson) ///
-        hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)
-    assert _N == 3
-    confirm variable _score
-    assert _score == 1 if pid == 1
-    assert _score == 3 if pid == 2
-    assert _score == 0 if pid == 3
-}
-if _rc == 0 {
-    display as result "  PASS: bundled Charlson basename example works after install"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: bundled Charlson basename example (error `=_rc')"
     local ++fail_count
 }
 

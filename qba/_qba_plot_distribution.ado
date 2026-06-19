@@ -1,10 +1,9 @@
-*! _qba_plot_distribution Version 1.0.0  2026/06/02
+*! _qba_plot_distribution Version 1.0.1  2026/06/19
 *! Internal helper: qba distribution plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 capture program drop _qba_plot_distribution
-local _drop_rc = _rc
 program define _qba_plot_distribution, rclass
     version 16.0
     local _saved_varabbrev = c(varabbrev)
@@ -128,7 +127,15 @@ program define _qba_plot_distribution, rclass
                 local graph_rc = _rc
             }
             if `"`name'"' != "" {
-                capture noisily graph rename Graph `name', `graph_replace'
+                local _rename_replace ""
+                if "`graph_replace'" != "" {
+                    quietly graph dir
+                    local _graph_list " `r(list)' "
+                    if strpos("`_graph_list'", " `name' ") {
+                        local _rename_replace "`graph_replace'"
+                    }
+                }
+                capture noisily graph rename Graph `name', `_rename_replace'
                 if _rc & !`graph_rc' local graph_rc = _rc
             }
             local measure_return "`measure'"

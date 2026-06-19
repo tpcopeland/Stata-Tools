@@ -1,6 +1,6 @@
 /*******************************************************************************
 * test_edge_cases.do
-* Tests for eplot v2.0.2 bug fixes
+* Regression tests for eplot edge cases and bug fixes
 *
 * Tests:
 *   1-3:   nodiamonds fix — pooled effects show markers/CIs instead of nothing
@@ -9,6 +9,10 @@
 *   10-12: Edge cases — zero obs, single obs, all missing
 *   13-14: varabbrev restore verification
 *   15-16: Abbreviation disambiguation (msymbol vs msize)
+*
+* Run modes:
+*   Standalone: do test_edge_cases.do
+*   Via runner: do run_all.do [quick|core|full]
 *
 * Author: Timothy Copeland
 * Date: 2026-03-21
@@ -496,7 +500,7 @@ capture estimates drop _t18_m1 _t18_m2 _t18_m3
 * ==========================================================================
 
 display _n as text "{hline 70}"
-display as text "EPLOT V2.0.2 BUG FIX TEST SUMMARY"
+display as text "EPLOT EDGE CASE REGRESSION TEST SUMMARY"
 display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"

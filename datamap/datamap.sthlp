@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  19jun2026}{...}
+{* *! version 1.5.0  19jun2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -41,6 +41,8 @@
 {synopt:{opt f:ormat(string)}}output format: {bf:text} or {bf:json}{p_end}
 {synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 {synopt:{opt app:end}}append to an existing output file{p_end}
+{synopt:{opt sav:ing(filename[, replace])}}save common variable-level metadata dataset{p_end}
+{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
 
 {syntab:Content control}
 {synopt:{opt nost:ats}}suppress summary statistics for continuous variables{p_end}
@@ -56,6 +58,11 @@
 {synopt:{opt exc:lude(varlist)}}variables to document structure only (no values/stats){p_end}
 {synopt:{opt dates:afe}}show date-range span only, not exact dates{p_end}
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
+
+{syntab:Classification overrides}
+{synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
+{synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
+{synopt:{opt date(varlist)}}force these variables into the date group{p_end}
 
 {syntab:Detection}
 {synopt:{opt det:ect(options)}}enable specific structure detectors{p_end}
@@ -165,6 +172,24 @@ combining them into one file.  Output files are named
 Useful for incrementally building documentation.  Note that no header is added
 when appending.  {opt append} is not allowed with {cmd:format(json)}.
 
+{phang}
+{opt sav:ing(filename[, replace])} writes a common Stata metadata dataset with
+one row per source variable.  The schema is shared with {help datadict} and
+{help datacheck}: it includes source command, source path, output path, dataset
+name and label, variable name, storage type, display format, value label, class,
+N, source variable count, missing count and percent, unique count, labels,
+notes, characteristics, numeric summaries, and Stata datasignature when
+available.  Specify {cmd:replace} to overwrite an existing file.
+
+{phang}
+{opt conf:ig(filename)} reads reusable defaults from a text file containing
+{cmd:key = value} or {cmd:key: value} lines.  Supported keys include
+{cmd:output}, {cmd:format}, {cmd:exclude}, {cmd:continuous}, {cmd:categorical},
+{cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:mincell}, {cmd:datesafe},
+{cmd:compact}, {cmd:detect}, {cmd:panelid}, {cmd:survivalvars},
+{cmd:dateformat}, {cmd:samples}, and {cmd:missing}.  Command-line options
+override config-file defaults.
+
 {dlgtab:Content control}
 
 {phang}
@@ -229,6 +254,15 @@ The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
 ({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
 quarterly, and other non-daily types retain their native format regardless of
 this setting.  The format must begin with {cmd:%t} or {cmd:%d}.
+
+{dlgtab:Classification overrides}
+
+{phang}
+{opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)}
+force the named variables into the given class after the privacy exclusion list
+is applied.  A variable may appear in only one override list.  Overrides are
+useful when a numeric code should be summarized as continuous despite low
+cardinality, or when a string code should be treated as categorical.
 
 {dlgtab:Detection}
 
@@ -295,10 +329,11 @@ becomes identifiable once raw rows are included.  Always combine with
 {cmd:datamap} classifies every variable using the following priority order:
 
 {phang2}1. Variables listed in {opt exclude()} are classified as {bf:excluded}.{p_end}
-{phang2}2. String variables ({cmd:str}{it:#} or {cmd:strL}) are classified as {bf:string}.{p_end}
-{phang2}3. Variables whose display format starts with {cmd:%t} or {cmd:%d} are classified as {bf:date}.{p_end}
-{phang2}4. Numeric variables with an attached value label, or with {opt maxcat()} or fewer unique values, are classified as {bf:categorical}.{p_end}
-{phang2}5. All remaining numeric variables are classified as {bf:continuous}.{p_end}
+{phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt date()} are assigned to that class.{p_end}
+{phang2}3. String variables ({cmd:str}{it:#} or {cmd:strL}) are classified as {bf:string}.{p_end}
+{phang2}4. Variables whose display format starts with {cmd:%t} or {cmd:%d} are classified as {bf:date}.{p_end}
+{phang2}5. Numeric variables with an attached value label, or with {opt maxcat()} or fewer unique values, are classified as {bf:categorical}.{p_end}
+{phang2}6. All remaining numeric variables are classified as {bf:continuous}.{p_end}
 
 {pstd}
 Each class gets a dedicated output section:
@@ -433,6 +468,12 @@ values are treated as categorical:{p_end}
 {phang2}{cmd:. datamap, single(survey) maxcat(10) maxfreq(10)}{p_end}
 
 {pstd}
+Force specific classifications and save the common metadata table:{p_end}
+
+{phang2}{cmd:. datamap, single(survey) continuous(age bmi) categorical(site arm) ///}{p_end}
+{phang2}{cmd:     saving(survey_metadata.dta, replace)}{p_end}
+
+{pstd}
 Disable small-cell suppression only after disclosure review:{p_end}
 
 {phang2}{cmd:. datamap, single(survey) mincell(0)}{p_end}
@@ -478,6 +519,7 @@ Combine multiple privacy and content options:{p_end}
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(format)}}output format used ({bf:text} or {bf:json}){p_end}
 {synopt:{cmd:r(output)}}name of the output file created{p_end}
+{synopt:{cmd:r(metadata)}}metadata dataset path, when {opt saving()} is specified{p_end}
 {synopt:{cmd:r(input_source)}}input mode: {bf:memory}, {bf:single}, {bf:directory}, or {bf:filelist}{p_end}
 {synopt:{cmd:r(categorical_vars)}}categorical variable names{p_end}
 {synopt:{cmd:r(continuous_vars)}}continuous variable names{p_end}
@@ -497,7 +539,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.4.1 {hline 2} 19jun2026{p_end}
+{pstd}Version 1.5.0 {hline 2} 19jun2026{p_end}
 
 
 {title:Also see}

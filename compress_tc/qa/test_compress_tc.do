@@ -1,8 +1,8 @@
 * test_compress_tc.do
-* Functional tests for compress_tc v1.0.4
+* Functional tests for compress_tc v1.1.0
 * Author: Timothy P Copeland
 * Date: 2026-03-21
-* Tests: 65
+* Tests: 85
 
 clear all
 set more off
@@ -1186,6 +1186,425 @@ if _rc == 0 {
 }
 else {
     display as error "RESULT: FAIL Test `test_count' — mixed varlist (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 14: v1.1.0 — lowmem, dryrun, minlength, new returns
+* =============================================================================
+
+* Test 66: lowmem option runs and returns valid results
+local ++test_count
+capture noisily {
+    clear
+    set obs 20000
+    gen str200 longtext = "Category " + string(mod(_n,15))
+    gen double x = runiform()
+    compress_tc, lowmem quietly
+    assert r(bytes_saved) != .
+    assert r(bytes_initial) > 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — lowmem runs"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — lowmem runs (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 67: lowmem reaches the SAME final bytes as batch mode (equivalence)
+local ++test_count
+capture noisily {
+    clear
+    set obs 20000
+    gen str200 a = "repeated alpha " + string(mod(_n,10))
+    gen str200 b = "repeated beta " + string(mod(_n,12))
+    gen double x = runiform()
+    tempfile orig
+    save `orig'
+    compress_tc, quietly
+    local batch_final = r(bytes_final)
+    use `orig', clear
+    compress_tc, lowmem quietly
+    local low_final = r(bytes_final)
+    assert `batch_final' == `low_final'
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — lowmem == batch final bytes"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — lowmem equivalence (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 68: lowmem + varsavings (measured per-variable path) runs
+local ++test_count
+capture noisily {
+    clear
+    set obs 20000
+    gen str200 a = "long repeated alpha " + string(mod(_n,10))
+    compress_tc, lowmem varsavings
+    assert r(bytes_saved) != .
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — lowmem + varsavings"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — lowmem+varsavings (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 69: dryrun does NOT modify the data (storage types restored)
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str100 t = "repeated value " + string(mod(_n,5))
+    local before : type t
+    compress_tc, dryrun quietly
+    local after : type t
+    assert "`before'" == "`after'"
+    assert "`after'" == "str100"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — dryrun leaves data unmodified"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — dryrun unmodified (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 70: dryrun still posts results in r()
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str100 t = "repeated value " + string(mod(_n,5))
+    compress_tc, dryrun quietly
+    assert r(bytes_saved) != .
+    assert r(bytes_initial) > 0
+    assert r(bytes_final) != .
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — dryrun posts r()"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — dryrun r() (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 71: dryrun projected savings approximate an actual run on the same data
+*          (dryrun is a preview; under preserve the strL heap may retain a tiny
+*           residual, so projected savings are accurate to a fraction of a percent)
+local ++test_count
+capture noisily {
+    clear
+    set obs 8000
+    gen str200 s = "repeated content " + string(mod(_n,7))
+    tempfile orig
+    save `orig'
+    compress_tc, dryrun quietly
+    local dry_saved = r(bytes_saved)
+    use `orig', clear
+    compress_tc, quietly
+    local real_saved = r(bytes_saved)
+    assert reldif(`dry_saved', `real_saved') < 0.01
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — dryrun matches actual savings"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — dryrun savings (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 72: minlength skips short str# from strL but they stay in r(varlist)
+local ++test_count
+capture noisily {
+    clear
+    set obs 1000
+    gen str3 shortc = "abc"
+    gen str200 longc = "long repeated " + string(mod(_n,5))
+    compress_tc, minlength(20) quietly
+    assert r(k_converted) == 1
+    assert strpos("`r(varlist)'", "shortc") > 0
+    assert strpos("`r(varlist)'", "longc") > 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — minlength skips short, keeps in varlist"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — minlength (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 73: minlength(0) default converts every str# variable
+local ++test_count
+capture noisily {
+    clear
+    set obs 1000
+    gen str3 c1 = "abc"
+    gen str200 c2 = "long " + string(mod(_n,5))
+    compress_tc, nocompress minlength(0) quietly
+    assert r(k_converted) == 2
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — minlength(0) converts all"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — minlength(0) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 74: negative minlength is rejected
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture compress_tc, minlength(-5)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — negative minlength error 198"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — negative minlength (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 75: new scalar returns exist and are sensible
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str100 s = "repeated " + string(mod(_n,8))
+    gen double x = runiform()
+    compress_tc, quietly
+    assert r(bytes_strl) != .
+    assert r(bytes_strl) >= 0
+    assert r(k_converted) != .
+    assert r(k_reverted) != .
+    assert r(k_reverted) <= r(k_converted)
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — new scalar returns sensible"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — new scalar returns (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 76: r(vars_strl) names the variable that genuinely stays strL
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str2045 bigtext = "Category" + string(mod(_n,5))
+    forvalues k = 1/180 {
+        quietly replace bigtext = bigtext + "ABCDEFGHIJ"
+    }
+    compress_tc, quietly
+    assert strpos("`r(vars_strl)'", "bigtext") > 0
+    assert r(bytes_strl) > 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — vars_strl names surviving strL var"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — vars_strl content (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 77: r(vars_strl) is empty when nothing stays strL
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    compress_tc make, quietly
+    assert "`r(vars_strl)'" == ""
+    assert r(bytes_strl) == 0 | r(bytes_strl) >= 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — vars_strl empty when no strL survives"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — vars_strl empty (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 78: dryrun + lowmem combine
+local ++test_count
+capture noisily {
+    clear
+    set obs 10000
+    gen str200 s = "repeated " + string(mod(_n,6))
+    local before : type s
+    compress_tc, dryrun lowmem quietly
+    local after : type s
+    assert "`before'" == "`after'"
+    assert r(bytes_saved) != .
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — dryrun + lowmem"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — dryrun+lowmem (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 79: new option abbreviations (low, dry, min)
+local ++test_count
+capture noisily {
+    clear
+    set obs 2000
+    gen str100 s = "repeated " + string(mod(_n,5))
+    compress_tc, low quietly
+    compress_tc s, dry quietly
+    clear
+    set obs 2000
+    gen str100 s = "repeated " + string(mod(_n,5))
+    compress_tc, min(10) quietly
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — low/dry/min abbreviations"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — new abbreviations (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 80: varsavings before/after table runs on mixed data (no crash)
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str200 longtext = "Category " + string(mod(_n,15))
+    gen str4 code = string(mod(_n,9999))
+    gen double x = runiform()
+    compress_tc, varsavings
+    assert r(bytes_saved) != .
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — varsavings before/after table"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — varsavings table (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 15: v1.1.0 regression — early-exit state restore & detail min abbrev
+* =============================================================================
+
+* Test 81: varabbrev restored after empty-dataset (_N==0) early exit
+*          (bare exit inside capture noisily previously bypassed cleanup)
+local ++test_count
+capture noisily {
+    set varabbrev on
+    clear
+    set obs 0
+    gen str5 x = ""
+    compress_tc, quietly
+    assert "`c(varabbrev)'" == "on"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — varabbrev restored on empty-dataset exit"
+    local ++pass_count
+}
+else {
+    set varabbrev on
+    display as error "RESULT: FAIL Test `test_count' — empty-dataset varabbrev restore (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 82: varabbrev restored after no-data (zero-byte) early exit
+local ++test_count
+capture noisily {
+    set varabbrev on
+    clear
+    set obs 10
+    compress_tc, quietly
+    assert "`c(varabbrev)'" == "on"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — varabbrev restored on no-data exit"
+    local ++pass_count
+}
+else {
+    set varabbrev on
+    display as error "RESULT: FAIL Test `test_count' — no-data varabbrev restore (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 83: a user's OFF state is preserved (not forced on) on the empty path
+local ++test_count
+capture noisily {
+    set varabbrev off
+    clear
+    set obs 0
+    gen str5 y = ""
+    compress_tc, quietly
+    assert "`c(varabbrev)'" == "off"
+    set varabbrev on
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — varabbrev off preserved on empty path"
+    local ++pass_count
+}
+else {
+    set varabbrev on
+    display as error "RESULT: FAIL Test `test_count' — empty-path off preserved (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 84: returns still fully posted on the empty early-exit path
+local ++test_count
+capture noisily {
+    clear
+    set obs 0
+    gen str5 z = ""
+    compress_tc, quietly
+    assert r(bytes_saved)   == 0
+    assert r(k_converted)   == 0
+    assert r(k_reverted)    == 0
+    assert r(bytes_strl)    == 0
+    assert "`r(vars_strl)'" == ""
+    assert "`r(varlist)'"   == ""
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — returns posted on empty early exit"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — empty-path returns (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test 85: detail abbreviates to its documented minimum 'd' (syntax: Detail)
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    compress_tc, d
+}
+if _rc == 0 {
+    display as result "RESULT: PASS Test `test_count' — detail min abbreviation 'd'"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL Test `test_count' — detail min abbreviation 'd' (rc=`=_rc')"
     local ++fail_count
 }
 

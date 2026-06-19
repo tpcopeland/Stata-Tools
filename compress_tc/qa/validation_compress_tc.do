@@ -1,8 +1,8 @@
 * validation_compress_tc.do
-* Validation tests for compress_tc v1.0.4
+* Validation tests for compress_tc v1.1.0
 * Author: Timothy P Copeland
 * Date: 2026-03-21
-* Tests: 34
+* Tests: 51
 
 clear all
 set more off
@@ -741,6 +741,337 @@ if _rc == 0 {
 }
 else {
     display as error "RESULT: FAIL V`test_count' — memory positive (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 8: _compress_tc_bytes helper (storage width x _N; missing for strL)
+* =============================================================================
+
+* V35: str20 with 100 obs -> 20 * 100 = 2000 bytes
+local ++test_count
+capture noisily {
+    clear
+    set obs 100
+    gen str20 s = "x"
+    _compress_tc_bytes s
+    assert r(bytes) == 2000
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — _compress_tc_bytes str20 = 20*N"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — bytes str20 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V36: numeric storage widths byte/int/long/float/double = 1/2/4/4/8 per obs
+local ++test_count
+capture noisily {
+    clear
+    set obs 50
+    gen byte b = 1
+    gen int i = 1
+    gen long l = 1
+    gen float f = 1
+    gen double d = 1
+    _compress_tc_bytes b
+    assert r(bytes) == 50
+    _compress_tc_bytes i
+    assert r(bytes) == 100
+    _compress_tc_bytes l
+    assert r(bytes) == 200
+    _compress_tc_bytes f
+    assert r(bytes) == 200
+    _compress_tc_bytes d
+    assert r(bytes) == 400
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — _compress_tc_bytes numeric widths"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — bytes numeric widths (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V37: strL returns missing (heap bytes not attributable per-variable)
+local ++test_count
+capture noisily {
+    clear
+    set obs 100
+    gen str50 s = "value"
+    recast strL s
+    _compress_tc_bytes s
+    assert r(bytes) == .
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — _compress_tc_bytes strL = missing"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — bytes strL missing (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 9: _compress_tc_human unit formatting (B/KB/MB/GB thresholds)
+* =============================================================================
+
+* V38: 0 -> "0 B"
+local ++test_count
+capture noisily {
+    _compress_tc_human 0
+    assert "`r(human)'" == "0 B"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 0 = 0 B"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human 0 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V39: 999 -> "999 B" (sub-KB stays bytes)
+local ++test_count
+capture noisily {
+    _compress_tc_human 999
+    assert "`r(human)'" == "999 B"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 999 = 999 B"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human 999 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V40: 1024 -> "1.0 KB" (KB boundary, 1 decimal)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1024
+    assert "`r(human)'" == "1.0 KB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 1024 = 1.0 KB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human 1024 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V41: 1536 -> "1.5 KB" (1 decimal for KB)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1536
+    assert "`r(human)'" == "1.5 KB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 1536 = 1.5 KB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human 1536 (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V42: 1048576 (1 MiB) -> "1.00 MB" (MB boundary, 2 decimals)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1048576
+    assert "`r(human)'" == "1.00 MB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 1 MiB = 1.00 MB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human MB boundary (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V43: 1572864 (1.5 MiB) -> "1.50 MB" (2 decimals)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1572864
+    assert "`r(human)'" == "1.50 MB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 1.5 MiB = 1.50 MB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human 1.50 MB (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V44: 1073741824 (1 GiB) -> "1.00 GB" (GB boundary, 2 decimals)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1073741824
+    assert "`r(human)'" == "1.00 GB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human 1 GiB = 1.00 GB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human GB boundary (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V45: above 1 TiB stays in GB (does not roll over to TB)
+local ++test_count
+capture noisily {
+    _compress_tc_human 1099511627776
+    assert strpos("`r(human)'", "GB") > 0
+    assert strpos("`r(human)'", "TB") == 0
+    assert "`r(human)'" == "1,024.00 GB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human caps at GB above 1 TiB"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human TB cap (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V46: negative bytes preserve sign and unit
+local ++test_count
+capture noisily {
+    _compress_tc_human -2048
+    assert "`r(human)'" == "-2.0 KB"
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — human negative sign preserved"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — human negative (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 10: New-return invariants (k_converted/k_reverted/vars_strl/bytes_strl)
+* =============================================================================
+
+* V47: k_converted counts eligible str# (minlength interaction)
+local ++test_count
+capture noisily {
+    clear
+    set obs 1000
+    gen str3 shortc = "abc"
+    gen str200 longc = "long " + string(mod(_n,5))
+    compress_tc, minlength(10) nocompress quietly
+    assert r(k_converted) == 1
+    assert r(k_reverted) == 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — k_converted respects minlength"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — k_converted minlength (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V48: k_reverted <= k_converted always
+local ++test_count
+capture noisily {
+    clear
+    set obs 2000
+    gen str20 a = "short " + string(mod(_n,50))
+    gen str200 b = "longrepeat " + string(mod(_n,3))
+    compress_tc, quietly
+    assert r(k_reverted) <= r(k_converted)
+    assert r(k_reverted) >= 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — k_reverted <= k_converted"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — k_reverted bound (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V49: every name in r(vars_strl) is actually strL after the run
+local ++test_count
+capture noisily {
+    clear
+    set obs 5000
+    gen str2045 bigtext = "Cat" + string(mod(_n,5))
+    forvalues k = 1/180 {
+        quietly replace bigtext = bigtext + "ABCDEFGHIJ"
+    }
+    gen str200 cat = "Category " + string(mod(_n,10))
+    compress_tc, quietly
+    local vstrl "`r(vars_strl)'"
+    foreach v of local vstrl {
+        local t : type `v'
+        assert "`t'" == "strL"
+    }
+    assert r(bytes_strl) > 0
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — vars_strl members are all strL"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — vars_strl membership (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V50: dryrun projected savings approximate an actual run (preview accuracy;
+*      strL heap residual under preserve keeps it within a fraction of a percent)
+local ++test_count
+capture noisily {
+    clear
+    set obs 8000
+    gen str200 s = "repeated content " + string(mod(_n,7))
+    tempfile orig
+    save `orig'
+    compress_tc, dryrun quietly
+    local dry = r(bytes_saved)
+    use `orig', clear
+    compress_tc, quietly
+    assert reldif(r(bytes_saved), `dry') < 0.01
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — dryrun == actual savings"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — dryrun savings (rc=`=_rc')"
+    local ++fail_count
+}
+
+* V51: lowmem and batch reach identical final bytes
+local ++test_count
+capture noisily {
+    clear
+    set obs 15000
+    gen str200 a = "alpha " + string(mod(_n,9))
+    gen str200 b = "beta " + string(mod(_n,11))
+    tempfile orig
+    save `orig'
+    compress_tc, quietly
+    local batch = r(bytes_final)
+    use `orig', clear
+    compress_tc, lowmem quietly
+    assert r(bytes_final) == `batch'
+}
+if _rc == 0 {
+    display as result "RESULT: PASS V`test_count' — lowmem == batch final bytes"
+    local ++pass_count
+}
+else {
+    display as error "RESULT: FAIL V`test_count' — lowmem equivalence (rc=`=_rc')"
     local ++fail_count
 }
 

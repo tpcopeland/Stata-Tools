@@ -1,4 +1,4 @@
-*! datamap Version 1.4.1  2026/06/19
+*! datamap Version 1.5.0  2026/06/19
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -95,29 +95,81 @@ NOTES
 
 program define datamap, rclass
 	version 16.0
-	local _varabbrev = c(varabbrev)
-	set varabbrev off
-	capture noisily {
-		syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
-		          RECursive ///
-		          Output(string) Format(string) SEParate APPend ///
-		          NOSTats NOFReq NOLAbels ///
-		          MAXFreq(integer 25) MAXCat(integer 25) ///
-		          MINCell(integer 5) NOGuidance COMpact ///
-		          EXClude(string) DATESafe DATEFormat(string) ///
-		          DETect(string) AUTODETect PANELid(string) ///
-		          SURVIVALvars(string) QUality QUality2(string) ///
-	          SAMples(integer 0) MISSing(string)]
+		local _varabbrev = c(varabbrev)
+		set varabbrev off
+		local _restore_needed = 0
+		local _metadata_post_open = 0
+		capture noisily {
+			local _raw0 `"`0'"'
+			syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
+			          RECursive ///
+			          Output(string) Format(string) SEParate APPend SAVing(string) ///
+			          CONFig(string) ///
+			          NOSTats NOFReq NOLAbels ///
+			          MAXFreq(integer -1) MAXCat(integer -1) ///
+			          MINCell(integer -1) NOGuidance COMpact ///
+			          EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
+			          DATESafe DATEFormat(string) ///
+			          DETect(string) AUTODETect PANELid(string) ///
+			          SURVIVALvars(string) QUality QUality2(string) ///
+		          SAMples(integer -1) MISSing(string)]
+			local _raw_lower = lower(`"`macval(_raw0)'"')
+			local _user_maxfreq = strpos(`"`_raw_lower'"', "maxfreq(") | strpos(`"`_raw_lower'"', "maxf(")
+			local _user_maxcat = strpos(`"`_raw_lower'"', "maxcat(") | strpos(`"`_raw_lower'"', "maxc(")
+			local _user_mincell = strpos(`"`_raw_lower'"', "mincell(") | strpos(`"`_raw_lower'"', "minc(")
+			local _user_samples = strpos(`"`_raw_lower'"', "samples(") | strpos(`"`_raw_lower'"', "sample(") | ///
+				strpos(`"`_raw_lower'"', "sampl(") | strpos(`"`_raw_lower'"', "samp(") | ///
+				strpos(`"`_raw_lower'"', "sam(")
 
-		// Set default date format (ISO 8601: YYYY/MM/DD)
-		if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"
+			if `"`config'"' != "" {
+				_datamap_validate_path "`config'", option("config()")
+				confirm file `"`config'"'
+				_datamap_load_config, config(`"`config'"')
+				foreach opt in output format exclude continuous categorical detect panelid survivalvars missing dateformat {
+					local cfgval `"`r(`opt')'"'
+					if `"``opt''"' == "" & `"`cfgval'"' != "" {
+						local `opt' `"`cfgval'"'
+					}
+				}
+				if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
+				foreach opt in maxfreq maxcat mincell samples {
+					if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+				}
+				foreach opt in nostats nofreq nolabels datesafe compact noguidance autodetect {
+					if "``opt''" == "" & "`r(`opt')'" != "" local `opt' "`opt'"
+				}
+			}
+			if `_user_maxfreq' & `maxfreq' <= 0 {
+				noisily di as error "maxfreq must be positive"
+				exit 198
+			}
+			if `_user_maxcat' & `maxcat' <= 0 {
+				noisily di as error "maxcat must be positive"
+				exit 198
+			}
+			if `_user_mincell' & `mincell' < 0 {
+				noisily di as error "mincell must be non-negative"
+				exit 198
+			}
+			if `_user_samples' & `samples' < 0 {
+				noisily di as error "samples must be non-negative"
+				exit 198
+			}
+			if `maxfreq' < 0 local maxfreq = 25
+			if `maxcat' < 0 local maxcat = 25
+			if `mincell' < 0 local mincell = 5
+			if `samples' < 0 local samples = 0
+
+			// Set default date format (ISO 8601: YYYY/MM/DD)
+			if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"
 		if strpos(`"`dateformat'"', "%t") != 1 & strpos(`"`dateformat'"', "%d") != 1 {
 			noisily di as error "dateformat() must be a Stata date/time display format beginning with %t or %d"
 			exit 198
 		}
 
-	// Preserve current dataset
-	preserve
+		// Preserve current dataset
+		preserve
+		local _restore_needed = 1
 
 	// Validate mutually exclusive input options (only one allowed)
 	local ninput = ("`directory'" != "") + ("`filelist'" != "") + ("`single'" != "")
@@ -166,7 +218,31 @@ program define datamap, rclass
 			else local output "datamap.txt"
 		}
 
-	// Validate numeric parameters
+		local saving_file ""
+		local saving_replace 0
+		local result_metadata ""
+		if `"`saving'"' != "" {
+			local saving_spec = subinstr(`"`macval(saving)'"', char(34), "", .)
+			local saving_spec = subinstr(`"`macval(saving_spec)'"', ")", "", .)
+			local saving_cpos = strpos(`"`macval(saving_spec)'"', ",")
+			if `saving_cpos' > 0 {
+				local saving_file = strtrim(substr(`"`macval(saving_spec)'"', 1, `saving_cpos' - 1))
+				local saving_rest = strtrim(substr(`"`macval(saving_spec)'"', `saving_cpos' + 1, .))
+			}
+			else {
+				local saving_file = strtrim(`"`macval(saving_spec)'"')
+				local saving_rest ""
+			}
+			if `"`saving_file'"' == "" {
+				noisily di as error "saving() requires a filename"
+				exit 198
+			}
+			local saving_replace = regexm(lower(`"`macval(saving_rest)'"'), "replace")
+			_datamap_validate_path "`saving_file'", option("saving()")
+			if !`saving_replace' confirm new file `"`saving_file'"'
+		}
+
+		// Validate numeric parameters
 	if `maxfreq' <= 0 {
 		di as error "maxfreq must be positive"
 		exit 198
@@ -289,27 +365,30 @@ program define datamap, rclass
 	if "`separate'" != "" {
 		// Generate separate output file per dataset
 		_datamap_ProcessSeparate, filelist("`filelist_tmp'") format(`format') ///
-				`nostats' `nofreq' `nolabels' ///
-				maxfreq(`maxfreq') maxcat(`maxcat') ///
-				mincell(`mincell') `noguidance' `compact' ///
-				exclude(`exclude') `datesafe' dateformat(`dateformat') nfiles(`nfiles') ///
-				detect_panel(`detect_panel') detect_binary(`detect_binary') ///
-				detect_survival(`detect_survival') detect_survey(`detect_survey') ///
-			detect_common(`detect_common') panelid(`panelid') ///
+					`nostats' `nofreq' `nolabels' ///
+					maxfreq(`maxfreq') maxcat(`maxcat') ///
+					mincell(`mincell') `noguidance' `compact' ///
+					exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+					categorical(`"`categorical'"') date(`"`date'"') ///
+					`datesafe' dateformat(`dateformat') nfiles(`nfiles') ///
+					detect_panel(`detect_panel') detect_binary(`detect_binary') ///
+					detect_survival(`detect_survival') detect_survey(`detect_survey') ///
+				detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 			samples(`samples') missing_detail(`missing_detail') ///
 			missing_pattern(`missing_pattern')
 	}
 	else {
 		// Generate single combined output file
-		_datamap_ProcessCombined, filelist("`filelist_tmp'") output(`output') format(`format') ///
-				`append' `nostats' `nofreq' ///
-				`nolabels' maxfreq(`maxfreq') ///
-				maxcat(`maxcat') mincell(`mincell') `noguidance' `compact' ///
-				exclude(`exclude') `datesafe' ///
-				dateformat(`dateformat') single(`single') nfiles(`nfiles') ///
-				detect_panel(`detect_panel') detect_binary(`detect_binary') ///
-			detect_survival(`detect_survival') detect_survey(`detect_survey') ///
+		_datamap_ProcessCombined, filelist("`filelist_tmp'") output(`"`output'"') format(`format') ///
+					`append' `nostats' `nofreq' ///
+					`nolabels' maxfreq(`maxfreq') ///
+					maxcat(`maxcat') mincell(`mincell') `noguidance' `compact' ///
+					exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+					categorical(`"`categorical'"') date(`"`date'"') `datesafe' ///
+					dateformat(`dateformat') single(`single') nfiles(`nfiles') ///
+					detect_panel(`detect_panel') detect_binary(`detect_binary') ///
+				detect_survival(`detect_survival') detect_survey(`detect_survey') ///
 			detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 				samples(`samples') missing_detail(`missing_detail') ///
@@ -325,12 +404,103 @@ program define datamap, rclass
 		local categorical_vars "`r(categorical_vars)'"
 		local continuous_vars "`r(continuous_vars)'"
 		local date_vars "`r(date_vars)'"
-		local string_vars "`r(string_vars)'"
-		local excluded_vars "`r(excluded_vars)'"
-		local suggested_exclude "`r(suggested_exclude)'"
+			local string_vars "`r(string_vars)'"
+			local excluded_vars "`r(excluded_vars)'"
+			local suggested_exclude "`r(suggested_exclude)'"
 
-		// Collect metadata for return values (before restore clears tempfiles)
-	local nobs_total .
+			if `"`saving_file'"' != "" {
+				tempfile metadata_tmp
+				tempname metadata_post
+				quietly postfile `metadata_post' ///
+					str16 source_command str2045 source str2045 output ///
+					str80 dataset str2045 dataset_label str32 variable ///
+					str20 storage_type str32 display_format str32 value_label ///
+					str20 class double N long nvars long missing ///
+					double missing_pct long unique str2045 variable_label ///
+					str2045 notes str2045 characteristics double mean double sd ///
+					double p50 double p25 double p75 double min double max ///
+					str2045 datasignature using `"`metadata_tmp'"', replace
+				local _metadata_post_open = 1
+				if `"`single'"' != "" {
+					local _mfile `"`single'"'
+					quietly use `"`_mfile'"', clear
+					local _mlabel : data label
+					quietly describe, short
+					local _mnvars = r(k)
+					local _mdsig ""
+					quietly capture datasignature
+					if _rc == 0 local _mdsig `"`r(datasignature)'"'
+					local _mnorm = subinstr(`"`_mfile'"', "\", "/", .)
+					local _mdsname `"`_mnorm'"'
+					if strpos(`"`_mnorm'"', "/") > 0 {
+						local _mdsname = reverse(`"`_mnorm'"')
+						local _mslash = strpos(`"`_mdsname'"', "/")
+						local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
+					}
+					if substr(`"`_mdsname'"', -4, 4) == ".dta" {
+						local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
+					}
+					tempfile _mclass
+					quietly _datamap_classify using "memory", loaded saving(`"`_mclass'"') ///
+						maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
+						continuous(`"`continuous'"') categorical(`"`categorical'"') ///
+						date(`"`date'"') detect_binary(`detect_binary') ///
+						quality_level(`"`quality_level'"')
+					_datamap_post_metadata_rows, postname(`metadata_post') ///
+						classifications(`"`_mclass'"') sourcecommand("datamap") ///
+						source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
+						dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
+						datasignature(`"`_mdsig'"')
+				}
+				else {
+					tempname _mfl
+					file open `_mfl' using `"`filelist_tmp'"', read text
+					file read `_mfl' _mfile
+					while r(eof) == 0 {
+						if trim(`"`macval(_mfile)'"') != "" {
+							quietly use `"`_mfile'"', clear
+							local _mlabel : data label
+							quietly describe, short
+							local _mnvars = r(k)
+							local _mdsig ""
+							quietly capture datasignature
+							if _rc == 0 local _mdsig `"`r(datasignature)'"'
+							local _mnorm = subinstr(`"`_mfile'"', "\", "/", .)
+							local _mdsname `"`_mnorm'"'
+							if strpos(`"`_mnorm'"', "/") > 0 {
+								local _mdsname = reverse(`"`_mnorm'"')
+								local _mslash = strpos(`"`_mdsname'"', "/")
+								local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
+							}
+							if substr(`"`_mdsname'"', -4, 4) == ".dta" {
+								local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
+							}
+							tempfile _mclass
+							quietly _datamap_classify using "memory", loaded saving(`"`_mclass'"') ///
+								maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
+								continuous(`"`continuous'"') categorical(`"`categorical'"') ///
+								date(`"`date'"') detect_binary(`detect_binary') ///
+								quality_level(`"`quality_level'"')
+							_datamap_post_metadata_rows, postname(`metadata_post') ///
+								classifications(`"`_mclass'"') sourcecommand("datamap") ///
+								source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
+								dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
+								datasignature(`"`_mdsig'"')
+						}
+						file read `_mfl' _mfile
+					}
+					file close `_mfl'
+				}
+				postclose `metadata_post'
+				local _metadata_post_open = 0
+				quietly use `"`metadata_tmp'"', clear
+				if `saving_replace' quietly save `"`saving_file'"', replace
+				else quietly save `"`saving_file'"'
+				local result_metadata `"`saving_file'"'
+			}
+
+			// Collect metadata for return values (before restore clears tempfiles)
+		local nobs_total .
 	local nvars_total .
 	if "`single'" != "" {
 		capture quietly describe using "`single'", short
@@ -340,11 +510,12 @@ program define datamap, rclass
 		}
 	}
 
-	// Restore original dataset
-	restore
+		// Restore original dataset
+		restore
+		local _restore_needed = 0
 
-	// Return results
-	return scalar nfiles = `nfiles'
+		// Return results
+		return scalar nfiles = `nfiles'
 	if `nobs_total' < . {
 		return scalar nobs = `nobs_total'
 		return scalar nvars = `nvars_total'
@@ -362,16 +533,29 @@ program define datamap, rclass
 		return local categorical_vars "`categorical_vars'"
 		return local continuous_vars "`continuous_vars'"
 		return local date_vars "`date_vars'"
-		return local string_vars "`string_vars'"
-		return local excluded_vars "`excluded_vars'"
-		return local suggested_exclude "`suggested_exclude'"
+			return local string_vars "`string_vars'"
+			return local excluded_vars "`excluded_vars'"
+			return local suggested_exclude "`suggested_exclude'"
+			if `"`result_metadata'"' != "" {
+				return local metadata `"`result_metadata'"'
+			}
 
-	di as text "Documentation generated successfully"
-	}
-	local rc = _rc
-	set varabbrev `_varabbrev'
-	if `rc' exit `rc'
-end
+		di as text "Documentation generated successfully"
+		}
+		local rc = _rc
+		if `_metadata_post_open' {
+			capture postclose `metadata_post'
+			local _postclose_rc = _rc
+			if !`rc' & `_postclose_rc' local rc = `_postclose_rc'
+		}
+		if `_restore_needed' {
+			capture restore
+			local _restore_rc = _rc
+			if !`rc' & `_restore_rc' local rc = `_restore_rc'
+		}
+		set varabbrev `_varabbrev'
+		if `rc' exit `rc'
+	end
 
 // =============================================================================
 // Helper: _datamap_ProcessCombined
@@ -382,11 +566,12 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessCombined, rclass
 	version 16.0
-	syntax, FILElist(string) Output(string) Format(string) [APPend ///
-		NOSTats NOFReq NOLAbels MAXFreq(integer 25) ///
-		MAXCat(integer 25) MINCell(integer 5) NOGuidance COMpact ///
-		EXClude(string) DATESafe DATEFormat(string) ///
-		single(string) nfiles(integer 1) ///
+		syntax, FILElist(string) Output(string) Format(string) [APPend ///
+			NOSTats NOFReq NOLAbels MAXFreq(integer 25) ///
+			MAXCat(integer 25) MINCell(integer 5) NOGuidance COMpact ///
+			EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
+			DATESafe DATEFormat(string) ///
+			single(string) nfiles(integer 1) ///
 		detect_panel(integer 0) detect_binary(integer 0) detect_survival(integer 0) ///
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
@@ -395,16 +580,16 @@ program define _datamap_ProcessCombined, rclass
 	// Open output file (append or replace mode)
 	tempname fh
 	if "`append'" != "" {
-		file open `fh' using "`output'", write text append
+		quietly file open `fh' using "`output'", write text append
 	}
 		else {
-			file open `fh' using "`output'", write text replace
+			quietly file open `fh' using "`output'", write text replace
 
 			local cdate = c(current_date)
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.4.1","' _n
+				file write `fh' `"  "datamap_version": "1.5.0","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -431,11 +616,11 @@ program define _datamap_ProcessCombined, rclass
 		local suggested_exclude ""
 
 		if "`single'" != "" {
-			// Single file mode
-			_datamap_ProcessDataset `fh' "`single'" "`format'" "`nostats'" "`nofreq'" ///
-				"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
-				"`exclude'" "`datesafe'" 1 1 ///
-				`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
+				// Single file mode
+				_datamap_ProcessDataset `fh' "`single'" "`format'" "`nostats'" "`nofreq'" ///
+					"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
+					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
+					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
 				`missing_detail' `missing_pattern' "`dateformat'"
 			local n_categorical = `n_categorical' + r(n_categorical)
@@ -459,10 +644,10 @@ program define _datamap_ProcessCombined, rclass
 		file read `fh_list' thisfile
 		while r(eof) == 0 {
 				local ++i
-				_datamap_ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
-					"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
-					"`exclude'" "`datesafe'" `i' `nfiles' ///
-					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
+					_datamap_ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
+						"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
+						"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" `i' `nfiles' ///
+						`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 					"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
 					`missing_detail' `missing_pattern' "`dateformat'"
 				local n_categorical = `n_categorical' + r(n_categorical)
@@ -514,10 +699,11 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessSeparate, rclass
 	version 16.0
-	syntax, FILElist(string) Format(string) [NOSTats NOFReq NOLAbels ///
-		MAXFreq(integer 25) MAXCat(integer 25) MINCell(integer 5) ///
-		NOGuidance COMpact EXClude(string) DATESafe ///
-		DATEFormat(string) nfiles(integer 1) ///
+		syntax, FILElist(string) Format(string) [NOSTats NOFReq NOLAbels ///
+			MAXFreq(integer 25) MAXCat(integer 25) MINCell(integer 5) ///
+			NOGuidance COMpact EXClude(string) CONTinuous(string) ///
+			CATegorical(string) date(string) DATESafe ///
+			DATEFormat(string) nfiles(integer 1) ///
 		detect_panel(integer 0) detect_binary(integer 0) detect_survival(integer 0) ///
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
@@ -562,7 +748,7 @@ program define _datamap_ProcessSeparate, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.4.1","' _n
+				file write `fh' `"  "datamap_version": "1.5.0","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -574,10 +760,10 @@ program define _datamap_ProcessSeparate, rclass
 			}
 
 			// Process this dataset
-			_datamap_ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
-				"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
-				"`exclude'" "`datesafe'" 1 1 ///
-				`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
+				_datamap_ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
+					"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
+					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
+					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
 				`missing_detail' `missing_pattern' "`dateformat'"
 			local n_categorical = `n_categorical' + r(n_categorical)
@@ -647,9 +833,9 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessDataset, rclass
 		version 16.0
-		args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
-		     exclude datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
-		     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat
+			args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
+			     exclude continuous categorical force_date datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
+			     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat
 
 	// Get dataset metadata from describe
 	capture quietly describe using "`filepath'", short
@@ -722,9 +908,11 @@ program define _datamap_ProcessDataset, rclass
 
 	// Shared classification pass for all output formats and stored results.
 	tempfile classifications
-		_datamap_classify using "`filepath'", saving("`classifications'") loaded ///
-			maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
-		detect_binary(`detect_binary') quality_level("`quality_level'")
+			_datamap_classify using "`filepath'", saving("`classifications'") loaded ///
+				maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
+				continuous("`continuous'") categorical("`categorical'") ///
+				date("`force_date'") ///
+			detect_binary(`detect_binary') quality_level("`quality_level'")
 	local n_categorical = r(n_categorical)
 	local n_continuous = r(n_continuous)
 	local n_date = r(n_date)

@@ -1,4 +1,4 @@
-*! codescan Version 1.1.4  2026/06/14
+*! codescan Version 2.0.0  2026/06/19
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -20,7 +20,7 @@ SYNTAX:
          EARLIESTdate LATESTdate COUNTdate COUNTRows ALLDates
          LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily
          DETail NODots TOSTRing PREserve FRAME(name) COOCcurrence
-         NOCase GENerate(string) SCORE(string) HIERarchy(string)
+         NOCase GENerate(string)
          UNMatched(name) MATCHed_code(name) LEVel(integer) GRaph EXPort(string)
          SAVE(string) SAVing(string asis) FORmat(string) COUNTMode]
 
@@ -32,7 +32,7 @@ EXAMPLES:
     codescan dx1-dx30, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")
 
     * Load definitions from file
-    codescan dx1-dx30, codefile(charlson_codes.csv) id(pid) collapse
+    codescan dx1-dx30, codefile(code_rules.csv) id(pid) collapse
 
     * Non-destructive collapse into a frame
     codescan dx1-dx30, define(dm2 "E11") id(pid) collapse frame(results)
@@ -49,12 +49,15 @@ STORED RESULTS:
     r(define)         - Full define specification string (if used)
     r(codefile)       - Path to code definitions file (if used)
     r(id)             - ID variable (if specified)
+    r(date)           - Date variable (if specified)
     r(lookback)       - Lookback days (if specified; space-separated if multi-window)
     r(lookforward)    - Lookforward days (if specified)
     r(refdate)        - Reference date variable (if specified)
     r(frame)          - Frame name (if frame() specified)
-    r(score)          - Score type (if score() specified)
+    r(nocase)         - "nocase" if case-insensitive matching was used
+    r(generate)       - Output-name prefix (if generate() specified)
     r(mode_count)     - 1 if countmode specified, 0 otherwise
+    r(ci_level)       - Confidence level for the prevalence CIs
     r(summary)        - Matrix of counts, prevalences, and Wilson 95% CIs
     r(codelist)       - Matrix: count, prevalence per condition
     r(varcounts)      - Per-variable match counts (if detail specified)
@@ -77,48 +80,14 @@ program define codescan, rclass
         EARLIESTdate LATESTdate COUNTdate COUNTRows ALLDates ///
         LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily ///
         DETail NODots TOSTRing PREserve FRAME(name) COOCcurrence ///
-        NOCase GENerate(string) SCORE(string) HIERarchy(string) ///
+        NOCase GENerate(string) ///
         UNMatched(name) MATCHed_code(name) LEVel(integer 0) ///
         GRaph EXPort(string) SAVE(string) SAVing(string asis) ///
         FORmat(string) COUNTMode]
 
     * =========================================================================
-    * LOAD SCORE/HIERARCHY HELPERS
+    * LOAD OUTPUT-PLANNING HELPERS
     * =========================================================================
-    if "`score'" != "" {
-        capture program list _codescan_assign_score_weights
-        local _need_score_helper = _rc
-        capture program list _codescan_apply_score
-        if _rc local _need_score_helper = 1
-        if `_need_score_helper' {
-            capture findfile _codescan_score.ado
-            if _rc == 0 {
-                run "`r(fn)'"
-            }
-            else {
-                display as error "_codescan_score.ado not found; reinstall codescan"
-                exit 111
-            }
-        }
-    }
-    if `"`hierarchy'"' != "" {
-        capture program list _codescan_check_hierarchy_syntax
-        local _need_hierarchy_helper = _rc
-        capture program list _codescan_parse_hierarchy
-        if _rc local _need_hierarchy_helper = 1
-        capture program list _codescan_apply_hierarchy
-        if _rc local _need_hierarchy_helper = 1
-        if `_need_hierarchy_helper' {
-            capture findfile _codescan_hierarchy.ado
-            if _rc == 0 {
-                run "`r(fn)'"
-            }
-            else {
-                display as error "_codescan_hierarchy.ado not found; reinstall codescan"
-                exit 111
-            }
-        }
-    }
     capture program list _codescan_plan_outputs
     local _need_outputs_helper = _rc
     capture program list _codescan_cleanup_outputs
@@ -228,19 +197,6 @@ program define codescan, rclass
     if "`merge'" != "" & "`collapse'" != "" {
         display as error "merge and collapse cannot both be specified"
         exit 198
-    }
-
-    * Score validation
-    if "`score'" != "" {
-        local _score_type = lower("`score'")
-        if !inlist("`_score_type'", "charlson", "elixhauser", "custom") {
-            display as error "score() must be {bf:charlson}, {bf:elixhauser}, or {bf:custom}"
-            exit 198
-        }
-        if "`_score_type'" == "custom" & "`codefile'" == "" {
-            display as error "score(custom) requires codefile() with a weight column"
-            exit 198
-        }
     }
 
     * Level validation
@@ -382,13 +338,6 @@ program define codescan, rclass
         }
     }
 
-    * hierarchy() validation - lightweight syntax check (name validation deferred until conditions parsed)
-    if `"`hierarchy'"' != "" {
-        local _hier_arg = subinstr(`"`macval(hierarchy)'"', char(92), char(5), .)
-        _codescan_check_hierarchy_syntax, hierarchy(`macval(_hier_arg)') `collapse' `merge'
-    }
-    local _n_hier_pairs = 0
-
     * Warn on lookback(0)/lookforward(0) without inclusive (empty window)
     if `has_lookback' & `_lookback_primary' == 0 & "`inclusive'" == "" & !`has_lookfwd' {
         display as text "(note: lookback(0) without inclusive excludes refdate, yielding an empty window)"
@@ -428,8 +377,6 @@ program define codescan, rclass
         local _orig_codefile "`codefile'"
         capture program list _codescan_parse_codefile
         local _need_codefile_helper = _rc
-        capture program list _codescan_write_builtin_codefile
-        if _rc local _need_codefile_helper = 1
         if `_need_codefile_helper' {
             capture findfile _codescan_codefile.ado
             if _rc == 0 {
@@ -441,12 +388,7 @@ program define codescan, rclass
             }
         }
 
-        if "`_score_type'" == "" {
-            _codescan_parse_codefile, codefile(`"`codefile'"')
-        }
-        else {
-            _codescan_parse_codefile, codefile(`"`codefile'"') scoretype("`_score_type'")
-        }
+        _codescan_parse_codefile, codefile(`"`codefile'"')
         local n_conditions = r(n_conditions)
         local all_names "`r(all_names)'"
         local n_labels = r(n_labels)
@@ -455,7 +397,6 @@ program define codescan, rclass
             local def_name_`i' "`r(def_name_`i')'"
             local def_pattern_`i' `"`r(def_pattern_`i')'"'
             local def_excl_`i' `"`r(def_excl_`i')'"'
-            local def_weight_`i' "`r(def_weight_`i')'"
         }
         if `n_labels' > 0 {
             forvalues i = 1/`n_labels' {
@@ -480,7 +421,6 @@ program define codescan, rclass
             local def_name_`i' "`r(def_name_`i')'"
             local def_pattern_`i' `"`r(def_pattern_`i')'"'
             local def_excl_`i' `"`r(def_excl_`i')'"'
-            local def_weight_`i' "`r(def_weight_`i')'"
         }
     }
 
@@ -544,17 +484,6 @@ program define codescan, rclass
     }
 
     * =========================================================================
-    * SCORE() - default weights (F2)
-    * =========================================================================
-    if "`score'" != "" & "`_score_type'" != "custom" {
-        _codescan_assign_score_weights, scoretype("`_score_type'") ///
-            nconditions(`n_conditions') names("`all_names'") generate("`generate'")
-        forvalues i = 1/`n_conditions' {
-            local def_weight_`i' "`r(def_weight_`i')'"
-        }
-    }
-
-    * =========================================================================
     * VALIDATE CONDITION NAMES
     * =========================================================================
     * Valid Stata names, <=26 chars (or <=26 after prefix), unique, no collisions
@@ -598,30 +527,16 @@ program define codescan, rclass
     * Validate every created output up front so replace cannot clobber scan
     * inputs before the row scanner runs.
     _codescan_plan_outputs, conditions("`all_names'") scanvars("`varlist'") ///
-        protected("`id' `date' `refdate'") score("`score'") ///
-        generate("`generate'") unmatched("`unmatched'") ///
+        protected("`id' `date' `refdate'") ///
+        unmatched("`unmatched'") ///
         matched_code("`matched_code'") `collapse' `merge' `earliestdate' ///
         `latestdate' `countdate' `countrows' `replace'
     local _n_outputs = r(n_outputs)
     local _outputs "`r(outputs)'"
-    local _scorename "`r(scorename)'"
     forvalues i = 1/`_n_outputs' {
         local _output_`i' "`r(output_`i')'"
     }
     local _outputs_created = 0
-
-    * =========================================================================
-    * PARSE HIERARCHY() - full validation now that condition names are known
-    * =========================================================================
-    if `"`hierarchy'"' != "" {
-        _codescan_parse_hierarchy, hierarchy(`macval(_hier_arg)') ///
-            nconditions(`n_conditions') names("`all_names'") generate("`generate'")
-        local _n_hier_pairs = r(n_hier_pairs)
-        forvalues _hp = 1/`_n_hier_pairs' {
-            local _hier_sup_`_hp' "`r(hier_sup_`_hp')'"
-            local _hier_inf_`_hp' "`r(hier_inf_`_hp')'"
-        }
-    }
 
     * =========================================================================
     * PARSE LABEL()
@@ -1164,8 +1079,7 @@ program define codescan, rclass
     * MERGE — non-destructive patient-level indicators (U1)
     * =========================================================================
     if "`merge'" != "" {
-        * Compute patient-level indicators via tempframe + merge back
-        tempname _merge_frame
+        * Compute patient-level indicators via tempfile + merge back
         local merge_expr ""
         forvalues i = 1/`n_conditions' {
             local name "`def_name_`i''"
@@ -1251,34 +1165,6 @@ program define codescan, rclass
             count if `_uniq_id' == 1
         }
         local N_unique_ids = r(N)
-    }
-
-    * =========================================================================
-    * HIERARCHY — condition supersession
-    * =========================================================================
-    * Must run BEFORE score so zeroed-out conditions don't inflate the index.
-    * Requires collapse or merge (patient-level data).
-    if `_n_hier_pairs' > 0 {
-        local _hier_sups ""
-        local _hier_infs ""
-        forvalues _hp = 1/`_n_hier_pairs' {
-            local _hier_sups "`_hier_sups' `_hier_sup_`_hp''"
-            local _hier_infs "`_hier_infs' `_hier_inf_`_hp''"
-        }
-        _codescan_apply_hierarchy, nhierpairs(`_n_hier_pairs') ///
-            sups("`_hier_sups'") infs("`_hier_infs'") `countmode' `noisily'
-    }
-
-    * =========================================================================
-    * SCORE - weighted comorbidity index (F2)
-    * =========================================================================
-    if "`score'" != "" {
-        local _score_weights ""
-        forvalues i = 1/`n_conditions' {
-            local _score_weights "`_score_weights' `def_weight_`i''"
-        }
-        _codescan_apply_score, scoretype("`_score_type'") scorename(`_scorename') ///
-            names("`all_names'") weights("`_score_weights'") `replace'
     }
 
     * =========================================================================
@@ -1481,34 +1367,6 @@ program define codescan, rclass
             as result %10.0fc `N_unique_ids' as text " unique `id' values"
     }
 
-    * Score display
-    if "`score'" != "" {
-        if "`merge'" != "" {
-            * Patient-level score stats (one row per patient)
-            tempvar _sc_tag
-            quietly bysort `id': gen byte `_sc_tag' = (_n == 1)
-            quietly summarize `_scorename' if `_sc_tag' == 1
-            local _sc_mean = r(mean)
-            local _sc_min = r(min)
-            local _sc_max = r(max)
-            quietly _pctile `_scorename' if `_sc_tag' == 1, p(50)
-            local _sc_med = r(r1)
-            quietly drop `_sc_tag'
-        }
-        else {
-            quietly summarize `_scorename'
-            local _sc_mean = r(mean)
-            local _sc_min = r(min)
-            local _sc_max = r(max)
-            quietly _pctile `_scorename', p(50)
-            local _sc_med = r(r1)
-        }
-        display as text _n "  `_score_type' score: mean = " as result %5.2f `_sc_mean' ///
-            as text ", median = " as result %5.1f `_sc_med' ///
-            as text ", range = [" as result %3.0f `_sc_min' ///
-            as text ", " as result %3.0f `_sc_max' as text "]"
-    }
-
     * Multi-window sensitivity display (W4)
     if `_has_sensitivity' {
         * Now build the sensitivity matrix using N_display
@@ -1651,9 +1509,6 @@ program define codescan, rclass
             if "`countrows'" != ""   local newvars "`newvars' `name'_nrows"
         }
     }
-    if "`score'" != "" {
-        local newvars "`newvars' `_scorename'"
-    }
     if "`unmatched'" != "" & "`collapse'" == "" {
         local newvars "`newvars' `unmatched'"
     }
@@ -1697,7 +1552,6 @@ program define codescan, rclass
     if `has_lookfwd'                   return scalar lookforward = `lookforward'
     if `has_lookback' | `has_lookfwd'  return local refdate "`refdate'"
     if "`frame'" != ""                 return local frame "`frame'"
-    if "`score'" != ""                 return local score "`_score_type'"
     return scalar ci_level = c(level)
     * , copy — keep local tempname matrices alive for the export block below.
     return matrix summary = `summary', copy
@@ -1781,7 +1635,8 @@ program define codescan, rclass
     if "`preserve'" != "" {
         if "`frame'" != "" {
             if "`replace'" != "" {
-                capture frame drop `frame'
+                capture confirm frame `frame'
+                if !_rc frame drop `frame'
             }
             frame put *, into(`frame')
         }

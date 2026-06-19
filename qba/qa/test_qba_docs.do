@@ -30,7 +30,7 @@ capture noisily {
         confirm file "`r(fn)'"
 	    }
 	    qba
-	    assert "`r(version)'" == "1.0.0"
+	    assert "`r(version)'" == "1.0.1"
 	    assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 	}
 if _rc == 0 {
@@ -106,6 +106,41 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: D4 TMLE/LTMLE documentation contract (error `=_rc')"
+    local ++fail_count
+}
+
+* D5: Selection distribution and stored-result tokens are individually documented
+local ++test_count
+capture noisily {
+    foreach token in ///
+        "{synopt:{opt dist_sela(distribution)}}" ///
+        "{synopt:{opt dist_selb(distribution)}}" ///
+        "{synopt:{opt dist_selc(distribution)}}" ///
+        "{synopt:{opt dist_seld(distribution)}}" {
+        assert strpos(fileread("`pkg_dir'/qba_multi.sthlp"), "`token'")
+    }
+    foreach token in ///
+        "{synopt:{cmd:r(a)}}" ///
+        "{synopt:{cmd:r(b)}}" ///
+        "{synopt:{cmd:r(c)}}" ///
+        "{synopt:{cmd:r(d)}}" ///
+        "{synopt:{cmd:r(corrected_a)}}" ///
+        "{synopt:{cmd:r(corrected_b)}}" ///
+        "{synopt:{cmd:r(corrected_c)}}" ///
+        "{synopt:{cmd:r(corrected_d)}}" ///
+        "{synopt:{cmd:r(sela)}}" ///
+        "{synopt:{cmd:r(selb)}}" ///
+        "{synopt:{cmd:r(selc)}}" ///
+        "{synopt:{cmd:r(seld)}}" {
+        assert strpos(fileread("`pkg_dir'/qba_selection.sthlp"), "`token'")
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: D5 Selection docs expose explicit distribution and stored-result tokens"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: D5 Selection docs token coverage (error `=_rc')"
     local ++fail_count
 }
 

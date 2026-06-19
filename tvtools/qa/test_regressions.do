@@ -109,6 +109,24 @@ capture {
     format study_entry study_exit %td
     save "/tmp/_gap_reversed.dta", replace
 
+    * Standard cohort and exposure fixtures used by tvexpose error-path tests
+    clear
+    set obs 3
+    gen id = _n
+    gen study_entry = mdy(1,1,2020)
+    gen study_exit = mdy(12,31,2020)
+    format study_entry study_exit %td
+    save "/tmp/test_cohort.dta", replace
+
+    clear
+    set obs 3
+    gen id = _n
+    gen rx_start = mdy(3,1,2020)
+    gen rx_stop = mdy(6,1,2020)
+    gen drug = 1
+    format rx_start rx_stop %td
+    save "/tmp/test_exposure.dta", replace
+
     * Interval data for tvevent tests
     clear
     set obs 5
@@ -3083,6 +3101,116 @@ else {
     local failed_tests "`failed_tests' 23.6"
 }
 
+* SECTION 24: Documentation release regressions
+
+* TEST 24.1: public help Author sections use the canonical project form only
+local ++test_count
+capture noisily {
+    local qa_dir "`c(pwd)'"
+    local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
+    local canonical "{pstd}Timothy P Copeland, Karolinska Institutet{p_end}"
+    local help_files tvage tvdiagnose tvevent tvexpose tvmerge tvpanel tvtools tvweight
+
+    foreach h of local help_files {
+        tempname fh
+        file open `fh' using "`pkg_dir'/`h'.sthlp", read text
+
+        local in_author = 0
+        local saw_title = 0
+        local canonical_count = 0
+        local other_count = 0
+        local other_line ""
+
+        file read `fh' line
+        while r(eof) == 0 {
+            local trimmed = strtrim(`"`line'"')
+
+            if `"`trimmed'"' == "{marker author}{...}" {
+                local in_author = 1
+            }
+            else if `in_author' & `"`trimmed'"' == "{title:Author}" {
+                local saw_title = 1
+            }
+            else if `in_author' & `saw_title' {
+                if substr(`"`trimmed'"', 1, 7) == "{title:" | ///
+                    substr(`"`trimmed'"', 1, 8) == "{marker " | ///
+                    `"`trimmed'"' == "{hline}" {
+                    local in_author = 0
+                }
+                else if `"`trimmed'"' != "" {
+                    if `"`trimmed'"' == `"`canonical'"' {
+                        local ++canonical_count
+                    }
+                    else {
+                        local ++other_count
+                        local other_line `"`trimmed'"'
+                    }
+                }
+            }
+
+            file read `fh' line
+        }
+        file close `fh'
+
+        assert `canonical_count' == 1
+        assert `other_count' == 0
+    }
+}
+if _rc == 0 {
+    display as result "PASS: help Author sections use canonical project form"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: help Author section consistency (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 24.1"
+}
+
+* TEST 24.2: tvexpose r(overlap_ids) synopt remains concise
+local ++test_count
+capture noisily {
+    local qa_dir "`c(pwd)'"
+    local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
+    local expected_synopt "{synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}"
+
+    tempname fh
+    file open `fh' using "`pkg_dir'/tvexpose.sthlp", read text
+    local found_synopt = 0
+    local long_synopt = 0
+    local found_note = 0
+
+    file read `fh' line
+    while r(eof) == 0 {
+        local trimmed = strtrim(`"`line'"')
+        if strpos(`"`trimmed'"', "{synopt:{cmd:r(overlap_ids)}}") > 0 {
+            local found_synopt = 1
+            assert `"`trimmed'"' == `"`expected_synopt'"'
+            if strpos(`"`trimmed'"', "only stored when") > 0 | ///
+                strpos(`"`trimmed'"', "no {cmd:priority()}") > 0 {
+                local long_synopt = 1
+            }
+        }
+        if strpos(`"`trimmed'"', "{cmd:r(overlap_ids)} is stored only when") > 0 {
+            local found_note = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+
+    assert `found_synopt' == 1
+    assert `long_synopt' == 0
+    assert `found_note' == 1
+}
+if _rc == 0 {
+    display as result "PASS: tvexpose r(overlap_ids) synopt is concise"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: tvexpose overlap_ids synopt check (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 24.2"
+}
+
 * Cleanup section 23 tempfiles
 foreach f in ds_prop ds_exp2 master_23 using_23 master_ev intervals_ev master_oob intervals_oob {
     capture erase "``f''"
@@ -3092,6 +3220,7 @@ foreach f in ds_prop ds_exp2 master_23 using_23 master_ev intervals_ev master_oo
 foreach f in _gap_tvage _gap_tc_cohort _gap_tc_exp _gap_empty_exp ///
     _gap_str_exp _gap_wrongvars_exp _gap_reversed _gap_intervals ///
     _gap_merge1 _gap_merge2 _gap_tvage_out ///
+    test_cohort test_exposure ///
     _s18_cohort _s18_exposure _s18_overlap_exp ///
     _s18_merge1 _s18_merge2 _s18_intervals _s18_events ///
     _s18_bad_cohort _s18_merged _s18_merged2 {
@@ -3116,4 +3245,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

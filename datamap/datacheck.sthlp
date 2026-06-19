@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  19jun2026}{...}
+{* *! version 1.5.0  19jun2026}{...}
 {vieweralsosee "datamap" "help datamap"}{...}
 {vieweralsosee "datadict" "help datadict"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
@@ -37,6 +37,7 @@
 {synoptline}
 {syntab:Input}
 {synopt:{opt sing:le(filename)}}profile a saved {opt .dta} instead of data in memory; the in-memory data is preserved{p_end}
+{synopt:{opt conf:ig(filename)}}load reusable key-value defaults from a text file{p_end}
 
 {syntab:Classification}
 {synopt:{opt maxc:at(#)}}categorical-vs-continuous cutoff passed to the classifier; default {bf:25}{p_end}
@@ -74,6 +75,7 @@
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read gate specifications from a checks file{p_end}
 {synopt:{opt makes:pec(filename[, replace])}}write a starter checks file from the current dataset{p_end}
+{synopt:{opt comp:are(filename)}}compare the current schema with a saved metadata profile or dataset{p_end}
 {synopt:{opt warn}}downgrade every gate from halt to warning; report but do not stop{p_end}
 
 {syntab:Output}
@@ -122,6 +124,15 @@ modifies the user's data.
 {opt sing:le(filename)} profiles a saved {opt .dta} file instead of the data in
 memory.  The in-memory data is preserved and restored.  The {opt .dta}
 extension is optional.
+
+{phang}
+{opt conf:ig(filename)} reads reusable defaults from a text file containing
+{cmd:key = value} or {cmd:key: value} lines.  Supported keys include
+{cmd:exclude}, {cmd:continuous}, {cmd:categorical}, {cmd:datevars},
+{cmd:maxcat}, {cmd:maxfreq}, {cmd:rare}, {cmd:mincell}, {cmd:outliers},
+{cmd:maskrare}, {cmd:nomissing}, {cmd:patterns}, {cmd:gatesonly},
+{cmd:onlyflagged}, and {cmd:show}.  Command-line options override config-file
+defaults.
 
 {dlgtab:Classification}
 
@@ -257,6 +268,16 @@ ranges, allowed values, and required variables before treating it as a gate
 contract.
 
 {phang}
+{opt comp:are(filename)} compares the current profiled variables with a saved
+baseline.  The baseline may be a common metadata dataset produced by
+{cmd:datamap}, {cmd:datadict}, or {cmd:datacheck}, a legacy {cmd:datacheck}
+profile containing {cmd:varname}/{cmd:vartype}/{cmd:dc_class}, or a raw Stata
+dataset.  Added, dropped, storage-type, class, and observation-count changes
+are reported as a {cmd:compare} violation.  With {opt warn}, the same drift is
+reported but execution continues and the comparison counts are returned in
+{cmd:r()}.
+
+{phang}
 {opt warn} downgrades every gate from a halt to a warning: violations are
 reported and the stored results are still set, but execution continues.  Use
 this to run the gates diagnostically while building a do-file.
@@ -265,10 +286,10 @@ this to run the gates diagnostically while building a do-file.
 
 {phang}
 {opt sav:ing(name[, replace])} saves the per-variable profile (the shared
-classifier columns plus a {cmd:dc_class} column reflecting any manual group
-overrides).  If {it:name} ends in {opt .dta} or contains a path separator the
-profile is written to that file; otherwise it is copied into a frame of that
-name.  A bad path is reported and skipped without aborting the report.
+common metadata schema plus legacy aliases {cmd:varname} and {cmd:dc_class}).
+If {it:name} ends in {opt .dta} or contains a path separator the profile is
+written to that file; otherwise it is copied into a frame of that name.  A bad
+path is reported and skipped without aborting the report.
 
 {phang}
 {opt only:flagged} filters console output to variables, groups, or gates with a
@@ -339,6 +360,9 @@ steps need structured diagnostics rather than console text.
 {pstd}Run a batch preflight from a versioned checks file and save violations:{p_end}
 {phang2}{cmd:. datacheck, gatesonly checks("qc_checks.dta") violations("qc_violations.dta", replace)}{p_end}
 
+{pstd}Compare a refreshed dataset against a saved profile without halting:{p_end}
+{phang2}{cmd:. datacheck, compare("qa/baseline_profile.dta") warn}{p_end}
+
 {pstd}Show only flagged variables and mask rare cells before sharing a log:{p_end}
 {phang2}{cmd:. datacheck, rare(5) mincell(5) maskrare show(flagged)}{p_end}
 
@@ -387,6 +411,11 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(n_group_missing_vars)}}number of variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
 {synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
+{synopt:{cmd:r(compare_added)}}number of variables added relative to {opt compare()}{p_end}
+{synopt:{cmd:r(compare_dropped)}}number of variables dropped relative to {opt compare()}{p_end}
+{synopt:{cmd:r(compare_type_changed)}}number of variables with changed storage type{p_end}
+{synopt:{cmd:r(compare_class_changed)}}number of variables with changed classification{p_end}
+{synopt:{cmd:r(compare_changed)}}total schema-drift count, including N delta when present{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}duplicate-key count for each declared {opt id()} key{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
@@ -404,6 +433,10 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}
 {synopt:{cmd:r(rare_vars)}}variables with rare-level flags{p_end}
 {synopt:{cmd:r(group_missing_vars)}}variables with missing values in at least one {opt by()} or {opt over()} group{p_end}
+{synopt:{cmd:r(compare_added_vars)}}variables added relative to {opt compare()}{p_end}
+{synopt:{cmd:r(compare_dropped_vars)}}variables dropped relative to {opt compare()}{p_end}
+{synopt:{cmd:r(compare_type_changed_vars)}}variables whose storage type changed{p_end}
+{synopt:{cmd:r(compare_class_changed_vars)}}variables whose classification changed{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -420,7 +453,7 @@ violations so subsequent Stata code can inspect the results programmatically.
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.4.1 {hline 2} 19jun2026{p_end}
+{pstd}Version 1.5.0 {hline 2} 19jun2026{p_end}
 
 
 {title:Also see}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  02jun2026}{...}
+{* *! version 1.0.1  19jun2026}{...}
 {vieweralsosee "qba" "help qba"}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
@@ -53,7 +53,10 @@
 {syntab:Selection bias (requires all four sel options)}
 {synopt:{opt sela(#)} {opt selb(#)}}selection probabilities for cases; (0, 1]{p_end}
 {synopt:{opt selc(#)} {opt seld(#)}}selection probabilities for non-cases; (0, 1]{p_end}
-{synopt:{opt dist_sela(distribution)}}through {opt dist_seld()} distributions{p_end}
+{synopt:{opt dist_sela(distribution)}}distribution for sela; default constant at {cmd:sela()}{p_end}
+{synopt:{opt dist_selb(distribution)}}distribution for selb; default constant at {cmd:selb()}{p_end}
+{synopt:{opt dist_selc(distribution)}}distribution for selc; default constant at {cmd:selc()}{p_end}
+{synopt:{opt dist_seld(distribution)}}distribution for seld; default constant at {cmd:seld()}{p_end}
 
 {syntab:Unmeasured confounding (requires p1, p0, and rrcd or rrud)}
 {synopt:{opt p1(#)}}P(confounder = 1 | exposed); [0, 1]{p_end}
@@ -148,7 +151,8 @@ probabilities for each cell. All four must be specified to activate selection
 bias correction. Each must be in (0, 1].
 
 {phang}
-{opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify
+{opt dist_sela(distribution)}, {opt dist_selb(distribution)},
+{opt dist_selc(distribution)}, and {opt dist_seld(distribution)} specify
 distributions for each selection probability. If omitted, constants at the
 fixed values are used.
 
@@ -284,6 +288,6 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-06-02{p_end}
+{pstd}Version 1.0.1, 2026-06-19{p_end}
 
 {hline}

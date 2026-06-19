@@ -1,5 +1,5 @@
 clear all
-version 17.0
+version 16.1
 
 * This suite only inspects package files on disk; it never invokes rangematch,
 * so an installed copy cannot shadow it. Uninstall anyway to keep every QA file
@@ -95,7 +95,7 @@ display as result "PASS: versions and author strings synchronized at `pkg_versio
 local ++test_count
 local path "`pkg_dir'/rangematch.pkg"
 foreach needle in "f rangematch.ado" "f _rangematch_mata.ado" ///
-    "f rangematch.sthlp" {
+    "f rangematch.sthlp" "f bench_rangematch.do" {
     mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
     assert scalar(__found) == 1
 }
@@ -119,6 +119,8 @@ local needle_claude ".claude"
 local needle_claude "`needle_claude'/skills"
 local needle_codex ".codex"
 local needle_codex "`needle_codex'/skills"
+local needle_dev "Stata"
+local needle_dev "`needle_dev'-Dev"
 local needle_examples "_examples"
 local needle_examples "`needle_examples'/"
 * demo/workflow.md and demo/benchmark.md are regenerated logdoc artifacts, not
@@ -131,7 +133,7 @@ foreach f in rangematch.ado _rangematch_mata.ado rangematch.sthlp ///
     confirm file "`pkg_dir'/`f'"
     local path "`pkg_dir'/`f'"
     foreach needle in "`needle_home'" "`needle_stata'" "`needle_claude'" ///
-        "`needle_codex'" "`needle_examples'" {
+        "`needle_codex'" "`needle_dev'" "`needle_examples'" {
         mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
         assert scalar(__found) == 0
     }
@@ -141,7 +143,7 @@ foreach f in demo/workflow.md demo/benchmark.md {
     if !_rc {
         local path "`pkg_dir'/`f'"
         foreach needle in "`needle_home'" "`needle_stata'" "`needle_claude'" ///
-            "`needle_codex'" "`needle_examples'" {
+            "`needle_codex'" "`needle_dev'" "`needle_examples'" {
             mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
             assert scalar(__found) == 0
         }

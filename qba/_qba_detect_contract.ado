@@ -1,10 +1,9 @@
-*! _qba_detect_contract Version 1.0.0  2026/06/02
+*! _qba_detect_contract Version 1.0.1  2026/06/19
 *! Internal helper: detect active estimator contracts consumable by qba
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 capture program drop _qba_detect_contract
-local _drop_rc = _rc
 program define _qba_detect_contract, rclass
     version 16.0
     local _saved_varabbrev = c(varabbrev)

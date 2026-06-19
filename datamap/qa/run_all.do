@@ -65,6 +65,15 @@ if `rc' {
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datamap_v15.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datamap_v15.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
 capture noisily include "`qa_dir'/test_datamap_privacy.do"
 local rc = _rc
 if `rc' {

@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.1  2026/06/15
+*! tvevent Version 1.0.2  2026/06/19
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!

@@ -1,5 +1,5 @@
 * crossval_compress_tc.do
-* Cross-validation tests for compress_tc v1.0.4
+* Cross-validation tests for compress_tc v1.1.0
 * Author: Timothy P Copeland
 * Date: 2026-03-21
 * Tests: 7

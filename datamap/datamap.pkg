@@ -36,3 +36,6 @@ f _datamap_classify.ado
 f _datamap_collect_filelist.ado
 f _datamap_collect_from_dir.ado
 f _datamap_count_files.ado
+f _datamap_load_config.ado
+f _datamap_post_metadata_rows.ado
+f _datamap_validate_path.ado

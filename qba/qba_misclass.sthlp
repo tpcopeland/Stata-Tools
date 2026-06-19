@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  02jun2026}{...}
+{* *! version 1.0.1  19jun2026}{...}
 {vieweralsosee "qba" "help qba"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -314,6 +314,6 @@ sensitivity analyses of misclassified binary variables.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-06-02{p_end}
+{pstd}Version 1.0.1, 2026-06-19{p_end}
 
 {hline}

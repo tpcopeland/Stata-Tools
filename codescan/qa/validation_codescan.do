@@ -1175,44 +1175,6 @@ else {
 }
 
 
-**# Charlson Score Weight Validation
-
-**## V19 — Charlson weights match Quan 2011 (hand-verified)
-* mi=1, chf=1, dm2=1, renal=2, metastatic=6, liver_severe=3
-* Total for patient with all: 1+1+1+2+6+3 = 14
-local ++test_count
-capture noisily {
-    clear
-    input long pid str10 dx1
-    1 "I21"
-    1 "I50"
-    1 "E110"
-    1 "N18"
-    1 "C78"
-    1 "K72"
-    2 "Z00"
-    end
-
-    codescan dx1, define( ///
-        mi "I21|I22" | chf "I50" | dm2 "E11" | ///
-        renal "N18" | metastatic "C7[7-9]" | liver_severe "K7[2-6]") ///
-        id(pid) collapse score(charlson)
-
-    * Patient 1 weights: mi=1, chf=1, dm2=1, renal=2, metastatic=6, liver_severe=3
-    assert _score == 14 if pid == 1
-    * Patient 2: no matches → score=0
-    assert _score == 0 if pid == 2
-}
-if _rc == 0 {
-    display as result "  PASS: V19 - Charlson weights (Quan 2011, hand-verified)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V19 - Charlson weights (error `=_rc')"
-    local ++fail_count
-}
-
-
 **# Co-occurrence Matrix Validation
 
 **## V20 — Co-occurrence matrix hand-verified
@@ -1471,50 +1433,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V26 - Prefix mode exclusion (error `=_rc')"
-    local ++fail_count
-}
-
-
-**# Score Custom Weights Validation
-
-**## V27 — Custom weights from codefile (hand-verified)
-* dm2 weight=5, htn weight=2
-* Patient 1: dm2=1, htn=1 → score = 5+2 = 7
-* Patient 2: dm2=0, htn=1 → score = 2
-* Patient 3: dm2=0, htn=0 → score = 0
-local ++test_count
-capture noisily {
-    preserve
-    clear
-    input str10 name str20 pattern str10 exclusion str30 label double weight
-    "dm2" "E11" "" "Diabetes" 5
-    "htn" "I1[0-35]" "" "Hypertension" 2
-    end
-    save "/tmp/_cs_v27_weights.dta", replace
-    restore
-
-    clear
-    input long pid str10 dx1
-    1 "E110"
-    1 "I10"
-    2 "I13"
-    2 "Z00"
-    3 "Z00"
-    3 "Z01"
-    end
-
-    codescan dx1, codefile("/tmp/_cs_v27_weights.dta") id(pid) collapse score(custom)
-
-    assert _score == 7 if pid == 1
-    assert _score == 2 if pid == 2
-    assert _score == 0 if pid == 3
-}
-if _rc == 0 {
-    display as result "  PASS: V27 - Custom score weights (hand-verified)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V27 - Custom score weights (error `=_rc')"
     local ++fail_count
 }
 
@@ -1806,40 +1724,6 @@ else {
 }
 
 
-**# Generate Prefix with Score Validation
-
-**## V34 — Generate prefix applies to score variable name
-local ++test_count
-capture noisily {
-    clear
-    input long pid str10 dx1
-    1 "E110"
-    1 "I10"
-    2 "I10"
-    2 "Z00"
-    end
-    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
-        score(charlson) generate(cci_)
-    * Variables should be cci_dm2, cci_htn, cci__score
-    confirm variable cci_dm2
-    confirm variable cci_htn
-    confirm variable cci__score
-    * dm2 has weight 1 (charlson), htn is not a standard name → weight 0
-    * Patient 1: cci_dm2=1, cci_htn=1 → score = 1 (only dm2 weighted)
-    assert cci__score == 1 if pid == 1
-    * Patient 2: cci_dm2=0, cci_htn=1 → score = 0
-    assert cci__score == 0 if pid == 2
-}
-if _rc == 0 {
-    display as result "  PASS: V34 - Generate prefix on score variable"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V34 - Generate prefix score (error `=_rc')"
-    local ++fail_count
-}
-
-
 **# Countmode Collapse Sum Validation
 
 **## V35 — Countmode collapse sums row-level counts (hand-verified)
@@ -1964,42 +1848,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V38 - Codelist matrix (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* NEW: Score Conservation
-* ============================================================
-
-**## V39 — Charlson score = sum of weighted indicators (hand-verified)
-local ++test_count
-capture noisily {
-    clear
-    input long pid str10 dx1 str10 dx2 str10 dx3
-    1 "E110" "I21"  "C34"
-    2 "I50"  ""     ""
-    3 "Z00"  ""     ""
-    end
-    codescan dx1 dx2 dx3, codefile("`pkg_dir'/charlson_icd10_example.csv") ///
-        id(pid) collapse score(charlson)
-    * Patient 1: dm_uncomp(1) + mi(1) + cancer(2) = 4
-    * Patient 2: chf(1) = 1
-    * Patient 3: no matches = 0
-    assert _score[1] == 4 if pid == 1
-    assert _score[2] == 1 if pid == 2
-    assert _score[3] == 0 if pid == 3
-    * Conservation: _score = sum of (weight_i * indicator_i) for each patient
-    * Verify manually: sum all indicator * weight
-    local sum1 = dm_uncomp[1]*1 + mi[1]*1 + cancer[1]*2
-    assert _score[1] == `sum1'
-}
-if _rc == 0 {
-    display as result "  PASS: V39 - Charlson score = sum of weighted indicators"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V39 - Charlson score conservation (error `=_rc')"
     local ++fail_count
 }
 
@@ -2237,7 +2085,7 @@ else {
 * NEW: Generate Prefix on Date Variables
 * ============================================================
 
-**## V46 — generate() prefix applied to _first, _last, _count, _score
+**## V46 — generate() prefix applied to _first, _last, _count
 local ++test_count
 capture noisily {
     clear
@@ -2539,47 +2387,6 @@ else {
 
 
 * ============================================================
-* NEW: Custom Score Weights (hand-verified)
-* ============================================================
-
-**## V54 — Custom score weights computed correctly
-local ++test_count
-capture noisily {
-    clear
-    input str10 name str10 pattern double weight
-    "cond_a" "E11" 3
-    "cond_b" "I10" 2
-    "cond_c" "J45" 5
-    end
-    quietly export delimited using "/tmp/_codescan_v54.csv", replace
-    clear
-    input str10 dx1 str10 dx2
-    "E110" "I10"
-    "E119" "J45"
-    "Z00"  ""
-    "I10"  "J45"
-    end
-    codescan dx1 dx2, codefile("/tmp/_codescan_v54.csv") score(custom)
-    * Row 1: cond_a(3) + cond_b(2) = 5
-    assert _score[1] == 5
-    * Row 2: cond_a(3) + cond_c(5) = 8
-    assert _score[2] == 8
-    * Row 3: nothing = 0
-    assert _score[3] == 0
-    * Row 4: cond_b(2) + cond_c(5) = 7
-    assert _score[4] == 7
-}
-if _rc == 0 {
-    display as result "  PASS: V54 - Custom score weights (hand-verified)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V54 - Custom score weights (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
 * NEW: Nodots Equivalence
 * ============================================================
 
@@ -2607,45 +2414,6 @@ else {
     display as error "  FAIL: V55 - nodots equivalence (error `=_rc')"
     local ++fail_count
 }
-
-**## V56 — built-in Charlson basename matches shipped CSV definitions
-local ++test_count
-capture noisily {
-    clear
-    input long pid str10 dx1 str10 dx2
-    1 "E110" "I21"
-    2 "I50"  ""
-    3 "Z00"  ""
-    end
-    codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse score(charlson)
-    local builtin_score_1 = _score[1]
-    local builtin_score_2 = _score[2]
-    local builtin_score_3 = _score[3]
-    matrix B = r(summary)
-
-    clear
-    input long pid str10 dx1 str10 dx2
-    1 "E110" "I21"
-    2 "I50"  ""
-    3 "Z00"  ""
-    end
-    codescan dx1 dx2, codefile("`pkg_dir'/charlson_icd10_example.csv") id(pid) collapse score(charlson)
-    assert _score[1] == `builtin_score_1'
-    assert _score[2] == `builtin_score_2'
-    assert _score[3] == `builtin_score_3'
-    assert r(summary)[1,1] == B[1,1]
-    assert r(summary)[2,1] == B[2,1]
-    assert r(summary)[17,1] == B[17,1]
-}
-if _rc == 0 {
-    display as result "  PASS: V56 - built-in Charlson basename matches shipped CSV"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V56 - built-in Charlson basename parity (error `=_rc')"
-    local ++fail_count
-}
-
 
 **# Summary
 

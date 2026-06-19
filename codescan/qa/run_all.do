@@ -30,14 +30,14 @@ if !inlist("`mode'", "quick", "core", "full") {
 * Routine development lane: fast functional coverage plus the two headline
 * validation suites. No install/docs smoke, no adversarial stress.
 local quick_suites test_codescan test_countrows test_mata_opt ///
-    test_codescan_regressions ///
+    test_codescan_regressions test_codescan_v2_no_scoring ///
     validation_codescan validation_countrows
 
 * Correctness lane: quick plus every validation suite and the adversarial
 * functional suites.
 local core_suites `quick_suites' ///
     validation_codescan_known_answers validation_mata ///
-    validation_builtin_codefiles validation_codescan_io ///
+    validation_codescan_io ///
     validation_codescan_output validation_codescan_describe ///
     validation_codescan_describe_adversarial validation_codescan_crosscheck ///
     test_codescan_adversarial test_codescan_describe_adversarial ///
@@ -67,6 +67,19 @@ foreach f in `suite_list' {
     else {
         local ++pass
         display as result "PASSED: `f'.do"
+    }
+}
+
+* Erase generated artifacts left at the qa/ root so the working tree stays clean
+* (these are gitignored and never ship, but lingering .xlsx/.smcl trip the
+* release-debris hygiene check). .log is intentionally NOT erased here: this
+* runner's own batch log (run_all.log) is open while this code runs. Input
+* fixtures under qa/data/ are untouched.
+cd "`qa_dir'"
+foreach _ext in xlsx smcl {
+    local _junk : dir "`qa_dir'" files "*.`_ext'"
+    foreach _f of local _junk {
+        capture erase "`qa_dir'/`_f'"
     }
 }
 

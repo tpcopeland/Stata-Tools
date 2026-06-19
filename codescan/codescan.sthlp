@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  14jun2026}{...}
+{* *! version 2.0.0  19jun2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -13,7 +13,6 @@
 {viewerjumpto "Remarks" "codescan##remarks"}{...}
 {viewerjumpto "Examples" "codescan##examples"}{...}
 {viewerjumpto "Stored results" "codescan##results"}{...}
-{viewerjumpto "References" "codescan##references"}{...}
 {viewerjumpto "Author" "codescan##author"}{...}
 
 
@@ -65,11 +64,9 @@
 {synopt:{opt frame(name)}}store the final result dataset in a named frame{p_end}
 {synopt:{opt sav:ing(filename [, replace])}}save the final result dataset to disk{p_end}
 
-{syntab:Scoring, diagnostics, and reporting}
+{syntab:Diagnostics and reporting}
 {synopt:{opt det:ail}}return per-variable match counts{p_end}
 {synopt:{opt cooc:currence}}return pairwise co-occurrence counts{p_end}
-{synopt:{opt score(string)}}Charlson, Elixhauser, or custom weighted score{p_end}
-{synopt:{opt hier:archy(string)}}apply superior > inferior condition rules before scoring{p_end}
 {synopt:{opt unm:atched(name)}}row-level flag for observations with no matches{p_end}
 {synopt:{opt match:ed_code(name)}}row-level variable holding the first code that survived matching{p_end}
 {synopt:{opt gr:aph}}draw a prevalence bar chart{p_end}
@@ -83,7 +80,7 @@
 {synopt:{opt nod:ots}}strip dots during matching{p_end}
 {synopt:{opt tostr:ing}}convert numeric code variables to string before scanning{p_end}
 {synopt:{opt countm:ode}}store counts rather than binary indicators{p_end}
-{synopt:{opt gen:erate(prefix)}}prefix all created variable names, including the score variable{p_end}
+{synopt:{opt gen:erate(prefix)}}prefix all created variable names{p_end}
 {synopt:{opt rep:lace}}allow overwriting existing output variables or frames{p_end}
 {synopt:{opt noi:sily}}display per-condition progress notes{p_end}
 
@@ -123,10 +120,9 @@ simple starts-with comparisons and is faster when regex features are not
 needed.
 
 {pstd}
-Optional time windows, date summaries, co-occurrence counts, hierarchy rules,
-and Charlson/Elixhauser/custom scores support common clinical and
-health-services research workflows — all without leaving Stata or reshaping
-the data.
+Optional time windows, date summaries, and co-occurrence counts support common
+clinical and health-services research workflows — all without leaving Stata or
+reshaping the data.
 
 {pstd}
 Use {helpb codescan_describe} first when you need to inspect the raw code
@@ -147,7 +143,7 @@ to focus on.{p_end}
 
 {phang2}2. {bf:Draft and test simple rules.}  Write an initial
 {cmd:define()} specification and check the row-level results before adding
-windows, dates, or scores.  At this stage, the created variables appear
+windows or date summaries.  At this stage, the created variables appear
 alongside the original data so you can eyeball whether each match is
 correct.{p_end}
 
@@ -157,9 +153,9 @@ patient-level results attached back to the original encounters.  Most analytic
 pipelines want {cmd:collapse}.{p_end}
 
 {phang2}4. {bf:Add advanced features last.}  Once the basic matches look
-right, layer on {cmd:lookback()}/{cmd:lookforward()}, date summaries,
-{cmd:hierarchy()}, scoring, and export/save options.  Each feature is additive
-and does not change the meaning of earlier options.{p_end}
+right, layer on {cmd:lookback()}/{cmd:lookforward()}, date summaries, and
+export/save options.  Each feature is additive and does not change the meaning
+of earlier options.{p_end}
 
 {pstd}
 In practice, a common sequence is:
@@ -167,7 +163,7 @@ In practice, a common sequence is:
 {phang2}{cmd:codescan_describe} (reconnaissance) {hline 1}>{p_end}
 {phang2}{cmd:codescan, define(...)} at the row level (draft rules) {hline 1}>{p_end}
 {phang2}{cmd:codescan, collapse} or {cmd:merge} (patient-level) {hline 1}>{p_end}
-{phang2}{cmd:score()}, {cmd:export()}, or {cmd:saving()} (final deliverable){p_end}
+{phang2}{cmd:export()} or {cmd:saving()} (final deliverable){p_end}
 
 {pstd}
 Choose the output shape based on the question you are answering:
@@ -292,22 +288,14 @@ fit inside Stata's 32-character variable-name limit.
 {phang}
 {opt codefile(string)} reads definitions from a CSV or {cmd:.dta} dataset.  The
 file must contain string variables {bf:name} and {bf:pattern}.  Optional columns
-are {bf:label}, {bf:exclusion}, and {bf:weight}.  Column names are matched
-case-insensitively.
+are {bf:label} and {bf:exclusion}.  Column names are matched case-insensitively.
 
 {pmore}
 The {bf:name} column must contain valid, unique Stata names no longer than 26
 characters.  The {bf:pattern} column supplies the inclusion rule.  The
 {bf:exclusion} column supplies one or more exclusions separated by {cmd:|}.
 The {bf:label} column is used for variable labels and displayed/exported
-condition labels.  The {bf:weight} column is required for {cmd:score(custom)}
-and ignored by built-in Charlson or Elixhauser scoring.
-
-{pmore}
-Two bundled example codefiles are shipped with the package and can be requested
-directly by basename:
-{cmd:codefile(charlson_icd10_example.csv)} and
-{cmd:codefile(elixhauser_icd10_example.csv)}.
+condition labels.
 
 {pmore}
 Use a codefile when definitions should be version-controlled, reused across
@@ -419,7 +407,7 @@ If the frame already exists, add {cmd:replace}.
 {opt saving(filename [, replace])} saves the final result dataset to disk after
 {cmd:collapse} or {cmd:merge}.  The only supported suboption is {cmd:replace}.
 
-{dlgtab:Scoring, diagnostics, and reporting}
+{dlgtab:Diagnostics and reporting}
 
 {phang}
 {opt detail} displays and returns a per-variable contribution table in
@@ -430,83 +418,6 @@ binary short-circuiting.
 {opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
 of pairwise counts.  In row-level mode it counts observations.  After
 {cmd:collapse} or {cmd:merge}, it counts unique {cmd:id()} values.
-
-{phang}
-{opt score(string)} creates a weighted score variable named {cmd:_score}, or
-{cmd:{it:prefix}_score} when {cmd:generate()} is used.
-
-{pmore}
-{cmd:score(charlson)} applies Quan et al. (2011) updated Charlson weights.
-Recognized condition aliases and their weights:{break}
-Weight 1: {cmd:mi}, {cmd:chf}, {cmd:pvd}, {cmd:dementia}, {cmd:copd},
-{cmd:cvd}, {cmd:stroke}, {cmd:cerebrovascular},
-{cmd:rheumatic}, {cmd:rheumatoid}, {cmd:connective},
-{cmd:peptic}, {cmd:ulcer}, {cmd:pud},
-{cmd:liver_mild}, {cmd:mild_liver},
-{cmd:dm}, {cmd:dm1}, {cmd:dm2}, {cmd:dm_uncomp}, {cmd:diabetes}.{break}
-Weight 2: {cmd:dm_comp}, {cmd:dm_complicated}, {cmd:diabetes_comp},
-{cmd:hemiplegia}, {cmd:paraplegia}, {cmd:paralysis},
-{cmd:renal}, {cmd:ckd}, {cmd:kidney},
-{cmd:cancer}, {cmd:malignancy}, {cmd:tumor}.{break}
-Weight 3: {cmd:liver_severe}, {cmd:severe_liver}.{break}
-Weight 6: {cmd:metastatic}, {cmd:mets}, {cmd:hiv}, {cmd:aids}.{break}
-Unrecognized names receive weight 0 and generate a note.
-
-{pmore}
-{cmd:score(elixhauser)} applies van Walraven et al. (2009) weights, not the
-original Elixhauser (1998) weights.  Recognized condition aliases and their
-weights:{break}
-Weight 12: {cmd:metastatic}, {cmd:metastatic_cancer}.{break}
-Weight 11: {cmd:liver}, {cmd:liver_disease}.{break}
-Weight 9: {cmd:lymphoma}.{break}
-Weight 7: {cmd:chf}, {cmd:heart_failure}, {cmd:paralysis}.{break}
-Weight 6: {cmd:neuro_other}, {cmd:other_neurological},
-{cmd:weight_loss}.{break}
-Weight 5: {cmd:arrhythmia}, {cmd:cardiac_arrhythmia},
-{cmd:renal}, {cmd:renal_failure},
-{cmd:fluid_electrolyte}, {cmd:fluid_electrolytes}.{break}
-Weight 4: {cmd:pulmonary_circ}, {cmd:pulmonary_circulation},
-{cmd:solid_tumor}, {cmd:solid_tumour}.{break}
-Weight 3: {cmd:copd}, {cmd:chronic_pulmonary},
-{cmd:coagulopathy}.{break}
-Weight 2: {cmd:pvd}, {cmd:peripheral_vascular}.{break}
-Weight 0: {cmd:htn_uncomp}, {cmd:hypertension_uncomp},
-{cmd:htn_comp}, {cmd:hypertension_comp},
-{cmd:dm_uncomp}, {cmd:diabetes_uncomp},
-{cmd:dm_comp}, {cmd:diabetes_comp},
-{cmd:hypothyroid}, {cmd:hypothyroidism},
-{cmd:pud}, {cmd:peptic_ulcer},
-{cmd:hiv}, {cmd:aids},
-{cmd:rheumatoid}, {cmd:rheumatoid_arthritis}, {cmd:collagen},
-{cmd:alcohol}, {cmd:alcohol_abuse},
-{cmd:psychoses}, {cmd:psychosis}.{break}
-Weight {hline 1}1: {cmd:valvular}, {cmd:valvular_disease}.{break}
-Weight {hline 1}2: {cmd:blood_loss_anemia}, {cmd:blood_loss},
-{cmd:deficiency_anemia}, {cmd:anemia}.{break}
-Weight {hline 1}3: {cmd:depression}.{break}
-Weight {hline 1}4: {cmd:obesity}.{break}
-Weight {hline 1}7: {cmd:drug}, {cmd:drug_abuse}.{break}
-Unrecognized names receive weight 0 and generate a note.
-
-{pmore}
-{cmd:score(custom)} reads weights from the {bf:weight} column in {cmd:codefile()}.
-
-{pmore}
-For {cmd:charlson} and {cmd:elixhauser}, scoring uses binary presence even when
-{cmd:countmode} is specified.  Use {cmd:hierarchy()} when the score should respect
-superior/inferior condition pairs.
-
-{phang}
-{opt hierarchy(string)} applies condition supersession rules after patient-level
-aggregation and before scoring.  Rules are written as
-{cmd:superior > inferior} and separated by {cmd:\}.  Example:
-{cmd:hierarchy(dm_comp > dm_uncomp \ metastatic > cancer)}.
-This option requires {cmd:collapse} or {cmd:merge}.
-
-{pmore}
-If {cmd:generate()} is used, hierarchy rules may be written with bare condition
-names or with their generated names.  Bare names are resolved against the
-defined condition list before the generate-prefix fallback is applied.
 
 {phang}
 {opt unmatched(name)} creates a row-level 0/1 flag equal to 1 when an observation
@@ -568,7 +479,7 @@ observations or patients with a count greater than zero.
 
 {phang}
 {opt generate(prefix)} prefixes all created variable names, including date-summary
-variables and the score variable.  This is useful when diagnosis, procedure, and
+variables.  This is useful when diagnosis, procedure, and
 medication scans should coexist in the same dataset.
 
 {phang}
@@ -578,7 +489,7 @@ output targets.
 
 {phang}
 {opt noisily} prints progress notes during execution, including per-condition
-match totals and hierarchy notes.
+match totals.
 
 
 {marker windows}{...}
@@ -623,14 +534,7 @@ finally freeze those rules with {cmd:save()} for future runs through
 {bf:Codefiles for teams.}  A codefile is usually the most transparent way to
 review and reuse definitions.  Keep one row per condition, put the main
 inclusion rule in {cmd:pattern}, put exception rules in {cmd:exclusion}, and
-use {cmd:label} for clinical or project-facing wording.  When a custom score is
-needed, add a numeric {cmd:weight} column and call {cmd:score(custom)}.
-
-{pstd}
-{bf:Scores and hierarchy.}  Charlson and Elixhauser scoring are most defensible
-after aggregation to the patient level.  In practice that means using either
-{cmd:collapse} or {cmd:merge}, plus {cmd:hierarchy()} where severe conditions
-should supersede milder variants.
+use {cmd:label} for clinical or project-facing wording.
 
 {pstd}
 {bf:countmode and countrows.}  Without {cmd:countmode}, {cmd:_nrows} counts the
@@ -739,22 +643,7 @@ codefile re-run adds {cmd:replace} to overwrite them.  In a fresh session that
 loads only the saved rules, {cmd:replace} is unnecessary.
 
 {pstd}
-{bf:Example 6: Charlson scoring with the bundled codefile}
-
-{pstd}
-{cmd:codescan} ships two bundled CSV files that can be used directly by basename.
-{cmd:hierarchy()} zeroes out the less-severe condition when both members of a
-pair are present.
-
-{phang2}{cmd:. codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///}{p_end}
-{phang2}{cmd:    score(charlson) hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)}{p_end}
-
-{pstd}
-After this command, each patient has a {cmd:_score} variable containing the
-weighted Charlson comorbidity index.
-
-{pstd}
-{bf:Example 7: Multi-window sensitivity analysis}
+{bf:Example 6: Multi-window sensitivity analysis}
 
 {pstd}
 Supply several lookback values to compare how prevalence changes across
@@ -766,7 +655,7 @@ window.
 {phang2}{cmd:    lookback(90 365) inclusive collapse}{p_end}
 
 {pstd}
-{bf:Example 8: Non-destructive workflow with frames}
+{bf:Example 7: Non-destructive workflow with frames}
 
 {pstd}
 {cmd:frame()} stores the collapsed result in a named frame, leaving the
@@ -778,7 +667,7 @@ the encounter-level data and a patient-level summary in the same session.
 {phang2}{cmd:. frame results: list}{p_end}
 
 {pstd}
-{bf:Example 9: Export a formatted summary and save the final dataset}
+{bf:Example 8: Export a formatted summary and save the final dataset}
 
 {pstd}
 {cmd:export()} writes the prevalence table to {cmd:.csv} or {cmd:.xlsx}.
@@ -789,12 +678,12 @@ memory after {cmd:collapse} or {cmd:merge}.
 {phang2}{cmd:    export(codescan_results.xlsx) saving(codescan_results.dta, replace) format(%9.2f)}{p_end}
 
 {pstd}
-{bf:Example 10: Merge results back to original rows}
+{bf:Example 9: Merge results back to original rows}
 
 {pstd}
 {cmd:merge} computes patient-level summaries and joins them back, so every row
 for a given patient gets the same values.  This is useful when you need both
-the encounter detail and the comorbidity flags in one dataset.
+the encounter detail and the condition flags in one dataset.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge}{p_end}
 
@@ -829,7 +718,6 @@ the encounter detail and the comorbidity flags in one dataset.
 {synopt:{cmd:r(date)}}event-date variable when {cmd:date()} was specified{p_end}
 {synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
 {synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
-{synopt:{cmd:r(score)}}score type when {cmd:score()} was used{p_end}
 {synopt:{cmd:r(lookback)}}space-separated lookback values when multiple windows were requested{p_end}
 
 {p2col 5 26 30 2: Matrices}{p_end}
@@ -838,22 +726,6 @@ the encounter detail and the comorbidity flags in one dataset.
 {synopt:{cmd:r(varcounts)}}per-variable contribution counts when {cmd:detail} was used{p_end}
 {synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence matrix when {cmd:cooccurrence} was used{p_end}
 {synopt:{cmd:r(sensitivity)}}multi-window prevalence matrix when multiple lookbacks were requested{p_end}
-
-
-{marker references}{...}
-{title:References}
-
-{pstd}
-Quan H, Sundararajan V, Halfon P, et al. (2005). ICD-9-CM and ICD-10 coding
-algorithms for defining comorbidities in administrative data.
-
-{pstd}
-Quan H, Li B, Couris CM, et al. (2011). Updated Charlson comorbidity weights for
-risk adjustment.
-
-{pstd}
-van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system
-adaptation of the Elixhauser comorbidity measure for hospital mortality.
 
 
 {marker author}{...}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  15jun2026}{...}
+{* *! version 1.0.2  19jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
@@ -197,6 +197,6 @@ row per exposure episode or per calendar bin.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland, Karolinska Institutet. Part of the {helpb tvtools} package.{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 {hline}

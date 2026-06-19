@@ -1,4 +1,4 @@
-*! datacheck Version 1.4.1  2026/06/19
+*! datacheck Version 1.5.0  2026/06/19
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,30 +10,57 @@ program define datacheck, rclass
     local _preserved   = 0
     local _pframe_made = 0
     local _cframe_made = 0
-    local _vframe_made = 0
-    local _sframe_made = 0
-    local _pframe      = ""
-    local _cframe      = ""
-    local _vframe      = ""
-    local _sframe      = ""
+	    local _vframe_made = 0
+	    local _sframe_made = 0
+	    local _bframe_made = 0
+	    local _pframe      = ""
+	    local _cframe      = ""
+	    local _vframe      = ""
+	    local _sframe      = ""
+	    local _bframe      = ""
     capture noisily {
 
         syntax [anything(name=varlistspec)] [if] [in] , [ ///
             SINGle(string) ///
-            MAXCat(integer 25) EXClude(string) ///
-            CONTinuous(string) CATegorical(string) date(string) ///
-            ID(string) ///
-            Detail MAXFreq(integer 20) RARE(integer 0) OUTliers(real 0) ///
-            GATESonly ONLYflagged SHOW(string) MINcell(integer 0) MASKrare ///
-            NOMISSing PATTERNS ///
-            EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
-            REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
-            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
-            BY(varlist) OVER(varname) ///
-            CHECKs(string) MAKESpec(string) VIOLations(string) ///
-            SAVing(string) ]
+	            MAXCat(integer -1) EXClude(string) ///
+	            CONTinuous(string) CATegorical(string) date(string) ///
+	            ID(string) ///
+	            Detail MAXFreq(integer -1) RARE(integer -1) OUTliers(real -1) ///
+	            GATESonly ONLYflagged SHOW(string) MINcell(integer -1) MASKrare ///
+	            NOMISSing PATTERNS ///
+	            EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
+	            REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
+	            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
+	            BY(varlist) OVER(varname) ///
+	            CHECKs(string) MAKESpec(string) VIOLations(string) ///
+	            SAVing(string) CONFig(string) COMPare(string) ]
 
-        if `maxcat' <= 0 {
+	        if `"`config'"' != "" {
+	            _datacheck_pathok `"`config'"'
+	            confirm file `"`config'"'
+	            _datamap_load_config, config(`"`config'"')
+	            foreach opt in exclude continuous categorical show {
+	                local cfgval `"`r(`opt')'"'
+	                if `"``opt''"' == "" & `"`cfgval'"' != "" {
+	                    local `opt' `"`cfgval'"'
+	                }
+	            }
+	            if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
+	            if `"`date'"' == "" & `"`r(date)'"' != "" local date `"`r(date)'"'
+	            foreach opt in maxcat maxfreq rare mincell outliers {
+	                if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+	            }
+	            foreach opt in maskrare nomissing patterns gatesonly onlyflagged {
+	                if "``opt''" == "" & "`r(`opt')'" != "" local `opt' "`opt'"
+	            }
+	        }
+	        if `maxcat' < 0 local maxcat = 25
+	        if `maxfreq' < 0 local maxfreq = 20
+	        if `rare' < 0 local rare = 0
+	        if `outliers' < 0 local outliers = 0
+	        if `mincell' < 0 local mincell = 0
+
+	        if `maxcat' <= 0 {
             display as error "maxcat() must be positive"
             exit 198
         }
@@ -465,9 +492,10 @@ program define datacheck, rclass
 
         // ---- classify via the shared engine ----
         tempfile proff
-        // `using' is required by the classifier syntax but ignored under `loaded'.
-        quietly _datamap_classify using "memory", loaded saving(`"`proff'"') ///
-            maxcat(`maxcat') exclude("`exclude'") detect_binary(1)
+	        // `using' is required by the classifier syntax but ignored under `loaded'.
+	        quietly _datamap_classify using "memory", loaded saving(`"`proff'"') ///
+	            maxcat(`maxcat') exclude("`exclude'") continuous("`continuous'") ///
+	            categorical("`categorical'") date("`date'") detect_binary(1)
         local all_vars       "`r(all_vars)'"
         local cls_continuous "`r(continuous_vars)'"
         local cls_categorical "`r(categorical_vars)'"
@@ -505,11 +533,13 @@ program define datacheck, rclass
         local f_excluded ""
         foreach v of local profilevars {
             local vv "`v'"
-            local i = `idx_`v''
-            local fc "`m_class`i''"
-            if `: list vv in continuous'       local fc "continuous"
-            else if `: list vv in categorical' local fc "categorical"
-            else if `: list vv in date'        local fc "date"
+	            local i = `idx_`v''
+	            local fc "`m_class`i''"
+	            if "`fc'" != "excluded" {
+	                if `: list vv in continuous'       local fc "continuous"
+	                else if `: list vv in categorical' local fc "categorical"
+	                else if `: list vv in date'        local fc "date"
+	            }
             local f_`fc' "`f_`fc'' `v'"
             local FC_`v' "`fc'"
         }
@@ -935,10 +965,19 @@ program define datacheck, rclass
             local gate_on = 1
         }
 
-        local n_viol = 0
-        local viol_names ""
+	        local n_viol = 0
+	        local viol_names ""
+	        local compare_added ""
+	        local compare_dropped ""
+	        local compare_type_changed ""
+	        local compare_class_changed ""
+	        local compare_n_added = 0
+	        local compare_n_dropped = 0
+	        local compare_n_type_changed = 0
+	        local compare_n_class_changed = 0
+	        local compare_n_changed = 0
 
-        if `gate_on' {
+	        if `gate_on' {
             // require
             if "`require'" != "" {
                 local req_missing = trim("`req_missing'")
@@ -1214,11 +1253,154 @@ program define datacheck, rclass
                         local vmsg`n_viol' "`PFX'regex(`rv'): `nbad' obs do not match `pat'"
                     }
                 }
-            }
-        }
+	            }
+	        }
 
-        local viol_names = trim("`viol_names'")
-        local failed_checks : list uniq viol_names
+	        if `"`compare'"' != "" {
+	            gettoken compfile comprest : compare, parse(" ,")
+	            local compfile = strtrim(`"`compfile'"')
+	            local compfile = subinstr(`"`compfile'"', char(34), "", .)
+	            local comprest = subinstr(`"`comprest'"', char(34), "", .)
+	            if trim(`"`comprest'"') != "" {
+	                display as error "compare() accepts one Stata dataset filename"
+	                exit 198
+	            }
+	            _datacheck_pathok `"`compfile'"'
+	            capture confirm file `"`compfile'"'
+	            if _rc {
+	                capture confirm file `"`compfile'.dta"'
+	                if _rc {
+	                    display as error `"compare() file `compfile' not found"'
+	                    exit 601
+	                }
+	                local compfile `"`compfile'.dta"'
+	            }
+	            tempname bframe
+	            local _bframe "`bframe'"
+	            frame create `bframe'
+	            local _bframe_made = 1
+	            local basevars ""
+	            local base_N = .
+	            frame `bframe' {
+	                quietly use `"`compfile'"', clear
+	                capture confirm variable variable
+	                if _rc {
+	                    capture confirm variable varname
+	                    if !_rc rename varname variable
+	                }
+	                capture confirm variable variable
+	                if !_rc {
+	                    capture confirm variable storage_type
+	                    if _rc {
+	                        capture confirm variable vartype
+	                        if !_rc rename vartype storage_type
+	                    }
+	                    capture confirm variable storage_type
+	                    local has_storage = (_rc == 0)
+	                    capture confirm variable class
+	                    if _rc {
+	                        capture confirm variable classification
+	                        if !_rc rename classification class
+	                    }
+	                    capture confirm variable class
+	                    if _rc {
+	                        capture confirm variable dc_class
+	                        if !_rc rename dc_class class
+	                    }
+	                    capture confirm variable class
+	                    local has_class = (_rc == 0)
+	                    capture confirm variable N
+	                    local has_N = (_rc == 0)
+	                    quietly count
+	                    local B = r(N)
+	                    if `has_N' & `B' > 0 local base_N = N[1]
+	                    forvalues bi = 1/`B' {
+	                        local bv = variable[`bi']
+	                        if "`bv'" == "" continue
+	                        local basevars "`basevars' `bv'"
+	                        if `has_storage' local base_type_`bv' = storage_type[`bi']
+	                        else local base_type_`bv' ""
+	                        if `has_class' local base_class_`bv' = class[`bi']
+	                        else local base_class_`bv' ""
+	                    }
+	                }
+	                else {
+	                    local base_N = _N
+	                    quietly ds
+	                    local basevars `r(varlist)'
+	                    foreach bv of local basevars {
+	                        local _bt : type `bv'
+	                        local base_type_`bv' "`_bt'"
+	                        local base_class_`bv' ""
+	                    }
+	                }
+	            }
+	            local basevars : list uniq basevars
+	            foreach v of local profilevars {
+	                if !`: list v in basevars' {
+	                    local compare_added "`compare_added' `v'"
+	                }
+	                else {
+	                    local i = `idx_`v''
+	                    local cur_type "`m_type`i''"
+	                    local cur_class "`FC_`v''"
+	                    if "`base_type_`v''" != "" & "`cur_type'" != "`base_type_`v''" {
+	                        local compare_type_changed "`compare_type_changed' `v'"
+	                    }
+	                    if "`base_class_`v''" != "" & "`cur_class'" != "`base_class_`v''" {
+	                        local compare_class_changed "`compare_class_changed' `v'"
+	                    }
+	                }
+	            }
+	            foreach bv of local basevars {
+	                if !`: list bv in profilevars' {
+	                    local compare_dropped "`compare_dropped' `bv'"
+	                }
+	            }
+	            local compare_added : list uniq compare_added
+	            local compare_dropped : list uniq compare_dropped
+	            local compare_type_changed : list uniq compare_type_changed
+	            local compare_class_changed : list uniq compare_class_changed
+	            local compare_n_added : word count `compare_added'
+	            local compare_n_dropped : word count `compare_dropped'
+	            local compare_n_type_changed : word count `compare_type_changed'
+	            local compare_n_class_changed : word count `compare_class_changed'
+	            local compare_n_changed = `compare_n_added' + `compare_n_dropped' + ///
+	                `compare_n_type_changed' + `compare_n_class_changed'
+	            local compare_n_delta = .
+	            if `base_N' < . local compare_n_delta = `nobs' - `base_N'
+	            if `base_N' < . & `compare_n_delta' != 0 local compare_n_changed = `compare_n_changed' + 1
+
+	            if "`gatesonly'" == "" {
+	                display ""
+	                display as text "SCHEMA COMPARE"
+	                display as text "  baseline: " as result `"`compfile'"'
+	                if `base_N' < . {
+	                    display as text "  N: current " as result `nobs' ///
+	                        as text ", baseline " as result `base_N' ///
+	                        as text ", delta " as result `compare_n_delta'
+	                }
+	                if `compare_n_added' display as text "  added: " as result "`compare_added'"
+	                if `compare_n_dropped' display as text "  dropped: " as result "`compare_dropped'"
+	                if `compare_n_type_changed' display as text "  type changes: " as result "`compare_type_changed'"
+	                if `compare_n_class_changed' display as text "  class changes: " as result "`compare_class_changed'"
+	                if `compare_n_changed' == 0 display as text "  no schema drift detected"
+	            }
+	            if `compare_n_changed' > 0 {
+	                local ++n_viol
+	                local viol_names "`viol_names' compare"
+	                local vgate`n_viol' "compare"
+	                local vvar`n_viol' ""
+	                local vobs`n_viol' "added `compare_n_added'; dropped `compare_n_dropped'; type `compare_n_type_changed'; class `compare_n_class_changed'"
+	                local vexp`n_viol' "no schema drift"
+	                local vgroup`n_viol' ""
+	                local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+	                local vmsg`n_viol' "compare: schema drift detected"
+	            }
+	        }
+
+	        local viol_names = trim("`viol_names'")
+	        local failed_checks : list uniq viol_names
         local n_failed : word count `failed_checks'
         local n_checks = 0
         if `"`expectn'"' != "" local ++n_checks
@@ -1229,8 +1411,9 @@ program define datacheck, rclass
         if `n_inr' > 0 local ++n_checks
         if `n_allowed' > 0 local ++n_checks
         if `n_forbid' > 0 local ++n_checks
-        if `n_regex' > 0 local ++n_checks
-        if `n_notvalues' > 0 local ++n_checks
+	        if `n_regex' > 0 local ++n_checks
+	        if `n_notvalues' > 0 local ++n_checks
+	        if `"`compare'"' != "" local ++n_checks
         local n_passed = `n_checks' - `n_failed'
         if `n_passed' < 0 local n_passed = 0
         local n_groups = 0
@@ -1457,11 +1640,16 @@ program define datacheck, rclass
         return scalar n_missing_vars = `n_missing_vars'
         return scalar n_outlier_vars = `n_outlier_vars'
         return scalar n_rare_vars    = `n_rare_vars'
-        return scalar n_group_missing_vars = `n_group_missing_vars'
-        return scalar mincell        = `mincell'
-        return scalar maskrare       = ("`maskrare'" != "")
-        return local  violations     "`viol_names'"
-        return local  failed_checks  "`failed_checks'"
+	        return scalar n_group_missing_vars = `n_group_missing_vars'
+	        return scalar mincell        = `mincell'
+	        return scalar maskrare       = ("`maskrare'" != "")
+	        return scalar compare_added = `compare_n_added'
+	        return scalar compare_dropped = `compare_n_dropped'
+	        return scalar compare_type_changed = `compare_n_type_changed'
+	        return scalar compare_class_changed = `compare_n_class_changed'
+	        return scalar compare_changed = `compare_n_changed'
+	        return local  violations     "`viol_names'"
+	        return local  failed_checks  "`failed_checks'"
         return local  continuous_vars "`f_continuous'"
         return local  categorical_vars "`f_categorical'"
         return local  date_vars      "`f_date'"
@@ -1471,17 +1659,31 @@ program define datacheck, rclass
         return local  constant_vars  "`constant_vars'"
         return local  highcard_vars  "`highcard_vars'"
         return local  missing_vars   "`missing_vars'"
-        return local  outlier_vars   "`outlier_vars'"
-        return local  rare_vars      "`rare_vars'"
-        return local  group_missing_vars "`group_missing_vars'"
+	        return local  outlier_vars   "`outlier_vars'"
+	        return local  rare_vars      "`rare_vars'"
+	        return local  group_missing_vars "`group_missing_vars'"
+	        return local  compare_added_vars "`compare_added'"
+	        return local  compare_dropped_vars "`compare_dropped'"
+	        return local  compare_type_changed_vars "`compare_type_changed'"
+	        return local  compare_class_changed_vars "`compare_class_changed'"
 
         // ---- optional saving() of the per-variable profile ----
         // Non-fatal: a bad saving() path must not strand the console report or
         // the gate verdict; warn and continue instead of aborting.
-        if `"`saving'"' != "" {
-            gettoken sfile srest : saving, parse(" ,")
-            local sreplace = 0
-            if regexm(`"`srest'"', "replace") local sreplace = 1
+	        if `"`saving'"' != "" {
+	            local sspec = subinstr(`"`macval(saving)'"', char(34), "", .)
+	            local sspec = subinstr(`"`macval(sspec)'"', ")", "", .)
+	            local scpos = strpos(`"`macval(sspec)'"', ",")
+	            if `scpos' > 0 {
+	                local sfile = strtrim(substr(`"`macval(sspec)'"', 1, `scpos' - 1))
+	                local srest = strtrim(substr(`"`macval(sspec)'"', `scpos' + 1, .))
+	            }
+	            else {
+	                local sfile = strtrim(`"`macval(sspec)'"')
+	                local srest ""
+	            }
+	            local sreplace = 0
+	            if regexm(lower(`"`macval(srest)'"'), "replace") local sreplace = 1
             local _bad = 0
             foreach _c in ";" "&" "|" ">" "<" "$" {
                 if strpos(`"`sfile'"', "`_c'") local _bad = 1
@@ -1489,39 +1691,89 @@ program define datacheck, rclass
             if strpos(`"`sfile'"', char(96)) | strpos(`"`sfile'"', char(34)) local _bad = 1
             if `_bad' {
                 display as text "  " as error "saving: illegal characters in path — skipped"
-            }
-            else {
-                // datacheck's addition to the classifier profile: post-override class
-                frame `pframe': quietly gen str16 dc_class = classification
-                foreach v of local profilevars {
-                    frame `pframe': quietly replace dc_class = "`FC_`v''" if varname == "`v'"
-                }
-                local _isfile = 0
-                if substr(`"`sfile'"', -4, 4) == ".dta" local _isfile = 1
-                else if strpos(`"`sfile'"', "/") | strpos(`"`sfile'"', "\") local _isfile = 1
-                capture noisily {
-                    if `_isfile' {
-                        if `sreplace' frame `pframe': quietly save `"`sfile'"', replace
-                        else          frame `pframe': quietly save `"`sfile'"'
-                    }
-                    else {
-                        capture frame `sfile': describe
-                        if !_rc & !`sreplace' {
-                            display as text "  " as error ///
-                                "saving: frame `sfile' already exists; specify replace — skipped"
-                        }
-                        else {
-                            if `sreplace' {
-                                capture frame drop `sfile'
-                                if _rc exit _rc
-                            }
-                            frame copy `pframe' `sfile'
-                        }
-                    }
-                }
-                if _rc {
-                    display as text "  " as error "saving: could not write `sfile' — skipped"
-                }
+	            }
+	            else {
+	                tempfile dcmeta_tmp
+	                tempname dcmeta_post
+	                quietly postfile `dcmeta_post' ///
+	                    str16 source_command str2045 source str2045 output ///
+	                    str80 dataset str2045 dataset_label str32 variable ///
+	                    str20 storage_type str32 display_format str32 value_label ///
+	                    str20 class double N long nvars long missing ///
+	                    double missing_pct long unique str2045 variable_label ///
+	                    str2045 notes str2045 characteristics double mean double sd ///
+	                    double p50 double p25 double p75 double min double max ///
+	                    str2045 datasignature using `"`dcmeta_tmp'"', replace
+	                local _dcsource "memory"
+	                if `"`single'"' != "" local _dcsource `"`single'"'
+	                local _dclabel : data label
+	                local _dcdsig ""
+	                quietly capture datasignature
+	                if _rc == 0 local _dcdsig `"`r(datasignature)'"'
+	                _datamap_post_metadata_rows, postname(`dcmeta_post') ///
+	                    classifications(`"`proff'"') sourcecommand("datacheck") ///
+	                    source(`"`_dcsource'"') output("") dsname("current") ///
+	                    dslabel(`"`_dclabel'"') nvars(`: word count `profilevars'') ///
+	                    varlist(`"`profilevars'"') datasignature(`"`_dcdsig'"')
+	                postclose `dcmeta_post'
+	                local _isfile = 0
+	                if substr(`"`sfile'"', -4, 4) == ".dta" local _isfile = 1
+	                else if strpos(`"`sfile'"', "/") | strpos(`"`sfile'"', "\") local _isfile = 1
+	                if `_isfile' {
+	                    tempname dcsaveframe
+	                    frame create `dcsaveframe'
+	                    capture noisily {
+	                        frame `dcsaveframe' {
+	                            quietly use `"`dcmeta_tmp'"', clear
+	                            quietly generate str32 varname = variable
+	                            quietly generate str20 dc_class = class
+	                            if `sreplace' quietly save `"`sfile'"', replace
+	                            else          quietly save `"`sfile'"'
+	                        }
+	                    }
+	                    local _dcsave_rc = _rc
+		                    capture frame drop `dcsaveframe'
+		                    local _dcsave_drop_rc = _rc
+		                    if !inlist(`_dcsave_drop_rc', 0, 111) & !`_dcsave_rc' {
+		                        local _dcsave_rc = `_dcsave_drop_rc'
+		                    }
+		                    if `_dcsave_rc' {
+		                        display as text "  " as error "saving: could not write `sfile' — skipped"
+		                    }
+	                }
+	                else {
+	                    capture frame `sfile': describe
+	                    local _sframe_exists = (_rc == 0)
+	                    if `_sframe_exists' & !`sreplace' {
+	                        display as text "  " as error ///
+	                            "saving: frame `sfile' already exists; specify replace — skipped"
+	                    }
+	                    else {
+	                        local _sframe_rc = 0
+	                        if `sreplace' {
+	                            capture frame drop `sfile'
+	                            local _sframe_drop_rc = _rc
+	                            if !inlist(`_sframe_drop_rc', 0, 111) local _sframe_rc = `_sframe_drop_rc'
+	                        }
+	                        if !`_sframe_rc' {
+	                            capture frame create `sfile'
+	                            local _sframe_rc = _rc
+	                        }
+	                        if !`_sframe_rc' {
+	                            capture noisily {
+	                                frame `sfile' {
+	                                    quietly use `"`dcmeta_tmp'"', clear
+	                                    quietly generate str32 varname = variable
+	                                    quietly generate str20 dc_class = class
+	                                }
+	                            }
+	                            local _sframe_rc = _rc
+	                        }
+	                        if `_sframe_rc' {
+	                            display as text "  " as error "saving: could not write `sfile' — skipped"
+	                        }
+	                    }
+	                }
             }
         }
 
@@ -1549,13 +1801,17 @@ program define datacheck, rclass
         capture frame drop `_sframe'
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
-    if `_vframe_made' {
-        capture frame drop `_vframe'
-        if _rc & !`cleanup_rc' local cleanup_rc = _rc
-    }
-    if `_cframe_made' {
-        capture frame drop `_cframe'
-        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+	    if `_vframe_made' {
+	        capture frame drop `_vframe'
+	        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+	    }
+	    if `_bframe_made' {
+	        capture frame drop `_bframe'
+	        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+	    }
+	    if `_cframe_made' {
+	        capture frame drop `_cframe'
+	        if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
     if `_pframe_made' {
         capture frame drop `pframe'

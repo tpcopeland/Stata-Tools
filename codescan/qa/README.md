@@ -38,28 +38,30 @@ independently runnable from `qa/` (it reinstalls the local copy itself).
 
 ## File index
 
+Test counts below are the `RESULT: ... tests=N` totals each suite reports.
+
 | File | Type | Tests | What it covers |
 |------|------|------:|----------------|
-| `test_codescan.do` | functional | 689 | Core `codescan` behaviour across every option |
-| `test_countrows.do` | functional | 45 | `countrows`/`countmode` counting semantics |
-| `test_mata_opt.do` | functional | 8 | Mata fast-path: match accumulation, co-occurrence, multi-window, describe hash |
-| `test_codescan_regressions.do` | functional | 42 | Fixed-bug regression guards |
-| `test_codescan_adversarial.do` | functional | 71 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
-| `test_codescan_describe_adversarial.do` | functional | 22 | `codescan_describe` hostile inputs |
-| `test_codescan_stress_adversarial.do` | functional | 57 | Scale/sparsity/name-collision stress |
-| `test_codescan_install_docs.do` | functional | 78 | `net install` smoke + help/README example reality |
-| `test_documentation_examples.do` | functional | 63 | Every documented example runs as shown |
-| `test_release_integrity.do` | functional | 2 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris |
-| `validation_codescan.do` | validation | 227 | Hand-computed oracles for `codescan` |
-| `validation_codescan_known_answers.do` | validation | 97 | Known-answer matrix across option combinations |
-| `validation_mata.do` | validation | 29 | Known-answer equivalence for the Mata fast paths |
-| `validation_builtin_codefiles.do` | validation | 33 | Shipped Charlson/Elixhauser codefile answers |
-| `validation_codescan_io.do` | validation | 82 | Save/export/saving artifact fidelity |
-| `validation_codescan_output.do` | validation | 8 | Graph/co-occurrence output structure |
-| `validation_codescan_describe.do` | validation | 62 | `codescan_describe` oracles |
-| `validation_codescan_describe_adversarial.do` | validation | 93 | `codescan_describe` adversarial oracles |
-| `validation_codescan_crosscheck.do` | validation | 92 | `codescan` vs hand-computed `regexm()`/manual collapse |
-| `validation_countrows.do` | validation | 23 | `countrows` oracles |
+| `test_codescan.do` | functional | 308 | Core `codescan` behaviour across every option |
+| `test_countrows.do` | functional | 24 | `countrows`/`countmode` counting semantics |
+| `test_mata_opt.do` | functional | 14 | Mata fast-path: match accumulation, co-occurrence, multi-window, describe hash |
+| `test_codescan_regressions.do` | functional | 18 | Fixed-bug regression guards (incl. output-name vs id/date/refdate collisions) |
+| `test_codescan_v2_no_scoring.do` | functional | — | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
+| `test_codescan_adversarial.do` | functional | 11 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
+| `test_codescan_describe_adversarial.do` | functional | 8 | `codescan_describe` hostile inputs |
+| `test_codescan_stress_adversarial.do` | functional | 6 | Scale/sparsity/name-collision stress |
+| `test_codescan_install_docs.do` | functional | 11 | `net install` smoke + help/README example reality |
+| `test_documentation_examples.do` | functional | 8 | Every documented example runs as shown |
+| `test_release_integrity.do` | functional | 6 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris |
+| `validation_codescan.do` | validation | 65 | Hand-computed oracles for `codescan` |
+| `validation_codescan_known_answers.do` | validation | 8 | Known-answer matrix across option combinations |
+| `validation_mata.do` | validation | 8 | Known-answer equivalence for the Mata fast paths |
+| `validation_codescan_io.do` | validation | 5 | Save/export/saving artifact fidelity |
+| `validation_codescan_output.do` | validation | 2 | Graph/co-occurrence output structure |
+| `validation_codescan_describe.do` | validation | 6 | `codescan_describe` oracles |
+| `validation_codescan_describe_adversarial.do` | validation | 9 | `codescan_describe` adversarial oracles |
+| `validation_codescan_crosscheck.do` | validation | 33 | `codescan` vs hand-computed `regexm()`/manual collapse |
+| `validation_countrows.do` | validation | 8 | `countrows` oracles |
 | `_codescan_qa_common.do` | scaffold | — | Sandboxed-install bootstrap |
 | `run_all.do` | runner | — | Curated lane runner |
 | `tools/check_codescan_artifacts.py` | tool | — | Package-local `.xlsx`/`.dta` artifact checker |
@@ -74,16 +76,15 @@ hand-computable oracles.
 
 | Command | Options | Returns | Status |
 |---------|--------:|--------:|--------|
-| `codescan` | 38/38 | 13/13 | covered |
+| `codescan` | 36/36 | 12/12 | covered |
 | `codescan_describe` | 4/4 | 6/6 | covered |
 
 Headline coverage by area: option-by-option (`test_codescan.do`,
 `validation_codescan.do`), counting modes (`*countrows*`), date windows
-(`lookback`/`lookforward`/`refdate`), scoring & hierarchy (`validation_*`,
-`test_codescan_regressions.do`), shipped codefiles
-(`validation_builtin_codefiles.do`), I/O & export
+(`lookback`/`lookforward`/`refdate`), codefiles & I/O & export
 (`validation_codescan_io.do`, `validation_codescan_output.do`), Mata fast
-paths (`test_mata_opt.do`, `validation_mata.do`), and the release surface
+paths (`test_mata_opt.do`, `validation_mata.do`), the v2.0 no-scoring
+contract (`test_codescan_v2_no_scoring.do`), and the release surface
 (`test_release_integrity.do`).
 
 ## Lane membership
@@ -94,11 +95,11 @@ paths (`test_mata_opt.do`, `validation_mata.do`), and the release surface
 | `test_countrows` | ✓ | ✓ | ✓ |
 | `test_mata_opt` | ✓ | ✓ | ✓ |
 | `test_codescan_regressions` | ✓ | ✓ | ✓ |
+| `test_codescan_v2_no_scoring` | ✓ | ✓ | ✓ |
 | `validation_codescan` | ✓ | ✓ | ✓ |
 | `validation_countrows` | ✓ | ✓ | ✓ |
 | `validation_codescan_known_answers` |  | ✓ | ✓ |
 | `validation_mata` |  | ✓ | ✓ |
-| `validation_builtin_codefiles` |  | ✓ | ✓ |
 | `validation_codescan_io` |  | ✓ | ✓ |
 | `validation_codescan_output` |  | ✓ | ✓ |
 | `validation_codescan_describe` |  | ✓ | ✓ |
@@ -120,6 +121,6 @@ The adversarial and stress suites concentrate on wide varlists, sparse
 strings, punctuation and regex metacharacters, case variation, missing IDs
 and dates, duplicate IDs, numeric `tostring`, output-name collisions, invalid
 option combinations, repeated calls in one session, installation behaviour,
-documentation examples, release metadata, and shipped-codefile known answers.
+documentation examples, and release metadata.
 `run_all.do` restores `c(pwd)` to the QA directory after each suite so an
 install-smoke test cannot poison downstream path derivation.

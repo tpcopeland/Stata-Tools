@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  14jun2026}{...}
+{* *! version 2.0.0  19jun2026}{...}
 {vieweralsosee "codescan" "help codescan"}{...}
 {vieweralsosee "[D] contract" "help contract"}{...}
 {vieweralsosee "[D] tostring" "help tostring"}{...}
@@ -32,7 +32,7 @@
 {synoptset 26 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt top(#)}}report the top {it:#} codes; default is {cmd:top(20)}{p_end}
+{synopt:{opt t:op(#)}}report the top {it:#} codes; default is {cmd:top(20)}{p_end}
 {synopt:{opt nod:ots}}strip dots before tabulating{p_end}
 {synopt:{opt tostr:ing}}convert numeric code variables to string before tabulating{p_end}
 {synopt:{opt save(filename)}}write a draft chapter-level codefile CSV{p_end}
@@ -96,7 +96,7 @@ If you later need to see which variable contributed matches to a scan rule, run
 {title:Options}
 
 {phang}
-{opt top(#)} specifies how many codes to display in the ranked table.  The
+{opt t:op(#)} specifies how many codes to display in the ranked table.  The
 value must be a positive integer.  The default is {cmd:top(20)}.  Use a large
 value such as {cmd:top(100)} if you want to inspect rare codes as well.
 

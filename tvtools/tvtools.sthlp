@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  15jun2026}{...}
+{* *! version 1.0.2  19jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -182,9 +182,6 @@ To install or update tvtools:
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet{break}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 {hline}

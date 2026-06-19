@@ -1,4 +1,4 @@
-*! qba Version 1.0.0  2026/06/02
+*! qba Version 1.0.1  2026/06/19
 *! Quantitative Bias Analysis toolkit for epidemiologic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,7 +20,7 @@ program define qba, rclass
     syntax [, Version]
 
     display as text "{bf:qba} - Quantitative Bias Analysis for Epidemiologic Data"
-	    display as text "Version 1.0.0 (2026-06-02)"
+	    display as text "Version 1.0.1 (2026-06-19)"
     display as text "{bf:Available commands:}"
     display as text "  {bf:{help qba_misclass}} - Misclassification bias analysis"
     display as text "      Corrects 2x2 tables for exposure or outcome"
@@ -42,7 +42,7 @@ program define qba, rclass
     display as text "Based on: Lash TL, Fox MP, Fink AK. Applying Quantitative"
     display as text "Bias Analysis to Epidemiologic Data. 2nd ed. Springer; 2021."
 
-	    return local version "1.0.0"
+	    return local version "1.0.1"
     return local commands "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 
     }

@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.1.4** | 2026-06-14
+**Version 2.0.0** | 2026-06-19
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -12,7 +12,6 @@ You tell `codescan` which code patterns to look for and what to name each condit
 - **Collapse** to one row per patient with `collapse`
 - **Merge** patient-level results back onto encounter rows with `merge`
 - Apply **time windows** relative to a reference date
-- Compute **Charlson**, **Elixhauser**, or **custom weighted scores**
 - **Export** prevalence tables and co-occurrence matrices to `.xlsx` or `.csv`
 
 It works with any string code system: ICD-10, ICD-9, KVÅ, CPT, ATC, OPCS, or proprietary codes.
@@ -29,29 +28,12 @@ capture ado uninstall codescan
 net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan") replace
 ```
 
-The bundled example codefiles are installed with the package and can be used by
-basename in `codefile()`.  If you want editable local copies in the current
-working directory, download them with:
-
-```stata
-net get codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan") replace
-```
-
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `codescan` | Scan wide-format code variables and generate indicators, counts, summaries, or scores |
+| `codescan` | Scan wide-format code variables and generate indicators, counts, or patient-level summaries |
 | `codescan_describe` | Inspect the raw code inventory before writing scan rules |
-
-## Bundled Example Codefiles
-
-| File | Purpose |
-|------|---------|
-| `charlson_icd10_example.csv` | Charlson ICD-10 definitions with Quan et al. (2011) weights |
-| `elixhauser_icd10_example.csv` | Elixhauser ICD-10 definitions with van Walraven et al. (2009) weights |
-
-These can be requested directly by basename in `codefile()` — no path needed.
 
 ## How It Works
 
@@ -60,7 +42,7 @@ The recommended workflow has four steps:
 1. **Inspect the code inventory** with `codescan_describe`.  This shows which codes and chapter prefixes actually occur in your data, and suggests patterns to target.
 2. **Draft simple rules** with `define()` and check the row-level results.  At this stage the created variables appear alongside the original data so you can verify matches.
 3. **Choose the output shape.**  Stay row-level for auditing, `collapse` to one row per `id()`, or `merge` patient-level summaries back to encounter rows.
-4. **Add advanced features last.**  Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), hierarchy rules, scoring, and export/save options.
+4. **Add advanced features last.**  Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), and export/save options.
 
 ## Which Variables to Scan
 
@@ -207,19 +189,7 @@ codescan dx1 dx2, codefile(dm_rules.csv) replace
 
 The first run leaves the `dm2` and `htn` indicators in memory, so the codefile re-run adds `replace` to overwrite them.  A fresh session that loads only the saved rules does not need `replace`.
 
-### 8. Compute a Charlson score from the bundled example codefile
-
-The bundled example names are recognized directly by `codefile()` — no path needed.  `hierarchy()` zeroes out the less-severe condition when both members of a pair are present, before scoring.
-
-```stata
-codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///
-    score(charlson) ///
-    hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)
-```
-
-After this command, each patient has a `_score` variable containing the weighted Charlson comorbidity index.
-
-### 9. Non-destructive workflow with frames
+### 8. Non-destructive workflow with frames
 
 `frame()` stores the collapsed result in a named frame, leaving the original data untouched.  This is the recommended pattern when you need both encounter-level data and a patient-level summary in the same session.
 
@@ -229,7 +199,7 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
 frame results: list
 ```
 
-### 10. Export a summary table and save the result dataset
+### 9. Export a summary table and save the result dataset
 
 Use `export()` for the prevalence table and `saving()` for the transformed dataset.  `format()` controls the number format in both the console output and the exported file.
 
@@ -240,15 +210,15 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
     format(%9.2f)
 ```
 
-### 11. Merge patient-level results back to original rows
+### 10. Merge patient-level results back to original rows
 
-`merge` computes patient-level summaries and joins them back, so every row for a given patient gets the same comorbidity values.
+`merge` computes patient-level summaries and joins them back, so every row for a given patient gets the same condition values.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge
 ```
 
-### 12. Multi-window sensitivity analysis
+### 11. Multi-window sensitivity analysis
 
 Supply several lookback values to compare how prevalence changes across windows.  `r(sensitivity)` returns a matrix of prevalences by condition and window.
 
@@ -261,8 +231,6 @@ codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
 ## Demo
 
 The demo uses synthetic administrative data: 500 patients with 3 encounters each, 4 wide-format ICD-10 diagnosis slots, and 1 procedure code variable.
-
-### Code inventory with `codescan_describe`
 
 ### Inline define — row-level scan
 
@@ -303,11 +271,9 @@ codescan: 6 conditions, 4 variables, N =      1,500
   metastatic: 42 in dx1, 51 in dx2, 39 in dx3, 39 in dx4
 ```
 
-### Charlson scoring — full clinical workflow
-
 ### Prevalence chart
 
-![Prevalence of Charlson comorbidities](demo/prevalence_chart.png)
+![Condition prevalence](demo/prevalence_chart.png)
 
 ## Key Behaviors
 
@@ -322,7 +288,6 @@ codescan: 6 conditions, 4 variables, N =      1,500
 - **alldates:** shorthand for `earliestdate`, `latestdate`, and `countdate`.  These create `_first`, `_last`, and `_count` date-summary variables.
 - **countrows:** creates `_nrows` variables counting the number of rows (not unique dates) with a qualifying match.  Does not require `date()`.
 - **countmode:** changes created variables from 0/1 indicators to integer counts (number of code slots matched per row, summed across rows after collapse/merge).
-- **hierarchy:** zeroes out inferior conditions when the superior is present.  Written as `superior > inferior`, separated by `\`.
 - **generate:** prefixes all created variable names, useful when running separate diagnosis, procedure, and medication scans on the same dataset.
 - **unmatched:** creates a row-level 0/1 flag for observations that matched no condition.
 - **matched_code:** creates a row-level variable holding the first code value that survived matching.
@@ -359,7 +324,6 @@ case-insensitively.
 | `pattern` | Yes | Inclusion pattern or pipe-separated prefix list |
 | `exclusion` | No | Exclusion pattern(s), combined with `|` when more than one is needed |
 | `label` | No | Human-readable label for output variables and tables |
-| `weight` | Only for `score(custom)` | Numeric score weight |
 
 Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable
 codefile.  Use `saving(results.dta, replace)` for the final transformed dataset;
@@ -378,7 +342,6 @@ are added as requested:
 | `latestdate` | `<condition>_last` |
 | `countdate` | `<condition>_count` for unique dates |
 | `countrows` | `<condition>_nrows` for matching rows or code-slot hits under `countmode` |
-| `score(charlson|elixhauser|custom)` | `_score`, or `<prefix>_score` with `generate(prefix)` |
 
 Important returned results include `r(summary)` with count, prevalence, and
 Wilson confidence interval columns; `r(codelist)` with count and prevalence;
@@ -400,13 +363,14 @@ useful for automated checks before freezing a code dictionary.
 | A condition matches zero observations | Check spelling, dots, case, anchoring, and whether `mode(regex)` or `mode(prefix)` matches the intended rule |
 | Multi-window `lookback()` fails | Multiple windows require `collapse` or `merge` because the comparison is patient-level |
 
-## References
-
-- Quan H, Sundararajan V, Halfon P, et al. (2005). ICD-9-CM and ICD-10 coding algorithms for defining comorbidities in administrative data.
-- Quan H, Li B, Couris CM, et al. (2011). Updated Charlson comorbidity weights for risk adjustment.
-- van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system adaptation of the Elixhauser comorbidity measure for hospital mortality.
-
 ## Changelog
+
+### 2.0.0 (2026-06-19)
+
+- **BREAKING:** comorbidity scoring removed. `score()`, `hierarchy()`, the bundled
+  Charlson/Elixhauser example codefiles, and basename codefile resolution are gone.
+  Comorbidity indices now live in the dedicated `comorbidity` command
+  (`ssc install comorbidity`). codescan is now a pure code-field scanner.
 
 ### 1.1.4 (2026-06-14)
 - Docs: the "save reusable definitions, then load them back as a codefile" example (help Example 5 / README Example 7) now adds `replace` to the second run. The first run leaves the condition indicators in memory, so the verbatim two-line block previously stopped with `variable dm2 already exists` (`r(110)`) when copy-pasted. A regression test now runs the documented sequence as printed.

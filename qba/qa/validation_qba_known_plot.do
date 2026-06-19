@@ -26,15 +26,31 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
+capture program drop _qba_drop_graph_if_exists
+program define _qba_drop_graph_if_exists
+    args graph_name
+    quietly graph dir
+    local graph_list " `r(list)' "
+    if "`graph_name'" == "_all" {
+        if trim("`graph_list'") != "" {
+            graph drop _all
+        }
+        exit
+    }
+    if strpos("`graph_list'", " `graph_name' ") {
+        graph drop `graph_name'
+    }
+end
+
 **# K1: Dispatcher exact returned contract
 local ++test_count
 capture noisily {
     qba
-    assert "`r(version)'" == "1.0.0"
+    assert "`r(version)'" == "1.0.1"
     assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 
     qba, version
-    assert "`r(version)'" == "1.0.0"
+    assert "`r(version)'" == "1.0.1"
     assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 }
 if _rc == 0 {
@@ -58,7 +74,7 @@ capture noisily {
     assert "`r(plot_type)'" == "tornado"
     assert "`r(measure)'" == "OR"
     assert r(n_missing) == 4
-    graph drop qba_known_tornado
+    _qba_drop_graph_if_exists qba_known_tornado
 }
 if _rc == 0 {
     display as result "  PASS: K2 tornado grid has exact infeasible-count known answer"
@@ -67,7 +83,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: K2 tornado grid known answer (error `=_rc')"
     local ++fail_count
-    capture graph drop qba_known_tornado
+    _qba_drop_graph_if_exists qba_known_tornado
 }
 
 **# K3: Tipping misclassification grid exact missing count
@@ -81,7 +97,7 @@ capture noisily {
     assert "`r(plot_type)'" == "tipping"
     assert "`r(measure)'" == "OR"
     assert r(n_missing) == 6
-    graph drop qba_known_tipping_misclass
+    _qba_drop_graph_if_exists qba_known_tipping_misclass
 }
 if _rc == 0 {
     display as result "  PASS: K3 tipping misclassification grid has exact missing count"
@@ -90,7 +106,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: K3 tipping misclassification grid (error `=_rc')"
     local ++fail_count
-    capture graph drop qba_known_tipping_misclass
+    _qba_drop_graph_if_exists qba_known_tipping_misclass
 }
 
 **# K4: Tipping confounding grid has no structural missing values
@@ -102,7 +118,7 @@ capture noisily {
     assert "`r(plot_type)'" == "tipping"
     assert "`r(measure)'" == "RR"
     assert r(n_missing) == 0
-    graph drop qba_known_tipping_confound
+    _qba_drop_graph_if_exists qba_known_tipping_confound
 }
 if _rc == 0 {
     display as result "  PASS: K4 tipping confounding grid returns complete RR surface"
@@ -111,7 +127,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: K4 tipping confounding grid (error `=_rc')"
     local ++fail_count
-    capture graph drop qba_known_tipping_confound
+    _qba_drop_graph_if_exists qba_known_tipping_confound
 }
 
 **# K5: Distribution plot infers coefficient scale and rejects wrong scale
@@ -127,7 +143,7 @@ capture noisily {
         name(qba_known_coef_dist, replace)
     assert "`r(plot_type)'" == "distribution"
     assert "`r(measure)'" == "coefficient"
-    graph drop qba_known_coef_dist
+    _qba_drop_graph_if_exists qba_known_coef_dist
 
     capture qba_plot, distribution using("`coef_mc'") observed(0) measure(OR)
     assert _rc == 198
@@ -139,7 +155,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: K5 distribution plot coefficient contract (error `=_rc')"
     local ++fail_count
-    capture graph drop qba_known_coef_dist
+    _qba_drop_graph_if_exists qba_known_coef_dist
 }
 
 **# Summary

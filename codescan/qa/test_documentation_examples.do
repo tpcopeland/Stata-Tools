@@ -189,51 +189,6 @@ else {
 local ++test_count
 capture noisily {
     _load_codescan_setup
-    codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///
-        score(charlson) ///
-        hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)
-    assert _N == 3
-    confirm variable _score
-    assert _score == 1 if pid == 1
-    assert _score == 3 if pid == 2
-    assert _score == 0 if pid == 3
-}
-if _rc == 0 {
-    display as result "  PASS: README Charlson example"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: README Charlson example (error `=_rc')"
-    local ++fail_count
-}
-
-local ++test_count
-capture noisily {
-    clear
-    input long pid str6 dx1
-    1 "C500"
-    1 "J440"
-    2 "J440"
-    end
-    codescan dx1, define(cancer "C50" | copd "J44") id(pid) collapse ///
-        generate(c) hierarchy(cancer > copd)
-    assert ccancer[1] == 1
-    assert ccopd[1] == 0
-    assert ccancer[2] == 0
-    assert ccopd[2] == 1
-}
-if _rc == 0 {
-    display as result "  PASS: help hierarchy bare-name example"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: help hierarchy bare-name example (error `=_rc')"
-    local ++fail_count
-}
-
-local ++test_count
-capture noisily {
-    _load_codescan_setup
     capture erase "`qa_dir'/codescan_results.xlsx"
     capture erase "`qa_dir'/codescan_results.dta"
     codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///

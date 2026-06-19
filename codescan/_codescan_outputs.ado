@@ -1,4 +1,4 @@
-*! _codescan_outputs Version 1.1.4  2026/06/14
+*! _codescan_outputs Version 2.0.0  2026/06/19
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland
 
@@ -11,7 +11,7 @@ program define _codescan_plan_outputs, rclass
 
     syntax , CONDITIONS(string asis) SCANVars(string asis) ///
         [PROTected(string asis) COLLapse MERge EARLIESTdate LATESTdate ///
-         COUNTdate COUNTRows REPlace SCORE(string) GENerate(string) ///
+         COUNTdate COUNTRows REPlace ///
          UNMatched(string) MATCHed_code(string)]
 
     local _conditions `"`conditions'"'
@@ -34,11 +34,6 @@ program define _codescan_plan_outputs, rclass
             substr(`"`_protected'"', strlen(`"`_protected'"'), 1) == char(34) {
             local _protected = substr(`"`_protected'"', 2, strlen(`"`_protected'"') - 2)
         }
-    }
-
-    local _scorename "_score"
-    if "`generate'" != "" {
-        local _scorename "`generate'_score"
     }
 
     local _n_outputs = 0
@@ -69,11 +64,6 @@ program define _codescan_plan_outputs, rclass
                 local _outputs "`_outputs' `_output_`_n_outputs''"
             }
         }
-    }
-    if "`score'" != "" {
-        local ++_n_outputs
-        local _output_`_n_outputs' "`_scorename'"
-        local _outputs "`_outputs' `_output_`_n_outputs''"
     }
     if "`unmatched'" != "" {
         local ++_n_outputs
@@ -122,7 +112,6 @@ program define _codescan_plan_outputs, rclass
     if `rc' exit `rc'
     return scalar n_outputs = `_n_outputs'
     return local outputs "`_outputs'"
-    return local scorename "`_scorename'"
     forvalues i = 1/`_n_outputs' {
         return local output_`i' "`_output_`i''"
     }

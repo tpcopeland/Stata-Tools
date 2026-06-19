@@ -8,13 +8,12 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 1.1.4
+*   T7: Version header reports 2.0.0
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
-*   T10: generate() + hierarchy() with bare names (M8)
 *   T11: r(date) returned when date() specified (I8 fix)
 *   T12: countdate + countmode uses 0/1 flag, not raw counts (I4 fix)
-*   T13: r(codefile) returns user-facing basename for builtin codefiles
+*   T13: r(codefile) returns the user-supplied codefile path
 *   T14: auto-labels on suffix variables when no explicit label given
 *   T15: explicit labels still override auto-labels
 *   T16: matched_code() not leaked by multi-window sensitivity supplementary scan
@@ -219,7 +218,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 1.1.4
+* T7: header advertises version 2.0.0
 * ============================================================
 
 local ++test_count
@@ -230,10 +229,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "1.1.4") > 0
+    assert strpos("`_line1'", "2.0.0") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 1.1.4"
+    display as result "  PASS T7: version header is 2.0.0"
     local ++pass_count
 }
 else {
@@ -322,29 +321,6 @@ else {
 
 
 * ============================================================
-* T10: generate() + hierarchy() with bare names
-* ============================================================
-
-local ++test_count
-capture noisily {
-    _make_v101_data
-    codescan dx1, define(dm_comp "E10" | dm_uncomp "E11") generate(cs_) ///
-        id(pid) collapse hierarchy(dm_comp > dm_uncomp)
-    confirm variable cs_dm_comp
-    confirm variable cs_dm_uncomp
-    * Hierarchy should have suppressed dm_uncomp where dm_comp is present
-}
-if _rc == 0 {
-    display as result "  PASS T10: generate() + hierarchy() bare names"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL T10: generate()+hierarchy() bare names (rc=`=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
 * T11: r(date) returned when date() specified
 * ============================================================
 
@@ -402,21 +378,31 @@ else {
 
 
 * ============================================================
-* T13: r(codefile) returns user-facing basename for builtin codefiles
+* T13: r(codefile) returns the user-supplied codefile path
 * ============================================================
 
 local ++test_count
 capture noisily {
+    tempfile cfbase
+    local cf "`cfbase'.csv"
+    preserve
+    clear
+    input str10 name str20 pattern
+    "dm2" "E11"
+    end
+    export delimited using "`cf'", replace
+    restore
+
     _make_v101_data
-    codescan dx1, codefile(charlson_icd10_example.csv) id(pid) collapse
-    assert `"`=r(codefile)'"' == "charlson_icd10_example.csv"
+    codescan dx1, codefile("`cf'") id(pid) collapse
+    assert `"`=r(codefile)'"' == `"`cf'"'
 }
 if _rc == 0 {
-    display as result "  PASS T13: r(codefile) returns basename for builtin"
+    display as result "  PASS T13: r(codefile) returns supplied path"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T13: r(codefile) builtin basename (rc=`=_rc')"
+    display as error "  FAIL T13: r(codefile) supplied path (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -545,8 +531,8 @@ else {
 
 local ++test_count
 capture noisily {
-    foreach _hf in _codescan_codefile _codescan_definitions _codescan_hierarchy ///
-                   _codescan_outputs _codescan_score {
+    foreach _hf in _codescan_codefile _codescan_definitions ///
+                   _codescan_outputs {
         findfile `_hf'.ado
         local _hpath `"`r(fn)'"'
         run `"`_hpath'"'
@@ -560,6 +546,50 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T17: helper reload crashed (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T19: user-named outputs (unmatched/matched_code) colliding with
+*      id()/date()/refdate() are rejected by _codescan_plan_outputs'
+*      protected() branch (distinct from condition-name and varlist
+*      collisions). Guards the helper after the v2 score()/generate()
+*      dead-code removal.
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 double visit_dt double index_dt
+    1 "E110" 21914 21915
+    2 "I10"  21900 21915
+    end
+    format visit_dt index_dt %td
+
+    * unmatched() name == id() variable -> protected collision, rc 198
+    capture codescan dx1, define(dm2 "E11") id(pid) collapse unmatched(pid)
+    assert _rc == 198
+    * matched_code() name == date() variable -> protected collision, rc 198
+    capture codescan dx1, define(dm2 "E11") date(visit_dt) matched_code(visit_dt)
+    assert _rc == 198
+    * matched_code() name == refdate() variable -> protected collision, rc 198
+    capture codescan dx1, define(dm2 "E11") date(visit_dt) refdate(index_dt) ///
+        lookback(365) inclusive id(pid) merge matched_code(index_dt)
+    assert _rc == 198
+    * Non-colliding names on the same call still succeed
+    codescan dx1, define(dm2 "E11") date(visit_dt) ///
+        matched_code(firstcode) unmatched(nohit)
+    assert _rc == 0
+    confirm variable firstcode
+    confirm variable nohit
+}
+if _rc == 0 {
+    display as result "  PASS T19: output names colliding with id/date/refdate rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T19: protected-name collision check (rc=`=_rc')"
     local ++fail_count
 }
 

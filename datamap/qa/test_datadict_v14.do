@@ -57,7 +57,8 @@ label variable comment "Free text"
 notes group: group note with pipe | and <angle>
 char group[source] "case report"
 label data "Dictionary QA dataset"
-save "`dta'", replace
+capture erase "`dta'"
+quietly save "`dta'", replace
 
 capture erase "`md'"
 capture erase "`meta'"

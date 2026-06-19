@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  02jun2026}{...}
+{* *! version 1.0.1  19jun2026}{...}
 {vieweralsosee "qba" "help qba"}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -207,9 +207,18 @@ uncertainty is strongly recommended.
 {synopt:{cmd:r(corrected)}}corrected measure of association{p_end}
 {synopt:{cmd:r(bias_factor)}}selection bias factor on the OR scale{p_end}
 {synopt:{cmd:r(ratio)}}corrected / observed (when both are defined){p_end}
-{synopt:{cmd:r(a)}}through {cmd:r(d)} observed cell counts{p_end}
-{synopt:{cmd:r(corrected_a)}}through {cmd:r(corrected_d)} corrected cell counts{p_end}
-{synopt:{cmd:r(sela)}}through {cmd:r(seld)} selection probabilities{p_end}
+{synopt:{cmd:r(a)}}observed exposed cases cell count{p_end}
+{synopt:{cmd:r(b)}}observed unexposed cases cell count{p_end}
+{synopt:{cmd:r(c)}}observed exposed non-cases cell count{p_end}
+{synopt:{cmd:r(d)}}observed unexposed non-cases cell count{p_end}
+{synopt:{cmd:r(corrected_a)}}corrected exposed cases cell count{p_end}
+{synopt:{cmd:r(corrected_b)}}corrected unexposed cases cell count{p_end}
+{synopt:{cmd:r(corrected_c)}}corrected exposed non-cases cell count{p_end}
+{synopt:{cmd:r(corrected_d)}}corrected unexposed non-cases cell count{p_end}
+{synopt:{cmd:r(sela)}}selection probability for exposed cases{p_end}
+{synopt:{cmd:r(selb)}}selection probability for unexposed cases{p_end}
+{synopt:{cmd:r(selc)}}selection probability for exposed non-cases{p_end}
+{synopt:{cmd:r(seld)}}selection probability for unexposed non-cases{p_end}
 
 {p2col 5 20 24 2: Scalars (probabilistic mode)}{p_end}
 {synopt:{cmd:r(observed)}}observed measure of association{p_end}
@@ -240,6 +249,6 @@ Greenland S. Basic methods for sensitivity analysis of biases.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-06-02{p_end}
+{pstd}Version 1.0.1, 2026-06-19{p_end}
 
 {hline}

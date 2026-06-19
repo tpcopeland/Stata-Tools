@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.4.1  2026/06/19
+*! _datamap_classify Version 1.5.0  2026/06/19
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -9,8 +9,8 @@ program define _datamap_classify, rclass
     local _post_open = 0
     capture noisily {
         syntax using/ , SAVing(string) [MAXCat(integer 25) OBS(integer -1) ///
-            EXClude(string) DETECT_binary(integer 0) QUality_level(string) ///
-            LOADED]
+            EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
+            DETECT_binary(integer 0) QUality_level(string) LOADED]
 
         if `maxcat' <= 0 {
             noisily display as error "maxcat must be positive"
@@ -35,8 +35,39 @@ program define _datamap_classify, rclass
         local all_vars `r(varlist)'
         local nvars : word count `all_vars'
 
+        local force_continuous "`continuous'"
+        if `"`continuous'"' != "" {
+            capture unab force_continuous : `continuous'
+            if _rc local force_continuous "`continuous'"
+        }
+        local force_categorical "`categorical'"
+        if `"`categorical'"' != "" {
+            capture unab force_categorical : `categorical'
+            if _rc local force_categorical "`categorical'"
+        }
+        local force_date "`date'"
+        if `"`date'"' != "" {
+            capture unab force_date : `date'
+            if _rc local force_date "`date'"
+        }
+        local _overlap : list force_continuous & force_categorical
+        if `"`_overlap'"' != "" {
+            noisily display as error "classification override conflict: `_overlap' in both continuous() and categorical()"
+            exit 198
+        }
+        local _overlap : list force_continuous & force_date
+        if `"`_overlap'"' != "" {
+            noisily display as error "classification override conflict: `_overlap' in both continuous() and date()"
+            exit 198
+        }
+        local _overlap : list force_categorical & force_date
+        if `"`_overlap'"' != "" {
+            noisily display as error "classification override conflict: `_overlap' in both categorical() and date()"
+            exit 198
+        }
+
         tempname posth
-        postfile `posth' str32 varname str12 vartype str48 varformat ///
+        quietly postfile `posth' str32 varname str12 vartype str48 varformat ///
             str2045 varlabel str80 valuelabel double missing_n ///
             double missing_pct str16 classification double unique_vals ///
             byte is_binary str80 quality_flag int orig_position ///
@@ -126,6 +157,19 @@ program define _datamap_classify, rclass
             }
             else {
                 local class "continuous"
+            }
+
+            local _v "`vname'"
+            if !`isexcluded' {
+                if `: list _v in force_continuous' {
+                    local class "continuous"
+                }
+                else if `: list _v in force_categorical' {
+                    local class "categorical"
+                }
+                else if `: list _v in force_date' {
+                    local class "date"
+                }
             }
 
             local qflag ""

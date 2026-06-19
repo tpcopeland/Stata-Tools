@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.4.1** | 2026-06-19
+**Version 1.5.0** | 2026-06-19
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -36,7 +36,7 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 1. **Choose the input source.** Load data into memory (the default), or point at a file with `single()`, a folder with `directory()`, or a list of names with `filelist()`.
 2. **Pick the output command.** Use `datamap` for plain text or `datadict` for Markdown.
-3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`, `mincell()`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), compact output (`compact`), JSON output (`format(json)`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`), descriptive statistics (`stats`, `missing`), technical columns (`detail`, `columns()`), provenance (`datasignature`), and metadata export (`saving()`) to `datadict`.
+3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`, `mincell()`), classifier overrides (`continuous()`, `categorical()`, `date()`/`datevars()`), reusable project defaults (`config()`), compact output (`compact`), JSON output (`format(json)`), or structured metadata export (`saving()`). Use `datacheck compare()` to detect schema drift against a saved profile.
 4. **Write the output.** One combined file by default, or separate files per dataset with `separate`.
 
 ## Worked Examples
@@ -93,7 +93,7 @@ Write structured metadata alongside the Markdown dictionary:
 sysuse auto, clear
 datadict price mpg foreign, output(auto_dictionary.md) ///
     detail missing stats datasignature ///
-    saving(auto_dictionary_meta.dta, replace)
+    saving(auto_dictionary_meta, replace)
 ```
 
 ### 6. Document a saved dataset by filename
@@ -102,10 +102,11 @@ Both commands work on `.dta` files without loading them first:
 
 ```stata
 sysuse auto, clear
-save auto_example.dta, replace
+tempfile auto_example
+save `auto_example', replace
 
-datamap, single(auto_example) output(auto_example_map.txt)
-datadict, single(auto_example) output(auto_example_dict.md) title("Saved auto")
+datamap, single("`auto_example'") output(auto_example_map.txt)
+datadict, single("`auto_example'") output(auto_example_dict.md) title("Saved auto")
 ```
 
 ### 7. Scale up to a directory
@@ -237,7 +238,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.4.1",
+  "datamap_version": "1.5.0",
   "format": "json",
   "datasets": [
     {
@@ -439,9 +440,11 @@ Monotone missingness test:
 | Category | Options |
 |----------|---------|
 | Input | `single()`, `directory()`, `filelist()`, `recursive` |
-| Output | `output()`, `format(text\|json)`, `separate`, `append` (text only) |
+| Output | `output()`, `format(text\|json)`, `separate`, `append` (text only), `saving()` |
+| Project defaults | `config()` |
 | Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()`, `noguidance`, `compact` |
 | Privacy | `exclude()`, `datesafe`, `dateformat()`, `mincell()` |
+| Classification | `continuous()`, `categorical()`, `date()` |
 | Detection | `detect()`, `autodetect`, `panelid()`, `survivalvars()` |
 | Quality | `quality`, `quality2(strict)`, `missing(detail\|pattern)` |
 | Sample data | `samples()` |
@@ -453,19 +456,29 @@ Monotone missingness test:
 | Input | `single()`, `directory()`, `filelist()`, `recursive` |
 | Output | `output()`, `separate` |
 | Metadata | `title()`, `subtitle()`, `version()`, `author()`, `date()` |
-| Content | `notes()`, `changelog()`, `missing`, `stats`, `maxcat()`, `maxfreq()`, `dateformat()` |
+| Content | `notes()`, `changelog()`, `missing`, `stats`, `maxcat()`, `maxfreq()`, `mincell()`, `dateformat()` |
 | Technical metadata | `detail`, `columns()`, `datasignature`, `saving()` |
 | Batch/project workflow | `manifest()`, `outdir()`, `suffix()`, `config()` |
+| Privacy/classification | `exclude()`, `continuous()`, `categorical()`, `datevars()` |
 
-### Variable classification (both commands)
+### datacheck additions
+
+| Category | Options |
+|----------|---------|
+| Project defaults | `config()` |
+| Schema drift | `compare()` |
+| Metadata export | `saving()` with the shared metadata schema |
+
+### Variable classification (datamap, datadict, datacheck)
 
 | Priority | Condition | Class |
 |----------|-----------|-------|
 | 1 | Listed in `exclude()` | Excluded |
-| 2 | String type (`str#`, `strL`) | String |
-| 3 | Date format (`%t*`, `%d*`) | Date |
-| 4 | Value labels or ≤ `maxcat()` unique values | Categorical |
-| 5 | Everything else | Continuous |
+| 2 | Listed in `continuous()`, `categorical()`, or `date()`/`datevars()` | Forced class |
+| 3 | String type (`str#`, `strL`) | String |
+| 4 | Date format (`%t*`, `%d*`) | Date |
+| 5 | Value labels or ≤ `maxcat()` unique values | Categorical |
+| 6 | Everything else | Continuous |
 
 ## Choosing Between the Commands
 
@@ -492,7 +505,7 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 13 QA files: 11 functional test files, 2 validation files, and 0 cross-validation suites.
+The suite covers all four public commands with 14 QA files: 12 functional test files, 2 validation files, and 0 cross-validation suites.
 
 - `test_datacheck.do` - 106 tests
 - `test_datadict_v14.do` - 27 tests
@@ -501,6 +514,7 @@ The suite covers all four public commands with 13 QA files: 11 functional test f
 - `test_datamap_float_format.do` - 5 tests
 - `test_datamap_v2.do` - 54 tests
 - `test_datamap_v11.do` - 42 tests
+- `test_datamap_v15.do` - 6 tests
 - `test_datamap_privacy.do` - 22 tests
 - `test_datamap_golden.do` - 0 tests (9 golden cases)
 - `test_datamvp.do` - 62 tests
@@ -509,6 +523,15 @@ The suite covers all four public commands with 13 QA files: 11 functional test f
 - `validation_datamvp.do` - 60 validations
 
 ## Changelog
+
+### 1.5.0 (2026-06-19)
+
+- Add shared classifier overrides across `datamap`, `datadict`, and `datacheck`: `continuous()`, `categorical()`, `date()` for `datamap`/`datacheck`, and `datevars()` for `datadict`.
+- Add shared project `config()` parsing for reusable privacy, classification, and threshold defaults.
+- Add `datamap saving()` and align `datamap`, `datadict`, and `datacheck` metadata exports on a common variable-level schema.
+- Add `datacheck compare()` to detect added, dropped, type-changed, class-changed, and row-count drift against a saved profile or raw dataset.
+- Extend `datadict` privacy controls with `exclude()` and `mincell()` suppression.
+- Add v1.5 regression QA for metadata schema, privacy suppression, classifier overrides, config loading, and schema comparison.
 
 ### 1.4.1 (2026-06-19)
 

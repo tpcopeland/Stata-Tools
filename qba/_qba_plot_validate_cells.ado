@@ -1,10 +1,9 @@
-*! _qba_plot_validate_cells Version 1.0.0  2026/06/02
+*! _qba_plot_validate_cells Version 1.0.1  2026/06/19
 *! Internal helper: validate qba_plot 2x2 cell options
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 capture program drop _qba_plot_validate_cells
-local _drop_rc = _rc
 program define _qba_plot_validate_cells
     version 16.0
     local _saved_varabbrev = c(varabbrev)

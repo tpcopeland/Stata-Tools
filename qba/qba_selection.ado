@@ -1,4 +1,4 @@
-*! qba_selection Version 1.0.0  2026/06/02
+*! qba_selection Version 1.0.1  2026/06/19
 *! Selection bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

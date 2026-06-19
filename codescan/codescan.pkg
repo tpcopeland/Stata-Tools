@@ -9,7 +9,7 @@ d or any string code system.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260614
+d Distribution-Date: 20260619
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -26,10 +26,6 @@ f codescan.ado
 f _codescan_codefile.ado
 f _codescan_definitions.ado
 f _codescan_outputs.ado
-f _codescan_score.ado
-f _codescan_hierarchy.ado
 f codescan.sthlp
 f codescan_describe.ado
 f codescan_describe.sthlp
-f charlson_icd10_example.csv
-f elixhauser_icd10_example.csv

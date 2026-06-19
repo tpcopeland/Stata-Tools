@@ -1,11 +1,8 @@
 /*  demo_codescan.do - Demo output for codescan
 
     Produces:
-      1. Console output (codescan_describe: code inventory)  -> .log -> .md via logdoc
-      2. Console output (codescan: inline define, row-level)  -> .log -> .md via logdoc
-      3. Console output (Charlson scoring with hierarchy)     -> .log -> .md via logdoc
-      4. Graph (prevalence bar chart)                         -> .png
-      5. Excel (summary + cooccurrence workbook)              -> .xlsx
+      1. Graph (condition prevalence bar chart)        -> .png
+      2. Excel (summary + co-occurrence workbook)      -> .xlsx
 */
 
 version 16.0
@@ -100,85 +97,32 @@ label variable female   "Female sex"
 
 save "`pkg_dir'/_admin_demo.dta", replace
 
-**# 1. Code Inventory (codescan_describe)
-log using "`pkg_dir'/console_describe.log", replace text name(describe) nomsg
+* Condition rule set reused across the graph and Excel exports below.
+local cs_define dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" | cancer "C[0-7]" ~ "C77|C78|C79|C80" | metastatic "C7[789]|C80"
+local cs_label  dm "Diabetes" \ htn "Hypertension" \ chf "Heart failure" \ copd "COPD" \ cancer "Cancer (non-met)" \ metastatic "Metastatic cancer"
 
-noisily codescan_describe dx1 dx2 dx3 dx4, top(15)
-
-log close describe
-
-**# 2. Inline Define — Row-Level Scan
-use "`pkg_dir'/_admin_demo.dta", clear
-
-log using "`pkg_dir'/console_rowlevel.log", replace text name(rowlevel) nomsg
-
-noisily codescan dx1 dx2 dx3 dx4, ///
-    define(dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" | ///
-           cancer "C[0-7]" ~ "C77|C78|C79|C80" | metastatic "C7[789]|C80") ///
-    label(dm "Diabetes" \ htn "Hypertension" \ chf "Heart failure" \ ///
-          copd "COPD" \ cancer "Cancer (non-met)" \ metastatic "Metastatic cancer") ///
-    detail noisily
-
-log close rowlevel
-
-**# 3. Charlson Scoring — Full Clinical Workflow
-use "`pkg_dir'/_admin_demo.dta", clear
-
-log using "`pkg_dir'/console_charlson.log", replace text name(charlson) nomsg
-
-noisily codescan dx1 dx2 dx3 dx4, ///
-    codefile(charlson_icd10_example.csv) ///
-    id(pid) date(visit_dt) refdate(index_dt) ///
-    lookback(365) inclusive ///
-    collapse alldates countrows ///
-    score(charlson) ///
-    hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer) ///
-    cooccurrence detail noisily
-
-noisily summarize _score, detail
-
-log close charlson
-
-**# 4. Prevalence Bar Chart
+**# 1. Prevalence Bar Chart
 use "`pkg_dir'/_admin_demo.dta", clear
 
 codescan dx1 dx2 dx3 dx4, ///
-    codefile(charlson_icd10_example.csv) ///
+    define(`cs_define') ///
+    label(`cs_label') ///
     id(pid) collapse ///
-    score(charlson) ///
-    hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer) ///
     graph
 
 graph export "`pkg_dir'/prevalence_chart.png", replace width(1200)
 capture graph close _all
 
-**# 5. Excel Export — Summary + Co-occurrence
+**# 2. Excel Export — Summary + Co-occurrence
 use "`pkg_dir'/_admin_demo.dta", clear
 
 codescan dx1 dx2 dx3 dx4, ///
-    codefile(charlson_icd10_example.csv) ///
+    define(`cs_define') ///
+    label(`cs_label') ///
     id(pid) collapse ///
-    score(charlson) ///
-    hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer) ///
     cooccurrence ///
     export("`pkg_dir'/codescan_results.xlsx") ///
     format(%9.2f)
-
-**# 6. Convert Console Logs to Markdown via logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`c(pwd)'/logdoc") replace
-
-logdoc using "`pkg_dir'/console_describe.log", ///
-    output("`pkg_dir'/console_describe.md") ///
-    format(md) replace quiet
-
-logdoc using "`pkg_dir'/console_rowlevel.log", ///
-    output("`pkg_dir'/console_rowlevel.md") ///
-    format(md) replace quiet
-
-logdoc using "`pkg_dir'/console_charlson.log", ///
-    output("`pkg_dir'/console_charlson.md") ///
-    format(md) replace quiet
 
 **# Cleanup
 capture erase "`pkg_dir'/_admin_demo.dta"

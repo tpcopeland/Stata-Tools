@@ -1,4 +1,4 @@
-*! datadict Version 1.4.1  2026/06/19
+*! datadict Version 1.5.0  2026/06/19
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -15,30 +15,44 @@ program define datadict, rclass
 	          OUtput(string) OUTDir(string) SUFfix(string) SEParate ///
 	          TItle(string asis) SUBTitle(string asis) VERsion(string) ///
 	          AUTHor(string asis) DATE(string) ///
-	          NOTEs(string asis) CHANGElog(string asis) ///
-	          MISSing STats DETail SAVing(string) ///
-	          COLumns(string asis) CONFig(string) DATASIGnature ///
-	          MAXCat(integer 25) MAXFreq(integer 25) ///
-	          DATEFormat(string)]
+		          NOTEs(string asis) CHANGElog(string asis) ///
+		          MISSing STats DETail SAVing(string) ///
+		          COLumns(string asis) CONFig(string) DATASIGnature ///
+		          MAXCat(integer -1) MAXFreq(integer -1) MINCell(integer -1) ///
+		          EXClude(string) CONTinuous(string) CATegorical(string) ///
+		          DATEVars(string) DATEFormat(string)]
 
 	// Load reusable project defaults before applying command defaults.
-	if `"`config'"' != "" {
-		_datadict_ValidatePath `"`config'"', option("config()")
-		confirm file `"`config'"'
-		_datadict_LoadConfig, config(`"`config'"')
-		foreach opt in output outdir suffix title subtitle version author date notes changelog columns {
-			local cfgval `"`r(`opt')'"'
-			if `"``opt''"' == "" & `"`cfgval'"' != "" {
-				local `opt' `"`cfgval'"'
+		if `"`config'"' != "" {
+			_datadict_ValidatePath `"`config'"', option("config()")
+			confirm file `"`config'"'
+			_datamap_load_config, config(`"`config'"')
+			foreach opt in output outdir suffix title subtitle version author date notes changelog columns {
+				local cfgval `"`r(`opt')'"'
+				if `"``opt''"' == "" & `"`cfgval'"' != "" {
+					local `opt' `"`cfgval'"'
+				}
 			}
+			if `"`date'"' == "" & `"`r(docdate)'"' != "" local date `"`r(docdate)'"'
+			foreach opt in exclude continuous categorical datevars dateformat {
+				local cfgval `"`r(`opt')'"'
+				if `"``opt''"' == "" & `"`cfgval'"' != "" {
+					local `opt' `"`cfgval'"'
+				}
+			}
+			foreach opt in maxcat maxfreq mincell {
+				if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+			}
+			if "`missing'" == "" & "`r(missing)'" != "" local missing "missing"
+			if "`stats'" == "" & "`r(stats)'" != "" local stats "stats"
+			if "`detail'" == "" & "`r(detail)'" != "" local detail "detail"
+			if "`datasignature'" == "" & "`r(datasignature)'" != "" local datasignature "datasignature"
 		}
-		if "`missing'" == "" & "`r(missing)'" != "" local missing "missing"
-		if "`stats'" == "" & "`r(stats)'" != "" local stats "stats"
-		if "`detail'" == "" & "`r(detail)'" != "" local detail "detail"
-		if "`datasignature'" == "" & "`r(datasignature)'" != "" local datasignature "datasignature"
-	}
+		if `maxcat' < 0 local maxcat = 25
+		if `maxfreq' < 0 local maxfreq = 25
+		if `mincell' < 0 local mincell = 0
 
-	// Set default date format (ISO 8601: YYYY/MM/DD)
+		// Set default date format (ISO 8601: YYYY/MM/DD)
 	if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"
 	if strpos(`"`dateformat'"', "%t") != 1 & strpos(`"`dateformat'"', "%d") != 1 {
 		noisily di as error "dateformat() must be a Stata date/time display format beginning with %t or %d"
@@ -76,10 +90,14 @@ program define datadict, rclass
 		di as error "maxcat must be positive"
 		exit 198
 	}
-	if `maxfreq' <= 0 {
-		di as error "maxfreq must be positive"
-		exit 198
-	}
+		if `maxfreq' <= 0 {
+			di as error "maxfreq must be positive"
+			exit 198
+		}
+		if `mincell' < 0 {
+			di as error "mincell must be non-negative"
+			exit 198
+		}
 
 	// Set defaults
 	if `"`output'"' == "" local output "data_dictionary.md"
@@ -180,14 +198,15 @@ program define datadict, rclass
 	if `"`saving_file'"' != "" {
 		tempfile metadata_tmp
 		tempname metadata_post
-		postfile `metadata_post' ///
-			str2045 source str2045 output str80 dataset str2045 dataset_label ///
-			str32 variable str20 storage_type str32 display_format ///
-			str32 value_label str20 class double N long nvars long missing ///
-			long unique str2045 variable_label str2045 notes ///
-			str2045 characteristics double mean double sd double p50 ///
-			double p25 double p75 double min double max ///
-			using `"`metadata_tmp'"', replace
+			quietly postfile `metadata_post' ///
+				str16 source_command str2045 source str2045 output ///
+				str80 dataset str2045 dataset_label ///
+				str32 variable str20 storage_type str32 display_format ///
+				str32 value_label str20 class double N long nvars long missing ///
+				double missing_pct long unique str2045 variable_label str2045 notes ///
+				str2045 characteristics double mean double sd double p50 ///
+				double p25 double p75 double min double max str2045 datasignature ///
+				using `"`metadata_tmp'"', replace
 		local _post_open = 1
 		local postopt `"postname(`metadata_post')"'
 	}
@@ -196,20 +215,25 @@ program define datadict, rclass
 	if "`separate'" != "" {
 		_datadict_ProcessSeparate, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
 			title(`"`title'"') subtitle(`"`subtitle'"') version(`"`version'"') ///
-			author(`"`author'"') date(`"`date'"') notes(`"`notes'"') ///
-			changelog(`"`changelog'"') nfiles(`nfiles') `showmissing' `showstats' ///
-			maxcat(`maxcat') maxfreq(`maxfreq') dateformat("`dateformat'") ///
-			columns(`columns') varspec(`"`varspec'"') outdir(`"`outdir'"') ///
-			suffix(`"`suffix'"') `datasignature' `postopt'
+				author(`"`author'"') date(`"`date'"') notes(`"`notes'"') ///
+				changelog(`"`changelog'"') nfiles(`nfiles') `showmissing' `showstats' ///
+				maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+				exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+				categorical(`"`categorical'"') datevars(`"`datevars'"') ///
+				dateformat("`dateformat'") ///
+				columns(`columns') varspec(`"`varspec'"') outdir(`"`outdir'"') ///
+				suffix(`"`suffix'"') `datasignature' `postopt'
 	}
 	else {
 		_datadict_ProcessCombined, filelist(`"`filelist_tmp'"') namesfile(`"`names_tmp'"') ///
 			output(`"`output'"') title(`"`title'"') subtitle(`"`subtitle'"') ///
-			version(`"`version'"') author(`"`author'"') date(`"`date'"') ///
-			notes(`"`notes'"') changelog(`"`changelog'"') nfiles(`nfiles') ///
-			`showmissing' `showstats' maxcat(`maxcat') maxfreq(`maxfreq') ///
-			dateformat("`dateformat'") columns(`columns') ///
-			varspec(`"`varspec'"') `datasignature' `postopt'
+				version(`"`version'"') author(`"`author'"') date(`"`date'"') ///
+				notes(`"`notes'"') changelog(`"`changelog'"') nfiles(`nfiles') ///
+				`showmissing' `showstats' maxcat(`maxcat') maxfreq(`maxfreq') ///
+				mincell(`mincell') exclude(`"`exclude'"') ///
+				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
+				datevars(`"`datevars'"') dateformat("`dateformat'") columns(`columns') ///
+				varspec(`"`varspec'"') `datasignature' `postopt'
 	}
 	local result_output `"`r(output)'"'
 	local result_outputs `"`r(outputs)'"'
@@ -1472,7 +1496,8 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetCategoricalStats, rclass
 	version 16.0
-	args vname vallabname maxlevels totalobs
+	args vname vallabname maxlevels totalobs mincell
+	if "`mincell'" == "" local mincell = 0
 
 	// Get unique non-missing values
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
@@ -1514,7 +1539,15 @@ program define _datadict_GetCategoricalStats, rclass
 		_datadict_EscapeMarkdown `"`macval(labtext)'"'
 		local labtext `"`r(escaped)'"'
 
-		if `"`labtext'"' != "" {
+		if `mincell' > 0 & `levcount' < `mincell' {
+			if `"`labtext'"' != "" {
+				local valstring `"`valstring'<br>`lev' `labtext' (suppressed <`mincell')"'
+			}
+			else {
+				local valstring `"`valstring'<br>`lev' (suppressed <`mincell')"'
+			}
+		}
+		else if `"`labtext'"' != "" {
 			local valstring `"`valstring'<br>`lev' `labtext' (`levcount'; `levpct'%)"'
 		}
 		else {
@@ -1533,7 +1566,8 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetUnlabeledStats, rclass
 	version 16.0
-	args vname maxlevels totalobs
+	args vname maxlevels totalobs mincell
+	if "`mincell'" == "" local mincell = 0
 
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
 	if _rc != 0 | `"`levels'"' == "" {
@@ -1546,6 +1580,8 @@ program define _datadict_GetUnlabeledStats, rclass
 	// Count non-missing
 	quietly count if !missing(`vname')
 	local nvalid = r(N)
+	capture confirm numeric variable `vname'
+	local is_numeric = (_rc == 0)
 
 	if `nlevels' > `maxlevels' {
 		return local valstring "Unique=`nlevels'"
@@ -1556,7 +1592,16 @@ program define _datadict_GetUnlabeledStats, rclass
 	local valstring "Unique=`nlevels'"
 	foreach lev of local levels {
 		// Get count for this level
-		quietly count if `vname' == `lev'
+		local levdisplay `"`macval(lev)'"'
+		if `is_numeric' {
+			quietly count if `vname' == `lev'
+		}
+		else {
+			local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
+			quietly count if `vname' == `"`macval(levcmp)'"'
+			_datadict_EscapeMarkdown `"`macval(levcmp)'"'
+			local levdisplay `"`r(escaped)'"'
+		}
 		local levcount = r(N)
 		if `nvalid' > 0 {
 			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
@@ -1565,7 +1610,12 @@ program define _datadict_GetUnlabeledStats, rclass
 			local levpct "0.0"
 		}
 
-		local valstring `"`valstring'<br>`lev' (`levcount'; `levpct'%)"'
+		if `mincell' > 0 & `levcount' < `mincell' {
+			local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
+		}
+		else {
+			local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
+		}
 	}
 
 	return local valstring `"`valstring'"'
@@ -1695,12 +1745,12 @@ end
 capture program drop _datadict_WriteVariableRow
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
-program define _datadict_WriteVariableRow, nclass
-	version 16.0
-	syntax, HANDLE(name) VNAME(name) OBS(integer) COLumns(string) ///
-		MAXCat(integer) MAXFreq(integer) DATEFormat(string) VARCLASS(string) ///
-		SOURCE(string asis) OUtput(string asis) DSName(string asis) ///
-		DSLABEL(string asis) NVARS(integer) [POSTNAME(name)]
+	program define _datadict_WriteVariableRow, nclass
+		version 16.0
+		syntax, HANDLE(name) VNAME(name) OBS(integer) COLumns(string) ///
+			MAXCat(integer) MAXFreq(integer) MINCell(integer) DATEFormat(string) VARCLASS(string) ///
+			SOURCE(string asis) OUtput(string asis) DSName(string asis) ///
+			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis)]
 
 	local source = subinstr(`"`macval(source)'"', char(34), "", .)
 	local source = subinstr(`"`macval(source)'"', char(96), "", .)
@@ -1781,10 +1831,10 @@ program define _datadict_WriteVariableRow, nclass
 		else if inlist(`"`vname_lower'"', "year", "yr") {
 			local valuesstr "Year of observation"
 		}
-		else if "`varclass'" == "categorical" {
-			_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs'
-			local valuesstr `"`r(valstring)'"'
-		}
+			else if "`varclass'" == "categorical" {
+				_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell'
+				local valuesstr `"`r(valstring)'"'
+			}
 	}
 
 	local statsstr ""
@@ -1810,16 +1860,16 @@ program define _datadict_WriteVariableRow, nclass
 		}
 	}
 
-	if "`varclass'" == "categorical" {
-		if "`vallabname'" != "" {
-			_datadict_GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs'
-			local statsstr `"`r(valstring)'"'
-		}
-		else {
-			if !missing(`nuniq') & `nuniq' <= `maxfreq' {
-				_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs'
+		if "`varclass'" == "categorical" {
+			if "`vallabname'" != "" {
+				_datadict_GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs' `mincell'
 				local statsstr `"`r(valstring)'"'
 			}
+			else {
+				if !missing(`nuniq') & `nuniq' <= `maxfreq' {
+					_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell'
+					local statsstr `"`r(valstring)'"'
+				}
 			else {
 				local statsstr "Unique=`nuniq'"
 			}
@@ -1904,14 +1954,16 @@ program define _datadict_WriteVariableRow, nclass
 		local post_vlab = substr(`"`macval(vlab)'"', 1, 2045)
 		local post_notes = substr(`"`macval(notesstr)'"', 1, 2045)
 		local post_chars = substr(`"`macval(charsstr)'"', 1, 2045)
-		post `postname' (`"`macval(post_source)'"') (`"`macval(post_output)'"') ///
-			(`"`dsname'"') (`"`macval(post_dslabel)'"') (`"`vname'"') ///
-			(`"`vtype'"') (`"`vfmt'"') (`"`vallabname'"') (`"`varclass'"') ///
-			(`obs') (`nvars') (`nmiss') (`nuniq') (`"`macval(post_vlab)'"') ///
-			(`"`macval(post_notes)'"') (`"`macval(post_chars)'"') ///
-			(`mean') (`sd') (`p50') (`p25') (`p75') (`vmin_raw') (`vmax_raw')
-	}
-end
+			local post_dsig = substr(`"`macval(datasignature)'"', 1, 2045)
+			post `postname' (`"datadict"') (`"`macval(post_source)'"') (`"`macval(post_output)'"') ///
+				(`"`dsname'"') (`"`macval(post_dslabel)'"') (`"`vname'"') ///
+				(`"`vtype'"') (`"`vfmt'"') (`"`vallabname'"') (`"`varclass'"') ///
+				(`obs') (`nvars') (`nmiss') (`pctmiss') (`nuniq') (`"`macval(post_vlab)'"') ///
+				(`"`macval(post_notes)'"') (`"`macval(post_chars)'"') ///
+				(`mean') (`sd') (`p50') (`p25') (`p75') (`vmin_raw') (`vmax_raw') ///
+				(`"`macval(post_dsig)'"')
+		}
+	end
 
 capture program drop _datadict_GetVariableNotes
 local _drop_rc = _rc
@@ -1968,12 +2020,14 @@ program define _datadict_ProcessCombined, rclass
 	local _fh_list_open = 0
 	local _fh_names2_open = 0
 	capture noisily {
-		syntax, FILElist(string) NAMESFILE(string) OUtput(string) ///
-			TItle(string asis) DATE(string) NFILES(integer) ///
-			MAXCat(integer) MAXFreq(integer) DATEFormat(string) ///
-			COLumns(string) [SUBTitle(string asis) VERsion(string) ///
-			AUTHor(string asis) NOTEs(string asis) CHANGElog(string asis) ///
-			MISSing STats VARSPEC(string asis) POSTNAME(name) DATASIGnature]
+			syntax, FILElist(string) NAMESFILE(string) OUtput(string) ///
+				TItle(string asis) DATE(string) NFILES(integer) ///
+				MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
+				DATEFormat(string) ///
+				COLumns(string) [SUBTitle(string asis) VERsion(string) ///
+				AUTHor(string asis) NOTEs(string asis) CHANGElog(string asis) ///
+				MISSing STats VARSPEC(string asis) POSTNAME(name) DATASIGnature ///
+				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
 			local `opt' = subinstr(`"`macval(`opt')'"', char(34), "", .)
@@ -2034,11 +2088,14 @@ program define _datadict_ProcessCombined, rclass
 			local dsname `"`r(dsname)'"'
 			local dslabel `"`r(dslabel)'"'
 
-				_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
-					dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(`i') ///
-					maxcat(`maxcat') maxfreq(`maxfreq') dateformat("`dateformat'") ///
-					columns(`columns') varspec(`"`varspec'"') output(`"`output'"') ///
-					`datasignature' `postopt'
+					_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
+						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(`i') ///
+						maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+						exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+						categorical(`"`categorical'"') datevars(`"`datevars'"') ///
+						dateformat("`dateformat'") ///
+						columns(`columns') varspec(`"`varspec'"') output(`"`output'"') ///
+						`datasignature' `postopt'
 			local nobs_total = `nobs_total' + r(nobs)
 			local nvars_total = `nvars_total' + r(nvars)
 
@@ -2105,12 +2162,13 @@ program define _datadict_ProcessSeparate, rclass
 	local _fh_names_open = 0
 	local _fh_open = 0
 	capture noisily {
-		syntax, FILElist(string) NAMESFILE(string) TItle(string asis) ///
-			DATE(string) NFILES(integer) MAXCat(integer) MAXFreq(integer) ///
-			DATEFormat(string) COLumns(string) SUFfix(string) ///
-			[SUBTitle(string asis) VERsion(string) AUTHor(string asis) ///
-			NOTEs(string asis) CHANGElog(string asis) MISSing STats ///
-			VARSPEC(string asis) OUTDir(string) POSTNAME(name) DATASIGnature]
+			syntax, FILElist(string) NAMESFILE(string) TItle(string asis) ///
+				DATE(string) NFILES(integer) MAXCat(integer) MAXFreq(integer) ///
+				MINCell(integer) DATEFormat(string) COLumns(string) SUFfix(string) ///
+				[SUBTitle(string asis) VERsion(string) AUTHor(string asis) ///
+				NOTEs(string asis) CHANGElog(string asis) MISSing STats ///
+				VARSPEC(string asis) OUTDir(string) POSTNAME(name) DATASIGnature ///
+				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		foreach opt in title subtitle version author date notes changelog {
 			local `opt' = subinstr(`"`macval(`opt')'"', char(34), "", .)
@@ -2152,7 +2210,10 @@ program define _datadict_ProcessSeparate, rclass
 
 				_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
 					dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(1) ///
-					maxcat(`maxcat') maxfreq(`maxfreq') dateformat("`dateformat'") ///
+					maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+					exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+					categorical(`"`categorical'"') datevars(`"`datevars'"') ///
+					dateformat("`dateformat'") ///
 					columns(`columns') varspec(`"`varspec'"') output(`"`outfile'"') ///
 					`datasignature' `postopt'
 			local nobs_total = `nobs_total' + r(nobs)
@@ -2217,10 +2278,12 @@ program define _datadict_ProcessOneDataset, rclass
 	local _varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-		syntax, HANDLE(name) FILEPATH(string asis) DSName(string asis) ///
-			IDX(integer) MAXCat(integer) MAXFreq(integer) DATEFormat(string) ///
-			COLumns(string) [DSLABEL(string asis) VARSPEC(string asis) ///
-			OUtput(string asis) POSTNAME(name) DATASIGnature]
+			syntax, HANDLE(name) FILEPATH(string asis) DSName(string asis) ///
+				IDX(integer) MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
+				DATEFormat(string) ///
+				COLumns(string) [DSLABEL(string asis) VARSPEC(string asis) ///
+				OUtput(string asis) POSTNAME(name) DATASIGnature ///
+				EXClude(string) CONTinuous(string) CATegorical(string) DATEVars(string)]
 
 		local filepath = subinstr(`"`macval(filepath)'"', char(34), "", .)
 		local filepath = subinstr(`"`macval(filepath)'"', char(96), "", .)
@@ -2250,14 +2313,17 @@ program define _datadict_ProcessOneDataset, rclass
 			local dslabel "Dataset containing `nvars_file' variables and `obs' observations."
 		}
 
-		tempfile classifications
-		_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
-			maxcat(`maxcat') obs(`obs')
-		local allvars "`r(all_vars)'"
-		local categorical_vars "`r(categorical_vars)'"
-		local continuous_vars "`r(continuous_vars)'"
-		local date_vars "`r(date_vars)'"
-		local string_vars "`r(string_vars)'"
+			tempfile classifications
+			_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
+				maxcat(`maxcat') obs(`obs') exclude(`"`exclude'"') ///
+				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
+				date(`"`datevars'"')
+			local allvars "`r(all_vars)'"
+			local categorical_vars "`r(categorical_vars)'"
+			local continuous_vars "`r(continuous_vars)'"
+			local date_vars "`r(date_vars)'"
+			local string_vars "`r(string_vars)'"
+			local excluded_vars "`r(excluded_vars)'"
 
 		if `"`varspec'"' != "" {
 			capture unab selected_vars : `varspec'
@@ -2265,11 +2331,16 @@ program define _datadict_ProcessOneDataset, rclass
 				local _vrc = _rc
 				noisily di as error `"varlist not found in `filepath': `varspec'"'
 				exit `_vrc'
+				}
+				local allvars "`selected_vars'"
 			}
-			local allvars "`selected_vars'"
-		}
-		local nvars_doc: word count `allvars'
-		if `nvars_doc' == 0 {
+			local docvars ""
+			foreach vn of local allvars {
+				if !`: list vn in excluded_vars' local docvars "`docvars' `vn'"
+			}
+			local allvars "`docvars'"
+			local nvars_doc: word count `allvars'
+			if `nvars_doc' == 0 {
 			noisily di as error `"no variables selected in `filepath'"'
 			exit 102
 		}
@@ -2324,12 +2395,12 @@ program define _datadict_ProcessOneDataset, rclass
 			foreach cv of local string_vars {
 				if "`vn'" == "`cv'" local varclass "string"
 			}
-			_datadict_WriteVariableRow, handle(`handle') vname(`vn') obs(`obs') ///
-				columns(`columns') maxcat(`maxcat') maxfreq(`maxfreq') ///
-					dateformat("`dateformat'") varclass("`varclass'") ///
-					source(`"`macval(filepath)'"') output(`"`output'"') ///
-					dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') ///
-					nvars(`nvars_file') `postopt'
+				_datadict_WriteVariableRow, handle(`handle') vname(`vn') obs(`obs') ///
+					columns(`columns') maxcat(`maxcat') maxfreq(`maxfreq') ///
+						mincell(`mincell') dateformat("`dateformat'") varclass("`varclass'") ///
+						source(`"`macval(filepath)'"') output(`"`output'"') ///
+						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') ///
+						nvars(`nvars_file') datasignature(`"`dsignature'"') `postopt'
 		}
 
 		file write `handle' _n _n

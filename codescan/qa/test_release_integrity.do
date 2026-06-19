@@ -11,6 +11,11 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local repo_dir "`pkg_dir'/.."
 
+* Install the local copy so a stale installed build cannot shadow it, and so the
+* release surface is checked against a package that genuinely net-installs.
+capture ado uninstall codescan
+quietly net install codescan, from("`pkg_dir'") replace
+
 capture program drop _assert_marker_pass
 program define _assert_marker_pass
     version 16.0
@@ -34,8 +39,6 @@ capture noisily {
     confirm file "`pkg_dir'/codescan.pkg"
     confirm file "`pkg_dir'/stata.toc"
     confirm file "`pkg_dir'/README.md"
-    confirm file "`pkg_dir'/charlson_icd10_example.csv"
-    confirm file "`pkg_dir'/elixhauser_icd10_example.csv"
 }
 if _rc == 0 {
     display as result "  PASS: release files present"
@@ -65,28 +68,29 @@ capture noisily {
 
     foreach f in ///
         codescan.ado ///
+        _codescan_codefile.ado ///
+        _codescan_definitions.ado ///
+        _codescan_outputs.ado ///
         codescan.sthlp ///
         codescan_describe.ado ///
-        codescan_describe.sthlp ///
-        charlson_icd10_example.csv ///
-        elixhauser_icd10_example.csv {
+        codescan_describe.sthlp {
 
         assert strpos(" `pkg_files' ", " `f' ") > 0
     }
 }
 if _rc == 0 {
-    display as result "  PASS: .pkg lists every runtime/help/example file"
+    display as result "  PASS: .pkg lists every runtime/help file"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: .pkg runtime/help/example file list (error `=_rc')"
+    display as error "  FAIL: .pkg runtime/help file list (error `=_rc')"
     local ++fail_count
 }
 
 local ++test_count
 capture noisily {
     tempfile marker
-    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 1.1.4  2026/06/14" codescan.ado && grep -Fq "codescan_describe Version 1.1.4  2026/06/14" codescan_describe.ado && grep -Fq "{* *! version 1.1.4  14jun2026}" codescan.sthlp && grep -Fq "{* *! version 1.1.4  14jun2026}" codescan_describe.sthlp && grep -Fq "**Version 1.1.4** | 2026-06-14" README.md && grep -Fq "d Distribution-Date: 20260614" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
+    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 2.0.0  2026/06/19" codescan.ado && grep -Fq "codescan_describe Version 2.0.0  2026/06/19" codescan_describe.ado && grep -Fq "{* *! version 2.0.0  19jun2026}" codescan.sthlp && grep -Fq "{* *! version 2.0.0  19jun2026}" codescan_describe.sthlp && grep -Fq "**Version 2.0.0** | 2026-06-19" README.md && grep -Fq "d Distribution-Date: 20260619" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
     _assert_marker_pass "`marker'"
 }
 if _rc == 0 {

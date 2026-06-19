@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  15jun2026}{...}
+{* *! version 1.0.2  19jun2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -846,15 +846,16 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 {synopt:{cmd:r(pct_exposed)}}percentage of time exposed{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(overlap_ids)}}space-separated list of IDs with overlapping exposure categories (only stored when overlaps are detected and no overlap-handling option was specified: no {cmd:priority()}, {cmd:split}, {cmd:layer}, or {cmd:combine()}){p_end}
+{synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
+
+{pstd}
+{cmd:r(overlap_ids)} is stored only when overlaps are detected and no overlap-handling option was specified:
+{cmd:priority()}, {cmd:split}, {cmd:layer}, or {cmd:combine()}.{p_end}
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-06-15{p_end}
 
 
 {title:Also see}

@@ -19,8 +19,10 @@ d KW: string
 d KW: memory
 d KW: strL
 d
-d Distribution-Date: 20260408
+d Distribution-Date: 20260619
 d License: MIT
 d
 f compress_tc.ado
+f _compress_tc_human.ado
+f _compress_tc_bytes.ado
 f compress_tc.sthlp

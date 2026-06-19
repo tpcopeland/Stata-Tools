@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  19jun2026}{...}
 {vieweralsosee "[D] compress" "help compress"}{...}
 {vieweralsosee "[D] recast" "help recast"}{...}
 {vieweralsosee "[D] memory" "help memory"}{...}
@@ -31,12 +31,15 @@
 {syntab:Main}
 {synopt:{opt noc:ompress}}skip the {cmd:compress} step; perform strL conversion only{p_end}
 {synopt:{opt nos:trl}}skip strL conversion; perform standard {cmd:compress} only{p_end}
+{synopt:{opt low:mem}}convert and compress one variable at a time to cap peak memory{p_end}
+{synopt:{opt dry:run}}report projected savings without modifying the data{p_end}
+{synopt:{opt min:length(#)}}only convert {cmd:str}{it:#} variables at least {it:#} bytes wide to strL{p_end}
 
 {syntab:Reporting}
 {synopt:{opt nor:eport}}suppress {cmd:compress}'s per-variable output{p_end}
 {synopt:{opt q:uietly}}suppress all output{p_end}
-{synopt:{opt det:ail}}show per-variable type information before conversion{p_end}
-{synopt:{opt vars:avings}}report per-variable summary after compression{p_end}
+{synopt:{opt d:etail}}show per-variable type information before conversion{p_end}
+{synopt:{opt vars:avings}}report per-variable before/after bytes and savings{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -73,6 +76,33 @@ conversion. Use this to see the effect of strL conversion alone.
 {opt nostrl} skips the strL conversion, performing only standard {cmd:compress}.
 Equivalent to running {cmd:compress} directly but with memory reporting.
 
+{phang}
+{opt lowmem} recasts and compresses one variable at a time instead of recasting
+the whole {varlist} to strL at once. Because only a single variable's strL heap
+is live at any moment, peak memory is bounded by the largest individual variable
+rather than the entire dataset. Use this on very large datasets where the
+all-at-once path would spike memory. The peak is only reduced when {cmd:compress}
+runs (that is, not in combination with {opt nocompress}). Because {cmd:lowmem}
+governs only the strL-conversion stage, it has no effect when combined with
+{opt nostrl} (there is nothing to convert incrementally). With {opt varsavings},
+{cmd:lowmem} also yields {it:measured} per-variable savings (including strL heap
+effects) rather than the storage-width estimate used in the default mode.
+
+{phang}
+{opt dryrun} reports the projected savings without permanently modifying the
+data. The dataset is restored to its original storage types on completion, but
+the stored results (see {help compress_tc##results:Stored results}) still reflect
+what the compression {it:would} have achieved. Use this to decide whether to
+commit before running on a large dataset.
+
+{phang}
+{opt minlength(#)} restricts the strL conversion to {cmd:str}{it:#} variables at
+least {it:#} bytes wide. Short, fixed-length variables (e.g. ICD or ATC codes)
+gain little from strL and are otherwise recast and reverted by {cmd:compress},
+so skipping them avoids that wasted round trip. The default {cmd:minlength(0)}
+converts every fixed-length string variable. Skipped variables are still passed
+to {cmd:compress}.
+
 {dlgtab:Reporting}
 
 {phang}
@@ -87,9 +117,12 @@ still showing the summary statistics.
 conversion.
 
 {phang}
-{opt varsavings} displays a per-variable summary after compression, showing
-each processed variable with its final type and format. Useful for seeing
-which variables were affected by the compression.
+{opt varsavings} displays a per-variable table showing each processed variable's
+type transition and its memory use before and after compression, with the bytes
+saved. Sizes are shown in the most readable unit (B, KB, MB, or GB). For
+variables that end as {cmd:strL}, the per-variable bytes live in a shared heap
+and cannot be attributed to a single variable, so they are shown as a dash unless
+{opt lowmem} is also specified (which measures each variable's actual delta).
 
 
 {marker results}{...}
@@ -98,15 +131,19 @@ which variables were affected by the compression.
 {pstd}
 {cmd:compress_tc} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Scalars}{p_end}
+{synoptset 22 tabbed}{...}
+{p2col 5 22 26 2: Scalars}{p_end}
 {synopt:{cmd:r(bytes_saved)}}total bytes saved{p_end}
 {synopt:{cmd:r(pct_saved)}}percentage reduction in data size{p_end}
 {synopt:{cmd:r(bytes_initial)}}initial data size in bytes{p_end}
 {synopt:{cmd:r(bytes_final)}}final data size in bytes{p_end}
+{synopt:{cmd:r(bytes_strl)}}bytes held in the strL heap after compression{p_end}
+{synopt:{cmd:r(k_converted)}}number of variables recast to strL{p_end}
+{synopt:{cmd:r(k_reverted)}}number of those that {cmd:compress} moved back to a fixed type{p_end}
 
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Macros}{p_end}
+{synoptset 22 tabbed}{...}
+{p2col 5 22 26 2: Macros}{p_end}
+{synopt:{cmd:r(vars_strl)}}variables stored as strL after compression{p_end}
 {synopt:{cmd:r(varlist)}}string variables actually processed{p_end}
 
 
@@ -135,8 +172,17 @@ which variables were affected by the compression.
 {phang2}{stata "compress_tc, quietly":. compress_tc, quietly}{p_end}
 {phang2}{stata `"display "Saved " r(bytes_saved) " bytes (" %4.1f r(pct_saved) "%)""':. display "Saved " r(bytes_saved) " bytes (" %4.1f r(pct_saved) "%)"}{p_end}
 
-{pstd}Show per-variable summary after compression{p_end}
+{pstd}Show per-variable before/after bytes and savings{p_end}
 {phang2}{stata "compress_tc, varsavings":. compress_tc, varsavings}{p_end}
+
+{pstd}Preview the projected savings without modifying the data{p_end}
+{phang2}{stata "compress_tc, dryrun":. compress_tc, dryrun}{p_end}
+
+{pstd}Cap peak memory on a large dataset (convert one variable at a time){p_end}
+{phang2}{stata "compress_tc, lowmem":. compress_tc, lowmem}{p_end}
+
+{pstd}Convert only string variables at least 20 bytes wide to strL{p_end}
+{phang2}{stata "compress_tc, minlength(20)":. compress_tc, minlength(20)}{p_end}
 
 {pstd}Compress prescription data{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/prescriptions.dta", clear"':. use _data/prescriptions.dta, clear}{p_end}
@@ -185,9 +231,8 @@ older formats.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
 
 {pstd}
 Fork of strcompress by Luke Stein
@@ -203,3 +248,5 @@ Manual: {manlink D compress}, {manlink D recast}, {manlink D memory}
 {psee}
 {space 2}Help: {manhelp compress D}, {manhelp recast D}, {manhelp memory D}
 {p_end}
+
+{hline}

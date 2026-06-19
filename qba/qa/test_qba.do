@@ -19,6 +19,22 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
+capture program drop _qba_drop_graph_if_exists
+program define _qba_drop_graph_if_exists
+    args graph_name
+    quietly graph dir
+    local graph_list " `r(list)' "
+    if "`graph_name'" == "_all" {
+        if trim("`graph_list'") != "" {
+            graph drop _all
+        }
+        exit
+    }
+    if strpos("`graph_list'", " `graph_name' ") {
+        graph drop `graph_name'
+    }
+end
+
 * ============================================================
 * T0: Fresh-install smoke (helper auto-load)
 * ============================================================
@@ -52,7 +68,7 @@ else {
 local ++test_count
 	capture noisily {
 	    qba
-	    assert "`r(version)'" == "1.0.0"
+	    assert "`r(version)'" == "1.0.1"
 	    assert "`r(commands)'" != ""
 	}
 if _rc == 0 {
@@ -919,7 +935,7 @@ capture noisily {
         param1(se) range1(.7 1.0) steps(10) ///
         name(tornado_test, replace)
     assert "`r(plot_type)'" == "tornado"
-    graph drop tornado_test
+    _qba_drop_graph_if_exists tornado_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.1 Tornado plot"
@@ -936,7 +952,7 @@ capture noisily {
     qba_plot, tornado a(136) b(297) c(1432) d(6738) ///
         param1(se) range1(.7 1.0) param2(sp) range2(.8 1.0) steps(10) ///
         name(tornado2_test, replace)
-    graph drop tornado2_test
+    _qba_drop_graph_if_exists tornado2_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.2 Tornado with 2 parameters"
@@ -954,7 +970,7 @@ capture noisily {
         param1(se) range1(.6 1.0) param2(sp) range2(.6 1.0) steps(10) ///
         name(tipping_test, replace)
     assert "`r(plot_type)'" == "tipping"
-    graph drop tipping_test
+    _qba_drop_graph_if_exists tipping_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.3 Tipping point plot"
@@ -975,7 +991,7 @@ capture noisily {
     qba_plot, distribution using("`qba_mc_for_plot'") observed(2.15) ///
         name(dist_test, replace)
     assert "`r(plot_type)'" == "distribution"
-    graph drop dist_test
+    _qba_drop_graph_if_exists dist_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.4 Distribution plot from saved MC"
@@ -1023,7 +1039,7 @@ capture noisily {
         param1(se) range1(.7 1.0) steps(5) ///
         base_se(.85) base_sp(.95) ///
         name(tornado_base_test, replace)
-    graph drop tornado_base_test
+    _qba_drop_graph_if_exists tornado_base_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.7 Tornado with base_se/base_sp"
@@ -1041,7 +1057,7 @@ capture noisily {
         param1(se) range1(.7 1.0) steps(5) ///
         name(scheme_test, replace)
     assert "`r(scheme)'" == "`c(scheme)'"
-    graph drop scheme_test
+    _qba_drop_graph_if_exists scheme_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.8 Default scheme inherits c(scheme)"
@@ -1059,7 +1075,7 @@ capture noisily {
         param1(se) range1(.05 1) base_sp(.5) steps(20) ///
         name(tornado_missing_test, replace)
     assert r(n_missing) > 0
-    graph drop tornado_missing_test
+    _qba_drop_graph_if_exists tornado_missing_test
 }
 if _rc == 0 {
     display as result "  PASS: T9.9 Tornado marks infeasible misclassification values missing"
@@ -1088,7 +1104,7 @@ capture noisily {
         saving("`tornado_svg'") replace
     confirm file "`tornado_svg'"
     _assert_text_file_contains "`tornado_svg'" "Sensitivity"
-    capture graph drop Graph
+    _qba_drop_graph_if_exists Graph
 
     qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95) ///
         reps(120) dist_se("constant .85") dist_sp("constant .95") seed(42) ///
@@ -1097,14 +1113,14 @@ capture noisily {
         saving("`dist_svg'") replace
     confirm file "`dist_svg'"
     _assert_text_file_contains "`dist_svg'" "Distribution"
-    capture graph drop Graph
+    _qba_drop_graph_if_exists Graph
 
     qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
         param1(se) range1(.6 1.0) param2(sp) range2(.6 1.0) steps(5) ///
         saving("`tipping_svg'") replace
     confirm file "`tipping_svg'"
     _assert_text_file_contains "`tipping_svg'" "Tipping"
-    capture graph drop Graph
+    _qba_drop_graph_if_exists Graph
 
     capture erase "`tornado_svg'"
     capture erase "`dist_svg'"
@@ -1118,9 +1134,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: T9.10 Graph saving exports (error `=_rc')"
     local ++fail_count
-    capture graph drop tornado_export_test
-    capture graph drop dist_export_test
-    capture graph drop tipping_export_test
+    _qba_drop_graph_if_exists tornado_export_test
+    _qba_drop_graph_if_exists dist_export_test
+    _qba_drop_graph_if_exists tipping_export_test
     capture erase "`tornado_svg'"
     capture erase "`dist_svg'"
     capture erase "`tipping_svg'"
@@ -1232,14 +1248,14 @@ capture noisily {
 
     qba_plot, tornado a(100) b(200) c(300) d(400) ///
         param1(se) range1(.7 1) steps(5) name(plot_preserve_tornado, replace)
-    graph drop plot_preserve_tornado
+    _qba_drop_graph_if_exists plot_preserve_tornado
     assert _N == `n_before'
     datasignature
     assert "`r(datasignature)'" == "`sig_before'"
 
     qba_plot, distribution using("`plot_mc'") observed(1.0) ///
         name(plot_preserve_dist, replace)
-    graph drop plot_preserve_dist
+    _qba_drop_graph_if_exists plot_preserve_dist
     assert _N == `n_before'
     datasignature
     assert "`r(datasignature)'" == "`sig_before'"
@@ -1251,8 +1267,8 @@ if _rc == 0 {
 else {
     display as error "  FAIL: T10.4 qba_plot data preservation (error `=_rc')"
     local ++fail_count
-    capture graph drop plot_preserve_tornado
-    capture graph drop plot_preserve_dist
+    _qba_drop_graph_if_exists plot_preserve_tornado
+    _qba_drop_graph_if_exists plot_preserve_dist
 }
 
 * ============================================================

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  19jun2026}{...}
+{* *! version 1.5.0  19jun2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] labelbook" "help labelbook"}{...}
@@ -62,6 +62,11 @@
 {synopt:{opt datasig:nature}}include Stata {cmd:datasignature} in provenance{p_end}
 {synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to show individually; default {bf:25}{p_end}
+{synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}{p_end}
+{synopt:{opt exc:lude(varlist)}}omit sensitive variables from the dictionary and metadata{p_end}
+{synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
+{synopt:{opt cat:egorical(varlist)}}force these variables into the categorical group{p_end}
+{synopt:{opt datev:ars(varlist)}}force these variables into the date group{p_end}
 {synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -168,9 +173,11 @@ directory must already exist.
 {opt sav:ing(filename[, replace])} writes a Stata metadata dataset with one row
 per documented variable per source dataset.  It includes source path, output
 path, dataset name and label, variable name, storage type, display format, value
-label name, class, N, number of variables in the source dataset, missing count,
-unique count, variable label, notes, characteristics, and numeric summary
-statistics when available.  Specify {cmd:replace} to overwrite an existing file.
+label name, class, N, number of variables in the source dataset, missing count
+and percent, unique count, variable label, notes, characteristics, numeric
+summary statistics when available, source command, and datasignature.  The
+schema is shared with {help datamap} and {help datacheck}.  Specify
+{cmd:replace} to overwrite an existing file.
 
 {dlgtab:Document metadata}
 
@@ -247,7 +254,9 @@ those columns.
 {cmd:key = value} lines.  Supported keys are {cmd:title}, {cmd:subtitle},
 {cmd:version}, {cmd:author}, {cmd:date}, {cmd:notes}, {cmd:changelog},
 {cmd:output}, {cmd:outdir}, {cmd:suffix}, {cmd:columns}, {cmd:missing},
-{cmd:stats}, {cmd:detail}, and {cmd:datasignature}.  Command-line options
+{cmd:stats}, {cmd:detail}, {cmd:datasignature}, {cmd:exclude},
+{cmd:continuous}, {cmd:categorical}, {cmd:datevars}, {cmd:maxcat},
+{cmd:maxfreq}, {cmd:mincell}, and {cmd:dateformat}.  Command-line options
 override config-file defaults.
 
 {phang}
@@ -263,6 +272,23 @@ treated as categorical.  Default is {bf:25}.  Must be positive.
 {opt maxf:req(#)} sets the maximum number of unique values to list
 individually.  Categorical variables with more values than this show only a
 count.  Default is {bf:25}.  Must be positive.
+
+{phang}
+{opt minc:ell(#)} suppresses categorical frequency cells with counts smaller
+than {it:#} when {opt stats} is requested.  Suppressed cells are shown as
+{bf:(suppressed <#)}.  The default is {bf:5}; specify {cmd:mincell(0)} to show
+all cells.
+
+{phang}
+{opt exc:lude(varlist)} removes sensitive variables from the Markdown dictionary
+and from the {opt saving()} metadata dataset.  Use this for direct identifiers
+and any variable whose values should not leave the working data file.
+
+{phang}
+{opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and
+{opt datev:ars(varlist)} force the named variables into the given class after
+{opt exclude()} is applied.  {opt datevars()} is the classification override;
+{opt date()} remains the document-date metadata option.
 
 {phang}
 {opt datef:ormat(string)} sets the Stata date format used to display all dates.
@@ -292,10 +318,12 @@ and preserve the dataset in memory.
 {pstd}
 Variable classification follows the same hierarchy as {help datamap}:
 
-{phang2}1. String variables ({cmd:str}{it:#} or {cmd:strL}) are "String".{p_end}
-{phang2}2. Variables with date formats ({cmd:%t*} or {cmd:%d*}) are "Date".{p_end}
-{phang2}3. Numeric variables with value labels, or with {opt maxcat()} or fewer unique values, are "Numeric" (treated as categorical in the Values column).{p_end}
-{phang2}4. All other numeric variables are "Numeric" (treated as continuous).{p_end}
+{phang2}1. Variables listed in {opt exclude()} are omitted from the dictionary and metadata.{p_end}
+{phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt datevars()} are assigned to that class.{p_end}
+{phang2}3. String variables ({cmd:str}{it:#} or {cmd:strL}) are "String".{p_end}
+{phang2}4. Variables with date formats ({cmd:%t*} or {cmd:%d*}) are "Date".{p_end}
+{phang2}5. Numeric variables with value labels, or with {opt maxcat()} or fewer unique values, are "Numeric" (treated as categorical in the Values column).{p_end}
+{phang2}6. All other numeric variables are "Numeric" (treated as continuous).{p_end}
 
 {pstd}
 {bf:Notes and changelog}
@@ -383,7 +411,7 @@ metadata for QA checks:{p_end}
 
 {phang2}{cmd:. datadict age sex bmi, single(analysis/cohort) ///}{p_end}
 {phang2}{cmd:     output(docs/cohort_dictionary.md) ///}{p_end}
-{phang2}{cmd:     detail missing stats datasignature ///}{p_end}
+{phang2}{cmd:     detail missing stats datasignature exclude(patient_id) ///}{p_end}
 {phang2}{cmd:     saving(qa/cohort_dictionary_meta.dta, replace)}{p_end}
 
 {pstd}
@@ -439,7 +467,7 @@ Or pass a short note inline:{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.4.1 {hline 2} 19jun2026{p_end}
+{pstd}Version 1.5.0 {hline 2} 19jun2026{p_end}
 
 
 {title:Also see}

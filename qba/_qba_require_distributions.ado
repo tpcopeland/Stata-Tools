@@ -1,10 +1,9 @@
-*! _qba_require_distributions Version 1.0.0  2026/06/02
+*! _qba_require_distributions Version 1.0.1  2026/06/19
 *! Internal helper: load qba distribution helpers
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 capture program drop _qba_require_distributions
-local _drop_rc = _rc
 program define _qba_require_distributions
     version 16.0
     local _saved_varabbrev = c(varabbrev)

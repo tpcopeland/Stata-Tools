@@ -2072,59 +2072,6 @@ else {
     local ++fail_count
 }
 
-* Test 95: F2 — score(charlson) creates weighted score
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
-        id(pid) collapse score(charlson) replace
-    confirm variable _score
-    * dm2 maps to weight 1, htn does not map to a standard Charlson name
-    * Patient 1: dm2=1, htn=1 → score=1 (dm2 weight=1, htn weight=0)
-    assert _score == 1 if pid == 1
-    * Patient 5: no matches → score=0
-    assert _score == 0 if pid == 5
-    assert "`r(score)'" == "charlson"
-}
-if _rc == 0 {
-    display as result "  PASS: F2 score(charlson)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F2 score(charlson) (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 96: F2 — score(custom) with codefile weights
-local ++test_count
-capture noisily {
-    * Create a temp codefile with custom weights
-    preserve
-    clear
-    input str10 name str20 pattern str10 exclusion str30 label double weight
-    "dm2" "E11" "" "Diabetes" 2
-    "htn" "I1[0-35]" "" "Hypertension" 3
-    end
-    save "/tmp/_codescan_test_weights.dta", replace
-    restore
-
-    _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_codescan_test_weights.dta") id(pid) collapse score(custom) replace
-    confirm variable _score
-    * Patient 1: dm2=1 (wt=2), htn=1 (wt=3) → score=5
-    assert _score == 5 if pid == 1
-    * Patient 5: no matches → score=0
-    assert _score == 0 if pid == 5
-}
-if _rc == 0 {
-    display as result "  PASS: F2 score(custom) with codefile"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F2 score(custom) with codefile (error `=_rc')"
-    local ++fail_count
-}
-
 * Test 97: R2 — codefile case-tolerant column names
 local ++test_count
 capture noisily {
@@ -2187,25 +2134,6 @@ else {
     local ++fail_count
 }
 
-* Test 100: D1 — bundled Charlson codefile works
-local ++test_count
-capture noisily {
-    _make_test_data
-    local _charlson_csv "`pkg_dir'/charlson_icd10_example.csv"
-    confirm file "`_charlson_csv'"
-    codescan dx1-dx3, codefile("`_charlson_csv'") id(pid) collapse replace
-    * Should define 17 Charlson conditions
-    assert r(n_conditions) == 17
-}
-if _rc == 0 {
-    display as result "  PASS: D1 bundled Charlson codefile"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: D1 bundled Charlson codefile (error `=_rc')"
-    local ++fail_count
-}
-
 * Test 101: C4 — level() truncates patterns in prefix mode
 local ++test_count
 capture noisily {
@@ -2257,22 +2185,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Error — merge + collapse conflict (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 104: Error — score invalid type
-local ++test_count
-capture noisily {
-    _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") score(invalid)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: Error — invalid score type"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — invalid score type (error `=_rc')"
     local ++fail_count
 }
 
@@ -2371,29 +2283,6 @@ else {
     display as error "  FAIL: F1 nocase with exclusion (error `=_rc')"
     local ++fail_count
 }
-
-* Test 110: F2 — score with generate prefix
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11") id(pid) collapse ///
-        generate(cc_) score(charlson) replace
-    confirm variable cc__score
-    confirm variable cc_dm2
-}
-if _rc == 0 {
-    display as result "  PASS: F2 score with generate prefix"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F2 score with generate prefix (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* v1.4.0 Feature Tests
-* ============================================================
 
 * Test 111: O1 — graph without labmask
 local ++test_count
@@ -3138,22 +3027,6 @@ else {
     local ++fail_count
 }
 
-**## Error — score(custom) without codefile
-local ++test_count
-capture noisily {
-    _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") score(custom)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: Error — score(custom) without codefile (rc=198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — score(custom) without codefile (error `=_rc')"
-    local ++fail_count
-}
-
 **## Error — level() out of range
 local ++test_count
 capture noisily {
@@ -3301,24 +3174,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Error — unmatched() scan-var collision under replace (error `=_rc')"
-    local ++fail_count
-}
-
-**## Error — score() cannot overwrite a scan variable even with replace
-local ++test_count
-capture noisily {
-    _make_test_data
-    gen str10 _score = dx1
-    capture codescan _score, define(dm2 "E11") score(charlson) replace
-    assert _rc == 198
-    assert _score[1] == "E110"
-}
-if _rc == 0 {
-    display as result "  PASS: Error — score output rejects scan-var collision under replace"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — score output scan-var collision under replace (error `=_rc')"
     local ++fail_count
 }
 
@@ -3623,44 +3478,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Codefile DTA format (error `=_rc')"
-    local ++fail_count
-}
-
-**## Codefile with weight and label columns used in score(custom)
-local ++test_count
-capture noisily {
-    preserve
-    clear
-    set obs 2
-    gen str10 name = ""
-    gen str20 pattern = ""
-    gen str10 exclusion = ""
-    gen str30 label = ""
-    gen double weight = .
-    replace name = "dm2"  in 1
-    replace pattern = "E11" in 1
-    replace label = "Diabetes" in 1
-    replace weight = 3 in 1
-    replace name = "copd" in 2
-    replace pattern = "J45" in 2
-    replace label = "COPD" in 2
-    replace weight = 1 in 2
-    save "/tmp/_cs_test_wt.dta", replace
-    restore
-    _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_wt.dta") id(pid) collapse score(custom) replace
-    confirm variable _score
-    * Patient 1: dm2=1(wt=3), J45 in row 4 (pid=1) → copd=1(wt=1) → score=4
-    assert _score == 4 if pid == 1
-    * Patient 5: dm2=0, copd=0 → score=0
-    assert _score == 0 if pid == 5
-}
-if _rc == 0 {
-    display as result "  PASS: Codefile with weight + label + score(custom)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Codefile with weight + label + score (error `=_rc')"
     local ++fail_count
 }
 
@@ -4243,25 +4060,6 @@ else {
     local ++fail_count
 }
 
-**## r(score) returned for Charlson
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11") id(pid) collapse score(charlson) replace
-    assert "`r(score)'" == "charlson"
-}
-if _rc == 0 {
-    display as result "  PASS: r(score) returned for Charlson"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: r(score) macro (error `=_rc')"
-    local ++fail_count
-}
-
-
-**# Additional Error Path Tests
-
 **## Error — merge without id
 local ++test_count
 capture noisily {
@@ -4291,22 +4089,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Error — merge + collapse conflict (error `=_rc')"
-    local ++fail_count
-}
-
-**## Error — invalid score type
-local ++test_count
-capture noisily {
-    _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") id(pid) collapse score(badtype)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: Error — invalid score type (rc=198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — invalid score type (error `=_rc')"
     local ++fail_count
 }
 
@@ -4778,29 +4560,6 @@ else {
     local ++fail_count
 }
 
-**## Charlson codefile (shipped CSV) runs without error
-local ++test_count
-capture noisily {
-    _make_test_data
-    * Use the shipped charlson_icd10_example.csv
-    codescan dx1-dx3, codefile("`pkg_dir'/charlson_icd10_example.csv") ///
-        id(pid) collapse score(charlson) replace
-    assert r(n_conditions) == 17
-    confirm variable _score
-    assert _N == 5
-}
-if _rc == 0 {
-    display as result "  PASS: Charlson codefile end-to-end"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Charlson codefile (error `=_rc')"
-    local ++fail_count
-}
-
-
-**# Countmode and Matched_code Edge Cases
-
 **## Countmode with exclusion patterns
 local ++test_count
 capture noisily {
@@ -5021,25 +4780,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Single day window (error `=_rc')"
-    local ++fail_count
-}
-
-**## Score with generate prefix (_score becomes prefix_score)
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11") id(pid) collapse ///
-        score(charlson) generate(dx_) replace
-    confirm variable dx__score
-    capture confirm variable _score
-    assert _rc != 0
-}
-if _rc == 0 {
-    display as result "  PASS: Score with generate prefix (dx__score)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Score with generate prefix (error `=_rc')"
     local ++fail_count
 }
 
@@ -6058,41 +5798,6 @@ else {
     local ++fail_count
 }
 
-**## score(custom) runs without error (v1.4.2 fix)
-local ++test_count
-capture noisily {
-    clear
-    input str10 name str10 pattern double weight
-    "dm2" "E11" 2
-    "htn" "I10" 1
-    end
-    quietly export delimited using "/tmp/_codescan_test_score.csv", replace
-    clear
-    input str10 dx1 str10 dx2
-    "E110" "I10"
-    "E119" "Z00"
-    "Z00"  "I10"
-    end
-    codescan dx1 dx2, codefile("/tmp/_codescan_test_score.csv") score(custom)
-    assert _score < .
-    quietly summarize _score
-    assert r(min) < .
-    assert r(max) < .
-}
-if _rc == 0 {
-    display as result "  PASS: score(custom) runs without error"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(custom) (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* NEW: Settings Restore
-* ============================================================
-
 **## varabbrev restore verified (redundant safety check)
 local ++test_count
 capture noisily {
@@ -6224,45 +5929,6 @@ else {
 * NEW: Documentation Reality Tests
 * ============================================================
 
-**## sthlp Example 14: Charlson codefile (bundled CSV)
-local ++test_count
-capture noisily {
-    clear
-    set obs 10
-    gen long lopnr = _n
-    gen str10 dx1 = ""
-    gen str10 dx2 = ""
-    gen str10 dx3 = ""
-    replace dx1 = "E110" in 1
-    replace dx1 = "I21"  in 2
-    replace dx1 = "I50"  in 3
-    replace dx1 = "C34"  in 4
-    replace dx1 = "Z00"  in 5
-    replace dx1 = "Z01"  in 6
-    replace dx1 = "Z02"  in 7
-    replace dx1 = "Z03"  in 8
-    replace dx1 = "Z04"  in 9
-    replace dx1 = "Z05"  in 10
-    * Use direct path (bundled CSV installed via net get to cwd or known path)
-    codescan dx1-dx3, codefile("`pkg_dir'/charlson_icd10_example.csv") ///
-        id(lopnr) collapse score(charlson)
-    assert r(n_conditions) == 17
-    confirm variable _score
-}
-if _rc == 0 {
-    display as result "  PASS: sthlp Example 14 Charlson codefile"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: sthlp Example 14 (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* NEW: Error Paths Not Previously Covered
-* ============================================================
-
 **## Error — codefile .txt extension rejected
 local ++test_count
 capture noisily {
@@ -6292,22 +5958,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Error — save+codefile (error `=_rc')"
-    local ++fail_count
-}
-
-**## Error — score(custom) without codefile
-local ++test_count
-capture noisily {
-    _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") score(custom)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: Error — score(custom) without codefile (rc=198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — score(custom) no codefile (error `=_rc')"
     local ++fail_count
 }
 
@@ -6359,34 +6009,6 @@ else {
     display as error "  FAIL: Error — multi-window no collapse (error `=_rc')"
     local ++fail_count
 }
-
-**## Error — codefile with score(custom) missing weight column
-local ++test_count
-capture noisily {
-    clear
-    input str10 name str10 pattern
-    "dm2" "E11"
-    end
-    quietly export delimited using "/tmp/_codescan_noweight.csv", replace
-    clear
-    set obs 5
-    gen str10 dx1 = "E110"
-    capture codescan dx1, codefile("/tmp/_codescan_noweight.csv") score(custom)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: Error — score(custom) codefile missing weight"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Error — score custom no weight (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* NEW: Collapse/Merge Extended
-* ============================================================
 
 **## Collapse with if + time window + date summaries
 local ++test_count
@@ -6619,446 +6241,10 @@ else {
 * NEW: Package Install Verification (extended)
 * ============================================================
 
-**## Charlson CSV bundled and listed in .pkg
-local ++test_count
-capture noisily {
-    confirm file "`pkg_dir'/charlson_icd10_example.csv"
-    * Verify the CSV has expected structure (17 conditions)
-    preserve
-    quietly import delimited using "`pkg_dir'/charlson_icd10_example.csv", clear stringcols(_all) varnames(1)
-    quietly count
-    assert r(N) == 17
-    confirm variable name
-    confirm variable pattern
-    confirm variable weight
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: Charlson CSV bundled with correct structure"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Charlson CSV structure (error `=_rc')"
-    local ++fail_count
-}
-
-**## Built-in Charlson codefile resolves without on-disk CSV
-local ++test_count
-capture noisily {
-    capture confirm file "charlson_icd10_example.csv"
-    assert _rc == 601
-    _make_test_data
-    codescan dx1-dx3, codefile(charlson_icd10_example.csv) id(pid) collapse score(charlson)
-    assert r(n_conditions) == 17
-    assert _score == 2 if pid == 1
-    assert _score == 2 if pid == 3
-}
-if _rc == 0 {
-    display as result "  PASS: Built-in Charlson codefile resolves by basename"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Built-in Charlson codefile basename resolution (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* v1.6.0 FEATURE TESTS
-* ============================================================
-
 * Explicit .dta paths for saving() tests (tempfile omits .dta; Stata save appends it)
 local _tf_save    "`qa_dir'/cs_test_save.dta"
 local _tf_replace "`qa_dir'/cs_test_replace.dta"
 local _tf_merge   "`qa_dir'/cs_test_merge.dta"
-local _tf_hier    "`qa_dir'/cs_test_hier.dta"
-local _tf_sanity  "`qa_dir'/cs_test_sanity.dta"
-
-**## hierarchy() — basic binary supersession
-* pid=1 has dm_uncomp (E11) AND dm_comp (E102): hierarchy zeroes dm_uncomp
-* pid=2 has dm_uncomp only: unaffected
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E102" in 2
-    replace dx1 = "E11"  in 3
-    gen pid = cond(_n <= 2, 1, 2)
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) collapse ///
-        hierarchy(dm_comp > dm_uncomp)
-    * pid=1: both → dm_uncomp zeroed
-    assert dm_uncomp[1] == 0
-    assert dm_comp[1]   == 1
-    * pid=2: dm_uncomp only → unaffected
-    assert dm_uncomp[2] == 1
-    assert dm_comp[2]   == 0
-    * r(n_conditions) still 2
-    assert r(n_conditions) == 2
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() basic binary supersession"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() basic binary supersession (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() + generate() — bare names resolved by membership before prefix fallback
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "C500" in 1
-    replace dx1 = "J440" in 2
-    replace dx1 = "J440" in 3
-    gen pid = cond(_n <= 2, 1, 2)
-    codescan dx1, define(cancer "C50" | copd "J44") id(pid) collapse ///
-        generate(c) hierarchy(cancer > copd)
-    confirm variable ccancer
-    confirm variable ccopd
-    assert ccancer[1] == 1
-    assert ccopd[1] == 0
-    assert ccancer[2] == 0
-    assert ccopd[2] == 1
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() + generate() resolves bare names safely"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() + generate() bare-name resolution (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() — countmode: zero inferior when superior > 0
-local ++test_count
-capture noisily {
-    clear
-    set obs 5
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E11"  in 2
-    replace dx1 = "E11"  in 3
-    replace dx1 = "E102" in 4
-    replace dx1 = "E102" in 5
-    gen pid = 1
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) collapse ///
-        countmode hierarchy(dm_comp > dm_uncomp)
-    * countmode: dm_comp=2 (two E102 rows), dm_uncomp should be zeroed
-    assert dm_uncomp[1] == 0
-    assert dm_comp[1]   == 2
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() countmode zeroes inferior"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() countmode (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() + score(charlson) — no double-counting after supersession
-* Charlson: dm_uncomp=1, dm_comp=2
-* pid=1 has both → hierarchy zeroes dm_uncomp → score = 2 (dm_comp only)
-* pid=2 has dm_uncomp only → score = 1
-local ++test_count
-capture noisily {
-    clear
-    set obs 4
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E102" in 2
-    replace dx1 = "E11"  in 3
-    replace dx1 = ""     in 4
-    gen pid = cond(_n <= 2, 1, 2)
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) collapse ///
-        score(charlson) hierarchy(dm_comp > dm_uncomp)
-    assert _score[1] == 2
-    assert _score[2] == 1
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() + score(charlson) no double-count"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() + score(charlson) (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() + merge — supersession on row-broadcast data
-local ++test_count
-capture noisily {
-    clear
-    set obs 4
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E102" in 2
-    replace dx1 = "E11"  in 3
-    replace dx1 = ""     in 4
-    gen pid = cond(_n <= 2, 1, 2)
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) merge ///
-        hierarchy(dm_comp > dm_uncomp)
-    * All rows for pid=1 should have dm_uncomp=0 after hierarchy
-    quietly count if pid == 1 & dm_uncomp == 0
-    assert r(N) == 2
-    quietly count if pid == 2 & dm_uncomp == 1
-    assert r(N) == 2
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() + merge"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() + merge (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() validation — requires collapse or merge
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "E11"
-    capture codescan dx1, define(dm2 "E11") hierarchy(dm2 > dm2)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() rejects without collapse/merge"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() collapse/merge guard (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() validation — unknown condition name
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "E11"
-    gen pid = _n
-    capture codescan dx1, define(dm2 "E11") id(pid) collapse ///
-        hierarchy(nonexistent > dm2)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() rejects unknown condition name"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() unknown name guard (error `=_rc')"
-    local ++fail_count
-}
-
-**## hierarchy() validation — missing > separator
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "E11"
-    gen pid = _n
-    capture codescan dx1, define(dm2 "E11" | dm3 "E12") id(pid) collapse ///
-        hierarchy(dm2 dm3)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() rejects missing > separator"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy() separator guard (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(elixhauser) — van Walraven 2009 weights: chf=7, arrhythmia=5, obesity=-4
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "I50"  in 1
-    replace dx1 = "I499" in 2
-    replace dx1 = "E665" in 3
-    gen pid = _n
-    codescan dx1, define(chf "I50" | arrhythmia "I499" | obesity "E66") ///
-        id(pid) collapse score(elixhauser)
-    assert _score[1] == 7
-    assert _score[2] == 5
-    assert _score[3] == -4
-}
-if _rc == 0 {
-    display as result "  PASS: score(elixhauser) van Walraven weights"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(elixhauser) weights (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(elixhauser) — multi-condition sum: chf + arrhythmia = 12
-local ++test_count
-capture noisily {
-    clear
-    set obs 2
-    gen str8 dx1 = ""
-    replace dx1 = "I50"  in 1
-    replace dx1 = "I499" in 2
-    gen pid = 1
-    codescan dx1, define(chf "I50" | arrhythmia "I499") id(pid) collapse ///
-        score(elixhauser)
-    assert _score[1] == 12
-}
-if _rc == 0 {
-    display as result "  PASS: score(elixhauser) multi-condition sum correct"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(elixhauser) sum (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(elixhauser) + hierarchy — dm_comp > dm_uncomp (both weight=0)
-* Both have weight 0 in Elixhauser — hierarchy applies, score unaffected
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E102" in 2
-    replace dx1 = ""     in 3
-    gen pid = 1
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) collapse ///
-        score(elixhauser) hierarchy(dm_comp > dm_uncomp)
-    assert dm_uncomp[1] == 0
-    assert dm_comp[1]   == 1
-    assert _score[1]    == 0
-}
-if _rc == 0 {
-    display as result "  PASS: score(elixhauser) + hierarchy zero-weight"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(elixhauser) + hierarchy (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(elixhauser) — bundled CSV structure
-local ++test_count
-capture noisily {
-    confirm file "`pkg_dir'/elixhauser_icd10_example.csv"
-    preserve
-    quietly import delimited using "`pkg_dir'/elixhauser_icd10_example.csv", ///
-        clear stringcols(_all) varnames(1)
-    quietly count
-    assert r(N) == 31
-    confirm variable name
-    confirm variable pattern
-    confirm variable weight
-    quietly count if name == "chf" & weight == "7"
-    assert r(N) == 1
-    quietly count if name == "obesity" & weight == "-4"
-    assert r(N) == 1
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: Elixhauser CSV bundled with 31 conditions"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Elixhauser CSV structure (error `=_rc')"
-    local ++fail_count
-}
-
-**## Built-in Elixhauser codefile resolves without on-disk CSV
-local ++test_count
-capture noisily {
-    capture confirm file "elixhauser_icd10_example.csv"
-    assert _rc == 601
-    clear
-    input long pid str10 dx1 str10 dx2
-    1 "I50" "E66"
-    2 "Z00" ""
-    end
-    codescan dx1 dx2, codefile(elixhauser_icd10_example.csv) id(pid) collapse score(elixhauser)
-    assert r(n_conditions) == 31
-    assert _score[1] == 3
-    assert _score[2] == 0
-}
-if _rc == 0 {
-    display as result "  PASS: Built-in Elixhauser codefile resolves by basename"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Built-in Elixhauser codefile basename resolution (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(elixhauser) — unrecognized condition name produces note (not error)
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "X99"
-    gen pid = _n
-    codescan dx1, define(foobar "X99") id(pid) collapse score(elixhauser)
-    assert _rc == 0
-    assert r(n_conditions) == 1
-    * score should be 0 since weight=0 for unrecognized name
-    assert _score[1] == 0 | _score[1] == .
-}
-if _rc == 0 {
-    display as result "  PASS: score(elixhauser) unrecognized name note (no error)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(elixhauser) unrecognized name (error `=_rc')"
-    local ++fail_count
-}
-
-**## score(charlson) — unrecognized condition name produces note (not error)
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "X99"
-    gen pid = _n
-    codescan dx1, define(foobar "X99") id(pid) collapse score(charlson)
-    assert _rc == 0
-    assert r(n_conditions) == 1
-    assert _score[1] == 0 | _score[1] == .
-}
-if _rc == 0 {
-    display as result "  PASS: score(charlson) unrecognized name note (no error)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score(charlson) unrecognized name (error `=_rc')"
-    local ++fail_count
-}
-
-**## score() validation — bad score type rejected
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = "E11"
-    capture codescan dx1, define(dm2 "E11") score(badtype)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: score() rejects invalid type"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: score() validation (error `=_rc')"
-    local ++fail_count
-}
 
 **## saving() — basic: file created with correct structure
 local ++test_count
@@ -7341,70 +6527,6 @@ else {
     display as error "  FAIL: r(summary) CI values (error `=_rc')"
     local ++fail_count
 }
-
-**## hierarchy() + score(elixhauser) + saving() interaction
-* All three new features together
-local ++test_count
-capture noisily {
-    clear
-    set obs 4
-    gen str8 dx1 = ""
-    replace dx1 = "I50"  in 1
-    replace dx1 = "I50"  in 2
-    replace dx1 = "I499" in 3
-    replace dx1 = ""     in 4
-    gen pid = cond(_n <= 2, 1, 2)
-    codescan dx1, define(chf "I50" | arrhythmia "I499") id(pid) collapse ///
-        score(elixhauser) hierarchy(chf > arrhythmia) ///
-        saving("`_tf_hier'", replace)
-    assert _score[1] == 7
-    confirm file `"`_tf_hier'"'
-}
-if _rc == 0 {
-    display as result "  PASS: hierarchy() + score(elixhauser) + saving() interaction"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: hierarchy+elixhauser+saving interaction (error `=_rc')"
-    local ++fail_count
-}
-
-**## Aggregation sanity: prevalence in [0,100] for all new-feature runs
-local ++test_count
-capture noisily {
-    clear
-    set obs 5
-    gen str8 dx1 = ""
-    replace dx1 = "E11"  in 1
-    replace dx1 = "E11"  in 2
-    replace dx1 = "E102" in 3
-    gen pid = cond(_n <= 2, 1, cond(_n == 3, 2, _n - 2))
-    codescan dx1, define(dm_uncomp "E11" | dm_comp "E102") id(pid) collapse ///
-        score(elixhauser) hierarchy(dm_comp > dm_uncomp) format(%9.2f) ///
-        saving("`_tf_sanity'", replace)
-    * All prevalences in [0,100]
-    forvalues i = 1/`=r(n_conditions)' {
-        assert r(summary)[`i',2] >= 0 & r(summary)[`i',2] <= 100
-        assert r(summary)[`i',3] >= 0 & r(summary)[`i',3] <= 100
-        assert r(summary)[`i',4] >= 0 & r(summary)[`i',4] <= 100
-        assert r(summary)[`i',4] >= r(summary)[`i',3]
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: aggregation sanity bounds (all prevalences in [0,100])"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: aggregation sanity bounds (error `=_rc')"
-    local ++fail_count
-}
-
-
-* ============================================================
-* Cross-variable exclusion (v1.6.0 fix)
-* Per-code exclusion: excluded code in one variable must not
-* zero a valid match from another variable on the same row
-* ============================================================
 
 **## Cross-variable exclusion — binary mode, regex
 local ++test_count

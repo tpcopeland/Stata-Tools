@@ -1,6 +1,6 @@
 # qba -- Quantitative Bias Analysis for Stata
 
-**Version 1.0.0** | 2026-06-02
+**Version 1.0.1** | 2026-06-19
 
 Quantitative bias analysis toolkit for epidemiologic data, implementing the methods in Lash, Fox, and Fink's *Applying Quantitative Bias Analysis to Epidemiologic Data* (2nd ed., Springer 2021). Corrects point estimates and confidence intervals for the three major sources of systematic error that survive conventional multivariable adjustment: exposure or outcome misclassification (`qba_misclass`), selection bias from differential participation (`qba_selection`), and unmeasured confounding (`qba_confound`). A multi-bias chain (`qba_multi`) applies all three corrections inside one Monte Carlo simulation, and `qba_plot` provides tornado, Monte Carlo distribution, and tipping-point visualizations.
 
@@ -25,7 +25,7 @@ net install qba, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/
 qba
 ```
 
-This displays the package version and lists all available commands. You should see version 1.0.0 and five commands (`qba_misclass`, `qba_selection`, `qba_confound`, `qba_multi`, `qba_plot`).
+This displays the package version and lists all available commands. You should see version 1.0.1 and five commands (`qba_misclass`, `qba_selection`, `qba_confound`, `qba_multi`, `qba_plot`).
 
 ### Uninstall
 
@@ -283,6 +283,10 @@ The suite covers the active release surface, known-answer validations, cross-val
 - **test_qba_adversarial_multi_plot.do** / **test_qba_adversarial_multi_deep.do** -- Multi-bias and plotting adversarial tests
 
 ## Version History
+
+**Version 1.0.1** (19 June 2026)
+
+Documentation polish for explicit selection-distribution and stored-result help tokens, helper lint cleanup, and package metadata refresh.
 
 **Version 1.0.0** (2 June 2026)
 

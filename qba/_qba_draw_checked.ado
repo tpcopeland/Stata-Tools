@@ -1,10 +1,9 @@
-*! _qba_draw_checked Version 1.0.0  2026/06/02
+*! _qba_draw_checked Version 1.0.1  2026/06/19
 *! Internal helper: draw a distribution and flag out-of-support values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 capture program drop _qba_draw_checked
-local _drop_rc = _rc
 program define _qba_draw_checked, rclass
     version 16.0
     local _saved_varabbrev = c(varabbrev)

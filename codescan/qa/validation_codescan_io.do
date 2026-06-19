@@ -74,35 +74,31 @@ capture noisily {
     local vio2_cf "`vio2_base'.dta"
 
     clear
-    input str32 Name str244 PATTERN str80 LaBeL str244 ExClUsIoN double WEIGHT
-    "dm2" "E11" "Original DM" "E116" 2
-    "htn" "I10" "Original HTN" ""     3
+    input str32 Name str244 PATTERN str80 LaBeL str244 ExClUsIoN
+    "dm2" "E11" "Original DM" "E116"
+    "htn" "I10" "Original HTN" ""
     end
     save "`vio2_cf'", replace
 
     clear
-    input str10 dx1 str10 dx2 byte expected_dm2 byte expected_htn double expected_score
-    "E110" ""    1 0 2
-    "E116" "I10" 0 1 3
-    "E110" "I10" 1 1 5
-    "Z00"  ""    0 0 0
+    input str10 dx1 str10 dx2 byte expected_dm2 byte expected_htn
+    "E110" ""    1 0
+    "E116" "I10" 0 1
+    "E110" "I10" 1 1
+    "Z00"  ""    0 0
     end
 
     codescan dx1 dx2, codefile("`vio2_cf'") ///
-        label(dm2 "Override DM" \ htn "Override HTN") ///
-        score(custom)
+        label(dm2 "Override DM" \ htn "Override HTN")
 
     assert dm2 == expected_dm2
     assert htn == expected_htn
-    assert _score == expected_score
 
     local lbl_dm2 : variable label dm2
     local lbl_htn : variable label htn
-    local lbl_score : variable label _score
 
     assert `"`lbl_dm2'"' == "Override DM"
     assert `"`lbl_htn'"' == "Override HTN"
-    assert `"`lbl_score'"' == "custom score"
 }
 if _rc == 0 {
     display as result "  PASS: V2 - mixed-case .dta codefile exact scan and labels"

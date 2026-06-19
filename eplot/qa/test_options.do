@@ -1,11 +1,15 @@
 /*******************************************************************************
 * test_options.do
-* Functional tests for eplot v2.0.0 new features
+* Functional regression tests for eplot option and feature coverage
 *
 * Tests: multi-model, values, vformat, dp, sort, order, cicap, marker/CI
 *   customization, boxscale, nobox, nodiamonds, matrix mode, modellabels,
 *   offset, palette, legendopts, rename, headers, eform+rescale, values+
 *   vertical note, varabbrev restore
+*
+* Run modes:
+*   Standalone: do test_options.do
+*   Via runner: do run_all.do [quick|core|full]
 *
 * Author: Timothy Copeland
 * Date: 2026-03-13
@@ -964,7 +968,7 @@ capture graph drop _v2_t40
 * ==========================================================================
 
 display _n as text "{hline 70}"
-display as text "EPLOT V2.0 FEATURE TEST SUMMARY"
+display as text "EPLOT OPTION FEATURE TEST SUMMARY"
 display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"

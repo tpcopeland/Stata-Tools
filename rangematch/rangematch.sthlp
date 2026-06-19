@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28may2026}{...}
+{* *! version 1.0.3  19jun2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -620,7 +620,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 28may2026{p_end}
+{pstd}Version 1.0.3, 19jun2026{p_end}
 
 
 {title:Also see}

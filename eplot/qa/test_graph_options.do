@@ -1,7 +1,11 @@
 * test_graph_options.do
-* Verification test: scheme() and graphoptions() across all graph-producing commands
-* Tests that new options parse correctly and don't error
-* NOTE: Tests commands on adopath; skips any that are not installed
+* Regression tests for eplot graph option passthrough.
+*
+* Run modes:
+*   Standalone: do test_graph_options.do
+*   Via runner: do run_all.do [core|full]
+*
+* Also smoke-checks optional companion graph commands when installed.
 
 version 16.0
 
@@ -19,13 +23,114 @@ clear all
 
 local failures 0
 local skipped 0
+local eplot_tests 0
+
+* {smcl}
+* {* eplot graph option assertions}{...}
+display _newline as text "--- eplot graph option passthrough assertions ---"
+
+local ++eplot_tests
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+
+    eplot es lci uci, labels(study) ///
+        title("Data Title") subtitle("Data Subtitle") note("Data Note") ///
+        scheme(s2color) plotregion(margin(l+1 r+2)) ///
+        graphregion(color(white)) aspect(0.8) xsize(4) ///
+        name(_graphopts_data, replace)
+    assert r(N) == 3
+    assert r(k) == 3
+    local cmd `"`r(cmd)'"'
+    assert strpos(`"`cmd'"', "Data Title") > 0
+    assert strpos(`"`cmd'"', "Data Subtitle") > 0
+    assert strpos(`"`cmd'"', "Data Note") > 0
+    assert strpos(`"`cmd'"', "scheme(s2color)") > 0
+    assert strpos(`"`cmd'"', "plotregion(margin(l+1 r+2))") > 0
+    assert strpos(`"`cmd'"', "graphregion(color(white))") > 0
+    assert strpos(`"`cmd'"', "aspect(0.8)") > 0
+    assert strpos(`"`cmd'"', "xsize(4)") > 0
+}
+if _rc {
+    display as error "  FAIL: eplot data-mode graph option passthrough"
+    local failures = `failures' + 1
+}
+else {
+    display as result "  PASS: eplot data-mode graph option passthrough"
+}
+capture graph drop _graphopts_data
+
+local ++eplot_tests
+capture noisily {
+    sysuse auto, clear
+    quietly regress price mpg weight
+    estimates store _graphopts_m1
+    quietly regress price mpg weight foreign
+    estimates store _graphopts_m2
+
+    eplot _graphopts_m1 _graphopts_m2, drop(_cons) ///
+        modellabels("Base" "Full") ///
+        legendopts(rows(2) pos(3) size(vsmall)) ///
+        title("Estimates Title") scheme(s2mono) ///
+        graphregion(color(white)) name(_graphopts_est, replace)
+    assert r(N) > 0
+    assert r(n_models) == 2
+    local cmd `"`r(cmd)'"'
+    assert strpos(`"`cmd'"', "Estimates Title") > 0
+    assert strpos(`"`cmd'"', "scheme(s2mono)") > 0
+    assert strpos(`"`cmd'"', "graphregion(color(white))") > 0
+    assert strpos(`"`cmd'"', "legend(order(") > 0
+    assert strpos(`"`cmd'"', "rows(2)") > 0
+    assert strpos(`"`cmd'"', "pos(3)") > 0
+    assert strpos(`"`cmd'"', "size(vsmall)") > 0
+}
+if _rc {
+    display as error "  FAIL: eplot estimates-mode legend and graph option passthrough"
+    local failures = `failures' + 1
+}
+else {
+    display as result "  PASS: eplot estimates-mode legend and graph option passthrough"
+}
+capture graph drop _graphopts_est
+
+local ++eplot_tests
+capture noisily {
+    clear
+    matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2)
+    matrix colnames R = b ll ul
+    matrix rownames R = Alpha Beta
+
+    eplot, matrix(R) title("Matrix Title") subtitle("Matrix Subtitle") ///
+        note("Matrix Note") scheme(s1color) graphregion(color(white)) ///
+        name(_graphopts_matrix, replace)
+    assert r(N) == 2
+    assert r(k) == 2
+    local cmd `"`r(cmd)'"'
+    assert strpos(`"`cmd'"', "Matrix Title") > 0
+    assert strpos(`"`cmd'"', "Matrix Subtitle") > 0
+    assert strpos(`"`cmd'"', "Matrix Note") > 0
+    assert strpos(`"`cmd'"', "scheme(s1color)") > 0
+    assert strpos(`"`cmd'"', "graphregion(color(white))") > 0
+}
+if _rc {
+    display as error "  FAIL: eplot matrix-mode graph option passthrough"
+    local failures = `failures' + 1
+}
+else {
+    display as result "  PASS: eplot matrix-mode graph option passthrough"
+}
+capture graph drop _graphopts_matrix
 
 * {smcl}
 * {* Setup}{...}
 * Load and prepare data
 use "`repo_dir'/_data/cohort.dta", clear
-merge 1:1 id using "`repo_dir'/_data/treatment.dta", nogen keep(match)
-merge 1:1 id using "`repo_dir'/_data/comorbidities.dta", nogen keep(match)
+merge 1:1 id using "`repo_dir'/_data/treatment.dta", nogen keep(match) nolabel
+merge 1:1 id using "`repo_dir'/_data/comorbidities.dta", nogen keep(match) nolabel
 
 * Create IPTW weights
 quietly logit treated index_age female education diabetes hypertension
@@ -239,7 +344,7 @@ else {
 * {smcl}
 * {* Summary}{...}
 display _newline
-local total_run = 8 - `skipped'
+local total_run = `eplot_tests' + 8 - `skipped'
 if `failures' == 0 {
     display as result "ALL TESTS PASSED (`total_run'/`total_run' run, `skipped' skipped)"
 }
@@ -247,4 +352,5 @@ else {
     display as error "`failures' TESTS FAILED out of `total_run' (`skipped' skipped)"
 }
 
+display "RESULT: test_graph_options tests=`total_run' pass=`=`total_run'-`failures'' fail=`failures' skip=`skipped'"
 exit `failures'

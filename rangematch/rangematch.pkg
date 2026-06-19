@@ -9,7 +9,7 @@ d pair generation. No external dependencies required.
 d
 d Requires: Stata version 16.1+
 d
-d Distribution-Date: 20260528
+d Distribution-Date: 20260619
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -22,3 +22,4 @@ d
 f rangematch.ado
 f _rangematch_mata.ado
 f rangematch.sthlp
+f bench_rangematch.do

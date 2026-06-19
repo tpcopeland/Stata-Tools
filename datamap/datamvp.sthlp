@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  19jun2026}{...}
+{* *! version 1.5.0  19jun2026}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
@@ -10,7 +10,7 @@
 {viewerjumpto "Stored results" "datamvp##results"}{...}
 {viewerjumpto "Authors" "datamvp##authors"}{...}
 {hline}
-help for {cmd:datamvp}{right:version 1.4.1}
+help for {cmd:datamvp}{right:version 1.5.0}
 {hline}
 
 {title:Title}

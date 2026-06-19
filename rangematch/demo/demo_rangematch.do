@@ -251,7 +251,7 @@ list scenario pairs rangematch_sec rangejoin_sec rj_over_rm status, ///
 log close benchmark
 
 **# Convert console logs to markdown via logdoc
-local tools_root = subinstr("`repo_root'", "Stata-Dev", "Stata-Tools", .)
+local tools_root "`repo_root'"
 capture confirm file "`tools_root'/logdoc/logdoc.ado"
 if _rc {
     display as error "logdoc was not found at `tools_root'/logdoc"

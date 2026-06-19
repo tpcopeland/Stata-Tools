@@ -9,7 +9,9 @@
 *
 * Run modes:
 *   Standalone: do test_eplot.do
-*   Via runner: do run_test.do test_eplot [testnumber] [quiet] [machine]
+*   Via runner: do run_all.do [quick|core|full]
+*   Targeted cases: set RUN_TEST_NUMBER, RUN_TEST_QUIET, or RUN_TEST_MACHINE
+*                   before direct invocation.
 *
 * Author: Timothy Copeland
 * Date: 2026-02-25
