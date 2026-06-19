@@ -1,6 +1,6 @@
-*! datefix Version 1.0.0  2026/04/08
+*! datefix Version 1.0.1  2026/06/19
 *! Convert string date variables to numeric date formatted variables
-*! Author: Timothy Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define datefix
     version 16.0

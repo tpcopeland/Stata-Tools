@@ -1,15 +1,17 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  19jun2026}{...}
 {cmd:help datefix}
 {hline}
 
 {title:Title}
 {p 4 8 2}{bf:datefix} - Convert string date variables to numeric date formatted variables.{p_end}
 
+{marker syntax}{...}
 {title:Syntax}
 {p 4 8 2}
-{cmd:datefix} {varlist} [, {opt newvar(name)} {cmdab:drop} {cmdab:df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)}] {p_end}
+{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {opt df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)}] {p_end}
 
+{marker description}{...}
 {title:Description}
 {p 4 4 2}Given one or more string variables containing date information, {cmd:datefix} converts them to numeric encoded variables with a date format.{p_end}
 
@@ -19,17 +21,19 @@
 
 {p 4 4 2}The program does not accommodate datetime values, only dates.{p_end}
 
+{marker options}{...}
 {title:Options}
 {p 4 8 2}{opt newvar(name)} creates a new numeric date variable with the given name. Only one variable can be used. The original variable is preserved unless {opt drop} is also specified.{p_end}
 
-{p 4 8 2}{cmdab:drop} drops the original variable. Only applicable when {opt newvar()} is used; otherwise redundant since the original variable is replaced.{p_end}
+{p 4 8 2}{opt drop} drops the original variable. Only applicable when {opt newvar()} is used; otherwise redundant since the original variable is replaced.{p_end}
 
-{p 4 8 2}{cmdab:df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD} (YYYY/MM/DD).{p_end}
+{p 4 8 2}{opt df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD} (YYYY/MM/DD).{p_end}
 
 {p 4 8 2}{opt order(string)} specifies the ordering of month, day, and year in the input string (MDY, DMY, or YMD). If omitted, the ordering that produces the fewest missing values is automatically selected.{p_end}
 
 {p 4 8 2}{opt topyear(#)} specifies the {it:topyear} argument for the {help date():date()} function. Required if two-digit years are present. See {help date():date()} for details.{p_end}
 
+{marker examples}{...}
 {title:Examples}
 
 {p 4 4 2}Convert string date variables using auto-detected ordering:{p_end}
@@ -57,10 +61,9 @@
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 08apr2026{p_end}
+{pstd}Version 1.0.1 - 19jun2026{p_end}
 
 {hline}

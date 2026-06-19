@@ -1,6 +1,6 @@
 # datefix - Convert imported date strings to Stata daily dates
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.1** | 2026-06-19
 
 `datefix` converts string date variables to numeric Stata daily dates and applies a daily-date display format. It is designed for the common cleanup step after import, especially when date order is inconsistent, two-digit years need disambiguation, or you want to preserve the original string alongside a cleaned numeric date.
 
@@ -134,6 +134,7 @@ For the full set of Stata date display formats, see `help datetime_display_forma
 
 ## Version History
 
+- **1.0.1** (2026-06-19): Documentation fixes — `df()` and `drop` now render as options in the help file, added section markers, and standardized the author string.
 - **1.0.0** (2026-04-08): Initial release with auto-detection, `newvar()`, custom display formats, and `topyear()` support.
 
 ## Author
