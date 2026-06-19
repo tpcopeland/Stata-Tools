@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 17 Jun 2026 21:48:47
+Generated: 19 Jun 2026 15:17:40
 
 ========================================
 DATASET: _demo_missing.dta
@@ -159,7 +159,7 @@ DISTRIBUTION:
   Mean: .01
   SD: 1.02
   Median: .02
-  IQR: -.71-.8200000000000001
+  IQR: -.71-.82
   Range: -2.16 to 2.37
 
 VARIABLE: x4

@@ -1,4 +1,4 @@
-*! datacheck Version 1.4.0  2026/06/18
+*! datacheck Version 1.4.1  2026/06/19
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1074,8 +1074,8 @@ program define datacheck, rclass
                     if r(N) > 0 {
                         local noutr = r(N)
                         quietly summarize `iv' if `IF'
-                        local omin = r(min)
-                        local omax = r(max)
+                        local omin = strtrim(string(r(min), "%14.0g"))
+                        local omax = strtrim(string(r(max), "%14.0g"))
                         local ++n_viol
                         local viol_names "`viol_names' inrange"
                         local vgate`n_viol' "inrange"
@@ -1360,8 +1360,10 @@ program define datacheck, rclass
                 frame `sframe': quietly replace gate = "inrange" in `srow'
                 frame `sframe': quietly replace variable = "`v'" in `srow'
                 frame `sframe': quietly replace var = "`v'" in `srow'
-                frame `sframe': quietly replace arg1 = "`c_min_`v''" in `srow'
-                frame `sframe': quietly replace arg2 = "`c_max_`v''" in `srow'
+                local _amin = strtrim(string(`c_min_`v'', "%14.0g"))
+                local _amax = strtrim(string(`c_max_`v'', "%14.0g"))
+                frame `sframe': quietly replace arg1 = "`_amin'" in `srow'
+                frame `sframe': quietly replace arg2 = "`_amax'" in `srow'
                 frame `sframe': quietly replace note = "observed continuous range" in `srow'
             }
             foreach v of local f_date {

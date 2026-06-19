@@ -1,8 +1,8 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.4.0** | 2026-06-18
+**Version 1.4.1** | 2026-06-19
 
-`datamap` documents Stata datasets without exporting row-level data. It produces three kinds of output:
+`datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
 - **`datamap`** writes structured text or JSON designed for LLM prompts, internal data handoffs, or automated pipelines. It includes privacy controls (`exclude()`, `datesafe`, `mincell()`), likely-identifier warnings, compact output, automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
 - **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value/statistics/detail columns, structured metadata export via `saving()`, manifests, and separate-output routing with `outdir()`/`suffix()`.
@@ -204,7 +204,7 @@ Survival Analysis Variables Detected
 Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 3
-  Observations with complete data: 79 (49.40000000000001%)
+  Observations with complete data: 79 (49.4%)
 ```
 
 ```
@@ -237,7 +237,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.4.0",
+  "datamap_version": "1.4.1",
   "format": "json",
   "datasets": [
     {
@@ -288,9 +288,9 @@ Likely identifiers not excluded: 0
 QUICK REFERENCE
 ----------------------------------------
   Variable                Type      Class          Miss%  Unique
-  patient_id              double    excluded        0.0%     160
-  subject_id              double    excluded        0.0%     160
-  patient_name            str32     excluded        0.0%     160
+  patient_id              double    excluded        0.0%       .
+  subject_id              double    excluded        0.0%       .
+  patient_name            str32     excluded        0.0%       .
   age                     double    continuous      0.0%     136
   sex                     double    categorical     0.0%       2
   smoking                 double    categorical    16.3%       3
@@ -331,7 +331,7 @@ Missing Data Summary
 # SYNTH-01 Clinical Trial Data Dictionary
 
 | Variable | Label | Type | Missing | Statistics/Values |
-|----------|-------|------|---------|-------------------|
+|---|---|---|---|---|
 | `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=160<br>Median=100,080; IQR=100,040-100,120 |
 | `enroll_date` | Date of enrollment | Date | 0 (0.0%) | N=160<br>Range: 2021/01/02 to 2023/06/16 |
 ```
@@ -356,9 +356,9 @@ QUICK REFERENCE
   Variable              Class       Type       Miss%   Unique  Flag
   age                   continuous  double      0.0%      136  outliers
   sex                   categorical double      0.0%        2
-  smoking               categorical double     16.3%        3
-  bmi                   continuous  double      8.1%      104
-  pct_adherence         continuous  double     23.8%      110
+  smoking               categorical double     16.3%        3  missing
+  bmi                   continuous  double      8.1%      104  missing
+  pct_adherence         continuous  double     23.8%      110  missing
   site                  categorical double      0.0%        7  rare
 
 CONTINUOUS
@@ -492,12 +492,13 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 12 QA files: 10 functional test files, 2 validation files, and 0 cross-validation suites.
+The suite covers all four public commands with 13 QA files: 11 functional test files, 2 validation files, and 0 cross-validation suites.
 
 - `test_datacheck.do` - 106 tests
 - `test_datadict_v14.do` - 27 tests
 - `test_datamap.do` - 73 tests
 - `test_datamap_bugfixes.do` - 13 tests
+- `test_datamap_float_format.do` - 5 tests
 - `test_datamap_v2.do` - 54 tests
 - `test_datamap_v11.do` - 42 tests
 - `test_datamap_privacy.do` - 22 tests
@@ -506,6 +507,12 @@ The suite covers all four public commands with 12 QA files: 10 functional test f
 - `test_datamvp_labels.do` - 20 tests
 - `validation_datamap.do` - 56 validations
 - `validation_datamvp.do` - 60 validations
+
+## Changelog
+
+### 1.4.1 (2026-06-19)
+
+- Fix float-formatting in text output: rounded statistics, percentages, and sample-row values no longer leak full double precision (e.g. `49.40000000000001%` now renders `49.4%`). Affects `datamap` continuous distributions, panel/survival/survey detection, the missing-data summary, and sample observations.
 
 ## Author
 

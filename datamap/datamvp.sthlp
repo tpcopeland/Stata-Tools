@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  18jun2026}{...}
+{* *! version 1.4.1  19jun2026}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
@@ -10,7 +10,7 @@
 {viewerjumpto "Stored results" "datamvp##results"}{...}
 {viewerjumpto "Authors" "datamvp##authors"}{...}
 {hline}
-help for {cmd:datamvp}{right:version 1.4.0}
+help for {cmd:datamvp}{right:version 1.4.1}
 {hline}
 
 {title:Title}
@@ -37,7 +37,7 @@ help for {cmd:datamvp}{right:version 1.4.0}
 {synopt:{opt sk:ip}}insert spaces every 5 variables for readability{p_end}
 {synopt:{opt so:rt}}sort variables by descending missingness{p_end}
 {synopt:{opt nod:rop}}include variables with no missing values{p_end}
-{synopt:{opt wide}}compact display for many variables{p_end}
+{synopt:{opt w:ide}}compact display for many variables{p_end}
 {synopt:{opt nosu:mmary}}suppress summary statistics{p_end}
 
 {syntab:Pattern filtering}
@@ -81,7 +81,7 @@ help for {cmd:datamvp}{right:version 1.4.0}
 {synopt:{opt colorr:amp(type)}}color scheme: {cmd:bluered} (default), {cmd:redblue}, or {cmd:grayscale}{p_end}
 
 {syntab:Stratification options}
-{synopt:{opt gby(varname)}}stratify graphs by categorical variable (faceted display){p_end}
+{synopt:{opt gb:y(varname)}}stratify graphs by categorical variable (faceted display){p_end}
 {synopt:{opt over(varname)}}overlay comparison by categorical variable (grouped bars){p_end}
 {synopt:{opt st:acked}}show stacked bar chart; requires graph(bar){p_end}
 {synopt:{opt groupg:ap(#)}}gap between bar groups; default is 0{p_end}
@@ -133,7 +133,7 @@ missingness (most missing first).
 By default, such variables are excluded and listed separately.
 
 {phang}
-{opt wide} uses a compact display format suitable for analyses with many
+{opt w:ide} uses a compact display format suitable for analyses with many
 variables.
 
 {phang}
@@ -306,7 +306,7 @@ stronger correlations regardless of sign.
 {dlgtab:Stratification options}
 
 {phang}
-{opt gby(varname)} stratifies graphs by a categorical variable, producing separate
+{opt gb:y(varname)} stratifies graphs by a categorical variable, producing separate
 faceted panels for each level of the variable. This allows direct comparison of
 missingness patterns across groups (e.g., treatment vs control, male vs female).
 Works with {opt graph(bar)} and {opt graph(patterns)}.

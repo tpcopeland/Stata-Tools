@@ -29,6 +29,15 @@ if `rc' {
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
+capture noisily include "`qa_dir'/test_datamap_float_format.do"
+local rc = _rc
+if `rc' {
+    display as error "test_datamap_float_format.do failed with rc `rc'"
+    local ++failures
+}
+
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
 capture noisily include "`qa_dir'/test_datamap_v2.do"
 local rc = _rc
 if `rc' {

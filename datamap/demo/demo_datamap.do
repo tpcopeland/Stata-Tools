@@ -445,8 +445,9 @@ foreach section in datamap_privacy datamap_json datamap_compact datamap_missing 
     capture erase "`pkg_dir'/console_`section'.log"
 }
 
-**# Cleanup temp data only
+**# Cleanup: erase only the trivially reproducible auto copy. Keep the synthetic
+**# cohort and missing-data fixtures as shipped demo assets — the README demo
+**# transcripts reference demo/_demo_cohort.dta and demo/_demo_missing.dta, so
+**# those paths must resolve for a reader re-running the documented commands.
 capture erase "`pkg_dir'/_demo_auto.dta"
-capture erase "`pkg_dir'/_demo_cohort.dta"
-capture erase "`pkg_dir'/_demo_missing.dta"
 clear

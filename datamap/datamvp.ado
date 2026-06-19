@@ -1,4 +1,4 @@
-*! datamvp Version 1.4.0  2026/06/18
+*! datamvp Version 1.4.1  2026/06/19
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -226,7 +226,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     * Scratch variables and names
     tempvar touse grpseq isf mv_patt mv_n ng patpct cpct order
-    tempname nsmall nsmallg patmat corrmat
+    tempname nsmall nsmallg corrmat
 
     * Mark sample
     marksample touse, novarlist
@@ -1069,7 +1069,6 @@ program define datamvp, rclass byable(recall) sortpreserve
                 qui keep if `touse'
 
                 * Create pattern data by group
-                tempfile patdata
                 qui {
                     * Keep needed variables
                     keep `varlist' `gby'

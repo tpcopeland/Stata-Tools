@@ -33,9 +33,9 @@ QUICK REFERENCE
   Variable              Class       Type       Miss%   Unique  Flag
   age                   continuous  double      0.0%      136  outliers
   sex                   categorical double      0.0%        2
-  smoking               categorical double     16.3%        3
-  bmi                   continuous  double      8.1%      104
-  pct_adherence         continuous  double     23.8%      110
+  smoking               categorical double     16.3%        3  missing
+  bmi                   continuous  double      8.1%      104  missing
+  pct_adherence         continuous  double     23.8%      110  missing
   site                  categorical double      0.0%        7  rare
 
 CONTINUOUS
@@ -92,7 +92,7 @@ datacheck: 160 obs, 2 variables profiled  (complete cases: 122 = 76.3%)
 QUICK REFERENCE
   Variable              Class       Type       Miss%   Unique  Flag
   age                   continuous  double      0.0%      136
-  pct_adherence         continuous  double     23.8%      110
+  pct_adherence         continuous  double     23.8%      110  missing
 
 CONTINUOUS
   age:  N=160  mean=     57.27  sd=     13.43
@@ -108,7 +108,7 @@ KEY STRUCTURE
   key (patient_id):  160 obs, 160 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
 
 WARNINGS (2)
-  inrange(age): 1 obs outside [18, 110]  (min -3, max 96.80000000000001)
+  inrange(age): 1 obs outside [18, 110]  (min -3, max 96.8)
   inrange(pct_adherence): 14 obs outside [0, 100]  (min 34.1, max 120.5)
 
 ```

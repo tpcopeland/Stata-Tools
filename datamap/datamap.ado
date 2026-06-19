@@ -1,4 +1,4 @@
-*! datamap Version 1.4.0  2026/06/18
+*! datamap Version 1.4.1  2026/06/19
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -404,7 +404,7 @@ program define _datamap_ProcessCombined, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.4.0","' _n
+				file write `fh' `"  "datamap_version": "1.4.1","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -562,7 +562,7 @@ program define _datamap_ProcessSeparate, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.4.0","' _n
+				file write `fh' `"  "datamap_version": "1.4.1","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -1551,13 +1551,13 @@ program define _datamap_ProcessContinuous, nclass
 
 			// Check if all values are missing
 			if `n' > 0 {
-				local mean = round(r(mean), 0.01)
-				local sd = round(r(sd), 0.01)
-				local min = round(r(min), 0.01)
-				local p25 = round(r(p25), 0.01)
-				local p50 = round(r(p50), 0.01)
-				local p75 = round(r(p75), 0.01)
-				local max = round(r(max), 0.01)
+				local mean = strtrim(string(round(r(mean), 0.01), "%14.0g"))
+				local sd = strtrim(string(round(r(sd), 0.01), "%14.0g"))
+				local min = strtrim(string(round(r(min), 0.01), "%14.0g"))
+				local p25 = strtrim(string(round(r(p25), 0.01), "%14.0g"))
+				local p50 = strtrim(string(round(r(p50), 0.01), "%14.0g"))
+				local p75 = strtrim(string(round(r(p75), 0.01), "%14.0g"))
+				local max = strtrim(string(round(r(max), 0.01), "%14.0g"))
 
 				file write `fh' "DISTRIBUTION:" _n
 				file write `fh' "  Valid N: `n'" _n
@@ -1574,7 +1574,7 @@ program define _datamap_ProcessContinuous, nclass
 
 					// Contextual skewness guidance with direction and magnitude
 					if !missing(`skewness') & abs(`skewness') > 2 {
-						local sk_rounded = round(`skewness', 0.1)
+						local sk_rounded = strtrim(string(round(`skewness', 0.1), "%14.0g"))
 						if `skewness' > 2 {
 							file write `fh' "Right-skewed distribution (skewness=`sk_rounded') - consider log transformation. "
 						}
@@ -2141,7 +2141,7 @@ program define _datamap_ProcessSamples, nclass
 							file write `fh' "`val' | "
 						}
 						else {
-							file write `fh' "`val' | "
+							file write `fh' "`=strtrim(string(`val', "%14.0g"))' | "
 						}
 				}
 			}
@@ -2203,7 +2203,7 @@ program define _datamap_DetectPanel, nclass
 	local n_obs = _N
 
 	if `n_units' < `n_obs' {
-		local avg_obs = round(`n_obs' / `n_units', 0.1)
+		local avg_obs = strtrim(string(round(`n_obs' / `n_units', 0.1), "%14.0g"))
 		file write `fh' "Panel Structure Detected" _n
 		file write `fh' "  ID Variable: `id_var'" _n
 		file write `fh' "  Unique Units: `n_units'" _n
@@ -2253,8 +2253,8 @@ program define _datamap_DetectSurvival, nclass
 		// Show range for first time variable
 		local first_time : word 1 of `time_vars'
 		quietly summarize `first_time'
-		local t_min = round(r(min), 0.1)
-		local t_max = round(r(max), 0.1)
+		local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
+		local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
 		file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
 	}
 
@@ -2265,7 +2265,7 @@ program define _datamap_DetectSurvival, nclass
 		quietly tab `first_event'
 		if r(r) == 2 {
 			quietly summarize `first_event'
-			local event_rate = round(100 * r(mean), 0.1)
+			local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
 			file write `fh' "    `first_event' rate: `event_rate'%" _n
 		}
 	}
@@ -2317,9 +2317,9 @@ program define _datamap_DetectSurvey, nclass
 	// Process weight variables
 	foreach wvar of local weight_vars {
 		quietly summarize `wvar'
-		local w_min = round(r(min), 0.1)
-		local w_max = round(r(max), 0.1)
-		local w_mean = round(r(mean), 0.1)
+		local w_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
+		local w_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
+		local w_mean = strtrim(string(round(r(mean), 0.1), "%14.0g"))
 		file write `fh' "  Sampling weight: `wvar' (range: `w_min' to `w_max', mean: `w_mean')" _n
 	}
 
@@ -2455,7 +2455,7 @@ program define _datamap_SummarizeMissing, nclass
 	quietly count if `complete' == 1
 	local n_complete = r(N)
 	if `obs' > 0 {
-		local pct_complete = round(100 * `n_complete' / `obs', 0.1)
+		local pct_complete = strtrim(string(round(100 * `n_complete' / `obs', 0.1), "%14.0g"))
 	}
 	else {
 		local pct_complete = 0

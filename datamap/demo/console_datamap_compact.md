@@ -12,7 +12,7 @@ title: "console_datamap_compact"
 
 ```
 (file datamap/demo/datamap_compact.txt not found)
-(file /tmp/St1678980.000003 not found)
+(file /tmp/St647618.000003 not found)
 Output written to: datamap/demo/datamap_compact.txt
 Documentation generated successfully
 
@@ -23,7 +23,7 @@ Documentation generated successfully
 ```
 
 ```
-(file /tmp/St1678980.000001 not found)
+(file /tmp/St647618.000001 not found)
 
 ```
 
@@ -33,7 +33,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 17 Jun 2026 21:48:47
+Generated: 19 Jun 2026 15:17:40
 
 ========================================
 DATASET: _demo_cohort.dta

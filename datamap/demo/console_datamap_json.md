@@ -12,7 +12,7 @@ title: "console_datamap_json"
 ```
 
 ```
-(file /tmp/St1678980.000003 not found)
+(file /tmp/St647618.000003 not found)
 Output written to: datamap/demo/datamap_metadata.json
 Documentation generated successfully
 
@@ -24,8 +24,8 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.4.0",
-  "generated": "17 Jun 2026 21:48:47",
+  "datamap_version": "1.4.1",
+  "generated": "19 Jun 2026 15:17:40",
   "format": "json",
   "datasets": [
     {

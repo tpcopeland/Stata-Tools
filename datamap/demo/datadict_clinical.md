@@ -14,12 +14,18 @@ Version 1.1
 ## 1.  Demo Cohort
 
 **Filename:** `_demo_cohort.dta`  
-**Description:** Dataset containing 17 variables and 160 observations.
+**Source path:** `datamap/demo/_demo_cohort.dta`  
+**Description:** Dataset containing 17 variables and 160 observations.  
+**Observations:** 160  
+**Variables in file:** 17  
+**Variables documented:** 17  
+**File size:** 38,293 bytes  
+**File modified:** unavailable  
 
 ### Variables
 
 | Variable | Label | Type | Missing | Statistics/Values |
-|----------|-------|------|---------|-------------------|
+|---|---|---|---|---|
 | `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=160<br>Median=100,080; IQR=100,040-100,120<br>Mean=100,080 (SD=46.33)<br>Range=100,001-100,160 |
 | `subject_id` | Study subject identifier | Numeric | 0 (0.0%) | N=160<br>Median=5,080; IQR=5,040-5,120<br>Mean=5,080 (SD=46.33)<br>Range=5,001-5,160 |
 | `patient_name` | Patient full name | String | 0 (0.0%) | N=160; 160 unique values |
@@ -41,7 +47,8 @@ Version 1.1
 
 ## Notes
 
-- No additional notes provided
+- All date variables are displayed using %tdDD/NN/CCYY format
+- Missing values coded as . (numeric missing) or empty string
 
 
 ## Change Log
@@ -53,4 +60,4 @@ Version 1.1
 
 **Author:** Timothy P Copeland, Karolinska Institutet
 
-**Last Updated:** 17 Jun 2026
+**Last Updated:** 19 Jun 2026

@@ -265,9 +265,9 @@ First 3 observations (excluded variables masked; date variables suppressed):
 
 | id(masked) | age | sex | bmi | region | entry_date | exit_date | name(masked) | 
 |---|---|---|---|---|---|---|---|
-| [MASKED] | . | 1 | 18.86556997754468 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
-| [MASKED] | . | 1 | 23.85505611204963 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
-| [MASKED] | . | 0 | 25.80522985751514 | 3 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
+| [MASKED] | . | 1 | 18.8655699775 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
+| [MASKED] | . | 1 | 23.855056112 | 2 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
+| [MASKED] | . | 0 | 25.8052298575 | 3 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | [MASKED] | 
 
 ========================================
 VALUE LABEL DEFINITIONS

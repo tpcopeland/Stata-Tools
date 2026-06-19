@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 17 Jun 2026 21:48:47
+Generated: 19 Jun 2026 15:17:40
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -39,7 +39,7 @@ Common Variable Patterns Detected
 Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 3
-  Observations with complete data: 79 (49.40000000000001%)
+  Observations with complete data: 79 (49.4%)
 
 ========================================
 VARIABLE SUMMARY
@@ -317,7 +317,7 @@ DISTRIBUTION:
   Mean: 57.27
   SD: 13.43
   Median: 56.8
-  IQR: 48.8-65.34999999999999
+  IQR: 48.8-65.35
   Range: -3 to 96.8
 
 ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality.
@@ -377,7 +377,7 @@ DISTRIBUTION:
   Mean: 1.03
   SD: .33
   Median: 1.05
-  IQR: .8100000000000001-1.24
+  IQR: .81-1.24
   Range: .16 to 1.73
 
 ANALYSIS GUIDANCE: Use as continuous variable.
@@ -394,7 +394,7 @@ Unique Values: 110
 
 DISTRIBUTION:
   Valid N: 122
-  Mean: 76.96000000000001
+  Mean: 76.96
   SD: 20.1
   Median: 78.55
   IQR: 63.4-91.3
@@ -537,8 +537,8 @@ First 3 observations (excluded variables masked; date variables suppressed):
 | patient_id(masked) | subject_id(masked) | patient_name(masked) | age | sex | smoking | bmi | sbp | creatinine | pct_adherence | enroll_date | birth_date | follow_up_time | event | treatment | site | rare_marker |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 1 | 27.5 | 157 | 1.39 | 83.7 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .29 | 1 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.60000000000001 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .1 | 0 | 0 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.40000000000001 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .07 | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.6 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .1 | 0 | 0 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.4 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .07 | 0 | 1 | 9 | 1 |
 
 ========================================
 VALUE LABEL DEFINITIONS

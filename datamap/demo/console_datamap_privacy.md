@@ -11,7 +11,7 @@ title: "console_datamap_privacy"
 ```
 
 ```
-(file /tmp/St1678980.000003 not found)
+(file /tmp/St647618.000003 not found)
 warning: likely identifier variable(s) not in exclude(): patient_id subject_id patient_name
 Output written to: datamap/demo/datamap_warning.txt
 Documentation generated successfully
@@ -23,7 +23,7 @@ Documentation generated successfully
 ```
 
 ```
-(file /tmp/St1678980.000001 not found)
+(file /tmp/St647618.000001 not found)
 
 ```
 
@@ -46,7 +46,7 @@ Disclosure-risk summary excerpt:
 
 ```
 Dataset Documentation
-Generated: 17 Jun 2026 21:48:47
+Generated: 19 Jun 2026 15:17:40
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -93,7 +93,7 @@ QUICK REFERENCE
 
 ```
 (file datamap/demo/datamap_clinical.txt not found)
-(file /tmp/St1678980.000003 not found)
+(file /tmp/St647618.000003 not found)
 Output written to: datamap/demo/datamap_clinical.txt
 Documentation generated successfully
 
@@ -104,7 +104,7 @@ Documentation generated successfully
 ```
 
 ```
-(file /tmp/St1678980.000001 not found)
+(file /tmp/St647618.000001 not found)
 
 ```
 
@@ -127,7 +127,7 @@ Privacy-safe map excerpt:
 
 ```
 Dataset Documentation
-Generated: 17 Jun 2026 21:48:47
+Generated: 19 Jun 2026 15:17:40
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -174,7 +174,7 @@ Common Variable Patterns Detected
 Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 3
-  Observations with complete data: 79 (49.40000000000001%)
+  Observations with complete data: 79 (49.4%)
 
 ========================================
 VARIABLE SUMMARY
@@ -255,17 +255,9 @@ Date-safe sample rows:
 ```
 | [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 1 | 27.5 | 157 | 1.39 | 83.7 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .29 |
 >  1 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.60000000000001 | [DATE SUPPRESSED] | [DATE SUPPR
-```
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.6 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .1 |
+>  0 | 0 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.4 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .07 |
+> 0 | 1 | 9 | 1 |
 
-```stata
-> ESSED] | .1 | 0 | 0 | 9 | 1 |
-```
-
-```
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.40000000000001 | [DATE SUPPRESSED] | [DATE SUPPRES
-```
-
-```stata
-> SED] | .07 | 0 | 1 | 9 | 1 |
 ```

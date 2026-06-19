@@ -10,12 +10,18 @@
 ## 1.  Demo Auto
 
 **Filename:** `_demo_auto.dta`  
-**Description:** Dataset containing 12 variables and 74 observations.
+**Source path:** `datamap/demo/_demo_auto.dta`  
+**Description:** Dataset containing 12 variables and 74 observations.  
+**Observations:** 74  
+**Variables in file:** 12  
+**Variables documented:** 12  
+**File size:** 12,765 bytes  
+**File modified:** unavailable  
 
 ### Variables
 
 | Variable | Label | Type | Missing | Statistics/Values |
-|----------|-------|------|---------|-------------------|
+|---|---|---|---|---|
 | `make` | Make and model | String | 0 (0.0%) | N=74; 74 unique values |
 | `price` | Price | Numeric | 0 (0.0%) | N=74<br>Median=5,006; IQR=4,195-6,342<br>Mean=6,165 (SD=2,949)<br>Range=3,291-15,906 |
 | `mpg` | Mileage (mpg) | Numeric | 0 (0.0%) | Unique=21<br>12 (2; 2.7%)<br>14 (6; 8.1%)<br>15 (2; 2.7%)<br>16 (4; 5.4%)<br>17 (4; 5.4%)<br>18 (9; 12.2%)<br>19 (8; 10.8%)<br>20 (3; 4.1%)<br>21 (5; 6.8%)<br>22 (5; 6.8%)<br>23 (3; 4.1%)<br>24 (4; 5.4%)<br>25 (5; 6.8%)<br>26 (3; 4.1%)<br>28 (3; 4.1%)<br>29 (1; 1.4%)<br>30 (2; 2.7%)<br>31 (1; 1.4%)<br>34 (1; 1.4%)<br>35 (2; 2.7%)<br>41 (1; 1.4%) |
@@ -32,7 +38,8 @@
 
 ## Notes
 
-- No additional notes provided
+- All date variables are displayed using %tdCCYY/NN/DD format
+- Missing values coded as . (numeric missing) or empty string
 
 
 ## Change Log
@@ -40,4 +47,4 @@
 *No changes recorded.*
 
 
-**Last Updated:** 17 Jun 2026
+**Last Updated:** 19 Jun 2026
