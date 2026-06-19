@@ -756,16 +756,15 @@ program define table1_tc, rclass
     sort sort*  // Sort by primary and secondary sort variables
 
     drop sort*  // Remove sort variables
-    * Preserve raw numeric p-values for boldp/highlight formatting.
-    * Drop any stale column first so a name collision can't silently feed
-    * old values into the boldp/highlight pass (the capture on gen only
-    * guards the nopvalue case where `p' does not exist).
-    capture drop _p_raw
-    capture gen double _p_raw = p
+    * Preserve raw numeric p-values for boldp/highlight formatting. Use tempvars
+    * so a user column literally named _p_raw/_smd_raw can never be clobbered.
+    tempvar p_raw smd_raw
+    capture drop `p_raw'
+    capture gen double `p_raw' = p
     capture drop p  // Drop raw p-value variable
     * Preserve raw SMD values for conditional formatting (O2)
-    capture drop _smd_raw
-    capture gen double _smd_raw = abs(smd_val)
+    capture drop `smd_raw'
+    capture gen double `smd_raw' = abs(smd_val)
     capture drop smd_val  // Drop raw SMD values
     
     /* Left-justify strings except p-value */
@@ -1262,9 +1261,9 @@ program define table1_tc, rclass
     local _rt_nrows 0
     local _rt_rnames ""
     local _rt_ncols 0
-    capture confirm variable _p_raw
+    capture confirm variable `p_raw'
     local _has_praw = !_rc
-    capture confirm variable _smd_raw
+    capture confirm variable `smd_raw'
     local _has_smdraw = !_rc
     if `_has_praw' | `_has_smdraw' {
         * Count data rows (skip descriptor/header rows and category sub-rows)
@@ -1284,14 +1283,14 @@ program define table1_tc, rclass
                     if `_has_praw' {
                         local _rt_c = `_rt_c' + 1
                         capture {
-                            local _pval = _p_raw[`_obs']
+                            local _pval = `p_raw'[`_obs']
                             if `_pval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
                         }
                     }
                     if `_has_smdraw' {
                         local _rt_c = `_rt_c' + 1
                         capture {
-                            local _sval = _smd_raw[`_obs']
+                            local _sval = `smd_raw'[`_obs']
                             if `_sval' < . matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
                         }
                     }
@@ -1452,18 +1451,18 @@ program define table1_tc, rclass
 
 	            /* Export to Excel — exclude internal columns */
 	            local _had_p_raw = 0
-	            capture confirm variable _p_raw
+	            capture confirm variable `p_raw'
 	            if !_rc {
 	                local _had_p_raw = 1
-	                mata: _p_raw_save = st_data(., "_p_raw")
-	                drop _p_raw
+	                mata: _p_raw_save = st_data(., "`p_raw'")
+	                drop `p_raw'
 	            }
 	            local _had_smd_raw = 0
-	            capture confirm variable _smd_raw
+	            capture confirm variable `smd_raw'
 	            if !_rc {
 	                local _had_smd_raw = 1
-	                mata: _smd_raw_save = st_data(., "_smd_raw")
-	                drop _smd_raw
+	                mata: _smd_raw_save = st_data(., "`smd_raw'")
+	                drop `smd_raw'
 	            }
             * Safety: drop any surviving internal variables before export
             * (catrowperc + slashN can leave N_* or _uwn* columns)
@@ -1475,13 +1474,13 @@ program define table1_tc, rclass
 		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(b)
 		            local _xlsx_write_rc = _rc
 		            if `_had_p_raw' {
-		                gen double _p_raw = .
-		                mata: st_store(., "_p_raw", _p_raw_save)
+		                gen double `p_raw' = .
+		                mata: st_store(., "`p_raw'", _p_raw_save)
 		                mata: mata drop _p_raw_save
 		            }
 		            if `_had_smd_raw' {
-		                gen double _smd_raw = .
-		                mata: st_store(., "_smd_raw", _smd_raw_save)
+		                gen double `smd_raw' = .
+		                mata: st_store(., "`smd_raw'", _smd_raw_save)
 		                mata: mata drop _smd_raw_save
 		            }
 		            if `_xlsx_write_rc' {
@@ -1551,9 +1550,9 @@ program define table1_tc, rclass
 			qui desc
 			local num_cols = `r(k)'  // Number of columns
 			* Exclude internal columns from column count (not exported to Excel)
-			capture confirm variable _p_raw
+			capture confirm variable `p_raw'
 			if !_rc local num_cols = `num_cols' - 1
-			capture confirm variable _smd_raw
+			capture confirm variable `smd_raw'
 			if !_rc local num_cols = `num_cols' - 1
 			qui count
 			local num_rows = `r(N)'  // Number of rows
@@ -1623,14 +1622,14 @@ program define table1_tc, rclass
             if `has_boldp' | `has_highlight' {
                 if `pvalue_pos' > 0 {
                     forvalues _br = 4/`num_rows' {
-                        capture local _pval_`_br' = _p_raw[`_br']
+                        capture local _pval_`_br' = `p_raw'[`_br']
                         if _rc local _pval_`_br' = .
                     }
                 }
             }
             if `smd_pos' > 0 & `smdthreshold' > 0 {
                 forvalues _sr = 4/`num_rows' {
-                    capture local _sval_`_sr' = _smd_raw[`_sr']
+                    capture local _sval_`_sr' = `smd_raw'[`_sr']
                     if _rc local _sval_`_sr' = .
                 }
             }
@@ -1871,8 +1870,8 @@ program define table1_tc, rclass
             capture mata: mata drop b
 
             /* Clean up temporary p-value and SMD variables */
-            capture drop _p_raw
-            capture drop _smd_raw
+            capture drop `p_raw'
+            capture drop `smd_raw'
 
             capture confirm file "`excel'"
             if _rc {
@@ -1886,8 +1885,8 @@ program define table1_tc, rclass
     }
 
     /* Keep internal raw columns out of public outputs */
-    capture drop _p_raw
-    capture drop _smd_raw
+    capture drop `p_raw'
+    capture drop `smd_raw'
 
     * CSV export (F2)
     if "`csv'" != "" {

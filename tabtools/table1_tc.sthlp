@@ -184,6 +184,11 @@ directly to a regression model:{p_end}
 {phang3}{cmd:xlsx("table1_detail.xlsx") sheet("Baseline") ///}{p_end}
 {phang3}{cmd:title("Table 1. Baseline Characteristics") smd zebra}{p_end}
 
+{pstd}The weighted-cohort examples below are workflow sketches: they assume a cohort
+in memory carrying an IPTW weight ({cmd:iptw}) and the covariates {cmd:age},
+{cmd:female}, {cmd:education}, and {cmd:bmi}. Substitute your own analysis
+variables and weight.{p_end}
+
 {pstd}{bf:IPTW-weighted Table 1:} (weighted columns show % + SMD; add {opt wtn} for weighted counts){p_end}
 
 {phang2}{cmd:. table1_tc, by(treated) wt(iptw) smd ///}{p_end}

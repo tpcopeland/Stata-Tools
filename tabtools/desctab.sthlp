@@ -29,7 +29,7 @@
 {opt keep(string)} {opt drop(string)} {opt statorder(string)}
 {opt statlabels(string)} {opt nomis:sing} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)}
-{opt zebrac:olor(string)} {opt borders:tyle(string)}
+{opt zebrac:olor(string)} {opt border:style(string)}
 {opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt fra:me(name)} {opt dis:play} {opt high:light(#)}
 {opt hls:tat(string)}]{p_end}
@@ -86,7 +86,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt headers:hade}}shade header rows in Excel. Header shading is off by default.{p_end}
 {synopt:{opt headerc:olor(string)}}header fill color as a supported Stata color name or RGB triplet.{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill color as a supported Stata color name or RGB triplet.{p_end}
-{synopt:{opt borders:tyle(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt the:me(string)}}Journal-style font and border theme shared across tabtools; use {opt headershade}/{opt zebra} for shaded fills.{p_end}
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}also export the display table as CSV.{p_end}

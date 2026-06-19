@@ -235,6 +235,11 @@ smaller than the specified threshold.
 {pstd}
 {bf:Example 5: Typical epidemiology workflow (HRT example)}
 
+{pstd}This example is a workflow sketch: it assumes Cox-model frames {cmd:s1},
+{cmd:s2}, and {cmd:s3} have already been created by {helpb regtab} (see the
+{cmd:f1}/{cmd:f2} setup above for the pattern). Substitute your own model frames.
+For a runnable public-data workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
+
 {phang2}{cmd:. * Each regtab call creates a frame with Cox model results}{p_end}
 {phang2}{cmd:. * Frame s1: binary HRT (any vs none)}{p_end}
 {phang2}{cmd:. * Frame s2: HRT dose categories (low/medium/high vs none)}{p_end}

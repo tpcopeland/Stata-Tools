@@ -166,11 +166,18 @@ Without {opt keepintercept}, {cmd:regtab} treats cutpoints like ancillary rows a
 omits them from ratio-scale presentation tables.{p_end}
 
 {pstd}Two models with merged headers, dropping the intercept row:{p_end}
+{phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
 {phang2}{stata "collect: logit diabetes age female":. collect: logit diabetes age female}{p_end}
 {phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
 {phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Table 2") models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint"':. regtab, xlsx(regression.xlsx) sheet("Table 2") ///}{p_end}
 {phang3}{cmd:models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint}{p_end}
+
+{pstd}The multilevel and survival examples below are workflow sketches: they assume a
+fitted dataset in memory with the named outcome, exposure, and grouping variables
+(for example {cmd:provider}, {cmd:district}, {cmd:school}). Substitute your own
+model; for runnable public-data fits see the {helpb melogit}, {helpb mixed}, and
+{helpb stcox} manual examples.{p_end}
 
 {pstd}Mixed-effects logistic model with Median Odds Ratio and ICC:{p_end}
 {phang2}{cmd:. collect clear}{p_end}

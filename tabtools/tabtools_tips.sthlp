@@ -186,7 +186,9 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {pstd}
 These worked recipes are intentionally compact here:
 the individual command help files carry full option tables and stored-result
-contracts.
+contracts. Recipes that open with {cmd:sysuse}/{cmd:webuse} are runnable as shown;
+others are workflow sketches that use illustrative research variable and dataset
+names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {p_end}
 
 {title:1. Basic Table 1 with SMD}

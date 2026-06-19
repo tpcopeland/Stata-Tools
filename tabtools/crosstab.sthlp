@@ -23,7 +23,7 @@
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt border:style(string)} {opt boldp(#)} {opt zebra}
+{opt the:me(string)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
@@ -62,7 +62,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
+{synopt:{opt bold:p(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}custom header color as a supported Stata color name or RGB triplet{p_end}

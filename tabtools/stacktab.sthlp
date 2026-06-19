@@ -34,7 +34,7 @@ into one composite sheet with {cmd:stacktab}.
 {p 8 16 2}
 {cmd:stacktab} {cmd:using} {it:outbook.xlsx}{cmd:,}
   {opt bl:ocks(blockspec)}
-  {opt sheet:(sheetname)}
+  {opt sh:eet(sheetname)}
   [{it:options}]
 
 {synoptset 22 tabbed}{...}
@@ -42,7 +42,7 @@ into one composite sheet with {cmd:stacktab}.
 {synoptline}
 {syntab:Required}
 {synopt:{opt bl:ocks(blockspec)}}backslash-separated block definitions{p_end}
-{synopt:{opt sheet:(string)}}output sheet name in the workbook{p_end}
+{synopt:{opt sh:eet(string)}}output sheet name in the workbook{p_end}
 
 {syntab:Content}
 {synopt:{opt lay:out(string)}}vstack (default) or hstack{p_end}
@@ -53,8 +53,8 @@ into one composite sheet with {cmd:stacktab}.
 {synopt:{opt sp:acing(#)}}blank rows inserted between vertically stacked blocks; default is 0{p_end}
 
 {syntab:Formatting}
-{synopt:{opt style:(stylespec)}}row heights and table-relative column widths via Mata {cmd:xl()}{p_end}
-{synopt:{opt borders:(borderspec)}}border specifications via Mata {cmd:xl()}{p_end}
+{synopt:{opt st:yle(stylespec)}}row heights and table-relative column widths via Mata {cmd:xl()}{p_end}
+{synopt:{opt bo:rders(borderspec)}}border specifications via Mata {cmd:xl()}{p_end}
 
 {syntab:Additional outputs}
 {synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame; use {cmd:frame("name, replace")} to replace{p_end}
@@ -63,7 +63,7 @@ into one composite sheet with {cmd:stacktab}.
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt dis:play}}list the composed table in the Results window before writing{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
-{synopt:{opt sheet:replace}}replace the output sheet if it exists{p_end}
+{synopt:{opt she:etreplace}}replace the output sheet if it exists{p_end}
 {synoptline}
 
 {marker description}{...}
@@ -199,6 +199,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.8.0
+Version 1.8.2
 {p 4 4 2}
 {hline}

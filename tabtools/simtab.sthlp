@@ -110,7 +110,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
 {synopt:{opt foot:note(string)}}table footnote{p_end}
 {synopt:{opt the:me(name)}}journal theme (lancet, nejm, bmj, ...){p_end}
-{synopt:{opt borders:tyle(name)}}default, thin, medium, academic{p_end}
+{synopt:{opt border:style(name)}}default, thin, medium, academic{p_end}
 {synopt:{opt headerc:olor(c)}}header fill color{p_end}
 {synopt:{opt zebrac:olor(c)}}zebra stripe color{p_end}
 {synopt:{opt headers:hade}}shade the header row{p_end}
@@ -231,6 +231,11 @@ a zipper plot or per-replication bias plot, which need replication-level CIs. Us
 {marker examples}{...}
 {title:Examples}
 
+{pstd}The examples below are workflow sketches. They assume a simulation has posted
+one row per replication in memory (compute mode), or that {helpb simsum}/{cmd:siman}
+output is loaded (ingest mode); {cmd:sim_results_long.dta} stands in for your own
+posted simulation results.{p_end}
+
 {pstd}Compute mode, multiple estimands, full export:{p_end}
 {p 8 8 2}{cmd:. simtab estimator, estimate(estimate) se(se) true(true_value) ///}{p_end}
 {p 12 12 2}{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000) ///}{p_end}
@@ -305,6 +310,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.8.0{p_end}
+{pstd}Version 1.8.2{p_end}
 
 {hline}

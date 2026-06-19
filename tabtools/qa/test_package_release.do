@@ -997,9 +997,16 @@ else {
 
 **# Migrated: sthlp version consistency
 
-**# 13. Version consistency across sthlp files (I2 regression)
+**# 13. Version consistency across sthlp files (I1 regression)
 
-**## 13a. tabtools.sthlp body version matches .ado version
+**## 13a. EVERY .sthlp prose version line matches the .ado version
+* Generalized in 1.8.x: §13a previously opened only tabtools.sthlp and matched
+* solely "{bf:Version}", so stale prose versions in the other 15 help files
+* slipped through (I1: simtab/stacktab read 1.8.0 while headers were 1.8.2).
+* Now loops over all shipped .sthlp and accepts the three prose formats in use:
+* "{bf:Version} X.Y.Z", "{pstd}Version X.Y.Z{p_end}", and bare "Version X.Y.Z".
+* Each file must contribute at least one match, so a dropped or reformatted
+* prose-version line fails loudly instead of going unchecked.
 capture noisily {
     * Get .ado version from first line of tabtools.ado header
     tempname fh_ado
@@ -1010,27 +1017,33 @@ capture noisily {
     local ado_version = strtrim(word(`"`line'"', 4))
     file close `fh_ado'
 
-    * Read tabtools.sthlp and find the Version line
-    tempname fh_ver
-    local sthlp_version ""
-    file open `fh_ver' using "`pkg_dir'/tabtools.sthlp", read text
-    file read `fh_ver' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', "{bf:Version}") > 0 {
-            local sthlp_version = strtrim(subinstr(`"`line'"', "{pstd}{bf:Version}", "", 1))
-            local sthlp_version = strtrim(subinstr(`"`sthlp_version'"', "{p_end}", "", .))
-        }
+    local sthlp_files : dir "`pkg_dir'" files "*.sthlp"
+    foreach sf of local sthlp_files {
+        tempname fh_ver
+        local file_found = 0
+        file open `fh_ver' using "`pkg_dir'/`sf'", read text
         file read `fh_ver' line
+        while r(eof) == 0 {
+            * Capital "Version" + X.Y.Z = a prose version line. The lowercase
+            * header "{* *! version ...}" is skipped (regexm is case-sensitive).
+            if regexm(`"`line'"', "Version[^0-9]*([0-9]+\.[0-9]+\.[0-9]+)") {
+                local sthlp_version = regexs(1)
+                assert "`sthlp_version'" == "`ado_version'"
+                local file_found = 1
+            }
+            file read `fh_ver' line
+        }
+        file close `fh_ver'
+        * Guard: this file must carry a prose version line that the scan matched.
+        assert `file_found' == 1
     }
-    file close `fh_ver'
-    assert "`sthlp_version'" == "`ado_version'"
 }
 if _rc == 0 {
-    display as result "  PASS [13a]: tabtools.sthlp body version matches .ado version"
+    display as result "  PASS [13a]: all .sthlp prose versions match .ado version"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [13a]: tabtools.sthlp version mismatch (rc=`=_rc')"
+    display as error "  FAIL [13a]: .sthlp prose version mismatch/missing (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -24,7 +24,7 @@ and restricted mean survival time.{p_end}
 {opt ev:ents} {opt dig:its(#)}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
-{opt headers:hade} {opt headerc:olor(string)} {opt boldp(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
+{opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
@@ -83,7 +83,7 @@ colors — are supported.{p_end}
 {syntab:Formatting}
 {synopt:{opt the:me(string)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt boldp(#)}}bold log-rank p-value and summary row when p < threshold{p_end}
+{synopt:{opt bold:p(#)}}bold log-rank p-value and summary row when p < threshold{p_end}
 {synopt:{opt headers:hade}}shade header row background{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color as {it:R G B} (e.g., {cmd:"219 229 241"}){p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}

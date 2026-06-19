@@ -492,15 +492,16 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 11 QA files: 9 functional test files, 2 validation files, and 0 cross-validation suites.
+The suite covers all four public commands with 12 QA files: 10 functional test files, 2 validation files, and 0 cross-validation suites.
 
-- `test_datamap.do` - 57 tests
+- `test_datacheck.do` - 106 tests
+- `test_datadict_v14.do` - 27 tests
+- `test_datamap.do` - 73 tests
 - `test_datamap_bugfixes.do` - 13 tests
 - `test_datamap_v2.do` - 54 tests
 - `test_datamap_v11.do` - 42 tests
 - `test_datamap_privacy.do` - 22 tests
 - `test_datamap_golden.do` - 0 tests (9 golden cases)
-- `test_datacheck.do` - 39 tests
 - `test_datamvp.do` - 62 tests
 - `test_datamvp_labels.do` - 20 tests
 - `validation_datamap.do` - 56 validations
