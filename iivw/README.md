@@ -1,4 +1,4 @@
-# iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
+# iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
 **Version 1.7.1** | 2026-06-17
 
