@@ -358,19 +358,29 @@ capture noisily {
     survtab, times(20) by(g) rmst(20)
     local got0 = r(rmst_1)
     local se0 = r(rmst_se_1)
+    local lb0 = r(rmst_lb_1)
+    local ub0 = r(rmst_ub_1)
     local got1 = r(rmst_2)
     local se1 = r(rmst_se_2)
+    local lb1 = r(rmst_lb_2)
+    local ub1 = r(rmst_ub_2)
 
     quietly stci if g == 0, rmean
     assert abs(`got0' - r(rmean)) < 1e-8
     assert abs(`se0' - r(se)) < 1e-8
+    * RMST CI bounds are computed in-code (rmst +/- invnormal(0.975)*se);
+    * stci, rmean returns the same normal-based CI -> independent oracle.
+    assert abs(`lb0' - r(lb)) < 1e-8
+    assert abs(`ub0' - r(ub)) < 1e-8
 
     quietly stci if g == 1, rmean
     assert abs(`got1' - r(rmean)) < 1e-8
     assert abs(`se1' - r(se)) < 1e-8
+    assert abs(`lb1' - r(lb)) < 1e-8
+    assert abs(`ub1' - r(ub)) < 1e-8
 }
 if _rc == 0 {
-    display as result "  PASS: KE6.6 — survtab RMST/SE match stci, rmean"
+    display as result "  PASS: KE6.6 — survtab RMST/SE/CI match stci, rmean"
     local ++pass_count
 }
 else {

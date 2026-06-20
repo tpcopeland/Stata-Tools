@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -104,7 +104,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt sh:eet(name)}}Excel sheet name; default {cmd:Simulation}{p_end}
 {synopt:{opt csv(file)}}CSV export (.csv){p_end}
 {synopt:{opt mark:down(file)}}Markdown export (.md/.markdown/.qmd/.rmd){p_end}
-{synopt:{opt mdapp:end}}append to an existing Markdown file{p_end}
+{synopt:{opt mdapp:end}}append to an existing Markdown file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name[, replace])}}store the rendered table as a frame{p_end}
 {synopt:{opt plotf:rame(name[, replace])}}store the numeric companion frame{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
@@ -310,6 +310,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.8.2{p_end}
+{pstd}Version 1.8.3{p_end}
 
 {hline}

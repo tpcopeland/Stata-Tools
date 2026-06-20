@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -70,7 +70,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synoptline}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}also export the output dataset as CSV{p_end}
+{synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
@@ -144,6 +144,6 @@ exits with an error instead of silently omitting the measure.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {hline}

@@ -2509,6 +2509,49 @@ else {
     local ++fail_count
 }
 
+* T126: Doc-contract — finegray_predict, cif equals 1-exp(-H0(t)*exp(xb)) with
+*        H0(t) read from e(basehaz) as a right-continuous step function at the
+*        timevar() horizon (largest event time <= t). This locks the time-point
+*        semantics documented in finegray_predict.sthlp (per-row _t / timevar()).
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+
+    * Independent xb and a fixed horizon shared by all subjects
+    finegray_predict xb_chk, xb
+    local tstar = 5
+    gen double _tv = `tstar'
+    finegray_predict cif_chk, cif timevar(_tv)
+
+    * H0(tstar): largest cumhazard among basehaz times <= tstar (step function)
+    matrix bh = e(basehaz)
+    local nbh = rowsof(bh)
+    local H0 = 0
+    forvalues i = 1/`nbh' {
+        if bh[`i', 1] <= `tstar' local H0 = bh[`i', 2]
+    }
+
+    * Documented formula, recomputed independently. Tolerance 1e-6 (not bit-exact):
+    * the internal Mata predict path and this external Stata reconstruction differ
+    * only by floating-point noise (~5e-8, about half of float epsilon). A genuine
+    * formula/time-point regression would be O(0.1), so 1e-6 still catches it.
+    gen double cif_ref = 1 - exp(-`H0' * exp(xb_chk))
+    gen double _absdiff = abs(cif_chk - cif_ref)
+    summ _absdiff, meanonly
+    assert r(max) < 1e-6
+
+    drop xb_chk cif_chk cif_ref _absdiff _tv
+}
+if _rc == 0 {
+    display as result "  PASS: T126 cif = 1-exp(-H0(t)*exp(xb)) at timevar horizon"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T126 cif formula/timevar contract (rc=`=_rc')"
+    local ++fail_count
+}
+
 * {smcl}
 * {* SUMMARY}{...}
 display ""

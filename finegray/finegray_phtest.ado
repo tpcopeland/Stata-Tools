@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.0.0  2026/04/06
+*! finegray_phtest Version 1.1.0  2026/06/21
 *! Proportional subdistribution hazards test after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -168,8 +168,9 @@ program define finegray_phtest, rclass
     if "`byg'" != "" {
         local _byg_nvar : word count `byg'
         if `_byg_nvar' > 1 {
-            quietly egen long _finegray_byg = group(`byg')
-            local _byg_mata "_finegray_byg"
+            tempvar _byg_grp
+            quietly egen long `_byg_grp' = group(`byg')
+            local _byg_mata "`_byg_grp'"
         }
     }
 
@@ -203,6 +204,7 @@ program define finegray_phtest, rclass
 
     * Load Schoenfeld matrix into a temporary dataset once (svmat),
     * then loop correlations over columns — avoids O(p) preserve/clear cycles.
+    tempvar _tfunc
     preserve
     quietly {
         clear
@@ -210,19 +212,19 @@ program define finegray_phtest, rclass
 
         * _sch1 = time, _sch2.._sch`=`p'+1' = residuals per covariate
         if "`time'" == "rank" {
-            egen double _sch_tfunc = rank(_sch1)
+            egen double `_tfunc' = rank(_sch1)
         }
         else if "`time'" == "log" {
-            gen double _sch_tfunc = ln(_sch1)
+            gen double `_tfunc' = ln(_sch1)
         }
         else {
-            gen double _sch_tfunc = _sch1
+            gen double `_tfunc' = _sch1
         }
     }
 
     forvalues v = 1/`p' {
         local col = `v' + 1
-        quietly correlate _sch`col' _sch_tfunc
+        quietly correlate _sch`col' `_tfunc'
         local rho = r(rho)
         local n_corr = r(N)
 

@@ -302,10 +302,8 @@ Inline definitions use this structure:
 define(name "inclusion_pattern" ~ "exclusion_pattern" | name2 "pattern2")
 ```
 
-The inclusion and exclusion patterns are anchored at the start of each code
-value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
-`I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as
-simple alternative prefixes.
+The inclusion and exclusion patterns are anchored at the start of each code value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
+ I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as simple alternative prefixes.
 
 There are three practical ways to list condition definitions:
 
@@ -315,8 +313,7 @@ There are three practical ways to list condition definitions:
 
 Definitions apply to all variables in the varlist.  To use different definitions for different variable groups, run separate calls with `generate()` prefixes, as shown above.
 
-Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched
-case-insensitively.
+Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched case-insensitively.
 
 | Column | Required | Meaning |
 |--------|----------|---------|
@@ -325,16 +322,11 @@ case-insensitively.
 | `exclusion` | No | Exclusion pattern(s), combined with `|` when more than one is needed |
 | `label` | No | Human-readable label for output variables and tables |
 
-Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable
-codefile.  Use `saving(results.dta, replace)` for the final transformed dataset;
-the two option names deliberately do different jobs.
+Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable codefile.  Use `saving(results.dta, replace)` for the final transformed dataset; the two option names deliberately do different jobs.
 
 ## Output Reference
 
-`codescan` creates one variable per condition.  Without `countmode`, those
-variables are 0/1 indicators.  With `countmode`, they are integer counts of
-matching code slots.  With `collapse` or `merge`, optional date/count variables
-are added as requested:
+`codescan` creates one variable per condition.  Without `countmode`, those variables are 0/1 indicators.  With `countmode`, they are integer counts of matching code slots.  With `collapse` or `merge`, optional date/count variables are added as requested:
 
 | Option | Created variables |
 |--------|-------------------|
@@ -343,14 +335,9 @@ are added as requested:
 | `countdate` | `<condition>_count` for unique dates |
 | `countrows` | `<condition>_nrows` for matching rows or code-slot hits under `countmode` |
 
-Important returned results include `r(summary)` with count, prevalence, and
-Wilson confidence interval columns; `r(codelist)` with count and prevalence;
-`r(varcounts)` when `detail` is used; `r(cooccurrence)` when `cooccurrence` is
-used; and `r(sensitivity)` for multi-window `lookback()` analyses.
+Important returned results include `r(summary)` with count, prevalence, and Wilson confidence interval columns; `r(codelist)` with count and prevalence; `r(varcounts)` when `detail` is used; `r(cooccurrence)` when `cooccurrence` is used; and `r(sensitivity)` for multi-window `lookback()` analyses.
 
-`codescan_describe` returns `r(top_codes)` with columns `frequency`, `percent`,
-and `cumul_pct`, and `r(chapters)` with columns `codes` and `entries`.  These are
-useful for automated checks before freezing a code dictionary.
+`codescan_describe` returns `r(top_codes)` with columns `frequency`, `percent`, and `cumul_pct`, and `r(chapters)` with columns `codes` and `entries`.  These are useful for automated checks before freezing a code dictionary.
 
 ## Troubleshooting
 
@@ -367,10 +354,7 @@ useful for automated checks before freezing a code dictionary.
 
 ### 2.0.0 (2026-06-19)
 
-- **BREAKING:** comorbidity scoring removed. `score()`, `hierarchy()`, the bundled
-  Charlson/Elixhauser example codefiles, and basename codefile resolution are gone.
-  Comorbidity indices now live in the dedicated `comorbidity` command
-  (`ssc install comorbidity`). codescan is now a pure code-field scanner.
+- **BREAKING:** comorbidity scoring removed. `score()`, `hierarchy()`, the bundled Charlson/Elixhauser example codefiles, and basename codefile resolution are gone. Comorbidity indices now live in the dedicated `comorbidity` command, which is currently under development. codescan is now a pure code-field scanner.
 
 ### 1.1.4 (2026-06-14)
 - Docs: the "save reusable definitions, then load them back as a codefile" example (help Example 5 / README Example 7) now adds `replace` to the second run. The first run leaves the condition indicators in memory, so the verbatim two-line block previously stopped with `variable dm2 already exists` (`r(110)`) when copy-pasted. A regression test now runs the documented sequence as printed.

@@ -603,6 +603,41 @@ else {
 }
 capture frame drop occupied_frame
 
+* -------------------------------------------------------------------------
+* Regression: markdown("quoted path") must not be rejected as invalid.
+* stacktab declares markdown(string asis), which keeps the surrounding
+* double-quotes in the macro; the path validator then flagged char(34) and
+* errored 198 ("markdown() contains invalid characters"). The quote-stripping
+* loop must include markdown (as it does title/note/csv).
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    local rgwb "`c(tmpdir)'/stacktab_md_regress.xlsx"
+    local rgmd "`c(tmpdir)'/stacktab_md_regress.md"
+    capture erase "`rgwb'"
+    capture erase "`rgmd'"
+    clear
+    input str20 label str10 est str16 ci
+    "Category"   "HR"   "95% CI"
+    "Binary HRT" "1.23" "(1.05, 1.44)"
+    "Active"     "1.45" "(1.20, 1.75)"
+    end
+    export excel "`rgwb'", sheet("Src") sheetreplace
+    stacktab using "`rgwb'", ///
+        blocks(sheet(Src) rows(1/3) cols(A-C)) ///
+        sheet("Composite") sheetreplace markdown("`rgmd'")
+    assert _rc == 0
+    confirm file "`rgmd'"
+    assert "`r(markdown)'" == "`rgmd'"
+}
+if _rc == 0 {
+    display as result "  PASS: stacktab accepts a quoted markdown() path (asis quote-strip)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stacktab markdown() quoted-path regression (rc=`=_rc')"
+    local ++fail_count
+}
 
 
 

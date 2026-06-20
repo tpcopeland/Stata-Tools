@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -56,7 +56,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {dlgtab:Optional}
 
 {phang}
-{opt xlsx(string)} specifies the Excel and Markdown output file name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()}, or populate {opt frame()}.
+{opt xlsx(string)} specifies the Excel workbook name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()} or {opt markdown()}, or populate {opt frame()}.
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
@@ -108,7 +108,11 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
-{phang2}{opt csv(string)} {opt markdown(filename)} {opt mdappend} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
+{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
+
+{phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored Markdown. It may be used with or without {opt xlsx()}.{p_end}
+
+{phang2}{opt mdappend} appends the Markdown table to an existing file; requires {opt markdown()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
@@ -230,7 +234,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {marker alsosee}{...}
 {title:Also see}

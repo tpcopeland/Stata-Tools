@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.0.0  2026/04/06
+*! _finegray_mata Version 1.1.0  2026/06/21
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -340,8 +340,12 @@ void _finegray_score_info(
     }
 }
 
-/* Robust (sandwich) variance estimator with left truncation support */
-real matrix _finegray_robust_var(
+/* Per-subject score (efficient-score) residuals for the Fine-Gray model,
+   including the IPCW at-risk correction for competing-event subjects.
+   Returns an n x p matrix whose rows are the U_i; sum_i U_i U_i' is the meat
+   of the sandwich.  Extracted so both the robust variance and the CIF
+   influence-function variance use one definition (coefficient SEs unchanged). */
+real matrix _finegray_score_residuals(
     real colvector t,
     real colvector delta,
     real scalar cause,
@@ -350,17 +354,14 @@ real matrix _finegray_robust_var(
     real matrix Z,
     real colvector beta,
     real colvector G,
-    real matrix info_inv,
-    string scalar clust_var,
-    real colvector clust_id,
     real colvector t0)
 {
     real scalar n, p, i, j, k, idx, bwd_s0_raw, running_invS0
-    real scalar S0_t, use_cluster, cur_time, risk_S0, ep
+    real scalar S0_t, cur_time, risk_S0, ep
     real scalar running_ginvS0, total_ginvS0
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0, clev, sel
-    real matrix scores, cum_zbars, cum_gzbars, meat, clust_scores
+    real colvector cum_invS0, cum_ginvS0
+    real matrix scores, cum_zbars, cum_gzbars
     real rowvector bwd_s1_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
     real rowvector running_gzbars, total_gzbars
 
@@ -375,12 +376,10 @@ real matrix _finegray_robust_var(
     ord = order(t, 1)
     entry_ord = order(t0, 1)
 
-    /* Incremental risk-set sums */
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
     ep = 1
 
-    /* Compute individual score residuals */
     scores = J(n, p, 0)
     bwd_s0_raw = 0
     bwd_s1_raw = J(1, p, 0)
@@ -389,7 +388,6 @@ real matrix _finegray_robust_var(
     running_invS0 = 0
     running_zbar_sum = J(1, p, 0)
 
-    /* G-weighted cumulative sums for IPCW at-risk correction */
     cum_ginvS0 = J(n, 1, 0)
     cum_gzbars = J(n, p, 0)
     running_ginvS0 = 0
@@ -399,7 +397,6 @@ real matrix _finegray_robust_var(
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries */
         while (ep <= n) {
             if (t0[entry_ord[ep]] > cur_time) break
             idx = entry_ord[ep]
@@ -416,7 +413,6 @@ real matrix _finegray_robust_var(
             j++
         }
 
-        /* Process cause events */
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
@@ -432,7 +428,6 @@ real matrix _finegray_robust_var(
             }
         }
 
-        /* Assign cumulative terms to all obs at this time */
         for (k = i; k < j; k++) {
             idx = ord[k]
             cum_invS0[idx] = running_invS0
@@ -441,7 +436,6 @@ real matrix _finegray_robust_var(
             cum_gzbars[idx, .] = running_gzbars
         }
 
-        /* Add competing events to backward */
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
@@ -450,7 +444,6 @@ real matrix _finegray_robust_var(
             }
         }
 
-        /* Remove exiting subjects */
         for (k = i; k < j; k++) {
             idx = ord[k]
             risk_S0 = risk_S0 - expeta[idx]
@@ -466,11 +459,7 @@ real matrix _finegray_robust_var(
             (Z[i, .] * cum_invS0[i] - cum_zbars[i, .])
     }
 
-    /* IPCW at-risk correction for competing event subjects.
-       Competing events stay in the risk set after their event time
-       with weight G(T_j)/G(T_i). The at-risk subtraction above only
-       covers times up to T_i (weight=1). This adds the IPCW-weighted
-       contribution from cause events after T_i. */
+    /* IPCW at-risk correction for competing-event subjects */
     total_ginvS0 = running_ginvS0
     total_gzbars = running_gzbars
     for (i = 1; i <= n; i++) {
@@ -482,7 +471,34 @@ real matrix _finegray_robust_var(
         }
     }
 
-    /* Compute meat */
+    return(scores)
+}
+
+/* Robust (sandwich) variance estimator with left truncation support */
+real matrix _finegray_robust_var(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real matrix info_inv,
+    string scalar clust_var,
+    real colvector clust_id,
+    real colvector t0)
+{
+    real scalar n, p, i, use_cluster
+    real colvector clev, sel
+    real matrix scores, meat, clust_scores
+
+    n = rows(t)
+    p = cols(Z)
+
+    scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
+        Z, beta, G, t0)
+
     use_cluster = (clust_var != "" & rows(clust_id) == n)
     if (use_cluster) {
         clev = uniqrows(clust_id)
@@ -921,6 +937,322 @@ void _finegray_engine(
     st_matrix("_finegray_chi2", chi2)
     st_matrix("_finegray_df_m", df_m)
     st_matrix("_finegray_conv", converged)
+}
+
+/* Influence-function variance of the predicted CIF.
+
+   For each evaluation point (t*, z*) returns CIF(t*|z*) and its standard error
+   via per-subject influence functions:
+
+     CIF = 1 - exp(-L0(t*) r),   r = exp(z*'b)
+     psi_i(CIF) = factor * ( q_i(t*) + PSIb_i' (b(t*) + L0(t*) z*) )
+     factor = r exp(-L0 r),  PSIb_i = info_inv U_i  (U_i = score residual)
+
+   with the Breslow baseline cumulative subhazard L0 and its influence pieces:
+     q_i(t*)  = [1/S0(T_i) if i is a cause event <= t*]
+                - expeta_i * sum_{cause T_m<=t*} Y^FG_i(T_m)/S0(T_m)^2
+     b(t*)    = - sum_{cause T_m<=t*} zbar(T_m)/S0(T_m)
+   Y^FG_i(T_m) is i's IPCW weight in the subdistribution risk set at T_m
+   (1 if genuinely at risk; G(T_m)/G(T_i) if a past competing event; else 0),
+   matching the weights the engine uses to build S0.
+
+   Var(CIF) = sum_i psi_i^2 (cluster-summed when clust_str given). This is the
+   influence-function (sandwich) variance treating the IPCW censoring weights as
+   known; it is accurate under light-to-moderate censoring but mildly
+   anti-conservative under heavy censoring, where the bootstrap option of
+   finegray_cif / finegray_predict gives the exact band.
+
+   Core routine: given the estimation design (Z, t, t0, delta, event_type, beta,
+   byg_id, clust_id) and a k x (1+p) matrix of evaluation points E (col 1 = time,
+   cols 2.. = covariate profile), returns a k x 2 matrix (CIF, SE). The two
+   public entry points (_st for a Stata matrix of points, _predict for one point
+   per observation) both delegate here so the influence-function logic lives in
+   one place. */
+real matrix _finegray_cif_core(
+    real matrix Z,
+    real colvector t,
+    real colvector t0,
+    real colvector delta,
+    real colvector event_type,
+    real colvector beta,
+    real colvector byg_id,
+    real colvector clust_id,
+    real scalar has_clust,
+    real scalar cause,
+    real scalar censval,
+    real matrix E)
+{
+    real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector Tm, S0m, Gm, obsm, cum_invS0, own, sub, q, psi, score_vec
+    real colvector atrisk, fict, w, clev, sel
+    real matrix info_mat, info_inv, scores, PSIb, zbarm, out
+    real rowvector risk_S1, bwd_s1_raw, zstar, bvec, S1_t
+    real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, bwd_s0_raw, S0_t
+    real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+
+    n = rows(Z)
+    p = cols(Z)
+
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+
+    _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
+        score_vec, info_mat, t0)
+    info_inv = invsym(info_mat)
+    if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+
+    scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
+        Z, beta, G, t0)
+    PSIb = scores * info_inv
+
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    ord = order(t, 1)
+    entry_ord = order(t0, 1)
+
+    /* Event scan: per cause-event arrays in ascending time */
+    M = sum(is_cause)
+    Tm = J(M, 1, .); S0m = J(M, 1, .); Gm = J(M, 1, .); obsm = J(M, 1, .)
+    zbarm = J(M, p, .)
+    risk_S0 = 0; risk_S1 = J(1, p, 0); ep = 1
+    bwd_s0_raw = 0; bwd_s1_raw = J(1, p, 0); ev = 0; i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] > cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                risk_S0 = risk_S0 + expeta[idx]
+                risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                S0_t = risk_S0 + G[idx] * bwd_s0_raw
+                S1_t = risk_S1 + G[idx] * bwd_s1_raw
+                ev++
+                Tm[ev] = t[idx]; S0m[ev] = S0_t; Gm[ev] = G[idx]; obsm[ev] = idx
+                zbarm[ev, .] = S1_t / S0_t
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
+                bwd_s1_raw = bwd_s1_raw + expeta[idx] / G[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            risk_S0 = risk_S0 - expeta[idx]
+            risk_S1 = risk_S1 - expeta[idx] * Z[idx, .]
+        }
+        i = j
+    }
+    cum_invS0 = runningsum(1 :/ S0m)
+
+    ne = rows(E)
+    out = J(ne, 2, 0)
+    for (e = 1; e <= ne; e++) {
+        tstar = E[e, 1]
+        zstar = E[e, (2..p + 1)]
+        mstar = colsum(Tm :<= tstar)
+        if (mstar == 0) {
+            out[e, 1] = 0; out[e, 2] = 0
+            continue
+        }
+        L0 = cum_invS0[mstar]
+        bvec = -colsum(zbarm[(1..mstar), .] :/ S0m[(1..mstar)])
+        rstar = exp(zstar * beta)
+        cif = 1 - exp(-L0 * rstar)
+        factor = rstar * exp(-L0 * rstar)
+
+        own = J(n, 1, 0)
+        sub = J(n, 1, 0)
+        for (m = 1; m <= mstar; m++) {
+            own[obsm[m]] = 1 / S0m[m]
+            atrisk = (t0 :<= Tm[m]) :& (t :>= Tm[m])
+            fict = is_compete :& (t :< Tm[m])
+            w = atrisk :+ (fict :* (Gm[m] :/ G))
+            sub = sub :+ w :/ (S0m[m] ^ 2)
+        }
+        q = own - expeta :* sub
+        psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
+
+        if (has_clust) {
+            clev = uniqrows(clust_id)
+            V = 0
+            for (k = 1; k <= rows(clev); k++) {
+                sel = selectindex(clust_id :== clev[k])
+                V = V + colsum(psi[sel]) ^ 2
+            }
+        }
+        else V = colsum(psi :^ 2)
+
+        out[e, 1] = cif
+        out[e, 2] = sqrt(V)
+    }
+    return(out)
+}
+
+/* Read estimation design + a Stata matrix of evaluation points; post CIF/SE. */
+void _finegray_cif_var_st(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar clust_str,
+    string scalar tousevar,
+    string scalar evalmat,
+    string scalar outmat)
+{
+    real matrix Z, E, out
+    real colvector t, t0, delta, event_type, beta, byg_id, clust_id
+    real scalar n, has_clust
+
+    Z = st_data(., tokens(zvars), tousevar)
+    t = st_data(., "_t", tousevar)
+    t0 = st_data(., "_t0", tousevar)
+    delta = st_data(., "_d", tousevar)
+    event_type = st_data(., events_str, tousevar)
+    n = rows(Z)
+    beta = st_matrix("e(b)")'
+    if (byg_str != "") byg_id = st_data(., byg_str, tousevar)
+    else byg_id = J(n, 1, 1)
+    has_clust = (clust_str != "")
+    if (has_clust) clust_id = st_data(., clust_str, tousevar)
+    else clust_id = J(n, 1, .)
+
+    E = st_matrix(evalmat)
+    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id,
+        clust_id, has_clust, cause, censval, E)
+    st_matrix(outmat, out)
+}
+
+/* Per-observation CIF + SE: evaluate at each eval-sample observation's own time
+   (tvar) and covariate profile, storing into cifvar and sevar. The estimation
+   design is read from est_touse (e(sample)); the evaluation points from
+   eval_touse (predict's if/in sample). */
+void _finegray_cif_predict(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar clust_str,
+    string scalar est_touse,
+    string scalar eval_touse,
+    string scalar tvar,
+    string scalar cifvar,
+    string scalar sevar)
+{
+    real matrix Z, Zev, E, out
+    real colvector t, t0, delta, event_type, beta, byg_id, clust_id
+    real colvector etouse, sel, tev
+    real scalar n, has_clust
+
+    Z = st_data(., tokens(zvars), est_touse)
+    t = st_data(., "_t", est_touse)
+    t0 = st_data(., "_t0", est_touse)
+    delta = st_data(., "_d", est_touse)
+    event_type = st_data(., events_str, est_touse)
+    n = rows(Z)
+    beta = st_matrix("e(b)")'
+    if (byg_str != "") byg_id = st_data(., byg_str, est_touse)
+    else byg_id = J(n, 1, 1)
+    has_clust = (clust_str != "")
+    if (has_clust) clust_id = st_data(., clust_str, est_touse)
+    else clust_id = J(n, 1, .)
+
+    etouse = st_data(., eval_touse)
+    sel = selectindex(etouse :!= 0)
+    tev = st_data(sel, tvar)
+    Zev = st_data(sel, tokens(zvars))
+    E = (tev, Zev)
+
+    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id,
+        clust_id, has_clust, cause, censval, E)
+    st_store(sel, cifvar, out[., 1])
+    st_store(sel, sevar, out[., 2])
+}
+
+/* Bootstrap helper: CIF at a grid of times for one covariate profile, from the
+   currently posted e(b)/e(basehaz). Returns an ng x 1 matrix. Used by
+   finegray_cif's bootstrap band (one call per replication). */
+void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar omat)
+{
+    real rowvector zr
+    real colvector beta, gg, cif
+    real matrix bh
+    real scalar p, ng, i, k, nb, xb, h, ti
+    zr = st_matrix(zmat)
+    beta = st_matrix("e(b)")'
+    p = rows(beta)
+    xb = 0
+    for (k = 1; k <= p; k++) xb = xb + zr[k] * beta[k]
+    bh = st_matrix("e(basehaz)")
+    nb = rows(bh)
+    gg = st_matrix(gmat)
+    ng = rows(gg)
+    cif = J(ng, 1, 0)
+    for (i = 1; i <= ng; i++) {
+        ti = gg[i]
+        h = 0
+        for (k = 1; k <= nb; k++) {
+            if (bh[k, 1] <= ti) h = bh[k, 2]
+            else break
+        }
+        cif[i] = 1 - exp(-h * exp(xb))
+    }
+    st_matrix(omat, cif)
+}
+
+/* Bootstrap helper: per-observation CIF at each eval observation's own time
+   (tvar) from the currently posted e(b)/e(basehaz), accumulated into the
+   running sum (sumv) and sum-of-squares (ssv) variables. Used by
+   finegray_predict's bootstrap CI (one call per replication). */
+void _finegray_boot_cif_obs(
+    string scalar zvars,
+    string scalar tvar,
+    string scalar touse,
+    string scalar sumv,
+    string scalar ssv)
+{
+    real matrix Z, bh
+    real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel
+    real scalar nb, n, i, k, h, ti
+    beta = st_matrix("e(b)")'
+    bh = st_matrix("e(basehaz)")
+    nb = rows(bh)
+    tousev = st_data(., touse)
+    sel = selectindex(tousev :!= 0)
+    Z = st_data(sel, tokens(zvars))
+    tt = st_data(sel, tvar)
+    n = rows(Z)
+    xb = Z * beta
+    cif = J(n, 1, 0)
+    for (i = 1; i <= n; i++) {
+        ti = tt[i]
+        h = 0
+        for (k = 1; k <= nb; k++) {
+            if (bh[k, 1] <= ti) h = bh[k, 2]
+            else break
+        }
+        cif[i] = 1 - exp(-h * exp(xb[i]))
+    }
+    sumc = st_data(sel, sumv)
+    ssc = st_data(sel, ssv)
+    st_store(sel, sumv, sumc :+ cif)
+    st_store(sel, ssv, ssc :+ cif :^ 2)
 }
 
 /* Step function lookup via binary search: O(n log n_bh) instead of O(n * n_bh).

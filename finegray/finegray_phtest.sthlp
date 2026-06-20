@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  06apr2026}{...}
+{* *! version 1.1.0  21jun2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
@@ -111,7 +111,7 @@ The per-variable tests use scaled Schoenfeld residuals correlated with a time fu
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-06{p_end}
+{pstd}Version 1.1.0, 2026-06-21{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

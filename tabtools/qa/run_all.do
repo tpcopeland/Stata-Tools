@@ -70,6 +70,7 @@ local test_files "`test_files' test_survtab.do"
 local test_files "`test_files' test_table1_tc.do"
 local test_files "`test_files' test_tabtools.do"
 local test_files "`test_files' test_tabtools_tips.do"
+local test_files "`test_files' test_option_coverage.do"
 
 local validation_files ""
 local validation_files "`validation_files' validation_corrtab.do"

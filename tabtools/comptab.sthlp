@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -42,7 +42,7 @@
 {synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select rows by rendered row-label substring{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
+{synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
@@ -282,7 +282,7 @@ For a runnable public-data workflow, see {help tabtools_tips:tabtools_tips}.{p_e
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 
 {marker alsosee}{...}

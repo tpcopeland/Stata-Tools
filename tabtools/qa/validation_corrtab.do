@@ -485,6 +485,69 @@ else {
 
 }  // close `if has_checker' block (Excel-checker VA tests)
 
+* =========================================================================
+**# VP: corrtab CALCULATED Pearson p-values match an independent oracle
+*   The correlation values r(C) come from pwcorr/spearman (validated in V1/V2),
+*   but the Pearson p-values in r(P) are COMPUTED in corrtab.ado as
+*       t = r*sqrt((n-2)/(1-r^2)) ;  p = 2*ttail(n-2, |t|)
+*   -- not sourced from a Stata command. The correlation t-test p-value is
+*   identical to the slope t-test p-value of a simple linear regression, so
+*   regress is an independent Stata-engine oracle. We also cross-check the
+*   closed-form r->t->p against the returned correlation, and confirm the
+*   Spearman path passes through spearman's r(p).
+* =========================================================================
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+
+    * --- Pearson: capture ALL corrtab returns into locals BEFORE regress
+    *     clobbers r()/e() ---
+    corrtab price mpg weight, xlsx("`output_dir'/_val_corrtab_p.xlsx") sheet("p")
+    local p_pm = r(P)[2,1]      // price-mpg
+    local p_pw = r(P)[3,1]      // price-weight
+    local p_mw = r(P)[3,2]      // mpg-weight
+    local r_pm = r(C)[2,1]
+    local n_obs = r(N)[2,1]     // r(N) is the pairwise-N matrix; [2,1] = price-mpg pair
+
+    * Oracle 1: regress slope p-value (identical to the correlation p by
+    * construction) -- a genuinely independent engine.
+    quietly regress price mpg
+    local reg_p_pm = 2*ttail(e(df_r), abs(_b[mpg]/_se[mpg]))
+    assert abs(`p_pm' - `reg_p_pm') < 1e-9
+
+    quietly regress price weight
+    local reg_p_pw = 2*ttail(e(df_r), abs(_b[weight]/_se[weight]))
+    assert abs(`p_pw' - `reg_p_pw') < 1e-9
+
+    quietly regress mpg weight
+    local reg_p_mw = 2*ttail(e(df_r), abs(_b[weight]/_se[weight]))
+    assert abs(`p_mw' - `reg_p_mw') < 1e-9
+
+    * Oracle 2: closed-form r->t->p from the returned correlation/N.
+    *   Parenthesize (`r_pm')^2 -- for a negative r, 1-`r_pm'^2 would expand to
+    *   1 - -.47^2 = 1-(-(.47^2)), since ^ binds tighter than unary minus.
+    local t_pm = `r_pm'*sqrt((`n_obs'-2)/(1-(`r_pm')^2))
+    local hand_p_pm = 2*ttail(`n_obs'-2, abs(`t_pm'))
+    assert abs(`p_pm' - `hand_p_pm') < 1e-9
+
+    * --- Spearman: r(P) must pass through spearman's r(p) ---
+    sysuse auto, clear
+    corrtab price mpg, spearman xlsx("`output_dir'/_val_corrtab_psp.xlsx") sheet("p")
+    local sp_p = r(P)[2,1]
+    quietly spearman price mpg
+    assert abs(`sp_p' - r(p)) < 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: VP corrtab calculated p-values match regress/closed-form/spearman"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VP corrtab calculated p-values (error `=_rc')"
+    local ++fail_count
+}
+capture erase "`output_dir'/_val_corrtab_p.xlsx"
+capture erase "`output_dir'/_val_corrtab_psp.xlsx"
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""

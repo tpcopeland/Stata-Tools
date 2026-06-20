@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.0.0  2026/04/06
+*! finegray_predict Version 1.1.0  2026/06/21
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -29,10 +29,23 @@ program define finegray_predict, nclass sortpreserve
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _held = 0
+    local _bframe = 0
 
     capture noisily {
 
-    syntax newvarname [if] [in] , [CIF XB SCHoenfeld TIMEvar(varname numeric)]
+    syntax newvarname [if] [in] , ///
+        [CIF XB SCHoenfeld TIMEvar(varname numeric) CI Level(cilevel) ///
+         BOOTstrap(integer 0) SEED(string)]
+
+    if `bootstrap' < 0 {
+        display as error "bootstrap() must be a non-negative integer"
+        exit 198
+    }
+    if `bootstrap' > 0 & "`ci'" == "" {
+        display as error "bootstrap() requires the ci option"
+        exit 198
+    }
 
     * Check finegray was run
     if "`e(cmd)'" != "finegray" {
@@ -49,7 +62,35 @@ program define finegray_predict, nclass sortpreserve
     }
     if `n_types' == 0 local xb "xb"
 
+    if "`ci'" != "" & "`cif'" == "" {
+        display as error "ci requires the cif option"
+        exit 198
+    }
+    if "`level'" == "" local level = c(level)
+
     marksample touse, novarlist
+
+    * CI uses influence functions that require the original estimation data
+    if "`ci'" != "" {
+        capture confirm variable _t
+        if _rc {
+            display as error "ci requires the original stset estimation data"
+            display as error "use {bf:finegray_predict, cif} for the point CIF on new data"
+            exit 111
+        }
+        quietly replace `touse' = 0 if !e(sample)
+    }
+
+    * For CI, the influence-function variance needs the full estimation design,
+    * so reconstruct covariates over e(sample) (a superset of touse); the CIF
+    * itself is still evaluated only at touse. Without ci the basis is touse
+    * (predictions, possibly on new data).
+    local _fvbasis "`touse'"
+    if "`ci'" != "" {
+        tempvar _esamp
+        quietly gen byte `_esamp' = e(sample)
+        local _fvbasis "`_esamp'"
+    }
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -87,14 +128,14 @@ program define finegray_predict, nclass sortpreserve
     local _score_varlist "`e(covariates)'"
     local _score_labels "`e(covariates)'"
     if `"`e(fvvarlist)'"' != "" {
-        capture noisily fvexpand `e(fvvarlist)' if `touse'
+        capture noisily fvexpand `e(fvvarlist)' if `_fvbasis'
         if _rc {
             display as error "unable to expand factor-variable terms for prediction"
             exit _rc
         }
         local _fv_semantic `r(varlist)'
 
-        capture noisily fvrevar `e(fvvarlist)' if `touse'
+        capture noisily fvrevar `e(fvvarlist)' if `_fvbasis'
         if _rc {
             display as error "unable to reconstruct factor-variable design for prediction"
             exit _rc
@@ -231,6 +272,91 @@ program define finegray_predict, nclass sortpreserve
         quietly gen `typlist' `varlist' = ///
             1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
         label variable `varlist' "CIF prediction"
+
+        * Confidence interval via influence-function SE of the CIF
+        if "`ci'" != "" {
+            local lci "`varlist'_lci"
+            local uci "`varlist'_uci"
+            confirm new variable `lci'
+            confirm new variable `uci'
+
+            tempvar cif_chk se_cif
+            quietly gen double `cif_chk' = .
+            quietly gen double `se_cif' = .
+            if `bootstrap' > 0 {
+                * Exact SE via subject bootstrap; resample in a separate frame
+                * so the eval data (and accumulators) stay intact, and hold the
+                * user's e() across the refits.
+                local _fgid `"`_dta[st_id]'"'
+                local _fgcmd `"`e(cmdline)'"'
+                tempvar _bsum _bss
+                quietly gen double `_bsum' = 0 if `touse'
+                quietly gen double `_bss' = 0 if `touse'
+
+                tempname _bf
+                frame copy `c(frame)' `_bf'
+                local _bframe = 1
+                frame `_bf': quietly keep if e(sample)
+                tempfile _bdata
+                frame `_bf': quietly save `"`_bdata'"'
+
+                tempname _esth
+                _estimates hold `_esth', restore
+                local _held = 1
+                if "`seed'" != "" set seed `seed'
+
+                local _bok = 0
+                forvalues b = 1/`bootstrap' {
+                    frame `_bf' {
+                        quietly use `"`_bdata'"', clear
+                        bsample
+                        quietly replace `_fgid' = _n
+                        capture `_fgcmd'
+                        local _reprc = _rc
+                    }
+                    if `_reprc' continue
+                    quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
+                        "`tvar'", "`touse'", "`_bsum'", "`_bss'")
+                    local ++_bok
+                }
+                frame drop `_bf'
+                local _bframe = 0
+                _estimates unhold `_esth'
+                local _held = 0
+
+                if `_bok' < 2 {
+                    display as error "bootstrap failed: too few successful replications (`_bok')"
+                    exit 498
+                }
+                quietly replace `se_cif' = ///
+                    sqrt((`_bss' - `_bsum'^2/`_bok')/(`_bok'-1)) if `touse'
+            }
+            else {
+                mata: _finegray_cif_predict( ///
+                    "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
+                    `=e(censvalue)', "`e(strata)'", "`e(clustvar)'", ///
+                    "`_fvbasis'", "`touse'", "`tvar'", "`cif_chk'", "`se_cif'")
+            }
+
+            * Complementary log-log limits keep the interval inside (0,1):
+            * g = ln(-ln(1-CIF)), SE(g) = SE(CIF)/((1-CIF)*(-ln(1-CIF)))
+            local z = invnormal(1 - (1 - `level'/100)/2)
+            tempvar gpt segp
+            quietly gen double `gpt' = ln(-ln(1 - `varlist')) ///
+                if `touse' & `varlist' > 0 & `varlist' < 1
+            quietly gen double `segp' = `se_cif' / ///
+                ((1 - `varlist') * (-ln(1 - `varlist'))) ///
+                if `touse' & `varlist' > 0 & `varlist' < 1
+            quietly gen double `lci' = ///
+                1 - exp(-exp(`gpt' - `z' * `segp')) if `touse'
+            quietly gen double `uci' = ///
+                1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
+            * Degenerate CIF (0 or 1): interval collapses to the point
+            quietly replace `lci' = `varlist' if `touse' & `lci' >= .
+            quietly replace `uci' = `varlist' if `touse' & `uci' >= .
+            label variable `lci' "CIF lower `level'% limit"
+            label variable `uci' "CIF upper `level'% limit"
+        }
     }
     else if "`schoenfeld'" != "" {
         * Schoenfeld residuals: creates stub_1, stub_2, ... for each covariate
@@ -266,8 +392,9 @@ program define finegray_predict, nclass sortpreserve
         if "`byg_var'" != "" {
             local _byg_nvar : word count `byg_var'
             if `_byg_nvar' > 1 {
-                quietly egen long _finegray_byg = group(`byg_var')
-                local _byg_mata "_finegray_byg"
+                tempvar _byg_grp
+                quietly egen long `_byg_grp' = group(`byg_var')
+                local _byg_mata "`_byg_grp'"
             }
         }
 
@@ -351,6 +478,8 @@ program define finegray_predict, nclass sortpreserve
     } /* end capture noisily */
 
     local rc = _rc
+    if `_bframe' capture frame drop `_bf'
+    if `_held' capture _estimates unhold `_esth'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

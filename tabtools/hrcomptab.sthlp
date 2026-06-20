@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -47,7 +47,7 @@
 {synopt:{opt rown:ames(string)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel and Markdown output file (.xlsx){p_end}
+{synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
@@ -261,7 +261,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 
 {marker alsosee}{...}

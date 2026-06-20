@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -69,12 +69,12 @@ colors — are supported.{p_end}
 {synopt:{opt ev:ents}}add aggregate Events / N row per group{p_end}
 
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}Excel and Markdown output file; {opt excel()} is a synonym{p_end}
+{synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}; {opt excel()} is a synonym{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Survival"}{p_end}
 {synopt:{opt title(string)}}table title in row 1{p_end}
 {synopt:{opt foot:note(string)}}footnote below the table{p_end}
 {synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export a CSV file alongside Excel and Markdown output{p_end}
+{synopt:{opt csv(filename)}}export a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace{p_end}
@@ -163,6 +163,6 @@ colors — are supported.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {hline}

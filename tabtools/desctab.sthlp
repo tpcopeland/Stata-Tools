@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table" "help table"}{...}
 {vieweralsosee "collect" "help collect"}{...}
@@ -89,7 +89,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt the:me(string)}}Journal-style font and border theme shared across tabtools; use {opt headershade}/{opt zebra} for shaded fills.{p_end}
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
-{synopt:{opt csv(string)} {opt markdown(filename)} {opt mdappend}}also export the display table as CSV.{p_end}
+{synopt:{opt csv(string)}}also export the display table as CSV.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame.{p_end}
@@ -157,6 +157,6 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {hline}

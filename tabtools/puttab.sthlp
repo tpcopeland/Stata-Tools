@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -32,7 +32,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {marker syntax}{...}
 {title:Syntax}
 
-{p 4 8 2}{cmd:puttab} [{varlist}] [{it:if}] [{it:in}] {cmd:using} {it:filename}{cmd:.xlsx}{cmd:,}
+{p 4 8 2}{cmd:puttab} [{varlist}] [{it:if}] [{it:in}] [{cmd:using} {it:filename}{cmd:.xlsx}]{cmd:,}
 [{opt sh:eet(string)}
 {opt fra:me(name)} {opt m:atrix(name)}
 {opt ti:tle(string)} {opt foot:note(string)}
@@ -49,14 +49,18 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 restrict rows for the current-data or {opt frame()} source and are not allowed
 with {opt matrix()}.{p_end}
 
+{pstd}Specify either {cmd:using} {it:filename}{cmd:.xlsx} for Excel output or
+{opt markdown(filename)} for Markdown-only output. {opt open} requires an
+Excel workbook target.{p_end}
+
 {marker description}{...}
 {title:Description}
 
-{pstd}{cmd:puttab} writes a single, publication-styled Excel sheet from a table
-that is already in memory: the current dataset, a named {helpb frames:frame}, or
-a Stata {it:matrix} such as {cmd:e(b)}, {cmd:r(table)}, or the result of a
-{helpb collapse} or {helpb tabulate}. It closes the gap between raw in-memory
-results and a formatted sheet, replacing ad hoc
+{pstd}{cmd:puttab} renders a single, publication-styled table from data already
+in memory: the current dataset, a named {helpb frames:frame}, or a Stata
+{it:matrix} such as {cmd:e(b)}, {cmd:r(table)}, or the result of a
+{helpb collapse} or {helpb tabulate}. With an Excel target, it closes the gap
+between raw in-memory results and a formatted sheet, replacing ad hoc
 {cmd:export excel ..., firstrow()} dumps and hand-built {helpb putexcel} blocks
 with the shared tabtools geometry: a left-justified title in cell A1, a thin
 spacer column A so the table body is always anchored at cell B2, a header rule,
@@ -71,10 +75,10 @@ numeric columns are formatted to {opt digits()} decimals. Integer-valued numeric
 columns are written without decimals, and value labels are honored when
 present.{p_end}
 
-{pstd}The named {opt sheet()} is created if it does not exist and replaced if it
-does, so repeated calls to the same workbook build up a multi-sheet file that
-{helpb stacktab} can then assemble. The current data, frames, and matrices in
-memory are left unchanged.{p_end}
+{pstd}When an Excel workbook is written, the named {opt sheet()} is created if
+it does not exist and replaced if it does, so repeated calls to the same
+workbook build up a multi-sheet file that {helpb stacktab} can then assemble.
+The current data, frames, and matrices in memory are left unchanged.{p_end}
 
 {marker options}{...}
 {title:Options}
@@ -93,12 +97,12 @@ memory are left unchanged.{p_end}
 {dlgtab:Output}
 
 {synoptset 26 tabbed}{...}
-{synopt:{cmd:using} {it:filename}}target workbook; must end in {cmd:.xlsx}; the {opt sheet()} is created or replaced{p_end}
+{synopt:{cmd:using} {it:filename}}optional Excel target workbook; must end in {cmd:.xlsx}; the {opt sheet()} is created or replaced{p_end}
 {synopt:{opt sh:eet(string)}}Excel sheet name; default is {cmd:Table}{p_end}
 {synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel and CSV exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt open}}open the Excel file after export{p_end}
+{synopt:{opt open}}open the Excel file after export; requires {cmd:using}{p_end}
 {synoptline}
 
 {dlgtab:Formatting}
@@ -157,11 +161,11 @@ memory are left unchanged.{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(sheet)}}sheet name, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
-{synopt:{cmd:r(file)}}Excel filename{p_end}
+{synopt:{cmd:r(file)}}Excel filename, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
 
 {marker alsosee}{...}
@@ -177,6 +181,6 @@ memory are left unchanged.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {hline}

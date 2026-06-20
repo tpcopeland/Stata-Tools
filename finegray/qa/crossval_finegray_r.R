@@ -11,10 +11,19 @@
 #
 # Requires: cmprsk (>= 2.2), fastcmprsk (>= 1.24)
 
+# cmprsk::crr is the authoritative Fine-Gray reference and is required.
+# fastcmprsk::fastCrr is a secondary cross-check; it has been archived on CRAN
+# and may be unavailable on newer R. Load it optionally so the cmprsk parity
+# still runs when fastcmprsk is absent.
 suppressPackageStartupMessages({
     library(cmprsk)
-    library(fastcmprsk)
 })
+have_fast <- requireNamespace("fastcmprsk", quietly = TRUE)
+if (have_fast) {
+    suppressPackageStartupMessages(library(fastcmprsk))
+} else {
+    cat("NOTE: fastcmprsk unavailable; running cmprsk parity only\n")
+}
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2) {
@@ -166,6 +175,10 @@ for (ds in datasets) {
     # --- fastcmprsk::fastCrr (skip for strata-only datasets) ---
     if (has_strata) {
         cat(sprintf("\n--- Skipping fastCrr for %s (strata dataset) ---\n", ds))
+        next
+    }
+    if (!have_fast) {
+        cat(sprintf("\n--- Skipping fastCrr for %s (fastcmprsk unavailable) ---\n", ds))
         next
     }
     cat(sprintf("\n--- fastcmprsk::fastCrr for %s ---\n", ds))

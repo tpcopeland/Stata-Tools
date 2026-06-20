@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -100,7 +100,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt smdt:hreshold(#)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color; supported Stata color name or RGB triplet such as {cmd:"200 220 240"}{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra stripe color; supported Stata color name or RGB triplet such as {cmd:"240 245 250"}{p_end}
-{synopt:{opt csv("filename")} {opt markdown(filename)} {opt mdappend}}also export as CSV file{p_end}
+{synopt:{opt csv("filename")}}also export as CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
@@ -299,7 +299,7 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {title:Also see}
 

@@ -84,6 +84,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_package_integration.do` | Cross-command behavior: theme/defaults propagation (`tabtools set` → consumers), persistent digits/boldp, frame(name, replace) for all frame-capable commands, frame() pre-existing rejection, addrow()/pdp() across commands, CSV/markdown export parity, post-estimation e() preservation, eplot bridge + section folding (**requires sibling eplot**) |
 | `test_package_adversarial.do` | Adversarial breakage sweep, 3-perspective stress suite, export-failure r() survival contracts (full r() surface must survive a failed export) |
 | `test_package_release.do` | Release gates: required artifacts, canonical stata.toc/.pkg author lines, .pkg ships every file, installed-user contracts, sthlp version consistency, demo artifacts regenerate (rewrites `demo/` in place — by design), golden-output digests vs `baseline/summaries/` |
+| `test_option_coverage.do` | Drives per-command OPTION coverage to 100% of the testable surface: every public option of every command is passed in a real invocation and accepted (see [Option coverage](#option-coverage)). Excludes `open` (GUI launch). |
 
 ### Validation (known answers, oracles, invariants)
 
@@ -93,10 +94,10 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `validation_regtab.do` | Native-stats suite; coefficients/CIs/p-values vs `e()`, r(table) algebra, Excel accuracy, pdp formatting |
 | `validation_effecttab.do` | ATE vs `e(b)`/`teffects`, SE/CI consistency, stored-results content |
 | `validation_stratetab.do` | Structure/content of rate scaffolds, return values |
-| `validation_survtab.do` | KM estimates vs `sts`, events/atrisk conservation, log-rank cross-checks, Excel survival probabilities, rendering checks (`tools/check_tabtools_render.py`) |
+| `validation_survtab.do` | KM estimates vs `sts`, events/atrisk conservation, log-rank cross-checks, in-code RMST point/SE/CI bounds vs `stci, rmean` oracle, Excel survival probabilities, rendering checks (`tools/check_tabtools_render.py`) |
 | `validation_crosstab.do` | Hand-computed 2x2 OR/RR/RD/chi2, counts vs `tabulate` |
 | `validation_diagtab.do` | Algebraic identities (LR+/-, DOR, Youden, F1), full CI-bound surface for both wilson and exact (Se/Sp/PPV/NPV/accuracy/LR/DOR/AUC bounds vs `cii proportions` oracle, ordering + in-range), cutoff-table monotonicity, confusion matrix in Excel |
-| `validation_corrtab.do` | Correlations vs `pwcorr`, symmetry, Excel accuracy |
+| `validation_corrtab.do` | Correlations vs `pwcorr`/`spearman`, symmetry, in-code Pearson p-values (r->t->p) vs `regress` slope-p oracle + closed form, Spearman p passthrough, Excel accuracy |
 | `validation_simtab.do` | Exact known-answer + simsum oracle for performance measures |
 | `validation_package.do` | Cross-command consistency (commands agree on shared statistics), universal sanity bounds, detect_vartype accuracy, set/get round-trip, comptab source-frame preservation, frame-Excel parity |
 
@@ -111,7 +112,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | Path | Contents |
 |------|----------|
-| `tools/` | `check_xlsx.py` (cell/style assertions), `check_markdown.py`, `summarize_xlsx.py` (payload digests), `check_stacktab.py`, `check_tabtools_render.py`, `style_engine_compare.py` |
+| `tools/` | `check_xlsx.py` (cell/style assertions), `check_markdown.py`, `summarize_xlsx.py` (payload digests), `check_stacktab.py`, `check_tabtools_render.py`, `style_engine_compare.py`, `option_coverage.py` (per-command option-coverage diagnostic) |
 | `data/` | Tracked crossval fixture CSVs (R reference results) |
 | `baseline/` | Tracked golden-output digest TSVs + `baseline_manifest.tsv` (consumed by `test_package_release.do`) |
 | `output/` | Generated artifacts (gitignored) |
@@ -136,3 +137,51 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | simtab | test_simtab | validation_simtab | release |
 | tabtools (controller) | test_tabtools | validation_package (V10) | integration (set propagation), release |
 | tabtools_tips | test_tabtools_tips | — | release |
+
+## Option coverage
+
+Coverage here means **per-command option exercise**: an option counts only when
+it is passed in a *real invocation of its own command* somewhere in the suite —
+a bare token appearing in another command's test does not count. This is
+stricter than a package-wide name scan (which trivially reports 100%).
+
+- **Command coverage:** 16/16 (100%) — every public command has a test file.
+- **Testable option coverage: 438/438 (100%)** — every public option of every
+  command is passed in a real invocation and accepted.
+
+`test_option_coverage.do` is the dedicated driver; `tools/option_coverage.py`
+measures and verifies it (parses each `.ado` syntax block for the option
+surface, scans `test_*.do`/`validation_*.do` for invocations, reports gaps).
+
+| Command | Options | Testable | Exercised | Coverage |
+|---------|--------:|---------:|----------:|---------:|
+| `table1_tc` | 53 | 52 | 52 | 100% |
+| `desctab` | 37 | 36 | 36 | 100% |
+| `crosstab` | 30 | 29 | 29 | 100% |
+| `corrtab` | 24 | 23 | 23 | 100% |
+| `regtab` | 44 | 43 | 43 | 100% |
+| `effecttab` | 33 | 32 | 32 | 100% |
+| `survtab` | 32 | 31 | 31 | 100% |
+| `stratetab` | 29 | 28 | 28 | 100% |
+| `hrcomptab` | 25 | 24 | 24 | 100% |
+| `comptab` | 29 | 28 | 28 | 100% |
+| `diagtab` | 25 | 24 | 24 | 100% |
+| `puttab` | 18 | 17 | 17 | 100% |
+| `stacktab` | 17 | 17 | 17 | 100% |
+| `simtab` | 45 | 44 | 44 | 100% |
+| `tabtools` | 10 | 10 | 10 | 100% |
+| `tabtools_tips` | 1 | 0 | 0 | 100% |
+| **Total** | **452** | **438** | **438** | **100%** |
+
+**Excluded by design — `open` (14 commands).** It opens the workbook in the OS
+default application (`shell xdg-open`/`open`/`start`) and cannot be driven
+deterministically in batch, so it is not a coverage target. Raw coverage
+*including* `open` is 447/452 = 98.9% — the only uncounted options are `open`
+itself. `tabtools_tips` exposes only `open`, so it has no testable surface.
+
+Regenerate / verify:
+
+```
+python3 qa/tools/option_coverage.py          # table; exit status 1 on any gap
+python3 qa/tools/option_coverage.py --json    # machine-readable
+```

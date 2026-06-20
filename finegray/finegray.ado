@@ -1,4 +1,4 @@
-*! finegray Version 1.0.0  2026/04/06
+*! finegray Version 1.1.0  2026/06/21
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -99,17 +99,94 @@ program define finegray, eclass sortpreserve
         exit 198
     }
 
-    * Check one observation per subject in estimation sample
-    * (use egen total to count touse==1 per id; bysort _N counts all obs
-    * in by-group regardless of if qualifier, which falsely rejects valid
-    * data when id has out-of-sample records)
-    tempvar _fg_touse_count
-    quietly egen long `_fg_touse_count' = total(`touse'), by(`_dta[st_id]')
-    capture assert `_fg_touse_count' <= 1 if `touse'
-    if _rc {
-        display as error "finegray requires one observation per subject"
-        display as error "data appear to have multiple records per id"
-        exit 198
+    * =========================================================================
+    * MULTIPLE-RECORD REDUCTION
+    * =========================================================================
+    * Subjects may contribute multiple in-sample records (delayed entry /
+    * (start,stop] intervals / stsplit).  When covariates are constant within
+    * subject this is purely a data-shape issue: reduce each subject to a
+    * single risk-set unit (earliest entry, latest exit, final status) and let
+    * the engine's left-truncation handle the rest.  Genuinely time-varying
+    * covariates are NOT supported (the subdistribution hazard is undefined
+    * with internal time-varying covariates; cf. stcrreg has no tvc()).
+    local _fg_id `"`_dta[st_id]'"'
+    local _fg_nrecords = `N'
+
+    tempvar _fg_nrec
+    quietly egen long `_fg_nrec' = total(`touse'), by(`_fg_id')
+    quietly summarize `_fg_nrec' if `touse', meanonly
+    local _fg_maxrec = r(max)
+
+    tempvar _fg_entry
+    local _fg_reduced = 0
+    if `_fg_maxrec' > 1 {
+        * --- covariate constancy check (raw vars, strata, cluster) ---
+        local _fg_checkvars ""
+        foreach _cv of local _orig_varlist {
+            local _cvtok = subinstr(subinstr("`_cv'", "##", "#", .), "#", " ", .)
+            foreach _cp of local _cvtok {
+                if regexm("`_cp'", "\.(.+)$") local _cp = regexs(1)
+                capture confirm numeric variable `_cp'
+                if !_rc {
+                    local _seen : list posof "`_cp'" in _fg_checkvars
+                    if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `_cp'"
+                }
+            }
+        }
+        foreach _cv of local strata {
+            local _seen : list posof "`_cv'" in _fg_checkvars
+            if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `_cv'"
+        }
+        if "`cluster'" != "" {
+            local _seen : list posof "`cluster'" in _fg_checkvars
+            if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `cluster'"
+        }
+
+        tempvar _fg_sd
+        foreach _cv of local _fg_checkvars {
+            capture drop `_fg_sd'
+            quietly egen double `_fg_sd' = sd(`_cv') if `touse', by(`_fg_id')
+            capture assert (abs(`_fg_sd') < 1e-9 | `_fg_sd' >= .) if `touse'
+            if _rc {
+                display as error "finegray requires covariates constant within id()"
+                display as error "covariate `_cv' varies within subject"
+                display as error "the subdistribution hazard model is not defined with"
+                display as error "time-varying covariates; use {help stcox} for a"
+                display as error "cause-specific model with time-varying covariates"
+                exit 198
+            }
+        }
+
+        * --- gap / overlap check: intervals must be contiguous within id ---
+        * Covered follow-up time per subject must equal max(_t) - min(_t0).
+        tempvar _fg_len _fg_maxt _fg_mint0
+        quietly egen double `_fg_len' = total(cond(`touse', _t - _t0, 0)), ///
+            by(`_fg_id')
+        quietly egen double `_fg_maxt' = max(cond(`touse', _t, .)), by(`_fg_id')
+        quietly egen double `_fg_mint0' = min(cond(`touse', _t0, .)), by(`_fg_id')
+        capture assert reldif(`_fg_len', `_fg_maxt' - `_fg_mint0') < 1e-7 ///
+            if `touse' & (`_fg_maxt' - `_fg_mint0') > 0
+        if _rc {
+            display as error "finegray: subject records have gaps or overlaps"
+            display as error "each subject's intervals must be contiguous"
+            display as error "(no gaps or overlapping time spans); collapse to one"
+            display as error "record per subject before fitting"
+            exit 198
+        }
+
+        * --- reduce: keep the record at max(_t) per subject ---
+        quietly gen double `_fg_entry' = `_fg_mint0'
+        tempvar _fg_obs _fg_seen _fg_surv
+        gen long `_fg_obs' = _n
+        gsort `_fg_id' -_t -_d -`_fg_obs'
+        by `_fg_id': gen long `_fg_seen' = sum(`touse')
+        gen byte `_fg_surv' = (`touse' & `_fg_seen' == 1)
+        quietly replace `touse' = 0 if !`_fg_surv'
+
+        quietly count if `touse'
+        local N = r(N)
+        local _fg_reduced = 1
+        display as text "(note: `_fg_nrecords' records reduced to `N' subjects)"
     }
 
     * =========================================================================
@@ -410,13 +487,18 @@ program define finegray, eclass sortpreserve
     capture noisily {
         quietly keep if `touse'
 
+        * Use each subject's earliest entry time after multi-record reduction
+        * (engine left-truncation consumes _t0). Non-destructive: inside preserve.
+        if `_fg_reduced' quietly replace _t0 = `_fg_entry'
+
         * Combine multiple strata variables into a single group variable
         local _byg_mata "`strata'"
         if "`strata'" != "" {
             local _byg_nvar : word count `strata'
             if `_byg_nvar' > 1 {
-                quietly egen long _finegray_byg = group(`strata')
-                local _byg_mata "_finegray_byg"
+                tempvar _byg_grp
+                quietly egen long `_byg_grp' = group(`strata')
+                local _byg_mata "`_byg_grp'"
             }
         }
 

@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.8.2  2026/06/17
+*! _tabtools_table1_fast_collect Version 1.8.3  2026/06/21
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
@@ -58,7 +58,7 @@ into one composite sheet with {cmd:stacktab}.
 
 {syntab:Additional outputs}
 {synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame; use {cmd:frame("name, replace")} to replace{p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}export the composed table to CSV{p_end}
+{synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt dis:play}}list the composed table in the Results window before writing{p_end}
@@ -199,6 +199,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.8.2
+Version 1.8.3
 {p 4 4 2}
 {hline}

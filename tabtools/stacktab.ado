@@ -1,4 +1,4 @@
-*! stacktab Version 1.8.2  2026/06/17
+*! stacktab Version 1.8.3  2026/06/21
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -81,7 +81,7 @@ program define stacktab, rclass
             exit 198
         }
         local q = char(34)
-        foreach opt in title note csv {
+        foreach opt in title note csv markdown {
             if substr(`"``opt''"', 1, 1) == `"`q'"' & ///
                 substr(`"``opt''"', -1, 1) == `"`q'"' {
                 local `opt' = substr(`"``opt''"', 2, strlen(`"``opt''"') - 2)

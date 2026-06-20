@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.2  17jun2026}{...}
+{* *! version 1.8.3  21jun2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -44,7 +44,7 @@ likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
 intervals use Wilson score (default) or Clopper-Pearson exact method. If
 {opt cutoff()}, {opt cutoffs()}, and {opt optimal} are all omitted, {it:test_var}
 must already be coded 0/1. The completed table is displayed in the Results
-window and may also be exported to Excel or CSV, or stored in a Stata frame.{p_end}
+window and may also be exported to Excel, CSV, or Markdown, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
@@ -63,7 +63,7 @@ window and may also be exported to Excel or CSV, or stored in a Stata frame.{p_e
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
-{synopt:{opt csv(filename)} {opt markdown(filename)} {opt mdappend}}also export the output dataset as CSV{p_end}
+{synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
@@ -215,6 +215,6 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.2{p_end}
+{pstd}{bf:Version} 1.8.3{p_end}
 
 {hline}

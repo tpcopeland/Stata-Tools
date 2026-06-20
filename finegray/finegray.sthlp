@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.0.0  06apr2026}{...}
+{* *! version 1.1.0  21jun2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
+{vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -64,7 +65,7 @@
 {cmd:finegray_predict}
 {newvar}
 {ifin}{cmd:,}
-[{opt cif} {opt xb} {opt sch:oenfeld} {opt time:var(varname)}]
+[{opt xb} {opt cif} {opt sch:oenfeld} {opt time:var(varname)}]
 
 {p 8 17 2}
 {cmd:finegray_phtest}
@@ -149,6 +150,12 @@ The Fine-Gray model directly models the subdistribution hazard, which is the ins
 {pstd}
 {bf:Proportional hazards diagnostic:} Use {cmd:finegray_phtest} after estimation for an approximate test of the proportional subdistribution hazards assumption via scaled Schoenfeld residuals. See {helpb finegray_phtest} for details on the diagonal-only scaling and independent per-variable test structure. Both {cmd:finegray_phtest} and {cmd:finegray_predict, schoenfeld} require the original {cmd:stset} estimation data ({cmd:_t}, {cmd:_d}, and {cmd:e(sample)}); they cannot be run after loading a new dataset. {cmd:finegray_predict, xb} and {cmd:finegray_predict, cif} work on any dataset containing the model covariates.
 
+{pmore}
+{bf:Cumulative incidence curves:} Use {helpb finegray_cif} after estimation to plot the predicted CIF with a pointwise confidence band (an analogue of {cmd:stcurve, cif} that can also plot the interval), to report the CIF at fixed horizons such as 5 years, and to export the numeric estimates. For a confidence interval on each subject's CIF, use {cmd:finegray_predict, cif ci}.
+
+{pmore}
+{bf:Multiple records per subject:} {cmd:finegray} accepts datasets in which a subject contributes more than one in-sample record (delayed entry, {cmd:(start,stop]} intervals, or data run through {helpb stsplit}) as long as the model covariates are constant within {cmd:id()}. Such records are reduced automatically to one risk-set unit per subject (earliest entry, latest exit, final status), and the engine's left-truncation handles the entry times. Genuinely time-varying covariates are not supported and produce an error, because the subdistribution hazard is not defined with internal time-varying covariates (see {helpb stcox} for a cause-specific model with time-varying covariates).
+
 {pstd}
 {bf:Margins:} {cmd:margins} is supported after {cmd:finegray} for the linear predictor ({cmd:predict(xb)}) in models without factor-variable expansion. For factor-variable models, {cmd:margins} is not supported because the estimation uses generated design columns rather than native Stata factor notation.
 
@@ -159,7 +166,7 @@ The Fine-Gray model directly models the subdistribution hazard, which is the ins
 Point estimates (coefficients) and log pseudo-likelihoods are numerically identical across all four implementations. Against {cmd:cmprsk::crr}, coefficients match to 6 decimal places, robust SEs match to 3 decimal places, model-based SEs match to 6 decimal places, and CIF predictions match to 6 decimal places. Against {cmd:fastcmprsk::fastCrr}, coefficients and log-likelihoods match to 6 decimal places, and the baseline cumulative hazard matches to 8 decimal places. Against {cmd:stcrreg}, coefficients match within 1e-4 across all tested configurations including multiple covariate combinations, both causes, factor variables, cluster SEs, and left-truncated data. The {opt strata()} option is cross-validated against {cmd:crr(..., cengroup=)}; coefficients agree within 0.002 and SEs within 0.3%, reflecting minor differences in how the stratified censoring KM is computed internally.
 
 {pstd}
-{bf:Technical note on standard errors:} The only quantity where implementations diverge is standard errors, and this reflects differences in variance estimation approach rather than errors. {cmd:finegray} (default) and {cmd:cmprsk::crr} both compute IPCW sandwich SEs on the original (unexpanded) data, producing agreement to 3+ decimal places. {cmd:stcrreg} computes sandwich SEs on an expanded dataset; both are valid sandwich estimators but the different computational path produces ~0.5% relative SE differences. {cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed information matrix, matching to 6 decimal places. {cmd:fastcmprsk::fastCrr} uses bootstrap SEs (B=200), a fundamentally different variance estimator; wider divergence (up to ~50%) is expected. When {opt norobust} is specified, {cmd:finegray} reports the observed-information variance matrix. This is not a like-for-like replacement for {cmd:stcrreg}'s reported SEs.
+{bf:Technical note on standard errors:} The only quantity where implementations diverge is standard errors, and this reflects differences in variance estimation approach rather than errors. {cmd:finegray} (default) and {cmd:cmprsk::crr} both compute IPCW sandwich SEs on the original (unexpanded) data, producing agreement to 3+ decimal places. {cmd:stcrreg} computes sandwich SEs on an expanded dataset; both are valid sandwich estimators but the different computational path produces ~0.5% relative SE differences. {cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed information matrix, matching to 6 decimal places. {cmd:fastcmprsk::fastCrr} uses bootstrap SEs (B=200), a fundamentally different variance estimator; wider divergence (up to ~50%) is expected. The observed-information SEs reported under {opt norobust} are not a like-for-like replacement for {cmd:stcrreg}'s reported (sandwich) SEs.
 
 {pstd}
 {bf:Performance:} The forward-backward scan algorithm is O(np) per Newton-Raphson iteration, compared to O(nDp) for {cmd:stcrreg}, where D is the number of unique event times. Benchmarks on simulated competing risks data (3 covariates, Stata/MP):
@@ -306,7 +313,10 @@ Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on we
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
-{synopt:{cmd:e(basehaz)}}baseline cumulative subhazard (time, cumhazard){p_end}
+{synopt:{cmd:e(basehaz)}}baseline cumulative subdistribution hazard (time, cumhazard){p_end}
+
+{pstd}
+{cmd:e(basehaz)} holds the baseline cumulative subdistribution hazard H0(t) as a right-continuous step function: column {it:time} lists the distinct cause-of-interest event times and column {it:cumhazard} the corresponding H0(t). The baseline CIF (the analogue of {cmd:stcrreg}'s {cmd:basecif}) is 1 - exp(-{it:cumhazard}); an individual's CIF rescales the hazard by exp(z'beta). {helpb finegray_predict} uses this matrix to compute the {cmd:cif} prediction.
 
 {pstd}
 {cmd:finegray} also records dataset characteristics {cmd:_dta[_finegray_estimated]}, {cmd:_dta[_finegray_compete]}, {cmd:_dta[_finegray_cause]}, and {cmd:_dta[_finegray_covars]}. When factor variables are used it also records {cmd:_dta[_finegray_fvvars]} and {cmd:_dta[_finegray_fvvarlist]}. These persist with the dataset and allow subsequent {cmd:finegray} runs to clean up prior finegray-generated factor-variable columns safely.
@@ -316,7 +326,7 @@ Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on we
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-06{p_end}
+{pstd}Version 1.1.0, 2026-06-21{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
@@ -325,6 +335,6 @@ Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on we
 {title:Also see}
 
 {psee}
-Online: {helpb finegray_predict}, {helpb finegray_phtest}, {helpb stcrreg}, {helpb stcox}, {helpb stset}
+Online: {helpb finegray_predict}, {helpb finegray_cif}, {helpb finegray_phtest}, {helpb stcrreg}, {helpb stcox}, {helpb stset}
 
 {hline}
