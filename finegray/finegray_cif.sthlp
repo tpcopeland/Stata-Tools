@@ -126,7 +126,11 @@ analogue of {cmd:outfile} after {cmd:stcurve}.
 
 {phang}
 {it:twoway_options} are any of the options documented in {help twoway_options},
-for example {cmd:title()}, {cmd:xtitle()}, or {cmd:scheme()}.
+for example {cmd:title()}, {cmd:xtitle()}, or {cmd:scheme()}. These pass through
+to the CIF plot and override the defaults. The legend defaults to a single row;
+because repeated {cmd:legend()} options merge, you can adjust or suppress it from
+here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
+{cmd:legend(rows(2))}.
 
 
 {marker remarks}{...}

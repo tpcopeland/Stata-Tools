@@ -21,7 +21,7 @@ log using "`demodir'/demo_finegray.log", ///
     replace text name(_demo)
 
 capture ado uninstall finegray
-net install finegray, from("`pkgroot'")
+quietly net install finegray, from("`pkgroot'") replace
 
 * Graph scheme for the cumulative-incidence curve (v1.1.0)
 capture ado uninstall tc_schemes
@@ -126,17 +126,14 @@ log close _demo
 * =========================================================================
 * 8. Cumulative incidence curve with a 95% confidence band -> PNG (v1.1.0)
 * =========================================================================
+* finegray_cif draws the curve directly. Its legend defaults to a single row,
+* and all twoway/legend options pass through and override the defaults (here:
+* axis titles, a plot title, and the legend position).
 stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-finegray_cif, ci nograph saving("`demodir'/_cifcurve.dta", replace)
-preserve
-use "`demodir'/_cifcurve.dta", clear
-twoway (rarea lci uci time, color(%30) lwidth(none)) ///
-       (line cif time, lwidth(medthick)), ///
+finegray_cif, ci ///
     ytitle("Cumulative incidence of cause 1") ///
     xtitle("Analysis time (years)") ///
     title("Fine-Gray cumulative incidence with 95% band") ///
-    legend(pos(6) order(2 "CIF" 1 "95% CI"))
+    legend(pos(6))
 graph export "`demodir'/finegray_cif.png", replace width(1400)
-restore
-capture erase "`demodir'/_cifcurve.dta"

@@ -323,16 +323,19 @@ program define finegray_cif, rclass sortpreserve
             svmat double `R', names(col)
         }
         if "`mode'" == "curve" & "`graph'" != "nograph" {
+            * Default legend is a single row; because repeated legend()
+            * options merge, anything in `options' (e.g. legend(off),
+            * legend(rows(2)), legend(pos(6))) overrides these defaults.
             if "`ci'" != "" {
                 twoway (rarea lci uci time, color(%30) lwidth(none)) ///
                     (line cif time, lwidth(medthick)), ///
                     ytitle("Cumulative incidence") xtitle("Analysis time") ///
-                    legend(order(2 "CIF" 1 "`level'% CI")) `options'
+                    legend(order(2 "CIF" 1 "`level'% CI") rows(1)) `options'
             }
             else {
                 twoway (line cif time, lwidth(medthick)), ///
                     ytitle("Cumulative incidence") xtitle("Analysis time") ///
-                    legend(off) `options'
+                    legend(rows(1)) `options'
             }
         }
         if `"`savefile'"' != "" {
