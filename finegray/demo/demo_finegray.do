@@ -99,6 +99,16 @@ gen double t5 = 5
 finegray_predict cif5, cif timevar(t5) ci
 summarize cif5 cif5_lci cif5_uci
 
+* Fixed-horizon CIF for a specific covariate profile (at()) rather than means
+finegray_cif, at(ifp=20 tumsize=5 pelnode=1) attime(1 3 5 8) ci
+
+* Curve evaluated on a user-supplied time grid (timepoints())
+finegray_cif, timepoints(1 2 3 4 5 6 7 8) nograph
+
+* Exact subject-bootstrap confidence band as an alternative to the
+* analytic influence-function SE (bootstrap()/seed())
+finegray_cif, attime(1 3 5 8) ci bootstrap(200) seed(12345)
+
 * =========================================================================
 * 7. Multiple-record (stsplit) data is reduced automatically (v1.1.0)
 * =========================================================================

@@ -20,7 +20,12 @@ if _rc {
     local pkgroot "`pkgroot'/.."
 }
 local qadir "`pkgroot'/qa"
-local datadir "`qadir'/data"
+* Generated R cross-check CSVs are transient: write them to a temp directory so
+* nothing lands in (or churns) the tracked qa/ tree, and so a failed/absent R
+* run cannot silently validate against a stale committed copy (matches
+* crossval_cif.do, which already uses c(tmpdir)).
+local datadir "`c(tmpdir)'/finegray_xv_main"
+capture mkdir "`datadir'"
 
 capture log close _crossval_finegray
 log using "`qadir'/crossval_finegray.log", ///
