@@ -29,6 +29,14 @@
 *  21.  Multi-level ICC (sum of RE variances)            — regtab.ado (Fix 2)
 *  22.  MOR boundary: var=0 -> MOR=1, monotonicity       — regtab.ado
 *  23.  ICC binary extra test case                       — regtab.ado
+*
+* Command-backed oracles (regtab end-to-end vs Stata's own estat):
+*  CV21. regtab r(aic_#)/r(bic_#) == estat ic            — regtab.ado
+*        (regress, logit, poisson, mixed)
+*  CV22. regtab r(icc_#) == estat icc r(icc2)            — regtab.ado
+*        (mixed linear, melogit binary)
+*  CV23. regtab r(qic_#) == e(deviance)+2*e(rank)        — regtab.ado
+*        (xtgee; AIC->QIC fallback under stats(aic))
 
 clear all
 set more off
@@ -1200,6 +1208,172 @@ else {
     display as error "  FAIL: CV20 stratetab command oracle"
     local ++fail_count
     local failed_tests "`failed_tests' CV20"
+}
+
+**## CV21: regtab AIC/BIC match estat ic (end-to-end command oracle)
+* regtab recomputes AIC = -2*ll + 2*k and BIC = -2*ll + k*ln(N) from the
+* log-likelihood, parameter count, and N rather than reading e(aic)/e(bic).
+* This oracle confirms the recomputed, full-precision r(aic_#)/r(bic_#) returns
+* equal Stata's own estat ic across estimator families. estat ic stores AIC in
+* r(S)[1,5] and BIC in r(S)[1,6].
+local ++test_count
+capture noisily {
+    * CV21a: regress
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight foreign
+    estat ic
+    matrix _S = r(S)
+    regtab, stats(aic bic ll n) frame(_cv21a, replace)
+    assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert reldif(r(bic_1), _S[1,6]) < 1e-8
+
+    * CV21b: logit
+    sysuse auto, clear
+    collect clear
+    collect: logit foreign mpg weight
+    estat ic
+    matrix _S = r(S)
+    regtab, stats(aic bic) frame(_cv21b, replace)
+    assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert reldif(r(bic_1), _S[1,6]) < 1e-8
+
+    * CV21c: poisson
+    sysuse auto, clear
+    collect clear
+    collect: poisson rep78 mpg weight
+    estat ic
+    matrix _S = r(S)
+    regtab, stats(aic bic) frame(_cv21c, replace)
+    assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert reldif(r(bic_1), _S[1,6]) < 1e-8
+
+    * CV21d: mixed (synthetic two-level data, no network dependency)
+    clear
+    set seed 90210
+    set obs 40
+    gen long _grp = _n
+    gen double _u = rnormal(0, 1.5)
+    expand 10
+    gen double _x = rnormal()
+    gen double _y = 2 + 0.5 * _x + _u + rnormal(0, 1)
+    collect clear
+    collect: mixed _y _x || _grp:
+    estat ic
+    matrix _S = r(S)
+    regtab, stats(aic bic) frame(_cv21d, replace)
+    assert reldif(r(aic_1), _S[1,5]) < 1e-8
+    assert reldif(r(bic_1), _S[1,6]) < 1e-8
+
+    capture frame drop _cv21a
+    capture frame drop _cv21b
+    capture frame drop _cv21c
+    capture frame drop _cv21d
+}
+if _rc == 0 {
+    display as result "  PASS: CV21 regtab AIC/BIC match estat ic (regress/logit/poisson/mixed)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV21 regtab AIC/BIC vs estat ic"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV21"
+}
+
+**## CV22: regtab ICC matches estat icc (end-to-end command oracle)
+* regtab derives the ICC from the random-intercept and residual variance
+* components: linear ICC = var(_cons)/(var(_cons)+var(e)); binary (melogit)
+* ICC = var(_cons)/(var(_cons)+pi^2/3). This oracle confirms the full-precision
+* r(icc_1) return equals estat icc's r(icc2) for two-level linear and logistic
+* mixed models.
+local ++test_count
+capture noisily {
+    * CV22a: mixed linear ICC
+    clear
+    set seed 24680
+    set obs 50
+    gen long _grp = _n
+    gen double _u = rnormal(0, 1.2)
+    expand 12
+    gen double _x = rnormal()
+    gen double _y = 1 + 0.4 * _x + _u + rnormal(0, 0.9)
+    collect clear
+    collect: mixed _y _x || _grp:
+    quietly estat icc
+    local _e_icc = r(icc2)
+    regtab, stats(icc) frame(_cv22a, replace)
+    assert reldif(r(icc_1), `_e_icc') < 1e-7
+
+    * CV22b: melogit binary ICC (pi^2/3 denominator)
+    clear
+    set seed 13579
+    set obs 60
+    gen long _grp = _n
+    gen double _v = rnormal(0, 1.3)
+    expand 20
+    gen double _x = rnormal()
+    gen double _xb = -0.3 + 0.6 * _x + _v
+    gen byte _y = runiform() < invlogit(_xb)
+    collect clear
+    collect: melogit _y _x || _grp:
+    quietly estat icc
+    local _e_icc = r(icc2)
+    regtab, stats(icc) frame(_cv22b, replace)
+    assert reldif(r(icc_1), `_e_icc') < 1e-7
+
+    capture frame drop _cv22a
+    capture frame drop _cv22b
+}
+if _rc == 0 {
+    display as result "  PASS: CV22 regtab ICC matches estat icc (mixed/melogit)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV22 regtab ICC vs estat icc"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV22"
+}
+
+**## CV23: regtab QIC matches deviance + 2*rank (GEE oracle)
+* AIC is undefined for GEE/xtgee (quasi-likelihood, not full ML), so regtab
+* reports QIC = deviance + 2*k. This oracle confirms r(qic_1) equals
+* e(deviance)+2*e(rank) computed directly from the fitted xtgee model, and that
+* under stats(aic) a GEE model falls back to QIC (r(aic_1) absent, r(qic_1) set).
+local ++test_count
+capture noisily {
+    clear
+    set seed 555111
+    set obs 80
+    gen long _id = _n
+    gen double _a = rnormal()
+    expand 6
+    bysort _id: gen int _t = _n
+    gen double _y = 1 + 0.4 * _a + 0.2 * _t + rnormal()
+    xtset _id _t
+    collect clear
+    collect: xtgee _y _a _t, family(gaussian) link(identity) corr(exchangeable)
+    local _ref_qic = e(deviance) + 2 * e(rank)
+    regtab, stats(qic) frame(_cv23a, replace)
+    assert reldif(r(qic_1), `_ref_qic') < 1e-8
+
+    * stats(aic) on a GEE model: AIC undefined -> QIC fallback
+    collect clear
+    collect: xtgee _y _a _t, family(gaussian) link(identity) corr(exchangeable)
+    regtab, stats(aic) frame(_cv23b, replace)
+    assert missing(r(aic_1))
+    assert reldif(r(qic_1), `_ref_qic') < 1e-8
+
+    capture frame drop _cv23a
+    capture frame drop _cv23b
+}
+if _rc == 0 {
+    display as result "  PASS: CV23 regtab QIC matches deviance+2*rank (xtgee, AIC->QIC fallback)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV23 regtab QIC vs deviance+2*rank"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV23"
 }
 
 * ============================================================

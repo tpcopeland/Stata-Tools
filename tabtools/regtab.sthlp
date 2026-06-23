@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.3  21jun2026}{...}
+{* *! version 1.8.4  23jun2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -234,6 +234,13 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(N_rows)}}number of rows in output table{p_end}
 {synopt:{cmd:r(N_cols)}}number of columns in output table{p_end}
 {synopt:{cmd:r(N_models)}}number of models{p_end}
+{synopt:{cmd:r(aic_}{it:#}{cmd:)}}Akaike information criterion for model {it:#} (when {cmd:stats(aic)}){p_end}
+{synopt:{cmd:r(bic_}{it:#}{cmd:)}}Bayesian information criterion for model {it:#} (when {cmd:stats(bic)}){p_end}
+{synopt:{cmd:r(qic_}{it:#}{cmd:)}}quasi-likelihood information criterion for model {it:#} (when {cmd:stats(qic)}, or {cmd:stats(aic)} for GEE models where AIC is undefined){p_end}
+{synopt:{cmd:r(icc_}{it:#}{cmd:)}}intraclass correlation coefficient for model {it:#} (when {cmd:stats(icc)}){p_end}
+{synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
+{synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model {it:#} (when {cmd:stats(n)}; subjects rather than rows for survival models){p_end}
+{synopt:{cmd:r(groups_}{it:#}{cmd:)}}number of groups for model {it:#} (when {cmd:stats(groups)}){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
@@ -253,6 +260,8 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row names are derived from each variable's display label with periods, spaces, commas, and colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
 
+{pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)}, {cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)}, {cmd:r(ll_}{it:#}{cmd:)}, {cmd:r(n_}{it:#}{cmd:)}, {cmd:r(groups_}{it:#}{cmd:)}) carry the full-precision values; the corresponding rows in the displayed table and {cmd:r(table)} are rounded for presentation. Only the scalars for the statistics actually requested in {opt stats()} (and available for the model family) are posted. {cmd:AIC}, {cmd:BIC}, and {cmd:QIC} are recomputed from the log-likelihood, parameter count, and N (matching {cmd:estat ic}) rather than read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an incomparable per-observation or deviance scale.{p_end}
+
 {marker seealso}{...}
 {title:Also see}
 
@@ -267,6 +276,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.3{p_end}
+{pstd}{bf:Version} 1.8.4{p_end}
 
 {hline}

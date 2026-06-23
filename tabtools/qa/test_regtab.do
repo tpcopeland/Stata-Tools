@@ -4842,6 +4842,57 @@ else {
     local ++fail_count
 }
 
+**# v1.8.4: per-model model-fit statistic returns (r(aic_#) etc.)
+* regtab now exposes its computed AIC/BIC/QIC/ICC/LL/N/groups as full-precision
+* r() scalars. Assert they exist when requested, carry the expected magnitudes,
+* and are ABSENT when not requested (only the deeper estat-equality check lives
+* in qa/crossval_tabtools.do CV21-23).
+capture noisily {
+    * Single-model OLS: aic/bic/ll/n returned; icc/qic/groups absent
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight foreign
+    estat ic
+    matrix _Sic = r(S)
+    regtab, stats(aic bic ll n) frame(_rt_ret, replace)
+    assert reldif(r(aic_1), _Sic[1,5]) < 1e-8
+    assert reldif(r(bic_1), _Sic[1,6]) < 1e-8
+    assert !missing(r(ll_1))
+    assert r(n_1) == 74
+    assert missing(r(icc_1))
+    assert missing(r(qic_1))
+    capture frame drop _rt_ret
+
+    * Not requesting stats() posts no stat scalars (no leak, no crash)
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg
+    regtab, frame(_rt_ret2, replace)
+    assert missing(r(aic_1))
+    assert missing(r(bic_1))
+    capture frame drop _rt_ret2
+
+    * Multi-model: per-model index aligns with r(table) columns
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg
+    collect: regress price mpg weight
+    regtab, stats(aic) frame(_rt_ret3, replace)
+    assert r(N_models) == 2
+    assert !missing(r(aic_1))
+    assert !missing(r(aic_2))
+    assert r(aic_1) > r(aic_2)   // adding weight improves fit -> lower AIC
+    capture frame drop _rt_ret3
+}
+if _rc == 0 {
+    display as result "  PASS: regtab per-model stat returns r(aic_#)/r(bic_#)/r(ll_#)/r(n_#)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab per-model stat returns (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 
 **# Summary

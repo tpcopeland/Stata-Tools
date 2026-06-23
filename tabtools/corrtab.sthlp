@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.3  21jun2026}{...}
+{* *! version 1.8.4  23jun2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -158,6 +158,6 @@ variables. The pairwise observation count matrix is stored in
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.3{p_end}
+{pstd}{bf:Version} 1.8.4{p_end}
 
 {hline}

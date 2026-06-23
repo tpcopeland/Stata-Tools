@@ -105,7 +105,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 
 | File | Purpose |
 |------|---------|
-| `crossval_tabtools.do` | Compares SMD/ESS/categorical-SMD and association statistics against R results (`data/crossval_*.csv`, companion `crossval_tabtools_companion.R`) |
+| `crossval_tabtools.do` | Compares SMD/ESS/categorical-SMD and association statistics against R results (`data/crossval_*.csv`, companion `crossval_tabtools_companion.R`); also includes command-backed oracles (no R needed) — CV18–20 (diagtab/crosstab/stratetab) and **CV21–23** verifying `regtab`'s recomputed model-fit statistics end-to-end: `r(aic_#)`/`r(bic_#)` vs `estat ic` (regress/logit/poisson/mixed), `r(icc_#)` vs `estat icc` (mixed/melogit), and `r(qic_#)` vs `deviance+2*rank` (xtgee, incl. AIC→QIC fallback) |
 | `benchmark_tabtools_speed.do` | Speed guardrails (release/benchmark lanes only) |
 
 ### Support
@@ -125,7 +125,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | desctab | test_desctab | — | helpers (collect-JSON render), integration |
 | crosstab | test_crosstab | validation_crosstab | integration, adversarial, crossval |
 | corrtab | test_corrtab | validation_corrtab | integration, adversarial |
-| regtab | test_regtab | validation_regtab | helpers, integration, adversarial, release |
+| regtab | test_regtab | validation_regtab | helpers, integration, adversarial, release, crossval (CV8–10/15–17 formulas + CV21–23 estat ic/icc command oracles) |
 | effecttab | test_effecttab | validation_effecttab | integration, adversarial |
 | survtab | test_survtab | validation_survtab | integration, adversarial |
 | stratetab | test_stratetab | validation_stratetab | integration, adversarial, crossval |

@@ -1,4 +1,4 @@
-*! tabtools Version 1.8.3  2026/06/21
+*! tabtools Version 1.8.4  2026/06/23
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -35,7 +35,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.8.3"
+        local _package_version "1.8.4"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///

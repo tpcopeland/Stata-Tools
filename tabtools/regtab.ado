@@ -1,4 +1,4 @@
-*! regtab Version 1.8.3  2026/06/21
+*! regtab Version 1.8.4  2026/06/23
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2432,7 +2432,6 @@ local last = `n' - `_cols_per_model' + 1
 if "`dimnonsig'" != "" {
     capture confirm variable _nonsig
     if !_rc {
-        tempname _nonsig_vals
         local _nonsig_N = _N
         forvalues _nsi = 1/`_nonsig_N' {
             local _nonsig_v`_nsi' = _nonsig[`_nsi']
@@ -2492,6 +2491,28 @@ return scalar N_cols = `num_cols'
 	return local stars "`stars'"
 	return local methods "`_methods'"
 	if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
+
+* Per-model computed model-fit statistics, returned at full precision. These
+* mirror the stats() rows written to the table but expose the unrounded values
+* (the table strings are formatted to %12.2f / %5.3f) for downstream use and
+* programmatic checks. Naming follows survtab's <name>_<index> convention; the
+* column index matches the model order in r(table).
+if `add_stats' == 1 {
+    forvalues m = 1/`use_models' {
+        if `want_aic' & `stat_aic_`m'' != .          return scalar aic_`m'    = `stat_aic_`m''
+        if `want_bic' & `stat_bic_`m'' != .          return scalar bic_`m'    = `stat_bic_`m''
+        if (`want_qic' | `want_aic') & `stat_qic_`m'' != . return scalar qic_`m' = `stat_qic_`m''
+        if `want_ll'  & `stat_ll_`m''  != .          return scalar ll_`m'     = `stat_ll_`m''
+        if `want_n'   & `stat_N_`m''   != .          return scalar n_`m'      = `stat_N_`m''
+        if `want_groups' & `stat_groups_`m'' != .    return scalar groups_`m' = `stat_groups_`m''
+    }
+    if `want_icc' {
+        local _ret_icc_models = min(`n_icc_models', `n_models')
+        forvalues m = 1/`_ret_icc_models' {
+            if `stat_icc_`m'' != .                   return scalar icc_`m'    = `stat_icc_`m''
+        }
+    }
+}
 
 if `_has_xlsx' {
     capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)

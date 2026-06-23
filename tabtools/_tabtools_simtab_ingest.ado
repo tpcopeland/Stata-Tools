@@ -1,4 +1,4 @@
-*! _tabtools_simtab_ingest Version 1.8.3  2026/06/21
+*! _tabtools_simtab_ingest Version 1.8.4  2026/06/23
 *! Ingest a pre-computed simulation summary (simsum / siman / generic) for simtab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
