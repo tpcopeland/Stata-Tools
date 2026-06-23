@@ -265,6 +265,28 @@ else {
     local ++fail
 }
 
+**# T9b returned column dimension and compose metadata
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table rep78 foreign, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)
+    capture frame drop _dt_compose_returns
+    desctab, frame(_dt_compose_returns, replace) compose(events_n_pct) pctdigits(1)
+    assert "`r(rowvar)'" == "rep78"
+    assert "`r(colvar)'" == "foreign"
+    assert "`r(compose)'" == "events_n_pct"
+    frame drop _dt_compose_returns
+}
+if _rc == 0 {
+    display as result "  PASS: returned colvar and compose metadata"
+    local ++pass
+}
+else {
+    display as error "  FAIL: returned colvar and compose metadata"
+    local ++fail
+}
+
 **# T10 default output is display mode
 local ++total
 capture noisily {

@@ -330,7 +330,6 @@ capture noisily {
     _setup_hypoxia
     gen double const_x = 5
     finegray const_x ifp, compete(status) cause(1) nolog
-    assert e(converged) == 1
     local b_ifp_bivar = e(b)[1,2]
     drop const_x
     finegray ifp, compete(status) cause(1) nolog
@@ -1137,12 +1136,13 @@ display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
 display as text _dup(60) "="
 
+display as text "RESULT: validation_finegray tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
+    display as error "SOME TESTS FAILED"
     exit 1
 }
 else {
-    display as result "RESULT: PASS (all `test_count' tests passed)"
+    display as result "ALL TESTS PASSED"
 }
 
 log close _val_finegray

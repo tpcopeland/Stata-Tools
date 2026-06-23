@@ -733,6 +733,9 @@ capture noisily {
     assert "$TABTOOLS_THEME" == "custom"
     assert "$TABTOOLS_FONT" == "Times New Roman"
     assert "$TABTOOLS_FONTSIZE" == "11"
+    tabtools get
+    assert "`r(headercolor)'" == "200 220 240"
+    assert "`r(zebracolor)'" == "245 245 245"
     assert "$TABTOOLS_HEADERCOLOR" == "200 220 240"
     assert "$TABTOOLS_ZEBRACOLOR" == "245 245 245"
     assert "$TABTOOLS_BORDER" == "academic"
@@ -1121,4 +1124,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_tabtools tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _ttctrl
-

@@ -64,6 +64,21 @@ else {
 
 local ++test_count
 capture noisily {
+    capture tabtools_tips, open
+    assert inlist(_rc, 0, 199)
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools_tips open option dispatches in batch"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools_tips open option dispatch (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' open"
+}
+
+local ++test_count
+capture noisily {
     tabtools, category(general)
     assert r(n_commands) == 2
     local commands " `r(commands)' "

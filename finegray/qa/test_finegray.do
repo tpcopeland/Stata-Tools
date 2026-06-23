@@ -29,6 +29,19 @@ log using "`qadir'/test_finegray.log", ///
 capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
+capture which regtab
+if _rc {
+    capture confirm file "`pkgroot'/../tabtools/tabtools.pkg"
+    if _rc == 0 {
+        quietly net install tabtools, from("`pkgroot'/../tabtools") replace
+    }
+}
+capture which regtab
+if _rc {
+    display as error "regtab dependency not available; install tabtools"
+    exit 111
+}
+
 program define _setup_hypoxia
     webuse hypoxia, clear
     gen byte status = failtype
@@ -2563,12 +2576,13 @@ display as text "Passed: " as result `pass_count'
 display as text "Failed: " as result `fail_count'
 display as text _dup(60) "="
 
+display as text "RESULT: test_finegray tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
+    display as error "SOME TESTS FAILED"
     exit 1
 }
 else {
-    display as result "RESULT: PASS (all `test_count' tests passed)"
+    display as result "ALL TESTS PASSED"
 }
 
 log close _test_finegray

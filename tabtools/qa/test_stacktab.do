@@ -93,6 +93,7 @@ capture noisily {
     assert "`r(table_start)'" == "B2"
     assert "`r(title_cell)'" == ""
     assert "`r(layout)'" == "vstack"
+    assert "`r(book)'" == "`wb'"
 
     shell python3 "`checker'" "`wb'" "Composite" ///
         --result-file "`_st_res'" ///
@@ -465,7 +466,7 @@ capture noisily {
     assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: malformed columnmerge() rules fail loudly"
+    display as result "  PASS: malformed columnmerge() rules are rejected cleanly"
     local ++pass_count
 }
 else {
@@ -496,7 +497,7 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: invalid layout, replace, and spacing options fail"
+    display as result "  PASS: invalid layout, replace, and spacing options are rejected cleanly"
     local ++pass_count
 }
 else {
@@ -561,6 +562,7 @@ end
 
 **# stacktab frame replacement guard preserves caller state
 
+local ++test_count
 capture noisily {
     tempfile wb
     local xlsx "`wb'.xlsx"

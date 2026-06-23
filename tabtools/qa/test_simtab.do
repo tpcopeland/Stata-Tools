@@ -135,6 +135,9 @@ capture noisily {
         xlsx("`x3'") sheet("Tab") markdown("`m3'") title("Multi") frame(ft3, replace)
     assert r(n_estimands) == 2
     assert r(N_cells) == 12
+    assert "`r(metrics)'" == "mean bias coverage n"
+    assert r(level) == 95
+    assert abs(r(alpha) - 0.05) < 1e-12
     assert "`r(xlsx)'" == "`x3'"
     assert "`r(markdown)'" == "`m3'"
     * Excel: title row, group header row, metric header row
@@ -851,4 +854,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_simtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _simtab
-

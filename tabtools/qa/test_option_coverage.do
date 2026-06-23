@@ -6,10 +6,9 @@
 * analyzer qa/tools/option_coverage.py measures this and writes the diagnostic
 * table in qa/README.md.
 *
-* Deliberate exclusion: the `open` option (open the workbook in the OS default
-* app) runs `shell xdg-open/open/start` and would launch a GUI viewer during
-* batch tests -- it is intentionally NOT exercised here. tabtools_tips has only
-* `open`, so it has no testable option surface.
+* The `open` option is exercised through guard-path invocations (open without
+* an Excel target) so batch QA covers the parser branch without launching a GUI
+* viewer.
 
 clear all
 set more off
@@ -95,7 +94,7 @@ else {
 }
 
 * =====================================================================
-**# diagtab: footnote, markdown, mdappend, zebracolor
+**# diagtab: excel, footnote, markdown, mdappend, theme, zebracolor
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -104,7 +103,8 @@ capture noisily {
     set seed 71
     gen byte gold = (_n <= 100)
     gen byte test = runiform() < cond(gold, 0.8, 0.1)
-    diagtab test gold, xlsx("`out'/diagtab.xlsx") sheet("S") footnote("note") zebracolor("240 245 250")
+    diagtab test gold, excel("`out'/diagtab.xlsx") sheet("S") footnote("note") ///
+        theme(apa) zebracolor("240 245 250")
     confirm file "`out'/diagtab.xlsx"
     diagtab test gold, markdown("`out'/diagtab.md")
     confirm file "`out'/diagtab.md"
@@ -181,7 +181,7 @@ else {
 }
 
 * =====================================================================
-**# survtab: borderstyle, excel, headercolor, markdown, mdappend, zebracolor
+**# survtab: borderstyle, excel, headercolor, markdown, mdappend, open, zebracolor
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -198,6 +198,8 @@ capture noisily {
     survtab, times(2 5) by(grp) markdown("`out'/survtab.md")
     confirm file "`out'/survtab.md"
     survtab, times(2 5) by(grp) markdown("`out'/survtab.md") mdappend
+    capture survtab, times(2 5) by(grp) display open
+    assert _rc == 198
 }
 _oc_record "survtab" `=_rc'
 if `_oc_ok' local ++pass_count
@@ -207,7 +209,7 @@ else {
 }
 
 * =====================================================================
-**# puttab: mdappend, zebracolor
+**# puttab: mdappend, open, zebracolor
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -219,6 +221,8 @@ capture noisily {
     confirm file "`out'/puttab.md"
     puttab make mpg price in 1/5 using "`out'/puttab.xlsx", sheet("M2") ///
         markdown("`out'/puttab.md") mdappend
+    capture puttab make mpg price in 1/5, markdown("`out'/puttab_open_guard.md") open
+    assert _rc == 198
 }
 _oc_record "puttab" `=_rc'
 if `_oc_ok' local ++pass_count
@@ -235,16 +239,16 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     collect clear
-    collect: table rep78, statistic(mean price) statistic(count price)
+    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
     desctab, xlsx("`out'/desctab.xlsx") sheet("S") borderstyle(academic) ///
         headercolor("200 220 240") zebra zebracolor("240 245 250") relabel factorlabel
     confirm file "`out'/desctab.xlsx"
     collect clear
-    collect: table rep78, statistic(mean price) statistic(count price)
+    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
     desctab, markdown("`out'/desctab.md")
     confirm file "`out'/desctab.md"
     collect clear
-    collect: table rep78, statistic(mean price) statistic(count price)
+    version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
     desctab, markdown("`out'/desctab.md") mdappend
 }
 _oc_record "desctab" `=_rc'
@@ -255,7 +259,7 @@ else {
 }
 
 * =====================================================================
-**# simtab: alpha, excel, headercolor, level, mdappend, minreps,
+**# simtab: alpha, excel, headercolor, level, mdappend, minreps, open,
 **#         pctdigits, warnreps, zebra, zebracolor
 * =====================================================================
 local ++test_count
@@ -272,7 +276,7 @@ capture noisily {
     gen double pval = 2*(1 - normal(abs(est/se)))
     gen byte rej = pval < 0.05
     simtab estid, estimate(est) se(se) true(truev) coverage(covered) reject(rej) ///
-        excel("`out'/simtab.xlsx") sheet("S") alpha(0.05) level(95) ///
+        excel("`out'/simtab.xlsx") sheet("S") alpha(0.05) level(95) theme(apa) ///
         minreps(2) warnreps(2) pctdigits(1) headercolor("200 220 240") zebra zebracolor("240 245 250") ///
         plotframe(oc_simpf, replace)
     confirm file "`out'/simtab.xlsx"
@@ -281,6 +285,9 @@ capture noisily {
     confirm file "`out'/simtab.md"
     simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
         markdown("`out'/simtab.md") mdappend plotframe(oc_simpf3, replace)
+    capture simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
+        display open
+    assert _rc == 198
 }
 _oc_record "simtab" `=_rc'
 if `_oc_ok' local ++pass_count
@@ -290,8 +297,8 @@ else {
 }
 
 * =====================================================================
-**# comptab: csv, highlight, labelwidth, mdappend, relabel, separator,
-**#          theme, zebracolor   (needs regtab source frames)
+**# comptab: boldp, compact, csv, highlight, labelwidth, mdappend, relabel,
+**#          separator, theme, zebracolor   (needs regtab source frames)
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -303,7 +310,7 @@ capture noisily {
     regtab, frame(oc_cf) noint models("Model A" \ "Model B")
     comptab oc_cf, rows(1 2) csv("`out'/comptab.csv") theme(apa) zebracolor("240 245 250") ///
         labelwidth(20) relabel(1 "Relabeled foreign") separator(1) ///
-        highlight(0.05) frame(oc_cmp1, replace)
+        highlight(0.05) boldp(0.05) compact frame(oc_cmp1, replace)
     confirm file "`out'/comptab.csv"
     comptab oc_cf, rows(1 2) markdown("`out'/comptab.md") frame(oc_cmp2, replace)
     confirm file "`out'/comptab.md"
@@ -318,7 +325,7 @@ else {
 }
 
 * =====================================================================
-**# hrcomptab: borderstyle, csv, footnote, mdappend, zebra, zebracolor
+**# hrcomptab: borderstyle, csv, footnote, mdappend, open, zebra, zebracolor
 **#            (needs stratetab rates frame + regtab modelframes)
 * =====================================================================
 local ++test_count
@@ -353,6 +360,9 @@ capture noisily {
     confirm file "`out'/hrcomptab.md"
     hrcomptab oc_rates, modelframes(oc_mod) rows(1) effect("aHR") ///
         markdown("`out'/hrcomptab.md") mdappend frame(oc_hrc3, replace)
+    capture hrcomptab oc_rates, modelframes(oc_mod) rows(1) effect("aHR") ///
+        display open
+    assert _rc == 198
 }
 _oc_record "hrcomptab" `=_rc'
 if `_oc_ok' local ++pass_count
@@ -401,7 +411,7 @@ else {
 }
 
 * =====================================================================
-**# stratetab: markdown, mdappend  (needs a strate rate file)
+**# stratetab: excel, markdown, mdappend  (needs a strate rate file)
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -417,6 +427,9 @@ capture noisily {
     label values exposure oc_sexp
     tempfile sr1
     save "`sr1'.dta", replace
+    clear
+    stratetab, using("`sr1'") outcomes(1) excel("`out'/stratetab.xlsx") sheet("Excel")
+    confirm file "`out'/stratetab.xlsx"
     clear
     stratetab, using("`sr1'") outcomes(1) markdown("`out'/stratetab.md")
     confirm file "`out'/stratetab.md"

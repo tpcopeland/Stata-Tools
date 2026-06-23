@@ -122,6 +122,8 @@ capture noisily {
     assert r(N_sections) == 2
     assert r(N_modelrows) == 3
     assert "`r(frame)'" == "hrc_final"
+    assert "`r(modelframes)'" == "hrc_bin hrc_dose"
+    assert "`r(effect)'" == "aHR"
 
     frame hrc_final {
         assert _N == 10

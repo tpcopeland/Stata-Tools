@@ -414,6 +414,59 @@ else {
     local ++fail_count
 }
 
+**# 17. finegray_cif level() controls returned level and CI width
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    finegray ifp tumsize pelnode, compete(status) cause(1)
+    finegray_cif, attime(5) ci
+    matrix C95 = r(table)
+    finegray_cif, attime(5) ci level(90)
+    matrix C90 = r(table)
+    assert r(level) == 90
+    assert reldif(C90[1,2], C95[1,2]) < 1e-12
+    assert reldif(C90[1,3], C95[1,3]) < 1e-12
+    assert C90[1,4] >= C95[1,4] - 1e-9
+    assert C90[1,5] <= C95[1,5] + 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: finegray_cif level() controls CI width"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: finegray_cif level() controls CI width (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 18. finegray_predict level() controls CIF CI width and labels
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    finegray ifp tumsize pelnode, compete(status) cause(1)
+    gen double t5 = 5
+    finegray_predict cif95, cif timevar(t5) ci
+    finegray_predict cif90, cif timevar(t5) ci level(90)
+    local llabel : variable label cif90_lci
+    local ulabel : variable label cif90_uci
+    assert "`llabel'" == "CIF lower 90% limit"
+    assert "`ulabel'" == "CIF upper 90% limit"
+    assert reldif(cif90[1], cif95[1]) < 1e-12 if !missing(cif90[1])
+    assert cif90_lci >= cif95_lci - 1e-9 if !missing(cif90)
+    assert cif90_uci <= cif95_uci + 1e-9 if !missing(cif90)
+    quietly count if !missing(cif90)
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: finegray_predict level() controls CI width and labels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: finegray_predict level() controls CI width and labels (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline "RESULT: test_finegray_v110 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
