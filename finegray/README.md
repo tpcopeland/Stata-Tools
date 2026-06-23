@@ -43,6 +43,7 @@ Operational details that matter:
 - `finegray_predict, xb` can be used on datasets that contain the model covariates
 - `finegray_predict, cif` additionally requires a time variable (`_t` or `timevar()`)
 - `finegray_predict, schoenfeld` and `finegray_phtest` require the original `stset` estimation data
+- `finegray_predict` reproduces `stcrreg`'s post-estimation quantities: `xb` matches `predict, xb`, the baseline CIF matches `predict, basecif`, and `e(basehaz)` is the cumulative-subhazard analogue (`H0 = -ln(1 - basecif)`). The per-observation `cif` is the covariate-adjusted CIF, which `stcrreg` produces via `stcurve, cif at()` rather than `predict`; `finegray_predict, cif` matches it to numerical precision. Schoenfeld residuals match `stcrreg` exactly at untied event times; at tied event times the per-event split differs by convention while the per-time total is identical (see below)
 - Factor-variable models are supported, but prediction on new data still requires the same factor-level support as the estimation sample
 
 ## Worked Examples
@@ -160,6 +161,12 @@ The same demo also prints the fixed-horizon CIF table (`finegray_cif, attime(1 3
 ## Validation
 
 The package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression (`cmprsk`, `riskRegression`). The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior.
+
+`qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
+
+- **Schoenfeld residuals at tied event times.** At an event time shared by two or more cause events, `finegray` and `stcrreg` partition the residual among the simultaneous events using different conventions, so an individual residual at a tied time can differ. The QA suite asserts that (a) residuals match `stcrreg` exactly at untied event times and (b) the sum of the residuals within each event time — and hence the overall score, which is zero at the estimate — is identical. Only the per-observation values at tied times differ; untied times, per-time totals, and every event-time aggregate are unaffected.
+
+Standard errors are robust (sandwich) by default in both commands and agree to roughly 0.5% relative; this small gap reflects `stcrreg` computing its sandwich on an expanded dataset, as described in `help finegray`.
 
 ## References
 
