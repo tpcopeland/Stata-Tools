@@ -507,7 +507,8 @@ label variable ci "95% CI"
 
 log on demo
 
-noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Primary") varlabels
+noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Primary") ///
+    title("Source block: Primary HRT exposure model") varlabels
 
 log off demo
 
@@ -522,7 +523,8 @@ label variable ci "95% CI"
 
 log on demo
 
-noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Dose") varlabels
+noisily puttab term ahr ci using "`_pipe_xlsx'", sheet("Block Dose") ///
+    title("Source block: Estrogen dose-response model") varlabels
 
 noisily stacktab using "`_pipe_xlsx'", sheet("Composite") ///
     blocks(sheet(Block Primary) rows(2/5) cols(B-D) label(Any HRT use) \ ///
@@ -1611,7 +1613,8 @@ end
 label variable term "Exposure"
 label variable ahr "aHR"
 label variable ci "95% CI"
-puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Primary") varlabels
+puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Primary") ///
+    title("Source block: Primary HRT exposure model") varlabels
 
 clear
 input str22 term str10 ahr str16 ci
@@ -1621,7 +1624,8 @@ end
 label variable term "Exposure"
 label variable ahr "aHR"
 label variable ci "95% CI"
-puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Dose") varlabels
+puttab term ahr ci using "`xlsx_stacktab'", sheet("Block Dose") ///
+    title("Source block: Estrogen dose-response model") varlabels
 
 * Step 2 (vstack): merge estimate+CI columns, label each block as a section.
 stacktab using "`xlsx_stacktab'", sheet("Composite") ///
@@ -1634,10 +1638,11 @@ stacktab using "`xlsx_stacktab'", sheet("Composite") ///
 
 * Step 2 (hstack): place two equal-height blocks side by side.
 stacktab using "`xlsx_stacktab'", sheet("SideBySide") ///
-    blocks(sheet(Block Primary) rows(3/4) cols(B-D) \ ///
-           sheet(Block Dose) rows(3/4) cols(B-D)) ///
+    blocks(sheet(Block Primary) rows(2/4) cols(B-D) label(Primary model) \ ///
+           sheet(Block Dose) rows(2/4) cols(B-D) label(Dose-response model)) ///
     layout(hstack) ///
-    title("Primary and Dose-Response Estimates Side by Side")
+    columnmerge(B+C as "aHR (95% CI)" \ E+F as "aHR (95% CI)") ///
+    title("Table 2 supplement. Primary and dose-response estimates side by side")
 
 **# Verify puttab + stacktab workbook content
 preserve
@@ -1650,6 +1655,13 @@ foreach v of varlist _all {
     if r(N) > 0 local _has_mpg 1
 }
 assert `_has_mpg' == 1
+restore
+
+preserve
+import excel using "`xlsx_stacktab'", sheet("Block Primary") clear allstring
+assert A[1] == "Source block: Primary HRT exposure model"
+assert B[2] == "Exposure"
+assert C[2] == "aHR"
 restore
 
 preserve
@@ -1666,6 +1678,19 @@ foreach v of varlist _all {
 }
 assert `_has_merge_hdr' == 1
 assert `_has_merge_val' == 1
+restore
+
+preserve
+import excel using "`xlsx_stacktab'", sheet("SideBySide") clear allstring
+assert A[1] == "Table 2 supplement. Primary and dose-response estimates side by side"
+assert B[2] == "Primary model"
+assert C[2] == "aHR (95% CI)"
+assert D[2] == "Dose-response model"
+assert E[2] == "aHR (95% CI)"
+assert B[3] == "Any HRT"
+assert C[3] == "0.82 (0.69, 0.98)"
+assert D[3] == "Low dose"
+assert E[4] == "0.73 (0.58, 0.92)"
 restore
 
 **# Sheets 47-52: Desctab -- formatted table collect examples

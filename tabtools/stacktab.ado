@@ -1,4 +1,4 @@
-*! stacktab Version 1.8.4  2026/06/23
+*! stacktab Version 1.8.5  2026/06/24
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -175,6 +175,7 @@ program define stacktab, rclass
         * ================================================================
         * IMPORT AND STACK BLOCKS
         * ================================================================
+        tempvar section_marker
         preserve
         local _restore_needed = 1
 
@@ -283,12 +284,15 @@ program define stacktab, rclass
                 }
                 quietly gen long _xblock = `b'
                 quietly gen long _xorder = _n
+                quietly gen byte `section_marker' = (_n == 1)
 
                 if `spacing' > 0 & `b' < `n_blocks' {
                     local old_n = _N
                     quietly set obs `=`old_n' + `spacing''
                     quietly replace _xblock = `b' if missing(_xblock)
                     quietly replace _xorder = _n if missing(_xorder)
+                    quietly replace `section_marker' = 0 ///
+                        if missing(`section_marker')
                     forvalues si = `=`old_n' + 1'/`=_N' {
                         forvalues cn = 1/`nvars' {
                             quietly replace _xcol`cn' = "" in `si'
@@ -345,6 +349,19 @@ program define stacktab, rclass
         else {
             sort _rowid
             drop _rowid
+        }
+        local section_rows ""
+        capture confirm variable `section_marker'
+        if !_rc {
+            quietly count
+            local _section_N = r(N)
+            forvalues sr = 1/`_section_N' {
+                if `section_marker'[`sr'] == 1 {
+                    local section_rows "`section_rows' `sr'"
+                }
+            }
+            local section_rows = strtrim("`section_rows'")
+            drop `section_marker'
         }
         capture confirm variable _xblock
         if !_rc drop _xblock
@@ -574,10 +591,15 @@ program define stacktab, rclass
             if `"`style'"' != "" local _styleopt `"style(`style')"'
             local _bordersopt ""
             if `"`borders'"' != "" local _bordersopt `"borders(`borders')"'
+            local _sectionrowsopt ""
+            if `"`section_rows'"' != "" {
+                local _sectionrowsopt `"sectionrows(`section_rows')"'
+            }
             _stacktab_apply_style, book(`"`using'"') sheet(`"`sheet'"') ///
                 `_styleopt' `_bordersopt' widths(`"`width_values'"') ///
                 rows(`rows_written') cols(`final_ncols') ///
-                startrow(`export_start_row') startcol(`export_start_col')
+                startrow(`export_start_row') startcol(`export_start_col') ///
+                `_sectionrowsopt'
 
         local last_sheet_col = `export_start_col' + `final_ncols' - 1
         if `"`title'"' != "" & `export_title_row' > 0 {
@@ -952,7 +974,7 @@ program define _stacktab_apply_style
     capture noisily {
     syntax , BOOK(string) SHEET(string) ROWS(integer) COLS(integer) ///
         [STYLE(string asis) BORDERS(string asis) WIDTHS(numlist) ///
-         STARTRow(integer 2) STARTCol(integer 2)]
+         STARTRow(integer 2) STARTCol(integer 2) SECTIONRows(numlist)]
     if `startrow' < 1 {
         display as error "startrow() must be positive"
         exit 198
@@ -1006,6 +1028,20 @@ program define _stacktab_apply_style
         (`startcol', `endcol'), "thin")
     mata: _stacktab_book.set_bottom_border((`endrow', `endrow'), ///
         (`startcol', `endcol'), "thin")
+
+    if `"`sectionrows'"' != "" {
+        foreach sr of numlist `sectionrows' {
+            if `sr' >= 1 & `sr' <= `rows' {
+                local sheet_row = `startrow' + `sr' - 1
+                mata: _stacktab_book.set_font_bold((`sheet_row', ///
+                    `sheet_row'), (`startcol', `endcol'), "on")
+                mata: _stacktab_book.set_top_border((`sheet_row', ///
+                    `sheet_row'), (`startcol', `endcol'), "thin")
+                mata: _stacktab_book.set_bottom_border((`sheet_row', ///
+                    `sheet_row'), (`startcol', `endcol'), "thin")
+            }
+        }
+    }
 
     local wi = 0
     if `"`widths'"' != "" {

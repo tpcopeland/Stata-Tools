@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.4  23jun2026}{...}
+{* *! version 1.8.5  24jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table" "help table"}{...}
 {vieweralsosee "collect" "help collect"}{...}
@@ -157,6 +157,6 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.4{p_end}
+{pstd}{bf:Version} 1.8.5{p_end}
 
 {hline}

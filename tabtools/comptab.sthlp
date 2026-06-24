@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.4  23jun2026}{...}
+{* *! version 1.8.5  24jun2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -282,7 +282,7 @@ For a runnable public-data workflow, see {help tabtools_tips:tabtools_tips}.{p_e
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.4{p_end}
+{pstd}{bf:Version} 1.8.5{p_end}
 
 
 {marker alsosee}{...}

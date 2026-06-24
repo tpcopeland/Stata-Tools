@@ -168,7 +168,11 @@ capture noisily {
         --cell C3 "1.23 (1.05, 1.44)" ///
         --blank B6 ///
         --blank C6 ///
-        --cell B7 "Dose category (vs none)"
+        --cell B7 "Dose category (vs none)" ///
+        --cell C7 "aHR 95% CI" ///
+        --bold B7 ///
+        --bold C7 ///
+        --border-range B7 C7
     _st_assert "`_st_res'"
     capture erase "`_st_res'"
 }

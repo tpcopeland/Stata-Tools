@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.4  23jun2026}{...}
+{* *! version 1.8.5  24jun2026}{...}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
@@ -98,6 +98,12 @@ parentheses, for example {cmd:postfix((vs none))}.
 {opt rows()} and {opt cols()} may be used together or separately. With
 {opt cols()} alone, {cmd:stacktab} imports the full source sheet and keeps
 only the selected Excel columns.
+
+{p 4 4 2}
+In vertically stacked Excel output, the first row of each imported block is
+treated as a section/header row: it is bolded and receives thin top and bottom
+borders. This keeps multi-block tables visually separated after {opt label()},
+{opt postfix()}, or {opt columnmerge()} reshape the block headers.
 
 {p 8 8 2}
 Example:
@@ -199,6 +205,6 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{break}
-Version 1.8.4
+Version 1.8.5
 {p 4 4 2}
 {hline}

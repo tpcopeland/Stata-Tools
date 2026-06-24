@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.4  23jun2026}{...}
+{* *! version 1.8.5  24jun2026}{...}
 {viewerjumpto "Syntax" "tabtools_tips##syntax"}{...}
 {viewerjumpto "Description" "tabtools_tips##description"}{...}
 {viewerjumpto "Quick reference" "tabtools_tips##quick"}{...}
@@ -341,6 +341,6 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.4{p_end}
+{pstd}{bf:Version} 1.8.5{p_end}
 
 {hline}
