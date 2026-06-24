@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  24jun2026}{...}
 {vieweralsosee "[D] drop" "help drop"}{...}
 {vieweralsosee "[D] count" "help count"}{...}
 {viewerjumpto "Syntax" "consort##syntax"}{...}
@@ -76,6 +76,8 @@
 {synopt:{opt shad:ing}}enable box shading (blue for flow, red for exclusions){p_end}
 {synopt:{opt python(path)}}path to Python executable{p_end}
 {synopt:{opt dpi(#)}}image resolution; default 150{p_end}
+{synopt:{opt csv(filename)}}also write the diagram data as a CSV table{p_end}
+{synopt:{opt xlsx(filename)}}also write the diagram data as an Excel table{p_end}
 {synoptline}
 {p 4 6 2}* indicates required option.{p_end}
 
@@ -138,6 +140,11 @@ equals the current observation count.
 {cmd:consort save} generates the flowchart image using Python and matplotlib.
 The diagram shows the initial population at the top, with exclusion boxes
 branching to the right and remaining population boxes continuing downward.
+
+{pstd}
+Supplying {opt csv()} and/or {opt xlsx()} additionally writes the diagram data
+as a resolved, machine-readable table alongside the image (see
+{help consort##dataexport:Data export}).
 
 {pstd}
 After successful generation, the diagram state is automatically cleared.
@@ -203,6 +210,18 @@ system PATH or you need a specific Python installation.
 Higher values produce larger, higher-quality images suitable for publication.
 Use 300 for print-quality output.
 
+{phang}
+{opt csv(filename)} additionally writes the diagram data to a CSV file. This is
+a resolved, machine-readable table with one row per diagram node, so the figure
+can be read by scripts, spreadsheets, or language models without parsing the
+image. See {help consort##dataexport:Data export} for the column layout. The
+option is independent of {opt xlsx()}: you may request neither, one, or both.
+
+{phang}
+{opt xlsx(filename)} additionally writes the same resolved diagram data to an
+Excel workbook. Identical content to {opt csv()}; choose whichever format is
+convenient. Requires no extra Python dependency (written natively by Stata).
+
 {dlgtab:clear options}
 
 {phang}
@@ -247,6 +266,30 @@ The exclusion data is stored in a simple CSV format:
 The first row after the header is the initial population (n = total count).
 Subsequent rows are exclusions (n = number excluded). The "remaining" column
 specifies custom labels for boxes after exclusions.
+
+{marker dataexport}{...}
+{pstd}
+{bf:Data export (csv/xlsx)}
+
+{pstd}
+The {opt csv()} and {opt xlsx()} options on {cmd:consort save} write a resolved,
+one-row-per-node version of the diagram. Unlike the backing CSV described above
+(which records raw exclusion counts), this table is fully resolved to match the
+figure exactly, making it easy for scripts, spreadsheets, or language models to
+read the flowchart without parsing the image. The columns are:
+
+{p2colset 9 28 30 2}{...}
+{p2col:{bf:step}}0 for the initial population, then 1, 2, ... per exclusion{p_end}
+{p2col:{bf:cohort_label}}label of the cohort box after this step{p_end}
+{p2col:{bf:n_remaining}}observations remaining in the cohort after this step{p_end}
+{p2col:{bf:exclusion_label}}exclusion reason at this step (blank for step 0){p_end}
+{p2col:{bf:n_excluded}}observations excluded at this step (blank for step 0){p_end}
+{p2col:{bf:pct_of_initial}}n_remaining as a percentage of the initial population{p_end}
+{p2colreset}{...}
+
+{pstd}
+Both formats contain identical content. The options are independent: request
+neither, one, or both.
 
 {pstd}
 {bf:Python dependency}
@@ -320,6 +363,21 @@ Mark intermediate milestones in the exclusion process:
 {phang2}{cmd:. * Original data restored}{p_end}
 
 
+{pstd}
+{bf:Example 6: Exporting machine-readable data alongside the figure}
+
+{pstd}
+Write a CSV (and an Excel workbook) with the same information as the diagram so
+it can be read without parsing the image:
+
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "preserve":. preserve}{p_end}
+{phang2}{stata `"consort init, initial("Cars in auto.dta")"':. consort init, initial("Cars in auto.dta")}{p_end}
+{phang2}{stata `"consort exclude if missing(rep78), label("Missing repair record")"':. consort exclude if missing(rep78), label("Missing repair record")}{p_end}
+{phang2}{stata `"consort save, output("flow.png") csv("flow.csv") xlsx("flow.xlsx")"':. consort save, output("flow.png") csv("flow.csv") xlsx("flow.xlsx")}{p_end}
+{phang2}{stata "restore":. restore}{p_end}
+
+
 {marker results}{...}
 {title:Stored results}
 
@@ -359,6 +417,8 @@ Mark intermediate milestones in the exclusion process:
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output file path{p_end}
 {synopt:{cmd:r(final)}}final cohort label{p_end}
+{synopt:{cmd:r(csv)}}CSV data file path (only if {opt csv()} specified){p_end}
+{synopt:{cmd:r(xlsx)}}Excel data file path (only if {opt xlsx()} specified){p_end}
 
 
 {marker requirements}{...}

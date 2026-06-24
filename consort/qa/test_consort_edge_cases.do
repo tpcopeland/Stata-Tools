@@ -21,10 +21,15 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-else {
-}
+* Relocatable scratch root (TESTING_DIR was previously undefined, leaving
+* FIGURES_DIR = "/figures" so every consort save failed with r(601)). Derive
+* it from the temp dir.
+global TESTING_DIR "`c(tmpdir)'/consort_edge_`c(pid)'"
+capture mkdir "${TESTING_DIR}"
 
 global FIGURES_DIR "${TESTING_DIR}/figures"
+capture mkdir "${FIGURES_DIR}"
+capture mkdir "${FIGURES_DIR}/consort"
 
 * Install package
 capture net uninstall consort

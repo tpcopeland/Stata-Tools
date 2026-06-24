@@ -1,0 +1,4 @@
+step,cohort_label,n_remaining,exclusion_label,n_excluded,pct_of_initial
+0,Cars in auto.dta,74,,,100.00
+1,Cars with repair data,69,Missing repair record,5,93.24
+2,Domestic sample,48,Foreign cars,21,64.86

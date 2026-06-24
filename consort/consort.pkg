@@ -8,7 +8,7 @@ d observations were excluded at each stage of your analysis.
 d
 d Requires: Stata version 16+, Python 3.7+ with matplotlib
 d
-d Distribution-Date: 20260408
+d Distribution-Date: 20260624
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

@@ -1,4 +1,4 @@
-*! consort Version 1.0.0  2026/04/08
+*! consort Version 1.1.0  2026/06/24
 *! Generate CONSORT-style exclusion flowcharts for observational research
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -240,7 +240,8 @@ capture program drop _consort_save
 program define _consort_save, rclass
     version 16.0
 
-    syntax , OUTput(string) [FINal(string) SHADing PYTHON(string) DPI(integer 150)]
+    syntax , OUTput(string) [FINal(string) SHADing PYTHON(string) DPI(integer 150) ///
+        CSV(string) XLSX(string)]
 
     * Check if diagram is active
     if "${CONSORT_ACTIVE}" != "1" {
@@ -285,6 +286,15 @@ program define _consort_save, rclass
             display as error "output directory does not exist: `outdir'"
             exit 601
         }
+    }
+
+    * Validate companion data-export paths up front (fail before generating
+    * the figure if a directory is missing or a path is malformed)
+    if "`csv'" != "" {
+        _consort_validate_path, path(`"`csv'"') kind("csv")
+    }
+    if "`xlsx'" != "" {
+        _consort_validate_path, path(`"`xlsx'"') kind("xlsx")
     }
 
     * Determine if final() was explicitly provided
@@ -364,6 +374,14 @@ program define _consort_save, rclass
     local excluded = `initial_n' - `final_n'
     local steps = 0${CONSORT_STEPS}
 
+    * Optional companion data export (resolved table for LLMs / downstream use)
+    * Built from the SAME CSV the figure is rendered from, so the table always
+    * matches the diagram. Done before returns/state-clear: on failure we exit
+    * without clearing state so the workflow can be re-run.
+    if "`csv'" != "" | "`xlsx'" != "" {
+        _consort_export_data, csv(`"`csv'"') xlsx(`"`xlsx'"')
+    }
+
     * Return values
     return scalar N_initial = `initial_n'
     return scalar N_final = `final_n'
@@ -371,12 +389,24 @@ program define _consort_save, rclass
     return scalar steps = `steps'
     return local output "`output'"
     return local final "`final'"
+    if "`csv'" != "" {
+        return local csv "`csv'"
+    }
+    if "`xlsx'" != "" {
+        return local xlsx "`xlsx'"
+    }
 
     * Display summary
     display as text _n "{hline 60}"
     display as text "CONSORT Diagram Complete"
     display as text "{hline 60}"
     display as text "Output file:      " as result "`output'"
+    if "`csv'" != "" {
+        display as text "Data (CSV):       " as result "`csv'"
+    }
+    if "`xlsx'" != "" {
+        display as text "Data (XLSX):      " as result "`xlsx'"
+    }
     display as text "Initial N:        " as result %10.0fc `initial_n'
     display as text "Final N:          " as result %10.0fc `final_n'
     display as text "Total excluded:   " as result %10.0fc `excluded'
@@ -489,6 +519,117 @@ program define _consort_find_script
 
     * Not found
     global CONSORT_SCRIPT_PATH ""
+end
+
+
+capture program drop _consort_validate_path
+program define _consort_validate_path
+    * Validate a user-supplied export path: reject shell/quote metacharacters
+    * and confirm the target directory exists. kind() is used only in messages.
+    syntax , Path(string) Kind(string)
+
+    local _bad = strpos(`"`path'"', ";") + strpos(`"`path'"', "|") + ///
+        strpos(`"`path'"', "&") + strpos(`"`path'"', ">") + ///
+        strpos(`"`path'"', "<") + strpos(`"`path'"', char(96)) + ///
+        strpos(`"`path'"', "$") + strpos(`"`path'"', char(34))
+    if `_bad' > 0 {
+        display as error "`kind'() path contains invalid characters"
+        exit 198
+    }
+
+    local slashpos = strrpos(`"`path'"', "/")
+    if `slashpos' == 0 {
+        local slashpos = strrpos(`"`path'"', "\")
+    }
+    if `slashpos' > 0 {
+        local dir = substr(`"`path'"', 1, `slashpos' - 1)
+        mata : st_local("dir_exists", strofreal(direxists(st_local("dir"))))
+        if `dir_exists' == 0 {
+            display as error "`kind'() directory does not exist: `dir'"
+            exit 601
+        }
+    }
+end
+
+
+capture program drop _consort_export_data
+program define _consort_export_data
+    * Build a resolved, one-row-per-node table from the active CONSORT CSV and
+    * write it to csv() and/or xlsx(). The table mirrors the rendered diagram:
+    * the initial population, each exclusion with its running remaining count,
+    * and the percentage of the initial population retained. Reading the same
+    * backing CSV the figure is rendered from guarantees the table matches the
+    * diagram even when the CSV was edited by hand via init's file() option.
+    syntax , [CSV(string) XLSX(string)]
+
+    tempname tblframe
+    capture noisily {
+        frame create `tblframe'
+        frame `tblframe' {
+            * Parse the backing CSV using RFC-4180 quoting. Force the label and
+            * remaining columns to string so numeric-looking labels are not
+            * coerced to numbers.
+            import delimited using "${CONSORT_FILE}", varnames(1) ///
+                bindquote(strict) stripquote(yes) stringcols(1 3) clear
+
+            * Defensive: ensure expected columns are present and typed
+            capture confirm variable remaining
+            if _rc {
+                gen str1 remaining = ""
+            }
+            capture confirm numeric variable n
+            if _rc {
+                destring n, replace force
+            }
+
+            * Initial population count is the first data row
+            local init_n = n[1]
+
+            gen long step = _n - 1
+            gen double n_excluded = n if step >= 1
+            gen double _cum_excluded = sum(cond(step >= 1, n, 0))
+            gen double n_remaining = `init_n' - _cum_excluded
+            * Store percent as a clean 2-decimal string: a double cannot
+            * represent values like 93.24 exactly, and export delimited writes
+            * full precision, which would litter the file with float artifacts.
+            gen str10 pct_of_initial = ///
+                string(100 * n_remaining / `init_n', "%9.2f")
+
+            * In the backing CSV: label = exclusion reason and remaining =
+            * cohort/node label after the step. On the initial row the label is
+            * the initial population label and there is no exclusion.
+            rename label exclusion_label
+            rename remaining cohort_label
+            replace cohort_label = exclusion_label if step == 0
+            replace exclusion_label = "" if step == 0
+
+            drop n _cum_excluded
+            order step cohort_label n_remaining exclusion_label n_excluded ///
+                pct_of_initial
+
+            format n_remaining n_excluded %15.0fc
+
+            label variable step "Step (0 = initial population)"
+            label variable cohort_label "Cohort label after this step"
+            label variable n_remaining "N remaining in cohort"
+            label variable exclusion_label "Exclusion applied at this step"
+            label variable n_excluded "N excluded at this step"
+            label variable pct_of_initial "Percent of initial population remaining"
+
+            if "`csv'" != "" {
+                export delimited using "`csv'", replace
+            }
+            if "`xlsx'" != "" {
+                export excel using "`xlsx'", firstrow(variables) replace
+            }
+        }
+    }
+    local _exp_rc = _rc
+    capture frame drop `tblframe'
+    if `_exp_rc' {
+        display as error "failed to write companion data export (csv/xlsx)"
+        exit `_exp_rc'
+    }
 end
 
 

@@ -44,6 +44,12 @@ else if "`c(os)'" == "Unix" {
 else {
 }
 
+* Relocatable scratch root (TESTING_DIR was previously undefined, causing the
+* synthetic-data saves to fail with r(603)). Derive it from the temp dir.
+global TESTING_DIR "`c(tmpdir)'/consort_figures_`c(pid)'"
+capture mkdir "${TESTING_DIR}"
+capture mkdir "${TESTING_DIR}/data"
+
 global FIGURES_DIR "${TESTING_DIR}/figures/consort"
 
 * Create figures directory
