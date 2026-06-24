@@ -716,7 +716,6 @@ the portable setup contract.
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland, Karolinska Institutet
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 {hline}

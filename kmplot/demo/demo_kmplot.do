@@ -13,9 +13,10 @@ set varabbrev off
 
 * --- Paths ---
 local pkg_dir "`c(pwd)'"
+local repo_dir "`pkg_dir'/../.."
 
 * --- Scheme ---
-capture net install tc_schemes, from("~/Stata-Tools/tc_schemes") replace
+capture net install tc_schemes, from("`repo_dir'/tc_schemes") replace
 set scheme plotplainblind, permanently
 
 * --- Reload commands ---

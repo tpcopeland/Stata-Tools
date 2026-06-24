@@ -127,13 +127,7 @@ else {
 
 local ++test_count
 tempfile t3_status
-* xlsx checker: single canonical copy in Stata-Dev (no per-package duplicate)
-local _statadev : env STATA_DEV_DIR
-if "`_statadev'" == "" {
-    local _home : env HOME
-    local _statadev "`_home'/Stata-Dev"
-}
-local checker "`_statadev'/_devkit/stata_dev_cli/xlsx/check_xlsx.py"
+local checker "`pkg_dir'/qa/tools/check_xlsx.py"
 capture noisily shell python3 "`checker'" "`wd_xlsx'" ///
     --sheet WD ///
     --exact-rows 5 ///

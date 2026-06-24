@@ -1,5 +1,5 @@
 * Phase 7-8 feature tests for logdoc v1.4.2
-* Tests: P78-T1 through P78-T15
+* Tests: P78-T1 through P78-T16
 clear all
 set more off
 
@@ -661,60 +661,120 @@ else {
 
 
 * =========================================================================
-* P78-T15: Missing wkhtmltopdf fails cleanly without writing HTML as .pdf
+* P78-T15: TeX graph references are relative to the output file
 * =========================================================================
 local test_total = `test_total' + 1
-local t15_pdf "`outdir'/t15_missing.pdf"
-local t15_do "`outdir'/t15_missing_pdf.do"
-local t15_sh "`outdir'/t15_missing_pdf.sh"
-local t15_stdout "`outdir'/t15_missing_pdf.stdout"
-local t15_rcfile "`outdir'/t15_missing_pdf.rc"
-local t15_empty_path "`outdir'/t15_empty_path"
-capture mkdir "`t15_empty_path'"
-capture erase "`t15_pdf'"
-capture erase "`t15_do'"
-capture erase "`t15_sh'"
-capture erase "`t15_stdout'"
-capture erase "`t15_rcfile'"
+local t15_graph "`outdir'/t15_graph.png"
+local t15_smcl "`outdir'/t15_graph.smcl"
+local t15_tex "`outdir'/t15_graph.tex"
+capture erase "`t15_graph'"
+capture erase "`t15_smcl'"
+capture erase "`t15_tex'"
 
-tempname t15dofh
-file open `t15dofh' using "`t15_do'", write text replace
-file write `t15dofh' "clear all" _n
-file write `t15dofh' "set more off" _n
-file write `t15dofh' "capture ado uninstall logdoc" _n
-file write `t15dofh' `"net install logdoc, from("`pkgdir'") replace"' _n
-file write `t15dofh' `"capture erase "`t15_pdf'""' _n
-file write `t15dofh' ///
-    `"logdoc using "`smcl_fixture'", output("`t15_pdf'") format(pdf) python("/usr/bin/python3") replace"' _n
-file write `t15dofh' "exit _rc" _n
-file close `t15dofh'
+tempname t15gfh
+file open `t15gfh' using "`t15_graph'", write text replace
+file write `t15gfh' "placeholder graph file" _n
+file close `t15gfh'
 
-tempname t15shfh
-file open `t15shfh' using "`t15_sh'", write text replace
-file write `t15shfh' "#!/usr/bin/env bash" _n
-file write `t15shfh' "set +e" _n
-file write `t15shfh' `"STATA_BIN="$(command -v stata-mp)""' _n
-file write `t15shfh' `"env PATH="`t15_empty_path'" "$STATA_BIN" -b do "`t15_do'" > "`t15_stdout'" 2>&1"' _n
-file write `t15shfh' `"printf "%s" $? > "`t15_rcfile'""' _n
-file close `t15shfh'
-shell chmod +x "`t15_sh'"
-shell bash "`t15_sh'"
+tempname t15sfh
+file open `t15sfh' using "`t15_smcl'", write text replace
+file write `t15sfh' "{smcl}" _n
+file write `t15sfh' `"{com}. graph export "t15_graph.png", replace width(900)"' _n
+file write `t15sfh' "{res}file t15_graph.png written in PNG format" _n
+file close `t15sfh'
 
-tempname t15rcfh
-file open `t15rcfh' using "`t15_rcfile'", read text
-file read `t15rcfh' _t15rc
-file close `t15rcfh'
-local _t15_rc = real(strtrim("`_t15rc'"))
-local _t15_pdf_exists = 0
-capture confirm file "`t15_pdf'"
-if !_rc local _t15_pdf_exists = 1
+capture noisily logdoc using "`t15_smcl'", output("`t15_tex'") format(tex) replace quiet
+if _rc == 0 {
+    local _found_graph = 0
+    local _bad_abs = 0
+    local _home_token = "/" + "home/"
+    local _dev_token = "Stata" + "-Dev"
+    tempname t15tfh
+    file open `t15tfh' using "`t15_tex'", read text
+    file read `t15tfh' _t15line
+    while r(eof) == 0 {
+        if strpos(`"`_t15line'"', "\includegraphics") {
+            if strpos(`"`_t15line'"', "{t15_graph.png}") {
+                local _found_graph = 1
+            }
+            if strpos(`"`_t15line'"', "`_home_token'") | strpos(`"`_t15line'"', "`_dev_token'") {
+                local _bad_abs = 1
+            }
+        }
+        file read `t15tfh' _t15line
+    }
+    file close `t15tfh'
 
-if `_t15_rc' != 0 & !`_t15_pdf_exists' {
-    display as result "P78-T15 PASS: missing wkhtmltopdf stops cleanly without a fake PDF"
+    if `_found_graph' & !`_bad_abs' {
+        display as result "P78-T15 PASS: tex graph path is output-relative"
+        local test_pass = `test_pass' + 1
+    }
+    else {
+        display as error "P78-T15 FAIL: tex graph path was missing or absolute"
+        local test_fail = `test_fail' + 1
+    }
+}
+else {
+    display as error "P78-T15 FAIL: tex graph render command failed with rc=" _rc
+    local test_fail = `test_fail' + 1
+}
+
+
+* =========================================================================
+* P78-T16: Missing wkhtmltopdf fails cleanly without writing HTML as .pdf
+* =========================================================================
+local test_total = `test_total' + 1
+local t16_pdf "`outdir'/t16_missing.pdf"
+local t16_do "`outdir'/t16_missing_pdf.do"
+local t16_sh "`outdir'/t16_missing_pdf.sh"
+local t16_stdout "`outdir'/t16_missing_pdf.stdout"
+local t16_rcfile "`outdir'/t16_missing_pdf.rc"
+local t16_empty_path "`outdir'/t16_empty_path"
+capture mkdir "`t16_empty_path'"
+capture erase "`t16_pdf'"
+capture erase "`t16_do'"
+capture erase "`t16_sh'"
+capture erase "`t16_stdout'"
+capture erase "`t16_rcfile'"
+
+tempname t16dofh
+file open `t16dofh' using "`t16_do'", write text replace
+file write `t16dofh' "clear all" _n
+file write `t16dofh' "set more off" _n
+file write `t16dofh' "capture ado uninstall logdoc" _n
+file write `t16dofh' `"net install logdoc, from("`pkgdir'") replace"' _n
+file write `t16dofh' `"capture erase "`t16_pdf'""' _n
+file write `t16dofh' ///
+    `"logdoc using "`smcl_fixture'", output("`t16_pdf'") format(pdf) python("/usr/bin/python3") replace"' _n
+file write `t16dofh' "exit _rc" _n
+file close `t16dofh'
+
+tempname t16shfh
+file open `t16shfh' using "`t16_sh'", write text replace
+file write `t16shfh' "#!/usr/bin/env bash" _n
+file write `t16shfh' "set +e" _n
+file write `t16shfh' `"STATA_BIN="$(command -v stata-mp)""' _n
+file write `t16shfh' `"env PATH="`t16_empty_path'" "$STATA_BIN" -b do "`t16_do'" > "`t16_stdout'" 2>&1"' _n
+file write `t16shfh' `"printf "%s" $? > "`t16_rcfile'""' _n
+file close `t16shfh'
+shell chmod +x "`t16_sh'"
+shell bash "`t16_sh'"
+
+tempname t16rcfh
+file open `t16rcfh' using "`t16_rcfile'", read text
+file read `t16rcfh' _t16rc
+file close `t16rcfh'
+local _t16_rc = real(strtrim("`_t16rc'"))
+local _t16_pdf_exists = 0
+capture confirm file "`t16_pdf'"
+if !_rc local _t16_pdf_exists = 1
+
+if `_t16_rc' != 0 & !`_t16_pdf_exists' {
+    display as result "P78-T16 PASS: missing wkhtmltopdf stops cleanly without a fake PDF"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error "P78-T15 FAIL: missing wkhtmltopdf still produced a misleading PDF path"
+    display as error "P78-T16 FAIL: missing wkhtmltopdf still produced a misleading PDF path"
     local test_fail = `test_fail' + 1
 }
 

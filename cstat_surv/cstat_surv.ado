@@ -1,6 +1,6 @@
 *! cstat_surv Version 1.0.0  2026/04/08
 *! C-statistic for Cox proportional hazards models
-*! Author: Timothy P. Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Standalone version with embedded calculation (no somersd dependency)
 
 program define cstat_surv, eclass

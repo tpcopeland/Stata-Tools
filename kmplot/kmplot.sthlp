@@ -250,9 +250,8 @@ underlying {cmd:twoway} call.{p_end}
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
+Timothy P Copeland, Karolinska Institutet{break}
 Department of Clinical Neuroscience{break}
-Karolinska Institutet{break}
 Version 1.0.2, 2026-04-22{p_end}
 
 {hline}

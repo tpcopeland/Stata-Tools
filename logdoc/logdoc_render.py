@@ -2308,9 +2308,11 @@ def _latex_escape(text):
 
 def render_latex(blocks, title="Stata Output", nodots=False, date=None,
                  base_dir=".", footer=None, stamp=None, nograph=False,
-                 generated=False):
+                 generated=False, output_dir=None):
     """Render parsed blocks to a LaTeX document."""
     graph_files = detect_graph_exports(blocks, nograph=nograph)
+    if output_dir is None:
+        output_dir = base_dir
 
     # Expand all blocks in text mode
     for block in blocks:
@@ -2413,13 +2415,10 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
             # Graph reference (use external file path, not base64)
             for gfile, gidx in graph_files.items():
                 if gidx == idx:
-                    if os.path.isabs(gfile):
-                        gpath = gfile
-                    elif os.path.isfile(gfile):
-                        gpath = os.path.abspath(gfile)
-                    elif os.path.isfile(os.path.join(base_dir, gfile)):
-                        gpath = os.path.abspath(
-                            os.path.join(base_dir, gfile))
+                    resolved = _resolve_graph_path(gfile, base_dir)
+                    if resolved is not None:
+                        gpath = os.path.relpath(
+                            resolved, os.path.abspath(output_dir))
                     else:
                         gpath = gfile
                     parts.append(r"\begin{figure}[htbp]")
@@ -2937,6 +2936,7 @@ def render_combined_latex(sources, args):
             blocks, title=section_title, nodots=args.nodots, date=None,
             base_dir=base_dir, footer=None, stamp=None,
             nograph=args.nograph, generated=False,
+            output_dir=os.path.dirname(os.path.abspath(args.output)),
         )
         parts.append(r"\section{" + _latex_escape(section_title) + "}")
         parts.append(_extract_latex_body(tex_doc))
@@ -3376,6 +3376,7 @@ def main():
             blocks, title=title, nodots=args.nodots, date=args.date,
             base_dir=base_dir, footer=args.footer, stamp=args.stamp,
             nograph=args.nograph, generated=args.generated,
+            output_dir=os.path.dirname(os.path.abspath(tex_out)),
         )
         # I4: Append mode for non-HTML
         if args.append and os.path.isfile(tex_out):

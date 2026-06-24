@@ -530,7 +530,7 @@ noisily stacktab using "`_pipe_xlsx'", sheet("Composite") ///
     blocks(sheet(Block Primary) rows(2/5) cols(B-D) label(Any HRT use) \ ///
            sheet(Block Dose) rows(2/4) cols(B-D) label(By estrogen dose)) ///
     columnmerge(B+C as "aHR (95% CI)") ///
-    spacing(1) display ///
+    display ///
     title("Hormone therapy and recurrent events") ///
     note("aHR = adjusted hazard ratio; CI = confidence interval.")
 
@@ -1632,7 +1632,6 @@ stacktab using "`xlsx_stacktab'", sheet("Composite") ///
     blocks(sheet(Block Primary) rows(2/5) cols(B-D) label(Any HRT use) \ ///
            sheet(Block Dose) rows(2/4) cols(B-D) label(By estrogen dose)) ///
     columnmerge(B+C as "aHR (95% CI)") ///
-    spacing(1) ///
     title("Table 2. Hormone Therapy and Recurrent Events") ///
     note("aHR = adjusted hazard ratio; CI = confidence interval. Models adjusted for age and comorbidities.")
 
@@ -1667,6 +1666,11 @@ restore
 preserve
 import excel using "`xlsx_stacktab'", sheet("Composite") clear allstring
 assert A[1] == "Table 2. Hormone Therapy and Recurrent Events"
+assert B[6] == "By estrogen dose"
+assert C[6] == "aHR 95% CI"
+assert B[7] == "Low dose"
+assert C[7] == "0.91 (0.74, 1.12)"
+assert B[9] == "aHR = adjusted hazard ratio; CI = confidence interval. Models adjusted for age and comorbidities."
 * merged header and a merged estimate (aHR + CI) appear in the body
 local _has_merge_hdr 0
 local _has_merge_val 0

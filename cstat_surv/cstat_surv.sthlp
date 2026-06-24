@@ -1,5 +1,7 @@
 {smcl}
 {* *! version 1.0.0  08apr2026}{...}
+{vieweralsosee "[ST] stcox" "help stcox"}{...}
+{vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "cstat_surv##syntax"}{...}
 {viewerjumpto "Options" "cstat_surv##options"}{...}
 {viewerjumpto "Description" "cstat_surv##description"}{...}
@@ -7,6 +9,7 @@
 {viewerjumpto "Examples" "cstat_surv##examples"}{...}
 {viewerjumpto "Stored results" "cstat_surv##results"}{...}
 {viewerjumpto "Author" "cstat_surv##author"}{...}
+{viewerjumpto "Also see" "cstat_surv##alsosee"}{...}
 
 {title:Title}
 
@@ -153,11 +156,10 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) for binary o
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 
+{marker alsosee}{...}
 {title:Also see}
 
 {psee}
@@ -166,3 +168,5 @@ Manual: {manlink ST stcox}, {manlink ST stset}
 {psee}
 Online: {helpb stcox}, {helpb stset}
 {p_end}
+
+{hline}
