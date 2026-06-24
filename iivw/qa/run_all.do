@@ -45,6 +45,7 @@ else {
         validation_iivw    ///
         validation_iivw_expanded ///
         validation_iivw_known_answers ///
+        validation_iivw_recovery ///
         test_iivw_balance ///
         test_iivw_performance ///
         test_iivw_weight_validation_guards ///
