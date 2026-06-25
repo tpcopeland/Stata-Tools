@@ -1,5 +1,5 @@
 * validation_kmplot.do
-* Numerical validation suite for kmplot v1.0.3
+* Numerical validation suite for kmplot v1.2.0
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 *
@@ -843,6 +843,118 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V26 Risktable explicit bottom axis (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* V27: Delayed-entry risk-table counts honor _t0
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input id group enter exit event
+    1 1 0 5 1
+    2 1 2 8 0
+    3 1 4 10 1
+    4 2 0 3 0
+    5 2 3 7 1
+    6 2 6 9 0
+    end
+    stset exit, failure(event) enter(time enter) id(id)
+
+    kmplot, by(group) risktable timepoints(0 2 5 8) name(v27, replace)
+    matrix R = r(risktable)
+    assert rowsof(R) == 8
+    assert colsof(R) == 5
+    assert R[1,3] == 1
+    assert R[2,3] == 2
+    assert R[3,3] == 3
+    assert R[4,3] == 2
+    assert R[5,3] == 1
+    assert R[6,3] == 1
+    assert R[7,3] == 1
+    assert R[8,3] == 1
+    assert R[3,4] == 1
+    assert R[8,4] == 1
+}
+if _rc == 0 {
+    display as result "  PASS: V27 Delayed-entry risk-table counts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V27 Delayed-entry risk-table counts (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* V28: landmark() estimates match sts generate step values
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    tempvar gid s
+    egen int `gid' = group(drug), label
+    quietly sts generate `s' = s, by(`gid')
+
+    kmplot, by(drug) landmark(10 20) name(v28, replace)
+    matrix L = r(landmarks)
+
+    quietly summarize _t if `gid' == 1 & _t <= 10 & !missing(`s'), meanonly
+    local tlast = r(max)
+    quietly summarize `s' if `gid' == 1 & _t == `tlast', meanonly
+    local manual_s = r(mean)
+    assert abs(L[1,3] - `manual_s') < 1e-10
+
+    quietly summarize _t if `gid' == 2 & _t <= 20 & !missing(`s'), meanonly
+    local tlast = r(max)
+    quietly summarize `s' if `gid' == 2 & _t == `tlast', meanonly
+    local manual_s = r(mean)
+    assert abs(L[4,3] - `manual_s') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: V28 landmark() matches sts generate"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V28 landmark() matches sts generate (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* V29: level() changes CI bounds using requested z critical value
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    quietly sts generate _km_s = s
+    quietly sts generate _km_se = se(s)
+    quietly summarize _t if _t <= 10 & !missing(_km_s), meanonly
+    local tlast = r(max)
+    quietly summarize _km_s if _t == `tlast', meanonly
+    local s10 = r(mean)
+    quietly summarize _km_se if _t == `tlast', meanonly
+    local se10 = r(mean)
+    local z90 = invnormal(1 - (100 - 90) / 200)
+    local lb90 = exp(-exp(log(-log(`s10')) + `z90' * `se10' / (`s10' * abs(log(`s10')))))
+    local ub90 = exp(-exp(log(-log(`s10')) - `z90' * `se10' / (`s10' * abs(log(`s10')))))
+
+    kmplot, ci level(90) landmark(10) name(v29, replace)
+    matrix L = r(landmarks)
+    assert abs(L[1,4] - `lb90') < 1e-8
+    assert abs(L[1,5] - `ub90') < 1e-8
+    assert r(level) == 90
+}
+if _rc == 0 {
+    display as result "  PASS: V29 level() CI bounds"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V29 level() CI bounds (rc=`=_rc')"
     local ++fail_count
 }
 

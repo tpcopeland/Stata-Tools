@@ -1,21 +1,22 @@
 v 3
 d 'KMPLOT': Publication-Ready Kaplan-Meier Plots for Stata
 d
-d One-command publication-quality Kaplan-Meier survival curves
-d and cumulative incidence plots. Supports confidence bands,
-d number-at-risk tables, median survival lines, censoring marks,
-d log-rank p-values, and colorblind-safe styling.
+d One-command publication-quality Kaplan-Meier survival and
+d cumulative failure plots. Supports confidence intervals,
+d number-at-risk tables, fixed-time summaries, saved datasets,
+d median survival lines, censoring marks, log-rank p-values,
+d and colorblind-safe styling.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260625
+d Distribution-Date: 20260626
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
 d KW: Kaplan-Meier
 d KW: survival curves
-d KW: cumulative incidence
+d KW: cumulative failure
 d KW: risk table
 d KW: publication
 d

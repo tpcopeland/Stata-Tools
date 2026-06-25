@@ -1,5 +1,5 @@
 * test_kmplot.do
-* Functional test suite for kmplot v1.0.3
+* Functional test suite for kmplot v1.2.0
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 
@@ -67,7 +67,7 @@ else {
 }
 
 * =============================================================================
-* T3: Failure mode (cumulative incidence)
+* T3: Failure mode (cumulative failure)
 * =============================================================================
 
 local ++test_count
@@ -79,7 +79,7 @@ capture noisily {
     assert r(n_groups) == 3
 }
 if _rc == 0 {
-    display as result "  PASS: T3 Failure mode (cumulative incidence)"
+    display as result "  PASS: T3 Failure mode (cumulative failure)"
     local ++pass_count
 }
 else {
@@ -1678,6 +1678,262 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: T75 Error: unsafe export path (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T76: level() controls CI level and rejects invalid levels
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    kmplot, by(drug) ci level(90) name(t76, replace)
+    assert r(level) == 90
+    assert r(ci) == 1
+    assert "`r(cistyle)'" == "band"
+    assert "`r(citransform)'" == "loglog"
+
+    capture kmplot, by(drug) ci level(100) name(t76_bad, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T76 level() controls CI level"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T76 level() controls CI level (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T77: riskheight() and risk-table matrix return
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    clear
+    set seed 7701
+    set obs 100
+    gen double t = ceil(runiform() * 20)
+    gen byte d = runiform() < .45
+    gen int grp = 1 + mod(_n - 1, 10)
+    stset t, failure(d)
+
+    kmplot, by(grp) risktable riskheight(55) timepoints(0 10 20) name(t77, replace)
+    assert r(riskheight) == 55
+    assert r(n_timepoints) == 3
+    assert "`r(timepoints)'" == "0 10 20"
+    matrix R = r(risktable)
+    assert rowsof(R) == 30
+    assert colsof(R) == 5
+
+    capture kmplot, by(grp) risktable riskheight(0) name(t77_bad, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T77 riskheight() and risk-table matrix"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T77 riskheight() and risk-table matrix (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T78: landmark() returns fixed-time estimates
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    kmplot, by(drug) ci landmark(5 10 20) name(t78, replace)
+    assert r(n_landmarks) == 3
+    assert "`r(landmark_times)'" == "5 10 20"
+    matrix L = r(landmarks)
+    assert rowsof(L) == 9
+    assert colsof(L) == 5
+    assert L[1,1] == 1
+    assert L[1,2] == 5
+    assert L[1,3] >= 0 & L[1,3] <= 1
+
+    capture kmplot, by(drug) landmark(-1) name(t78_bad, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T78 landmark() returns estimates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T78 landmark() returns estimates (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T79: saving() and risksaving() create reusable datasets
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local curvefile "`c(tmpdir)'/kmplot_curve_t79.dta"
+    local riskfile "`c(tmpdir)'/kmplot_risk_t79.dta"
+    local graphfile "`c(tmpdir)'/kmplot_graph_t79.svg"
+    capture erase "`curvefile'"
+    capture erase "`riskfile'"
+    capture erase "`graphfile'"
+
+    kmplot, by(drug) ci risktable timepoints(0 10 20) ///
+        saving("`curvefile'", replace) risksaving("`riskfile'", replace) ///
+        export("`graphfile'", replace) ///
+        name(t79, replace)
+    assert "`r(saving)'" == "`curvefile'"
+    assert "`r(risksaving)'" == "`riskfile'"
+    assert "`r(export)'" == "`graphfile'"
+    confirm file "`curvefile'"
+    confirm file "`riskfile'"
+    confirm file "`graphfile'"
+
+    preserve
+    use "`curvefile'", clear
+    confirm variable group group_label time estimate se lower upper censor anchor
+    assert _N > 48
+    assert inlist(anchor, 0, 1)
+    restore
+
+    preserve
+    use "`riskfile'", clear
+    confirm variable group group_label time at_risk events censored
+    assert _N == 9
+    assert at_risk >= 0
+    restore
+
+    erase "`curvefile'"
+    erase "`riskfile'"
+    erase "`graphfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T79 saving() and risksaving() datasets"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T79 saving() and risksaving() datasets (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T80: p-value text, format, and coordinate controls
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    kmplot, by(drug) pvalue pvalueformat(%6.4f) ///
+        pvaluetext("Stratified log-rank P") pvalueat(.9 10) ///
+        name(t80, replace)
+    assert strpos("`r(pvalue_text)'", "Stratified log-rank P") == 1
+    assert "`r(pvalue_label)'" == "Stratified log-rank P"
+    assert "`r(pvalue_format)'" == "%6.4f"
+    assert "`r(pvalue_pos)'" == "bottomright"
+    assert "`r(pvalue_at)'" == ".9 10"
+    assert r(pvalue_y) == .9
+    assert r(pvalue_x) == 10
+
+    capture kmplot, by(drug) pvalue pvalueat(.9) name(t80_bad_at, replace)
+    assert _rc == 198
+    capture kmplot, by(drug) pvalue pvalueformat(nonsense) name(t80_bad_fmt, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T80 p-value display controls"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T80 p-value display controls (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T81: Rich reproducibility metadata
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    kmplot, by(drug) failure median colors(navy maroon dkorange) ///
+        lpattern(solid dash dot) xtitle("Follow-up months") name(t81, replace)
+    assert r(failure) == 1
+    assert "`r(plot_type)'" == "failure"
+    assert "`r(graph_name)'" == "t81"
+    assert "`r(xtitle)'" == "Follow-up months"
+    assert "`r(ytitle)'" == "Cumulative failure"
+    assert "`r(colors)'" == "navy maroon dkorange"
+    assert "`r(lpattern)'" == "solid dash dot"
+    assert "`r(group_labels)'" != ""
+    matrix M = r(medians)
+    assert rowsof(M) == 3
+    assert colsof(M) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: T81 Rich reproducibility metadata"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T81 Rich reproducibility metadata (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T82: risksaving() works without displaying a risk table
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local riskfile "`c(tmpdir)'/kmplot_risk_t82.dta"
+    capture erase "`riskfile'"
+    kmplot, by(drug) timepoints(0 10 20) ///
+        risksaving("`riskfile'", replace) name(t82, replace)
+    confirm file "`riskfile'"
+    use "`riskfile'", clear
+    assert _N == 9
+    assert at_risk >= 0
+    erase "`riskfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T82 risksaving() without risktable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T82 risksaving() without risktable (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T83: Error - unsafe saving()/risksaving() paths
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture kmplot, by(drug) saving("bad;curve.dta", replace) name(t83a, replace)
+    assert _rc == 198
+    capture kmplot, by(drug) risksaving("bad;risk.dta", replace) name(t83b, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T83 Error: unsafe saving paths"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T83 Error: unsafe saving paths (rc=`=_rc')"
     local ++fail_count
 }
 

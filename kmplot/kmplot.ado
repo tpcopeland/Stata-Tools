@@ -768,6 +768,7 @@ program define kmplot, rclass
 	        twoway `tw_layers', `tw_opts' name(`name', replace)
 	        if "`risktable'" == "" & `"`risksaving'"' != "" {
 	            capture graph drop _kmplot_risktable
+	            local _drop_orphan_rt_rc = _rc
 	        }
 	    }
 
