@@ -48,6 +48,7 @@ foreach f in ///
     validation_adversarial_gcomp ///
     validation_extra ///
     validation_timevarying ///
+    validation_gcomp_recovery ///
     crossval_gcomp ///
     crossval_external_replication ///
     crossval_mediation_se ///

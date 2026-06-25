@@ -1,4 +1,4 @@
-*! gcomptab Version 1.3.1  2026/06/16
+*! gcomptab Version 1.3.2  2026/06/25
 *! Format gcomp mediation or time-varying dose-response results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

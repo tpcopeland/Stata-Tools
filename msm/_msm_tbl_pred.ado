@@ -1,4 +1,4 @@
-*! _msm_tbl_pred Version 1.2.0  2026/06/17
+*! _msm_tbl_pred Version 1.2.1  2026/06/25
 *! Author: Timothy P Copeland
 program define _msm_tbl_pred, nclass
     version 16.0

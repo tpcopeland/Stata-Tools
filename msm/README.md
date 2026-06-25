@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.2.0** | 2026-06-17
+**Version 1.2.1** | 2026-06-25
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -380,6 +380,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.2.1** (2026-06-25): QA — added `qa/validation_msm_recovery.do`, a known-truth parameter-recovery suite for the marginal structural log-OR estimated by `msm_fit`. The truth is the always/never marginal contrast computed by forward-simulating the data-generating process at large N (oracle fit in `msm_fit`'s own working model); IPTW-MSM recovers it within 0.05 while an unweighted pooled logit misses by 0.36–0.50. No functional change to any command.
 - **1.2.0** (2026-06-17): `msm_fit` gains `exposure(varname)` and `tvcov(varlist)` for continuous / time-varying exposure outcome models (dose-duration estimands). `exposure()` swaps the binary treatment term for a continuous exposure summary; `tvcov()` adds time-varying outcome covariates exempt from the `outcome_cov()` time-fixed restriction (`model(cox)`/`model(logistic)` only). Both disable `msm_predict` (counterfactual standardization is undefined for a continuous/time-varying exposure), which `msm, status` now reports. Defaults are unchanged: omitting both options reproduces prior behavior exactly.
 - **1.1.0** (2026-06-14): `msm_weight` now keeps the per-period treatment propensity `P(A_t=1|history)` as `_msm_ps` and records a psdash diagnostic contract in the dataset, so `psdash combined` auto-detects the treatment model and produces a longitudinal period-by-period overlap and weight diagnostic with no retyping. Complements `msm_diagnose`.
 - **1.0.4** (2026-05-29): Added cross-contrast weight diagnostics: `msm_diagnose` gains `accumulate()`/`contrast()`/`outcome()` to append one summary row per weighted panel to a frame, and the new `msm_diagtab` command exports that accumulated frame as a single styled Excel sheet

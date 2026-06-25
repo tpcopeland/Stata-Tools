@@ -1,4 +1,4 @@
-*! _msm_col_letter Version 1.2.0  2026/06/17
+*! _msm_col_letter Version 1.2.1  2026/06/25
 *! Convert column number to Excel letter reference
 *! Author: Timothy P Copeland
 

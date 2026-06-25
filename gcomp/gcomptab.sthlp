@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  16jun2026}{...}
+{* *! version 1.3.2  25jun2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -581,7 +581,7 @@ In {bf:models} mode {cmd:gcomptab} stores instead:
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.1, 2026-06-16{p_end}
+{pstd}Version 1.3.2, 2026-06-25{p_end}
 
 
 {marker seealso}{...}

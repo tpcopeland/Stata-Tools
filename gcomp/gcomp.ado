@@ -1,4 +1,4 @@
-*! gcomp Version 1.3.1  2026/06/16
+*! gcomp Version 1.3.2  2026/06/25
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -706,22 +706,23 @@ forvalues i=1/`nvar' {
 		exit 198
 	}
 	if "`_cmd'" == "logit" {
-		qui tab `_v' if `_v' < .
-		if r(r) > 2 {
-			noi di as err "Warning: commands() specifies logit for `_v', but `_v' has " r(r) " distinct values."
-			noi di as err "  logit requires a binary (0/1) variable. Consider mlogit or ologit."
-		}
-		else if r(r) == 2 {
+		* Robust binary check via count of non-0/1 values. (Do NOT use
+		* `tabulate' here: it errors r(134) "too many values" on a continuous
+		* variable with many distinct levels, which crashes gcomp at moderate N.)
+		qui count if `_v' < . & `_v' != 0 & `_v' != 1
+		if r(N) > 0 {
 			qui summ `_v' if `_v' < .
-			if r(min) != 0 | r(max) != 1 {
-				noi di as err "Warning: commands() specifies logit for `_v', but values are not 0/1."
-				noi di as err "  logit requires values {0, 1}. Found min=" r(min) " max=" r(max) "."
-			}
+			noi di as err "Warning: commands() specifies logit for `_v', but it has values outside {0, 1} (min=" r(min) ", max=" r(max) ")."
+			noi di as err "  logit requires a binary (0/1) variable. Consider mlogit or ologit."
 		}
 	}
 	if "`_cmd'" == "regress" {
-		qui tab `_v' if `_v' < .
-		if r(r) == 2 {
+		* Robust binary check (see logit branch above): `tabulate' would error
+		* r(134) on a continuous regress-modeled covariate at moderate N.
+		qui count if `_v' < . & `_v' != 0 & `_v' != 1
+		local _n_non01 = r(N)
+		qui count if `_v' < .
+		if `_n_non01' == 0 & r(N) > 0 {
 			qui summ `_v' if `_v' < .
 			if r(min) == 0 & r(max) == 1 {
 				noi di as text "  Note: `_v' appears binary (0/1) but is modeled with regress."

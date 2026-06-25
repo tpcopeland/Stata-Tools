@@ -1,4 +1,4 @@
-*! _msm_check_weighted Version 1.2.0  2026/06/17
+*! _msm_check_weighted Version 1.2.1  2026/06/25
 *! Verify weight variable exists
 *! Author: Timothy P Copeland
 

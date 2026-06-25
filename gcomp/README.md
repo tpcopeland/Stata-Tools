@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.3.1** | 2026-06-16
+**Version 1.3.2** | 2026-06-25
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -221,6 +221,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.3.2** (2026-06-25): **Fix `r(134)` "too many values" crash at moderate N.** gcomp's `commands()`/`equations()` validation used `tabulate` to count the distinct values of each modeled variable. On a **continuous** covariate modeled with `regress` (the normal case), `tabulate` errors with `r(134)` once the variable has too many distinct levels — which happens at roughly N ≥ 5000 subjects — crashing the whole command before estimation. The binary/non-binary check is now done with `count` (no enumeration of distinct values), so g-computation runs at any N. Added `qa/validation_gcomp_recovery.do`: a self-contained known-truth parameter-recovery suite (forward-simulated g-formula oracle, matching the existing Python benchmark) that also regression-tests this fix at N=10000.
 - **1.3.1** (2026-06-16): **Bug fixes for categorical (mlogit/ologit) models and a degenerate-intervention guard.**
   - **Imputation predict range.** `impute()` with `imp_cmd(mlogit)` or `imp_cmd(ologit)` in a time-varying model aborted with `r(198) "' invalid name"` due to a stray macro-quote in the predicted-probability `predict` varlist range. Categorical imputation now runs.
   - **`baseoutcome()` under the bootstrap prefix.** Every internal `mlogit` refit (both imputation and time-varying component models) is run under `bootstrap:`, which requires a fixed `baseoutcome()`. The imputation fits never supplied it, and the time-varying component-model fits supplied it at only one of the simulation sites — so `imp_cmd(mlogit)` and `commands(X: mlogit)` failed under bootstrap. All internal `mlogit` fits now pin `baseoutcome()` to the estimation sample's lowest category (predicted probabilities are invariant to the choice, so estimates are unchanged).
