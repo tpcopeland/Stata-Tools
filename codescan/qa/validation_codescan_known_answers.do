@@ -4,9 +4,6 @@ clear all
 version 16.0
 set seed 12345
 
-capture log close _all
-log using "/tmp/codescan_validation_known_answers.log", text replace nomsg
-
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -386,9 +383,7 @@ else {
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: validation_codescan_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
-    log close _all
     exit 1
 }
 
 display as result "ALL TESTS PASSED"
-log close _all

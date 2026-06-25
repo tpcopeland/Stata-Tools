@@ -1,7 +1,6 @@
-*! kmplot Version 1.0.3  2026/06/25
-*! Publication-ready Kaplan-Meier and cumulative incidence plots
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! kmplot Version 1.2.0  2026/06/26
+*! Publication-ready Kaplan-Meier survival and cumulative failure plots
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -27,18 +26,19 @@ program define kmplot, rclass
         capture noisily {
 
     syntax [if] [in] , [BY(varname) FAILure ///
-        CI CIStyle(string) CIOpacity(integer 12) CITRansform(string) ///
+        CI Level(real 95) CIStyle(string) CIOpacity(integer 12) CITRansform(string) ///
         MEDian MEDIANAnnotate ///
-        RISKtable RISKEVents RISKCOMpact RISKMono TIMEpoints(numlist sort) ///
+        RISKtable RISKEVents RISKCOMpact RISKMono RISKHeight(real -1) TIMEpoints(numlist sort) ///
+        LANDmark(numlist sort) ///
         CENsor CENSORThin(integer 1) ///
-        PVALue PVALUEPOs(string) ///
+        PVALue PVALUEPOs(string) PVALUEFormat(string) PVALUEText(string asis) PVALUEAT(string asis) ///
         COLors(string asis) LWidth(string) LPattern(string asis) ///
         TItle(string asis) SUBtitle(string asis) ///
         XTItle(string asis) YTItle(string asis) ///
         XLAbel(string asis) YLAbel(string asis) ///
         LEGend(string asis) NOTE(string asis) ///
         SCHeme(string) NAME(string asis) ASPectratio(string) ///
-        EXPort(string asis) *]
+        EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) *]
 
     * =========================================================================
     * VALIDATE PREREQUISITES
@@ -72,11 +72,36 @@ program define kmplot, rclass
     }
     local N = r(N)
 
+    local has_medians_mat = 0
+    local has_landmarks_mat = 0
+    local has_risktable_mat = 0
+    local n_landmarks = 0
+    local n_timepoints = 0
+    local riskheight_used = .
+    local risk_timepoints ""
+    local export_file ""
+    local curve_saved ""
+    local risk_saved ""
+    local pvalue_label "Log-rank p"
+    local pvalue_format "%5.3f"
+    local pvalue_y = .
+    local pvalue_x = .
+    local pvalue_place ""
+
+    tempname medians_mat landmarks_mat risktable_mat
+
     * Validate cistyle
     if "`cistyle'" != "" & !inlist("`cistyle'", "band", "line") {
         noisily display as error "cistyle() must be {bf:band} or {bf:line}"
         exit 198
     }
+
+    * Validate CI level
+    if `level' <= 0 | `level' >= 100 {
+        noisily display as error "level() must be greater than 0 and less than 100"
+        exit 198
+    }
+    local zcrit = invnormal(1 - (100 - `level') / 200)
 
     * Validate citransform
     if "`citransform'" != "" & !inlist("`citransform'", "loglog", "log", "plain") {
@@ -98,6 +123,36 @@ program define kmplot, rclass
         noisily display as error "pvaluepos() must be {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
         exit 198
     }
+    if `riskheight' != -1 & (`riskheight' <= 0 | `riskheight' > 80) {
+        noisily display as error "riskheight() must be greater than 0 and no more than 80"
+        exit 198
+    }
+    foreach _lm of local landmark {
+        if `_lm' < 0 {
+            noisily display as error "landmark() timepoints must be nonnegative"
+            exit 198
+        }
+    }
+    if "`pvalueformat'" != "" local pvalue_format "`pvalueformat'"
+    capture local _pvalue_fmt_test : display `pvalue_format' 0.123456
+    if _rc {
+        noisily display as error "pvalueformat() must be a valid numeric display format"
+        exit 198
+    }
+    if `"`pvaluetext'"' != "" {
+        local pvalue_label `"`pvaluetext'"'
+    }
+    if `"`pvalueat'"' != "" {
+        capture numlist `"`pvalueat'"', min(2) max(2)
+        if _rc {
+            noisily display as error "pvalueat() must contain exactly two numeric values: y x"
+            exit 198
+        }
+        local pvalueat "`r(numlist)'"
+        local pvalue_y : word 1 of `pvalueat'
+        local pvalue_x : word 2 of `pvalueat'
+        local pvalue_place "c"
+    }
         if `censorthin' < 1 local censorthin = 1
         if `ciopacity' < 0 | `ciopacity' > 100 {
             noisily display as error "ciopacity() must be between 0 and 100"
@@ -109,7 +164,7 @@ program define kmplot, rclass
     }
     if `"`ytitle'"' == "" {
         if "`failure'" != "" {
-            local ytitle "Cumulative incidence"
+            local ytitle "Cumulative failure"
         }
         else {
             local ytitle "Survival probability"
@@ -117,7 +172,7 @@ program define kmplot, rclass
     }
     if `"`xtitle'"' == "" local xtitle "Analysis time"
     * Strip outer quotes from string-asis options (asis preserves user quotes)
-    foreach _ttl in xtitle ytitle title subtitle note {
+    foreach _ttl in xtitle ytitle title subtitle note pvalue_label {
         local _len = strlen(`"``_ttl''"')
         if `_len' >= 2 & ///
             substr(`"``_ttl''"', 1, 1) == char(34) & ///
@@ -156,15 +211,16 @@ program define kmplot, rclass
             }
             else {
                 local pval = chi2tail(r(df), r(chi2))
-                if `pval' < 0.001 {
-                    local pval_text "Log-rank p < 0.001"
-                }
-                else {
-                    local pval_text : display "Log-rank p = " %5.3f `pval'
-                    local pval_text = strtrim("`pval_text'")
-                }
-            }
-        }
+	                if `pval' < 0.001 {
+	                    local pval_text "`pvalue_label' < 0.001"
+	                }
+	                else {
+	                    local pval_fmt : display `pvalue_format' `pval'
+	                    local pval_fmt = strtrim("`pval_fmt'")
+	                    local pval_text "`pvalue_label' = `pval_fmt'"
+	                }
+	            }
+	        }
     }
     else if "`pvalue'" != "" & "`by'" == "" {
         display as text "(p-value requires by() variable; skipped)"
@@ -180,7 +236,7 @@ program define kmplot, rclass
 
         quietly keep if `touse'
 
-        tempvar grpid km_s km_se km_lb km_ub km_tmp km_cens
+	        tempvar grpid km_s km_se km_lb km_ub km_tmp km_cens km_anchor
 
         * Create numeric group ID
         if "`by'" != "" {
@@ -260,28 +316,28 @@ program define kmplot, rclass
 
                 if "`citransform'" == "loglog" {
                     * Log-log transformation (Stata default)
-                    replace `km_lb' = exp(-exp(log(-log(`km_s')) + ///
-                        invnormal(0.975) * `km_se' / ///
-                        (`km_s' * abs(log(`km_s'))))) ///
-                        if `km_s' > 0 & `km_s' < 1 & `km_se' > 0
-                    replace `km_ub' = exp(-exp(log(-log(`km_s')) - ///
-                        invnormal(0.975) * `km_se' / ///
-                        (`km_s' * abs(log(`km_s'))))) ///
-                        if `km_s' > 0 & `km_s' < 1 & `km_se' > 0
-                }
-                else if "`citransform'" == "log" {
-                    replace `km_lb' = `km_s' * ///
-                        exp(-invnormal(0.975) * `km_se' / `km_s') ///
-                        if `km_s' > 0 & `km_se' > 0
-                    replace `km_ub' = `km_s' * ///
-                        exp(invnormal(0.975) * `km_se' / `km_s') ///
-                        if `km_s' > 0 & `km_se' > 0
-                }
-                else {
-                    * Plain (untransformed)
-                    replace `km_lb' = `km_s' - invnormal(0.975) * `km_se'
-                    replace `km_ub' = `km_s' + invnormal(0.975) * `km_se'
-                }
+	                    replace `km_lb' = exp(-exp(log(-log(`km_s')) + ///
+	                        `zcrit' * `km_se' / ///
+	                        (`km_s' * abs(log(`km_s'))))) ///
+	                        if `km_s' > 0 & `km_s' < 1 & `km_se' > 0
+	                    replace `km_ub' = exp(-exp(log(-log(`km_s')) - ///
+	                        `zcrit' * `km_se' / ///
+	                        (`km_s' * abs(log(`km_s'))))) ///
+	                        if `km_s' > 0 & `km_s' < 1 & `km_se' > 0
+	                }
+	                else if "`citransform'" == "log" {
+	                    replace `km_lb' = `km_s' * ///
+	                        exp(-`zcrit' * `km_se' / `km_s') ///
+	                        if `km_s' > 0 & `km_se' > 0
+	                    replace `km_ub' = `km_s' * ///
+	                        exp(`zcrit' * `km_se' / `km_s') ///
+	                        if `km_s' > 0 & `km_se' > 0
+	                }
+	                else {
+	                    * Plain (untransformed)
+	                    replace `km_lb' = `km_s' - `zcrit' * `km_se'
+	                    replace `km_ub' = `km_s' + `zcrit' * `km_se'
+	                }
 
                 * Clamp to [0, 1]
                 replace `km_lb' = 0 if `km_lb' < 0 & !missing(`km_lb')
@@ -309,12 +365,12 @@ program define kmplot, rclass
     * CENSOR MARKS
     * =========================================================================
 
-        if "`censor'" != "" {
-            quietly gen byte `km_cens' = (_d == 0 & !missing(`km_s'))
-            if `censorthin' > 1 {
-                tempvar _ccnt
-                bysort `grpid' (_t) : gen int `_ccnt' = ///
-                    sum(`km_cens') if `km_cens' == 1
+	        if "`censor'" != "" | `"`saving'"' != "" {
+	            quietly gen byte `km_cens' = (_d == 0 & !missing(`km_s'))
+	            if "`censor'" != "" & `censorthin' > 1 {
+	                tempvar _ccnt
+	                bysort `grpid' (_t) : gen int `_ccnt' = ///
+	                    sum(`km_cens') if `km_cens' == 1
                 quietly replace `km_cens' = 0 ///
                     if `km_cens' == 1 & mod(`_ccnt', `censorthin') != 0
             }
@@ -324,7 +380,8 @@ program define kmplot, rclass
     * RISK TABLE (compute before adding anchors)
     * =========================================================================
 
-    if "`risktable'" != "" {
+	    local need_risktable_data = ("`risktable'" != "" | `"`risksaving'"' != "")
+	    if `need_risktable_data' {
         * Store group labels in dataset characteristics
         forvalues g = 1/`ngroups' {
             char _dta[_kmplot_grplbl`g'] `"`grplbl`g''"'
@@ -344,10 +401,11 @@ program define kmplot, rclass
             }
         }
 
-        local tp_opt ""
-        if "`timepoints'" != "" {
-            local tp_opt "timepoints(`timepoints')"
-        }
+	        local tp_opt ""
+	        if "`timepoints'" != "" {
+	            local tp_opt "timepoints(`timepoints')"
+	        }
+	        local rt_height_opt "riskheight(`riskheight')"
         local rt_xtitle_opt ""
         if `"`xtitle'"' != "" {
             local rt_xtitle_opt xtitle("`xtitle'")
@@ -377,17 +435,23 @@ program define kmplot, rclass
         }
         if "`riskmono'" != "" local rt_flags "`rt_flags' mono"
 
-            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
-                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
-                `rt_xtitle_opt' `rt_xlabel_opt' `rt_flags'
-        }
+	            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
+	                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
+	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_height_opt' `rt_flags'
+	            matrix `risktable_mat' = r(risktable)
+	            local has_risktable_mat = 1
+	            local risk_timepoints "`r(timepoints)'"
+	            local n_timepoints = r(n_timepoints)
+	            local riskheight_used = r(riskheight)
+	        }
 
     * =========================================================================
     * ADD TIME-ZERO ANCHORS
     * =========================================================================
 
-    local N_cur = _N
-    quietly set obs `=`N_cur' + `ngroups''
+	    quietly gen byte `km_anchor' = 0
+	    local N_cur = _N
+	    quietly set obs `=`N_cur' + `ngroups''
 
         forvalues g = 1/`ngroups' {
             local row = `N_cur' + `g'
@@ -409,12 +473,47 @@ program define kmplot, rclass
                     quietly replace `km_ub' = 1 in `row'
                 }
             }
-            if "`censor'" != "" {
-                quietly replace `km_cens' = 0 in `row'
-            }
-        }
+	            if "`censor'" != "" {
+	                quietly replace `km_cens' = 0 in `row'
+	            }
+	            if `"`saving'"' != "" & "`censor'" == "" {
+	                quietly replace `km_cens' = 0 in `row'
+	            }
+	            quietly replace `km_anchor' = 1 in `row'
+	        }
 
-        sort `grpid' _t
+	        sort `grpid' _t
+
+	    * =========================================================================
+	    * LANDMARK ESTIMATES
+	    * =========================================================================
+
+	    if "`landmark'" != "" {
+	        local n_landmarks : word count `landmark'
+	        matrix `landmarks_mat' = J(`=`ngroups' * `n_landmarks'', 5, .)
+	        matrix colnames `landmarks_mat' = group time estimate lower upper
+	        local _lm_row = 0
+	        forvalues g = 1/`ngroups' {
+	            foreach tp of local landmark {
+	                local ++_lm_row
+	                matrix `landmarks_mat'[`_lm_row', 1] = `g'
+	                matrix `landmarks_mat'[`_lm_row', 2] = `tp'
+	                quietly summarize _t if `grpid' == `g' & _t <= `tp' & !missing(`km_s'), meanonly
+	                if r(N) > 0 {
+	                    local _lm_last_t = r(max)
+	                    quietly summarize `km_s' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_s'), meanonly
+	                    matrix `landmarks_mat'[`_lm_row', 3] = r(mean)
+	                    if "`ci'" != "" {
+	                        quietly summarize `km_lb' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_lb'), meanonly
+	                        if r(N) > 0 matrix `landmarks_mat'[`_lm_row', 4] = r(mean)
+	                        quietly summarize `km_ub' if `grpid' == `g' & _t == `_lm_last_t' & !missing(`km_ub'), meanonly
+	                        if r(N) > 0 matrix `landmarks_mat'[`_lm_row', 5] = r(mean)
+	                    }
+	                }
+	            }
+	        }
+	        local has_landmarks_mat = 1
+	    }
 
     * =========================================================================
     * COMPUTE MEDIANS
@@ -424,8 +523,8 @@ program define kmplot, rclass
         local median_`g' = .
     }
 
-    if "`median'" != "" {
-        forvalues g = 1/`ngroups' {
+	    if "`median'" != "" {
+	        forvalues g = 1/`ngroups' {
                 if "`failure'" != "" {
                     * CIF: first time where F(t) >= 0.5
                     quietly summarize _t if `grpid' == `g' & ///
@@ -438,9 +537,16 @@ program define kmplot, rclass
                 }
             if r(N) > 0 {
                 local median_`g' = r(min)
-            }
-        }
-    }
+	            }
+	        }
+	        matrix `medians_mat' = J(`ngroups', 2, .)
+	        matrix colnames `medians_mat' = group median
+	        forvalues g = 1/`ngroups' {
+	            matrix `medians_mat'[`g', 1] = `g'
+	            matrix `medians_mat'[`g', 2] = `median_`g''
+	        }
+	        local has_medians_mat = 1
+	    }
 
     * Median annotation note
     local med_note ""
@@ -595,12 +701,17 @@ program define kmplot, rclass
         local tw_opts `"`tw_opts' note(`"`med_note'"', size(vsmall) color(gs5))"'
     }
 
-    * P-value text annotation
-    if "`pval_text'" != "" {
-        if "`pvaluepos'" == "topleft" {
-            local p_y = 0.95
-            local p_x = `tmax' * 0.05
-            local p_place "e"
+	    * P-value text annotation
+	    if "`pval_text'" != "" {
+	        if `"`pvalueat'"' != "" {
+	            local p_place "`pvalue_place'"
+	            local p_y = `pvalue_y'
+	            local p_x = `pvalue_x'
+	        }
+	        else if "`pvaluepos'" == "topleft" {
+	            local p_y = 0.95
+	            local p_x = `tmax' * 0.05
+	            local p_place "e"
         }
         else if "`pvaluepos'" == "bottomleft" {
             local p_y = 0.05
@@ -653,9 +764,12 @@ program define kmplot, rclass
             capture graph drop _kmplot_risktable
             local _kmplot_drop_risktable_rc = _rc
         }
-    else {
-        twoway `tw_layers', `tw_opts' name(`name', replace)
-    }
+	    else {
+	        twoway `tw_layers', `tw_opts' name(`name', replace)
+	        if "`risktable'" == "" & `"`risksaving'"' != "" {
+	            capture graph drop _kmplot_risktable
+	        }
+	    }
 
     * =========================================================================
     * EXPORT
@@ -689,11 +803,139 @@ program define kmplot, rclass
             if `_kmplot_side_rc' == 0 & _rc == 0 {
                 display as text "Graph saved to: " as result `"`export_file'"'
             }
-        }
+	        }
 
-    * =========================================================================
-    * DISPLAY SUMMARY
-    * =========================================================================
+	    * =========================================================================
+	    * SAVE REUSABLE DATASETS
+	    * =========================================================================
+
+	        if `"`saving'"' != "" {
+	            local curve_file `"`saving'"'
+	            local curve_opts ""
+	            local cpos = strpos(`"`curve_file'"', ",")
+	            if `cpos' > 0 {
+	                local curve_opts = strtrim(substr(`"`curve_file'"', `cpos' + 1, .))
+	                local curve_file = strtrim(substr(`"`curve_file'"', 1, `cpos' - 1))
+	            }
+	            local _cf_len = strlen(`"`curve_file'"')
+	            if `_cf_len' >= 2 & ///
+	                substr(`"`curve_file'"', 1, 1) == char(34) & ///
+	                substr(`"`curve_file'"', `_cf_len', 1) == char(34) {
+	                local curve_file = substr(`"`curve_file'"', 2, `_cf_len' - 2)
+	            }
+	            if `"`curve_opts'"' != "" & lower(`"`curve_opts'"') != "replace" {
+	                noisily display as error "saving() only supports the replace suboption"
+	                exit 198
+	            }
+	            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
+	                if strpos(`"`curve_file'"', char(`_bad_ascii')) {
+	                    noisily display as error "saving() path contains unsupported shell metacharacters or quote characters"
+	                    exit 198
+	                }
+	            }
+	            capture confirm variable `km_lb'
+	            if _rc {
+	                quietly gen double `km_lb' = .
+	            }
+	            capture confirm variable `km_ub'
+	            if _rc {
+	                quietly gen double `km_ub' = .
+	            }
+	            keep `grpid' _t `km_s' `km_se' `km_lb' `km_ub' `km_cens' `km_anchor'
+	            rename `grpid' group
+	            rename _t time
+	            rename `km_s' estimate
+	            rename `km_se' se
+	            rename `km_lb' lower
+	            rename `km_ub' upper
+	            rename `km_cens' censor
+	            rename `km_anchor' anchor
+	            quietly gen str80 group_label = ""
+	            forvalues g = 1/`ngroups' {
+	                quietly replace group_label = `"`grplbl`g''"' if group == `g'
+	            }
+	            label variable group "KM group index"
+	            label variable group_label "KM group label"
+	            label variable time "Analysis time"
+	            label variable estimate "KM survival or cumulative failure estimate"
+	            label variable se "Greenwood standard error"
+	            label variable lower "Lower confidence bound"
+	            label variable upper "Upper confidence bound"
+	            label variable censor "Displayed censor marker"
+	            label variable anchor "Time-zero anchor row"
+	            order group group_label time estimate se lower upper censor anchor
+	            if lower(`"`curve_opts'"') == "replace" {
+	                capture noisily save `"`curve_file'"', replace
+	            }
+	            else {
+	                capture noisily save `"`curve_file'"'
+	            }
+	            local _curve_save_rc = _rc
+	            if `_kmplot_side_rc' == 0 & `_curve_save_rc' != 0 {
+	                local _kmplot_side_rc = `_curve_save_rc'
+	            }
+	            if `_curve_save_rc' == 0 {
+	                local curve_saved `"`curve_file'"'
+	                display as text "Curve data saved to: " as result `"`curve_file'"'
+	            }
+	        }
+
+	        if `"`risksaving'"' != "" {
+	            local risk_file `"`risksaving'"'
+	            local risk_opts ""
+	            local cpos = strpos(`"`risk_file'"', ",")
+	            if `cpos' > 0 {
+	                local risk_opts = strtrim(substr(`"`risk_file'"', `cpos' + 1, .))
+	                local risk_file = strtrim(substr(`"`risk_file'"', 1, `cpos' - 1))
+	            }
+	            local _rf_len = strlen(`"`risk_file'"')
+	            if `_rf_len' >= 2 & ///
+	                substr(`"`risk_file'"', 1, 1) == char(34) & ///
+	                substr(`"`risk_file'"', `_rf_len', 1) == char(34) {
+	                local risk_file = substr(`"`risk_file'"', 2, `_rf_len' - 2)
+	            }
+	            if `"`risk_opts'"' != "" & lower(`"`risk_opts'"') != "replace" {
+	                noisily display as error "risksaving() only supports the replace suboption"
+	                exit 198
+	            }
+	            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
+	                if strpos(`"`risk_file'"', char(`_bad_ascii')) {
+	                    noisily display as error "risksaving() path contains unsupported shell metacharacters or quote characters"
+	                    exit 198
+	                }
+	            }
+	            clear
+	            quietly svmat double `risktable_mat', names(col)
+	            quietly gen str80 group_label = ""
+	            forvalues g = 1/`ngroups' {
+	                quietly replace group_label = `"`grplbl`g''"' if group == `g'
+	            }
+	            label variable group "KM group index"
+	            label variable group_label "KM group label"
+	            label variable time "Analysis time"
+	            label variable at_risk "Number at risk"
+	            label variable events "Cumulative events"
+	            label variable censored "Cumulative censoring records"
+	            order group group_label time at_risk events censored
+	            if lower(`"`risk_opts'"') == "replace" {
+	                capture noisily save `"`risk_file'"', replace
+	            }
+	            else {
+	                capture noisily save `"`risk_file'"'
+	            }
+	            local _risk_save_rc = _rc
+	            if `_kmplot_side_rc' == 0 & `_risk_save_rc' != 0 {
+	                local _kmplot_side_rc = `_risk_save_rc'
+	            }
+	            if `_risk_save_rc' == 0 {
+	                local risk_saved `"`risk_file'"'
+	                display as text "Risk-table data saved to: " as result `"`risk_file'"'
+	            }
+	        }
+
+	    * =========================================================================
+	    * DISPLAY SUMMARY
+	    * =========================================================================
 
     display as text "Kaplan-Meier plot"
     display as text "  Observations: " as result `N'
@@ -732,20 +974,78 @@ program define kmplot, rclass
         set varabbrev `_orig_varabbrev'
         if `rc' exit `rc'
 
-        return scalar N = `N'
-        return scalar n_groups = `ngroups'
-        if "`pvalue'" != "" {
-            return scalar p = `pval'
-        }
-        forvalues g = 1/`ngroups' {
-            if `median_`g'' < . {
-                return scalar median_`g' = `median_`g''
-            }
-        }
-        return local cmd "kmplot"
-        return local scheme "`scheme'"
-        if "`by'" != "" {
-            return local by "`by'"
-        }
-        if `_kmplot_side_rc' exit `_kmplot_side_rc'
-end
+	        return scalar N = `N'
+	        return scalar n_groups = `ngroups'
+	        return scalar level = `level'
+	        return scalar failure = ("`failure'" != "")
+	        return scalar ci = ("`ci'" != "")
+	        return scalar n_landmarks = `n_landmarks'
+	        return scalar n_timepoints = `n_timepoints'
+	        if `riskheight_used' < . {
+	            return scalar riskheight = `riskheight_used'
+	        }
+	        if "`pvalue'" != "" {
+	            return scalar p = `pval'
+	            if `pvalue_y' < . {
+	                return scalar pvalue_y = `pvalue_y'
+	            }
+	            if `pvalue_x' < . {
+	                return scalar pvalue_x = `pvalue_x'
+	            }
+	        }
+	        forvalues g = 1/`ngroups' {
+	            if `median_`g'' < . {
+	                return scalar median_`g' = `median_`g''
+	            }
+	        }
+	        local group_labels ""
+	        forvalues g = 1/`ngroups' {
+	            local group_labels `"`group_labels'`grplbl`g''"'
+	            if `g' < `ngroups' {
+	                local group_labels `"`group_labels' | "'
+	            }
+	        }
+	        return local cmd "kmplot"
+	        return local graph_name `"`name'"'
+	        local plot_type = cond("`failure'" != "", "failure", "survival")
+	        return local plot_type "`plot_type'"
+	        return local scheme "`scheme'"
+	        return local cistyle "`cistyle'"
+	        return local citransform "`citransform'"
+	        return local colors `"`colors'"'
+	        return local lpattern `"`lpattern'"'
+	        return local timepoints "`risk_timepoints'"
+	        return local landmark_times "`landmark'"
+	        return local group_labels `"`group_labels'"'
+	        return local xtitle `"`xtitle'"'
+	        return local ytitle `"`ytitle'"'
+	        if `"`export_file'"' != "" {
+	            return local export `"`export_file'"'
+	        }
+	        if `"`curve_saved'"' != "" {
+	            return local saving `"`curve_saved'"'
+	        }
+	        if `"`risk_saved'"' != "" {
+	            return local risksaving `"`risk_saved'"'
+	        }
+	        if "`pvalue'" != "" {
+	            return local pvalue_text `"`pval_text'"'
+	            return local pvalue_label `"`pvalue_label'"'
+	            return local pvalue_format "`pvalue_format'"
+	            return local pvalue_pos "`pvaluepos'"
+	            return local pvalue_at `"`pvalueat'"'
+	        }
+	        if "`by'" != "" {
+	            return local by "`by'"
+	        }
+	        if `has_medians_mat' {
+	            return matrix medians = `medians_mat'
+	        }
+	        if `has_landmarks_mat' {
+	            return matrix landmarks = `landmarks_mat'
+	        }
+	        if `has_risktable_mat' {
+	            return matrix risktable = `risktable_mat'
+	        }
+	        if `_kmplot_side_rc' exit `_kmplot_side_rc'
+	end

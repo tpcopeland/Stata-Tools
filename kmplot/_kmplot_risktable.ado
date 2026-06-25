@@ -1,7 +1,6 @@
-*! _kmplot_risktable Version 1.0.3  2026/06/25
+*! _kmplot_risktable Version 1.2.0  2026/06/26
 *! Risk table helper for kmplot
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 Internal helper program. Generates a number-at-risk table graph
@@ -14,7 +13,7 @@ Options:
 Called from kmplot.ado. Not intended for direct use.
 */
 
-program define _kmplot_risktable
+program define _kmplot_risktable, rclass
         version 16.0
         local _orig_varabbrev = c(varabbrev)
         set varabbrev off
@@ -23,9 +22,9 @@ program define _kmplot_risktable
 
     syntax , GRPvar(varname) NGRoups(integer) ///
         [TIMEpoints(numlist sort) ///
-         COLors(string asis) SCHeme(string) XMax(real -1) ///
-         XTItle(string asis) XLAbel(string asis) ///
-         EVents MONO]
+	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
+	         XTItle(string asis) XLAbel(string asis) ///
+	         EVents MONO]
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
@@ -85,34 +84,52 @@ program define _kmplot_risktable
     capture confirm variable _t0
     local has_t0 = (_rc == 0)
 
-    forvalues g = 1/`ngroups' {
-        local j = 0
-        foreach tp of local timepoints {
-            local ++j
+	    tempname rtmat
+	    matrix `rtmat' = J(`ngroups' * `ntp', 5, .)
+	    matrix colnames `rtmat' = group time at_risk events censored
+
+	    forvalues g = 1/`ngroups' {
+	        local j = 0
+	        foreach tp of local timepoints {
+	            local ++j
             if `has_t0' {
                 quietly count if _t >= `tp' & _t0 <= `tp' & `grpvar' == `g'
             }
             else {
                 quietly count if _t >= `tp' & `grpvar' == `g'
-            }
-            local nrisk_`g'_`j' = r(N)
-        }
-    }
+	            }
+	            local nrisk_`g'_`j' = r(N)
+	        }
+	    }
 
     * =====================================================================
     * COMPUTE CUMULATIVE EVENTS (before preserve, if requested)
     * =====================================================================
 
-    if "`events'" != "" {
-        forvalues g = 1/`ngroups' {
-            local j = 0
-            foreach tp of local timepoints {
-                local ++j
-                quietly count if _t <= `tp' & _d == 1 & `grpvar' == `g'
-                local nevt_`g'_`j' = r(N)
-            }
-        }
-    }
+	    forvalues g = 1/`ngroups' {
+	        local j = 0
+	        foreach tp of local timepoints {
+	            local ++j
+	            quietly count if _t <= `tp' & _d == 1 & `grpvar' == `g'
+	            local nevt_`g'_`j' = r(N)
+	            quietly count if _t <= `tp' & _d == 0 & `grpvar' == `g'
+	            local ncens_`g'_`j' = r(N)
+	        }
+	    }
+
+	    local _rt_row = 0
+	    forvalues g = 1/`ngroups' {
+	        local j = 0
+	        foreach tp of local timepoints {
+	            local ++j
+	            local ++_rt_row
+	            matrix `rtmat'[`_rt_row', 1] = `g'
+	            matrix `rtmat'[`_rt_row', 2] = `tp'
+	            matrix `rtmat'[`_rt_row', 3] = `nrisk_`g'_`j''
+	            matrix `rtmat'[`_rt_row', 4] = `nevt_`g'_`j''
+	            matrix `rtmat'[`_rt_row', 5] = `ncens_`g'_`j''
+	        }
+	    }
 
     * =====================================================================
     * BUILD SCATTER DATASET
@@ -182,9 +199,18 @@ program define _kmplot_risktable
         local ylabels `"`ylabels' `yval' `"`lbl'"'"'
     }
 
-    local ymin = 0.5
-    local ymax = `ngroups' + 0.5
-    local fysize = 25
+	    local ymin = 0.5
+	    local ymax = `ngroups' + 0.5
+	    if `riskheight' > 0 {
+	        local fysize = `riskheight'
+	    }
+	    else {
+	        local fysize = 25
+	        if `ngroups' > 3 {
+	            local fysize = 25 + (`ngroups' - 3) * 4
+	            if `fysize' > 60 local fysize = 60
+	        }
+	    }
 
     if "`events'" != "" {
         local ytitle_rt "No. at risk (events)"
@@ -233,6 +259,10 @@ program define _kmplot_risktable
         if `_kmplot_rt_preserved' {
             capture restore
         }
-        set varabbrev `_orig_varabbrev'
-        if `rc' exit `rc'
-end
+	        set varabbrev `_orig_varabbrev'
+	        if `rc' exit `rc'
+	        return scalar riskheight = `fysize'
+	        return scalar n_timepoints = `ntp'
+	        return local timepoints "`timepoints'"
+	        return matrix risktable = `rtmat'
+	end
