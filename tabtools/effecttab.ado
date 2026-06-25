@@ -1,4 +1,4 @@
-*! effecttab Version 1.8.5  2026/06/24
+*! effecttab Version 1.8.6  2026/06/25
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1166,8 +1166,7 @@ quietly {
 
 	* CSV export (F2) — must happen before clear
 	if "`csv'" != "" {
-		_tabtools_validate_path "`csv'" "csv()"
-		export delimited using "`csv'", replace
+		_tabtools_csv_write using "`csv'", labelvar(A)
 	}
 
 	* Console display
@@ -1181,7 +1180,7 @@ quietly {
 		local _mdappend_opt ""
 		if "`mdappend'" != "" local _mdappend_opt "append"
 		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"')
+			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') strictheaders
 		if _rc {
 			local _md_rc = _rc
 			noisily display as error "Failed to export Markdown to `markdown'"

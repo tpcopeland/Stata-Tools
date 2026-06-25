@@ -1,4 +1,4 @@
-*! comptab Version 1.8.5  2026/06/24
+*! comptab Version 1.8.6  2026/06/25
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -829,8 +829,7 @@ program define comptab, rclass
     * CSV EXPORT
     * =====================================================================
     if "`csv'" != "" {
-        _tabtools_validate_path "`csv'" "csv()"
-        export delimited using "`csv'", replace
+        _tabtools_csv_write using "`csv'", labelvar(A)
     }
 
     * =====================================================================
@@ -848,7 +847,7 @@ program define comptab, rclass
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) datastart(4) title(`"`title'"') footnote(`"`footnote'"')
+            `_mdappend_opt' labelvar(A) datastart(3) title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"

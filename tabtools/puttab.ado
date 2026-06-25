@@ -1,4 +1,4 @@
-*! puttab Version 1.8.5  2026/06/24
+*! puttab Version 1.8.6  2026/06/25
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -248,7 +248,7 @@ program define puttab, rclass
 
         * ----- optional CSV mirror of the assembled table -----
         if `"`csv'"' != "" {
-            export delimited using `"`csv'"', replace novarnames
+            _tabtools_csv_write using `"`csv'"'
             capture confirm file `"`csv'"'
             if _rc {
                 noisily display as error "CSV export completed but file was not created"

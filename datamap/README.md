@@ -509,15 +509,15 @@ The suite covers all four public commands with 14 QA files: 12 functional test f
 
 - `test_datacheck.do` - 106 tests
 - `test_datadict_v14.do` - 27 tests
-- `test_datamap.do` - 73 tests
+- `test_datamap.do` - 84 tests
 - `test_datamap_bugfixes.do` - 13 tests
 - `test_datamap_float_format.do` - 5 tests
 - `test_datamap_v2.do` - 54 tests
 - `test_datamap_v11.do` - 42 tests
 - `test_datamap_v15.do` - 6 tests
 - `test_datamap_privacy.do` - 22 tests
-- `test_datamap_golden.do` - 0 tests (9 golden cases)
-- `test_datamvp.do` - 62 tests
+- `test_datamap_golden.do` - 9 tests (9 golden cases)
+- `test_datamvp.do` - 72 tests
 - `test_datamvp_labels.do` - 20 tests
 - `validation_datamap.do` - 56 validations
 - `validation_datamvp.do` - 60 validations

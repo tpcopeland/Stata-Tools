@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.8.5  2026/06/24
+*! _tabtools_markdown_write Version 1.8.6  2026/06/25
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ program define _tabtools_markdown_write, rclass
     capture noisily {
         syntax using/ , [APPEND LABELVar(name) HEADERStart(integer 2) ///
             DATAStart(integer 3) TITLE(string) FOOTnote(string) ///
-            NOVARNAMES]
+            NOVARNAMES STRICTHeaders]
 
         capture _tabtools_helpers_ready
         if _rc {
@@ -51,29 +51,10 @@ program define _tabtools_markdown_write, rclass
         capture _tabtools_validate_path `"`using'"' "markdown()"
         if _rc exit _rc
 
-        local _vars ""
-        if `"`labelvar'"' != "" {
-            capture confirm variable `labelvar'
-            if !_rc local _vars "`labelvar'"
-        }
-
-        local _cvars ""
-        foreach _v of local _allvars {
-            if regexm("`_v'", "^c[0-9]+$") local _cvars "`_cvars' `_v'"
-        }
-        if `"`_cvars'"' != "" {
-            local _vars "`_vars' `_cvars'"
-        }
-        else {
-            foreach _v of local _allvars {
-                if regexm("`_v'", "(_length|_max)$") continue
-                if regexm("`_v'", "^ref[0-9]+$") continue
-                local _vars "`_vars' `_v'"
-            }
-        }
-        local _vars : list uniq _vars
-        local _vars : list _vars & _allvars
-        local _vars : list clean _vars
+        local _visible_opts ""
+        if `"`labelvar'"' != "" local _visible_opts "labelvar(`labelvar')"
+        _tabtools_visible_vars, `_visible_opts'
+        local _vars "`_tabtools_visible_vars'"
         local _k : word count `_vars'
         if `_k' == 0 {
             noisily display as error "No output columns available for Markdown export"
@@ -100,12 +81,12 @@ program define _tabtools_markdown_write, rclass
             if "`novarnames'" == "" & inrange(`headerstart', 1, _N) {
                 mata: st_local("_h`_j'", _tt_md_cell("`_v'", `headerstart'))
             }
-            if `"`_h`_j''"' == "" {
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" {
                 local _vl : variable label `_v'
                 if `"`_vl'"' != "" local _h`_j' `"`_vl'"'
             }
-            if `"`_h`_j''"' == "" local _h`_j' "`_v'"
-            if `"`_h`_j''"' == "" local _h`_j' "Column `_j'"
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" local _h`_j' "`_v'"
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" local _h`_j' "Column `_j'"
             mata: st_local("_h`_j'", _tt_md_escape(st_local("_h`_j'")))
         }
 

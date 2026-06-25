@@ -1,4 +1,4 @@
-*! table1_tc Version 1.8.5  2026/06/24 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.8.6  2026/06/25 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1890,8 +1890,7 @@ program define table1_tc, rclass
 
     * CSV export (F2)
     if "`csv'" != "" {
-        _tabtools_validate_path "`csv'" "csv()"
-        export delimited using "`csv'", replace
+        _tabtools_csv_write using "`csv'"
         display as text "CSV exported to `csv'"
     }
 
@@ -1902,7 +1901,7 @@ program define table1_tc, rclass
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"')
+            `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             display as error "Failed to export Markdown to `markdown'"

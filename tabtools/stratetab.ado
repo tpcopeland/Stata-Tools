@@ -1,4 +1,4 @@
-*! stratetab Version 1.8.5  2026/06/24
+*! stratetab Version 1.8.6  2026/06/25
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -498,7 +498,7 @@ drop `exp_row'
 if "`csv'" != "" {
 	_tabtools_validate_path "`csv'" "csv()"
 	order title c*
-	export delimited using "`csv'", replace
+	_tabtools_csv_write using "`csv'"
 }
 
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
@@ -510,7 +510,7 @@ if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
 	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-		`_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+		`_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
 	if _rc {
 		local _md_rc = _rc
 		noi di as err "Failed to export Markdown to `markdown'"

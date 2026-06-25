@@ -1,4 +1,4 @@
-*! simtab Version 1.8.5  2026/06/24
+*! simtab Version 1.8.6  2026/06/25
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -690,7 +690,7 @@ program define simtab, rclass
 
             * ----- CSV (full table, incl. footnote row) -----
             if `_has_csv' {
-                export delimited using `"`csv'"', replace novarnames
+                _tabtools_csv_write using `"`csv'"'
                 capture confirm file `"`csv'"'
                 if _rc {
                     display as error "CSV export completed but file was not created"
@@ -722,7 +722,7 @@ program define simtab, rclass
                 if "`mdappend'" != "" local _mdappend_opt "append"
                 capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                     `_mdappend_opt' headerstart(1) datastart(2) ///
-                    title(`"`title'"') footnote(`"`footnote'"')
+                    title(`"`title'"') footnote(`"`footnote'"') strictheaders
                 if _rc {
                     local _md_rc = _rc
                     display as error "Failed to export Markdown to `markdown'"

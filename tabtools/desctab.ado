@@ -1,4 +1,4 @@
-*! desctab Version 1.8.5  2026/06/24
+*! desctab Version 1.8.6  2026/06/25
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -744,7 +744,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.8.5"
+    return local version "1.8.6"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"
@@ -756,7 +756,7 @@ program define desctab, rclass
     }
 
     if "`csv'" != "" {
-        export delimited using "`csv'", replace
+        _tabtools_csv_write using "`csv'", labelvar(A)
     }
 
     local _ret_markdown ""
@@ -767,7 +767,7 @@ program define desctab, rclass
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) headerstart(`header_start') ///
-            datastart(`data_start') title(`"`title'"') footnote(`"`footnote'"')
+            datastart(`data_start') title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             display as error "Failed to export Markdown to `markdown'"

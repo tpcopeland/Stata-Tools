@@ -1,4 +1,4 @@
-*! diagtab Version 1.8.5  2026/06/24
+*! diagtab Version 1.8.6  2026/06/25
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -746,7 +746,7 @@ capture noisily {
 
 **# CSV/Frame/Excel Export
     if "`csv'" != "" {
-        export delimited using "`csv'", replace
+        _tabtools_csv_write using "`csv'"
     }
 
     local _ret_markdown ""
@@ -756,7 +756,7 @@ capture noisily {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"

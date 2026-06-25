@@ -1,4 +1,4 @@
-*! survtab Version 1.8.5  2026/06/24
+*! survtab Version 1.8.6  2026/06/25
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -720,7 +720,7 @@ capture noisily {
 
 **# CSV Export
     if "`csv'" != "" {
-        export delimited using "`csv'", replace
+        _tabtools_csv_write using "`csv'"
         capture confirm file "`csv'"
         if _rc {
             noisily display as error "CSV export command succeeded but file not found"
@@ -736,7 +736,7 @@ capture noisily {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"')
+            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"
