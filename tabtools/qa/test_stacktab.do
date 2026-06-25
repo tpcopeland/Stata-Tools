@@ -115,6 +115,49 @@ else {
 }
 
 local ++test_count
+local st_csv `"`tmpdir'/stacktab_visible.csv"'
+local st_md `"`tmpdir'/stacktab_visible.md"'
+capture erase "`st_csv'"
+capture erase "`st_md'"
+capture noisily {
+    stacktab using "`wb'", ///
+        blocks(sheet(SrcA) rows(1/4) cols(A-C) \ sheet(SrcB) rows(1/3) cols(A-C)) ///
+        sheet("CSVMD") ///
+        title("Stacked table") ///
+        sheetreplace ///
+        csv("`st_csv'") markdown("`st_md'")
+    confirm file "`st_csv'"
+    confirm file "`st_md'"
+
+    tempname _csv_fh
+    file open `_csv_fh' using "`st_csv'", read text
+    file read `_csv_fh' _csv_line
+    file close `_csv_fh'
+    assert strpos(`"`_csv_line'"', "_xcol") == 0
+    assert strpos(`"`_csv_line'"', "Category,HR,95% CI") == 1
+
+    tempname _md_fh
+    file open `_md_fh' using "`st_md'", read text
+    file read `_md_fh' _md_line
+    file read `_md_fh' _md_line
+    file read `_md_fh' _md_line
+    file close `_md_fh'
+    assert strpos(`"`_md_line'"', "| Category | HR | 95% CI |") > 0
+    assert strpos(`"`_md_line'"', "Binary HRT") == 0
+    assert strpos(`"`_md_line'"', "_xcol") == 0
+}
+if _rc == 0 {
+    display as result "  PASS: csv/markdown exports use visible stacktab grid"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: csv/markdown visible grid (error `=_rc')"
+    local ++fail_count
+}
+capture erase "`st_csv'"
+capture erase "`st_md'"
+
+local ++test_count
 capture noisily {
     stacktab using "`wb'", ///
         blocks(sheet(SrcA) rows(2/4) cols(A-C)) ///
@@ -398,9 +441,17 @@ capture noisily {
         assert _xcol1[2] == "Active"
     }
 
+    tempname csvfh
+    file open `csvfh' using `"`csvout'"', read text
+    file read `csvfh' _csv_header
+    file read `csvfh' _csv_body
+    file close `csvfh'
+    assert strpos(`"`_csv_header'"', "Binary HRT") == 1
+    assert strpos(`"`_csv_header'"', "_xcol") == 0
+    assert strpos(`"`_csv_body'"', "Active") == 1
+
     import delimited using `"`csvout'"', clear varnames(1) stringcols(_all)
-    assert _N == 2
-    assert _xcol1[2] == "Active"
+    assert _N == 1
 
     shell python3 "`checker'" "`wb'" "FrameCsv" ///
         --result-file "`_st_res'" ///

@@ -40,6 +40,39 @@ quietly net install tabtools, from("`pkg_dir'") replace
 discard
 tabtools set clear
 
+capture program drop _tt_file_has
+program define _tt_file_has, rclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _fh_open = 0
+    capture noisily {
+        syntax using/ , NEEDLE(string asis)
+        local _needle `"`needle'"'
+        if strlen(`"`_needle'"') >= 2 {
+            if substr(`"`_needle'"', 1, 1) == char(34) & substr(`"`_needle'"', -1, 1) == char(34) {
+                local _needle = substr(`"`_needle'"', 2, strlen(`"`_needle'"') - 2)
+            }
+        }
+        tempname _fh
+        file open `_fh' using `"`using'"', read text
+        local _fh_open = 1
+        local _found = 0
+        file read `_fh' _line
+        while r(eof) == 0 {
+            if strpos(`"`_line'"', `"`_needle'"') > 0 local _found = 1
+            file read `_fh' _line
+        }
+        file close `_fh'
+        local _fh_open = 0
+        return scalar found = `_found'
+    }
+    local rc = _rc
+    if `_fh_open' capture file close `_fh'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 
 **# Migrated: frame() rejects pre-existing frames (all frame-capable commands)
 
@@ -662,9 +695,15 @@ capture noisily {
     table1_tc price mpg weight, by(foreign) ///
         excel("output/test_f2_t1.xlsx") csv("output/test_f2_t1.csv")
     confirm file "output/test_f2_t1.csv"
+    _tt_file_has using "output/test_f2_t1.csv", needle("title")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_t1.csv", needle("factor")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_t1.csv", needle("pvalue")
+    assert r(found) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: F2.1 — table1_tc csv() export created file"
+    display as result "  PASS: F2.1 — table1_tc csv() export hides working names"
     local ++pass_count
 }
 else {
@@ -682,13 +721,77 @@ capture noisily {
     regtab, xlsx("output/test_f2_reg.xlsx") sheet("Reg") ///
         csv("output/test_f2_reg.csv")
     confirm file "output/test_f2_reg.csv"
+    _tt_file_has using "output/test_f2_reg.csv", needle("ref1")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_reg.csv", needle("c1")
+    assert r(found) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: F2.2 — regtab csv() export created file"
+    display as result "  PASS: F2.2 — regtab csv() export hides ref/c* columns"
     local ++pass_count
 }
 else {
     display as error "  FAIL: F2.2 — regtab csv failed (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- F2.3: regtab markdown does not expose internal c* header names ---
+local ++n_total
+capture erase "output/test_f2_reg.md"
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    regtab, markdown("output/test_f2_reg.md")
+    confirm file "output/test_f2_reg.md"
+    _tt_file_has using "output/test_f2_reg.md", needle("| A |")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_reg.md", needle(" c2 ")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_reg.md", needle(" c3 ")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: F2.3 — regtab markdown hides internal headers"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F2.3 — regtab markdown header leak (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- F2.4: comptab markdown preserves the visible subheader row ---
+local ++n_total
+capture erase "output/test_f2_comptab.md"
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg
+    capture frame drop _f2_cmp_a
+    regtab, frame(_f2_cmp_a, replace)
+    collect clear
+    collect: regress price mpg weight
+    capture frame drop _f2_cmp_b
+    regtab, frame(_f2_cmp_b, replace)
+    comptab _f2_cmp_a _f2_cmp_b, rows(1 \ 1) ///
+        markdown("output/test_f2_comptab.md")
+    confirm file "output/test_f2_comptab.md"
+    _tt_file_has using "output/test_f2_comptab.md", needle("Coef.")
+    assert r(found) == 1
+    _tt_file_has using "output/test_f2_comptab.md", needle(" c2 ")
+    assert r(found) == 0
+    _tt_file_has using "output/test_f2_comptab.md", needle(" c3 ")
+    assert r(found) == 0
+}
+local _test_rc = _rc
+capture frame drop _f2_cmp_a
+capture frame drop _f2_cmp_b
+if `_test_rc' == 0 {
+    display as result "  PASS: F2.4 — comptab markdown keeps visible subheader row"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: F2.4 — comptab markdown visible subheader (rc=`_test_rc')"
     local ++fail_count
 }
 
@@ -3583,4 +3686,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_package_integration tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _pkgint
-

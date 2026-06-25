@@ -71,6 +71,49 @@ else {
     local ++fail_count
 }
 
+* Test: _tabtools_visible_vars keeps displayed c* columns and hides helper columns
+capture noisily {
+    clear
+    set obs 2
+    gen str20 title = "Example"
+    gen str20 A = "Label"
+    gen str20 c1 = "Estimate"
+    gen str20 c2 = "95% CI"
+    gen byte ref1 = .
+    gen int c1_length = .
+    _tabtools_visible_vars, labelvar(A)
+    assert "`_tabtools_visible_vars'" == "A c1 c2"
+}
+if _rc == 0 {
+    display as result "  PASS: _tabtools_visible_vars - c* output hides helpers"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: _tabtools_visible_vars c* output (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: _tabtools_visible_vars keeps non-c* rendered columns but still hides refs
+capture noisily {
+    clear
+    set obs 2
+    gen str20 title = "Table 1"
+    gen str20 factor = "Age"
+    gen str20 group_0 = "10"
+    gen str20 pvalue = "0.12"
+    gen byte ref1 = .
+    _tabtools_visible_vars
+    assert "`_tabtools_visible_vars'" == "title factor group_0 pvalue"
+}
+if _rc == 0 {
+    display as result "  PASS: _tabtools_visible_vars - non-c* output preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: _tabtools_visible_vars non-c* output (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: _tabtools_build_col_letters
 capture noisily {
     _tabtools_build_col_letters 5
@@ -648,7 +691,7 @@ else {
 **# Migrated: sheet-name validation across commands
 
 * --- 7.12: Sheet name validation ---
-capture noisily {
+capture {
     sysuse auto, clear
     corrtab price mpg weight, ///
         xlsx("`output_dir'/test_sheet_validation.xlsx") ///
@@ -664,7 +707,7 @@ else {
 }
 
 * Test: Sheet name with invalid chars rejected
-capture noisily {
+capture {
     sysuse auto, clear
     corrtab price mpg weight, ///
         xlsx("`output_dir'/test_sheet_invalid.xlsx") ///
@@ -680,7 +723,7 @@ else {
 }
 
 * Test: Sheet name with colon rejected
-capture noisily {
+capture {
     sysuse auto, clear
     corrtab price mpg weight, ///
         xlsx("`output_dir'/test_sheet_colon.xlsx") ///
@@ -2831,7 +2874,7 @@ capture noisily {
     foreach rlevel in N ll rank not_a_result {
         capture collect label levels result `rlevel' "`rlevel'", modify
     }
-    collect layout (cmdset) (result[N ll rank not_a_result])
+    quietly collect layout (cmdset) (result[N ll rank])
 
     preserve
     _tabtools_collect_render, type(stats) rowdim(cmdset) ///
@@ -4703,4 +4746,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_package_helpers tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _pkghelpers
-

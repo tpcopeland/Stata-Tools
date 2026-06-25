@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.5  24jun2026}{...}
+{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -310,6 +310,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.8.5{p_end}
+{pstd}Version 1.8.6{p_end}
 
 {hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.5  24jun2026}{...}
+{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}
@@ -181,6 +181,6 @@ The current data, frames, and matrices in memory are left unchanged.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.5{p_end}
+{pstd}{bf:Version} 1.8.6{p_end}
 
 {hline}
