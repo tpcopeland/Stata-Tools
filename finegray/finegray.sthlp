@@ -55,7 +55,7 @@
 {synopt:{opt tol:erance(#)}}convergence tolerance; default is {cmd:tolerance(1e-8)}{p_end}
 {synoptline}
 {p 4 6 2}
-{it:varlist} may contain factor variables and interactions; see {help fvvarlist}. Supports {cmd:i.}{it:varname}, {cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:c.}{it:varname}, {cmd:#}, and {cmd:##} operators. Data must be {cmd:stset} with {cmd:id()}. One observation per subject. Left-truncated (delayed entry) data are supported.
+{it:varlist} may contain factor variables and interactions; see {help fvvarlist}. Supports {cmd:i.}{it:varname}, {cmd:ib}{it:#}{cmd:.}{it:varname}, {cmd:c.}{it:varname}, {cmd:#}, and {cmd:##} operators. Data must be {cmd:stset} with {cmd:id()}. A subject may contribute multiple records when the model covariates are constant within {cmd:id()} (e.g. delayed entry or {helpb stsplit} data); such records are reduced automatically to one risk-set unit. Left-truncated (delayed entry) data are supported.
 {p_end}
 
 {pstd}
