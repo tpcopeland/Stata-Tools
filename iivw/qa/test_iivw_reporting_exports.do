@@ -70,6 +70,25 @@ program define _reporting_diag_known
     _reporting_diag_post M_adj 0.10 0.10
 end
 
+capture program drop _reporting_exog_panel
+program define _reporting_exog_panel
+    version 16.0
+    syntax [, NIDS(integer 120) VISITS(integer 5) SEED(integer 20260524)]
+
+    clear
+    set seed `seed'
+    set obs `=`nids' * `visits''
+    gen long id = ceil(_n / `visits')
+    bysort id: gen byte visit = _n
+    gen byte treatment = mod(id, 2)
+    gen double age = 35 + mod(id, 25)
+    gen byte female = mod(id, 3) == 0
+    gen double months = (visit - 1) * 3 + runiform() * 0.20
+    replace months = 0 if visit == 1
+    gen double y = 10 + sin(id / 5) + 0.1 * visit + rnormal(0, 0.7)
+    label variable y "Outcome score"
+end
+
 **# T1: installed export helper is available after net install
 
 local ++test_count
@@ -248,6 +267,22 @@ capture noisily {
     capture noisily iivw_balance, xlsx("`goodxlsx'") digits(3) replace
     assert _rc == 198
 
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) open nolog
+    assert _rc == 198
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) ///
+        sheet(ExogOnly) nolog
+    assert _rc == 198
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) ///
+        xlsx("`badxls'") nolog
+    assert _rc == 198
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) ///
+        xlsx("`goodxlsx'") decimals(-1) nolog
+    assert _rc == 198
+
     _reporting_diag_known
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) open
@@ -294,15 +329,23 @@ capture noisily {
     iivw_balance, xlsx("`workbook'") sheet(Balance) replace
     assert "`r(sheet)'" == "Balance"
 
+    _reporting_exog_panel
+    iivw_exogtest y, id(id) time(months) adjust(age female treatment) ///
+        xlsx("`workbook'") sheet(Exogeneity) replace nolog
+    assert "`r(sheet)'" == "Exogeneity"
+
     _reporting_diag_known
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         exogeneity(endogenous) xlsx("`workbook'") sheet(Diagnostics) replace
     assert "`r(sheet)'" == "Diagnostics"
 
-    tempfile bookbalmark bookdiagmark
+    tempfile bookbalmark bookexogmark bookdiagmark
     shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
         "`workbook'" Balance balance 1 "`bookbalmark'"
     confirm file "`bookbalmark'"
+    shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
+        "`workbook'" Exogeneity exogeneity 2 "`bookexogmark'"
+    confirm file "`bookexogmark'"
     shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
         "`workbook'" Diagnostics diagnostics 11 "`bookdiagmark'"
     confirm file "`bookdiagmark'"
@@ -310,6 +353,13 @@ capture noisily {
     import excel using "`workbook'", sheet("Balance") clear allstring
     assert _N == 5
     assert B[4] == "x"
+
+    import excel using "`workbook'", sheet("Exogeneity") clear allstring
+    assert A[1] == "Exogeneity diagnostic: lagged predictors of next-visit timing (Andersen-Gill Cox, hazard ratios)"
+    assert C[2] == "Overall"
+    assert C[3] == "HR"
+    assert B[4] == "Outcome score (lag 1)"
+    assert B[5] == "Joint test (all lagged predictors)"
 
     import excel using "`workbook'", sheet("Diagnostics") clear allstring
     * No true(): divider row at 7 shifts the bound rows down one; value in C.
@@ -552,6 +602,19 @@ capture noisily {
     assert _rc == 198
     capture noisily iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) xlsx("`vxlsx'") replace zebracolor("x y z")
+    assert _rc == 198
+
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+        xlsx("`vxlsx'") replace borderstyle(fancy)
+    assert _rc == 198
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+        xlsx("`vxlsx'") replace headercolor("0 0 999")
+    assert _rc == 198
+    _reporting_exog_panel
+    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+        xlsx("`vxlsx'") replace zebracolor("x y z")
     assert _rc == 198
 }
 if _rc == 0 {

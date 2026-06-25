@@ -50,6 +50,9 @@ SPECS = {
         # value below it sitting plainly in column C (not merged).
         "divider": {"row": 7, "label": "Diagnostic values"},
     },
+    "exogeneity": {
+        "probe": "C4",
+    },
 }
 
 
@@ -66,7 +69,7 @@ def check(
     marker: Path | None,
 ) -> None:
     if mode not in SPECS:
-        fail("mode must be balance or diagnostics")
+        fail("mode must be balance, diagnostics, or exogeneity")
     if not path.exists():
         fail(f"workbook not found: {path}")
 
@@ -76,6 +79,10 @@ def check(
     ws = wb[sheet]
 
     spec = SPECS[mode]
+    if mode == "exogeneity":
+        check_exogeneity(ws, expected_rows, marker, path.name, sheet, spec)
+        return
+
     row3 = spec["row3"]
     n_cols = len(row3)
     last_col = get_column_letter(n_cols)
@@ -157,10 +164,99 @@ def check(
     print(f"PASS: {path.name}:{sheet} styled {mode} worksheet")
 
 
+def check_exogeneity(
+    ws,
+    expected_rows: int | None,
+    marker: Path | None,
+    workbook_name: str,
+    sheet: str,
+    spec: dict,
+) -> None:
+    merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+
+    group_starts = []
+    for col in range(3, ws.max_column + 1, 3):
+        if ws.cell(2, col).value not in (None, ""):
+            group_starts.append(col)
+
+    if not group_starts:
+        fail("no exogeneity group headers found")
+
+    n_cols = group_starts[-1] + 2
+    last_col = get_column_letter(n_cols)
+    expected_title_merge = f"A1:{last_col}1"
+    if expected_title_merge not in merged_ranges:
+        fail(f"title row is not merged across {expected_title_merge}")
+    if ws["A1"].value in (None, ""):
+        fail("missing title in A1")
+    if not ws["A1"].font.bold:
+        fail("title is not bold")
+
+    for start in group_starts:
+        group_end = start + 2
+        expected_merge = (
+            f"{get_column_letter(start)}2:{get_column_letter(group_end)}2"
+        )
+        if expected_merge not in merged_ranges:
+            fail(f"missing group-header merge: {expected_merge}")
+        if not ws.cell(2, start).font.bold:
+            fail(f"group header col {start} is not bold")
+        actual_headers = [
+            ws.cell(3, start + offset).value or "" for offset in range(3)
+        ]
+        if (
+            actual_headers[0] != "HR"
+            or not str(actual_headers[1]).endswith("% CI")
+            or actual_headers[2] != "p-value"
+        ):
+            fail(f"exogeneity header block mismatch at col {start}: {actual_headers!r}")
+        for col in range(start, group_end + 1):
+            cell = ws.cell(3, col)
+            if not cell.font.bold:
+                fail(f"exogeneity header col {col} is not bold")
+            if cell.border.bottom.style is None:
+                fail(f"exogeneity header col {col} has no bottom border")
+            width = ws.column_dimensions[get_column_letter(col)].width
+            if width is None or width < 7:
+                fail(f"column {col} width is too small")
+
+    if ws["B4"].value in (None, ""):
+        fail("first exogeneity term label is missing")
+
+    joint_row = None
+    for row in range(4, ws.max_row + 1):
+        if ws.cell(row, 2).value == "Joint test (all lagged predictors)":
+            joint_row = row
+            break
+    if joint_row is None:
+        fail("missing joint-test row")
+
+    if expected_rows is not None:
+        expected_joint_row = 3 + expected_rows
+        if joint_row != expected_joint_row:
+            fail(f"joint-test row mismatch: {joint_row} != {expected_joint_row}")
+        note_row = 4 + expected_rows
+        if ws.cell(note_row, 2).value in (None, ""):
+            fail(f"missing footnote at row {note_row}")
+        expected_note_merge = f"B{note_row}:{last_col}{note_row}"
+        if expected_note_merge not in merged_ranges:
+            fail(f"footnote row is not merged across {expected_note_merge}")
+        if not ws.cell(note_row, 2).font.italic:
+            fail(f"footnote row {note_row} is not italic")
+
+    string_probe = ws[spec["probe"]]
+    if string_probe.value not in (None, "") and not isinstance(string_probe.value, str):
+        fail(f"rendered cell is not stored as text: {string_probe.value!r}")
+
+    if marker is not None:
+        marker.write_text("ok\n", encoding="utf-8")
+    print(f"PASS: {workbook_name}:{sheet} styled exogeneity worksheet")
+
+
 def main(argv: list[str]) -> int:
     if len(argv) not in (4, 5, 6):
         print(
-            "usage: check_iivw_xlsx.py WORKBOOK SHEET {balance|diagnostics} [expected_rows] [marker]",
+            "usage: check_iivw_xlsx.py WORKBOOK SHEET {balance|diagnostics|exogeneity} [expected_rows] [marker]",
             file=sys.stderr,
         )
         return 2

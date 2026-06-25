@@ -372,6 +372,11 @@ if `run_only' == 0 | `run_only' == 11 {
         assert rowsof(R) == 2
         assert colsof(R) == 11
 
+        tempfile exogmark
+        shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
+            "`xl'" Exog exogeneity 3 "`exogmark'"
+        confirm file "`exogmark'"
+
         import excel using "`xl'", sheet("Exog") cellrange(A1:E7) allstring clear
         assert A[1] == "Exogeneity diagnostic: lagged predictors of next-visit timing (Andersen-Gill Cox, hazard ratios)"
         assert C[2] == "Overall"
@@ -411,6 +416,11 @@ if `run_only' == 0 | `run_only' == 12 {
         assert "`r(xlsx)'" == "`xl'"
         assert "`r(sheet)'" == "ByExog"
         assert r(decimals) == 2
+
+        tempfile byexogmark
+        shell python3 "`qa_dir'/tools/check_iivw_xlsx.py" ///
+            "`xl'" ByExog exogeneity 2 "`byexogmark'"
+        confirm file "`byexogmark'"
 
         import excel using "`xl'", sheet("ByExog") cellrange(A1:H6) allstring clear
         assert C[2] == "0"
