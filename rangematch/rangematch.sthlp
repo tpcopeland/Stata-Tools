@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  19jun2026}{...}
+{* *! version 1.1.0  25jun2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -22,6 +22,9 @@
 {marker syntax}{...}
 {title:Syntax}
 
+{pstd}Point-in-interval mode (a using {it:keyvar} point falls in the master
+[{it:low}, {it:high}] interval):{p_end}
+
 {p 8 17 2}
 {cmd:rangematch}
 {it:keyvar}
@@ -33,11 +36,26 @@
 {cmd:,}
 [{it:options}]
 
+{pstd}Interval-overlap mode (the master [{it:low}, {it:high}] interval overlaps
+the using [{it:ulow}, {it:uhigh}] interval):{p_end}
+
+{p 8 17 2}
+{cmd:rangematch}
+{it:low}
+{it:high}
+{cmd:using}
+{it:filename_or_framename}
+{ifin}
+{cmd:,}
+{opt overlap(ulow uhigh)}
+[{it:options}]
+
 
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Variables}
+{synopt:{opt overlap(ulow uhigh)}}match where the master interval overlaps the using [{it:ulow}, {it:uhigh}] interval (interval-overlap mode){p_end}
 {synopt:{opt by(varlist)}}restrict matches to groups with identical values{p_end}
 {synopt:{opt keepu:sing(varlist)}}variables to carry from using dataset{p_end}
 
@@ -120,6 +138,42 @@ themselves.
 
 {marker options}{...}
 {title:Options}
+
+{dlgtab:Match mode}
+
+{phang}
+{opt overlap(ulow uhigh)} switches {cmd:rangematch} from point-in-interval
+matching to {bf:interval-overlap} matching. {it:ulow} and {it:uhigh} name the
+two numeric interval-bound variables in the using dataset or frame. In this mode
+no point {it:keyvar} is given: the positional arguments are the master interval
+{it:low} and {it:high}, and a master observation matches a using observation when
+their intervals overlap. With {opt closed(both)} (the default) the overlap test
+is master.{it:low} <= using.{it:uhigh} {bf:&} using.{it:ulow} <=
+master.{it:high} (touching endpoints count); with {opt closed(none)} the
+comparisons are strict (touching endpoints do not count). A missing master or
+using bound is treated as open-ended on that side, so a fully missing interval
+matches everything in its {opt by()} group. {opt tolerance()} shifts the
+comparison boundaries exactly as in point mode.
+
+{pmore}
+Each interval is assumed well-formed, with {it:low} <= {it:high} (and
+{it:ulow} <= {it:uhigh}). A master interval with {it:low} > {it:high} is
+treated as empty and matches nothing; a using interval with {it:ulow} >
+{it:uhigh} is not screened and may produce matches that reflect the inverted
+bounds rather than a genuine overlap, so validate using-side interval order
+upstream if it is not already guaranteed.
+
+{pmore}
+Interval-overlap mode emits matched pairs directly through the same Mata backend,
+so the full within-{opt by()} Cartesian product is never materialized -- a large
+memory win over {helpb joinby} followed by a {cmd:keep if} overlap filter on
+registry-scale interval data. {opt closed()} accepts only {bf:both} or {bf:none}
+in this mode, and the point-only options {opt nearest()}, {opt ties()},
+{opt distance()}, and scalar offset bounds are not allowed. All other options
+({opt by()}, {opt unmatched()}, {opt keepusing()}, {opt frame()}, {opt saving()},
+{opt stats}, {opt generate()}, {opt masterid()}, {opt usingid()},
+{opt maxpairs()}, {opt missing()}, {opt sort}/{opt nosort}) behave as documented
+below. {cmd:r(backend)} reports {cmd:overlap}.
 
 {dlgtab:Variables}
 
@@ -547,6 +601,13 @@ Match adverse events to patient-specific drug exposure windows:
 {phang2}{cmd:. rangematch event_date exposure_start exposure_end using `adverse_events', by(patient_id) keepusing(event_date event_type) generate(_merge) frame(exposure_events) replace stats}{p_end}
 {phang2}{cmd:. frame exposure_events: list patient_id exposure_start exposure_end event_date event_type _merge, sepby(patient_id)}{p_end}
 
+{pstd}Interval-overlap mode: match cohort follow-up windows to overlapping
+treatment episodes within patient, writing the joined rows to a frame.{p_end}
+
+{phang2}{cmd:. use cohort, clear}{p_end}
+{phang2}{cmd:. rangematch entry exit using episodes, overlap(rx_start rx_stop) by(id) keepusing(rx_start rx_stop drug) frame(exposed) replace stats}{p_end}
+{phang2}{cmd:. frame exposed: list id entry exit rx_start rx_stop drug, sepby(id)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -589,6 +650,7 @@ specified.
 {synopt:{cmd:r(key)}}parsed key variable{p_end}
 {synopt:{cmd:r(low)}}parsed lower-bound variable or scalar{p_end}
 {synopt:{cmd:r(high)}}parsed upper-bound variable or scalar{p_end}
+{synopt:{cmd:r(overlap)}}using interval-bound variables, when {opt overlap()} is used{p_end}
 {synopt:{cmd:r(by)}}parsed {opt by()} variables{p_end}
 {synopt:{cmd:r(keepusing)}}parsed {opt keepu:sing()} variables{p_end}
 {synopt:{cmd:r(prefix)}}parsed {opt p:refix()} string{p_end}
@@ -613,14 +675,14 @@ specified.
 {synopt:{cmd:r(dryrun)}}{opt dryr:un}, when specified{p_end}
 {synopt:{cmd:r(count)}}{opt count}, when specified{p_end}
 {synopt:{cmd:r(verbose)}}{opt verbose}, when specified{p_end}
-{synopt:{cmd:r(backend)}}pair-generation backend selected: {cmd:sweep} or {cmd:binary}{p_end}
+{synopt:{cmd:r(backend)}}pair-generation backend selected: {cmd:sweep}, {cmd:binary}, or {cmd:overlap}{p_end}
 {p2colreset}{...}
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.3, 19jun2026{p_end}
+{pstd}Version 1.1.0, 25jun2026{p_end}
 
 
 {title:Also see}

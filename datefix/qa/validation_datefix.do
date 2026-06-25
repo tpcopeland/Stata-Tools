@@ -422,9 +422,9 @@ else {
 }
 
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL"
+    display as error "SOME TESTS FAILED"
+    display "RESULT: validation_datefix tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
-else {
-    display as result "RESULT: PASS"
-}
+display as result "ALL TESTS PASSED"
+display "RESULT: validation_datefix tests=`test_count' pass=`pass_count' fail=`fail_count'"

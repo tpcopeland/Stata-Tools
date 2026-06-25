@@ -1,4 +1,4 @@
-*! rangematch Version 1.0.3  2026/06/19
+*! rangematch Version 1.1.0  2026/06/25
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -542,7 +542,8 @@ program define _rangematch_run_backend, sclass
             SHOWProgress(real) STATSmode(real) ASSERTMatch(real) ///
             ASSERTUsing(real) KEEPMASTER(real) KEEPUSING(real) ///
             MAXPairs(real) CLOSEDCode(real) TOLerance(real) ///
-            NEARESTCode(real) TIESCode(real) TIMing(real)
+            NEARESTCode(real) TIESCode(real) TIMing(real) ///
+            OVERLAPMode(real)
 
         capture frame drop __rm_out
         if !`dryrun' {
@@ -552,24 +553,34 @@ program define _rangematch_run_backend, sclass
         local _rm_backend "binary"
         local _rm_sweep_ready 0
         local _rm_sweep_mode 0
-        if `trysweep' {
-            mata: _rm_prepare_sweep_master("__rm_master", `sweepsort')
+        if `overlapmode' {
+            mata: _rm_build_pairs_overlap("__rm_master", "__rm_uwork", ///
+                "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
+                `closedcode', `tolerance', `dryrun', `showprogress', ///
+                `statsmode', `assertmatch', `assertusing')
+            local _rm_backend "overlap"
         }
-        if `trysweep' & `_rm_sweep_ready' {
-            mata: _rm_build_pairs_sweep("__rm_master", "__rm_uwork", ///
-                "__rm_out", `keepmaster', `keepusing', ///
-                `maxpairs', `closedcode', `tolerance', `dryrun', ///
-                `showprogress', `statsmode', `assertmatch', ///
-                `assertusing', `_rm_sweep_mode')
-            if "`_rm_err_maxpairs'" != "1" {
-                local _rm_backend "sweep"
+        else {
+            if `trysweep' {
+                mata: _rm_prepare_sweep_master("__rm_master", `sweepsort')
             }
-        }
-        if !`trysweep' | !`_rm_sweep_ready' {
-            mata: _rm_build_pairs("__rm_master", "__rm_uwork", "__rm_out", ///
-                `keepmaster', `keepusing', `maxpairs', `closedcode', ///
-                `nearestcode', `tiescode', `tolerance', `dryrun', ///
-                `showprogress', `statsmode', `assertmatch', `assertusing')
+            if `trysweep' & `_rm_sweep_ready' {
+                mata: _rm_build_pairs_sweep("__rm_master", "__rm_uwork", ///
+                    "__rm_out", `keepmaster', `keepusing', ///
+                    `maxpairs', `closedcode', `tolerance', `dryrun', ///
+                    `showprogress', `statsmode', `assertmatch', ///
+                    `assertusing', `_rm_sweep_mode')
+                if "`_rm_err_maxpairs'" != "1" {
+                    local _rm_backend "sweep"
+                }
+            }
+            if !`trysweep' | !`_rm_sweep_ready' {
+                mata: _rm_build_pairs("__rm_master", "__rm_uwork", ///
+                    "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
+                    `closedcode', `nearestcode', `tiescode', `tolerance', ///
+                    `dryrun', `showprogress', `statsmode', `assertmatch', ///
+                    `assertusing')
+            }
         }
 
         if `timing' {
@@ -658,7 +669,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.0.3"
+    local _rm_required_mata_version "1.1.0"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -691,23 +702,67 @@ program define rangematch, rclass
         [if] [in] using/ , ///
         [ BY(varlist) KEEPUsing(string) Prefix(string) Suffix(string) ///
           ALL UNMATCHed(string) GENerate(name) DISTance(name) ///
-          MASTERID(name) USINGID(name) ///
+          MASTERID(name) USINGID(name) OVERLAP(string) ///
           MAXPairs(integer 0) FRAME(name) REPLACE STATS noSORT ///
           CLOSED(string) NEARest(string) TIES(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
 
-    tokenize `"`interval'"'
-    local key   `"`1'"'
-    local low   `"`2'"'
-    local high  `"`3'"'
-    if `"`4'"' != "" {
-        display as error "too many variables specified; expected: keyvar low high"
-        exit 103
+    * -------------------------------------------------------------------
+    * Interval-overlap mode is selected by overlap(ulow uhigh). It names
+    * the two using-interval bound variables; the positional low/high then
+    * define the master interval (no point keyvar).
+    * -------------------------------------------------------------------
+    local overlap_mode = 0
+    local ulo ""
+    local uhi ""
+    if `"`overlap'"' != "" {
+        local overlap_mode = 1
+        tokenize `"`overlap'"'
+        local ulo `"`1'"'
+        local uhi `"`2'"'
+        if `"`3'"' != "" {
+            display as error ///
+                "overlap() takes exactly two using variables: ulow uhigh"
+            exit 198
+        }
+        if `"`uhi'"' == "" {
+            display as error ///
+                "overlap() requires two using variables: ulow uhigh"
+            exit 198
+        }
+        confirm name `ulo'
+        confirm name `uhi'
     }
-    if `"`high'"' == "" {
-        display as error "too few variables specified; expected: keyvar low high"
-        exit 102
+
+    tokenize `"`interval'"'
+    if `overlap_mode' {
+        local key   ""
+        local low   `"`1'"'
+        local high  `"`2'"'
+        if `"`3'"' != "" {
+            display as error ///
+                "with overlap(), specify only the master interval: low high"
+            exit 103
+        }
+        if `"`high'"' == "" {
+            display as error ///
+                "with overlap(), specify the master interval: low high"
+            exit 102
+        }
+    }
+    else {
+        local key   `"`1'"'
+        local low   `"`2'"'
+        local high  `"`3'"'
+        if `"`4'"' != "" {
+            display as error "too many variables specified; expected: keyvar low high"
+            exit 103
+        }
+        if `"`high'"' == "" {
+            display as error "too few variables specified; expected: keyvar low high"
+            exit 102
+        }
     }
 
     foreach bnd in low high {
@@ -743,6 +798,38 @@ program define rangematch, rclass
         if (`high' < .) local high_uses_key = 1
     }
     local uses_key_offsets = (`low_uses_key' | `high_uses_key')
+
+    * -------------------------------------------------------------------
+    * Overlap-mode constraints. Point-only features (scalar offsets,
+    * nearest/ties/distance) have no meaning when both sides are intervals,
+    * and endpoint closure is restricted to both/none (left/right are
+    * ambiguous for an interval-interval comparison).
+    * -------------------------------------------------------------------
+    if `overlap_mode' {
+        if `uses_key_offsets' {
+            display as error ///
+                "overlap() does not support scalar offset bounds; use master interval variables or {bf:.}"
+            exit 198
+        }
+        if `"`nearest'"' != "" {
+            display as error "nearest() is not allowed with overlap()"
+            exit 198
+        }
+        if "`distance'" != "" {
+            display as error "distance() is not allowed with overlap()"
+            exit 198
+        }
+        if `"`ties'"' != "" {
+            display as error "ties() is not allowed with overlap()"
+            exit 198
+        }
+        local _rm_ovclosed = lower(strtrim(`"`closed'"'))
+        if "`_rm_ovclosed'" != "" & !inlist("`_rm_ovclosed'", "both", "none") {
+            display as error ///
+                "overlap() supports only {bf:closed(both)} or {bf:closed(none)}"
+            exit 198
+        }
+    }
 
     if `uses_key_offsets' {
         capture confirm numeric variable `key'
@@ -993,7 +1080,13 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Load and validate using data
     * -------------------------------------------------------------------
-    _rangematch_load_using `"`using'"' `"`key'"' `"`by'"' ///
+    if `overlap_mode' {
+        local _rm_using_keys "`ulo' `uhi'"
+    }
+    else {
+        local _rm_using_keys "`key'"
+    }
+    _rangematch_load_using `"`using'"' `"`_rm_using_keys'"' `"`by'"' ///
         `"`keepusing'"' `"`dryrun_mode'"' `"`_rm_caller_frame'"'
     local using `"`s(using)'"'
     local using_source "`s(using_source)'"
@@ -1081,7 +1174,7 @@ program define rangematch, rclass
     * Create using work frame
     frame __rm_using {
         quietly {
-            frame put __rm_gid `key' __rm_obs, into(__rm_uwork)
+            frame put __rm_gid `_rm_using_keys' __rm_obs, into(__rm_uwork)
         }
     }
 
@@ -1099,7 +1192,7 @@ program define rangematch, rclass
     local _rm_stats_mode = ("`stats'" != "")
     local _rm_assert_match = (strpos(" `assert' ", " match ") > 0)
     local _rm_assert_using = (strpos(" `assert' ", " using ") > 0)
-    local _rm_try_sweep = (`nearest_code' == 0)
+    local _rm_try_sweep = (`nearest_code' == 0 & !`overlap_mode')
     local _rm_sweep_sort_allowed = (`sort_output' | `dryrun_mode')
 
     _rangematch_run_backend, trysweep(`_rm_try_sweep') ///
@@ -1109,7 +1202,8 @@ program define rangematch, rclass
         keepmaster(`keep_unmatched_master') keepusing(`keep_unmatched_using') ///
         maxpairs(`maxpairs') closedcode(`closed_code') ///
         tolerance(`tolerance') nearestcode(`nearest_code') ///
-        tiescode(`ties_code') timing(`_rm_timing')
+        tiescode(`ties_code') timing(`_rm_timing') ///
+        overlapmode(`overlap_mode')
 
     local _rm_backend "`s(backend)'"
     local N_pairs = `s(N_pairs)'
@@ -1416,6 +1510,7 @@ program define rangematch, rclass
     return local key `"`key'"'
     return local low `"`low'"'
     return local high `"`high'"'
+    if `overlap_mode' return local overlap `"`ulo' `uhi'"'
     return local by `"`by'"'
     return local keepusing `"`keepusing'"'
     return local prefix `"`prefix'"'

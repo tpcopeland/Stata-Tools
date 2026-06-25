@@ -248,6 +248,43 @@ else {
     local ++fail_count
 }
 
+**# T9: failed save() preserves data, clears preserve state, and keeps r()
+
+local ++test_count
+capture noisily {
+    clear
+    input long id str8 dx1
+    1 "A10"
+    2 "B20"
+    end
+    tempfile before badbase
+    save "`before'", replace
+    local badfile "`badbase'_missing/out.csv"
+
+    set varabbrev on
+    return clear
+    capture codescan_describe dx1, save("`badfile'")
+    local save_rc = _rc
+    assert `save_rc' != 0
+    assert "`c(varabbrev)'" == "on"
+    assert r(n_unique) == 2
+    assert r(n_entries) == 2
+    matrix _desc_top = r(top_codes)
+    assert rowsof(_desc_top) == 2
+    matrix drop _desc_top
+    cf _all using "`before'"
+    capture restore
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: T9 - invalid save() keeps r() and restores state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T9 - failed save() return/state contract (error `=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 
 display as result "RESULT: test_codescan_describe_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"

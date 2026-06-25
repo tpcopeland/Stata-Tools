@@ -1,5 +1,5 @@
 * validation_kmplot.do
-* Numerical validation suite for kmplot v1.0.1
+* Numerical validation suite for kmplot v1.0.3
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 *
@@ -7,57 +7,19 @@
 * and N-at-risk against Stata's built-in survival commands.
 
 clear all
+version 16.0
+set varabbrev off
 set more off
 
 
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
-capture ado uninstall kmplot
-net install kmplot, from("`pkg_dir'") replace
+**# Bootstrap
+local qa_dir "`c(pwd)'"
+do "`qa_dir'/_kmplot_qa_common.do"
+_kmplot_qa_bootstrap
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
-
-capture program drop _kmplot_assert_file_contains
-program define _kmplot_assert_file_contains
-    syntax using/, PATTERN(string)
-    tempname fh
-    local found 0
-
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') > 0 {
-            local found 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found' == 1
-end
-
-capture program drop _kmplot_assert_file_not_contains
-program define _kmplot_assert_file_not_contains
-    syntax using/, PATTERN(string)
-    tempname fh
-    local found 0
-
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') > 0 {
-            local found 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found' == 0
-end
 
 * =============================================================================
 * V1: S(t) matches sts generate exactly
@@ -898,9 +860,9 @@ display as text "  Failed: " as result `fail_count'
 display as text "==========================================="
 
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL - `fail_count' test(s) failed"
+    display as error "RESULT: validation_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
-    display as result "RESULT: PASS - All `test_count' tests passed"
+    display as result "RESULT: validation_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

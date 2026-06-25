@@ -76,12 +76,7 @@ foreach f in `suite_list' {
 * runner's own batch log (run_all.log) is open while this code runs. Input
 * fixtures under qa/data/ are untouched.
 cd "`qa_dir'"
-foreach _ext in xlsx smcl {
-    local _junk : dir "`qa_dir'" files "*.`_ext'"
-    foreach _f of local _junk {
-        capture erase "`qa_dir'/`_f'"
-    }
-}
+capture shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
 
-display _n as result "=== codescan QA Summary (`mode'): `pass' passed, `fail' failed ==="
+display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed"
 if `fail' > 0 exit 1

@@ -1,4 +1,4 @@
-*! codescan_describe Version 2.0.0  2026/06/19
+*! codescan_describe Version 2.0.1  2026/06/25
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -28,6 +28,7 @@ program define codescan_describe, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _did_preserve = 0
     capture noisily {
 
     syntax varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string)]
@@ -63,6 +64,7 @@ program define codescan_describe, rclass
     * Auto-convert numeric variables if tostring specified
     if "`tostring'" != "" {
         preserve
+        local _did_preserve = 1
         foreach var of local varlist {
             capture confirm string variable `var'
             if _rc {
@@ -84,6 +86,7 @@ program define codescan_describe, rclass
 
     if "`tostring'" != "" {
         restore
+        local _did_preserve = 0
     }
 
     local total_codes = `_desc_total_codes'
@@ -193,6 +196,14 @@ program define codescan_describe, rclass
         }
     }
 
+    * Return analytical results before optional save() so r() survives side-effect failures.
+    return scalar n_unique = `total_codes'
+    return scalar n_entries = `total_entries'
+    return scalar n_vars = `nvars'
+    return local varlist "`varlist'"
+    return matrix top_codes = `top_codes', copy
+    return matrix chapters = `chapters', copy
+
     * Save draft codefile from chapter summary
     if `"`save'"' != "" {
         local _save_ext = lower(substr(`"`save'"', -4, .))
@@ -201,6 +212,7 @@ program define codescan_describe, rclass
             exit 198
         }
         preserve
+        local _did_preserve = 1
         quietly {
             clear
             set obs `n_chapters'
@@ -216,20 +228,14 @@ program define codescan_describe, rclass
             export delimited using `"`save'"', replace
         }
         restore
+        local _did_preserve = 0
         noisily display as text ///
             `"(draft codefile saved to `save' -- edit condition names and patterns before use)"'
     }
 
-    * Return results
-    return scalar n_unique = `total_codes'
-    return scalar n_entries = `total_entries'
-    return scalar n_vars = `nvars'
-    return local varlist "`varlist'"
-    return matrix top_codes = `top_codes'
-    return matrix chapters = `chapters'
-
     } // end capture noisily
     local rc = _rc
+    if `_did_preserve' capture restore
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

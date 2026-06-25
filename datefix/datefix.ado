@@ -1,4 +1,4 @@
-*! datefix Version 1.0.1  2026/06/19
+*! datefix Version 1.1.0  2026/06/25
 *! Convert string date variables to numeric date formatted variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -9,7 +9,7 @@ program define datefix
 
     capture noisily {
 
-    syntax varlist [, newvar(name) drop df(string) order(string) topyear(string)]
+    syntax varlist [, newvar(name) drop df(string) order(string) topyear(string) DIAGnose]
 
     * Validation: topyear must be an integer if specified
     if "`topyear'" != "" {
@@ -102,6 +102,11 @@ program define datefix
             if r(N) > 0 {
                 quietly count if strpos(`var', ":") > 0 & !missing(`var')
                 if r(N) > 0 {
+                    if "`diagnose'" != "" {
+                        tempvar badflag
+                        quietly gen byte `badflag' = strpos(`var', ":") > 0 & !missing(`var')
+                        _datefix_diagnose `var' `badflag'
+                    }
                     display as error "variable `var' appears to contain datetime values"
                     display as error "datefix does not support datetime variables"
                     exit 198
@@ -115,7 +120,13 @@ program define datefix
 
                 quietly count if missing(`new_date') & !missing(`var')
                 if r(N) > 0 {
-                    display as error "Specified ordering produced `r(N)' missing values from valid strings"
+                    local nbad = r(N)
+                    if "`diagnose'" != "" {
+                        tempvar badflag
+                        quietly gen byte `badflag' = missing(`new_date') & !missing(`var')
+                        _datefix_diagnose `var' `badflag'
+                    }
+                    display as error "Specified ordering produced `nbad' missing values from valid strings"
                     display as error "Check ordering, year digits, and for non-date strings"
                     display as error "If year is two-digit format, use topyear() option"
                     exit 198
@@ -154,7 +165,13 @@ program define datefix
 
                 quietly count if missing(`new_date') & !missing(`var')
                 if r(N) > 0 {
-                    display as error "Optimal ordering produced `r(N)' missing values."
+                    local nbad = r(N)
+                    if "`diagnose'" != "" {
+                        tempvar badflag
+                        quietly gen byte `badflag' = missing(`new_date') & !missing(`var')
+                        _datefix_diagnose `var' `badflag'
+                    }
+                    display as error "Optimal ordering produced `nbad' missing values."
                     display as error "Check ordering, number of year digits, and for non-date strings."
                     display as error "If year is in two digit format, use topyear() option."
                     exit 198
@@ -224,4 +241,60 @@ program define datefix
     local rc = _rc
     set varabbrev `_varabbrev'
     if `rc' exit `rc'
+end
+
+* Diagnostic listing for diagnose option: tabulates the distinct string values
+* that could not be converted, with frequencies and offending observation rows.
+* Non-destructive (all working variables are tempvars); callers invoke this just
+* before aborting, so it never alters the user's data.
+capture program drop _datefix_diagnose
+program define _datefix_diagnose
+    version 16.0
+    args var bad
+
+    quietly count if `bad'
+    local nbad = r(N)
+    if `nbad' == 0 exit
+
+    tempvar grp obsnum vlen
+    quietly generate long `obsnum' = _n
+    quietly egen `grp' = group(`var') if `bad'
+    quietly summarize `grp', meanonly
+    local ndistinct = r(max)
+
+    quietly generate `vlen' = strlen(`var') if `bad'
+    quietly summarize `vlen', meanonly
+    local w = r(max)
+    if `w' < 5  local w = 5
+    if `w' > 30 local w = 30
+
+    display as text ""
+    display as text "Unconvertible values in {res:`var'} (`nbad' observation(s), `ndistinct' distinct):"
+    display as text %-`w's "value" "   " %6s "freq" "   " "obs"
+    display as text "{hline `=`w' + 3 + 6 + 3 + 24'}"
+
+    local gmax = `ndistinct'
+    if `gmax' > 50 local gmax = 50
+
+    forvalues g = 1/`gmax' {
+        quietly levelsof `var' if `grp' == `g', local(thisval) clean
+        quietly count if `grp' == `g'
+        local f = r(N)
+        quietly levelsof `obsnum' if `grp' == `g', local(allrows) clean
+        local rowct : word count `allrows'
+        local shown ""
+        local i = 0
+        foreach r of local allrows {
+            local ++i
+            if `i' > 10 continue, break
+            local shown = cond("`shown'" == "", "`r'", "`shown', `r'")
+        }
+        if `rowct' > 10 local shown "`shown', ... (+`=`rowct' - 10' more)"
+        local vshow = substr(`"`thisval'"', 1, `w')
+        display as text %-`w's `"`vshow'"' "   " %6.0f `f' "   " "`shown'"
+    }
+
+    if `ndistinct' > 50 {
+        display as text "... and `=`ndistinct' - 50' more distinct value(s) not shown."
+    }
 end

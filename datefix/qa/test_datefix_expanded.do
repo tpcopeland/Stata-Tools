@@ -734,7 +734,9 @@ local ++test_count
 capture noisily {
     clear
     set obs 50
-    gen datestr = "2020-01-" + string(_n, "%02.0f")
+    * cycle days 01-28 so every generated date is valid (intent: obs count
+    * unchanged after a SUCCESSFUL conversion, not a parse-failure path)
+    gen datestr = "2020-01-" + string(mod(_n - 1, 28) + 1, "%02.0f")
     local N_before = _N
     datefix datestr, order(YMD)
     assert _N == `N_before'
@@ -968,9 +970,9 @@ else {
 }
 
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL"
+    display as error "SOME TESTS FAILED"
+    display "RESULT: test_datefix_expanded tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
-else {
-    display as result "RESULT: PASS"
-}
+display as result "ALL TESTS PASSED"
+display "RESULT: test_datefix_expanded tests=`test_count' pass=`pass_count' fail=`fail_count'"

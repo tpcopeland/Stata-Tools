@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  19jun2026}{...}
+{* *! version 1.1.0  25jun2026}{...}
 {cmd:help datefix}
 {hline}
 
@@ -9,7 +9,7 @@
 {marker syntax}{...}
 {title:Syntax}
 {p 4 8 2}
-{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {opt df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)}] {p_end}
+{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {opt df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)} {opt diag:nose}] {p_end}
 
 {marker description}{...}
 {title:Description}
@@ -33,6 +33,8 @@
 
 {p 4 8 2}{opt topyear(#)} specifies the {it:topyear} argument for the {help date():date()} function. Required if two-digit years are present. See {help date():date()} for details.{p_end}
 
+{p 4 8 2}{opt diag:nose} reports the offending values when a conversion fails. If any non-missing string cannot be parsed into a date (for example, a month or day of {bf:00}, an out-of-range component such as {bf:2020/13/40}, or stray non-date text), {cmd:datefix} prints a table of the distinct unconvertible values, their frequencies, and the observation numbers where they occur, then stops with an error so you can locate and fix the source data. Without {opt diagnose}, {cmd:datefix} reports only the count of values that failed. Conversion remains all-or-nothing: no variable is created or replaced when any value fails.{p_end}
+
 {marker examples}{...}
 {title:Examples}
 
@@ -47,6 +49,9 @@
 
 {p 4 4 2}Create a new variable and drop the original:{p_end}
     {com}. datefix admission_date, newvar(admit_dt) drop df(%tdDD/NN/CCYY){reset}
+
+{p 4 4 2}Report which values block the conversion instead of just the count:{p_end}
+    {com}. datefix dob, diagnose{reset}
 
 {title:Example Date Formats for df()}
     %tdCCYY/NN/DD       ex: "2020/01/10" (default)
@@ -64,6 +69,6 @@
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 
-{pstd}Version 1.0.1 - 19jun2026{p_end}
+{pstd}Version 1.1.0 - 25jun2026{p_end}
 
 {hline}

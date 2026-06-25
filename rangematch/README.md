@@ -1,8 +1,8 @@
 # rangematch
 
-Version 1.0.3, 19jun2026
+Version 1.1.0, 25jun2026
 
-`rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend.
+`rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
 ## Installation
 
@@ -94,6 +94,8 @@ stata-mp -b do rangematch/demo/demo_rangematch.do
 
 ## Syntax
 
+Point-in-interval mode:
+
 ```stata
 rangematch keyvar low high using filename_or_framename [if] [in]
     [, by(varlist) keepusing(varlist) prefix(string) suffix(string)
@@ -104,6 +106,19 @@ rangematch keyvar low high using filename_or_framename [if] [in]
        tolerance(#) missing(wildcard|drop|error)
        ties(all|first|last) assert(match|using)
        sort nosort dryrun count verbose]
+```
+
+Interval-overlap mode (the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval):
+
+```stata
+rangematch low high using filename_or_framename [if] [in],
+    overlap(ulow uhigh)
+    [, by(varlist) keepusing(varlist) prefix(string) suffix(string)
+       all unmatched(master|none|using|both) generate(name)
+       masterid(name) usingid(name) maxpairs(#)
+       frame(name) replace saving(filename[, replace]) stats
+       closed(both|none) tolerance(#) missing(wildcard|drop|error)
+       assert(match|using) sort nosort dryrun count verbose]
 ```
 
 ## Positional Arguments
@@ -133,6 +148,7 @@ rangematch event_date . 30 using `events'
 
 | Option | Description |
 |--------|-------------|
+| `overlap(ulow uhigh)` | Switch to interval-overlap mode: match where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval. With `closed(both)` (default) touching endpoints count; with `closed(none)` comparisons are strict. Not combinable with `nearest()`, `ties()`, `distance()`, scalar offset bounds, or `closed(left|right)`. `r(backend)` reports `overlap`. |
 | `by(varlist)` | Restrict matches to groups with identical values in master and using. |
 | `keepusing(varlist)` | Variables to carry from the using dataset. |
 | `prefix(string)` | Prefix for renamed using variables. |
@@ -292,6 +308,21 @@ rangematch event_date lo hi using events.dta, by(id) unmatched(none) missing(dro
 
 `rangematch` also avoids the Cartesian blow-up of `joinby`+`keep if`, which materializes the full within-`by()` Cartesian product before filtering. `rangematch` emits matched pairs directly through binary search or sweep, which is a substantial memory and time win on registry-scale datasets with selective intervals (see the benchmark table below).
 
+The same win applies to **interval-overlap** joins. The common pattern
+
+```stata
+joinby id using episodes.dta
+keep if (entry <= rx_stop) & (rx_start <= exit)
+```
+
+becomes
+
+```stata
+rangematch entry exit using episodes.dta, by(id) overlap(rx_start rx_stop) unmatched(none)
+```
+
+which never materializes the full Cartesian product of cohort windows and episodes.
+
 ## Benchmark
 
 The demo benchmark compares the overlapping grouped range-join case:
@@ -325,6 +356,12 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.1.0 (2026-06-25)
+
+- Added **interval-overlap mode** via `overlap(ulow uhigh)`: matches where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval (`low <= uhigh & ulow <= high`), reusing the Mata pair-generation backend so the full within-`by()` Cartesian product is never materialized. Supports `closed(both|none)`, `tolerance()`, `by()`, `unmatched()`, `keepusing()`, `frame()`/`saving()`, `stats`, `generate()`, `masterid()`/`usingid()`, `maxpairs()`, and `missing()`. Point-only options (`nearest()`, `ties()`, `distance()`, scalar offsets) and `closed(left|right)` are rejected in this mode.
+- New stored macro `r(overlap)`; `r(backend)` now also reports `overlap`.
+- Mata backend version contract bumped to 1.1.0.
 
 ### 1.0.3 (2026-06-19)
 

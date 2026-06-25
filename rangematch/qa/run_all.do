@@ -25,6 +25,7 @@ local suites ///
     test_install.do ///
     test_rangematch_basic.do ///
     test_rangematch_by.do ///
+    test_rangematch_overlap.do ///
     test_rangematch_missing.do ///
     test_rangematch_v110.do ///
     test_rangematch_v120.do ///

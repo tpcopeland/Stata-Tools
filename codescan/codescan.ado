@@ -1,4 +1,4 @@
-*! codescan Version 2.0.0  2026/06/19
+*! codescan Version 2.0.1  2026/06/25
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -1464,38 +1464,7 @@ program define codescan, rclass
     }
 
     * =========================================================================
-    * GRAPH — prevalence bar chart (O1)
-    * =========================================================================
-    if "`graph'" != "" {
-        tempfile _graph_save
-        quietly save `_graph_save'
-        quietly {
-            clear
-            set obs `n_conditions'
-            gen str32 condition = ""
-            gen double prevalence = .
-            forvalues i = 1/`n_conditions' {
-                replace condition = "`def_name_`i''" in `i'
-                replace prevalence = `summary'[`i', 2] in `i'
-            }
-            gsort -prevalence
-            gen int order = _n
-            tempname _glab
-            forvalues _gi = 1/`=_N' {
-                local _gcond = condition[`_gi']
-                label define `_glab' `_gi' "`_gcond'", add
-            }
-            label values order `_glab'
-        }
-        graph hbar prevalence, over(order) ///
-            ytitle("Prevalence (%)") ///
-            title("Condition Prevalence") ///
-            blabel(bar, format(%4.1f))
-        quietly use `_graph_save', clear
-    }
-
-    * =========================================================================
-    * RETURN RESULTS (posted before export/saving so r() survives side-effect failures)
+    * RETURN RESULTS (posted before graph/export/saving so r() survives side-effect failures)
     * =========================================================================
 
     * Build list of created variables
@@ -1559,6 +1528,43 @@ program define codescan, rclass
     if "`detail'" != ""                return matrix varcounts = `varcounts', copy
     if "`cooccurrence'" != ""          return matrix cooccurrence = `cooc', copy
     if `_has_sensitivity'              return matrix sensitivity = `sensitivity', copy
+
+    * =========================================================================
+    * GRAPH — prevalence bar chart (O1)
+    * =========================================================================
+    if "`graph'" != "" {
+        tempfile _graph_save
+        quietly save `_graph_save'
+        capture noisily {
+            quietly {
+                clear
+                set obs `n_conditions'
+                gen str32 condition = ""
+                gen double prevalence = .
+                forvalues i = 1/`n_conditions' {
+                    replace condition = "`def_name_`i''" in `i'
+                    replace prevalence = `summary'[`i', 2] in `i'
+                }
+                gsort -prevalence
+                gen int order = _n
+                tempname _glab
+                forvalues _gi = 1/`=_N' {
+                    local _gcond = condition[`_gi']
+                    label define `_glab' `_gi' "`_gcond'", add
+                }
+                label values order `_glab'
+            }
+            graph hbar prevalence, over(order) ///
+                ytitle("Prevalence (%)") ///
+                title("Condition Prevalence") ///
+                blabel(bar, format(%4.1f))
+        }
+        local _graph_rc = _rc
+        capture quietly use `_graph_save', clear
+        local _graph_restore_rc = _rc
+        if `_graph_restore_rc' & `_graph_rc' == 0 exit `_graph_restore_rc'
+        if `_graph_rc' exit `_graph_rc'
+    }
 
     * =========================================================================
     * EXPORT — save results to file (O2)

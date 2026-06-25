@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.2  2026/04/22
+*! _kmplot_risktable Version 1.0.3  2026/06/25
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -15,10 +15,11 @@ Called from kmplot.ado. Not intended for direct use.
 */
 
 program define _kmplot_risktable
-    version 16.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
+        version 16.0
+        local _orig_varabbrev = c(varabbrev)
+        set varabbrev off
+        local _kmplot_rt_preserved = 0
+        capture noisily {
 
     syntax , GRPvar(varname) NGRoups(integer) ///
         [TIMEpoints(numlist sort) ///
@@ -117,16 +118,18 @@ program define _kmplot_risktable
     * BUILD SCATTER DATASET
     * =====================================================================
 
-    preserve
-    clear
+        preserve
+        local _kmplot_rt_preserved = 1
+        clear
 
-    local nobs = `ngroups' * `ntp'
-    quietly set obs `nobs'
+        local nobs = `ngroups' * `ntp'
+        quietly set obs `nobs'
 
-    quietly gen double _rt_time = .
-    quietly gen double _rt_ypos = .
-    quietly gen str30 _rt_label = ""
-    quietly gen int _rt_grp = .
+        tempvar rt_time rt_ypos rt_label rt_grp
+        quietly gen double `rt_time' = .
+        quietly gen double `rt_ypos' = .
+        quietly gen str30 `rt_label' = ""
+        quietly gen int `rt_grp' = .
 
     local row = 0
 
@@ -135,20 +138,20 @@ program define _kmplot_risktable
         foreach tp of local timepoints {
             local ++j
             local ++row
-            quietly replace _rt_time = `tp' in `row'
-            quietly replace _rt_ypos = `ngroups' - `g' + 1 in `row'
-            if "`events'" != "" {
-                * Compact "N (E)" format
-                local nr = `nrisk_`g'_`j''
-                local ne = `nevt_`g'_`j''
-                quietly replace _rt_label = "`nr' (`ne')" in `row'
+                quietly replace `rt_time' = `tp' in `row'
+                quietly replace `rt_ypos' = `ngroups' - `g' + 1 in `row'
+                if "`events'" != "" {
+                    * Compact "N (E)" format
+                    local nr = `nrisk_`g'_`j''
+                    local ne = `nevt_`g'_`j''
+                    quietly replace `rt_label' = "`nr' (`ne')" in `row'
+                }
+                else {
+                    quietly replace `rt_label' = "`nrisk_`g'_`j''" in `row'
+                }
+                quietly replace `rt_grp' = `g' in `row'
             }
-            else {
-                quietly replace _rt_label = "`nrisk_`g'_`j''" in `row'
-            }
-            quietly replace _rt_grp = `g' in `row'
         }
-    }
 
     * =====================================================================
     * BUILD SCATTER COMMAND
@@ -164,7 +167,7 @@ program define _kmplot_risktable
             local col : word `colidx' of `colors'
             if "`col'" == "" local col "black"
         }
-        local scatcmd `"`scatcmd' (scatter _rt_ypos _rt_time if _rt_grp == `g', msymbol(none) mlabel(_rt_label) mlabposition(0) mlabcolor(`col') mlabsize(vsmall))"'
+            local scatcmd `"`scatcmd' (scatter `rt_ypos' `rt_time' if `rt_grp' == `g', msymbol(none) mlabel(`rt_label') mlabposition(0) mlabcolor(`col') mlabsize(vsmall))"'
     }
 
     * =====================================================================
@@ -222,10 +225,14 @@ program define _kmplot_risktable
         legend(off) ///
         fysize(`fysize')
 
-    restore
+        restore
+        local _kmplot_rt_preserved = 0
 
-    } // end capture noisily
-    local rc = _rc
-    set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+        } // end capture noisily
+        local rc = _rc
+        if `_kmplot_rt_preserved' {
+            capture restore
+        }
+        set varabbrev `_orig_varabbrev'
+        if `rc' exit `rc'
 end

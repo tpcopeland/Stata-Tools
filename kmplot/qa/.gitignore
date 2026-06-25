@@ -1,0 +1,9 @@
+*.log
+*.smcl
+*.gph
+*.png
+*.svg
+*.pdf
+*.eps
+*.xlsx
+output/

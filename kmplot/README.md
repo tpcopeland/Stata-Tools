@@ -1,6 +1,6 @@
 # kmplot - Publication-ready Kaplan-Meier and cumulative incidence plots
 
-**Version 1.0.2** | 2026-04-22
+**Version 1.0.3** | 2026-06-25
 
 `kmplot` turns an `stset` dataset into publication-ready survival graphics with sensible defaults for confidence intervals, risk tables, median lines, censor marks, and log-rank p-values. It keeps the flexibility of native Stata graphics while removing most of the repetitive styling work that usually follows `sts graph`.
 
@@ -74,8 +74,30 @@ kmplot, by(drug) ci median export(km_figure.pdf, replace)
 - Direct graph export through `export()`
 - Pass-through support for standard `twoway` graph options
 
+## QA
+
+Run the full package QA from the package directory:
+
+```stata
+cd qa
+do run_all.do
+```
+
+The current standard suite includes `test_kmplot.do` for functional and regression coverage and `validation_kmplot.do` for numerical validation against Stata survival commands and hand-computed invariants.
+
+The QA directory contains 101 tests across 2 QA files and covers all one public command.
+
+- `test_kmplot.do` - 75 tests for functional, option, state-restoration, export, and regression coverage
+- `validation_kmplot.do` - 26 tests for numerical validation and survival-analysis invariants
+
+| QA file | Tests | Purpose |
+|---------|-------|---------|
+| `test_kmplot.do` | 75 | Functional, option, state-restoration, export, and regression coverage |
+| `validation_kmplot.do` | 26 | Numerical validation and survival-analysis invariants |
+
 ## Version History
 
+- **1.0.3** (2026-06-25): Replaced internal graph-working variables with `tempvar`s, restored preserved data on error paths, guarded `export()` paths, preserved analytical returns across export failures, and refreshed QA organization with a curated runner.
 - **1.0.2** (2026-04-22): Varabbrev wrapper refactored to cover all exit paths (syntax, validation, and main logic). Fixed literal-quote rendering in user-supplied ytitle/xtitle/note options. Removed unnecessary `set more off`. Export success message now guarded by `confirm file`.
 - **1.0.1** (2026-04-10): Initial Stata-Tools release with Kaplan-Meier, cumulative-incidence, risk-table, censoring, median-line, and export support
 

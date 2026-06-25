@@ -46,9 +46,9 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_countrows.do` | functional | 24 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 14 | Mata fast-path: match accumulation, co-occurrence, multi-window, describe hash |
 | `test_codescan_regressions.do` | functional | 18 | Fixed-bug regression guards (incl. output-name vs id/date/refdate collisions) |
-| `test_codescan_v2_no_scoring.do` | functional | — | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
+| `test_codescan_v2_no_scoring.do` | functional | 4 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
 | `test_codescan_adversarial.do` | functional | 11 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
-| `test_codescan_describe_adversarial.do` | functional | 8 | `codescan_describe` hostile inputs |
+| `test_codescan_describe_adversarial.do` | functional | 9 | `codescan_describe` hostile inputs |
 | `test_codescan_stress_adversarial.do` | functional | 6 | Scale/sparsity/name-collision stress |
 | `test_codescan_install_docs.do` | functional | 11 | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | functional | 8 | Every documented example runs as shown |

@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.0.3  2026/06/19
+*! _rangematch_mata Version 1.1.0  2026/06/25
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -6,6 +6,7 @@ version 16.1
 
 capture mata: mata drop _rm_build_pairs()
 capture mata: mata drop _rm_build_pairs_sweep()
+capture mata: mata drop _rm_build_pairs_overlap()
 capture mata: mata drop _rm_prepare_sweep_master()
 capture mata: mata drop _rm_compute_match_stats()
 capture mata: mata drop _rm_post_pair_results()
@@ -25,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.0.3")
+    return("1.1.0")
 }
 
 void _rm_prepare_sweep_master(
@@ -789,6 +790,285 @@ void _rm_build_pairs(
                         }
                         mi[n_pairs] = mobs
                         ui[n_pairs] = selected[kk]
+                    }
+                }
+            }
+        }
+
+        if (progress & i >= progress_next) {
+            progress_pct = min((100, floor(100 * i / nm)))
+            printf(" %g%%", progress_pct)
+            progress_last = progress_pct
+            progress_next = progress_next + progress_step
+        }
+    }
+    if (progress) {
+        if (progress_last < 100) printf(" 100%%")
+        printf("\n")
+    }
+
+    n_unmatched_master = (compute_stats | assert_match ? nm - n_matched_master : .)
+    if (track_using) {
+        n_matched_using = (nu_all > 0 ? sum(matched_using :== 1) : 0)
+        n_unmatched_using = (nu_all > 0 ? sum(matched_using :== 0) : 0)
+    }
+    else {
+        n_matched_using = .
+        n_unmatched_using = .
+    }
+
+    if (keep_unmatched_using & n_unmatched_using > 0) {
+        if (maxpairs > 0 & (n_pairs + n_unmatched_using) > maxpairs) {
+            st_framecurrent(oldframe)
+            st_local("_rm_err_maxpairs", "1")
+            st_local("_rm_n_pairs", strofreal(n_pairs + n_unmatched_using))
+            return
+        }
+        for (u = 1; u <= nu_all; u++) {
+            if (matched_using[u] == 0) {
+                n_pairs++
+                if (!dryrun) {
+                    if (n_pairs > rows(mi)) {
+                        mi = mi \ J(rows(mi), 1, .)
+                        ui = ui \ J(rows(ui), 1, .)
+                    }
+                    mi[n_pairs] = .
+                    ui[n_pairs] = u
+                }
+            }
+        }
+    }
+
+    match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
+        gstart_map, M, compute_stats)
+
+    if (!dryrun) {
+        st_framecurrent(out_frame)
+        if (n_pairs > 0) {
+            st_addobs(n_pairs)
+        }
+        (void) st_addvar("double", "__rm_mi")
+        (void) st_addvar("double", "__rm_ui")
+        if (n_pairs > 0) {
+            st_store(., "__rm_mi", mi[1..n_pairs])
+            st_store(., "__rm_ui", ui[1..n_pairs])
+        }
+    }
+
+    st_framecurrent(oldframe)
+    _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///
+        n_matched_using, n_unmatched_master, n_unmatched_using, match_stats)
+}
+
+
+// ============================================================================
+// _rm_build_pairs_overlap()
+//
+// Interval-overlap pair generation. Emits master x using pairs where the
+// master interval [mlo, mhi] overlaps the using interval [ulo, uhi]:
+//   closed(both): ulo <= mhi & uhi >= mlo  (touching endpoints count)
+//   closed(none): ulo <  mhi & uhi >  mlo  (strict; touching excluded)
+// tolerance shifts the comparison boundaries (mhi+tol, mlo-tol).
+//
+// Master work frame columns: 1=gid, 2=low, 3=high, 4=obs.
+// Using  work frame columns: 1=gid, 2=ulo, 3=uhi, 4=obs.
+//
+// Reuses the same group-map, stats, unmatched-row, and output (__rm_mi/__rm_ui)
+// contract as _rm_build_pairs. Using rows are sorted by (gid, ulo); for each
+// master interval, a binary search bounds the candidate prefix on ulo and a
+// linear scan within that prefix filters on uhi. Complexity is
+// O(M log U + scan); worst-case O(M*U) for mutually overlapping data, near
+// O(M log U + K) for selective, by()-partitioned intervals. Output pairs are
+// streamed, so the full Cartesian product is never materialized.
+// ============================================================================
+void _rm_build_pairs_overlap(
+    string scalar master_frame,
+    string scalar using_frame,
+    string scalar out_frame,
+    real scalar keep_unmatched_master,
+    real scalar keep_unmatched_using,
+    real scalar maxpairs,
+    real scalar closed_code,
+    real scalar tolerance,
+    real scalar dryrun,
+    real scalar progress,
+    real scalar compute_stats,
+    real scalar assert_match,
+    real scalar assert_using
+)
+{
+    string scalar oldframe
+    real matrix M, U, Usorted
+    real colvector mi, ui, ulo, uhi, uobs, ugid, match_counts
+    real colvector gstart_map, gend_map, matched_using
+    real rowvector match_stats
+    real scalar nm, nu, nu_all, i, mlo, mhi, mlo_s, mhi_s, n_pairs
+    real scalar gstart, gend, mobs, g, cap, nmatch, u, pos, p, target, needed
+    real scalar n_matched_pairs, n_matched_master
+    real scalar n_unmatched_master, n_matched_using, n_unmatched_using
+    real scalar progress_next, progress_step, progress_pct, progress_last
+    real scalar max_gid, gid_i, track_using, both
+
+    oldframe = st_framecurrent()
+    keep_unmatched_using = (keep_unmatched_using != 0)
+    compute_stats = (compute_stats != 0)
+    assert_match = (assert_match != 0)
+    assert_using = (assert_using != 0)
+    track_using = (compute_stats | assert_using | keep_unmatched_using)
+    both = (closed_code == 1)
+
+    st_framecurrent(master_frame)
+    M = st_data(., .)
+    nm = rows(M)
+
+    st_framecurrent(using_frame)
+    U = st_data(., .)
+    nu = rows(U)
+    nu_all = nu
+    matched_using = (track_using ? J(nu_all, 1, 0) : J(0, 1, 0))
+
+    // Open-ended using bounds: missing ulo -> -inf, missing uhi -> +inf
+    for (u = 1; u <= nu; u++) {
+        if (U[u, 2] >= .) U[u, 2] = mindouble()
+        if (U[u, 3] >= .) U[u, 3] = maxdouble()
+    }
+
+    // Open-ended master bounds
+    for (i = 1; i <= nm; i++) {
+        if (M[i, 2] >= .) M[i, 2] = mindouble()
+        if (M[i, 3] >= .) M[i, 3] = maxdouble()
+    }
+
+    // Sort using by (gid, ulo)
+    if (nu > 0) {
+        Usorted = sort(U, (1, 2))
+        ugid = Usorted[., 1]
+        ulo  = Usorted[., 2]
+        uhi  = Usorted[., 3]
+        uobs = Usorted[., 4]
+    }
+    else {
+        ugid = J(0, 1, .)
+        ulo  = J(0, 1, .)
+        uhi  = J(0, 1, .)
+        uobs = J(0, 1, .)
+    }
+
+    max_gid = (nm > 0 ? max(M[., 1]) : 0)
+    if (nu > 0) max_gid = max((max_gid, max(ugid)))
+    max_gid = (max_gid < . ? trunc(max_gid) : 0)
+    if (max_gid > 0) {
+        gstart_map = J(max_gid, 1, 0)
+        gend_map = J(max_gid, 1, 0)
+        for (u = 1; u <= nu; u++) {
+            gid_i = trunc(ugid[u])
+            if (gid_i >= 1 & gid_i <= max_gid) {
+                if (gstart_map[gid_i] == 0) gstart_map[gid_i] = u
+                gend_map[gid_i] = u
+            }
+        }
+    }
+    else {
+        gstart_map = J(0, 1, 0)
+        gend_map = J(0, 1, 0)
+    }
+
+    n_pairs = 0
+    n_matched_pairs = 0
+    n_matched_master = 0
+    match_counts = (compute_stats ? J(nm, 1, 0) : J(0, 1, 0))
+    progress = (progress != 0 & nm > 100000)
+    if (progress) {
+        progress_step = ceil(nm / 10)
+        progress_next = progress_step
+        progress_last = 0
+        printf("{txt}    Matching progress:")
+    }
+    if (!dryrun) {
+        cap = max((nm, 1024))
+        mi = J(cap, 1, .)
+        ui = J(cap, 1, .)
+    }
+
+    for (i = 1; i <= nm; i++) {
+        g    = M[i, 1]
+        mlo  = M[i, 2]
+        mhi  = M[i, 3]
+        mobs = M[i, 4]
+        mlo_s = mlo - tolerance
+        mhi_s = mhi + tolerance
+
+        nmatch = 0
+        gstart = 0
+        gend = -1
+        p = 0
+        if (!(mlo > mhi)) {
+            gid_i = trunc(g)
+            if (gid_i >= 1 & gid_i <= rows(gstart_map)) {
+                gstart = gstart_map[gid_i]
+                gend = gend_map[gid_i]
+            }
+            if (gstart != 0) {
+                // Candidate prefix: ulo <= mhi_s (both) or ulo < mhi_s (none)
+                if (both) {
+                    p = _rm_bsearch_right(ulo, mhi_s, gstart, gend)
+                }
+                else {
+                    p = _rm_bsearch_last_lt(ulo, mhi_s, gstart, gend)
+                }
+                if (p != 0 & p >= gstart) {
+                    // Filter prefix on uhi >= mlo_s (both) or uhi > mlo_s (none)
+                    for (pos = gstart; pos <= p; pos++) {
+                        if (both) {
+                            if (uhi[pos] >= mlo_s) nmatch++
+                        }
+                        else {
+                            if (uhi[pos] > mlo_s) nmatch++
+                        }
+                    }
+                }
+            }
+        }
+
+        if (nmatch == 0) {
+            if (keep_unmatched_master) {
+                n_pairs++
+                if (!dryrun) {
+                    if (n_pairs > rows(mi)) {
+                        mi = mi \ J(rows(mi), 1, .)
+                        ui = ui \ J(rows(ui), 1, .)
+                    }
+                    mi[n_pairs] = mobs
+                    ui[n_pairs] = .
+                }
+            }
+        }
+        else {
+            if (maxpairs > 0 & (n_pairs + nmatch) > maxpairs) {
+                st_framecurrent(oldframe)
+                st_local("_rm_err_maxpairs", "1")
+                st_local("_rm_n_pairs", strofreal(n_pairs + nmatch))
+                return
+            }
+
+            n_matched_pairs = n_matched_pairs + nmatch
+            n_matched_master++
+            if (compute_stats) match_counts[i] = nmatch
+            if (!dryrun) {
+                needed = n_pairs + nmatch
+                while (needed > rows(mi)) {
+                    mi = mi \ J(rows(mi), 1, .)
+                    ui = ui \ J(rows(ui), 1, .)
+                }
+            }
+            for (pos = gstart; pos <= p; pos++) {
+                if (both ? (uhi[pos] >= mlo_s) : (uhi[pos] > mlo_s)) {
+                    target = uobs[pos]
+                    if (track_using) matched_using[target] = 1
+                    n_pairs++
+                    if (!dryrun) {
+                        mi[n_pairs] = mobs
+                        ui[n_pairs] = target
                     }
                 }
             }

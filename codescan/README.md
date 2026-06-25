@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.0** | 2026-06-19
+**Version 2.0.1** | 2026-06-25
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -350,7 +350,40 @@ Important returned results include `r(summary)` with count, prevalence, and Wils
 | A condition matches zero observations | Check spelling, dots, case, anchoring, and whether `mode(regex)` or `mode(prefix)` matches the intended rule |
 | Multi-window `lookback()` fails | Multiple windows require `collapse` or `merge` because the comparison is patient-level |
 
+## Validation
+
+The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`,
+`core`, and `full` lanes. The full lane currently includes 11 functional test
+files and 9 validation files, for 563 tests:
+
+- `test_codescan.do` - 308 tests
+- `test_codescan_adversarial.do` - 11 tests
+- `test_codescan_describe_adversarial.do` - 9 tests
+- `test_codescan_install_docs.do` - 11 tests
+- `test_codescan_regressions.do` - 18 tests
+- `test_codescan_stress_adversarial.do` - 6 tests
+- `test_codescan_v2_no_scoring.do` - 4 tests
+- `test_countrows.do` - 24 tests
+- `test_documentation_examples.do` - 8 tests
+- `test_mata_opt.do` - 14 tests
+- `test_release_integrity.do` - 6 tests
+- `validation_codescan.do` - 65 validations
+- `validation_codescan_crosscheck.do` - 33 validations
+- `validation_codescan_describe.do` - 6 validations
+- `validation_codescan_describe_adversarial.do` - 9 validations
+- `validation_codescan_io.do` - 5 validations
+- `validation_codescan_known_answers.do` - 8 validations
+- `validation_codescan_output.do` - 2 validations
+- `validation_countrows.do` - 8 validations
+- `validation_mata.do` - 8 validations
+
 ## Changelog
+
+### 2.0.1 (2026-06-25)
+
+- Fix: `codescan_describe, save()` now restores caller data after failed file writes and posts analytical `r()` results before the save side effect.
+- Fix: `codescan, graph` now posts returns before graph rendering and restores the active data even if graph rendering fails.
+- QA: standardized the v2 no-scoring suite result sentinel and canonicalized release metadata checks.
 
 ### 2.0.0 (2026-06-19)
 

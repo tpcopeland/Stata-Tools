@@ -1,55 +1,20 @@
 * test_kmplot.do
-* Functional test suite for kmplot v1.0.2
+* Functional test suite for kmplot v1.0.3
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 
 clear all
-
+version 16.0
+set varabbrev off
 
 **# Bootstrap
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."
-
-capture ado uninstall kmplot
-net install kmplot, from("`pkg_dir'") replace
+local qa_dir "`c(pwd)'"
+do "`qa_dir'/_kmplot_qa_common.do"
+_kmplot_qa_bootstrap
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
-
-capture program drop _kmplot_assert_file_contains
-program define _kmplot_assert_file_contains
-    syntax using/, PATTERN(string)
-    tempname fh
-    local found 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') > 0 {
-            local found 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found' == 1
-end
-
-capture program drop _kmplot_assert_file_not_contains
-program define _kmplot_assert_file_not_contains
-    syntax using/, PATTERN(string)
-    tempname fh
-    local found 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') > 0 {
-            local found 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found' == 0
-end
 
 **# Setup
 sysuse cancer, clear
@@ -609,7 +574,7 @@ else {
 }
 
 * =============================================================================
-* T28: Error - no observations
+* T28: Error - empty sample
 * =============================================================================
 
 local ++test_count
@@ -620,11 +585,11 @@ capture noisily {
     assert _rc == 2000
 }
 if _rc == 0 {
-    display as result "  PASS: T28 Error: no observations (rc=2000)"
+    display as result "  PASS: T28 Error: empty sample (rc=2000)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T28 Error: no observations (rc=`=_rc')"
+    display as error "  FAIL: T28 Error: empty sample (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -743,23 +708,23 @@ else {
 }
 
 * =============================================================================
-* T34: Risk table with riskevents
+* T34: Risk table with riskcompact
 * =============================================================================
 
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, by(drug) risktable riskevents timepoints(0 10 20 30) ///
+    kmplot, by(drug) risktable riskcompact timepoints(0 10 20 30) ///
         name(t34, replace)
     assert r(N) == 48
 }
 if _rc == 0 {
-    display as result "  PASS: T34 Risk table with riskevents"
+    display as result "  PASS: T34 Risk table with riskcompact"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T34 Risk table with riskevents (rc=`=_rc')"
+    display as error "  FAIL: T34 Risk table with riskcompact (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1309,7 +1274,7 @@ else {
 }
 
 * =============================================================================
-* T59: set more restored after no-obs error
+* T59: set more restored after empty-sample error
 * =============================================================================
 
 local ++test_count
@@ -1323,11 +1288,11 @@ capture noisily {
     set more off
 }
 if _rc == 0 {
-    display as result "  PASS: T59 set more restored after no-obs error"
+    display as result "  PASS: T59 set more restored after empty-sample error"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T59 set more after no-obs error (rc=`=_rc')"
+    display as error "  FAIL: T59 set more after empty-sample error (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1613,6 +1578,110 @@ else {
 }
 
 * =============================================================================
+* T72: Error - bad ciopacity
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture kmplot, by(drug) ci ciopacity(150)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T72 Error: bad ciopacity (rc=198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T72 Error: bad ciopacity (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T73: Internal-name collisions do not affect user variables
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    gen int _kmplot_grpid = 42
+    gen double _kmplot_s = 0.42
+    gen double _kmplot_se = 0.01
+    gen double _kmplot_lb = 0.20
+    gen double _kmplot_ub = 0.80
+    gen double _kmplot_tmp = 0
+    gen byte _kmplot_cens = 0
+    gen double _rt_time = 0
+    gen double _rt_ypos = 0
+    gen str30 _rt_label = "user"
+    gen int _rt_grp = 0
+    stset studytime, failure(died)
+
+    kmplot, by(drug) ci censor risktable riskcompact ///
+        timepoints(0 10 20 30) name(t73, replace)
+
+    assert r(N) == 48
+    assert r(n_groups) == 3
+    assert _kmplot_grpid == 42
+    assert _kmplot_s == 0.42
+    assert _rt_label == "user"
+}
+if _rc == 0 {
+    display as result "  PASS: T73 Internal-name collision regression"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T73 Internal-name collision regression (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T74: Export failure preserves analytical returns
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture kmplot, by(drug) median ///
+        export("/tmp/no_such_dir_kmplot/output.png", replace) ///
+        name(t74, replace)
+    local export_rc = _rc
+    assert `export_rc' != 0
+    assert r(N) == 48
+    assert r(n_groups) == 3
+    assert r(median_1) < .
+}
+if _rc == 0 {
+    display as result "  PASS: T74 Export failure preserves returns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T74 Export failure preserves returns (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T75: Error - unsafe export path characters
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture kmplot, by(drug) export("bad;name.png", replace) name(t75, replace)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: T75 Error: unsafe export path (rc=198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T75 Error: unsafe export path (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 
@@ -1625,9 +1694,9 @@ display as text "  Failed: " as result `fail_count'
 display as text "==========================================="
 
 if `fail_count' > 0 {
-    display as error "RESULT: FAIL - `fail_count' test(s) failed"
+    display as error "RESULT: test_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
-    display as result "RESULT: PASS - All `test_count' tests passed"
+    display as result "RESULT: test_kmplot tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

@@ -1,21 +1,23 @@
 v 3
 d 'RANGEMATCH': Range join using Stata frames and Mata binary search
 d
-d Range join between master data and a using dataset or frame. For each master
-d observation, matches every using observation whose key falls within
-d the master-specified [low, high] interval. Uses Stata frames for
-d workspace management and a Mata binary-search backend for efficient
+d Range join between master data and a using dataset or frame. Point-in-interval
+d mode matches every using observation whose key falls within the
+d master-specified [low, high] interval; interval-overlap mode (overlap())
+d matches using intervals that overlap the master interval. Uses Stata frames
+d for workspace management and a Mata binary-search backend for efficient
 d pair generation. No external dependencies required.
 d
 d Requires: Stata version 16.1+
 d
-d Distribution-Date: 20260619
+d Distribution-Date: 20260625
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
 d KW: range join
 d KW: interval matching
+d KW: interval overlap
 d KW: merge
 d KW: frames
 d
