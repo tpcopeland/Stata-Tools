@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Package overview" "puttab##package"}{...}
 {viewerjumpto "Syntax" "puttab##syntax"}{...}
 {viewerjumpto "Description" "puttab##description"}{...}

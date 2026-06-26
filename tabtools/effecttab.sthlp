@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}

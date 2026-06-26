@@ -146,6 +146,11 @@ capture noisily {
         "`balxlsx'" Balance balance 2 "`balmark'"
     confirm file "`balmark'"
 
+    tempfile balstylemark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`balxlsx'" Balance thin 0 0 "`balstylemark'"
+    confirm file "`balstylemark'"
+
     import excel using "`balxlsx'", sheet("Balance") clear allstring
     assert _N == 6
     assert A[1] == "IIVW balance diagnostic"
@@ -193,7 +198,7 @@ capture noisily {
 
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) ///
         adjusted(M_adj) exogeneity(exogenous) true(0.10) ///
-        xlsx("`diagxlsx'") replace
+        xlsx("`diagxlsx'") replace footnote("Custom diagnostic footnote")
     matrix E = r(estimates)
     matrix D = r(decomp)
     matrix Bm = r(bias)
@@ -228,6 +233,7 @@ capture noisily {
     assert abs(real(C[8]) - `sampling_gap') < 0.0001
     assert B[18] == "Adjusted bias"
     assert abs(real(C[18]) - `bias_adjusted') < 0.0001
+    assert B[19] == "Custom diagnostic footnote"
 }
 if _rc == 0 {
     display as result "  PASS: T3 - iivw_diagnose styled workbook"
@@ -534,6 +540,30 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`shxlsx'" Shaded thin 1 1 "`shmark'"
     confirm file "`shmark'"
+
+    _reporting_balance_panel
+    tempfile balshstub
+    local balshxlsx "`balshstub'.xlsx"
+    capture erase "`balshxlsx'"
+    iivw_balance, xlsx("`balshxlsx'") sheet(BalanceShaded) replace ///
+        headershade zebra headercolor("200 200 200") zebracolor("240 240 240")
+    tempfile balshmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`balshxlsx'" BalanceShaded thin 1 1 "`balshmark'"
+    confirm file "`balshmark'"
+
+    _reporting_exog_panel
+    tempfile exshstub
+    local exshxlsx "`exshstub'.xlsx"
+    capture erase "`exshxlsx'"
+    iivw_exogtest y, id(id) time(months) nolog ///
+        xlsx("`exshxlsx'") sheet(ExogShaded) replace ///
+        footnote("Custom exogeneity footnote") ///
+        headershade zebra headercolor("200 200 200") zebracolor("240 240 240")
+    tempfile exshmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`exshxlsx'" ExogShaded thin 1 1 "`exshmark'"
+    confirm file "`exshmark'"
 }
 if _rc == 0 {
     display as result "  PASS: T10 - headershade + zebra + custom colors"
@@ -559,6 +589,17 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`thxlsx'" Apa academic 0 0 "`thmark'"
     confirm file "`thmark'"
+
+    _reporting_exog_panel
+    tempfile extstub
+    local extxlsx "`extstub'.xlsx"
+    capture erase "`extxlsx'"
+    iivw_exogtest y, id(id) time(months) nolog ///
+        xlsx("`extxlsx'") sheet(ExogApa) replace theme(apa)
+    tempfile extmark
+    shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
+        "`extxlsx'" ExogApa academic 0 0 "`extmark'"
+    confirm file "`extmark'"
 }
 if _rc == 0 {
     display as result "  PASS: T11 - theme(apa) academic preset"

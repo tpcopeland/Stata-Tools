@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table" "help table"}{...}
 {vieweralsosee "collect" "help collect"}{...}

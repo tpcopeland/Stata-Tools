@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}

@@ -3025,6 +3025,51 @@ else {
 }
 
 
+**# Markdown stat-column headers (p-value, SMD) are present
+* Regression for the strictheaders gap: the Markdown writer takes column
+* headers only from the row-2 cell and (under strictheaders) does not fall
+* back to variable labels, so the p-value/SMD columns shipped a BLANK header
+* even though their values were exported. Assert the Markdown HEADER ROW (the
+* line immediately preceding the "| --- |" separator) names both stat columns.
+capture noisily {
+    sysuse auto, clear
+    gen byte _trt = foreign
+    local _mdhdr "`c(tmpdir)'/_t1tc_mdhdr.md"
+    capture erase "`_mdhdr'"
+    table1_tc, by(_trt) smd vars(price contn %9.1f \ mpg contn %9.1f) ///
+        title("Header regression") markdown("`_mdhdr'") clear
+
+    * Pull the header row: first table line, which is the row before "| --- |".
+    tempname _fh
+    file open `_fh' using "`_mdhdr'", read text
+    local _hdr ""
+    local _prev ""
+    file read `_fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "| ---") > 0 & "`_hdr'" == "" local _hdr `"`_prev'"'
+        local _prev `"`line'"'
+        file read `_fh' line
+    }
+    file close `_fh'
+
+    assert strpos(`"`_hdr'"', "p-value") > 0
+    assert strpos(`"`_hdr'"', "SMD") > 0
+    * Body p-values must survive (header write must not clobber data rows).
+    if "`md_checker'" != "" {
+        shell python3 "`md_checker'" "`_mdhdr'" --contains "Price"
+    }
+    capture erase "`_mdhdr'"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc Markdown header names p-value and SMD columns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc Markdown stat-column headers (rc=`=_rc')"
+    local ++fail_count
+}
+
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""

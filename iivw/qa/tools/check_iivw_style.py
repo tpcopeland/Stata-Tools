@@ -30,6 +30,20 @@ def has_fill(cell) -> bool:
     return cell.fill is not None and cell.fill.patternType == "solid"
 
 
+def blank(value) -> bool:
+    return value is None or value == ""
+
+
+def note_row(ws) -> int:
+    row = ws.max_row
+    if row <= 3 or blank(ws.cell(row, 2).value):
+        return 0
+    for col in range(3, ws.max_column + 1):
+        if not blank(ws.cell(row, col).value):
+            return 0
+    return row
+
+
 def check(path: Path, sheet: str, mode: str, shade: bool, zebra: bool,
           marker: Path | None) -> None:
     if mode not in ("thin", "medium", "academic"):
@@ -41,8 +55,15 @@ def check(path: Path, sheet: str, mode: str, shade: bool, zebra: bool,
         fail(f"sheet not found: {sheet}")
     ws = wb[sheet]
 
+    first_data = 4
+    foot = note_row(ws)
+    last_data = foot - 1 if foot else ws.max_row
+    if last_data < first_data:
+        fail("worksheet has no data rows to inspect")
+
     header = ws.cell(3, 2)        # B3
-    data = ws.cell(5, 3)          # C5, an interior data cell
+    data = ws.cell(first_data, 3)
+    interior = ws.cell(first_data, 3) if first_data < last_data else None
 
     # Header always carries a bottom rule in every supported scheme.
     if header.border.bottom.style is None:
@@ -54,26 +75,29 @@ def check(path: Path, sheet: str, mode: str, shade: bool, zebra: bool,
         # vertical separators after the label column and at each 3-column group
         # edge, with horizontal rules only in the header band.  NOT a full
         # interior grid.
-        label = ws.cell(5, 2)                    # B5, label column
-        right_edge = ws.cell(5, ws.max_column)   # last table column, data row
+        label = ws.cell(first_data, 2)            # B, label column
+        right_edge = ws.cell(first_data, ws.max_column)
         if label.border.left.style != expected:
-            fail(f"label cell B5 left border is {label.border.left.style!r},"
+            fail(f"label cell B{first_data} left border is {label.border.left.style!r},"
                  f" expected {expected!r} (frame)")
         if label.border.right.style != expected:
-            fail(f"label cell B5 right border is {label.border.right.style!r},"
+            fail(f"label cell B{first_data} right border is {label.border.right.style!r},"
                  f" expected {expected!r} (separator after label column)")
         if right_edge.border.right.style != expected:
             fail(f"right-edge data cell has no {expected!r} right border (frame)")
-        if data.border.top.style is not None or data.border.bottom.style is not None:
-            fail("interior data cell C5 has a horizontal rule; thin/medium must"
-                 " not draw a full interior grid")
+        if interior is not None and (
+            interior.border.top.style is not None
+            or interior.border.bottom.style is not None
+        ):
+            fail(f"interior data cell C{first_data} has a horizontal rule;"
+                 " thin/medium must not draw a full interior grid")
     else:  # academic: horizontal rules only, no interior verticals
         for side in ("left", "right"):
             got = getattr(data.border, side).style
             if got is not None:
-                fail(f"academic data cell C5 has a {side} border ({got!r});"
+                fail(f"academic data cell C{first_data} has a {side} border ({got!r});"
                      " academic must have no vertical rules")
-        if data.border.bottom.style is not None:
+        if interior is not None and interior.border.bottom.style is not None:
             fail("academic interior data row has a horizontal rule;"
                  " academic rules only the header and last row")
 
@@ -83,12 +107,15 @@ def check(path: Path, sheet: str, mode: str, shade: bool, zebra: bool,
     if not shade and has_fill(header):
         fail("header is shaded but headershade was not requested")
 
-    # Zebra striping: row 5 (the second data row) is the first shaded stripe.
-    stripe = ws.cell(5, 3)
-    if zebra and not has_fill(stripe):
-        fail("zebra requested but no stripe fill on the alternating data row")
-    if not zebra and not shade and has_fill(stripe):
-        fail("data row is shaded but neither zebra nor headershade was requested")
+    # Zebra striping: the second data row is the first shaded stripe.  One-row
+    # diagnostic tables have no alternating row to shade.
+    stripe_row = first_data + 1
+    if stripe_row <= last_data:
+        stripe = ws.cell(stripe_row, 3)
+        if zebra and not has_fill(stripe):
+            fail("zebra requested but no stripe fill on the alternating data row")
+        if not zebra and not shade and has_fill(stripe):
+            fail("data row is shaded but neither zebra nor headershade was requested")
 
     if marker is not None:
         marker.write_text("ok\n", encoding="utf-8")

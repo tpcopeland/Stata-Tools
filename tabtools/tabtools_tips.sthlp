@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Syntax" "tabtools_tips##syntax"}{...}
 {viewerjumpto "Description" "tabtools_tips##description"}{...}
 {viewerjumpto "Quick reference" "tabtools_tips##quick"}{...}

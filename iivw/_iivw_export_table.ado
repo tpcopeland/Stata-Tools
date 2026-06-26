@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.7.3  2026/06/26
+*! _iivw_export_table Version 1.7.4  2026/06/26
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -699,6 +699,7 @@ void _iivw_xlsx_style_tabtools(
             for (j = 5; j <= n_cols; j = j + 3) {
                 b.set_right_border((2, data_last), (j, j), gridstyle)
             }
+            b.set_right_border((2, data_last), (n_cols, n_cols), gridstyle)
         }
     }
 

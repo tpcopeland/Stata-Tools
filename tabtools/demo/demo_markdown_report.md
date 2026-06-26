@@ -19,7 +19,7 @@
 
 ### Table 3. Correlation Matrix
 
-| c1 | Age at cohort entry (years) | C-reactive protein (mg/L) | Prior hospitalizations |
+|  | Age at cohort entry (years) | C-reactive protein (mg/L) | Prior hospitalizations |
 | --- | --- | --- | --- |
 | Age at cohort entry (years) | 1.00 |  |  |
 | C-reactive protein (mg/L) | -0.01 | 1.00 |  |

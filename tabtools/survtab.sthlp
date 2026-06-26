@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.8.6  25jun2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}

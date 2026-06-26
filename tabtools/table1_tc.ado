@@ -1900,6 +1900,16 @@ program define table1_tc, rclass
     if `has_markdown' {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
+        * The Markdown writer reads its header from row 2 (headerstart) and, under
+        * strictheaders, does NOT fall back to variable labels. The stat columns
+        * (p-value, SMD) carry their header only as a variable label (set ~l.740),
+        * so their row-2 header cell is empty and renders as a blank column header.
+        * Populate those header cells explicitly here, mirroring the Excel path
+        * (see the "Add p-value header" block in the excel() branch). Row 2 is the
+        * descriptor/header row; body rows start at row 3 (datastart), so this only
+        * affects the header and never overwrites a real p-value/SMD value.
+        capture replace pvalue = "p-value" if _n == 2
+        capture replace smd_str = "SMD" if _n == 2
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
             `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
