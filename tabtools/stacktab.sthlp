@@ -205,5 +205,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {p 4 4 2}
 Timothy P Copeland, Karolinska Institutet{break}
 {browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}
-{p 4 4 2}
+
+{pstd}{bf:Version} 1.8.6{p_end}
+
 {hline}

@@ -845,11 +845,13 @@ capture noisily {
         local _se_ci = c3[7]
     }
 
+    * CSV is written without Stata variable-name headers (v1.8.6 contract), so
+    * import with varnames(nonames): column k -> vk, row N aligns with frame row N.
     preserve
-    import delimited "`output_dir'/_val_diagtab_par.csv", clear varnames(1)
-    assert c1[7] == "`_se_label'"
-    assert c2[7] == "`_se_est'"
-    assert c3[7] == "`_se_ci'"
+    import delimited "`output_dir'/_val_diagtab_par.csv", clear varnames(nonames)
+    assert v1[7] == "`_se_label'"
+    assert v2[7] == "`_se_est'"
+    assert v3[7] == "`_se_ci'"
     restore
     capture frame drop _val_diagpar
 }

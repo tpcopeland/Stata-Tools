@@ -453,15 +453,28 @@ capture noisily {
 
     local csvfile "`output_dir'/crosstab_layout.csv"
     capture erase "`csvfile'"
-    crosstab outcome exposure, csv("`csvfile'")
+    capture frame drop _ct_layout
+    crosstab outcome exposure, csv("`csvfile'") frame(_ct_layout, replace)
 
-    tempname fh
-    local header ""
-    file open `fh' using "`csvfile'", read text
-    file read `fh' header
-    file close `fh'
-
-    assert "`header'" == "title,c1,c2,c3,c4"
+    * The CSV is written without Stata variable-name headers (v1.8.6 contract)
+    * and carries the same visible columns, in the same order, as the frame and
+    * the console/XLSX table. Verify column ORDER by aligning the CSV's display
+    * header row (row 2) against the frame's visible columns (c1..c4).
+    frame _ct_layout {
+        local _r2_c1 = c1[2]
+        local _r2_c2 = c2[2]
+        local _r2_c3 = c3[2]
+        local _r2_c4 = c4[2]
+    }
+    preserve
+    import delimited "`csvfile'", clear varnames(nonames)
+    assert c(k) == 4
+    assert strtrim(v1[2]) == strtrim("`_r2_c1'")
+    assert strtrim(v2[2]) == strtrim("`_r2_c2'")
+    assert strtrim(v3[2]) == strtrim("`_r2_c3'")
+    assert strtrim(v4[2]) == strtrim("`_r2_c4'")
+    restore
+    capture frame drop _ct_layout
 }
 if _rc == 0 {
     display as result "  PASS: crosstab CSV layout matches console/XLSX order"

@@ -459,12 +459,14 @@ capture noisily {
     local ratio_cols : colnames r(ratios)
     assert "`ratio_cols'" == "Outcome_1"
 
+    * CSV is written without Stata variable-name headers (v1.8.6 contract), so
+    * import with varnames(nonames): label is column 1 (v1), IRR is column 5 (v5).
     preserve
-    import delimited "`output_dir'/_val_stratetab_rr.csv", clear varnames(1)
+    import delimited "`output_dir'/_val_stratetab_rr.csv", clear varnames(nonames)
     local _irr_found = 0
     forvalues _r = 1/`=_N' {
-        local _lbl = strtrim(c1[`_r'])
-        local _irr = strtrim(c5[`_r'])
+        local _lbl = strtrim(v1[`_r'])
+        local _irr = strtrim(v5[`_r'])
         if "`_lbl'" == "Low" & "`_irr'" == "`irr_low_fmt'" {
             local _irr_found = 1
             continue, break

@@ -402,14 +402,17 @@ capture noisily {
         }
         assert `_csv_found' == 1
     }
+    * CSV is written without Stata variable-name headers (v1.8.6 contract), so
+    * import with varnames(nonames): column k -> vk in display order
+    * (v1 = label/A, v2 = estimate/c1, v4 = p-value/c3).
     preserve
-    import delimited "/tmp/test_iptw.csv", clear varnames(1)
+    import delimited "/tmp/test_iptw.csv", clear varnames(nonames)
     local _csv_match = 0
     forvalues _r = 1/`=_N' {
-        local _lbl = strtrim(a[`_r'])
+        local _lbl = strtrim(v1[`_r'])
         if "`_lbl'" == "`_frame_label'" {
-            assert strtrim(c1[`_r']) == "`_frame_est'"
-            assert strtrim(c3[`_r']) == "`_frame_p'"
+            assert strtrim(v2[`_r']) == "`_frame_est'"
+            assert strtrim(v4[`_r']) == "`_frame_p'"
             local _csv_match = 1
             continue, break
         }
