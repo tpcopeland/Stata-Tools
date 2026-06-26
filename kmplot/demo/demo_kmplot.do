@@ -125,10 +125,11 @@ capture graph close _all
 * ============================================================
 
 * Two-color scheme with dashed CI lines instead of bands
+* (p-value in the bottom-left corner; survival curves crowd the top-left)
 kmplot, by(drug) ci cistyle(line) citransform(log) ///
     colors(navy maroon dkorange) ///
     lpattern(solid dash dot) lwidth(thick) ///
-    pvalue pvaluepos(topleft) ///
+    pvalue pvaluepos(bottomleft) ///
     xlabel(0(5)40) ylabel(0(0.2)1) ///
     aspectratio(0.8) ///
     name(demo7, replace)
