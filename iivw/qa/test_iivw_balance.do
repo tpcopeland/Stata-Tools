@@ -94,6 +94,33 @@ program define _balance_manual_panel
     }
 end
 
+* Covariate-driven Poisson visit process with discretized (tied) event times.
+* Z genuinely predicts visit intensity, so the AG-refit HR is far from 1, and
+* the rounded visit times produce many tied failures across subjects -- the
+* regime where Efron and Breslow tie-handling actually diverge.
+capture program drop _balance_tied_panel
+program define _balance_tied_panel
+    version 16.0
+    clear
+    set seed 11223
+    set obs 500
+    gen long id = _n
+    gen double Z = runiform(-1, 1)
+    gen double rate = 1.4 * exp(0.8 * Z)
+    expand 40
+    bysort id: gen int k = _n
+    gen double gap = -ln(runiform()) / rate
+    bysort id (k): gen double vtime = sum(gap)
+    keep if vtime <= 10
+    gen double months = round(vtime * 2) / 2
+    sort id months
+    bysort id (months): drop if months == months[_n-1]
+    bysort id: gen int nv = _N
+    drop if nv < 2
+    drop nv k gap vtime rate
+    iivw_weight, id(id) time(months) visit_cov(Z) nolog
+end
+
 **# Tests
 
 local ++test_count
@@ -366,6 +393,52 @@ else {
     display as error "  FAIL: T12 - threshold/decimal option contracts (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T12"
+}
+
+**# T13: efron and level() change the AG-refit HR/CI as specified
+
+local ++test_count
+capture noisily {
+    _balance_tied_panel
+    tempfile tied
+    save "`tied'"
+
+    * Default tie handling (Breslow), 95% CI
+    use "`tied'", clear
+    iivw_balance, agrefit nolog
+    matrix HUd = r(hr_unweighted)
+    matrix HWd = r(hr_weighted)
+    * Both refits must succeed and the covariate effect must be well away from 1.
+    assert HUd[1,6] == 0
+    assert HWd[1,6] == 0
+    assert HUd[1,1] > 1.2
+
+    * efron changes the unweighted estimate on tied data, and -- after the
+    * pweights-forbid-efron fix -- the weighted refit still succeeds (Breslow).
+    use "`tied'", clear
+    iivw_balance, agrefit nolog efron
+    matrix HUe = r(hr_unweighted)
+    matrix HWe = r(hr_weighted)
+    assert HUe[1,6] == 0
+    assert HWe[1,6] == 0
+    assert abs(HUe[1,4] - HUd[1,4]) > 0.05
+
+    * level(90) narrows the CI versus the default 95% without moving the point.
+    use "`tied'", clear
+    iivw_balance, agrefit nolog level(90)
+    matrix HU90 = r(hr_unweighted)
+    assert HU90[1,6] == 0
+    assert reldif(HU90[1,1], HUd[1,1]) < 1e-8
+    assert (HU90[1,3] - HU90[1,2]) < (HUd[1,3] - HUd[1,2])
+}
+if _rc == 0 {
+    display as result "  PASS: T13 - efron and level() change AG-refit HR/CI"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T13 - efron/level AG-refit contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T13"
 }
 
 **# Summary

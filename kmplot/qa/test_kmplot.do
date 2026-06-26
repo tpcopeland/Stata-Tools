@@ -1938,6 +1938,120 @@ else {
 }
 
 * =============================================================================
+* T84: automatic risk-table height scales with group count
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    * <=3 groups -> base height 25
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    kmplot, by(drug) risktable timepoints(0 10 20) name(t84a, replace)
+    assert r(riskheight) == 25
+
+    * 10 groups -> 25 + (10-3)*4 = 53
+    clear
+    set seed 8401
+    set obs 200
+    gen double t = ceil(runiform() * 20)
+    gen byte d = runiform() < .45
+    gen int grp = 1 + mod(_n - 1, 10)
+    stset t, failure(d)
+    kmplot, by(grp) risktable timepoints(0 10 20) name(t84b, replace)
+    assert r(riskheight) == 53
+
+    * 12 groups -> 25 + (12-3)*4 = 61, capped at 60
+    clear
+    set seed 8402
+    set obs 240
+    gen double t = ceil(runiform() * 20)
+    gen byte d = runiform() < .45
+    gen int grp = 1 + mod(_n - 1, 12)
+    stset t, failure(d)
+    kmplot, by(grp) risktable timepoints(0 10 20) name(t84c, replace)
+    assert r(riskheight) == 60
+}
+if _rc == 0 {
+    display as result "  PASS: T84 auto risk-table height by group count"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T84 auto risk-table height by group count (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T85: saving() without ci writes missing CI bounds and populated estimates
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local curvefile "`c(tmpdir)'/kmplot_curve_t85.dta"
+    capture erase "`curvefile'"
+
+    kmplot, by(drug) saving("`curvefile'", replace) name(t85, replace)
+    assert "`r(saving)'" == "`curvefile'"
+    confirm file "`curvefile'"
+
+    preserve
+    use "`curvefile'", clear
+    confirm variable group group_label time estimate se lower upper censor anchor
+    quietly count if !missing(lower)
+    assert r(N) == 0
+    quietly count if !missing(upper)
+    assert r(N) == 0
+    quietly count if !missing(estimate)
+    assert r(N) > 0
+    restore
+
+    erase "`curvefile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T85 saving() without ci"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T85 saving() without ci (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T86: stepped CI band helper rows do not leak into saving()
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local curvefile "`c(tmpdir)'/kmplot_curve_t86.dta"
+    capture erase "`curvefile'"
+
+    * ci defaults to cistyle(band), which builds stepped-band helper rows;
+    * those must be dropped before saving (no missing group/time, real CI kept)
+    kmplot, by(drug) ci saving("`curvefile'", replace) name(t86, replace)
+    preserve
+    use "`curvefile'", clear
+    quietly count if missing(group)
+    assert r(N) == 0
+    quietly count if missing(time)
+    assert r(N) == 0
+    quietly count if !missing(lower)
+    assert r(N) > 0
+    restore
+    erase "`curvefile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T86 stepped band rows do not leak into saving()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T86 stepped band rows leak into saving() (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 

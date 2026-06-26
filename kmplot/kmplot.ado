@@ -1,4 +1,4 @@
-*! kmplot Version 1.2.0  2026/06/26
+*! kmplot Version 1.2.1  2026/06/26
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -75,6 +75,7 @@ program define kmplot, rclass
     local has_medians_mat = 0
     local has_landmarks_mat = 0
     local has_risktable_mat = 0
+    local has_stepband = 0
     local n_landmarks = 0
     local n_timepoints = 0
     local riskheight_used = .
@@ -574,19 +575,74 @@ program define kmplot, rclass
     }
 
     * =========================================================================
+    * STEPPED CONFIDENCE-BAND COORDINATES
+    * =========================================================================
+    * rarea interpolates linearly between points and would cut diagonally across
+    * the KM step function. Build explicit stepped coordinates in dedicated
+    * columns so the shaded band tracks the staircase: at each event time carry
+    * the previous bound forward (horizontal segment), then step to the new
+    * bound (vertical riser). Drawn in data order (no sort).
+
+    if "`ci'" != "" & "`cistyle'" == "band" {
+        tempvar bgrp btime blo bhi
+        local band_pts = 0
+        forvalues g = 1/`ngroups' {
+            quietly levelsof _t if `grpid' == `g' & !missing(`km_lb'), local(_btimes`g')
+            local _nb : word count `_btimes`g''
+            local band_pts = `band_pts' + 2 * `_nb'
+        }
+        if `band_pts' > 0 {
+            local _bbase = _N
+            quietly set obs `=`_bbase' + `band_pts''
+            quietly gen double `btime' = .
+            quietly gen double `blo'   = .
+            quietly gen double `bhi'   = .
+            quietly gen long   `bgrp'  = .
+            local _br = `_bbase'
+            forvalues g = 1/`ngroups' {
+                local _plo = .
+                local _phi = .
+                local _bfirst = 1
+                foreach tt of local _btimes`g' {
+                    quietly summarize `km_lb' if `grpid' == `g' & _t == `tt', meanonly
+                    local _clo = r(mean)
+                    quietly summarize `km_ub' if `grpid' == `g' & _t == `tt', meanonly
+                    local _chi = r(mean)
+                    * carry-forward base (horizontal segment to this time)
+                    local ++_br
+                    quietly replace `bgrp'  = `g'  in `_br'
+                    quietly replace `btime' = `tt' in `_br'
+                    quietly replace `blo'   = cond(`_bfirst', `_clo', `_plo') in `_br'
+                    quietly replace `bhi'   = cond(`_bfirst', `_chi', `_phi') in `_br'
+                    * step to the new bound (vertical riser)
+                    local ++_br
+                    quietly replace `bgrp'  = `g'  in `_br'
+                    quietly replace `btime' = `tt' in `_br'
+                    quietly replace `blo'   = `_clo' in `_br'
+                    quietly replace `bhi'   = `_chi' in `_br'
+                    local _plo = `_clo'
+                    local _phi = `_chi'
+                    local _bfirst = 0
+                }
+            }
+            local has_stepband = 1
+        }
+    }
+
+    * =========================================================================
     * BUILD TWOWAY COMMAND
     * =========================================================================
 
     local tw_layers ""
     local legend_offset = 0
 
-    * --- CI bands (behind everything) ---
-        if "`ci'" != "" & "`cistyle'" == "band" {
+    * --- CI bands (behind everything); stepped to track the KM staircase ---
+        if "`ci'" != "" & "`cistyle'" == "band" & `has_stepband' {
             forvalues g = 1/`ngroups' {
                 local colidx = mod(`g' - 1, 8) + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`tw_layers' (rarea `km_ub' `km_lb' _t if `grpid' == `g' & !missing(`km_lb'), fcolor(`col'%`ciopacity') lwidth(none) sort)"'
+                local tw_layers `"`tw_layers' (rarea `bhi' `blo' `btime' if `bgrp' == `g', fcolor(`col'%`ciopacity') lwidth(none))"'
             }
             local legend_offset = `ngroups'
         }
@@ -771,6 +827,12 @@ program define kmplot, rclass
 	            local _drop_orphan_rt_rc = _rc
 	        }
 	    }
+
+    * Remove the stepped-band helper rows now that the graph is rendered,
+    * so they never leak into saving()/risksaving() output.
+    if `has_stepband' {
+        quietly drop if !missing(`bgrp')
+    }
 
     * =========================================================================
     * EXPORT

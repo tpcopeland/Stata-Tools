@@ -310,6 +310,5 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.8.6{p_end}
 
 {hline}

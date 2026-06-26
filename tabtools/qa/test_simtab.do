@@ -192,6 +192,28 @@ else {
 }
 
 * =====================================================================
+**# T4b: r(plotframe) return macro names the companion frame
+* =====================================================================
+capture noisily {
+    _simtab_make_data, reps(80) estimands(1)
+    keep if emd == 1
+    simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
+        plotframe(pf_ret, replace) display
+    local pf_ret_name "`r(plotframe)'"
+    assert "`pf_ret_name'" == "pf_ret"
+    * the named companion frame must exist and be populated
+    frame pf_ret: assert _N > 0
+}
+if _rc == 0 {
+    display as result "  PASS T4b: r(plotframe) names companion frame"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T4b (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =====================================================================
 **# T5: power from pvalue() and from reject() agree
 * =====================================================================
 capture noisily {

@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.2.0  2026/06/26
+*! _kmplot_risktable Version 1.2.1  2026/06/26
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -199,7 +199,8 @@ program define _kmplot_risktable, rclass
         local ylabels `"`ylabels' `yval' `"`lbl'"'"'
     }
 
-	    local ymin = 0.5
+	    * Extra padding below the bottom row separates the table from the x-axis labels
+	    local ymin = 0.0
 	    local ymax = `ngroups' + 0.5
 	    if `riskheight' > 0 {
 	        local fysize = `riskheight'
@@ -230,10 +231,17 @@ program define _kmplot_risktable, rclass
 
     local xlabel_cmd ""
     if `"`xlabel'"' != "" {
-        local xlabel_cmd xlabel(`xlabel')
+        * Append nogrid to the user spec: into the existing suboption group if
+        * one is present (a comma), otherwise as a new suboption group.
+        if strpos(`"`xlabel'"', ",") {
+            local xlabel_cmd xlabel(`xlabel' nogrid)
+        }
+        else {
+            local xlabel_cmd xlabel(`xlabel', nogrid)
+        }
     }
     else {
-        local xlabel_cmd xlabel(`timepoints', labsize(vsmall) noticks)
+        local xlabel_cmd xlabel(`timepoints', labsize(vsmall) noticks nogrid)
     }
 
     twoway `scatcmd', ///

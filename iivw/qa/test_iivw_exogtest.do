@@ -135,6 +135,7 @@ if `run_only' == 0 | `run_only' == 2 {
         assert r(joint_min_p) < 0.10
         assert r(n_models) == 1
         assert r(N) == 480
+        assert "`r(adjust)'" == "age female"
         matrix R = r(results)
         assert rowsof(R) == 1
         assert R[1,6] < 0.10

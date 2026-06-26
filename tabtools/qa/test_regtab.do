@@ -655,6 +655,38 @@ else {
     local fail_count = `fail_count' + 1
 }
 
+**# Test A1: regtab stats(groups) returns r(groups_1) = known group count
+* Same DGP as Test A: 600 obs, group = ceil(_n/30) => exactly 20 groups,
+* so e(N_g) and the returned r(groups_1) are deterministic (seed-independent).
+
+capture {
+    clear
+    set obs 600
+    gen group = ceil(_n/30)
+    gen x = rnormal()
+    tempvar uraw
+    gen `uraw' = rnormal()
+    bysort group: gen u = `uraw'[1] * 0.5
+    gen mu = exp(0.5 + 0.3*x + u)
+    gen y = rpoisson(mu)
+
+    collect clear
+    collect: mepoisson y x || group:
+
+    capture erase "`output_dir'/_test_ms_A1.xlsx"
+    regtab, xlsx("`output_dir'/_test_ms_A1.xlsx") sheet("A1") stats(groups)
+    assert r(groups_1) == 20
+}
+local test_count = `test_count' + 1
+if _rc == 0 {
+    display as result "  PASS: Test A1 - regtab r(groups_1) == 20"
+    local pass_count = `pass_count' + 1
+}
+else {
+    display as error "  FAIL: Test A1 - regtab r(groups_1) wrong or crash (rc=`=_rc')"
+    local fail_count = `fail_count' + 1
+}
+
 **# Test B: mepoisson stats(icc) — ICC row absent (Fix 1 guard)
 * ICC is undefined for count models (no closed-form level-1 variance).
 * After Fix 1, all stat_icc values remain missing so the ICC row is suppressed.

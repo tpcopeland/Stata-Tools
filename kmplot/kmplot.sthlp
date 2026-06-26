@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  26jun2026}{...}
+{* *! version 1.2.1  26jun2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -37,7 +37,7 @@
 {synopt:{opt ci}}show confidence intervals{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {bf:95}{p_end}
 {synopt:{opt cist:yle(string)}}CI display: {bf:band} (default) or {bf:line}{p_end}
-{synopt:{opt ciop:acity(#)}}band opacity 0-100; default {bf:12}{p_end}
+{synopt:{opt cio:pacity(#)}}band opacity 0-100; default {bf:12}{p_end}
 {synopt:{opt citr:ansform(string)}}CI transform: {bf:loglog} (default), {bf:log}, or {bf:plain}{p_end}
 
 {syntab:Median}
@@ -364,6 +364,6 @@ an entry time.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.2.0, 2026-06-26{p_end}
+Version 1.2.1, 2026-06-26{p_end}
 
 {hline}

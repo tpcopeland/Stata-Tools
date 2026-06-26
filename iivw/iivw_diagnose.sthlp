@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.7.2  25jun2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
@@ -349,6 +348,5 @@ doi:10.1002/cjs.5550350402.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.2, 2026-06-25{p_end}
 
 {hline}

@@ -1,6 +1,6 @@
 # kmplot - Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.0** | 2026-06-26
+**Version 1.2.1** | 2026-06-26
 
 `kmplot` turns an `stset` dataset into publication-ready survival graphics with sensible defaults for confidence intervals, risk tables, fixed-time summaries, median lines, censor marks, and log-rank p-values. It keeps the flexibility of native Stata graphics while returning the reusable curve, risk-table, and landmark numbers needed for manuscripts.
 
@@ -90,6 +90,7 @@ The shipped demo script in `demo/demo_kmplot.do` produces these PNG assets:
 | [km_publication.png](demo/km_publication.png) | Full publication-style figure |
 | [km_custom_style.png](demo/km_custom_style.png) | Custom colors, line patterns, CI lines, and p-value placement |
 | [km_plain_ci.png](demo/km_plain_ci.png) | Plain-transform CI bands with custom opacity |
+| [km_pvalue_level.png](demo/km_pvalue_level.png) | Journal-style p-value label and user-set 90% CI level |
 
 ## Key Features
 
@@ -125,18 +126,19 @@ do run_all.do
 
 The current standard suite includes `test_kmplot.do` for functional and regression coverage and `validation_kmplot.do` for numerical validation against Stata survival commands and hand-computed invariants.
 
-The QA directory contains 112 tests across 2 QA files and covers all one public command.
+The QA directory contains 115 tests across 2 QA files and covers all one public command.
 
-- `test_kmplot.do` - 83 tests for functional, option, state-restoration, export/save, and regression coverage
+- `test_kmplot.do` - 86 tests for functional, option, state-restoration, export/save, and regression coverage
 - `validation_kmplot.do` - 29 tests for numerical validation and survival-analysis invariants
 
 | QA file | Tests | Purpose |
 |---------|-------|---------|
-| `test_kmplot.do` | 83 | Functional, option, state-restoration, export/save, and regression coverage |
+| `test_kmplot.do` | 86 | Functional, option, state-restoration, export/save, and regression coverage |
 | `validation_kmplot.do` | 29 | Numerical validation and survival-analysis invariants |
 
 ## Version History
 
+- **1.2.1** (2026-06-26): Made the shaded confidence bands step with the Kaplan-Meier curve instead of cutting diagonally between event times, so the band tracks the staircase. Removed gridlines from the number-at-risk table and increased the vertical separation between the table and the x-axis labels for cleaner combined figures. Corrected the `ciopacity()` abbreviation in the help file, added auto-height, `saving()`-without-`ci`, and stepped-band regression tests, and added a p-value/CI-level demo panel.
 - **1.2.0** (2026-06-26): Added `level()`, `riskheight()`, `landmark()`, `saving()`, `risksaving()`, p-value display controls, richer `r()` metadata and matrices, delayed-entry QA/docs, cumulative-failure terminology, method notes, and README gallery.
 - **1.0.3** (2026-06-25): Replaced internal graph-working variables with `tempvar`s, restored preserved data on error paths, guarded `export()` paths, preserved analytical returns across export failures, and refreshed QA organization with a curated runner.
 - **1.0.2** (2026-04-22): Varabbrev wrapper refactored to cover all exit paths (syntax, validation, and main logic). Fixed literal-quote rendering in user-supplied ytitle/xtitle/note options. Removed unnecessary `set more off`. Export success message now guarded by `confirm file`.

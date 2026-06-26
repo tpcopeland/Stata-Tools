@@ -4,7 +4,7 @@
     Each section showcases a different feature or combination.
 
     Outputs:
-      1. Graphs (8 PNGs) -> .png
+      1. Graphs (9 PNGs) -> .png
 */
 
 version 16.0
@@ -147,8 +147,23 @@ kmplot, by(drug) ci citransform(plain) ciopacity(30) ///
 graph export "`pkg_dir'/km_plain_ci.png", replace width(1200)
 capture graph close _all
 
+* ============================================================
+* 9. Journal-style p-value label and custom CI level (v1.2.0)
+* ============================================================
+
+* Custom p-value text + format, user-set 90% CI level, risk table
+* (p-value in the bottom-left corner, clear of the top-right legend)
+kmplot, by(drug) ci level(90) risktable ///
+    pvalue pvaluetext("Log-rank P") pvalueformat(%5.3f) pvaluepos(bottomleft) ///
+    timepoints(0 5 10 15 20 25 30 35) ///
+    title("Overall Survival by Treatment") ///
+    xtitle("Time (months)") ///
+    name(demo9, replace)
+graph export "`pkg_dir'/km_pvalue_level.png", replace width(1200)
+capture graph close _all
+
 * --- Cleanup ---
-display as result "RESULT: demo_kmplot tests=8 pass=8 fail=0"
+display as result "RESULT: demo_kmplot tests=9 pass=9 fail=0"
 capture log close _all
 capture set scheme `old_scheme'
 clear

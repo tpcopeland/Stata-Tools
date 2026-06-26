@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.7.2  2026/06/25
+*! iivw_balance Version 1.7.3  2026/06/26
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -278,6 +278,15 @@ program define iivw_balance, rclass
         local __iivw_restore_needed = 0
         local zcrit = invnormal((100 + `level') / 200)
 
+        * Efron ties are illegal with pweighted stcox (rc 101), so the weighted
+        * AG refit always uses Breslow; efron applies to the unweighted refit
+        * only.  Note this once rather than letting the weighted refit fail.
+        if "`efron_opt'" != "" {
+            display as text "note: efron applies to the unweighted AG " ///
+                "refit only; the weighted refit uses Breslow ties " ///
+                "(pweights preclude Efron)"
+        }
+
         capture _estimates hold `__iivw_esthold', nullok
         local __iivw_hold_rc = _rc
         if `__iivw_hold_rc' != 0 {
@@ -351,7 +360,8 @@ program define iivw_balance, rclass
                     enter(time `__iivw_start') failure(`__iivw_event') ///
                     exit(time .)
 
-                capture noisily stcox `v', level(`level') `log_opt' `efron_opt'
+                * Breslow forced: stcox forbids efron with pweights (rc 101).
+                capture noisily stcox `v', level(`level') `log_opt'
                 local hr_rc = _rc
                 matrix `__iivw_hr_weighted'[`hrow', 6] = `hr_rc'
                 if `hr_rc' == 0 {
