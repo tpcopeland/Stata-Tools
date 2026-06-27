@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.1.0  21jun2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "stcurve" "help stcurve"}{...}
@@ -196,7 +195,6 @@ baseline cumulative subdistribution hazard. With {opt cluster()} in the original
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0{p_end}
 
 
 {title:Also see}

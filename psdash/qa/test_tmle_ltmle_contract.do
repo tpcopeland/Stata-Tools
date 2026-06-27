@@ -185,6 +185,9 @@ capture noisily {
     assert "`r(wvar)'" == "g_w"
     assert "`r(period)'" == "period"
     assert "`r(id)'" == "pid"
+    assert "`r(method)'" == "ltmle"
+    assert "`r(regime)'" == "always_never"
+    assert "`r(contract_version)'" == "1.0"
     assert r(N_periods) == 3
     matrix O = r(overlap_by_period)
     matrix W = r(weights_by_period)

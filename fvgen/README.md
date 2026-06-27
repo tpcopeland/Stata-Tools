@@ -21,7 +21,7 @@ Running the same model on the flattened variables gives **one clean, self-labele
 ## Installation
 
 ```stata
-net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/fvgen")
+net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/fvgen") replace
 ```
 
 ## Syntax
@@ -257,7 +257,7 @@ With `drop`, `fvgen` instead returns `r(k_dropped)` (number of variables dropped
 The `qa/` directory holds the test suite, run with `stata-mp -b do run_all.do`
 (lanes: `quick`, `core`, `full`):
 
-- `test_fvgen.do` — 15 functional tests (surface, returns, naming, labels, options, missing, `if`/`in`, squared self-interaction, `ibn.` all-levels, weight-aware centering, `vsref()` reference labels, long-varname resolution)
+- `test_fvgen.do` — 17 functional tests (surface, returns, naming, labels, options, missing, `if`/`in`, squared self-interaction, `ibn.` all-levels, weight-aware centering, `vsref()` reference labels, long-varname resolution, 80-char label truncation, unlabeled-factor `var=level` fallback)
 - `test_ref.do` — 6 tests (`ref()` per-factor reference levels, equivalence to native `ibN.`, by quoted value-label string)
 - `test_simple.do` — 5 tests (`simple()` per-group slopes, equivalence to native main+interaction, `simple()`+`center` combined)
 - `test_provenance.do` — 7 tests (provenance characteristics + strict `fvgen, drop` teardown)

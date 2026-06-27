@@ -29,7 +29,8 @@ treatment levels must be nonnegative integers. Supply one PS variable per level
 via {opt psv:ars()}:
 
 {phang}
-{cmd:psdash} {it:subcommand} {it:treatment} [{it:{help if}}] [{it:{help in}}] [{cmd:,} {opt psv:ars(varlist)} {opt ref:erence(#)} {it:options}]
+{cmd:psdash} {it:subcommand} {it:treatment} [{it:{help if}}] [{it:{help in}}]
+[{cmd:,} {opt psv:ars(varlist)} {opt ref:erence(#)} {it:options}]
 
 {pstd}
 where {it:subcommand} is one of:
@@ -44,10 +45,16 @@ where {it:subcommand} is one of:
 
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
-After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the estimand are read from the tmle contract state.
-After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled subcommands require explicit variables.
-After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity {cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm contract for the same longitudinal diagnostic.
-After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved switch/treatment propensity, IP weight, and trial/period structure from the tte contract.
+After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates,
+and the estimand are read from the tmle contract state.
+After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period
+diagnostics; pooled subcommands require explicit variables.
+After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity
+{cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm
+contract for the same longitudinal diagnostic.
+After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved
+switch/treatment propensity, IP weight, and trial/period structure from the tte
+contract.
 After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
 propensity-score, treatment-covariate, and treatment-weight variables are read
 from the iivw dataset contract.

@@ -257,6 +257,47 @@ capture noisily {
 }
 _qcg_record `=_rc' "psdash_weights group-suffixed ESS returns"
 
+**# Public detector with multi-group psvars()/reference()
+
+local ++test_count
+capture noisily {
+    _qcg_multigroup_data
+    quietly psdash_detect arm gps0, psvars(gps0 gps1 gps2) reference(1)
+    assert "`r(source)'" == "manual"
+    assert r(multigroup) == 1
+    assert r(K) == 3
+    assert "`r(levels)'" == "0 1 2"
+    assert "`r(reference)'" == "1"
+}
+_qcg_record `=_rc' "psdash_detect multi-group psvars()/reference() options"
+
+**# Overlap with covariates() auto-detection context
+
+local ++test_count
+capture noisily {
+    _qcg_binary_data
+    quietly psdash_overlap treat ps, nograph covariates(x1 x2)
+    assert r(N) == 8
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "ps"
+}
+_qcg_record `=_rc' "psdash_overlap covariates() option"
+
+**# Combined dashboard imbalmax() verdict threshold
+
+local ++test_count
+capture noisily {
+    _qcg_binary_data
+    capture graph drop _all
+    quietly psdash combined treat ps, covariates(x1 x2) wvar(wt) imbalmax(2)
+    assert r(imbalmax) == 2
+    assert r(N) == 8
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "ps"
+    capture graph drop _all
+}
+_qcg_record `=_rc' "psdash combined imbalmax() option and return"
+
 **# Summary
 
 local pass_count = $QCG_PASS_COUNT

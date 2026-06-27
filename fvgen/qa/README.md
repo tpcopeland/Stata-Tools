@@ -29,7 +29,7 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | File | Purpose |
 |------|---------|
 | `_fvgen_qa_common.do` | Sandboxed-install bootstrap + seeded data builder |
-| `test_fvgen.do` | Functional: surface, returns, naming, labels, options, missing, if/in, squared self-interaction, `ibn.` all-levels, weight-aware centering |
+| `test_fvgen.do` | Functional: surface, returns, naming, labels, options, missing, if/in, squared self-interaction, `ibn.` all-levels, weight-aware centering, 80-char label truncation, unlabeled-factor `var=level` fallback |
 | `test_ref.do` | `ref()` per-factor reference levels: re-reference, equivalence to native `ibN.`, multi-var, quoted value-label strings, alllevels, no fvset mutation |
 | `test_simple.do` | `simple()` per-group slopes: surface + labels, equivalence to native main+interaction, multi-level moderator, non-moderated main retained, `simple()`+`center` combined |
 | `test_provenance.do` | Provenance chars (`fvgen_role`/`fvgen_term`) on main/interaction/centered vars; `fvgen, drop` teardown, returns, idempotence, absorbed-copy clearing, strict drop-only syntax, edge paths |
@@ -44,6 +44,8 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 |---------|-----------|
 | cat×cont / cat×cat / cont×cont | `test_fvgen`, `validation_fvgen` |
 | Value label → variable label (incl. `&`, `×`, embedded `"`) | `test_fvgen` (#2, #3) |
+| Over-long label truncated to Stata's 80-char limit | `test_fvgen` (#16) |
+| Unlabeled factor → `var=level` fallback label (main + interaction) | `test_fvgen` (#17) |
 | Empty interaction-cell skipping; base dropped | `test_fvgen` (#4) |
 | Missing propagation (dummies + products) | `test_fvgen` (#5), `validation_fvgen` (#1) |
 | `alllevels`, `center`, `prefix()`, `xsymbol()`, `replace`, `if`/`in` | `test_fvgen` (#3,#6,#7,#8,#9,#10) |

@@ -1,6 +1,5 @@
 * test_finegray_v111.do
-* Regression tests for finegray 1.1.1:
-*   finegray_cif graph polish -
+* Regression tests for finegray 1.1.0 (finegray_cif graph polish):
 *     - default CIF-plot legend is shown as a single row (CI case)
 *     - twoway/legend() options pass through `options' and override defaults
 *       (legend(off) suppresses; title()/xtitle() replace the hardcoded defaults)

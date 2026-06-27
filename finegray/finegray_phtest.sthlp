@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.1.0  21jun2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
@@ -36,23 +35,43 @@
 {title:Description}
 
 {pstd}
-{cmd:finegray_phtest} tests the proportional subdistribution hazards (PSH) assumption after {helpb finegray}. It computes scaled Schoenfeld residuals at each cause-event time and tests their correlation with a function of time.
+{cmd:finegray_phtest} tests the proportional subdistribution hazards (PSH)
+assumption after {helpb finegray}. It computes scaled Schoenfeld residuals
+at each cause-event time and tests their correlation with a function of time.
 
 {pstd}
-Under the PSH assumption, the scaled Schoenfeld residuals should be uncorrelated with time. A significant test indicates that the effect of the corresponding covariate changes over time, violating the PSH assumption.
+Under the PSH assumption, the scaled Schoenfeld residuals should be
+uncorrelated with time. A significant test indicates that the effect of the
+corresponding covariate changes over time, violating the PSH assumption.
 
 {pstd}
-The per-variable tests use scaled Schoenfeld residuals correlated with a time function, similar in spirit to {cmd:estat phtest} after {cmd:stcox}. However, the implementation differs in two ways: (1) scaling uses only the diagonal of the inverse information matrix rather than the full matrix, and (2) the global test is the sum of the per-variable chi-squared statistics, which ignores cross-covariate covariance. This makes the global test an approximate PH diagnostic rather than a joint test. Results are most reliable when covariates are approximately orthogonal. When finegray-created {cmd:_fg_*} factor-variable columns have been dropped, the command reconstructs them on demand and retains the underlying factor term names in output and {cmd:r(phtest)} rownames.
+The per-variable tests use scaled Schoenfeld residuals correlated with a time
+function, similar in spirit to {cmd:estat phtest} after {cmd:stcox}. However,
+the implementation differs in two ways: (1) scaling uses only the diagonal of
+the inverse information matrix rather than the full matrix, and (2) the global
+test is the sum of the per-variable chi-squared statistics, which ignores
+cross-covariate covariance. This makes the global test an approximate PH
+diagnostic rather than a joint test. Results are most reliable when covariates
+are approximately orthogonal. When finegray-created {cmd:_fg_*} factor-variable
+columns have been dropped, the command reconstructs them on demand and retains
+the underlying factor term names in output and {cmd:r(phtest)} rownames.
 
 {pstd}
-{bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on the estimation sample and therefore requires the original {cmd:stset} data — specifically {cmd:_t}, {cmd:_d}, and a nonempty estimation sample ({cmd:e(sample)}). Unlike {cmd:finegray_predict, xb}, it cannot be run after loading a new dataset.
+{bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on
+the estimation sample and therefore requires the original {cmd:stset} data —
+specifically {cmd:_t}, {cmd:_d}, and a nonempty estimation sample
+({cmd:e(sample)}). Unlike {cmd:finegray_predict, xb}, it cannot be run after
+loading a new dataset.
 
 
 {marker options}{...}
 {title:Options}
 
 {phang}
-{opt time(function)} specifies the time function used in the correlation test. {cmd:rank} (the default) uses the rank of event times. {cmd:log} uses log(time). {cmd:identity} uses raw event times. The rank transformation is robust to outliers and is the standard choice.
+{opt time(function)} specifies the time function used in the correlation test.
+{cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
+log(time). {cmd:identity} uses raw event times. The rank transformation is
+robust to outliers and is the standard choice.
 
 {phang}
 {opt detail} displays the first 20 rows of the scaled Schoenfeld residual matrix.
@@ -111,7 +130,6 @@ The per-variable tests use scaled Schoenfeld residuals correlated with a time fu
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-06-21{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

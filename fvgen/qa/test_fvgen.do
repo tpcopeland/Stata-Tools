@@ -368,6 +368,65 @@ else {
     local failed_tests "`failed_tests' 15"
 }
 
+**# 16. Over-long variable label is truncated to Stata's 80-char limit
+* A value label exceeding 80 characters becomes the indicator's variable label;
+* _fvgen_setlabel must truncate it to exactly 80 chars (and emit a note).
+local ++test_count
+capture noisily {
+    clear
+    set obs 30
+    generate byte f = 1 + mod(_n, 2)
+    * a 100-character value label on the materialized (non-base) level
+    local long100 ""
+    forvalues i = 1/100 {
+        local long100 "`long100'X"
+    }
+    label define fl 1 "short" 2 `"`long100'"'
+    label values f fl
+    fvgen i.f
+    local lb : variable label _f_2
+    assert ustrlen(`"`lb'"') == 80
+    assert `"`lb'"' == usubstr(`"`long100'"', 1, 80)
+}
+if _rc == 0 {
+    display as result "  PASS: over-long label truncated to 80 chars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: label truncation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16"
+}
+
+**# 17. Unlabeled factor falls back to a "var=level" indicator label
+* When a factor carries no value label, _fvgen_partlabel labels each level
+* "var=level" rather than leaving it blank.
+local ++test_count
+capture noisily {
+    clear
+    set obs 60
+    generate byte grpx = 1 + mod(_n, 3)
+    assert "`: value label grpx'" == ""
+    fvgen i.grpx
+    * base level 1 dropped; levels 2 and 3 labeled var=level
+    assert `"`: variable label _grpx_2'"' == "grpx=2"
+    assert `"`: variable label _grpx_3'"' == "grpx=3"
+    * the fallback also flows through to interaction labels
+    generate double xc = rnormal()
+    fvgen i.grpx##c.xc, replace
+    local li : variable label _grpxXxc_2
+    assert ustrpos(`"`li'"', "grpx=2") == 1
+}
+if _rc == 0 {
+    display as result "  PASS: unlabeled factor -> var=level fallback label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: unlabeled-factor fallback label (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 17"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
