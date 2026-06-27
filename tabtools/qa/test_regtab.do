@@ -4758,18 +4758,19 @@ collect clear
 capture noisily {
     findfile regtab.sthlp
     tempname fh
-    local _found_mutation 0
-    local _found_rebuild 0
+    * Join the file into one space-separated string so a phrase that legitimately
+    * wraps across two source lines (hard-wrapped prose) is still matched — a
+    * line-by-line strpos would miss a phrase split at a wrap boundary.
+    local _alltext ""
     file open `fh' using "`r(fn)'", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "intentionally updates collect labels") > 0 local _found_mutation 1
-        if strpos(`"`line'"', "save or rebuild that collection") > 0 local _found_rebuild 1
+        local _alltext `"`_alltext' `line'"'
         file read `fh' line
     }
     file close `fh'
-    assert `_found_mutation' == 1
-    assert `_found_rebuild' == 1
+    assert strpos(`"`_alltext'"', "intentionally updates collect labels") > 0
+    assert strpos(`"`_alltext'"', "save or rebuild that collection") > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab active collect side effect documented"

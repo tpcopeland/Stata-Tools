@@ -23,7 +23,8 @@ and restricted mean survival time.{p_end}
 {opt ev:ents} {opt dig:its(#)}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
-{opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
+{opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra}
+{opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
@@ -94,7 +95,9 @@ colors — are supported.{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below table body{p_end}
 {synoptline}
 
-{pstd}When {opt rmst()} is used, interpret RMST summaries relative to the requested truncation time. The estimate is restricted to the observed follow-up window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
+{pstd}When {opt rmst()} is used, interpret RMST summaries relative to the
+requested truncation time. The estimate is restricted to the observed follow-up
+window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
 
 {marker examples}{title:Examples}
 

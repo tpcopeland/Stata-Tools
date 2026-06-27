@@ -507,7 +507,7 @@ else {
     local ++fail_count
 }
 
-* TEST 11: Warning suppressed without noisily option
+* TEST 11: Invalid-age diagnostic suppressed without noisily option
 local ++test_count
 
 clear
@@ -520,10 +520,10 @@ format dob entry exit %tdCCYY/NN/DD
 
 * DOB after entry means invalid ages — all will be dropped
 * Without noisily, should still get error 2000 (empty dataset)
-* but no warning text should appear
+* but no invalid-age diagnostic text should appear
 capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit)
 if _rc == 2000 {
-    display as result "  PASS: Invalid ages without noisily triggers error 2000 (no warning shown)"
+    display as result "  PASS: Invalid ages without noisily triggers error 2000 (diagnostic suppressed)"
     local ++pass_count
 }
 else {
@@ -531,7 +531,7 @@ else {
     local ++fail_count
 }
 
-* TEST 12: Warning shown with noisily option
+* TEST 12: Invalid-age diagnostic shown with noisily option
 local ++test_count
 
 clear
@@ -625,7 +625,7 @@ else {
     local ++fail_count
 }
 
-    as result "`pass_count' passed" as text ", " ///
+display as result "`pass_count' passed" as text ", " ///
     as result "`fail_count' failed" as text " of `test_count' tests"
 
 }
@@ -988,4 +988,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

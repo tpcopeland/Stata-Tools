@@ -22,20 +22,35 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt border:style(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play}]
+{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)}
+[{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)}
+{opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)}
+{opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}
+{opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio}
+{opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
+{opt border:style(string)} {opt the:me(string)} {opt headers:hade}
+{opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
+{opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play}]
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:stratetab} combines pre-computed {helpb strate} output files and formats them with outcomes as column groups and exposure variables as rows. The completed table is displayed in the Results window and can also be exported to Excel, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
+{cmd:stratetab} combines pre-computed {helpb strate} output files and formats
+them with outcomes as column groups and exposure variables as rows. The
+completed table is displayed in the Results window and can also be exported to
+Excel, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
 
 {pstd}
-The command reads multiple .dta files produced by {helpb strate}, organized by exposure type. Files should be listed in order: all outcomes for exposure 1, then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2 exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}.
+The command reads multiple .dta files produced by {helpb strate}, organized by
+exposure type. Files should be listed in order: all outcomes for exposure 1,
+then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2
+exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}.
 
 {pstd}
-No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved {helpb strate} output files directly and restores the caller's data, including an empty workspace, on exit.
+No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
+{helpb strate} output files directly and restores the caller's data, including an empty workspace, on exit.
 
 {pstd}
 {cmd:stratetab} cannot be combined with {cmd:by:}.
@@ -47,7 +62,9 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {dlgtab:Required}
 
 {phang}
-{opt using(namelist)} specifies the list of strate output files to combine. File names should be space-separated without the .dta extension. Files must be ordered: all outcomes for exposure 1, all outcomes for exposure 2, etc.
+{opt using(namelist)} specifies the list of strate output files to combine. File
+names should be space-separated without the .dta extension. Files must be
+ordered: all outcomes for exposure 1, all outcomes for exposure 2, etc.
 
 {phang}
 {opt outcomes(integer)} specifies the number of distinct outcomes. The total number of files must be divisible by this number.
@@ -55,7 +72,9 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {dlgtab:Optional}
 
 {phang}
-{opt xlsx(string)} specifies the Excel workbook name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()} or {opt markdown()}, or populate {opt frame()}.
+{opt xlsx(string)} specifies the Excel workbook name. Must include the .xlsx
+extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab}
+can still display the table, write {opt csv()} or {opt markdown()}, or populate {opt frame()}.
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
@@ -64,13 +83,18 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {opt title(string)} specifies title text that appears in row 1 of the output table.
 
 {phang}
-{opt outlabels(string)} specifies outcome labels separated by backslash ({bf:\}). The number of labels must match {opt outcomes()}. If not specified, outcomes are labeled as "Outcome 1", "Outcome 2", etc.
+{opt outlabels(string)} specifies outcome labels separated by backslash
+({bf:\}). The number of labels must match {opt outcomes()}. If not specified,
+outcomes are labeled as "Outcome 1", "Outcome 2", etc.
 
 {phang}
-{opt explabels(string)} specifies exposure group labels separated by backslash ({bf:\}). The number of labels must match the number of exposure groups (total files / outcomes). If not specified, exposures are labeled as "Exposure 1", "Exposure 2", etc.
+{opt explabels(string)} specifies exposure group labels separated by backslash
+({bf:\}). The number of labels must match the number of exposure groups (total
+files / outcomes). If not specified, exposures are labeled as "Exposure 1", "Exposure 2", etc.
 
 {phang}
-{opt digits(integer 1)} specifies the number of decimal places for rates and confidence intervals. Must be between 0 and 10. Default is 1.
+{opt digits(integer 1)} specifies the number of decimal places for rates and
+confidence intervals. Must be between 0 and 10. Default is 1.
 
 {phang}
 {opt eventdigits(integer 0)} specifies the number of decimal places for event counts. Must be between 0 and 10. Default is 0.
@@ -79,15 +103,19 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {opt pydigits(integer 0)} specifies the number of decimal places for person-years. Must be between 0 and 10. Default is 0.
 
 {phang}
-{opt unitlabel(string)} specifies the unit label for the rate column header. Default is "1,000", producing "Per 1,000 PY (95% CI)". Keep {opt unitlabel()} synchronized with {opt ratescale()} so the displayed label matches the scaled rate values.
+{opt unitlabel(string)} specifies the unit label for the rate column
+header. Default is "1,000", producing "Per 1,000 PY (95% CI)". Keep
+{opt unitlabel()} synchronized with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
 {opt pyscale(real 1)} divides person-years values by the specified factor. Default is 1 (no scaling).
 
 {phang}
-{opt ratescale(real 1000)} multiplies rate and confidence interval values by the specified factor. Default is 1000, displaying rates per 1000 person-years. Use when strate was run with {cmd:per(1)}.
+{opt ratescale(real 1000)} multiplies rate and confidence interval values by the
+specified factor. Default is 1000, displaying rates per 1000 person-years. Use when strate was run with {cmd:per(1)}.
 
-{phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per outcome. Reference group is the first exposure group (displays "Ref."). 95% CI computed via log-normal method.{p_end}
+{phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per
+outcome. Reference group is the first exposure group (displays "Ref."). 95% CI computed via log-normal method.{p_end}
 
 {phang2}{opt ratio:digits(#)} decimal places for rate ratios (default 2).{p_end}
 
@@ -99,21 +127,28 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt border:style(string)} specifies the border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 
-{phang2}{opt the:me(string)} applies a journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
+{phang2}{opt the:me(string)} applies a journal-style formatting
+theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
+{cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 
-{phang2}{opt headerc:olor(string)} specifies a custom header color as a supported Stata color name or RGB triplet (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
+{phang2}{opt headerc:olor(string)} specifies a custom header color as a
+supported Stata color name or RGB triplet (e.g., "200 220 240"). It is applied
+when header shading is active via {opt headershade} or the selected theme.{p_end}
 
-{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
+{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a
+supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
 {phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
 
-{phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored Markdown. It may be used with or without {opt xlsx()}.{p_end}
+{phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored
+Markdown. It may be used with or without {opt xlsx()}.{p_end}
 
 {phang2}{opt mdappend} appends the Markdown table to an existing file; requires {opt markdown()}.{p_end}
 
-{phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
+{phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify
+{cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
 {phang2}{opt dis:play} is accepted for compatibility; the completed table is displayed automatically.{p_end}
 

@@ -34,7 +34,7 @@ if !inlist("`mode'", "quick", "core", "python", "full") {
 * Routine development lane: fast functional coverage and state preservation.
 * One file per command plus the cross-cutting concern suites.
 local quick_suites test_tvage test_tvevent test_tvexpose test_tvmerge ///
-    test_tvweight test_tvdiagnose test_tvtools ///
+    test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
     test_options test_integration test_edge_cases test_verbose
 
 * Correctness lane: quick lane plus regression fixes and the hand-computable

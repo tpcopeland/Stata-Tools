@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.1.0  2026/06/25
+*! _rangematch_mata Version 1.1.1  2026/06/26
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.1.0")
+    return("1.1.1")
 }
 
 void _rm_prepare_sweep_master(
@@ -236,7 +236,7 @@ void _rm_build_pairs_sweep(
     real colvector gstart_map, gend_map
     real colvector matched_using
     real rowvector match_stats
-    real scalar nm, nu, i, pos, n_pairs, nmatch, cap, needed
+    real scalar nm, nu, i, pos, n_pairs, nmatch, outcap, needed
     real scalar lo, hi, lo_search, hi_search, mobs, g, gid_i
     real scalar max_gid, u, target, n_matched_pairs, n_matched_master
     real scalar n_unmatched_master, n_matched_using, n_unmatched_using
@@ -316,9 +316,9 @@ void _rm_build_pairs_sweep(
         printf("{txt}    Matching progress:")
     }
     if (!dryrun) {
-        cap = max((nm, 1024))
-        mi = J(cap, 1, .)
-        ui = J(cap, 1, .)
+        outcap = max((nm, 1024))
+        mi = J(outcap, 1, .)
+        ui = J(outcap, 1, .)
     }
 
     cur_gid = .
@@ -523,7 +523,7 @@ void _rm_build_pairs(
     real colvector selected, allties, matched_using
     real rowvector match_stats
     real scalar nm, nu, nu_all, i, lo, hi, jlo, jhi, kk, n_pairs
-    real scalar gstart, gend, mobs, g, cap, nmatch, u
+    real scalar gstart, gend, mobs, g, outcap, nmatch, u
     real scalar mkey, before_pos, after_pos, before_dist, after_dist
     real scalar n_matched_pairs, n_matched_master
     real scalar n_unmatched_master, n_matched_using, n_unmatched_using
@@ -608,9 +608,9 @@ void _rm_build_pairs(
         printf("{txt}    Matching progress:")
     }
     if (!dryrun) {
-        cap = max((nm, 1024))
-        mi = J(cap, 1, .)
-        ui = J(cap, 1, .)
+        outcap = max((nm, 1024))
+        mi = J(outcap, 1, .)
+        ui = J(outcap, 1, .)
     }
 
     for (i = 1; i <= nm; i++) {
@@ -903,7 +903,7 @@ void _rm_build_pairs_overlap(
     real colvector gstart_map, gend_map, matched_using
     real rowvector match_stats
     real scalar nm, nu, nu_all, i, mlo, mhi, mlo_s, mhi_s, n_pairs
-    real scalar gstart, gend, mobs, g, cap, nmatch, u, pos, p, target, needed
+    real scalar gstart, gend, mobs, g, outcap, nmatch, u, pos, p, target, needed
     real scalar n_matched_pairs, n_matched_master
     real scalar n_unmatched_master, n_matched_using, n_unmatched_using
     real scalar progress_next, progress_step, progress_pct, progress_last
@@ -985,9 +985,9 @@ void _rm_build_pairs_overlap(
         printf("{txt}    Matching progress:")
     }
     if (!dryrun) {
-        cap = max((nm, 1024))
-        mi = J(cap, 1, .)
-        ui = J(cap, 1, .)
+        outcap = max((nm, 1024))
+        mi = J(outcap, 1, .)
+        ui = J(outcap, 1, .)
     }
 
     for (i = 1; i <= nm; i++) {

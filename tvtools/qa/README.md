@@ -56,6 +56,7 @@ and re-bootstraps after its own `clear all`.
 | `test_tvevent.do` | tvevent | Event splitting and interval construction |
 | `test_tvexpose.do` | tvexpose | Time-varying exposure creation |
 | `test_tvmerge.do` | tvmerge | Multi-dataset interval merging |
+| `test_tvpanel.do` | tvpanel | Fixed-width person-period panel construction, option/return coverage, label and temp-name regressions |
 | `test_tvweight.do` | tvweight | IPTW weights + comprehensive option coverage |
 | `test_tvdiagnose.do` | tvdiagnose | Coverage/gap/overlap diagnostics |
 | `test_tvtools.do` | tvtools | Dispatcher command routing |
@@ -105,6 +106,7 @@ and re-bootstraps after its own `clear all`.
 | tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | — | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
+| tvpanel | `test_tvpanel` | — | — | `test_regressions` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
 | tvweight | `test_tvweight` | `validation_tvweight` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_supplemental` |
 
@@ -112,7 +114,7 @@ and re-bootstraps after its own `clear all`.
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose` |
+| `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose` |
 | `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvdiagnose`, `validation_boundary`, `validation_pipeline`, `validation_supplemental` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

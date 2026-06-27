@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.0.2  2026/06/19
+*! tvdiagnose Version 1.0.3  2026/06/26
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -194,7 +194,7 @@ program define tvdiagnose, rclass
         quietly by `id': gen double `_ge' = `start' - 1 if `_gi' == 1
         quietly gen double `_gd' = `_ge' - `_gs' + 1 if !missing(`_gs')
 
-        capture quietly drop if `_gd' <= 0
+        quietly drop if `_gd' <= 0
         quietly keep if !missing(`_gs')
 
         local n_gaps = _N

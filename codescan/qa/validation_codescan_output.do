@@ -127,6 +127,62 @@ else {
     capture graph close _all
 }
 
+* ============================================================
+* V3: Failed export restores post-scan data and keeps r()
+* ============================================================
+
+local ++test_count
+capture noisily {
+    tempfile expected badbase
+    local bad_xlsx "`badbase'_missing_dir/out.xlsx"
+
+    clear
+    input str10 dx1 str10 dx2
+    "E110" "I10"
+    "E110" ""
+    "E110" "J45"
+    "I10"  ""
+    end
+
+    codescan dx1 dx2, define(dm2 "E11" | htn "I10" | asthma "J45")
+    matrix expected_summary = r(summary)
+    local expected_N = r(N)
+    local expected_conditions "`r(conditions)'"
+    save "`expected'", replace
+
+    clear
+    input str10 dx1 str10 dx2
+    "E110" "I10"
+    "E110" ""
+    "E110" "J45"
+    "I10"  ""
+    end
+
+    capture codescan dx1 dx2, define(dm2 "E11" | htn "I10" | asthma "J45") ///
+        export("`bad_xlsx'")
+    local export_rc = _rc
+    assert `export_rc' != 0
+
+    local got_N = r(N)
+    local got_conditions "`r(conditions)'"
+    matrix got_summary = r(summary)
+    assert `got_N' == `expected_N'
+    assert "`got_conditions'" == "`expected_conditions'"
+    assert el(got_summary, 1, 1) == el(expected_summary, 1, 1)
+    assert el(got_summary, 2, 1) == el(expected_summary, 2, 1)
+    assert el(got_summary, 3, 1) == el(expected_summary, 3, 1)
+
+    cf _all using "`expected'"
+}
+if _rc == 0 {
+    display as result "  PASS: V3 - unwritable export restores data and keeps r()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V3 - failed export restore/return contract (error `=_rc')"
+    local ++fail_count
+}
+
 display ""
 display as result "RESULT: validation_codescan_output tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"

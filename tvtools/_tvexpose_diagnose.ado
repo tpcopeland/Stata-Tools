@@ -1,4 +1,4 @@
-*! _tvexpose_diagnose Version 1.0.2  2026/06/19
+*! _tvexpose_diagnose Version 1.0.3  2026/06/26
 *! Diagnostic functions for tvexpose
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvexpose)
@@ -121,7 +121,7 @@ program define _tvexpose_gaps, rclass
     quietly by `id': gen double gap_start = `stop'[_n-1] + 1 if `gap_ind' == 1 & `id' == `id'[_n-1]
     quietly by `id': gen double gap_end = `start' - 1 if `gap_ind' == 1
     quietly gen double gap_days = gap_end - gap_start + 1 if !missing(gap_start)
-    capture quietly drop if gap_days <= 0
+    quietly drop if gap_days <= 0
     quietly keep if !missing(gap_start)
 
     local n_gaps = _N

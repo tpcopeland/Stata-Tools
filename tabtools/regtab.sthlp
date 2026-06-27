@@ -32,13 +32,32 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt eplotf:rame(name[, replace])} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars} {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)}
+{opt sheet(string)} {opt sep(string asis)} {opt models(string)}
+{opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept}
+{opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)}
+{opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade}
+{opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
+{opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
+{opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
+{opt eplotf:rame(name[, replace])} {opt dis:play} {opt keep(varlist)}
+{opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
+{opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
+{opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
 
-{pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
+{pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci},
+and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with, for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), 95% CI ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use {opt nopvalue} to suppress the p-value column in the rendered output. It applies labels and number formats, exports to a temporary workbook, re-imports to allow row edits (e.g., dropping intercept or random-effects rows), optionally merges model headers, writes to your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
+{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean
+Excel sheet with, for each model (each {cmd:cmdset}), columns for the point
+estimate ({cmd:_r_b}), 95% CI ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use
+{opt nopvalue} to suppress the p-value column in the rendered output. It applies
+labels and number formats, exports to a temporary workbook, re-imports to allow
+row edits (e.g., dropping intercept or random-effects rows), optionally merges
+model headers, writes to your target workbook/sheet, and styles borders,
+alignment, fonts, and column widths. Title text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {marker options}{title:Options}
 
@@ -106,28 +125,83 @@ random-effects rows if desired.{p_end}
 {marker remarks}{title:Remarks}
 
 {pstd}Prerequisites and expectations{p_end}
-{p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
-{p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
-{p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it intentionally updates collect labels, styles, and layout before export. If you need the original collection layout unchanged for later commands, save or rebuild that collection before running {cmd:regtab}.{p_end}
+{p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the
+relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
+{p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and
+{cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies
+cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
+{p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it
+intentionally updates collect labels, styles, and layout before export. If you
+need the original collection layout unchanged for later commands, save or
+rebuild that collection before running {cmd:regtab}.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
-{p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale per collected model from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
-{p 4 8 2}- Multi-equation models such as {cmd:mlogit}, {cmd:zip}, {cmd:zinb}, and {cmd:churdle} use the equation/outcome dimension in the row labels, so rows read like {it:Partial response: Age z-score} or {it:Inflation equation: Prior events} instead of collapsing repeated covariate names across equations. For labeled multinomial outcomes, value labels are used when available. {cmd:mlogit} is displayed as relative risk ratios (RRR) by default; zero-inflated and hurdle models remain on their native coefficient scale unless {opt coef()} and collection styling are supplied by the user.{p_end}
-{p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies explicit names. {opt models()} values are split on the backslash character.{p_end}
-{p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:mlogit} {it:->} RRR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg} {it:->} TR/AF, {cmd:regress}/{cmd:mixed} {it:->} Coef. Coefficient-scale fits are exponentiated for display when the auto header implies a ratio scale.{p_end}
-{p 4 8 2}- {opt relabel}: relabels random effects using variable labels and explicit parameter types. For single-level models {cmd:var(_cons)} becomes {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes {it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each level separately.{p_end}
-{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
-{p 4 8 2}- {opt addrow()}: appends custom label/value rows below the table body; separate multiple rows with a backslash, e.g., {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
-{p 4 8 2}- {opt labelwidth()}: caps the label-column width (in characters, default 45); labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
-{p 4 8 2}- {opt dimnonsig}: dims rows whose every displayed fixed-effect CI includes the null (1 for ratio scales, 0 for coefficients); reference rows are always dimmed and category headers dim unless a level is significant.{p_end}
+{p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display
+scale per collected model from the collected command metadata and fills the
+estimate header automatically. When models use different scales, estimate
+headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
+{p 4 8 2}- Multi-equation models such as {cmd:mlogit}, {cmd:zip}, {cmd:zinb},
+and {cmd:churdle} use the equation/outcome dimension in the row labels, so rows
+read like {it:Partial response: Age z-score} or
+{it:Inflation equation: Prior events} instead of collapsing repeated covariate
+names across equations. For labeled multinomial outcomes, value labels are used
+when available. {cmd:mlogit} is displayed as relative risk ratios (RRR) by
+default; zero-inflated and hurdle models remain on their native coefficient
+scale unless {opt coef()} and collection styling are supplied by the user.{p_end}
+{p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies
+explicit names. {opt models()} values are split on the backslash character.{p_end}
+{p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are
+auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR,
+{cmd:mlogit} {it:->} RRR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg}
+{it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg} {it:->} TR/AF,
+{cmd:regress}/{cmd:mixed} {it:->} Coef. Coefficient-scale fits are exponentiated
+for display when the auto header implies a ratio scale.{p_end}
+{p 4 8 2}- {opt relabel}: relabels random effects using variable labels and
+explicit parameter types. For single-level models {cmd:var(_cons)} becomes
+{it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
+{it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each level separately.{p_end}
+{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for
+{helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul},
+{cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
+metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
+{p 4 8 2}- {opt addrow()}: appends custom label/value rows below the table
+body; separate multiple rows with a backslash, e.g., {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
+{p 4 8 2}- {opt labelwidth()}: caps the label-column width (in characters,
+default 45); labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
+{p 4 8 2}- {opt dimnonsig}: dims rows whose every displayed fixed-effect CI
+includes the null (1 for ratio scales, 0 for coefficients); reference rows are
+always dimmed and category headers dim unless a level is significant.{p_end}
 
 {pstd}Notes on output shaping{p_end}
-{p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
-{p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands use the same {opt digits()} precision as the main coefficient rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
-{p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed with {opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you intentionally want ordered-model cutpoints displayed with publication-friendly labels.{p_end}
-{p 4 8 2}- P-value columns can be removed from the rendered table with {opt nopvalue}. If {opt stars} is also specified, significance stars are still computed from the collected p-values before the p-value columns are dropped.{p_end}
-{p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
-{p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
-{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. For GEE models ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full maximum likelihood; when {cmd:aic} is requested, {cmd:regtab} automatically computes and displays QIC (deviance + 2p) instead. QIC can also be requested directly via {cmd:stats(qic)}. ICC is computed per model from variance components in the collected results when that variance decomposition is defined. For model families without a closed-form level-1 variance, ICC is left blank rather than guessed. If the primary collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
+{p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the
+adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
+{p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()},
+{cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar
+commands use the same {opt digits()} precision as the main coefficient
+rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
+{p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed
+with {opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you
+intentionally want ordered-model cutpoints displayed with publication-friendly labels.{p_end}
+{p 4 8 2}- P-value columns can be removed from the rendered table with
+{opt nopvalue}. If {opt stars} is also specified, significance stars are still
+computed from the collected p-values before the p-value columns are dropped.{p_end}
+{p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by
+{opt theme()}, session defaults set with {helpb tabtools:set font} /
+{helpb tabtools:set fontsize}, or both. Borders are drawn around the table and
+model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
+{p 4 8 2}- The command writes Excel and Markdown output through the shared
+tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
+{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC,
+BIC, QIC, log-likelihood, and groups are extracted per model from the
+{helpb collect} framework and placed in each model's column. If extraction
+fails, statistics fall back to the last model's {cmd:e()} values in the first
+column only. For GEE models ({cmd:xtgee}), AIC is undefined because GEE uses
+quasi-likelihood rather than full maximum likelihood; when {cmd:aic} is
+requested, {cmd:regtab} automatically computes and displays QIC (deviance + 2p)
+instead. QIC can also be requested directly via {cmd:stats(qic)}. ICC is
+computed per model from variance components in the collected results when that
+variance decomposition is defined. For model families without a closed-form
+level-1 variance, ICC is left blank rather than guessed. If the primary
+collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -257,9 +331,20 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(table)}}coefficient values for the displayed body (rows = variables, columns = models){p_end}
 {p2colreset}{...}
 
-{pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row names are derived from each variable's display label with periods, spaces, commas, and colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
+{pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row
+names are derived from each variable's display label with periods, spaces,
+commas, and colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
 
-{pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)}, {cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)}, {cmd:r(ll_}{it:#}{cmd:)}, {cmd:r(n_}{it:#}{cmd:)}, {cmd:r(groups_}{it:#}{cmd:)}) carry the full-precision values; the corresponding rows in the displayed table and {cmd:r(table)} are rounded for presentation. Only the scalars for the statistics actually requested in {opt stats()} (and available for the model family) are posted. {cmd:AIC}, {cmd:BIC}, and {cmd:QIC} are recomputed from the log-likelihood, parameter count, and N (matching {cmd:estat ic}) rather than read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an incomparable per-observation or deviance scale.{p_end}
+{pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)},
+{cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)},
+{cmd:r(ll_}{it:#}{cmd:)}, {cmd:r(n_}{it:#}{cmd:)}, {cmd:r(groups_}{it:#}{cmd:)})
+carry the full-precision values; the corresponding rows in the displayed table
+and {cmd:r(table)} are rounded for presentation. Only the scalars for the
+statistics actually requested in {opt stats()} (and available for the model
+family) are posted. {cmd:AIC}, {cmd:BIC}, and {cmd:QIC} are recomputed from the
+log-likelihood, parameter count, and N (matching {cmd:estat ic}) rather than
+read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an
+incomparable per-observation or deviance scale.{p_end}
 
 {marker seealso}{...}
 {title:Also see}

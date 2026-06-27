@@ -95,7 +95,8 @@ Cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}.{p_end}
 Bayes' theorem. Useful when the study sample prevalence differs from the target population.
 Specify a proportion strictly between 0 and 1.{p_end}
 
-{phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of Wilson score. May not be combined with {opt wilson}.{p_end}
+{phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of
+Wilson score. May not be combined with {opt wilson}.{p_end}
 
 {phang}{opt wilson} use Wilson score confidence intervals (this is the default). May not be combined with {opt exact}.{p_end}
 

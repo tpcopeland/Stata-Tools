@@ -1035,12 +1035,12 @@ else {
     local ++fail_count
 }
 
-* R.mrg.1-10: Untested tvmerge return values
+* R.mrg.1-12: Untested tvmerge return values
 local ++test_count
 capture {
     quietly tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
-        exposure(exp1 exp2) force
+        exposure(exp1 exp2) prefix(gap_) continuous(exp1) force
     * Previously untested scalars
     assert !missing(r(mean_periods))
     assert !missing(r(max_periods))
@@ -1048,12 +1048,14 @@ capture {
     assert r(n_continuous) >= 0
     assert r(n_categorical) >= 0
     * Previously untested macros - check they exist (may be empty if 0 of type)
+    assert "`r(prefix)'" == "gap_"
+    assert "`r(continuous_vars)'" == "gap_exp1"
     local _cv = "`r(categorical_vars)'"
     local _df = "`r(dateformat)'"
     assert "`_df'" != ""
 }
 if _rc == 0 {
-    display as result "  PASS: tvmerge return values (mean/max_periods, n_continuous/categorical, etc.)"
+    display as result "  PASS: tvmerge return values (mean/max_periods, prefix, continuous/categorical, etc.)"
     local ++pass_count
 }
 else {
@@ -3209,6 +3211,56 @@ else {
     display as error "FAIL: tvexpose overlap_ids synopt check (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 24.2"
+}
+
+* TEST 24.3: tvexpose dose-overlap internals do not collide with keepvars()
+local ++test_count
+capture noisily {
+    tempfile dose_master dose_exp
+    local d0 = mdy(1,1,2020)
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen double study_entry = `d0'
+    gen double study_exit = `d0' + 365
+    gen double __seg_days = 1001
+    gen double __seg_dose = 2001
+    format study_entry study_exit %td
+    save `dose_master', replace
+
+    clear
+    input int(id) double(dose_val) str10(s_start s_stop)
+    1 300 "2020-01-01" "2020-01-30"
+    1 600 "2020-01-16" "2020-02-14"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop = date(s_stop, "YMD")
+    format start stop %td
+    drop s_start s_stop
+    save `dose_exp', replace
+
+    use `dose_master', clear
+    tvexpose using `dose_exp', id(id) start(start) stop(stop) ///
+        exposure(dose_val) entry(study_entry) exit(study_exit) ///
+        dose keepvars(__seg_days __seg_dose) generate(cum_dose)
+
+    confirm variable __seg_days
+    confirm variable __seg_dose
+    confirm variable cum_dose
+    quietly count if __seg_days != 1001 | __seg_dose != 2001
+    assert r(N) == 0
+    quietly summarize cum_dose
+    assert abs(r(max) - 900) < 1
+}
+if _rc == 0 {
+    display as result "PASS: tvexpose dose overlap keepvars avoid internal-name collision"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: tvexpose dose overlap keepvars collision regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 24.3"
 }
 
 * Cleanup section 23 tempfiles

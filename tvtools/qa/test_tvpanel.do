@@ -239,6 +239,131 @@ restore
 if `got' == 198 test_pass
 else test_fail "expected rc 198, got `got'"
 
+* ---- TEST 9: custom input/output names, saveas/replace/noisily, and returns ----
+run_test "custom names + saveas/replace/noisily + returns"
+capture noisily {
+    preserve
+    clear
+    set obs 1
+    gen long id = 1
+    gen double rx_start = `e1' + 50
+    gen double rx_stop  = `e1' + 1000
+    gen int eclass = 5
+    format rx_start rx_stop %td
+    tempfile epi_custom panel_out
+    save `epi_custom'
+
+    clear
+    set obs 2
+    gen long id = _n
+    gen double entry = cond(id==1, `e1', `e2')
+    gen double exit  = cond(id==1, `e1' + 364, `e2' + 200)
+    gen byte female = id == 2
+    format entry exit %td
+
+    tvpanel using `epi_custom', id(id) entry(entry) exit(exit) ///
+        exposure(eclass) start(rx_start) stop(rx_stop) period(qtr) ///
+        startgen(panel_start) stopgen(panel_stop) generate(rx_class) ///
+        reference(0) width(91) cumulative(months) prefix(rx_) ///
+        keepvars(female) saveas("`panel_out'") replace noisily
+
+    local ret_width = r(width)
+    local ret_period "`r(periodvar)'"
+    local ret_start "`r(startvar)'"
+    local ret_stop "`r(stopvar)'"
+    local ret_class "`r(classvar)'"
+    local ret_cum "`r(cumvars)'"
+    assert_exact `ret_width' 91 "r(width)"
+    assert "`ret_period'" == "qtr"
+    assert "`ret_start'" == "panel_start"
+    assert "`ret_stop'" == "panel_stop"
+    assert "`ret_class'" == "rx_class"
+    assert strpos("`ret_cum'", "rx_cum_5") > 0
+
+    * saveas() should restore the master data in memory and write the panel to disk.
+    assert _N == 2
+    confirm variable entry
+    confirm file "`panel_out'"
+    use "`panel_out'", clear
+    confirm variable qtr
+    confirm variable panel_start
+    confirm variable panel_stop
+    confirm variable rx_class
+    confirm variable rx_cum_5
+    confirm variable female
+    quietly count if id==1 & qtr==1 & rx_class==5
+    assert_exact `=r(N)' 1 "custom output class row"
+    restore
+}
+local got = _rc
+capture restore
+if `got' test_fail "rc=`got'"
+else test_pass
+
+* ---- TEST 10: episode value labels are not shadowed by same-named master labels ----
+run_test "value label conflict uses episode mapping"
+preserve
+clear
+set obs 1
+gen long id = 1
+gen double start = `e1' + 50
+gen double stop  = `e1' + 1000
+gen int eclass = 5
+capture label drop _tvp_conflict
+label define _tvp_conflict 0 "None" 5 "Correct episode"
+label values eclass _tvp_conflict
+format start stop %td
+tempfile epi_conflict
+save `epi_conflict'
+
+clear
+set obs 1
+gen long id = 1
+gen double entry = `e1'
+gen double exit  = `e1' + 364
+gen byte dummy = 5
+capture label drop _tvp_conflict
+label define _tvp_conflict 5 "Wrong master"
+label values dummy _tvp_conflict
+format entry exit %td
+capture noisily tvpanel using `epi_conflict', id(id) entry(entry) exit(exit) ///
+    exposure(eclass) reference(0) width(91) keepvars(dummy)
+local got = _rc
+local msg ""
+if `got' == 0 {
+    local dec5 : label (tv_class) 5
+    if "`dec5'" != "Correct episode" {
+        local got 9
+        local msg "value 5 decoded to |`dec5'| expected |Correct episode|"
+    }
+}
+restore
+if `got' == 0 test_pass
+else test_fail "`msg' rc=`got'"
+
+* ---- TEST 11: internal temp names do not collide with user keepvars ----
+run_test "internal temp-name collision guard"
+capture noisily {
+    preserve
+    gen long __tp_row = 100 + _n
+    gen long __tp_active = 200 + _n
+    gen double __tp_days = 300 + _n
+    tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) ///
+        reference(0) width(91) cumulative(days) ///
+        keepvars(__tp_row __tp_active __tp_days)
+    assert_exact `=r(n_observations)' 7 "n_observations with collision keepvars"
+    confirm variable __tp_row
+    confirm variable __tp_active
+    confirm variable __tp_days
+    quietly count if missing(__tp_row) | missing(__tp_active) | missing(__tp_days)
+    assert_exact `=r(N)' 0 "collision keepvars preserved"
+    restore
+}
+local got = _rc
+capture restore
+if `got' test_fail "rc=`got'"
+else test_pass
+
 * ---------------------------------------------------------------------------
 display as text _n "{hline 60}"
 display as result "tvpanel QA complete: PASS=$TVQA_PASS  FAIL=$TVQA_FAIL"
@@ -246,5 +371,11 @@ if $TVQA_FAIL > 0 {
     display as error "FAILED: $TVQA_FAILED"
 }
 display as text "{hline 60}"
+local tvqa_tests = $TVQA_PASS + $TVQA_FAIL
+local tvqa_fail = $TVQA_FAIL
+display "RESULT: test_tvpanel tests=`tvqa_tests' pass=$TVQA_PASS fail=$TVQA_FAIL"
 
 log close
+if `tvqa_fail' > 0 {
+    exit 1
+}

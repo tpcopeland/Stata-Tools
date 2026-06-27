@@ -1,4 +1,4 @@
-*! tvage Version 1.0.2  2026/06/19
+*! tvage Version 1.0.3  2026/06/26
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -204,6 +204,7 @@ program define tvage, rclass
             }
 
             capture label drop `lbl_name'
+            local _label_drop_rc = _rc
             forvalues age = `min_label'(`groupwidth')`max_label' {
                 local upper = `age' + `groupwidth' - 1
                 label define `lbl_name' `age' "`age'-`upper'", add

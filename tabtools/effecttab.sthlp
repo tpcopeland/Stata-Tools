@@ -15,13 +15,24 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt eplotf:rame(name[, replace])} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)}
+{opt sheet(string)} {opt type(string)} {opt effect(string)}
+{opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean}
+{opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
+{opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
+{opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)}
+{opt eplotf:rame(name[, replace])} {opt dis:play} {opt from(name)}
+{opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
+{opt csv(string)} {opt markdown(filename)} {opt mdappend}
+{opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
-{pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
+{pstd}Required: either an active {helpb collect} containing results from
+{helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:effecttab} formats treatment effects and margins output for publication-ready Excel tables. It is designed for causal inference workflows including:{p_end}
+{pstd}{cmd:effecttab} formats treatment effects and margins output for
+publication-ready Excel tables. It is designed for causal inference workflows including:{p_end}
 
 {p 8 12 2}- Inverse probability weighting ({cmd:teffects ipw}){p_end}
 {p 8 12 2}- Regression adjustment / G-computation ({cmd:teffects ra}, {cmd:margins}){p_end}
@@ -29,7 +40,9 @@
 {p 8 12 2}- Propensity score matching ({cmd:teffects psmatch}){p_end}
 {p 8 12 2}- Marginal effects and predicted probabilities ({cmd:margins}){p_end}
 
-{pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named matrix supplied through {opt from(name)}, then writes an Excel sheet with columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
+{pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named
+matrix supplied through {opt from(name)}, then writes an Excel sheet with
+columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
 
 {pstd}When reading from {cmd:collect}, {cmd:effecttab} requires the active
 collection to come from {cmd:teffects} or {cmd:margins}. Other collected
@@ -82,13 +95,16 @@ collection must remain unchanged.{p_end}
 
 {pstd}{bf:Comparison with regtab}{p_end}
 
-{p 4 8 2}Use {cmd:regtab} for standard regression output (logit, regress, stcox, etc.) where you want to display coefficients/odds ratios for each covariate.{p_end}
+{p 4 8 2}Use {cmd:regtab} for standard regression output (logit, regress, stcox,
+etc.) where you want to display coefficients/odds ratios for each covariate.{p_end}
 
-{p 4 8 2}Use {cmd:effecttab} for causal inference results where you want to display treatment effects (ATE, ATET), potential outcome means, marginal effects, or predicted probabilities.{p_end}
+{p 4 8 2}Use {cmd:effecttab} for causal inference results where you want to
+display treatment effects (ATE, ATET), potential outcome means, marginal effects, or predicted probabilities.{p_end}
 
 {pstd}{bf:Working with teffects}{p_end}
 
-{p 4 8 2}The {cmd:teffects} family of commands estimates treatment effects using various methods. Use the {cmd:collect:} prefix to capture results:{p_end}
+{p 4 8 2}The {cmd:teffects} family of commands estimates treatment effects using
+various methods. Use the {cmd:collect:} prefix to capture results:{p_end}
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. collect: teffects ipw (outcome) (treatment age sex), ate}{p_end}
@@ -96,7 +112,8 @@ collection must remain unchanged.{p_end}
 
 {pstd}{bf:Working with margins}{p_end}
 
-{p 4 8 2}The {cmd:margins} command computes marginal effects and predicted probabilities. Standard {cmd:margins} collections can be collected directly:{p_end}
+{p 4 8 2}The {cmd:margins} command computes marginal effects and predicted
+probabilities. Standard {cmd:margins} collections can be collected directly:{p_end}
 
 {p 4 8 2}Contrast-backed collections such as {cmd:collect: margins r.treatment}
 are currently unsupported and are rejected by {cmd:effecttab}.{p_end}
@@ -112,16 +129,25 @@ are currently unsupported and are rejected by {cmd:effecttab}.{p_end}
 {cmd:r1vs0.treatment}. The {cmd:clean} option reformats these using value labels
 from the treatment variable when available:{p_end}
 
-{p 8 12 2}- If {cmd:treatment} has value labels (0="SSRI", 1="SNRI"), the ATE row becomes {cmd:"SNRI vs SSRI"} and PO Mean rows become {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.{p_end}
+{p 8 12 2}- If {cmd:treatment} has value labels (0="SSRI", 1="SNRI"), the ATE
+row becomes {cmd:"SNRI vs SSRI"} and PO Mean rows become {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.{p_end}
 {p 8 12 2}- If no value labels exist, falls back to basic cleanup: {cmd:"Treatment (1 vs 0)"}.{p_end}
 
 {p 4 8 2}Use {cmd:tlabels()} to explicitly specify treatment level labels when value labels
 are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clean}.{p_end}
 
 {pstd}{bf:Option details}{p_end}
-{p 4 8 2}- {opt type()}: {cmd:auto} (default) inspects the active {cmd:collect} metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()}, {cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
-{p 4 8 2}- {opt from()}: read results from a named matrix instead of {cmd:collect}; the matrix must hold estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
-{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
+{p 4 8 2}- {opt type()}: {cmd:auto} (default) inspects the active {cmd:collect}
+metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one
+collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()},
+{cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
+{p 4 8 2}- {opt from()}: read results from a named matrix instead of
+{cmd:collect}; the matrix must hold estimate, lower CI, upper CI, and p-value
+columns in that order. This path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
+{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for
+{helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul},
+{cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
+metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
 
 
 {marker examples}{title:Examples}

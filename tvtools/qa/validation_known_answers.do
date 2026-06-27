@@ -826,8 +826,8 @@ capture noisily {
 
     * Verify age calculations before running tvage
     * Person 1: DOB=mdy(1,1,1965)=1826
-    *   age_entry = floor((21915-1826)/365.25) = floor(54.998) = 54
-    *   age_exit  = floor((22281-1826)/365.25) = floor(55.999) = 55
+    *   age_entry = floor((21915-1826)/365.25) = 55
+    *   age_exit  = floor((22281-1826)/365.25) = 55
     * Person 2: DOB=mdy(7,1,1970)=3834
     *   age_entry = floor((21915-3834)/365.25) = floor(49.480) = 49
     *   age_exit  = floor((22281-3834)/365.25) = floor(50.481) = 50
@@ -837,17 +837,17 @@ capture noisily {
         groupwidth(5)
 
     sort id age_start
-    * Person 1: ages 54-55, groups 50-54 and 55-59 → 2 rows
-    * Person 2: ages 49-50, groups 45-49 and 50-54 → 2 rows
+    * Person 1: age group 55-59 -> 1 row
+    * Person 2: age groups 45-49 and 50-54 -> 2 rows
     quietly count
-    assert r(N) == 4
+    assert r(N) == 3
 
-    * Person 1: group 50 then 55
+    * Person 1: group 55 only
     quietly levelsof age_tv if id == 1, local(p1_ages)
     * Verify the age groups are correct
     quietly count if id == 1 & age_tv == 50
-    if r(N) != 1 {
-        display as error "  FAIL [W4.2.p1_g1]: Person 1 missing age group 50"
+    if r(N) != 0 {
+        display as error "  FAIL [W4.2.p1_g1]: Person 1 should not have age group 50"
         local t_pass = 0
     }
     quietly count if id == 1 & age_tv == 55
@@ -911,8 +911,9 @@ capture noisily {
     tempfile w4_age
     save `w4_age'
 }
+if _rc local t_pass = 0
 if `t_pass' {
-    display as result "  PASS: W4.2 tvage correct (4 intervals, contiguous, PT conserved)"
+    display as result "  PASS: W4.2 tvage correct (3 intervals, contiguous, PT conserved)"
     local ++pass_count
 }
 else {
@@ -976,6 +977,7 @@ capture noisily {
     tempfile w4_merged
     save `w4_merged'
 }
+if _rc local t_pass = 0
 if `t_pass' {
     display as result "  PASS: W4.3 tvmerge exposure × age (PT conserved, no gaps)"
     local ++pass_count
@@ -1055,6 +1057,7 @@ capture noisily {
         display as result "  PASS [W4.4.p2_pt]: Person 2 PT = 367 days (full)"
     }
 }
+if _rc local t_pass = 0
 if `t_pass' {
     local ++pass_count
 }
@@ -1319,7 +1322,7 @@ capture noisily {
     tvmerge "`w6_tv_a'" "`w6_tv_b'", id(id) ///
         start(start start) stop(stop stop) ///
         exposure(tv_dose tv_b) generate(dose drug_b) ///
-        continuous(dose)
+        continuous(tv_dose)
 
     sort id start
     quietly count
@@ -1371,6 +1374,7 @@ capture noisily {
     tempfile w6_merged
     save `w6_merged'
 }
+if _rc local t_pass = 0
 if `t_pass' {
     display as result "  PASS: W6.1 continuous proportioning correct"
     local ++pass_count
@@ -1434,6 +1438,7 @@ capture noisily {
         display as result "  PASS [W6.2.sum]: total dose=" %6.4f r(sum) " (75/91)"
     }
 }
+if _rc local t_pass = 0
 if `t_pass' {
     local ++pass_count
 }
@@ -1462,11 +1467,9 @@ else {
 *   mdy(12,31,1999) = 14609
 *   Entry=Jan1/2020 = 21915
 *   Exit=Dec31/2020 = 22281
-*   age_entry = floor((21915-14609)/365.25) = floor(7306/365.25) = floor(19.998) = 19
-*   Wait: 7306/365.25 = 19.99... but floor = 19
-*   Actually: 365.25*20 = 7305, so 7306/365.25 = 20.0027 → floor = 20
-*   age_exit  = floor((22281-14609)/365.25) = floor(7672/365.25) = floor(20.999) = 20
-*   → 1 age interval: 20
+*   age_entry = floor((21915-14609)/365.25) = 20
+*   age_exit  = floor((22281-14609)/365.25) = 21
+*   -> 2 age intervals: 20, 21
 
 display as text _newline "WORKFLOW 7: tvage birthday boundary edge cases"
 
@@ -1485,7 +1488,7 @@ capture noisily {
     assert floor((21915 - 14669) / 365.25) == 19
     assert floor((22646 - 14669) / 365.25) == 21
     assert floor((21915 - 14609) / 365.25) == 20
-    assert floor((22281 - 14609) / 365.25) == 20
+    assert floor((22281 - 14609) / 365.25) == 21
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
         generate(age_tv) startgen(age_start) stopgen(age_stop)
@@ -1515,24 +1518,27 @@ capture noisily {
         local t_pass = 0
     }
 
-    * Person 2: 1 row (age 20 for entire follow-up)
+    * Person 2: 2 rows (ages 20 and 21)
     quietly count if id == 2
-    if r(N) != 1 {
-        display as error "  FAIL [W7.1.p2_rows]: expected 1, got `=r(N)'"
+    if r(N) != 2 {
+        display as error "  FAIL [W7.1.p2_rows]: expected 2, got `=r(N)'"
         local t_pass = 0
     }
     else {
-        display as result "  PASS [W7.1.p2_rows]: Person 2 has 1 age interval"
+        display as result "  PASS [W7.1.p2_rows]: Person 2 has 2 age intervals"
     }
 
-    * Person 2 age should be 20
-    quietly summarize age_tv if id == 2
-    if r(mean) != 20 {
-        display as error "  FAIL [W7.1.p2_age]: expected 20, got `=r(mean)'"
+    * Person 2 ages should be 20 and 21
+    quietly count if id == 2 & age_tv == 20
+    local p2_age20 = r(N)
+    quietly count if id == 2 & age_tv == 21
+    local p2_age21 = r(N)
+    if `p2_age20' != 1 | `p2_age21' != 1 {
+        display as error "  FAIL [W7.1.p2_age]: expected one row each for ages 20 and 21"
         local t_pass = 0
     }
     else {
-        display as result "  PASS [W7.1.p2_age]: Person 2 age=20"
+        display as result "  PASS [W7.1.p2_age]: Person 2 ages=20,21"
     }
 
     * Person-time conservation
@@ -1551,6 +1557,7 @@ capture noisily {
         local t_pass = 0
     }
 }
+if _rc local t_pass = 0
 if `t_pass' {
     display as result "  PASS: W7.1 birthday boundaries correct"
     local ++pass_count
@@ -1803,16 +1810,10 @@ capture noisily {
     tempfile w9_tv_c
     save `w9_tv_c'
 
-    * 3-way merge: A×B first, then AB×C
-    tvmerge "`w9_tv_a'" "`w9_tv_b'", id(id) ///
-        start(start start) stop(stop stop) ///
-        exposure(tv_a tv_b) generate(drug_a drug_b)
-    tempfile w9_ab
-    save `w9_ab'
-
-    tvmerge "`w9_ab'" "`w9_tv_c'", id(id) ///
-        start(start start) stop(stop stop) ///
-        exposure(drug_a drug_b tv_c) generate(drug_a drug_b drug_c)
+    * 3-way merge in a single tvmerge call.
+    tvmerge "`w9_tv_a'" "`w9_tv_b'" "`w9_tv_c'", id(id) ///
+        start(start start start) stop(stop stop stop) ///
+        exposure(tv_a tv_b tv_c) generate(drug_a drug_b drug_c)
 
     sort id start
     quietly count
@@ -1841,6 +1842,7 @@ capture noisily {
     tempfile w9_merged
     save `w9_merged'
 }
+if _rc local t_pass = 0
 if `t_pass' {
     display as result "  PASS: W9.1 3-way merge correct (6 intervals, PT=274)"
     local ++pass_count
@@ -1909,6 +1911,7 @@ capture noisily {
         display as result "  PASS [W9.2.mono]: timegen monotonically increasing"
     }
 }
+if _rc local t_pass = 0
 if `t_pass' {
     local ++pass_count
 }

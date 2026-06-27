@@ -70,13 +70,12 @@ foreach f in `suite_list' {
     }
 }
 
-* Erase generated artifacts left at the qa/ root so the working tree stays clean
-* (these are gitignored and never ship, but lingering .xlsx/.smcl trip the
-* release-debris hygiene check). .log is intentionally NOT erased here: this
-* runner's own batch log (run_all.log) is open while this code runs. Input
-* fixtures under qa/data/ are untouched.
+* Erase generated artifacts left at the qa/ root so the working tree stays clean.
+* .log is intentionally NOT erased here: this runner's own batch log
+* (run_all.log) is open while this code runs. Input fixtures under qa/data/ are
+* untouched.
 cd "`qa_dir'"
-capture shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
+capture shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.csv" -o -name "*.dta" -o -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
 
 display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed"
 if `fail' > 0 exit 1

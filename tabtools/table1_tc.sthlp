@@ -33,7 +33,8 @@ use {cmd:table1_tc}.{p_end}
 {p 8 18 2}
 {opt table1_tc} {ifin} {weight}, {opt vars(var_spec)} [{it:options}]
 
-{phang}{it:var_spec} = {it: varname vartype} [{it:{help fmt:%fmt1}} [{it:{help fmt:%fmt2}}]] [ \ {it:varname vartype} [{it:{help fmt:%fmt1}} [{it:{help fmt:%fmt2}}]] \ ...]
+{phang}{it:var_spec} = {it: varname vartype} [{it:{help fmt:%fmt1}}
+[{it:{help fmt:%fmt2}}]] [ \ {it:varname vartype} [{it:{help fmt:%fmt1}} [{it:{help fmt:%fmt2}}]] \ ...]
 
 {phang}where {it: vartype} is one of:{p_end}
 {tab}auto   - automatic type detection (default when vartype omitted)
@@ -288,7 +289,8 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {title:References}
 
-{phang}Austin PC. Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
+{phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
+covariates between treatment groups in propensity-score matched samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
 {phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics 1979; 35: 908-909.{p_end}
 {phang}table1_mc - Mark Chatfield, The University of Queensland, Australia.{p_end}
 

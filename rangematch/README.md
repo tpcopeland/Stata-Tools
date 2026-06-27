@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.1.0, 25jun2026
+Version 1.1.1, 26jun2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -323,6 +323,48 @@ rangematch entry exit using episodes.dta, by(id) overlap(rx_start rx_stop) unmat
 
 which never materializes the full Cartesian product of cohort windows and episodes.
 
+## Quality Assurance
+
+Run the full release gate from `rangematch/qa`:
+
+```bash
+stata-mp -b do run_all.do
+```
+
+The `qa/` directory contains 881 counted assertions across 30 QA files:
+27 functional test files and 3 validation files.
+
+- `test_documentation_examples.do` - 21 tests
+- `test_install.do` - 5 tests
+- `test_rangematch_abbrev.do` - 1 test
+- `test_rangematch_adversarial.do` - 64 tests
+- `test_rangematch_backend_equivalence.do` - 15 tests
+- `test_rangematch_basic.do` - 26 tests
+- `test_rangematch_by.do` - 17 tests
+- `test_rangematch_display_contract.do` - 1 test
+- `test_rangematch_missing.do` - 16 tests
+- `test_rangematch_missing_option.do` - 18 tests
+- `test_rangematch_missing_option_extra.do` - 31 tests
+- `test_rangematch_overlap.do` - 44 tests
+- `test_rangematch_return_contract.do` - 79 tests
+- `test_rangematch_routing_contract.do` - 33 tests
+- `test_rangematch_saving_matrix.do` - 22 tests
+- `test_rangematch_v101.do` - 4 tests
+- `test_rangematch_v110.do` - 98 tests
+- `test_rangematch_v120.do` - 47 tests
+- `test_rangematch_v130.do` - 45 tests
+- `test_rangematch_v140.do` - 49 tests
+- `test_rangematch_v141.do` - 21 tests
+- `test_rangematch_v144.do` - 33 tests
+- `test_rangematch_v145.do` - 84 tests
+- `test_rangematch_v147.do` - 15 tests
+- `test_rangematch_v148.do` - 24 tests
+- `test_rangematch_v16compat.do` - 0 tests
+- `test_release_integrity.do` - 9 tests
+- `validation_rangematch_manual.do` - 26 validations
+- `validation_rangematch_nearest.do` - 7 validations
+- `validation_rangematch_oracle.do` - 26 validations
+
 ## Benchmark
 
 The demo benchmark compares the overlapping grouped range-join case:
@@ -356,6 +398,14 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.1.1 (2026-06-26)
+
+- Fixed internal `__rm_*` workspace handling so user variables with names such
+  as `__rm_obs`, `__rm_low`, `__rm_high`, `__rm_key`, and `__rm_gid` are
+  preserved in output instead of colliding with or being removed by cleanup.
+- Expanded QA coverage for internal-name regressions and the complete
+  stored-result local contract.
 
 ### 1.1.0 (2026-06-25)
 

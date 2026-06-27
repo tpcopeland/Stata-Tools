@@ -16,6 +16,7 @@ else {
 quietly net install rangematch, from("`pkg_dir'") replace
 
 tempfile using_contract saving_contract
+local test_count = 0
 
 clear
 input int uid byte group double keyval int value
@@ -28,6 +29,7 @@ save "`using_contract'", replace
 
 **# Default return surface
 
+local ++test_count
 clear
 input int id byte group double(keyval lo hi)
 1 1 2 1 2
@@ -58,18 +60,49 @@ assert "`r(low)'" == "lo"
 assert "`r(high)'" == "hi"
 assert "`r(by)'" == "group"
 assert "`r(keepusing)'" == "uid value"
+assert "`r(prefix)'" == ""
 assert "`r(suffix)'" == "_U"
 assert "`r(unmatched)'" == "master"
 assert "`r(closed)'" == "both"
 assert "`r(missing)'" == "wildcard"
 assert "`r(sort)'" == "sort"
 assert "`r(nosort)'" == ""
+assert "`r(masterid)'" == ""
+assert "`r(usingid)'" == ""
+assert "`r(maxpairs)'" == "0"
+assert "`r(all)'" == ""
 assert "`r(frame)'" == ""
 assert "`r(saving)'" == ""
 assert inlist("`r(backend)'", "sweep", "binary")
 
+**# Naming and guard local return surface
+
+local ++test_count
+clear
+input int id byte group double(keyval lo hi)
+1 1 2 1 2
+2 1 5 4 4
+3 2 20 19 21
+end
+
+rangematch keyval lo hi using "`using_contract'", ///
+    by(group) keepusing(uid value) prefix(U_) all ///
+    masterid(master_row) usingid(using_row) maxpairs(10) unmatched(none)
+
+assert r(N_pairs) == 3
+assert "`r(prefix)'" == "U_"
+assert "`r(all)'" == "all"
+assert "`r(masterid)'" == "master_row"
+assert "`r(usingid)'" == "using_row"
+assert "`r(maxpairs)'" == "10"
+confirm variable master_row
+confirm variable using_row
+confirm variable U_uid
+confirm variable U_value
+
 **# Stats return surface
 
+local ++test_count
 clear
 input int id byte group double(keyval lo hi)
 1 1 2 1 2
@@ -96,6 +129,7 @@ assert "`r(stats)'" == "stats"
 
 **# dryrun and count return surfaces
 
+local ++test_count
 clear
 input int id byte group double(keyval lo hi) byte sentinel
 1 1 2 1 2 42
@@ -128,6 +162,7 @@ assert "`r(saving)'" == ""
 
 **# frame(), saving(), and nearest() conditional locals
 
+local ++test_count
 capture frame drop return_contract_out
 clear
 input int id byte group double(keyval lo hi) byte sentinel
@@ -178,3 +213,4 @@ assert "`r(sort)'" == ""
 assert "`r(backend)'" == "binary"
 
 display as result "ALL RANGEMATCH RETURN CONTRACT TESTS PASSED"
+display "RESULT: test_rangematch_return_contract tests=`test_count' pass=`test_count' fail=0"

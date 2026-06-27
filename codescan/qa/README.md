@@ -57,7 +57,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `validation_codescan_known_answers.do` | validation | 8 | Known-answer matrix across option combinations |
 | `validation_mata.do` | validation | 8 | Known-answer equivalence for the Mata fast paths |
 | `validation_codescan_io.do` | validation | 5 | Save/export/saving artifact fidelity |
-| `validation_codescan_output.do` | validation | 2 | Graph/co-occurrence output structure |
+| `validation_codescan_output.do` | validation | 3 | Graph/co-occurrence output structure and failed-export cleanup |
 | `validation_codescan_describe.do` | validation | 6 | `codescan_describe` oracles |
 | `validation_codescan_describe_adversarial.do` | validation | 9 | `codescan_describe` adversarial oracles |
 | `validation_codescan_crosscheck.do` | validation | 33 | `codescan` vs hand-computed `regexm()`/manual collapse |
@@ -81,7 +81,7 @@ hand-computable oracles.
 
 Headline coverage by area: option-by-option (`test_codescan.do`,
 `validation_codescan.do`), counting modes (`*countrows*`), date windows
-(`lookback`/`lookforward`/`refdate`), codefiles & I/O & export
+(`lookback`/`lookforward`/`refdate`), codefiles & I/O & export failure cleanup
 (`validation_codescan_io.do`, `validation_codescan_output.do`), Mata fast
 paths (`test_mata_opt.do`, `validation_mata.do`), the v2.0 no-scoring
 contract (`test_codescan_v2_no_scoring.do`), and the release surface

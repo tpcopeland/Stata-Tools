@@ -1,4 +1,4 @@
-*! tvexpose Version 1.0.2  2026/06/19
+*! tvexpose Version 1.0.3  2026/06/26
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -735,7 +735,9 @@ program define tvexpose, rclass
     }
 
     quietly replace `start' = floor(`start')
-    quietly capture replace `stop' = ceil(`stop')
+    if "`stop'" != "" {
+        quietly replace `stop' = ceil(`stop')
+    }
 
     quietly count
     if r(N) == 0 {
@@ -1159,6 +1161,7 @@ program define tvexpose, rclass
 
         if `n_dose_overlaps' > 0 {
             noisily display as text "  Found `n_dose_overlaps' overlapping dose periods to resolve..."
+            tempvar seg_days seg_id contrib
 
             * Step 2: Create all boundary points
             preserve
@@ -1194,8 +1197,7 @@ program define tvexpose, rclass
             keep id seg_start seg_stop
 
             * For each segment, find which original periods overlap and sum their daily rates
-            quietly gen double __seg_dose = 0
-            quietly gen double __seg_days = seg_stop - seg_start + 1
+            quietly gen double `seg_days' = seg_stop - seg_start + 1
 
             tempfile segments
             quietly save `segments', replace
@@ -1204,7 +1206,7 @@ program define tvexpose, rclass
             * Step 4: Calculate dose contribution for each segment from each overlapping period
             * Use cross-join approach: for each segment, check all periods for that person
             quietly use `segments', clear
-            quietly gen double __seg_id = _n
+            quietly gen double `seg_id' = _n
 
             tempfile segments_with_id
             quietly save `segments_with_id', replace
@@ -1227,13 +1229,13 @@ program define tvexpose, rclass
 
             * Calculate this period's contribution to this segment
             * Contribution = segment_days × daily_rate
-            quietly gen double __contrib = __seg_days * __orig_daily_rate
+            quietly gen double `contrib' = `seg_days' * __orig_daily_rate
 
             * Sum contributions by segment
-            collapse (sum) exp_value=__contrib (first) seg_start seg_stop study_entry study_exit, by(id __seg_id)
+            collapse (sum) exp_value=`contrib' (first) seg_start seg_stop study_entry study_exit, by(id `seg_id')
 
             rename (seg_start seg_stop) (exp_start exp_stop)
-            drop __seg_id
+            drop `seg_id'
 
             * Add back keepvars if needed
             if "`keepvars'" != "" {
@@ -1576,6 +1578,7 @@ program define tvexpose, rclass
             if `n_overlaps' == 0 {
                 local changed = 0
                 capture quietly drop __overlaps_higher __first_overlap_row __adj_start __adj_stop __valid
+                local _overlap_drop_rc = _rc
             }
             else {
                 * Apply Mata-computed adjustments to overlapping records
@@ -3183,7 +3186,9 @@ program define tvexpose, rclass
 
             * Keep original categorical exposure in exp_value AND the duration_<type> variables
             capture quietly drop __orig_exp_binary __exp_now_dur
+            local _orig_drop_rc = _rc
             capture quietly rename __orig_exp_value exp_value
+            local _orig_rename_rc = _rc
         }
 
         else {
@@ -3327,6 +3332,7 @@ program define tvexpose, rclass
                     quietly drop __needs_split
                     forvalues i = 1/`n_cuts' {
                         capture quietly drop __thresh_date_`i'
+                        local _thresh_drop_rc = _rc
                     }
                     quietly append using `split_periods'
                     sort id exp_start
@@ -3335,6 +3341,7 @@ program define tvexpose, rclass
                     quietly drop __needs_split
                     forvalues i = 1/`n_cuts' {
                         capture quietly drop __thresh_date_`i'
+                        local _thresh_drop_rc = _rc
                     }
                 }
             }
@@ -3912,6 +3919,7 @@ program define tvexpose, rclass
             if _rc != 0 {
                 * modify failed, try add
                 capture label define `exp_vallabel' `reference' "`referencelabel'", add
+                local _ref_label_add_rc = _rc
             }
         }
         else {
@@ -4219,7 +4227,7 @@ program define tvexpose, rclass
         quietly gen gap_days = gap_end - gap_start + 1 if !missing(gap_start)
         
         drop __gap_ind2
-        capture quietly drop if gap_days <= 0
+        quietly drop if gap_days <= 0
         quietly keep if !missing(gap_start) 
         
         if _N > 0 {
@@ -4674,22 +4682,27 @@ program define tvexpose, rclass
     * Rename id back to original name if different
     if "`id'" != "id" {
         capture quietly rename id `id'
+        local _id_rename_rc = _rc
     }
 
     * Rename start/stop back to original names if different
     if "`start'" != "start" {
         capture quietly rename start `start'
+        local _start_rename_rc = _rc
     }
     if "`stop'" != "" & "`stop'" != "stop" {
         capture quietly rename stop `stop'
+        local _stop_rename_rc = _rc
     }
     capture quietly label data "`using'"
+    local _label_data_rc = _rc
 
     **# SAVE DATA IF REQUESTED
    
     * Save final dataset if requested
     if "`saveas'" != "" {
-		capture quietly label data "`saveas'"
+			capture quietly label data "`saveas'"
+            local _save_label_rc = _rc
         if "`replace'" != "" {
             quietly save "`saveas'", replace
         }

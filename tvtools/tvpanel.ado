@@ -1,4 +1,4 @@
-*! tvpanel Version 1.0.2  2026/06/19
+*! tvpanel Version 1.0.3  2026/06/26
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -165,7 +165,7 @@ program define tvpanel, rclass
             exit 2000
         }
 
-        tempvar nper
+        tempvar nper tp_row tp_active tp_days
         gen double `nper' = ceil((`exit' - `entry') / `width')
         replace `nper' = 1 if `nper' < 1
         expand `nper'
@@ -173,7 +173,7 @@ program define tvpanel, rclass
         tempvar pstart pstop
         gen double `pstart' = `entry' + `width' * `period'
         gen double `pstop'  = min(`entry' + `width' * (`period' + 1) - 1, `exit')
-        gen long __tp_row = _n
+        gen long `tp_row' = _n
         format `pstart' `pstop' %tdCCYY/NN/DD
         tempfile grid
         save `grid', replace
@@ -181,12 +181,12 @@ program define tvpanel, rclass
 
     * --- Active exposure class at each interval start (latest-start wins) ---
     quietly {
-        keep __tp_row `id' `pstart'
+        keep `tp_row' `id' `pstart'
         joinby `id' using `epi'
         keep if __tp_estart <= `pstart' & __tp_estop >= `pstart'
-        bysort __tp_row (__tp_estart __tp_eclass): keep if _n == _N
-        gen long __tp_active = __tp_eclass
-        keep __tp_row __tp_active
+        bysort `tp_row' (__tp_estart __tp_eclass): keep if _n == _N
+        gen long `tp_active' = __tp_eclass
+        keep `tp_row' `tp_active'
         tempfile active
         save `active', replace
     }
@@ -196,15 +196,15 @@ program define tvpanel, rclass
     if "`cumulative'" != "" {
         quietly {
             use `grid', clear
-            keep __tp_row `id' `pstart'
+            keep `tp_row' `id' `pstart'
             joinby `id' using `epi'
             keep if __tp_estart < `pstart' & __tp_eclass != `reference'
-            gen double __tp_days = max(0, min(__tp_estop, `pstart' - 1) - __tp_estart + 1)
-            keep if __tp_days > 0
+            gen double `tp_days' = max(0, min(__tp_estop, `pstart' - 1) - __tp_estart + 1)
+            keep if `tp_days' > 0
             count
             if r(N) > 0 {
-                collapse (sum) __tp_days, by(__tp_row __tp_eclass)
-                reshape wide __tp_days, i(__tp_row) j(__tp_eclass)
+                collapse (sum) `tp_days', by(`tp_row' __tp_eclass)
+                reshape wide `tp_days', i(`tp_row') j(__tp_eclass)
                 tempfile cum
                 save `cum', replace
             }
@@ -215,19 +215,22 @@ program define tvpanel, rclass
     * --- Assemble the panel ---
     quietly {
         use `grid', clear
-        merge 1:1 __tp_row using `active', nogen keep(1 3)
-        replace __tp_active = `reference' if missing(__tp_active)
-        rename __tp_active `generate'
+        merge 1:1 `tp_row' using `active', nogen keep(1 3)
+        replace `tp_active' = `reference' if missing(`tp_active')
+        rename `tp_active' `generate'
         if "`explbl'" != "" {
+            capture label drop `explbl'
+            local _lbl_drop_rc = _rc
             capture quietly do "`lblfile'"
-            label values `generate' `explbl'
+            if _rc local explbl ""
+            else label values `generate' `explbl'
         }
 
         if "`cumulative'" != "" {
-            merge 1:1 __tp_row using `cum', nogen keep(1 3)
-            ds __tp_days*
+            merge 1:1 `tp_row' using `cum', nogen keep(1 3)
+            ds `tp_days'*
             foreach d in `r(varlist)' {
-                local cls = subinstr("`d'", "__tp_days", "", 1)
+                local cls = subinstr("`d'", "`tp_days'", "", 1)
                 local cv "`prefix'cum_`cls'"
                 gen double `cv' = `d' / `cumdiv'
                 replace `cv' = 0 if missing(`cv')
@@ -275,7 +278,16 @@ program define tvpanel, rclass
     }
 
     if "`saveas'" != "" restore
-    else restore, not
+    else {
+        restore, not
+        if "`explbl'" != "" {
+            capture label drop `explbl'
+            local _lbl_drop_rc = _rc
+            capture quietly do "`lblfile'"
+            if _rc local explbl ""
+            else label values `generate' `explbl'
+        }
+    }
 
     return scalar n_persons = `n_persons'
     return scalar n_observations = `n_obs'

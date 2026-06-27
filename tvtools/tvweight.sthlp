@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.0.2  19jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvdiagnose" "help tvdiagnose"}{...}
 {viewerjumpto "Syntax" "tvweight##syntax"}{...}

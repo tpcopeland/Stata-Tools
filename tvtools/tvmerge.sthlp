@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.0.2  19jun2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {viewerjumpto "Syntax" "tvmerge##syntax"}{...}
 {viewerjumpto "Description" "tvmerge##description"}{...}

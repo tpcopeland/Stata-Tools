@@ -184,7 +184,7 @@ save "`using_str_group'", replace
 use "`master'", clear
 capture noisily rangematch keyval lo hi using "`using_str_group'", by(group)
 assert _rc == 109
-display as result "PASS: by() type mismatch rejected"
+display as result "PASS: by() incompatible storage rejected"
 
 **# output-name collision and naming contracts
 local ++test_count
@@ -229,6 +229,39 @@ sort id U_uid_x
 assert U_uid_x[1] == 1
 assert U_keyval_x[1] == 9
 display as result "PASS: all prefix/suffix naming"
+
+local ++test_count
+tempfile using_internal_names
+clear
+input int uid str1 site double keyval long __rm_obs byte __rm_gid
+11 "A" 10 901 7
+12 "B" 30 902 8
+end
+save "`using_internal_names'", replace
+clear
+input int id str1 site double(keyval lo hi) long __rm_obs ///
+    double(__rm_low __rm_high __rm_key) byte __rm_gid
+1 "A" 10  8 12 101 201 301 401 5
+2 "B" 30 28 32 102 202 302 402 6
+end
+rangematch keyval lo hi using "`using_internal_names'", ///
+    by(site) keepusing(uid __rm_obs __rm_gid) unmatched(none) stats
+assert r(N_pairs) == 2
+assert r(N_matched_pairs) == 2
+confirm variable __rm_obs
+confirm variable __rm_low
+confirm variable __rm_high
+confirm variable __rm_key
+confirm variable __rm_gid
+confirm variable __rm_obs_U
+confirm variable __rm_gid_U
+sort id uid
+assert __rm_obs[1] == 101
+assert __rm_obs_U[1] == 901
+assert __rm_gid[2] == 6
+assert __rm_gid_U[2] == 8
+_rm_no_internal_frames
+display as result "PASS: user __rm_* variables survive tempvar work frames"
 
 **# unmatched, nearest, ties, assert, and scalar edge contracts
 local ++test_count

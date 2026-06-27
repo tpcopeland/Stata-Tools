@@ -1,4 +1,4 @@
-*! rangematch Version 1.1.0  2026/06/25
+*! rangematch Version 1.1.1  2026/06/26
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -335,6 +335,7 @@ program define _rangematch_load_using, sclass
         local using_load_vars : list uniq using_load_vars
 
         capture frame drop __rm_using
+        local _rm_drop_rc = _rc
         if `using_is_frame' {
             if `"`keepusing'"' != "" | `dryrun_mode' {
                 frame `using_frame': frame put `using_load_vars', into(__rm_using)
@@ -429,7 +430,7 @@ program define _rangematch_build_group_ids
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args by touse N_master N_using
+        args by touse N_master N_using master_gid using_gid master_obs using_obs
 
         local _rm_need_obs_resort = 0
         if "`by'" != "" {
@@ -465,19 +466,22 @@ program define _rangematch_build_group_ids
             }
 
             if `_rm_direct_gid' {
-                quietly gen double __rm_gid = `_rm_by1'
+                quietly gen double `master_gid' = `_rm_by1'
                 frame __rm_using {
-                    quietly gen double __rm_gid = `_rm_by1'
+                    quietly gen double `using_gid' = `_rm_by1'
                 }
             }
             else {
+                tempvar _rm_catalog_gid
                 local _rm_need_obs_resort = 1
                 capture frame drop __rm_grp
+                local _rm_drop_rc = _rc
                 quietly frame put `by' if `touse', into(__rm_grp)
                 frame __rm_grp: quietly duplicates drop
 
                 frame __rm_using {
                     capture frame drop __rm_grp_u
+                    local _rm_drop_rc = _rc
                     quietly frame put `by', into(__rm_grp_u)
                     frame __rm_grp_u: quietly duplicates drop
                 }
@@ -489,42 +493,48 @@ program define _rangematch_build_group_ids
                         append using `"`_grp_u_tmp'"'
                         duplicates drop
                         sort `by'
-                        gen long __rm_gid = _n
+                        gen long `_rm_catalog_gid' = _n
                     }
                 }
                 capture frame drop __rm_grp_u
+                local _rm_drop_rc = _rc
 
                 tempfile _grp_catalog
                 frame __rm_grp: quietly save `"`_grp_catalog'"'
 
                 quietly {
                     merge m:1 `by' using `"`_grp_catalog'"', ///
-                        keep(match master) nogenerate keepusing(__rm_gid)
-                    replace __rm_gid = 0 if __rm_gid >= .
+                        keep(match master) nogenerate ///
+                        keepusing(`_rm_catalog_gid')
+                    rename `_rm_catalog_gid' `master_gid'
+                    replace `master_gid' = 0 if `master_gid' >= .
                 }
 
                 frame __rm_using {
                     quietly {
                         merge m:1 `by' using `"`_grp_catalog'"', ///
-                            keep(match master) nogenerate keepusing(__rm_gid)
-                        replace __rm_gid = 0 if __rm_gid >= .
+                            keep(match master) nogenerate ///
+                            keepusing(`_rm_catalog_gid')
+                        rename `_rm_catalog_gid' `using_gid'
+                        replace `using_gid' = 0 if `using_gid' >= .
                     }
                 }
 
                 capture frame drop __rm_grp
+                local _rm_drop_rc = _rc
             }
         }
         else {
-            quietly gen byte __rm_gid = 1
+            quietly gen byte `master_gid' = 1
             frame __rm_using {
-                quietly gen byte __rm_gid = 1
+                quietly gen byte `using_gid' = 1
             }
         }
 
         if `_rm_need_obs_resort' {
-            quietly sort __rm_obs
+            quietly sort `master_obs'
             frame __rm_using {
-                quietly sort __rm_obs
+                quietly sort `using_obs'
             }
         }
     }
@@ -546,6 +556,7 @@ program define _rangematch_run_backend, sclass
             OVERLAPMode(real)
 
         capture frame drop __rm_out
+        local _rm_drop_rc = _rc
         if !`dryrun' {
             frame create __rm_out
         }
@@ -669,7 +680,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.1.0"
+    local _rm_required_mata_version "1.1.1"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -703,7 +714,7 @@ program define rangematch, rclass
         [ BY(varlist) KEEPUsing(string) Prefix(string) Suffix(string) ///
           ALL UNMATCHed(string) GENerate(name) DISTance(name) ///
           MASTERID(name) USINGID(name) OVERLAP(string) ///
-          MAXPairs(integer 0) FRAME(name) REPLACE STATS noSORT ///
+          MAXPairs(integer 0) FRAME(name) REPLACE STATS NOSORT ///
           CLOSED(string) NEARest(string) TIES(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
@@ -920,9 +931,7 @@ program define rangematch, rclass
         exit 198
     }
 
-    local nosort ""
-    if "`sort'" == "nosort" {
-        local nosort "nosort"
+    if "`nosort'" == "nosort" {
         local sort ""
     }
     else {
@@ -966,9 +975,10 @@ program define rangematch, rclass
     local dryrun_mode = ("`dryrun'" != "" | "`count'" != "")
     local _rm_timing = ("`verbose'" != "")
     if `_rm_timing' {
-        capture timer clear 91
-        capture timer clear 92
-        capture timer clear 93
+        foreach _rm_timer in 91 92 93 {
+            capture timer clear `_rm_timer'
+            local _rm_timer_rc = _rc
+        }
         timer on 91
     }
 
@@ -980,7 +990,7 @@ program define rangematch, rclass
             display as error "saving() requires a filename"
             exit 198
         }
-        local saving_file : subinstr local saving_file `"""' "", all
+        local saving_file = subinstr(`"`saving_file'"', char(34), "", .)
         if `"`saving_opts'"' != "" {
             if substr(`"`saving_opts'"', 1, 1) == "," {
                 local saving_opts = substr(`"`saving_opts'"', 2, .)
@@ -1122,60 +1132,77 @@ program define rangematch, rclass
     preserve
 
     * -------------------------------------------------------------------
-    * Build working frames with real (non-temp) variable names
+    * Build working frames. User-facing frames use tempvars; disposable work
+    * frames are renamed to the fixed column order expected by the Mata backend.
     * -------------------------------------------------------------------
-    * Master working frame: __rm_gid, __rm_low, __rm_high, __rm_obs,
+    * Master work frame: __rm_gid, __rm_low, __rm_high, __rm_obs,
     * plus __rm_key only for nearest().
     capture frame drop __rm_master
+    local _rm_drop_rc = _rc
     local _rm_need_master_key = (`nearest_code' != 0)
+    tempvar _rm_obs _rm_key _rm_low _rm_high _rm_gid _rm_uobs _rm_ugid
     quietly {
-        gen long __rm_obs = _n
+        gen long `_rm_obs' = _n
         if `_rm_need_master_key' {
-            gen double __rm_key = `key'
+            gen double `_rm_key' = `key'
         }
         if "`low_kind'" == "variable" {
-            gen double __rm_low = `low'
+            gen double `_rm_low' = `low'
         }
         else if `low' >= . {
-            gen double __rm_low = .
+            gen double `_rm_low' = .
         }
         else {
-            gen double __rm_low = `key' + (`low')
+            gen double `_rm_low' = `key' + (`low')
         }
         if "`high_kind'" == "variable" {
-            gen double __rm_high = `high'
+            gen double `_rm_high' = `high'
         }
         else if `high' >= . {
-            gen double __rm_high = .
+            gen double `_rm_high' = .
         }
         else {
-            gen double __rm_high = `key' + (`high')
+            gen double `_rm_high' = `key' + (`high')
         }
         if `uses_key_offsets' {
-            replace __rm_low = 1 if `key' >= .
-            replace __rm_high = 0 if `key' >= .
+            replace `_rm_low' = 1 if `key' >= .
+            replace `_rm_high' = 0 if `key' >= .
         }
     }
 
     frame __rm_using {
-        quietly gen long __rm_obs = _n
+        quietly gen long `_rm_uobs' = _n
     }
     _rangematch_build_group_ids `"`by'"' `"`touse'"' ///
-        `"`N_master'"' `"`N_using'"'
+        `"`N_master'"' `"`N_using'"' `"`_rm_gid'"' `"`_rm_ugid'"' ///
+        `"`_rm_obs'"' `"`_rm_uobs'"'
 
     * Create master work frame
-    local _rm_master_work_vars "__rm_gid __rm_low __rm_high __rm_obs"
+    local _rm_master_work_vars "`_rm_gid' `_rm_low' `_rm_high' `_rm_obs'"
     if `_rm_need_master_key' {
-        local _rm_master_work_vars "`_rm_master_work_vars' __rm_key"
+        local _rm_master_work_vars "`_rm_master_work_vars' `_rm_key'"
     }
     quietly frame put `_rm_master_work_vars' if `touse', ///
         into(__rm_master)
+    frame __rm_master {
+        rename `_rm_gid' __rm_gid
+        rename `_rm_low' __rm_low
+        rename `_rm_high' __rm_high
+        rename `_rm_obs' __rm_obs
+        if `_rm_need_master_key' {
+            rename `_rm_key' __rm_key
+        }
+    }
 
     * Create using work frame
     frame __rm_using {
         quietly {
-            frame put __rm_gid `_rm_using_keys' __rm_obs, into(__rm_uwork)
+            frame put `_rm_ugid' `_rm_using_keys' `_rm_uobs', into(__rm_uwork)
         }
+    }
+    frame __rm_uwork {
+        rename `_rm_ugid' __rm_gid
+        rename `_rm_uobs' __rm_obs
     }
 
     * -------------------------------------------------------------------
@@ -1359,6 +1386,7 @@ program define rangematch, rclass
         restore
         if "`replace'" != "" {
             capture frame drop `frame'
+            local _rm_drop_rc = _rc
         }
         frame rename __rm_out `frame'
         frame change `_rm_caller_frame'
@@ -1407,6 +1435,7 @@ program define rangematch, rclass
                 }
                 if `"`vvallbl'"' != "" {
                     capture label values `v' `vvallbl'
+                    local _rm_label_rc = _rc
                 }
             }
 
@@ -1539,18 +1568,18 @@ program define rangematch, rclass
 
     }
     local rc = _rc
-    capture frame drop __rm_master
-    capture frame drop __rm_using
-    capture frame drop __rm_uwork
-    capture frame drop __rm_out
-    capture frame drop __rm_grp
-    capture frame drop __rm_grp_u
-    capture matrix drop __rm_mi
-    capture matrix drop __rm_ui
-    capture drop __rm_gid __rm_obs __rm_low __rm_high __rm_key
-    capture timer clear 91
-    capture timer clear 92
-    capture timer clear 93
+    foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
+        capture frame drop `_rm_frame'
+        local _rm_cleanup_rc = _rc
+    }
+    foreach _rm_matrix in __rm_mi __rm_ui {
+        capture matrix drop `_rm_matrix'
+        local _rm_cleanup_rc = _rc
+    }
+    foreach _rm_timer in 91 92 93 {
+        capture timer clear `_rm_timer'
+        local _rm_cleanup_rc = _rc
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' {
         capture restore

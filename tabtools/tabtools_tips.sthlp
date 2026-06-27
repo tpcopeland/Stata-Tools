@@ -66,8 +66,10 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 
 {phang2}{cmd:table1_tc, by(group) vars(age contn \ sex bin \ race cat) xlsx(t1.xlsx) sheet("Table 1") title("Baseline")}{p_end}
 {phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") smd} {it:// add SMD column}{p_end}
-{phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") boldp(0.05) highlight(0.05)} {it:// bold + highlight significant rows}{p_end}
-{phang2}{cmd:table1_tc, by(group) vars(...) wt(iptw) xlsx(t1.xlsx) sheet("Weighted") title("IPTW-Weighted")} {it:// weighted statistics, unweighted N}{p_end}
+{phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") boldp(0.05) highlight(0.05)}
+{it:// bold + highlight significant rows}{p_end}
+{phang2}{cmd:table1_tc, by(group) vars(...) wt(iptw) xlsx(t1.xlsx) sheet("Weighted") title("IPTW-Weighted")}
+{it:// weighted statistics, unweighted N}{p_end}
 
 {hline}
 {title:desctab}
@@ -103,8 +105,10 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {title:hrcomptab}
 
 {phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose) outcomes(3) frame(rates, replace)}{p_end}
-{phang2}{cmd:regtab, frame(bin_models, replace) noint coef("HR")} {it:// after collect: stcox ... for binary exposure models}{p_end}
-{phang2}{cmd:regtab, frame(dose_models, replace) noint coef("HR")} {it:// after collect: stcox ... for dose-category models}{p_end}
+{phang2}{cmd:regtab, frame(bin_models, replace) noint coef("HR")}
+{it:// after collect: stcox ... for binary exposure models}{p_end}
+{phang2}{cmd:regtab, frame(dose_models, replace) noint coef("HR")}
+{it:// after collect: stcox ... for dose-category models}{p_end}
 {phang2}{cmd:hrcomptab rates, modelframes(bin_models dose_models) rows(1 \ 3/5) xlsx(table2.xlsx) sheet("Table 2") effect("aHR")}{p_end}
 
 {hline}
@@ -112,7 +116,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 
 {phang2}{cmd:stset time, failure(event)}{p_end}
 {phang2}{cmd:survtab, times(1 3 5) by(treatment) xlsx(surv.xlsx) title("Table 2. Survival")}{p_end}
-{phang2}{cmd:survtab, times(1 3 5) by(treatment) median riskset difference} {it:// add median, n-at-risk, between-group difference}{p_end}
+{phang2}{cmd:survtab, times(1 3 5) by(treatment) median riskset difference}
+{it:// add median, n-at-risk, between-group difference}{p_end}
 {phang2}{cmd:survtab, times(1 3 5) by(treatment) rmst(5) reverse} {it:// RMST + cumulative incidence}{p_end}
 
 {hline}
@@ -156,14 +161,19 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {hline}
 {title:stacktab}
 
-{phang2}{cmd:stacktab using parts.xlsx, sheet("Composite") blocks(sheet(Model A) \ sheet(Model B))} {it:// vstack two block sheets}{p_end}
-{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(Primary) rows(1/4) cols(A-C) \ sheet(Dose) rows(1/3) cols(A-C)) columnmerge(B+C as "aHR (95% CI)")} {it:// merge est + CI}{p_end}
-{phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide") blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)} {it:// side by side}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Composite") blocks(sheet(Model A) \ sheet(Model B))}
+{it:// vstack two block sheets}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(Primary) rows(1/4) cols(A-C) \ sheet(Dose) rows(1/3) cols(A-C)) columnmerge(B+C as "aHR (95% CI)")}
+{it:// merge est + CI}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide") blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)}
+{it:// side by side}{p_end}
 {hline}
 {title:simtab}
 
-{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) by(scenario) estimand(target) sim(rep) coverage(covered) display} {it:// compute mode}{p_end}
-{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000) metrics(mean bias empse meanse coverage n nonconv) xlsx("t2.xlsx") sheet("Table 2")} {it:// non-convergence + Excel}{p_end}
+{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) by(scenario) estimand(target) sim(rep) coverage(covered) display}
+{it:// compute mode}{p_end}
+{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000) metrics(mean bias empse meanse coverage n nonconv) xlsx("t2.xlsx") sheet("Table 2")}
+{it:// non-convergence + Excel}{p_end}
 {phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear} {it:// analysis by simsum ...}{p_end}
 {phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display} {it:// ... table by simtab}{p_end}
 

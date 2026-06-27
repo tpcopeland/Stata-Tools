@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  25jun2026}{...}
+{* *! version 1.1.1  26jun2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -83,7 +83,6 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopt:{opt replace}}replace existing target frame; allowed only with {opt frame()}{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save output to a dataset on disk{p_end}
 {synopt:{opt stats}}display match-density diagnostics{p_end}
-{synopt:{opt sort}}sort output by original master and using row numbers; the default{p_end}
 {synopt:{opt nosort}}leave output in backend materialization order{p_end}
 {synopt:{opt dryr:un}}report output counts without writing output{p_end}
 {synopt:{opt count}}report output counts without writing output{p_end}
@@ -172,8 +171,8 @@ in this mode, and the point-only options {opt nearest()}, {opt ties()},
 {opt distance()}, and scalar offset bounds are not allowed. All other options
 ({opt by()}, {opt unmatched()}, {opt keepusing()}, {opt frame()}, {opt saving()},
 {opt stats}, {opt generate()}, {opt masterid()}, {opt usingid()},
-{opt maxpairs()}, {opt missing()}, {opt sort}/{opt nosort}) behave as documented
-below. {cmd:r(backend)} reports {cmd:overlap}.
+{opt maxpairs()}, {opt missing()}, and {opt nosort}) behave as documented below.
+{cmd:r(backend)} reports {cmd:overlap}.
 
 {dlgtab:Variables}
 
@@ -324,8 +323,8 @@ specified; core count results are posted on successful runs without
 master by-groups have no using rows when {opt stats} is specified.
 
 {phang}
-{opt sort} sorts output by original master row and original using row before
-dropping internal row identifiers. This deterministic order is the default.
+By default, {cmd:rangematch} sorts output by original master row and original
+using row before dropping internal row identifiers.
 
 {phang}
 {opt nosort} skips the final output sort and leaves rows in backend
@@ -662,8 +661,8 @@ specified.
 {synopt:{cmd:r(saving)}}output filename, when {opt saving()} is used{p_end}
 {synopt:{cmd:r(nearest)}}parsed {opt near:est()} mode{p_end}
 {synopt:{cmd:r(ties)}}parsed {opt ties()} mode{p_end}
-{synopt:{cmd:r(sort)}}{opt sort}, when final output sorting is active{p_end}
-{synopt:{cmd:r(nosort)}}{opt nosort}, when specified{p_end}
+{synopt:{cmd:r(sort)}}{cmd:sort}, when final output sorting is active{p_end}
+{synopt:{cmd:r(nosort)}}{cmd:nosort}, when specified{p_end}
 {synopt:{cmd:r(assert)}}parsed {opt as:sert()} tokens{p_end}
 {synopt:{cmd:r(generate)}}parsed {opt gen:erate()} variable{p_end}
 {synopt:{cmd:r(distance)}}parsed {opt dist:ance()} variable{p_end}
@@ -682,7 +681,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 25jun2026{p_end}
+{pstd}Version 1.1.1, 26jun2026{p_end}
 
 
 {title:Also see}

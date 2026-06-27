@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 2.0.1
+*   T7: Version header reports 2.0.2
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T11: r(date) returned when date() specified (I8 fix)
@@ -74,7 +74,7 @@ capture noisily {
     matrix drop _Smry
 }
 if _rc == 0 {
-    display as result "  PASS T1: r() present after failed export (dir)"
+    display as result "  PASS T1: r() present after unwritable export path"
     local ++pass_count
 }
 else {
@@ -98,7 +98,7 @@ capture noisily {
     matrix drop _Smry2
 }
 if _rc == 0 {
-    display as result "  PASS T2: r() present after failed xlsx export"
+    display as result "  PASS T2: r() present after unwritable xlsx export"
     local ++pass_count
 }
 else {
@@ -218,7 +218,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 2.0.1
+* T7: header advertises version 2.0.2
 * ============================================================
 
 local ++test_count
@@ -229,10 +229,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.1") > 0
+    assert strpos("`_line1'", "2.0.2") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.1"
+    display as result "  PASS T7: version header is 2.0.2"
     local ++pass_count
 }
 else {

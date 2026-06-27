@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.2  2026/06/19
+*! tvevent Version 1.0.3  2026/06/26
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -818,6 +818,7 @@ program define tvevent, rclass
 
         * Always clean up the frame
         capture frame drop `event_frame'
+        local cleanup_rc = _rc
 
         * Exit if there was an error
         if `frame_rc' != 0 {

@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.0.2** | 2026-06-19
+**Version 1.0.3** | 2026-06-26
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, and create age-band intervals.
 
@@ -137,8 +137,30 @@ Estimates inverse probability of treatment weights (IPTW) for causal inference. 
 
 Creates time-varying age intervals from dates of birth and follow-up dates. Expands one-record-per-person data into one row per age (or age group). Output is compatible with `tvmerge` for merging age bands with other time-varying covariates.
 
+## QA
+
+Canonical QA lives in `qa/`; the full runner is:
+
+```bash
+cd tvtools/qa && stata-mp -b do run_all.do full
+```
+
+Functional suites: `test_tvage.do`, `test_tvevent.do`, `test_tvexpose.do`,
+`test_tvmerge.do`, `test_tvpanel.do`, `test_tvweight.do`,
+`test_tvdiagnose.do`, `test_tvtools.do`, `test_options.do`,
+`test_integration.do`, `test_edge_cases.do`, `test_verbose.do`, and
+`test_regressions.do`.
+
+Validation and cross-validation suites: `validation_known_answers.do`,
+`validation_tvage.do`, `validation_tvevent.do`, `validation_tvexpose.do`,
+`validation_tvmerge.do`, `validation_tvweight.do`,
+`validation_tvdiagnose.do`, `validation_boundary.do`,
+`validation_pipeline.do`, `validation_supplemental.do`, and
+`crossval_tvtools.do`.
+
 ## Version History
 
+- **1.0.3** (2026-06-26): Bug fixes and QA hardening. `tvpanel` now uses collision-safe temporary variables for internal row/class/cumulative bookkeeping and avoids stale value-label mappings when episode labels share names with labels already in memory. `tvexpose` dose-overlap handling now avoids internal `__seg_*` names that can collide with user `keepvars()`. Expanded `tvpanel` and dose-overlap regression QA and wired `test_tvpanel.do` into the canonical runner.
 - **1.0.2** (2026-06-19): Documentation maintenance. Standardized public help-file Author sections and shortened the `tvexpose` `r(overlap_ids)` stored-results synopt.
 - **1.0.1** (2026-06-15): Bug fixes. `tvmerge` now shows variable-not-found and option-parsing errors that were previously suppressed inside a `quietly` block (silent `exit` with no message). `tvevent` uses a tempvar for its reshape row-id instead of a hardcoded `_obs`. Internal `tvevent` helper option abbreviations aligned with the documented forms. Canonical author/affiliation standardized across all files.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release

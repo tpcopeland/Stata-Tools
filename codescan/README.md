@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.1** | 2026-06-25
+**Version 2.0.2** | 2026-06-26
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -373,11 +373,16 @@ files and 9 validation files, for 563 tests:
 - `validation_codescan_describe_adversarial.do` - 9 validations
 - `validation_codescan_io.do` - 5 validations
 - `validation_codescan_known_answers.do` - 8 validations
-- `validation_codescan_output.do` - 2 validations
+- `validation_codescan_output.do` - 3 validations
 - `validation_countrows.do` - 8 validations
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.2 (2026-06-26)
+
+- Fix: `codescan, export()` now reloads the post-scan dataset if CSV/XLSX writing fails, preserving both the active data state and the analytical `r()` payload.
+- QA: added a failed-export regression and expanded runner cleanup for generated CSV/DTA artifacts.
 
 ### 2.0.1 (2026-06-25)
 

@@ -1,4 +1,4 @@
-*! codescan Version 2.0.1  2026/06/25
+*! codescan Version 2.0.2  2026/06/26
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -1573,7 +1573,8 @@ program define codescan, rclass
         local _exp_ext = lower(substr(`"`export'"', -4, .))
         tempfile _export_save
         quietly save `_export_save'
-        quietly {
+        capture noisily {
+            quietly {
             clear
             set obs `n_conditions'
             gen str32 condition = ""
@@ -1593,32 +1594,39 @@ program define codescan, rclass
                 replace exclusion = `"`def_excl_`i''"' in `i'
             }
             format prevalence ci_low ci_high `_prev_fmt'
+            }
             if "`_exp_ext'" == ".csv" {
-                export delimited using `"`export'"', replace
+                quietly export delimited using `"`export'"', replace
             }
             else {
-                export excel using `"`export'"', firstrow(variables) replace
+                quietly export excel using `"`export'"', firstrow(variables) replace
                 * Add co-occurrence as second sheet if available
                 if "`cooccurrence'" != "" {
-                    clear
-                    local _ncond = `n_conditions'
-                    set obs `_ncond'
-                    gen str32 condition = ""
-                    forvalues i = 1/`_ncond' {
-                        replace condition = "`def_name_`i''" in `i'
-                    }
-                    forvalues j = 1/`_ncond' {
-                        gen double `def_name_`j'' = .
+                    quietly {
+                        clear
+                        local _ncond = `n_conditions'
+                        set obs `_ncond'
+                        gen str32 condition = ""
                         forvalues i = 1/`_ncond' {
-                            replace `def_name_`j'' = el(`cooc', `i', `j') in `i'
+                            replace condition = "`def_name_`i''" in `i'
+                        }
+                        forvalues j = 1/`_ncond' {
+                            gen double `def_name_`j'' = .
+                            forvalues i = 1/`_ncond' {
+                                replace `def_name_`j'' = el(`cooc', `i', `j') in `i'
+                            }
                         }
                     }
-                    export excel using `"`export'"', firstrow(variables) ///
+                    quietly export excel using `"`export'"', firstrow(variables) ///
                         sheet("cooccurrence") sheetmodify
                 }
             }
         }
-        quietly use `_export_save', clear
+        local _export_rc = _rc
+        capture quietly use `_export_save', clear
+        local _export_restore_rc = _rc
+        if `_export_restore_rc' & `_export_rc' == 0 exit `_export_restore_rc'
+        if `_export_rc' exit `_export_rc'
         display as text _n `"  Results exported to `export'"'
     }
 

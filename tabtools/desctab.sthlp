@@ -98,7 +98,9 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synoptline}
 
 {pstd}
-{opt compose()} presets: {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct}, {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and {cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.
+{opt compose()} presets: {cmd:events_n_pct}, {cmd:events_n}, {cmd:n_pct},
+{cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and
+{cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.
 
 
 {marker examples}{...}
