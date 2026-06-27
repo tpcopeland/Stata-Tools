@@ -306,6 +306,68 @@ else {
     local failed_tests "`failed_tests' 13"
 }
 
+**# 14. vsref(): reference appended to main-effect labels only
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    * grp base is level 1 (Low); template "(vs. @)" appends the base label
+    fvgen i.grp##c.age, vsref("(vs. @)")
+    assert `"`: variable label _grp_2'"' == `"Mid (vs. Low)"'
+    assert `"`: variable label _grp_3'"' == `"High (vs. Low)"'
+    * interaction labels are NOT suffixed
+    assert ustrpos(`"`: variable label _grpXage_2'"', "(vs.") == 0
+    * custom, paren-free template
+    fvgen i.grp, vsref("versus @") replace
+    assert `"`: variable label _grp_2'"' == `"Mid versus Low"'
+    * alllevels: the base level's own indicator is left unsuffixed
+    fvgen i.grp, alllevels vsref("(vs. @)") replace
+    assert `"`: variable label _grp_1'"' == `"Low"'
+    assert `"`: variable label _grp_2'"' == `"Mid (vs. Low)"'
+    * the reference shown honors ref()
+    fvgen i.grp, ref(grp 2) vsref("(vs. @)") replace
+    assert `"`: variable label _grp_1'"' == `"Low (vs. Mid)"'
+    assert `"`: variable label _grp_3'"' == `"High (vs. Mid)"'
+}
+if _rc == 0 {
+    display as result "  PASS: vsref() reference labels (template, alllevels, ref)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: vsref() reference labels (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14"
+}
+
+**# 15. Long variable names: vsref()/center map by list, not name-keyed macro
+* A name-keyed macro (_vsbase_<var> / cmap_<var>) overflows Stata's 31-char
+* local-name limit; both must resolve via parallel lists for long names.
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    * 24-char factor name -> _vsbase_<name> would be 32 chars (invalid name)
+    rename grp abcdefghijklmnopqrstuvwx
+    local long abcdefghijklmnopqrstuvwx
+    fvgen i.`long', vsref("(vs. @)")
+    assert `"`: variable label _`long'_2'"' == `"Mid (vs. Low)"'
+    * 24-char continuous name under center -> cmap_<name> would overflow too
+    _fvgen_make_data
+    rename age abcdefghijklmnopqrstuvwx
+    local longc abcdefghijklmnopqrstuvwx
+    fvgen c.`longc'##c.bmi, center
+    confirm variable _`longc'_c
+    quietly summarize _`longc'_c if !missing(`longc', bmi), meanonly
+    assert abs(r(mean)) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: long varnames resolve (vsref + center, no name overflow)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: long varnames (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

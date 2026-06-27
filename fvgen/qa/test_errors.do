@@ -211,6 +211,30 @@ else {
     local failed_tests "`failed_tests' 7"
 }
 
+**# 8. vsref() error paths: template without @, and vsref with drop
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    * a template missing the @ placeholder is rejected with 198
+    capture fvgen i.grp, vsref("vs base")
+    assert _rc == 198
+    * drop takes no other options, so vsref alongside drop is 198
+    fvgen i.grp
+    capture fvgen, drop vsref("(vs. @)")
+    assert _rc == 198
+    * cleanup
+    capture fvgen, drop
+}
+if _rc == 0 {
+    display as result "  PASS: vsref() error paths (no-@ 198, drop+vsref 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: vsref() error paths (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

@@ -1,4 +1,4 @@
-*! fvgen Version 1.0.0  2026/06/21
+*! fvgen Version 1.1.0  2026/06/27
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -52,11 +52,12 @@ program define fvgen, rclass
             PREfix(name) ///
             REF(string asis) ///
             SIMPle(varname) ///
+            VSref(string) ///
             replace ///
             XSYMbol(string) ///
             DROP]
 
-        local _drop_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`replace'`xsymbol'"'
+        local _drop_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`vsref'`replace'`xsymbol'"'
         if "`prefix'" == "" local prefix "_"
         if "`xsymbol'" == "" local xsymbol "×"
         local alllev = ("`alllevels'" != "")
@@ -99,6 +100,15 @@ program define fvgen, rclass
             if !`_has_vl' {
                 display as error "fvvarlist required"
                 exit 100
+            }
+
+            **# Validate the vsref() template up front
+            * vsref() appends the reference (base) level to main-effect labels.
+            * The argument is a template in which @ stands for the base label.
+            if `"`vsref'"' != "" & strpos(`"`vsref'"', "@") == 0 {
+                display as error ///
+                    `"vsref() must contain @ as a placeholder for the reference label, e.g. vsref("(vs. @)")"'
+                exit 198
             }
 
             **# Weighting expression (used only by center; pweight is mapped to
@@ -306,13 +316,23 @@ program define fvgen, rclass
             fvexpand `expandspec' if `touse'
             local terms `r(varlist)'
 
-            **# First pass: reject higher-order interactions
+            **# First pass: reject higher-order interactions; capture base levels
+            * The base level of each factor (the term flagged r(base)) is recorded
+            * in parallel name/level lists (not name-keyed macros, which overflow
+            * Stata's 31-char local-name limit for long variable names) so vsref()
+            * can append "(vs. <base label>)" to main-effect labels.
+            local _vsbasevars   ""
+            local _vsbaselevels ""
             foreach t of local terms {
                 _ms_parse_parts `t'
                 if "`r(type)'" == "interaction" & r(k_names) > 2 {
                     display as error ///
                         "fvgen supports up to 2-way interactions; '`t'' is higher-order"
                     exit 198
+                }
+                if `"`vsref'"' != "" & "`r(type)'" == "factor" & r(base) {
+                    local _vsbasevars   "`_vsbasevars' `r(name)'"
+                    local _vsbaselevels "`_vsbaselevels' `=r(level)'"
                 }
             }
 
@@ -322,6 +342,10 @@ program define fvgen, rclass
             * any supplied weight.
             if "`center'" != "" {
                 local contvars ""
+                * Parallel var/name lists map each centered original to its copy
+                * (name-keyed macros would overflow the 31-char local-name limit).
+                local cmapvars  ""
+                local cmapnames ""
                 foreach t of local terms {
                     _ms_parse_parts `t'
                     if "`r(type)'" == "variable" {
@@ -343,7 +367,8 @@ program define fvgen, rclass
                     _fvgen_setlabel `cname' `"`clab' (centered)"'
                     char `cname'[fvgen_role] "centered"
                     char `cname'[fvgen_term] "c.`cv'"
-                    local cmap_`cv' "`cname'"
+                    local cmapvars  "`cmapvars' `cv'"
+                    local cmapnames "`cmapnames' `cname'"
                     local genvars `genvars' `cname'
                 }
             }
@@ -361,7 +386,8 @@ program define fvgen, rclass
                     * Continuous main effect.
                     local v "`r(name)'"
                     if "`center'" != "" {
-                        local use "`cmap_`v''"
+                        local _ci : list posof "`v'" in cmapvars
+                        local use : word `_ci' of `cmapnames'
                         local mainvars `mainvars' `use'
                         local allvars  `allvars'  `use'
                     }
@@ -382,7 +408,18 @@ program define fvgen, rclass
                     _fvgen_newvar `newname' "`replace'"
                     quietly generate double `newname' = (`v' == `L') if !missing(`v')
                     _fvgen_partlabel `v' `L' "`xsymbol'"
-                    _fvgen_setlabel `newname' `"`r(label)'"'
+                    local _flab `"`r(label)'"'
+                    * vsref(): append the base level (skip the base row itself).
+                    if `"`vsref'"' != "" & !`base' {
+                        local _vsidx : list posof "`v'" in _vsbasevars
+                        if `_vsidx' {
+                            local _bl : word `_vsidx' of `_vsbaselevels'
+                            _fvgen_partlabel `v' `_bl' "`xsymbol'"
+                            local _vstxt : subinstr local vsref "@" `"`r(label)'"', all
+                            local _flab `"`_flab' `_vstxt'"'
+                        }
+                    }
+                    _fvgen_setlabel `newname' `"`_flab'"'
                     char `newname'[fvgen_role] "main"
                     char `newname'[fvgen_term] "`t'"
                     local mainvars `mainvars' `newname'
@@ -411,7 +448,11 @@ program define fvgen, rclass
                         local lab1 "`r(label)'"
                     }
                     else {
-                        local use1 = cond("`center'" != "", "`cmap_`n1''", "`n1'")
+                        if "`center'" != "" {
+                            local _ci : list posof "`n1'" in cmapvars
+                            local use1 : word `_ci' of `cmapnames'
+                        }
+                        else local use1 "`n1'"
                         local e1 "`use1'"
                         local m1 "`n1'"
                         local lab1 : variable label `n1'
@@ -425,7 +466,11 @@ program define fvgen, rclass
                         local lab2 "`r(label)'"
                     }
                     else {
-                        local use2 = cond("`center'" != "", "`cmap_`n2''", "`n2'")
+                        if "`center'" != "" {
+                            local _ci : list posof "`n2'" in cmapvars
+                            local use2 : word `_ci' of `cmapnames'
+                        }
+                        else local use2 "`n2'"
                         local e2 "`use2'"
                         local m2 "`n2'"
                         local lab2 : variable label `n2'

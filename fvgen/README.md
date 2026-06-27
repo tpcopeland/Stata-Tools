@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-**Version 1.0.0** | 2026-06-21
+**Version 1.1.0** | 2026-06-27
 
 Flatten factor-variable interactions into labeled main-effect and product variables for friendlier regression export.
 
@@ -27,7 +27,7 @@ net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/
 ## Syntax
 
 ```stata
-fvgen fvvarlist [if] [in] [weight] [, alllevels center ref(spec) simple(varname) prefix(name) replace xsymbol(string)]
+fvgen fvvarlist [if] [in] [weight] [, alllevels center ref(spec) simple(varname) vsref(string) prefix(name) replace xsymbol(string)]
 fvgen, drop
 ```
 
@@ -50,6 +50,7 @@ regress wage `r(allvars)'
 | **center** | off | Mean-center continuous terms (over the `if`/`in` sample) before they enter main effects and products. Keeps lower-order coefficients interpretable at the mean. When a `weight` is supplied the centering mean is weighted (`pweight` is treated as `aweight` for the mean). |
 | **ref(spec)** | lowest level | Set the reference (base) level per factor as variable/level pairs (commas optional), e.g. `ref(sex 2, race 3)`. A level may be an integer code or a value-label string in quotes, so `ref(foreign "Domestic")` works. Those levels are dropped and everything else is referenced to them. Equivalent to `ibN.` operators; does not alter `fvset` settings. |
 | **simple(varname)** | off | Report per-group slopes: each continuous term interacting with `varname` becomes one standalone slope *within* each level of `varname` (main + interaction combined), instead of a reference slope plus a difference. `varname` must be a factor interacting with a continuous term. |
+| **vsref(string)** | off | Append the reference (base) level to each categorical **main-effect** label. The argument is a template in which `@` is replaced by the base level's label: `vsref("(vs. @)")` gives `Foreign (vs. Domestic)`, `vsref("versus @")` gives `Foreign versus Domestic`. The template must contain `@`. Interaction and continuous-slope labels are unchanged; the reference shown honors `ref()`. |
 | **prefix(name)** | `_` | Prefix for generated variable names. Names exceeding Stata's 32-character limit raise an error. |
 | **replace** | off | Overwrite previously generated variables of the same name. |
 | **xsymbol(string)** | `×` | Symbol joining the two sides of an interaction label. Use `xsymbol(x)` for plain ASCII (`Female x Age`). A continuous self-interaction (`c.age##c.age`) is always labeled `Age²`. |
@@ -115,6 +116,18 @@ regress price `r(allvars)'
 ```
 
 Instead of a reference slope (`mpg`) plus a difference (`1.foreign#c.mpg`), this produces one standalone slope per group — `_foreignXmpg_0` labeled *Mileage (mpg) (Domestic)* and `_foreignXmpg_1` *Mileage (mpg) (Foreign)* — so the regression reports each group's mpg slope directly. The `foreign` indicators remain as group intercepts. Equivalent to the nested `i.foreign i.foreign#c.mpg` parameterization.
+
+### Example 7: Show the reference level in main-effect labels
+
+```stata
+sysuse auto, clear
+label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
+label values rep78 rl
+fvgen i.foreign##i.rep78, vsref("(vs. @)")
+regress price `r(allvars)'
+```
+
+The main-effect indicators now carry their reference: `_foreign_1` is labeled *Foreign (vs. Domestic)* and `_rep78_2` *Fair (vs. Poor)*, so an exported coefficient table states what each level is contrasted against. The template is free-form — `vsref("versus @")` yields *Foreign versus Domestic* — and `@` is replaced by the base label, which honors `ref()` (with `ref(rep78 3)`, `_rep78_1` becomes *Poor (vs. Avg)*). Interaction labels (`Foreign × Avg`) are left unchanged.
 
 ## Demo
 
@@ -244,11 +257,11 @@ With `drop`, `fvgen` instead returns `r(k_dropped)` (number of variables dropped
 The `qa/` directory holds the test suite, run with `stata-mp -b do run_all.do`
 (lanes: `quick`, `core`, `full`):
 
-- `test_fvgen.do` — 13 functional tests (surface, returns, naming, labels, options, missing, `if`/`in`, squared self-interaction, `ibn.` all-levels, weight-aware centering)
+- `test_fvgen.do` — 15 functional tests (surface, returns, naming, labels, options, missing, `if`/`in`, squared self-interaction, `ibn.` all-levels, weight-aware centering, `vsref()` reference labels, long-varname resolution)
 - `test_ref.do` — 6 tests (`ref()` per-factor reference levels, equivalence to native `ibN.`, by quoted value-label string)
 - `test_simple.do` — 5 tests (`simple()` per-group slopes, equivalence to native main+interaction, `simple()`+`center` combined)
 - `test_provenance.do` — 7 tests (provenance characteristics + strict `fvgen, drop` teardown)
-- `test_errors.do` — 10 tests (failure paths 198/110/2000, `ref()`/`simple()` errors, omit operator `o.`, `varabbrev` restoration)
+- `test_errors.do` — 11 tests (failure paths 198/110/2000, `ref()`/`simple()`/`vsref()` errors, omit operator `o.`, `varabbrev` restoration)
 - `validation_fvgen.do` — 5 validations (hand-computed values + exact equivalence to native `##`)
 - `test_package_release.do` — 4 tests (install smoke, autoload, documented examples)
 
@@ -260,6 +273,7 @@ See `qa/README.md` for the full coverage map and lane membership.
 
 ## Version
 
+- **Version 1.1.0** (27 June 2026): Add `vsref(string)` — append the reference (base) level to categorical main-effect labels via an `@`-placeholder template (e.g. `vsref("(vs. @)")` → *Foreign (vs. Domestic)*).
 - **Version 1.0.0** (21 June 2026): Initial release
 
 ## Author

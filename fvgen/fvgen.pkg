@@ -3,7 +3,7 @@ d 'fvgen': Flatten factor-variable interactions into labeled main and product va
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260621
+d Distribution-Date: 20260627
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

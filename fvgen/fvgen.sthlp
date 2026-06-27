@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  21jun2026}{...}
+{* *! version 1.1.0  27jun2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -48,6 +48,7 @@ Remove every variable a previous run generated:
 {synopt:{opt center}}mean-center continuous terms before forming products{p_end}
 {synopt:{opt ref(spec)}}set the reference (base) level per factor, e.g. {cmd:ref(sex 2, race 3)}{p_end}
 {synopt:{opt simp:le(varname)}}report per-group slopes within each level of {it:varname} (combine main + interaction){p_end}
+{synopt:{opt vsr:ef(string)}}append the reference (base) level to main-effect labels, e.g. {cmd:vsref("(vs. @)")}{p_end}
 {synopt:{opt pre:fix(name)}}prefix for generated variable names; default is {cmd:_}{p_end}
 {synopt:{opt replace}}overwrite generated variables that already exist{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
@@ -146,6 +147,18 @@ regression on the result reproduces the model fit and yields each group's slope
 directly. {it:varname} must be a factor that interacts with at least one
 continuous term; for categorical-by-categorical simple effects use
 {helpb margins} or {helpb contrast}.
+
+{phang}
+{opt vsref(string)} appends the reference (base) level to the label of each
+categorical {it:main-effect} indicator, so an exported coefficient table shows
+what each level is contrasted against. The argument is a template in which the
+{cmd:@} character is replaced by the base level's label: {cmd:vsref("(vs. @)")}
+labels the {cmd:foreign} indicator {cmd:Foreign (vs. Domestic)}, while
+{cmd:vsref("versus @")} yields {cmd:Foreign versus Domestic}. The template must
+contain {cmd:@}. The suffix is added to main-effect indicators only — interaction
+and continuous-slope labels are left unchanged, and under {opt alllevels} the
+base level's own indicator is not suffixed. The reference shown honors any
+{opt ref()} base.
 
 {phang}
 {opt prefix(name)} sets the prefix for generated variable names. The default is
@@ -252,6 +265,11 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {phang2}{stata "fvgen i.foreign##c.mpg, ref(foreign \"Domestic\") replace":. fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace}{p_end}
 {phang2}{stata "fvgen, drop":. fvgen, drop}{p_end}
 
+{pstd}
+{bf:Example 8: Show the reference level in main-effect labels}{p_end}
+{phang2}{stata "fvgen i.foreign##i.rep78, vsref(\"(vs. @)\") replace":. fvgen i.foreign##i.rep78, vsref("(vs. @)") replace}{p_end}
+{phang2}{stata "regress price `r(allvars)'":. regress price `r(allvars)'}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -287,7 +305,7 @@ With {opt drop}, {cmd:fvgen} instead stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-06-21{p_end}
+{pstd}Version 1.1.0, 2026-06-27{p_end}
 
 
 {title:Also see}
