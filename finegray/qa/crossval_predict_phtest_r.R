@@ -4,7 +4,16 @@
 # R-side cross-validation for finegray_predict (xb, cif, schoenfeld)
 # and finegray_phtest (PH test via Schoenfeld-time correlation)
 #
-# Usage: Rscript crossval_predict_phtest_r.R <input.csv> <output_dir>
+# Usage: Rscript crossval_predict_phtest_r.R <input.csv> <output_dir> [beta]
+#
+#   beta (optional): comma-separated coefficient vector, in the covariate
+#   column order of <input.csv>.  When supplied, the Schoenfeld residuals
+#   (and therefore the PH test) are computed at THESE coefficients instead of
+#   crr's own fitted beta.  This isolates the residual/risk-set algorithm from
+#   tiny optimizer-to-optimizer beta differences, which are otherwise amplified
+#   through exp(z'beta) on wide-range covariates (e.g. ifp in [0,76]) and inflate
+#   the chi2 comparison.  xb and cif outputs always use crr's own fitted beta,
+#   so the coefficient agreement is still cross-checked downstream.
 #
 # Input CSV columns: id, time, status, <covariates>
 #   status: 0=censored, 1=cause of interest, 2+=competing
@@ -26,6 +35,10 @@ if (length(args) < 2) {
 
 input_file <- args[1]
 output_dir <- args[2]
+beta_override <- NULL
+if (length(args) >= 3 && nzchar(args[3])) {
+    beta_override <- as.numeric(strsplit(args[3], ",")[[1]])
+}
 
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 cov_cols <- setdiff(names(df), c("id", "time", "status"))
@@ -103,7 +116,15 @@ compute_G <- function(time, status) {
 }
 
 G <- compute_G(df$time, df$status)
-beta <- fit$coef
+if (!is.null(beta_override)) {
+    if (length(beta_override) != p)
+        stop(sprintf("beta override length %d != p %d", length(beta_override), p))
+    beta <- beta_override
+    cat(sprintf("  Schoenfeld/PH computed at supplied beta: %s\n",
+                paste(sprintf("%.8f", beta), collapse = ", ")))
+} else {
+    beta <- fit$coef
+}
 expeta <- exp(as.vector(Z %*% beta))
 is_cause <- (df$status == 1)
 is_compete <- (df$status > 1)
