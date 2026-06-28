@@ -1055,19 +1055,20 @@ else {
     local failed_tests "`failed_tests' F5b"
 }
 
-* --- F6: samples(10) minimum ---
+* --- F6: samples(10) minimum + level() controls reported CI level ---
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog fit
-    msm_predict, times(1 3) samples(10) seed(99)
+    msm_predict, times(1 3) samples(10) seed(99) level(90)
     assert r(samples) == 10
+    assert r(level) == 90
 }
 if _rc == 0 {
-    display as result "  PASS F6: msm_predict samples(10)"
+    display as result "  PASS F6: msm_predict samples(10) + level(90)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL F6: msm_predict samples(10) (rc=`=_rc')"
+    display as error "  FAIL F6: msm_predict samples(10)/level(90) (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' F6"
 }
@@ -1299,12 +1300,12 @@ else {
     local failed_tests "`failed_tests' H1"
 }
 
-* --- H2: balance plot ---
+* --- H2: balance plot (with custom SMD threshold reference line) ---
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_plot, type(balance) covariates(biomarker comorbidity age sex) ///
-        saving("`tmp_dir'/plot_balance.gph") replace
+        threshold(0.15) saving("`tmp_dir'/plot_balance.gph") replace
     assert "`r(plot_type)'" == "balance"
 }
 if _rc == 0 {

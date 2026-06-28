@@ -163,6 +163,39 @@ else {
     local failed_tests "`failed_tests' WERG3"
 }
 
+* --- WERG4: r(preview) and r(treat_d_cov_source) report mode and resolution ---
+local ++test_count
+capture noisily {
+    * Preview mode with denominator derived from msm_prepare covariates
+    _mw_prepare_example
+    capture log close _all
+    tempfile werg4_stub
+    quietly log using "`werg4_stub'.log", text replace name(werg4)
+    msm_weight, treat_n_cov(age sex) preview
+    local prev_preview "`r(preview)'"
+    local prev_source "`r(treat_d_cov_source)'"
+    capture log close werg4
+
+    assert "`prev_preview'" == "1"
+    assert "`prev_source'" == "prepared"
+
+    * Real run with an explicit denominator specification
+    _mw_prepare_example
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    assert "`r(preview)'" == "0"
+    assert "`r(treat_d_cov_source)'" == "explicit"
+}
+if _rc == 0 {
+    display as result "  PASS WERG4: r(preview)/r(treat_d_cov_source) reflect mode and source"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL WERG4: preview/source return surface (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' WERG4"
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'

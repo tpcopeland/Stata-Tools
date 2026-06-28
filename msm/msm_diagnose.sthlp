@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.2.1  25jun2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_plot" "help msm_plot"}{...}

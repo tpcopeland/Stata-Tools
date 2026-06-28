@@ -70,8 +70,6 @@ program define _msm_clear_downstream_state
         foreach _msm_matrix in _msm_fit_b _msm_fit_V _msm_pred_matrix _msm_bal_matrix {
             capture matrix drop `_msm_matrix'
         }
-
-        tempname _msm_cleanup_complete
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

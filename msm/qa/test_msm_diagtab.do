@@ -341,6 +341,36 @@ else {
     local failed_tests "`failed_tests' T11"
 }
 
+* -------------------------------------------------------------------------
+* T12: formatting options (decimals, threshold, font, fontsize, footnote, open)
+* -------------------------------------------------------------------------
+local opt_xlsx "`work_dir'/diagtab_opts.xlsx"
+capture erase "`opt_xlsx'"
+local ++test_count
+capture noisily msm_diagtab, frame(wd) xlsx("`opt_xlsx'") decimals(2) ///
+    threshold(0.2) font("Calibri") fontsize(12) ///
+    footnote("Custom diagnostic note") open
+if _rc == 0 {
+    tempfile t12_status
+    capture noisily shell python3 "`checker'" "`opt_xlsx'" ///
+        --sheet "Weight Diagnostics" ///
+        --exact-rows 5 ///
+        --font Calibri ///
+        --number-format F3 "0.00" ///
+        --row-contains 5 "Custom diagnostic note" ///
+        --result-file "`t12_status'"
+    quietly _read_check_status "`t12_status'"
+}
+if "`r(status)'" == "PASS" {
+    display as result "  PASS T12: msm_diagtab formatting options applied"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T12: msm_diagtab formatting options"
+    local ++fail_count
+    local failed_tests "`failed_tests' T12"
+}
+
 display as text ""
 display as text "========================================"
 display as text "MSM_DIAGTAB QA SUMMARY"
@@ -358,5 +388,6 @@ capture erase "`reg_xlsx'"
 capture erase "`work_dir'/empty.xlsx"
 capture erase "`work_dir'/missing.xlsx"
 capture erase "`work_dir'/nclass.xlsx"
+capture erase "`opt_xlsx'"
 
 if `fail_count' > 0 exit 1
