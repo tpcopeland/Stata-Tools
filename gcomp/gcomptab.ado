@@ -1,4 +1,4 @@
-*! gcomptab Version 1.3.2  2026/06/25
+*! gcomptab Version 1.4.0  2026/06/28
 *! Format gcomp mediation or time-varying dose-response results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -174,6 +174,8 @@ capture noisily {
         noisily display as error "xlsx() and sheet() are required"
         exit 198
     }
+    * Validate optional Markdown/CSV companion-export paths (both modes)
+    _gcomptab_text_paths, markdown(`"`markdown'"') csv(`"`csv'"')
 
     * ----- Mode detection: dose-response (time-varying PO#) vs mediation -----
     local _drmode 0
@@ -196,7 +198,8 @@ capture noisily {
             font(`"`font'"') fontsize(`fontsize') borderstyle(`"`borderstyle'"') ///
             reference(`reference') `rd' strategylabels(`"`strategylabels'"') ///
             expyears(`expyears') `headershade' headercolor(`"`headercolor'"') ///
-            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') `open'
+            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') `open' ///
+            markdown(`"`markdown'"') csv(`"`csv'"')
         return add
     }
     else {
@@ -257,6 +260,14 @@ quietly {
         local label_width = r(label_width)
         local ci_width = r(ci_width)
 
+        * Companion Markdown/CSV exports (same cells as the Excel table)
+        if `"`markdown'"' != "" | `"`csv'"' != "" {
+            _gcomptab_text_export, colvars(effect_label estimate ci_95 se) ///
+                title(`"`title'"') markdown(`"`markdown'"') csv(`"`csv'"')
+            if `"`markdown'"' != "" noisily display as text "Markdown table written to `markdown'"
+            if `"`csv'"' != "" noisily display as text "CSV table written to `csv'"
+        }
+
         _gcomptab_write_excel, xlsx(`"`xlsx'"') sheet(`"`sheet'"')
 
         _gcomptab_style_excel, xlsx(`"`xlsx'"') sheet(`"`sheet'"') rows(`num_rows') ///
@@ -280,7 +291,7 @@ quietly {
 
     _gcomptab_post_returns, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         hascde(`has_cde') neffects(`N_effects') tce(`tce') nde(`nde') ///
-        nie(`nie') pm(`pm') cde(`cde')
+        nie(`nie') pm(`pm') cde(`cde') markdown(`"`markdown'"') csv(`"`csv'"')
     return add
 }
     }
@@ -760,7 +771,8 @@ capture program drop _gcomptab_post_returns
 program define _gcomptab_post_returns, rclass
     version 16.0
     syntax, XLSX(string) SHEET(string) CI(string) HASCDE(integer) ///
-        NEFFECTS(integer) TCE(real) NDE(real) NIE(real) PM(real) CDE(real)
+        NEFFECTS(integer) TCE(real) NDE(real) NIE(real) PM(real) CDE(real) ///
+        [MARKDown(string) CSV(string)]
 
     return scalar N_effects = `neffects'
     return scalar tce = `tce'
@@ -773,6 +785,101 @@ program define _gcomptab_post_returns, rclass
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
     return local ci "`ci'"
+    if `"`markdown'"' != "" return local markdown `"`markdown'"'
+    if `"`csv'"' != "" return local csv `"`csv'"'
+end
+
+* =============================================================================
+* Shared Markdown/CSV writer (mediation + dose-response modes)
+* =============================================================================
+* Operates on the in-memory export dataset already built for the Excel output,
+* so the text tables carry identical cells. Geometry assumed (both modes):
+*   row 2      = column headers
+*   rows 3.._N = table body
+* for the variables named in colvars(), left-to-right display order. The first
+* (pad/title) dataset column is excluded by the caller; title() supplies the
+* Markdown heading.
+capture program drop _gcomptab_text_export
+program define _gcomptab_text_export
+    version 16.0
+    syntax, COLVars(string) [MARKDown(string) CSV(string) TITLE(string)]
+
+    local _nc : word count `colvars'
+    if `_nc' == 0 exit 198
+
+    if `"`markdown'"' != "" {
+        tempname _fh
+        file open `_fh' using `"`markdown'"', write replace text
+        if `"`title'"' != "" file write `_fh' "### `title'" _n _n
+        local _hdr "|"
+        local _sep "|"
+        forvalues j = 1/`_nc' {
+            local _v : word `j' of `colvars'
+            local _cell = `_v'[2]
+            local _hdr `"`_hdr' `_cell' |"'
+            local _sep "`_sep' --- |"
+        }
+        file write `_fh' `"`_hdr'"' _n `"`_sep'"' _n
+        forvalues _r = 3/`=_N' {
+            local _line "|"
+            forvalues j = 1/`_nc' {
+                local _v : word `j' of `colvars'
+                local _cell = `_v'[`_r']
+                local _line `"`_line' `_cell' |"'
+            }
+            file write `_fh' `"`_line'"' _n
+        }
+        file close `_fh'
+    }
+
+    if `"`csv'"' != "" {
+        tempname _fc
+        file open `_fc' using `"`csv'"', write replace text
+        local _line ""
+        forvalues j = 1/`_nc' {
+            local _v : word `j' of `colvars'
+            local _cell = `_v'[2]
+            if `j' > 1 local _line `"`_line',"'
+            local _line `"`_line'"`_cell'""'
+        }
+        file write `_fc' `"`_line'"' _n
+        forvalues _r = 3/`=_N' {
+            local _line ""
+            forvalues j = 1/`_nc' {
+                local _v : word `j' of `colvars'
+                local _cell = `_v'[`_r']
+                if `j' > 1 local _line `"`_line',"'
+                local _line `"`_line'"`_cell'""'
+            }
+            file write `_fc' `"`_line'"' _n
+        }
+        file close `_fc'
+    }
+end
+
+* =============================================================================
+* Markdown/CSV path + extension validation (mediation + dose-response modes)
+* =============================================================================
+capture program drop _gcomptab_text_paths
+program define _gcomptab_text_paths
+    version 16.0
+    syntax, [MARKDown(string) CSV(string)]
+    if `"`markdown'"' != "" {
+        _gcomp_validate_path `"`markdown'"' "markdown()"
+        local _mdl = lower(`"`markdown'"')
+        if !(strmatch(`"`_mdl'"', "*.md") | strmatch(`"`_mdl'"', "*.markdown") | ///
+             strmatch(`"`_mdl'"', "*.qmd") | strmatch(`"`_mdl'"', "*.rmd")) {
+            noisily display as error "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
+            exit 198
+        }
+    }
+    if `"`csv'"' != "" {
+        _gcomp_validate_path `"`csv'"' "csv()"
+        if !strmatch(lower(`"`csv'"'), "*.csv") {
+            noisily display as error "csv() must specify a .csv file"
+            exit 198
+        }
+    }
 end
 
 * =============================================================================
@@ -786,7 +893,7 @@ program define _gcomptab_doseresponse, rclass
         FONTSize(integer) [CI(string) EFFECT(string) TITLE(string) Font(string) ///
         BORDERstyle(string) STRATEGYlabels(string) EXPYears(numlist) noRD ///
         HEADERShade HEADERColor(string) ZEBRA ZEBRAColor(string) ///
-        FOOTnote(string) OPEN]
+        FOOTnote(string) OPEN MARKDown(string) CSV(string)]
 
     _gcomptab_dr_validate, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         effect(`"`effect'"') decimal(`decimal') font(`"`font'"') ///
@@ -832,6 +939,18 @@ program define _gcomptab_doseresponse, rclass
             local footnote `"`_fn'"'
         }
 
+        * Companion Markdown/CSV exports (same cells as the Excel table)
+        if `"`markdown'"' != "" | `"`csv'"' != "" {
+            local _drcolvars "strat"
+            if `has_exp' local _drcolvars "`_drcolvars' expcol"
+            local _drcolvars "`_drcolvars' riskcol"
+            if `has_rd' local _drcolvars "`_drcolvars' rdcol"
+            _gcomptab_text_export, colvars(`_drcolvars') ///
+                title(`"`title'"') markdown(`"`markdown'"') csv(`"`csv'"')
+            if `"`markdown'"' != "" noisily display as text "Markdown table written to `markdown'"
+            if `"`csv'"' != "" noisily display as text "CSV table written to `csv'"
+        }
+
         _gcomptab_write_excel, xlsx(`"`xlsx'"') sheet(`"`sheet'"')
         _gcomptab_dr_style, xlsx(`"`xlsx'"') sheet(`"`sheet'"') rows(`num_rows') ///
             cols(`num_cols') stratwidth(`strat_width') riskwidth(`risk_width') ///
@@ -854,6 +973,8 @@ program define _gcomptab_doseresponse, rclass
     return local sheet "`sheet'"
     return local ci "`ci'"
     return local ref_label `"`ref_label'"'
+    if `"`markdown'"' != "" return local markdown `"`markdown'"'
+    if `"`csv'"' != "" return local csv `"`csv'"'
     return matrix table = `_drtab'
 end
 

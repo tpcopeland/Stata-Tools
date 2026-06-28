@@ -1,5 +1,6 @@
 {smcl}
-{* *! version 1.3.2  25jun2026}{...}
+{* gcomptab is a secondary command of the gcomp package; the package version}{...}
+{* is recorded only in the flagship gcomp.sthlp.}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -40,6 +41,10 @@ implied exposure-years, and risk differences versus a reference strategy).
 {synopt:{opt xlsx(filename)}}output Excel filename (must end with {cmd:.xlsx}){p_end}
 {synopt:{opt sheet(string)}}target sheet name{p_end}
 
+{syntab:Companion text exports (all modes)}
+{synopt:{opt markd:own(filename)}}also write the table to a Markdown file ({cmd:.md}/{cmd:.markdown}/{cmd:.qmd}/{cmd:.rmd}){p_end}
+{synopt:{opt csv(filename)}}also write the table to a CSV file ({cmd:.csv}){p_end}
+
 {syntab:Content}
 {synopt:{opt ci(string)}}CI type: {cmd:normal} (default), {cmd:percentile}, {cmd:bc}, or {cmd:bca}{p_end}
 {synopt:{opt effect(string)}}header label for estimate column; default is {cmd:"Estimate"}{p_end}
@@ -76,9 +81,7 @@ implied exposure-years, and risk differences versus a reference strategy).
 {synopt:{opt usemod:els(namelist)}}stored estimates to include; default {cmd:e(model_names)}{p_end}
 {synopt:{opt modell:abels(string)}}column header per model, backslash-separated{p_end}
 {synopt:{opt terml:abels(string)}}row (term) labels, backslash-separated{p_end}
-{synopt:{opt markd:own(filename)}}write the table to a Markdown file{p_end}
-{synopt:{opt csv(filename)}}write the table to a CSV file{p_end}
-{synopt:{opt disp:lay}}echo the table to the Results window{p_end}
+{synopt:{opt disp:lay}}echo the table to the Results window (models mode only){p_end}
 {synopt:{opt eform}}force exponentiation{p_end}
 {synopt:{opt noeform}}suppress exponentiation{p_end}
 {synopt:{opt raw}}report raw coefficients (alias of {opt noeform}){p_end}
@@ -127,6 +130,16 @@ Each row shows the point estimate, 95% confidence interval, and standard error.
 The table uses professional formatting: adjustable fonts, border styles,
 optional zebra striping, footnotes, and conditional emphasis (bold or
 highlight) for statistically significant effects.
+
+{pstd}
+{bf:Companion text exports.} In both mediation and dose-response mode,
+{opt markdown(filename)} and {opt csv(filename)} write the same table to a
+Markdown ({cmd:.md}/{cmd:.markdown}/{cmd:.qmd}/{cmd:.rmd}) and/or CSV ({cmd:.csv})
+file alongside the Excel workbook — convenient for README inclusion or
+machine-readable downstream use. The cells are identical to the Excel table; the
+{opt title()} becomes a level-3 Markdown heading. {opt xlsx()} and {opt sheet()}
+remain required (the Excel table is always written); the text files are written
+in addition. {cmd:r(markdown)} and {cmd:r(csv)} report the paths written.
 
 {pstd}
 {bf:Mediation prerequisites.} Run {cmd:gcomp} with {opt mediation} before
@@ -333,9 +346,11 @@ by term name.
 {opt stats(string)} adds a per-model footer; {cmd:n} (sample size) is supported.
 
 {phang}
-{opt markdown(filename)} and {opt csv(filename)} write the table to Markdown and
-CSV files; {opt display} echoes it to the Results window. These may be combined
-with {opt xlsx()}. The {opt title()}, {opt footnote()}, {opt font()},
+{opt markdown(filename)} and {opt csv(filename)} (shared with the mediation and
+dose-response modes) write the table to Markdown and CSV files; in models mode
+{opt display} also echoes it to the Results window, and any one of
+{opt xlsx()}/{opt markdown()}/{opt csv()}/{opt display} is sufficient (xlsx is
+not required). The {opt title()}, {opt footnote()}, {opt font()},
 {opt fontsize()}, {opt borderstyle()}, {opt zebra}, {opt headershade},
 {opt boldp()}, {opt highlight()}, and {opt open} options apply to the xlsx output
 as in the other modes.
@@ -358,7 +373,8 @@ The typical workflow is:
 
 {phang2}1. Fit the mediation model with {cmd:gcomp} (see {helpb gcomp}).{p_end}
 {phang2}2. Run {cmd:gcomptab} immediately after to export results.{p_end}
-{phang2}3. Optionally run {cmd:gcomptab} again with a different {opt ci()} or {opt sheet()} to create multiple tables in the same workbook.{p_end}
+{phang2}3. Optionally run {cmd:gcomptab} again with a different {opt ci()} or
+{opt sheet()} to create multiple tables in the same workbook.{p_end}
 
 {pstd}
 {bf:Multiple tables in one workbook}
@@ -500,7 +516,8 @@ a multi-model coefficient table to Excel and Markdown:
 The Excel table has the following structure:
 
 {p 8 12 2}{bf:Row 1}: Title (if specified), merged across the table width, bold, fontsize+2.{p_end}
-{p 8 12 2}{bf:Row 2}: Column headers — Effect | Estimate | 95% CI | SE — bold, centered, and optionally shaded with {opt headershade}.{p_end}
+{p 8 12 2}{bf:Row 2}: Column headers — Effect | Estimate | 95% CI | SE — bold,
+centered, and optionally shaded with {opt headershade}.{p_end}
 {p 8 12 2}{bf:Rows 3-6}: Data rows for TCE, NDE, NIE, and PM.{p_end}
 {p 8 12 2}{bf:Row 7}: CDE data row (only when the fitted model included {opt control()}).{p_end}
 {p 8 12 2}{bf:Next row}: Footnote (if specified), merged across the table width, italic, smaller font.{p_end}
@@ -538,6 +555,8 @@ Formatting details:
 {synopt:{cmd:r(xlsx)}}Excel filename used{p_end}
 {synopt:{cmd:r(sheet)}}sheet name used{p_end}
 {synopt:{cmd:r(ci)}}CI type displayed{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename written (only with {opt markdown()}){p_end}
+{synopt:{cmd:r(csv)}}CSV filename written (only with {opt csv()}){p_end}
 
 {pstd}
 In {bf:dose-response} mode {cmd:gcomptab} stores instead:
@@ -552,6 +571,8 @@ In {bf:dose-response} mode {cmd:gcomptab} stores instead:
 {synopt:{cmd:r(sheet)}}sheet name used{p_end}
 {synopt:{cmd:r(ci)}}CI type displayed{p_end}
 {synopt:{cmd:r(ref_label)}}label of the reference strategy{p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename written (only with {opt markdown()}){p_end}
+{synopt:{cmd:r(csv)}}CSV filename written (only with {opt csv()}){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}{it:k} x 5 matrix (rows {cmd:PO1..POk}; columns {cmd:risk}, {cmd:ci_lower}, {cmd:ci_upper}, {cmd:exp_years}, {cmd:rd}){p_end}
@@ -580,8 +601,6 @@ In {bf:models} mode {cmd:gcomptab} stores instead:
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-
-{pstd}Version 1.3.2, 2026-06-25{p_end}
 
 
 {marker seealso}{...}

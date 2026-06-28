@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.2  25jun2026}{...}
+{* *! version 1.4.0  28jun2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -443,7 +443,11 @@ simulates the full joint distribution under interventions.
 
 {phang}
 {opt boceam} specifies BOCE-AM (baseline odds conditional on exposure and all
-mediators) estimation, which is designed for settings with multiple mediators.
+mediators) estimation. It is combined with a base mediation type ({opt obe},
+{opt oce}, {opt linexp}, or {opt baseline()}). The current implementation
+supports a {bf:single} mediator; specifying {opt boceam} with more than one
+{opt mediator()} exits with an error (joint multi-mediator BOCE-AM is not yet
+implemented).
 
 {phang}
 {opt logOR} reports mediation results on the {bf:log odds ratio} scale instead
@@ -915,7 +919,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.2, 2026-06-25{p_end}
+{pstd}Version 1.4.0, 2026-06-28{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

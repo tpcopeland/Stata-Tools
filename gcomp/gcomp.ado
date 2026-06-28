@@ -1,4 +1,4 @@
-*! gcomp Version 1.3.2  2026/06/25
+*! gcomp Version 1.4.0  2026/06/28
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -416,6 +416,14 @@ if "`mediation'"!="" & "`mediator'"=="" {
 if "`mediation'"!="" & "`baseline'"=="" & "`obe'"=="" & "`oce'"=="" & "`linexp'"=="" {
 	noi di as err "Error: With the mediation option, either baseline(), obe, oce or linexp must be specified."
 	exit 198
+}
+if "`boceam'"!="" {
+	local _nmed: word count `mediator'
+	if `_nmed' > 1 {
+		noi di as err "Error: boceam (BOCE-AM) currently supports a single mediator; mediator() lists `_nmed'."
+		noi di as err "       Specify a single mediator, or combine the mediators into one variable."
+		exit 198
+	}
 }
 if "`obe'"!="" | "`oce'"!="" | "`linexp'"!="" | "`specific'"!="" {
 	local nexp: word count `exposure'

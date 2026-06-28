@@ -28,6 +28,12 @@ local stale4 : dir "`testdir'" files "_adv_gcomptab*.xlsx"
 foreach f of local stale4 {
     capture erase "`testdir'/`f'"
 }
+foreach _ext in xlsx md csv {
+    local stale5 : dir "`testdir'" files "_te_*.`_ext'"
+    foreach f of local stale5 {
+        capture erase "`testdir'/`f'"
+    }
+}
 
 foreach f in ///
     test_gcomp ///
@@ -39,6 +45,7 @@ foreach f in ///
     test_gcomp_imputation_mlogit ///
     test_gcomptab_regressions ///
     test_gcomptab_doseresponse ///
+    test_gcomptab_text_export ///
     test_models ///
     test_adversarial_gcomptab ///
     test_install_smoke ///

@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.3.2** | 2026-06-25
+**Version 1.4.0** | 2026-06-28
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -148,6 +148,7 @@ The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Compo
 |--------|------|
 | `xlsx(filename)` | Excel workbook to create or update |
 | `sheet(string)` | Sheet name to create or replace |
+| `markdown(filename)` / `csv(filename)` | Also write the same table to a Markdown (`.md`/`.markdown`/`.qmd`/`.rmd`) and/or CSV (`.csv`) file — works in mediation and dose-response modes too |
 | `ci(string)` | Confidence-interval type: `normal` (default), `percentile`, `bc`, `bca` |
 | `title(string)` | Table title written into cell A1 |
 | `labels(string)` | Override the default effect labels (backslash-separated) |
@@ -221,6 +222,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.4.0** (2026-06-28): **Markdown and CSV companion exports for mediation and dose-response tables.** Previously `gcomptab`'s `markdown()` and `csv()` options worked only in component-model (`models`) mode; in the default **mediation** and **dose-response** modes they were silently ignored (no file, no error). They now write the same table — identical cells to the Excel workbook — to a Markdown (`.md`/`.markdown`/`.qmd`/`.rmd`) and/or CSV (`.csv`) file alongside the `.xlsx`, matching the export surface of `tabtools regtab`/`effecttab`. Paths are validated for extension and shell-safety, a confirmation line is printed, and the written paths are returned in `r(markdown)`/`r(csv)`. Added `qa/test_gcomptab_text_export.do` (content + structure of both modes' Markdown/CSV, extension rejection, returns) and extended `qa/test_gcomptab_regressions.do` option coverage.
 - **1.3.2** (2026-06-25): **Fix `r(134)` "too many values" crash at moderate N.** gcomp's `commands()`/`equations()` validation used `tabulate` to count the distinct values of each modeled variable. On a **continuous** covariate modeled with `regress` (the normal case), `tabulate` errors with `r(134)` once the variable has too many distinct levels — which happens at roughly N ≥ 5000 subjects — crashing the whole command before estimation. The binary/non-binary check is now done with `count` (no enumeration of distinct values), so g-computation runs at any N. Added `qa/validation_gcomp_recovery.do`: a self-contained known-truth parameter-recovery suite (forward-simulated g-formula oracle, matching the existing Python benchmark) that also regression-tests this fix at N=10000.
 - **1.3.1** (2026-06-16): **Bug fixes for categorical (mlogit/ologit) models and a degenerate-intervention guard.**
   - **Imputation predict range.** `impute()` with `imp_cmd(mlogit)` or `imp_cmd(ologit)` in a time-varying model aborted with `r(198) "' invalid name"` due to a stray macro-quote in the predicted-probability `predict` varlist range. Categorical imputation now runs.
