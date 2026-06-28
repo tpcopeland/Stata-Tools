@@ -58,7 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--15-brightgreen) | Swedish registry tools for Charlson scoring, procedure-code matching, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--28-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW weights, and age-band intervals |
+| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--28-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW weights, and age-band intervals |
 
 ### Reporting & Visualization
 
@@ -71,7 +71,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | [raincloud](https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Raincloud plots combining density, raw points, and box summaries |
 | [spaghetti](https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Long-format longitudinal trajectory plots with optional group mean and CI overlays |
 | [tabtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) | ![version](https://img.shields.io/badge/version-1.8.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--25-brightgreen) | Excel-ready manuscript tables with optional eplot forest-plot companions for regression, treatment-effect, composite, and survival workflows (Stata 17+ for most commands) |
-| [tc_schemes](https://github.com/tpcopeland/Stata-Tools/tree/main/tc_schemes) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Manage bundled blindschemes and schemepack graph schemes from one command |
+| [tc_schemes](https://github.com/tpcopeland/Stata-Tools/tree/main/tc_schemes) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--28-brightgreen) | Manage 45 bundled graph schemes (blindschemes, schemepack, cleanplots, modern, originals) from one command |
 
 ## Example Data
 

@@ -1,0 +1,128 @@
+// ki_black scheme — part of tc_schemes //
+
+* Karolinska Institutet dark-plum background scheme for presentations.
+* Original scheme authored for the tc_schemes package.
+* KI plum family on a dark-plum background; KI designates dark plum as a background color.
+* Author: Timothy P Copeland, Karolinska Institutet
+* Built by overriding the StataCorp s2color base (self-contained: no dependency
+* on other bundled schemes), setting a KI dark-plum background and KI brand palette.
+* See "help scheme entries" for what each token controls.
+
+#include s2color
+
+* KI dark-plum background and dark-mode region/legend/axis tokens (over s2color)
+color background        "46 4 32"
+color plotregion        "46 4 32"
+color graphregion       "46 4 32"
+color box               "46 4 32"
+color textbox           "46 4 32"
+color mat_label_box     "46 4 32"
+color legend            "46 4 32"
+color clegend           "46 4 32"
+color heading           gs15
+color subheading        gs15
+color body              gs15
+color small_body        gs15
+color key_label         gs15
+color axis_title        gs15
+color tick_label        gs15
+color plabel            gs15
+color tick              gs12
+color minortick         gs12
+color grid              gs5
+color major_grid        gs5
+color minor_grid        gs5
+color axisline          gs12
+color tickline          gs12
+color matrix            gs13
+color refmarkline       gs15
+
+color p1                "236 170 200"
+color p1line            "236 170 200"
+color p1lineplot        "236 170 200"
+color p1bar             "236 170 200"
+color p1area            "236 170 200"
+color p1arealine        "236 170 200"
+color p1markline        "236 170 200"
+color p1pie             "236 170 200"
+
+color p2                "232 119 34"
+color p2line            "232 119 34"
+color p2lineplot        "232 119 34"
+color p2bar             "232 119 34"
+color p2area            "232 119 34"
+color p2arealine        "232 119 34"
+color p2markline        "232 119 34"
+color p2pie             "232 119 34"
+
+color p3                "120 200 220"
+color p3line            "120 200 220"
+color p3lineplot        "120 200 220"
+color p3bar             "120 200 220"
+color p3area            "120 200 220"
+color p3arealine        "120 200 220"
+color p3markline        "120 200 220"
+color p3pie             "120 200 220"
+
+color p4                "240 200 80"
+color p4line            "240 200 80"
+color p4lineplot        "240 200 80"
+color p4bar             "240 200 80"
+color p4area            "240 200 80"
+color p4arealine        "240 200 80"
+color p4markline        "240 200 80"
+color p4pie             "240 200 80"
+
+color p5                "150 210 150"
+color p5line            "150 210 150"
+color p5lineplot        "150 210 150"
+color p5bar             "150 210 150"
+color p5area            "150 210 150"
+color p5arealine        "150 210 150"
+color p5markline        "150 210 150"
+color p5pie             "150 210 150"
+
+color p6                "255 255 255"
+color p6line            "255 255 255"
+color p6lineplot        "255 255 255"
+color p6bar             "255 255 255"
+color p6area            "255 255 255"
+color p6arealine        "255 255 255"
+color p6markline        "255 255 255"
+color p6pie             "255 255 255"
+
+color p7                "214 96 137"
+color p7line            "214 96 137"
+color p7lineplot        "214 96 137"
+color p7bar             "214 96 137"
+color p7area            "214 96 137"
+color p7arealine        "214 96 137"
+color p7markline        "214 96 137"
+color p7pie             "214 96 137"
+
+color p8                "180 180 185"
+color p8line            "180 180 185"
+color p8lineplot        "180 180 185"
+color p8bar             "180 180 185"
+color p8area            "180 180 185"
+color p8arealine        "180 180 185"
+color p8markline        "180 180 185"
+color p8pie             "180 180 185"
+
+color p9                "130 210 200"
+color p9line            "130 210 200"
+color p9lineplot        "130 210 200"
+color p9bar             "130 210 200"
+color p9area            "130 210 200"
+color p9arealine        "130 210 200"
+color p9markline        "130 210 200"
+color p9pie             "130 210 200"
+
+color p10               "245 150 120"
+color p10line           "245 150 120"
+color p10lineplot       "245 150 120"
+color p10bar            "245 150 120"
+color p10area           "245 150 120"
+color p10arealine       "245 150 120"
+color p10markline       "245 150 120"
+color p10pie            "245 150 120"

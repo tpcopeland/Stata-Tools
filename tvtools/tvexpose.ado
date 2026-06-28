@@ -1,4 +1,4 @@
-*! tvexpose Version 1.1.0  2026/06/28
+*! tvexpose Version 1.2.0  2026/06/28
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1584,7 +1584,9 @@ program define tvexpose, rclass
 
             * Call Mata library for overlap detection and resolution
             * Creates: __overlaps_higher, __first_overlap_row, __adj_start, __adj_stop, __valid
-            _tvexpose_mata_overlaps id exp_start exp_stop priority_rank
+            * Invoked `noisily' so the engine's >100k-row progress line surfaces on
+            * a normal run yet stays suppressed under `quietly tvexpose'.
+            noisily _tvexpose_mata_overlaps id exp_start exp_stop priority_rank
             local n_overlaps = r(n_overlaps)
 
             if `n_overlaps' == 0 {
@@ -2487,70 +2489,30 @@ program define tvexpose, rclass
                 * Generate unit boundaries for each exposed period
                 * Strategy: Create multiple rows per period based on unit alignment
                 
-                if "`expand_unit'" == "weeks" {
-                    **#### Weekly expansion (7-day bins from exposure start)
-                    * Create unique period identifier before expansion
-                    quietly gen double __period_id = _n
-                    * Calculate number of weeks in period
-                    quietly gen double n_units = ceil((exp_stop - exp_start + 1) / 7)
-                    * Expand to one row per week
-                    quietly expand n_units
-                    quietly bysort id __period_id: gen double unit_seq = _n
-                    * Calculate unit boundaries using floor to ensure integer dates
-                    quietly gen double unit_start = floor(exp_start + (unit_seq - 1) * 7)
-                    quietly bysort id __period_id: gen double unit_stop = cond(unit_seq < n_units, floor(exp_start + unit_seq * 7) - 1, exp_stop)
-                    * Drop original period boundaries
-                    drop exp_start exp_stop __period_id
-                    rename (unit_start unit_stop) (exp_start exp_stop)
-                }
-                else if "`expand_unit'" == "months" {
-                    **#### Monthly expansion (fixed 30.4375-day bins from exposure start)
-                    * Create unique period identifier before expansion
-                    quietly gen double __period_id = _n
-                    * Calculate number of months in period (using average month length)
-                    quietly gen double n_units = ceil((exp_stop - exp_start + 1) / 30.4375)
-                    * Expand to one row per month
-                    quietly expand n_units
-                    quietly bysort id __period_id: gen double unit_seq = _n
-                    * Calculate unit boundaries using floor to ensure integer dates, no gaps
-                    quietly gen double unit_start = floor(exp_start + (unit_seq - 1) * 30.4375)
-                    quietly bysort id __period_id: gen double unit_stop = cond(unit_seq < n_units, floor(exp_start + unit_seq * 30.4375) - 1, exp_stop)
-                    * Drop original period boundaries
-                    drop exp_start exp_stop __period_id
-                    rename (unit_start unit_stop) (exp_start exp_stop)
-                }
-                else if "`expand_unit'" == "quarters" {
-                    **#### Quarterly expansion (fixed 91.3125-day bins from exposure start)
-                    * Create unique period identifier before expansion
-                    quietly gen double __period_id = _n
-                    * Calculate number of quarters in period (using average quarter length)
-                    quietly gen double n_units = ceil((exp_stop - exp_start + 1) / 91.3125)
-                    * Expand to one row per quarter
-                    quietly expand n_units
-                    quietly bysort id __period_id: gen double unit_seq = _n
-                    * Calculate unit boundaries using floor to ensure integer dates, no gaps
-                    quietly gen double unit_start = floor(exp_start + (unit_seq - 1) * 91.3125)
-                    quietly bysort id __period_id: gen double unit_stop = cond(unit_seq < n_units, floor(exp_start + unit_seq * 91.3125) - 1, exp_stop)
-                    * Drop original period boundaries
-                    drop exp_start exp_stop __period_id
-                    rename (unit_start unit_stop) (exp_start exp_stop)
-                }
-                else if "`expand_unit'" == "years" {
-                    **#### Yearly expansion (fixed 365.25-day bins from exposure start)
-                    * Create unique period identifier before expansion
-                    quietly gen double __period_id = _n
-                    * Calculate number of years in period (using average year length)
-                    quietly gen double n_units = ceil((exp_stop - exp_start + 1) / 365.25)
-                    * Expand to one row per year
-                    quietly expand n_units
-                    quietly bysort id __period_id: gen double unit_seq = _n
-                    * Calculate unit boundaries using floor to ensure integer dates, no gaps
-                    quietly gen double unit_start = floor(exp_start + (unit_seq - 1) * 365.25)
-                    quietly bysort id __period_id: gen double unit_stop = cond(unit_seq < n_units, floor(exp_start + unit_seq * 365.25) - 1, exp_stop)
-                    * Drop original period boundaries
-                    drop exp_start exp_stop __period_id
-                    rename (unit_start unit_stop) (exp_start exp_stop)
-                }
+                **#### Fixed-length unit bins from the exposure start
+                * weeks/months/quarters/years differ only by the average bin
+                * length in days; one Mata pass computes the unit boundaries for
+                * all four, bit-identically to the former per-unit blocks.
+                if "`expand_unit'" == "weeks"         local __ulen 7
+                else if "`expand_unit'" == "months"   local __ulen 30.4375
+                else if "`expand_unit'" == "quarters" local __ulen 91.3125
+                else if "`expand_unit'" == "years"    local __ulen 365.25
+
+                * One identifier per pre-expansion period
+                quietly gen double __period_id = _n
+                * Number of unit bins spanning the period
+                quietly gen double n_units = ceil((exp_stop - exp_start + 1) / `__ulen')
+                * Expand to one row per unit bin
+                quietly expand n_units
+                quietly bysort id __period_id: gen double unit_seq = _n
+                * Compute unit interval boundaries in Mata (floored to integer
+                * dates so bins abut with no gaps; final bin clipped to exp_stop)
+                quietly gen double unit_start = .
+                quietly gen double unit_stop = .
+                _tvexpose_expand_units exp_start exp_stop n_units unit_seq unit_start unit_stop, ulen(`__ulen')
+                * Drop original period boundaries
+                drop exp_start exp_stop __period_id
+                rename (unit_start unit_stop) (exp_start exp_stop)
                 
                 * Save expanded exposed periods
                 gen double __unitized = 1

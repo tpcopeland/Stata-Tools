@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  28jun2026}{...}
 {vieweralsosee "help scheme" "help scheme"}{...}
 {vieweralsosee "help set scheme" "help set_scheme"}{...}
 {vieweralsosee "help graph" "help graph"}{...}
@@ -8,6 +8,7 @@
 {viewerjumpto "Options" "tc_schemes##options"}{...}
 {viewerjumpto "Blindschemes" "tc_schemes##blindschemes"}{...}
 {viewerjumpto "Schemepack" "tc_schemes##schemepack"}{...}
+{viewerjumpto "More schemes" "tc_schemes##more"}{...}
 {viewerjumpto "Examples" "tc_schemes##examples"}{...}
 {viewerjumpto "Stored results" "tc_schemes##results"}{...}
 {viewerjumpto "Acknowledgments" "tc_schemes##acknowledgments"}{...}
@@ -28,7 +29,7 @@
 {synoptset 20 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt so:urce(string)}}filter schemes by source package; {it:all} (default), {it:blindschemes}, or {it:schemepack}{p_end}
+{synopt:{opt so:urce(string)}}filter schemes by source package; {it:all} (default), {it:blindschemes}, {it:schemepack}, {it:cleanplots}, {it:modern}, or {it:tc}{p_end}
 {synopt:{opt li:st}}display schemes as a simple list{p_end}
 {synopt:{opt de:tail}}show detailed information with descriptions{p_end}
 {synoptline}
@@ -38,8 +39,8 @@
 {title:Description}
 
 {pstd}
-{cmd:tc_schemes} is a consolidated package containing high-quality Stata graph schemes
-from two excellent sources:
+{cmd:tc_schemes} is a consolidated package containing 45 high-quality Stata graph
+schemes from several sources:
 
 {p 8 12 2}
 1. {bf:blindschemes} by Daniel Bischof - Clean, publication-ready schemes with
@@ -48,6 +49,15 @@ colorblind-friendly palettes, plus fixes from Mead Over's blindschemes_fix.
 {p 8 12 2}
 2. {bf:schemepack} by Asjad Naqvi - A comprehensive collection of 35+ schemes
 organized by background style (white, black, ggplot2-style) and color palette.
+
+{p 8 12 2}
+3. {bf:cleanplots} by Trenton Mize and {bf:scheme-modern} by Michael Droste -
+publication and matplotlib-inspired schemes, bundled here with attribution
+(see {help tc_schemes##acknowledgments:Acknowledgments}).
+
+{p 8 12 2}
+4. {bf:Original tc_schemes schemes} - {cmd:rdbu} (red-blue diverging) and
+{cmd:ki}/{cmd:ki_black} (Karolinska Institutet branded), authored for this package.
 
 {pstd}
 This package solves the common issue where {cmd:capture which schemepack} fails
@@ -66,7 +76,9 @@ available schemes. Use {opt detail} for complete descriptions.
 {phang}
 {opt source(string)} filters the displayed schemes by their original package.
 Specify {it:blindschemes} to show only Bischof's schemes, {it:schemepack} for
-Naqvi's schemes, or {it:all} (the default) for everything.
+Naqvi's schemes, {it:cleanplots} for Mize's scheme, {it:modern} for Droste's
+schemes, {it:tc} for the original schemes authored for this package
+(rdbu, ki, ki_black), or {it:all} (the default) for everything.
 
 {phang}
 {opt list} displays all scheme names as a simple list, suitable for programmatic
@@ -182,6 +194,42 @@ Web 3D inspired vibrant colors. High contrast for digital presentations.{p_end}
 {p2colreset}{...}
 
 
+{marker more}{...}
+{title:More schemes}
+
+{pstd}
+{bf:cleanplots} (Trenton D. Mize) and {bf:modern}/{bf:modern_dark} (Michael Droste)
+are bundled here with attribution. Their original authors retain all rights; the
+files are redistributed unmodified as a convenience. See
+{help tc_schemes##acknowledgments:Acknowledgments}.
+
+{p2colset 5 18 20 2}{...}
+{p2col:{bf:Scheme}}{bf:Description}{p_end}
+{p2line}
+{p2col:{cmd:cleanplots}}Publication scheme built on data-visualization
+best-practice defaults. Colors are chosen to stay distinguishable both in color
+and in black-and-white print.{p_end}
+{p2col:{cmd:modern}}matplotlib-inspired modern defaults.{p_end}
+{p2col:{cmd:modern_dark}}{cmd:modern} variant with darker gridline and axis
+accents.{p_end}
+{p2colreset}{...}
+
+{pstd}
+{bf:Original tc_schemes schemes} (Timothy P Copeland) - authored for this package:
+
+{p2colset 5 18 20 2}{...}
+{p2col:{bf:Scheme}}{bf:Description}{p_end}
+{p2line}
+{p2col:{cmd:rdbu}}Red-blue diverging palette based on ColorBrewer RdBu. Warm and
+cool colors alternate so a two-group comparison reads red versus blue at a glance.
+Good for signed contrasts and treated-versus-control plots.{p_end}
+{p2col:{cmd:ki}}Karolinska Institutet branded palette led by KI plum (RGB 135 0 82)
+on a white background.{p_end}
+{p2col:{cmd:ki_black}}KI brand palette on a dark-plum background, intended for
+slides and presentations.{p_end}
+{p2colreset}{...}
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -263,9 +311,25 @@ science and design principles to Stata graphics. His "Stata Guide" blog on Mediu
 provides extensive documentation and visualization tutorials.
 
 {pstd}
+{bf:Trenton D. Mize} (Purdue University) created {it:cleanplots}, a publication
+scheme whose colors remain distinguishable in both color and grayscale. The
+{cmd:cleanplots} file is bundled here unmodified with attribution.
+
+{pstd}
+{bf:Michael Droste} created {it:scheme-modern}, matplotlib-inspired schemes for
+better default Stata plots. The {cmd:modern} and {cmd:modern_dark} files are
+bundled here unmodified with attribution.
+
+{pstd}
+The {cmd:rdbu} colors are based on ColorBrewer (Cynthia Brewer, colorbrewer2.org).
+The {cmd:ki}/{cmd:ki_black} schemes use Karolinska Institutet brand colors.
+
+{pstd}
 All original licenses and attributions are preserved. This consolidation is
 provided under MIT license for the wrapper code only; individual scheme files
-retain their original licensing.
+retain their original licensing and terms. The {cmd:cleanplots} and {cmd:modern}
+schemes are redistributed as a convenience and remain the property of their
+respective authors.
 
 
 {marker author}{...}

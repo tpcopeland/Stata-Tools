@@ -950,20 +950,22 @@ else {
     local ++fail_count
 }
 
-* E.mrg.6: batch() out of range (exit 198)
+* E.mrg.6: batch() is deprecated and ignored (no-op, accepted, never errors).
+* The Mata interval engine replaced the old batched joinby, so any batch() value
+* -- including the formerly-illegal batch(0) -- is now silently accepted.
 local ++test_count
 capture {
     capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) batch(0)
-    assert _rc == 198
+    assert _rc == 0
 }
 if _rc == 0 {
-    display as result "  PASS: tvmerge error - batch(0) out of range"
+    display as result "  PASS: tvmerge batch(0) accepted as deprecated no-op"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tvmerge error - batch(0) out of range (error `=_rc')"
+    display as error "  FAIL: tvmerge batch(0) deprecated no-op (error `=_rc')"
     local ++fail_count
 }
 

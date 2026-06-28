@@ -69,7 +69,7 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopt:{opt force}}allow merging datasets with non-matching IDs (issues warning){p_end}
 
 {syntab:Performance}
-{synopt:{opt batch(#)}}process IDs in batches (default: 20 = 20% per batch; range: 1-100){p_end}
+{synopt:{opt batch(#)}}deprecated and ignored (no-op; the Mata merge engine no longer batches){p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -237,28 +237,12 @@ covers a subset of a cohort.
 {dlgtab:Performance}
 
 {phang}
-{opt batch(#)} controls how many IDs are processed together in each batch during the merge operation. The value represents the percentage of total unique IDs to process per batch (range: 1-100, default: 20).
-
-{pmore}
-Batch processing significantly improves performance for datasets with many unique IDs by reducing disk I/O operations. Instead of processing one ID at a time (which requires loading the entire dataset for each ID), the command processes groups of IDs together.
-
-{pmore}
-{bf:Choosing a batch size:}
-
-{pmore2}
-{bf:Larger batches} (e.g., {cmd:batch(50)} = 50%): Faster but uses more memory. Recommended for datasets with moderate numbers of IDs (< 10,000) and when you have sufficient RAM.
-
-{pmore2}
-{bf:Smaller batches} (e.g., {cmd:batch(10)} = 10%): Slower but uses less memory. Recommended for very large datasets (> 50,000 IDs) or when memory is limited.
-
-{pmore2}
-{bf:Default} ({cmd:batch(20)} = 20%): Good balance for most use cases. A dataset with 10,000 IDs will be processed in 5 batches of 2,000 IDs each.
-
-{pmore}
-{bf:Performance impact:} For a dataset with 10,000 unique IDs, batch processing reduces I/O operations from 10,000 (one-at-a-time) to 5 (with default batch(20)), resulting in 10-50x faster execution depending on dataset complexity.
-
-{pmore}
-The batch option works transparently with all other options and produces identical results to one-at-a-time processing. Progress messages display batch status during execution.
+{opt batch(#)} is {bf:deprecated and ignored}. It is still accepted so that
+existing scripts do not break, but it has no effect: the interval intersection
+is now performed by a compiled Mata sweep that emits only the overlapping
+interval pairs directly, so it never materializes the within-person Cartesian
+product and no longer needs batched disk I/O. Passing {opt batch(#)} prints a
+one-time note and is otherwise a no-op.
 
 
 {marker remarks}{...}
@@ -304,13 +288,19 @@ variables are renamed according to {opt generate()}, {opt prefix()}, or default 
 {bf:Performance considerations}
 
 {pstd}
-Cartesian merges with multiple datasets can produce very large output datasets, especially when individuals have many overlapping exposure periods. The command uses batch processing to optimize performance: instead of processing one ID at a time, it processes groups of IDs together, dramatically reducing disk I/O operations.
+Merging multiple datasets can produce large output, especially when individuals
+have many overlapping exposure periods. The interval intersection runs in a
+compiled Mata sweep that, within each person, emits only the overlapping
+interval pairs through a binary search. It never builds the full within-person
+Cartesian product before filtering, so it is substantially faster and lighter on
+memory than the {help joinby} approach for registry-scale data. No tuning is
+required; the older {opt batch(#)} option is deprecated and ignored.
 
 {pstd}
-The default {cmd:batch(20)} setting processes 20% of unique IDs per batch, providing good performance for most datasets. For large datasets with tens of thousands of unique IDs, you can adjust the batch size using the {opt batch(#)} option. Larger batch sizes are faster but use more memory; smaller batch sizes use less memory but are slower. See the {opt batch(#)} option documentation for details.
-
-{pstd}
-Execution time varies from seconds for small datasets to several minutes for very large datasets with complex exposure patterns. Progress messages indicate batch processing status during execution.
+Execution time varies from seconds for small datasets to under a minute for very
+large datasets with complex exposure patterns. On very large merges (more than
+100,000 master rows) a one-line matching-progress indicator is shown unless the
+command is run quietly.
 
 
 {marker examples}{...}
@@ -579,28 +569,21 @@ This creates variables: drug_class (categorical) and ddd_rate (rate per day, pro
 
 
 {pstd}
-{bf:Example 11: Performance optimization with batch processing}
+{bf:Example 11: Large datasets}
 
 {pstd}
-For large datasets with many unique IDs, use the batch() option:
+No performance tuning is needed for large datasets. The compiled Mata sweep
+intersects intervals per person without building the Cartesian product, so the
+same call scales to registry-sized inputs:
 
-{phang2}{cmd:. * Default batch processing (20% per batch)}{p_end}
 {phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class benzo)}{p_end}
 
-{phang2}{cmd:. * Larger batches for faster processing (50% per batch)}{p_end}
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo) batch(50)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) batch(50)}{p_end}
-
-{phang2}{cmd:. * Smaller batches for memory-constrained systems (10% per batch)}{p_end}
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo) batch(10)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) batch(10)}{p_end}
-
 {pstd}
-Progress messages show batch processing status. For a dataset with 10,000 unique IDs: batch(20) processes 5 batches of 2,000 IDs each; batch(50) processes 2 batches of 5,000 IDs each.
+On very large merges a one-line matching-progress indicator is shown (unless the
+command is run quietly). The former {opt batch(#)} option is deprecated and
+ignored.
 
 
 {marker results}{...}

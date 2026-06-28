@@ -66,21 +66,27 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* Test 3: Total count invariant: all == blindschemes + schemepack
+* Test 3: Total count invariant: all == sum of every source family
 local ++test_count
-display as text _n "Test `test_count': all == blindschemes + schemepack"
+display as text _n "Test `test_count': all == blindschemes + schemepack + cleanplots + modern + tc"
 
 capture noisily {
     tc_schemes, source(blindschemes)
     local n_blind = r(n_schemes)
     tc_schemes, source(schemepack)
     local n_pack = r(n_schemes)
+    tc_schemes, source(cleanplots)
+    local n_clean = r(n_schemes)
+    tc_schemes, source(modern)
+    local n_modern = r(n_schemes)
+    tc_schemes, source(tc)
+    local n_tc = r(n_schemes)
     tc_schemes
     local n_all = r(n_schemes)
-    assert `n_all' == `n_blind' + `n_pack'
+    assert `n_all' == `n_blind' + `n_pack' + `n_clean' + `n_modern' + `n_tc'
 }
 if _rc == 0 {
-    display as result "  PASS (`n_all' == `n_blind' + `n_pack')"
+    display as result "  PASS (`n_all' == `n_blind' + `n_pack' + `n_clean' + `n_modern' + `n_tc')"
     local ++pass_count
 }
 else {
@@ -160,18 +166,24 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* Test 7: all r(schemes) is blindschemes + schemepack concatenated
+* Test 7: all r(schemes) is every source family concatenated in catalog order
 local ++test_count
-display as text _n "Test `test_count': all r(schemes) == blind + pack concatenated"
+display as text _n "Test `test_count': all r(schemes) == blind + pack + cleanplots + modern + tc"
 
 capture noisily {
     tc_schemes, source(blindschemes)
     local blind_schemes "`r(schemes)'"
     tc_schemes, source(schemepack)
     local pack_schemes "`r(schemes)'"
+    tc_schemes, source(cleanplots)
+    local clean_schemes "`r(schemes)'"
+    tc_schemes, source(modern)
+    local modern_schemes "`r(schemes)'"
+    tc_schemes, source(tc)
+    local tc_schemes_list "`r(schemes)'"
     tc_schemes
     local all_schemes "`r(schemes)'"
-    assert "`all_schemes'" == "`blind_schemes' `pack_schemes'"
+    assert "`all_schemes'" == "`blind_schemes' `pack_schemes' `clean_schemes' `modern_schemes' `tc_schemes_list'"
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -315,7 +327,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS (all 39 verified)"
+    display as result "  PASS (all 45 verified)"
     local ++pass_count
 }
 else {
@@ -408,6 +420,8 @@ else {
     display as text "Failed:       `fail_count'"
 }
 display as text "{hline 70}"
+
+display "RESULT: validation_tc_schemes tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED."

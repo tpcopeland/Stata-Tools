@@ -112,5 +112,20 @@ foreach s in neon swift_red {
     capture graph close _all
 }
 
+**# Borrowed schemes (bundled with attribution) and tc_schemes originals
+* cleanplots (Mize), modern/modern_dark (Droste), rdbu + ki + ki_black (originals)
+
+foreach s in cleanplots modern modern_dark rdbu ki ki_black {
+    twoway (scatter price mpg if foreign == 0, mcolor(%60)) ///
+           (scatter price mpg if foreign == 1, mcolor(%60)) ///
+           (lfit price mpg if foreign == 0) ///
+           (lfit price mpg if foreign == 1), ///
+        legend(order(1 "Domestic" 2 "Foreign") pos(6) rows(1)) ///
+        title("Price vs. Mileage") subtitle("scheme: `s'") ///
+        scheme(`s')
+    graph export "`pkg_dir'/scheme_`s'.png", replace width(1200)
+    capture graph close _all
+}
+
 **# Cleanup
 clear

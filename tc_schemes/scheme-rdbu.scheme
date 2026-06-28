@@ -1,0 +1,113 @@
+// rdbu scheme — part of tc_schemes //
+
+* Red-blue diverging palette based on ColorBrewer RdBu (Brewer/Harrower).
+* Original scheme authored for the tc_schemes package.
+* Palette: ColorBrewer 2.0 RdBu diverging ramp (colorbrewer2.org), CC-BY.
+* Author: Timothy P Copeland, Karolinska Institutet
+* Built by overriding the StataCorp s2color base palette.
+* See "help scheme entries" for what each token controls.
+
+#include s2color
+
+color background        white
+color plotregion        white
+color graphregion       white
+
+color p1                "178 24 43"
+color p1line            "178 24 43"
+color p1lineplot        "178 24 43"
+color p1bar             "178 24 43"
+color p1area            "178 24 43"
+color p1arealine        "178 24 43"
+color p1markline        "178 24 43"
+color p1pie             "178 24 43"
+
+color p2                "33 102 172"
+color p2line            "33 102 172"
+color p2lineplot        "33 102 172"
+color p2bar             "33 102 172"
+color p2area            "33 102 172"
+color p2arealine        "33 102 172"
+color p2markline        "33 102 172"
+color p2pie             "33 102 172"
+
+color p3                "214 96 77"
+color p3line            "214 96 77"
+color p3lineplot        "214 96 77"
+color p3bar             "214 96 77"
+color p3area            "214 96 77"
+color p3arealine        "214 96 77"
+color p3markline        "214 96 77"
+color p3pie             "214 96 77"
+
+color p4                "67 147 195"
+color p4line            "67 147 195"
+color p4lineplot        "67 147 195"
+color p4bar             "67 147 195"
+color p4area            "67 147 195"
+color p4arealine        "67 147 195"
+color p4markline        "67 147 195"
+color p4pie             "67 147 195"
+
+color p5                "244 165 130"
+color p5line            "244 165 130"
+color p5lineplot        "244 165 130"
+color p5bar             "244 165 130"
+color p5area            "244 165 130"
+color p5arealine        "244 165 130"
+color p5markline        "244 165 130"
+color p5pie             "244 165 130"
+
+color p6                "146 197 222"
+color p6line            "146 197 222"
+color p6lineplot        "146 197 222"
+color p6bar             "146 197 222"
+color p6area            "146 197 222"
+color p6arealine        "146 197 222"
+color p6markline        "146 197 222"
+color p6pie             "146 197 222"
+
+color p7                "103 0 31"
+color p7line            "103 0 31"
+color p7lineplot        "103 0 31"
+color p7bar             "103 0 31"
+color p7area            "103 0 31"
+color p7arealine        "103 0 31"
+color p7markline        "103 0 31"
+color p7pie             "103 0 31"
+
+color p8                "5 48 97"
+color p8line            "5 48 97"
+color p8lineplot        "5 48 97"
+color p8bar             "5 48 97"
+color p8area            "5 48 97"
+color p8arealine        "5 48 97"
+color p8markline        "5 48 97"
+color p8pie             "5 48 97"
+
+color p9                "239 138 98"
+color p9line            "239 138 98"
+color p9lineplot        "239 138 98"
+color p9bar             "239 138 98"
+color p9area            "239 138 98"
+color p9arealine        "239 138 98"
+color p9markline        "239 138 98"
+color p9pie             "239 138 98"
+
+color p10               "103 169 207"
+color p10line           "103 169 207"
+color p10lineplot       "103 169 207"
+color p10bar            "103 169 207"
+color p10area           "103 169 207"
+color p10arealine       "103 169 207"
+color p10markline       "103 169 207"
+color p10pie            "103 169 207"
+
+color p11               "153 0 13"
+color p11line           "153 0 13"
+color p11lineplot       "153 0 13"
+color p11bar            "153 0 13"
+color p11area           "153 0 13"
+color p11arealine       "153 0 13"
+color p11markline       "153 0 13"
+color p11pie            "153 0 13"

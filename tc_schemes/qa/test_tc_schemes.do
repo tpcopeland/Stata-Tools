@@ -39,8 +39,8 @@ capture noisily {
     tc_schemes
     assert r(n_schemes) > 0
     assert "`r(schemes)'" != ""
-    assert "`r(sources)'" == "blindschemes schemepack"
-    assert "`r(version)'" == "1.0.0"
+    assert "`r(sources)'" == "blindschemes schemepack cleanplots modern tc"
+    assert "`r(version)'" == "1.1.0"
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -90,13 +90,102 @@ else {
     local failed_tests "`failed_tests' `test_count'"
 }
 
-* Test 4: Total scheme count is 39 (4 + 35)
+* Test 4: Total scheme count is 45 (4 + 35 + 6)
 local ++test_count
-display as text _n "Test `test_count': Total scheme count is 39"
+display as text _n "Test `test_count': Total scheme count is 45"
 
 capture noisily {
     tc_schemes
-    assert r(n_schemes) == 39
+    assert r(n_schemes) == 45
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 4b: source(cleanplots) returns 1 scheme (borrowed, Mize)
+local ++test_count
+display as text _n "Test `test_count': source(cleanplots) returns 1 scheme"
+
+capture noisily {
+    tc_schemes, source(cleanplots)
+    assert r(n_schemes) == 1
+    assert "`r(schemes)'" == "cleanplots"
+    assert "`r(sources)'" == "cleanplots"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 4c: source(modern) returns 2 schemes (borrowed, Droste)
+local ++test_count
+display as text _n "Test `test_count': source(modern) returns 2 schemes"
+
+capture noisily {
+    tc_schemes, source(modern)
+    assert r(n_schemes) == 2
+    assert "`r(schemes)'" == "modern modern_dark"
+    assert "`r(sources)'" == "modern"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 4d: source(tc) returns 3 original schemes
+local ++test_count
+display as text _n "Test `test_count': source(tc) returns 3 original schemes"
+
+capture noisily {
+    tc_schemes, source(tc)
+    assert r(n_schemes) == 3
+    assert "`r(schemes)'" == "rdbu ki ki_black"
+    assert "`r(sources)'" == "tc"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 4e: blindschemes + schemepack + cleanplots + modern + tc == total
+local ++test_count
+display as text _n "Test `test_count': family counts sum to the total (4+35+1+2+3)"
+
+capture noisily {
+    tc_schemes, source(blindschemes)
+    local n_b = r(n_schemes)
+    tc_schemes, source(schemepack)
+    local n_s = r(n_schemes)
+    tc_schemes, source(cleanplots)
+    local n_c = r(n_schemes)
+    tc_schemes, source(modern)
+    local n_m = r(n_schemes)
+    tc_schemes, source(tc)
+    local n_t = r(n_schemes)
+    tc_schemes
+    assert r(n_schemes) == `n_b' + `n_s' + `n_c' + `n_m' + `n_t'
+    assert r(n_schemes) == 45
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -118,7 +207,7 @@ display as text _n "Test `test_count': list option displays without error"
 
 capture noisily {
     tc_schemes, list
-    assert r(n_schemes) == 39
+    assert r(n_schemes) == 45
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -136,7 +225,7 @@ display as text _n "Test `test_count': detail option displays without error"
 
 capture noisily {
     tc_schemes, detail
-    assert r(n_schemes) == 39
+    assert r(n_schemes) == 45
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -214,7 +303,7 @@ display as text _n "Test `test_count': Abbreviated option li works"
 
 capture noisily {
     tc_schemes, li
-    assert r(n_schemes) == 39
+    assert r(n_schemes) == 45
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -232,7 +321,7 @@ display as text _n "Test `test_count': Abbreviated option de works"
 
 capture noisily {
     tc_schemes, de
-    assert r(n_schemes) == 39
+    assert r(n_schemes) == 45
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -420,9 +509,9 @@ set varabbrev on
 * SECTION 6: File availability — all scheme files
 * =============================================================================
 
-* Test 21: All 39 scheme files findable
+* Test 21: All 45 scheme files findable
 local ++test_count
-display as text _n "Test `test_count': All 39 scheme files findable"
+display as text _n "Test `test_count': All 45 scheme files findable"
 
 capture noisily {
     tc_schemes
@@ -440,7 +529,7 @@ capture noisily {
     assert `found' == `n'
 }
 if _rc == 0 {
-    display as result "  PASS (all 39 scheme files found)"
+    display as result "  PASS (all 45 scheme files found)"
     local ++pass_count
 }
 else {
@@ -597,6 +686,110 @@ else {
 }
 
 * =============================================================================
+* SECTION 9: v1.1.0 regressions — install completeness, new schemes, reload
+* =============================================================================
+
+* Test 29: every catalog scheme resolves via `set scheme` (hard error if missing)
+* Stronger than findfile: set scheme actually parses the .scheme file and any
+* #include base. Proves the .pkg ships every file the catalog advertises.
+local ++test_count
+display as text _n "Test `test_count': all 45 schemes resolve via set scheme"
+
+capture noisily {
+    tc_schemes
+    local all_schemes "`r(schemes)'"
+    local n = r(n_schemes)
+    local resolved = 0
+    foreach s of local all_schemes {
+        capture set scheme `s'
+        if _rc {
+            display as error "  set scheme `s' failed (rc=`=_rc')"
+            exit 198
+        }
+        local ++resolved
+    }
+    set scheme s2color
+    assert `resolved' == `n'
+    assert `resolved' == 45
+}
+if _rc == 0 {
+    display as result "  PASS (all 45 schemes set without fallback)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 30: graphs render under each new scheme
+local ++test_count
+display as text _n "Test `test_count': graphs render under the 6 new schemes"
+
+capture noisily {
+    sysuse auto, clear
+    foreach s in cleanplots modern modern_dark rdbu ki ki_black {
+        quietly graph twoway scatter price mpg, scheme(`s')
+        graph drop _all
+    }
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 31: r(version) reports 1.1.0
+local ++test_count
+display as text _n "Test `test_count': r(version) == 1.1.0"
+
+capture noisily {
+    tc_schemes, source(tc)
+    assert "`r(version)'" == "1.1.0"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* Test 32: reload-crash regression — drop+run .ado twice, then call detail.
+* Guards the `capture program drop _tc_schemes_detail` fix: re-running the ado
+* must not crash with "_tc_schemes_detail already defined".
+local ++test_count
+display as text _n "Test `test_count': re-running the ado twice does not crash"
+
+capture noisily {
+    capture findfile tc_schemes.ado
+    local adopath "`r(fn)'"
+    capture program drop tc_schemes
+    capture program drop _tc_schemes_detail
+    run "`adopath'"
+    capture program drop tc_schemes
+    capture program drop _tc_schemes_detail
+    run "`adopath'"
+    quietly tc_schemes, detail
+    quietly tc_schemes, detail
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' `test_count'"
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"
@@ -612,6 +805,8 @@ else {
     display as text "Failed:       `fail_count'"
 }
 display as text "{hline 70}"
+
+display "RESULT: test_tc_schemes tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 if `fail_count' > 0 {
     display as error "Some tests FAILED."

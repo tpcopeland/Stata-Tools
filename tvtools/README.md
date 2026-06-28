@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.1.0** | 2026-06-28
+**Version 1.2.0** | 2026-06-28
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, and create age-band intervals.
 
@@ -160,6 +160,7 @@ Validation and cross-validation suites: `validation_known_answers.do`,
 
 ## Version History
 
+- **1.2.0** (2026-06-28): Performance release (behavior-preserving). `tvmerge` replaces its `joinby`/`batch()` Cartesian-then-filter core with a compiled Mata interval-overlap sweep that emits only the overlapping interval pairs per person, never materializing the within-person Cartesian product — substantially faster and lighter on memory at registry scale, with identical output. The `batch(#)` option is now deprecated and ignored (accepted as a no-op so existing scripts keep working). `tvexpose` consolidates its weeks/months/quarters/years `expandunit()` row generation into a single Mata routine (bit-identical bin boundaries). Both commands show a one-line matching/overlap progress indicator on very large runs (>100k rows), suppressed under `quietly`. New parity QA: `crossval_tvmerge_mata.do` (vs an independent day-by-day expansion oracle) and `crossval_tvexpose_expand.do` (vs the documented bin formula).
 - **1.1.0** (2026-06-28): Feature release. `tvweight` gains covariate-balance diagnostics (`balance`, standardized mean differences before/after weighting in `r(balance)`), overlap (ATO) and matching weights (`wtype()`), an optional stored propensity model (`estname()`), within-person cumulative MSM weights (`cumulative`/`cumgenerate()`), and built-in love-plot and weight-distribution graphs (`loveplot`, `histogram`). It also fixes a bug where panel-aware weighting (`id()`+`time()`) without `nolog` failed with `invalid 'vce'`. `tvmerge`, `tvevent`, and `tvpanel` now accept inputs from named frames (`frames()`/`frame()`) instead of disk files, and `tvmerge` auto-suffixes duplicate `tv_exposure` output names instead of erroring. `tvexpose`, `tvmerge`, and `tvevent` gain an opt-in attrition/flow report (`flow`, returned in `r(flow)`). `tvdiagnose` gains an exposure `swimlane` plot. The `tvtools` package index now lists `tvpanel`.
 - **1.0.3** (2026-06-26): Bug fixes and QA hardening. `tvpanel` now uses collision-safe temporary variables for internal row/class/cumulative bookkeeping and avoids stale value-label mappings when episode labels share names with labels already in memory. `tvexpose` dose-overlap handling now avoids internal `__seg_*` names that can collide with user `keepvars()`. Expanded `tvpanel` and dose-overlap regression QA and wired `test_tvpanel.do` into the canonical runner.
 - **1.0.2** (2026-06-19): Documentation maintenance. Standardized public help-file Author sections and shortened the `tvexpose` `r(overlap_ids)` stored-results synopt.

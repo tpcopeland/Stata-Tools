@@ -1,21 +1,26 @@
 v 3
-d 'TC_SCHEMES': Consolidated Stata graph schemes from blindschemes and schemepack
+d 'TC_SCHEMES': Consolidated Stata graph schemes from blindschemes, schemepack, and more
 d
 d tc_schemes consolidates high-quality Stata graph schemes from
-d Daniel Bischof's blindschemes (with Mead Over's fixes) and
-d Asjad Naqvi's schemepack into a single installable package.
+d Daniel Bischof's blindschemes (with Mead Over's fixes),
+d Asjad Naqvi's schemepack, Trenton Mize's cleanplots, and
+d Michael Droste's scheme-modern into a single installable package,
+d plus original red-blue diverging (rdbu) and Karolinska Institutet
+d (ki, ki_black) schemes.
 d
 d Includes 4 blindschemes (plotplain, plotplainblind, plottig,
-d plottigblind) plus 35 schemepack schemes with colorblind-safe
-d palettes, ggplot2-style themes, and modern color science.
+d plottigblind), 35 schemepack schemes, cleanplots, modern,
+d modern_dark, rdbu, ki, and ki_black: 45 schemes in total with
+d colorblind-safe palettes, ggplot2-style themes, and modern color
+d science.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260408
+d Distribution-Date: 20260628
 d License: MIT (wrapper); original schemes retain original licenses
 d
 d Author: Timothy P Copeland, Karolinska Institutet
-d Original Authors: Daniel Bischof, Mead Over, Asjad Naqvi
+d Original Authors: Daniel Bischof, Mead Over, Asjad Naqvi, Trenton Mize, Michael Droste
 d
 f tc_schemes.ado
 f tc_schemes.sthlp
@@ -58,6 +63,12 @@ f scheme-ukraine.scheme
 f scheme-swift_red.scheme
 f scheme-neon.scheme
 f scheme-rainbow.scheme
+f scheme-cleanplots.scheme
+f scheme-modern.scheme
+f scheme-modern_dark.scheme
+f scheme-rdbu.scheme
+f scheme-ki.scheme
+f scheme-ki_black.scheme
 f color-vermillion.style
 f color-sky.style
 f color-turquoise.style

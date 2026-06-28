@@ -88,6 +88,8 @@ and re-bootstraps after its own `clear all`.
 | File | Purpose |
 |------|---------|
 | `crossval_tvtools.do` | Parity against the external reference implementation |
+| `crossval_tvmerge_mata.do` | Parity gate for the Mata interval engine vs an independent day-by-day expansion oracle (pure Stata, no external dep; runs in the `core` lane) |
+| `crossval_tvexpose_expand.do` | Parity gate for the Mata expandunit() bin generator vs an independent formula oracle, all units (pure Stata, no external dep; runs in the `core` lane) |
 
 ### Support
 | Path | Contents |
@@ -104,8 +106,8 @@ and re-bootstraps after its own `clear all`.
 | tvage | `test_tvage` | `validation_tvage`, `validation_known_answers` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvdiagnose | `test_tvdiagnose` | `validation_tvdiagnose` | `crossval_tvtools` | `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
 | tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | — | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
+| tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
 | tvpanel | `test_tvpanel` | — | — | `test_regressions` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
 | tvweight | `test_tvweight` | `validation_tvweight` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_supplemental` |
@@ -115,6 +117,6 @@ and re-bootstraps after its own `clear all`.
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose` |
-| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvdiagnose`, `validation_boundary`, `validation_pipeline`, `validation_supplemental` |
+| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvdiagnose`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

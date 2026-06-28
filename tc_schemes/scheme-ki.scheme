@@ -1,0 +1,104 @@
+// ki scheme — part of tc_schemes //
+
+* Karolinska Institutet branded palette led by KI plum (#870052).
+* Original scheme authored for the tc_schemes package.
+* KI plum is KI's confirmed brand color; complements coordinate with KI's identity palette.
+* Author: Timothy P Copeland, Karolinska Institutet
+* Built by overriding the StataCorp s2color base palette.
+* See "help scheme entries" for what each token controls.
+
+#include s2color
+
+color background        white
+color plotregion        white
+color graphregion       white
+
+color p1                "135 0 82"
+color p1line            "135 0 82"
+color p1lineplot        "135 0 82"
+color p1bar             "135 0 82"
+color p1area            "135 0 82"
+color p1arealine        "135 0 82"
+color p1markline        "135 0 82"
+color p1pie             "135 0 82"
+
+color p2                "79 4 51"
+color p2line            "79 4 51"
+color p2lineplot        "79 4 51"
+color p2bar             "79 4 51"
+color p2area            "79 4 51"
+color p2arealine        "79 4 51"
+color p2markline        "79 4 51"
+color p2pie             "79 4 51"
+
+color p3                "232 119 34"
+color p3line            "232 119 34"
+color p3lineplot        "232 119 34"
+color p3bar             "232 119 34"
+color p3area            "232 119 34"
+color p3arealine        "232 119 34"
+color p3markline        "232 119 34"
+color p3pie             "232 119 34"
+
+color p4                "0 124 146"
+color p4line            "0 124 146"
+color p4lineplot        "0 124 146"
+color p4bar             "0 124 146"
+color p4area            "0 124 146"
+color p4arealine        "0 124 146"
+color p4markline        "0 124 146"
+color p4pie             "0 124 146"
+
+color p5                "120 144 156"
+color p5line            "120 144 156"
+color p5lineplot        "120 144 156"
+color p5bar             "120 144 156"
+color p5area            "120 144 156"
+color p5arealine        "120 144 156"
+color p5markline        "120 144 156"
+color p5pie             "120 144 156"
+
+color p6                "201 151 0"
+color p6line            "201 151 0"
+color p6lineplot        "201 151 0"
+color p6bar             "201 151 0"
+color p6area            "201 151 0"
+color p6arealine        "201 151 0"
+color p6markline        "201 151 0"
+color p6pie             "201 151 0"
+
+color p7                "176 0 102"
+color p7line            "176 0 102"
+color p7lineplot        "176 0 102"
+color p7bar             "176 0 102"
+color p7area            "176 0 102"
+color p7arealine        "176 0 102"
+color p7markline        "176 0 102"
+color p7pie             "176 0 102"
+
+color p8                "88 89 91"
+color p8line            "88 89 91"
+color p8lineplot        "88 89 91"
+color p8bar             "88 89 91"
+color p8area            "88 89 91"
+color p8arealine        "88 89 91"
+color p8markline        "88 89 91"
+color p8pie             "88 89 91"
+
+color p9                "0 95 77"
+color p9line            "0 95 77"
+color p9lineplot        "0 95 77"
+color p9bar             "0 95 77"
+color p9area            "0 95 77"
+color p9arealine        "0 95 77"
+color p9markline        "0 95 77"
+color p9pie             "0 95 77"
+
+color p10               "153 102 51"
+color p10line           "153 102 51"
+color p10lineplot       "153 102 51"
+color p10bar            "153 102 51"
+color p10area           "153 102 51"
+color p10arealine       "153 102 51"
+color p10markline       "153 102 51"
+color p10pie            "153 102 51"

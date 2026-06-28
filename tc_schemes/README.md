@@ -1,8 +1,8 @@
-# tc_schemes - Consolidated blindschemes and schemepack graph schemes
+# tc_schemes - Consolidated graph schemes for Stata
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.1.0** | 2026-06-28
 
-`tc_schemes` bundles publication-oriented graph schemes from Daniel Bischof's `blindschemes`, Mead Over's compatibility fixes, and Asjad Naqvi's `schemepack` into one installable package. The wrapper command gives you a real Stata entry point, so `which tc_schemes` succeeds and project headers can check one package instead of juggling multiple upstream installs.
+`tc_schemes` bundles publication-oriented graph schemes from Daniel Bischof's `blindschemes`, Mead Over's compatibility fixes, Asjad Naqvi's `schemepack`, Trenton Mize's `cleanplots`, and Michael Droste's `scheme-modern` into one installable package, plus original red-blue diverging (`rdbu`) and Karolinska Institutet (`ki`, `ki_black`) schemes. The wrapper command gives you a real Stata entry point, so `which tc_schemes` succeeds and project headers can check one package instead of juggling multiple upstream installs.
 
 ## Requirements
 
@@ -45,9 +45,12 @@ scatter mpg weight
 | `blindschemes` | 4 schemes | `plotplain`, `plotplainblind`, `plottig`, `plottigblind` | Clean publication figures and colorblind-safe defaults |
 | `white_*`, `black_*`, `gg_*` series | 27 schemes | `white_tableau`, `black_cividis`, `gg_viridis` | Choosing a palette and a background style together |
 | Standalone schemepack schemes | 8 schemes | `tab1`, `cblind1`, `ukraine`, `neon` | Distinctive one-off visual styles |
+| `cleanplots` (Trenton Mize) | 1 scheme | `cleanplots` | Publication figures that read in both color and grayscale |
+| `modern` (Michael Droste) | 2 schemes | `modern`, `modern_dark` | matplotlib-inspired modern defaults |
+| tc_schemes originals | 3 schemes | `rdbu`, `ki`, `ki_black` | Red-blue diverging contrasts; Karolinska Institutet branding |
 | Custom color styles | 21 styles | `vermillion`, `sky`, `turquoise`, `sea` | Accessible colors used by the bundled scheme families |
 
-The package includes 39 graph schemes in total: 4 from `blindschemes` and 35 from `schemepack`.
+The package includes 45 graph schemes in total: 4 from `blindschemes`, 35 from `schemepack`, `cleanplots`, `modern`/`modern_dark`, and 3 originals (`rdbu`, `ki`, `ki_black`). The `cleanplots` and `modern` schemes are bundled with attribution; see [Acknowledgments](#acknowledgments).
 
 ## Worked Examples
 
@@ -124,16 +127,40 @@ if _rc != 0 {
 
 ![neon](demo/scheme_neon.png)
 
+### cleanplots
+
+![cleanplots](demo/scheme_cleanplots.png)
+
+### modern
+
+![modern](demo/scheme_modern.png)
+
+### rdbu
+
+![rdbu](demo/scheme_rdbu.png)
+
+### ki
+
+![ki](demo/scheme_ki.png)
+
+### ki_black
+
+![ki_black](demo/scheme_ki_black.png)
+
 ## Acknowledgments
 
 - Daniel Bischof created the original `blindschemes` package and its publication-oriented, accessibility-aware visual style.
 - Mead Over supplied `blindschemes_fix`, which resolved compatibility issues with recent Stata versions.
 - Asjad Naqvi created `schemepack`, which contributes the larger palette-and-background scheme families collected here.
+- Trenton D. Mize (Purdue University) created `cleanplots`. The `cleanplots` scheme is bundled here **unmodified, with attribution**; it remains the property of its author. Source: <https://www.trentonmize.com/software/cleanplots>.
+- Michael Droste created `scheme-modern`. The `modern` and `modern_dark` schemes are bundled here **unmodified, with attribution**; they remain the property of their author. Source: <https://github.com/mdroste/stata-scheme-modern>.
+- The `rdbu` scheme uses ColorBrewer colors (Cynthia Brewer, <https://colorbrewer2.org>). The `ki` and `ki_black` schemes use Karolinska Institutet brand colors (KI plum, RGB 135 0 82).
 
-Wrapper code is distributed under MIT. Individual schemes retain their original licensing and attribution.
+Wrapper code and the original `rdbu`, `ki`, and `ki_black` schemes are distributed under MIT. Bundled third-party schemes (`cleanplots`, `modern`, `modern_dark`) and the upstream `blindschemes`/`schemepack` files retain their original licensing and attribution; they are redistributed as a convenience and remain the property of their respective authors.
 
 ## Version History
 
+- **1.1.0** (2026-06-28): Added six schemes (45 total). Bundled `cleanplots` (Trenton Mize) and `modern`/`modern_dark` (Michael Droste) with attribution, and added original `rdbu` (red-blue diverging), `ki`, and `ki_black` (Karolinska Institutet branded) schemes. New `source()` filters: `cleanplots`, `modern`, `tc`.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release consolidating `blindschemes`, `blindschemes_fix`, and `schemepack` under one installable catalog command
 
 ## Author

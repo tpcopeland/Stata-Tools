@@ -1627,6 +1627,53 @@ else {
     display as error "TEST 20: FAILED"
 }
 
+* TEST 21: batch() is deprecated and ignored (no-op; identical results)
+
+display "TEST 21: batch() deprecated no-op"
+local test21_pass = 1
+
+* Baseline merge without batch()
+capture noisily tvmerge "`ds_a17'.dta" "`ds_b17'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) exposure(exp_a exp_b)
+if _rc != 0 {
+    display as error "  FAIL [21.base]: baseline merge error `=_rc'"
+    local test21_pass = 0
+}
+else {
+    tempfile _nobatch
+    quietly save `_nobatch', replace
+
+    * Same merge passing the deprecated batch(): must still succeed (rc 0) and
+    * produce byte-identical output (the option is a no-op).
+    capture noisily tvmerge "`ds_a17'.dta" "`ds_b17'.dta", ///
+        id(id) start(start_a start_b) stop(stop_a stop_b) exposure(exp_a exp_b) ///
+        batch(50)
+    if _rc != 0 {
+        display as error "  FAIL [21.run]: batch() raised error `=_rc' (should be accepted)"
+        local test21_pass = 0
+    }
+    else {
+        capture cf _all using `_nobatch'
+        if _rc == 0 {
+            display as result "  PASS [21.noop]: batch() accepted and output unchanged"
+        }
+        else {
+            display as error "  FAIL [21.noop]: batch() changed the merged output"
+            local test21_pass = 0
+        }
+    }
+}
+
+if `test21_pass' == 1 {
+    local pass_count = `pass_count' + 1
+    display as result "TEST 21: PASSED"
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 21"
+    display as error "TEST 21: FAILED"
+}
+
 capture erase "`ds_a17'.dta"
 capture erase "`ds_b17'.dta"
 

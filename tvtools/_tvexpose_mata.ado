@@ -1,4 +1,4 @@
-*! _tvexpose_mata Version 1.1.0  2026/06/28
+*! _tvexpose_mata Version 1.2.0  2026/06/28
 *! Mata functions for tvexpose performance optimization
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvexpose)
@@ -29,6 +29,7 @@ capture mata: mata drop tv_detect_overlaps_priority()
 capture mata: mata drop tv_resolve_overlaps_priority()
 capture mata: mata drop tv_process_priority_overlaps()
 capture mata: mata drop tv_count_overlaps()
+capture mata: mata drop tv_expand_units()
 
 mata:
 mata set matastrict on
@@ -63,6 +64,7 @@ real matrix tv_detect_overlaps_priority(real matrix data,
 {
     real scalar n, i, j, curr_id, curr_start, curr_stop, curr_rank
     real scalar high_start, high_stop
+    real scalar pshow, pstep, pnext, plast, ppct
     real matrix result
     real colvector id_vec, start_vec, stop_vec, rank_vec
 
@@ -78,9 +80,27 @@ real matrix tv_detect_overlaps_priority(real matrix data,
     // Result matrix: [overlaps_higher, first_overlap_row]
     result = J(n, 2, 0)
 
+    // One-line progress for large inputs only (the caller invokes this noisily,
+    // so the line surfaces on a normal run and is suppressed under `quietly').
+    pshow = (n > 100000)
+    if (pshow) {
+        pstep = ceil(n / 10)
+        pnext = pstep
+        plast = 0
+        printf("{txt}    Overlap-resolution progress:")
+        displayflush()
+    }
+
     // For each row, check if it overlaps with any EARLIER (higher priority) row
     // Data must be sorted by id, priority_rank, start before calling
     for (i = 2; i <= n; i++) {
+        if (pshow & i >= pnext) {
+            ppct = min((100, floor(100 * i / n)))
+            printf(" %g%%", ppct)
+            displayflush()
+            plast = ppct
+            pnext = pnext + pstep
+        }
         curr_id = id_vec[i]
         curr_start = start_vec[i]
         curr_stop = stop_vec[i]
@@ -104,6 +124,12 @@ real matrix tv_detect_overlaps_priority(real matrix data,
                 }
             }
         }
+    }
+
+    if (pshow) {
+        if (plast < 100) printf(" 100%%")
+        printf("\n")
+        displayflush()
     }
 
     return(result)
@@ -313,6 +339,48 @@ void tv_count_overlaps(string scalar varnames)
     st_numscalar("r(n_overlaps)", n_overlaps)
 }
 
+// ============================================================================
+// tv_expand_units()
+//
+// Continuous-exposure expandunit() row generation. After the caller has
+// expand-duplicated each exposed period into n_units rows and numbered them
+// 1..n_units within (id, __period_id) as unit_seq, this fills the per-bin
+// interval boundaries, parameterized by the average bin length in days (ulen =
+// 7 / 30.4375 / 91.3125 / 365.25). The arithmetic is bit-identical to the
+// former per-unit Stata blocks:
+//     unit_start = floor(exp_start + (unit_seq - 1) * ulen)
+//     unit_stop  = unit_seq < n_units ? floor(exp_start + unit_seq*ulen) - 1
+//                                     : exp_stop
+//
+// varnames columns (zero-copy view, in order):
+//   1=exp_start 2=exp_stop 3=n_units 4=unit_seq 5=unit_start[w] 6=unit_stop[w]
+// Columns 5 and 6 are written in place.
+// ============================================================================
+
+void tv_expand_units(string scalar varnames, real scalar ulen)
+{
+    real matrix V
+    string rowvector vars
+    real scalar n, i, es, ex, nu, sq
+
+    vars = tokens(varnames)
+    if (length(vars) != 6) {
+        errprintf("tv_expand_units requires 6 variables\n")
+        exit(198)
+    }
+
+    st_view(V, ., vars)
+    n = rows(V)
+    for (i = 1; i <= n; i++) {
+        es = V[i, 1]
+        ex = V[i, 2]
+        nu = V[i, 3]
+        sq = V[i, 4]
+        V[i, 5] = floor(es + (sq - 1) * ulen)
+        V[i, 6] = (sq < nu ? floor(es + sq * ulen) - 1 : ex)
+    }
+}
+
 end
 
 ********************************************************************************
@@ -342,4 +410,16 @@ program define _tvexpose_mata_count, rclass
 
     mata: tv_count_overlaps("`varlist'")
     return scalar n_overlaps = r(n_overlaps)
+end
+
+// Program to fill expandunit() per-bin interval boundaries.
+// Usage: _tvexpose_expand_units exp_start exp_stop n_units unit_seq ///
+//            unit_start unit_stop , ulen(#)
+//   unit_start and unit_stop (cols 5-6) are written in place.
+capture program drop _tvexpose_expand_units
+program define _tvexpose_expand_units
+    version 16.0
+    syntax varlist(min=6 max=6 numeric), ULEN(real)
+
+    mata: tv_expand_units("`varlist'", `ulen')
 end

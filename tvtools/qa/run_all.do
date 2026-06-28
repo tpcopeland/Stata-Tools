@@ -40,12 +40,15 @@ local quick_suites test_tvage test_tvevent test_tvexpose test_tvmerge ///
 
 * Correctness lane: quick lane plus regression fixes and the hand-computable
 * known-answer / invariant / person-time validation oracles.
+* crossval_tvmerge_mata is a pure-Stata parity gate (no external dependency):
+* it lives in the always-run correctness lane, not the python lane.
 local core_suites `quick_suites' test_regressions ///
     validation_known_answers ///
     validation_tvage validation_tvevent validation_tvexpose ///
     validation_tvmerge validation_tvweight validation_tvweight_balance ///
     validation_tvdiagnose validation_flow ///
-    validation_boundary validation_pipeline validation_supplemental
+    validation_boundary validation_pipeline validation_supplemental ///
+    crossval_tvmerge_mata crossval_tvexpose_expand
 
 * Cross-validation lane: parity against the external reference implementation.
 local python_suites crossval_tvtools

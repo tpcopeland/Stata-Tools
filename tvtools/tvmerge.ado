@@ -1,4 +1,4 @@
-*! tvmerge Version 1.1.0  2026/06/28
+*! tvmerge Version 1.2.0  2026/06/28
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -64,6 +64,16 @@ program define tvmerge, rclass
 
     capture noisily {
 
+    * Load the compiled interval-overlap engine (Mata sweep for the merge core)
+    capture findfile _tvmerge_mata.ado
+    if _rc == 0 {
+        quietly run "`r(fn)'"
+    }
+    else {
+        noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
+        exit 111
+    }
+
     **# SYNTAX DECLARATION
 
     syntax [anything(name=datasets)], ///
@@ -79,7 +89,7 @@ program define tvmerge, rclass
          REPlace ///
          KEEP(namelist) ///
          CONtinuous(namelist) ///
-         Batch(integer 20) ///
+         Batch(integer -1) ///
          FORCE ///
          CHECK VALIDATEcoverage VALIDATEoverlap SUMmarize ///
          FLOW ///
@@ -301,12 +311,14 @@ program define tvmerge, rclass
         capture drop `_testvar'
     }
 
-    * Validate batch option
-    if `batch' < 1 | `batch' > 100 {
-        di as error "batch() must be between 1 and 100 (percentage of IDs per batch)"
-        exit 198
+    * batch() is deprecated and ignored. The Mata interval-overlap engine
+    * intersects intervals directly without materialising the within-person
+    * Cartesian product, so batched I/O is no longer needed. The option is still
+    * accepted (no-op) so existing scripts do not break.
+    if `batch' != -1 {
+        noisily di as text "Note: batch() is deprecated and ignored (the Mata merge engine no longer batches)."
     }
-    
+
     * Force multi-dataset syntax for all merges
     local numsv: word count `start'
     local numst: word count `stop'
@@ -865,11 +877,9 @@ program define tvmerge, rclass
             
             * Load merged data
             use `merged_data', clear
-            
-            **# PERFORM CARTESIAN MERGE OF TIME INTERVALS
-            * Create cartesian product of intervals
-            tempfile cartesian
-            
+
+            **# INTERSECT TIME INTERVALS (Mata sweep)
+
             * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
             * FIX: Must handle renamed variables - compare original names to continuous_names,
             * then apply result to the renamed variable names in exp_k_list
@@ -1008,84 +1018,98 @@ program define tvmerge, rclass
                 }
             }
 
-            * Validation passed - continue with merge
+            * Validation passed - continue with merge using the compiled Mata
+            * interval-overlap sweep. This emits only the overlapping master x
+            * dataset-k interval pairs directly (inner join, inclusive [start,stop]
+            * boundaries), which is exactly equivalent to the former
+            *   joinby id ; new_start=max ; new_stop=min ; keep if new_start<=new_stop
+            * approach, but never materialises the within-person Cartesian product.
+
+            * 1. Tag merged-data row order and snapshot its payload
             use `merged_data', clear
+            quietly generate long __tvm_mobs = _n
+            tempfile __tvm_merged __tvm_dsk __tvm_xwalk __tvm_pairs
+            quietly save `__tvm_merged', replace
 
-            tempvar batch_seq
-            egen long `batch_seq' = group(id)
+            * 2. Build a shared integer group key (gid) over the UNION of IDs in
+            *    both datasets, so the sweep matches within person regardless of
+            *    string vs numeric IDs. IDs present in only one dataset receive a
+            *    gid but produce no pairs (inner join), matching the old joinby.
+            quietly keep id
+            quietly append using `ds_k_clean', keep(id)
+            quietly duplicates drop id, force
+            sort id
+            quietly generate long __tvm_gid = _n
+            quietly save `__tvm_xwalk', replace
 
-            * Calculate batch parameters
-            quietly summarize `batch_seq', meanonly
-            local n_unique_ids = r(max)
+            * 3. dataset k -> tag row order; snapshot its payload (everything but
+            *    id, to avoid a key clash when materialising) then attach gid and
+            *    push the interval matrix to a frame.
+            use `ds_k_clean', clear
+            quietly generate long __tvm_uobs = _n
+            preserve
+                drop id
+                quietly save `__tvm_dsk', replace
+            restore
+            quietly merge m:1 id using `__tvm_xwalk', keep(match) nogenerate
+            capture frame drop __tvm_using
+            local _tvm_drc = _rc
+            frame put __tvm_gid start_k stop_k __tvm_uobs, into(__tvm_using)
+            frame __tvm_using: order __tvm_gid start_k stop_k __tvm_uobs
 
-            * Calculate batch size based on batch() option
-            local batch_size = ceil(`n_unique_ids' * (`batch' / 100))
-            local n_batches = ceil(`n_unique_ids' / `batch_size')
+            * 4. merged data -> attach gid, push interval matrix to a frame
+            use `__tvm_merged', clear
+            quietly merge m:1 id using `__tvm_xwalk', keep(match) nogenerate
+            capture frame drop __tvm_master
+            local _tvm_drc = _rc
+            frame put __tvm_gid `startname' `stopname' __tvm_mobs, into(__tvm_master)
+            frame __tvm_master: order __tvm_gid `startname' `stopname' __tvm_mobs
 
-            noisily di as txt "Processing `n_unique_ids' unique IDs in `n_batches' batches (batch size: `batch_size' IDs = `batch'%)..."
+            * 5. Run the sweep -> (__tvm_mi, __tvm_ui) overlap pairs.
+            *    The engine self-gates a one-line matching-progress indicator at
+            *    >100k master rows. It is invoked `noisily' so the indicator
+            *    surfaces through tvmerge's internal `quietly' wrapper on a normal
+            *    run, yet is still suppressed when the user runs `quietly tvmerge'
+            *    (same visibility class as the warnings and the summary).
+            local __tvm_progress = 1
+            capture frame drop __tvm_out
+            local _tvm_drc = _rc
+            frame create __tvm_out
+            noisily _tvmerge_overlap_pairs __tvm_master __tvm_using __tvm_out, progress(`__tvm_progress')
 
-            * Save dataset with the sequence variable for the loop
-            save `merged_data', replace
+            * 6. Pull the pairs into memory and release the work frames
+            frame __tvm_out: save `__tvm_pairs', replace
+            use `__tvm_pairs', clear
+            capture frame drop __tvm_master
+            capture frame drop __tvm_using
+            capture frame drop __tvm_out
+            local _tvm_drc = _rc
 
-            * Initialize empty result
-            clear
+            quietly count
+            if r(N) > 0 {
+                * 7. Materialise paired rows: carry merged-row vars by __tvm_mobs
+                *    and dataset-k vars by __tvm_uobs (merge proportional to the
+                *    matched output, never the full Cartesian product).
+                rename __tvm_mi __tvm_mobs
+                rename __tvm_ui __tvm_uobs
+                quietly merge m:1 __tvm_mobs using `__tvm_merged', keep(match) nogenerate
+                quietly merge m:1 __tvm_uobs using `__tvm_dsk', keep(match) nogenerate
 
-            * Process IDs in batches
-            forvalues b = 1/`n_batches' {
-                local start_seq = ((`b' - 1) * `batch_size') + 1
-                local end_seq = `b' * `batch_size'
-
-                noisily di as txt "  Batch `b'/`n_batches'..."
-
-                * 1. Load batch of merged data
-                use `merged_data', clear
-                quietly keep if `batch_seq' >= `start_seq' & `batch_seq' <= `end_seq'
-                tempfile batch_merged
-                save `batch_merged', replace
-
-                * 2. Create ID filter list for this batch
-                keep id
-                sort id
-                quietly by id: keep if _n == 1
-                tempfile batch_filter
-                save `batch_filter', replace
-
-                * 3. Load and filter dataset k
-                use `ds_k_clean', clear
-
-                * Use merge to filter (works for string and numeric IDs, no argument limits)
-                quietly merge m:1 id using `batch_filter', keep(match) keepusing(id) nogenerate
-
-                tempfile batch_k
-                save `batch_k', replace
-
-                * 4. Perform joinby (cartesian product within each ID)
-                use `batch_merged', clear
-
-                * Drop the sequence variable so it doesn't interfere
-                drop `batch_seq'
-
-                * Save original merged_data interval boundaries before joinby
-                * These are needed to correctly proportion continuous exposures from earlier datasets
+                * Snapshot the merged interval boundaries before intersection
+                * (needed to re-proportion continuous exposures from earlier datasets)
                 generate double _orig_start_merged = `startname'
                 generate double _orig_stop_merged = `stopname'
 
-                * Create cartesian product for entire batch
-                joinby id using `batch_k'
-
-                * 5. Calculate interval intersection
+                * Interval intersection
                 generate double new_start = max(`startname', start_k)
                 generate double new_stop = min(`stopname', stop_k)
-
-                * Keep only valid intersections (where new_start <= new_stop)
+                * All pairs already overlap; guard kept for exact parity with old logic
                 keep if new_start <= new_stop & !missing(new_start, new_stop)
-
-                * Replace old interval with intersection
                 replace `startname' = new_start
                 replace `stopname' = new_stop
                 drop new_start new_stop
 
-                * 6. For continuous exposures, interpolate values based on overlap duration
+                * For continuous exposures, interpolate values based on overlap duration
 
                 * 6a. First, proportion continuous exposures from EARLIER datasets
                 * These exposures have already been proportioned to their current interval size,
@@ -1124,44 +1148,20 @@ program define tvmerge, rclass
                     }
                 }
 
-                drop start_k stop_k _orig_start_merged _orig_stop_merged
-
-                * 7. Append batch results to overall results
-                * Note: Skip saving if batch produced zero rows (e.g., disjoint time intervals)
-                * Variable structure is preserved by keep command even when _N = 0
-                * Empty cartesian file is handled by fallback code after batch loop
-                if _N > 0 {
-                    tempfile batch_result
-                    save `batch_result', replace
-
-                    capture confirm file `cartesian'
-                    if _rc == 0 {
-                        append using `cartesian'
-                    }
-                    save `cartesian', replace
-                }
-                else {
-                    noisily di as txt "    (batch `b' produced no valid intersections)"
-                }
+                drop start_k stop_k _orig_start_merged _orig_stop_merged __tvm_mobs __tvm_uobs
             }
-
-            * Fallback: If all batches produced zero rows (no valid intersections exist),
-            * create empty dataset with proper structure
-            capture confirm file `cartesian'
-            if _rc != 0 {
-                use `merged_data', clear
+            else {
+                * No overlapping intervals: build empty dataset with proper structure
+                use `__tvm_merged', clear
                 keep if 1 == 0  // Keep structure but no observations
+                capture drop __tvm_mobs
                 foreach _fallback_exp in `exp_k_list' {
                     capture confirm variable `_fallback_exp'
                     if _rc != 0 {
                         generate double `_fallback_exp' = .
                     }
                 }
-                save `cartesian', replace
             }
-            
-            * Use cartesian result
-            use `cartesian', clear
 
             * Save updated merged data
             save `merged_data', replace
@@ -1506,10 +1506,19 @@ program define tvmerge, rclass
     } // end capture noisily
     local rc = _rc
 
+    * On the error path, drop any Mata merge work frames left behind by an error
+    * mid-merge. These are only run when rc!=0 so the defensive (and possibly
+    * failing) frame drops never pollute _rc on the success path: _rc is updated
+    * only by capture, so a swallowed "frame not found" would otherwise leak to
+    * the caller and break a following `assert _rc==0`.
+    if `rc' {
+        capture frame drop __tvm_master
+        capture frame drop __tvm_using
+        capture frame drop __tvm_out
+        local _tvm_drc = _rc
+    }
     set varabbrev `_orig_varabbrev'
 
-    if `rc' {
-        exit `rc'
-    }
+    if `rc' exit `rc'
 
 end

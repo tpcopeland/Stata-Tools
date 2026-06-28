@@ -1,7 +1,7 @@
-*! tc_schemes Version 1.0.0  2026/04/08
-*! Consolidated Stata graph schemes from blindschemes and schemepack
-*! Author: Timothy P Copeland (consolidation)
-*! Original Authors: Daniel Bischof (blindschemes), Asjad Naqvi (schemepack), Mead Over (blindschemes_fix)
+*! tc_schemes Version 1.1.0  2026/06/28
+*! Consolidated Stata graph schemes from blindschemes, schemepack, cleanplots, scheme-modern, plus originals
+*! Author: Timothy P Copeland, Karolinska Institutet (consolidation + original rdbu/ki/ki_black schemes)
+*! Original Authors: Daniel Bischof (blindschemes), Asjad Naqvi (schemepack), Mead Over (blindschemes_fix), Trenton Mize (cleanplots), Michael Droste (scheme-modern)
 *! Program class: rclass (returns results in r())
 
 /*
@@ -9,7 +9,8 @@ Basic syntax:
   tc_schemes [, source(string) list detail]
 
 Optional options:
-  source(string)  - Filter by source: blindschemes, schemepack, or all (default: all)
+  source(string)  - Filter by source: all (default), blindschemes, schemepack,
+                    cleanplots, modern, or tc (original tc_schemes schemes)
   list            - Display schemes as a simple list
   detail          - Show detailed information including descriptions
 
@@ -41,8 +42,8 @@ program define tc_schemes, rclass
 
         // Validate source option
         local source = lower("`source'")
-        if !inlist("`source'", "all", "blindschemes", "schemepack") {
-            display as error "source() must be: all, blindschemes, or schemepack"
+        if !inlist("`source'", "all", "blindschemes", "schemepack", "cleanplots", "modern", "tc") {
+            display as error "source() must be: all, blindschemes, schemepack, cleanplots, modern, or tc"
             exit 198
         }
 
@@ -63,6 +64,13 @@ program define tc_schemes, rclass
 
         local schemepack_list "`schemepack_tableau' `schemepack_cividis' `schemepack_viridis' `schemepack_hue' `schemepack_brbg' `schemepack_piyg' `schemepack_ptol' `schemepack_jet' `schemepack_w3d' `schemepack_standalone'"
 
+        // Borrowed schemes (bundled with attribution; see help acknowledgments)
+        local cleanplots_list "cleanplots"
+        local modern_list "modern modern_dark"
+
+        // Original schemes authored for tc_schemes
+        local tc_list "rdbu ki ki_black"
+
         // Build selected list based on source
         if "`source'" == "blindschemes" {
             local selected_schemes "`blindschemes_list'"
@@ -72,9 +80,21 @@ program define tc_schemes, rclass
             local selected_schemes "`schemepack_list'"
             local selected_sources "schemepack"
         }
+        else if "`source'" == "cleanplots" {
+            local selected_schemes "`cleanplots_list'"
+            local selected_sources "cleanplots"
+        }
+        else if "`source'" == "modern" {
+            local selected_schemes "`modern_list'"
+            local selected_sources "modern"
+        }
+        else if "`source'" == "tc" {
+            local selected_schemes "`tc_list'"
+            local selected_sources "tc"
+        }
         else {
-            local selected_schemes "`blindschemes_list' `schemepack_list'"
-            local selected_sources "blindschemes schemepack"
+            local selected_schemes "`blindschemes_list' `schemepack_list' `cleanplots_list' `modern_list' `tc_list'"
+            local selected_sources "blindschemes schemepack cleanplots modern tc"
         }
 
         // Count schemes
@@ -118,6 +138,28 @@ program define tc_schemes, rclass
                 display as text ""
             }
 
+            if inlist("`source'", "all", "cleanplots") {
+                display as text "{bf:CLEANPLOTS}" as text " (Trenton Mize, bundled with attribution)"
+                display as text "  Clean publication scheme; readable in color and in grayscale"
+                display as result "    cleanplots"
+                display as text ""
+            }
+
+            if inlist("`source'", "all", "modern") {
+                display as text "{bf:MODERN}" as text " (Michael Droste, bundled with attribution)"
+                display as text "  matplotlib-inspired modern defaults"
+                display as result "    modern modern_dark"
+                display as text ""
+            }
+
+            if inlist("`source'", "all", "tc") {
+                display as text "{bf:TC_SCHEMES ORIGINALS}" as text " (Timothy P Copeland)"
+                display as text "  rdbu: red-blue diverging palette (ColorBrewer RdBu)"
+                display as text "  ki/ki_black: Karolinska Institutet branded (plum)"
+                display as result "    rdbu ki ki_black"
+                display as text ""
+            }
+
             display as text "{hline 70}"
             display as text "Total schemes: " as result "`n_schemes'"
             display as text ""
@@ -129,7 +171,7 @@ program define tc_schemes, rclass
         return local schemes "`selected_schemes'"
         return scalar n_schemes = `n_schemes'
         return local sources "`selected_sources'"
-        return local version "1.0.0"
+        return local version "1.1.0"
 
     }
     local rc = _rc
@@ -138,6 +180,7 @@ program define tc_schemes, rclass
 end
 
 // Subroutine for detailed display
+capture program drop _tc_schemes_detail
 program define _tc_schemes_detail
     syntax , Source(string)
 
@@ -178,6 +221,41 @@ program define _tc_schemes_detail
         display as result "    swift_red" as text "       - Taylor Swift Red album"
         display as result "    neon"      as text "          - High-contrast neon styling"
         display as result "    rainbow"   as text "       - Vibrant multicolor"
+        display as text ""
+    }
+
+    if inlist("`source'", "all", "cleanplots") {
+        display as text "{bf:CLEANPLOTS} - Trenton D. Mize (Purdue University)"
+        display as text "  Bundled with attribution; original author retains terms"
+        display as text "  {hline 60}"
+        display as text ""
+        display as result "  cleanplots" as text "     - Publication scheme built on best-practice"
+        display as text "                   defaults; colors stay distinguishable in"
+        display as text "                   color and in black-and-white print."
+        display as text ""
+    }
+
+    if inlist("`source'", "all", "modern") {
+        display as text "{bf:MODERN} - Michael Droste"
+        display as text "  Bundled with attribution; original author retains terms"
+        display as text "  {hline 60}"
+        display as text ""
+        display as result "  modern" as text "         - matplotlib-inspired modern defaults"
+        display as result "  modern_dark" as text "    - modern variant with darker grid/axis accents"
+        display as text ""
+    }
+
+    if inlist("`source'", "all", "tc") {
+        display as text "{bf:TC_SCHEMES ORIGINALS} - Timothy P Copeland (Karolinska Institutet)"
+        display as text "  {hline 60}"
+        display as text ""
+        display as result "  rdbu" as text "           - Red-blue diverging palette based on"
+        display as text "                   ColorBrewer RdBu; warm/cool alternate so a"
+        display as text "                   two-group comparison reads red vs blue."
+        display as result "  ki" as text "             - Karolinska Institutet branded palette led"
+        display as text "                   by KI plum (RGB 135 0 82) on white."
+        display as result "  ki_black" as text "       - KI palette on a dark-plum background for"
+        display as text "                   slides and presentations."
         display as text ""
     }
 end
