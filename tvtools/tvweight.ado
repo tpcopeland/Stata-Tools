@@ -1,4 +1,4 @@
-*! tvweight Version 1.0.3  2026/06/26
+*! tvweight Version 1.1.0  2026/06/28
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -53,9 +53,12 @@ program define tvweight, rclass
     * Parse syntax
     syntax varname(numeric) [if] [in], COVariates(varlist numeric) ///
         [GENerate(name) MODEL(string) STABilized ///
+         WType(string) ///
          TRUNCate(numlist min=2 max=2) ///
          TVCovariates(varlist numeric) ID(varname) TIME(varname) ///
-         REPLACE DENominator(name) noLOG]
+         REPLACE DENominator(name) noLOG ///
+         BALance LOVEplot HISTogram ESTname(name) ///
+         CUMulative CUMGenerate(name)]
 
     local exposure `varlist'
 
@@ -70,6 +73,38 @@ program define tvweight, rclass
     * Validate model type
     if !inlist("`model'", "logit", "mlogit") {
         display as error "model() must be logit or mlogit"
+        exit 198
+    }
+
+    * Validate weight type
+    if "`wtype'" == "" local wtype "iptw"
+    local wtype = lower("`wtype'")
+    if !inlist("`wtype'", "iptw", "ato", "matching") {
+        display as error "wtype() must be iptw, ato, or matching"
+        exit 198
+    }
+
+    * Stabilized weights are an IPTW-specific construction
+    if "`stabilized'" != "" & "`wtype'" != "iptw" {
+        display as error "stabilized weights apply only to wtype(iptw)"
+        exit 198
+    }
+
+    * loveplot requires the balance computation
+    if "`loveplot'" != "" & "`balance'" == "" {
+        display as error "loveplot requires the balance option"
+        exit 198
+    }
+
+    * Cumulative (MSM) product weights require panel structure
+    if "`cumulative'" != "" {
+        if "`id'" == "" | "`time'" == "" {
+            display as error "cumulative requires id() and time() options"
+            exit 198
+        }
+    }
+    if "`cumgenerate'" != "" & "`cumulative'" == "" {
+        display as error "cumgenerate() requires the cumulative option"
         exit 198
     }
 
@@ -122,6 +157,21 @@ program define tvweight, rclass
             }
             else {
                 quietly drop `denominator'
+            }
+        }
+    }
+
+    * Resolve and check the cumulative-weight variable name
+    if "`cumulative'" != "" {
+        if "`cumgenerate'" == "" local cumgenerate "`generate'_cum"
+        capture confirm variable `cumgenerate'
+        if _rc == 0 {
+            if "`replace'" == "" {
+                display as error "variable `cumgenerate' already exists; use replace option"
+                exit 110
+            }
+            else {
+                quietly drop `cumgenerate'
             }
         }
     }
@@ -211,6 +261,7 @@ program define tvweight, rclass
     display as text "Exposure variable: " as result "`exposure'"
     display as text "Number of levels:  " as result "`n_levels'"
     display as text "Model type:        " as result "`model'"
+    display as text "Weight type:       " as result "`wtype'"
     display as text "Covariates:        " as result "`covariates'"
     if "`tvcovariates'" != "" {
         display as text "TV Covariates:     " as result "`tvcovariates'"
@@ -239,12 +290,18 @@ program define tvweight, rclass
             capture quietly logit `exposure' `all_covars' if `touse', nolog `vce_opt'
         }
         else {
-            capture noisily logit `exposure' `all_covars' if `touse' `vce_opt'
+            capture noisily logit `exposure' `all_covars' if `touse', `vce_opt'
         }
         if _rc {
             display as error "Propensity score logit model failed to converge"
             display as error "Check that exposure is binary and covariates have sufficient variation"
             exit _rc
+        }
+
+        * Optionally retain the propensity model for downstream margins/diagnostics
+        if "`estname'" != "" {
+            capture estimates drop `estname'
+            estimates store `estname'
         }
 
         * Predict propensity score (probability of being treated)
@@ -268,10 +325,21 @@ program define tvweight, rclass
             exit _rc
         }
 
+        * Optionally retain the propensity model for downstream margins/diagnostics
+        if "`estname'" != "" {
+            capture estimates drop `estname'
+            estimates store `estname'
+        }
+
         * For mlogit: populate ps with probability of observed treatment
-        * so the PS boundary check below works for both logit and mlogit
+        * so the PS boundary check below works for both logit and mlogit.
+        * Also accumulate sum(1/p_k) and min_k(p_k) across levels for the
+        * generalized overlap (ato) and matching weight formulas.
+        tempvar _suminv _minp
         quietly {
             gen double `ps' = .
+            gen double `_suminv' = 0 if `touse'
+            gen double `_minp' = . if `touse'
             levelsof `exposure' if `touse', local(levels)
             local k = 0
             foreach lev of local levels {
@@ -279,6 +347,8 @@ program define tvweight, rclass
                 tempvar _ps_k`k'
                 predict double `_ps_k`k'' if `touse', pr outcome(`lev')
                 replace `ps' = `_ps_k`k'' if `exposure' == `lev' & `touse'
+                replace `_suminv' = `_suminv' + 1/`_ps_k`k'' if `touse'
+                replace `_minp' = min(`_minp', `_ps_k`k'') if `touse'
             }
         }
     }
@@ -304,15 +374,26 @@ program define tvweight, rclass
 
     quietly {
         if "`model'" == "logit" {
-            * Binary IPTW: 1/PS for treated, 1/(1-PS) for untreated
-            * Treated is the NON-reference level (higher value)
+            * Treated is the NON-reference level (higher value); `ps' = P(treated|X)
             gen double `generate' = .
 
-            * For treated (exposure = max level, not reference)
-            replace `generate' = 1 / `ps' if `exposure' != `ref_level' & `touse'
-
-            * For untreated (reference level)
-            replace `generate' = 1 / (1 - `ps') if `exposure' == `ref_level' & `touse'
+            if "`wtype'" == "iptw" {
+                * Binary IPTW: 1/PS for treated, 1/(1-PS) for untreated
+                replace `generate' = 1 / `ps' if `exposure' != `ref_level' & `touse'
+                replace `generate' = 1 / (1 - `ps') if `exposure' == `ref_level' & `touse'
+            }
+            else if "`wtype'" == "ato" {
+                * Overlap (ATO) weight: weight by probability of the opposite arm
+                replace `generate' = (1 - `ps') if `exposure' != `ref_level' & `touse'
+                replace `generate' = `ps' if `exposure' == `ref_level' & `touse'
+            }
+            else if "`wtype'" == "matching" {
+                * Matching weight: min(PS,1-PS) / P(observed arm)
+                replace `generate' = min(`ps', 1 - `ps') / `ps' ///
+                    if `exposure' != `ref_level' & `touse'
+                replace `generate' = min(`ps', 1 - `ps') / (1 - `ps') ///
+                    if `exposure' == `ref_level' & `touse'
+            }
 
             * Save denominator (propensity score) if requested
             if "`denominator'" != "" {
@@ -321,9 +402,19 @@ program define tvweight, rclass
             }
         }
         else {
-            * Multinomial IPTW: 1/P(A=a|X) for each category
-            * Use capped ps (probability of observed treatment) for weights
-            gen double `generate' = 1 / `ps' if `touse'
+            * Multinomial weights use capped ps (probability of observed treatment)
+            if "`wtype'" == "iptw" {
+                * Multinomial IPTW: 1/P(A=a|X)
+                gen double `generate' = 1 / `ps' if `touse'
+            }
+            else if "`wtype'" == "ato" {
+                * Generalized overlap weight: h(x)/P(observed), h(x)=1/sum_k(1/p_k)
+                gen double `generate' = (1 / `_suminv') / `ps' if `touse'
+            }
+            else if "`wtype'" == "matching" {
+                * Generalized matching weight: min_k(p_k)/P(observed)
+                gen double `generate' = `_minp' / `ps' if `touse'
+            }
 
             * Save denominator if requested (probability of observed treatment)
             if "`denominator'" != "" {
@@ -391,6 +482,31 @@ program define tvweight, rclass
         }
 
         display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
+    }
+
+    * =========================================================================
+    * CUMULATIVE (MSM) PRODUCT WEIGHTS (optional)
+    * =========================================================================
+    * A per-row IPTW is NOT a time-varying MSM weight. For a genuine MSM with
+    * time-varying confounding, the weight at period t is the cumulative product
+    * of the period-specific weights within person up to t. This builds that
+    * product (requires id() and time()).
+    if "`cumulative'" != "" {
+        display as text ""
+        display as text "Computing within-person cumulative product weights..."
+        quietly {
+            tempvar _origorder
+            gen long `_origorder' = _n
+            sort `id' `time' `_origorder'
+            by `id': gen double `cumgenerate' = `generate' if `touse'
+            by `id': replace `cumgenerate' = `cumgenerate'[_n-1] * `generate' ///
+                if _n > 1 & `touse' & !missing(`cumgenerate'[_n-1])
+            sort `_origorder'
+            drop `_origorder'
+        }
+        label variable `cumgenerate' "Cumulative `wtype' weight for `exposure'"
+        display as text "  Cumulative weight variable " as result "`cumgenerate'" ///
+            as text " created."
     }
 
     * =========================================================================
@@ -494,8 +610,144 @@ program define tvweight, rclass
 
     display as text "{hline 70}"
 
+    * =========================================================================
+    * COVARIATE BALANCE (optional)
+    * =========================================================================
+    * Standardized mean difference (SMD) per covariate, before vs after
+    * weighting. Denominator is the unweighted pooled SD so the before/after
+    * columns share a common scale (Austin 2009, 2011).
+    if "`balance'" != "" {
+        local bal_covars "`covariates' `tvcovariates'"
+        local n_bal: word count `bal_covars'
+        tempname _balmat
+        matrix `_balmat' = J(`n_bal', 2, .)
+
+        quietly levelsof `exposure' if `touse', local(bal_levels)
+
+        local r = 0
+        foreach v of local bal_covars {
+            local ++r
+            if "`model'" == "logit" {
+                quietly sum `v' if `exposure' != `ref_level' & `touse'
+                local mt = r(mean)
+                local vt = r(Var)
+                quietly sum `v' if `exposure' == `ref_level' & `touse'
+                local mc = r(mean)
+                local vc = r(Var)
+                local denom = sqrt((`vt' + `vc')/2)
+                if `denom' > 0 & !missing(`denom') {
+                    matrix `_balmat'[`r',1] = (`mt' - `mc')/`denom'
+                    quietly sum `v' [aw=`generate'] if `exposure' != `ref_level' & `touse'
+                    local wmt = r(mean)
+                    quietly sum `v' [aw=`generate'] if `exposure' == `ref_level' & `touse'
+                    local wmc = r(mean)
+                    matrix `_balmat'[`r',2] = (`wmt' - `wmc')/`denom'
+                }
+            }
+            else {
+                * Categorical exposure: max |SMD| across non-reference levels vs reference
+                quietly sum `v' if `exposure' == `ref_level' & `touse'
+                local mc = r(mean)
+                local vc = r(Var)
+                quietly sum `v' [aw=`generate'] if `exposure' == `ref_level' & `touse'
+                local wmc = r(mean)
+                local maxu = 0
+                local maxw = 0
+                foreach lev of local bal_levels {
+                    if `lev' == `ref_level' continue
+                    quietly sum `v' if `exposure' == `lev' & `touse'
+                    local mt = r(mean)
+                    local vt = r(Var)
+                    local denom = sqrt((`vt' + `vc')/2)
+                    if `denom' > 0 & !missing(`denom') {
+                        local su = abs((`mt' - `mc')/`denom')
+                        if `su' > `maxu' local maxu = `su'
+                        quietly sum `v' [aw=`generate'] if `exposure' == `lev' & `touse'
+                        local wmt = r(mean)
+                        local sw = abs((`wmt' - `wmc')/`denom')
+                        if `sw' > `maxw' local maxw = `sw'
+                    }
+                }
+                matrix `_balmat'[`r',1] = `maxu'
+                matrix `_balmat'[`r',2] = `maxw'
+            }
+        }
+        matrix colnames `_balmat' = smd_unweighted smd_weighted
+        matrix rownames `_balmat' = `bal_covars'
+
+        display as text ""
+        display as text "{hline 70}"
+        display as text "Covariate balance (standardized mean differences)"
+        if "`model'" != "logit" {
+            display as text "(categorical exposure: max |SMD| vs reference level)"
+        }
+        display as text "{hline 70}"
+        display as text %-30s "Covariate" %14s "SMD (unwtd)" %14s "SMD (wtd)"
+        local r = 0
+        foreach v of local bal_covars {
+            local ++r
+            display as text %-30s abbrev("`v'", 30) ///
+                as result %14.4f `_balmat'[`r',1] %14.4f `_balmat'[`r',2]
+        }
+        display as text "{hline 70}"
+    }
+
+    * =========================================================================
+    * LOVE PLOT (optional; requires balance)
+    * =========================================================================
+    if "`loveplot'" != "" {
+        local yl ""
+        forvalues i = 1/`n_bal' {
+            local pos = `n_bal' - `i' + 1
+            local yl `"`yl' `pos' "`: word `i' of `bal_covars''""'
+        }
+        tempname _lovefr
+        capture noisily {
+            frame create `_lovefr'
+            frame `_lovefr' {
+                quietly set obs `n_bal'
+                quietly gen double _smdu = .
+                quietly gen double _smdw = .
+                quietly gen int _ord = .
+                forvalues i = 1/`n_bal' {
+                    quietly replace _smdu = abs(`_balmat'[`i',1]) in `i'
+                    quietly replace _smdw = abs(`_balmat'[`i',2]) in `i'
+                    quietly replace _ord = `n_bal' - `i' + 1 in `i'
+                }
+                twoway (scatter _ord _smdu, msymbol(Oh)) ///
+                       (scatter _ord _smdw, msymbol(D)), ///
+                    xline(0.1, lpattern(dash)) ///
+                    ylabel(`yl', angle(0) noticks) ///
+                    ytitle("") xtitle("Absolute standardized mean difference") ///
+                    legend(order(1 "Unweighted" 2 "Weighted") rows(1)) ///
+                    title("Covariate balance") name(tvw_loveplot, replace)
+            }
+        }
+        local _lprc = _rc
+        capture frame drop `_lovefr'
+        if `_lprc' display as text "Note: love plot could not be produced (rc=`_lprc')"
+    }
+
+    * =========================================================================
+    * WEIGHT-DISTRIBUTION HISTOGRAM (optional)
+    * =========================================================================
+    if "`histogram'" != "" {
+        capture noisily {
+            histogram `generate' if `touse', ///
+                xtitle("`wtype' weight") title("Weight distribution") ///
+                name(tvw_histogram, replace)
+        }
+        if _rc display as text "Note: weight histogram could not be produced (rc=`=_rc')"
+    }
+
     * Add variable label
-    if "`stabilized'" != "" {
+    if "`wtype'" == "ato" {
+        label variable `generate' "Overlap (ATO) weight for `exposure'"
+    }
+    else if "`wtype'" == "matching" {
+        label variable `generate' "Matching weight for `exposure'"
+    }
+    else if "`stabilized'" != "" {
         label variable `generate' "Stabilized IPTW for `exposure'"
     }
     else {
@@ -535,12 +787,24 @@ program define tvweight, rclass
     return local exposure "`exposure'"
     return local covariates "`covariates'"
     return local model "`model'"
+    return local wtype "`wtype'"
     return local generate "`generate'"
     if "`stabilized'" != "" {
         return local stabilized "stabilized"
     }
     if "`denominator'" != "" {
         return local denominator "`denominator'"
+    }
+    if "`estname'" != "" {
+        return local estname "`estname'"
+    }
+    if "`cumulative'" != "" {
+        return local cumgenerate "`cumgenerate'"
+    }
+
+    * return matrix MOVES the tempname — must be the last reference to `_balmat'
+    if "`balance'" != "" {
+        return matrix balance = `_balmat'
     }
 
     } // end capture noisily

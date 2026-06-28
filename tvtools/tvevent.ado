@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.3  2026/06/26
+*! tvevent Version 1.1.0  2026/06/28
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -44,10 +44,11 @@ program define tvevent, rclass
 
     capture noisily {
 
-    syntax using/ , ///
+    syntax [using/] , ///
         id(varname) ///
         Date(name) ///
-        [GENerate(name) ///
+        [FRame(name) ///
+         GENerate(name) ///
          Type(string) ///
          KEEPvars(namelist) ///
          CONtinuous(namelist) ///
@@ -58,7 +59,42 @@ program define tvevent, rclass
          STARTvar(name) ///
          STOPvar(name) ///
          VALidate ///
+         FLOW ///
          REPlace]
+
+    * Frames input: materialize the named frame to a tempfile and treat it as
+    * the using source, so the rest of the command is unchanged.
+    if "`frame'" != "" {
+        if `"`using'"' != "" {
+            di as error "specify either a using file or frame(), not both"
+            exit 198
+        }
+        capture confirm frame `frame'
+        if _rc {
+            di as error "frame not found: `frame'"
+            exit 111
+        }
+        tempfile _evframefile
+        quietly frame `frame': save "`_evframefile'", replace
+        local using "`_evframefile'"
+    }
+    else if `"`using'"' == "" {
+        di as error "must specify a using file or frame()"
+        exit 198
+    }
+
+    * Flow accounting: capture input persons/records from the interval (using)
+    * data. Opt-in via flow; the master events stay in memory (preserved).
+    if "`flow'" != "" {
+        preserve
+        quietly use `id' using "`using'", clear
+        local _flow_rin = _N
+        tempvar _flow_tag
+        quietly egen byte `_flow_tag' = tag(`id')
+        quietly count if `_flow_tag' == 1
+        local _flow_pin = r(N)
+        restore
+    }
 
     * Row-id used as a reshape uniqueness key; a tempvar avoids colliding with a
     * user column that survives the keep below (previously a hardcoded _obs).
@@ -938,6 +974,35 @@ program define tvevent, rclass
         di as txt "    `v' = `l'"
     }
     di as txt "{hline 50}"
+
+    * Flow accounting report (opt-in via flow option)
+    if "`flow'" != "" {
+        tempvar _flow_tago
+        quietly egen byte `_flow_tago' = tag(`id')
+        quietly count if `_flow_tago' == 1
+        local _flow_pout = r(N)
+        drop `_flow_tago'
+        tempname _flowmat
+        matrix `_flowmat' = J(2, 3, .)
+        matrix `_flowmat'[1,1] = `_flow_pin'
+        matrix `_flowmat'[1,2] = `_flow_pout'
+        matrix `_flowmat'[1,3] = `_flow_pin' - `_flow_pout'
+        matrix `_flowmat'[2,1] = `_flow_rin'
+        matrix `_flowmat'[2,2] = `n_total'
+        matrix `_flowmat'[2,3] = `_flow_rin' - `n_total'
+        matrix rownames `_flowmat' = persons records
+        matrix colnames `_flowmat' = in out dropped
+        di as txt "{hline 60}"
+        di as txt "Pipeline flow (tvevent)"
+        di as txt %-12s "" %10s "in" %10s "out" %10s "dropped"
+        di as txt %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
+            %10.0f `=`_flow_pin' - `_flow_pout''
+        di as txt %-12s "records" %10.0f `_flow_rin' %10.0f `n_total' ///
+            %10.0f `=`_flow_rin' - `n_total''
+        di as txt "(records dropped < 0 indicates interval splitting at events)"
+        di as txt "{hline 60}"
+        return matrix flow = `_flowmat'
+    }
 
     } // end capture noisily
     local rc = _rc

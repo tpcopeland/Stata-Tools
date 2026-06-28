@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.0.3  2026/06/26
+*! tvdiagnose Version 1.1.0  2026/06/28
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -48,6 +48,7 @@ program define tvdiagnose, rclass
     syntax , ID(varname) START(varname) STOP(varname) ///
         [EXPosure(varname) ENTRY(varname) EXIT(varname) ///
          COVerage GAPS OVERlaps SUMmarize ALL ///
+         SWIMlane MAXids(integer 50) ///
          THReshold(integer 30) VERBose]
 
     * If 'all' is specified, run all diagnostics
@@ -61,8 +62,14 @@ program define tvdiagnose, rclass
     }
 
     * Validate options
-    if "`coverage'" == "" & "`gaps'" == "" & "`overlaps'" == "" & "`summarize'" == "" {
-        display as error "At least one report option required: coverage, gaps, overlaps, summarize, or all"
+    if "`coverage'" == "" & "`gaps'" == "" & "`overlaps'" == "" & ///
+       "`summarize'" == "" & "`swimlane'" == "" {
+        display as error "At least one report option required: coverage, gaps, overlaps, summarize, swimlane, or all"
+        exit 198
+    }
+
+    if `maxids' < 1 {
+        display as error "maxids() must be a positive integer"
         exit 198
     }
 
@@ -341,6 +348,47 @@ program define tvdiagnose, rclass
         return scalar total_person_time = `total_time'
 
         restore
+    }
+
+    **************************************************************************
+    * EXPOSURE SWIMLANE PLOT (optional)
+    **************************************************************************
+    * Horizontal [start, stop] interval bars per person, colored by exposure
+    * level. Honors the active graph scheme. Capped at maxids() persons.
+    if "`swimlane'" != "" {
+        preserve
+        capture noisily {
+            tempvar _prow
+            egen long `_prow' = group(`id')
+            quietly summarize `_prow', meanonly
+            local _ntot = r(max)
+            if `_ntot' > `maxids' {
+                quietly keep if `_prow' <= `maxids'
+                display as text "Note: swimlane limited to first `maxids' of `_ntot' persons (use maxids())"
+            }
+            if "`exposure'" != "" {
+                quietly levelsof `exposure', local(_elevs)
+                local _plot ""
+                local _leg ""
+                local _i = 0
+                foreach lv of local _elevs {
+                    local ++_i
+                    local _plot `"`_plot' (rspike `start' `stop' `_prow' if `exposure'==`lv', horizontal lwidth(medthick))"'
+                    local _leg `"`_leg' `_i' "`exposure'=`lv'""'
+                }
+                twoway `_plot', ytitle("Person (grouped id)") ///
+                    xtitle("Date") title("Exposure swimlane") ///
+                    legend(order(`_leg')) name(tvd_swimlane, replace)
+            }
+            else {
+                twoway (rspike `start' `stop' `_prow', horizontal lwidth(medthick)), ///
+                    ytitle("Person (grouped id)") xtitle("Date") ///
+                    title("Exposure swimlane") name(tvd_swimlane, replace)
+            }
+        }
+        local _swrc = _rc
+        restore
+        if `_swrc' display as text "Note: swimlane could not be produced (rc=`_swrc')"
     }
 
     **************************************************************************

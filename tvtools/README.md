@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.0.3** | 2026-06-26
+**Version 1.1.0** | 2026-06-28
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, and create age-band intervals.
 
@@ -160,6 +160,7 @@ Validation and cross-validation suites: `validation_known_answers.do`,
 
 ## Version History
 
+- **1.1.0** (2026-06-28): Feature release. `tvweight` gains covariate-balance diagnostics (`balance`, standardized mean differences before/after weighting in `r(balance)`), overlap (ATO) and matching weights (`wtype()`), an optional stored propensity model (`estname()`), within-person cumulative MSM weights (`cumulative`/`cumgenerate()`), and built-in love-plot and weight-distribution graphs (`loveplot`, `histogram`). It also fixes a bug where panel-aware weighting (`id()`+`time()`) without `nolog` failed with `invalid 'vce'`. `tvmerge`, `tvevent`, and `tvpanel` now accept inputs from named frames (`frames()`/`frame()`) instead of disk files, and `tvmerge` auto-suffixes duplicate `tv_exposure` output names instead of erroring. `tvexpose`, `tvmerge`, and `tvevent` gain an opt-in attrition/flow report (`flow`, returned in `r(flow)`). `tvdiagnose` gains an exposure `swimlane` plot. The `tvtools` package index now lists `tvpanel`.
 - **1.0.3** (2026-06-26): Bug fixes and QA hardening. `tvpanel` now uses collision-safe temporary variables for internal row/class/cumulative bookkeeping and avoids stale value-label mappings when episode labels share names with labels already in memory. `tvexpose` dose-overlap handling now avoids internal `__seg_*` names that can collide with user `keepvars()`. Expanded `tvpanel` and dose-overlap regression QA and wired `test_tvpanel.do` into the canonical runner.
 - **1.0.2** (2026-06-19): Documentation maintenance. Standardized public help-file Author sections and shortened the `tvexpose` `r(overlap_ids)` stored-results synopt.
 - **1.0.1** (2026-06-15): Bug fixes. `tvmerge` now shows variable-not-found and option-parsing errors that were previously suppressed inside a `quietly` block (silent `exit` with no message). `tvevent` uses a tempvar for its reshape row-id instead of a hardcoded `_obs`. Internal `tvevent` helper option abbreviations aligned with the documented forms. Canonical author/affiliation standardized across all files.

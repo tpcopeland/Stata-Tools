@@ -1001,20 +1001,40 @@ else {
     local ++fail_count
 }
 
-* E.mrg.9: Duplicate exposure variable names (exit 198)
+* E.mrg.9: Duplicate exposure names are auto-suffixed (was exit 198 pre-1.1.0)
+* tvexpose defaults every output to tv_exposure, so merging two of them used to
+* require a manual rename; tvmerge now auto-suffixes by position instead.
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
-        id(id) start(start1 start2) stop(stop1 stop2) ///
-        exposure(exp1 exp1)
-    assert _rc == 198
+    clear
+    input id double(start stop) tv_exposure
+        1 100 200 1
+        2 100 250 1
+    end
+    format start stop %td
+    tempfile dm1
+    save "`dm1'"
+    clear
+    input id double(start stop) tv_exposure
+        1 120 220 1
+        2 100 250 1
+    end
+    format start stop %td
+    tempfile dm2
+    save "`dm2'"
+
+    tvmerge "`dm1'" "`dm2'", id(id) start(start start) stop(stop stop) ///
+        exposure(tv_exposure tv_exposure) saveas(`c(tmpdir)'/_dupexp.dta) replace
+    use "`c(tmpdir)'/_dupexp.dta", clear
+    confirm variable tv_exposure_1
+    confirm variable tv_exposure_2
 }
 if _rc == 0 {
-    display as result "  PASS: tvmerge error - duplicate exposure names"
+    display as result "  PASS: tvmerge auto-suffixes duplicate exposure names"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tvmerge error - duplicate exposure names (error `=_rc')"
+    display as error "  FAIL: tvmerge auto-suffix duplicate exposure names (error `=_rc')"
     local ++fail_count
 }
 

@@ -38,14 +38,23 @@
 
 {syntab:Weight Options}
 {synopt:{opt gen:erate(name)}}name for weight variable; default is {cmd:iptw}{p_end}
-{synopt:{opt stab:ilized}}calculate stabilized weights{p_end}
+{synopt:{opt wt:ype(type)}}weight type: {cmd:iptw} (default), {cmd:ato}, or {cmd:matching}{p_end}
+{synopt:{opt stab:ilized}}calculate stabilized weights ({cmd:iptw} only){p_end}
 {synopt:{opt trunc:ate(# #)}}truncate at lower and upper percentiles{p_end}
+{synopt:{opt cum:ulative}}within-person cumulative product weight (MSM){p_end}
+{synopt:{opt cumg:enerate(name)}}name for the cumulative weight variable{p_end}
 
 {syntab:Model Options}
 {synopt:{opt model(string)}}model type: {cmd:logit} (binary) or {cmd:mlogit} (categorical){p_end}
 {synopt:{opt tvc:ovariates(varlist)}}time-varying covariates{p_end}
 {synopt:{opt id(varname)}}person identifier for time-varying models{p_end}
 {synopt:{opt time(varname)}}time variable for time-varying models{p_end}
+{synopt:{opt est:name(name)}}store the propensity model under this name{p_end}
+
+{syntab:Diagnostics}
+{synopt:{opt bal:ance}}report standardized mean differences before/after weighting{p_end}
+{synopt:{opt love:plot}}love plot of absolute SMDs (requires {opt balance}){p_end}
+{synopt:{opt hist:ogram}}histogram of the weight distribution{p_end}
 
 {syntab:Output Options}
 {synopt:{opt den:ominator(name)}}also generate propensity score variable{p_end}
@@ -108,6 +117,15 @@ score model. These should be confounders that predict both treatment and outcome
 The default is {cmd:iptw}.
 
 {phang}
+{opt wtype(type)} selects the weight estimand. {cmd:iptw} (the default) gives
+inverse probability of treatment weights. {cmd:ato} gives overlap (ATO) weights,
+which target the population with the most overlap and are robust to extreme
+propensity scores; with a logistic propensity model they balance covariate means
+exactly. {cmd:matching} gives matching weights, which mimic a 1:1 matched sample.
+{cmd:ato} and {cmd:matching} are alternatives to {opt truncate()} under poor
+overlap. {opt stabilized} applies only to {cmd:iptw}.
+
+{phang}
 {opt stabilized} requests stabilized weights. Stabilized weights multiply
 the standard IPTW by the marginal probability of treatment:
 
@@ -123,6 +141,21 @@ unstabilized weights, leading to more efficient estimates.
 percentiles. For example, {cmd:truncate(1 99)} truncates at the 1st and 99th
 percentiles. Truncation reduces the influence of extreme weights but may
 introduce some bias.
+
+{phang}
+{opt cumulative} additionally generates a within-person cumulative product of
+the per-row weights, ordered by {opt time()}. Requires {opt id()} and
+{opt time()}. The per-row weight {cmd:tvweight} computes is {it:not} itself a
+time-varying marginal structural model (MSM) weight: a genuine MSM with
+time-varying confounding requires the cumulative product of period-specific
+weights within person, which {opt cumulative} provides. See
+{it:Methods and formulas}. For the full fixed-width MSM panel workflow, see
+{help tvpanel} feeding the {bf:msm} package.
+
+{phang}
+{opt cumgenerate(name)} names the cumulative weight variable. Requires
+{opt cumulative}. The default name is the weight name with a {cmd:_cum} suffix
+(for example {cmd:iptw_cum}).
 
 {dlgtab:Model Options}
 
@@ -150,6 +183,32 @@ cluster-robust standard errors are computed by {it:id}.
 {opt id()}, time fixed effects are added to the propensity score model.
 This is the standard approach for marginal structural models with
 time-varying treatments.
+
+{phang}
+{opt estname(name)} stores the fitted propensity model under {it:name} via
+{helpb estimates store}, so it can be inspected, replayed, or used by
+{helpb margins} downstream. Without this option the model is discarded after
+the weights are computed.
+
+{dlgtab:Diagnostics}
+
+{phang}
+{opt balance} reports the standardized mean difference (SMD) of each covariate
+between exposure groups, both before and after weighting, and returns them in
+{cmd:r(balance)}. SMD is the standard balance check for weighted analyses
+(Austin 2009, 2011). The denominator is the unweighted pooled standard
+deviation, so the before and after columns share a common scale. For
+categorical exposures the maximum absolute SMD across non-reference levels is
+reported per covariate.
+
+{phang}
+{opt loveplot} draws a love plot of the absolute SMDs (unweighted vs weighted)
+with a reference line at 0.1. Requires {opt balance}. The plot honors the active
+graph scheme.
+
+{phang}
+{opt histogram} draws a histogram of the weight distribution. The plot honors
+the active graph scheme.
 
 {dlgtab:Output Options}
 
@@ -262,6 +321,30 @@ The {cmd:[pw=iptw]} applies the inverse probability weights. Cluster-robust
 standard errors account for within-person correlation in the panel data.
 
 
+{pstd}
+{bf:Example 7: Balance diagnostics with a love plot}
+
+{pstd}
+Check covariate balance before and after weighting and draw a love plot:
+
+{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:generate(w) balance loveplot replace}{p_end}
+
+{pstd}
+The standardized mean differences are printed and returned in {cmd:r(balance)}.
+
+
+{pstd}
+{bf:Example 8: Overlap (ATO) weights for poor overlap}
+
+{pstd}
+When propensity scores are extreme, overlap weights are a principled
+alternative to truncation and balance covariate means exactly:
+
+{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:generate(ato_w) wtype(ato) balance replace}{p_end}
+
+
 {marker results}{...}
 {title:Stored results}
 
@@ -293,9 +376,15 @@ standard errors account for within-person correlation in the panel data.
 {synopt:{cmd:r(exposure)}}name of exposure variable{p_end}
 {synopt:{cmd:r(covariates)}}covariates used in model{p_end}
 {synopt:{cmd:r(model)}}model type (logit or mlogit){p_end}
+{synopt:{cmd:r(wtype)}}weight type (iptw, ato, or matching){p_end}
 {synopt:{cmd:r(generate)}}name of generated weight variable{p_end}
 {synopt:{cmd:r(stabilized)}}stabilized if stabilized weights requested{p_end}
 {synopt:{cmd:r(denominator)}}name of propensity score variable (if requested){p_end}
+{synopt:{cmd:r(estname)}}name of stored propensity model (if estname specified){p_end}
+{synopt:{cmd:r(cumgenerate)}}name of cumulative weight variable (if cumulative){p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(balance)}}covariate-by-{cmd:smd_unweighted}/{cmd:smd_weighted} SMD matrix (if balance){p_end}
 {p2colreset}{...}
 
 
@@ -355,6 +444,47 @@ treatment level a is:
 {p 8 8 2}
 W = 1/P(A=a|X)
 
+{pstd}
+{bf:Overlap (ATO) and matching weights}
+
+{pstd}
+With {cmd:wtype(ato)} the binary overlap weight is the probability of the
+opposite assignment:
+
+{p 8 8 2}
+W = A*(1-e(X)) + (1-A)*e(X)
+
+{pstd}
+Overlap weights target the population with the most overlap and, with a
+logistic propensity model, yield exactly zero weighted standardized mean
+differences (Li, Morgan & Zaslavsky 2018). With {cmd:wtype(matching)} the
+matching weight is:
+
+{p 8 8 2}
+W = min(e(X), 1-e(X)) / [A*e(X) + (1-A)*(1-e(X))]
+
+{pstd}
+For categorical exposures the generalized forms are used: the overlap weight is
+[1/{&Sigma}{sub:k}(1/P(A=k|X))]/P(A=a|X) and the matching weight is
+min{sub:k}P(A=k|X)/P(A=a|X).
+
+{pstd}
+{bf:Per-row IPTW versus cumulative MSM weights}
+
+{pstd}
+The weight described above is a {it:per-row} (cross-sectional) IPTW. A genuine
+marginal structural model for a time-varying treatment with time-varying
+confounding requires the {it:cumulative product} of the period-specific weights
+within each person, ordered by time:
+
+{p 8 8 2}
+W{sub:it} = {&prod}{sub:s<=t} weight at period s
+
+{pstd}
+The {opt cumulative} option computes this product (requires {opt id()} and
+{opt time()}). For the full fixed-width MSM panel grid that feeds the {bf:msm}
+package, see {help tvpanel}.
+
 
 {marker author}{...}
 {title:Author}
@@ -378,6 +508,15 @@ Austin PC, Stuart EA. Moving towards best practice when using inverse
 probability of treatment weighting (IPTW) using the propensity score to
 estimate causal treatment effects in observational studies. Statistics in
 Medicine. 2015;34(28):3661-3679.
+
+{pstd}
+Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score
+weighting. Journal of the American Statistical Association.
+2018;113(521):390-400.
+
+{pstd}
+Li L, Greene T. A weighting analogue to pair matching in propensity score
+analysis. International Journal of Biostatistics. 2013;9(2):215-234.
 
 
 {marker alsosee}{...}

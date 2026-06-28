@@ -35,14 +35,16 @@ if !inlist("`mode'", "quick", "core", "python", "full") {
 * One file per command plus the cross-cutting concern suites.
 local quick_suites test_tvage test_tvevent test_tvexpose test_tvmerge ///
     test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
-    test_options test_integration test_edge_cases test_verbose
+    test_options test_integration test_edge_cases test_verbose ///
+    test_frames_input
 
 * Correctness lane: quick lane plus regression fixes and the hand-computable
 * known-answer / invariant / person-time validation oracles.
 local core_suites `quick_suites' test_regressions ///
     validation_known_answers ///
     validation_tvage validation_tvevent validation_tvexpose ///
-    validation_tvmerge validation_tvweight validation_tvdiagnose ///
+    validation_tvmerge validation_tvweight validation_tvweight_balance ///
+    validation_tvdiagnose validation_flow ///
     validation_boundary validation_pipeline validation_supplemental
 
 * Cross-validation lane: parity against the external reference implementation.

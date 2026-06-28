@@ -1,4 +1,4 @@
-*! tvpanel Version 1.0.3  2026/06/26
+*! tvpanel Version 1.1.0  2026/06/28
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -22,11 +22,32 @@ program define tvpanel, rclass
 
     capture noisily {
 
-    syntax using/, ID(varname) ENTRY(varname) EXIT(varname) EXPOSURE(name) ///
-        [REFerence(integer 0) WIDTH(integer 91) ///
+    syntax [using/], ID(varname) ENTRY(varname) EXIT(varname) EXPOSURE(name) ///
+        [FRame(name) REFerence(integer 0) WIDTH(integer 91) ///
          START(name) STOP(name) PERiod(name) STARTgen(name) STOPgen(name) ///
          GENerate(name) CUMulative(string) PREfix(string) ///
          KEEPvars(varlist) SAVEas(string) REPlace NOIsily]
+
+    * Frames input: materialize the named frame to a tempfile and treat it as
+    * the using source (the episode interval data), leaving the rest unchanged.
+    if "`frame'" != "" {
+        if `"`using'"' != "" {
+            di as error "specify either a using file or frame(), not both"
+            exit 198
+        }
+        capture confirm frame `frame'
+        if _rc {
+            di as error "frame not found: `frame'"
+            exit 111
+        }
+        tempfile _epiframefile
+        quietly frame `frame': save "`_epiframefile'", replace
+        local using "`_epiframefile'"
+    }
+    else if `"`using'"' == "" {
+        di as error "must specify a using file or frame()"
+        exit 198
+    }
 
     * Default names
     if "`start'"    == "" local start    "start"

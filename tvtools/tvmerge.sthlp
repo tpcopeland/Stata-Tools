@@ -18,12 +18,16 @@
 {title:Syntax}
 
 {p 8 16 2}
-{cmd:tvmerge} {it:dataset1} {it:dataset2} [{it:dataset3} ...]{cmd:,}
+{cmd:tvmerge} [{it:dataset1} {it:dataset2} ...]{cmd:,}
 {opt id(varname)}
 {opt start(namelist)}
 {opt stop(namelist)}
 {opt exposure(namelist)}
 [{it:options}]
+
+{pstd}
+Datasets may be given as file paths (the positional list) {it:or} as named
+frames via {opt frames()} (see below); supply one or the other, not both.
 
 
 {synoptset 28 tabbed}{...}
@@ -34,6 +38,9 @@
 {synopt:{opt start(namelist)}}start date variables (one per dataset, in order){p_end}
 {synopt:{opt stop(namelist)}}stop date variables (one per dataset, in order){p_end}
 {synopt:{opt exposure(namelist)}}exposure variables (one per dataset, in order){p_end}
+
+{syntab:Input}
+{synopt:{opt fr:ames(namelist)}}read inputs from named frames instead of files{p_end}
 
 {syntab:Exposure types}
 {synopt:{opt con:tinuous(namelist)}}specify which exposures are continuous (rates per day){p_end}
@@ -55,6 +62,7 @@
 {synopt:{opt validatecoverage}}verify all person-time accounted for (check for gaps){p_end}
 {synopt:{opt validateoverlap}}verify overlapping periods make sense{p_end}
 {synopt:{opt sum:marize}}display summary statistics of start/stop dates{p_end}
+{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
 {synopt:{opt verbose}}display individual IDs and dates in validation output{p_end}
 
 {syntab:ID matching}
@@ -124,6 +132,17 @@ names. This variable links records across datasets.
 {opt exposure(namelist)} specifies the exposure variables for all datasets, listed in the same order as the datasets in the command line.
 
 
+{dlgtab:Input}
+
+{phang}
+{opt frames(namelist)} reads the input datasets from named {help frame:frames}
+held in memory instead of from files on disk, in the order listed. This removes
+the save/use round-trip when each {cmd:tvexpose} output is already a frame.
+Supply either the positional file list or {opt frames()}, not both. All other
+options ({opt start()}, {opt stop()}, {opt exposure()}, etc.) apply per input
+exactly as with file paths.
+
+
 {dlgtab:Exposure types}
 
 {phang}
@@ -133,9 +152,17 @@ names. This variable links records across datasets.
 {dlgtab:Output naming}
 
 {phang}
-{opt generate(namelist)} specifies new names for exposure variables in the output dataset. Provide exactly 
-one name per dataset, in the same order as the datasets. This option is mutually exclusive with 
+{opt generate(namelist)} specifies new names for exposure variables in the output dataset. Provide exactly
+one name per dataset, in the same order as the datasets. This option is mutually exclusive with
 {opt prefix()}.
+
+{pmore}
+When {opt generate()} is {it:not} given and two or more inputs carry the same
+exposure name (the common case, since {cmd:tvexpose} defaults every output to
+{cmd:tv_exposure}), {cmd:tvmerge} automatically suffixes the colliding output
+names by position ({cmd:tv_exposure_1}, {cmd:tv_exposure_2}, ...) and prints a
+note, instead of erroring. To skip the rename entirely, give each
+{cmd:tvexpose} run a distinct {opt generate()} name up front.
 
 {phang}
 {opt prefix(string)} adds a prefix to all exposure variable names in the output. For example, 
@@ -180,6 +207,14 @@ Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
 {phang}
 {opt summarize} displays summary statistics (min, max, mean, percentiles) for the start and stop date
 variables in the merged output dataset.
+
+{phang}
+{opt flow} reports an attrition table: the number of persons (union of distinct
+ids across the inputs) and records entering versus leaving the merge, with the
+difference. Persons can drop when {opt force} merges datasets with non-matching
+ids. The table is returned in the matrix {cmd:r(flow)} (rows {cmd:persons} and
+{cmd:records}; columns {cmd:in}, {cmd:out}, {cmd:dropped}) for STROBE/RECORD-PE
+reporting. It is a pure side channel and does not change the output dataset.
 
 {phang}
 {opt verbose} displays individual IDs and dates when {cmd:validatecoverage}
@@ -596,6 +631,10 @@ Progress messages show batch processing status. For a dataset with 10,000 unique
 {synopt:{cmd:r(prefix)}}prefix used (if prefix option used){p_end}
 {synopt:{cmd:r(generated_names)}}generated names (if generate option used){p_end}
 {synopt:{cmd:r(output_file)}}output filename (if saveas option used){p_end}
+
+{synoptset 25 tabbed}{...}
+{p2col 5 25 29 2: Matrices}{p_end}
+{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
 
 
 {marker author}{...}

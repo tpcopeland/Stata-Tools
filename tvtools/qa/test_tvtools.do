@@ -54,15 +54,16 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(prep)
-    assert r(n_commands) == 4
+    assert r(n_commands) == 5
     local cmds "`r(commands)'"
     assert strpos("`cmds'", "tvexpose") > 0
     assert strpos("`cmds'", "tvmerge") > 0
     assert strpos("`cmds'", "tvevent") > 0
     assert strpos("`cmds'", "tvage") > 0
+    assert strpos("`cmds'", "tvpanel") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(prep) returns 4 commands"
+    display as result "  PASS: category(prep) returns 5 commands"
     local ++pass_count
 }
 else {
@@ -113,10 +114,11 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(all)
-    assert r(n_commands) == 6
+    assert r(n_commands) == 7
+    assert strpos("`r(commands)'", "tvpanel") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(all) returns 6 commands"
+    display as result "  PASS: category(all) returns 7 commands"
     local ++pass_count
 }
 else {
@@ -146,7 +148,7 @@ local ++test_count
 capture noisily {
     tvtools, list
     assert "`r(commands)'" != ""
-    assert r(n_commands) == 6
+    assert r(n_commands) == 7
 }
 if _rc == 0 {
     display as result "  PASS: list option works"
@@ -178,7 +180,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, list category(prep)
-    assert r(n_commands) == 4
+    assert r(n_commands) == 5
 }
 if _rc == 0 {
     display as result "  PASS: list + category(prep) combination works"
@@ -210,7 +212,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(PREP)
-    assert r(n_commands) == 4
+    assert r(n_commands) == 5
 }
 if _rc == 0 {
     display as result "  PASS: Case-insensitive category(PREP) works"
@@ -256,6 +258,24 @@ else {
     display as error "  FAIL: Varabbrev restored after tvtools error (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.14"
+}
+
+* TEST 1.15: tvpanel listed in default and detail views (index completeness)
+local ++test_count
+capture noisily {
+    tvtools
+    assert strpos("`r(commands)'", "tvpanel") > 0
+    tvtools, detail
+    assert strpos("`r(commands)'", "tvpanel") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvpanel present in default and detail command index"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvpanel present in default and detail command index (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 1.15"
 }
 
 

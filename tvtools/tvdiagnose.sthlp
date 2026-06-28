@@ -41,12 +41,14 @@
 {synopt:{opt over:laps}}overlap detection{p_end}
 {synopt:{opt sum:marize}}exposure distribution summary (requires exposure){p_end}
 {synopt:{opt all}}run all diagnostic reports{p_end}
+{synopt:{opt swim:lane}}plot an exposure swimlane (interval bars per person){p_end}
 
 {syntab:Additional options}
 {synopt:{opt exp:osure(varname)}}exposure variable (required for summarize){p_end}
 {synopt:{opt entry(varname)}}study entry date (required for coverage){p_end}
 {synopt:{opt exit(varname)}}study exit date (required for coverage){p_end}
 {synopt:{opt thr:eshold(#)}}flag gaps exceeding # days (default: 30){p_end}
+{synopt:{opt max:ids(#)}}maximum persons to draw in the swimlane (default: 50){p_end}
 {synopt:{opt verbose}}display individual IDs and dates in diagnostic output{p_end}
 {synoptline}
 
@@ -117,6 +119,13 @@ when a period starts before the previous period ends.
 {opt all} runs all diagnostic reports. Equivalent to specifying
 {opt coverage gaps overlaps summarize}.
 
+{phang}
+{opt swimlane} draws an exposure swimlane: a horizontal [start, stop] interval
+bar for each person, colored by {opt exposure()} level when supplied. It is a
+valid stand-alone action (no other report is required) and honors the active
+graph scheme. Large datasets are capped at {opt maxids()} persons. The plot is
+named {cmd:tvd_swimlane} and the data in memory is left unchanged.
+
 {dlgtab:Additional options}
 
 {phang}
@@ -134,6 +143,11 @@ the {opt summarize} report.
 {phang}
 {opt threshold(#)} specifies the gap threshold in days. Gaps exceeding
 this threshold are flagged in the output. Default is 30 days.
+
+{phang}
+{opt max:ids(#)} caps the number of persons drawn in the {opt swimlane} plot
+(default 50). When the data has more persons, the first {it:#} (by grouped id)
+are shown and a note is displayed.
 
 {phang}
 {opt verbose} displays individual IDs and dates in diagnostic output.

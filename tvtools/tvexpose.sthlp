@@ -103,6 +103,7 @@
 {synopt:{opt overlaps}}show overlapping exposure periods{p_end}
 {synopt:{opt summarize}}display exposure distribution summary{p_end}
 {synopt:{opt validate}}create validation dataset with coverage metrics{p_end}
+{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
 {synopt:{opt verbose}}display individual IDs and dates in diagnostic output{p_end}
 
 {synoptline}
@@ -386,6 +387,14 @@ distribution, including frequencies of each category and person-time totals.
 {phang}
 {opt validate} creates a separate validation dataset ({cmd:tv_validation.dta})
 containing coverage metrics for each person, useful for quality control.
+
+{phang}
+{opt flow} reports an attrition table of persons and records entering versus
+leaving (persons can drop when the study window is invalid), returned in the
+matrix {cmd:r(flow)} (rows {cmd:persons} and {cmd:records}; columns {cmd:in},
+{cmd:out}, {cmd:dropped}). For records, {cmd:dropped} can be negative because
+episodes expand into multiple intervals. It is a pure side channel and does not
+change the output.
 
 {phang}
 {opt verbose} displays individual IDs and dates in diagnostic output from
@@ -846,6 +855,9 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
 
 {pstd}
 {cmd:r(overlap_ids)} is stored only when overlaps are detected and no overlap-handling option was specified:

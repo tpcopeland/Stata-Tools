@@ -356,6 +356,67 @@ else {
 
 
 
+* TEST 4.SW1: swimlane with exposure produces a graph (standalone action)
+local ++test_count
+capture noisily {
+    use `diag_data', clear
+    graph drop _all
+    tvdiagnose, id(id) start(start) stop(stop) exposure(exposure) swimlane
+    capture graph describe tvd_swimlane
+    assert _rc == 0
+    * data not destroyed by the plot (frame/preserve isolated)
+    assert _N == 20
+}
+if _rc == 0 {
+    display as result "  PASS: swimlane (with exposure) creates graph, data intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: swimlane with exposure (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.SW1"
+}
+
+* TEST 4.SW2: swimlane without exposure also works
+local ++test_count
+capture noisily {
+    use `diag_data', clear
+    graph drop _all
+    tvdiagnose, id(id) start(start) stop(stop) swimlane
+    capture graph describe tvd_swimlane
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS: swimlane (no exposure) creates graph"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: swimlane without exposure (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.SW2"
+}
+
+* TEST 4.SW3: maxids cap and invalid maxids guard
+local ++test_count
+capture noisily {
+    use `diag_data', clear
+    graph drop _all
+    tvdiagnose, id(id) start(start) stop(stop) exposure(exposure) swimlane maxids(2)
+    capture graph describe tvd_swimlane
+    assert _rc == 0
+    capture tvdiagnose, id(id) start(start) stop(stop) swimlane maxids(0)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: swimlane maxids cap works; maxids(0) rejected (198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: swimlane maxids (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.SW3"
+}
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS

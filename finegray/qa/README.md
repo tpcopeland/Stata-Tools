@@ -36,8 +36,8 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 | `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 49 | 0 | 6 |
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
-| `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 13 | 13 | 0 | 0 |
-| **Total** | | **291** | **285** | **0** | **6** |
+| `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
+| **Total** | | **293** | **287** | **0** | **6** |
 
 *The 6 skips are `fastcmprsk` cross-checks (C45–C50), a redundant secondary
 oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
@@ -224,11 +224,11 @@ passing trivially. The 0.03 tolerance is ~2× the worst Monte-Carlo error
 observed across a 6-seed mini-MC and ~4× the analytic SE — deterministic at the
 fixed seeds, not a loose band.
 
-### 4. Cross-validation (78 tests against 3 independent references)
+### 4. Cross-validation (80 tests against 3 independent references)
 
 | Suite | Reference | What it proves |
 |-------|-----------|----------------|
-| `crossval_predict_stcrreg.do` | StataCorp `stcrreg` | `finegray_predict` `xb`, `exp(xb)` (relative subhazard), covariate and baseline CIF, `e(basehaz)`, Schoenfeld residuals (incl. tied-time group sums), and SHR/SE/95% CI all match the native estimator — bit-exact on point estimates, **< 2%** relative on robust SEs and CIs. No external dependency; never skips. |
+| `crossval_predict_stcrreg.do` | StataCorp `stcrreg` | `finegray_predict` `xb`, `exp(xb)` (relative subhazard), covariate and baseline CIF, `e(basehaz)`, Schoenfeld residuals (incl. tied-time group sums), and SHR/SE/95% CI all match the native estimator — bit-exact on point estimates, **< 2%** relative on robust SEs and CIs. Also includes a GitHub issue&nbsp;#1 regression guard (C1/C2): the fixed-horizon (`timevar()`) CIF matches the correct baseline-CIF mapping `1-(1-basecif)^exp(xb)` to ~6e-8 and is asserted **not** to equal the wrong `basecif^exp(xb)`. No external dependency; never skips. |
 | `crossval_finegray.do` | `stcrreg` + `cmprsk::crr` | Coefficients vs `stcrreg` to **< 1e-4** across covariate combinations and both causes; log-likelihood, robust SEs (ratio 0.95–1.05), strata via `cengroup`, high-censoring stress, simulated-DGP direction recovery, and N = 500–50 000 performance benchmarks. Strata parity vs `cmprsk` `cengroup` (C51–C55): coefficients < 0.01, SEs < 15%, LL < 0.1%, CIF < 0.02. |
 | `crossval_cif.do` | R `riskRegression` | `finegray_cif` point estimates match `riskRegression::predictRisk` (**< 1e-4**); CIF standard errors match a same-dataset subject bootstrap. (Since no R package exposes a Fine-Gray CIF SE, the *deterministic* SE oracle is the jackknife in `validation_finegray_cif_se.do`.) |
 | `crossval_predict_phtest.do` | `cmprsk::crr` | Row-level `xb` (**< 0.001**) and CIF (**< 0.01**) vs R. Schoenfeld residuals and `finegray_phtest` χ² are cross-checked at a **common β** (finegray's coefficients passed to R, isolating the residual algorithm from optimizer-to-optimizer β differences): on tie-free simulated data the residuals are **bit-exact (< 1e-4)** and the χ² agrees with `cmprsk` across rank/log/identity transforms to **< 0.5%** (observed ~1e-6). Hypoxia (heavy ties + a near-zero censoring weight) is checked for functional validity only — its residuals are validated bit-for-bit against `stcrreg` in `crossval_predict_stcrreg.do`. Includes an internal `predict schoenfeld` → manual correlation → `phtest` consistency check and a determinism check. |

@@ -433,6 +433,81 @@ else {
 }
 
 * ============================================================================
+**# Configuration C: GitHub issue #1 -- basecif -> CIF mapping at a fixed horizon
+* Regression guard for issue #1 (hamishinnes). The covariate-adjusted CIF built
+* from stcrreg's baseline CIF F0 = basecif is  CIF(t|z) = 1 - (1 - F0)^exp(xb),
+* NOT  F0^exp(xb). The reporter used the latter and concluded finegray was buggy;
+* it is not -- finegray matches the CORRECT mapping and must NOT match the wrong
+* one. Reproduces the issue scenario exactly (webuse hypoxia, fixed horizon t=3
+* via timevar()), the path A3/B2 (own-_t, H0 form) does not exercise.
+* ============================================================================
+
+* ---- finegray: fixed-horizon CIF at t = 3 ----
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(dfcens == 1) id(stnum)
+finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+gen double t3 = 3
+finegray_predict cifC_fg, cif timevar(t3)
+keep stnum cifC_fg
+tempfile fout_C
+save "`fout_C'"
+
+* ---- stcrreg baseline CIF F0(t=3) and xb ----
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(status == 1) id(stnum)
+stcrreg ifp tumsize pelnode, compete(status == 2)
+predict xbC_s, xb
+predict bcifC_s, basecif
+* F0(3) = basecif at the largest _t <= 3 (right-continuous step; basecif is
+* monotone so the max over _t<=3 is the step value finegray's H0 lookup uses)
+quietly summarize bcifC_s if _t <= 3
+scalar F0_3 = r(max)
+keep stnum xbC_s
+merge 1:1 stnum using "`fout_C'", nogen
+
+**# C1: finegray CIF(t=3) == 1 - (1 - F0)^exp(xb)  (CORRECT basecif mapping)
+local ++test_count
+capture noisily {
+    gen double cifC_correct = 1 - (1 - F0_3)^exp(xbC_s)
+    gen double dC_ok = cifC_fg - cifC_correct
+    _mad dC_ok
+    display as text "    issue#1 CIF vs 1-(1-F0)^exp(xb) max|diff| = " %12.3e r(mad)
+    assert r(mad) < 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS: C1 fixed-horizon CIF vs correct basecif mapping"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C1 CIF vs 1-(1-F0)^exp(xb) (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C1"
+}
+
+**# C2: finegray CIF(t=3) must NOT equal F0^exp(xb)  (the reporter's wrong line)
+* Guards against a future regression toward the incorrect mapping. On hypoxia the
+* wrong formula is off by up to ~0.89 in CIF units, so a generous floor suffices.
+local ++test_count
+capture noisily {
+    gen double cifC_wrong = F0_3^exp(xbC_s)
+    gen double dC_bad = cifC_fg - cifC_wrong
+    _mad dC_bad
+    display as text "    issue#1 CIF vs F0^exp(xb) (wrong) max|diff| = " %12.3e r(mad)
+    assert r(mad) > 0.05
+}
+if _rc == 0 {
+    display as result "  PASS: C2 CIF is not the wrong F0^exp(xb) mapping"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C2 finegray CIF matches the WRONG mapping (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C2"
+}
+
+* ============================================================================
 **# Summary
 * ============================================================================
 display as text _newline "RESULTS: crossval_predict_stcrreg.do"

@@ -1,4 +1,4 @@
-*! tvexpose Version 1.0.3  2026/06/26
+*! tvexpose Version 1.1.0  2026/06/28
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -182,6 +182,7 @@ program define tvexpose, rclass
         KEEPdates ///
         REFERENCElabel(string) ///
         LABel(string) ///
+        FLOW ///
         VERBose]
     
     * Check that stop() is provided OR pointtime is specified
@@ -272,6 +273,17 @@ program define tvexpose, rclass
     quietly count if `touse'
     if r(N) == 0 {
         error 2000  // no observations
+    }
+
+    * Flow accounting: capture input persons/records (egen tag does not reorder)
+    if "`flow'" != "" {
+        quietly count if `touse'
+        local _flow_rin = r(N)
+        tempvar _flow_tag
+        quietly egen byte `_flow_tag' = tag(`id') if `touse'
+        quietly count if `_flow_tag' == 1
+        local _flow_pin = r(N)
+        drop `_flow_tag'
     }
     
     * Set default values
@@ -4720,6 +4732,30 @@ program define tvexpose, rclass
     return scalar pct_exposed = `pct_exposed'
 
     * Note: overlap_ids already available via return local, no global needed
+
+    * Flow accounting report (opt-in via flow option)
+    if "`flow'" != "" {
+        tempname _flowmat
+        matrix `_flowmat' = J(2, 3, .)
+        matrix `_flowmat'[1,1] = `_flow_pin'
+        matrix `_flowmat'[1,2] = `N_persons'
+        matrix `_flowmat'[1,3] = `_flow_pin' - `N_persons'
+        matrix `_flowmat'[2,1] = `_flow_rin'
+        matrix `_flowmat'[2,2] = `N_periods'
+        matrix `_flowmat'[2,3] = `_flow_rin' - `N_periods'
+        matrix rownames `_flowmat' = persons records
+        matrix colnames `_flowmat' = in out dropped
+        display as text "{hline 60}"
+        display as text "Pipeline flow (tvexpose)"
+        display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
+        display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `N_persons' ///
+            %10.0f `=`_flow_pin' - `N_persons''
+        display as text %-12s "records" %10.0f `_flow_rin' %10.0f `N_periods' ///
+            %10.0f `=`_flow_rin' - `N_periods''
+        display as text "(records dropped < 0 indicates net interval expansion)"
+        display as text "{hline 60}"
+        return matrix flow = `_flowmat'
+    }
 
     } // end capture noisily
     local rc = _rc

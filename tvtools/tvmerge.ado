@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.3  2026/06/26
+*! tvmerge Version 1.1.0  2026/06/28
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -66,10 +66,11 @@ program define tvmerge, rclass
 
     **# SYNTAX DECLARATION
 
-    syntax anything(name=datasets), ///
+    syntax [anything(name=datasets)], ///
         id(name) ///
         STart(namelist) STOP(namelist) EXPosure(namelist) ///
-        [GENerate(namelist) ///
+        [FRames(namelist) ///
+         GENerate(namelist) ///
          PREfix(string) ///
          STARTname(string) ///
          STOPname(string) ///
@@ -81,6 +82,7 @@ program define tvmerge, rclass
          Batch(integer 20) ///
          FORCE ///
          CHECK VALIDATEcoverage VALIDATEoverlap SUMmarize ///
+         FLOW ///
          VERBose]
     
     **# INPUT VALIDATION AND SETUP
@@ -90,7 +92,27 @@ program define tvmerge, rclass
         di as error "tvmerge cannot be used with by:"
         exit 190
     }
-    
+
+    * Frames input: materialize each named frame to a tempfile and feed the
+    * existing file-based pipeline unchanged. This removes the save/use/rename
+    * round-trip when inputs are already held in memory as frames.
+    if "`frames'" != "" {
+        if `"`datasets'"' != "" {
+            di as error "specify either file paths or frames(), not both"
+            exit 198
+        }
+        foreach fr of local frames {
+            capture confirm frame `fr'
+            if _rc {
+                di as error "frame not found: `fr'"
+                exit 111
+            }
+            tempfile _frfile
+            quietly frame `fr': save "`_frfile'", replace
+            local datasets "`datasets' `_frfile'"
+        }
+    }
+
     * Parse and validate dataset count
     local numds: word count `datasets'
     if `numds' < 2 {
@@ -137,6 +159,37 @@ program define tvmerge, rclass
     if `validation_error' {
         di as error "`error_msg'"
         exit `error_code'
+    }
+
+    * Flow accounting: capture input persons (union of distinct ids across all
+    * input datasets) and total input records. Opt-in via flow; the extra read
+    * of each input is acceptable on this path only.
+    if "`flow'" != "" {
+        preserve
+        local _flow_rin = 0
+        tempfile _flow_ids
+        local _flow_first = 1
+        foreach ds in `datasets' {
+            local _dsf "`ds'"
+            capture confirm file "`_dsf'"
+            if _rc & substr("`ds'", -4, .) != ".dta" local _dsf "`ds'.dta"
+            quietly use `id' using "`_dsf'", clear
+            local _flow_rin = `_flow_rin' + _N
+            if `_flow_first' {
+                quietly save "`_flow_ids'", replace
+                local _flow_first = 0
+            }
+            else {
+                quietly append using "`_flow_ids'"
+                quietly save "`_flow_ids'", replace
+            }
+        }
+        quietly use "`_flow_ids'", clear
+        tempvar _flow_t
+        quietly egen byte `_flow_t' = tag(`id')
+        quietly count if `_flow_t' == 1
+        local _flow_pin = r(N)
+        restore
     }
 
     * Validate variable name lengths (Stata allows up to 32 characters)
@@ -310,10 +363,45 @@ program define tvmerge, rclass
         }
 
         if `has_dup' {
-            di as error "Duplicate exposure variable name '`dup_name'' specified multiple times."
-            di as error "Each position in exposure() must have a unique name."
-            di as error "Use the generate() option to rename exposures if datasets have same variable names."
-            exit 198
+            * Auto-suffix duplicate exposure output names by position instead of
+            * erroring. This removes the most-repeated friction in the docs:
+            * tvexpose defaults every output to tv_exposure, so merging two of
+            * them previously required a manual rename. Only applies in the
+            * standard one-exposure-per-dataset case (numexp == numds); the
+            * advanced multi-exposure case still requires explicit generate().
+            if `numexp_raw' == `numds' {
+                local generate ""
+                local pos = 0
+                foreach exp_name in `exposures_raw' {
+                    local ++pos
+                    local nocc = 0
+                    foreach e2 in `exposures_raw' {
+                        if "`e2'" == "`exp_name'" local ++nocc
+                    }
+                    if `nocc' > 1 {
+                        local generate "`generate' `exp_name'_`pos'"
+                    }
+                    else {
+                        local generate "`generate' `exp_name'"
+                    }
+                }
+                * Guard the synthesized names against internal reserved names
+                foreach gname in `generate' {
+                    local gen_conflict: list gname in reserved_names
+                    if `gen_conflict' {
+                        di as error "auto-suffixed name '`gname'' conflicts with internal variable name"
+                        di as error "Use the generate() option to choose distinct names"
+                        exit 198
+                    }
+                }
+                display as text "Note: duplicate exposure name(s) auto-suffixed by position: `generate'"
+            }
+            else {
+                di as error "Duplicate exposure variable name '`dup_name'' specified multiple times."
+                di as error "Each position in exposure() must have a unique name."
+                di as error "Use the generate() option to rename exposures if datasets have same variable names."
+                exit 198
+            }
         }
     }
 
@@ -1222,12 +1310,15 @@ program define tvmerge, rclass
 
         * Store scalar results
         return scalar N = _N
+        local _flow_rout = _N
+        local _flow_pout = 0
 
         if _N > 0 {
             * Count and store unique persons
             egen long _tag = tag(id)
             quietly count if _tag == 1
             return scalar N_persons = r(N)
+            local _flow_pout = r(N)
             drop _tag
 
             * Calculate and store periods per person statistics
@@ -1242,6 +1333,30 @@ program define tvmerge, rclass
             return scalar N_persons = 0
             return scalar mean_periods = 0
             return scalar max_periods = 0
+        }
+
+        * Flow accounting report (opt-in via flow option)
+        if "`flow'" != "" {
+            tempname _flowmat
+            matrix `_flowmat' = J(2, 3, .)
+            matrix `_flowmat'[1,1] = `_flow_pin'
+            matrix `_flowmat'[1,2] = `_flow_pout'
+            matrix `_flowmat'[1,3] = `_flow_pin' - `_flow_pout'
+            matrix `_flowmat'[2,1] = `_flow_rin'
+            matrix `_flowmat'[2,2] = `_flow_rout'
+            matrix `_flowmat'[2,3] = `_flow_rin' - `_flow_rout'
+            matrix rownames `_flowmat' = persons records
+            matrix colnames `_flowmat' = in out dropped
+            display as text "{hline 60}"
+            display as text "Pipeline flow (tvmerge)"
+            display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
+            display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
+                %10.0f `=`_flow_pin' - `_flow_pout''
+            display as text %-12s "records" %10.0f `_flow_rin' %10.0f `_flow_rout' ///
+                %10.0f `=`_flow_rin' - `_flow_rout''
+            display as text "(persons in = union of distinct ids across inputs)"
+            display as text "{hline 60}"
+            return matrix flow = `_flowmat'
         }
 
         * Store number of merged datasets

@@ -23,7 +23,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:tvpanel} {cmd:using} {it:filename}{cmd:,}
+{cmd:tvpanel} [{cmd:using} {it:filename}]{cmd:,}
 {opth id(varname)}
 {opth entry(varname)}
 {opth exit(varname)}
@@ -33,7 +33,8 @@
 {pstd}
 The data in memory is the {bf:master}: one row per person with the study {opt entry()}
 and {opt exit()} dates. {it:filename} is the {bf:episode} file: exposure periods with
-{opt id()}, a start, a stop, and an integer exposure-class variable.
+{opt id()}, a start, a stop, and an integer exposure-class variable. The episode
+data may instead be supplied as a named frame via {opt frame()}.
 
 {synoptset 30 tabbed}{...}
 {synopthdr}
@@ -43,6 +44,7 @@ and {opt exit()} dates. {it:filename} is the {bf:episode} file: exposure periods
 {synopt:{opth entry(varname)}}study entry date in the master (anchors the grid){p_end}
 {synopt:{opth exit(varname)}}study exit date in the master{p_end}
 {synopt:{opth exposure(name)}}integer exposure-class variable in the episode file{p_end}
+{synopt:{opt fr:ame(name)}}read the episode data from a named frame instead of a file{p_end}
 
 {syntab:Grid}
 {synopt:{opt width(#)}}interval width in days; default {cmd:width(91)}{p_end}
@@ -91,6 +93,11 @@ building that grid before {helpb msm_prepare}/{helpb msm_weight}.
 {phang}
 {opth id(varname)}, {opth entry(varname)}, {opth exit(varname)} identify the person and
 the study window in the master data (one row per person). {opt entry()} anchors the grid.
+
+{phang}
+{opt frame(name)} reads the episode data from a named {help frame:frame} held in
+memory instead of from a {cmd:using} file. Supply either {cmd:using} or
+{opt frame()}, not both.
 
 {phang}
 {opth exposure(name)} is the integer exposure-class variable in the episode file. Values

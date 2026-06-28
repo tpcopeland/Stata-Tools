@@ -21,10 +21,14 @@
 
 {p 8 17 2}
 {cmd:tvevent}
-{cmd:using} {it:filename},
+[{cmd:using} {it:filename}],
 {cmd:id(}{varname}{cmd:)}
 {cmd:date(}{it:name}{cmd:)}
 [{it:options}]
+
+{pstd}
+The interval data may be supplied as a {cmd:using} file {it:or} as a named frame
+via {opt frame()}; supply one or the other.
 
 
 {synoptset 28 tabbed}{...}
@@ -32,6 +36,7 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}person identifier matching the master dataset{p_end}
+{synopt:{opt fr:ame(name)}}read the interval data from a named frame instead of a file{p_end}
 {synopt:{opt date(name)}}variable name or stubname for event date(s); for {cmd:type(recurring)}, specifies the stub for {it:stub}1, {it:stub}2, etc.{p_end}
 
 {syntab:Competing Risks}
@@ -55,6 +60,7 @@
 
 {syntab:Diagnostics}
 {synopt:{opt val:idate}}display validation diagnostics for event data quality{p_end}
+{synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -99,6 +105,12 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 
 {marker options}{...}
 {title:Options}
+
+{phang}
+{opt frame(name)} reads the interval data from a named {help frame:frame} held
+in memory instead of from a {cmd:using} file. Supply either {cmd:using} or
+{opt frame()}, not both. This removes the save/use round-trip when the interval
+data (from {cmd:tvexpose}/{cmd:tvmerge}) is already a frame.
 
 {phang}
 {opt compete(namelist)} specifies date variables in the master (event) dataset that represent competing risks. If a competing date is earlier than the primary date, the status is set to 2 (for the first variable in the list), 3 (for the second), etc.
@@ -148,6 +160,13 @@ not supported with recurring events.
 {break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases where the primary event and a competing event occur on the same date.
 {break}
 {break}Validation results are also stored in {cmd:r(v_outside_bounds)}, {cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
+
+{phang}
+{opt flow} reports an attrition table of persons and records entering (the
+interval/using data) versus leaving, returned in the matrix {cmd:r(flow)} (rows
+{cmd:persons} and {cmd:records}; columns {cmd:in}, {cmd:out}, {cmd:dropped}). For
+records, {cmd:dropped} can be negative because intervals split at events. It is a
+pure side channel and does not change the output.
 
 {pmore}
 {bf:Note on interval boundaries:} The command uses closed intervals [start, stop] for event detection.
@@ -368,6 +387,9 @@ When {cmd:validate} is specified, additional scalars are stored:
 {synopt:{cmd:r(v_outside_bounds)}}Number of events outside interval boundaries{p_end}
 {synopt:{cmd:r(v_multiple_events)}}Number of persons with multiple events (type(single) only){p_end}
 {synopt:{cmd:r(v_same_date_compete)}}Number of competing events on same date as primary{p_end}
+
+{p2col 5 24 28 2: Matrices}{p_end}
+{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
 
 
 {marker author}{...}

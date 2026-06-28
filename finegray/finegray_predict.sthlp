@@ -73,8 +73,19 @@ t*, set a constant time variable and pass it through {opt timevar()} (see
 {it:CIF at custom time points} under Examples). The baseline cumulative
 subdistribution hazard H0(t) — the analogue of {cmd:stcrreg}'s {cmd:basecif}
 — is stored as a right-continuous step function in {cmd:e(basehaz)} (columns
-{it:time} and {it:cumhazard}); the baseline CIF at any time is 1 -
-exp(-H0(t)), and any individual's CIF rescales this by exp(z'beta).
+{it:time} and {it:cumhazard}); the baseline CIF at any time is
+F0(t) = 1 - exp(-H0(t)), and an individual's covariate-adjusted CIF is obtained
+from that baseline CIF as CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), equivalently
+1 - exp(-H0(t) * exp(z'beta)).
+
+{pstd}
+{bf:Converting {cmd:stcrreg}'s {cmd:basecif} by hand:} the exp(z'beta) factor
+rescales the baseline {it:survival} 1 - F0(t), {bf:not} the baseline CIF F0(t)
+itself. The correct adjustment is CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), and
+{bf:not} F0(t)^exp(z'beta). Raising the CIF directly to the exp(z'beta) power is
+a common mistake — it moves the CIF in the wrong direction (toward 0) when
+z'beta > 0. Using {cmd:stcrreg}'s {cmd:basecif} as F0(t), {cmd:finegray_predict,
+cif} matches 1 - (1 - {cmd:basecif})^exp(z'beta) to numerical precision.
 
 {pstd}
 {cmd:finegray} must have been run before using {cmd:finegray_predict}. For
