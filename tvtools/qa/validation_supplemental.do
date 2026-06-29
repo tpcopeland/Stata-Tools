@@ -278,7 +278,7 @@ capture {
         id(id) start(rx_start) stop(rx_stop) exposure(drug) ///
         reference(0) entry(study_entry) exit(study_exit)
 
-    quietly count if tv_exposure != 0
+    quietly count if tv_drug != 0
     local exposed_no_cf = r(N)
 
     * With carryforward(10): exposure extends 10 days past rx_stop
@@ -289,7 +289,7 @@ capture {
         carryforward(10)
 
     * Should have more or equal exposed intervals than without carryforward
-    quietly count if tv_exposure != 0
+    quietly count if tv_drug != 0
     assert r(N) >= `exposed_no_cf'
 
     * Total person-time should still be preserved (output uses rx_start/rx_stop)

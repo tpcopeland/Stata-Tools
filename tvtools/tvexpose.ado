@@ -1,4 +1,4 @@
-*! tvexpose Version 1.3.0  2026/06/28
+*! tvexpose Version 1.4.0  2026/06/29
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -318,8 +318,28 @@ program define tvexpose, rclass
         local skip_main_var = 1
     }
     else {
-        * Without bytype, generate() is the name of the single output variable
-        if "`generate'" == "" local generate "tv_exposure"
+        * Without bytype, generate() is the name of the single output variable.
+        * When generate() is omitted, derive the output name from the exposure
+        * varname (tv_<exposure>) so distinct exposures get distinct names and
+        * tvmerge/tvevent chain without manual renames. Fall back to the
+        * historical "tv_exposure" only when the derived name would be illegal,
+        * too long (>32 chars), or collide with the id or combine() variable.
+        if "`generate'" == "" {
+            local _derived "tv_`exposure'"
+            local _use_derived = 1
+            if strlen("`_derived'") > 32                          local _use_derived = 0
+            if "`_derived'" == "`id'"                             local _use_derived = 0
+            if "`combine'" != "" & "`_derived'" == "`combine'"    local _use_derived = 0
+            capture confirm name `_derived'
+            if _rc                                                local _use_derived = 0
+            if `_use_derived' {
+                local generate "`_derived'"
+                noisily display as text "Note: output exposure variable named {bf:`generate'} (from exposure(`exposure')); use generate() to override."
+            }
+            else {
+                local generate "tv_exposure"
+            }
+        }
         local skip_main_var = 0
     }
     
@@ -4692,6 +4712,11 @@ program define tvexpose, rclass
     return scalar exposed_time = `exposed_time'
     return scalar unexposed_time = `unexposed_time'
     return scalar pct_exposed = `pct_exposed'
+
+    * Name of the generated exposure variable (or the bytype stub), so callers
+    * and downstream tvmerge/tvevent steps can read the chosen output name.
+    if `skip_main_var' == 0  return local genvar "`generate'"
+    else                     return local genvar "`stub_name'"
 
     * Note: overlap_ids already available via return local, no global needed
 

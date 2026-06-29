@@ -2882,13 +2882,13 @@ capture {
         window(1 7) keepdates
 
     * Find the exposed period
-    quietly count if tv_exposure == 1
+    quietly count if tv_drug == 1
     assert r(N) == 1
 
     * Check exposed period boundaries
-    quietly summarize start if tv_exposure == 1
+    quietly summarize start if tv_drug == 1
     local actual_start = r(mean)
-    quietly summarize stop if tv_exposure == 1
+    quietly summarize stop if tv_drug == 1
     local actual_stop = r(mean)
 
     * Expected: start = Apr 10 + 1 = Apr 11, stop = Apr 10 + 7 = Apr 17
@@ -2935,9 +2935,9 @@ capture {
         exposure(drug) reference(0) entry(entry) exit(exit) ///
         window(30 90) keepdates
 
-    quietly summarize start if tv_exposure == 1
+    quietly summarize start if tv_drug == 1
     local s = r(mean)
-    quietly summarize stop if tv_exposure == 1
+    quietly summarize stop if tv_drug == 1
     local e = r(mean)
 
     * Expected: start = Mar 1 + 30 = Mar 31, stop = Mar 1 + 90 = May 30
@@ -2987,12 +2987,12 @@ capture {
     * exp_stop = min(Jun 1 + 7, Jun 5) = Jun 5 (truncated)
     * exp_start = Jun 1 + 1 = Jun 2
     * Result: [Jun 2, Jun 5] = 4 days
-    quietly count if tv_exposure == 1
+    quietly count if tv_drug == 1
     assert r(N) == 1
 
-    quietly summarize start if tv_exposure == 1
+    quietly summarize start if tv_drug == 1
     assert r(mean) == mdy(6, 2, 2020)
-    quietly summarize stop if tv_exposure == 1
+    quietly summarize stop if tv_drug == 1
     assert r(mean) == mdy(6, 5, 2020)
 }
 if _rc == 0 {

@@ -37,7 +37,7 @@ local quick_suites test_tvage test_tvband test_tvsplit ///
     test_tvevent test_tvexpose test_tvmerge ///
     test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
     test_options test_integration test_edge_cases test_verbose ///
-    test_frames_input
+    test_frames_input test_default_naming
 
 * Correctness lane: quick lane plus regression fixes and the hand-computable
 * known-answer / invariant / person-time validation oracles.

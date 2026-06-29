@@ -89,7 +89,7 @@
 {synopt:{opt statetime}}create cumulative time in current exposure state{p_end}
 
 {syntab:Output}
-{synopt:{opt generate(newvar)}}name for output exposure variable (default: tv_exposure){p_end}
+{synopt:{opt generate(newvar)}}name for output exposure variable (default: {cmd:tv_}{it:exposure}){p_end}
 {synopt:{opt referencelabel(text)}}label for reference category (default: "Unexposed"){p_end}
 {synopt:{opt label(text)}}custom variable label for output exposure variable{p_end}
 {synopt:{opt saveas(filename)}}save time-varying dataset to file{p_end}
@@ -335,7 +335,13 @@ spent in the current exposure state. Resets to 0 when exposure changes.
 
 {phang}
 {opt generate(newvar)} specifies the name for the output time-varying exposure
-variable. Default is {cmd:tv_exposure}.
+variable. When omitted, the name is derived from the {opt exposure()} varname
+as {cmd:tv_}{it:exposure} (for example, {cmd:exposure(drug_class)} yields
+{cmd:tv_drug_class}), so distinct exposures get distinct names and chain into
+{help tvmerge} / {help tvevent} without manual renames. The name falls back to
+{cmd:tv_exposure} when the derived name would be illegal, exceed 32 characters,
+or collide with the {opt id()} or {opt combine()} variable. The chosen name is
+returned in {cmd:r(genvar)}.
 
 {phang}
 {opt referencelabel(text)} specifies the label for the reference category in
@@ -854,6 +860,7 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 {synopt:{cmd:r(pct_exposed)}}percentage of time exposed{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(genvar)}}name of the generated exposure variable (the {opt bytype} stub when {opt bytype} is used){p_end}
 {synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}

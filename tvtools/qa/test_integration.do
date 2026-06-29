@@ -482,7 +482,7 @@ capture {
 
     * Step 2: Diagnose the output (tvexpose uses original var names rx_start/rx_stop)
     tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
-        exposure(tv_exposure) all ///
+        exposure(tv_drug) all ///
         entry(study_entry) exit(study_exit)
 
     assert r(n_persons) == `n1'

@@ -1,4 +1,4 @@
-*! tvpanel Version 1.3.0  2026/06/28
+*! tvpanel Version 1.4.0  2026/06/29
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

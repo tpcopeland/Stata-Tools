@@ -126,7 +126,7 @@ capture noisily tvexpose using "/tmp/test_exposure.dta", ///
     entry(study_entry) exit(study_exit)
 if _rc == 0 {
     * Verify output structure
-    capture confirm variable tv_exposure rx_start rx_stop
+    capture confirm variable tv_drug rx_start rx_stop
     if _rc == 0 {
         qui count
         if r(N) > 0 {
@@ -1143,9 +1143,9 @@ qui sum pt
 local total = r(sum)
 
 local sum_by_type = 0
-qui levelsof tv_exposure, local(types)
+qui levelsof tv_drug, local(types)
 foreach t of local types {
-    qui sum pt if tv_exposure == `t'
+    qui sum pt if tv_drug == `t'
     local sum_by_type = `sum_by_type' + r(sum)
 }
 
@@ -1302,7 +1302,7 @@ capture noisily tvexpose using "/tmp/test_exposure.dta", ///
     entry(study_entry) exit(study_exit)
 if _rc == 0 {
     * All should be reference
-    qui count if tv_exposure != 0
+    qui count if tv_drug != 0
     if r(N) == 0 {
         test_pass
     }
@@ -1384,7 +1384,7 @@ capture noisily tvexpose using "/tmp/early_exposure.dta", ///
     entry(study_entry) exit(study_exit)
 if _rc == 0 {
     * All should be reference
-    qui count if tv_exposure != 0
+    qui count if tv_drug != 0
     if r(N) == 0 {
         test_pass
     }
