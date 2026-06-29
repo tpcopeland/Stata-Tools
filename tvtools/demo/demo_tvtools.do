@@ -1,14 +1,19 @@
 /*  demo_tvtools.do - Generate documentation output for tvtools
 
     Produces:
-      1. Console output (binary treatment pipeline) -> .log -> .md via logdoc
-      2. Console output (multi-group treatment)     -> .log -> .md via logdoc
+      1. Console output (frames-first pipeline)   -> .log -> .md via logdoc
+      2. Console output (MSM weighting: IPCW)      -> .log -> .md via logdoc
+      3. Console output (recurrent events PWP/AG)  -> .log -> .md via logdoc
+      4. Console output (multi-group + age bands)  -> .log -> .md via logdoc
+      5. Covariate-balance love plot               -> .png
+      6. Exposure swimlane                         -> .png
 
-    Sections:
-      Binary:      tvtools index, tvexpose, tvdiagnose, tvmerge, tvevent,
-                   tvweight (binary), tvage
-      Multi-group: tvexpose (3 categories), tvweight (mlogit, stabilized,
-                   truncated)
+    Highlights the v1.5.0 / v1.6.0 additions:
+      - frames-first output: tvexpose/tvmerge frameout(); whole pipeline in memory
+      - returned output-name macros (r(genvar), r(startname), r(generate))
+      - IPCW censoring weights + combined MSM weight + positivity diagnostic
+      - recurrent-event PWP/AG formatting (enum stratum + gap-time clock)
+      - harmonized option names (tvage id/dob/entry/exit; tvevent start/stop)
 */
 
 version 16.0
@@ -23,10 +28,16 @@ capture mkdir "`pkg_dir'"
 capture ado uninstall tvtools
 quietly net install tvtools, from("`c(pwd)'/tvtools") replace
 
-* --- Generate synthetic cohort ---
-clear
-set seed 20260408
+* --- Graph scheme ---
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+set scheme plotplainblind
 
+**# Synthetic data generation
+clear
+set seed 20260629
+
+* Person-level cohort with follow-up window and baseline covariates
 set obs 200
 gen long id = _n
 gen int study_entry = mdy(1, 1, 2015) + int(runiform() * 365)
@@ -38,7 +49,7 @@ gen int dob = study_entry - int(age * 365.25)
 format dob %tdCCYY/NN/DD
 save "`pkg_dir'/_cohort.dta", replace
 
-* --- Generate antidepressant exposure episodes ---
+* Antidepressant exposure episodes (3 categories: Unexposed / SSRI / SNRI)
 expand 1 + int(runiform() * 4)
 bysort id: gen int seq = _n
 bysort id: gen int duration = 60 + int(runiform() * 300)
@@ -55,7 +66,7 @@ drop p_exposed seq duration
 keep id rx_start rx_stop drug
 save "`pkg_dir'/_episodes_antidep.dta", replace
 
-* --- Generate benzodiazepine exposure episodes ---
+* Benzodiazepine exposure episodes (binary)
 use "`pkg_dir'/_cohort.dta", clear
 expand 1 + int(runiform() * 2)
 bysort id: gen int seq = _n
@@ -71,7 +82,7 @@ drop seq duration
 keep id rx_start rx_stop benzo_use
 save "`pkg_dir'/_episodes_benzo.dta", replace
 
-* --- Generate event data ---
+* Single-event data (outcome + competing death)
 use "`pkg_dir'/_cohort.dta", clear
 gen double p_event = invlogit(-3 + 0.01 * age)
 gen byte has_event = runiform() < p_event
@@ -84,98 +95,195 @@ format death_date %tdCCYY/NN/DD
 keep id cv_event_date death_date
 save "`pkg_dir'/_events.dta", replace
 
-**# Binary treatment pipeline
-capture log close _all
-log using "`pkg_dir'/console_output.log", replace text name(demo) nomsg
+* Recurrent-event data (wide format: up to 3 hospitalizations per person)
+use "`pkg_dir'/_cohort.dta", clear
+forvalues k = 1/3 {
+    gen int hosp`k' = .
+}
+gen int _prev = study_entry
+forvalues k = 1/3 {
+    gen double _u = runiform()
+    replace hosp`k' = _prev + 60 + int(runiform() * 300) if _u < 0.45 & _prev + 60 < study_exit - 30
+    replace _prev = hosp`k' if !missing(hosp`k')
+    drop _u
+}
+forvalues k = 1/3 {
+    format hosp`k' %tdCCYY/NN/DD
+}
+keep id study_entry study_exit hosp1 hosp2 hosp3
+save "`pkg_dir'/_recur.dta", replace
 
-* # tvtools: Time-Varying Exposure Analysis
+* Longitudinal panel for the MSM weighting demo (treatment + informative censoring)
+clear
+set obs 400
+gen long id = _n
+gen double age = 40 + int(runiform() * 30)
+gen byte female = rbinomial(1, 0.55)
+expand 6
+bysort id: gen int period = _n
+gen double biomarker = rnormal() + 0.05 * period
+gen double p_treat = invlogit(-0.5 + 0.4 * biomarker + 0.02 * (age - 55))
+gen byte treat = runiform() < p_treat
+gen double p_cens = invlogit(-2.4 + 0.5 * biomarker)
+gen byte censored = runiform() < p_cens
+bysort id (period): gen byte _cc = sum(censored)
+drop if _cc > 1
+drop _cc p_treat p_cens
+label var treat "On treatment"
+label var biomarker "Time-varying confounder"
+save "`pkg_dir'/_panel.dta", replace
+
+**# Frames-first pipeline (no save/use round-trips)
+capture log close _all
+log using "`pkg_dir'/console_pipeline.log", replace text name(pipe) nomsg
+
+* # tvtools: Frames-First Time-Varying Pipeline
 
 * ## Package overview
 use "`pkg_dir'/_cohort.dta", clear
 noisily tvtools
 
-* ## Step 1: Create exposure intervals with tvexpose
+* ## Step 1: tvexpose -> frame (caller's data left intact)
+* The exposure interval set is written to a frame; the cohort stays in memory.
+* The generated variable name is returned in r(genvar).
 use "`pkg_dir'/_cohort.dta", clear
 noisily tvexpose using "`pkg_dir'/_episodes_antidep.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    keepvars(age female) keepdates
-save "`pkg_dir'/_tv_antidep.dta", replace
+    keepvars(age female) keepdates frameout(f_antidep)
+local gA = r(genvar)
+noisily display "antidepressant exposure variable: " as result "`gA'"
 
-* ## Step 2: Diagnose the interval dataset
-noisily tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
-    entry(study_entry) exit(study_exit) all
-
-* ## Step 3: Merge two exposure streams
-use "`pkg_dir'/_cohort.dta", clear
 quietly tvexpose using "`pkg_dir'/_episodes_benzo.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(benzo_use) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    keepvars(age female) keepdates
-save "`pkg_dir'/_tv_benzo.dta", replace
+    keepvars(age female) keepdates frameout(f_benzo)
+local gB = r(genvar)
+noisily display "benzodiazepine exposure variable: " as result "`gB'"
 
-noisily tvmerge "`pkg_dir'/_tv_antidep.dta" "`pkg_dir'/_tv_benzo.dta", ///
-    id(id) ///
+* ## Step 2: tvdiagnose on the in-memory frame
+noisily frame f_antidep: tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
+    entry(study_entry) exit(study_exit) coverage gaps
+
+* ## Step 3: tvmerge reads both frames, writes a merged frame
+noisily tvmerge, frames(f_antidep f_benzo) id(id) ///
     start(rx_start rx_start) stop(rx_stop rx_stop) ///
-    exposure(tv_exposure tv_exposure) ///
-    generate(antidep benzo) ///
-    keep(age female)
+    exposure(`gA' `gB') frameout(f_merged)
+noisily display "merged interval vars: " as result "`r(startname)' / `r(stopname)'"
 
-* ## Step 4: Add events and competing risks
+* ## Step 4: tvevent reads the merged frame, adds the outcome in memory
 use "`pkg_dir'/_events.dta", clear
-noisily tvevent using "`pkg_dir'/_tv_antidep.dta", id(id) ///
-    date(cv_event_date) compete(death_date) ///
-    generate(outcome) startvar(rx_start) stopvar(rx_stop)
+noisily tvevent, frame(f_merged) id(id) ///
+    date(cv_event_date) compete(death_date) generate(outcome)
+noisily display "event indicator: " as result "`r(generate)'" ///
+    "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 
-* ## Step 5: Estimate IPTW weights (binary)
-use "`pkg_dir'/_tv_antidep.dta", clear
-gen byte any_drug = (tv_exposure != 0) if !missing(tv_exposure)
-noisily tvweight any_drug, covariates(age female) ///
-    generate(iptw) stabilized nolog
+log close pipe
 
-* ## Step 6: Create age-band intervals
-use "`pkg_dir'/_cohort.dta", clear
-noisily tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
-    groupwidth(5) minage(40) maxage(80) ///
-    saveas("`pkg_dir'/_age_tv.dta") replace
+**# Marginal structural model weighting with IPCW
+log using "`pkg_dir'/console_msm.log", replace text name(msm) nomsg
 
-log close demo
+* # MSM Weighting: IPTW x IPCW + Positivity
 
-**# Multi-group treatment weighting
+* ## Combined treatment + censoring weights
+* tvweight fits a propensity model and (with ipcw()) a censoring model, then
+* forms the cumulative IPTW x IPCW weight that a marginal structural model needs.
+* A positivity / overlap block reports near-violations and weight concentration.
+use "`pkg_dir'/_panel.dta", clear
+noisily tvweight treat, covariates(age female biomarker) ///
+    id(id) time(period) ipcw(censored) censorcovariates(age biomarker) ///
+    stabilized generate(iptw) balance nolog
+noisily display "combined-weight ESS: " as result %6.1f r(ess_combined) ///
+    "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
+
+log close msm
+
+**# Recurrent-event PWP / AG formatting
+log using "`pkg_dir'/console_recurrent.log", replace text name(rec) nomsg
+
+* # Recurrent Events: PWP / Andersen-Gill Formatting
+
+* ## tvevent type(recurring) with enum stratum + gap-time clock
+* The base follow-up interval is split at each hospitalization; tvevent adds the
+* event-sequence stratum (enum) and a gap-time clock that resets at each event,
+* so the output feeds Andersen-Gill, PWP total-time, and PWP gap-time models.
+use "`pkg_dir'/_recur.dta", clear
+rename study_entry win_start
+rename study_exit win_stop
+keep id win_start win_stop
+tempfile recint
+save "`recint'"
+
+use "`pkg_dir'/_recur.dta", clear
+keep id hosp1 hosp2 hosp3
+noisily tvevent using "`recint'", id(id) date(hosp) type(recurring) ///
+    generate(hosp_ev) start(win_start) stop(win_stop) ///
+    enum(stratum) gaptime gapstart(t0) gapstop(t) timegen(tstop) timeunit(days)
+noisily display "stratum var: " as result "`r(enum)'" ///
+    "   gap-time clock: " as result "`r(gapstart)'/`r(gapstop)'"
+
+* ## A few persons with repeated events
+noisily list id win_start win_stop hosp_ev stratum t0 t in 1/12, ///
+    sepby(id) noobs abbreviate(12)
+
+log close rec
+
+**# Multi-group weighting + age bands
 log using "`pkg_dir'/console_multigroup.log", replace text name(mg) nomsg
 
-* # Multi-Group Treatment Weighting
+* # Multi-Group Weighting and Age Bands
 
-* ## Step 1: tvexpose with 3 treatment categories
+* ## tvweight with multinomial logit (3 treatment categories)
 use "`pkg_dir'/_cohort.dta", clear
-noisily tvexpose using "`pkg_dir'/_episodes_antidep.dta", ///
+quietly tvexpose using "`pkg_dir'/_episodes_antidep.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     keepvars(age female) keepdates
-
-* ## Step 2: tvweight with multinomial logit
-noisily tvweight tv_exposure, covariates(age female) ///
+noisily tvweight tv_drug, covariates(age female) ///
     generate(iptw_mg) model(mlogit) stabilized truncate(1 99) nolog
+
+* ## tvage with harmonized option names (id/dob/entry/exit)
+use "`pkg_dir'/_cohort.dta", clear
+noisily tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///
+    groupwidth(5) minage(40) maxage(80)
 
 log close mg
 
-* --- Convert to Markdown with logdoc ---
+**# Graphs
+* Covariate-balance love plot from the MSM weighting step
+use "`pkg_dir'/_panel.dta", clear
+quietly tvweight treat, covariates(age female biomarker) ///
+    id(id) time(period) ipcw(censored) censorcovariates(age biomarker) ///
+    stabilized generate(iptw) balance loveplot nolog
+graph export "`pkg_dir'/balance_loveplot.png", replace width(1400)
+capture graph close _all
+
+* Exposure swimlane for a sample of persons
+use "`pkg_dir'/_cohort.dta", clear
+quietly tvexpose using "`pkg_dir'/_episodes_antidep.dta", ///
+    id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) reference(0) ///
+    entry(study_entry) exit(study_exit) keepdates
+quietly tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(tv_drug) swimlane maxids(12)
+graph export "`pkg_dir'/swimlane_plot.png", replace width(1400)
+capture graph close _all
+
+**# Convert console logs to markdown with logdoc
 capture ado uninstall logdoc
 quietly net install logdoc, from("`c(pwd)'/logdoc") replace
 
-logdoc using "`pkg_dir'/console_output.log", ///
-    output("`pkg_dir'/console_output.md") ///
-    nodots toc replace
-
-logdoc using "`pkg_dir'/console_multigroup.log", ///
-    output("`pkg_dir'/console_multigroup.md") ///
-    nodots toc replace
+foreach lg in console_pipeline console_msm console_recurrent console_multigroup {
+    logdoc using "`pkg_dir'/`lg'.log", ///
+        output("`pkg_dir'/`lg'.md") ///
+        nodots toc replace
+}
 
 * --- Cleanup temp data ---
-foreach f in _cohort _episodes_antidep _episodes_benzo _events _tv_antidep _tv_benzo _age_tv {
+foreach f in _cohort _episodes_antidep _episodes_benzo _events _recur _panel {
     capture erase "`pkg_dir'/`f'.dta"
 }
 
