@@ -75,7 +75,9 @@ via {opt frame()}; supply one or the other.
 {title:Description}
 
 {pstd}
-{cmd:tvevent} is the third step in the {bf:tvtools} workflow. It processes time-varying datasets (created by {helpb tvexpose} and {helpb tvmerge}) to integrate outcomes and competing risks.
+{cmd:tvevent} is the third step in the {bf:tvtools} workflow. It processes
+time-varying datasets (created by {helpb tvexpose} and {helpb tvmerge}) to
+integrate outcomes and competing risks.
 
 {pstd}
 {bf:Data structure:}
@@ -93,11 +95,17 @@ By default, {cmd:tvevent} keeps all variables from the master dataset (the event
 {pstd}
 It performs the following key tasks:
 
-{phang2}1. {bf:Resolves Event Dates:} Compares the primary {cmd:date()} and any variables in {cmd:compete()}. The earliest occurring date becomes the effective event date for that person.
+{phang2}1. {bf:Resolves Event Dates:} Compares the primary {cmd:date()} and any
+variables in {cmd:compete()}. The earliest occurring date becomes the effective
+event date for that person.
 
-{phang2}2. {bf:Splitting:} If the event occurs in the middle of an existing exposure interval (start < event < stop), the interval is automatically split into two parts: pre-event and post-event.
+{phang2}2. {bf:Splitting:} If the event occurs in the middle of an existing
+exposure interval (start < event < stop), the interval is automatically split
+into two parts: pre-event and post-event.
 
-{phang2}3. {bf:Continuous Adjustment:} If {cmd:continuous()} is specified, cumulative variables (like total dose) are proportionally reduced for split rows based on the new interval duration.
+{phang2}3. {bf:Continuous Adjustment:} If {cmd:continuous()} is specified,
+cumulative variables (like total dose) are proportionally reduced for split rows
+based on the new interval duration.
 
 {phang2}4. {bf:Flagging:} Creates a status variable (default {cmd:_failure}) coded as:
 {p_end}
@@ -106,7 +114,9 @@ It performs the following key tasks:
 {phang2}* 2+ = Competing Events (corresponding to the order in {cmd:compete()}){p_end}
 
 {pstd}
-If {cmd:type(single)} is used (default), all data after the first occurring event is dropped, making the data ready for standard survival analysis ({cmd:stset}, {cmd:stcrreg}).
+If {cmd:type(single)} is used (default), all data after the first occurring
+event is dropped, making the data ready for standard survival analysis
+({cmd:stset}, {cmd:stcrreg}).
 
 
 {marker options}{...}
@@ -119,10 +129,17 @@ in memory instead of from a {cmd:using} file. Supply either {cmd:using} or
 data (from {cmd:tvexpose}/{cmd:tvmerge}) is already a frame.
 
 {phang}
-{opt compete(namelist)} specifies date variables in the master (event) dataset that represent competing risks. If a competing date is earlier than the primary date, the status is set to 2 (for the first variable in the list), 3 (for the second), etc.
+{opt compete(namelist)} specifies date variables in the master (event) dataset
+that represent competing risks. If a competing date is earlier than the primary
+date, the status is set to 2 (for the first variable in the list), 3 (for the
+second), etc.
 
 {phang}
-{opt continuous(namelist)} specifies variables representing cumulative exposure amounts (e.g., total mg of drug, total days exposed) calculated for the *original* interval. When an interval is split, the values of these variables are multiplied by the ratio of (new duration / old duration), preserving the correct rate and total sum.
+{opt continuous(namelist)} specifies variables representing cumulative exposure
+amounts (e.g., total mg of drug, total days exposed) calculated for the
+*original* interval. When an interval is split, the values of these variables
+are multiplied by the ratio of (new duration / old duration), preserving the
+correct rate and total sum.
 
 {phang}
 {opt eventlabel(string)} specifies custom value labels for the outcome variable categories. 
@@ -131,10 +148,15 @@ data (from {cmd:tvexpose}/{cmd:tvmerge}) is already a frame.
 {break}If not specified, labels default to "Censored" (0) and the variable labels of the date variables from the using dataset.
 
 {phang}
-{opt timegen(newvar)} creates a new variable containing the cumulative time since each person's first interval start (study entry). For each row, this calculates stop - first_start, giving the time elapsed from the person's entry to the end of that interval. This is the analysis time typically used in survival models.
+{opt timegen(newvar)} creates a new variable containing the cumulative time
+since each person's first interval start (study entry). For each row, this
+calculates stop - first_start, giving the time elapsed from the person's entry
+to the end of that interval. This is the analysis time typically used in
+survival models.
 
 {phang}
-{opt timeunit(string)} specifies the unit for {cmd:timegen()}. Options are {bf:days} (default), {bf:months} (days/30.4375), or {bf:years} (days/365.25).
+{opt timeunit(string)} specifies the unit for {cmd:timegen()}. Options are
+{bf:days} (default), {bf:months} (days/30.4375), or {bf:years} (days/365.25).
 
 {phang}
 {opt type(string)} specifies the event logic.
@@ -166,7 +188,10 @@ The three standard recurrent-event analyses are then:
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
 
 {phang}
-{opt keepvars(namelist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes, baseline covariates). These are merged by person ID so all rows for each person receive the same values. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
+{opt keepvars(namelist)} specifies additional variables to keep from the event
+dataset (e.g., diagnosis codes, baseline covariates). These are merged by person
+ID so all rows for each person receive the same values. Note that all variables
+from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 {phang}
 {opt start(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
@@ -178,11 +203,15 @@ The three standard recurrent-event analyses are then:
 
 {phang}
 {opt validate} displays validation diagnostics before processing. This option checks for:
-{break}1. {bf:Events outside interval boundaries}: Events that occur before the earliest start or after the latest stop for each person (these will not be flagged in output).
+{break}1. {bf:Events outside interval boundaries}: Events that occur before the
+earliest start or after the latest stop for each person (these will not be
+flagged in output).
 {break}2. {bf:Multiple events per person}: When using {cmd:type(single)}, persons with multiple non-missing event dates.
-{break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases where the primary event and a competing event occur on the same date.
+{break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified,
+cases where the primary event and a competing event occur on the same date.
 {break}
-{break}Validation results are also stored in {cmd:r(v_outside_bounds)}, {cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
+{break}Validation results are also stored in {cmd:r(v_outside_bounds)},
+{cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
 
 {phang}
 {opt flow} reports an attrition table of persons and records entering (the

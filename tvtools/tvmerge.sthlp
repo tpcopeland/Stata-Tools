@@ -79,10 +79,15 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {title:Description}
 
 {pstd}
-{cmd:tvmerge} merges multiple time-varying exposure datasets created by {helpb tvexpose}. The command is designed to work specifically with the output from {cmd:tvexpose}, combining multiple exposure variables into a single dataset with synchronized time periods.
+{cmd:tvmerge} merges multiple time-varying exposure datasets created by {helpb tvexpose}. The
+command is designed to work specifically with the output from {cmd:tvexpose},
+combining multiple exposure variables into a single dataset with synchronized
+time periods.
 
 {pstd}
-{bf:CRITICAL PREREQUISITE}: {cmd:tvmerge} requires that each input dataset has already been processed by {cmd:tvexpose}. You cannot use {cmd:tvmerge} directly on raw exposure files. The typical workflow is:
+{bf:CRITICAL PREREQUISITE}: {cmd:tvmerge} requires that each input dataset has
+already been processed by {cmd:tvexpose}. You cannot use {cmd:tvmerge} directly
+on raw exposure files. The typical workflow is:
 
 {phang2}
 1. Load cohort data and run {cmd:tvexpose} on first exposure dataset, save result
@@ -103,10 +108,13 @@ combinations between datasets (cartesian product).
 {bf:Exposure types}: {cmd:tvmerge} handles two types of exposures:
 
 {phang}
-{bf:Categorical exposures} (default): Creates cartesian product of all exposure combinations. Each unique combination of exposure values across datasets becomes a separate period.
+{bf:Categorical exposures} (default): Creates cartesian product of all exposure
+combinations. Each unique combination of exposure values across datasets becomes
+a separate period.
 
 {phang}
-{bf:Continuous exposures}: Treats exposure as a rate per day. The exposure value is prorated proportionally when intervals are split during merging.
+{bf:Continuous exposures}: Treats exposure as a rate per day. The exposure value
+is prorated proportionally when intervals are split during merging.
 
 {pstd}
 {bf:Important}: {cmd:tvmerge} replaces the dataset currently in memory with the merged result. Use 
@@ -124,13 +132,16 @@ if you need to preserve it.
 names. This variable links records across datasets.
 
 {phang}
-{opt start(namelist)} specifies the start date variables for all datasets, listed in the same order as the datasets in the command line.
+{opt start(namelist)} specifies the start date variables for all datasets,
+listed in the same order as the datasets in the command line.
 
 {phang}
-{opt stop(namelist)} specifies the stop date variables for all datasets, listed in the same order as the datasets in the command line.
+{opt stop(namelist)} specifies the stop date variables for all datasets, listed
+in the same order as the datasets in the command line.
 
 {phang}
-{opt exposure(namelist)} specifies the exposure variables for all datasets, listed in the same order as the datasets in the command line.
+{opt exposure(namelist)} specifies the exposure variables for all datasets,
+listed in the same order as the datasets in the command line.
 
 
 {dlgtab:Input}
@@ -147,7 +158,10 @@ exactly as with file paths.
 {dlgtab:Exposure types}
 
 {phang}
-{opt continuous(namelist)} specifies which exposures should be treated as continuous (rates per day) rather than categorical. You can specify either variable names or dataset positions (1, 2, 3, etc.). Continuous exposure values are prorated proportionally when intervals are split during merging.
+{opt continuous(namelist)} specifies which exposures should be treated as
+continuous (rates per day) rather than categorical. You can specify either
+variable names or dataset positions (1, 2, 3, etc.). Continuous exposure values
+are prorated proportionally when intervals are split during merging.
 
 
 {dlgtab:Output naming}
@@ -185,7 +199,8 @@ Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
 {dlgtab:Data management}
 
 {phang}
-{opt saveas(filename)} saves the merged dataset to the specified file. Include the .dta extension. Use with {opt replace} to overwrite an existing file.
+{opt saveas(filename)} saves the merged dataset to the specified file. Include
+the .dta extension. Use with {opt replace} to overwrite an existing file.
 
 {phang}
 {opt frameout(name)} places the merged result into a new frame named {it:name}
@@ -199,19 +214,32 @@ in {cmd:r(frameout)}. If the frame already exists, specify {cmd:replace}.
 {opt frameout()} to overwrite an existing frame.
 
 {phang}
-{opt keep(varlist)} specifies additional variables to keep from the source datasets. These variables are included in the output dataset with _ds# suffixes (where # is the dataset number) to distinguish variables from different sources. For example, if you specify {cmd:keep(dose)}, the output will contain dose_ds1, dose_ds2, and so on. The ID variable, start and stop date variables, and exposure variables are always kept and do not receive suffixes.
+{opt keep(varlist)} specifies additional variables to keep from the source
+datasets. These variables are included in the output dataset with _ds# suffixes
+(where # is the dataset number) to distinguish variables from different sources. For
+example, if you specify {cmd:keep(dose)}, the output will contain dose_ds1,
+dose_ds2, and so on. The ID variable, start and stop date variables, and
+exposure variables are always kept and do not receive suffixes.
 
 
 {dlgtab:Diagnostics and validation}
 
 {phang}
-{opt check} displays coverage diagnostics including the number of persons, average periods per person, maximum periods per person, and total merged intervals.
+{opt check} displays coverage diagnostics including the number of persons,
+average periods per person, maximum periods per person, and total merged
+intervals.
 
 {phang}
-{opt validatecoverage} checks for gaps in person-time coverage. Gaps larger than 1 day are reported. This is useful for ensuring that your merge has not inadvertently created discontinuous exposure histories. Any gaps found are listed showing the ID, start and stop dates, and gap size.
+{opt validatecoverage} checks for gaps in person-time coverage. Gaps larger than
+1 day are reported. This is useful for ensuring that your merge has not
+inadvertently created discontinuous exposure histories. Any gaps found are
+listed showing the ID, start and stop dates, and gap size.
 
 {phang}
-{opt validateoverlap} checks for unexpected overlapping periods within the same person. Overlaps occur when a period starts before the previous period ends. Any overlaps found are listed showing the ID and the overlapping periods. This can indicate data quality issues or unintended merge results.
+{opt validateoverlap} checks for unexpected overlapping periods within the same
+person. Overlaps occur when a period starts before the previous period ends. Any
+overlaps found are listed showing the ID and the overlapping periods. This can
+indicate data quality issues or unintended merge results.
 
 {phang}
 {opt summarize} displays summary statistics (min, max, mean, percentiles) for the start and stop date
@@ -424,7 +452,9 @@ Now merge and keep the covariates from both datasets:
 {phang3}{cmd:keep(index_age female education)}{p_end}
 
 {pstd}
-The output includes index_age_ds1, female_ds1 (from antidepressant tvexpose), education_ds2 (from benzodiazepine tvexpose), plus id, start, stop, drug_class, and benzo.
+The output includes index_age_ds1, female_ds1 (from antidepressant tvexpose),
+education_ds2 (from benzodiazepine tvexpose), plus id, start, stop, drug_class,
+and benzo.
 
 
 {pstd}
@@ -439,7 +469,10 @@ Check the merge results for coverage issues (assume tv_antidep.dta and tv_benzo.
 {phang3}{cmd:check validatecoverage validateoverlap summarize}{p_end}
 
 {pstd}
-The {cmd:check} option displays how many persons were merged, average periods per person, and maximum periods. {cmd:validatecoverage} identifies any gaps in the merged timeline. {cmd:validateoverlap} flags unexpected overlapping periods. {cmd:summarize} shows date range statistics.
+The {cmd:check} option displays how many persons were merged, average periods
+per person, and maximum periods. {cmd:validatecoverage} identifies any gaps in
+the merged timeline. {cmd:validateoverlap} flags unexpected overlapping periods. {cmd:summarize}
+shows date range statistics.
 
 
 {pstd}

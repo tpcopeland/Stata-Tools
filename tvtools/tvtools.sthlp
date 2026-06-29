@@ -1,11 +1,14 @@
 {smcl}
-{* *! version 1.6.0  29jun2026}{...}
+{* *! version 1.6.1  29jun2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
 {vieweralsosee "tvdiagnose" "help tvdiagnose"}{...}
 {vieweralsosee "tvweight" "help tvweight"}{...}
 {vieweralsosee "tvage" "help tvage"}{...}
+{vieweralsosee "tvband" "help tvband"}{...}
+{vieweralsosee "tvsplit" "help tvsplit"}{...}
+{vieweralsosee "tvpanel" "help tvpanel"}{...}
 {viewerjumpto "Description" "tvtools##description"}{...}
 {viewerjumpto "Syntax" "tvtools##syntax"}{...}
 {viewerjumpto "Commands" "tvtools##commands"}{...}

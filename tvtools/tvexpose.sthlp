@@ -508,7 +508,8 @@ Create categorical time-varying antidepressant exposure for survival analysis:
 {phang3}{cmd:entry(study_entry) exit(study_exit)}{p_end}
 
 {pstd}
-This creates tv_exposure showing drug class (0=unexposed, 1=SSRI, 2=SNRI) during each time period. The output has one row per person-time period.
+This creates tv_exposure showing drug class (0=unexposed, 1=SSRI, 2=SNRI) during
+each time period. The output has one row per person-time period.
 
 
 {pstd}
@@ -525,7 +526,8 @@ Create binary indicator that switches permanently at first antidepressant dispen
 {phang3}{cmd:evertreated generate(ever_antidep)}{p_end}
 
 {pstd}
-Variable ever_antidep = 0 before first exposure, = 1 from first exposure onward. Useful for correcting immortal time bias in ever-vs-never analyses.
+Variable ever_antidep = 0 before first exposure, = 1 from first exposure onward. Useful
+for correcting immortal time bias in ever-vs-never analyses.
 
 
 {pstd}
@@ -542,7 +544,8 @@ Distinguish between current and former antidepressant exposure:
 {phang3}{cmd:currentformer generate(antidep_status)}{p_end}
 
 {pstd}
-Variable antidep_status: 0=never exposed, 1=currently dispensed, 2=formerly dispensed. Returns to 1 if person restarts antidepressant after a gap.
+Variable antidep_status: 0=never exposed, 1=currently dispensed, 2=formerly
+dispensed. Returns to 1 if person restarts antidepressant after a gap.
 
 
 {pstd}
@@ -559,7 +562,9 @@ Create exposure categories based on cumulative days of antidepressant use:
 {phang3}{cmd:duration(365 1095 1825) continuousunit(days)}{p_end}
 
 {pstd}
-Creates categories: 0=unexposed, 1=<1 year, 2=1-<3 years, 3=3-<5 years, 4=5+ years of cumulative antidepressant use. Uses days with integer thresholds to avoid floating-point precision issues.
+Creates categories: 0=unexposed, 1=<1 year, 2=1-<3 years, 3=3-<5 years, 4=5+
+years of cumulative antidepressant use. Uses days with integer thresholds to
+avoid floating-point precision issues.
 
 
 {pstd}
@@ -576,7 +581,8 @@ Track cumulative months of antidepressant exposure as a continuous variable:
 {phang3}{cmd:continuousunit(months) generate(cumul_antidep_months)}{p_end}
 
 {pstd}
-Variable cumul_antidep_months shows cumulative months of antidepressant exposure at each time point. Use in regression models as a continuous predictor.
+Variable cumul_antidep_months shows cumulative months of antidepressant exposure
+at each time point. Use in regression models as a continuous predictor.
 
 
 {pstd}
@@ -593,7 +599,8 @@ Split person-time into calendar months with cumulative antidepressant exposure i
 {phang3}{cmd:continuousunit(years) expandunit(months)}{p_end}
 
 {pstd}
-Creates one row per calendar month. Useful when you need to merge with other time-varying covariates measured monthly or for time-stratified analyses.
+Creates one row per calendar month. Useful when you need to merge with other
+time-varying covariates measured monthly or for time-stratified analyses.
 
 
 {pstd}
@@ -610,7 +617,9 @@ Create separate time-varying variables for each antidepressant class:
 {phang3}{cmd:continuousunit(years) bytype}{p_end}
 
 {pstd}
-Creates tv_exp1 (cumulative years on SSRI) and tv_exp2 (cumulative years on SNRI) as separate variables. Allows estimation of class-specific effects in a single model.
+Creates tv_exp1 (cumulative years on SSRI) and tv_exp2 (cumulative years on
+SNRI) as separate variables. Allows estimation of class-specific effects in a
+single model.
 
 
 {pstd}
@@ -627,7 +636,8 @@ Categorize time since last antidepressant exposure:
 {phang3}{cmd:recency(1 5)}{p_end}
 
 {pstd}
-Creates categories: current exposure, <1 year since last, 1 to <5 years since last, ≥5 years since last. Useful for studying how quickly effects dissipate.
+Creates categories: current exposure, <1 year since last, 1 to <5 years since
+last, ≥5 years since last. Useful for studying how quickly effects dissipate.
 
 
 {pstd}
@@ -644,7 +654,9 @@ Treat gaps ≤30 days as continuous antidepressant exposure:
 {phang3}{cmd:grace(30) currentformer}{p_end}
 
 {pstd}
-Gaps of 30 days or less are filled, treating brief interruptions as continuous exposure. Useful when short gaps represent prescription refill delays rather than true cessation.
+Gaps of 30 days or less are filled, treating brief interruptions as continuous
+exposure. Useful when short gaps represent prescription refill delays rather
+than true cessation.
 
 
 {pstd}
@@ -678,7 +690,8 @@ Model 30-day lag before antidepressant becomes active and 90-day washout after s
 {phang3}{cmd:lag(30) washout(90)}{p_end}
 
 {pstd}
-Exposure begins 30 days after start date and continues 90 days after stop date. Models biological delay in onset and persistence of effects.
+Exposure begins 30 days after start date and continues 90 days after stop date. Models
+biological delay in onset and persistence of effects.
 
 
 {pstd}
@@ -695,7 +708,8 @@ When antidepressant periods overlap, give priority to SNRI over SSRI:
 {phang3}{cmd:priority(2 1)}{p_end}
 
 {pstd}
-SNRI (type 2) takes precedence over SSRI (type 1). Useful when overlapping periods represent treatment transitions and you want the newer drug to dominate.
+SNRI (type 2) takes precedence over SSRI (type 1). Useful when overlapping
+periods represent treatment transitions and you want the newer drug to dominate.
 
 
 {pstd}
@@ -712,7 +726,9 @@ Identify persons who switch between antidepressant classes:
 {phang3}{cmd:switching switchingdetail}{p_end}
 
 {pstd}
-Creates has_switched (0/1 indicator) and switching_pattern (string showing sequence like "0->1->2" for SSRI then SNRI). Use to identify switchers vs stable users.
+Creates has_switched (0/1 indicator) and switching_pattern (string showing
+sequence like "0->1->2" for SSRI then SNRI). Use to identify switchers vs stable
+users.
 
 
 {pstd}
@@ -746,7 +762,8 @@ Run all diagnostic checks to verify data quality:
 {phang3}{cmd:check gaps overlaps summarize validate}{p_end}
 
 {pstd}
-Displays coverage diagnostics, identifies gaps and overlaps, summarizes exposure distribution, and creates validation dataset. Use before proceeding to analysis.
+Displays coverage diagnostics, identifies gaps and overlaps, summarizes exposure
+distribution, and creates validation dataset. Use before proceeding to analysis.
 
 
 {pstd}
@@ -794,7 +811,9 @@ Full analysis pipeline from time-varying exposure to Cox regression:
 {phang2}{stata "stcox i.antidep_status index_age i.female i.education":. stcox i.antidep_status index_age i.female i.education}{p_end}
 
 {pstd}
-This creates time-varying antidepressant exposure, integrates cardiovascular events, declares survival-time data, and estimates hazard ratios using Cox regression.
+This creates time-varying antidepressant exposure, integrates cardiovascular
+events, declares survival-time data, and estimates hazard ratios using Cox
+regression.
 
 
 {pstd}
@@ -817,7 +836,8 @@ Create separate exposure variables for different calendar periods:
 {phang2}{stata "table calendar_year, statistic(mean tv_exposure) statistic(count tv_exposure)":. table calendar_year, statistic(mean tv_exposure) statistic(count tv_exposure)}{p_end}
 
 {pstd}
-Restricts analysis to persons entering after 2015 and examines exposure trends by calendar year. Useful for assessing temporal changes in treatment patterns.
+Restricts analysis to persons entering after 2015 and examines exposure trends
+by calendar year. Useful for assessing temporal changes in treatment patterns.
 
 
 {pstd}
@@ -834,7 +854,9 @@ Track cumulative defined daily doses for dose-response analysis:
 {phang3}{cmd:dose generate(cumul_ddd)}{p_end}
 
 {pstd}
-Creates cumul_ddd showing cumulative defined daily doses at each time point. When prescriptions overlap, dose is allocated proportionally based on daily dose rates.
+Creates cumul_ddd showing cumulative defined daily doses at each time point. When
+prescriptions overlap, dose is allocated proportionally based on daily dose
+rates.
 
 
 {pstd}
@@ -851,7 +873,9 @@ Create categorical cumulative dose for dose-response analysis:
 {phang3}{cmd:dose dosecuts(100 500 1000) generate(ddd_cat)}{p_end}
 
 {pstd}
-Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1000 DDD, 4=1000+ DDD. Useful for Cox regression with categorized dose-response.
+Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD,
+3=500-<1000 DDD, 4=1000+ DDD. Useful for Cox regression with categorized
+dose-response.
 
 
 {marker results}{...}
