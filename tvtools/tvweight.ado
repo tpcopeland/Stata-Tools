@@ -1,4 +1,4 @@
-*! tvweight Version 1.6.1  2026/06/29
+*! tvweight Version 1.6.2  2026/06/29
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -926,39 +926,45 @@ program define tvweight, rclass
     }
 
     * =========================================================================
-    * LOVE PLOT (optional; requires balance)
+    * LOVE PLOT (optional; delegated to psdash)
     * =========================================================================
+    * tvtools does not render balance plots itself. Covariate-balance
+    * visualisation is owned by the dedicated propensity-score dashboard
+    * package (psdash), so loveplot delegates the figure to
+    * `psdash balance ... loveplot`, passing the exposure, the weight variable
+    * and the same covariates used in the balance table above. When psdash is
+    * not installed, tvweight reports how to obtain the plot instead of drawing
+    * a redundant in-house version.
     if "`loveplot'" != "" {
-        local yl ""
-        forvalues i = 1/`n_bal' {
-            local pos = `n_bal' - `i' + 1
-            local yl `"`yl' `pos' "`: word `i' of `bal_covars''""'
+        capture which psdash
+        if _rc {
+            display as text ""
+            display as text "Note: loveplot is delegated to the {help psdash} package, which is not installed."
+            display as text "      To draw the love plot, install psdash:"
+            display as text `"        net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace"'
+            display as text "      then re-run with loveplot, or build the plot manually from the"
+            display as text "      returned r(balance) matrix (col 1 = unweighted SMD, col 2 = weighted SMD)."
         }
-        tempname _lovefr
-        capture noisily {
-            frame create `_lovefr'
-            frame `_lovefr' {
-                quietly set obs `n_bal'
-                quietly gen double _smdu = .
-                quietly gen double _smdw = .
-                quietly gen int _ord = .
-                forvalues i = 1/`n_bal' {
-                    quietly replace _smdu = abs(`_balmat'[`i',1]) in `i'
-                    quietly replace _smdw = abs(`_balmat'[`i',2]) in `i'
-                    quietly replace _ord = `n_bal' - `i' + 1 in `i'
-                }
-                twoway (scatter _ord _smdu, msymbol(Oh)) ///
-                       (scatter _ord _smdw, msymbol(D)), ///
-                    xline(0.1, lpattern(dash)) ///
-                    ylabel(`yl', angle(0) noticks) ///
-                    ytitle("") xtitle("Absolute standardized mean difference") ///
-                    legend(order(1 "Unweighted" 2 "Weighted") rows(1)) ///
-                    title("Covariate balance") name(tvw_loveplot, replace)
-            }
+        else {
+            * tvweight leaves its internal logit/mlogit propensity model as the
+            * active e(). Stash it before delegating so psdash's auto-detection
+            * uses the explicit exposure/wvar/covariates passed here rather than
+            * mistaking the stale estimation context for the balance inputs;
+            * restore it afterwards so tvweight's post-run state is unchanged.
+            tempname _tvw_ehold
+            capture _estimates hold `_tvw_ehold', restore nullok
+            local _eheld = (_rc == 0)
+            * tvweight already printed its own balance table above, so the
+            * psdash call is run quietly: it contributes the love plot (graphs
+            * render regardless of quietly) without echoing a redundant table.
+            capture quietly psdash balance `exposure' if `touse', ///
+                covariates(`bal_covars') wvar(`generate') loveplot ///
+                title("Covariate balance") name(tvw_loveplot)
+            local _lprc = _rc
+            if `_eheld' capture _estimates unhold `_tvw_ehold'
+            if `_lprc' ///
+                display as text "Note: love plot could not be produced via psdash (rc=`_lprc')"
         }
-        local _lprc = _rc
-        capture frame drop `_lovefr'
-        if `_lprc' display as text "Note: love plot could not be produced (rc=`_lprc')"
     }
 
     * =========================================================================

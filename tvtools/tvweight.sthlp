@@ -59,7 +59,7 @@
 
 {syntab:Diagnostics}
 {synopt:{opt bal:ance}}report standardized mean differences before/after weighting{p_end}
-{synopt:{opt love:plot}}love plot of absolute SMDs (requires {opt balance}){p_end}
+{synopt:{opt love:plot}}love plot of SMDs, delegated to {helpb psdash} (requires {opt balance}){p_end}
 {synopt:{opt hist:ogram}}histogram of the weight distribution{p_end}
 
 {syntab:Output Options}
@@ -235,9 +235,14 @@ categorical exposures the maximum absolute SMD across non-reference levels is
 reported per covariate.
 
 {phang}
-{opt loveplot} draws a love plot of the absolute SMDs (unweighted vs weighted)
-with a reference line at 0.1. Requires {opt balance}. The plot honors the active
-graph scheme.
+{opt loveplot} produces a love plot of the SMDs (unweighted vs weighted).
+Covariate-balance plotting is delegated to the dedicated propensity-score
+dashboard package {helpb psdash}: tvweight calls {cmd:psdash balance} with the
+exposure, the generated weight variable and the balance covariates. Requires
+{opt balance}. If {cmd:psdash} is not installed, tvweight prints installation
+guidance instead of drawing a plot; you can also build the figure yourself from
+the returned {cmd:r(balance)} matrix. Install psdash with
+{stata `"net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace"'}.
 
 {phang}
 {opt histogram} draws a histogram of the weight distribution. The plot honors

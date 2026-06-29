@@ -52,6 +52,36 @@ program define _mk_data_cat
     drop u1 u2 den pp1 pp2 rr
 end
 
+* -------------------------------------------------------------------------
+* psdash sandbox helpers
+*
+* tvweight's loveplot delegates the figure to the sibling Stata-Tools package
+* psdash. The QA sandbox redirects PLUS to a temp dir, so psdash from the real
+* adopath is invisible here. These helpers install/remove psdash inside the
+* sandbox so we can exercise BOTH the delegated-plot path (_psdash_on) and the
+* not-installed guidance path (_psdash_off).
+* -------------------------------------------------------------------------
+global PSDASH_SRC = subinstr("`c(pwd)'", "/tvtools/qa", "/psdash", 1)
+
+capture program drop _psdash_on
+program define _psdash_on
+    capture confirm file "$PSDASH_SRC/psdash.ado"
+    if _rc {
+        display as error "psdash source not found at $PSDASH_SRC"
+        exit 601
+    }
+    capture ado uninstall psdash
+    quietly net install psdash, from("$PSDASH_SRC") replace
+    discard
+end
+
+capture program drop _psdash_off
+program define _psdash_off
+    capture ado uninstall psdash
+    capture program drop psdash
+    discard
+end
+
 **# TEST 1: Unweighted SMD parity (hand-computed vs r(balance))
 local ++test_count
 capture noisily {
@@ -208,19 +238,22 @@ else {
     local failed_tests "`failed_tests' 7"
 }
 
-**# TEST 8: love plot and histogram produce graphs without error
+**# TEST 8: love plot delegates to psdash; histogram stays in-house
 local ++test_count
 capture noisily {
+    _psdash_on
     _mk_data
     graph drop _all
     tvweight a, covariates(x1 x2) generate(w) balance loveplot histogram
+    * loveplot is delegated to psdash, which produces the tvw_loveplot graph
     capture graph describe tvw_loveplot
     assert _rc == 0
+    * histogram is still rendered in-house by tvweight
     capture graph describe tvw_histogram
     assert _rc == 0
 }
 if _rc == 0 {
-    display as result "  PASS: loveplot and histogram graphs created"
+    display as result "  PASS: delegated loveplot + in-house histogram graphs created"
     local ++pass_count
 }
 else {
@@ -229,9 +262,57 @@ else {
     local failed_tests "`failed_tests' 8"
 }
 
-**# TEST 9: data not destroyed by love plot (frame-isolated)
+**# TEST 8b: multi-group (mlogit) exposure delegates the love plot to psdash
 local ++test_count
 capture noisily {
+    _psdash_on
+    _mk_data_cat
+    graph drop _all
+    tvweight a, covariates(x1 x2) generate(w) model(mlogit) balance loveplot
+    * psdash supports multi-group balance; the delegated plot must be produced
+    capture graph describe tvw_loveplot
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS: multi-group (mlogit) loveplot delegated to psdash"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: multi-group loveplot delegation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8b"
+}
+
+**# TEST 8c: psdash not installed -> guidance, no error, no graph, r(balance) kept
+local ++test_count
+capture noisily {
+    _psdash_off
+    _mk_data
+    graph drop _all
+    * Delegation target absent: tvweight must warn (not error), skip the plot,
+    * and still return the balance matrix so the user can build it manually.
+    tvweight a, covariates(x1 x2) generate(w) balance loveplot
+    * check r(balance) FIRST, before any other rclass command clobbers r()
+    matrix Bnp = r(balance)
+    assert rowsof(Bnp) == 2 & colsof(Bnp) == 2
+    capture graph describe tvw_loveplot
+    assert _rc != 0
+    _psdash_on
+}
+if _rc == 0 {
+    display as result "  PASS: no-psdash path warns, returns r(balance), draws no graph"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: no-psdash guidance path (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8c"
+}
+
+**# TEST 9: user data intact after delegated love plot
+local ++test_count
+capture noisily {
+    _psdash_on
     _mk_data
     local n_before = _N
     tvweight a, covariates(x1 x2) generate(w) balance loveplot

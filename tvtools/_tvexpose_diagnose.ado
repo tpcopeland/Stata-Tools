@@ -1,4 +1,4 @@
-*! _tvexpose_diagnose Version 1.6.1  2026/06/29
+*! _tvexpose_diagnose Version 1.6.2  2026/06/29
 *! Diagnostic functions for tvexpose
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvexpose)
