@@ -2,8 +2,9 @@
 
 Flat, concern-then-command `qa/` layout driven by one lane-based `run_all.do`.
 tvtools builds time-varying datasets for survival analysis (commands `tvage`,
-`tvdiagnose`, `tvevent`, `tvexpose`, `tvmerge`, `tvweight`, and the `tvtools`
-dispatcher). This suite was consolidated from two append-grown monoliths
+`tvband`, `tvdiagnose`, `tvevent`, `tvexpose`, `tvmerge`, `tvpanel`, `tvsplit`,
+`tvweight`, and the `tvtools` dispatcher). This suite was consolidated from two
+append-grown monoliths
 (`test_tvtools.do`, 354 functional tests; `validation_tvtools.do`, 558
 validation tests) into per-command and per-concern suites. Merged origins are
 preserved verbatim under `**# ===== merged from … =====` banners. Large
@@ -53,6 +54,8 @@ and re-bootstraps after its own `clear all`.
 | File | Command | Notes |
 |------|---------|-------|
 | `test_tvage.do` | tvage | Age-interval creation, grouping, expanded edge cases |
+| `test_tvband.do` | tvband | Single-axis date-derived banding; exact boundaries, min/max, noisily |
+| `test_tvsplit.do` | tvsplit | Multi-timescale Lexis splitting; tiling, returns, error paths, noisily |
 | `test_tvevent.do` | tvevent | Event splitting and interval construction |
 | `test_tvexpose.do` | tvexpose | Time-varying exposure creation |
 | `test_tvmerge.do` | tvmerge | Multi-dataset interval merging |
@@ -60,6 +63,7 @@ and re-bootstraps after its own `clear all`.
 | `test_tvweight.do` | tvweight | IPTW weights + comprehensive option coverage |
 | `test_tvdiagnose.do` | tvdiagnose | Coverage/gap/overlap diagnostics |
 | `test_tvtools.do` | tvtools | Dispatcher command routing |
+| `test_default_naming.do` | cross-command | Default generated-variable names across commands |
 | `test_frames_input.do` | frames/options | Frame-backed inputs for tvevent/tvmerge/tvpanel and related return checks |
 
 ### Cross-cutting concern tests
@@ -75,11 +79,17 @@ and re-bootstraps after its own `clear all`.
 | File | Covers |
 |------|--------|
 | `validation_tvage.do` | tvage age math + expanded validation |
+| `validation_tvband.do` | tvband exact band boundaries (elapsed/calendar/age), return locals |
+| `validation_tvsplit.do` | tvsplit Lexis tiling, single-band, maximality; axis return locals |
 | `validation_tvevent.do` | tvevent splitting + person-time conservation |
 | `validation_tvexpose.do` | tvexpose exposure tracking + person-time |
 | `validation_tvmerge.do` | tvmerge correctness + person-time additivity |
-| `validation_tvweight.do` | tvweight IPTW properties + expanded validation |
+| `validation_tvweight.do` | tvweight IPTW weight-formula properties (1/PS, stabilized, HT, ESS, mlogit) |
+| `validation_tvweight_balance.do` | tvweight covariate-balance / SMD computation |
+| `validation_tvweight_recovery.do` | **known-truth IPTW recovery**: confounded DGP, naive misses the marginal effect, IPTW recovers it (continuous additive, stabilized, binary risk difference); positivity counters match the reported propensity |
+| `validation_tvweight_msm_recovery.do` | **known-truth MSM recovery**: K=3 panel with treatment-confounder feedback; cumulative (stabilized and unstabilized) IPTW recovers the marginal regime effect a confounded pooled regression misses. Truth defined in the estimator's own parameterization (randomized-world working-model slope) to avoid the longitudinal estimand-mismatch trap |
 | `validation_tvdiagnose.do` | tvdiagnose deep validation |
+| `validation_flow.do` | r(flow) CONSORT accounting across commands |
 | `validation_boundary.do` | event/interval boundary correctness, tvexpose boundary |
 | `validation_pipeline.do` | end-to-end pipeline + continuous/person-time conservation |
 | `validation_supplemental.do` | cross-command math validation, return-value completeness, invariants |
@@ -91,6 +101,9 @@ and re-bootstraps after its own `clear all`.
 | `crossval_tvtools.do` | Parity against the external reference implementation |
 | `crossval_tvmerge_mata.do` | Parity gate for the Mata interval engine vs an independent day-by-day expansion oracle (pure Stata, no external dep; runs in the `core` lane) |
 | `crossval_tvexpose_expand.do` | Parity gate for the Mata expandunit() bin generator vs an independent formula oracle, all units (pure Stata, no external dep; runs in the `core` lane) |
+| `crossval_tvsplit_lexis.do` | tvsplit Lexis splitting vs R `Epi`/from-scratch day-exact oracle (skip-safe; `core` lane) |
+| `crossval_tvweight_ipcw.do` | IPCW known-truth recovery — single-period (PART A) and multi-period cumulative (PART C), both in-Stata — plus cumulative censoring-weight parity vs an R glm oracle (PART B, skip-safe; `core` lane) |
+| `crossval_tvevent_recurring.do` | Recurrent-event enumeration / gap-time parity (`core` lane) |
 
 ### Support
 | Path | Contents |
@@ -105,19 +118,21 @@ and re-bootstraps after its own `clear all`.
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---------|-----------|-----------|-----------|-------------------|
 | tvage | `test_tvage` | `validation_tvage`, `validation_known_answers` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvband | `test_tvband` | `validation_tvband` | `crossval_tvsplit_lexis` | `test_tvsplit`, `test_default_naming` |
 | tvdiagnose | `test_tvdiagnose` | `validation_tvdiagnose` | `crossval_tvtools` | `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
-| tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | — | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | `crossval_tvevent_recurring` | `test_options`, `test_frames_input`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
+| tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_frames_input`, `test_regressions`, `validation_supplemental` |
 | tvpanel | `test_tvpanel` | — | — | `test_frames_input`, `test_regressions` |
+| tvsplit | `test_tvsplit` | `validation_tvsplit` | `crossval_tvsplit_lexis` | `test_default_naming` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
-| tvweight | `test_tvweight` | `validation_tvweight` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_supplemental` |
+| tvweight | `test_tvweight` | `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery` | `crossval_tvtools`, `crossval_tvweight_ipcw` | `test_options`, `test_regressions`, `validation_flow`, `validation_supplemental` |
 
 ## Lane membership
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose`, `test_frames_input` |
-| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand` |
+| `quick` | `test_tvage`, `test_tvband`, `test_tvsplit`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose`, `test_frames_input`, `test_default_naming` |
+| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvband`, `validation_tvsplit`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand`, `crossval_tvsplit_lexis`, `crossval_tvweight_ipcw`, `crossval_tvevent_recurring` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

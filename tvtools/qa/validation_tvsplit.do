@@ -48,6 +48,9 @@ capture {
 
     tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) ///
         elapsed(entry, width(365) unit(day) generate(fu))
+    assert "`r(fuvar)'" == "fu"
+    assert "`r(calvar)'" == "calband"
+    assert r(n_axes) == 2
 
     * bring back original entry to recompute elapsed days; recover via min start
     bysort id (entry): gen double ent0 = entry[1]

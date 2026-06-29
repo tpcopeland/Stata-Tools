@@ -48,6 +48,7 @@ local core_suites `quick_suites' test_regressions ///
     validation_tvage validation_tvband validation_tvsplit ///
     validation_tvevent validation_tvexpose ///
     validation_tvmerge validation_tvweight validation_tvweight_balance ///
+    validation_tvweight_recovery validation_tvweight_msm_recovery ///
     validation_tvdiagnose validation_flow ///
     validation_boundary validation_pipeline validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvsplit_lexis ///

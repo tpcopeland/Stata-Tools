@@ -183,6 +183,29 @@ else {
     local failed_tests "`failed_tests' 7.minmax"
 }
 
+* Test 8: noisily passthrough accepted and produces the same split
+local ++test_count
+capture {
+    _mkcohort
+    tvband, id(id) start(entry) stop(exitd) type(age) origin(dob) width(1) ///
+        generate(ageb) noisily
+    quietly count
+    local n_noisily = r(N)
+    _mkcohort
+    tvband, id(id) start(entry) stop(exitd) type(age) origin(dob) width(1) generate(ageb)
+    quietly count
+    assert r(N) == `n_noisily'
+}
+if _rc==0 {
+    display as result "  PASS: noisily passthrough"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: noisily passthrough (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8.noisily"
+}
+
 * ===== Summary =====
 local test_count = `pass_count' + `fail_count'
 display as result _newline "tvtools QA tvband functional Results -- $S_DATE $S_TIME"

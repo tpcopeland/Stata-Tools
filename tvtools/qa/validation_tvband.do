@@ -31,6 +31,9 @@ capture {
     gen double t1 = 250
     gen double orig = 100
     tvband, id(id) start(t0) stop(t1) type(elapsed) origin(orig) width(50) unit(day) generate(b)
+    assert "`r(axistype)'" == "elapsed"
+    assert "`r(varname)'" == "b"
+    assert r(width) == 50
     sort t0
     assert _N == 4
     assert t0[1]==100 & t1[1]==149 & b[1]==0

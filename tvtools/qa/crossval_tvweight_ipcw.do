@@ -64,6 +64,11 @@ capture noisily {
     * tvweight IPCW (unstabilized so the censoring weight = 1/P(uncensored|L))
     tvweight treat, covariates(L) id(id) time(t) ipcw(cens) ///
         censorcovariates(L) generate(iptw) censgenerate(cw) combgenerate(cwc)
+    * IPCW-mode return locals (captured before summarize clobbers r())
+    assert "`r(ipcw)'" == "cens"
+    assert "`r(censorcovariates)'" == "L"
+    assert "`r(censgenerate)'" == "cw"
+    assert "`r(combgenerate)'" == "cwc"
     quietly summarize Y [aw=cw] if cens == 0
     local ipcw_rec = r(mean)
 
@@ -184,6 +189,82 @@ if `has_rscript' {
 else {
     display as text "  SKIP [B]: Rscript not found (install R to enable IPCW parity)"
     local ++skip_count
+}
+
+* =======================================================================
+* PART C: multi-period known-truth recovery (always runs, in-Stata)
+*   PART A recovers a mean under SINGLE-period censoring (cumulative IPCW
+*   collapses to 1/P(uncensored|L)). This part proves the CUMULATIVE product
+*   over K=4 periods of absorbing, covariate-dependent censoring.
+*     L1..L4 ~ N(0,1) iid;  Y = b0 + g*(L1+L2+L3+L4) + e,  b0=0.40 (TRUTH=E[Y]).
+*     Censoring at period t is absorbing: C_t ~ Bernoulli(invlogit(c0+c1*L_t)),
+*     so high-L (high-Y) people are lost => the complete-case mean is biased low.
+*   The cumulative IPCW = prod_t 1/P(uncensored_t|L_t) reweights the survivors
+*   back to the full population and recovers b0. The HT identity E[surv*w]=1 means
+*   the survivors' mean weight ~ 1/P(survive); this telescopes only if the
+*   per-period weights are cumulated correctly, so it exercises the product path,
+*   not just one interval. TOL=0.02 from a multi-seed mini-MC (recovery clustered
+*   in 0.393-0.403 across seeds at N=2e5; naive ~0.23, a >0.15 miss).
+* =======================================================================
+local ++test_count
+capture noisily {
+    clear
+    set seed 26062904
+    set obs 200000
+    gen long id = _n
+    local b0 = 0.40
+    local g  = 0.30
+    local c0 = -1.6
+    local c1 = 0.8
+    forvalues t = 1/4 {
+        gen double L`t' = rnormal()
+        gen double pc`t' = invlogit(`c0' + `c1'*L`t')
+        gen byte d`t' = runiform() < pc`t'
+    }
+    gen double Y = `b0' + `g'*(L1+L2+L3+L4) + rnormal()
+    local truth = `b0'                         // E[Y]=b0 since E[L_t]=0
+
+    * absorbing first-censoring period (0 if never censored)
+    gen byte firstcens = 0
+    forvalues t = 4(-1)1 {
+        replace firstcens = `t' if d`t'==1
+    }
+    * person-period panel: rows 1..firstcens (survivors keep all 4)
+    expand 4
+    bysort id: gen byte t = _n
+    drop if firstcens>0 & t>firstcens
+    gen double L = .
+    forvalues k = 1/4 {
+        replace L = L`k' if t==`k'
+    }
+    gen byte cens = (firstcens==t & firstcens>0)
+    * unconfounded treatment so IPTW ~ 1 and the combined weight ~ cumulative IPCW
+    gen byte treat = runiform() < 0.5
+
+    * complete-case mean among survivors uncensored through period 4
+    quietly summarize Y if cens==0 & t==4
+    local naive = r(mean)
+
+    tvweight treat, covariates(L) id(id) time(t) ipcw(cens) ///
+        censorcovariates(L) generate(iptw) censgenerate(cw) combgenerate(cwc) nolog
+    * cumulative IPCW weight on the survivor (t==4, uncensored) rows
+    quietly summarize Y [aw=cw] if cens==0 & t==4
+    local ipcw_rec = r(mean)
+
+    di as txt "  [C] truth=" %6.4f `truth' "  naive(complete-case)=" %6.4f `naive' ///
+        "  cum-IPCW=" %6.4f `ipcw_rec'
+    * naive biased low; cumulative IPCW recovers the truth
+    assert `naive' < `truth' - 0.05
+    assert abs(`ipcw_rec' - `truth') < 0.02
+}
+if _rc == 0 {
+    display as result "  PASS [C]: cumulative (multi-period) IPCW recovers known mean"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [C]: multi-period IPCW recovery (rc `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' C"
 }
 
 * ===== Summary =====

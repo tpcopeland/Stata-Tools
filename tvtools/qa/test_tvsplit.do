@@ -192,6 +192,28 @@ else {
     local failed_tests "`failed_tests' 7.restore"
 }
 
+* TEST 8: noisily passthrough accepted and produces the same split
+local ++test_count
+capture {
+    _mkcohort
+    tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) noisily
+    quietly count
+    local n_noisily = r(N)
+    _mkcohort
+    tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1))
+    quietly count
+    assert r(N) == `n_noisily'
+}
+if _rc==0 {
+    display as result "  PASS: noisily passthrough"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: noisily passthrough (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8.noisily"
+}
+
 * ===== Summary =====
 local test_count = `pass_count' + `fail_count'
 display as result _newline "tvtools QA tvsplit functional Results -- $S_DATE $S_TIME"
