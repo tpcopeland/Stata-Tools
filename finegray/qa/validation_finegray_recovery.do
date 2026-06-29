@@ -15,7 +15,7 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _rec
+capture log close _all
 log using "validation_finegray_recovery.log", replace name(_rec)
 
 local test_count = 0

@@ -1,9 +1,12 @@
 * validation_finegray.do - Validation suite for finegray package
 * Tests: cross-validation vs stcrreg, known-answer, invariants, CIF, basehaz
-* Package: finegray v1.0.0
-* Date: 2026-04-05
+* Package: finegray v1.1.0
 
 clear all
+set more off
+set varabbrev off
+version 16.0
+
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -20,7 +23,7 @@ if _rc {
 }
 local qadir "`pkgroot'/qa"
 
-capture log close _val_finegray
+capture log close _all
 log using "`qadir'/validation_finegray.log", ///
     replace text name(_val_finegray)
 
@@ -29,8 +32,20 @@ log using "`qadir'/validation_finegray.log", ///
 capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
+
 program define _setup_hypoxia
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1) id(stnum)
 end

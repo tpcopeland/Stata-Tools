@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_tvweight.log", replace nomsg
+quietly log using "test_tvweight.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -799,7 +799,7 @@ else {
     local failed_tests "`failed_tests' 1.14"
 }
 
-* TEST 1.15: No observations after if restriction — error 2000
+* TEST 1.15: Empty estimation sample after if restriction - error 2000
 local ++test_count
 capture noisily {
     use `weight_data', clear
@@ -807,11 +807,11 @@ capture noisily {
     assert _rc == 2000
 }
 if _rc == 0 {
-    display as result "  PASS: No observations returns error 2000"
+    display as result "  PASS: Empty estimation sample returns error 2000"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: No observations returns error 2000 (error `=_rc')"
+    display as error "  FAIL: Empty estimation sample returns error 2000 (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.15"
 }
@@ -961,4 +961,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

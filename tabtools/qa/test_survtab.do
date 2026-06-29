@@ -307,7 +307,7 @@ else {
 }
 
 * Test: survtab difference requires by()
-capture noisily {
+capture {
     use `survdata', clear
     stset time, failure(event)
     survtab, times(1 3 5) difference display

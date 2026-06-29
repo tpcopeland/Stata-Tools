@@ -759,7 +759,8 @@ clear all
 version 16.0
 
 capture log close _doc_contracts
-log using "test_documentation_contracts.log", replace text name(_doc_contracts)
+capture erase "test_documentation_contracts.log"
+log using "test_documentation_contracts.log", text name(_doc_contracts)
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
@@ -870,6 +871,7 @@ foreach helpfile in stratetab hrcomptab {
     }
 }
 
+log close _doc_contracts
 
 **# Migrated: release manifest + installed-user contracts
 

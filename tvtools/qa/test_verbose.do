@@ -18,6 +18,9 @@ set more off
 set varabbrev off
 version 16.0
 
+capture log close
+quietly log using "test_verbose.log", replace nomsg
+
 global DATA_DIR "`c(pwd)'/data"
 
 * Install tvtools from package root
@@ -164,7 +167,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit)
@@ -190,7 +193,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) verbose
@@ -216,7 +219,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_overlap', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit)
@@ -227,11 +230,11 @@ capture noisily {
     assert r(found) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: tvexpose overlap warning — hint shown, no ID list without verbose"
+    display as result "  PASS: tvexpose overlap notice - hint shown, no ID list without verbose"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tvexpose overlap warning without verbose (error `=_rc')"
+    display as error "  FAIL: tvexpose overlap notice without verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_overlap_noverb"
     capture log close _vlog
@@ -242,7 +245,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_overlap', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) verbose
@@ -251,11 +254,11 @@ capture noisily {
     assert r(found) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: tvexpose overlap warning — ID list shown with verbose"
+    display as result "  PASS: tvexpose overlap notice - ID list shown with verbose"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tvexpose overlap warning with verbose (error `=_rc')"
+    display as error "  FAIL: tvexpose overlap notice with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_overlap_verb"
     capture log close _vlog
@@ -268,7 +271,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvexpose using `_exp_gaps', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) check
@@ -296,7 +299,7 @@ local ++test_count
 capture noisily {
     use `_cohort', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvexpose using `_exp_gaps', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) check verbose
@@ -422,7 +425,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage
     log close _vlog
     _check_log, logfile(`_log_noverb') needle("Coverage Summary")
@@ -449,7 +452,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage verbose
     log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first")
@@ -473,7 +476,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) gaps
     log close _vlog
     _check_log, logfile(`_log_noverb') needle("Gap Statistics")
@@ -499,7 +502,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) gaps verbose
     log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first 20 gaps")
@@ -523,7 +526,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) overlaps
     log close _vlog
     _check_log, logfile(`_log_noverb') needle("Total overlapping periods")
@@ -549,7 +552,7 @@ local ++test_count
 capture noisily {
     use `_diag_data', clear
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvdiagnose, id(id) start(start) stop(stop) overlaps verbose
     log close _vlog
     _check_log, logfile(`_log_verb') needle("Showing first 50 overlapping periods")
@@ -568,7 +571,7 @@ else {
 
 **# TVMERGE VERBOSE TESTS
 
-* Create two merge datasets with issues that trigger validation warnings
+* Create two merge datasets with issues that trigger validation messages
 quietly {
     * Dataset 1: person 1 has a gap, person 2 has abutting
     clear
@@ -641,7 +644,7 @@ quietly {
 local ++test_count
 capture noisily {
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validatecoverage
@@ -672,7 +675,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validatecoverage verbose
@@ -697,7 +700,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile _log_noverb
-    log using `_log_noverb', text replace name(_vlog)
+    quietly log using `_log_noverb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validateoverlap
@@ -727,7 +730,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile _log_verb
-    log using `_log_verb', text replace name(_vlog)
+    quietly log using `_log_verb', text replace name(_vlog)
     tvmerge `_merge_ds1' `_merge_ds2', id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2) ///
         validateoverlap verbose

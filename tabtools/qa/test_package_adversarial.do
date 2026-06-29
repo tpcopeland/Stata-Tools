@@ -7,7 +7,8 @@ set varabbrev off
 version 17.0
 
 capture log close _pkgadv
-log using "test_package_adversarial.log", replace text name(_pkgadv)
+capture erase "test_package_adversarial.log"
+log using "test_package_adversarial.log", text name(_pkgadv)
 
 local test_count = 0
 local pass_count = 0
@@ -1401,4 +1402,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_package_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _pkgadv
-

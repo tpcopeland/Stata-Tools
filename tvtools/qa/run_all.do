@@ -33,7 +33,8 @@ if !inlist("`mode'", "quick", "core", "python", "full") {
 
 * Routine development lane: fast functional coverage and state preservation.
 * One file per command plus the cross-cutting concern suites.
-local quick_suites test_tvage test_tvevent test_tvexpose test_tvmerge ///
+local quick_suites test_tvage test_tvband test_tvsplit ///
+    test_tvevent test_tvexpose test_tvmerge ///
     test_tvpanel test_tvweight test_tvdiagnose test_tvtools ///
     test_options test_integration test_edge_cases test_verbose ///
     test_frames_input
@@ -44,11 +45,12 @@ local quick_suites test_tvage test_tvevent test_tvexpose test_tvmerge ///
 * it lives in the always-run correctness lane, not the python lane.
 local core_suites `quick_suites' test_regressions ///
     validation_known_answers ///
-    validation_tvage validation_tvevent validation_tvexpose ///
+    validation_tvage validation_tvband validation_tvsplit ///
+    validation_tvevent validation_tvexpose ///
     validation_tvmerge validation_tvweight validation_tvweight_balance ///
     validation_tvdiagnose validation_flow ///
     validation_boundary validation_pipeline validation_supplemental ///
-    crossval_tvmerge_mata crossval_tvexpose_expand
+    crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvsplit_lexis
 
 * Cross-validation lane: parity against the external reference implementation.
 local python_suites crossval_tvtools

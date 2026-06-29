@@ -43,7 +43,7 @@ local qadir "`pkgroot'/qa"
 local datadir "`c(tmpdir)'/finegray_xv_pp"
 capture mkdir "`datadir'"
 
-capture log close _crossval_pp
+capture log close _all
 log using "`qadir'/crossval_predict_phtest.log", replace text name(_crossval_pp)
 
 * {smcl}
@@ -51,8 +51,20 @@ log using "`qadir'/crossval_predict_phtest.log", replace text name(_crossval_pp)
 capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
+
 program define _setup_hypoxia
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1) id(stnum)
 end
@@ -632,6 +644,7 @@ display as text "Skipped: " as result `skip_count'
 
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
+    log close _crossval_pp
     exit 1
 }
 else if `skip_count' > 0 {
@@ -642,6 +655,6 @@ else {
     display as result "RESULT: PASS (all `test_count' tests passed)"
 }
 
-display "RESULT: crossval_predict_phtest tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: crossval_predict_phtest tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 
 log close _crossval_pp

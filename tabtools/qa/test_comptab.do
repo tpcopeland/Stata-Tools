@@ -209,7 +209,7 @@ capture noisily {
     assert "`va_after'" == "on"
 }
 if _rc == 0 {
-    display as result "  PASS [4a]: comptab restores varabbrev on error (frame not found)"
+    display as result "  PASS [4a]: comptab restores varabbrev after missing-frame error"
     local ++pass_count
 }
 else {

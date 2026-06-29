@@ -60,6 +60,7 @@ and re-bootstraps after its own `clear all`.
 | `test_tvweight.do` | tvweight | IPTW weights + comprehensive option coverage |
 | `test_tvdiagnose.do` | tvdiagnose | Coverage/gap/overlap diagnostics |
 | `test_tvtools.do` | tvtools | Dispatcher command routing |
+| `test_frames_input.do` | frames/options | Frame-backed inputs for tvevent/tvmerge/tvpanel and related return checks |
 
 ### Cross-cutting concern tests
 | File | Covers | Notes |
@@ -108,7 +109,7 @@ and re-bootstraps after its own `clear all`.
 | tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | — | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
-| tvpanel | `test_tvpanel` | — | — | `test_regressions` |
+| tvpanel | `test_tvpanel` | — | — | `test_frames_input`, `test_regressions` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
 | tvweight | `test_tvweight` | `validation_tvweight` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_supplemental` |
 
@@ -116,7 +117,7 @@ and re-bootstraps after its own `clear all`.
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose` |
-| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvdiagnose`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand` |
+| `quick` | `test_tvage`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose`, `test_frames_input` |
+| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

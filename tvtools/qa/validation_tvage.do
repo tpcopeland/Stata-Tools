@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_tvage.log", replace nomsg
+quietly log using "validation_tvage.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -415,6 +415,51 @@ else {
     local fail_count = `fail_count' + 1
     local failed_tests "`failed_tests' 6d"
     display as error "TEST 6D: FAILED"
+}
+
+* TEST 6E: minage/maxage truncate person-time at the age-band boundary
+* (regression for the v1.3.0 fix: the first/last interval must begin/end at the
+* age boundary, NOT at the raw study entry/exit, so pre-minage / post-maxage
+* time is left/right-truncated rather than mislabeled into the boundary band).
+capture noisily {
+    * minage left-truncation: person enters at age 38, minage(40)
+    clear
+    set obs 1
+    gen long id = 1
+    gen double dob = mdy(1,1,1970)
+    gen double entry = mdy(1,1,2008)
+    gen double exit_ = mdy(1,1,2014)
+    format dob entry exit_ %td
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) minage(40)
+    sort age_start
+    assert age_tv[1] == 40
+    assert age_start[1] == round(mdy(1,1,1970) + 40*365.25)
+    quietly count if age_start < round(mdy(1,1,1970) + 40*365.25)
+    assert r(N) == 0
+
+    * maxage right-truncation: person exits at age 44, maxage(42)
+    clear
+    set obs 1
+    gen long id = 1
+    gen double dob = mdy(1,1,1970)
+    gen double entry = mdy(1,1,2000)
+    gen double exit_ = mdy(1,1,2014)
+    format dob entry exit_ %td
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) maxage(42)
+    sort age_start
+    assert age_tv[_N] == 42
+    assert age_stop[_N] == round(mdy(1,1,1970) + 43*365.25) - 1
+    quietly count if age_tv > 42
+    assert r(N) == 0
+}
+if _rc == 0 {
+    local pass_count = `pass_count' + 1
+    display as result "TEST 6E: PASSED (minage/maxage truncation boundaries)"
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 6e"
+    display as error "TEST 6E: FAILED (rc=`=_rc')"
 }
 
 * FINAL SUMMARY

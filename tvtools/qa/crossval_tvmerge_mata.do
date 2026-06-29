@@ -21,7 +21,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "crossval_tvmerge_mata.log", replace nomsg
+quietly log using "crossval_tvmerge_mata.log", replace nomsg
 
 local test_count = 0
 local pass_count = 0

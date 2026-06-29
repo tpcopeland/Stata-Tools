@@ -27,7 +27,7 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _cvpstcr
+capture log close _all
 log using "crossval_predict_stcrreg.log", replace name(_cvpstcr)
 
 * Bootstrap: derive package root from the qa/ working directory (relocatable)
@@ -59,12 +59,25 @@ program define _mad, rclass
     return scalar mad = max(abs(r(min)), abs(r(max)))
 end
 
+capture program drop _finegray_use_hypoxia
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
+
 * ============================================================================
 **# Configuration A: cause 1, three covariates (ifp tumsize pelnode)
 * ============================================================================
 
 * ---- stcrreg reference: fit + every native prediction ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(status == 1) id(stnum)
 stcrreg ifp tumsize pelnode, compete(status == 2)
@@ -92,7 +105,7 @@ tempfile sout_A
 save "`sout_A'"
 
 * ---- finegray: fit + covariate predictions ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog
@@ -346,7 +359,7 @@ else {
 * ============================================================================
 
 * ---- stcrreg reference ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(status == 2) id(stnum)
 stcrreg ifp pelnode, compete(status == 1)
@@ -359,7 +372,7 @@ tempfile sout_B
 save "`sout_B'"
 
 * ---- finegray ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
 finegray ifp pelnode, compete(status) cause(2) nolog
@@ -443,7 +456,7 @@ else {
 * ============================================================================
 
 * ---- finegray: fixed-horizon CIF at t = 3 ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1) nolog
@@ -454,7 +467,7 @@ tempfile fout_C
 save "`fout_C'"
 
 * ---- stcrreg baseline CIF F0(t=3) and xb ----
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(status == 1) id(stnum)
 stcrreg ifp tumsize pelnode, compete(status == 2)

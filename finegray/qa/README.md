@@ -43,26 +43,26 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
 `fastcmprsk` only confirms it a second time. Skipping it loses no coverage.*
 
-Last full run: `stata-mp` (MP), R with `cmprsk` and `riskRegression` present.
+Last full run: 2026-06-28 via `stata-mp -b do run_all.do full`, R with
+`cmprsk` and `riskRegression` present.
 
 ## How to run
 
-All suites are self-contained and relocatable: each derives the package root
-from its own working directory, performs a clean local `net install`, and
-writes its log next to itself. Run from this `qa/` directory.
+Run from this `qa/` directory. The curated runner uses explicit lane membership
+(no globbing), sandboxes PLUS/PERSONAL under `c(tmpdir)`, and exits nonzero if
+any suite fails. Every suite also remains independently runnable; each derives
+the package root from `c(pwd)`, performs a clean local `net install`, and writes
+its log next to itself.
 
 ```bash
+stata-mp -b do run_all.do            # full lane (default release gate)
+stata-mp -b do run_all.do quick      # functional/regression lane
+stata-mp -b do run_all.do core       # quick + validation + Stata-only crossval
+stata-mp -b do run_all.do python     # R-backed cross-validation lane
+stata-mp -b do run_all.do full       # all curated suites
+
 # one suite (batch mode writes <name>.log alongside the .do)
 stata-mp -b do test_finegray.do
-
-# whole suite — run a couple at a time; the R-backed crossvals are slower
-for f in test_finegray test_finegray_v110 \
-         validation_finegray validation_finegray_recovery validation_finegray_cif_se \
-         crossval_predict_stcrreg crossval_cif \
-         crossval_predict_phtest crossval_finegray; do
-    stata-mp -b do "$f.do"
-done
-grep -h "^RESULT:" *.log     # one sentinel line per suite
 ```
 
 Each suite prints a machine-parseable sentinel as its last line, e.g.
@@ -91,6 +91,8 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | File | Role |
 |------|------|
+| `run_all.do` | Curated lane runner (`quick`, `core`, `python`, `full`) |
+| `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
@@ -104,6 +106,15 @@ install.packages(c("cmprsk", "riskRegression"))
 | `crossval_predict_phtest_r.R` | R companion for the predict/phtest cross-check |
 | `crossval_predict_stcrreg.do` | Every prediction path vs native `stcrreg` (no external dependency) |
 | `.gitignore` | Excludes generated artifacts (`.log`, `.csv`, `.dta`, `.xlsx`, …) |
+
+## Lane membership
+
+| Lane | Suites |
+|------|--------|
+| `quick` | `test_finegray.do`, `test_finegray_v110.do` |
+| `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_cif_se.do`, `crossval_predict_stcrreg.do` |
+| `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
+| `full` | `core` + `python` |
 
 ## Coverage map
 

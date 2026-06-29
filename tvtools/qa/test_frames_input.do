@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_frames_input.log", replace nomsg
+quietly log using "test_frames_input.log", replace nomsg
 
 * Shared scaffold: sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"

@@ -13,6 +13,9 @@ set more off
 set varabbrev off
 version 16.0
 
+capture log close
+quietly log using "validation_known_answers.log", replace nomsg
+
 * Bootstrap: derive paths from working directory
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)

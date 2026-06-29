@@ -162,6 +162,18 @@ The same demo also prints the fixed-horizon CIF table (`finegray_cif, attime(1 3
 
 The package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression (`cmprsk`, `riskRegression`). The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior.
 
+The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, and `full` lanes) and documented in `qa/README.md`. The `qa/` directory contains 9 QA files: 2 functional test files, 3 validation files, and 4 cross-validation files covering all four public commands.
+
+- `test_finegray.do` - 127 tests
+- `test_finegray_v110.do` - 24 tests
+- `validation_finegray.do` - 45 tests
+- `validation_finegray_recovery.do` - 4 tests
+- `validation_finegray_cif_se.do` - 7 tests
+- `crossval_predict_stcrreg.do` - 15 tests
+- `crossval_cif.do` - 2 tests
+- `crossval_predict_phtest.do` - 14 tests
+- `crossval_finegray.do` - 55 tests
+
 `qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
 
 - **Schoenfeld residuals at tied event times.** At an event time shared by two or more cause events, `finegray` and `stcrreg` partition the residual among the simultaneous events using different conventions, so an individual residual at a tied time can differ. The QA suite asserts that (a) residuals match `stcrreg` exactly at untied event times and (b) the sum of the residuals within each event time — and hence the overall score, which is zero at the estimate — is identical. Only the per-observation values at tied times differ; untied times, per-time totals, and every event-time aggregate are unaffected.

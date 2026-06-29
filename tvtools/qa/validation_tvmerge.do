@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_tvmerge.log", replace nomsg
+quietly log using "validation_tvmerge.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -534,11 +534,11 @@ else {
     local failed_tests "`failed_tests' ErrReq"
 }
 
-* Test: File Not Found
+* Test: Missing input file
 * Purpose: Verify error when dataset file doesn't exist
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test: File Not Found"
+    display as text _n "Test: Missing input file"
 }
 
 capture {
@@ -3518,4 +3518,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

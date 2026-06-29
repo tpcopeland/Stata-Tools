@@ -784,11 +784,11 @@ capture noisily {
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect clear
     collect: margins, dydx(mbsmoke)
-    capture noisily effecttab, display type(teffects)
+    capture effecttab, display type(teffects)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "PASS: T23 — explicit type mismatch rejected"
+    display as result "PASS: T23 - explicit type() conflict rejected"
     local ++pass_count
 }
 else {
@@ -1501,9 +1501,10 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_v160_digits7.xlsx") sheet("Test") digits(7)
+    capture effecttab, xlsx("output/test_v160_digits7.xlsx") sheet("Test") digits(7)
+    assert _rc == 198
 }
-if _rc != 0 {
+if _rc == 0 {
     display as result "  PASS: 2.1.3 — effecttab digits(7) correctly rejected"
     local ++pass_count
 }
@@ -2184,4 +2185,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_effecttab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _effecttab
-

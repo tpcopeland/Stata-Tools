@@ -413,7 +413,7 @@ else {
 }
 
 * Test: diagtab rejects continuous test without cutoff
-capture noisily {
+capture {
     use `diagdata', clear
     diagtab test_score gold, display
 }
@@ -501,7 +501,7 @@ else {
 }
 
 * Regression: diagtab must reject invalid prevalence values
-capture noisily {
+capture {
     use `diagdata', clear
     diagtab test_binary gold, prevalence(1.2) display
 }
@@ -533,7 +533,7 @@ else {
 }
 
 * Test: diagtab rejects auc with cutoffs()
-capture noisily {
+capture {
     use `diagdata', clear
     diagtab test_score gold, cutoffs(0.25 0.5) auc display
 }
@@ -950,7 +950,7 @@ else {
 }
 
 **## 2d. cutoff and cutoffs are mutually exclusive
-capture noisily {
+capture {
     clear
     set obs 200
     set seed 42

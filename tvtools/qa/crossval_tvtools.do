@@ -17,6 +17,9 @@ set more off
 set varabbrev off
 version 16.0
 
+capture log close
+quietly log using "crossval_tvtools.log", replace nomsg
+
 * Install tvtools from package root
 
 * === Bootstrap ===

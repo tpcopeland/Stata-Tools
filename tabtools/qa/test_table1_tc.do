@@ -2048,7 +2048,7 @@ else {
 
 * --- U6.1: Binary error suggests cat ---
 local ++n_total
-capture noisily {
+capture {
     sysuse auto, clear
     * rep78 has values 1-5, not 0/1
     table1_tc, by(foreign) vars(rep78 bin)
@@ -2096,7 +2096,7 @@ capture noisily {
     table1_tc price mpg weight, by(rep78) smd
 }
 if _rc == 0 {
-    display as result "  PASS: R3.1 — SMD with >2 groups runs (warning in log)"
+    display as result "  PASS: R3.1 - SMD with >2 groups runs"
     local ++pass_count
 }
 else {
@@ -3083,4 +3083,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_table1_tc tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _table1tc
-

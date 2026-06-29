@@ -1,9 +1,12 @@
 * test_finegray.do - Functional test suite for finegray package
 * Tests: installation, options, error handling, return values, data preservation
-* Package: finegray v1.0.0
-* Date: 2026-04-05
+* Package: finegray v1.1.0
 
 clear all
+set more off
+set varabbrev off
+version 16.0
+
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -20,7 +23,7 @@ if _rc {
 }
 local qadir "`pkgroot'/qa"
 
-capture log close _test_finegray
+capture log close _all
 log using "`qadir'/test_finegray.log", ///
     replace text name(_test_finegray)
 
@@ -39,11 +42,24 @@ if _rc {
 capture which regtab
 if _rc {
     display as error "regtab dependency not available; install tabtools"
+    log close _test_finegray
     exit 111
 }
 
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
+
 program define _setup_hypoxia
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1) id(stnum)
 end
@@ -486,7 +502,7 @@ else {
 * T27: Error — no stset id()
 local ++test_count
 capture noisily {
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1)
     capture finegray ifp tumsize pelnode, compete(status) cause(1)
@@ -1615,7 +1631,7 @@ else {
 * T81: sthlp basic example verbatim
 local ++test_count
 capture noisily {
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1) id(stnum)
     finegray ifp tumsize pelnode, compete(status) cause(1)

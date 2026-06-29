@@ -375,7 +375,7 @@ else {
 }
 
 * Test: tabtools set profile() without permanent is rejected
-capture noisily {
+capture {
     tabtools set font Calibri, profile("`output_dir'/invalid_profile.do")
 }
 if _rc == 198 {
@@ -388,7 +388,7 @@ else {
 }
 
 * Test: tabtools use missing profile returns Stata file-not-found rc
-capture noisily {
+capture {
     tabtools use using "`output_dir'/missing_tabtools_profile.do"
 }
 if _rc == 601 {
@@ -401,7 +401,7 @@ else {
 }
 
 * Test: tabtools set fontsize below range → rc=198
-capture noisily {
+capture {
     tabtools set fontsize 5
 }
 if _rc == 198 {
@@ -414,7 +414,7 @@ else {
 }
 
 * Test: tabtools set fontsize above range → rc=198
-capture noisily {
+capture {
     tabtools set fontsize 73
 }
 if _rc == 198 {
@@ -427,7 +427,7 @@ else {
 }
 
 * Test: tabtools set fontsize non-integer → rc=198
-capture noisily {
+capture {
     tabtools set fontsize abc
 }
 if _rc == 198 {
@@ -440,7 +440,7 @@ else {
 }
 
 * Test: tabtools set invalid borderstyle → rc=198
-capture noisily {
+capture {
     tabtools set borderstyle heavy
 }
 if _rc == 198 {
@@ -453,7 +453,7 @@ else {
 }
 
 * Test: tabtools set unknown key → rc=198
-capture noisily {
+capture {
     tabtools set invalidkey somevalue
 }
 if _rc == 198 {
@@ -493,7 +493,7 @@ else {
 }
 
 * Test: tabtools set theme custom rejects invalid borderstyle
-capture noisily {
+capture {
     tabtools set theme custom, borderstyle(garbage)
 }
 if _rc == 198 {
@@ -506,7 +506,7 @@ else {
 }
 
 * Test: tabtools set theme custom rejects invalid headercolor
-capture noisily {
+capture {
     tabtools set theme custom, headercolor("12 999 5")
 }
 if _rc == 198 {
@@ -519,7 +519,7 @@ else {
 }
 
 * Test: tabtools get rejects trailing arguments
-capture noisily {
+capture {
     tabtools get extra
 }
 if _rc == 198 {
@@ -550,7 +550,7 @@ else {
 }
 
 * Test: tabtools set clear rejects trailing arguments
-capture noisily {
+capture {
     tabtools set clear extra
 }
 if _rc == 198 {
@@ -581,7 +581,7 @@ else {
 }
 
 * Test: tabtools rejects theme-builder options in display mode
-capture noisily {
+capture {
     tabtools, font(ComicSans)
 }
 if _rc == 198 {
@@ -594,7 +594,7 @@ else {
 }
 
 * Test: tabtools unknown subcommand → rc=198
-capture noisily {
+capture {
     tabtools unknowncmd
 }
 if _rc == 198 {

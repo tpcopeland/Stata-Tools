@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_regressions.log", replace nomsg
+quietly log using "test_regressions.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -2214,7 +2214,7 @@ capture noisily {
 
     * id() names a variable absent from the data -> guarded error path inside quietly{}
     tempfile vlog
-    log using "`vlog'.txt", replace text name(tvmergevis)
+    quietly log using "`vlog'.txt", replace text name(tvmergevis)
     capture noisily tvmerge "`rds_a'.dta" "`rds_b'.dta", ///
         id(nosuchid) start(start_a start_b) stop(stop_a stop_b) ///
         exposure(exp_a exp_b)

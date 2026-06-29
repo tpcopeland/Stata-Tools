@@ -8,7 +8,7 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _cvcif
+capture log close _all
 log using "crossval_cif.log", replace name(_cvcif)
 
 local qa_dir "`c(pwd)'"
@@ -19,6 +19,18 @@ quietly net install finegray, from("`pkg_dir'") replace
 local pass = 0
 local fail = 0
 local skip = 0
+
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
 
 * Locate Rscript
 local Rscript ""
@@ -37,7 +49,7 @@ if "`Rscript'" == "" {
 **# ------------------------------------------------------------------
 **# Fit on hypoxia and export for R
 **# ------------------------------------------------------------------
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1)
@@ -121,7 +133,7 @@ else {
 **# (2) CIF SE vs same-dataset subject bootstrap
 **# ------------------------------------------------------------------
 * analytic SE at profile=means, times 2 5 8
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1)
@@ -137,7 +149,7 @@ scalar a2 = A[1,3]
 scalar a5 = A[2,3]
 scalar a8 = A[3,3]
 
-webuse hypoxia, clear
+_finegray_use_hypoxia
 gen byte status = failtype
 save "`c(tmpdir)'/_cv_boot", replace
 

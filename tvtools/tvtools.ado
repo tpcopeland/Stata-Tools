@@ -1,4 +1,4 @@
-*! tvtools Version 1.2.0  2026/06/28
+*! tvtools Version 1.3.0  2026/06/28
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -43,7 +43,7 @@ program define tvtools, rclass
     }
 
     // Define commands by category
-    local cmd_prep "tvexpose tvmerge tvevent tvage tvpanel"
+    local cmd_prep "tvexpose tvmerge tvevent tvage tvband tvsplit tvpanel"
     local cmd_diag "tvdiagnose"
     local cmd_weight "tvweight"
 
@@ -92,6 +92,8 @@ program define tvtools, rclass
             display as result "  tvmerge    " as text "- Merge multiple time-varying datasets"
             display as result "  tvevent    " as text "- Integrate events and competing risks"
             display as result "  tvage      " as text "- Add time-varying age to stset data"
+            display as result "  tvband     " as text "- Split intervals on one date-derived axis"
+            display as result "  tvsplit    " as text "- Multi-timescale Lexis interval splitting"
             display as result "  tvpanel    " as text "- Build fixed-width MSM panel grid"
             display as text ""
         }
@@ -168,6 +170,12 @@ program define _tvtools_detail
         display as text ""
         display as result "  tvage" as text "        Add time-varying age to stset data. Updates"
         display as text "               age as analysis time progresses."
+        display as text ""
+        display as result "  tvband" as text "       Split follow-up intervals along one date-derived"
+        display as text "               axis (age, calendar period, or elapsed time)."
+        display as text ""
+        display as result "  tvsplit" as text "      Multi-timescale (Lexis) splitting on age,"
+        display as text "               calendar, and time-since-entry simultaneously."
         display as text ""
         display as result "  tvpanel" as text "      Build a fixed-width, entry-anchored panel grid"
         display as text "               for marginal structural models (feeds the msm"

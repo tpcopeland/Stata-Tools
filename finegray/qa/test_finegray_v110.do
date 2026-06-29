@@ -9,7 +9,7 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _t110
+capture log close _all
 log using "test_finegray_v110.log", replace name(_t110)
 
 local qa_dir "`c(pwd)'"
@@ -23,7 +23,15 @@ local fail_count = 0
 
 **# Helpers
 program define _mk_hypoxia
-    webuse hypoxia, clear
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
     gen byte status = failtype
 end
 

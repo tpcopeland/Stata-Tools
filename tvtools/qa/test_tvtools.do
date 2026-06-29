@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_tvtools.log", replace nomsg
+quietly log using "test_tvtools.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -54,16 +54,18 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(prep)
-    assert r(n_commands) == 5
+    assert r(n_commands) == 7
     local cmds "`r(commands)'"
     assert strpos("`cmds'", "tvexpose") > 0
     assert strpos("`cmds'", "tvmerge") > 0
     assert strpos("`cmds'", "tvevent") > 0
     assert strpos("`cmds'", "tvage") > 0
+    assert strpos("`cmds'", "tvband") > 0
+    assert strpos("`cmds'", "tvsplit") > 0
     assert strpos("`cmds'", "tvpanel") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(prep) returns 5 commands"
+    display as result "  PASS: category(prep) returns 7 commands"
     local ++pass_count
 }
 else {
@@ -114,11 +116,13 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(all)
-    assert r(n_commands) == 7
+    assert r(n_commands) == 9
     assert strpos("`r(commands)'", "tvpanel") > 0
+    assert strpos("`r(commands)'", "tvband") > 0
+    assert strpos("`r(commands)'", "tvsplit") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: category(all) returns 7 commands"
+    display as result "  PASS: category(all) returns 9 commands"
     local ++pass_count
 }
 else {
@@ -148,7 +152,7 @@ local ++test_count
 capture noisily {
     tvtools, list
     assert "`r(commands)'" != ""
-    assert r(n_commands) == 7
+    assert r(n_commands) == 9
 }
 if _rc == 0 {
     display as result "  PASS: list option works"
@@ -180,7 +184,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, list category(prep)
-    assert r(n_commands) == 5
+    assert r(n_commands) == 7
 }
 if _rc == 0 {
     display as result "  PASS: list + category(prep) combination works"
@@ -212,7 +216,7 @@ else {
 local ++test_count
 capture noisily {
     tvtools, category(PREP)
-    assert r(n_commands) == 5
+    assert r(n_commands) == 7
 }
 if _rc == 0 {
     display as result "  PASS: Case-insensitive category(PREP) works"
@@ -276,6 +280,26 @@ else {
     display as error "  FAIL: tvpanel present in default and detail command index (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.15"
+}
+
+* TEST 1.16: tvband/tvsplit listed in default and detail views (index completeness)
+local ++test_count
+capture noisily {
+    tvtools
+    assert strpos("`r(commands)'", "tvband") > 0
+    assert strpos("`r(commands)'", "tvsplit") > 0
+    tvtools, detail
+    assert strpos("`r(commands)'", "tvband") > 0
+    assert strpos("`r(commands)'", "tvsplit") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvband/tvsplit present in default and detail command index"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvband/tvsplit present in default and detail command index (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 1.16"
 }
 
 

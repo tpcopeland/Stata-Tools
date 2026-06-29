@@ -538,10 +538,11 @@ capture noisily {
     capture frame drop _reg_test2
     regtab, frame(_reg_test2) coef(HR) display
 
-    hrcomptab _str_test2, modelframes(_reg_test2) ///
+    capture hrcomptab _str_test2, modelframes(_reg_test2) ///
         rownames(NONEXISTENT_PATTERN) display
+    assert _rc == 198
 }
-if _rc == 198 {
+if _rc == 0 {
     display as result "  PASS [5b]: hrcomptab rownames() with no match errors rc=198"
     local ++pass_count
 }

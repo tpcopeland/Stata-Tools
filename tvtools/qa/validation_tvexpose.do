@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_tvexpose.log", replace nomsg
+quietly log using "validation_tvexpose.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -741,11 +741,11 @@ else {
     local failed_tests "`failed_tests' 3.17.1"
 }
 
-* Test 3.17.3: Variable Not Found
+* Test 3.17.3: Missing variable
 * Purpose: Verify clear errors when specified variables don't exist
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 3.17.3: Variable Not Found"
+    display as text _n "Test 3.17.3: Missing variable"
 }
 
 capture {
@@ -8574,4 +8574,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

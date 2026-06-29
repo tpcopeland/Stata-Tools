@@ -2340,7 +2340,7 @@ else {
     di _dup(60) "-"
 
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
 
     * Get subject count from a simple stcox before stsplit
     quietly stcox height
@@ -2354,7 +2354,7 @@ else {
     assert `n_rows' > `n_subjects' // sanity: stsplit actually expanded
 
     collect clear
-    collect: stcox height
+    quietly collect: stcox height
 
     * Verify e() values — N should be rows, N_sub should be subjects
     di "e(N) = " e(N) " (rows in risk set)"
@@ -2395,10 +2395,10 @@ else {
     di _dup(60) "-"
 
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
 
     collect clear
-    collect: stcox height
+    quietly collect: stcox height
 
     local expected_n = e(N_sub)
     assert e(N) == e(N_sub)
@@ -2488,12 +2488,12 @@ else {
 
     * First model: stcox with stsplit
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
     local n_subjects = r(N_sub)
     stsplit, at(failures)
 
     collect clear
-    collect: stcox height
+    quietly collect: stcox height
 
     local cox_n_sub = e(N_sub)
     local cox_n_obs = e(N)
@@ -2536,7 +2536,7 @@ else {
     di _dup(60) "-"
 
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
 
     quietly streg height, dist(weibull)
     local n_subjects = e(N_sub)
@@ -2549,7 +2549,7 @@ else {
     assert `n_rows' > `n_subjects'
 
     collect clear
-    collect: streg height, dist(weibull)
+    quietly collect: streg height, dist(weibull)
 
     di "e(N) = " e(N) ", e(N_sub) = " e(N_sub)
     assert e(N) > e(N_sub)
@@ -2587,10 +2587,10 @@ local failures = 0
     di _dup(60) "-"
 
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
 
     collect clear
-    collect: stcox height
+    quietly collect: stcox height
 
     local expected_n = e(N_sub)
 
@@ -2626,10 +2626,10 @@ local failures = 0
     di _dup(60) "-"
 
     webuse diet, clear
-    stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
+    quietly stset dox, origin(dob) enter(doe) id(id) fail(fail) scale(365.25)
 
     collect clear
-    collect: stcox height
+    quietly collect: stcox height
     local expected_n = e(N_sub)
 
     regtab, stats(subjects) display frame(t_subj, replace)
@@ -2654,37 +2654,39 @@ local failures = 0
     collect: regress price mpg weight
     local expected_n = e(N)
 
-    * Plain call (NO noisily prefix): the warning must surface to a normal user
-    * even though the parse block runs inside regtab's internal quietly{}.
-    * Capture the session log to a tempfile and assert the warning text appears.
-    tempfile warnlog
-    log using "`warnlog'", replace text name(_alias_warn)
-    regtab, stats(bogus n) display frame(t_bogus, replace)
-    local plain_rc = _rc
-    log close _alias_warn
+    capture noisily {
+        * Plain call: the warning must surface to a normal user even though
+        * the parse block runs inside regtab's internal quietly{}.
+        tempfile warnlog
+        log using "`warnlog'", replace text name(_alias_warn)
+        regtab, stats(bogus n) display frame(t_bogus, replace)
+        local plain_rc = _rc
+        log close _alias_warn
 
-    assert `plain_rc' == 0
+        assert `plain_rc' == 0
 
-    * Scan the captured log for the warning text
-    local warned = 0
-    file open _fh using "`warnlog'", read text
-    file read _fh line
-    while r(eof) == 0 {
-        if strpos(`"`line'"', "not recognized and ignored") local warned = 1
+        local warned = 0
+        file open _fh using "`warnlog'", read text
         file read _fh line
-    }
-    file close _fh
-    di "Warning surfaced in plain (non-noisily) call: `warned'"
-    assert `warned' == 1
+        while r(eof) == 0 {
+            if strpos(`"`line'"', "not recognized and ignored") local warned = 1
+            file read _fh line
+        }
+        file close _fh
+        di "Expected notice surfaced in plain call: `warned'"
+        assert `warned' == 1
 
-    frame t_bogus {
-        count if A == "Observations"
-        assert r(N) == 1
-        levelsof c1 if A == "Observations", local(v) clean
-        local v = subinstr("`v'", ",", "", .)
-        assert real("`v'") == `expected_n'
+        frame t_bogus {
+            count if A == "Observations"
+            assert r(N) == 1
+            levelsof c1 if A == "Observations", local(v) clean
+            local v = subinstr("`v'", ",", "", .)
+            assert real("`v'") == `expected_n'
+        }
+        di "PASS: unknown stats token notice reaches normal user; valid n rendered"
     }
-    di "PASS: unknown token surfaces warning to normal user, valid n rendered"
+    local warn_block_rc = _rc
+    assert `warn_block_rc' == 0
 }
 
 **# Test 4: regression — stats(n) output unchanged vs stats(n_sub) on non-survival model
@@ -3562,7 +3564,7 @@ else {
 }
 
 * Test: digits(7) out of range → error
-capture noisily {
+capture {
     sysuse auto, clear
     collect clear
     collect: logistic foreign price mpg
@@ -3872,7 +3874,7 @@ else {
 
 * --- O5.2: starslevels rejects wrong number of values ---
 local ++n_total
-capture noisily {
+capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
@@ -4057,7 +4059,7 @@ capture frame drop droptest
 
 * --- 3.4.3: keep + drop mutual exclusivity ---
 local ++n_total
-capture noisily {
+capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
@@ -4941,4 +4943,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_regtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _regtab
-

@@ -77,7 +77,8 @@ replace _Upper = _Rate * 1.35
 label variable exposure "Treatment Group"
 label define val_exp_lbl 0 "Placebo" 1 "Low Dose" 2 "High Dose"
 label values exposure val_exp_lbl
-save "`output_dir'/_val_strate_o1e1.dta", replace
+capture erase "`output_dir'/_val_strate_o1e1.dta"
+quietly save "`output_dir'/_val_strate_o1e1.dta"
 
 * Outcome 2: same exposure structure
 clear
@@ -103,7 +104,8 @@ replace _Upper = _Rate * 1.35
 
 label define val_exp_lbl 0 "Placebo" 1 "Low Dose" 2 "High Dose", replace
 label values exposure val_exp_lbl
-save "`output_dir'/_val_strate_o2e1.dta", replace
+capture erase "`output_dir'/_val_strate_o2e1.dta"
+quietly save "`output_dir'/_val_strate_o2e1.dta"
 
 * V4.1: Basic structure and formatting
 capture noisily {
@@ -499,4 +501,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_stratetab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _valstrate
-

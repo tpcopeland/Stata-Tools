@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_flow.log", replace nomsg
+quietly log using "validation_flow.log", replace nomsg
 
 * Shared scaffold: sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"

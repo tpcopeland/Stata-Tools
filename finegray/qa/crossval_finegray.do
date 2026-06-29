@@ -1,9 +1,12 @@
 * crossval_finegray.do - Cross-validation suite for finegray package
 * Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, benchmarks
-* Package: finegray v1.0.0
-* Date: 2026-04-05
+* Package: finegray v1.1.0
 
 clear all
+set more off
+set varabbrev off
+version 16.0
+
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -27,7 +30,7 @@ local qadir "`pkgroot'/qa"
 local datadir "`c(tmpdir)'/finegray_xv_main"
 capture mkdir "`datadir'"
 
-capture log close _crossval_finegray
+capture log close _all
 log using "`qadir'/crossval_finegray.log", ///
     replace text name(_crossval_finegray)
 
@@ -36,8 +39,20 @@ log using "`qadir'/crossval_finegray.log", ///
 capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
+program define _finegray_use_hypoxia
+    local cache "`c(tmpdir)'/finegray_hypoxia_cache.dta"
+    capture confirm file "`cache'"
+    if _rc {
+        webuse hypoxia, clear
+        quietly save "`cache'", replace
+    }
+    else {
+        use "`cache'", clear
+    }
+end
+
 program define _setup_hypoxia
-    webuse hypoxia, clear
+    _finegray_use_hypoxia
     gen byte status = failtype
     stset dftime, failure(dfcens==1) id(stnum)
 end
@@ -2085,9 +2100,11 @@ display as text "Passed:  " as result `pass_count'
 display as text "Failed:  " as result `fail_count'
 display as text "Skipped: " as result `skip_count'
 display as text _dup(60) "="
+display as text "RESULT: crossval_finegray tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
+    log close _crossval_finegray
     exit 1
 }
 else if `skip_count' > 0 {

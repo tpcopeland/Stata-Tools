@@ -1,4 +1,4 @@
-*! tvage Version 1.2.0  2026/06/28
+*! tvage Version 1.3.0  2026/06/28
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -105,6 +105,12 @@ program define tvage, rclass
         gen int `age_entry' = floor((`entryvar' - `dobvar') / 365.25)
         gen int `age_exit' = floor((`exitvar' - `dobvar') / 365.25)
 
+        * Record whether minage/maxage actually truncate this person's follow-up
+        * (before clamping overwrites the natural ages).
+        tempvar min_bound max_bound
+        gen byte `min_bound' = `age_entry' < `minage'
+        gen byte `max_bound' = `age_exit'  > `maxage'
+
         * Handle edge cases
         replace `age_entry' = max(`age_entry', `minage')
         replace `age_exit' = min(`age_exit', `maxage')
@@ -128,6 +134,19 @@ program define tvage, rclass
             exit 2000
         }
 
+        * Effective interval dates respecting the age bounds. ONLY when minage or
+        * maxage actually truncates follow-up does the first/last interval begin/
+        * end at the age-band boundary instead of the raw study entry/exit --
+        * otherwise the pre-minage / post-maxage person-time would be mislabeled
+        * into the boundary band. When a bound does not bind, the effective date
+        * is exactly entryvar/exitvar, so unbounded behavior is unchanged (a
+        * boundary-only fix that never perturbs the natural-age boundaries).
+        tempvar entry_eff exit_eff
+        gen double `entry_eff' = `entryvar'
+        replace `entry_eff' = max(`entryvar', round(`dobvar' + `age_entry' * 365.25)) if `min_bound'
+        gen double `exit_eff' = `exitvar'
+        replace `exit_eff' = min(`exitvar', round(`dobvar' + (`age_exit' + 1) * 365.25) - 1) if `max_bound'
+
         * Calculate number of periods needed per person
         gen int `n_periods' = `age_exit' - `age_entry' + 1
 
@@ -143,14 +162,14 @@ program define tvage, rclass
         * to avoid floating-point precision issues with 365.25
         * Start: max(study entry, birthday for this age)
         * Stop: min(study exit, birthday for next age - 1)
-        gen double `startgen' = `entryvar' if `period' == 0
+        gen double `startgen' = `entry_eff' if `period' == 0
         replace `startgen' = round(`dobvar' + `age_continuous' * 365.25) if `period' > 0
 
-        gen double `stopgen' = `exitvar' if `period' == `n_periods' - 1
+        gen double `stopgen' = `exit_eff' if `period' == `n_periods' - 1
         replace `stopgen' = round(`dobvar' + (`age_continuous' + 1) * 365.25) - 1 if `period' < `n_periods' - 1
 
         * Handle edge cases from rounding near birthdays
-        replace `startgen' = min(`startgen', `exitvar')
+        replace `startgen' = min(`startgen', `exit_eff')
         replace `stopgen' = max(`startgen', `stopgen')
 
         * Round to ensure integer dates for proper merging

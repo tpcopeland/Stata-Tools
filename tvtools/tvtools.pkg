@@ -57,5 +57,10 @@ f tvtools_menu_setup.do
 f tvtools.sthlp
 f tvage.ado
 f tvage.sthlp
+f tvband.ado
+f tvband.sthlp
+f tvsplit.ado
+f tvsplit.sthlp
+f _tvband_split.ado
 f tvpanel.ado
 f tvpanel.sthlp

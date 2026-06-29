@@ -7,7 +7,8 @@ set varabbrev off
 version 17.0
 
 capture log close _pkgint
-log using "test_package_integration.log", replace text name(_pkgint)
+capture erase "test_package_integration.log"
+log using "test_package_integration.log", text name(_pkgint)
 
 local test_count = 0
 local pass_count = 0
@@ -502,7 +503,7 @@ sysuse auto, clear
 
 * --- O1.4: invalid theme ---
 local ++n_total
-capture noisily table1_tc, by(foreign) vars(price contn) theme(invalid_theme)
+capture table1_tc, by(foreign) vars(price contn) theme(invalid_theme)
 if _rc != 0 {
     display as result "PASS: O1.4 — invalid theme rejected"
     local ++pass_count
@@ -904,7 +905,7 @@ else {
 
 * --- 2.5.2: invalid theme rejected ---
 local ++n_total
-capture noisily {
+capture {
     tabtools set theme invalid
 }
 if _rc != 0 {
@@ -1098,7 +1099,7 @@ capture frame drop _f1_4
 
 * --- F1.5: digits validation (out of range) ---
 local ++n_total
-capture noisily {
+capture {
     sysuse cancer, clear
     stset studytime, failure(died)
     survtab, times(10) digits(7)
@@ -1217,7 +1218,7 @@ else {
 
 * --- W2.2: tabtools set boldp validation (out of range) ---
 local ++n_total
-capture noisily {
+capture {
     tabtools set boldp 1.5
 }
 if _rc != 0 {
@@ -1231,7 +1232,7 @@ else {
 
 * --- W2.3: tabtools set boldp validation (zero) ---
 local ++n_total
-capture noisily {
+capture {
     tabtools set boldp 0
 }
 if _rc != 0 {
@@ -1245,7 +1246,7 @@ else {
 
 * --- W2.4: tabtools set digits validation (non-integer) ---
 local ++n_total
-capture noisily {
+capture {
     tabtools set digits 2.5
 }
 if _rc != 0 {
@@ -1259,7 +1260,7 @@ else {
 
 * --- W2.5: tabtools set digits validation (out of range) ---
 local ++n_total
-capture noisily {
+capture {
     tabtools set digits 7
 }
 if _rc != 0 {
@@ -1350,7 +1351,7 @@ capture frame drop _u2_3
 * --- U2.2: frame without replace errors on existing ---
 * NOTE: placed after U2.3 because the intentional error leaves stale preserve
 local ++n_total
-capture noisily {
+capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
@@ -1472,7 +1473,7 @@ capture frame drop _u2_9
 
 * --- U2.10: frame invalid sub-option rejected ---
 local ++n_total
-capture noisily {
+capture {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight

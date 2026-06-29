@@ -24,7 +24,7 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _cse
+capture log close _all
 log using "validation_finegray_cif_se.log", replace name(_cse)
 
 local qa_dir "`c(pwd)'"

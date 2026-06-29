@@ -4,7 +4,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_tvevent.log", replace nomsg
+quietly log using "validation_tvevent.log", replace nomsg
 
 * Shared scaffold: test globals + helpers + sandboxed install bootstrap
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -1271,11 +1271,11 @@ if `quiet' == 0 {
     display as text "{hline 70}"
 }
 
-* Test 4.18.1: File Not Found Error
+* Test 4.18.1: Missing using-file error
 * Purpose: Verify error when using file doesn't exist
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 4.18.1: File Not Found Error"
+    display as text _n "Test 4.18.1: Missing using-file error"
 }
 
 capture {
@@ -1285,11 +1285,11 @@ capture {
     assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: File not found produces error"
+    display as result "  PASS: Missing using-file produces error"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: File not found error (error `=_rc')"
+    display as error "  FAIL: Missing using-file error handling (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 4.18.1"
 }
@@ -4111,4 +4111,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

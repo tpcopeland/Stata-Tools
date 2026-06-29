@@ -1208,7 +1208,7 @@ else {
 * ============================================================
 
 * Test: stratetab rejects invalid borderstyle
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
         xlsx("`output_dir'/_cov_strate_err.xlsx") outcomes(2) borderstyle(invalid)
@@ -1223,7 +1223,7 @@ else {
 }
 
 * Test: stratetab rejects mismatched outcome labels
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
         xlsx("`output_dir'/_cov_strate_err2.xlsx") outcomes(2) outlabels("Only One")
@@ -1238,7 +1238,7 @@ else {
 }
 
 * Test: stratetab rejects negative pyscale
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
         xlsx("`output_dir'/_cov_strate_err3.xlsx") outcomes(2) pyscale(-1)
@@ -1253,7 +1253,7 @@ else {
 }
 
 * Test: stratetab rejects negative ratescale
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
         xlsx("`output_dir'/_cov_strate_err4.xlsx") outcomes(2) ratescale(-100)
@@ -1268,7 +1268,7 @@ else {
 }
 
 * Test: stratetab rejects outcomes(0)
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1") ///
         xlsx("`output_dir'/_cov_strate_err5.xlsx") outcomes(0)
@@ -1283,7 +1283,7 @@ else {
 }
 
 * Test: stratetab rejects non-divisible file count
-capture noisily {
+capture {
     sysuse auto, clear
     stratetab, using("`output_dir'/_cov_strate_o1e1" "`output_dir'/_cov_strate_o2e1") ///
         xlsx("`output_dir'/_cov_strate_err6.xlsx") outcomes(3)
@@ -1442,7 +1442,7 @@ capture erase "`output_dir'/_rev1013_c1_stratetab.xlsx"
 **# 3. stratetab sheet() validation — must use sheet validator, not path validator
 
 **## 3a. Invalid sheet name with / rejected early (r(198))
-capture noisily {
+capture {
     * We need strate output data for stratetab — create minimal fake
     clear
     set obs 4
@@ -1468,7 +1468,7 @@ else {
 }
 
 **## 3b. Invalid sheet name with * rejected early (r(198))
-capture noisily {
+capture {
     clear
     set obs 4
     gen _D = _n
@@ -1492,7 +1492,7 @@ else {
 }
 
 **## 3c. Sheet name over 31 chars rejected early (r(198))
-capture noisily {
+capture {
     clear
     set obs 4
     gen _D = _n
@@ -1782,4 +1782,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: test_stratetab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _stratetab
-
