@@ -1,4 +1,4 @@
-*! tvage Version 1.4.0  2026/06/29
+*! tvage Version 1.6.0  2026/06/29
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -18,10 +18,57 @@ program define tvage, rclass
 
     capture noisily {
 
-    syntax , IDvar(varname) DOBvar(varname) ENTRYvar(varname) EXITvar(varname) ///
-        [GENerate(name) STARTgen(name) STOPgen(name) ///
+    * Option names accept both the harmonized suite-standard short forms
+    * (id/dob/entry/exit) and the original *var spellings. The legacy options
+    * are capitalized IDVar/.../EXITVar so their minimum abbreviation (idv,
+    * dobv, entryv, exitv) no longer collides with the new short names; the
+    * old `idvar`/`id`/`idv` spellings all still resolve to the same slot.
+    syntax , [IDVar(varname) DOBVar(varname) ENTRYVar(varname) EXITVar(varname) ///
+         ID(varname) DOB(varname) ENTRY(varname) EXIT(varname) ///
+         GENerate(name) STARTgen(name) STOPgen(name) ///
          GROUPwidth(integer 1) MINage(integer 0) MAXage(integer 120) ///
          SAVEas(string) REPlace NOIsily]
+
+    * Resolve aliases to the canonical internal locals. Specifying both
+    * spellings for one slot is an error; one spelling per slot is required.
+    if "`id'" != "" & "`idvar'" != "" {
+        display as error "specify id() or idvar(), not both"
+        exit 198
+    }
+    if "`id'" != "" local idvar "`id'"
+    if "`dob'" != "" & "`dobvar'" != "" {
+        display as error "specify dob() or dobvar(), not both"
+        exit 198
+    }
+    if "`dob'" != "" local dobvar "`dob'"
+    if "`entry'" != "" & "`entryvar'" != "" {
+        display as error "specify entry() or entryvar(), not both"
+        exit 198
+    }
+    if "`entry'" != "" local entryvar "`entry'"
+    if "`exit'" != "" & "`exitvar'" != "" {
+        display as error "specify exit() or exitvar(), not both"
+        exit 198
+    }
+    if "`exit'" != "" local exitvar "`exit'"
+
+    * Each slot is required via one spelling or the other
+    if "`idvar'" == "" {
+        display as error "id() (or idvar()) is required"
+        exit 198
+    }
+    if "`dobvar'" == "" {
+        display as error "dob() (or dobvar()) is required"
+        exit 198
+    }
+    if "`entryvar'" == "" {
+        display as error "entry() (or entryvar()) is required"
+        exit 198
+    }
+    if "`exitvar'" == "" {
+        display as error "exit() (or exitvar()) is required"
+        exit 198
+    }
 
     * Validate required variables
     foreach v in `idvar' `dobvar' `entryvar' `exitvar' {

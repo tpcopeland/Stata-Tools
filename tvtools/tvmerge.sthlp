@@ -54,7 +54,8 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 
 {syntab:Data management}
 {synopt:{opt saveas(filename)}}save merged dataset to file{p_end}
-{synopt:{opt replace}}overwrite existing file{p_end}
+{synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
+{synopt:{opt replace}}overwrite existing file or frame{p_end}
 {synopt:{opt keep(varlist)}}additional variables to keep from source datasets (suffixed with _ds#){p_end}
 
 {syntab:Diagnostics and validation}
@@ -187,7 +188,15 @@ Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
 {opt saveas(filename)} saves the merged dataset to the specified file. Include the .dta extension. Use with {opt replace} to overwrite an existing file.
 
 {phang}
-{opt replace} allows {opt saveas()} to overwrite an existing file.
+{opt frameout(name)} places the merged result into a new frame named {it:name}
+and leaves the data in the current frame unchanged, enabling a disk-free
+pipeline ({cmd:tvexpose}{c -(} {cmd:tvmerge}{c -(} {cmd:tvevent}). Combine with
+{cmd:frames()} to also read the inputs from frames. The frame name is returned
+in {cmd:r(frameout)}. If the frame already exists, specify {cmd:replace}.
+
+{phang}
+{opt replace} allows {opt saveas()} to overwrite an existing file, or
+{opt frameout()} to overwrite an existing frame.
 
 {phang}
 {opt keep(varlist)} specifies additional variables to keep from the source datasets. These variables are included in the output dataset with _ds# suffixes (where # is the dataset number) to distinguish variables from different sources. For example, if you specify {cmd:keep(dose)}, the output will contain dose_ds1, dose_ds2, and so on. The ID variable, start and stop date variables, and exposure variables are always kept and do not receive suffixes.
@@ -614,6 +623,7 @@ ignored.
 {synopt:{cmd:r(prefix)}}prefix used (if prefix option used){p_end}
 {synopt:{cmd:r(generated_names)}}generated names (if generate option used){p_end}
 {synopt:{cmd:r(output_file)}}output filename (if saveas option used){p_end}
+{synopt:{cmd:r(frameout)}}name of the output frame (if frameout option used){p_end}
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Matrices}{p_end}

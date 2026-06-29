@@ -52,11 +52,17 @@ via {opt frame()}; supply one or the other.
 {synopt:{opt timeg:en(newvar)}}create a variable representing cumulative time since each person's first interval start{p_end}
 {synopt:{opt timeu:nit(string)}}unit for timegen: {bf:days} (default), {bf:months}, or {bf:years}{p_end}
 
+{syntab:Recurrent-event formatting (PWP/AG; requires type(recurring))}
+{synopt:{opt enum(name)}}event-sequence stratum (default: _enum){p_end}
+{synopt:{opt gap:time}}add the gap-time clock that resets at each event{p_end}
+{synopt:{opt gapstart(name)}}name for the gap-time start (default: _t0){p_end}
+{synopt:{opt gapstop(name)}}name for the gap-time stop (default: _t){p_end}
+
 {syntab:Data handling}
 {synopt:{opt keep:vars(varlist)}}additional variables to keep from event dataset{p_end}
 {synopt:{opt replace}}replace output variables if they already exist{p_end}
-{synopt:{opt start:var(varname)}}name of start date variable in using file (default: start){p_end}
-{synopt:{opt stop:var(varname)}}name of stop date variable in using file (default: stop){p_end}
+{synopt:{opt start(varname)}}name of start date variable in using file (default: start){p_end}
+{synopt:{opt stop(varname)}}name of stop date variable in using file (default: stop){p_end}
 
 {syntab:Diagnostics}
 {synopt:{opt val:idate}}display validation diagnostics for event data quality{p_end}
@@ -142,16 +148,33 @@ merge issues when your interval data already has multiple rows per person. The {
 not supported with recurring events.
 
 {phang}
+{opt enum(name)} (requires {cmd:type(recurring)}) adds an event-sequence
+stratum: 1 until a person's first event, 2 thereafter, and so on. It is the
+stratifier for Prentice-Williams-Peterson (PWP) recurrent-event models. The
+default name is {cmd:_enum}.
+
+{phang}
+{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock that resets
+to 0 at the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()}
+(defaults {cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model.
+The three standard recurrent-event analyses are then:
+{break}{bf:Andersen-Gill}: {cmd:stset stop, enter(start) failure(`generate') id(id)} (no stratum).
+{break}{bf:PWP total time}: as Andersen-Gill but {cmd:strata(`enum')}.
+{break}{bf:PWP gap time}: {cmd:stset _t, enter(_t0) failure(`generate') id(id)} with {cmd:strata(`enum')}.
+
+{phang}
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
 
 {phang}
 {opt keepvars(namelist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes, baseline covariates). These are merged by person ID so all rows for each person receive the same values. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 {phang}
-{opt startvar(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
+{opt start(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
+(Legacy synonym: {opt startvar()}.)
 
 {phang}
-{opt stopvar(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.
+{opt stop(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.
+(Legacy synonym: {opt stopvar()}.)
 
 {phang}
 {opt validate} displays validation diagnostics before processing. This option checks for:
@@ -387,6 +410,15 @@ When {cmd:validate} is specified, additional scalars are stored:
 {synopt:{cmd:r(v_outside_bounds)}}Number of events outside interval boundaries{p_end}
 {synopt:{cmd:r(v_multiple_events)}}Number of persons with multiple events (type(single) only){p_end}
 {synopt:{cmd:r(v_same_date_compete)}}Number of competing events on same date as primary{p_end}
+
+{p2col 5 24 28 2: Macros}{p_end}
+{synopt:{cmd:r(generate)}}name of the event indicator variable{p_end}
+{synopt:{cmd:r(startvar)}}name of the interval start variable{p_end}
+{synopt:{cmd:r(stopvar)}}name of the interval stop variable{p_end}
+{synopt:{cmd:r(timegen)}}name of the elapsed-time variable (if {cmd:timegen()} used){p_end}
+{synopt:{cmd:r(enum)}}name of the event-sequence stratum (if {cmd:enum()}/{cmd:gaptime} used){p_end}
+{synopt:{cmd:r(gapstart)}}name of the gap-time start variable (if {cmd:gaptime} used){p_end}
+{synopt:{cmd:r(gapstop)}}name of the gap-time stop variable (if {cmd:gaptime} used){p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
 {synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}

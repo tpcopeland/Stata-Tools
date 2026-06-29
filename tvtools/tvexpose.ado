@@ -1,4 +1,4 @@
-*! tvexpose Version 1.4.0  2026/06/29
+*! tvexpose Version 1.6.0  2026/06/29
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -115,6 +115,7 @@ program define tvexpose, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _frameout_snap_taken = 0    // init before block for error-path restore
 
     capture noisily {
 
@@ -148,6 +149,7 @@ program define tvexpose, rclass
         reference(numlist max=1) ///
         generate(name) ///
         SAVEas(string) ///
+        FRAMEOut(name) ///
         replace ///
         merge(integer 0) ///
         EVERtreated ///
@@ -196,6 +198,22 @@ program define tvexpose, rclass
     if "`_byvars'" != "" {
         di as error "tvexpose cannot be used with by:"
         exit 190
+    }
+
+    * Frames-first output: when frameout() is set, the time-varying result is
+    * placed into the named frame and the caller's current data is left intact,
+    * so the pipeline never has to round-trip through disk. The internal logic
+    * still builds the result in the working frame; we snapshot the caller's
+    * data first and reload it after copying the result into the target frame.
+    if "`frameout'" != "" {
+        capture frame `frameout': describe
+        if _rc == 0 & "`replace'" == "" {
+            noisily display as error "frame `frameout' already exists; use replace option"
+            exit 110
+        }
+        tempfile _tvx_caller_snap
+        quietly save "`_tvx_caller_snap'", replace
+        local _frameout_snap_taken = 1
     }
 
     * Handle reference() option
@@ -4705,6 +4723,16 @@ program define tvexpose, rclass
         }
     }
 
+    * Frames-first output: copy the finished result into the named frame and
+    * reload the caller's data so their working frame is untouched.
+    if "`frameout'" != "" {
+        capture frame drop `frameout'
+        frame copy `c(frame)' `frameout'
+        if `_frameout_snap_taken' quietly use "`_tvx_caller_snap'", clear
+        noisily display as text "Result placed in frame: " as result "`frameout'"
+        return local frameout "`frameout'"
+    }
+
     * Return results only on successful completion
     return scalar N_persons = `N_persons'
     return scalar N_periods = `N_periods'
@@ -4746,6 +4774,10 @@ program define tvexpose, rclass
 
     } // end capture noisily
     local rc = _rc
+
+    * On error in frameout mode, restore the caller's data so a failed run
+    * leaves their working frame as it was (the snapshot precedes any mutation).
+    if `rc' & `_frameout_snap_taken' capture quietly use "`_tvx_caller_snap'", clear
 
     set varabbrev `orig_varabbrev'
 

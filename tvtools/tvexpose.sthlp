@@ -93,7 +93,8 @@
 {synopt:{opt referencelabel(text)}}label for reference category (default: "Unexposed"){p_end}
 {synopt:{opt label(text)}}custom variable label for output exposure variable{p_end}
 {synopt:{opt saveas(filename)}}save time-varying dataset to file{p_end}
-{synopt:{opt replace}}overwrite existing output file{p_end}
+{synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
+{synopt:{opt replace}}overwrite existing output file or frame{p_end}
 {synopt:{opt keepvars(varlist)}}additional variables to keep from master dataset{p_end}
 {synopt:{opt keepdates}}keep entry and exit dates in output{p_end}
 
@@ -360,7 +361,16 @@ if not specified, the default label is "Never/current/former exposure".
 Include .dta extension. Use with {cmd:replace} to overwrite existing files.
 
 {phang}
-{opt replace} allows {cmd:saveas()} to overwrite an existing file.
+{opt frameout(name)} places the time-varying result into a new frame named
+{it:name} and leaves the data in the current frame unchanged. This enables a
+disk-free pipeline ({cmd:tvexpose}{c -(} {cmd:tvmerge}{c -(} {cmd:tvevent}) in
+which intermediate datasets are held in memory as frames rather than saved to
+and reloaded from disk. The frame name is returned in {cmd:r(frameout)}. If the
+frame already exists, specify {cmd:replace}.
+
+{phang}
+{opt replace} allows {cmd:saveas()} to overwrite an existing file, or
+{cmd:frameout()} to overwrite an existing frame.
 
 {phang}
 {opt keepvars(varlist)} specifies additional variables from the master dataset
@@ -861,6 +871,7 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(genvar)}}name of the generated exposure variable (the {opt bytype} stub when {opt bytype} is used){p_end}
+{synopt:{cmd:r(frameout)}}name of the output frame (if {opt frameout()} used){p_end}
 {synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}

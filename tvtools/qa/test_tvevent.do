@@ -1612,6 +1612,173 @@ else {
 }
 
 
+* SECTION: v1.5.0 - start()/stop() aliases + returned output-name macros
+
+capture noisily {
+    * interval (using) data
+    clear
+    input long id double start double stop
+    1 21500 21550
+    1 21550 21600
+    2 21500 21600
+    end
+    format start %td
+    format stop %td
+    tempfile _iv
+    save `_iv'
+    * events
+    clear
+    input long id double ev
+    1 21540
+    2 .
+    end
+    format ev %td
+    tempfile _ev
+    save `_ev'
+
+    * TEST 21: start()/stop() aliases + return macros (generate/startvar/stopvar)
+    use `_ev', clear
+    tvevent using `_iv', id(id) date(ev) start(start) stop(stop) ///
+        generate(fail) timegen(tt) timeunit(days) replace
+    assert "`r(generate)'" == "fail"
+    assert "`r(startvar)'" == "start"
+    assert "`r(stopvar)'"  == "stop"
+    assert "`r(timegen)'"  == "tt"
+}
+if _rc == 0 {
+    display as result "TEST 21: PASSED (start()/stop() aliases + r() name macros)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 21"
+    display as error "TEST 21: FAILED (rc `=_rc')"
+}
+
+* TEST 22: legacy startvar()/stopvar() still accepted
+capture noisily {
+    use `_ev', clear
+    tvevent using `_iv', id(id) date(ev) startvar(start) stopvar(stop) ///
+        generate(fail) replace
+    assert "`r(startvar)'" == "start"
+}
+if _rc == 0 {
+    display as result "TEST 22: PASSED (legacy startvar/stopvar synonyms)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 22"
+    display as error "TEST 22: FAILED (rc `=_rc')"
+}
+
+* TEST 23: double-spelling start()+startvar() rejected (rc 198)
+capture {
+    use `_ev', clear
+    tvevent using `_iv', id(id) date(ev) start(start) startvar(start) replace
+}
+if _rc == 198 {
+    display as result "TEST 23: PASSED (double-spelling rejected rc 198)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 23"
+    display as error "TEST 23: FAILED (expected 198, got `=_rc')"
+}
+
+* TEST 24: empty-event path still returns output-name macros
+capture noisily {
+    clear
+    input long id double ev
+    1 .
+    2 .
+    end
+    format ev %td
+    tvevent using `_iv', id(id) date(ev) generate(fail) replace
+    assert "`r(generate)'" == "fail"
+    assert "`r(startvar)'" == "start"
+}
+if _rc == 0 {
+    display as result "TEST 24: PASSED (empty-event path returns name macros)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 24"
+    display as error "TEST 24: FAILED (rc `=_rc')"
+}
+
+* SECTION: v1.6.0 - recurrent-event PWP/AG formatting
+
+* TEST 25: enum stratum + gap-time clock on a known recurrent example
+capture noisily {
+    clear
+    input long id double(start stop)
+    1 100 400
+    2 100 400
+    end
+    format start stop %td
+    tempfile _riv
+    save `_riv'
+    clear
+    input long id double(hosp1 hosp2)
+    1 150 300
+    2 200 .
+    end
+    format hosp1 hosp2 %td
+    tvevent using `_riv', id(id) date(hosp) type(recurring) generate(ev) ///
+        enum(stratum) gaptime gapstart(t0) gapstop(t) replace
+    assert "`r(enum)'" == "stratum"
+    assert "`r(gapstart)'" == "t0"
+    assert "`r(gapstop)'" == "t"
+    sort id start
+    * person 1: three strata (events at 150 and 300)
+    assert stratum[1] == 1 & stratum[2] == 2 & stratum[3] == 3 if id[1]==1
+    * gap-time resets to 0 at the start of each stratum
+    assert t0[1] == 0 & t0[2] == 0 & t0[3] == 0 if id[1]==1
+    * first gap length = 150-100 = 50
+    assert t[1] == 50 if id[1]==1
+    * second gap length = 300-151 = 149
+    assert t[2] == 149 if id[1]==1
+}
+if _rc == 0 {
+    display as result "TEST 25: PASSED (recurrent enum + gap-time clock)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 25"
+    display as error "TEST 25: FAILED (rc `=_rc')"
+}
+
+* TEST 26: enum()/gaptime require type(recurring) (rc 198)
+capture {
+    clear
+    input long id double(start stop)
+    1 100 400
+    end
+    format start stop %td
+    tempfile _riv2
+    save `_riv2'
+    clear
+    input long id double ev
+    1 200
+    end
+    format ev %td
+    tvevent using `_riv2', id(id) date(ev) enum(s) replace
+}
+if _rc == 198 {
+    display as result "TEST 26: PASSED (enum requires type(recurring) rc 198)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 26"
+    display as error "TEST 26: FAILED (expected 198, got `=_rc')"
+}
+
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS

@@ -1,4 +1,4 @@
-*! tvevent Version 1.4.0  2026/06/29
+*! tvevent Version 1.6.0  2026/06/29
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -56,11 +56,32 @@ program define tvevent, rclass
          TIMEUnit(string) ///
          COMpete(namelist) ///
          EVENTLabel(string asis) ///
-         STARTvar(name) ///
-         STOPvar(name) ///
+         STARTVar(name) ///
+         STOPVar(name) ///
+         START(name) ///
+         STOP(name) ///
+         ENUM(name) ///
+         GAPtime ///
+         GAPSTART(name) ///
+         GAPSTOP(name) ///
          VALidate ///
          FLOW ///
          REPlace]
+
+    * Harmonized aliases: start()/stop() are the suite-standard names; the
+    * legacy startvar()/stopvar() spellings remain accepted (capitalized
+    * STARTVar/STOPVar so their abbreviation no longer collides). One spelling
+    * per slot.
+    if "`start'" != "" & "`startvar'" != "" {
+        di as error "specify start() or startvar(), not both"
+        exit 198
+    }
+    if "`start'" != "" local startvar "`start'"
+    if "`stop'" != "" & "`stopvar'" != "" {
+        di as error "specify stop() or stopvar(), not both"
+        exit 198
+    }
+    if "`stop'" != "" local stopvar "`stop'"
 
     * Frames input: materialize the named frame to a tempfile and treat it as
     * the using source, so the rest of the command is unchanged.
@@ -149,6 +170,25 @@ program define tvevent, rclass
         di as error "type() must be either 'single' or 'recurring'"
         exit 198
     }
+
+    * Recurrent-event (PWP/AG) formatting: event-sequence stratum + gap-time
+    * clock. Only meaningful for repeated events, so it requires type(recurring).
+    local do_recur_fmt = ("`enum'" != "" | "`gaptime'" != "" | ///
+        "`gapstart'" != "" | "`gapstop'" != "")
+    if `do_recur_fmt' {
+        if "`type'" != "recurring" {
+            di as error "enum()/gaptime require type(recurring)"
+            exit 198
+        }
+        if "`enum'" == "" local enum "_enum"
+        if "`gaptime'" != "" | "`gapstart'" != "" | "`gapstop'" != "" {
+            local do_gaptime = 1
+            if "`gapstart'" == "" local gapstart "_t0"
+            if "`gapstop'" == "" local gapstop "_t"
+        }
+        else local do_gaptime = 0
+    }
+    else local do_gaptime = 0
 
     * For recurring events, detect wide-format event variables (date1, date2, ...)
     local eventvars ""
@@ -436,9 +476,8 @@ program define tvevent, rclass
             _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
                 stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
                 timegen(`timegen') `replace'
-            * Capture subroutine returns before exiting
-            return scalar N = r(N)
-            return scalar N_events = r(N_events)
+            * Capture subroutine returns (incl. output-name macros) before exiting
+            return add
             exit 0
         }
 
@@ -534,8 +573,7 @@ program define tvevent, rclass
                 _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
                     stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
                     timegen(`timegen') `replace'
-                return scalar N = r(N)
-                return scalar N_events = r(N_events)
+                return add
                 exit 0
             }
 
@@ -949,7 +987,47 @@ program define tvevent, rclass
         format `startvar' `orig_start_fmt'
         format `stopvar' `orig_stop_fmt'
         sort `id' `startvar' `stopvar'
-        
+
+        * Recurrent-event formatting (PWP/AG): event-sequence stratum + gap-time
+        * clock. The stratum enumerates the gaps a person passes through (1 until
+        * the first event, 2 thereafter, ...); the gap-time clock resets to 0 at
+        * the start of each new stratum. Andersen-Gill uses the calendar
+        * (start, stop] with the event flag; PWP-CP adds the stratum to the
+        * total-time clock (timegen); PWP-GT uses the stratum with gap time.
+        if `do_recur_fmt' {
+            foreach _nv in `enum' `gapstart' `gapstop' {
+                capture confirm new variable `_nv'
+                if _rc {
+                    if "`replace'" != "" quietly drop `_nv'
+                    else {
+                        noisily di as error "variable `_nv' already exists; use replace option"
+                        exit 110
+                    }
+                }
+            }
+            tempvar _evflag _cumev
+            quietly {
+                gen byte `_evflag' = (`generate' > 0) & !missing(`generate')
+                by `id': gen long `_cumev' = sum(`_evflag')
+                by `id': gen long `enum' = 1 + cond(_n==1, 0, `_cumev'[_n-1])
+                drop `_evflag' `_cumev'
+                if `do_gaptime' {
+                    tempvar _newstr _origin
+                    by `id': gen byte `_newstr' = (_n==1) | (`enum' != `enum'[_n-1])
+                    by `id': gen double `_origin' = `startvar' if `_newstr'
+                    by `id': replace `_origin' = `_origin'[_n-1] if !`_newstr'
+                    gen double `gapstart' = `startvar' - `_origin'
+                    gen double `gapstop' = `stopvar' - `_origin'
+                    drop `_newstr' `_origin'
+                    label var `gapstart' "Gap-time start (PWP-GT)"
+                    label var `gapstop' "Gap-time stop (PWP-GT)"
+                }
+            }
+            label var `enum' "Event sequence / PWP stratum"
+            noisily di as txt "Recurrent formatting: stratum `enum'" ///
+                cond(`do_gaptime', " + gap time (`gapstart',`gapstop')", "") " added."
+        }
+
         count if `generate' > 0
         local n_failures = r(N)
         count
@@ -1002,6 +1080,19 @@ program define tvevent, rclass
         di as txt "(records dropped < 0 indicates interval splitting at events)"
         di as txt "{hline 60}"
         return matrix flow = `_flowmat'
+    }
+
+    * Output-name macros so downstream steps can read the chosen names
+    return local generate "`generate'"
+    return local startvar "`startvar'"
+    return local stopvar  "`stopvar'"
+    if "`timegen'" != "" return local timegen "`timegen'"
+    if `do_recur_fmt' {
+        return local enum "`enum'"
+        if `do_gaptime' {
+            return local gapstart "`gapstart'"
+            return local gapstop  "`gapstop'"
+        }
     }
 
     } // end capture noisily
@@ -1078,6 +1169,10 @@ program define _tvevent_empty_output, rclass
 
     return scalar N = `n_total'
     return scalar N_events = `n_failures'
+    return local generate "`generate'"
+    return local startvar "`startvar'"
+    return local stopvar  "`stopvar'"
+    if "`timegen'" != "" return local timegen "`timegen'"
 
     noisily {
         di _newline

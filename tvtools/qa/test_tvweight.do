@@ -944,6 +944,84 @@ else {
 }
 
 
+* SECTION: v1.6.0 - IPCW censoring weights + positivity diagnostic
+
+* TEST: IPCW produces a finite combined weight and the documented returns
+capture noisily {
+    clear
+    set seed 4242
+    set obs 250
+    gen id = _n
+    gen x = rnormal()
+    expand 4
+    bysort id: gen t = _n
+    gen pa = invlogit(0.4*x)
+    gen treat = runiform() < pa
+    gen pcens = invlogit(-2.2 + 0.5*x)
+    gen cens = runiform() < pcens
+    bysort id (t): gen cc = sum(cens)
+    drop if cc > 1
+    tvweight treat, covariates(x) id(id) time(t) ipcw(cens) generate(iptw) stabilized
+    assert "`r(censgenerate)'" == "ipcw"
+    assert "`r(combgenerate)'" == "iptw_ipcw"
+    assert r(ess_combined) > 0 & r(ess_combined) < _N + 1
+    confirm variable ipcw
+    confirm variable iptw_ipcw
+    * all combined weights positive and finite
+    quietly count if iptw_ipcw <= 0 | missing(iptw_ipcw)
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: IPCW combined weight + returns (censgenerate/combgenerate/ess_combined)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: IPCW (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' ipcw"
+}
+
+* TEST: ipcw() without id()/time() errors (rc 198)
+capture {
+    tvweight treat, covariates(x) ipcw(cens) generate(w_bad)
+}
+if _rc == 198 {
+    display as result "  PASS: ipcw() requires id()/time() (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ipcw() panel guard (expected 198, got `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' ipcw_guard"
+}
+
+* TEST: positivity diagnostic returns are sane on a known non-overlap case
+capture noisily {
+    clear
+    set seed 99
+    set obs 800
+    gen x = rnormal()
+    * strong confounding -> some near-violations of positivity
+    gen pa = invlogit(3*x)
+    gen treat = runiform() < pa
+    tvweight treat, covariates(x) generate(w)
+    assert r(overlap_lo) >= 0 & r(overlap_lo) <= 1
+    assert r(overlap_hi) >= 0 & r(overlap_hi) <= 1
+    assert r(pct_nonoverlap) >= 0 & r(pct_nonoverlap) <= 100
+    assert r(top1_wt_share) >= 0 & r(top1_wt_share) <= 100
+    * strong confounding should create at least some near-violations
+    assert r(pct_nonoverlap) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: positivity/overlap returns (overlap_lo/hi, pct_nonoverlap, top1_wt_share)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: positivity diagnostic (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' positivity"
+}
+
 
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.

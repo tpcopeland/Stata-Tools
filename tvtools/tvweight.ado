@@ -1,4 +1,4 @@
-*! tvweight Version 1.4.0  2026/06/29
+*! tvweight Version 1.6.0  2026/06/29
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -58,7 +58,9 @@ program define tvweight, rclass
          TVCovariates(varlist numeric) ID(varname) TIME(varname) ///
          REPLACE DENominator(name) noLOG ///
          BALance LOVEplot HISTogram ESTname(name) ///
-         CUMulative CUMGenerate(name)]
+         CUMulative CUMGenerate(name) ///
+         IPCW(varname numeric) CENSORCovariates(varlist numeric) ///
+         CENSGenerate(name) COMBGenerate(name)]
 
     local exposure `varlist'
 
@@ -105,6 +107,44 @@ program define tvweight, rclass
     }
     if "`cumgenerate'" != "" & "`cumulative'" == "" {
         display as error "cumgenerate() requires the cumulative option"
+        exit 198
+    }
+
+    * Inverse-probability-of-censoring weights (IPCW) complete the MSM weight:
+    * the canonical analysis multiplies the (stabilized) treatment weight by a
+    * (stabilized) censoring weight. IPCW is inherently cumulative over a person's
+    * at-risk history, so it requires the panel structure id()/time().
+    local do_ipcw = ("`ipcw'" != "")
+    if `do_ipcw' {
+        if "`id'" == "" | "`time'" == "" {
+            display as error "ipcw() requires id() and time() options"
+            exit 198
+        }
+        * Censoring-model covariates default to the treatment-model covariates
+        if "`censorcovariates'" == "" local censorcovariates "`covariates' `tvcovariates'"
+        if "`censgenerate'" == "" local censgenerate "ipcw"
+        if "`combgenerate'" == "" local combgenerate "`generate'_ipcw"
+        * The censoring indicator must be coded 0/1
+        quietly summarize `ipcw'
+        if !inlist(r(min), 0, 1) | !inlist(r(max), 0, 1) {
+            display as error "ipcw() censoring indicator must be coded 0/1 " ///
+                "(1 = censored at end of this interval, 0 = remained under observation)"
+            exit 198
+        }
+        * Resolve and check the censoring/combined weight variable names
+        foreach _v in censgenerate combgenerate {
+            capture confirm variable ``_v''
+            if _rc == 0 {
+                if "`replace'" == "" {
+                    display as error "variable ``_v'' already exists; use replace option"
+                    exit 110
+                }
+                else quietly drop ``_v''
+            }
+        }
+    }
+    else if "`censorcovariates'`censgenerate'`combgenerate'" != "" {
+        display as error "censorcovariates()/censgenerate()/combgenerate() require the ipcw() option"
         exit 198
     }
 
@@ -181,6 +221,7 @@ program define tvweight, rclass
     markout `touse' `covariates' `tvcovariates'
     if "`id'" != "" markout `touse' `id'
     if "`time'" != "" markout `touse' `time'
+    if `do_ipcw' markout `touse' `ipcw' `censorcovariates'
 
     quietly count if `touse'
     local n_obs = r(N)
@@ -459,8 +500,11 @@ program define tvweight, rclass
     * TRUNCATION (optional)
     * =========================================================================
 
+    * When ipcw() is requested, truncation applies to the final combined
+    * (IPTW x IPCW) weight inside the IPCW block, not to the per-period
+    * treatment weight here.
     local n_truncated = 0
-    if "`truncate'" != "" {
+    if "`truncate'" != "" & !`do_ipcw' {
         display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
 
         quietly {
@@ -507,6 +551,111 @@ program define tvweight, rclass
         label variable `cumgenerate' "Cumulative `wtype' weight for `exposure'"
         display as text "  Cumulative weight variable " as result "`cumgenerate'" ///
             as text " created."
+    }
+
+    * =========================================================================
+    * IPCW (CENSORING WEIGHTS) + COMBINED MSM WEIGHT (optional)
+    * =========================================================================
+    * Completes the MSM weight. The censoring weight at period t is the inverse
+    * cumulative probability of remaining uncensored through t, modeled by a
+    * pooled logistic regression of the per-interval censoring indicator on the
+    * censoring covariates. The combined weight = cumulative IPTW x cumulative
+    * IPCW (both stabilized when stabilized is specified). Hernan & Robins.
+    if `do_ipcw' {
+        display as text ""
+        display as text "Fitting censoring model and computing IPCW..."
+
+        * Cumulative treatment weight (within-person product of per-period IPTW),
+        * computed independently of the optional cumulative() output.
+        tempvar _cum_iptw _origorder2
+        quietly {
+            gen long `_origorder2' = _n
+            sort `id' `time' `_origorder2'
+            by `id': gen double `_cum_iptw' = `generate' if `touse'
+            by `id': replace `_cum_iptw' = `_cum_iptw'[_n-1] * `generate' ///
+                if _n > 1 & `touse' & !missing(`_cum_iptw'[_n-1])
+            sort `_origorder2'
+        }
+
+        * Pooled logistic censoring model: P(censored at end of interval | past).
+        * Time fixed effects parallel the treatment model's panel handling.
+        local cens_covars "`censorcovariates'"
+        if `panel_mode' local cens_covars "`cens_covars' i.`time'"
+        tempvar pc
+        local cens_vce ""
+        if `panel_mode' local cens_vce "vce(cluster `id')"
+        if "`log'" == "nolog" {
+            capture quietly logit `ipcw' `cens_covars' if `touse', nolog `cens_vce'
+        }
+        else {
+            capture noisily logit `ipcw' `cens_covars' if `touse', `cens_vce'
+        }
+        if _rc {
+            display as error "Censoring model (logit) failed to converge"
+            display as error "Check the censoring indicator and censorcovariates() variation"
+            exit _rc
+        }
+        quietly predict double `pc' if `touse', pr
+
+        * Probability of remaining uncensored this interval; cap to avoid blow-up
+        tempvar puncens
+        quietly {
+            gen double `puncens' = 1 - `pc' if `touse'
+            replace `puncens' = max(0.001, min(0.999, `puncens')) if `touse'
+        }
+
+        * Per-interval censoring weight; stabilized numerator = marginal P(uncens)
+        tempvar cw
+        quietly {
+            if "`stabilized'" != "" {
+                summarize `ipcw' if `touse', meanonly
+                local marg_uncens = 1 - r(mean)
+                gen double `cw' = `marg_uncens' / `puncens' if `touse'
+            }
+            else {
+                gen double `cw' = 1 / `puncens' if `touse'
+            }
+        }
+
+        * Cumulative IPCW = within-person running product of the period weights
+        quietly {
+            sort `id' `time' `_origorder2'
+            by `id': gen double `censgenerate' = `cw' if `touse'
+            by `id': replace `censgenerate' = `censgenerate'[_n-1] * `cw' ///
+                if _n > 1 & `touse' & !missing(`censgenerate'[_n-1])
+            * Combined MSM weight = cumulative IPTW x cumulative IPCW
+            gen double `combgenerate' = `_cum_iptw' * `censgenerate' if `touse'
+            sort `_origorder2'
+            drop `_origorder2'
+        }
+
+        * Optional truncation of the final combined weight
+        if "`truncate'" != "" {
+            quietly {
+                _pctile `combgenerate' if `touse', percentiles(`trunc_lo' `trunc_hi')
+                local lo_val = r(r1)
+                local hi_val = r(r2)
+                count if `combgenerate' < `lo_val' & `touse' & !missing(`combgenerate')
+                local n_lo = r(N)
+                count if `combgenerate' > `hi_val' & `touse' & !missing(`combgenerate')
+                local n_hi = r(N)
+                local n_truncated = `n_lo' + `n_hi'
+                replace `combgenerate' = `lo_val' if `combgenerate' < `lo_val' & `touse' & !missing(`combgenerate')
+                replace `combgenerate' = `hi_val' if `combgenerate' > `hi_val' & `touse' & !missing(`combgenerate')
+            }
+            display as text "  Truncated `n_truncated' combined-weight observations (`n_lo' low, `n_hi' high)"
+        }
+
+        if "`stabilized'" != "" {
+            label variable `censgenerate' "Stabilized cumulative IPCW for `exposure'"
+            label variable `combgenerate' "Stabilized combined IPTW x IPCW for `exposure'"
+        }
+        else {
+            label variable `censgenerate' "Cumulative IPCW for `exposure'"
+            label variable `combgenerate' "Combined IPTW x IPCW for `exposure'"
+        }
+        display as text "  Censoring weight " as result "`censgenerate'" as text ///
+            " and combined weight " as result "`combgenerate'" as text " created."
     }
 
     * =========================================================================
@@ -568,6 +717,90 @@ program define tvweight, rclass
     display as text "Effective sample size:"
     display as text "  ESS:      " as result %9.1f `ess' as text " (of `n_obs' observations)"
     display as text "  ESS %:    " as result %9.1f `ess_pct' "%"
+
+    * Combined (IPTW x IPCW) weight diagnostics
+    if `do_ipcw' {
+        quietly summarize `combgenerate' if `touse', detail
+        local cw_mean = r(mean)
+        local cw_min = r(min)
+        local cw_max = r(max)
+        local cw_p99 = r(p99)
+        quietly summarize `combgenerate' if `touse'
+        local sum_cw = r(sum)
+        tempvar cw2
+        quietly gen double `cw2' = `combgenerate'^2 if `touse'
+        quietly summarize `cw2' if `touse'
+        local sum_cw2 = r(sum)
+        drop `cw2'
+        local ess_combined = (`sum_cw'^2) / `sum_cw2'
+        local ess_combined_pct = 100 * `ess_combined' / `n_obs'
+        display as text ""
+        display as text "Combined IPTW x IPCW weight:"
+        display as text "  Mean:     " as result %9.4f `cw_mean'
+        display as text "  Min/Max:  " as result %9.4f `cw_min' as text " / " as result %9.4f `cw_max'
+        display as text "  99th pct: " as result %9.4f `cw_p99'
+        display as text "  ESS:      " as result %9.1f `ess_combined' ///
+            as text " (" as result %4.1f `ess_combined_pct' as text "% of `n_obs')"
+    }
+
+    * =========================================================================
+    * POSITIVITY / OVERLAP DIAGNOSTIC
+    * =========================================================================
+    * Positivity (a named MSM assumption) requires that every covariate pattern
+    * could plausibly receive each treatment level. We summarize the propensity
+    * of the OBSERVED treatment: rows where that probability is near zero are
+    * near-violations. The weight-concentration share flags a handful of extreme
+    * weights dominating the pseudo-population.
+    tempvar _pobs
+    quietly {
+        if "`model'" == "logit" {
+            * Probability of the observed arm (ps = P(treated|X), already capped)
+            gen double `_pobs' = `ps' if `exposure' != `ref_level' & `touse'
+            replace `_pobs' = 1 - `ps' if `exposure' == `ref_level' & `touse'
+        }
+        else {
+            * mlogit: ps already holds P(A = observed | X)
+            gen double `_pobs' = `ps' if `touse'
+        }
+    }
+    quietly count if `_pobs' < 0.05 & `touse'
+    local n_nonoverlap = r(N)
+    local pct_nonoverlap = 100 * `n_nonoverlap' / `n_obs'
+    quietly summarize `_pobs' if `touse'
+    local overlap_lo = r(min)
+    local overlap_hi = r(max)
+
+    * Weight concentration: share of total weight mass in the top 1% of rows,
+    * using the final analysis weight (combined when ipcw, else the IPTW).
+    local _awt "`generate'"
+    if `do_ipcw' local _awt "`combgenerate'"
+    quietly _pctile `_awt' if `touse', percentiles(99)
+    local w99cut = r(r1)
+    quietly summarize `_awt' if `touse'
+    local _wsum_all = r(sum)
+    quietly summarize `_awt' if `touse' & `_awt' >= `w99cut'
+    local _wsum_top = r(sum)
+    local top1_wt_share = 100 * `_wsum_top' / `_wsum_all'
+
+    display as text ""
+    display as text "Positivity / overlap:"
+    display as text "  P(observed treatment) range: " ///
+        as result %6.4f `overlap_lo' as text " to " as result %6.4f `overlap_hi'
+    display as text "  Near-violations (P<0.05):    " ///
+        as result `n_nonoverlap' as text " (" as result %4.1f `pct_nonoverlap' as text "% of obs)"
+    if "`model'" == "logit" {
+        quietly summarize `ps' if `exposure' != `ref_level' & `touse'
+        local ps_t_lo = r(min)
+        local ps_t_hi = r(max)
+        quietly summarize `ps' if `exposure' == `ref_level' & `touse'
+        local ps_c_lo = r(min)
+        local ps_c_hi = r(max)
+        display as text "  PS range, treated:           " ///
+            as result %6.4f `ps_t_lo' as text " to " as result %6.4f `ps_t_hi'
+        display as text "  PS range, reference:         " ///
+            as result %6.4f `ps_c_lo' as text " to " as result %6.4f `ps_c_hi'
+    }
+    display as text "  Weight mass in top 1% of rows: " as result %5.1f `top1_wt_share' "%"
 
     * Warning for extreme weights
     if `w_max' / `w_min' > 100 {
@@ -766,6 +999,13 @@ program define tvweight, rclass
     return scalar n_levels = `n_levels'
     return scalar ess = `ess'
     return scalar ess_pct = `ess_pct'
+
+    * Positivity / overlap diagnostics (always computed)
+    return scalar overlap_lo = `overlap_lo'
+    return scalar overlap_hi = `overlap_hi'
+    return scalar pct_nonoverlap = `pct_nonoverlap'
+    return scalar n_nonoverlap = `n_nonoverlap'
+    return scalar top1_wt_share = `top1_wt_share'
     return scalar w_mean = `w_mean'
     return scalar w_sd = `w_sd'
     return scalar w_min = `w_min'
@@ -800,6 +1040,13 @@ program define tvweight, rclass
     }
     if "`cumulative'" != "" {
         return local cumgenerate "`cumgenerate'"
+    }
+    if `do_ipcw' {
+        return scalar ess_combined = `ess_combined'
+        return local ipcw "`ipcw'"
+        return local censgenerate "`censgenerate'"
+        return local combgenerate "`combgenerate'"
+        return local censorcovariates "`censorcovariates'"
     }
 
     * return matrix MOVES the tempname — must be the last reference to `_balmat'

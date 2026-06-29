@@ -15,7 +15,7 @@ local pass_count = 0
 local fail_count = 0
 local failed_tests ""
 
-display as result "tvtools QA: frames input + auto-suffix -- $S_DATE $S_TIME"
+display as result "tvtools QA: frames I/O (input + frameout) -- $S_DATE $S_TIME"
 
 * -------------------------------------------------------------------------
 * Compare two saved datasets for byte-identical content (canonical row/col order)
@@ -275,8 +275,113 @@ else {
 }
 capture frame drop frX
 
+**# TEST 6: tvexpose frameout() is non-destructive and matches saveas output
+local ++test_count
+capture noisily {
+    * master cohort in memory
+    clear
+    input id double(study_entry study_exit)
+        1 100 400
+        2 100 400
+    end
+    format study_entry study_exit %td
+    tempfile cohort
+    save "`cohort'"
+    * exposure episodes (using)
+    clear
+    input id double(estart estop) ex
+        1 150 250 1
+        2 200 300 1
+    end
+    format estart estop %td
+    tempfile epis
+    save "`epis'"
+
+    * saveas reference
+    use "`cohort'", clear
+    tvexpose using "`epis'", id(id) start(estart) stop(estop) exposure(ex) ///
+        reference(0) entry(study_entry) exit(study_exit) generate(tv_ex) ///
+        saveas("`c(tmpdir)'/x_saveas.dta") replace
+
+    * frameout: caller data must be untouched, frame must hold the result
+    use "`cohort'", clear
+    datasignature set
+    tvexpose using "`epis'", id(id) start(estart) stop(estop) exposure(ex) ///
+        reference(0) entry(study_entry) exit(study_exit) generate(tv_ex) ///
+        frameout(fx_out)
+    assert "`r(frameout)'" == "fx_out"
+    datasignature confirm           // caller data unchanged
+    frame fx_out: save "`c(tmpdir)'/x_frame.dta", replace
+    _sig "`c(tmpdir)'/x_saveas.dta"
+    local s1 "`r(sig)'"
+    _sig "`c(tmpdir)'/x_frame.dta"
+    local s2 "`r(sig)'"
+    assert "`s1'" == "`s2'" & "`s1'" != ""
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose frameout() non-destructive, matches saveas"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose frameout (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 6"
+}
+capture frame drop fx_out
+
+**# TEST 7: tvmerge frameout() non-destructive + exists-without-replace guard
+local ++test_count
+capture noisily {
+    clear
+    input id double(start stop) expa
+        1 100 200 1
+        2 100 250 1
+    end
+    format start stop %td
+    tempfile ma
+    save "`ma'"
+    clear
+    input id double(start stop) expb
+        1 100 180 1
+        2 100 250 1
+    end
+    format start stop %td
+    tempfile mb
+    save "`mb'"
+
+    * unrelated caller data in memory
+    clear
+    set obs 3
+    gen long keepme = _n
+    datasignature set
+    tvmerge "`ma'" "`mb'", id(id) start(start start) stop(stop stop) ///
+        exposure(expa expb) frameout(fm_out)
+    assert "`r(frameout)'" == "fm_out"
+    datasignature confirm           // caller's keepme data unchanged
+    frame fm_out: count
+    assert r(N) > 0
+    * exists-without-replace -> rc 110
+    capture tvmerge "`ma'" "`mb'", id(id) start(start start) stop(stop stop) ///
+        exposure(expa expb) frameout(fm_out)
+    assert _rc == 110
+    * replace overwrites
+    tvmerge "`ma'" "`mb'", id(id) start(start start) stop(stop stop) ///
+        exposure(expa expb) frameout(fm_out) replace
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge frameout() non-destructive + replace guard"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge frameout (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 7"
+}
+capture frame drop fm_out
+
 * ===== Summary =====
-display as result _newline "frames input + auto-suffix Results -- $S_DATE $S_TIME"
+display as result _newline "frames I/O (input + frameout) Results -- $S_DATE $S_TIME"
 display as text "Tests run:  `test_count'"
 display as text "Passed:     `pass_count'"
 display as text "Failed:     `fail_count'"

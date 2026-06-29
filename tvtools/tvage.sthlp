@@ -22,10 +22,10 @@
 
 {p 8 16 2}
 {cmd:tvage}{cmd:,}
-{opt idvar(varname)}
-{opt dobvar(varname)}
-{opt entryvar(varname)}
-{opt exitvar(varname)}
+{opt id(varname)}
+{opt dob(varname)}
+{opt entry(varname)}
+{opt exit(varname)}
 [{opt gen:erate(name)}
 {opt startgen(name)}
 {opt stopgen(name)}
@@ -59,8 +59,8 @@ year approximation, which may differ from exact birthdays by ±1 day.
 
 {pstd}
 All date variables must be non-missing. The command will exit with an error
-if any observation has missing values in {opt dobvar()}, {opt entryvar()},
-or {opt exitvar()}.
+if any observation has missing values in {opt dob()}, {opt entry()},
+or {opt exit()}.
 
 
 {marker options}{...}
@@ -69,16 +69,25 @@ or {opt exitvar()}.
 {dlgtab:Required}
 
 {phang}
-{opt idvar(varname)} specifies the person identifier variable.
+{opt id(varname)} specifies the person identifier variable.
+(Legacy synonym: {opt idvar()}.)
 
 {phang}
-{opt dobvar(varname)} specifies the date of birth variable (Stata date format).
+{opt dob(varname)} specifies the date of birth variable (Stata date format).
+(Legacy synonym: {opt dobvar()}.)
 
 {phang}
-{opt entryvar(varname)} specifies the study entry date variable (Stata date format).
+{opt entry(varname)} specifies the study entry date variable (Stata date format).
+(Legacy synonym: {opt entryvar()}.)
 
 {phang}
-{opt exitvar(varname)} specifies the study exit date variable (Stata date format).
+{opt exit(varname)} specifies the study exit date variable (Stata date format).
+(Legacy synonym: {opt exitvar()}.)
+
+{pstd}
+The {opt idvar()}, {opt dobvar()}, {opt entryvar()}, and {opt exitvar()}
+spellings remain accepted for backward compatibility; specify only one
+spelling per option.
 
 {dlgtab:Optional}
 
@@ -152,7 +161,7 @@ Stata dates for compatibility with interval-based survival analysis.
 
 {pstd}
 {cmd:tvage} requires exactly one observation per person. All date variables
-({opt dobvar()}, {opt entryvar()}, {opt exitvar()}) must be non-missing Stata
+({opt dob()}, {opt entry()}, {opt exit()}) must be non-missing Stata
 daily dates. Datetime formats ({cmd:%tc}/{cmd:%tC}) are not supported;
 convert with {cmd:gen daily = dofc(datetime)}.
 
@@ -168,7 +177,7 @@ Create 5-year age bands for persons aged 40-80, then merge with exposure data:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang2}{cmd:. tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:groupwidth(5) minage(40) maxage(80) ///}{p_end}
 {phang3}{cmd:saveas(age_tv.dta) replace noisily}{p_end}
 
@@ -186,7 +195,7 @@ Create one row per person-year of age with no grouping labels:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang2}{cmd:. tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:groupwidth(1) noisily}{p_end}
 
 {pstd}
@@ -202,7 +211,7 @@ Specify output variable names and use wide age bands:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang2}{cmd:. tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:groupwidth(10) generate(age_group) startgen(age_start) stopgen(age_end) noisily}{p_end}
 
 {pstd}
@@ -228,7 +237,7 @@ can be merged with other time-varying datasets using {helpb tvmerge}:
 
 {phang2}{cmd:. * Step 2: Create age bands}{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang2}{cmd:. tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:groupwidth(5) saveas(age_tv.dta) replace noisily}{p_end}
 
 {phang2}{cmd:. * Step 3: Merge exposure intervals with age bands}{p_end}

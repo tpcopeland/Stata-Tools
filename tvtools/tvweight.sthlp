@@ -44,6 +44,12 @@
 {synopt:{opt cum:ulative}}within-person cumulative product weight (MSM){p_end}
 {synopt:{opt cumg:enerate(name)}}name for the cumulative weight variable{p_end}
 
+{syntab:Censoring weights (IPCW)}
+{synopt:{opt ipcw(varname)}}censoring indicator (1=censored at end of interval); adds IPCW and the combined IPTW{c -(}IPCW weight{p_end}
+{synopt:{opt censorc:ovariates(varlist)}}covariates for the censoring model (default: treatment-model covariates){p_end}
+{synopt:{opt censg:enerate(name)}}name for the cumulative censoring weight (default: {cmd:ipcw}){p_end}
+{synopt:{opt combg:enerate(name)}}name for the combined weight (default: {it:weight}{cmd:_ipcw}){p_end}
+
 {syntab:Model Options}
 {synopt:{opt model(string)}}model type: {cmd:logit} (binary) or {cmd:mlogit} (categorical){p_end}
 {synopt:{opt tvc:ovariates(varlist)}}time-varying covariates{p_end}
@@ -156,6 +162,33 @@ weights within person, which {opt cumulative} provides. See
 {opt cumgenerate(name)} names the cumulative weight variable. Requires
 {opt cumulative}. The default name is the weight name with a {cmd:_cum} suffix
 (for example {cmd:iptw_cum}).
+
+{dlgtab:Censoring weights (IPCW)}
+
+{phang}
+{opt ipcw(varname)} supplies a per-interval censoring indicator (1 if the person
+is censored at the end of this interval, 0 if they remain under observation) and
+turns on inverse-probability-of-censoring weighting. A pooled logistic censoring
+model is fit; the cumulative censoring weight is the inverse cumulative
+probability of remaining uncensored, and a combined weight equal to the
+cumulative IPTW times the cumulative IPCW is produced. This completes the
+canonical marginal structural model, which weights for both confounded treatment
+and informative censoring (Hernan & Robins). Requires {opt id()} and {opt time()}.
+With {opt stabilized}, both weights use stabilized numerators. With
+{opt truncate()}, truncation is applied to the final combined weight.
+
+{phang}
+{opt censorcovariates(varlist)} lists the covariates for the censoring model.
+Defaults to the treatment-model covariates ({opt covariates()} plus any
+{opt tvcovariates()}).
+
+{phang}
+{opt censgenerate(name)} names the cumulative censoring weight variable
+(default: {cmd:ipcw}).
+
+{phang}
+{opt combgenerate(name)} names the combined IPTW{c -(}IPCW weight variable
+(default: the treatment-weight name with an {cmd:_ipcw} suffix).
 
 {dlgtab:Model Options}
 
@@ -371,6 +404,12 @@ alternative to truncation and balance covariate means exactly:
 {synopt:{cmd:r(n_truncated)}}number of truncated observations (if truncate specified){p_end}
 {synopt:{cmd:r(trunc_lo)}}lower truncation percentile (if truncate specified){p_end}
 {synopt:{cmd:r(trunc_hi)}}upper truncation percentile (if truncate specified){p_end}
+{synopt:{cmd:r(overlap_lo)}}minimum probability of the observed treatment{p_end}
+{synopt:{cmd:r(overlap_hi)}}maximum probability of the observed treatment{p_end}
+{synopt:{cmd:r(pct_nonoverlap)}}percentage of rows with P(observed treatment) < 0.05{p_end}
+{synopt:{cmd:r(n_nonoverlap)}}number of rows with P(observed treatment) < 0.05{p_end}
+{synopt:{cmd:r(top1_wt_share)}}percentage of total weight mass held by the top 1% of rows{p_end}
+{synopt:{cmd:r(ess_combined)}}effective sample size of the combined weight (if ipcw){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(exposure)}}name of exposure variable{p_end}
@@ -382,6 +421,10 @@ alternative to truncation and balance covariate means exactly:
 {synopt:{cmd:r(denominator)}}name of propensity score variable (if requested){p_end}
 {synopt:{cmd:r(estname)}}name of stored propensity model (if estname specified){p_end}
 {synopt:{cmd:r(cumgenerate)}}name of cumulative weight variable (if cumulative){p_end}
+{synopt:{cmd:r(ipcw)}}name of the censoring indicator variable (if ipcw){p_end}
+{synopt:{cmd:r(censgenerate)}}name of the cumulative censoring weight (if ipcw){p_end}
+{synopt:{cmd:r(combgenerate)}}name of the combined IPTW{c -(}IPCW weight (if ipcw){p_end}
+{synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}covariate-by-{cmd:smd_unweighted}/{cmd:smd_weighted} SMD matrix (if balance){p_end}

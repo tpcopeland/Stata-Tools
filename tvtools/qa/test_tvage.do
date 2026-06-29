@@ -972,6 +972,58 @@ else {
 }
 
 
+* SECTION 7: OPTION-NAME ALIASES (v1.5.0) - id/dob/entry/exit synonyms
+
+* TEST 7.1: harmonized short names produce the same result as legacy *var names
+capture noisily {
+    clear
+    set obs 4
+    gen long id = _n
+    gen dob = mdy(1,1,1960) + _n*40
+    gen entry = mdy(1,1,2000)
+    gen exit = mdy(1,1,2010)
+    format dob entry exit %td
+    tempfile _g
+    save `_g'
+    tvage, id(id) dob(dob) entry(entry) exit(exit) groupwidth(10)
+    local n_new = r(n_observations)
+    use `_g', clear
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit) groupwidth(10)
+    local n_old = r(n_observations)
+    assert `n_new' == `n_old' & `n_new' > 0
+}
+if _rc == 0 {
+    display as result "  PASS: id/dob/entry/exit aliases match legacy *var names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: option-name aliases (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 7.1"
+}
+
+* TEST 7.2: specifying both spellings for one slot errors (rc 198)
+capture {
+    clear
+    set obs 4
+    gen long id = _n
+    gen dob = mdy(1,1,1960) + _n*40
+    gen entry = mdy(1,1,2000)
+    gen exit = mdy(1,1,2010)
+    format dob entry exit %td
+    tvage, id(id) idvar(id) dob(dob) entry(entry) exit(exit)
+}
+if _rc == 198 {
+    display as result "  PASS: double-spelling id()+idvar() rejected with rc 198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: double-spelling should error 198 (got `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 7.2"
+}
+
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS

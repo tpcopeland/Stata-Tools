@@ -1,0 +1,201 @@
+*! crossval_tvweight_ipcw.do -- IPCW (censoring weight) validation for tvweight
+*!
+*!  PART A  Known-truth recovery (always runs, in-Stata): a population with a
+*!          known mean outcome is subjected to covariate-dependent (informative)
+*!          censoring. The complete-case mean is biased; the IPCW-weighted mean
+*!          recovers the population truth. Proves the censoring weight does its
+*!          job, not just that it is internally consistent.
+*!  PART B  R parity (ipw available): an independent R implementation of the same
+*!          pooled-logistic IPCW (glm of the censoring indicator on the censoring
+*!          covariates + time fixed effects, then within-person cumulative product
+*!          of 1/P(uncensored)) must reproduce tvweight's cumulative censoring
+*!          weight row-for-row. R glm MLE + R cumulation vs Stata logit + Stata
+*!          by-product = genuine cross-software check of the weight math.
+*!
+*!  Skip-safe: PART B logs SKIP (not FAIL) if Rscript is unavailable.
+clear all
+set more off
+set varabbrev off
+version 16.0
+
+capture log close
+quietly log using "crossval_tvweight_ipcw.log", replace nomsg
+
+do "`c(pwd)'/_tvtools_qa_common.do"
+_tvtools_qa_bootstrap
+
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
+local skip_count = 0
+local failed_tests ""
+
+display as result "tvtools crossval: tvweight IPCW -- $S_DATE $S_TIME"
+
+* =======================================================================
+* PART A: known-truth recovery
+*   L ~ Bernoulli(0.5); population E[Y] = 0.2 + 0.4*E[L] = 0.40 (TRUTH).
+*   Censoring depends on L: P(cens|L) = 0.2 + 0.4*L  (more loss where Y is high)
+*   => complete-case mean(Y) biased low; IPCW-weighted mean recovers 0.40.
+*   Single period => cumulative IPCW = 1/P(uncensored|L).
+* =======================================================================
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260629
+    set obs 200000
+    gen id = _n
+    gen t = 1
+    gen byte L = runiform() < 0.5
+    gen double pY = 0.2 + 0.4*L
+    gen byte Y = runiform() < pY
+    gen double pC = 0.2 + 0.4*L
+    gen byte cens = runiform() < pC
+    * unconfounded treatment so IPTW ~ 1 and the combined weight ~ IPCW
+    gen byte treat = runiform() < 0.5
+
+    quietly summarize Y
+    local truth = r(mean)                     // ~0.40 by construction
+
+    * naive complete-case mean among the uncensored
+    quietly summarize Y if cens == 0
+    local naive = r(mean)
+
+    * tvweight IPCW (unstabilized so the censoring weight = 1/P(uncensored|L))
+    tvweight treat, covariates(L) id(id) time(t) ipcw(cens) ///
+        censorcovariates(L) generate(iptw) censgenerate(cw) combgenerate(cwc)
+    quietly summarize Y [aw=cw] if cens == 0
+    local ipcw_rec = r(mean)
+
+    di as txt "  truth=" %6.4f `truth' "  naive(complete-case)=" %6.4f `naive' ///
+        "  IPCW-weighted=" %6.4f `ipcw_rec'
+    * naive must be biased low; IPCW must recover the truth within Monte-Carlo error
+    assert `naive' < `truth' - 0.02
+    assert abs(`ipcw_rec' - `truth') < 0.01
+}
+if _rc == 0 {
+    display as result "  PASS [A]: IPCW recovers known population mean (naive is biased)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [A]: IPCW known-truth recovery (rc `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' A"
+}
+
+* =======================================================================
+* PART B: R parity (ipw / glm)
+*   Multi-period panel; tvweight fits  logit cens L1 L2 i.t  (panel mode adds
+*   time FE) and cumulates 1/P(uncensored) within person. R reproduces it with
+*   glm(cens ~ L1 + L2 + factor(t), binomial) and cumprod.
+* =======================================================================
+local ++test_count
+capture confirm file "/usr/bin/Rscript"
+local has_rscript = (_rc == 0)
+if !`has_rscript' {
+    capture which Rscript
+    local has_rscript = (_rc == 0)
+}
+
+if `has_rscript' {
+    capture noisily {
+        clear
+        set seed 555
+        set obs 1500
+        gen id = _n
+        gen double L1 = rnormal()
+        gen double L2 = rnormal()
+        expand 5
+        bysort id: gen t = _n
+        gen double pc = invlogit(-2.0 + 0.4*L1 - 0.3*L2 + 0.05*t)
+        gen byte cens = runiform() < pc
+        * absorbing censoring: drop rows after first censoring within person
+        bysort id (t): gen byte cc = sum(cens)
+        drop if cc > 1
+        drop cc
+        gen byte treat = runiform() < 0.5
+
+        tvweight treat, covariates(L1 L2) id(id) time(t) ipcw(cens) ///
+            censorcovariates(L1 L2) generate(iptw) censgenerate(cw)
+
+        preserve
+        keep id t L1 L2 cens cw
+        export delimited id t L1 L2 cens cw using "_xv_ipcw.csv", replace
+        restore
+    }
+    local _setup_rc = _rc
+
+    if `_setup_rc' == 0 {
+        * --- write the R oracle ---
+        capture file close _rf
+        tempname _rf
+        file open _rf using "_xv_ipcw.R", write replace
+        file write _rf "d <- read.csv('_xv_ipcw.csv')" _n
+        file write _rf "d <- d[order(d\$id, d\$t), ]" _n
+        file write _rf "m <- glm(cens ~ L1 + L2 + factor(t), family=binomial, data=d)" _n
+        file write _rf "pc <- predict(m, type='response')" _n
+        file write _rf "punc <- pmin(pmax(1-pc, 0.001), 0.999)" _n
+        file write _rf "w <- 1/punc" _n
+        file write _rf "d\$cw_r <- ave(w, d\$id, FUN=cumprod)" _n
+        file write _rf "write.csv(d[, c('id','t','cw_r')], '_xv_ipcw_r.csv', row.names=FALSE)" _n
+        file close _rf
+
+        shell Rscript _xv_ipcw.R > _xv_ipcw_r.log 2>&1
+        capture confirm file "_xv_ipcw_r.csv"
+        if _rc == 0 {
+            capture noisily {
+                preserve
+                import delimited using "_xv_ipcw_r.csv", clear varnames(1)
+                tempfile rcw
+                save `rcw'
+                restore
+                merge 1:1 id t using `rcw', nogen
+                gen double _absdiff = abs(cw - cw_r)
+                quietly summarize _absdiff
+                local maxdiff = r(max)
+                di as txt "  max|tvweight cw - R cw| = " %12.3e `maxdiff'
+                assert `maxdiff' < 1e-5
+            }
+            if _rc == 0 {
+                display as result "  PASS [B]: tvweight cumulative IPCW matches R glm oracle"
+                local ++pass_count
+            }
+            else {
+                display as error "  FAIL [B]: IPCW parity vs R (rc `=_rc')"
+                local ++fail_count
+                local failed_tests "`failed_tests' B"
+            }
+        }
+        else {
+            display as text "  SKIP [B]: R produced no output (see _xv_ipcw_r.log)"
+            local ++skip_count
+        }
+    }
+    else {
+        display as error "  FAIL [B]: Stata setup for parity failed (rc `_setup_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' B-setup"
+    }
+    capture erase "_xv_ipcw.csv"
+    capture erase "_xv_ipcw.R"
+    capture erase "_xv_ipcw_r.csv"
+    capture erase "_xv_ipcw_r.log"
+}
+else {
+    display as text "  SKIP [B]: Rscript not found (install R to enable IPCW parity)"
+    local ++skip_count
+}
+
+* ===== Summary =====
+local test_count = `pass_count' + `fail_count' + `skip_count'
+display as result _newline "tvweight IPCW crossval Results -- $S_DATE $S_TIME"
+display as text "Checks: `test_count'"
+display as text "Passed: `pass_count'"
+display as text "Failed: `fail_count'"
+display as text "Skipped: `skip_count'"
+display "RESULT: crossval_tvweight_ipcw pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+if `fail_count' > 0 {
+    display as error "CROSSVAL FAILED: `failed_tests'"
+    exit 1
+}
+display as result "ALL IPCW CROSSVAL CHECKS PASSED (or skipped)"

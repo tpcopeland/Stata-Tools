@@ -1,4 +1,4 @@
-*! tvmerge Version 1.4.0  2026/06/29
+*! tvmerge Version 1.6.0  2026/06/29
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -61,6 +61,7 @@ program define tvmerge, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _frameout_snap_taken = 0    // init before block for error-path restore
 
     capture noisily {
 
@@ -86,6 +87,7 @@ program define tvmerge, rclass
          STOPname(string) ///
          DATEformat(string) ///
          SAVeas(string) ///
+         FRAMEOut(name) ///
          REPlace ///
          KEEP(namelist) ///
          CONtinuous(namelist) ///
@@ -121,6 +123,21 @@ program define tvmerge, rclass
             quietly frame `fr': save "`_frfile'", replace
             local datasets "`datasets' `_frfile'"
         }
+    }
+
+    * Frames-first output: when frameout() is set, the merged result is placed
+    * into the named frame and the caller's current data is left intact. Snapshot
+    * the caller's data now (before any preserve/restore work) and reload it after
+    * copying the result into the target frame.
+    if "`frameout'" != "" {
+        capture frame `frameout': describe
+        if _rc == 0 & "`replace'" == "" {
+            di as error "frame `frameout' already exists; use replace option"
+            exit 110
+        }
+        tempfile _tvm_caller_snap
+        quietly save "`_tvm_caller_snap'", replace
+        local _frameout_snap_taken = 1
     }
 
     * Parse and validate dataset count
@@ -1503,6 +1520,16 @@ program define tvmerge, rclass
     di as txt "    Exposure variables: " as result "`exp_vars'"
     noisily display as text "{hline 50}"
 
+    * Frames-first output: copy the merged result into the named frame and reload
+    * the caller's data so their working frame is untouched.
+    if "`frameout'" != "" {
+        capture frame drop `frameout'
+        frame copy `c(frame)' `frameout'
+        if `_frameout_snap_taken' quietly use "`_tvm_caller_snap'", clear
+        noisily display as text "Result placed in frame: " as result "`frameout'"
+        return local frameout "`frameout'"
+    }
+
     } // end capture noisily
     local rc = _rc
 
@@ -1516,6 +1543,9 @@ program define tvmerge, rclass
         capture frame drop __tvm_using
         capture frame drop __tvm_out
         local _tvm_drc = _rc
+        * In frameout mode, restore the caller's data so a failed run leaves
+        * their working frame as it was (snapshot precedes any mutation).
+        if `_frameout_snap_taken' capture quietly use "`_tvm_caller_snap'", clear
     }
     set varabbrev `_orig_varabbrev'
 
