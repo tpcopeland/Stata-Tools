@@ -1,5 +1,6 @@
 # OS artifacts
 .DS_Store
+.~lock*
 
 # Stata session artifacts
 *.log
