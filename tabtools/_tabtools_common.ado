@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.8.6  2026/06/25
+*! _tabtools_common Version 1.8.7  2026/06/30
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -654,7 +654,7 @@ program _tabtools_console_display
         exit
     }
 
-    list `_display_vars' in `headerstart'/`total_rows', noobs noheader table
+    list `_display_vars' in `headerstart'/`total_rows', noobs noheader table separator(0)
     display as text ""
 end
 

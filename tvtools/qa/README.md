@@ -84,6 +84,7 @@ and re-bootstraps after its own `clear all`.
 | `validation_tvevent.do` | tvevent splitting + person-time conservation |
 | `validation_tvexpose.do` | tvexpose exposure tracking + person-time |
 | `validation_tvmerge.do` | tvmerge correctness + person-time additivity |
+| `validation_tvpanel.do` | tvpanel fixed-grid known answers: ceil period count, entry-anchored starts, last-interval clamp at exit, latest-start-wins active class, eclass secondary tie-break, multi-class cumulative accrual reshaped across classes (strict `estart<pstart` bound vs `estart<=pstart` active bound), and cumulative-unit scaling |
 | `validation_tvweight.do` | tvweight IPTW weight-formula properties (1/PS, stabilized, HT, ESS, mlogit) |
 | `validation_tvweight_balance.do` | tvweight covariate-balance / SMD computation; love-plot delegation to psdash (installed, multi-group, and not-installed paths) |
 | `validation_tvweight_recovery.do` | **known-truth IPTW recovery**: confounded DGP, naive misses the marginal effect, IPTW recovers it (continuous additive, stabilized, binary risk difference); positivity counters match the reported propensity |
@@ -123,7 +124,7 @@ and re-bootstraps after its own `clear all`.
 | tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | `crossval_tvevent_recurring` | `test_options`, `test_frames_input`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
 | tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_frames_input`, `test_regressions`, `validation_supplemental` |
-| tvpanel | `test_tvpanel` | — | — | `test_frames_input`, `test_regressions` |
+| tvpanel | `test_tvpanel` | `validation_tvpanel` | — | `test_frames_input`, `test_regressions` |
 | tvsplit | `test_tvsplit` | `validation_tvsplit` | `crossval_tvsplit_lexis` | `test_default_naming` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
 | tvweight | `test_tvweight` | `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery` | `crossval_tvtools`, `crossval_tvweight_ipcw` | `test_options`, `test_regressions`, `validation_flow`, `validation_supplemental` |
@@ -133,6 +134,6 @@ and re-bootstraps after its own `clear all`.
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_tvage`, `test_tvband`, `test_tvsplit`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose`, `test_frames_input`, `test_default_naming` |
-| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvband`, `validation_tvsplit`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand`, `crossval_tvsplit_lexis`, `crossval_tvweight_ipcw`, `crossval_tvevent_recurring` |
+| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvband`, `validation_tvsplit`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvpanel`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand`, `crossval_tvsplit_lexis`, `crossval_tvweight_ipcw`, `crossval_tvevent_recurring` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

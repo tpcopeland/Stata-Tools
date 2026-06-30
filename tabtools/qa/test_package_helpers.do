@@ -2127,6 +2127,69 @@ quietly tabtools set clear
 display as result "ALL CONSOLE DISPLAY CONTRACT TESTS PASSED"
 
 
+**# Regression v1.8.7: no spurious interior separator rule every 5 rows
+* _tabtools_console_display passes separator(0) to `list ... noobs noheader
+* table`. Without it, Stata's list draws a horizontal rule (|----...----|,
+* pipe-delimited, NOT the +----+ box border) every 5 observations, splitting
+* the table body. Build a table with >5 body rows so a regressed separator(5)
+* would emit at least one interior rule, then assert none exist between the
+* top and bottom box borders.
+capture noisily {
+    local sep_log "`output_dir'/test_console_separator_capture.log"
+    capture erase "`sep_log'"
+    capture log close _console_sep
+
+    clear
+    set obs 13
+    gen byte grp = _n
+    gen double y = 100 + 10 * _n
+    label define _sep_grp 1 "G01" 2 "G02" 3 "G03" 4 "G04" 5 "G05" 6 "G06" ///
+        7 "G07" 8 "G08" 9 "G09" 10 "G10" 11 "G11" 12 "G12" 13 "G13", replace
+    label values grp _sep_grp
+    collect clear
+    collect: table grp, statistic(mean y) statistic(sd y)
+
+    log using "`sep_log'", replace text name(_console_sep)
+    desctab, title("Console_Sep_Regression")
+    capture log close _console_sep
+
+    * Scan the captured log: an interior horizontal rule is a line made up of
+    * only spaces, pipes, and dashes, containing "---" and a "|" but no "+"
+    * (the box top/bottom borders use "+", so they are excluded). Any such line
+    * means the every-5-rows separator regressed.
+    tempname sfh
+    local interior_rules = 0
+    local saw_table = 0
+    file open `sfh' using "`sep_log'", read text
+    file read `sfh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "+") > 0 & strpos(`"`line'"', "---") > 0 {
+            local saw_table = 1
+        }
+        if regexm(`"`line'"', "^[ |-]+$") & strpos(`"`line'"', "---") > 0 ///
+            & strpos(`"`line'"', "|") > 0 & strpos(`"`line'"', "+") == 0 {
+            local ++interior_rules
+        }
+        file read `sfh' line
+    }
+    file close `sfh'
+
+    assert `saw_table' == 1
+    assert `interior_rules' == 0
+}
+local _sep_rc = _rc
+capture log close _console_sep
+if `_sep_rc' == 0 {
+    display as result "  PASS: console table has no spurious interior separator rule (v1.8.7)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: console interior separator regression (rc=`_sep_rc')"
+    local ++fail_count
+}
+quietly tabtools set clear
+
+
 **# Migrated: color validation across commands
 
 
