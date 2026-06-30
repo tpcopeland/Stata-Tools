@@ -53,7 +53,8 @@ local core_suites `quick_suites' test_regressions ///
     validation_tvdiagnose validation_flow ///
     validation_boundary validation_pipeline validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvsplit_lexis ///
-    crossval_tvweight_ipcw crossval_tvevent_recurring
+    crossval_tvweight_ipcw crossval_tvevent_recurring ///
+    test_tvm_overlap_drift_guard test_tvm_point_engine
 
 * Cross-validation lane: parity against the external reference implementation.
 local python_suites crossval_tvtools

@@ -1,4 +1,4 @@
-*! _tvmerge_mata Version 1.6.2  2026/06/29
+*! _tvmerge_mata Version 1.6.3  2026/06/30
 *! Mata interval-overlap engine for tvmerge
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)
@@ -24,12 +24,21 @@ Output pairs are streamed, so the full Cartesian product is never materialised.
 
 These functions are called internally by tvmerge and should not be called
 directly.
+
+DRIFT GUARD: this overlap logic is a hand-maintained mirror of rangematch's
+_rm_build_pairs_overlap (different package, no runtime dependency). The two MUST
+stay behaviourally identical for the inner-join, closed-boundary, zero-tolerance
+case. qa/test_tvm_overlap_drift_guard.do pins tvm == rangematch == an independent
+joinby oracle; if you edit either implementation, run that test.
 */
 
 version 16.0
 
 capture mata: mata drop _tvm_build_pairs_overlap()
+capture mata: mata drop _tvm_build_pairs_point()
 capture mata: mata drop _tvm_bsearch_right()
+capture mata: mata drop _tvm_bsearch_first_ge()
+capture mata: mata drop _tvm_bsearch_last_lt()
 
 mata:
 mata set matastrict on
@@ -226,6 +235,209 @@ void _tvm_build_pairs_overlap(
     st_framecurrent(oldframe)
     st_local("_tvm_n_pairs", strofreal(n_pairs))
 }
+
+// ----------------------------------------------------------------------------
+// _tvm_bsearch_first_ge(): leftmost index in [lo0, hi0] with keys[idx] >= target
+// (returns 0 when none). keys sorted ascending within [lo0, hi0].
+// ----------------------------------------------------------------------------
+real scalar _tvm_bsearch_first_ge(
+    real colvector keys, real scalar target, real scalar lo0, real scalar hi0)
+{
+    real scalar lo, hi, mid, result
+
+    lo = lo0
+    hi = hi0
+    result = 0
+    while (lo <= hi) {
+        mid = trunc((lo + hi) / 2)
+        if (keys[mid] >= target) {
+            result = mid
+            hi = mid - 1
+        }
+        else {
+            lo = mid + 1
+        }
+    }
+    return(result)
+}
+
+// ----------------------------------------------------------------------------
+// _tvm_bsearch_last_lt(): rightmost index in [lo0, hi0] with keys[idx] < target
+// (returns 0 when none). keys sorted ascending within [lo0, hi0].
+// ----------------------------------------------------------------------------
+real scalar _tvm_bsearch_last_lt(
+    real colvector keys, real scalar target, real scalar lo0, real scalar hi0)
+{
+    real scalar lo, hi, mid, result
+
+    lo = lo0
+    hi = hi0
+    result = 0
+    while (lo <= hi) {
+        mid = trunc((lo + hi) / 2)
+        if (keys[mid] < target) {
+            result = mid
+            lo = mid + 1
+        }
+        else {
+            hi = mid - 1
+        }
+    }
+    return(result)
+}
+
+// ----------------------------------------------------------------------------
+// _tvm_build_pairs_point(): half-open point-in-interval pair generation. Emits
+// master-interval x using-point pairs where the point key falls in the master
+// interval under the CLOSED-LEFT, OPEN-RIGHT convention:
+//     low <= key < high
+// which is exactly tvevent's `date >= start & date < stop` split rule, for any
+// numeric (not only integer) dates. Missing master low -> -inf, missing high ->
+// +inf, missing point key never matches (dropped). With keep_unmatched_master,
+// master intervals with no point are emitted once with __tvm_ui = . (mirrors
+// joinby ... , unmatched(master)).
+//
+// Master work frame columns: 1=gid, 2=low, 3=high, 4=obs.
+// Using  work frame columns: 1=gid, 2=key, 3=obs.
+// Emits __tvm_mi (master obs) / __tvm_ui (point obs) into out_frame; pair count
+// in the caller local _tvm_n_pairs.
+// ----------------------------------------------------------------------------
+void _tvm_build_pairs_point(
+    string scalar master_frame,
+    string scalar using_frame,
+    string scalar out_frame,
+    real scalar keep_unmatched_master)
+{
+    string scalar oldframe
+    real matrix M, U, Usorted
+    real colvector mi, ui, ukeys, uobs, ugid, perm
+    real colvector gstart_map, gend_map
+    real scalar nm, nu, i, lo, hi, mobs, g, gid_i, gstart, gend
+    real scalar jlo, jhi, nmatch, n_pairs, outcap, needed, pos, max_gid, u
+
+    oldframe = st_framecurrent()
+    keep_unmatched_master = (keep_unmatched_master != 0)
+
+    st_framecurrent(master_frame)
+    M = st_data(., .)
+    nm = rows(M)
+
+    st_framecurrent(using_frame)
+    U = st_data(., .)
+    nu = rows(U)
+
+    // Drop points with missing key (never match)
+    if (nu > 0) {
+        perm = selectindex(U[., 2] :< .)
+        if (length(perm) < nu) {
+            U = U[perm, .]
+            nu = rows(U)
+        }
+    }
+    // Open-ended master bounds
+    for (i = 1; i <= nm; i++) {
+        if (M[i, 2] >= .) M[i, 2] = mindouble()
+        if (M[i, 3] >= .) M[i, 3] = maxdouble()
+    }
+
+    if (nu > 0) {
+        Usorted = sort(U, (1, 2))
+        ugid  = Usorted[., 1]
+        ukeys = Usorted[., 2]
+        uobs  = Usorted[., 3]
+    }
+    else {
+        ugid = J(0, 1, .)
+        ukeys = J(0, 1, .)
+        uobs = J(0, 1, .)
+    }
+
+    max_gid = (nm > 0 ? max(M[., 1]) : 0)
+    if (nu > 0) max_gid = max((max_gid, max(ugid)))
+    max_gid = (max_gid < . ? trunc(max_gid) : 0)
+    if (max_gid > 0) {
+        gstart_map = J(max_gid, 1, 0)
+        gend_map = J(max_gid, 1, 0)
+        for (u = 1; u <= nu; u++) {
+            gid_i = trunc(ugid[u])
+            if (gid_i >= 1 & gid_i <= max_gid) {
+                if (gstart_map[gid_i] == 0) gstart_map[gid_i] = u
+                gend_map[gid_i] = u
+            }
+        }
+    }
+    else {
+        gstart_map = J(0, 1, 0)
+        gend_map = J(0, 1, 0)
+    }
+
+    n_pairs = 0
+    outcap = max((nm, 1024))
+    mi = J(outcap, 1, .)
+    ui = J(outcap, 1, .)
+
+    for (i = 1; i <= nm; i++) {
+        g    = M[i, 1]
+        lo   = M[i, 2]
+        hi   = M[i, 3]
+        mobs = M[i, 4]
+
+        nmatch = 0
+        jlo = 0
+        jhi = -1
+        if (!(lo > hi)) {
+            gid_i = trunc(g)
+            gstart = 0
+            gend = -1
+            if (gid_i >= 1 & gid_i <= rows(gstart_map)) {
+                gstart = gstart_map[gid_i]
+                gend = gend_map[gid_i]
+            }
+            if (gstart != 0) {
+                jlo = _tvm_bsearch_first_ge(ukeys, lo, gstart, gend)
+                jhi = _tvm_bsearch_last_lt(ukeys, hi, gstart, gend)
+                if (jlo != 0 & jhi != 0 & jlo <= jhi) nmatch = jhi - jlo + 1
+                else nmatch = 0
+            }
+        }
+
+        if (nmatch == 0) {
+            if (keep_unmatched_master) {
+                n_pairs++
+                if (n_pairs > rows(mi)) {
+                    mi = mi \ J(rows(mi), 1, .)
+                    ui = ui \ J(rows(ui), 1, .)
+                }
+                mi[n_pairs] = mobs
+                ui[n_pairs] = .
+            }
+        }
+        else {
+            needed = n_pairs + nmatch
+            while (needed > rows(mi)) {
+                mi = mi \ J(rows(mi), 1, .)
+                ui = ui \ J(rows(ui), 1, .)
+            }
+            for (pos = jlo; pos <= jhi; pos++) {
+                n_pairs++
+                mi[n_pairs] = mobs
+                ui[n_pairs] = uobs[pos]
+            }
+        }
+    }
+
+    st_framecurrent(out_frame)
+    if (n_pairs > 0) st_addobs(n_pairs)
+    (void) st_addvar("double", "__tvm_mi")
+    (void) st_addvar("double", "__tvm_ui")
+    if (n_pairs > 0) {
+        st_store(., "__tvm_mi", mi[1..n_pairs])
+        st_store(., "__tvm_ui", ui[1..n_pairs])
+    }
+
+    st_framecurrent(oldframe)
+    st_local("_tvm_n_pairs", strofreal(n_pairs))
+}
 end
 
 ********************************************************************************
@@ -248,6 +460,28 @@ program define _tvmerge_overlap_pairs, rclass
     gettoken outf rest : rest
 
     mata: _tvm_build_pairs_overlap("`mf'", "`uf'", "`outf'", `progress')
+
+    return scalar n_pairs = `_tvm_n_pairs'
+end
+
+// Run the half-open point-in-interval sweep over two work frames.
+// Usage: _tvmerge_point_pairs master_frame using_frame out_frame [, unmatched]
+//   master_frame cols: gid low high obs   (intervals, matched [low, high) )
+//   using_frame  cols: gid key obs        (points)
+//   unmatched : also emit intervals with no point (mirrors joinby unmatched(master))
+//   out_frame receives __tvm_mi (interval obs) / __tvm_ui (point obs)
+// Returns: r(n_pairs)
+capture program drop _tvmerge_point_pairs
+program define _tvmerge_point_pairs, rclass
+    version 16.0
+    syntax namelist(min=3 max=3) [, UNMATCHed]
+
+    gettoken mf   rest : namelist
+    gettoken uf   rest : rest
+    gettoken outf rest : rest
+
+    local keepunm = ("`unmatched'" != "")
+    mata: _tvm_build_pairs_point("`mf'", "`uf'", "`outf'", `keepunm')
 
     return scalar n_pairs = `_tvm_n_pairs'
 end

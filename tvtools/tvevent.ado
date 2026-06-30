@@ -1,4 +1,4 @@
-*! tvevent Version 1.6.2  2026/06/29
+*! tvevent Version 1.6.3  2026/06/30
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -690,20 +690,77 @@ program define tvevent, rclass
         keep `id' `startvar' `stopvar'
         duplicates drop
 
-        joinby `id' using `events'
+        * Split points are events strictly inside [start, stop): date >= start &
+        * date < stop. Identify them with the shared half-open point-in-interval
+        * engine instead of a joinby(`id')+filter Cartesian. The closed-left,
+        * open-right rule is exactly the former filter (events at stop don't
+        * split; they match by date == stop downstream).
+        capture findfile _tvmerge_mata.ado
+        if _rc == 0 {
+            quietly run "`r(fn)'"
+        }
+        else {
+            noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
+            exit 111
+        }
+        gen long __te_iobs = _n
+        tempfile __te_ivl
+        save `__te_ivl'
 
-        * Under [start, stop] inclusive convention, events at start or strictly
-        * inside the interval need splitting. Events at stop don't need splitting
-        * (they're matched directly by date == stop).
-        keep if `date' >= `startvar' & `date' < `stopvar'
+        * id -> contiguous gid crosswalk (interval ids; events keep(match) below
+        * drops events for ids with no interval, matching the joinby inner join).
+        keep `id'
+        duplicates drop
+        gen long __te_gid = _n
+        tempfile __te_xw
+        save `__te_xw'
 
+        * master interval work frame: gid start stop obs
+        use `__te_ivl', clear
+        merge m:1 `id' using `__te_xw', keep(match) nogenerate
+        capture frame drop __te_m
+        frame put __te_gid `startvar' `stopvar' __te_iobs, into(__te_m)
+        frame __te_m: order __te_gid `startvar' `stopvar' __te_iobs
+
+        * using point work frame: gid date obs (events indexed by __te_eobs)
+        use `events', clear
+        gen long __te_eobs = _n
+        tempfile __te_eidx
+        save `__te_eidx'
+        merge m:1 `id' using `__te_xw', keep(match) nogenerate
+        capture frame drop __te_u
+        frame put __te_gid `date' __te_eobs, into(__te_u)
+        frame __te_u: order __te_gid `date' __te_eobs
+
+        capture frame drop __te_out
+        frame create __te_out
+        _tvmerge_point_pairs __te_m __te_u __te_out
+        tempfile __te_pairs
+        frame __te_out: save `__te_pairs'
+        capture frame drop __te_m
+        capture frame drop __te_u
+        capture frame drop __te_out
+
+        * Distinct matched events -> their (id, date) split points.
+        use `__te_pairs', clear
+        keep __tvm_ui
+        rename __tvm_ui __te_eobs
+        if _N > 0 {
+            duplicates drop
+            merge m:1 __te_eobs using `__te_eidx', keep(match) nogenerate ///
+                keepusing(`id' `date')
+        }
+        else {
+            merge 1:1 __te_eobs using `__te_eidx', keep(match) nogenerate ///
+                keepusing(`id' `date')
+        }
         keep `id' `date'
         if _N > 0 {
             duplicates drop `id' `date', force
         }
         tempfile splits
         save `splits'
-        
+
         count
         local n_splits = r(N)
         restore

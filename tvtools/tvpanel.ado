@@ -1,4 +1,4 @@
-*! tvpanel Version 1.6.2  2026/06/29
+*! tvpanel Version 1.6.3  2026/06/30
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -201,10 +201,74 @@ program define tvpanel, rclass
     }
 
     * --- Active exposure class at each interval start (latest-start wins) ---
+    * Point-in-interval via the shared overlap engine: each period start `pstart'
+    * is a degenerate master interval [pstart, pstart]; episodes are using
+    * intervals [estart, estop]. This replaces the former joinby(`id')+filter,
+    * whose within-person periods x episodes Cartesian blew up on dense data.
+    * Equivalent because [pstart,pstart] overlaps [estart,estop] (closed) iff
+    * estart <= pstart & estop >= pstart -- the exact former filter.
+    capture findfile _tvmerge_mata.ado
+    if _rc == 0 {
+        quietly run "`r(fn)'"
+    }
+    else {
+        noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
+        exit 111
+    }
     quietly {
         keep `tp_row' `id' `pstart'
-        joinby `id' using `epi'
-        keep if __tp_estart <= `pstart' & __tp_estop >= `pstart'
+        gen long __tp_pobs = _n
+        tempfile _tp_periods
+        save `_tp_periods', replace
+
+        * id -> contiguous gid crosswalk shared by period rows and episodes
+        keep `id'
+        duplicates drop
+        gen long __tp_gid = _n
+        tempfile _tp_xwalk
+        save `_tp_xwalk', replace
+
+        * master work frame: gid, low=pstart, high=pstart, obs
+        use `_tp_periods', clear
+        merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
+        gen double __tp_plo = `pstart'
+        gen double __tp_phi = `pstart'
+        capture frame drop __tp_m
+        frame put __tp_gid __tp_plo __tp_phi __tp_pobs, into(__tp_m)
+        frame __tp_m: order __tp_gid __tp_plo __tp_phi __tp_pobs
+
+        * using work frame: gid, ulo=estart, uhi=estop, obs. Drop missing-estart
+        * episodes so behaviour matches the former `__tp_estart <= pstart' filter
+        * (a missing estart never satisfied it; a missing estop matched, and the
+        * engine maps missing -> +inf, so open upper bounds still match).
+        use `epi', clear
+        drop if missing(__tp_estart)
+        gen long __tp_eobs = _n
+        tempfile _tp_epi_idx
+        save `_tp_epi_idx', replace
+        merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
+        capture frame drop __tp_u
+        frame put __tp_gid __tp_estart __tp_estop __tp_eobs, into(__tp_u)
+        frame __tp_u: order __tp_gid __tp_estart __tp_estop __tp_eobs
+
+        * overlap sweep -> (period, episode) point-in-interval pairs
+        capture frame drop __tp_out
+        frame create __tp_out
+        _tvmerge_overlap_pairs __tp_m __tp_u __tp_out
+        tempfile _tp_pairs
+        frame __tp_out: save `_tp_pairs', replace
+        capture frame drop __tp_m
+        capture frame drop __tp_u
+        capture frame drop __tp_out
+
+        * latest-start (then highest class) wins, exactly as before
+        use `_tp_pairs', clear
+        rename __tvm_mi __tp_pobs
+        rename __tvm_ui __tp_eobs
+        merge m:1 __tp_pobs using `_tp_periods', keep(match) nogenerate ///
+            keepusing(`tp_row')
+        merge m:1 __tp_eobs using `_tp_epi_idx', keep(match) nogenerate ///
+            keepusing(__tp_estart __tp_eclass)
         bysort `tp_row' (__tp_estart __tp_eclass): keep if _n == _N
         gen long `tp_active' = __tp_eclass
         keep `tp_row' `tp_active'

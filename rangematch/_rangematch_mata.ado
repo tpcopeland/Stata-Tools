@@ -880,6 +880,12 @@ void _rm_build_pairs(
 // O(M log U + scan); worst-case O(M*U) for mutually overlapping data, near
 // O(M log U + K) for selective, by()-partitioned intervals. Output pairs are
 // streamed, so the full Cartesian product is never materialized.
+//
+// DRIFT GUARD: the tvtools package keeps a slimmed inner-join copy of this
+// overlap logic (_tvm_build_pairs_overlap in tvtools/_tvmerge_mata.ado). The two
+// must stay behaviourally identical for the closed-boundary, zero-tolerance,
+// inner-join case; tvtools/qa/test_tvm_overlap_drift_guard.do pins them together.
+// If you change overlap semantics here, update that copy and re-run its guard.
 // ============================================================================
 void _rm_build_pairs_overlap(
     string scalar master_frame,
