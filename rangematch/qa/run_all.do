@@ -45,6 +45,10 @@ local suites ///
     test_rangematch_display_contract.do ///
     test_rangematch_routing_contract.do ///
     test_rangematch_backend_equivalence.do ///
+    test_rangematch_backend_diff.do ///
+    test_rangematch_missing_using.do ///
+    test_rangematch_float_warn.do ///
+    test_rangematch_edge_topup.do ///
     test_rangematch_saving_matrix.do ///
     test_rangematch_v16compat.do ///
     test_documentation_examples.do ///

@@ -1,4 +1,4 @@
-*! rangematch Version 1.1.1  2026/06/26
+*! rangematch Version 1.2.0  2026/06/30
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -11,6 +11,7 @@ capture program drop _rangematch_build_output_names
 capture program drop _rangematch_load_using
 capture program drop _rangematch_build_group_ids
 capture program drop _rangematch_run_backend
+capture program drop _rangematch_warn_float
 
 program define _rangematch_display_counts
     version 16.1
@@ -673,6 +674,39 @@ program define _rangematch_run_backend, sclass
     if `rc' exit `rc'
 end
 
+program define _rangematch_warn_float
+    * Emit a non-fatal precision warning when a matching variable is stored as
+    * float and carries values beyond float's exact-integer range (2^24). Such
+    * values (notably %tc datetime clocks) lose precision at boundary equality;
+    * %td dates and small magnitudes are within float's exact range and are not
+    * flagged. frm == "." means the current (master) data; otherwise a frame.
+    version 16.1
+    args lab frm var restrict
+    local _hz 0
+    if `"`frm'"' == "." {
+        local _t : type `var'
+        if "`_t'" == "float" {
+            quietly count if `restrict' & !missing(`var') & abs(`var') > 16777216
+            if r(N) > 0 local _hz 1
+        }
+    }
+    else {
+        frame `frm' {
+            local _t : type `var'
+            if "`_t'" == "float" {
+                quietly count if !missing(`var') & abs(`var') > 16777216
+                if r(N) > 0 local _hz 1
+            }
+        }
+    }
+    if `_hz' {
+        display as error ///
+            "warning: `lab' {bf:`var'} is stored as float with values beyond 2^24;"
+        display as error ///
+            "         boundary matches may be imprecise -- recast to double or use tolerance()"
+    }
+end
+
 program define rangematch, rclass
     version 16.1
     local _orig_varabbrev = c(varabbrev)
@@ -680,7 +714,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.1.1"
+    local _rm_required_mata_version "1.2.0"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1107,6 +1141,76 @@ program define rangematch, rclass
     local N_using = `s(N_using)'
 
     * -------------------------------------------------------------------
+    * Apply the missing() policy to the using side, symmetrically with the
+    * master side. wildcard (the default) preserves historical behavior
+    * exactly: in point mode a missing using key never matches; in overlap
+    * mode a missing using bound is open-ended on that side. error and drop
+    * extend the policy to the using rows. This runs before _rm_uobs is
+    * generated so dropped rows never enter the work frame or the output.
+    * -------------------------------------------------------------------
+    if `overlap_mode' {
+        frame __rm_using: quietly count if missing(`ulo') | missing(`uhi')
+    }
+    else {
+        frame __rm_using: quietly count if missing(`key')
+    }
+    local N_using_missing = r(N)
+    if `N_using_missing' > 0 {
+        if "`missing'" != "wildcard" {
+            if "`missing'" == "error" {
+                if `overlap_mode' {
+                    display as error ///
+                        "`N_using_missing' using row(s) have missing values in {bf:`ulo'} or {bf:`uhi'}"
+                }
+                else {
+                    display as error ///
+                        "`N_using_missing' using row(s) have a missing match key {bf:`key'}"
+                }
+                display as error ///
+                    "specify {bf:missing(drop)} to ignore them or {bf:missing(wildcard)} to keep open-ended/never-match behavior"
+                exit 459
+            }
+            else if "`missing'" == "drop" {
+                if `overlap_mode' {
+                    frame __rm_using: quietly drop if missing(`ulo') | missing(`uhi')
+                }
+                else {
+                    frame __rm_using: quietly drop if missing(`key')
+                }
+                frame __rm_using: local N_using = _N
+                if `N_using' == 0 {
+                    display as error ///
+                        "missing(drop) removed all using observations"
+                    exit 2000
+                }
+            }
+        }
+    }
+
+    * -------------------------------------------------------------------
+    * Non-fatal float-precision warnings (A2). Matching variables stored as
+    * float lose exact equality beyond 2^24 (notably %tc clocks); flag them so
+    * the user can recast to double or use tolerance(). %td dates and small
+    * magnitudes are within float's exact-integer range and are not flagged.
+    * -------------------------------------------------------------------
+    if "`low_kind'" == "variable" {
+        _rangematch_warn_float "master bound" "." `low' "`touse'"
+    }
+    if "`high_kind'" == "variable" {
+        _rangematch_warn_float "master bound" "." `high' "`touse'"
+    }
+    if `overlap_mode' {
+        _rangematch_warn_float "using bound" "__rm_using" `ulo' ""
+        _rangematch_warn_float "using bound" "__rm_using" `uhi' ""
+    }
+    else {
+        if `uses_key_offsets' {
+            _rangematch_warn_float "master key" "." `key' "`touse'"
+        }
+        _rangematch_warn_float "using key" "__rm_using" `key' ""
+    }
+
+    * -------------------------------------------------------------------
     * Determine carry variables and output names
     * -------------------------------------------------------------------
     if !`dryrun_mode' {
@@ -1517,6 +1621,7 @@ program define rangematch, rclass
     return scalar N_unmatched      = `N_unmatched'
     return scalar N_matched_pairs  = `N_matched_pairs'
     return scalar N_missing_bounds = `N_missing_bounds'
+    return scalar N_using_missing  = `N_using_missing'
     if `_rm_stats_mode' {
         return scalar N_matched_master = `N_matched_master'
         return scalar N_matched_using  = `N_matched_using'

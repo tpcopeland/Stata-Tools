@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  26jun2026}{...}
+{* *! version 1.2.0  30jun2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -73,7 +73,7 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopt:{opt maxp:airs(#)}}abort if output rows exceed {it:#}; 0 = no guard{p_end}
 {synopt:{opt closed(both|left|right|none)}}interval endpoint closure{p_end}
 {synopt:{opt tol:erance(#)}}boundary-comparison tolerance for floating-point keys{p_end}
-{synopt:{opt miss:ing(wildcard|drop|error)}}policy for master rows with missing variable bounds{p_end}
+{synopt:{opt miss:ing(wildcard|drop|error)}}policy for master and using rows with missing bounds or key{p_end}
 {synopt:{opt near:est(before|after|both)}}keep nearest match(es) within the interval{p_end}
 {synopt:{opt ties(all|first|last)}}tie handling for {opt nearest()}{p_end}
 {synopt:{opt as:sert(match|using)}}abort when required master or using matches are absent{p_end}
@@ -149,10 +149,12 @@ no point {it:keyvar} is given: the positional arguments are the master interval
 their intervals overlap. With {opt closed(both)} (the default) the overlap test
 is master.{it:low} <= using.{it:uhigh} {bf:&} using.{it:ulow} <=
 master.{it:high} (touching endpoints count); with {opt closed(none)} the
-comparisons are strict (touching endpoints do not count). A missing master or
-using bound is treated as open-ended on that side, so a fully missing interval
-matches everything in its {opt by()} group. {opt tolerance()} shifts the
-comparison boundaries exactly as in point mode.
+comparisons are strict (touching endpoints do not count). Under the default
+{opt miss:ing(wildcard)} a missing master or using bound is treated as
+open-ended on that side, so a fully missing interval matches everything in its
+{opt by()} group; {opt miss:ing(drop)} and {opt miss:ing(error)} instead drop or
+reject rows with a missing bound on either side (see {opt miss:ing()} below).
+{opt tolerance()} shifts the comparison boundaries exactly as in point mode.
 
 {pmore}
 Each interval is assumed well-formed, with {it:low} <= {it:high} (and
@@ -252,27 +254,50 @@ preserving the requested endpoint closure. This is intended for representation
 noise such as decimal arithmetic, not as a statistical matching rule. The
 default is {cmd:tolerance(0)}.
 
+{pmore}
+As a related safeguard, {cmd:rangematch} prints a non-fatal warning when a
+matching variable (a master {it:low}/{it:high} bound, a using point {it:keyvar},
+or a using {it:ulow}/{it:uhigh} bound) is stored as {cmd:float} with values
+beyond float's exact-integer range (2{c 94}24). Such values -- most commonly
+{cmd:%tc} datetime clocks -- can fail boundary equality after the internal
+{cmd:double} cast. Recast the offending variable to {cmd:double}, or set a small
+{opt tol:erance()}, to make boundary matches reliable. {cmd:%td} dates and
+small-magnitude values are within float's exact range and are not flagged.
+
 {phang}
-{opt miss:ing(wildcard|drop|error)} controls handling of master rows whose
-{it:low} or {it:high} variable bound is missing. {opt miss:ing(wildcard)}, the
-default, treats a missing bound as open-ended on that side, consistent with the
+{opt miss:ing(wildcard|drop|error)} controls handling of rows with missing
+matching variables, applied symmetrically to both sides: on the master side a
+missing {it:low} or {it:high} variable bound (point or overlap mode), and on the
+using side a missing point {it:keyvar} (point mode) or a missing {it:ulow} or
+{it:uhigh} interval bound (overlap mode).
+
+{pmore}
+{opt miss:ing(wildcard)}, the default, preserves the historical behavior exactly
+and treats a missing {it:bound} as open-ended on that side, consistent with the
 semantics of a literal {cmd:.} positional bound; such rows wildcard-match every
-using row in the same {opt by()} group. {opt miss:ing(drop)} drops those rows
-before matching, equivalent to {cmd:drop if missing(}{it:low}{cmd:) | missing(}{it:high}{cmd:)}
-upstream of the call. {opt miss:ing(error)} aborts with a clear message and the
-count of offending master rows. The option applies only to bound
-{it:variables}; a literal {cmd:.} positional bound is the user's explicit
-open-ended token and is unaffected. {opt miss:ing(drop)} removes missing-bound
-master rows entirely, so they never appear as unmatched output regardless of
-the {opt unmatch:ed()} setting. If {opt miss:ing(drop)} empties an entire
-{opt by()} group from master, the corresponding using rows in that group still
-surface as unmatched-using rows under {opt unmatch:ed(using)} or
-{opt unmatch:ed(both)} and will trip {opt as:sert(using)}; the dropped master
-rows themselves never appear in the output and do not trip {opt as:sert(match)}.
-The count of master rows with missing variable bounds is always posted in
-{cmd:r(N_missing_bounds)}; under {opt miss:ing(drop)}, {cmd:r(N_master)} is the
-post-drop master count, and {cmd:r(N_master) + r(N_missing_bounds)} recovers
-the post-{cmd:if}/{cmd:in}, pre-drop master count.
+counterpart in the same {opt by()} group. A missing point {it:keyvar} has no
+open-ended interpretation, so under {cmd:wildcard} a using row with a missing key
+never matches (and surfaces only as an unmatched-using row under
+{opt unmatch:ed(using)} or {opt unmatch:ed(both)}).
+
+{pmore}
+{opt miss:ing(drop)} drops the offending rows before matching, on whichever side
+they occur, equivalent to {cmd:drop if missing(...)} upstream of the call;
+dropped rows never appear in the output regardless of {opt unmatch:ed()}.
+{opt miss:ing(error)} aborts with a clear message and the count of offending
+rows. The option applies only to {it:variables}; a literal {cmd:.} positional
+bound is the user's explicit open-ended token and is unaffected.
+
+{pmore}
+If {opt miss:ing(drop)} empties an entire {opt by()} group from one side, the
+counterpart rows in that group still surface as unmatched under the relevant
+{opt unmatch:ed()} setting and will trip the matching {opt as:sert()}. The count
+of master rows with missing variable bounds is always posted in
+{cmd:r(N_missing_bounds)} and the count of using rows with a missing key/bound in
+{cmd:r(N_using_missing)}, under every policy. Under {opt miss:ing(drop)},
+{cmd:r(N_master)} and {cmd:r(N_using)} are the post-drop counts, and adding back
+the corresponding missing count recovers the post-{cmd:if}/{cmd:in}, pre-drop
+total for that side.
 
 {phang}
 {opt near:est(before|after|both)} keeps only nearest using observations within
@@ -282,9 +307,12 @@ the master key, and {opt near:est(both)} keeps nearest matches on both sides.
 The master dataset must contain numeric {it:keyvar}.
 
 {phang}
-{opt ties(all|first|last)} controls tie handling with {opt nearest()}.
-{opt ties(all)} keeps all equally nearest rows, {opt ties(first)} keeps the
-first using row among ties, and {opt ties(last)} keeps the last. The default is
+{opt ties(all|first|last)} controls tie handling with {opt nearest()} when two
+or more using rows are equally near the key. {opt ties(all)} keeps every equally
+nearest row; {opt ties(first)} keeps the single tied row with the lowest
+original using observation number; {opt ties(last)} keeps the one with the
+highest. ("First" and "last" therefore refer to original using row order, not to
+key value or distance, which are equal among ties.) The default is
 {opt ties(all)}. {opt ties()} is only allowed with {opt nearest()}.
 
 {phang}
@@ -361,9 +389,11 @@ also be numeric scalar offsets from the master {it:keyvar}, provided that
 {cmd:.} bound is open-ended.
 
 {pstd}
-When variable bounds contain missing values, missing lower bounds are treated
-as open-ended below and missing upper bounds are treated as open-ended above.
-Using observations with missing keys never match.
+Under the default {opt miss:ing(wildcard)}, missing lower bounds are treated as
+open-ended below and missing upper bounds as open-ended above; a using
+observation with a missing key never matches. {opt miss:ing(drop)} and
+{opt miss:ing(error)} instead drop or reject rows with a missing bound or key on
+either side; see {opt miss:ing()} for the full symmetric policy.
 
 {pstd}
 If the computed lower bound is greater than the computed upper bound, no match
@@ -651,6 +681,7 @@ specified.
 {synopt:{cmd:r(N_unmatched)}}unmatched output rows{p_end}
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
 {synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
+{synopt:{cmd:r(N_using_missing)}}using rows with a missing point key or interval bound{p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
 {p2col 5 22 26 2: Match-density scalars, only with {opt stats}}{p_end}
@@ -707,7 +738,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.1, 26jun2026{p_end}
+{pstd}Version 1.2.0, 30jun2026{p_end}
 
 
 {title:Also see}

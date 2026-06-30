@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.1.1, 26jun2026
+Version 1.2.0, 30jun2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -433,6 +433,27 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.2.0 (2026-06-30)
+
+- **Symmetric `missing()` policy.** `missing(wildcard|drop|error)` now governs the
+  using side as well as the master side: a missing point `keyvar` (point mode) or a
+  missing `ulow`/`uhigh` bound (overlap mode). `wildcard` (the default) preserves
+  historical behavior exactly -- missing using keys never match and missing using
+  bounds stay open-ended -- so existing scripts are unaffected; `drop` and `error`
+  now extend to using rows. New stored result `r(N_using_missing)`.
+- **Float-precision warning.** A non-fatal warning is printed when a matching
+  variable (master bound, using key, or using interval bound) is stored as `float`
+  with values beyond float's exact-integer range (2^24, e.g. `%tc` clocks), where
+  boundary equality can fail after the internal `double` cast. Recast to `double`
+  or use `tolerance()`. `%td` dates and small magnitudes are not flagged.
+- Clarified that `ties(first|last)` selects the tied using row with the
+  lowest/highest original observation number.
+- QA: added a sweep-vs-binary backend differential harness (320 cells across
+  `closed()` x `tolerance()` x open-ended bounds x `by()` x `unmatched()`),
+  using-side `missing()` known-truth tests, a float-warning suite, and an
+  edge-case top-up (zero-obs using, all-missing master per policy, `maxpairs`
+  boundary-exact, restore-after-error).
 
 ### 1.1.1 (2026-06-26)
 
