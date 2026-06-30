@@ -1,4 +1,4 @@
-*! desctab Version 1.8.7  2026/06/30
+*! desctab Version 1.8.8  2026/06/30
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -744,7 +744,20 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.8.6"
+    * Derive version from this file's *! header so it cannot drift on a bump.
+    local _dt_version "unknown"
+    capture findfile desctab.ado
+    if !_rc {
+        tempname _dt_vfh
+        capture file open `_dt_vfh' using "`r(fn)'", read text
+        if !_rc {
+            file read `_dt_vfh' _dt_vheader
+            file close `_dt_vfh'
+            if regexm(`"`_dt_vheader'"', "Version ([0-9.]+)") ///
+                local _dt_version = regexs(1)
+        }
+    }
+    return local version "`_dt_version'"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"

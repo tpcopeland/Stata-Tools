@@ -1301,7 +1301,10 @@ else {
     local ++fail_count
 }
 
-* Test 60: Resilience — malformed regex patterns handled gracefully
+* Test 60: Malformed regex patterns are REJECTED, valid patterns scan normally
+* (v2.0.3: regexm() silently returned 0 on a bad pattern — a false-zero cohort.
+* The ICU compile-probe in _codescan_validate_regex now exits 198 instead, so an
+* unclosed bracket no longer creates an all-zero indicator without warning.)
 local ++test_count
 capture noisily {
     clear
@@ -1309,19 +1312,26 @@ capture noisily {
     gen str10 dx1 = "E110"
     gen str10 dx2 = "Z00"
 
-    * Stata's regex engine tolerates patterns like unclosed brackets
-    * codescan should not crash; indicators should be created
-    codescan dx1 dx2, define(test1 "E11" | test2 "[invalid")
+    * An unclosed '[' is structurally invalid — must error, not silently zero.
+    capture codescan dx1 dx2, define(test1 "E11" | test2 "[invalid")
+    assert _rc == 198
+    * No indicators should have been created on the rejected call.
+    capture confirm variable test1
+    assert _rc != 0
+    capture confirm variable test2
+    assert _rc != 0
+
+    * The valid pattern on its own still scans correctly (resilience preserved).
+    codescan dx1 dx2, define(test1 "E11")
     confirm variable test1
-    confirm variable test2
     assert test1 == 1
 }
 if _rc == 0 {
-    display as result "  PASS: Resilience with unusual regex patterns"
+    display as result "  PASS: Malformed regex rejected, valid pattern scans"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Resilience with unusual regex patterns (error `=_rc')"
+    display as error "  FAIL: Malformed regex rejected, valid pattern scans (error `=_rc')"
     local ++fail_count
 }
 

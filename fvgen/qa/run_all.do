@@ -22,7 +22,7 @@ if !`: list mode in valid' {
 }
 
 local quick "test_fvgen"
-local core  "`quick' test_ref test_simple test_errors test_provenance validation_fvgen"
+local core  "`quick' test_ref test_simple test_errors test_provenance test_margins validation_fvgen"
 local full  "`core' test_package_release"
 
 local suites "``mode''"

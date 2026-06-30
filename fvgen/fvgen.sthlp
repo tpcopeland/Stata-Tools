@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  27jun2026}{...}
+{* *! version 1.2.0  30jun2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -42,6 +42,13 @@ Remove every variable a previous run generated:
 {p 8 16 2}
 {cmd:fvgen}{cmd:,} {opt drop}
 
+{pstd}
+Rebuild the active flattened estimation result with native factor-variable
+syntax for {helpb margins}:
+
+{p 8 16 2}
+{cmd:fvgen}{cmd:,} {opt margins} [{opt stor:e(name)} {opt replace}]
+
 {synoptset 24 tabbed}{...}
 {synopthdr}
 {synoptline}
@@ -55,6 +62,9 @@ Remove every variable a previous run generated:
 {synopt:{opt replace}}overwrite generated variables that already exist{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
 {synopt:{opt drop}}drop every fvgen-generated variable in the dataset{p_end}
+{syntab:Postestimation}
+{synopt:{opt margins}}rerun the active flattened estimator with native factor-variable syntax for {cmd:margins}{p_end}
+{synopt:{opt stor:e(name)}}with {opt margins}, store a margins-ready clone under {it:name} and restore the active flattened result{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -182,7 +192,9 @@ limit raise an error; choose a shorter prefix or rename the source variables.
 
 {phang}
 {opt replace} permits {cmd:fvgen} to overwrite previously generated variables
-of the same name. Without it, a name collision is an error.
+of the same name. Without it, a name collision is an error. With
+{cmd:fvgen, margins store(name)}, {opt replace} first drops an existing stored
+estimate named {it:name}, then stores the refreshed margins-ready clone.
 
 {phang}
 {opt xsymbol(string)} sets the symbol placed between the two sides of an
@@ -199,6 +211,22 @@ variables are recognized by their {cmd:fvgen_role} characteristic (see
 of the dropped variables are returned in {cmd:r(k_dropped)} and {cmd:r(dropped)}.
 This completes the create-use-drop loop: run {cmd:fvgen}, estimate, export,
 then {cmd:fvgen, drop} before the next model.
+
+{phang}
+{opt margins} is a post-estimation bridge used after estimating a flattened
+model on the exact varlist returned by {cmd:fvgen}. It reconstructs the native
+factor-variable command from {cmd:fvgen}'s provenance and reruns the estimator,
+so the estimator itself supplies the hidden factor-variable metadata that
+{helpb margins} expects. The active estimate is changed so {helpb margins} can
+operate on the original factor variables.
+
+{phang}
+{opt store(name)} is used with {opt margins}. Instead of leaving the native
+clone active, {cmd:fvgen} stores the margins-ready clone as {it:name} and
+restores the active flattened result. This is the safest workflow when the same
+model will be exported by {help tabtools:regtab}: run {cmd:regtab} from the
+flattened estimate, then {cmd:estimates restore} the stored clone before running
+{cmd:margins}.
 
 
 {marker remarks}{...}
@@ -220,16 +248,25 @@ notation. Centering a continuous term shifts the lower-order coefficients but
 leaves the interaction coefficient and the model fit unchanged.
 
 {pstd}
-{bf:Limitations.} The flattened model has no factor-variable structure: to Stata
-{cmd:_foreign_1} and {cmd:_foreignXmpg_1} are ordinary continuous regressors, not
-{cmd:i.foreign} and its interaction. Consequently the factor-aware postestimation
-tools — {helpb margins}, {helpb contrast}, {helpb pwcompare}, and anything that
-reads {helpb fvset} bases off {cmd:e(b)} — do {it:not} work on the flattened fit;
-they need the native {cmd:i.}/{cmd:c.} design. The intended pattern is therefore
-to use {cmd:fvgen} for {it:presentation} (one clean labeled row per coefficient in
-an exported table) while keeping the native {cmd:##} model for {it:inference} on
-the factor design. Only up to two-way interactions are supported (see {help
-fvgen##syntax:Syntax}).
+{bf:Postestimation for margins.} The flattened model has no factor-variable
+structure by default: to Stata {cmd:_foreign_1} and {cmd:_foreignXmpg_1} are
+ordinary continuous regressors, not {cmd:i.foreign} and its interaction. After a
+flattened model, {cmd:fvgen, margins} rebuilds the estimator command with the
+original {cmd:i.}/{cmd:c.} specification and reruns it quietly. This lets
+{helpb margins} use the estimator's own factor-variable metadata, including
+base levels in {cmd:at()}. The QA suite checks both margins estimates and their
+variance matrices across linear, GLM, binary, count, censored, ordered,
+multinomial, panel, and survey estimators. Use
+{cmd:fvgen, margins store(name)} to store a margins-ready
+clone while restoring the active flattened result for clean
+{help tabtools:regtab} or other table export. The active model must have been
+fit with the exact varlist returned by {cmd:fvgen}; if you reorder or hand-edit
+that varlist, rerun the model first. The bridge is not available after
+{opt center}, and any estimator that cannot be rerun from its saved command
+line, or that does not support factor variables with {cmd:margins}, should be
+fit natively. Other factor-aware tools such as {helpb contrast} and
+{helpb pwcompare} should use the native {cmd:i.}/{cmd:c.} model directly. Only
+up to two-way interactions are supported (see {help fvgen##syntax:Syntax}).
 
 {pstd}
 {bf:Provenance characteristics.} Every generated variable carries two
@@ -297,6 +334,14 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {phang2}{stata "fvgen i.foreign##i.rep78, vsref(\"(vs. @)\") replace":. fvgen i.foreign##i.rep78, vsref("(vs. @)") replace}{p_end}
 {phang2}{stata "regress price `r(allvars)'":. regress price `r(allvars)'}{p_end}
 
+{pstd}
+{bf:Example 9: Margins after a flattened regression}{p_end}
+{phang2}{stata "fvgen i.foreign##c.mpg, replace":. fvgen i.foreign##c.mpg, replace}{p_end}
+{phang2}{stata "regress price `r(allvars)'":. regress price `r(allvars)'}{p_end}
+{phang2}{stata "fvgen, margins store(m_price)":. fvgen, margins store(m_price)}{p_end}
+{phang2}{stata "estimates restore m_price":. estimates restore m_price}{p_end}
+{phang2}{stata "margins, dydx(mpg) at(foreign=(0 1))":. margins, dydx(mpg) at(foreign=(0 1))}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -327,12 +372,24 @@ With {opt drop}, {cmd:fvgen} instead stores:
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(dropped)}}names of the dropped variables{p_end}
 
+{pstd}
+With {opt margins}, {cmd:fvgen} stores:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(margins)}}{cmd:active} when active estimates were rebuilt, or {cmd:stored} when {opt store()} was used{p_end}
+{synopt:{cmd:r(stored)}}stored estimate name, when {opt store()} was used{p_end}
+
+{pstd}
+The margins-ready estimation result is also marked internally as an
+{cmd:fvgen} margins clone and records the flattened and native command lines.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-06-27{p_end}
+{pstd}Version 1.2.0, 2026-06-30{p_end}
 
 
 {title:Also see}

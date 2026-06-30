@@ -34,6 +34,7 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_simple.do` | `simple()` per-group slopes: surface + labels, equivalence to native main+interaction, multi-level moderator, non-moderated main retained, `simple()`+`center` combined |
 | `test_provenance.do` | Provenance chars (`fvgen_role`/`fvgen_term`) on main/interaction/centered vars; `fvgen, drop` teardown, returns, idempotence, absorbed-copy clearing, strict drop-only syntax, edge paths |
 | `test_errors.do` | Failure paths: 3-way→198, >32-char name→198, collision→110, empty sample→2000, ref() 198/111, ref() bad label→198, simple() 198, omit operator `o.`→198, varabbrev restore on error and success |
+| `test_margins.do` | Margins bridge: active `regress` equivalence to native factor-variable margins and VCE, `logit`/`poisson` native-clone equivalence, `svy` prefix with comma options, broad estimator-family matrix (`regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, `svy`), `store()` active-restore contract, `store()` replacement, unsupported center refusal, drop and failed-generation provenance cleanup |
 | `validation_fvgen.do` | Known-answer: hand-computed values + exact equivalence to native `##` + centering invariance |
 | `test_package_release.do` | Install smoke, autoload + second in-session call, documented examples |
 | `run_all.do` | Curated lane runner |
@@ -57,6 +58,7 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | Weight-aware centering (aweight/pweight); weighted-mean known answer | `test_fvgen` (#13) |
 | Provenance chars `fvgen_role`/`fvgen_term` (main/interaction/centered) | `test_provenance` (#1,#2) |
 | `fvgen, drop` teardown: returns, idempotence, pass-through survival, strict syntax, edges | `test_provenance` (#3–#7) |
+| `fvgen, margins`: native factor-variable estimator clone and margins VCE parity across linear/GLM/binary/count/censored/ordered/multinomial/panel/survey estimators, `store()` clone, unsupported paths | `test_margins` |
 | `r(allvars/mainvars/intvars/genvars/k_all/k_main/k_int/spec)` | `test_fvgen` (#1) |
 | `r(dropped)`/`r(k_dropped)` | `test_provenance` (#3,#4) |
 | Exact reparameterization (coef + R² + N) vs native `##` | `validation_fvgen` (#2–#4) |
@@ -73,5 +75,6 @@ it. Paths are derived from `c(pwd)` — no machine paths are hardcoded.
 | `test_simple` | | ✓ | ✓ |
 | `test_errors` | | ✓ | ✓ |
 | `test_provenance` | | ✓ | ✓ |
+| `test_margins` | | ✓ | ✓ |
 | `validation_fvgen` | | ✓ | ✓ |
 | `test_package_release` | | | ✓ |

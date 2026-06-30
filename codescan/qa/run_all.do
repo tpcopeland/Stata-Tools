@@ -31,6 +31,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 * validation suites. No install/docs smoke, no adversarial stress.
 local quick_suites test_codescan test_countrows test_mata_opt ///
     test_codescan_regressions test_codescan_v2_no_scoring ///
+    test_codescan_v203_hardening test_codescan_perf_equiv ///
     validation_codescan validation_countrows
 
 * Correctness lane: quick plus every validation suite and the adversarial

@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-**Version 1.1.0** | 2026-06-27
+**Version 1.2.0** | 2026-06-30
 
 Flatten factor-variable interactions into labeled main-effect and product variables for friendlier regression export.
 
@@ -22,7 +22,7 @@ Running the same model on the flattened variables gives **one clean, self-labele
 
 **Scope.** By design `fvgen` targets the common case: main effects and **up to two-way interactions**. Higher-order (three-way and beyond) terms are deliberately out of scope and are rejected with a clear message rather than silently flattened.
 
-**Limitation — presentation, not inference.** The flattened model has *no factor-variable structure*: to Stata `_foreign_1` and `_foreignXmpg_1` are ordinary continuous regressors. Factor-aware postestimation — `margins`, `contrast`, `pwcompare`, and anything that reads `fvset` bases off `e(b)` — does **not** work on the flattened fit; it needs the native `i.`/`c.` design. Use `fvgen` for **presentation** (clean exported tables) and keep the native `##` model for **inference** on the factor design.
+**Margins bridge.** The flattened model still has no factor-variable structure by default: to Stata `_foreign_1` and `_foreignXmpg_1` are ordinary continuous regressors. After a flattened model, `fvgen, margins` rebuilds the active estimator command with the original `i.`/`c.` specification and reruns it quietly, so Stata's `margins` sees native factor-variable metadata. Use `fvgen, margins store(name)` to store a margins-ready clone while restoring the active flattened estimate for clean `regtab`/export output. This works for estimators whose saved command line can be rerun and that support factor variables plus `margins`; QA covers point estimates and variance matrices across linear, GLM, binary, count, censored, ordered, multinomial, panel, and survey estimators. The active model must have used the exact `r(allvars)` varlist returned by `fvgen`; `center`, `contrast`, and `pwcompare` should use the native `i.`/`c.` model directly.
 
 ## Installation
 
@@ -34,10 +34,13 @@ net install fvgen, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 
 ```stata
 fvgen fvvarlist [if] [in] [weight] [, alllevels center ref(spec) simple(varname) vsref(string) prefix(name) replace xsymbol(string)]
+fvgen, margins [store(name) replace]
 fvgen, drop
 ```
 
 `fvvarlist` is a factor-variable varlist using the usual `i.`, `c.`, `#`, and `##` operators (for example `i.group##c.age` or `i.arm##i.sex`). Up to two-way interactions are supported. `aweight`s, `fweight`s, `pweight`s, and `iweight`s are allowed and used only by `center`.
+
+`fvgen, margins` is used after estimating a flattened model on the exact `r(allvars)` varlist. It reruns the active estimator with native factor-variable syntax for `margins`; with `store(name)`, it stores a margins-ready clone and restores the active flattened result.
 
 `fvgen, drop` removes every variable a previous run generated (recognized by their provenance characteristics), completing the create-use-drop loop.
 
@@ -58,8 +61,10 @@ regress wage `r(allvars)'
 | **simple(varname)** | off | Report per-group slopes: each continuous term interacting with `varname` becomes one standalone slope *within* each level of `varname` (main + interaction combined), instead of a reference slope plus a difference. `varname` must be a factor interacting with a continuous term. |
 | **vsref(string)** | off | Append the reference (base) level to each categorical **main-effect** label. The argument is a template in which `@` is replaced by the base level's label: `vsref("(vs. @)")` gives `Foreign (vs. Domestic)`, `vsref("versus @")` gives `Foreign versus Domestic`. The template must contain `@`. Interaction and continuous-slope labels are unchanged; the reference shown honors `ref()`. |
 | **prefix(name)** | `_` | Prefix for generated variable names. Names exceeding Stata's 32-character limit raise an error. |
-| **replace** | off | Overwrite previously generated variables of the same name. |
+| **replace** | off | Overwrite previously generated variables of the same name. With `fvgen, margins store(name)`, refresh an existing stored clone. |
 | **xsymbol(string)** | `×` | Symbol joining the two sides of an interaction label. Use `xsymbol(x)` for plain ASCII (`Female x Age`). A continuous self-interaction (`c.age##c.age`) is always labeled `Age²`. |
+| **margins** | off | After a flattened model, rerun the active estimator with native factor-variable syntax for Stata's `margins`. |
+| **store(name)** | off | With `margins`, store a margins-ready clone and restore the active flattened result for table export. |
 | **drop** | off | Used alone (`fvgen, drop`): drop every fvgen-generated variable in the dataset, leaving pass-through originals untouched. Returns `r(k_dropped)` and `r(dropped)`. |
 
 ## Examples
@@ -134,6 +139,22 @@ regress price `r(allvars)'
 ```
 
 The main-effect indicators now carry their reference: `_foreign_1` is labeled *Foreign (vs. Domestic)* and `_rep78_2` *Fair (vs. Poor)*, so an exported coefficient table states what each level is contrasted against. The template is free-form — `vsref("versus @")` yields *Foreign versus Domestic* — and `@` is replaced by the base label, which honors `ref()` (with `ref(rep78 3)`, `_rep78_1` becomes *Poor (vs. Avg)*). Interaction labels (`Foreign × Avg`) are left unchanged.
+
+### Example 8: Margins from a flattened regression without breaking table output
+
+```stata
+sysuse auto, clear
+fvgen i.foreign##c.mpg
+regress price `r(allvars)'
+
+* Export this active flattened model with regtab/esttab/collect.
+
+fvgen, margins store(m_price)
+estimates restore m_price
+margins, dydx(mpg) at(foreign=(0 1))
+```
+
+`store(m_price)` keeps the active estimate flattened after the command returns, so table output still uses `_foreign_1` and `_foreignXmpg_1` labels. Restoring `m_price` activates the margins-ready clone fit from the native `i.foreign##c.mpg` specification.
 
 ## Demo
 
@@ -224,6 +245,8 @@ Every generated variable carries two characteristics so downstream tools (and yo
 - `char `*var*`[fvgen_role]` — `main`, `interaction`, or `centered`
 - `char `*var*`[fvgen_term]` — the factor-variable term it came from (e.g. `1.foreign#c.mpg`)
 
+Each run also stores dataset-level provenance (`char _dta[fvgen_terms]`, `char _dta[fvgen_allvars]`, and related entries) used by `fvgen, margins` to rebuild the native factor-variable estimator command. `fvgen, drop` clears these dataset-level characteristics.
+
 `fvgen, drop` uses `fvgen_role` to remove exactly the variables fvgen created, leaving pass-through originals (like `mpg`) untouched:
 
 ```stata
@@ -258,6 +281,8 @@ A no-base specification (`ibn.var`) materializes an indicator for every level (l
 
 With `drop`, `fvgen` instead returns `r(k_dropped)` (number of variables dropped) and `r(dropped)` (their names).
 
+With `margins`, `fvgen` returns `r(margins)` (`active` or `stored`) and, when `store(name)` is used, `r(stored)`. The margins-ready estimates carry internal markers for the flattened and native command lines.
+
 ## Testing
 
 The `qa/` directory holds the test suite, run with `stata-mp -b do run_all.do`
@@ -268,6 +293,7 @@ The `qa/` directory holds the test suite, run with `stata-mp -b do run_all.do`
 - `test_simple.do` — 5 tests (`simple()` per-group slopes, equivalence to native main+interaction, `simple()`+`center` combined)
 - `test_provenance.do` — 7 tests (provenance characteristics + strict `fvgen, drop` teardown)
 - `test_errors.do` — 11 tests (failure paths 198/110/2000, `ref()`/`simple()`/`vsref()` errors, omit operator `o.`, `varabbrev` restoration)
+- `test_margins.do` — 10 tests (`fvgen, margins` equivalence to native margins estimates and VCE across `regress`, `glm`, `qreg`, `rreg`, `logit`/`logistic`, `probit`, `cloglog`, `poisson`, `nbreg`, `tobit`, `ologit`/`oprobit`, `mlogit`, `xtreg`, and `svy`; `store()` contracts, unsupported `center` refusal, drop and failed-generation provenance cleanup)
 - `validation_fvgen.do` — 5 validations (hand-computed values + exact equivalence to native `##`)
 - `test_package_release.do` — 4 tests (install smoke, autoload, documented examples)
 
@@ -279,6 +305,7 @@ See `qa/README.md` for the full coverage map and lane membership.
 
 ## Version
 
+- **Version 1.2.0** (30 June 2026): Add `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.
 - **Version 1.1.0** (27 June 2026): Add `vsref(string)` — append the reference (base) level to categorical main-effect labels via an `@`-placeholder template (e.g. `vsref("(vs. @)")` → *Foreign (vs. Domestic)*).
 - **Version 1.0.0** (21 June 2026): Initial release
 

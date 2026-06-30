@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.2  26jun2026}{...}
+{* *! version 2.0.4  30jun2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -525,6 +525,18 @@ alternation, or more complicated anchored expressions.  Use {cmd:prefix} when th
 rule is a simple startswith comparison and performance matters.
 
 {pstd}
+{bf:Regex engine and unicode.}  {cmd:regex} patterns are matched with Stata's
+unicode-aware {help strregex:ustrregexm()} engine and are case-sensitive unless
+{cmd:nocase} is given; {cmd:nocase} folds case across unicode, so a pattern such
+as {cmd:"Å"} matches both {cmd:å} and {cmd:Å} (useful for Nordic
+register codes).  A structurally invalid {cmd:regex} pattern (for example an
+unbalanced bracket, an empty group, or a malformed quantifier like
+{cmd:a{c -(}2,1{c )-}}) is {it:rejected} with an error rather than silently
+matching nothing, so a typo cannot quietly produce an all-zero cohort.  Reserve
+{cmd:nocase} for literal codes and character classes; uppercasing a regex escape
+sequence under {cmd:nocase} can change its meaning.
+
+{pstd}
 {bf:Reusable workflows.}  Many projects start with
 {helpb codescan_describe}, then write a first pass with {cmd:define()}, and
 finally freeze those rules with {cmd:save()} for future runs through
@@ -550,9 +562,12 @@ you want both the original encounter-level data and a patient-level summary in
 the same session.
 
 {pstd}
-{bf:Performance.}  {cmd:codescan} uses a Mata scanning engine.  The payoff is most
-visible when scanning many variables, when using {cmd:detail}, or when repeatedly
-applying the same rule set to large administrative datasets.
+{bf:Engine.}  {cmd:codescan} applies the whole rule set in a single Mata pass over
+the code variables, so you express a multi-condition definition once instead of
+writing one {cmd:generate}/{cmd:replace} per condition per variable.  Its value is
+correctness and conciseness — per-cell exclusions, patient-level collapse with date
+statistics, time windows, and prevalence CIs in one command — rather than raw speed
+against a hand-written loop.
 
 
 {marker examples}{...}
@@ -717,6 +732,7 @@ the encounter detail and the condition flags in one dataset.
 {synopt:{cmd:r(id)}}identifier variable when specified{p_end}
 {synopt:{cmd:r(date)}}event-date variable when {cmd:date()} was specified{p_end}
 {synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
+{synopt:{cmd:r(n_excluded_missingdate)}}rows dropped from the time window for a missing {cmd:date()}/{cmd:refdate()}, when a window was used{p_end}
 {synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
 {synopt:{cmd:r(lookback)}}space-separated lookback values when multiple windows were requested{p_end}
 

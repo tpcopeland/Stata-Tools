@@ -697,6 +697,78 @@ else {
 }
 
 
+**# Composition edge cases: mismatched block shapes (v1.8.8 hardening)
+
+* A prior test reassigns `wb' via `tempfile'; use a dedicated workbook here.
+local wbmix `"`tmpdir'/hardening_workbook.xlsx"'
+capture erase "`wbmix'"
+
+* Build two blocks with DIFFERENT column counts in the source workbook
+clear
+input str20 label str10 est str16 ci
+"Category" "HR" "95% CI"
+"Active" "1.45" "(1.20, 1.75)"
+end
+export excel "`wbmix'", sheet("Wide3") sheetreplace
+clear
+input str20 label str10 est
+"Dose" "aHR"
+"Low" "1.10"
+end
+export excel "`wbmix'", sheet("Narrow2") sheetreplace
+
+* vstack with unequal column counts pads the narrow block to the widest width;
+* the narrow block's missing third column must be blank, not shifted/misaligned.
+local ++test_count
+capture noisily {
+    stacktab using "`wbmix'", ///
+        blocks(sheet(Wide3) rows(1/2) cols(A-C) \ sheet(Narrow2) rows(1/2) cols(A-B)) ///
+        sheet("VMix") sheetreplace
+    assert r(cols_out) == 3
+    assert "`r(layout)'" == "vstack"
+    import excel using "`wbmix'", sheet("VMix") clear allstring
+    * body anchored at B2: wide block in rows 1-2, narrow block in rows 3-4
+    assert B[1] == "Category"
+    assert D[1] == "95% CI"
+    assert B[3] == "Dose"
+    assert C[3] == "aHR"
+    * the narrow block has no third column -> padded cell must be empty
+    assert D[3] == ""
+    assert D[4] == ""
+}
+if _rc == 0 {
+    display as result "  PASS: vstack pads mismatched-width blocks without misalignment"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: vstack mismatched-width blocks (rc=`=_rc')"
+    local ++fail_count
+}
+
+* hstack with unequal row counts is rejected with a clear error, not a corrupt sheet
+local ++test_count
+capture noisily {
+    clear
+    input str20 label str10 est str16 ci
+    "Category" "HR" "95% CI"
+    "Active" "1.45" "(1.20, 1.75)"
+    "Recent" "0.98" "(0.82, 1.17)"
+    end
+    export excel "`wbmix'", sheet("Tall3") sheetreplace
+    capture stacktab using "`wbmix'", ///
+        blocks(sheet(Tall3) rows(1/3) cols(A-C) \ sheet(Narrow2) rows(1/2) cols(A-B)) ///
+        sheet("HMix") layout(hstack) sheetreplace
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: hstack rejects unequal-row blocks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hstack unequal-row rejection (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

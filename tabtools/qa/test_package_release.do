@@ -313,12 +313,13 @@ else {
     local failed_tests "`failed_tests' dev_gate_discrimination"
 }
 
-**## tabtools.ado package version literal matches the header version
+**## tabtools runtime r(version) is derived from the .ado header (no literal)
+* tabtools.ado parses its own *! header at runtime instead of carrying a
+* hardcoded version literal (which previously went stale). Verify the returned
+* r(version) matches the header, and that no stale literal was reintroduced.
 capture noisily {
     tempname ado_fh
     local header_version ""
-    local package_version ""
-
     file open `ado_fh' using "`pkg_dir'/tabtools.ado", read text
     file read `ado_fh' line
     while r(eof) == 0 {
@@ -326,25 +327,23 @@ capture noisily {
             local header_tail = subinstr(`"`line'"', "Version ", "", 1)
             local header_version = word(`"`header_tail'"', 3)
         }
-        if `"`package_version'"' == "" & strpos(`"`line'"', "_package_version") > 0 {
-            local package_version = subinstr(`"`line'"', "local _package_version ", "", 1)
-            local package_version = subinstr(`"`package_version'"', char(34), "", .)
-            local package_version = strtrim(`"`package_version'"')
-        }
         file read `ado_fh' line
     }
     file close `ado_fh'
-
     assert `"`header_version'"' != ""
-    assert `"`package_version'"' != ""
-    assert `"`header_version'"' == `"`package_version'"'
+
+    * the dispatcher returns its version, derived from the header at runtime
+    quietly tabtools
+    assert `"`r(version)'"' != ""
+    assert `"`r(version)'"' != "unknown"
+    assert `"`r(version)'"' == `"`header_version'"'
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools.ado header and package version literal match"
+    display as result "  PASS: tabtools r(version) matches the .ado header"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools.ado version synchronization (error `=_rc')"
+    display as error "  FAIL: tabtools version synchronization (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tabtools_version_sync"
 }
@@ -1001,14 +1000,15 @@ else {
 
 **# 13. Version consistency across sthlp files (I1 regression)
 
-**## 13a. EVERY .sthlp prose version line matches the .ado version
-* Generalized in 1.8.x: §13a previously opened only tabtools.sthlp and matched
-* solely "{bf:Version}", so stale prose versions in the other 15 help files
-* slipped through (I1: simtab/stacktab read 1.8.0 while headers were 1.8.2).
-* Now loops over all shipped .sthlp and accepts the three prose formats in use:
-* "{bf:Version} X.Y.Z", "{pstd}Version X.Y.Z{p_end}", and bare "Version X.Y.Z".
-* Each file must contribute at least one match, so a dropped or reformatted
-* prose-version line fails loudly instead of going unchecked.
+**## 13a. flagship-only version rule: tabtools.sthlp carries the prose version
+* House standard (CLAUDE.md): the package version is recorded once, in the
+* FLAGSHIP help file. The flagship tabtools.sthlp must carry a prose version
+* line matching the .ado header; every sub-command / helper .sthlp must NOT
+* carry one (so a stale prose version cannot drift in a secondary file). This
+* loop enforces both halves: flagship match required, others must be empty.
+* Accepts the prose formats in use: "{bf:Version} X.Y.Z", "{pstd}Version
+* X.Y.Z{p_end}", and bare "Version X.Y.Z" (the lowercase "{* *! version ...}"
+* header is skipped since regexm is case-sensitive).
 capture noisily {
     * Get .ado version from first line of tabtools.ado header
     tempname fh_ado
@@ -1026,8 +1026,6 @@ capture noisily {
         file open `fh_ver' using "`pkg_dir'/`sf'", read text
         file read `fh_ver' line
         while r(eof) == 0 {
-            * Capital "Version" + X.Y.Z = a prose version line. The lowercase
-            * header "{* *! version ...}" is skipped (regexm is case-sensitive).
             if regexm(`"`line'"', "Version[^0-9]*([0-9]+\.[0-9]+\.[0-9]+)") {
                 local sthlp_version = regexs(1)
                 assert "`sthlp_version'" == "`ado_version'"
@@ -1036,16 +1034,22 @@ capture noisily {
             file read `fh_ver' line
         }
         file close `fh_ver'
-        * Guard: this file must carry a prose version line that the scan matched.
-        assert `file_found' == 1
+        if "`sf'" == "tabtools.sthlp" {
+            * the flagship must carry the (matching) prose version
+            assert `file_found' == 1
+        }
+        else {
+            * sub-command / helper help files must not carry a prose version
+            assert `file_found' == 0
+        }
     }
 }
 if _rc == 0 {
-    display as result "  PASS [13a]: all .sthlp prose versions match .ado version"
+    display as result "  PASS [13a]: flagship-only .sthlp prose version matches .ado"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [13a]: .sthlp prose version mismatch/missing (rc=`=_rc')"
+    display as error "  FAIL [13a]: .sthlp prose version flagship-only rule (rc=`=_rc')"
     local ++fail_count
 }
 

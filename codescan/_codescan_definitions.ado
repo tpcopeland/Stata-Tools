@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 2.0.2  2026/06/26
+*! _codescan_definitions Version 2.0.4  2026/06/30
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland
 
@@ -224,7 +224,21 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
         exit(198)
     }
     if (depth_bracket != 0) {
-        printf("{txt}(note: " + ptype + " for %s has unclosed '[' in pattern: %s)\n", cname, pat)
+        // An unclosed '[' silently matches nothing under the matching engine —
+        // a false-zero cohort, not a cosmetic issue. Treat it as an error.
+        errprintf("{err}" + ptype + " for %s: unclosed '[' in pattern: %s\n", cname, pat)
+        exit(198)
+    }
+
+    // Runtime compile-probe (catch-all). The structural checks above only
+    // balance delimiters; malformed quantifiers ({2,1}, leading *), bad groups,
+    // and empty alternations slip through and make regexm() silently return 0
+    // (a false-zero cohort). ustrregexm() returns -1 (not a Stata error) on a
+    // structurally invalid ICU pattern, so probe the *anchored* form the scanner
+    // actually uses ("^(...)" — see _codescan_mata_scan) and reject -1.
+    if (ustrregexm("__codescan_probe__", "^(" + pat + ")") == -1) {
+        errprintf("{err}" + ptype + " for %s: invalid regex pattern: %s\n", cname, pat)
+        exit(198)
     }
 }
 end

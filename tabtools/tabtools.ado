@@ -1,4 +1,4 @@
-*! tabtools Version 1.8.7  2026/06/30
+*! tabtools Version 1.8.8  2026/06/30
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -35,7 +35,21 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.8.6"
+        * Derive the package version from this file's *! header so it can never
+        * drift from the header on a version bump (previously a hardcoded literal
+        * that silently went stale).
+        local _package_version "unknown"
+        capture findfile tabtools.ado
+        if !_rc {
+            tempname _vfh
+            capture file open `_vfh' using "`r(fn)'", read text
+            if !_rc {
+                file read `_vfh' _vheader
+                file close `_vfh'
+                if regexm(`"`_vheader'"', "Version ([0-9.]+)") ///
+                    local _package_version = regexs(1)
+            }
+        }
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///

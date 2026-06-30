@@ -1,4 +1,4 @@
-*! regtab Version 1.8.7  2026/06/30
+*! regtab Version 1.8.8  2026/06/30
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1750,25 +1750,65 @@ if `"`cutlabels'"' != "" {
 * A holds the rendered label; _raw_A holds the raw coefficient/variable name.
 * Match tokens against either, by exact value or substring (covers factor
 * prefixes like 2.arm and label substrings).
+* Each token is matched as typed and with leading/embedded factor operators
+* (i. c. o.) stripped, so natural fvvarlist notation -- keep(i.foreign),
+* keep(1.foreign#c.mpg) -- matches the rendered coefficient name (foreign,
+* 1.foreign#mpg). A keep()/drop() that empties the body is almost always a
+* mis-typed token; refuse it loudly rather than writing a headers-only table.
 if "`keep'" != "" {
+    quietly count if _n > 2
+    local _nbody_pre = r(N)
     gen byte _keep = 0
     replace _keep = 1 if _n <= 2
     foreach _kvar in `keep' {
-        replace _keep = 1 if strtrim(strlower(A)) == strlower("`_kvar'")
-        replace _keep = 1 if strpos(strlower(A), strlower("`_kvar'")) > 0
-        replace _keep = 1 if strtrim(strlower(_raw_A)) == strlower("`_kvar'")
-        replace _keep = 1 if strpos(strlower(_raw_A), strlower("`_kvar'")) > 0
+        local _kt = strlower("`_kvar'")
+        local _kn : subinstr local _kt "i." "", all
+        local _kn : subinstr local _kn "c." "", all
+        local _kn : subinstr local _kn "o." "", all
+        foreach _kk in `"`_kt'"' `"`_kn'"' {
+            if "`_kk'" == "" continue
+            replace _keep = 1 if strtrim(strlower(A)) == "`_kk'"
+            replace _keep = 1 if strpos(strlower(A), "`_kk'") > 0
+            replace _keep = 1 if strtrim(strlower(_raw_A)) == "`_kk'"
+            replace _keep = 1 if strpos(strlower(_raw_A), "`_kk'") > 0
+        }
+    }
+    quietly count if _keep & _n > 2
+    if `_nbody_pre' > 0 & r(N) == 0 {
+        drop _keep
+        noisily display as error ///
+            "keep() matched no coefficient rows; matching is by variable name or label substring -- check the keep() spec"
+        exit 198
     }
     drop if !_keep
     drop _keep
 }
 if "`drop'" != "" {
+    quietly count if _n > 2
+    local _nbody_pre = r(N)
+    gen byte _dropflag = 0
     foreach _dvar in `drop' {
-        drop if strtrim(strlower(A)) == strlower("`_dvar'") & _n > 2
-        drop if strpos(strlower(A), strlower("`_dvar'")) > 0 & _n > 2
-        drop if strtrim(strlower(_raw_A)) == strlower("`_dvar'") & _n > 2
-        drop if strpos(strlower(_raw_A), strlower("`_dvar'")) > 0 & _n > 2
+        local _dt = strlower("`_dvar'")
+        local _dn : subinstr local _dt "i." "", all
+        local _dn : subinstr local _dn "c." "", all
+        local _dn : subinstr local _dn "o." "", all
+        foreach _dk in `"`_dt'"' `"`_dn'"' {
+            if "`_dk'" == "" continue
+            replace _dropflag = 1 if strtrim(strlower(A)) == "`_dk'" & _n > 2
+            replace _dropflag = 1 if strpos(strlower(A), "`_dk'") > 0 & _n > 2
+            replace _dropflag = 1 if strtrim(strlower(_raw_A)) == "`_dk'" & _n > 2
+            replace _dropflag = 1 if strpos(strlower(_raw_A), "`_dk'") > 0 & _n > 2
+        }
     }
+    quietly count if _dropflag
+    if `_nbody_pre' > 0 & r(N) >= `_nbody_pre' {
+        drop _dropflag
+        noisily display as error ///
+            "drop() would remove every coefficient row, leaving an empty table; check the drop() spec"
+        exit 198
+    }
+    drop if _dropflag
+    drop _dropflag
 }
 
 local first_re_row ""

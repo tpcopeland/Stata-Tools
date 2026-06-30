@@ -1,4 +1,4 @@
-*! codescan Version 2.0.2  2026/06/26
+*! codescan Version 2.0.4  2026/06/30
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -53,6 +53,8 @@ STORED RESULTS:
     r(lookback)       - Lookback days (if specified; space-separated if multi-window)
     r(lookforward)    - Lookforward days (if specified)
     r(refdate)        - Reference date variable (if specified)
+    r(n_excluded_missingdate) - Rows dropped from the time window for a missing
+                        date()/refdate() (if lookback()/lookforward() specified)
     r(frame)          - Frame name (if frame() specified)
     r(nocase)         - "nocase" if case-insensitive matching was used
     r(generate)       - Output-name prefix (if generate() specified)
@@ -146,6 +148,7 @@ program define codescan, rclass
     }
 
     * Parse lookback — accepts integers or standard numlists (e.g. 30(30)90)
+    local _n_excl_missdate = 0
     local has_lookback = (`"`lookback'"' != "")
     local n_lookback_windows = 0
     local _lookback_primary = -1
@@ -445,10 +448,14 @@ program define codescan, rclass
     }
 
     * =========================================================================
-    * REGEX PRE-VALIDATION (R1) — structural check
+    * REGEX PRE-VALIDATION (R1) — structural check + compile-probe
     * =========================================================================
-    * Stata's regexm() is lenient and never errors on invalid patterns.
-    * We check for the most common structural issues: unmatched brackets.
+    * Stata's regexm() is lenient and silently returns 0 on invalid patterns —
+    * a false-zero cohort with no error. _codescan_validate_def_regex first runs
+    * a structural delimiter check (clear "unmatched ')'" / "unclosed '['"
+    * messages) and then a ustrregexm() compile-probe that rejects every other
+    * malformed pattern (bad quantifiers, groups, alternations). See
+    * _codescan_definitions.ado.
     if "`mode'" == "regex" {
         forvalues i = 1/`n_conditions' {
             local _pat_arg `"`macval(def_pattern_`i')'"'
@@ -679,6 +686,15 @@ program define codescan, rclass
     local include_ref = ("`inclusive'" != "" | (`has_lookback' & `has_lookfwd'))
 
     if `has_lookback' | `has_lookfwd' {
+        * Rows with a missing date()/refdate() cannot be placed in the time
+        * window and are dropped from every condition. In row-level mode this
+        * silently zeroes a genuinely-matching code, so report the count (and
+        * expose it via r(n_excluded_missingdate)) rather than failing quietly.
+        quietly count if `touse' & (missing(`date') | missing(`refdate'))
+        local _n_excl_missdate = r(N)
+        if `_n_excl_missdate' > 0 {
+            display as text "(note: `_n_excl_missdate' row(s) excluded from the time window for missing date()/refdate())"
+        }
         quietly replace `touse' = 0 if missing(`date') | missing(`refdate')
     }
 
@@ -1520,6 +1536,7 @@ program define codescan, rclass
     }
     if `has_lookfwd'                   return scalar lookforward = `lookforward'
     if `has_lookback' | `has_lookfwd'  return local refdate "`refdate'"
+    if `has_lookback' | `has_lookfwd'  return scalar n_excluded_missingdate = `_n_excl_missdate'
     if "`frame'" != ""                 return local frame "`frame'"
     return scalar ci_level = c(level)
     * , copy — keep local tempname matrices alive for the export block below.
@@ -1700,6 +1717,14 @@ void _codescan_mata_scan()
     real matrix      indicators, varcounts
     real colvector   touse
     real rowvector   match_counts
+    string rowvector pk, epk
+    real rowvector   lk, elk
+    transmorphic     A
+    string colvector keys
+    string scalar    dval
+    real matrix      D
+    real colvector   anymatch
+    real scalar      didx, ndistinct, di
 
     // Read parameters from Stata locals
     ncond      = strtoreal(st_local("_mata_ncond"))
@@ -1727,12 +1752,15 @@ void _codescan_mata_scan()
         excl_patterns[i] = st_local("_mata_excl_" + strofreal(i))
     }
 
-    // F1: nocase — uppercase patterns for case-insensitive matching
+    // F1: nocase — uppercase patterns for case-insensitive matching.
+    // ustrupper() (not strupper()) folds unicode case correctly (e.g. å→Å),
+    // matching the unicode-aware ustrregexm() engine used below. Values are
+    // folded with ustrupper() at scan time (see below) so both sides agree.
     if (use_nocase) {
         for (i = 1; i <= ncond; i++) {
-            patterns[i] = strupper(patterns[i])
+            patterns[i] = ustrupper(patterns[i])
             if (excl_patterns[i] != "") {
-                excl_patterns[i] = strupper(excl_patterns[i])
+                excl_patterns[i] = ustrupper(excl_patterns[i])
             }
         }
     }
@@ -1794,11 +1822,90 @@ void _codescan_mata_scan()
     match_counts = J(1, ncond, 0)
     mc_name = st_local("_mata_mc_name")
 
-    // ── SINGLE PASS: inclusion with inline exclusion per code value ──
-    // Each code value is independently evaluated: it must match the
-    // inclusion pattern AND NOT match the exclusion pattern.  This
-    // ensures a valid code in one variable is not zeroed by an excluded
-    // code in another variable on the same row.
+    // ── DISTINCT-VALUE MEMOIZATION ──
+    // A code's classification (matched AND NOT excluded, per condition) depends
+    // ONLY on the string value, never on the row.  Registry data has millions of
+    // cells but only a few thousand distinct codes, so we classify each distinct
+    // (transformed) value once and reuse the result, turning the hot loop into a
+    // hash lookup.  Results are byte-identical to a per-cell scan; only the cost
+    // changes (O(distinct x ncond) pattern tests instead of O(N x nvars x ncond)).
+
+    // Pass 1 — collect the distinct transformed values that will be scanned.
+    A = asarray_create("string", 1)
+    asarray_notfound(A, 0)
+    for (j = 1; j <= nvars; j++) {
+        st_sview(col, ., scanvars[j])
+        for (i = 1; i <= N; i++) {
+            if (!touse[i]) continue
+            if (col[i] == "") continue
+            val = col[i]
+            if (strip_dots) val = subinstr(val, ".", "", .)
+            if (use_nocase) val = ustrupper(val)
+            if (asarray(A, val) == 0) asarray(A, val, 1)
+        }
+    }
+
+    // Pass 2 — classify each distinct value once into D[didx, k]; assign each
+    // key its final index didx (1..ndistinct) in the asarray for O(1) lookup.
+    keys      = asarray_keys(A)
+    ndistinct = rows(keys)
+    D         = J(ndistinct, ncond, 0)
+    anymatch  = J(ndistinct, 1, 0)
+    for (di = 1; di <= ndistinct; di++) {
+        dval = keys[di]
+        asarray(A, dval, di)
+        for (k = 1; k <= ncond; k++) {
+            // ── Inclusion check ──
+            matched = 0
+            if (is_prefix) {
+                pk = *pfx_list[k]
+                lk = *pfx_lens[k]
+                npfx = cols(pk)
+                for (len = 1; len <= npfx; len++) {
+                    if (substr(dval, 1, lk[len]) == pk[len]) {
+                        matched = 1
+                        break
+                    }
+                }
+            }
+            else {
+                // ustrregexm(): unicode-aware ICU engine. Returns 1/0 for valid
+                // patterns (-1 only on an invalid pattern, which the validator
+                // rejects up front); compare ==1 so any stray -1 is a non-match.
+                if (ustrregexm(dval, anchored_pats[k]) == 1) matched = 1
+            }
+            if (!matched) continue
+
+            // ── Exclusion check ──
+            if (has_excl & excl_patterns[k] != "") {
+                excluded = 0
+                if (is_prefix) {
+                    epk = *excl_pfx_list[k]
+                    elk = *excl_pfx_lens[k]
+                    enpfx = cols(epk)
+                    for (len = 1; len <= enpfx; len++) {
+                        if (substr(dval, 1, elk[len]) == epk[len]) {
+                            excluded = 1
+                            break
+                        }
+                    }
+                }
+                else {
+                    // ==1 guard: a stray -1 must not exclude every value.
+                    if (ustrregexm(dval, anchored_excl[k]) == 1) excluded = 1
+                }
+                if (excluded) continue
+            }
+
+            D[di, k] = 1
+            anymatch[di] = 1
+        }
+    }
+
+    // Pass 3 — apply.  Same j (variable) / i (row) / k (condition) nesting and
+    // early-out as the original per-cell scan, so all ordering-dependent outputs
+    // (matched_code first-hit, match_counts, varcounts) are preserved exactly.
+    // The only change: the inline pattern test is now a D[didx, k] lookup.
     for (j = 1; j <= nvars; j++) {
         st_sview(col, ., scanvars[j])
 
@@ -1806,48 +1913,17 @@ void _codescan_mata_scan()
             if (!touse[i]) continue
             if (col[i] == "") continue
 
-            // Inline value transforms: strip dots, then uppercase
             val = col[i]
             if (strip_dots) val = subinstr(val, ".", "", .)
-            if (use_nocase) val = strupper(val)
+            if (use_nocase) val = ustrupper(val)
+            didx = asarray(A, val)
+            // Values that match no condition (common: codes in untargeted
+            // chapters) skip the condition loop entirely.
+            if (anymatch[didx] == 0) continue
 
             for (k = 1; k <= ncond; k++) {
                 if (!is_count && indicators[i, k]) continue
-
-                // ── Inclusion check ──
-                matched = 0
-                if (is_prefix) {
-                    npfx = cols(*pfx_list[k])
-                    for (len = 1; len <= npfx; len++) {
-                        if (substr(val, 1, (*pfx_lens[k])[len]) == (*pfx_list[k])[len]) {
-                            matched = 1
-                            break
-                        }
-                    }
-                }
-                else {
-                    if (regexm(val, anchored_pats[k])) matched = 1
-                }
-
-                if (!matched) continue
-
-                // ── Inline exclusion check ──
-                if (has_excl & excl_patterns[k] != "") {
-                    excluded = 0
-                    if (is_prefix) {
-                        enpfx = cols(*excl_pfx_list[k])
-                        for (len = 1; len <= enpfx; len++) {
-                            if (substr(val, 1, (*excl_pfx_lens[k])[len]) == (*excl_pfx_list[k])[len]) {
-                                excluded = 1
-                                break
-                            }
-                        }
-                    }
-                    else {
-                        if (regexm(val, anchored_excl[k])) excluded = 1
-                    }
-                    if (excluded) continue
-                }
+                if (!D[didx, k]) continue
 
                 // ── Code passed inclusion and exclusion — record match ──
                 if (is_count) {

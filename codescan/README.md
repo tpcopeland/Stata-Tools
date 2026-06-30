@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.2** | 2026-06-26
+**Version 2.0.4** | 2026-06-30
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -69,7 +69,7 @@ For troubleshooting, add `detail` to see how many matches came from each scanned
 
 ## Regex Patterns in Plain English
 
-`mode(regex)` is the default.  For each code value, `codescan` uses Stata's `regexm()` function and automatically adds a start-of-string anchor.  That means `define(dm2 "E11")` is checked like `regexm(code, "^(E11)")`: the code must start with `E11`.
+`mode(regex)` is the default.  For each code value, `codescan` uses Stata's unicode-aware regex engine (`ustrregexm()`) and automatically adds a start-of-string anchor.  That means `define(dm2 "E11")` is checked like `ustrregexm(code, "^(E11)")`: the code must start with `E11`.  With `nocase`, matching folds case across unicode (so `"Å"` matches `å`).
 
 Common patterns:
 
@@ -378,6 +378,18 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.4 (2026-06-30)
+
+- **Internal:** the scan engine was restructured to classify each *distinct* code value once and reuse the result, rather than re-evaluating repeated codes. Results are byte-identical to v2.0.3 — no change to any output, option, or stored result.
+- QA: added `test_codescan_perf_equiv.do` (memoized result equals an independent brute-force reference; row-order independence). The full suite passes unmodified.
+
+### 2.0.3 (2026-06-30)
+
+- **Behavior change (regex):** `regex` patterns are now matched with the unicode-aware `ustrregexm()` engine. A structurally invalid pattern (unbalanced bracket, empty group, malformed quantifier such as `a{2,1}`) is now **rejected with an error** instead of silently matching nothing — a typo can no longer quietly produce an all-zero cohort. Valid ASCII patterns are unaffected.
+- **`nocase` is now unicode-aware:** case folding uses `ustrupper()`, so a pattern such as `"Å"` matches both `å` and `Å` (relevant for Nordic register codes).
+- New: `r(n_excluded_missingdate)` reports the number of rows dropped from the time window for a missing `date()`/`refdate()`, with a console note, when `lookback()`/`lookforward()` is used.
+- QA: added `test_codescan_v203_hardening.do` (malformed-regex rejection across `define()`/`codefile()`/exclusion, unicode `nocase`, ASCII regression guard, missing-date scalar) and a `benchmark_codescan_scale.do` guardrail; re-baselined the full suite under the ICU engine.
 
 ### 2.0.2 (2026-06-26)
 

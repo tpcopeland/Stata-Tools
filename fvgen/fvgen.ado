@@ -1,4 +1,4 @@
-*! fvgen Version 1.1.0  2026/06/27
+*! fvgen Version 1.2.0  2026/06/30
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -8,6 +8,7 @@
 Basic syntax:
   fvgen fvvarlist [if] [in] [weight] [, alllevels center prefix(name) ///
       ref(spec) simple(varname) replace xsymbol(string)]
+  fvgen , margins [store(name) replace]
   fvgen , drop
 
 Materializes the terms of a factor-variable interaction specification as
@@ -19,6 +20,9 @@ extra factor-variable header rows produced by the i.a##c.b approach.
 Generated variables carry provenance characteristics (fvgen_role,
 fvgen_term) so downstream tools can recognize, group, and tear them down;
 fvgen, drop removes every fvgen-generated variable in the dataset.
+fvgen, margins rebuilds the active flattened estimation result with native
+factor-variable syntax so Stata's margins can read the original factor
+structure using the estimator's own postestimation metadata.
 
 See help fvgen for complete documentation.
 */
@@ -27,6 +31,11 @@ program define fvgen, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _fvgen_est_held = 0
+    local _fvgen_unhold_rc = 0
+    local _fvgen_margins_active = 0
+    local _fvgen_store_done ""
+    tempname _fvgen_est_hold
 
     capture noisily {
 
@@ -52,18 +61,60 @@ program define fvgen, rclass
             PREfix(name) ///
             REF(string asis) ///
             SIMPle(varname) ///
+            MARGINS ///
+            STORe(name) ///
             VSref(string) ///
             replace ///
             XSYMbol(string) ///
             DROP]
 
-        local _drop_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`vsref'`replace'`xsymbol'"'
+        local _drop_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`margins'`store'`vsref'`replace'`xsymbol'"'
+        local _margins_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`vsref'`xsymbol'`drop'"'
         if "`prefix'" == "" local prefix "_"
         if "`xsymbol'" == "" local xsymbol "×"
         local alllev = ("`alllevels'" != "")
         if !`_has_vl' local varlist ""
 
-        if "`drop'" != "" {
+        if "`margins'" != "" | "`store'" != "" {
+            **# Post-estimation mode: rebuild native-factor estimates for margins
+            * This leaves the generated variables themselves untouched.  The
+            * optional store() path creates a margins-ready clone and restores
+            * the active flattened estimates, keeping regtab output clean.
+            if "`margins'" == "" {
+                display as error "store() is only allowed with margins; use {cmd:fvgen, margins store(name)}"
+                exit 198
+            }
+            if `_has_vl' | `"`_margins_extras'"' != "" {
+                display as error ///
+                    "margins does not take varlists, qualifiers, weights, or generation/drop options; use {cmd:fvgen, margins} or {cmd:fvgen, margins store(name)}"
+                exit 198
+            }
+            if "`replace'" != "" & "`store'" == "" {
+                display as error "replace with margins is only allowed when store(name) is specified"
+                exit 198
+            }
+
+            if "`store'" != "" {
+                capture _estimates hold `_fvgen_est_hold', restore copy nullok
+                if _rc {
+                    display as error "fvgen, margins store(): could not preserve the active estimates"
+                    exit _rc
+                }
+                local _fvgen_est_held = 1
+                _fvgen_margins_repost
+                if "`replace'" != "" capture estimates drop `store'
+                estimates store `store'
+                return local stored "`store'"
+                return local margins "stored"
+                local _fvgen_store_done "`store'"
+            }
+            else {
+                _fvgen_margins_repost
+                return local margins "active"
+                local _fvgen_margins_active = 1
+            }
+        }
+        else if "`drop'" != "" {
             **# Teardown mode: drop every fvgen-generated variable
             * Generated variables are tagged with a fvgen_role characteristic;
             * remove exactly those, leaving pass-through originals untouched.
@@ -82,6 +133,11 @@ program define fvgen, rclass
                     }
                 }
             }
+            char _dta[fvgen_spec] ""
+            char _dta[fvgen_terms] ""
+            char _dta[fvgen_allvars] ""
+            char _dta[fvgen_genvars] ""
+            char _dta[fvgen_centered] ""
             local _dropped : list clean _dropped
             local _nd : word count `_dropped'
             return local dropped  "`_dropped'"
@@ -101,6 +157,12 @@ program define fvgen, rclass
                 display as error "fvvarlist required"
                 exit 100
             }
+
+            char _dta[fvgen_spec] ""
+            char _dta[fvgen_terms] ""
+            char _dta[fvgen_allvars] ""
+            char _dta[fvgen_genvars] ""
+            char _dta[fvgen_centered] ""
 
             **# Validate the vsref() template up front
             * vsref() appends the reference (base) level to main-effect labels.
@@ -505,6 +567,13 @@ program define fvgen, rclass
                 exit 198
             }
 
+            **# Dataset-level provenance for post-estimation margins-ready clones
+            char _dta[fvgen_spec] "`expandspec'"
+            char _dta[fvgen_terms] "`terms'"
+            char _dta[fvgen_allvars] "`allvars'"
+            char _dta[fvgen_genvars] "`genvars'"
+            char _dta[fvgen_centered] "`center'"
+
             **# Return results
             return local spec     "`expandspec'"
             return local allvars  "`allvars'"
@@ -528,8 +597,20 @@ program define fvgen, rclass
         }
     }
     local rc = _rc
+    if `_fvgen_est_held' {
+        capture _estimates unhold `_fvgen_est_hold'
+        local _fvgen_unhold_rc = _rc
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+    if `_fvgen_unhold_rc' exit `_fvgen_unhold_rc'
+    if `"`_fvgen_store_done'"' != "" {
+        display as text "fvgen stored margins-ready estimates as " as result "`_fvgen_store_done'" ///
+            as text "; the active flattened estimates were restored for table export"
+    }
+    if `_fvgen_margins_active' {
+        display as text "fvgen rebuilt the active estimates with native factor-variable syntax for margins"
+    }
 end
 
 **# Helper: validate a candidate variable name (length + collision)
@@ -576,4 +657,77 @@ program define _fvgen_setlabel
             "note: variable label for `name' truncated to Stata's 80-character limit"
     }
     label variable `name' `"`lab'"'
+end
+
+**# Helper: rerun active flattened estimates with native factor-variable syntax
+capture program drop _fvgen_margins_repost
+program define _fvgen_margins_repost, eclass
+    version 16.0
+
+    if "`e(cmd)'" == "" {
+        display as error "fvgen, margins requires active estimation results"
+        exit 301
+    }
+    capture confirm matrix e(b)
+    if _rc {
+        display as error "fvgen, margins requires active estimation results with e(b)"
+        exit 301
+    }
+    capture confirm matrix e(V)
+    if _rc {
+        display as error "fvgen, margins requires active estimation results with e(V)"
+        exit 301
+    }
+
+    local allvars : char _dta[fvgen_allvars]
+    local spec    : char _dta[fvgen_spec]
+    if `"`allvars'"' == "" | `"`spec'"' == "" {
+        display as error ///
+            "fvgen, margins requires fvgen term provenance; rerun fvgen, estimate on r(allvars), then call fvgen, margins"
+        exit 198
+    }
+    local centered : char _dta[fvgen_centered]
+    if "`centered'" != "" {
+        display as error ///
+            "fvgen, margins does not support models generated with center; margins must see the same raw factor-variable scale used for estimation"
+        exit 198
+    }
+
+    local cmdline `"`e(cmdline)'"'
+    if `"`cmdline'"' == "" {
+        display as error "fvgen, margins requires e(cmdline) so the estimator can be rerun with native factor-variable syntax"
+        exit 301
+    }
+
+    local cmd_pad `" `cmdline' "'
+    local varseq  `" `allvars'"'
+    local pos = strpos(`"`cmd_pad'"', `"`varseq'"')
+    local nextchar ""
+    if `pos' {
+        local nextchar = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), 1)
+    }
+    if `pos' == 0 | !inlist(`"`nextchar'"', " ", ",") {
+        display as error ///
+            "fvgen, margins could not locate r(allvars) in the active estimation command line"
+        display as error ///
+            "rerun the model using the exact varlist returned by fvgen before calling fvgen, margins"
+        exit 198
+    }
+
+    local before = substr(`"`cmd_pad'"', 1, `pos' - 1)
+    local after  = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), .)
+    local native_cmdline `"`before' `spec' `after'"'
+
+    capture quietly `native_cmdline'
+    if _rc {
+        local native_rc = _rc
+        display as error ///
+            "fvgen, margins could not rerun the estimator with native factor-variable syntax"
+        display as error `"`native_cmdline'"'
+        exit `native_rc'
+    }
+
+    ereturn local fvgen_margins "1"
+    ereturn local fvgen_flat_cmdline `"`cmdline'"'
+    ereturn local fvgen_native_cmdline `"`native_cmdline'"'
 end

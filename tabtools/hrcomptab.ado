@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.8.7  2026/06/30
+*! hrcomptab Version 1.8.8  2026/06/30
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

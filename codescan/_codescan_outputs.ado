@@ -1,4 +1,4 @@
-*! _codescan_outputs Version 2.0.2  2026/06/26
+*! _codescan_outputs Version 2.0.4  2026/06/30
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland
 

@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.8.7** | 2026-06-30
+**Version 1.8.8** | 2026-06-30
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -393,6 +393,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.8.8** (2026-06-30): `regtab` keep()/drop() now match natural factor-variable notation — `keep(i.foreign)`, `keep(1.foreign#c.mpg)`, `drop(i.group)` — by stripping `i.`/`c.`/`o.` operators before matching against the rendered coefficient name. A keep()/drop() that matches no coefficient row (a mis-typed token) now raises a clear error instead of silently writing a headers-only table. No change to tables that already filtered correctly.
 - **1.8.7** (2026-06-30): Console table display no longer inserts spurious horizontal separator lines every five rows. The shared `_tabtools_console_display` helper now passes `separator(0)` to `list`, so the rendered table shows a clean body with rules only at the header and footer (Excel and Markdown exports were never affected). Applies to all commands that render a console preview (`desctab`, `crosstab`, `corrtab`, `simtab`, `diagtab`, `comptab`, `stratetab`, `regtab`, `survtab`, `effecttab`, `hrcomptab`).
 - **1.8.6** (2026-06-25): CSV and Markdown exports now use the same visible table columns as the rendered table instead of leaking Stata working-variable names or hidden helper columns. CSV exports are written without Stata variable-name headers, `regtab`/`effecttab`/`comptab` outputs omit internal `ref*` columns, and Markdown preserves blank visible header cells rather than substituting names such as `c2`/`c3`. `stacktab` Markdown now starts from the visible block header row.
 - **1.8.5** (2026-06-24): `stacktab` now styles each vertically stacked block's first row as a section/header row in Excel composites. Rows such as `By estrogen dose    aHR 95% CI` are bolded and receive thin top and bottom borders after `label()`, `postfix()`, and `columnmerge()` reshape the block headers, so multi-block tables keep clear visual breaks inside the final composite sheet. Updated the stacktab demo workbook and regression QA to assert the section-header styling.

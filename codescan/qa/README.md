@@ -47,6 +47,8 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_mata_opt.do` | functional | 14 | Mata fast-path: match accumulation, co-occurrence, multi-window, describe hash |
 | `test_codescan_regressions.do` | functional | 18 | Fixed-bug regression guards (incl. output-name vs id/date/refdate collisions) |
 | `test_codescan_v2_no_scoring.do` | functional | 4 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
+| `test_codescan_v203_hardening.do` | functional | 14 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
+| `test_codescan_perf_equiv.do` | functional | 5 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
 | `test_codescan_adversarial.do` | functional | 11 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | functional | 9 | `codescan_describe` hostile inputs |
 | `test_codescan_stress_adversarial.do` | functional | 6 | Scale/sparsity/name-collision stress |
@@ -64,6 +66,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `validation_countrows.do` | validation | 8 | `countrows` oracles |
 | `_codescan_qa_common.do` | scaffold | — | Sandboxed-install bootstrap |
 | `run_all.do` | runner | — | Curated lane runner |
+| `benchmark_codescan_scale.do` | benchmark | — | Manual wall-time guardrail (1M/5M × 30 vars × 20 conds, prefix vs ICU regex); not in any lane |
 | `tools/check_codescan_artifacts.py` | tool | — | Package-local `.xlsx`/`.dta` artifact checker |
 
 There is no true cross-validation suite: `codescan` has no external R/Python
@@ -96,6 +99,8 @@ contract (`test_codescan_v2_no_scoring.do`), and the release surface
 | `test_mata_opt` | ✓ | ✓ | ✓ |
 | `test_codescan_regressions` | ✓ | ✓ | ✓ |
 | `test_codescan_v2_no_scoring` | ✓ | ✓ | ✓ |
+| `test_codescan_v203_hardening` | ✓ | ✓ | ✓ |
+| `test_codescan_perf_equiv` | ✓ | ✓ | ✓ |
 | `validation_codescan` | ✓ | ✓ | ✓ |
 | `validation_countrows` | ✓ | ✓ | ✓ |
 | `validation_codescan_known_answers` |  | ✓ | ✓ |

@@ -4929,6 +4929,118 @@ else {
 }
 
 
+**# v1.8.8 regression: keep()/drop() factor-notation matching + zero-match guard
+**# Before the fix, keep(i.foreign) / keep(1.foreign#c.mpg) substring-failed
+**# against the rendered raw name (1.foreign, 1.foreign#mpg) and silently wrote
+**# a headers-only table at rc=0. The fix (a) strips i./c./o. operators from the
+**# token so fvvarlist notation matches, and (b) errors when keep/drop empties
+**# the coefficient body instead of returning a silent empty table.
+
+* keep(i.foreign): factor notation retains the factor rows, filters the rest
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price i.foreign c.mpg c.weight
+    regtab, frame(_v188_a) keep(i.foreign)
+    frame _v188_a {
+        quietly count if strpos(A, "Foreign") > 0
+        assert r(N) == 1
+        quietly count if strtrim(A) == "mpg" | strpos(A, "Mileage") > 0
+        assert r(N) == 0
+        quietly count if strpos(A, "Weight") > 0
+        assert r(N) == 0
+    }
+    capture frame drop _v188_a
+}
+if _rc == 0 {
+    display as result "  PASS: regtab keep(i.foreign) factor notation matches"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab keep(i.foreign) factor notation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* keep(1.foreign#c.mpg): interaction notation retains the interaction row
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price i.foreign##c.mpg
+    regtab, frame(_v188_b) keep(1.foreign#c.mpg)
+    frame _v188_b {
+        quietly count if strpos(A, "foreign#mpg") > 0
+        assert r(N) >= 1
+    }
+    capture frame drop _v188_b
+}
+if _rc == 0 {
+    display as result "  PASS: regtab keep(1.foreign#c.mpg) interaction notation matches"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab keep(1.foreign#c.mpg) interaction notation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* drop(i.foreign): factor notation removes the factor rows, keeps the rest
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price i.foreign mpg
+    regtab, frame(_v188_c) drop(i.foreign)
+    frame _v188_c {
+        quietly count if strpos(A, "Foreign") > 0
+        assert r(N) == 0
+        quietly count if strtrim(A) == "mpg" | strpos(A, "Mileage") > 0
+        assert r(N) == 1
+    }
+    capture frame drop _v188_c
+}
+if _rc == 0 {
+    display as result "  PASS: regtab drop(i.foreign) factor notation matches"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab drop(i.foreign) factor notation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* keep() that matches nothing errors loudly (was silent headers-only at rc=0)
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    capture regtab, frame(_v188_d) keep(zzznotacoef)
+    assert _rc == 198
+    * the failed run must not leave a half-built output frame behind
+    capture confirm frame _v188_d
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: regtab keep() zero-match errors (no silent empty table)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab keep() zero-match guard (rc=`=_rc')"
+    local ++fail_count
+}
+
+* drop() that would empty the coefficient body errors loudly
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg, noconstant
+    capture regtab, frame(_v188_e) drop(mpg) nointercept
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: regtab drop() body-empties guard errors"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab drop() body-empties guard (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Summary
 local test_count = `pass_count' + `fail_count'
