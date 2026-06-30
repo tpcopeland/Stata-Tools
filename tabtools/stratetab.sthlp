@@ -30,7 +30,7 @@
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt border:style(string)} {opt the:me(string)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
-{opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play}]
+{opt markdown(filename)} {opt mdappend} {opt fra:me(name)}]
 
 
 {marker description}{...}
@@ -149,8 +149,6 @@ Markdown. It may be used with or without {opt xlsx()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify
 {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-
-{phang2}{opt dis:play} is accepted for compatibility; the completed table is displayed automatically.{p_end}
 
 
 {marker examples}{...}

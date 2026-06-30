@@ -243,7 +243,7 @@ capture frame drop hrc_final2b
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_cmp3) ///
-    rows(1 \ 1) display
+ rows(1 \ 1)
 if _rc == 198 {
     display as result "  PASS: hrcomptab rejects mixed standard/compact layouts"
     local ++pass_count
@@ -356,7 +356,7 @@ else {
 capture frame drop hrc_nodisplay
 
 * -------------------------------------------------------------------------
-* 7. display option remains accepted and still previews
+* 7. table is previewed to the console by default
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
@@ -367,7 +367,7 @@ capture noisily {
     capture frame drop hrc_display
     hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
         rows(1 \ 3/4) ///
-        frame(hrc_display, replace) display
+        frame(hrc_display, replace)
     log close _preview_on
     local preview_text ""
     tempname fh
@@ -382,12 +382,12 @@ capture noisily {
     capture frame drop hrc_display
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab display option remains accepted"
+    display as result "  PASS: hrcomptab previews to console by default"
     local ++pass_count
 }
 else {
     capture log close _preview_on
-    display as error "  FAIL: hrcomptab display option preview (rc=`=_rc')"
+    display as error "  FAIL: hrcomptab console preview (rc=`=_rc')"
     local ++fail_count
 }
 capture frame drop hrc_display
@@ -493,12 +493,12 @@ capture noisily {
     collect clear
     collect: stcox i.agecat, nolog
     capture frame drop _reg_test
-    regtab, frame(_reg_test) coef(HR) display
+ regtab, frame(_reg_test) coef(HR)
 
     * hrcomptab with rownames — "55" should match "55-64" in regtab
     capture frame drop _hrc_test
     hrcomptab _str_test, modelframes(_reg_test) ///
-        rownames(55) display frame(_hrc_test)
+ rownames(55) frame(_hrc_test)
 
     frame _hrc_test {
         assert _N > 3
@@ -536,10 +536,10 @@ capture noisily {
     collect clear
     collect: stcox i.agecat, nolog
     capture frame drop _reg_test2
-    regtab, frame(_reg_test2) coef(HR) display
+ regtab, frame(_reg_test2) coef(HR)
 
     capture hrcomptab _str_test2, modelframes(_reg_test2) ///
-        rownames(NONEXISTENT_PATTERN) display
+ rownames(NONEXISTENT_PATTERN)
     assert _rc == 198
 }
 if _rc == 0 {

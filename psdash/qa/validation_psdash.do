@@ -875,20 +875,40 @@ else {
 }
 
 * =========================================================================
-* V35: KS_Adj column (col 10) always missing — no adjusted KS computed
+* V35: KS_Adj column (col 10) holds the weighted KS (weighted empirical CDF)
 * =========================================================================
-**# V35: KS_Adj column is missing even when wvar provided
+**# V35: KS_Adj column is the weighted Kolmogorov-Smirnov statistic
 local ++test_count
 capture noisily {
     psdash balance treated ps, covariates(age female bmi) wvar(ipw)
     matrix B = r(balance)
-    * Column 10 = KS_Adj: code never fills this in (only raw KS at col 5)
-    forvalues i = 1/3 {
-        assert missing(B[`i', 10])
+    local _maxksadj = r(max_ks_adj)
+    * Independent weighted KS via the weighted empirical CDF in each group
+    local _row = 0
+    foreach v in age female bmi {
+        local ++_row
+        preserve
+        quietly keep if !missing(`v') & !missing(treated) & !missing(ipw)
+        quietly summarize ipw if treated == 1
+        local _Wt = r(sum)
+        quietly summarize ipw if treated == 0
+        local _Wc = r(sum)
+        sort `v'
+        quietly gen double _cft = sum(cond(treated == 1, ipw, 0)) / `_Wt'
+        quietly gen double _cfc = sum(cond(treated == 0, ipw, 0)) / `_Wc'
+        quietly by `v': gen byte _last = (_n == _N)
+        quietly gen double _d = abs(_cft - _cfc) if _last
+        quietly summarize _d
+        local _ksw = r(max)
+        restore
+        assert !missing(B[`_row', 10])
+        assert abs(B[`_row', 10] - `_ksw') < 1e-10
     }
+    * r(max_ks_adj) is the largest weighted KS across covariates
+    assert abs(`_maxksadj' - max(B[1,10], B[2,10], B[3,10])) < 1e-10
 }
 if _rc == 0 {
-    display as result "  PASS: V35 KS_Adj column (col 10) is missing"
+    display as result "  PASS: V35 KS_Adj column is the weighted KS statistic"
     local ++pass_count
 }
 else {

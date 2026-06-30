@@ -1194,7 +1194,7 @@ capture noisily {
     save "`rate_exp'.dta", replace
 
     clear
-    stratetab, using("`rate_ref'" "`rate_exp'") outcomes(1) rateratio display
+ stratetab, using("`rate_ref'" "`rate_exp'") outcomes(1) rateratio
     matrix _ratios = r(ratios)
     assert abs(_ratios[1, 1] - `r_irr') < 1e-10
     capture matrix drop _ratios

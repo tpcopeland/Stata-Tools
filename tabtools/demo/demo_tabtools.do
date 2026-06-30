@@ -347,7 +347,7 @@ collect: table education, ///
 
 log on demo
 
-noisily desctab, compose(events_n_pct) display pctdigits(1)
+noisily desctab, compose(events_n_pct) pctdigits(1)
 
 log off demo
 
@@ -368,7 +368,7 @@ quietly collect: logistic treated index_age female i.education ///
 
 log on demo
 
-noisily regtab, coef("OR") noint display
+noisily regtab, coef("OR") noint
 
 log off demo
 
@@ -379,7 +379,7 @@ quietly collect: logistic treated index_age female i.education ///
 
 log on demo
 
-noisily regtab, coef("OR") noint compact display
+noisily regtab, coef("OR") noint compact
 
 log off demo
 
@@ -390,7 +390,7 @@ quietly collect: logistic treated index_age female i.education ///
 
 log on demo
 
-noisily regtab, coef("OR") noint nopvalue display
+noisily regtab, coef("OR") noint nopvalue
 
 log off demo
 
@@ -402,7 +402,7 @@ quietly collect: mlogit education index_age female diabetes hypertension, ///
 
 log on demo
 
-noisily regtab, display stats(n ll aic bic r2)
+noisily regtab, stats(n ll aic bic r2)
 
 log off demo
 
@@ -431,7 +431,7 @@ quietly collect: zinb event_count treatment age_z female, inflate(zero_risk fema
 
 log on demo
 
-noisily regtab, display stats(n aic bic ll) models("ZIP" \ "ZINB")
+noisily regtab, stats(n aic bic ll) models("ZIP" \ "ZINB")
 
 log off demo
 restore
@@ -456,7 +456,7 @@ quietly collect: churdle linear annual_cost dose_intensity, ///
 
 log on demo
 
-noisily regtab, display stats(n ll aic bic r2)
+noisily regtab, stats(n ll aic bic r2)
 
 log off demo
 restore
@@ -465,14 +465,14 @@ restore
 log on demo
 
 noisily corrtab index_age crp prior_hosp, ///
-    star(0.05 0.01 0.001) display
+    star(0.05 0.01 0.001)
 
 log off demo
 
 **# Console: crosstab display
 log on demo
 
-noisily crosstab treated female, or label display
+noisily crosstab treated female, or label
 
 log off demo
 
@@ -484,7 +484,7 @@ label variable phat_display "Predicted CV risk"
 log on demo
 
 noisily diagtab phat_display cv_event, cutoff(0.35) ///
-    auc wilson display
+    auc wilson
 
 log off demo
 

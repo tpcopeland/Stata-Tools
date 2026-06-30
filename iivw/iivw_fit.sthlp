@@ -55,6 +55,7 @@
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
 {synopt:{opt boot:strap(#)}}bootstrap replicates (default: 0 = sandwich SE){p_end}
+{synopt:{opt refit:weights}}re-estimate the IIW/IPTW/FIPTIW weights inside each bootstrap replicate{p_end}
 
 {syntab:Reporting}
 {synopt:{opt l:evel(#)}}confidence level (default: 95){p_end}
@@ -264,13 +265,28 @@ positive, the {cmd:bootstrap} prefix is applied with clustering at
 {cmd:iivw_weight}.  Negative values are not allowed.
 
 {pmore}
-{bf:Important:} the bootstrap treats the IIW/IPTW weights as fixed
-and does not re-estimate them in each draw.  Standard errors therefore
-reflect outcome model uncertainty only, not weight estimation uncertainty.
-This is the standard approach in the IIW literature (Buzkova & Lumley 2007).
-If you need standard errors that account for weight estimation, implement a
-custom bootstrap that re-runs both {cmd:iivw_weight} and {cmd:iivw_fit}
-within each replicate.
+By default the bootstrap treats the IIW/IPTW weights as fixed and does not
+re-estimate them in each draw, so standard errors reflect outcome model
+uncertainty only.  This is the common approach in the IIW literature
+(Buzkova & Lumley 2007).  To instead propagate weight estimation uncertainty,
+add {opt refitweights} (see below).
+
+{phang}
+{opt refitweights} re-estimates the IIW/IPTW/FIPTIW weights from scratch inside
+every bootstrap replicate, so the resulting interval reflects both outcome model
+and weight estimation uncertainty.  Each replicate resamples whole subjects (a
+cluster bootstrap at the {opt id()} level), recomputes the Andersen-Gill
+visit-intensity model and, for FIPTIW/IPTW, the treatment propensity model on
+the resampled panel using the visit/treatment specification stored by
+{cmd:iivw_weight}, and then refits the outcome model with the fresh weights.
+The point estimates are unchanged from the fixed-weight fit; only the standard
+errors and intervals differ, and they may be larger or smaller depending on how
+the visit and outcome models share covariates.  {opt refitweights} requires
+{opt bootstrap(#)} with {it:#} > 0, is not compatible with {opt unweighted},
+resamples at the stored subject {opt id()} (so {opt cluster()} must be that id),
+and needs the weighting metadata from a preceding {cmd:iivw_weight} run.  It is
+substantially slower than the fixed-weight bootstrap because the weight models
+are refit in every replicate.
 
 {pmore}
 The compact effects table printed by {cmd:iivw_fit} reports
@@ -505,9 +521,11 @@ harmful) over time; a negative interaction means it becomes more protective.
 {bf:Standard errors.}  By default, standard errors are sandwich (robust)
 standard errors clustered at the subject level.  These are consistent even
 under misspecification of the within-subject correlation structure, but they
-do not account for uncertainty in the weight estimation.  If you need to
-account for weight estimation uncertainty, use a custom bootstrap (see
-{opt bootstrap()} in the Options section).
+do not account for uncertainty in the weight estimation.  To obtain standard
+errors that include weight estimation uncertainty, use
+{cmd:bootstrap(#) refitweights}, which re-estimates the weights inside each
+bootstrap replicate (see {opt bootstrap()} and {opt refitweights} in the
+Options section).
 
 
 {marker troubleshooting}{...}
@@ -661,6 +679,13 @@ outcome model uncertainty.
 {phang2}{cmd:. iivw_fit edss treated edss_bl, bootstrap(500) nolog replace}{p_end}
 
 {pstd}
+Add {opt refitweights} to re-estimate the weights inside each replicate so the
+interval also reflects weight estimation uncertainty.  The point estimates match
+the fixed-weight fit; only the standard errors differ.
+
+{phang2}{cmd:. iivw_fit edss treated edss_bl, bootstrap(500) refitweights nolog replace}{p_end}
+
+{pstd}
 {bf:Example 6: Binary outcome (binomial family)}
 
 {pstd}
@@ -786,6 +811,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
+{synopt:{cmd:e(iivw_refitweights)}}1 if a {opt refitweights} bootstrap re-estimated the weights, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}

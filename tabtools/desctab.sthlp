@@ -24,13 +24,12 @@
 {opt compose(string)} {opt nformats(string)} {opt digits(#)}
 {opt pctdigits(#)} {opt nintegerfmt(string)} {opt pctscale(string)}
 {opt pctsign} {opt rowtotals} {opt coltotals} {opt nototals}
-{opt relab:el} {opt valuelabels} {opt factorl:abel}
 {opt keep(string)} {opt drop(string)} {opt statorder(string)}
 {opt statlabels(string)} {opt nomis:sing} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)}
 {opt zebrac:olor(string)} {opt border:style(string)}
 {opt the:me(string)} {opt open} {opt csv(string)} {opt markdown(filename)} {opt mdappend}
-{opt fra:me(name)} {opt dis:play} {opt high:light(#)}
+{opt fra:me(name)} {opt high:light(#)}
 {opt hls:tat(string)}]{p_end}
 
 {pstd}
@@ -73,9 +72,6 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt rowtotals}}keep row totals when {opt nototals} is also specified.{p_end}
 {synopt:{opt coltotals}}keep column totals when {opt nototals} is also specified.{p_end}
 {synopt:{opt nototals}}drop row and column totals labeled {cmd:Total}.{p_end}
-{synopt:{opt relab:el}}accepted for suite consistency; labels already present in the active collection are preserved.{p_end}
-{synopt:{opt valuelabels}}accepted for suite consistency; value labels already present in the active collection are preserved.{p_end}
-{synopt:{opt factorl:abel}}accepted for suite consistency; factor labels already present in the active collection are preserved.{p_end}
 {synopt:{opt keep(string)}}keep only rows whose displayed row label matches a listed token.{p_end}
 {synopt:{opt drop(string)}}drop rows whose displayed row label matches a listed token. Cannot be combined with {opt keep()}.{p_end}
 {synopt:{opt statorder(string)}}display statistics in the specified order, appending any remaining collected statistics afterward.{p_end}
@@ -92,7 +88,6 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt high:light(#)}}highlight rows where {opt hls:tat()} is below the threshold.{p_end}
 {synopt:{opt hls:tat(string)}}statistic used for {opt high:light()}. Default is {cmd:mean}.{p_end}
 {synoptline}
@@ -110,13 +105,13 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:. desctab, compose(events_n_pct) display pctdigits(1)}{p_end}
+{phang2}{cmd:. desctab, compose(events_n_pct) pctdigits(1)}{p_end}
 
 {pstd}Mean (SD) by group:{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. collect: table (var) (foreign), statistic(mean mpg weight) statistic(sd mpg weight)}{p_end}
-{phang2}{cmd:. desctab, compose(mean_sd) digits(1) display}{p_end}
+{phang2}{cmd:. desctab, compose(mean_sd) digits(1)}{p_end}
 
 {pstd}Export a formatted table with separate statistic columns:{p_end}
 {phang2}{cmd:. collect clear}{p_end}

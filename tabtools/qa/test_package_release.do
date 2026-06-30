@@ -1171,28 +1171,9 @@ else {
         file read `readmefh' readme_line
         assert r(eof) == 0
         file close `readmefh'
-
-        confirm file "`demo_dir'/console_output.log"
-        shell test -s "`demo_dir'/console_output.log"
-        confirm file "`demo_dir'/console_output.md"
-        shell test -s "`demo_dir'/console_output.md"
-        tempfile setget_hit corrupt_hit
-        shell grep -F "set and get" "`demo_dir'/console_output.md" > "`setget_hit'"
-        tempname setfh
-        file open `setfh' using "`setget_hit'", read text
-        file read `setfh' setget_line
-        assert r(eof) == 0
-        file close `setfh'
-
-        shell grep -F "and ." "`demo_dir'/console_output.md" > "`corrupt_hit'"
-        tempname corruptfh
-        file open `corruptfh' using "`corrupt_hit'", read text
-        file read `corruptfh' corrupt_line
-        assert r(eof) != 0
-        file close `corruptfh'
     }
     if _rc == 0 {
-        display as result "  PASS: demo workbooks and console output are readable, width-fit, and free of release text anomalies"
+        display as result "  PASS: demo workbooks are readable, width-fit, and free of release text anomalies"
         local ++pass_count
     }
     else {

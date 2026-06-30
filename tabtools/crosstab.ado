@@ -1,4 +1,4 @@
-*! crosstab Version 1.8.8  2026/06/30
+*! crosstab Version 1.8.9  2026/07/01
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -15,7 +15,7 @@ SYNTAX:
         sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra headershade headercolor(string) zebracolor(string)
-        csv(filename) frame(name) display open]
+        csv(filename) frame(name) open]
 */
 
 program define crosstab, rclass
@@ -56,7 +56,7 @@ capture noisily {
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open]
+        csv(string) MARKdown(string) MDAPPend FRAme(string) open]
 
     gettoken rowvar colvar : varlist
 

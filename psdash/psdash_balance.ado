@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.3.0  2026/06/14
+*! psdash_balance Version 1.4.0  2026/07/01
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -87,10 +87,19 @@ program define psdash_balance, rclass
          SMDMatrix(name) ///
          STRATegies(string) ///
          DISTribution(varlist numeric) ///
+         VRBounds(numlist min=2 max=2 >0 ascending) ///
          PSVars(varlist numeric)]
 
     if "`noweights'" != "" {
         local nowvar "nowvar"
+    }
+
+    * Variance-ratio imbalance bounds (default [0.5, 2.0]); configurable via vrbounds()
+    local vrlo 0.5
+    local vrhi 2
+    if "`vrbounds'" != "" {
+        gettoken vrlo vrhi : vrbounds
+        local vrhi = strtrim("`vrhi'")
     }
 
     * MARK SAMPLE
@@ -330,7 +339,7 @@ program define psdash_balance, rclass
     local wvar_opt ""
     if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
     _psdash_balance_binary `varlist', treatment(`treatment') samplevar(`touse') ///
-        threshold(`threshold') `wvar_opt'
+        threshold(`threshold') `wvar_opt' vrlo(`vrlo') vrhi(`vrhi')
     tempname balance_mat
     matrix `balance_mat' = r(balance)
     local n_treated = r(n_treated)
@@ -340,8 +349,11 @@ program define psdash_balance, rclass
     local max_vr_raw = r(max_vr_raw)
     local max_vr_adj = r(max_vr_adj)
     local max_ks_raw = r(max_ks_raw)
+    local max_ks_adj = r(max_ks_adj)
     local n_imbalanced = r(n_imbalanced)
     local n_vr_imbalanced = r(n_vr_imbalanced)
+    local n_binary_vr = r(n_binary_vr)
+    local vr_na_vars "`r(vr_na_vars)'"
 
     * DISPLAY OUTPUT (binary)
     if "`matched'" != "" {
@@ -494,13 +506,22 @@ program define psdash_balance, rclass
         display as text "Maximum VR (raw):         " as result `vr_fmt' `max_vr_raw'
     }
     display as text "Covariates > SMD threshold:  " as result %3.0f `n_imbalanced' " of " %3.0f `nvars'
+    local _vrb "[`=string(`vrlo',"%3.1f")', `=string(`vrhi',"%3.1f")']"
     if `n_vr_imbalanced' > 0 {
-        display as text "VR outside [0.5, 2.0]:       " as result %3.0f `n_vr_imbalanced' " of " %3.0f `nvars'
+        display as text "VR outside `_vrb':       " as result %3.0f `n_vr_imbalanced' " of " %3.0f `nvars'
     }
     if `show_ks' {
         display as text "Maximum KS (raw):            " as result `ks_fmt' `max_ks_raw'
+        if `has_adj' {
+            display as text "Maximum KS (adjusted):       " as result `ks_fmt' `max_ks_adj'
+        }
     }
     display as text "{hline `_hline_w'}"
+    if "`vr_na_vars'" != "" {
+        display as text "Note: variance ratio is not a meaningful balance diagnostic for" ///
+            " binary covariate(s): `vr_na_vars'"
+        display as text "      (VR for a two-level covariate is determined by the SMD; excluded from the VR count)."
+    }
 
     * Verdict
     if `has_adj' {
@@ -952,7 +973,8 @@ program define psdash_balance, rclass
     local wvar_opt ""
     if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
     _psdash_balance_multigroup `varlist', treatment(`treatment') samplevar(`touse') ///
-        levels(`levels') reference(`mg_reference') threshold(`threshold') `wvar_opt'
+        levels(`levels') reference(`mg_reference') threshold(`threshold') `wvar_opt' ///
+        vrlo(`vrlo') vrhi(`vrhi')
     tempname balance_mat
     matrix `balance_mat' = r(balance)
     local contrasts "`r(contrasts)'"
@@ -965,6 +987,9 @@ program define psdash_balance, rclass
     local max_smd_raw = r(max_smd_raw)
     local max_smd_adj = r(max_smd_adj)
     local max_ks_raw = r(max_ks_raw)
+    local max_ks_adj = r(max_ks_adj)
+    local n_binary_vr = r(n_binary_vr)
+    local vr_na_vars "`r(vr_na_vars)'"
     local n_imbalanced = r(n_imbalanced)
     local n_vr_imbalanced = r(n_vr_imbalanced)
     local show_ks = ("`ks'" != "")
@@ -1123,13 +1148,21 @@ program define psdash_balance, rclass
         display as text "Maximum |SMD| (raw):      " as result `format' `max_smd_raw'
     }
     display as text "Covariates > SMD threshold:  " as result %3.0f `n_imbalanced' " of " %3.0f `nvars'
+    local _vrb "[`=string(`vrlo',"%3.1f")', `=string(`vrhi',"%3.1f")']"
     if `n_vr_imbalanced' > 0 {
-        display as text "VR outside [0.5, 2.0]:       " as result %3.0f `n_vr_imbalanced'
+        display as text "VR outside `_vrb':       " as result %3.0f `n_vr_imbalanced'
     }
     if `show_ks' {
         display as text "Maximum KS (raw):            " as result `ks_fmt' `max_ks_raw'
+        if `has_adj' {
+            display as text "Maximum KS (adjusted):       " as result `ks_fmt' `max_ks_adj'
+        }
     }
     display as text "{hline `hdr_width'}"
+    if "`vr_na_vars'" != "" {
+        display as text "Note: variance ratio is not a meaningful balance diagnostic for" ///
+            " binary covariate(s): `vr_na_vars'"
+    }
 
     * Verdict
     if `has_adj' {
@@ -1386,10 +1419,13 @@ program define psdash_balance, rclass
             }
             return scalar n_imbalanced = `n_imbalanced'
             return scalar n_vr_imbalanced = `n_vr_imbalanced'
+            return scalar n_binary_vr = `n_binary_vr'
             return scalar max_ks_raw = `max_ks_raw'
+            if `has_adj' return scalar max_ks_adj = `max_ks_adj'
             return scalar threshold = `threshold'
             return scalar n_ps_boundary = `n_ps_boundary'
             return scalar n_ps_near_boundary = `n_ps_near'
+            if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"
@@ -1428,8 +1464,11 @@ program define psdash_balance, rclass
             }
             return scalar n_imbalanced = `n_imbalanced'
             return scalar n_vr_imbalanced = `n_vr_imbalanced'
+            return scalar n_binary_vr = `n_binary_vr'
             return scalar max_ks_raw = `max_ks_raw'
+            if `has_adj' return scalar max_ks_adj = `max_ks_adj'
             return scalar threshold = `threshold'
+            if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"

@@ -59,7 +59,7 @@ capture noisily {
     1 0
     1 1
     end
-    crosstab row col, display
+ crosstab row col
     assert r(N) == 4
 }
 if _rc == 0 {
@@ -368,7 +368,7 @@ capture noisily {
     matrix adv_eff = (1, 0.5, 1.5, 0.04 \ -0.5, -1, 0, 0.051)
     matrix rownames adv_eff = exposure dose
     capture frame drop adv_eff1
-    effecttab, from(adv_eff) frame(adv_eff1, replace) display
+ effecttab, from(adv_eff) frame(adv_eff1, replace)
     assert "`r(frame)'" == "adv_eff1"
     assert r(N_rows) == 5
 
@@ -507,10 +507,10 @@ capture noisily {
     assert _rc == 198
     assert c(varabbrev) == "on"
 
-    capture comptab adv_eff1 adv_eff2, rows(1 99 \ 1) display
+ capture comptab adv_eff1 adv_eff2, rows(1 99 \ 1)
     assert _rc == 198
 
-    capture comptab adv_eff1 adv_eff2, rownames("__definitely_absent__ \ exposure") display
+ capture comptab adv_eff1 adv_eff2, rownames("__definitely_absent__ \ exposure")
     assert _rc == 198
 
     comptab adv_eff1 adv_eff2, rows(1 2 \ 1 2) frame(adv_comp, replace)
@@ -525,7 +525,7 @@ capture noisily {
         gen str244 c1 = ""
         replace A = "label" in 3
     }
-    capture comptab adv_bad_comp, rows(1) display
+ capture comptab adv_bad_comp, rows(1)
     assert _rc == 198
     set varabbrev off
 }
@@ -952,7 +952,7 @@ else {
 * S20: corrtab display output without xlsx (console only)
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, display
+ corrtab price mpg weight
 }
 if _rc == 0 {
     display as result "  PASS: S20 corrtab console-only display"
@@ -963,12 +963,12 @@ else {
     local ++fail_count
 }
 
-* S22: regtab display option
+* S22: regtab console output
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("`output_dir'/_stress_reg_display.xlsx") sheet("disp") display
+ regtab, xlsx("`output_dir'/_stress_reg_display.xlsx") sheet("disp")
     confirm file "`output_dir'/_stress_reg_display.xlsx"
 }
 if _rc == 0 {

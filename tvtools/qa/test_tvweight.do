@@ -1023,6 +1023,99 @@ else {
 }
 
 
+* SECTION: v1.6.4 - cumulative/IPCW running-product gap-chaining fix
+*
+* tvweight's cumulative()/cumgenerate, internal cum_iptw, and censgenerate
+* (ipcw()) running products used to index the physically-previous row
+* instead of the previous row surviving touse: a person with one row
+* excluded by markout (e.g. one missing covariate among several periods)
+* had their cumulative/combined weight silently reset at that row instead
+* of continuing the product across the gap. Fixed in v1.6.4 to chain the
+* product across touse==1 rows only.
+
+* TEST: cumulative() chains the running product across a touse gap
+capture noisily {
+    clear
+    input id time x exposure
+    1 1 1 1
+    1 2 . 0
+    1 3 0 1
+    2 1 1 0
+    2 2 1 1
+    2 3 0 0
+    end
+    tvweight exposure, covariates(x) id(id) time(time) cumulative generate(w) nolog
+    * id=1 has a gap at time=2 (x missing -> excluded by markout). The
+    * cumulative weight at time=3 must be the product of the time=1 and
+    * time=3 per-row weights, not a reset to the time=3 weight alone.
+    quietly summarize w if id==1 & time==1
+    local w1 = r(mean)
+    quietly summarize w if id==1 & time==3
+    local w3 = r(mean)
+    quietly summarize w_cum if id==1 & time==3
+    local got = r(mean)
+    assert reldif(`got', `w1' * `w3') < 1e-8
+    assert reldif(`got', `w3') > 0.01
+}
+if _rc == 0 {
+    display as result "  PASS: cumulative() chains the product across a touse gap"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: cumulative() gap chaining (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' cumulative_gap_chain"
+}
+
+* TEST: ipcw() combined weight chains across a touse gap
+capture noisily {
+    clear
+    input id time x cens exposure
+    1 1 1 0 1
+    1 2 . 0 0
+    1 3 0 0 1
+    2 1 1 0 0
+    2 2 1 0 1
+    2 3 0 1 0
+    3 1 0 0 1
+    3 2 1 0 0
+    3 3 1 1 1
+    end
+    tvweight exposure, covariates(x) id(id) time(time) cumulative ipcw(cens) generate(w) nolog
+    * Internal cum_iptw (feeding the combined weight) must equal the
+    * externally-visible cumulative() chain: both reuse the same
+    * touse-aware running-product fix on the same per-row weight.
+    quietly count if reldif(w_cum, w_ipcw / ipcw) > 1e-6 & !missing(w_cum, w_ipcw, ipcw)
+    assert r(N) == 0
+    * Independent oracle for the per-period censoring weight at (time=3,
+    * x=0): id=2 has no touse gap, so its own chain ipcw(t3)/ipcw(t2)
+    * isolates that per-period factor regardless of whether the
+    * gap-chaining fix is present (a code-version-independent oracle).
+    quietly summarize ipcw if id==2 & time==2
+    local id2_t2 = r(mean)
+    quietly summarize ipcw if id==2 & time==3
+    local id2_t3 = r(mean)
+    local cw_t3_x0 = `id2_t3' / `id2_t2'
+    * id=1 has a gap at time=2; its cumulative censoring weight at time=3
+    * must chain across the gap (c1 * cw_t3_x0), not reset to cw_t3_x0 alone.
+    quietly summarize ipcw if id==1 & time==1
+    local c1 = r(mean)
+    quietly summarize ipcw if id==1 & time==3
+    local c3 = r(mean)
+    assert reldif(`c3', `c1' * `cw_t3_x0') < 1e-6
+    assert reldif(`c3', `cw_t3_x0') > 1e-4
+}
+if _rc == 0 {
+    display as result "  PASS: ipcw() combined weight chains across a touse gap"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ipcw() gap chaining (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' ipcw_gap_chain"
+}
+
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS

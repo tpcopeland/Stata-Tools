@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.7.4** | 2026-06-26
+**Version 1.8.0** | 2026-07-01
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -65,6 +65,13 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 2. **Choose the weighting strategy** that matches the scientific problem (see table below).
 3. **Inspect diagnostics** with `iivw_balance` for the visit-intensity model.  When `treat()` and `treat_cov()` are used, run `psdash combined` for treatment-propensity overlap, common support, balance, and treatment-weight diagnostics.
 4. **Fit the outcome model** with `iivw_fit`.  It reads the weight variable and panel structure from the dataset automatically.
+
+### Two default-modeling choices worth changing
+
+Two `iivw_weight` options materially affect the weights and are worth setting deliberately rather than leaving at their backward-compatible defaults:
+
+- **`nobaseevent` for registry/EHR designs.** By default the baseline visit is modeled as a recurrent event in the Andersen-Gill intensity model, which lets its covariates predict its own occurrence (a circularity). When the baseline visit is an enrollment event common to everyone — registry cohorts, EHR extracts, non-protocol data — `nobaseevent` treats it as study entry instead, removing the circularity. It is the more defensible specification for most observational designs; retain the default only when the first observed visit is itself part of the modeled visit process.
+- **`stabcov()` to stabilize the weights.** Without a stabilization numerator the IIW weight is `exp(-xb)`, which can be volatile. A stabilization model leaves the estimand unchanged but typically lowers weight variance and effective-sample-size loss (Buzková & Lumley 2007). `iivw_weight` prints a note when `stabcov()` is omitted.
 
 ## Recommended Analysis Recipes
 
@@ -248,7 +255,7 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | Treatment is binary and time-invariant within subject | Current IPTW/FIPTIW implementation is not for treatment switching |
 | Positivity/overlap is plausible | Subjects with near-certain treatment or visits create extreme weights |
 | Outcome model includes the scientific predictors of interest | Weights correct sampling/visit imbalance; they do not choose the outcome model |
-| Standard errors treat weights as fixed | Built-in sandwich and bootstrap SEs do not re-estimate weights |
+| Standard errors treat weights as fixed *by default* | The sandwich SE and the default bootstrap hold the weights fixed; add `iivw_fit, bootstrap(#) refitweights` to re-estimate the weights inside each replicate and propagate weight-estimation uncertainty |
 
 For dropout or censoring, use an IPCW strategy.  For time-varying treatment decisions, use a marginal structural model designed for that setting.
 
@@ -352,11 +359,19 @@ Generated coefficient names stay short and predictable, such as `_iivw_tcat_1` a
 
 ### 7. Bootstrap standard errors
 
-Bootstrap replicates apply to the outcome model fit with fixed weights.  The weights are not re-estimated inside each bootstrap draw.  Bootstrap clustering uses `cluster()` when specified and otherwise defaults to the subject ID stored by `iivw_weight`:
+By default, bootstrap replicates apply to the outcome model fit with fixed weights — the weights are not re-estimated inside each bootstrap draw.  Bootstrap clustering uses `cluster()` when specified and otherwise defaults to the subject ID stored by `iivw_weight`:
 
 ```stata
 iivw_fit edss treated edss_bl, bootstrap(500) nolog replace
 ```
+
+Add `refitweights` to re-estimate the IIW/IPTW/FIPTIW weights from scratch inside every bootstrap replicate, so the interval reflects weight-estimation uncertainty as well as outcome-model uncertainty.  Each replicate is a subject-level (cluster) bootstrap: it resamples whole subjects, refits the Andersen-Gill visit-intensity model (and, for FIPTIW/IPTW, the treatment propensity model) on the resampled panel using the specification stored by `iivw_weight`, then refits the outcome model with the fresh weights.  The point estimates are identical to the fixed-weight fit; only the standard errors change, and they can be larger or smaller depending on how the visit and outcome models share covariates:
+
+```stata
+iivw_fit edss treated edss_bl, bootstrap(500) refitweights nolog replace
+```
+
+`refitweights` requires `bootstrap(#)` with `# > 0`, is not compatible with `unweighted`, resamples at the stored subject `id()` (so a different `cluster()` is not supported), and needs the weighting metadata from a preceding `iivw_weight` run.  It is substantially slower than the fixed-weight bootstrap because the weight models are refit in every replicate.
 
 ### 8. Export results to Excel
 
@@ -413,7 +428,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
 - **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
-- **Standard errors** are sandwich (robust) SEs clustered at `cluster()` when specified and otherwise at the subject ID stored by `iivw_weight`.  They do not account for weight estimation uncertainty.
+- **Standard errors** are sandwich (robust) SEs clustered at `cluster()` when specified and otherwise at the subject ID stored by `iivw_weight`.  By default they do not account for weight estimation uncertainty; use `bootstrap(#) refitweights` to obtain SEs that re-estimate the weights inside each replicate.
 - **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
 
 ## What to Report
@@ -444,7 +459,7 @@ For technical reports and papers, include enough detail for readers to assess th
 - `lagvars()` is useful when a time-varying variable should enter the visit model using its previous-visit value rather than its current-visit value.
 - `iivw_exogtest` is a falsification diagnostic, not proof that visit or testing is exogenous.
 - `iivw_diagnose` is intended for the marginal/reference-arm time slope, not for assigning artifact shares to treatment x time contrasts.
-- `bootstrap()` reflects outcome-model uncertainty only because the weights are treated as fixed.
+- `bootstrap()` reflects outcome-model uncertainty only because the weights are treated as fixed; add `refitweights` to also propagate weight-estimation uncertainty by re-estimating the weights inside each replicate.
 - `efron` in `iivw_weight` uses the Efron tie-handling method in the Cox model (matches R's `coxph()` default; Breslow remains the Stata default).
 
 ## Reproducible Analysis Checklist
@@ -514,6 +529,13 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.8.0 (2026-07-01)
+
+- **Added `iivw_fit, bootstrap(#) refitweights`**: a subject-level (cluster) bootstrap that re-estimates the IIW/IPTW/FIPTIW weights from scratch inside every replicate, so the resulting interval reflects weight-estimation uncertainty rather than holding the weights fixed. Each replicate resamples whole subjects, refits the Andersen-Gill visit-intensity model (and the treatment propensity model for FIPTIW/IPTW) on the resampled panel using the stored weighting specification, then refits the outcome model. Point estimates are unchanged from the fixed-weight fit; only the standard errors differ. New helper `_iivw_bs_refit.ado`; `iivw_weight` now stores a weight-construction replay spec (`stabcov`, `truncate`, `efron`, `entry`) and `_iivw_get_settings` exposes it. `e(iivw_refitweights)` records the mode
+- **Added a stabilization nudge**: `iivw_weight` now prints a one-line note for IIW/FIPTIW runs when `stabcov()` is omitted, since stabilized weights leave the estimand unchanged but usually lower weight variance and ESS loss
+- **Reframed `nobaseevent`** in the help and README as the recommended specification for registry/EHR designs where the baseline visit is study entry rather than a clinically triggered follow-up visit; the default is retained for backward compatibility
+- Documentation: documented `refitweights` and the stabilization note in `iivw_fit.sthlp` and `iivw_weight.sthlp`; updated the SE/assumptions guidance
 
 ### v1.7.4 (2026-06-26)
 

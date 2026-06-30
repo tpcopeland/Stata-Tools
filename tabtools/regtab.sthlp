@@ -40,7 +40,7 @@ for treatment effects and margins tables.
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
 {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
-{opt eplotf:rame(name[, replace])} {opt dis:play} {opt keep(varlist)}
+{opt eplotf:rame(name[, replace])} {opt keep(varlist)}
 {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
 {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
 {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
@@ -94,7 +94,6 @@ alignment, fonts, and column widths. Title text can be written to cell {cmd:A1};
 {synopt:{opt mdappend}}Append the Markdown table to an existing file; requires {opt markdown()}.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named frame; {cmd:frame(name, replace)} replaces an existing frame.{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot} (see Remarks).{p_end}
-{synopt:{opt dis:play}}Accepted for compatibility; the table is displayed automatically.{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching these variable names; not with {opt drop()}.{p_end}
 {synopt:{opt drop(varlist)}}Drop rows matching these variable names; not with {opt keep()}.{p_end}
 {synopt:{opt dimnon:sig}}Gray out non-significant rows (see Remarks).{p_end}

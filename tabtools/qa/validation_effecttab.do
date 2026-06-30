@@ -422,7 +422,7 @@ capture noisily {
     local ref_ate = _te[1, 1]
     local ref_p = _te[4, 1]
 
-    effecttab, display digits(4)
+ effecttab, digits(4)
     assert rowsof(r(table)) >= 1
     assert colsof(r(table)) == 2
     assert abs(r(table)[1, 1] - `ref_ate') < 1e-10

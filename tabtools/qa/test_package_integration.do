@@ -2246,7 +2246,7 @@ else {
 capture noisily {
     set varabbrev on
     _review_build_comptab_frame
-    capture comptab rb_src, rows(1) rownames(age) display
+ capture comptab rb_src, rows(1) rownames(age)
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
 }

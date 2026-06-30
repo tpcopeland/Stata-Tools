@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.8.8  2026/06/30
+*! hrcomptab Version 1.8.9  2026/07/01
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -45,7 +45,7 @@ program define hrcomptab, rclass
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
             CSV(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
-            FOREST EPLOTOptions(string asis) DISplay]
+            FOREST EPLOTOptions(string asis)]
 
         * rows() xor rownames()
         if `"`rows'"' == "" & `"`rownames'"' == "" {

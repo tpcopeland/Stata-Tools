@@ -161,13 +161,13 @@ else {
 }
 
 * =====================================================================
-**# table1_tc: mdappend, noisily, spacelowpercent
+**# table1_tc: mdappend, spacelowpercent
 * =====================================================================
 local ++test_count
 capture noisily {
     sysuse auto, clear
     table1_tc price mpg foreign, by(foreign) ///
-        markdown("`out'/table1.md") noisily spacelowpercent clear
+        markdown("`out'/table1.md") spacelowpercent clear
     confirm file "`out'/table1.md"
     sysuse auto, clear
     table1_tc price mpg foreign, by(foreign) ///
@@ -198,7 +198,7 @@ capture noisily {
     survtab, times(2 5) by(grp) markdown("`out'/survtab.md")
     confirm file "`out'/survtab.md"
     survtab, times(2 5) by(grp) markdown("`out'/survtab.md") mdappend
-    capture survtab, times(2 5) by(grp) display open
+ capture survtab, times(2 5) by(grp) open
     assert _rc == 198
 }
 _oc_record "survtab" `=_rc'
@@ -232,8 +232,8 @@ else {
 }
 
 * =====================================================================
-**# desctab: borderstyle, factorlabel, headercolor, markdown, mdappend,
-**#          relabel, zebra, zebracolor
+**# desctab: borderstyle, headercolor, markdown, mdappend,
+**#          zebra, zebracolor
 * =====================================================================
 local ++test_count
 capture noisily {
@@ -241,7 +241,7 @@ capture noisily {
     collect clear
     version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
     desctab, xlsx("`out'/desctab.xlsx") sheet("S") borderstyle(academic) ///
-        headercolor("200 220 240") zebra zebracolor("240 245 250") relabel factorlabel
+        headercolor("200 220 240") zebra zebracolor("240 245 250")
     confirm file "`out'/desctab.xlsx"
     collect clear
     version 17.0: collect: table rep78, statistic(mean price) statistic(count price)
@@ -361,7 +361,7 @@ capture noisily {
     hrcomptab oc_rates, modelframes(oc_mod) rows(1) effect("aHR") ///
         markdown("`out'/hrcomptab.md") mdappend frame(oc_hrc3, replace)
     capture hrcomptab oc_rates, modelframes(oc_mod) rows(1) effect("aHR") ///
-        display open
+ open
     assert _rc == 198
 }
 _oc_record "hrcomptab" `=_rc'

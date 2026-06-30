@@ -285,7 +285,7 @@ capture noisily {
     replace test = 1 in 51/70
 
     capture frame drop diag_frame
-    diagtab test gold, frame(diag_frame, replace) display
+ diagtab test gold, frame(diag_frame, replace)
     assert "`r(frame)'" == "diag_frame"
     frame diag_frame: assert _N >= 10
 }
@@ -365,7 +365,7 @@ save `diagdata'
 * Test: diagtab basic with binary test
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, display
+ diagtab test_binary gold
 }
 if _rc == 0 {
     display as result "  PASS: diagtab basic binary test"
@@ -379,7 +379,7 @@ else {
 * Test: diagtab returns sensitivity and specificity
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, display
+ diagtab test_binary gold
     assert !missing(r(sensitivity))
     assert !missing(r(specificity))
     assert !missing(r(ppv))
@@ -400,7 +400,7 @@ else {
 * Test: diagtab with cutoff for continuous test
 capture noisily {
     use `diagdata', clear
-    diagtab test_score gold, cutoff(0.5) display
+ diagtab test_score gold, cutoff(0.5)
     assert !missing(r(sensitivity))
 }
 if _rc == 0 {
@@ -415,7 +415,7 @@ else {
 * Test: diagtab rejects continuous test without cutoff
 capture {
     use `diagdata', clear
-    diagtab test_score gold, display
+ diagtab test_score gold
 }
 if _rc == 198 {
     display as result "  PASS: diagtab rejects continuous test without cutoff"
@@ -429,7 +429,7 @@ else {
 * Test: diagtab exact CIs
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, exact display
+ diagtab test_binary gold, exact
 }
 if _rc == 0 {
     display as result "  PASS: diagtab exact CIs"
@@ -443,7 +443,7 @@ else {
 * Test: diagtab wilson CIs (default)
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, wilson display
+ diagtab test_binary gold, wilson
 }
 if _rc == 0 {
     display as result "  PASS: diagtab wilson CIs"
@@ -457,7 +457,7 @@ else {
 * Test: diagtab auc option
 capture noisily {
     use `diagdata', clear
-    diagtab test_score gold, cutoff(0.5) auc display
+ diagtab test_score gold, cutoff(0.5) auc
     assert !missing(r(auc))
     assert r(auc) > 0.5 & r(auc) <= 1
 }
@@ -473,7 +473,7 @@ else {
 * Test: diagtab optimal cutoff via Youden
 capture noisily {
     use `diagdata', clear
-    diagtab test_score gold, cutoff(0.5) optimal display
+ diagtab test_score gold, cutoff(0.5) optimal
     assert !missing(r(optimal_cutoff))
     assert !missing(r(youden))
 }
@@ -489,7 +489,7 @@ else {
 * Test: diagtab prevalence adjustment
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, prevalence(0.05) display
+ diagtab test_binary gold, prevalence(0.05)
 }
 if _rc == 0 {
     display as result "  PASS: diagtab prevalence(0.05)"
@@ -503,7 +503,7 @@ else {
 * Regression: diagtab must reject invalid prevalence values
 capture {
     use `diagdata', clear
-    diagtab test_binary gold, prevalence(1.2) display
+ diagtab test_binary gold, prevalence(1.2)
 }
 if _rc == 198 {
     display as result "  PASS: diagtab rejects prevalence() outside (0,1)"
@@ -535,7 +535,7 @@ else {
 * Test: diagtab rejects auc with cutoffs()
 capture {
     use `diagdata', clear
-    diagtab test_score gold, cutoffs(0.25 0.5) auc display
+ diagtab test_score gold, cutoffs(0.25 0.5) auc
 }
 if _rc == 198 {
     display as result "  PASS: diagtab rejects auc with cutoffs()"
@@ -549,7 +549,7 @@ else {
 * Test: diagtab r(methods) returned
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, display
+ diagtab test_binary gold
     assert "`r(methods)'" != ""
 }
 if _rc == 0 {
@@ -564,7 +564,7 @@ else {
 * Test: diagtab LR+, LR-, DOR returned
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, display
+ diagtab test_binary gold
     assert !missing(r(lr_pos))
     assert !missing(r(lr_neg))
     assert !missing(r(dor))
@@ -581,7 +581,7 @@ else {
 * Test: diagtab csv export
 capture noisily {
     use `diagdata', clear
-    diagtab test_binary gold, csv("`output_dir'/test_diagtab.csv") display
+ diagtab test_binary gold, csv("`output_dir'/test_diagtab.csv")
     confirm file "`output_dir'/test_diagtab.csv"
 }
 if _rc == 0 {
@@ -597,7 +597,7 @@ else {
 capture noisily {
     use `diagdata', clear
     capture frame drop diagframe
-    diagtab test_binary gold, frame(diagframe) display
+ diagtab test_binary gold, frame(diagframe)
     assert r(frame) == "diagframe"
     frame diagframe: assert _N > 0
 }
@@ -615,7 +615,7 @@ capture frame drop diagframe
 capture noisily {
     use `diagdata', clear
     gen byte subset = _n <= 300
-    diagtab test_binary gold if subset, display
+ diagtab test_binary gold if subset
     assert !missing(r(sensitivity))
 }
 if _rc == 0 {
@@ -631,7 +631,7 @@ else {
 capture noisily {
     use `diagdata', clear
     local orig_n = _N
-    diagtab test_binary gold, display
+ diagtab test_binary gold
     assert _N == `orig_n'
 }
 if _rc == 0 {
@@ -1018,17 +1018,17 @@ else {
 
 
 
-**# Migrated: dis/border abbreviations
+**# Migrated: border abbreviation
 
-* T3: diagtab `dis`, `border`
+* T3: diagtab `border`
 sysuse auto, clear
 gen byte _gold = foreign
 gen byte _test = (mpg >= 25)
 capture noisily diagtab _test _gold, ///
-    border(thin) dis
+    border(thin)
 drop _gold _test
 if _rc == 0 {
-    display as result "  PASS T3: diagtab dis/border abbreviations"
+    display as result "  PASS T3: diagtab border abbreviation"
     local ++pass_count
 }
 else {

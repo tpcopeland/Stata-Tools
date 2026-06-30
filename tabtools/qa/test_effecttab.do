@@ -70,7 +70,7 @@ matrix mymat = (1.5, 0.8, 2.2, 0.04 \ 2.3, 1.1, 3.5, 0.001 \ -0.5, -1.2, 0.2, 0.
 matrix rownames mymat = Age Sex BMI
 
 capture noisily {
-    effecttab, from(mymat) display title("From Matrix Test") effect("OR")
+ effecttab, from(mymat) title("From Matrix Test") effect("OR")
     assert r(N_rows) > 0
     * from() with no prior teffects defaults to margins type
     assert r(type) == "margins"
@@ -107,7 +107,7 @@ if _rc == 0 {
 	capture noisily {
 	    matrix cimat = (0.10, -0.01, 0.02, 0.20 \ 0.35, 0.34, 0.36, 0.001)
 	    matrix rownames cimat = NearZero Tight
-	    effecttab, from(cimat) frame(eff_ci_from, replace) display digits(2)
+ effecttab, from(cimat) frame(eff_ci_from, replace) digits(2)
 	    frame eff_ci_from {
 	        ds, has(type string)
 	        local string_vars `r(varlist)'
@@ -160,7 +160,7 @@ capture noisily {
     local orig_n = _N
     local orig_price = price[1]
     matrix shortmat = (1.5, 0.8, 2.2 \ 2.3, 1.1, 3.5)
-    capture noisily effecttab, from(shortmat) display
+ capture noisily effecttab, from(shortmat)
     assert _rc == 198
     assert _N == `orig_n'
     assert price[1] == `orig_price'
@@ -186,7 +186,7 @@ capture noisily {
     collect clear
     collect: teffects ra (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display title("Multi-Model") effect("ATE") ///
+ effecttab, title("Multi-Model") effect("ATE") ///
         models("RA \ IPW") clean
     assert r(N_rows) > 0
     assert strpos(lower(`"`r(methods)'"'), "multiple collected models") > 0
@@ -209,7 +209,7 @@ capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
     quietly teffects ra (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate
-    effecttab, display effect("ATE")
+ effecttab, effect("ATE")
     assert strpos(lower(`"`r(methods)'"'), "inverse probability weighting") > 0
     assert strpos(lower(`"`r(methods)'"'), "regression adjustment") == 0
 }
@@ -228,7 +228,7 @@ else {
 capture noisily {
     collect clear
     collect: teffects psmatch (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display title("PSMatch") effect("ATE")
+ effecttab, title("PSMatch") effect("ATE")
     local _nrows = r(N_rows)
     * Should be filtered (no PS model coefficients)
     assert `_nrows' <= 8
@@ -248,7 +248,7 @@ else {
 capture noisily {
     collect clear
     collect: teffects nnmatch (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate nneighbor(1)
-    effecttab, display title("NNMatch") effect("ATE")
+ effecttab, title("NNMatch") effect("ATE")
     local _nrows = r(N_rows)
     assert `_nrows' <= 8
 }
@@ -267,7 +267,7 @@ else {
 capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display title("IPTW + AddRow") effect("ATE") clean ///
+ effecttab, title("IPTW + AddRow") effect("ATE") clean ///
         addrow("N" 4642)
     assert r(N_rows) > 5
 }
@@ -287,7 +287,7 @@ capture frame drop _eff_frame
 capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display title("IPTW Frame") effect("ATE") clean frame(_eff_frame)
+ effecttab, title("IPTW Frame") effect("ATE") clean frame(_eff_frame)
     assert r(frame) == "_eff_frame"
     frame _eff_frame: assert _N > 0
 }
@@ -309,7 +309,7 @@ capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, frame(eff_ci_collect, replace) effect("ATE") clean display digits(2)
+ effecttab, frame(eff_ci_collect, replace) effect("ATE") clean digits(2)
     frame eff_ci_collect {
         ds, has(type string)
         local string_vars `r(varlist)'
@@ -340,7 +340,7 @@ capture noisily {
     quietly logit high_price c.mpg
     collect clear
     collect: margins, dydx(mpg)
-    effecttab, frame(eff_ci_digits_collect, replace) effect("AME") display digits(4)
+ effecttab, frame(eff_ci_digits_collect, replace) effect("AME") digits(4)
     frame eff_ci_digits_collect {
         local _found_ci = 0
         forvalues _r = 3/`=_N' {
@@ -436,7 +436,7 @@ capture frame drop _eff_csv
 capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display title("IPTW r(table)") effect("ATE") clean
+ effecttab, title("IPTW r(table)") effect("ATE") clean
     matrix list r(table)
     * r(table) should have estimate and p-value columns
     local _ncols = colsof(r(table))
@@ -462,7 +462,7 @@ capture noisily {
     local orig_n = _N
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, display effect("ATE")
+ effecttab, effect("ATE")
     assert _N == `orig_n'
 }
 if _rc == 0 {
@@ -544,7 +544,7 @@ capture noisily {
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect clear
     collect: margins, dydx(mbsmoke)
-    effecttab, display title("AME") effect("AME")
+ effecttab, title("AME") effect("AME")
     assert r(type) == "margins"
     assert r(N_rows) >= 4
 }
@@ -566,7 +566,7 @@ capture noisily {
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect clear
     collect: margins, at(mage=(20 25 30 35 40))
-    effecttab, display title("Predicted at ages") effect("Pr(Y)")
+ effecttab, title("Predicted at ages") effect("Pr(Y)")
     assert r(N_rows) >= 7
 }
 if _rc == 0 {
@@ -589,7 +589,7 @@ capture noisily {
     local _ref_ate = _te[1,1]
     local _ref_pval = _te[4,1]
 
-    effecttab, frame(eff_adv, replace) effect("ATE") clean display
+ effecttab, frame(eff_adv, replace) effect("ATE") clean
 
     * c1 contains the estimate, A contains the row label
     frame eff_adv {
@@ -623,9 +623,9 @@ else {
 capture noisily {
     matrix helpermat = (1.5, 0.8, 2.2, 0.04)
     matrix rownames helpermat = Helper
-    effecttab, from(helpermat) display
+ effecttab, from(helpermat)
     capture program drop _tabtools_validate_sheet
-    effecttab, from(helpermat) display
+ effecttab, from(helpermat)
     assert r(N_rows) > 0
 }
 if _rc == 0 {
@@ -647,7 +647,7 @@ capture noisily {
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
     matrix stalecheck = (1.5, 0.8, 2.2, 1e-7)
     matrix rownames stalecheck = MatrixOnly
-    effecttab, from(stalecheck) display
+ effecttab, from(stalecheck)
     assert r(type) == "margins"
 }
 if _rc == 0 {
@@ -667,7 +667,7 @@ capture frame drop eff_small
 capture noisily {
     matrix smallmat = (1.5, 0.8, 2.2, 1e-7)
     matrix rownames smallmat = TinyP
-    effecttab, from(smallmat) frame(eff_small, replace) display
+ effecttab, from(smallmat) frame(eff_small, replace)
     frame eff_small {
         local found = 0
         forvalues _r = 1/`=_N' {
@@ -698,9 +698,9 @@ capture matrix drop smallmat
 capture noisily {
     matrix precmat = (1.5, 0.8, 2.2, 0.04)
     matrix rownames precmat = Prec
-    capture noisily effecttab, from(precmat) display pdp(0)
+ capture noisily effecttab, from(precmat) pdp(0)
     assert _rc == 198
-    capture noisily effecttab, from(precmat) display highpdp(0)
+ capture noisily effecttab, from(precmat) highpdp(0)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -720,7 +720,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    capture noisily effecttab, display
+ capture noisily effecttab
     assert _rc == 198
 }
 if _rc == 0 {
@@ -741,7 +741,7 @@ capture noisily {
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect clear
     collect: margins r.mbsmoke
-    capture noisily effecttab, display
+ capture noisily effecttab
     assert _rc == 198
 }
 if _rc == 0 {
@@ -763,7 +763,7 @@ capture noisily {
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect: margins, dydx(mbsmoke)
-    capture noisily effecttab, display
+ capture noisily effecttab
     assert _rc == 198
 }
 if _rc == 0 {
@@ -784,7 +784,7 @@ capture noisily {
     logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
     collect clear
     collect: margins, dydx(mbsmoke)
-    capture effecttab, display type(teffects)
+ capture effecttab, type(teffects)
     assert _rc == 198
 }
 if _rc == 0 {
@@ -807,7 +807,7 @@ capture noisily {
         matrix bigmat[`_i', 3] = (`_i' / 100) + 0.05
         matrix bigmat[`_i', 4] = 0.20
     }
-    effecttab, from(bigmat) display
+ effecttab, from(bigmat)
     assert rowsof(r(table)) == 101
 }
 if _rc == 0 {
@@ -834,7 +834,7 @@ label values mbsmoke smokelbl
 * ============================================================
 collect clear
 collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("IPTW no clean") effect("ATE")
+effecttab, title("IPTW no clean") effect("ATE")
 local _nrows = r(N_rows)
 display "N_rows = `_nrows'"
 * Must be fewer than the original 12 (which included PS model coefficients)
@@ -852,7 +852,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("IPTW clean") effect("ATE") clean
+effecttab, title("IPTW clean") effect("ATE") clean
 local _nrows = r(N_rows)
 if `_nrows' <= 6 {
     display as result "PASS: T2 — IPTW with clean (`_nrows' rows)"
@@ -868,7 +868,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("IPTW full") effect("ATE") full
+effecttab, title("IPTW full") effect("ATE") full
 local _nrows = r(N_rows)
 if `_nrows' > 8 {
     display as result "PASS: T3 — IPTW with full shows all rows (`_nrows' rows)"
@@ -884,7 +884,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects aipw (bweight mage prenatal1 mmarried) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("AIPW") effect("ATE")
+effecttab, title("AIPW") effect("ATE")
 local _nrows = r(N_rows)
 if `_nrows' <= 8 {
     display as result "PASS: T4 — AIPW filtered (`_nrows' rows)"
@@ -900,7 +900,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ipwra (bweight mage prenatal1 mmarried) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("IPWRA") effect("ATE")
+effecttab, title("IPWRA") effect("ATE")
 local _nrows = r(N_rows)
 if `_nrows' <= 8 {
     display as result "PASS: T5 — IPWRA filtered (`_nrows' rows)"
@@ -916,7 +916,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ra (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate
-effecttab, display title("RA") effect("ATE")
+effecttab, title("RA") effect("ATE")
 local _nrows = r(N_rows)
 if `_nrows' <= 8 {
     display as result "PASS: T6 — RA filtered (`_nrows' rows)"
@@ -936,7 +936,7 @@ label values trt3 trt3lbl
 
 collect clear
 collect: teffects ra (bweight prenatal1 mmarried fbaby) (trt3), ate
-effecttab, display title("Multi-arm") effect("ATE") clean
+effecttab, title("Multi-arm") effect("ATE") clean
 local _nrows = r(N_rows)
 if `_nrows' <= 9 {
     display as result "PASS: T7 — Multi-arm shows correct rows (`_nrows' rows)"
@@ -954,7 +954,7 @@ gen byte low_bw = bweight < 2500
 logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
 collect clear
 collect: margins mbsmoke
-effecttab, display title("Margins") effect("Pr(Y)")
+effecttab, title("Margins") effect("Pr(Y)")
 local _nrows = r(N_rows)
 if `_nrows' >= 4 {
     display as result "PASS: T8 — Margins works (`_nrows' rows)"
@@ -986,7 +986,7 @@ else {
 * ============================================================
 collect clear
 collect: teffects ipw (low_bw) (mbsmoke mage prenatal1 mmarried fbaby), ate
-effecttab, display title("IPTW Binary") effect("RD")
+effecttab, title("IPTW Binary") effect("RD")
 local _nrows = r(N_rows)
 if `_nrows' <= 8 {
     display as result "PASS: T10 — IPTW binary filtered (`_nrows' rows)"
@@ -1030,7 +1030,7 @@ matrix _te_table = r(table)
 local _ref_ate = _te_table[1,1]
 local _ref_pval = _te_table[4,1]
 
-effecttab, frame(eff_val, replace) effect("ATE") clean display
+effecttab, frame(eff_val, replace) effect("ATE") clean
 
 * Extract ATE value from frame — c1 contains the estimate, A contains the row label
 frame eff_val {
@@ -1565,13 +1565,13 @@ else {
     local ++fail_count
 }
 
-* --- 3.2.2: effecttab with display option ---
+* --- 3.2.2: effecttab console output ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, xlsx("output/test_v160_effecttab_display.xlsx") sheet("Test") display
+ effecttab, xlsx("output/test_v160_effecttab_display.xlsx") sheet("Test")
     confirm file "output/test_v160_effecttab_display.xlsx"
 }
 if _rc == 0 {
@@ -1846,7 +1846,7 @@ capture noisily {
     collect clear
     collect: teffects ra (y x1) (treated), ate
     capture frame drop _eff_clean
-    effecttab, clean frame(_eff_clean, replace) display
+ effecttab, clean frame(_eff_clean, replace)
     frame _eff_clean {
         * Row labels should not contain raw "r1vs0.treated" notation
         local _has_raw = 0
@@ -1880,7 +1880,7 @@ capture noisily {
     collect clear
     collect: teffects ra (y x1) (treated), ate
     capture frame drop _eff_tlab
-    effecttab, tlabels(0 "Placebo" 1 "Drug") frame(_eff_tlab, replace) display
+ effecttab, tlabels(0 "Placebo" 1 "Drug") frame(_eff_tlab, replace)
     frame _eff_tlab {
         * Should see "Drug vs Placebo" (from tlabels), not "Active vs Control"
         local _found_tlab = 0
@@ -1915,7 +1915,7 @@ capture noisily {
     collect: teffects ra (y x1) (treated), ate
     collect: teffects ipw (y) (treated x1), ate
     capture frame drop _eff_multi
-    effecttab, clean frame(_eff_multi, replace) display
+ effecttab, clean frame(_eff_multi, replace)
     frame _eff_multi {
         * Should have columns for both models
         ds c*
@@ -1949,7 +1949,7 @@ capture noisily {
     gen y = 2 + 0.5*treated + 0.3*x1 + rnormal()
     collect clear
     collect: teffects ra (y x1) (treated), ate
-    effecttab, display
+ effecttab
     assert "`r(type)'" == "teffects"
     assert "`r(effect_label)'" == "Effect"
     assert r(N_rows) > 0
@@ -2006,7 +2006,7 @@ capture noisily {
     * All observations are rowvar==1, so rowvar has only 1 level
     * crosstab should error since it requires a 2x2 for or/rr/rd,
     * but basic tabulation should work
-    crosstab rowvar colvar, display
+ crosstab rowvar colvar
 }
 if _rc == 0 {
     display as result "  PASS [G2]: crosstab single-row table completes without crash"
@@ -2028,7 +2028,7 @@ capture noisily {
     5  2  6  1
     end
     stset exit, failure(event) enter(entry) id(id)
-    survtab, times(4 7) riskset display
+ survtab, times(4 7) riskset
     * At time 4: subjects 1(0-5),2(0-10),3(3-8),4(NOT yet: 5-12),5(2-6) -> 4 at risk
     * At time 7: subjects 2(0-10),3(3-8 but failed),4(5-12),5(2-6 but failed) -> need to check
     assert r(N_rows) > 0
@@ -2070,7 +2070,7 @@ capture noisily {
     matrix effects2 = (2.1, 1.3, 3.4, 0.002 \ 0.8, 0.5, 1.3, 0.35)
     matrix rownames effects2 = "TCE" "NDE"
     matrix colnames effects2 = "estimate" "ci_lower" "ci_upper" "pvalue"
-    effecttab, from(effects2) display
+ effecttab, from(effects2)
 }
 if _rc == 0 {
     display as result "  PASS: effecttab from(matrix) display"
@@ -2086,7 +2086,7 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, display
+ effecttab
     matrix list r(table)
     assert rowsof(r(table)) > 0
 }
@@ -2112,7 +2112,7 @@ capture noisily {
     matrix rownames review_eff = Risk_difference Sensitivity
 
     capture frame drop review_eff_frame
-    effecttab, from(review_eff) frame(review_eff_frame, replace) effect("Effect") display
+ effecttab, from(review_eff) frame(review_eff_frame, replace) effect("Effect")
     assert r(N_rows) > 0
     assert "`r(type)'" == "margins"
     assert strpos(lower(`"`r(methods)'"'), "supplied matrix") > 0

@@ -107,7 +107,7 @@ capture frame drop ct_out_labels
 * 3. Source variable names are not part of the rownames() contract
 * -------------------------------------------------------------------------
 local ++test_count
-capture noisily comptab ct_std1, rownames("foreign") display
+capture noisily comptab ct_std1, rownames("foreign")
 if _rc == 198 {
     display as result "  PASS: comptab rownames() rejects source variable names"
     local ++pass_count
@@ -148,7 +148,7 @@ capture frame drop ct_out_compact
 * 5. Ambiguous mixed layouts are rejected using header-pattern validation
 * -------------------------------------------------------------------------
 local ++test_count
-capture noisily comptab ct_stdm ct_cmp3, rows(1 \ 1) display
+capture noisily comptab ct_stdm ct_cmp3, rows(1 \ 1)
 if _rc == 198 {
     display as result "  PASS: comptab rejects mixed standard/compact source layouts"
     local ++pass_count
@@ -238,19 +238,19 @@ else {
 
 
 
-**# Migrated: dis/border on composite
+**# Migrated: border on composite
 
-* T6: comptab uses regtab frames; just exercise dis/border on the
+* T6: comptab uses regtab frames; just exercise border on the
 *     downstream call. Build a small regtab frame first.
 collect clear
 quietly collect: regress price mpg weight
 capture noisily regtab, frame(_v103_fr1, replace)
 if _rc == 0 {
     capture noisily comptab _v103_fr1, ///
-        rows("1 2") border(thin) dis
+        rows("1 2") border(thin)
 }
 if _rc == 0 {
-    display as result "  PASS T6: comptab dis/border abbreviations"
+    display as result "  PASS T6: comptab border abbreviation"
     local ++pass_count
 }
 else {

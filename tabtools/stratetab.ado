@@ -1,4 +1,4 @@
-*! stratetab Version 1.8.8  2026/06/30
+*! stratetab Version 1.8.9  2026/07/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -11,7 +11,7 @@ DESCRIPTION:
 		stratetab, using(filelist) [xlsx(string)] outcomes(integer) [sheet(string) ///
 		  title(string) outlabels(string) explabels(string) digits(integer 1) ///
 		  eventdigits(integer 0) pydigits(integer 0) unitlabel(string) ///
-		  pyscale(real 1) ratescale(real 1000) frame(name) display]
+		  pyscale(real 1) ratescale(real 1000) frame(name)]
 
 	using:       Space-separated list of strate output files (.dta extension added automatically)
 	             Format: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
@@ -72,7 +72,7 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) THEme(string) HEADERShade ///
-	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay]
+	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"

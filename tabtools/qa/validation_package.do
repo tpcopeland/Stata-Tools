@@ -700,7 +700,7 @@ capture noisily {
     regtab, frame(_ke_src2)
 
     capture frame drop _ke_comp
-    comptab _ke_src1 _ke_src2, rows(1 \ 1 2) frame(_ke_comp) display
+ comptab _ke_src1 _ke_src2, rows(1 \ 1 2) frame(_ke_comp)
     assert r(N_frames) == 2
     assert r(N_models) >= 1
     assert r(N_rows) >= 5    // ≥3 data rows + ≥2 header
@@ -740,7 +740,7 @@ capture noisily {
     assert abs(`src_val' - `ref_b_mpg') < 0.5
 
     capture frame drop _ke_comp2
-    comptab _ke_src, rows(1 2) frame(_ke_comp2) display
+ comptab _ke_src, rows(1 2) frame(_ke_comp2)
     * mpg value should still appear in composed frame c1 column
     local match_found = 0
     frame _ke_comp2 {

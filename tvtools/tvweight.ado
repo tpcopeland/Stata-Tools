@@ -1,4 +1,4 @@
-*! tvweight Version 1.6.3  2026/06/30
+*! tvweight Version 1.6.4  2026/07/01
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -541,11 +541,20 @@ program define tvweight, rclass
         quietly {
             tempvar _origorder
             gen long `_origorder' = _n
+            * Chain the product across touse==1 rows only. Indexing the
+            * physically previous row (_n-1) would silently restart the
+            * product whenever a row is excluded by markout (e.g. one missing
+            * covariate among several periods), losing all prior history.
+            preserve
+            keep if `touse'
             sort `id' `time' `_origorder'
-            by `id': gen double `cumgenerate' = `generate' if `touse'
-            by `id': replace `cumgenerate' = `cumgenerate'[_n-1] * `generate' ///
-                if _n > 1 & `touse' & !missing(`cumgenerate'[_n-1])
-            sort `_origorder'
+            by `id': gen double `cumgenerate' = `generate' if _n == 1
+            by `id': replace `cumgenerate' = `cumgenerate'[_n-1] * `generate' if _n > 1
+            keep `_origorder' `cumgenerate'
+            tempfile _cumvals
+            save `_cumvals'
+            restore
+            merge 1:1 `_origorder' using `_cumvals', nogenerate
             drop `_origorder'
         }
         label variable `cumgenerate' "Cumulative `wtype' weight for `exposure'"
@@ -570,11 +579,17 @@ program define tvweight, rclass
         tempvar _cum_iptw _origorder2
         quietly {
             gen long `_origorder2' = _n
+            * Same touse==1-only chaining as the cumulative() block above.
+            preserve
+            keep if `touse'
             sort `id' `time' `_origorder2'
-            by `id': gen double `_cum_iptw' = `generate' if `touse'
-            by `id': replace `_cum_iptw' = `_cum_iptw'[_n-1] * `generate' ///
-                if _n > 1 & `touse' & !missing(`_cum_iptw'[_n-1])
-            sort `_origorder2'
+            by `id': gen double `_cum_iptw' = `generate' if _n == 1
+            by `id': replace `_cum_iptw' = `_cum_iptw'[_n-1] * `generate' if _n > 1
+            keep `_origorder2' `_cum_iptw'
+            tempfile _cumiptwvals
+            save `_cumiptwvals'
+            restore
+            merge 1:1 `_origorder2' using `_cumiptwvals', nogenerate
         }
 
         * Pooled logistic censoring model: P(censored at end of interval | past).
@@ -617,15 +632,21 @@ program define tvweight, rclass
             }
         }
 
-        * Cumulative IPCW = within-person running product of the period weights
+        * Cumulative IPCW = within-person running product of the period
+        * weights. Same touse==1-only chaining as _cum_iptw above.
         quietly {
+            preserve
+            keep if `touse'
             sort `id' `time' `_origorder2'
-            by `id': gen double `censgenerate' = `cw' if `touse'
-            by `id': replace `censgenerate' = `censgenerate'[_n-1] * `cw' ///
-                if _n > 1 & `touse' & !missing(`censgenerate'[_n-1])
+            by `id': gen double `censgenerate' = `cw' if _n == 1
+            by `id': replace `censgenerate' = `censgenerate'[_n-1] * `cw' if _n > 1
+            keep `_origorder2' `censgenerate'
+            tempfile _censvals
+            save `_censvals'
+            restore
+            merge 1:1 `_origorder2' using `_censvals', nogenerate
             * Combined MSM weight = cumulative IPTW x cumulative IPCW
             gen double `combgenerate' = `_cum_iptw' * `censgenerate' if `touse'
-            sort `_origorder2'
             drop `_origorder2'
         }
 
@@ -1062,6 +1083,13 @@ program define tvweight, rclass
 
     } // end capture noisily
     local rc = _rc
+
+    * A mid-block failure inside one of the cumulative/IPCW preserve/restore
+    * windows above would otherwise strand an open preserve; harmless no-op
+    * (capture swallows "nothing to restore") when no preserve is pending.
+    if `rc' {
+        capture restore
+    }
 
     set varabbrev `orig_varabbrev'
     set more `orig_more'

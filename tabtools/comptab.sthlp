@@ -51,7 +51,6 @@
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite companion frame for {helpb eplot}; source frames must have been created by {cmd:regtab} or {cmd:effecttab} with {opt eplotframe()}{p_end}
 {synopt:{opt forest}}draw an {helpb eplot} forest plot from the composite companion frame; requires the separate {cmd:eplot} package{p_end}
 {synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
@@ -229,7 +228,7 @@ smaller than the specified threshold.
 {pstd}
 {bf:Example 4: Console preview only}
 
-{phang2}{cmd:. comptab f1 f2, rows(1 \ 1 2) display}{p_end}
+{phang2}{cmd:. comptab f1 f2, rows(1 \ 1 2)}{p_end}
 
 {pstd}
 {bf:Example 5: Typical epidemiology workflow (HRT example)}

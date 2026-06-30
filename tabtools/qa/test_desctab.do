@@ -35,7 +35,7 @@ local ++total
 capture noisily {
     set varabbrev on
     collect clear
-    capture desctab, display
+ capture desctab
     assert _rc == 119
     assert "`c(varabbrev)'" == "on"
 }
@@ -1154,39 +1154,6 @@ else {
     local ++fail
 }
 
-**# T41 valuelabels is accepted as a documented no-op
-* Clarity audit MINOR-3 (2026-06-13): valuelabels is "accepted for suite
-* consistency" (sthlp) — assert it runs and leaves output unchanged.
-local ++total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: table foreign, statistic(mean price) statistic(frequency)
-
-    capture frame drop _dt_vl0
-    desctab, frame(_dt_vl0, replace)
-    frame _dt_vl0: local _n0 = _N
-    frame _dt_vl0: local _a2_0 = strtrim(A[2])
-
-    capture frame drop _dt_vl1
-    desctab, frame(_dt_vl1, replace) valuelabels
-    frame _dt_vl1: local _n1 = _N
-    frame _dt_vl1: local _a2_1 = strtrim(A[2])
-
-    frame drop _dt_vl0
-    frame drop _dt_vl1
-    assert `_n0' == `_n1'
-    assert "`_a2_0'" == "`_a2_1'"
-}
-if _rc == 0 {
-    display as result "  PASS: valuelabels accepted as no-op"
-    local ++pass
-}
-else {
-    display as error "  FAIL: valuelabels no-op"
-    local ++fail
-}
-
 **# T42 hlstat() option reachable (HIGHlightStat->HLStat collision fix)
 * Regression (2026-06-13): HIGHlightStat() was a strict prefix-collision with
 * HIGHlight() and returned rc=198 for every form, so the highlight statistic
@@ -1199,11 +1166,11 @@ capture noisily {
     collect: table foreign, statistic(mean price) statistic(sd price)
 
     * full name parses
-    desctab, compose(mean_sd) display highlight(5000) hlstat(mean)
+ desctab, compose(mean_sd) highlight(5000) hlstat(mean)
     * minimum abbreviation parses
-    desctab, compose(mean_sd) display highlight(5000) hls(mean)
+ desctab, compose(mean_sd) highlight(5000) hls(mean)
     * retired colliding name is rejected
-    capture desctab, compose(mean_sd) display highlight(5000) highlightstat(mean)
+ capture desctab, compose(mean_sd) highlight(5000) highlightstat(mean)
     assert _rc == 198
 }
 if _rc == 0 {

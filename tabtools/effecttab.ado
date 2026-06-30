@@ -1,4 +1,4 @@
-*! effecttab Version 1.8.8  2026/06/30
+*! effecttab Version 1.8.9  2026/07/01
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -81,7 +81,7 @@ program define effecttab, rclass
 	        models(string) title(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
-		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) DISplay ///
+		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
 	        LABELWidth(integer 0)]
 

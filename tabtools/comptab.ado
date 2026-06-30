@@ -1,4 +1,4 @@
-*! comptab Version 1.8.8  2026/06/30
+*! comptab Version 1.8.9  2026/07/01
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -18,7 +18,7 @@ SYNTAX:
            theme(string) borderstyle(string) open zebra
            highlight(real) boldp(real)
            headercolor(string) zebracolor(string)
-           frame(name) display csv(string)]
+           frame(name) csv(string)]
 
     framelist:   Space-separated list of frame names created by regtab or
                  effecttab with the frame() option.
@@ -55,7 +55,6 @@ SYNTAX:
     headercolor: RGB color for header rows (default: "219 229 241")
     zebracolor:  RGB color for zebra shading (default: "237 242 249")
     frame:       Save composite dataset to a named frame
-    display:     Accepted for compatibility; output is displayed automatically
     csv:         Export to CSV file path
 
 PREREQUISITES:
@@ -83,7 +82,7 @@ EXAMPLES:
         xlsx(results.xlsx) sheet("Summary") theme(lancet)
 
     * Console output only (no Excel output)
-    comptab s1 s2, rows(1 2 \ 1 3/5) display
+    comptab s1 s2, rows(1 2 \ 1 3/5)
 */
 
 program define comptab, rclass
@@ -123,7 +122,7 @@ program define comptab, rclass
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
-        FOREST EPLOTOptions(string asis) DISplay LABELWidth(integer 0)]
+        FOREST EPLOTOptions(string asis) LABELWidth(integer 0)]
 
     * Label-column width cap (0 -> default 45): keeps a lone verbose label from
     * stretching the whole column; longer labels wrap (text-wrap rule below).

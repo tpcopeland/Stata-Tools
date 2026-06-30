@@ -1,4 +1,4 @@
-*! _psdash_weights_stats Version 1.3.0  2026/06/14
+*! _psdash_weights_stats Version 1.4.0  2026/07/01
 *! IPTW weight summary and ESS statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -9,7 +9,8 @@ program define _psdash_weights_stats, rclass
     set varabbrev off
     capture noisily {
         syntax , Wvar(varname numeric) TREATment(varname numeric) ///
-            SAMPLEvar(varname) N(real) [LEVELS(string asis) MULTIgroup(string)]
+            SAMPLEvar(varname) N(real) [LEVELS(string asis) MULTIgroup(string) ///
+            EXThi(real 10) EXTvhi(real 20)]
 
         return clear
 
@@ -89,12 +90,18 @@ program define _psdash_weights_stats, rclass
 
             drop `wt_sq'
 
-            count if `wvar' > 10 & `samplevar'
+            * Extreme-weight counts. The thresholds are absolute and therefore
+            * scale-dependent: the defaults (10, 20) suit stabilized weights
+            * (centred near 1); unstabilized ATE weights (1/e) run larger, so
+            * pass extreme() to rescale. max_ratio is the scale-free companion.
+            count if `wvar' > `exthi' & `samplevar'
             local n_extreme = r(N)
             local pct_extreme = 100 * `n_extreme' / `n'
 
-            count if `wvar' > 20 & `samplevar'
+            count if `wvar' > `extvhi' & `samplevar'
             local n_very_extreme = r(N)
+
+            local max_ratio = `max_wt' / `mean_wt'
         }
 
         return scalar mean_wt = `mean_wt'
@@ -116,6 +123,9 @@ program define _psdash_weights_stats, rclass
         return scalar n_extreme = `n_extreme'
         return scalar pct_extreme = `pct_extreme'
         return scalar n_very_extreme = `n_very_extreme'
+        return scalar max_ratio = `max_ratio'
+        return scalar extreme_hi = `exthi'
+        return scalar extreme_vhi = `extvhi'
 
         if "`multigroup'" == "" | "`multigroup'" == "0" {
             return scalar n_treated = `n_treated'

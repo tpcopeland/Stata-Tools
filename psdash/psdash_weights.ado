@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.3.0  2026/06/14
+*! psdash_weights Version 1.4.0  2026/07/01
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -91,6 +91,7 @@ program define psdash_weights, rclass
          xlsx(string) ///
          sheet(string) ///
          ESTImand(string) ///
+         EXTreme(numlist min=2 max=2 >0 ascending) ///
          PSVars(varlist numeric) ///
          IIVWComponent(string)]
 
@@ -98,6 +99,15 @@ program define psdash_weights, rclass
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
     if "`sheet'" == "" local sheet "Weights"
+
+    * Extreme-weight thresholds (absolute scale). Defaults suit stabilized weights;
+    * for unstabilized ATE weights set extreme() to larger cutoffs.
+    local exthi 10
+    local extvhi 20
+    if "`extreme'" != "" {
+        gettoken exthi extvhi : extreme
+        local extvhi = strtrim("`extvhi'")
+    }
 
     if "`iivwcomponent'" != "" {
         local iivwcomponent = strlower("`iivwcomponent'")
@@ -446,7 +456,7 @@ program define psdash_weights, rclass
 
     * CALCULATE WEIGHT STATISTICS (binary)
     _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
-        samplevar(`touse') n(`N')
+        samplevar(`touse') n(`N') exthi(`exthi') extvhi(`extvhi')
     local mean_wt = r(mean_wt)
     local sd_wt = r(sd_wt)
     local min_wt = r(min_wt)
@@ -480,6 +490,7 @@ program define psdash_weights, rclass
     local n_extreme = r(n_extreme)
     local pct_extreme = r(pct_extreme)
     local n_very_extreme = r(n_very_extreme)
+    local max_ratio = r(max_ratio)
 
     * DISPLAY OUTPUT (binary)
     display as text _n "IPTW Weight Diagnostics"
@@ -552,10 +563,13 @@ program define psdash_weights, rclass
     display as text "{hline 50}"
     display as text "Extreme Weight Detection"
     display as text "{hline 50}"
+    local _eh = string(`exthi')
+    local _evh = string(`extvhi')
     display as text "Coefficient of Variation: " as result %8.3f `cv'
-    display as text "Weights > 10:             " as result %8.0f `n_extreme' ///
+    display as text "Max / mean weight ratio:  " as result %8.2f `max_ratio'
+    display as text "Weights > `_eh':             " as result %8.0f `n_extreme' ///
         as text " (" as result %5.2f `pct_extreme' as text "%)"
-    display as text "Weights > 20:             " as result %8.0f `n_very_extreme'
+    display as text "Weights > `_evh':             " as result %8.0f `n_very_extreme'
     display as text "{hline 50}"
 
     * Warnings
@@ -567,10 +581,10 @@ program define psdash_weights, rclass
         display as error "Warning: High CV indicates substantial weight variability."
     }
     if `n_extreme' > 0 {
-        display as error "Warning: `n_extreme' extreme weights detected (>10)."
+        display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
     }
-    if `max_wt' > 20 {
-        display as error "Warning: Maximum weight exceeds 20. Consider truncation."
+    if `max_wt' > `extvhi' {
+        display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
     }
 
     * Verdict
@@ -590,6 +604,10 @@ program define psdash_weights, rclass
         exit 198
     }
 
+    if "`stabilize'" != "" & "`wvar_auto'" != "1" {
+        display as text "Note: stabilize multiplies the supplied weights by the marginal P(treatment);"
+        display as text "      this is correct only for unstabilized inverse-probability weights (1/PS scale)."
+    }
     if `trim' != 0 | `truncate' != 0 | "`stabilize'" != "" {
         _psdash_weights_modify, wvar(`wvar') treatment(`treatment') ///
             samplevar(`touse') n(`N') generate(`generate') ///
@@ -844,7 +862,8 @@ program define psdash_weights, rclass
 
     * CALCULATE WEIGHT STATISTICS (multi-group)
     _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
-        samplevar(`touse') n(`N') levels(`levels') multigroup(`multigroup')
+        samplevar(`touse') n(`N') levels(`levels') multigroup(`multigroup') ///
+        exthi(`exthi') extvhi(`extvhi')
     local mean_wt = r(mean_wt)
     local sd_wt = r(sd_wt)
     local min_wt = r(min_wt)
@@ -864,6 +883,7 @@ program define psdash_weights, rclass
     local n_extreme = r(n_extreme)
     local pct_extreme = r(pct_extreme)
     local n_very_extreme = r(n_very_extreme)
+    local max_ratio = r(max_ratio)
     foreach lev of local levels {
         local n_group_`lev' = r(n_group_`lev')
         local mean_wt_`lev' = r(mean_wt_`lev')
@@ -1000,10 +1020,13 @@ program define psdash_weights, rclass
     display as text "{hline 50}"
     display as text "Extreme Weight Detection"
     display as text "{hline 50}"
+    local _eh = string(`exthi')
+    local _evh = string(`extvhi')
     display as text "Coefficient of Variation: " as result %8.3f `cv'
-    display as text "Weights > 10:             " as result %8.0f `n_extreme' ///
+    display as text "Max / mean weight ratio:  " as result %8.2f `max_ratio'
+    display as text "Weights > `_eh':             " as result %8.0f `n_extreme' ///
         as text " (" as result %5.2f `pct_extreme' as text "%)"
-    display as text "Weights > 20:             " as result %8.0f `n_very_extreme'
+    display as text "Weights > `_evh':             " as result %8.0f `n_very_extreme'
     display as text "{hline 50}"
 
     * Warnings
@@ -1015,10 +1038,10 @@ program define psdash_weights, rclass
         display as error "Warning: High CV indicates substantial weight variability."
     }
     if `n_extreme' > 0 {
-        display as error "Warning: `n_extreme' extreme weights detected (>10)."
+        display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
     }
-    if `max_wt' > 20 {
-        display as error "Warning: Maximum weight exceeds 20. Consider truncation."
+    if `max_wt' > `extvhi' {
+        display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
     }
 
     * Verdict
@@ -1033,6 +1056,10 @@ program define psdash_weights, rclass
     }
 
     * WEIGHT TRIMMING/STABILIZATION (multi-group)
+    if "`stabilize'" != "" & "`wvar_auto'" != "1" {
+        display as text "Note: stabilize multiplies the supplied weights by the marginal P(A=a);"
+        display as text "      this is correct only for unstabilized inverse-probability weights (1/GPS scale)."
+    }
     if `trim' != 0 | `truncate' != 0 | "`stabilize'" != "" {
         _psdash_weights_modify, wvar(`wvar') treatment(`treatment') ///
             samplevar(`touse') n(`N') generate(`generate') ///
@@ -1213,6 +1240,9 @@ program define psdash_weights, rclass
             return scalar ess_pct_control = `ess_pct_c'
             return scalar n_extreme = `n_extreme'
             return scalar pct_extreme = `pct_extreme'
+            return scalar max_ratio = `max_ratio'
+            return scalar extreme_hi = `exthi'
+            return scalar extreme_vhi = `extvhi'
             return scalar p1 = `p1'
             return scalar p5 = `p5'
             return scalar p95 = `p95'
@@ -1261,6 +1291,9 @@ program define psdash_weights, rclass
             return scalar ess_pct = `ess_pct'
             return scalar n_extreme = `n_extreme'
             return scalar pct_extreme = `pct_extreme'
+            return scalar max_ratio = `max_ratio'
+            return scalar extreme_hi = `exthi'
+            return scalar extreme_vhi = `extvhi'
             return scalar p1 = `p1'
             return scalar p5 = `p5'
             return scalar p95 = `p95'

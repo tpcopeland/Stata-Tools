@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.3.0** | 2026-06-14
+**Version 1.4.0** | 2026-07-01
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, cross-sectional `tmle`, `iivw_weight`, `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard. After `ltmle`, `psdash combined` switches to a longitudinal table-first diagnostic instead of running pooled cross-sectional panels.
 
@@ -199,7 +199,8 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `distribution(varlist)` — per-covariate kernel-density balance plots by group, with weighted overlays (binary; cobalt `bal.plot`-style)
 - `smdmatrix(name)` — save a covariate-by-SMD matrix (raw + adjusted) for `puttab`/`table1_tc`; also returned in `r(smd)`
 - `threshold(#)` — SMD threshold (default: 0.1)
-- `ks` - display Kolmogorov-Smirnov statistics; KS values are stored either way
+- `vrbounds(# #)` — lower/upper variance-ratio bounds for the imbalance count (default: 0.5 2.0). Binary covariates are excluded from the VR count (their VR is fixed by the SMD) and footnoted
+- `ks` - display Kolmogorov-Smirnov statistics; raw and (when weighted) a weighted KS from the weighted empirical CDF are stored either way (`r(max_ks_raw)`, `r(max_ks_adj)`)
 - `xlsx(filename)` — export to Excel
 - `sheet(string)` - Excel sheet name; default is `"Balance"`
 - `format(string)` - numeric display format for SMD values; default is `%6.3f`
@@ -208,7 +209,8 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `wvar(varname)` — weight variable (auto-generated from PS if omitted)
 - `trim(#)` — trim at percentile (50–99.9)
 - `truncate(#)` — cap at fixed value
-- `stabilize` — create stabilized weights
+- `stabilize` — create stabilized weights (valid only for unstabilized 1/PS-scale weights; a note prints when `wvar()` is user-supplied)
+- `extreme(# #)` — lower/upper extreme-weight cutoffs (default: 10 20; absolute, so raise for unstabilized ATE weights). Scale-free `r(max_ratio)` (max/mean) is always reported
 - `generate(name)` — variable for modified weights
 - `replace` - allow `generate()` to replace an existing variable
 - `detail` — show percentile distribution
@@ -219,8 +221,9 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `iivwcomponent(treatment|final|visit)` - choose the stored iivw treatment, final, or visit component for `psdash weights`
 
 ### support
-- `crump` — Crump et al. (2009) optimal trimming for binary treatments; use `threshold()` for multi-group
+- `crump` — Crump et al. (2009) optimal trimming for binary treatments; use `threshold()` for multi-group. The optimal alpha is grid-searched at 0.01 then refined to 0.001
 - `threshold(#)` — manual PS trimming threshold, strictly between 0 and 0.5
+- `qtrim(#)` — base the common-support region on within-group percentiles (`#`, 100−`#`) instead of the optimistic min–max overlap; strictly between 0 and 50, binary only
 - `generate(name)` — create an in-support indicator. With `crump` or `threshold()`, this marks the trimmed region; otherwise it marks the empirical common-support interval.
 - `replace` - allow `generate()` to replace an existing variable
 - `compare` — report a pre/post-trimming delta (outside-support %, ESS %, max |SMD|); requires trimming, binary only
@@ -307,6 +310,7 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.4.0** (01 Jul 2026): Methodological hardening. `balance` now computes a genuine **weighted Kolmogorov-Smirnov** statistic from the weighted empirical CDF (the `KS_Adj` column, previously reserved but unfilled), returned in `r(max_ks_adj)`. Variance ratios are no longer flagged for **binary covariates** (where the VR is determined by the SMD); such covariates are footnoted and excluded from the VR count, and the VR bounds are configurable via `vrbounds()`. `weights` adds configurable extreme-weight cutoffs (`extreme()`) and a scale-free max/mean ratio (`r(max_ratio)`), and warns when `stabilize` is applied to user-supplied (possibly already-stabilized) weights. `support` adds quantile-based common support (`qtrim()`) as a robust alternative to the optimistic min-max overlap, and the Crump optimal alpha is refined from a 0.01 to a 0.001 grid.
 - **v1.3.0** (14 Jun 2026): Forward-looking enhancements. New `psdash detect` subcommand and `combined, dryrun` report auto-detection without running panels. `combined` now returns a machine-readable verdict (`r(verdict)`, `r(n_warnings)`, `r(warnings)`) with configurable thresholds (`overlapmax()`, `essmin()`, `imbalmax()`), and a one-call publication workbook via `report()`. `balance` adds a multi-strategy Love-plot overlay (`strategies()`), per-covariate distributional balance plots (`distribution()`), and a `table1_tc`/`puttab`-ready SMD matrix (`smdmatrix()`/`r(smd)`). `support` adds a pre/post-trimming comparison (`compare`). `overlap`, `weights`, and `support` gain Excel export parity (`xlsx()`/`sheet()`). Added a Detection-sources reference table to the help file.
 - **v1.2.1** (14 Jun 2026): Documentation polish — clarified that `saving()` exports an image file by extension (use `graph save` for `.gph`), documented the per-subcommand graph defaults (`nograph` vs `loveplot`/`graph`), and added validator-note comments to the `mark`+`markout` sample blocks. No behavior change.
 - **v1.2.0** (14 Jun 2026): Added longitudinal dataset-contract auto-detection after `msm_weight` and `tte_weight` (`save_ps`). `psdash combined` now produces period-by-period overlap and weight diagnostics for both, complementing `msm_diagnose`. Generalized the longitudinal diagnostics engine with a `source()` label and added focused msm/tte contract QA.

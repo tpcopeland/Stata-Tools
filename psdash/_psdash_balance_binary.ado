@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.3.0  2026/06/14
+*! _psdash_balance_binary Version 1.4.0  2026/07/01
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ program define _psdash_balance_binary, rclass
 
     capture noisily {
         syntax varlist(numeric), TREATment(varname numeric) SAMPLEvar(varname) ///
-            THReshold(real) [Wvar(varname numeric)]
+            THReshold(real) [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2)]
 
         return clear
         local nvars : word count `varlist'
@@ -38,6 +38,15 @@ program define _psdash_balance_binary, rclass
         local i = 1
         foreach var of local varlist {
             local rownames "`rownames' `var'"
+
+            * Flag binary/indicator covariates: VR carries no information beyond
+            * the SMD for a two-level covariate, so it is excluded from the VR
+            * verdict and footnoted in the caller.
+            quietly summarize `var'
+            local _vmin = r(min)
+            local _vmax = r(max)
+            quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
+            local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
 
             quietly summarize `var' if `treatment' == 1
             local mean_t = r(mean)
@@ -109,6 +118,30 @@ program define _psdash_balance_binary, rclass
                 matrix `balance_mat'[`i', 7] = `mean_c_adj'
                 matrix `balance_mat'[`i', 8] = `smd_adj'
                 matrix `balance_mat'[`i', 9] = `vr_adj'
+
+                * Weighted Kolmogorov-Smirnov: sup_x |F1(x) - F0(x)| using the
+                * weighted empirical CDF in each group. ksmirnov takes no weights,
+                * so the weighted ECDF is built directly.
+                local ks_adj = .
+                quietly summarize `wvar' if `treatment' == 1 & !missing(`var')
+                local _wt_t = r(sum)
+                quietly summarize `wvar' if `treatment' == 0 & !missing(`var')
+                local _wt_c = r(sum)
+                if `_wt_t' > 0 & `_wt_c' > 0 {
+                    tempvar _cft _cfc _last _ksd
+                    sort `var'
+                    quietly gen double `_cft' = ///
+                        sum(cond(`treatment' == 1 & !missing(`var'), `wvar', 0)) / `_wt_t'
+                    quietly gen double `_cfc' = ///
+                        sum(cond(`treatment' == 0 & !missing(`var'), `wvar', 0)) / `_wt_c'
+                    quietly by `var': gen byte `_last' = (_n == _N)
+                    quietly gen double `_ksd' = ///
+                        abs(`_cft' - `_cfc') if `_last' & !missing(`var')
+                    quietly summarize `_ksd'
+                    if r(N) > 0 local ks_adj = r(max)
+                    drop `_cft' `_cfc' `_last' `_ksd'
+                }
+                matrix `balance_mat'[`i', 10] = `ks_adj'
             }
 
             local i = `i' + 1
@@ -124,8 +157,11 @@ program define _psdash_balance_binary, rclass
         local max_vr_raw_dev = 0
         local max_vr_adj_dev = 0
         local max_ks_raw = 0
+        local max_ks_adj = 0
         local n_imbalanced = 0
         local n_vr_imbalanced = 0
+        local n_binary_vr = 0
+        local vr_na_vars ""
 
         forvalues i = 1/`nvars' {
             if !missing(`balance_mat'[`i', 3]) {
@@ -133,14 +169,18 @@ program define _psdash_balance_binary, rclass
                 if `abs_smd_raw' > `max_smd_raw' local max_smd_raw = `abs_smd_raw'
             }
 
-            if !missing(`balance_mat'[`i', 4]) {
+            if `_isbin_`i'' {
+                local n_binary_vr = `n_binary_vr' + 1
+                local vr_na_vars "`vr_na_vars' `: word `i' of `rownames''"
+            }
+            else if !missing(`balance_mat'[`i', 4]) {
                 local vr_i = `balance_mat'[`i', 4]
                 local dev_from_1 = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
                 if `dev_from_1' > `max_vr_raw_dev' {
                     local max_vr_raw = `vr_i'
                     local max_vr_raw_dev = `dev_from_1'
                 }
-                if `vr_i' < 0.5 | `vr_i' > 2 {
+                if `vr_i' < `vrlo' | `vr_i' > `vrhi' {
                     local n_vr_imbalanced = `n_vr_imbalanced' + 1
                 }
             }
@@ -160,7 +200,12 @@ program define _psdash_balance_binary, rclass
                     local n_imbalanced = `n_imbalanced' + 1
                 }
 
-                if !missing(`balance_mat'[`i', 9]) {
+                if !missing(`balance_mat'[`i', 10]) {
+                    local ks_a_i = `balance_mat'[`i', 10]
+                    if `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
+                }
+
+                if !`_isbin_`i'' & !missing(`balance_mat'[`i', 9]) {
                     local vr_adj_i = `balance_mat'[`i', 9]
                     local dev_adj = max(abs(`vr_adj_i' - 1), abs(1/`vr_adj_i' - 1))
                     if `dev_adj' > `max_vr_adj_dev' {
@@ -188,8 +233,11 @@ program define _psdash_balance_binary, rclass
         return scalar max_vr_raw = `max_vr_raw'
         return scalar max_vr_adj = `max_vr_adj'
         return scalar max_ks_raw = `max_ks_raw'
+        return scalar max_ks_adj = `max_ks_adj'
         return scalar n_imbalanced = `n_imbalanced'
         return scalar n_vr_imbalanced = `n_vr_imbalanced'
+        return scalar n_binary_vr = `n_binary_vr'
+        return local vr_na_vars = strtrim("`vr_na_vars'")
         return matrix balance = `balance_mat'
     }
     local rc = _rc

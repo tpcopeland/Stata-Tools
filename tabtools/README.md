@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.8.8** | 2026-06-30
+**Version 1.8.9** | 2026-07-01
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -229,19 +229,19 @@ With **two estimands**, Excel gets merged column-group headers (one block per es
 . collect clear
 . collect: logistic treated index_age female i.education ///
 >     diabetes hypertension anxiety prior_cvd
-. regtab, coef("OR") noint display
+. regtab, coef("OR") noint
 ```
 
 Compact layout keeps p-values but combines the point estimate and confidence interval:
 
 ```stata
-. regtab, coef("OR") noint compact display
+. regtab, coef("OR") noint compact
 ```
 
 The `nopvalue` option suppresses p-value columns:
 
 ```stata
-. regtab, coef("OR") noint nopvalue display
+. regtab, coef("OR") noint nopvalue
 ```
 
 Multinomial models keep outcome-specific rows and use RRR by default:
@@ -249,7 +249,7 @@ Multinomial models keep outcome-specific rows and use RRR by default:
 ```stata
 . collect clear
 . collect: mlogit education index_age female diabetes hypertension, baseoutcome(1)
-. regtab, display stats(n ll aic bic r2)
+. regtab, stats(n ll aic bic r2)
 ```
 
 Zero-inflated models keep the count and inflation equations distinct:
@@ -258,7 +258,7 @@ Zero-inflated models keep the count and inflation equations distinct:
 . collect clear
 . collect: zip event_count treatment age_z female, inflate(zero_risk female)
 . collect: zinb event_count treatment age_z female, inflate(zero_risk female)
-. regtab, display stats(n aic bic ll) models("ZIP" \ "ZINB")
+. regtab, stats(n aic bic ll) models("ZIP" \ "ZINB")
 ```
 
 Hurdle models preserve outcome and selection equations while ancillary rows stay hidden in default presentation tables:
@@ -266,26 +266,26 @@ Hurdle models preserve outcome and selection equations while ancillary rows stay
 ```stata
 . collect clear
 . collect: churdle linear annual_cost dose_intensity, select(participation_score) ll(0)
-. regtab, display stats(n ll aic bic r2)
+. regtab, stats(n ll aic bic r2)
 ```
 
 ### corrtab — Correlation matrix
 
 ```stata
 . corrtab index_age crp prior_hosp, ///
->     star(0.05 0.01 0.001) display
+>     star(0.05 0.01 0.001)
 ```
 
 ### crosstab — Cross-tabulation
 
 ```stata
-. crosstab treated female, or label display
+. crosstab treated female, or label
 ```
 
 ### diagtab — Diagnostic accuracy
 
 ```stata
-. diagtab phat cv_event, cutoff(0.35) auc wilson display
+. diagtab phat cv_event, cutoff(0.35) auc wilson
 ```
 
 ### puttab + stacktab — emit-then-assemble export pipeline
@@ -353,7 +353,7 @@ stata-mp -b do tabtools/demo/demo_tabtools_eplot.do
 ```stata
 collect clear
 quietly collect: logistic cv_event treated index_age female diabetes hypertension prior_cvd
-regtab, coef("OR") noint eplotframe(or_effects, replace) display
+regtab, coef("OR") noint eplotframe(or_effects, replace)
 
 eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
     null(1) values stars vformat(%4.2f) ///
@@ -393,6 +393,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.8.9** (2026-07-01): Removed inert `display` options that were accepted but did nothing. `comptab`, `corrtab`, `crosstab`, `desctab`, `diagtab`, `effecttab`, `hrcomptab`, `regtab`, `stratetab`, and `survtab` always print the completed table to the Results window, so `display` was a silent no-op on those commands and is no longer accepted; `stacktab` and `simtab`, where `display` actually gates console output, are unchanged. Also dropped `desctab`'s unused `relabel`, `valuelabels`, and `factorlabel` options and `table1_tc`'s unused `noisily` option. Passing a removed option now raises a clear `option not allowed` error instead of being silently ignored.
 - **1.8.8** (2026-06-30): `regtab` keep()/drop() now match natural factor-variable notation — `keep(i.foreign)`, `keep(1.foreign#c.mpg)`, `drop(i.group)` — by stripping `i.`/`c.`/`o.` operators before matching against the rendered coefficient name. A keep()/drop() that matches no coefficient row (a mis-typed token) now raises a clear error instead of silently writing a headers-only table. No change to tables that already filtered correctly.
 - **1.8.7** (2026-06-30): Console table display no longer inserts spurious horizontal separator lines every five rows. The shared `_tabtools_console_display` helper now passes `separator(0)` to `list`, so the rendered table shows a clean body with rules only at the header and footer (Excel and Markdown exports were never affected). Applies to all commands that render a console preview (`desctab`, `crosstab`, `corrtab`, `simtab`, `diagtab`, `comptab`, `stratetab`, `regtab`, `survtab`, `effecttab`, `hrcomptab`).
 - **1.8.6** (2026-06-25): CSV and Markdown exports now use the same visible table columns as the rendered table instead of leaking Stata working-variable names or hidden helper columns. CSV exports are written without Stata variable-name headers, `regtab`/`effecttab`/`comptab` outputs omit internal `ref*` columns, and Markdown preserves blank visible header cells rather than substituting names such as `c2`/`c3`. `stacktab` Markdown now starts from the visible block header row.

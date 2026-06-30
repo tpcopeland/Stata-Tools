@@ -89,7 +89,7 @@ capture noisily {
     capture erase "`missing_rate'.dta"
     local _orig_varabbrev = c(varabbrev)
     set varabbrev on
-    capture stratetab, using("`missing_rate'") outcomes(1) display
+ capture stratetab, using("`missing_rate'") outcomes(1)
     local got_rc = _rc
     local final_varabbrev "`c(varabbrev)'"
     set varabbrev `_orig_varabbrev'
@@ -111,7 +111,7 @@ capture noisily {
     tempfile rate1
     _make_issue_strate, basename("`rate1'")
     clear
-    stratetab, using("`rate1'") outcomes(1) display
+ stratetab, using("`rate1'") outcomes(1)
     assert r(N_rows) >= 6
     assert _N == 0
     assert c(k) == 0
@@ -151,7 +151,7 @@ capture noisily {
     _make_issue_strate, basename("`rate1'")
     clear
     capture frame drop issue_rates2
-    stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace) display
+ stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace)
     assert "`r(frame)'" == "issue_rates2"
     frame issue_rates2: assert _N >= 6
 }
@@ -174,7 +174,7 @@ capture noisily {
     clear
     capture frame drop issue_rates3
     stratetab, using("`rate1'") outcomes(1) xlsx("`xlsx'") sheet("Rates") ///
-        title("Issue Rates") frame(issue_rates3, replace) display
+ title("Issue Rates") frame(issue_rates3, replace)
     confirm file "`xlsx'"
     assert "`r(frame)'" == "issue_rates3"
     frame issue_rates3: assert _N >= 6
@@ -275,7 +275,7 @@ else {
 	    save "`many1'.dta", replace
 	
 	    clear
-	    stratetab, using("`many1'") outcomes(1) display
+ stratetab, using("`many1'") outcomes(1)
 	    confirm matrix r(rates)
 	    assert rowsof(r(rates)) == 201
 	    assert colsof(r(rates)) == 1
@@ -295,7 +295,7 @@ else {
 	    _make_issue_strate, basename("`rate1'")
 	    _make_issue_strate, basename("`rate2'")
 	    clear
-	    stratetab, using("`rate1'" "`rate2'") outcomes(1) display
+ stratetab, using("`rate1'" "`rate2'") outcomes(1)
 	    assert rownumb(r(rates), "e1_Low") > 0
 	    assert rownumb(r(rates), "e2_Low") > 0
 	    assert rownumb(r(rates), "e1_High") > 0
@@ -332,7 +332,7 @@ else {
 		    save "`long2'.dta", replace
 
 		    clear
-		    stratetab, using("`long1'" "`long2'") outcomes(1) rateratio display
+ stratetab, using("`long1'" "`long2'") outcomes(1) rateratio
 
 		    local rate_names : rownames r(rates)
 		    local n_rate_names : word count `rate_names'
@@ -1536,7 +1536,7 @@ capture noisily {
     save "`rate1'.dta", replace
 
     sysuse auto, clear
-    stratetab, using("`rate1'") outcomes(1) display
+ stratetab, using("`rate1'") outcomes(1)
     assert r(N_rows) >= 6
     capture erase "`rate1'.dta"
 }
@@ -1600,7 +1600,7 @@ capture noisily {
 
     sysuse auto, clear
     capture frame drop issue_rates2
-    stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace) display
+ stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace)
     assert r(frame) == "issue_rates2"
     frame issue_rates2: assert _N >= 6
     capture erase "`rate1'.dta"
@@ -1694,19 +1694,19 @@ capture noisily {
     local n_before = _N
     set varabbrev on
 
-    capture noisily stratetab, using("`dup'") outcomes(1) display
+ capture noisily stratetab, using("`dup'") outcomes(1)
     assert _rc == 198
     assert _N == `n_before'
     assert marker[2] == "safe"
     assert c(varabbrev) == "on"
 
-    capture noisily stratetab, using("`blank'") outcomes(1) display
+ capture noisily stratetab, using("`blank'") outcomes(1)
     assert _rc == 198
     assert _N == `n_before'
     assert marker[3] == "safe"
     assert c(varabbrev) == "on"
 
-    capture noisily stratetab, using("`good'" "`mismatch'") outcomes(2) display
+ capture noisily stratetab, using("`good'" "`mismatch'") outcomes(2)
     assert _rc == 198
     assert _N == `n_before'
     assert marker[4] == "safe"

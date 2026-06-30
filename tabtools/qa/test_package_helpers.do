@@ -2446,7 +2446,7 @@ capture noisily {
     1 0
     1 1
     end
-    crosstab row col, display
+ crosstab row col
     assert r(N) == 4
 
     findfile _tabtools_common.ado
@@ -2715,12 +2715,12 @@ capture noisily {
     assert "`c(varabbrev)'" == "on"
 
     collect clear
-    capture desctab, display
+ capture desctab
     assert _rc == 119
     assert "`c(varabbrev)'" == "on"
 
     tempfile missing_rate
-    capture stratetab, using("`missing_rate'") outcomes(1) display
+ capture stratetab, using("`missing_rate'") outcomes(1)
     assert _rc == 601
     assert "`c(varabbrev)'" == "on"
     set varabbrev off

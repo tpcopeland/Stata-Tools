@@ -499,7 +499,7 @@ capture noisily {
     expand freq
 
     capture frame drop cross_disp
-    crosstab outcome exposure, display frame(cross_disp, replace)
+ crosstab outcome exposure, frame(cross_disp, replace)
     assert "`r(frame)'" == "cross_disp"
     frame cross_disp: assert _N >= 6
 }
@@ -539,7 +539,7 @@ save `crossdata'
 * Test: crosstab basic 2x2
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, display
+ crosstab exposure outcome
 }
 if _rc == 0 {
     display as result "  PASS: crosstab basic 2x2"
@@ -553,7 +553,7 @@ else {
 * Test: crosstab returns chi2 and p
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, display
+ crosstab exposure outcome
     assert !missing(r(chi2))
     assert !missing(r(p))
     assert r(N) > 0
@@ -570,7 +570,7 @@ else {
 * Test: crosstab OR option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, or display
+ crosstab exposure outcome, or
     assert !missing(r(or))
 }
 if _rc == 0 {
@@ -585,7 +585,7 @@ else {
 * Test: crosstab RR option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, rr display
+ crosstab exposure outcome, rr
     assert !missing(r(rr))
 }
 if _rc == 0 {
@@ -600,7 +600,7 @@ else {
 * Test: crosstab RD option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, rd display
+ crosstab exposure outcome, rd
     assert !missing(r(rd))
 }
 if _rc == 0 {
@@ -615,7 +615,7 @@ else {
 * Test: crosstab column percentages (default)
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, colpct display
+ crosstab exposure outcome, colpct
 }
 if _rc == 0 {
     display as result "  PASS: crosstab colpct"
@@ -629,7 +629,7 @@ else {
 * Test: crosstab row percentages
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, rowpct display
+ crosstab exposure outcome, rowpct
 }
 if _rc == 0 {
     display as result "  PASS: crosstab rowpct"
@@ -643,7 +643,7 @@ else {
 * Test: crosstab total percentages
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, totalpct display
+ crosstab exposure outcome, totalpct
 }
 if _rc == 0 {
     display as result "  PASS: crosstab totalpct"
@@ -657,7 +657,7 @@ else {
 * Test: crosstab fisher option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, fisher display
+ crosstab exposure outcome, fisher
 }
 if _rc == 0 {
     display as result "  PASS: crosstab fisher"
@@ -671,7 +671,7 @@ else {
 * Test: crosstab exact option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, exact or display
+ crosstab exposure outcome, exact or
 }
 if _rc == 0 {
     display as result "  PASS: crosstab exact + or"
@@ -685,7 +685,7 @@ else {
 * Test: crosstab trend option with ordered exposure
 capture noisily {
     use `crossdata', clear
-    crosstab ordinal_exp outcome, trend display
+ crosstab ordinal_exp outcome, trend
 }
 if _rc == 0 {
     display as result "  PASS: crosstab trend option"
@@ -699,7 +699,7 @@ else {
 * Test: crosstab label option
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, label display
+ crosstab exposure outcome, label
 }
 if _rc == 0 {
     display as result "  PASS: crosstab label option"
@@ -714,7 +714,7 @@ else {
 capture noisily {
     use `crossdata', clear
     replace exposure = . in 1/10
-    crosstab exposure outcome, missing display
+ crosstab exposure outcome, missing
 }
 if _rc == 0 {
     display as result "  PASS: crosstab missing option"
@@ -728,7 +728,7 @@ else {
 * Test: crosstab exact forces Fisher's exact test
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, exact or display
+ crosstab exposure outcome, exact or
     assert r(p) < .
 }
 if _rc == 0 {
@@ -759,7 +759,7 @@ else {
 * Test: crosstab r(table) matrix
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, display
+ crosstab exposure outcome
     matrix list r(table)
     assert rowsof(r(table)) > 0
 }
@@ -775,7 +775,7 @@ else {
 * Test: crosstab r(methods)
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, display
+ crosstab exposure outcome
     assert "`r(methods)'" != ""
 }
 if _rc == 0 {
@@ -790,7 +790,7 @@ else {
 * Test: crosstab csv export
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, csv("`output_dir'/test_crosstab.csv") display
+ crosstab exposure outcome, csv("`output_dir'/test_crosstab.csv")
     confirm file "`output_dir'/test_crosstab.csv"
 }
 if _rc == 0 {
@@ -806,7 +806,7 @@ else {
 capture noisily {
     use `crossdata', clear
     capture frame drop crossframe
-    crosstab exposure outcome, frame(crossframe) display
+ crosstab exposure outcome, frame(crossframe)
     assert r(frame) == "crossframe"
     frame crossframe: assert _N > 0
 }
@@ -823,7 +823,7 @@ capture frame drop crossframe
 * Test: crosstab with if condition
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome if strata == 1, display
+ crosstab exposure outcome if strata == 1
 }
 if _rc == 0 {
     display as result "  PASS: crosstab with if condition"
@@ -838,7 +838,7 @@ else {
 capture noisily {
     use `crossdata', clear
     local orig_n = _N
-    crosstab exposure outcome, display
+ crosstab exposure outcome
     assert _N == `orig_n'
 }
 if _rc == 0 {
@@ -854,7 +854,7 @@ else {
 capture noisily {
     use `crossdata', clear
     gen wt = ceil(runiform() * 5)
-    crosstab exposure outcome [fw=wt], display
+ crosstab exposure outcome [fw=wt]
 }
 if _rc == 0 {
     display as result "  PASS: crosstab with fweight"
@@ -874,7 +874,7 @@ else {
 **## 9a. crosstab with colpct on valid data completes without error
 capture noisily {
     sysuse auto, clear
-    crosstab foreign rep78, colpct display
+ crosstab foreign rep78, colpct
     assert r(N) > 0
 }
 if _rc == 0 {
@@ -974,7 +974,7 @@ capture noisily {
     local _orig_k = c(k)
     gen byte outcome = price > 6000
     gen byte exposure = rep78 > 3 if rep78 < .
-    crosstab outcome exposure, trend label display
+ crosstab outcome exposure, trend label
     assert _N == `_orig_N'  // data unchanged
     * Variables should be intact
     confirm variable make price mpg
@@ -1060,14 +1060,14 @@ else {
 }
 
 
-**# Migrated: dis/border/tr abbreviations
+**# Migrated: border/tr abbreviations
 
-* T1: crosstab `dis`, `border`, `tr`
+* T1: crosstab `border`, `tr`
 sysuse auto, clear
 capture noisily crosstab foreign rep78, ///
-    border(thin) tr dis
+    border(thin) tr
 if _rc == 0 {
-    display as result "  PASS T1: crosstab dis/border/tr abbreviations"
+    display as result "  PASS T1: crosstab border/tr abbreviations"
     local ++pass_count
 }
 else {

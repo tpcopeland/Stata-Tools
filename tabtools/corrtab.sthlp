@@ -36,7 +36,7 @@ output from binary classification data.{p_end}
 {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt headerc:olor(string)}
 {opt zebrac:olor(string)} {opt zebra} {opt headers:hade}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}]{p_end}
 
 {pstd}{it:varlist} must contain at least two numeric variables.{p_end}
 
@@ -85,7 +85,6 @@ variables. The pairwise observation count matrix is stored in
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {synoptline}
 
@@ -111,7 +110,7 @@ variables. The pairwise observation count matrix is stored in
 {phang3}{cmd:xlsx(corr.xlsx) title("Correlation Matrix") lower}{p_end}
 
 {pstd}{bf:Example 2: Spearman with p-values (console)}{p_end}
-{phang2}{cmd:. corrtab price mpg weight, spearman pvalues display}{p_end}
+{phang2}{cmd:. corrtab price mpg weight, spearman pvalues}{p_end}
 
 {pstd}{bf:Example 3: Full matrix with custom star thresholds}{p_end}
 {phang2}{cmd:. corrtab price mpg weight length, full ///}{p_end}

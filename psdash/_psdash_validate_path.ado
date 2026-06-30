@@ -1,4 +1,4 @@
-*! _psdash_validate_path Version 1.3.0  2026/06/14
+*! _psdash_validate_path Version 1.4.0  2026/07/01
 *! Validate a user-supplied file path (extension + shell metacharacters)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

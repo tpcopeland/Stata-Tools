@@ -1,4 +1,4 @@
-*! psdash_support Version 1.3.0  2026/06/14
+*! psdash_support Version 1.4.0  2026/07/01
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -79,6 +79,7 @@ program define psdash_support, rclass
         [COVariates(varlist numeric) ///
          CRUMP ///
          THReshold(real -1) ///
+         QTRIM(real -1) ///
          GENerate(name) ///
          replace ///
          COMPare ///
@@ -98,6 +99,14 @@ program define psdash_support, rclass
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
     if "`sheet'" == "" local sheet "Support"
+
+    * Validate qtrim() (quantile-based common-support bounds; binary only)
+    if `qtrim' != -1 {
+        if `qtrim' <= 0 | `qtrim' >= 50 {
+            display as error "qtrim() must be strictly between 0 and 50"
+            exit 198
+        }
+    }
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto
@@ -243,7 +252,7 @@ program define psdash_support, rclass
 
     * COMMON SUPPORT ANALYSIS
     _psdash_support_stats, treatment(`treatment') samplevar(`touse') ///
-        psvar(`psvar') n(`N')
+        psvar(`psvar') n(`N') qtrim(`qtrim')
     local n_treated = r(n_treated)
     local n_control = r(n_control)
     local min_ps_t = r(min_ps_t)
@@ -280,6 +289,8 @@ program define psdash_support, rclass
             local best_alpha = 0
             local best_diff = .
 
+            * Coarse grid over [0.01, 0.49] at 0.01, then refine to 0.001 around
+            * the coarse minimum so the reported alpha is not pinned to a 1% step.
             forvalues a_int = 1/49 {
                 local alpha = `a_int' / 100
 
@@ -296,6 +307,28 @@ program define psdash_support, rclass
                     if `diff' < `best_diff' {
                         local best_diff = `diff'
                         local best_alpha = `alpha'
+                    }
+                }
+            }
+
+            if `best_alpha' > 0 {
+                local _lo = round(100 * (`best_alpha' - 0.01))
+                local _hi = round(100 * (`best_alpha' + 0.01))
+                if `_lo' < 1 local _lo = 1
+                if `_hi' > 49 local _hi = 49
+                forvalues a_int = `=`_lo'*10'/`=`_hi'*10' {
+                    local alpha = `a_int' / 1000
+                    if `alpha' <= 0 | `alpha' >= 0.5 continue
+                    local lhs = 1 / (`alpha' * (1 - `alpha'))
+                    local upper_a = 1 - `alpha'
+                    summarize `inv_var_ps' if `psvar' >= `alpha' & `psvar' <= `upper_a' & `touse'
+                    if r(N) > 0 {
+                        local rhs = 2 * r(mean)
+                        local diff = abs(`lhs' - `rhs')
+                        if `diff' < `best_diff' {
+                            local best_diff = `diff'
+                            local best_alpha = `alpha'
+                        }
                     }
                 }
             }
@@ -381,6 +414,13 @@ program define psdash_support, rclass
     display as text "{hline 55}"
     display as text "Common Support Region"
     display as text "{hline 55}"
+    if `qtrim' >= 0 {
+        display as text "Method:                " as result ///
+            "quantile (p`=string(`qtrim',"%3.1f")'/p`=string(100-`qtrim',"%3.1f")')"
+    }
+    else {
+        display as text "Method:                " as result "min-max overlap (optimistic)"
+    }
     display as text "Lower bound:           " as result %10.4f `lower_bound'
     display as text "Upper bound:           " as result %10.4f `upper_bound'
     display as text "Outside support:       " ///
@@ -455,7 +495,7 @@ program define psdash_support, rclass
             local cmp_pct_pre = `pct_outside'
             local cmp_pct_post = .
             capture _psdash_support_stats, treatment(`treatment') ///
-                samplevar(`_tt') psvar(`psvar') n(`cmp_n_post')
+                samplevar(`_tt') psvar(`psvar') n(`cmp_n_post') qtrim(`qtrim')
             if _rc == 0 local cmp_pct_post = r(pct_outside)
 
             * ESS% pre/post from estimand IPTW weights derived from the PS
@@ -592,6 +632,12 @@ program define psdash_support, rclass
     if "`crump'" != "" {
         display as error "crump trimming is defined for binary treatment only"
         display as error "  use {cmd:threshold()} for multi-group trimming"
+        exit 198
+    }
+
+    * Reject qtrim for multi-group
+    if `qtrim' != -1 {
+        display as error "qtrim() is supported for binary treatment only"
         exit 198
     }
 
@@ -927,6 +973,7 @@ program define psdash_support, rclass
             return scalar N_control = `n_control'
             return scalar lower_bound = `lower_bound'
             return scalar upper_bound = `upper_bound'
+            if `qtrim' != -1 return scalar qtrim = `qtrim'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             return scalar n_outside_treated = `n_outside_t'

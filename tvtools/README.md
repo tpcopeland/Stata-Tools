@@ -1,6 +1,6 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.6.3** | 2026-06-30
+**Version 1.6.4** | 2026-07-01
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, create age-band intervals, and split follow-up time along date-derived or multiple (Lexis) timescales.
 
@@ -114,10 +114,6 @@ Help: help tvtools for workflow guide
 ```
 
 ### Step 1: tvexpose -> frame (caller's data left intact)
-
-<!-- * The exposure interval set is written to a frame; the cohort stays in memory. -->
-
-<!-- * The generated variable name is returned in r(genvar). -->
 
 ```stata
 use "`pkg_dir'/_cohort.dta", clear
@@ -292,11 +288,11 @@ Event integration complete
 ```
 
 ```stata
-noisily display "event indicator: " as result "`r(generate)'"
+noisily display "event indicator: " as result "`r(generate)'" ///
+    "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 ```
 
 ```
->     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 event indicator: outcome   intervals: start/stop
 
 ```
@@ -311,12 +307,6 @@ With `ipcw()`, `tvweight` fits a censoring model alongside the propensity model 
 <summary>Console output</summary>
 
 ### Combined treatment + censoring weights
-
-<!-- * tvweight fits a propensity model and (with ipcw()) a censoring model, then -->
-
-<!-- * forms the cumulative IPTW x IPCW weight that a marginal structural model needs. -->
-
-<!-- * A positivity / overlap block reports near-violations and weight concentration. -->
 
 ```stata
 use "`pkg_dir'/_panel.dta", clear
@@ -408,11 +398,11 @@ Weight variable iptw created successfully.
 ```
 
 ```stata
-noisily display "combined-weight ESS: " as result %6.1f r(ess_combined)
+noisily display "combined-weight ESS: " as result %6.1f r(ess_combined) ///
+    "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
 ```
 
 ```
->     "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
 combined-weight ESS: 1948.2   positivity near-violations:  0.0%
 
 ```
@@ -431,12 +421,6 @@ The love plot itself is rendered by the dedicated propensity-score dashboard pac
 <summary>Console output</summary>
 
 ### tvevent type(recurring) with enum stratum + gap-time clock
-
-<!-- * The base follow-up interval is split at each hospitalization; tvevent adds the -->
-
-<!-- * event-sequence stratum (enum) and a gap-time clock that resets at each event, -->
-
-<!-- * so the output feeds Andersen-Gill, PWP total-time, and PWP gap-time models. -->
 
 ```stata
 use "`pkg_dir'/_recur.dta", clear
@@ -706,21 +690,31 @@ Canonical QA lives in `qa/`; the full runner is:
 cd tvtools/qa && stata-mp -b do run_all.do full
 ```
 
-Functional suites: `test_tvage.do`, `test_tvevent.do`, `test_tvexpose.do`,
-`test_tvmerge.do`, `test_tvpanel.do`, `test_tvweight.do`,
-`test_tvdiagnose.do`, `test_tvtools.do`, `test_options.do`,
-`test_integration.do`, `test_edge_cases.do`, `test_verbose.do`, and
-`test_regressions.do`.
+Functional suites: `test_default_naming.do`, `test_edge_cases.do`,
+`test_frames_input.do`, `test_integration.do`, `test_options.do`,
+`test_regressions.do`, `test_tvage.do`, `test_tvband.do`,
+`test_tvdiagnose.do`, `test_tvevent.do`, `test_tvexpose.do`,
+`test_tvm_overlap_drift_guard.do`, `test_tvm_point_engine.do`,
+`test_tvmerge.do`, `test_tvpanel.do`, `test_tvsplit.do`, `test_tvtools.do`,
+`test_tvweight.do`, and `test_verbose.do`.
 
-Validation and cross-validation suites: `validation_known_answers.do`,
-`validation_tvage.do`, `validation_tvevent.do`, `validation_tvexpose.do`,
-`validation_tvmerge.do`, `validation_tvweight.do`,
-`validation_tvdiagnose.do`, `validation_boundary.do`,
-`validation_pipeline.do`, `validation_supplemental.do`, and
-`crossval_tvtools.do`.
+Validation suites: `validation_boundary.do`, `validation_flow.do`,
+`validation_known_answers.do`, `validation_pipeline.do`,
+`validation_supplemental.do`, `validation_tvage.do`, `validation_tvband.do`,
+`validation_tvdiagnose.do`, `validation_tvevent.do`,
+`validation_tvexpose.do`, `validation_tvmerge.do`, `validation_tvpanel.do`,
+`validation_tvsplit.do`, `validation_tvweight.do`,
+`validation_tvweight_balance.do`, `validation_tvweight_msm_recovery.do`,
+and `validation_tvweight_recovery.do`.
+
+Cross-validation suites: `crossval_tvevent_recurring.do`,
+`crossval_tvexpose_expand.do`, `crossval_tvmerge_mata.do`,
+`crossval_tvsplit_lexis.do`, `crossval_tvtools.do`, and
+`crossval_tvweight_ipcw.do`.
 
 ## Version History
 
+- **1.6.4** (2026-07-01): Bug fix in `tvweight`. The within-person running-product computations for `cumulative`/`cumgenerate`, the internal cumulative IPTW, and `censgenerate`/`combgenerate` (IPCW) indexed the physically previous row rather than the previous row that survived `touse`. A person with any single row excluded by `markout` (e.g. one missing covariate among several periods) had their cumulative/combined MSM weight silently reset at that point instead of continuing the product across the gap, understating the weight for every period after the gap with no warning. All three computations now chain the product across `touse==1` rows only. Regression coverage added for the gap scenario; all existing QA (86 checks across `test_tvweight.do`, `validation_tvweight*.do`, `crossval_tvweight_ipcw.do`) passes unchanged.
 - **1.6.3** (2026-06-30): Internal engine consolidation, no user-facing behavior change. `tvpanel`'s active-episode lookup and `tvevent`'s split-point identification now use the shared Mata interval engine (`_tvmerge_mata.ado`) instead of a within-person `joinby` Cartesian-then-filter: `tvpanel` via the existing overlap sweep (each period start is a degenerate `[pstart, pstart]` interval) and `tvevent` via a new half-open `[start, stop)` point-in-interval routine (`_tvm_build_pairs_point`). Output is byte-identical to the prior `joinby` path on all regression, validation, and recurrent-event cross-validation fixtures. Adds a cross-package drift guard pinning the overlap engine to rangematch's `_rm_build_pairs_overlap` and a known-truth unit test for the point engine.
 - **1.6.2** (2026-06-29): `tvweight`'s `loveplot` now delegates covariate-balance plotting to the dedicated propensity-score dashboard package [`psdash`](https://github.com/tpcopeland/Stata-Tools/tree/main/psdash) instead of drawing its own figure: it calls `psdash balance` with the exposure, the generated weight variable, and the balance covariates. When `psdash` is not installed, `tvweight` prints installation guidance (and a pointer to build the plot from the returned `r(balance)` matrix) rather than producing a redundant in-house plot. The balance table and `r(balance)` matrix are unchanged. No other command behavior changed.
 - **1.6.1** (2026-06-29): Documentation maintenance. Added the `tvband` (single date-derived axis) and `tvsplit` (multi-timescale Lexis) commands to the README Commands table and intro, where they were previously omitted, and to the `tvtools` package-index `Also see` footer. Hard-wrapped long prose source lines in the `tvevent`, `tvexpose`, and `tvmerge` help files to ~80 columns so the GUI Viewer no longer drops characters at wrap boundaries. No command behavior changed.

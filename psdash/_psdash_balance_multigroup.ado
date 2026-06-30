@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.3.0  2026/06/14
+*! _psdash_balance_multigroup Version 1.4.0  2026/07/01
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -12,7 +12,7 @@ program define _psdash_balance_multigroup, rclass
     capture noisily {
         syntax varlist(numeric), TREATment(varname numeric) SAMPLEvar(varname) ///
             LEVELS(string asis) REFerence(string) THReshold(real) ///
-            [Wvar(varname numeric)]
+            [Wvar(varname numeric) VRLo(real 0.5) VRHi(real 2)]
 
         return clear
         local nvars : word count `varlist'
@@ -65,6 +65,13 @@ program define _psdash_balance_multigroup, rclass
         local i = 1
         foreach var of local varlist {
             local rownames "`rownames' `var'"
+
+            * Flag binary/indicator covariates (VR uninformative; see binary helper)
+            quietly summarize `var'
+            local _vmin = r(min)
+            local _vmax = r(max)
+            quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
+            local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
 
             quietly summarize `var' if `treatment' == `reference'
             local mean_ref = r(mean)
@@ -142,7 +149,26 @@ program define _psdash_balance_multigroup, rclass
                         local vr_adj = .
                     }
 
+                    * Weighted Kolmogorov-Smirnov (contrast group vs reference)
                     local ks_adj = .
+                    quietly summarize `wvar' if `treatment' == `clev' & !missing(`var')
+                    local _wt_a = r(sum)
+                    quietly summarize `wvar' if `treatment' == `reference' & !missing(`var')
+                    local _wt_r = r(sum)
+                    if `_wt_a' > 0 & `_wt_r' > 0 {
+                        tempvar _cfa _cfr _last _ksd
+                        sort `var'
+                        quietly gen double `_cfa' = ///
+                            sum(cond(`treatment' == `clev' & !missing(`var'), `wvar', 0)) / `_wt_a'
+                        quietly gen double `_cfr' = ///
+                            sum(cond(`treatment' == `reference' & !missing(`var'), `wvar', 0)) / `_wt_r'
+                        quietly by `var': gen byte `_last' = (_n == _N)
+                        quietly gen double `_ksd' = ///
+                            abs(`_cfa' - `_cfr') if `_last' & !missing(`var')
+                        quietly summarize `_ksd'
+                        if r(N) > 0 local ks_adj = r(max)
+                        drop `_cfa' `_cfr' `_last' `_ksd'
+                    }
 
                     matrix `balance_mat'[`i', `adj_base' + 1] = `mean_a_adj'
                     matrix `balance_mat'[`i', `adj_base' + 2] = `mean_ref_adj'
@@ -161,13 +187,21 @@ program define _psdash_balance_multigroup, rclass
         local max_smd_raw = 0
         local max_smd_adj = 0
         local max_ks_raw = 0
+        local max_ks_adj = 0
         local n_imbalanced = 0
         local n_vr_imbalanced = 0
+        local n_binary_vr = 0
+        local vr_na_vars ""
 
         forvalues i = 1/`nvars' {
             local worst_smd_raw_i = 0
             local worst_smd_adj_i = 0
             local cov_imbalanced = 0
+
+            if `_isbin_`i'' {
+                local n_binary_vr = `n_binary_vr' + 1
+                local vr_na_vars "`vr_na_vars' `: word `i' of `rownames''"
+            }
 
             local cnum = 0
             foreach clev of local contrasts {
@@ -182,9 +216,9 @@ program define _psdash_balance_multigroup, rclass
                     if `abs_smd' > `max_smd_raw' local max_smd_raw = `abs_smd'
                 }
 
-                if !missing(`balance_mat'[`i', `col_vr_raw']) {
+                if !`_isbin_`i'' & !missing(`balance_mat'[`i', `col_vr_raw']) {
                     local vr_i = `balance_mat'[`i', `col_vr_raw']
-                    if `vr_i' < 0.5 | `vr_i' > 2 {
+                    if `vr_i' < `vrlo' | `vr_i' > `vrhi' {
                         local n_vr_imbalanced = `n_vr_imbalanced' + 1
                     }
                 }
@@ -195,6 +229,11 @@ program define _psdash_balance_multigroup, rclass
                 }
 
                 if `has_adj' {
+                    local col_ks_adj = `ncols_raw' + (`cnum' - 1) * 5 + 5
+                    if !missing(`balance_mat'[`i', `col_ks_adj']) {
+                        local ks_a_i = `balance_mat'[`i', `col_ks_adj']
+                        if `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
+                    }
                     local col_smd_adj = `ncols_raw' + (`cnum' - 1) * 5 + 3
                     if !missing(`balance_mat'[`i', `col_smd_adj']) {
                         local abs_smd_a = abs(`balance_mat'[`i', `col_smd_adj'])
@@ -230,8 +269,11 @@ program define _psdash_balance_multigroup, rclass
         return scalar max_smd_raw = `max_smd_raw'
         return scalar max_smd_adj = `max_smd_adj'
         return scalar max_ks_raw = `max_ks_raw'
+        return scalar max_ks_adj = `max_ks_adj'
         return scalar n_imbalanced = `n_imbalanced'
         return scalar n_vr_imbalanced = `n_vr_imbalanced'
+        return scalar n_binary_vr = `n_binary_vr'
+        return local vr_na_vars = strtrim("`vr_na_vars'")
         return local contrasts "`contrasts'"
         return matrix balance = `balance_mat'
     }

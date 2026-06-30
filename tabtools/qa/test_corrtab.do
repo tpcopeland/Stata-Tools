@@ -468,7 +468,7 @@ else {
 }
 capture erase "`output_dir'/_corrtab_perf_full.xlsx"
 
-**## display writes a visible console table
+**## console output writes a visible table
 local ++test_count
 capture noisily {
     tempfile corr_console
@@ -481,7 +481,7 @@ capture noisily {
     gen double y = _n
     gen double z = 9 - _n
 
-    corrtab x y z, display title("Console Correlation Table")
+ corrtab x y z, title("Console Correlation Table")
 
     log close _corr_console
 
@@ -520,7 +520,7 @@ else {
 * Test: corrtab basic Pearson with display
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight length, display
+ corrtab price mpg weight length
 }
 if _rc == 0 {
     display as result "  PASS: corrtab basic Pearson display"
@@ -551,7 +551,7 @@ else {
 * Test: corrtab returns r(C) matrix
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight length, display
+ corrtab price mpg weight length
     matrix list r(C)
     assert rowsof(r(C)) == 4
     assert colsof(r(C)) == 4
@@ -568,7 +568,7 @@ else {
 * Test: corrtab upper triangle
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, upper display
+ corrtab price mpg weight, upper
 }
 if _rc == 0 {
     display as result "  PASS: corrtab upper triangle"
@@ -582,7 +582,7 @@ else {
 * Test: corrtab full matrix
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, full display
+ corrtab price mpg weight, full
 }
 if _rc == 0 {
     display as result "  PASS: corrtab full matrix"
@@ -596,7 +596,7 @@ else {
 * Test: corrtab pvalues option
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, pvalues display
+ corrtab price mpg weight, pvalues
 }
 if _rc == 0 {
     display as result "  PASS: corrtab pvalues option"
@@ -610,7 +610,7 @@ else {
 * Test: corrtab custom star thresholds
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, star(0.1 0.05 0.01) display
+ corrtab price mpg weight, star(0.1 0.05 0.01)
 }
 if _rc == 0 {
     display as result "  PASS: corrtab custom star thresholds"
@@ -624,7 +624,7 @@ else {
 * Test: corrtab digits option
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, digits(3) display
+ corrtab price mpg weight, digits(3)
 }
 if _rc == 0 {
     display as result "  PASS: corrtab digits(3)"
@@ -638,7 +638,7 @@ else {
 * Test: corrtab with if condition
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight if foreign == 0, display
+ corrtab price mpg weight if foreign == 0
 }
 if _rc == 0 {
     display as result "  PASS: corrtab with if condition"
@@ -652,7 +652,7 @@ else {
 * Test: corrtab csv export
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, csv("`output_dir'/test_corrtab.csv") display
+ corrtab price mpg weight, csv("`output_dir'/test_corrtab.csv")
     confirm file "`output_dir'/test_corrtab.csv"
 }
 if _rc == 0 {
@@ -668,7 +668,7 @@ else {
 capture noisily {
     sysuse auto, clear
     capture frame drop corrframe
-    corrtab price mpg weight, frame(corrframe) display
+ corrtab price mpg weight, frame(corrframe)
     assert r(frame) == "corrframe"
     frame corrframe: assert _N > 0
 }
@@ -685,7 +685,7 @@ capture frame drop corrframe
 * Test: corrtab r(methods) returned
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, display
+ corrtab price mpg weight
     assert "`r(methods)'" != ""
 }
 if _rc == 0 {
@@ -717,7 +717,7 @@ else {
 capture noisily {
     sysuse auto, clear
     local orig_n = _N
-    corrtab price mpg weight, display
+ corrtab price mpg weight
     assert _N == `orig_n'
 }
 if _rc == 0 {
@@ -950,14 +950,14 @@ else {
 
 
 
-**# Migrated: dis/border abbreviations
+**# Migrated: border abbreviation
 
-* T2: corrtab `dis`, `border`
+* T2: corrtab `border`
 sysuse auto, clear
 capture noisily corrtab price mpg weight length, ///
-    border(thin) dis
+    border(thin)
 if _rc == 0 {
-    display as result "  PASS T2: corrtab dis/border abbreviations"
+    display as result "  PASS T2: corrtab border abbreviation"
     local ++pass_count
 }
 else {

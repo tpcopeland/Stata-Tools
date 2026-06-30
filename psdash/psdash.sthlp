@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  14jun2026}{...}
+{* *! version 1.4.0  01jul2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -88,7 +88,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {opt love:plot} {opt strat:egies(strategylist)} {opt dist:ribution(varlist)}
 {opt smdm:atrix(name)} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt f:ormat(string)} {opt ti:tle(string)}
-{opt name(string)} {opt ks} {opt esti:mand(string)}
+{opt name(string)} {opt ks} {opt esti:mand(string)} {opt vrb:ounds(# #)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:weights}
@@ -99,14 +99,14 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {opt gen:erate(name)} {opt replace} {opt det:ail} {opt gr:aph}
 {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt name(string)} {opt xlsx(filename)} {opt sheet(string)}
-{opt esti:mand(string)}
+{opt esti:mand(string)} {opt ext:reme(# #)}
 {opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwcomponent(string)}]
 
 {dlgtab:support}
 
 {phang}
 {cmd:psdash support} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
-[{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)}
+[{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)} {opt qtrim(#)}
 {opt gen:erate(name)} {opt replace} {opt comp:are} {opt nog:raph} {opt sav:ing(filename)}
 {opt sch:eme(schemename)} {opt graphopt:ions(string)} {opt ti:tle(string)}
 {opt name(string)} {opt xlsx(filename)} {opt sheet(string)} {opt esti:mand(string)}
@@ -272,6 +272,13 @@ Mutually exclusive with {opt wvar()}.
 {opt threshold(#)} sets the SMD threshold for imbalance. Default is 0.1.
 
 {phang}
+{opt vrbounds(# #)} sets the lower and upper variance-ratio bounds used to flag
+imbalance and reported in the summary line. Defaults are {cmd:0.5 2.0}. Binary
+(two-level) covariates are excluded from the variance-ratio count because for a
+two-level covariate the variance ratio is a deterministic function of the SMD
+and carries no additional information; such covariates are listed in a footnote.
+
+{phang}
 {opt nowvar} suppresses automatic weight generation from the propensity score.
 {opt noweights} is an alias for {opt nowvar}.
 
@@ -304,7 +311,10 @@ manuscript table.
 {phang}
 {opt ks} displays Kolmogorov-Smirnov statistics in the balance table. KS
 statistics are always computed and stored in the {cmd:r(balance)} matrix
-regardless of this option; {opt ks} controls display only.
+regardless of this option; {opt ks} controls display only. Both the raw KS
+({cmd:KS_Raw}) and, when weights are applied, a {it:weighted} KS ({cmd:KS_Adj},
+built from the weighted empirical CDF in each group) are stored; their maxima
+are returned in {cmd:r(max_ks_raw)} and {cmd:r(max_ks_adj)}.
 
 {phang}
 {opt xlsx(filename)} exports the balance table to an Excel file.
@@ -317,10 +327,14 @@ regardless of this option; {opt ks} controls display only.
 
 {pstd}
 {bf:Interpretation:} An SMD below 0.1 in absolute value indicates adequate
-balance (Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable;
-values outside this range indicate scale imbalances that SMD alone can miss.
+balance (Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable
+(adjust with {opt vrbounds()}); values outside this range indicate scale
+imbalances that SMD alone can miss. The variance ratio is reported but not
+flagged for two-level covariates, where it adds nothing beyond the SMD.
 KS statistics above 0.1 suggest meaningful distributional differences beyond
-what means capture.
+what means capture. SMDs are standardized by the {it:unweighted} pooled
+standard deviation so that raw and adjusted columns are directly comparable
+(Austin and Stuart 2015).
 
 {dlgtab:weights options}
 
@@ -332,7 +346,18 @@ what means capture.
 
 {phang}
 {opt stabilize} creates stabilized weights by multiplying by the marginal
-probability of treatment.
+probability of treatment. This is correct only when the input weights are
+{it:unstabilized} inverse-probability weights (the 1/PS scale, as auto-generated
+from a propensity score). When weights are supplied with {opt wvar()}, a note is
+printed because the marginal-probability rescaling assumes that scale.
+
+{phang}
+{opt extreme(# #)} sets the two extreme-weight cutoffs (lower and upper) used in
+the extreme-weight count and warnings. Defaults are {cmd:10 20}. These cutoffs
+are {it:absolute} and therefore scale-dependent: the defaults suit stabilized
+weights (centred near 1), whereas unstabilized ATE weights (1/PS) routinely run
+larger, so raise the cutoffs accordingly. The scale-free maximum-to-mean weight
+ratio is always reported and returned in {cmd:r(max_ratio)}.
 
 {phang}
 {opt generate(name)} specifies the variable name for modified weights.
@@ -369,22 +394,34 @@ It is ignored unless {opt graph} is also specified.
 {pstd}
 {bf:Interpretation:} An ESS above 50% of the original sample size is typical.
 A coefficient of variation (CV) greater than 1 indicates substantial weight
-variability that may inflate variance of treatment effect estimates.
-Weights exceeding 10 are considered extreme; those exceeding 20 indicate
-severe positivity violations. Consider trimming or truncating extreme weights.
+variability that may inflate variance of treatment effect estimates. The default
+extreme-weight cutoffs (10, 20) are calibrated for stabilized weights; for
+unstabilized weights judge instead by the CV and the maximum-to-mean ratio, or
+raise the cutoffs with {opt extreme()}. Consider trimming or truncating extreme
+weights.
 
 {dlgtab:support options}
 
 {phang}
 {opt crump} applies Crump et al. (2009) optimal trimming to determine the
-support region that minimizes variance. Uses a grid search to find the
-optimal alpha threshold. Restricted to binary treatment; for multi-group
-treatments, use {opt threshold()} instead.
+support region that minimizes variance. A coarse grid search over alpha in
+[0.01, 0.49] (0.01 steps) is refined to 0.001 resolution around the coarse
+minimum, so the reported alpha is not pinned to a 1% step. Restricted to binary
+treatment; for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
 {opt threshold(#)} specifies a manual PS trimming threshold. Observations
 with PS < threshold or PS > 1-threshold are considered outside support.
 Must be strictly between 0 and 0.5.
+
+{phang}
+{opt qtrim(#)} bases the reported common-support region on within-group
+percentiles ({it:#} and 100-{it:#}) of the propensity score rather than the
+default min-max overlap. The min-max region is optimistic: a single
+observation with an extreme PS can stretch the reported interval and hide
+interior sparsity. A small value such as {cmd:qtrim(1)} or {cmd:qtrim(2.5)}
+gives a more robust boundary. {it:#} must be strictly between 0 and 50.
+Binary treatment only.
 
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
@@ -756,8 +793,11 @@ identifies the reference group.
 {synopt:{cmd:r(max_vr_raw)}}variance ratio with largest deviation from 1{p_end}
 {synopt:{cmd:r(max_vr_adj)}}adjusted variance ratio with largest deviation from 1{p_end}
 {synopt:{cmd:r(max_ks_raw)}}maximum KS statistic (raw){p_end}
+{synopt:{cmd:r(max_ks_adj)}}maximum weighted KS statistic (set when weighted){p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates exceeding SMD threshold{p_end}
-{synopt:{cmd:r(n_vr_imbalanced)}}covariates with VR outside [0.5, 2.0]{p_end}
+{synopt:{cmd:r(n_vr_imbalanced)}}covariates with VR outside bounds (excludes binary covariates){p_end}
+{synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from the VR count{p_end}
+{synopt:{cmd:r(vr_na_vars)}}names of binary covariates excluded from the VR count{p_end}
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
@@ -804,8 +844,10 @@ include the compared treatment levels.
 {synopt:{cmd:r(ess_control)}}ESS for control group{p_end}
 {synopt:{cmd:r(ess_pct_treated)}}ESS % for treated group{p_end}
 {synopt:{cmd:r(ess_pct_control)}}ESS % for control group{p_end}
-{synopt:{cmd:r(n_extreme)}}weights > 10{p_end}
+{synopt:{cmd:r(n_extreme)}}weights above the upper extreme cutoff (see {opt extreme()}){p_end}
 {synopt:{cmd:r(pct_extreme)}}percentage of extreme weights{p_end}
+{synopt:{cmd:r(max_ratio)}}maximum-to-mean weight ratio (scale-free){p_end}
+{synopt:{cmd:r(extreme_hi)}, {cmd:r(extreme_vhi)}}extreme-weight cutoffs used{p_end}
 {synopt:{cmd:r(p1)}}1st percentile{p_end}
 {synopt:{cmd:r(p5)}}5th percentile{p_end}
 {synopt:{cmd:r(p95)}}95th percentile{p_end}
@@ -835,6 +877,7 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(lower_bound)}}lower bound of common support{p_end}
 {synopt:{cmd:r(upper_bound)}}upper bound of common support{p_end}
+{synopt:{cmd:r(qtrim)}}quantile percentage used for support bounds (if {opt qtrim()}){p_end}
 {synopt:{cmd:r(n_outside)}}observations outside support{p_end}
 {synopt:{cmd:r(pct_outside)}}percentage outside support{p_end}
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}

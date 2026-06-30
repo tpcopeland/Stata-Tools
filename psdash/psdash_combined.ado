@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.3.0  2026/06/14
+*! psdash_combined Version 1.4.0  2026/07/01
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.7.4  2026/06/26
+*! iivw_fit Version 1.8.0  2026/07/01
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -54,7 +54,7 @@ program define iivw_fit, eclass
          CLuster(varname) ///
          UNWeighted ///
          ID(varname) TIME(varname) ///
-         BOOTstrap(integer 0) ///
+         BOOTstrap(integer 0) REFITweights ///
          Level(cilevel) noLOG ///
          REPLACE ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
@@ -90,6 +90,16 @@ program define iivw_fit, eclass
         local weighttype "`r(weighttype)'"
         local weight_var "`r(weight_var)'"
         local prefix     "`r(prefix)'"
+
+        * Weight-construction replay spec (used only by refitweights bootstrap)
+        local rep_visitcov "`r(visit_covars)'"
+        local rep_treat    "`r(treat)'"
+        local rep_treatcov "`r(treat_covars)'"
+        local rep_stabcov  "`r(stabcov)'"
+        local rep_truncate "`r(truncate)'"
+        local rep_efron    "`r(efron)'"
+        local rep_entry    "`r(entry)'"
+        local rep_baseevent "`r(baseevent)'"
     }
     else {
         local panel_id "`id'"
@@ -166,6 +176,45 @@ program define iivw_fit, eclass
     if `bootstrap' < 0 {
         display as error "bootstrap() must be greater than or equal to 0"
         error 198
+    }
+
+    * refitweights: re-estimate IIW/IPTW/FIPTIW weights inside each bootstrap
+    * replicate so the interval reflects weight-estimation uncertainty, not just
+    * outcome-model uncertainty with the weights held fixed.
+    if "`refitweights'" != "" {
+        if `bootstrap' == 0 {
+            display as error "refitweights requires bootstrap(#) with # > 0"
+            display as error "  it re-estimates the weights inside each bootstrap replicate"
+            error 198
+        }
+        if "`unweighted'" != "" {
+            display as error "refitweights is not compatible with unweighted"
+            display as error "  there are no weights to re-estimate"
+            error 198
+        }
+        if "`cluster'" != "`panel_id'" {
+            display as error "refitweights resamples at the subject (id) level"
+            display as error "  cluster() other than the panel id (`panel_id') is not supported with refitweights"
+            error 198
+        }
+        if inlist("`weighttype'", "iivw", "fiptiw") & "`rep_visitcov'" == "" {
+            display as error "refitweights needs the stored visit-model covariates"
+            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            error 198
+        }
+        if inlist("`weighttype'", "iptw", "fiptiw") & "`rep_treat'" == "" {
+            display as error "refitweights needs the stored treatment-model contract"
+            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            error 198
+        }
+        if "`panel_time'" == "" & inlist("`weighttype'", "iivw", "fiptiw") {
+            display as error "refitweights needs the stored panel time variable"
+            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            error 198
+        }
+        * Replay flags for the per-replicate iivw_weight call
+        local rep_efron_flag = cond("`rep_efron'" != "", "efron", "")
+        local rep_nobase_flag = cond("`rep_baseevent'" == "1", "nobaseevent", "")
     }
 
     * collect is only wired into the non-bootstrap model(gee) path; refuse it
@@ -301,6 +350,13 @@ program define iivw_fit, eclass
     display as text "Cluster var:      " as result "`cluster'"
     if `bootstrap' > 0 {
         display as text "Bootstrap reps:   " as result "`bootstrap'"
+        if "`refitweights'" != "" {
+            display as text "Bootstrap weights:" as result ///
+                " re-estimated per replicate (propagates weight uncertainty)"
+        }
+        else if "`unweighted'" == "" {
+            display as text "Bootstrap weights:" as result " held fixed"
+        }
     }
     display as text ""
 
@@ -895,7 +951,20 @@ program define iivw_fit, eclass
         display as text "Fitting `weighttype' GEE model..."
         display as text ""
 
-        if `bootstrap' > 0 {
+        if `bootstrap' > 0 & "`refitweights'" != "" {
+            tempvar bsid
+            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+                idcluster(`bsid') level(`level') nodots: ///
+                _iivw_bs_refit `depvar' `all_covars' if `touse', ///
+                newid(`bsid') timevar(`panel_time') wtype(`weighttype') ///
+                prefix(`prefix') model(gee) ///
+                visitcov(`rep_visitcov') treat(`rep_treat') ///
+                treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
+                truncate(`rep_truncate') `rep_efron_flag' `rep_nobase_flag' ///
+                entry(`rep_entry') family(`family') link(`link') ///
+                geeopts(`geeopts') `log_opt'
+        }
+        else if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
@@ -925,7 +994,19 @@ program define iivw_fit, eclass
         display as text "Fitting `weighttype' mixed model..."
         display as text ""
 
-        if `bootstrap' > 0 {
+        if `bootstrap' > 0 & "`refitweights'" != "" {
+            tempvar bsid
+            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+                idcluster(`bsid') level(`level') nodots: ///
+                _iivw_bs_refit `depvar' `all_covars' if `touse', ///
+                newid(`bsid') timevar(`panel_time') wtype(`weighttype') ///
+                prefix(`prefix') model(mixed) ///
+                visitcov(`rep_visitcov') treat(`rep_treat') ///
+                treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
+                truncate(`rep_truncate') `rep_efron_flag' `rep_nobase_flag' ///
+                entry(`rep_entry') mixedopts(`mixedopts') `log_opt'
+        }
+        else if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
@@ -1058,6 +1139,8 @@ program define iivw_fit, eclass
     ereturn local iivw_weighttype "`weighttype'"
     local unweighted_flag = ("`unweighted'" != "")
     ereturn local iivw_unweighted "`unweighted_flag'"
+    local refit_flag = ("`refitweights'" != "" & `bootstrap' > 0)
+    ereturn local iivw_refitweights "`refit_flag'"
     ereturn local iivw_timespec "`timespec'"
     ereturn local iivw_weight_var "`weight_var'"
     ereturn local iivw_cluster "`cluster'"

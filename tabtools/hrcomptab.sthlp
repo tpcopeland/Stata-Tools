@@ -56,7 +56,6 @@
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame for {helpb eplot}; model frames must have been created by {cmd:regtab} with {opt eplotframe()}{p_end}
 {synopt:{opt forest}}draw an {helpb eplot} forest plot from the companion frame; requires the separate {cmd:eplot} package{p_end}
 {synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
@@ -168,11 +167,6 @@ Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
 {opt reflabel(string)} controls the text shown in inferred reference rows.
 Default is {cmd:Reference}.
 
-{phang}
-{opt display} is accepted for compatibility. {cmd:hrcomptab} always displays
-the completed table in the Results window, and can also write Excel, CSV, or
-frame output.
-
 
 {marker examples}{...}
 {title:Examples}
@@ -224,7 +218,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {phang2}{cmd:. hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) ///}{p_end}
 {phang3}{cmd:    rownames("hrt" \ "low medium high") ///}{p_end}
-{phang3}{cmd:    effect("aHR") display}{p_end}
+{phang3}{cmd:    effect("aHR")}{p_end}
 
 
 {marker stored}{...}

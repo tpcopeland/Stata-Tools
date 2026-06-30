@@ -24,7 +24,7 @@
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -73,7 +73,6 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},
@@ -101,7 +100,7 @@ exits with an error instead of silently omitting the measure.{p_end}
 {phang3}{cmd:title("Risk Ratios and Trend Test")}{p_end}
 
 {pstd}{bf:Example 3: Console preview}{p_end}
-{phang2}{cmd:. crosstab rep78 foreign, label display}{p_end}
+{phang2}{cmd:. crosstab rep78 foreign, label}{p_end}
 
 {pstd}{bf:Example 4: Row percentages with Fisher's exact test}{p_end}
 {phang2}{cmd:. crosstab rep78 foreign, rowpct fisher label ///}{p_end}

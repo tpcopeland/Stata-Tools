@@ -1,4 +1,4 @@
-*! regtab Version 1.8.8  2026/06/30
+*! regtab Version 1.8.9  2026/07/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -73,7 +73,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
-		FRAme(string) EPLOTFrame(string asis) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
+		FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0)]
 

@@ -1,4 +1,4 @@
-*! corrtab Version 1.8.8  2026/06/30
+*! corrtab Version 1.8.9  2026/07/01
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -37,7 +37,7 @@ program define corrtab, rclass
             title(string) ///
             FOOTnote(string) THEme(string) BORDERstyle(string) ///
             HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-            csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open]
+            csv(string) MARKdown(string) MDAPPend FRAme(string) open]
 
         if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
         local _has_xlsx = (`"`xlsx'"' != "")

@@ -1139,7 +1139,7 @@ capture {
     matrix `b_mat' = e(b)
     local exp_or = exp(`b_mat'[1,1])
 
-    regtab, display frame(_rt_or, replace)
+ regtab, frame(_rt_or, replace)
     assert "`r(coef_label)'" == "OR"
 
     frame _rt_or {
@@ -1176,7 +1176,7 @@ capture {
     collect: regress price mpg
     collect: logit foreign mpg
 
-    regtab, display frame(_rt_mix, replace) stats(r2)
+ regtab, frame(_rt_mix, replace) stats(r2)
     assert "`r(coef_label)'" == "mixed"
     assert strpos(`"`r(methods)'"', "Collected regression estimates") > 0
 
@@ -1205,9 +1205,9 @@ capture {
     collect clear
     collect: logit foreign mpg weight
 
-    capture noisily regtab, display pdp(0)
+ capture noisily regtab, pdp(0)
     assert _rc == 198
-    capture noisily regtab, display highpdp(0)
+ capture noisily regtab, highpdp(0)
     assert _rc == 198
 }
 local test_count = `test_count' + 1
@@ -1242,7 +1242,7 @@ capture {
     collect clear
     collect: melogit y x || district: || school:
 
-    regtab, display frame(_rt_mor_keep, replace) relabel keep(District School)
+ regtab, frame(_rt_mor_keep, replace) relabel keep(District School)
 
     frame _rt_mor_keep {
         count if A == "Median Odds Ratio (District)"
@@ -1274,7 +1274,7 @@ capture {
     collect: streg age, dist(weibull) time
     collect: streg age, dist(weibull)
 
-    regtab, display frame(_rt_streg_mix, replace)
+ regtab, frame(_rt_streg_mix, replace)
     assert "`r(coef_label)'" == "mixed"
 
     frame _rt_streg_mix {
@@ -1302,7 +1302,7 @@ capture {
     collect: glm price mpg weight, family(gaussian) link(identity)
     collect: glm foreign mpg weight, family(binomial) link(logit)
 
-    regtab, display frame(_rt_glm_mix, replace)
+ regtab, frame(_rt_glm_mix, replace)
     assert "`r(coef_label)'" == "mixed"
 
     frame _rt_glm_mix {
@@ -1333,7 +1333,7 @@ capture {
     matrix `b_mat' = e(b)
     local exp_or = exp(`b_mat'[1,1])
 
-    regtab, display frame(_rt_rendered, replace) stars compact title("Rendered")
+ regtab, frame(_rt_rendered, replace) stars compact title("Rendered")
     matrix list r(table)
     assert rowsof(r(table)) > 0
     assert colsof(r(table)) == 1
@@ -2362,7 +2362,7 @@ else {
     assert e(N) > e(N_sub)
     assert e(N_sub) == `n_subjects'
 
-    regtab, stats(n) display frame(t1, replace)
+ regtab, stats(n) frame(t1, replace)
 
     frame t1 {
         * Find the N row — should say "Subjects", not "Observations"
@@ -2403,7 +2403,7 @@ else {
     local expected_n = e(N_sub)
     assert e(N) == e(N_sub)
 
-    regtab, stats(n) display frame(t2, replace)
+ regtab, stats(n) frame(t2, replace)
 
     frame t2 {
         * Should say "Subjects" (N_sub is always set for st commands)
@@ -2430,7 +2430,7 @@ else {
 
     local expected_n = e(N)
 
-    regtab, stats(n) display frame(t3, replace)
+ regtab, stats(n) frame(t3, replace)
 
     frame t3 {
         count if A == "Observations"
@@ -2464,7 +2464,7 @@ else {
 
     local expected_n = e(N)
 
-    regtab, stats(n) display frame(t4, replace)
+ regtab, stats(n) frame(t4, replace)
 
     frame t4 {
         count if A == "Observations"
@@ -2506,7 +2506,7 @@ else {
     local logit_n = e(N)
     di "Logit: N=`logit_n'"
 
-    regtab, stats(n) display frame(t5, replace)
+ regtab, stats(n) frame(t5, replace)
 
     frame t5 {
         * Should say "Subjects" because at least one model has N_sub
@@ -2555,7 +2555,7 @@ else {
     assert e(N) > e(N_sub)
     assert e(N_sub) == `n_subjects'
 
-    regtab, stats(n) display frame(t6, replace)
+ regtab, stats(n) frame(t6, replace)
 
     frame t6 {
         count if A == "Subjects"
@@ -2595,7 +2595,7 @@ local failures = 0
     local expected_n = e(N_sub)
 
     * Baseline: stats(n)
-    regtab, stats(n) display frame(t_n, replace)
+ regtab, stats(n) frame(t_n, replace)
     frame t_n {
         count if A == "Subjects"
         assert r(N) == 1
@@ -2604,7 +2604,7 @@ local failures = 0
     }
 
     * Alias: stats(n_sub)
-    regtab, stats(n_sub) display frame(t_nsub, replace)
+ regtab, stats(n_sub) frame(t_nsub, replace)
     frame t_nsub {
         count if A == "Subjects"
         assert r(N) == 1
@@ -2632,7 +2632,7 @@ local failures = 0
     quietly collect: stcox height
     local expected_n = e(N_sub)
 
-    regtab, stats(subjects) display frame(t_subj, replace)
+ regtab, stats(subjects) frame(t_subj, replace)
     frame t_subj {
         count if A == "Subjects"
         assert r(N) == 1
@@ -2659,7 +2659,7 @@ local failures = 0
         * the parse block runs inside regtab's internal quietly{}.
         tempfile warnlog
         log using "`warnlog'", replace text name(_alias_warn)
-        regtab, stats(bogus n) display frame(t_bogus, replace)
+ regtab, stats(bogus n) frame(t_bogus, replace)
         local plain_rc = _rc
         log close _alias_warn
 
@@ -2700,8 +2700,8 @@ local failures = 0
     collect: logit foreign mpg weight
     local expected_n = e(N)
 
-    regtab, stats(n) display frame(t4n, replace)
-    regtab, stats(n_sub) display frame(t4a, replace)
+ regtab, stats(n) frame(t4n, replace)
+ regtab, stats(n_sub) frame(t4a, replace)
 
     frame t4n {
         count if A == "Observations"
@@ -3965,13 +3965,13 @@ else {
     local ++fail_count
 }
 
-* --- 3.1.2: regtab with display option shows console AND exports ---
+* --- 3.1.2: regtab shows console AND exports ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight
-    regtab, xlsx("output/test_v160_display.xlsx") sheet("Test") display
+ regtab, xlsx("output/test_v160_display.xlsx") sheet("Test")
     confirm file "output/test_v160_display.xlsx"
 }
 if _rc == 0 {
@@ -4086,7 +4086,7 @@ capture noisily {
     collect: regress price mpg weight i.foreign
     capture frame drop multi
     regtab, xlsx("output/test_v160_multi.xlsx") sheet("Test") ///
-        models("Model 1 \ Model 2") frame(multi) display
+ models("Model 1 \ Model 2") frame(multi)
     assert r(N_models) == 2
     matrix list r(table)
     local ncols = colsof(r(table))
@@ -4701,7 +4701,7 @@ capture noisily {
     stcrreg x1, compete(cause == 2)
     collect clear
     collect: stcrreg x1, compete(cause == 2)
-    regtab, display
+ regtab
 }
 if _rc == 0 {
     display as result "  PASS: regtab SHR auto-detect"
@@ -4723,7 +4723,7 @@ capture noisily {
     stset time, failure(event)
     collect clear
     collect: streg x1, distribution(weibull) time
-    regtab, display
+ regtab
 }
 if _rc == 0 {
     display as result "  PASS: regtab TR auto-detect (streg time)"
@@ -4735,15 +4735,15 @@ else {
 }
 
 
-**# Migrated: dis/border abbreviations
+**# Migrated: border abbreviation
 
-* T5: regtab `dis`, `border`
+* T5: regtab `border`
 sysuse auto, clear
 collect clear
 quietly collect: regress price mpg weight foreign
-capture noisily regtab, dis border(thin)
+capture noisily regtab, border(thin)
 if _rc == 0 {
-    display as result "  PASS T5: regtab dis/border abbreviations"
+    display as result "  PASS T5: regtab border abbreviation"
     local ++pass_count
 }
 else {

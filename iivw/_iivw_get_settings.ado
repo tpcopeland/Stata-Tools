@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 1.7.4  2026/06/26
+*! _iivw_get_settings Version 1.8.0  2026/07/01
 *! Retrieve stored metadata from dataset characteristics
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -21,6 +21,11 @@ program define _iivw_get_settings, rclass
     local ps_estimand : char _dta[_iivw_ps_estimand]
     local contract_version : char _dta[_iivw_contract_version]
     local visit_covars : char _dta[_iivw_visit_covars]
+    local baseevent  : char _dta[_iivw_baseevent]
+    local stabcov    : char _dta[_iivw_stabcov]
+    local truncate   : char _dta[_iivw_truncate]
+    local efron      : char _dta[_iivw_efron]
+    local entry      : char _dta[_iivw_entry]
 
     if "`prefix'" == "" local prefix "_iivw_"
 
@@ -37,6 +42,11 @@ program define _iivw_get_settings, rclass
     return local ps_estimand "`ps_estimand'"
     return local contract_version "`contract_version'"
     return local visit_covars "`visit_covars'"
+    return local baseevent "`baseevent'"
+    return local stabcov "`stabcov'"
+    return local truncate "`truncate'"
+    return local efron "`efron'"
+    return local entry "`entry'"
 
     }
     local rc = _rc

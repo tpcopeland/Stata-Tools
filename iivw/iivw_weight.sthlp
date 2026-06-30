@@ -204,6 +204,13 @@ includes only the treatment variable, not the time-varying confounders
 that appear in the full visit model.  This stabilizes the weights while
 preserving the treatment effect estimand.
 
+{pmore}
+{bf:Recommendation.}  Stabilization leaves the target estimand unchanged but
+typically lowers weight variance and reduces effective-sample-size loss
+(Buzkova & Lumley 2007), so a numerator model is recommended for most IIW and
+FIPTIW analyses.  When {opt stabcov()} is omitted, {cmd:iivw_weight} prints a
+one-line note that the visit weights are unstabilized.
+
 {dlgtab:Data options}
 
 {phang}
@@ -253,9 +260,21 @@ more visits so the model has events to fit.
 
 {pmore}
 {opt nobaseevent} changes the fitted intensity model and therefore the
-weights, so the default behavior is retained unless you request it.  When
-{opt nobaseevent} is specified, {opt entry()} is ignored -- the first visit
-defines risk onset.
+weights, so the default behavior is retained for backward compatibility unless
+you request it.  When {opt nobaseevent} is specified, {opt entry()} is ignored
+-- the first visit defines risk onset.
+
+{pmore}
+{bf:Recommendation.}  For most observational designs in which the baseline
+visit is an enrollment event common to everyone -- registry cohorts, EHR
+extracts, and similar non-protocol data -- {opt nobaseevent} is the more
+defensible choice, because the timing of the baseline visit is not part of the
+informative observation process being corrected.  Modeling the baseline visit
+as a recurrent event (the default) lets its covariates predict its own
+occurrence, which is circular; {opt nobaseevent} removes that circularity and is
+the recommended specification whenever the baseline visit is study entry rather
+than a clinically triggered follow-up visit.  Retain the default only when the
+first observed visit is itself part of the modeled visit process.
 
 {dlgtab:Reporting}
 

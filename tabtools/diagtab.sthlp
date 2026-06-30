@@ -32,7 +32,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {opt dig:its(#)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt zebra}
-{opt headers:hade} {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play}
+{opt headers:hade} {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
 {opt open}]{p_end}
 
 {marker description}{title:Description}
@@ -66,7 +66,6 @@ window and may also be exported to Excel, CSV, or Markdown, or stored in a Stata
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
@@ -128,7 +127,7 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {phang2}{stata "predict phat":. predict phat}{p_end}
 {phang2}{cmd:. diagtab phat low, cutoff(0.4) auc ///}{p_end}
 {phang3}{cmd:xlsx(diag_auc.xlsx) title("LBW Prediction") ///}{p_end}
-{phang3}{cmd:theme(nejm) display}{p_end}
+{phang3}{cmd:theme(nejm)}{p_end}
 
 {pstd}{bf:Example 3: Multiple cutoffs evaluated simultaneously}{p_end}
 {phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
@@ -136,7 +135,7 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {phang2}{stata "predict phat":. predict phat}{p_end}
 {phang2}{cmd:. diagtab phat low, cutoffs(0.2 0.3 0.4 0.5) ///}{p_end}
 {phang3}{cmd:xlsx(diag_multi.xlsx) ///}{p_end}
-{phang3}{cmd:title("Diagnostic Accuracy Across Cutoffs") display}{p_end}
+{phang3}{cmd:title("Diagnostic Accuracy Across Cutoffs")}{p_end}
 
 {pstd}When {opt cutoffs()} is used, the output shows one section per
 cutoff with sensitivity, specificity, PPV, NPV, and accuracy.
@@ -150,8 +149,7 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 {phang2}{stata "predict phat":. predict phat}{p_end}
 {phang2}{stata "gen byte pred_low = (phat > 0.3)":. gen byte pred_low = (phat > 0.3)}{p_end}
 {phang2}{cmd:. diagtab pred_low low, prevalence(0.07) exact ///}{p_end}
-{phang3}{cmd:title("PPV/NPV Adjusted for 7% Population Prevalence") ///}{p_end}
-{phang3}{cmd:display}{p_end}
+{phang3}{cmd:title("PPV/NPV Adjusted for 7% Population Prevalence")}{p_end}
 
 {marker stored}{title:Stored results}
 

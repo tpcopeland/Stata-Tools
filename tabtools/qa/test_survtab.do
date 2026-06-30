@@ -65,7 +65,7 @@ save `survdata'
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) display
+ survtab, times(1 3 5)
 }
 if _rc == 0 {
     display as result "  PASS: survtab basic without by()"
@@ -80,7 +80,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) display
+ survtab, times(1 3 5) by(treatment)
 }
 if _rc == 0 {
     display as result "  PASS: survtab with by()"
@@ -95,7 +95,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) display
+ survtab, times(1 3 5) by(treatment)
     assert !missing(r(logrank_p))
     assert !missing(r(logrank_chi2))
 }
@@ -112,7 +112,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) median display
+ survtab, times(1 3 5) by(treatment) median
     assert !missing(r(median_1))
     assert !missing(r(median_2))
 }
@@ -129,7 +129,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) riskset display
+ survtab, times(1 3 5) by(treatment) riskset
 }
 if _rc == 0 {
     display as result "  PASS: survtab riskset"
@@ -144,7 +144,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) reverse display
+ survtab, times(1 3 5) by(treatment) reverse
 }
 if _rc == 0 {
     display as result "  PASS: survtab reverse (cumulative incidence)"
@@ -159,7 +159,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) difference display
+ survtab, times(1 3 5) by(treatment) difference
 }
 if _rc == 0 {
     display as result "  PASS: survtab difference"
@@ -174,7 +174,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) rmst(5) display
+ survtab, times(1 3 5) by(treatment) rmst(5)
 }
 if _rc == 0 {
     display as result "  PASS: survtab rmst(5)"
@@ -189,7 +189,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) timeunit(months) display
+ survtab, times(1 3 5) timeunit(months)
 }
 if _rc == 0 {
     display as result "  PASS: survtab timeunit(months)"
@@ -222,7 +222,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) by(treatment) display
+ survtab, times(1 3 5) by(treatment)
     matrix list r(table)
     assert rowsof(r(table)) > 0
 }
@@ -239,7 +239,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) display
+ survtab, times(1 3 5)
     assert "`r(methods)'" != ""
 }
 if _rc == 0 {
@@ -255,7 +255,7 @@ else {
 capture noisily {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) csv("`output_dir'/test_survtab.csv") display
+ survtab, times(1 3 5) csv("`output_dir'/test_survtab.csv")
     confirm file "`output_dir'/test_survtab.csv"
 }
 if _rc == 0 {
@@ -272,7 +272,7 @@ capture noisily {
     use `survdata', clear
     stset time, failure(event)
     capture frame drop survframe
-    survtab, times(1 3 5) frame(survframe) display
+ survtab, times(1 3 5) frame(survframe)
     assert r(frame) == "survframe"
     frame survframe: assert _N > 0
 }
@@ -310,7 +310,7 @@ else {
 capture {
     use `survdata', clear
     stset time, failure(event)
-    survtab, times(1 3 5) difference display
+ survtab, times(1 3 5) difference
 }
 if _rc != 0 {
     display as result "  PASS: survtab difference requires by()"
@@ -326,7 +326,7 @@ capture noisily {
     use `survdata', clear
     stset time, failure(event)
     local orig_n = _N
-    survtab, times(1 3 5) display
+ survtab, times(1 3 5)
     assert _N == `orig_n'
 }
 if _rc == 0 {
@@ -401,7 +401,7 @@ capture noisily {
         difference rmst(5) ///
         xlsx("`output_dir'/test_survtab_full.xlsx") ///
         sheet("Full") title("Survival Table") zebra boldp(0.05) ///
-        theme(lancet) display
+ theme(lancet)
     confirm file "`output_dir'/test_survtab_full.xlsx"
 }
 if _rc == 0 {
@@ -515,7 +515,7 @@ webuse drugtr, clear
 stset studytime, failure(died)
 
 * T7: survtab events option via `ev` short form
-capture noisily survtab, times(20 40) by(drug) ev dis
+capture noisily survtab, times(20 40) by(drug) ev
 if _rc == 0 {
     display as result "  PASS T7: survtab ev short form"
     local ++pass_count
@@ -536,7 +536,7 @@ gen byte _last_in_t = .
 gen double _n_risk_first = .
 gen double _tail_area = .
 gen double _gw_term = .
-capture noisily survtab, times(20 40) by(drug) rmst(40) dis
+capture noisily survtab, times(20 40) by(drug) rmst(40)
 local _rmst_rc = _rc
 * user variables must still be present after the call (preserve/restore)
 foreach v in _dt _area _n_at_risk _d_count _last_in_t _n_risk_first _tail_area _gw_term {

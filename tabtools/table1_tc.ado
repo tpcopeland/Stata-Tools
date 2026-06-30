@@ -1,4 +1,4 @@
-*! table1_tc Version 1.8.8  2026/06/30 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.8.9  2026/07/01 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -82,7 +82,6 @@ program define table1_tc, rclass
         [MARKdown(string)]      /// Export data as Markdown file
         [MDAPPend]              /// Append Markdown table
         [MISSINGSummary]        /// Add missing data summary row per variable
-        [NOIsily]               /// Show auto-detection classification decisions
         [dots]                  /// Show progress dots per variable
         [WTCompare]             /// Side-by-side crude vs weighted comparison
         [WTN]                   /// Show weighted (effective) counts in weighted columns

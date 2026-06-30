@@ -191,6 +191,24 @@ capture noisily {
     }
     local max_smd = max(abs(`smd_x'), abs(`smd_z'))
 
+    * Independent weighted KS (weighted empirical CDF) for the KS_Adj column
+    foreach v in x z {
+        preserve
+        quietly keep if !missing(`v')
+        quietly summarize wt if treat == 1
+        local _Wt = r(sum)
+        quietly summarize wt if treat == 0
+        local _Wc = r(sum)
+        sort `v'
+        quietly gen double _cft = sum(cond(treat == 1, wt, 0)) / `_Wt'
+        quietly gen double _cfc = sum(cond(treat == 0, wt, 0)) / `_Wc'
+        quietly by `v': gen byte _last = (_n == _N)
+        quietly gen double _d = abs(_cft - _cfc) if _last
+        quietly summarize _d
+        local ks_w_`v' = r(max)
+        restore
+    }
+
     psdash balance treat ps, covariates(x z) wvar(wt) ks threshold(0.2)
     matrix B = r(balance)
     local browns : rownames B
@@ -210,13 +228,14 @@ capture noisily {
     assert abs(el(B, 1, 7) - `mean_c_w_x') < 1e-12
     assert abs(el(B, 1, 8) - `smd_w_x') < 1e-12
     assert abs(el(B, 1, 9) - `vr_w_x') < 1e-12
-    assert missing(el(B, 1, 10))
+    assert abs(el(B, 1, 10) - `ks_w_x') < 1e-12
 
     assert abs(el(B, 2, 3) - `smd_z') < 1e-12
     assert abs(el(B, 2, 4) - `vr_z') < 1e-12
     assert abs(el(B, 2, 5) - `ks_z') < 1e-12
     assert abs(el(B, 2, 8) - `smd_w_z') < 1e-12
     assert abs(el(B, 2, 9) - `vr_w_z') < 1e-12
+    assert abs(el(B, 2, 10) - `ks_w_z') < 1e-12
 
     assert r(N) == 8
     assert r(N_treated) == 4

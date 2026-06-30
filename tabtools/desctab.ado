@@ -1,4 +1,4 @@
-*! desctab Version 1.8.8  2026/06/30
+*! desctab Version 1.8.9  2026/07/01
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,12 +35,12 @@ program define desctab, rclass
     syntax , [XLSX(string) EXCEL(string) SHEET(string) TITLE(string asis) ///
         FOOTnote(string asis) COMPOSE(string asis) NFORMATS(string asis) ///
         DIGITS(integer -1) PCTDIGITS(integer -1) NINTEGERFMT(string) ///
-        PCTSCALE(string) PCTSIGN ROWTOTALS COLTOTALS NOTOTALS RELABel ///
-        VALUELABELS FACTORLabel KEEP(string asis) DROP(string asis) ///
+        PCTSCALE(string) PCTSIGN ROWTOTALS COLTOTALS NOTOTALS ///
+        KEEP(string asis) DROP(string asis) ///
         STATORDER(string) STATLABELS(string asis) NOMISsing zebra ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BORDERstyle(string) THEme(string) open csv(string) MARKdown(string) MDAPPend ///
-        FRAme(string) DISplay HIGHlight(real -1) HLStat(string)]
+        FRAme(string) HIGHlight(real -1) HLStat(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local title : subinstr local title `"""' "", all

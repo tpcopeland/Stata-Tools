@@ -1,4 +1,4 @@
-*! survtab Version 1.8.8  2026/06/30
+*! survtab Version 1.8.9  2026/07/01
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -16,7 +16,7 @@ SYNTAX:
         xlsx(filename) sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra highlight(real)
-        csv(filename) frame(name) display open]
+        csv(filename) frame(name) open]
 
     times:      REQUIRED. Timepoints for KM estimates (e.g., 1 3 5)
     by:         Group comparison variable with log-rank test
@@ -65,7 +65,7 @@ capture noisily {
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
+        csv(string) MARKdown(string) MDAPPend FRAme(string) open pdp(integer -1) highpdp(integer -1) ///
         ADDRow(string asis)]
 
     * Accept excel() as synonym for xlsx()

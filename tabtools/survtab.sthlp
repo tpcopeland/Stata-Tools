@@ -25,7 +25,7 @@ and restricted mean survival time.{p_end}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra}
 {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt dis:play} {opt open}
+{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}.{p_end}
@@ -73,7 +73,6 @@ colors — are supported.{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Survival"}{p_end}
 {synopt:{opt title(string)}}table title in row 1{p_end}
 {synopt:{opt foot:note(string)}}footnote below the table{p_end}
-{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt csv(filename)}}export a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
@@ -121,7 +120,7 @@ window up to that horizon and should not be read as a lifetime mean survival mea
 {phang3}{cmd:footnote("P-value from log-rank test.") boldp(0.05)}{p_end}
 
 {pstd}{bf:Example 4: Console preview}{p_end}
-{phang2}{cmd:. survtab, times(10 20 30) by(drug) display}{p_end}
+{phang2}{cmd:. survtab, times(10 20 30) by(drug)}{p_end}
 
 {marker stored}{title:Stored results}
 

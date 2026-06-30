@@ -1,4 +1,4 @@
-*! _psdash_support_stats Version 1.3.0  2026/06/14
+*! _psdash_support_stats Version 1.4.0  2026/07/01
 *! Common support bounds and outside-count statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -11,7 +11,7 @@ program define _psdash_support_stats, rclass
         syntax , TREATment(varname numeric) SAMPLEvar(varname) N(real) ///
             [PSVar(varname numeric) OBSps(varname numeric) ///
              LEVELS(string asis) GROUPPSVars(varlist numeric) ///
-             MULTIgroup(string)]
+             MULTIgroup(string) QTRIM(real -1)]
 
         return clear
 
@@ -31,8 +31,23 @@ program define _psdash_support_stats, rclass
                 local max_ps_c = r(max)
                 local sd_ps_c = r(sd)
 
-                local lower_bound = max(`min_ps_t', `min_ps_c')
-                local upper_bound = min(`max_ps_t', `max_ps_c')
+                if `qtrim' >= 0 {
+                    * Quantile-based common support: robust to single-observation
+                    * tails that drag the raw min/max overlap region.
+                    local _qhi = 100 - `qtrim'
+                    _pctile `psvar' if `treatment' == 1 & `samplevar', p(`qtrim' `_qhi')
+                    local _qt_lo = r(r1)
+                    local _qt_hi = r(r2)
+                    _pctile `psvar' if `treatment' == 0 & `samplevar', p(`qtrim' `_qhi')
+                    local _qc_lo = r(r1)
+                    local _qc_hi = r(r2)
+                    local lower_bound = max(`_qt_lo', `_qc_lo')
+                    local upper_bound = min(`_qt_hi', `_qc_hi')
+                }
+                else {
+                    local lower_bound = max(`min_ps_t', `min_ps_c')
+                    local upper_bound = min(`max_ps_t', `max_ps_c')
+                }
 
                 count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') & `samplevar'
                 local n_outside = r(N)
@@ -65,6 +80,7 @@ program define _psdash_support_stats, rclass
             return scalar pct_outside = `pct_outside'
             return scalar n_outside_t = `n_outside_t'
             return scalar n_outside_c = `n_outside_c'
+            return scalar qtrim = `qtrim'
         }
         else {
             local n_levels : word count `levels'

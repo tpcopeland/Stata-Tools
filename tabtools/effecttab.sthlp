@@ -21,7 +21,7 @@
 {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
 {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)}
-{opt eplotf:rame(name[, replace])} {opt dis:play} {opt from(name)}
+{opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
@@ -77,7 +77,6 @@ collection must remain unchanged.{p_end}
 {synopt:{opt labelw:idth(#)}}Maximum width of the label column in characters (default 45); longer labels wrap.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot} (see Remarks).{p_end}
-{synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
 {synopt:{opt from(name)}}Read results from a named matrix instead of {cmd:collect} (see Remarks).{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}

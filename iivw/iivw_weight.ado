@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.7.4  2026/06/26
+*! iivw_weight Version 1.8.0  2026/07/01
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -356,6 +356,7 @@ program define iivw_weight, rclass sortpreserve
         _iivw_weight_var _iivw_prefix _iivw_iw_var _iivw_tw_var ///
         _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
         _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
+        _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
         _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
         _iivw_categorical _iivw_cat_vars _iivw_basecat ///
@@ -844,6 +845,14 @@ program define iivw_weight, rclass sortpreserve
         char _dta[_iivw_ps_estimand] ""
     }
 
+    * Weight-construction replay spec: lets iivw_fit, refitweights reconstruct
+    * the full weight computation inside each bootstrap replicate. Stored as the
+    * exact option values so a resampled panel reproduces the same weighting.
+    char _dta[_iivw_stabcov]  "`stabcov'"
+    char _dta[_iivw_truncate] "`truncate'"
+    char _dta[_iivw_efron]    "`efron_opt'"
+    char _dta[_iivw_entry]    "`entry'"
+
     * =========================================================================
     * DISPLAY RESULTS
     * =========================================================================
@@ -868,6 +877,16 @@ program define iivw_weight, rclass sortpreserve
         display as text ""
         display as text "Note: weight mean is " as result %5.3f `w_mean'
         display as text "  Consider checking model specification or using truncation."
+    }
+
+    * Nudge toward stabilized weights when the visit model is unstabilized.
+    * Buzkova & Lumley (2007) recommend a stabilization numerator: it leaves the
+    * estimand unchanged but typically lowers weight variance and ESS loss.
+    if inlist("`wtype'", "iivw", "fiptiw") & "`stabcov'" == "" {
+        display as text ""
+        display as text "Note: visit weights are unstabilized (no stabcov() supplied)"
+        display as text "  stabilized weights usually have lower variance and higher ESS;"
+        display as text "  see stabcov() in `__iivw_smcl_lb'help iivw_weight`__iivw_smcl_rb'"
     }
 
     * List created variables

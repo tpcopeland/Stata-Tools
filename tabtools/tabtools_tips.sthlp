@@ -77,7 +77,7 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)}{p_end}
 {phang2}{cmd:desctab, xlsx(desc.xlsx) sheet("Descriptive") digits(1)}{p_end}
 {phang2}{cmd:collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:desctab, compose(events_n_pct) pctdigits(1) display} {it:// events / N (%)}{p_end}
+{phang2}{cmd:desctab, compose(events_n_pct) pctdigits(1)} {it:// events / N (%)}{p_end}
 
 {hline}
 {title:regtab}
@@ -127,21 +127,21 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {title:crosstab}
 
 {phang2}{cmd:crosstab exposure outcome, or label xlsx(cross.xlsx) title("Exposure vs Outcome")}{p_end}
-{phang2}{cmd:crosstab smoking cancer, rr rd trend display} {it:// risk ratio, risk diff, trend test}{p_end}
-{phang2}{cmd:crosstab exposure outcome, exact or display} {it:// force Fisher's exact test}{p_end}
+{phang2}{cmd:crosstab smoking cancer, rr rd trend} {it:// risk ratio, risk diff, trend test}{p_end}
+{phang2}{cmd:crosstab exposure outcome, exact or} {it:// force Fisher's exact test}{p_end}
 
 {hline}
 {title:diagtab}
 
 {phang2}{cmd:diagtab test_pos gold_std, xlsx(diag.xlsx) title("Diagnostic Accuracy")}{p_end}
-{phang2}{cmd:diagtab score gold_std, cutoff(0.5) auc optimal display} {it:// continuous score with ROC}{p_end}
+{phang2}{cmd:diagtab score gold_std, cutoff(0.5) auc optimal} {it:// continuous score with ROC}{p_end}
 {phang2}{cmd:diagtab test gold, exact prevalence(0.05)} {it:// exact CIs, prevalence-adjusted PPV/NPV}{p_end}
 
 {hline}
 {title:corrtab}
 
 {phang2}{cmd:corrtab age bmi sbp dbp, xlsx(corr.xlsx) title("Correlations") lower}{p_end}
-{phang2}{cmd:corrtab age bmi sbp, spearman pvalues display} {it:// Spearman with p-values}{p_end}
+{phang2}{cmd:corrtab age bmi sbp, spearman pvalues} {it:// Spearman with p-values}{p_end}
 {phang2}{cmd:corrtab age bmi sbp, full digits(3) star(0.1 0.05 0.01)} {it:// custom stars}{p_end}
 
 {hline}
@@ -328,7 +328,7 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:gen gold = (rep78 >= 4) if rep78 < .}{p_end}
 {phang2}{cmd:diagtab mpg gold, cutoff(25) auc optimal xlsx(diagnostics.xlsx) sheet("Accuracy")}
-{cmd:title("Diagnostic Accuracy of MPG") prevalence(0.3) display}{p_end}
+{cmd:title("Diagnostic Accuracy of MPG") prevalence(0.3)}{p_end}
 
 {title:17. Correlation matrix with significance stars}
 {phang2}{cmd:sysuse auto, clear}{p_end}
