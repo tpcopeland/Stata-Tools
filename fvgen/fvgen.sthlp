@@ -31,8 +31,10 @@
 {pstd}
 {it:fvvarlist} is a {help fvvarlist:factor-variable varlist} using the usual
 {cmd:i.}, {cmd:c.}, {cmd:#}, and {cmd:##} operators, for example
-{cmd:i.group##c.age} or {cmd:i.arm##i.sex}. Up to two-way interactions are
-supported.
+{cmd:i.group##c.age} or {cmd:i.arm##i.sex}. By design {cmd:fvgen} targets the
+common case — main effects and up to two-way interactions; higher-order
+(three-way and beyond) terms are deliberately out of scope and are rejected with
+a clear message rather than silently flattened.
 
 {pstd}
 Remove every variable a previous run generated:
@@ -80,6 +82,19 @@ factor-variable header rows for each interaction. Running the same model on the
 flattened variables produced by {cmd:fvgen} yields one clean, self-labeled
 row per coefficient. The reparameterization is exact: a regression on the
 flattened variables reproduces the native model's coefficients and fit.
+
+{pstd}
+Why not just relabel the coefficients inside an export tool? Tools such as
+{helpb estout:esttab}'s {cmd:varlabels()} or {helpb collect}/{helpb etable}'s
+relabeling let you rename rows, but you must spell out a label for each
+interaction term, and the renaming is local to that one tool. {cmd:fvgen} works
+at the {it:variable} level instead: it reads each factor's value labels and
+builds the row labels automatically (level {cmd:2 "Female"} interacted with
+{cmd:age} becomes {cmd:Female × Age}), and because the result is ordinary
+labeled variables those labels flow through {it:any} downstream consumer —
+{helpb collect}, {helpb estout:esttab}, {helpb putexcel}, the
+{help tabtools:tabtools} family, or a hand-built table — with no per-tool
+relabeling.
 
 {pstd}
 The generated variable names and a combined varlist ready for an estimation
@@ -203,6 +218,18 @@ column space as the native factor-variable design (over the estimation sample),
 R-squared as the corresponding {cmd:regress y} model in factor-variable
 notation. Centering a continuous term shifts the lower-order coefficients but
 leaves the interaction coefficient and the model fit unchanged.
+
+{pstd}
+{bf:Limitations.} The flattened model has no factor-variable structure: to Stata
+{cmd:_foreign_1} and {cmd:_foreignXmpg_1} are ordinary continuous regressors, not
+{cmd:i.foreign} and its interaction. Consequently the factor-aware postestimation
+tools — {helpb margins}, {helpb contrast}, {helpb pwcompare}, and anything that
+reads {helpb fvset} bases off {cmd:e(b)} — do {it:not} work on the flattened fit;
+they need the native {cmd:i.}/{cmd:c.} design. The intended pattern is therefore
+to use {cmd:fvgen} for {it:presentation} (one clean labeled row per coefficient in
+an exported table) while keeping the native {cmd:##} model for {it:inference} on
+the factor design. Only up to two-way interactions are supported (see {help
+fvgen##syntax:Syntax}).
 
 {pstd}
 {bf:Provenance characteristics.} Every generated variable carries two

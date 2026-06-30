@@ -215,6 +215,5 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
 
 {hline}

@@ -18,6 +18,12 @@ When you estimate a model with native factor-variable notation — `regress y i.
 
 Running the same model on the flattened variables gives **one clean, self-labeled row per coefficient**. The reparameterization is exact: the flattened regression reproduces the native model's coefficients, standard errors, and R-squared to within numerical precision.
 
+**Why not just relabel the rows in `esttab` or `collect`?** You can — but `esttab`'s `varlabels()` and `collect`/`etable`'s relabeling make you spell out a label for every interaction term, and the renaming lives inside that one tool. `fvgen` works at the **variable** level instead: it reads each factor's value labels and builds the row labels *automatically* (`2 "Female"` interacted with `age` becomes `Female × Age`), and because the result is ordinary labeled variables, those labels flow through **any** downstream consumer — `collect`, `esttab`, `putexcel`, the [tabtools](https://github.com/tpcopeland/Stata-Tools) family, or a hand-built table — with no per-tool relabeling.
+
+**Scope.** By design `fvgen` targets the common case: main effects and **up to two-way interactions**. Higher-order (three-way and beyond) terms are deliberately out of scope and are rejected with a clear message rather than silently flattened.
+
+**Limitation — presentation, not inference.** The flattened model has *no factor-variable structure*: to Stata `_foreign_1` and `_foreignXmpg_1` are ordinary continuous regressors. Factor-aware postestimation — `margins`, `contrast`, `pwcompare`, and anything that reads `fvset` bases off `e(b)` — does **not** work on the flattened fit; it needs the native `i.`/`c.` design. Use `fvgen` for **presentation** (clean exported tables) and keep the native `##` model for **inference** on the factor design.
+
 ## Installation
 
 ```stata

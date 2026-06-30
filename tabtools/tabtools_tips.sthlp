@@ -97,19 +97,22 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {hline}
 {title:stratetab}
 
-{phang2}{cmd:stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) outlabels("Relapse \ EDSS 4") explabels("SSRI \ SNRI")}{p_end}
+{phang2}{cmd:stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2)}
+{cmd:outlabels("Relapse \ EDSS 4") explabels("SSRI \ SNRI")}{p_end}
 {phang2}{cmd:stratetab, ... rateratio ratiodigits(2)} {it:// add incidence rate ratios}{p_end}
 {phang2}{cmd:stratetab, ... footnote("Rates per 1,000 PY") zebra}{p_end}
 
 {hline}
 {title:hrcomptab}
 
-{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose) outcomes(3) frame(rates, replace)}{p_end}
+{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose)}
+{cmd:outcomes(3) frame(rates, replace)}{p_end}
 {phang2}{cmd:regtab, frame(bin_models, replace) noint coef("HR")}
 {it:// after collect: stcox ... for binary exposure models}{p_end}
 {phang2}{cmd:regtab, frame(dose_models, replace) noint coef("HR")}
 {it:// after collect: stcox ... for dose-category models}{p_end}
-{phang2}{cmd:hrcomptab rates, modelframes(bin_models dose_models) rows(1 \ 3/5) xlsx(table2.xlsx) sheet("Table 2") effect("aHR")}{p_end}
+{phang2}{cmd:hrcomptab rates, modelframes(bin_models dose_models) rows(1 \ 3/5)}
+{cmd:xlsx(table2.xlsx) sheet("Table 2") effect("aHR")}{p_end}
 
 {hline}
 {title:survtab}
@@ -163,16 +166,21 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 
 {phang2}{cmd:stacktab using parts.xlsx, sheet("Composite") blocks(sheet(Model A) \ sheet(Model B))}
 {it:// vstack two block sheets}{p_end}
-{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(Primary) rows(1/4) cols(A-C) \ sheet(Dose) rows(1/3) cols(A-C)) columnmerge(B+C as "aHR (95% CI)")}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2")}
+{cmd:blocks(sheet(Primary) rows(1/4) cols(A-C) \ sheet(Dose) rows(1/3) cols(A-C))}
+{cmd:columnmerge(B+C as "aHR (95% CI)")}
 {it:// merge est + CI}{p_end}
-{phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide") blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("SideBySide")}
+{cmd:blocks(sheet(A) rows(2/3) cols(A-C) \ sheet(B) rows(2/3) cols(A-C)) layout(hstack)}
 {it:// side by side}{p_end}
 {hline}
 {title:simtab}
 
 {phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) by(scenario) estimand(target) sim(rep) coverage(covered) display}
 {it:// compute mode}{p_end}
-{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000) metrics(mean bias empse meanse coverage n nonconv) xlsx("t2.xlsx") sheet("Table 2")}
+{phang2}{cmd:simtab estimator, estimate(b) se(se) true(theta) nsim(1000)}
+{cmd:metrics(mean bias empse meanse coverage n nonconv)}
+{cmd:xlsx("t2.xlsx") sheet("Table 2")}
 {it:// non-convergence + Excel}{p_end}
 {phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear} {it:// analysis by simsum ...}{p_end}
 {phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display} {it:// ... table by simtab}{p_end}
@@ -202,7 +210,9 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 
 {title:1. Basic Table 1 with SMD}
 {phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat \ headroom conts) xlsx(table1.xlsx) sheet("Table 1") title("Table 1. Vehicle Characteristics by Origin") smd boldp(0.05) zebra}{p_end}
+{phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat \ headroom conts)}
+{cmd:xlsx(table1.xlsx) sheet("Table 1") title("Table 1. Vehicle Characteristics by Origin")}
+{cmd:smd boldp(0.05) zebra}{p_end}
 {phang2}{cmd:local methods = r(methods)}{p_end}
 
 {title:2. IPTW-weighted Table 1}
@@ -210,14 +220,16 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {phang2}{cmd:logit mbsmoke mage medu mmarried fbaby}{p_end}
 {phang2}{cmd:predict double ps, pr}{p_end}
 {phang2}{cmd:gen double iptw = cond(mbsmoke==1, 1/ps, 1/(1-ps))}{p_end}
-{phang2}{cmd:table1_tc, by(mbsmoke) vars(mage contn \ medu contn \ mmarried bin \ fbaby bin) wt(iptw) xlsx(balance.xlsx) sheet("IPTW Weighted") title("After IPTW") smd}{p_end}
+{phang2}{cmd:table1_tc, by(mbsmoke) vars(mage contn \ medu contn \ mmarried bin \ fbaby bin)}
+{cmd:wt(iptw) xlsx(balance.xlsx) sheet("IPTW Weighted") title("After IPTW") smd}{p_end}
 
 {title:3. Logistic regression table}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:gen byte expensive = (price > 6000)}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: logistic expensive mpg weight i.foreign}{p_end}
-{phang2}{cmd:regtab, xlsx(regression.xlsx) sheet("Logistic") title("Table 2. Predictors of High Price") noint boldp(0.05) zebra}{p_end}
+{phang2}{cmd:regtab, xlsx(regression.xlsx) sheet("Logistic")}
+{cmd:title("Table 2. Predictors of High Price") noint boldp(0.05) zebra}{p_end}
 
 {title:4. Cox model with median odds ratio}
 {phang2}{cmd:webuse catheter, clear}{p_end}
@@ -230,12 +242,14 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {phang2}{cmd:webuse cattaneo2, clear}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: teffects ipw (bweight) (mbsmoke mage medu mmarried fbaby), ate}{p_end}
-{phang2}{cmd:effecttab, xlsx(effects.xlsx) sheet("ATE") effect("ATE") title("Average Treatment Effect on Birthweight") clean}{p_end}
+{phang2}{cmd:effecttab, xlsx(effects.xlsx) sheet("ATE") effect("ATE")}
+{cmd:title("Average Treatment Effect on Birthweight") clean}{p_end}
 
 {title:6. Multi-model manuscript workflow}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:tabtools set theme lancet}{p_end}
-{phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat) xlsx(manuscript.xlsx) sheet("Table 1") title("Table 1. Baseline Characteristics") smd}{p_end}
+{phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat)}
+{cmd:xlsx(manuscript.xlsx) sheet("Table 1") title("Table 1. Baseline Characteristics") smd}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: logistic expensive mpg weight i.foreign}{p_end}
 {phang2}{cmd:regtab, xlsx(manuscript.xlsx) sheet("Table 2") title("Table 2. Predictors of High Price") noint}{p_end}
@@ -250,19 +264,24 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: logistic expensive i.foreign mpg weight}{p_end}
 {phang2}{cmd:regtab, frame(m2) noint}{p_end}
-{phang2}{cmd:comptab m1 m2, rownames("foreign \ foreign") xlsx(composite.xlsx) sheet("Models") title("Table 4. Association with Price") zebra}{p_end}
+{phang2}{cmd:comptab m1 m2, rownames("foreign \ foreign") xlsx(composite.xlsx) sheet("Models")}
+{cmd:title("Table 4. Association with Price") zebra}{p_end}
 
 {title:8. Incidence rates by exposure}
 {phang2}{cmd:webuse diet, clear}{p_end}
 {phang2}{cmd:stset dox, failure(fail) origin(time dob) enter(time doe) scale(365.25) id(id)}{p_end}
 {phang2}{cmd:strate hienergy, per(1000) output(rate_hienergy, replace)}{p_end}
-{phang2}{cmd:stratetab, using(rate_hienergy) xlsx(rates.xlsx) outcomes(1) outlabels("CHD Death") explabels("Energy Intake") title("Incidence Rates per 1,000 Person-Years") zebra}{p_end}
+{phang2}{cmd:stratetab, using(rate_hienergy) xlsx(rates.xlsx) outcomes(1)}
+{cmd:outlabels("CHD Death") explabels("Energy Intake")}
+{cmd:title("Incidence Rates per 1,000 Person-Years") zebra}{p_end}
 
 {title:9. Table 2 workflow with hrcomptab}
-{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose) outcomes(3) frame(hrt_rates, replace)}{p_end}
+{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose)}
+{cmd:outcomes(3) frame(hrt_rates, replace)}{p_end}
 {phang2}{cmd:regtab, frame(hrt_bin, replace) noint coef("HR")}{p_end}
 {phang2}{cmd:regtab, frame(hrt_dose, replace) noint coef("HR")}{p_end}
-{phang2}{cmd:hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) rows(1 \ 3/5) effect("aHR") xlsx(HRT.xlsx) sheet("Table 2")}{p_end}
+{phang2}{cmd:hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) rows(1 \ 3/5)}
+{cmd:effect("aHR") xlsx(HRT.xlsx) sheet("Table 2")}{p_end}
 
 {title:10. Console preview without Excel}
 {phang2}{cmd:sysuse auto, clear}{p_end}
@@ -286,7 +305,8 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 
 {title:13. Custom theme setup}
 {phang2}{cmd:tabtools set theme lancet}{p_end}
-{phang2}{cmd:tabtools set theme custom, font(Calibri) fontsize(9) headercolor(200 220 240) zebracolor(240 245 250) borderstyle(thin)}{p_end}
+{phang2}{cmd:tabtools set theme custom, font(Calibri) fontsize(9)}
+{cmd:headercolor(200 220 240) zebracolor(240 245 250) borderstyle(thin)}{p_end}
 {phang2}{cmd:tabtools get}{p_end}
 {phang2}{cmd:tabtools set clear}{p_end}
 
@@ -300,22 +320,28 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {title:15. Survival summary table}
 {phang2}{cmd:webuse drugtr, clear}{p_end}
 {phang2}{cmd:stset studytime, failure(died)}{p_end}
-{phang2}{cmd:survtab, times(5 10 15 20) by(drug) xlsx(survival.xlsx) sheet("Table 2") title("Table 2. Survival Estimates by Treatment") median riskset difference theme(lancet)}{p_end}
+{phang2}{cmd:survtab, times(5 10 15 20) by(drug) xlsx(survival.xlsx) sheet("Table 2")}
+{cmd:title("Table 2. Survival Estimates by Treatment")}
+{cmd:median riskset difference theme(lancet)}{p_end}
 
 {title:16. Diagnostic accuracy report}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:gen gold = (rep78 >= 4) if rep78 < .}{p_end}
-{phang2}{cmd:diagtab mpg gold, cutoff(25) auc optimal xlsx(diagnostics.xlsx) sheet("Accuracy") title("Diagnostic Accuracy of MPG") prevalence(0.3) display}{p_end}
+{phang2}{cmd:diagtab mpg gold, cutoff(25) auc optimal xlsx(diagnostics.xlsx) sheet("Accuracy")}
+{cmd:title("Diagnostic Accuracy of MPG") prevalence(0.3) display}{p_end}
 
 {title:17. Correlation matrix with significance stars}
 {phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:corrtab price mpg weight length displacement, spearman lower xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations") star(0.001 0.01 0.05) digits(2) theme(nejm)}{p_end}
+{phang2}{cmd:corrtab price mpg weight length displacement, spearman lower}
+{cmd:xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations")}
+{cmd:star(0.001 0.01 0.05) digits(2) theme(nejm)}{p_end}
 
 {title:18. Events / N (%) from a table collect}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: table rep78 foreign, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
-{phang2}{cmd:desctab, xlsx(desc_events.xlsx) sheet("Events") compose(events_n_pct) title("Events / N (%) by repair record and origin")}{p_end}
+{phang2}{cmd:desctab, xlsx(desc_events.xlsx) sheet("Events") compose(events_n_pct)}
+{cmd:title("Events / N (%) by repair record and origin")}{p_end}
 
 {title:19. Style a raw in-memory table with puttab}
 {phang2}{cmd:sysuse auto, clear}{p_end}
@@ -328,10 +354,18 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {title:20. Emit-then-assemble pipeline}
 {phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Primary") varlabels}{p_end}
 {phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Dose") varlabels}{p_end}
-{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(Primary) rows(1/4) cols(A-C) label(Any HRT use) \ sheet(Dose) rows(1/3) cols(A-C) label(By estrogen dose)) columnmerge(B+C as "aHR (95% CI)") spacing(1) title("Table 2. Hormone Therapy and Recurrent Events")}{p_end}
+{phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2")}
+{cmd:blocks(sheet(Primary) rows(1/4) cols(A-C) label(Any HRT use) \}
+{cmd:sheet(Dose) rows(1/3) cols(A-C) label(By estrogen dose))}
+{cmd:columnmerge(B+C as "aHR (95% CI)") spacing(1)}
+{cmd:title("Table 2. Hormone Therapy and Recurrent Events")}{p_end}
 
 {title:21. Monte Carlo simulation performance table}
-{phang2}{cmd:simtab estimator, estimate(estimate) se(se) true(true_value) by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000) metrics(mean bias empse meanse coverage n nonconv) xlsx("sim.xlsx") sheet("Table 2") borderstyle(academic) digits(3) plotframe(sim_plot, replace) display}{p_end}
+{phang2}{cmd:simtab estimator, estimate(estimate) se(se) true(true_value)}
+{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000)}
+{cmd:metrics(mean bias empse meanse coverage n nonconv)}
+{cmd:xlsx("sim.xlsx") sheet("Table 2") borderstyle(academic) digits(3)}
+{cmd:plotframe(sim_plot, replace) display}{p_end}
 {phang2}{cmd:simsum estimate, true(true_value) se(se) methodvar(estimator) id(sim) mcse clear}{p_end}
 {phang2}{cmd:simtab, from(simsum) xlsx("sim.xlsx") sheet("Table 2") display}{p_end}
 
@@ -350,6 +384,5 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
 
 {hline}

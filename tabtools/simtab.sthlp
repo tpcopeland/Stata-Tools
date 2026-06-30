@@ -205,7 +205,8 @@ internally as proportions.{p_end}
 {pstd}{opt from(summary)} is the stable, dependency-free escape hatch for any
 pre-summarized per-cell data. Map columns explicitly, e.g.{p_end}
 
-{p 8 8 2}{cmd:simtab, from(summary) byvar(scenario) estimatorvar(method) estimandvar(target) measures(mean=m bias=b coverage=cov n=nrep)}{p_end}
+{p 8 8 2}{cmd:simtab, from(summary) byvar(scenario) estimatorvar(method)}
+{cmd:estimandvar(target) measures(mean=m bias=b coverage=cov n=nrep)}{p_end}
 
 {p 4 6 2}In {cmd:from(summary)}, {cmd:coverage}/{cmd:power} columns are
 interpreted as proportions (0-1).{p_end}
@@ -309,6 +310,5 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
 
 {hline}

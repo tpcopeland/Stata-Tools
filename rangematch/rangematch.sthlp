@@ -600,11 +600,37 @@ Match adverse events to patient-specific drug exposure windows:
 {phang2}{cmd:. rangematch event_date exposure_start exposure_end using `adverse_events', by(patient_id) keepusing(event_date event_type) generate(_merge) frame(exposure_events) replace stats}{p_end}
 {phang2}{cmd:. frame exposure_events: list patient_id exposure_start exposure_end event_date event_type _merge, sepby(patient_id)}{p_end}
 
-{pstd}Interval-overlap mode: match cohort follow-up windows to overlapping
-treatment episodes within patient, writing the joined rows to a frame.{p_end}
+{pstd}
+{bf:Example 6: Interval-overlap mode}
 
-{phang2}{cmd:. use cohort, clear}{p_end}
-{phang2}{cmd:. rangematch entry exit using episodes, overlap(rx_start rx_stop) by(id) keepusing(rx_start rx_stop drug) frame(exposed) replace stats}{p_end}
+{pstd}
+Match cohort follow-up windows to overlapping treatment episodes within patient,
+writing the joined rows to a frame:
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input int id str10 entry_s str10 exit_s}{p_end}
+{phang2}{cmd:  1 "2020-01-01" "2020-06-30"}{p_end}
+{phang2}{cmd:  2 "2020-02-01" "2020-08-31"}{p_end}
+{phang2}{cmd:  end}{p_end}
+{phang2}{cmd:. generate double entry = daily(entry_s, "YMD")}{p_end}
+{phang2}{cmd:. generate double exit  = daily(exit_s, "YMD")}{p_end}
+{phang2}{cmd:. format entry exit %td}{p_end}
+{phang2}{cmd:. drop entry_s exit_s}{p_end}
+{phang2}{cmd:. tempfile cohort episodes}{p_end}
+{phang2}{cmd:. save `cohort'}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input int id str10 start_s str10 stop_s str10 drug}{p_end}
+{phang2}{cmd:  1 "2019-12-15" "2020-01-20" "drugA"}{p_end}
+{phang2}{cmd:  1 "2020-03-01" "2020-03-31" "drugB"}{p_end}
+{phang2}{cmd:  2 "2020-09-15" "2020-10-15" "drugA"}{p_end}
+{phang2}{cmd:  end}{p_end}
+{phang2}{cmd:. generate double rx_start = daily(start_s, "YMD")}{p_end}
+{phang2}{cmd:. generate double rx_stop  = daily(stop_s, "YMD")}{p_end}
+{phang2}{cmd:. format rx_start rx_stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. save `episodes'}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. rangematch entry exit using `episodes', overlap(rx_start rx_stop) by(id) keepusing(rx_start rx_stop drug) frame(exposed) replace stats}{p_end}
 {phang2}{cmd:. frame exposed: list id entry exit rx_start rx_stop drug, sepby(id)}{p_end}
 
 

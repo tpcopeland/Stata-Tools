@@ -55,7 +55,7 @@ Plot from a graph-ready frame:
 {synopt:{opt fr:ame(framename)}}use a graph-ready frame as input{p_end}
 {synopt:{opt lab:els(varname)}}variable containing row labels{p_end}
 {synopt:{opt wei:ghts(varname)}}variable for marker/box sizing{p_end}
-{synopt:{opt type(varname)}}row type indicator (1=effect, 3=subgroup, 5=overall){p_end}
+{synopt:{opt t:ype(varname)}}row type indicator (1=effect, 3=subgroup, 5=overall){p_end}
 {synopt:{opt pv:alue(varname)}}numeric p-value variable for {opt stars} and {cmd:r(pvalues)}{p_end}
 {synopt:{opt est:imate(varname)}}frame-mode point estimate variable; default is {cmd:estimate}{p_end}
 {synopt:{opt ll(varname)}}frame-mode lower confidence limit variable; default is {cmd:ll}{p_end}
@@ -65,28 +65,28 @@ Plot from a graph-ready frame:
 {syntab:Coefficient selection}
 {synopt:{opt keep(coeflist)}}keep specified coefficients{p_end}
 {synopt:{opt drop(coeflist)}}drop specified coefficients{p_end}
-{synopt:{opt rename(spec)}}rename coefficients (estimates mode){p_end}
+{synopt:{opt rena:me(spec)}}rename coefficients (estimates mode){p_end}
 {synopt:{opt nocons:tant}}drop the constant (_cons){p_end}
 
 {syntab:Labeling}
 {synopt:{opt coefl:abels(spec)}}custom coefficient/effect labels{p_end}
-{synopt:{opt groups(spec)}}define groups of effects with labels{p_end}
+{synopt:{opt gr:oups(spec)}}define groups of effects with labels{p_end}
 {synopt:{opt head:ers(spec)}}insert section headers{p_end}
-{synopt:{opt headings(spec)}}alias for {opt headers()}{p_end}
+{synopt:{opt headi:ngs(spec)}}alias for {opt headers()}{p_end}
 {synopt:{opt gap(#)}}extra vertical space between {opt groups()} blocks; single-model only{p_end}
 
 {syntab:Transform}
 {synopt:{opt eform}}exponentiate estimates (for OR, HR, RR){p_end}
-{synopt:{opt rescale(#)}}multiply estimates by #{p_end}
+{synopt:{opt res:cale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
-{synopt:{opt xline(numlist)}}add vertical reference lines{p_end}
+{synopt:{opt xl:ine(numlist)}}add vertical reference lines{p_end}
 {synopt:{opt xlab:el(spec)}}effect-axis tick specification; maps to the effect axis in either layout{p_end}
 {synopt:{opt null(#)}}null hypothesis line position{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
 
 {syntab:Confidence intervals}
-{synopt:{opt level(#)}}confidence level; default is {cmd:level(95)}; estimates and matrix modes only{p_end}
+{synopt:{opt lev:el(#)}}confidence level; default is {cmd:level(95)}; estimates and matrix modes only{p_end}
 {synopt:{opt noci}}suppress confidence intervals{p_end}
 {synopt:{opt cicap}}draw capped CI lines (rcap instead of rspike){p_end}
 
@@ -94,13 +94,13 @@ Plot from a graph-ready frame:
 {synopt:{opt dp(#)}}decimal places; default is 2{p_end}
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
 {synopt:{opt val:ues}}annotate each row with formatted effect text{p_end}
-{synopt:{opt vformat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
+{synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
 {synopt:{opt star:s}}add significance stars (*, **, ***) to values; estimates and matrix (2-col) modes{p_end}
 {synopt:{opt sigcolors}}color markers by significance (CI vs null){p_end}
 {synopt:{opt sigcolor(color)}}color for significant effects; default is {cmd:cranberry}{p_end}
-{synopt:{opt insigncolor(color)}}color for non-significant effects; default is {cmd:gs10}{p_end}
+{synopt:{opt insignc:olor(color)}}color for non-significant effects; default is {cmd:gs10}{p_end}
 {synopt:{opt sty:le(name)}}style preset: {cmd:forest}, {cmd:coef}, {cmd:lancet}, {cmd:jama}, {cmd:nejm}, or {cmd:bmj}{p_end}
-{synopt:{opt favors(left right)}}directional annotation text below x-axis (horizontal mode){p_end}
+{synopt:{opt f:avors(left right)}}directional annotation text below x-axis (horizontal mode){p_end}
 
 {syntab:Prediction intervals (data mode)}
 {synopt:{opt pi(lci_var uci_var)}}draw prediction interval whiskers behind CIs{p_end}
@@ -108,7 +108,7 @@ Plot from a graph-ready frame:
 {syntab:Heterogeneity (data mode)}
 {synopt:{opt i2(string)}}display I-squared value in note{p_end}
 {synopt:{opt tau2(string)}}display tau-squared value in note{p_end}
-{synopt:{opt qstat(string)}}display Q statistic in note{p_end}
+{synopt:{opt q:stat(string)}}display Q statistic in note{p_end}
 
 {syntab:Layout}
 {synopt:{opt hor:izontal}}horizontal layout (default){p_end}
@@ -120,28 +120,28 @@ Plot from a graph-ready frame:
 {synopt:{opt modell:abels(strlist)}}custom legend labels for each model{p_end}
 {synopt:{opt off:set(#)}}vertical spacing between models; default is 0.15{p_end}
 {synopt:{opt pal:ette(colorlist)}}color palette for models{p_end}
-{synopt:{opt legendopts(string)}}additional legend options{p_end}
+{synopt:{opt leg:endopts(string)}}additional legend options{p_end}
 
 {syntab:Markers}
 {synopt:{opt mc:olor(color)}}marker color{p_end}
 {synopt:{opt msy:mbol(symbol)}}marker symbol; default is {cmd:O}{p_end}
 {synopt:{opt msi:ze(size)}}marker size; default is {cmd:medium}{p_end}
-{synopt:{opt boxscale(#)}}box size scaling (percentage); default is {cmd:100}{p_end}
+{synopt:{opt boxs:cale(#)}}box size scaling (percentage); default is {cmd:100}{p_end}
 {synopt:{opt nobox}}suppress weighted boxes{p_end}
-{synopt:{opt nodiamonds}}use markers instead of diamonds for pooled effects{p_end}
+{synopt:{opt nodi:amonds}}use markers instead of diamonds for pooled effects{p_end}
 {synopt:{opt cicolor(color)}}CI line color{p_end}
-{synopt:{opt ciwidth(lwstyle)}}CI line width{p_end}
+{synopt:{opt ciw:idth(lwstyle)}}CI line width{p_end}
 
 {syntab:Graph options}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
 {synopt:{opt sub:title(string)}}graph subtitle{p_end}
 {synopt:{opt note(string)}}graph note{p_end}
 {synopt:{opt name(string)}}graph name{p_end}
-{synopt:{opt saving(filename)}}save graph to file{p_end}
+{synopt:{opt sav:ing(filename)}}save graph to file{p_end}
 {synopt:{opt scheme(schemename)}}graph scheme{p_end}
-{synopt:{opt plotregion(options)}}plot region options{p_end}
-{synopt:{opt graphregion(options)}}graph region options{p_end}
-{synopt:{opt aspect(#)}}aspect ratio{p_end}
+{synopt:{opt plotr:egion(options)}}plot region options{p_end}
+{synopt:{opt graphr:egion(options)}}graph region options{p_end}
+{synopt:{opt asp:ect(#)}}aspect ratio{p_end}
 {synopt:{it:twoway_options}}other {help twoway} options{p_end}
 {synoptline}
 
@@ -831,11 +831,8 @@ supplied, in estimates mode for a single model, and in 2-column matrix mode.
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet{break}
-Stockholm, Sweden
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.2.3, 15jun2026{p_end}
 
 
 {marker alsosee}{...}

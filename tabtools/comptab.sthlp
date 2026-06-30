@@ -281,7 +281,6 @@ For a runnable public-data workflow, see {help tabtools_tips:tabtools_tips}.{p_e
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
 
 
 {marker alsosee}{...}

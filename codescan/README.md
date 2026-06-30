@@ -303,7 +303,7 @@ define(name "inclusion_pattern" ~ "exclusion_pattern" | name2 "pattern2")
 ```
 
 The inclusion and exclusion patterns are anchored at the start of each code value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
- I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as simple alternative prefixes.
+`I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as simple alternative prefixes.
 
 There are three practical ways to list condition definitions:
 

@@ -210,7 +210,7 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {phang2}{cmd:. hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) ///}{p_end}
 {phang3}{cmd:    rows(1 \ 3/5) effect("aHR") ///}{p_end}
 {phang3}{cmd:    xlsx("HRT.xlsx") sheet("Table 2") ///}{p_end}
-{phang3}{cmd:    title("Table 2. Hormone Replacement Therapy Events, Events per Person Year, and Adjusted Hazard Ratios") ///}{p_end}
+{phang3}{cmd:    title("Table 2. HRT Events, Person-Years, and Adjusted HRs") ///}{p_end}
 {phang3}{cmd:    footnote("aHR, adjusted hazard ratio; CI, confidence interval.")}{p_end}
 
 {pstd}
@@ -260,7 +260,6 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
 
 
 {marker alsosee}{...}

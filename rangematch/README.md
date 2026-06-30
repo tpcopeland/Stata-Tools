@@ -84,6 +84,41 @@ frame exposure_events: list patient_id exposure_start exposure_end ///
     event_date event_type _merge, sepby(patient_id)
 ```
 
+## Worked Example: Interval Overlap
+
+This example matches cohort follow-up windows to overlapping treatment episodes within patient, using `overlap()`. It is self-contained and uses only temporary files.
+
+```stata
+clear
+input int id str10 entry_s str10 exit_s
+1 "2020-01-01" "2020-06-30"
+2 "2020-02-01" "2020-08-31"
+end
+generate double entry = daily(entry_s, "YMD")
+generate double exit  = daily(exit_s, "YMD")
+format entry exit %td
+drop entry_s exit_s
+tempfile cohort episodes
+save `cohort'
+
+clear
+input int id str10 start_s str10 stop_s str10 drug
+1 "2019-12-15" "2020-01-20" "drugA"
+1 "2020-03-01" "2020-03-31" "drugB"
+2 "2020-09-15" "2020-10-15" "drugA"
+end
+generate double rx_start = daily(start_s, "YMD")
+generate double rx_stop  = daily(stop_s, "YMD")
+format rx_start rx_stop %td
+drop start_s stop_s
+save `episodes'
+
+use `cohort', clear
+rangematch entry exit using `episodes', overlap(rx_start rx_stop) ///
+    by(id) keepusing(rx_start rx_stop drug) frame(exposed) replace stats
+frame exposed: list id entry exit rx_start rx_stop drug, sepby(id)
+```
+
 ## Demo
 
 The demo script (`rangematch/demo/demo_rangematch.do`) installs the local package, runs an exposure-window workflow, and regenerates the benchmark output used below.
@@ -331,10 +366,10 @@ Run the full release gate from `rangematch/qa`:
 stata-mp -b do run_all.do
 ```
 
-The `qa/` directory contains 881 counted assertions across 30 QA files:
+The `qa/` directory contains 888 counted assertions across 30 QA files:
 27 functional test files and 3 validation files.
 
-- `test_documentation_examples.do` - 21 tests
+- `test_documentation_examples.do` - 28 tests
 - `test_install.do` - 5 tests
 - `test_rangematch_abbrev.do` - 1 test
 - `test_rangematch_adversarial.do` - 64 tests

@@ -220,7 +220,9 @@ table bottom) with no vertical borders, following journal conventions.
 A {cmd:custom} theme accepts additional options on the same line:
 
 {p 8 17 2}
-{cmd:tabtools set theme custom, font(}{it:name}{cmd:) fontsize(}{it:#}{cmd:) headercolor(}{it:color}{cmd:) zebracolor(}{it:color}{cmd:) borderstyle(}{it:name}{cmd:)}
+{cmd:tabtools set theme custom, font(}{it:name}{cmd:)}
+{cmd:fontsize(}{it:#}{cmd:) headercolor(}{it:color}{cmd:) zebracolor(}{it:color}{cmd:)}
+{cmd:borderstyle(}{it:name}{cmd:)}
 
 {synoptset 22 tabbed}{...}
 {synopthdr:custom-theme option}
@@ -403,6 +405,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.8.6{p_end}
+{pstd}{bf:Version} 1.8.7{p_end}
 
 {hline}

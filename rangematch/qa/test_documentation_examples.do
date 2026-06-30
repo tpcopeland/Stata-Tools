@@ -118,5 +118,49 @@ capture frame drop exposure_events
 capture frame drop matches
 display as result "PASS: README worked exposure-window example"
 
+**# README/help interval-overlap worked example
+local ++test_count
+capture frame drop exposed
+clear
+input int id str10 entry_s str10 exit_s
+1 "2020-01-01" "2020-06-30"
+2 "2020-02-01" "2020-08-31"
+end
+generate double entry = daily(entry_s, "YMD")
+generate double exit  = daily(exit_s, "YMD")
+format entry exit %td
+drop entry_s exit_s
+tempfile cohort episodes
+save `cohort'
+
+clear
+input int id str10 start_s str10 stop_s str10 drug
+1 "2019-12-15" "2020-01-20" "drugA"
+1 "2020-03-01" "2020-03-31" "drugB"
+2 "2020-09-15" "2020-10-15" "drugA"
+end
+generate double rx_start = daily(start_s, "YMD")
+generate double rx_stop  = daily(stop_s, "YMD")
+format rx_start rx_stop %td
+drop start_s stop_s
+save `episodes'
+
+use `cohort', clear
+rangematch entry exit using `episodes', overlap(rx_start rx_stop) ///
+    by(id) keepusing(rx_start rx_stop drug) frame(exposed) replace stats
+assert "`r(backend)'" == "overlap"
+assert r(N_matched_pairs) == 2
+assert r(N_unmatched) == 1
+assert r(N_pairs) == 3
+frame exposed {
+    assert _N == 3
+    sort id rx_start
+    assert id[1] == 1 & drug[1] == "drugA"
+    assert id[2] == 1 & drug[2] == "drugB"
+    assert id[3] == 2 & missing(rx_start[3]) & drug[3] == ""
+}
+capture frame drop exposed
+display as result "PASS: README/help interval-overlap worked example"
+
 display as result "ALL RANGEMATCH DOCUMENTATION EXAMPLE TESTS PASSED"
 display "RESULT: test_documentation_examples tests=`test_count' pass=`test_count' fail=0"
