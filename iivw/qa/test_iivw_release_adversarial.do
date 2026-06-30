@@ -197,6 +197,7 @@ capture noisily {
         "_iivw_get_settings.ado|_iivw_get_settings" ///
         "_iivw_check_weighted.ado|_iivw_check_weighted" ///
         "_iivw_bs_estimate.ado|_iivw_bs_estimate" ///
+        "_iivw_bs_refit.ado|_iivw_bs_refit" ///
         "_iivw_export_table.ado|_iivw_export_table" {
         gettoken file cmd : pair, parse("|")
         local cmd = substr("`cmd'", 2, .)
@@ -213,15 +214,24 @@ capture noisily {
     _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
         pattern("could not restore active estimation results")
 
+    * Author/affiliation checks apply to every help file...
     foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
-        _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
-            pattern("{* *! version `version'  `sthlp_date'}")
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{pstd}Timothy P Copeland, Karolinska Institutet{p_end}")
         _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{pstd}Department of Clinical Neuroscience{p_end}")
-        _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
-            pattern("Version `version', `iso_date'")
+    }
+
+    * ...but the package version lives only in the flagship iivw.sthlp.
+    * Sub-command help files intentionally carry no version line (removed in
+    * v1.7.3); the version is recorded once in iivw.sthlp plus the .pkg and README.
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+        pattern("{* *! version `version'  `sthlp_date'}")
+    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+        pattern("Version `version', `iso_date'")
+    foreach help in iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
+        _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
+            pattern("{* *! version")
     }
 
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
