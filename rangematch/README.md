@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.2.0, 30jun2026
+Version 1.3.0, 01jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -433,6 +433,25 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.3.0 (2026-07-01)
+
+- **`ties(random)` for unbiased tie-breaking.** With `nearest()`, `ties(random)`
+  keeps one of the equally nearest using rows chosen uniformly at random, rather
+  than by original row order. In a matched design, breaking ties by row order
+  (`ties(first)`/`ties(last)`) can induce selection bias when that order is
+  correlated with enrollment date, ID assignment, or site. New `seed(#)` option
+  makes the random draw reproducible; the caller's random-number state is
+  restored afterwards, so `seed()` does not disturb other random draws in the
+  session. New stored result `r(seed)`.
+- **Inverted using-interval screen (overlap mode).** A using interval with
+  `ulow > uhigh` (a common registry data-quality defect from swapped start/stop)
+  is not screened by the overlap backend and can emit matches reflecting the
+  swapped bounds. `rangematch` now counts such intervals, posts the count in the
+  new stored result `r(N_using_inverted)` (0 outside overlap mode), and prints a
+  non-fatal warning. Master intervals with `low > high` remain treated as empty.
+- QA: added a `ties(random)` reproducibility/seed-restore suite and an
+  inverted-overlap-interval known-truth suite.
 
 ### 1.2.0 (2026-06-30)
 

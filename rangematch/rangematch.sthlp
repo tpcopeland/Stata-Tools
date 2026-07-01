@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  30jun2026}{...}
+{* *! version 1.3.0  01jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -75,7 +75,8 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopt:{opt tol:erance(#)}}boundary-comparison tolerance for floating-point keys{p_end}
 {synopt:{opt miss:ing(wildcard|drop|error)}}policy for master and using rows with missing bounds or key{p_end}
 {synopt:{opt near:est(before|after|both)}}keep nearest match(es) within the interval{p_end}
-{synopt:{opt ties(all|first|last)}}tie handling for {opt nearest()}{p_end}
+{synopt:{opt ties(all|first|last|random)}}tie handling for {opt nearest()}{p_end}
+{synopt:{opt seed(#)}}RNG seed for {opt ties(random)}, for reproducibility{p_end}
 {synopt:{opt as:sert(match|using)}}abort when required master or using matches are absent{p_end}
 
 {syntab:Output}
@@ -159,10 +160,13 @@ reject rows with a missing bound on either side (see {opt miss:ing()} below).
 {pmore}
 Each interval is assumed well-formed, with {it:low} <= {it:high} (and
 {it:ulow} <= {it:uhigh}). A master interval with {it:low} > {it:high} is
-treated as empty and matches nothing; a using interval with {it:ulow} >
+treated as empty and matches nothing. A using interval with {it:ulow} >
 {it:uhigh} is not screened and may produce matches that reflect the inverted
-bounds rather than a genuine overlap, so validate using-side interval order
-upstream if it is not already guaranteed.
+bounds rather than a genuine overlap; because inverted bounds are a common
+registry data-quality defect (swapped start/stop), {cmd:rangematch} counts such
+using intervals, posts the count in {cmd:r(N_using_inverted)}, and prints a
+non-fatal warning so they are not silently trusted. Validate using-side interval
+order upstream if it is not already guaranteed.
 
 {pmore}
 Interval-overlap mode emits matched pairs directly through the same Mata backend,
@@ -307,13 +311,29 @@ the master key, and {opt near:est(both)} keeps nearest matches on both sides.
 The master dataset must contain numeric {it:keyvar}.
 
 {phang}
-{opt ties(all|first|last)} controls tie handling with {opt nearest()} when two
-or more using rows are equally near the key. {opt ties(all)} keeps every equally
-nearest row; {opt ties(first)} keeps the single tied row with the lowest
-original using observation number; {opt ties(last)} keeps the one with the
-highest. ("First" and "last" therefore refer to original using row order, not to
-key value or distance, which are equal among ties.) The default is
-{opt ties(all)}. {opt ties()} is only allowed with {opt nearest()}.
+{opt ties(all|first|last|random)} controls tie handling with {opt nearest()}
+when two or more using rows are equally near the key. {opt ties(all)} keeps
+every equally nearest row; {opt ties(first)} keeps the single tied row with the
+lowest original using observation number; {opt ties(last)} keeps the one with
+the highest; {opt ties(random)} keeps one tied row chosen uniformly at random.
+("First" and "last" therefore refer to original using row order, not to key
+value or distance, which are equal among ties.) The default is {opt ties(all)}.
+{opt ties()} is only allowed with {opt nearest()}.
+
+{pmore}
+In a matched design, breaking ties by original row order ({opt ties(first)} or
+{opt ties(last)}) can induce selection bias when that order is correlated with
+enrollment date, ID assignment, or site. Prefer {opt ties(random)} (with
+{opt seed()} for reproducibility) when the selected control should not depend on
+record position.
+
+{phang}
+{opt seed(#)} sets the random-number seed used by {opt ties(random)}, so that
+the randomly selected tied row is reproducible across runs. It is allowed only
+with {opt ties(random)}. The caller's random-number state is restored after the
+command runs, so specifying {opt seed()} does not disturb subsequent random
+draws in the session. Without {opt seed()}, {opt ties(random)} draws from the
+current random-number stream and advances it as usual.
 
 {phang}
 {opt as:sert(match|using)} aborts when required matches are absent.
@@ -682,6 +702,7 @@ specified.
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
 {synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
 {synopt:{cmd:r(N_using_missing)}}using rows with a missing point key or interval bound{p_end}
+{synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode; 0 otherwise){p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
 {p2col 5 22 26 2: Match-density scalars, only with {opt stats}}{p_end}
@@ -718,6 +739,7 @@ specified.
 {synopt:{cmd:r(saving)}}output filename, when {opt saving()} is used{p_end}
 {synopt:{cmd:r(nearest)}}parsed {opt near:est()} mode{p_end}
 {synopt:{cmd:r(ties)}}parsed {opt ties()} mode{p_end}
+{synopt:{cmd:r(seed)}}{opt seed()} value, when specified with {opt ties(random)}{p_end}
 {synopt:{cmd:r(sort)}}{cmd:sort}, when final output sorting is active{p_end}
 {synopt:{cmd:r(nosort)}}{cmd:nosort}, when specified{p_end}
 {synopt:{cmd:r(assert)}}parsed {opt as:sert()} tokens{p_end}
@@ -738,7 +760,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 30jun2026{p_end}
+{pstd}Version 1.3.0, 01jul2026{p_end}
 
 
 {title:Also see}

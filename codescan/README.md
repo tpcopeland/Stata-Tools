@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.4** | 2026-06-30
+**Version 2.0.5** | 2026-07-01
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -292,7 +292,13 @@ codescan: 6 conditions, 4 variables, N =      1,500
 - **unmatched:** creates a row-level 0/1 flag for observations that matched no condition.
 - **matched_code:** creates a row-level variable holding the first code value that survived matching.
 - **frame:** stores the result in a named frame and implies `preserve`, so the original data are untouched.
-- **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting.
+- **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting.  The interval reflects sampling error only — not coding error or misclassification.
+- **Analysis unit:** the console header names the denominator (`observations` at the row level, `id()` values after `collapse`/`merge`), so row-level prevalence is never misread as person-level.
+- **Diagnosis position:** rules apply to every scanned slot equally.  To honor first-listed (main) diagnosis validity, scan `dx1` on its own, or run the positions as separate calls with `generate()` prefixes.
+
+### Interpreting prevalence
+
+`codescan` reports the prevalence of the **code definition** you supply — the share of encounters or patients whose codes match your rule — not the prevalence of the underlying disease.  The gap between the two is governed by the **positive predictive value and sensitivity** of the codes in your data.  Validate your case definition against the relevant register-validation literature before reading the output as disease frequency; the Wilson CI quantifies sampling error, not misclassification.
 
 ## Definition Rules and Codefiles
 
@@ -378,6 +384,12 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.5 (2026-07-01)
+
+- **Docs:** the help file and README now state plainly that the reported prevalence is the prevalence of the **code definition** — subject to the codes' positive predictive value and sensitivity — not the prevalence of the underlying disease, and that the Wilson CI reflects sampling error only, not misclassification.
+- **Docs:** new guidance on diagnosis position (scan `dx1` alone, or separate calls with `generate()`, when first-listed diagnosis validity matters).
+- **Usability:** the console header now names the analysis unit (`observations` at the row level, `id()` values after `collapse`/`merge`), so row-level prevalence is never misread as person-level. No change to any `r()` result, option, or created variable.
 
 ### 2.0.4 (2026-06-30)
 

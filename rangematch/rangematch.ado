@@ -1,4 +1,4 @@
-*! rangematch Version 1.2.0  2026/06/30
+*! rangematch Version 1.3.0  2026/07/01
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -711,10 +711,11 @@ program define rangematch, rclass
     version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _rm_rng_restore = 0
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.2.0"
+    local _rm_required_mata_version "1.3.0"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -749,7 +750,7 @@ program define rangematch, rclass
           ALL UNMATCHed(string) GENerate(name) DISTance(name) ///
           MASTERID(name) USINGID(name) OVERLAP(string) ///
           MAXPairs(integer 0) FRAME(name) REPLACE STATS NOSORT ///
-          CLOSED(string) NEARest(string) TIES(string) ///
+          CLOSED(string) NEARest(string) TIES(string) SEED(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
 
@@ -907,8 +908,9 @@ program define rangematch, rclass
     }
     if `"`ties'"' == "" local ties "all"
     local ties = lower(`"`ties'"')
-    if !inlist(`"`ties'"', "all", "first", "last") {
-        display as error "ties() must be {bf:all}, {bf:first}, or {bf:last}"
+    if !inlist(`"`ties'"', "all", "first", "last", "random") {
+        display as error ///
+            "ties() must be {bf:all}, {bf:first}, {bf:last}, or {bf:random}"
         exit 198
     }
     if `"`ties'"' != "all" & `"`nearest'"' == "" {
@@ -916,8 +918,16 @@ program define rangematch, rclass
         exit 198
     }
     local ties_code = 1
-    if "`ties'" == "first" local ties_code = 2
-    if "`ties'" == "last"  local ties_code = 3
+    if "`ties'" == "first"  local ties_code = 2
+    if "`ties'" == "last"   local ties_code = 3
+    if "`ties'" == "random" local ties_code = 4
+
+    * seed() only governs the random tie-break; reject it otherwise so a
+    * typo cannot silently do nothing.
+    if `"`seed'"' != "" & "`ties'" != "random" {
+        display as error "seed() is only allowed with ties(random)"
+        exit 198
+    }
 
     local assert = lower(strtrim(`"`assert'"'))
     if `"`assert'"' != "" {
@@ -1188,6 +1198,29 @@ program define rangematch, rclass
     }
 
     * -------------------------------------------------------------------
+    * Inverted using-interval screen (overlap mode). A using interval with
+    * ulow > uhigh is a common registry data-quality defect (swapped
+    * start/stop). The overlap backend does not screen these, so they can emit
+    * matches that reflect the inverted bounds rather than a genuine overlap.
+    * Count and warn non-fatally, mirroring the float-precision warning; the
+    * count is posted in r(N_using_inverted) under every mode (0 outside
+    * overlap mode). A master interval with low > high is already treated as
+    * empty upstream, so only the using side needs this screen.
+    * -------------------------------------------------------------------
+    local N_using_inverted = 0
+    if `overlap_mode' {
+        frame __rm_using: quietly count ///
+            if !missing(`ulo') & !missing(`uhi') & `ulo' > `uhi'
+        local N_using_inverted = r(N)
+        if `N_using_inverted' > 0 {
+            display as error ///
+                "warning: `N_using_inverted' using interval(s) have {bf:`ulo'} > {bf:`uhi'} (inverted bounds);"
+            display as error ///
+                "         these are not screened and may produce matches reflecting the swapped bounds -- validate using-interval order upstream"
+        }
+    }
+
+    * -------------------------------------------------------------------
     * Non-fatal float-precision warnings (A2). Matching variables stored as
     * float lose exact equality beyond 2^24 (notably %tc clocks); flag them so
     * the user can recast to double or use tolerance(). %td dates and small
@@ -1325,6 +1358,17 @@ program define rangematch, rclass
     local _rm_assert_using = (strpos(" `assert' ", " using ") > 0)
     local _rm_try_sweep = (`nearest_code' == 0 & !`overlap_mode')
     local _rm_sweep_sort_allowed = (`sort_output' | `dryrun_mode')
+
+    * With ties(random), the backend draws from Stata's RNG stream to pick one
+    * of the tied nearest using rows. When seed() is given, set it here for a
+    * reproducible draw and restore the caller's RNG state in the cleanup zone
+    * so the seed does not leak into the user's session. Without seed(), the
+    * current stream is used and advanced as usual.
+    if "`ties'" == "random" & `"`seed'"' != "" {
+        local _rm_rng_state0 = c(rngstate)
+        set seed `seed'
+        local _rm_rng_restore = 1
+    }
 
     _rangematch_run_backend, trysweep(`_rm_try_sweep') ///
         sweepsort(`_rm_sweep_sort_allowed') dryrun(`dryrun_mode') ///
@@ -1622,6 +1666,7 @@ program define rangematch, rclass
     return scalar N_matched_pairs  = `N_matched_pairs'
     return scalar N_missing_bounds = `N_missing_bounds'
     return scalar N_using_missing  = `N_using_missing'
+    return scalar N_using_inverted = `N_using_inverted'
     if `_rm_stats_mode' {
         return scalar N_matched_master = `N_matched_master'
         return scalar N_matched_using  = `N_matched_using'
@@ -1654,6 +1699,7 @@ program define rangematch, rclass
     return local missing `"`missing'"'
     return local nearest `"`nearest'"'
     return local ties `"`ties'"'
+    if `"`seed'"' != "" & "`ties'" == "random" return local seed `"`seed'"'
     return local sort "`sort'"
     return local nosort "`nosort'"
     return local assert `"`assert'"'
@@ -1683,6 +1729,10 @@ program define rangematch, rclass
     }
     foreach _rm_timer in 91 92 93 {
         capture timer clear `_rm_timer'
+        local _rm_cleanup_rc = _rc
+    }
+    if `_rm_rng_restore' {
+        capture set rngstate `_rm_rng_state0'
         local _rm_cleanup_rc = _rc
     }
     set varabbrev `_orig_varabbrev'

@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.2.0  2026/06/30
+*! _rangematch_mata Version 1.3.0  2026/07/01
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.2.0")
+    return("1.3.0")
 }
 
 void _rm_prepare_sweep_master(
@@ -530,7 +530,7 @@ void _rm_build_pairs(
     real scalar progress_next, progress_step, progress_pct
     real scalar progress_last, lo_search, hi_search
     real scalar max_gid, gid_i, pos, target, needed
-    real scalar track_using
+    real scalar track_using, ridx
 
     oldframe = st_framecurrent()
     compute_stats = (compute_stats != 0)
@@ -563,9 +563,14 @@ void _rm_build_pairs(
         if (M[i, 3] >= .) M[i, 3] = maxdouble()
     }
 
-    // Sort using by (gid, key)
+    // Sort using by (gid, key, uobs). The trailing uobs (col 3, unique) is a
+    // tiebreaker that makes the order of equal-key rows deterministic: Mata's
+    // sort() does not order ties reproducibly across calls, so without it
+    // ties(random) would pick a different row each run even under a fixed
+    // seed(), and nosort output order would be unstable. Keys stay sorted, so
+    // binary search is unaffected.
     if (nu > 0) {
-        Usorted = sort(U, (1, 2))
+        Usorted = sort(U, (1, 2, 3))
         ugid  = Usorted[., 1]
         ukeys = Usorted[., 2]
         uobs  = Usorted[., 3]
@@ -728,7 +733,27 @@ void _rm_build_pairs(
 
                 if (ties_code != 1 & rows(selected) > 1) {
                     allties = selected
-                    selected = (ties_code == 2 ? min(allties) : max(allties))
+                    if (ties_code == 2) {
+                        // first: lowest original using obs number
+                        selected = min(allties)
+                    }
+                    else if (ties_code == 3) {
+                        // last: highest original using obs number
+                        selected = max(allties)
+                    }
+                    else {
+                        // random: one tied row drawn from Stata's RNG stream
+                        // (seeded in the .ado when seed() is given). runiform()
+                        // is in [0,1), so 1 + trunc(u*n) is uniform on 1..n;
+                        // the clamp guards the FP edge only. allties is ordered
+                        // by original using obs (the col-3 sort tiebreaker
+                        // below), so the pick is reproducible under a given
+                        // seed -- Mata sort() does NOT order ties determin-
+                        // istically, so the tiebreaker is required here.
+                        ridx = 1 + trunc(runiform(1, 1) * rows(allties))
+                        if (ridx > rows(allties)) ridx = rows(allties)
+                        selected = allties[ridx]
+                    }
                 }
                 nmatch = rows(selected)
             }

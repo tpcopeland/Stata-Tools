@@ -1,4 +1,4 @@
-*! codescan Version 2.0.4  2026/06/30
+*! codescan Version 2.0.5  2026/07/01
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -1267,9 +1267,20 @@ program define codescan, rclass
         local N_display = `N'
     }
 
+    * Name the analysis unit so "Prevalence" is never read as person-level in
+    * row-level mode: row-level prevalence is the share of observations
+    * (encounters) with a match, not the share of persons.
+    if "`collapse'" != "" | "`merge'" != "" {
+        local _unit_lbl "`id' values"
+    }
+    else {
+        local _unit_lbl "observations"
+    }
+
     display as text _n "codescan: `n_conditions' condition" ///
         cond(`n_conditions' > 1, "s", "") ", `nvars' variable" ///
-        cond(`nvars' > 1, "s", "") ", N = " as result %10.0fc `N_display'
+        cond(`nvars' > 1, "s", "") ", N = " as result %10.0fc `N_display' ///
+        as text " `_unit_lbl'"
 
     if `has_lookback' & `has_lookfwd' {
         display as text "Window: `_lookback_primary' days before to `lookforward' days after `refdate' (inclusive)"

@@ -48,6 +48,8 @@ local suites ///
     test_rangematch_backend_diff.do ///
     test_rangematch_missing_using.do ///
     test_rangematch_float_warn.do ///
+    test_rangematch_ties_random.do ///
+    test_rangematch_overlap_inverted.do ///
     test_rangematch_edge_topup.do ///
     test_rangematch_saving_matrix.do ///
     test_rangematch_v16compat.do ///

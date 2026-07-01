@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.4  30jun2026}{...}
+{* *! version 2.0.5  01jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -518,6 +518,30 @@ patient IDs represented in the final summary.
 
 {marker remarks}{...}
 {title:Remarks}
+
+{pstd}
+{bf:Interpreting prevalence.}  The reported prevalence is the prevalence of the
+{it:code definition} you supplied — the share of analyzed observations (at the
+row level) or persons (after {cmd:collapse} or {cmd:merge}) whose codes match
+the rule — not the prevalence of the underlying disease.  The two differ by the
+validity of the codes in your data: a code's positive predictive value and
+sensitivity govern how far coded prevalence sits from true prevalence.  The
+row-level console header labels the denominator as {cmd:observations} (encounters),
+and the person-level header labels it as {cmd:id()} values, so the analysis unit
+is never ambiguous.  The Wilson confidence interval reflects sampling error only;
+it does {it:not} account for coding error, misclassification, or incomplete
+capture.  Treat {cmd:codescan} output as the prevalence of a code-based case
+definition and validate that definition against the relevant register-validation
+literature before reading it as disease frequency.
+
+{pstd}
+{bf:Diagnosis position.}  Rules are applied uniformly to every variable in
+{varlist}, and a match in any slot sets the row indicator.  In many registers
+the main (first-listed) diagnosis carries higher validity than contributory
+positions, so when position matters, scan the positions separately — for example
+{cmd:codescan dx1, ...} for a main-diagnosis-only definition, or run the primary
+and secondary slots as separate calls with {cmd:generate()} prefixes.  Use
+{cmd:detail} to see each slot's contribution to a condition.
 
 {pstd}
 {bf:Pattern choice.}  Use {cmd:regex} when you need character classes,
