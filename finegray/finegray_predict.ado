@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.1.0  2026/06/21
+*! finegray_predict Version 1.1.1  2026/07/01
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -119,6 +119,22 @@ program define finegray_predict, nclass sortpreserve
             display as error "schoenfeld residuals require the original stset estimation data"
             display as error "use {bf:finegray_predict, xb} for predictions on new data"
             exit 2000
+        }
+    }
+
+    * Entry-time source for the recomputation paths (ci, schoenfeld):
+    * multi-record fits persist each subject's earliest entry in a
+    * finegray-created variable; single-record fits use _t0.
+    local _t0var "_t0"
+    if ("`ci'" != "" | "`schoenfeld'" != "") ///
+        & `"`_dta[_finegray_entryvar]'"' != "" {
+        local _t0var `"`_dta[_finegray_entryvar]'"'
+        capture confirm numeric variable `_t0var'
+        if _rc {
+            display as error "variable `_t0var' not found"
+            display as error "finegray recorded subject entry times in `_t0var' for its"
+            display as error "multiple-record reduction; re-run finegray before finegray_predict"
+            exit 111
         }
     }
 
@@ -297,6 +313,11 @@ program define finegray_predict, nclass sortpreserve
                 frame copy `c(frame)' `_bf'
                 local _bframe = 1
                 frame `_bf': quietly keep if e(sample)
+                * Refits must see each subject's true entry time, not the
+                * kept record's own interval start (multi-record reduction)
+                if "`_t0var'" != "_t0" {
+                    frame `_bf': quietly replace _t0 = `_t0var'
+                }
                 tempfile _bdata
                 frame `_bf': quietly save `"`_bdata'"'
 
@@ -332,10 +353,20 @@ program define finegray_predict, nclass sortpreserve
                     sqrt((`_bss' - `_bsum'^2/`_bok')/(`_bok'-1)) if `touse'
             }
             else {
+                * Combine multiple strata variables into a single group
+                * variable (the Mata engine expects one column)
+                local _byg_mata "`e(strata)'"
+                local _byg_nvar : word count `e(strata)'
+                if `_byg_nvar' > 1 {
+                    tempvar _byg_grp
+                    quietly egen long `_byg_grp' = group(`e(strata)')
+                    local _byg_mata "`_byg_grp'"
+                }
                 mata: _finegray_cif_predict( ///
                     "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
-                    `=e(censvalue)', "`e(strata)'", "`e(clustvar)'", ///
-                    "`_fvbasis'", "`touse'", "`tvar'", "`cif_chk'", "`se_cif'")
+                    `=e(censvalue)', "`_byg_mata'", "`e(clustvar)'", ///
+                    "`_fvbasis'", "`touse'", "`tvar'", "`cif_chk'", ///
+                    "`se_cif'", "`_t0var'")
             }
 
             * Complementary log-log limits keep the interval inside (0,1):
@@ -400,7 +431,7 @@ program define finegray_predict, nclass sortpreserve
 
         mata: _finegray_schoenfeld_compute( ///
             "`_score_varlist'", "`events_var'", `cause_val', `censvalue_val', ///
-            "`_byg_mata'", 0)
+            "`_byg_mata'", 0, "`_t0var'")
 
         restore
 

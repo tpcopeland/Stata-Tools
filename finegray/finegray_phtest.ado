@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.1.0  2026/06/21
+*! finegray_phtest Version 1.1.1  2026/07/01
 *! Proportional subdistribution hazards test after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -74,6 +74,20 @@ program define finegray_phtest, rclass
         display as error "no observations in estimation sample"
         display as error "finegray_phtest requires the original stset estimation data"
         exit 2000
+    }
+
+    * Entry-time source: multi-record fits persist each subject's earliest
+    * entry in a finegray-created variable; single-record fits use _t0.
+    local _t0var "_t0"
+    if `"`_dta[_finegray_entryvar]'"' != "" {
+        local _t0var `"`_dta[_finegray_entryvar]'"'
+        capture confirm numeric variable `_t0var'
+        if _rc {
+            display as error "variable `_t0var' not found"
+            display as error "finegray recorded subject entry times in `_t0var' for its"
+            display as error "multiple-record reduction; re-run finegray before finegray_phtest"
+            exit 111
+        }
     }
 
     * Load Mata engine
@@ -177,7 +191,7 @@ program define finegray_phtest, rclass
     * Compute scaled Schoenfeld residuals via Mata
     mata: _finegray_schoenfeld_compute( ///
         "`covariates'", "`events'", `cause', `censvalue', ///
-        "`_byg_mata'", 1)
+        "`_byg_mata'", 1, "`_t0var'")
 
     restore
 

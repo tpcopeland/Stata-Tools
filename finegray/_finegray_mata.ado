@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.1.0  2026/06/21
+*! _finegray_mata Version 1.1.1  2026/07/01
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -344,7 +344,13 @@ void _finegray_score_info(
    including the IPCW at-risk correction for competing-event subjects.
    Returns an n x p matrix whose rows are the U_i; sum_i U_i U_i' is the meat
    of the sandwich.  Extracted so both the robust variance and the CIF
-   influence-function variance use one definition (coefficient SEs unchanged). */
+   influence-function variance use one definition (coefficient SEs unchanged).
+
+   Left truncation: subject i's natural at-risk window is [t0_i, T_i], so the
+   at-risk contribution sums only over cause-event times inside that window.
+   The cumulative sums are captured twice per subject: at entry (events with
+   T_m < t0_i, recorded when the entry pointer admits the subject) and at exit
+   (events with T_m <= T_i); the difference is the window sum. */
 real matrix _finegray_score_residuals(
     real colvector t,
     real colvector delta,
@@ -360,8 +366,8 @@ real matrix _finegray_score_residuals(
     real scalar S0_t, cur_time, risk_S0, ep
     real scalar running_ginvS0, total_ginvS0
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0
-    real matrix scores, cum_zbars, cum_gzbars
+    real colvector cum_invS0, cum_ginvS0, entry_invS0
+    real matrix scores, cum_zbars, cum_gzbars, entry_zbars
     real rowvector bwd_s1_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
     real rowvector running_gzbars, total_gzbars
 
@@ -385,6 +391,8 @@ real matrix _finegray_score_residuals(
     bwd_s1_raw = J(1, p, 0)
     cum_zbars = J(n, p, 0)
     cum_invS0 = J(n, 1, 0)
+    entry_invS0 = J(n, 1, 0)
+    entry_zbars = J(n, p, 0)
     running_invS0 = 0
     running_zbar_sum = J(1, p, 0)
 
@@ -403,6 +411,11 @@ real matrix _finegray_score_residuals(
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
                 risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
+                /* cumulative sums over cause-event times before t0[idx]:
+                   no event time lies in (t0[idx], cur_time), so the running
+                   sums at admission equal the sums over T_m < t0[idx] */
+                entry_invS0[idx] = running_invS0
+                entry_zbars[idx, .] = running_zbar_sum
             }
             ep++
         }
@@ -453,10 +466,12 @@ real matrix _finegray_score_residuals(
         i = j
     }
 
-    /* Subtract the at-risk contribution for all subjects */
+    /* Subtract the at-risk contribution for all subjects, restricted to each
+       subject's own risk window [t0_i, T_i] (entry-to-exit difference) */
     for (i = 1; i <= n; i++) {
         scores[i, .] = scores[i, .] - expeta[i] *
-            (Z[i, .] * cum_invS0[i] - cum_zbars[i, .])
+            (Z[i, .] * (cum_invS0[i] - entry_invS0[i]) -
+             (cum_zbars[i, .] - entry_zbars[i, .]))
     }
 
     /* IPCW at-risk correction for competing-event subjects */
@@ -724,14 +739,17 @@ real matrix _finegray_schoenfeld(
     return(result)
 }
 
-/* Compute Schoenfeld residuals from stored e() results and post to Stata */
+/* Compute Schoenfeld residuals from stored e() results and post to Stata.
+   t0var names the entry-time variable ("_t0", or the persisted subject entry
+   variable when the fit reduced multiple records per subject). */
 void _finegray_schoenfeld_compute(
     string scalar varlist_str,
     string scalar events_str,
     real scalar cause,
     real scalar censval,
     string scalar byg_str,
-    real scalar do_scale)
+    real scalar do_scale,
+    string scalar t0var)
 {
     real colvector t, delta, event_type, G, byg_id, beta, t0
     real matrix Z, sch
@@ -745,7 +763,7 @@ void _finegray_schoenfeld_compute(
     t = st_data(., "_t")
     delta = st_data(., "_d")
     event_type = st_data(., events_str)
-    t0 = st_data(., "_t0")
+    t0 = st_data(., t0var)
 
     beta = st_matrix("e(b)")'
 
@@ -1113,7 +1131,8 @@ void _finegray_cif_var_st(
     string scalar clust_str,
     string scalar tousevar,
     string scalar evalmat,
-    string scalar outmat)
+    string scalar outmat,
+    string scalar t0var)
 {
     real matrix Z, E, out
     real colvector t, t0, delta, event_type, beta, byg_id, clust_id
@@ -1121,7 +1140,7 @@ void _finegray_cif_var_st(
 
     Z = st_data(., tokens(zvars), tousevar)
     t = st_data(., "_t", tousevar)
-    t0 = st_data(., "_t0", tousevar)
+    t0 = st_data(., t0var, tousevar)
     delta = st_data(., "_d", tousevar)
     event_type = st_data(., events_str, tousevar)
     n = rows(Z)
@@ -1153,7 +1172,8 @@ void _finegray_cif_predict(
     string scalar eval_touse,
     string scalar tvar,
     string scalar cifvar,
-    string scalar sevar)
+    string scalar sevar,
+    string scalar t0var)
 {
     real matrix Z, Zev, E, out
     real colvector t, t0, delta, event_type, beta, byg_id, clust_id
@@ -1162,7 +1182,7 @@ void _finegray_cif_predict(
 
     Z = st_data(., tokens(zvars), est_touse)
     t = st_data(., "_t", est_touse)
-    t0 = st_data(., "_t0", est_touse)
+    t0 = st_data(., t0var, est_touse)
     delta = st_data(., "_d", est_touse)
     event_type = st_data(., events_str, est_touse)
     n = rows(Z)

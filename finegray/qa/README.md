@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.1.0, 2026-06-21): the
+Quality assurance for the **finegray** package (v1.1.1, 2026-07-01): the
 Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its
 post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
@@ -30,20 +30,22 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 |-------|------|------:|-----:|-----:|-----:|
 | `test_finegray.do` | functional / regression | 127 | 127 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
+| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata) | 8 | 8 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 7 | 7 | 0 | 0 |
+| `validation_finegray_lt_se.do` | left-truncation SE oracles (score identity + jackknife) | 3 | 3 | 0 | 0 |
 | `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 49 | 0 | 6 |
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| **Total** | | **293** | **287** | **0** | **6** |
+| **Total** | | **304** | **298** | **0** | **6** |
 
 *The 6 skips are `fastcmprsk` cross-checks (C45–C50), a redundant secondary
 oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
 `fastcmprsk` only confirms it a second time. Skipping it loses no coverage.*
 
-Last full run: 2026-06-28 via `stata-mp -b do run_all.do full`, R with
+Last full run: 2026-07-01 via `stata-mp -b do run_all.do full`, R with
 `cmprsk` and `riskRegression` present.
 
 ## How to run
@@ -95,9 +97,11 @@ install.packages(c("cmprsk", "riskRegression"))
 | `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
+| `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, and multi-variable `strata()` through the CIF SE paths |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
 | `validation_finegray_cif_se.do` | Closed-form (deterministic delete-one jackknife) oracle for the analytic CIF standard error |
+| `validation_finegray_lt_se.do` | Left-truncation SE oracles: exact score-residual sum identity plus delete-one jackknife for robust coefficient SEs and the influence-function CIF SE on a delayed-entry DGP |
 | `crossval_finegray.do` | Systematic estimator parity vs `stcrreg` and `cmprsk::crr` (coefficients, SEs, LL, CIF, strata, benchmarks) |
 | `crossval_finegray_r.R` | R companion: `cmprsk::crr` / `fastcmprsk::fastCrr` reference fits |
 | `crossval_cif.do` | CIF point estimates vs `riskRegression`; CIF SEs vs subject bootstrap |
@@ -111,8 +115,8 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do` |
-| `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_cif_se.do`, `crossval_predict_stcrreg.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do` |
+| `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
 | `full` | `core` + `python` |
 
@@ -131,7 +135,7 @@ is exercised somewhere below.
 | Combined options | T20 |
 | Error handling (no `stset`, missing `compete()`/`cause()`, bad cause, no competing events, no `id()`, removed options) | T21–T30 |
 | Stored results `e(b)`, `e(V)`, `e(basehaz)`, all scalars/macros, event-count identity | T31–T37, V19–V20 |
-| Data preservation, `if`/`in`, multi-record / left truncation | T8, T26, V23, V27–V28, test_v110 |
+| Data preservation, `if`/`in`, multi-record / left truncation | T8, T26, V23, V27–V28, test_v110, test_v111 |
 | Coefficients / LL / χ² / SEs vs `stcrreg` | V1–V6, V9–V10, V24b, C1–C10 |
 | Subdistribution-hazard / model invariants (SHR>0, null β≈0, scaling, reproducibility, convergence, separation, zero-event strata) | V7–V14, V37–V41 |
 
@@ -140,7 +144,7 @@ is exercised somewhere below.
 | Surface | Where tested |
 |---------|--------------|
 | `xb`, `cif`, `schoenfeld` | V15–V18, A1–A7, P1–P5 |
-| CIF confidence intervals, `level()`, `bootstrap`, name-collision guard, `if`/`in` estimation-sample fix | test_v110 |
+| CIF confidence intervals, `level()`, `bootstrap`, name-collision guard, `if`/`in` estimation-sample fix | test_v110, test_v111 (multi-record fits, multi-var strata, LT jackknife) |
 | `xb` / `cif` / `schoenfeld` bit-exact vs `stcrreg` | A1–A7 |
 | Row-level `xb` / `cif` / `schoenfeld` vs `cmprsk::crr` | P1–P11 |
 
@@ -149,7 +153,7 @@ is exercised somewhere below.
 | Surface | Where tested |
 |---------|--------------|
 | Fixed-horizon table, `at()`, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, `r(profile_vars)` | test_v110 |
-| Bootstrap CI, `level()` width control | test_v110 |
+| Bootstrap CI, `level()` width control | test_v110, test_v111 (after reduction; e(sample) preserved) |
 | Graph legend, `legend()`/`title()`/`xtitle()` passthrough, `nograph` | test_v110 |
 | CIF point estimates vs `riskRegression::predictRisk`; SEs vs bootstrap | crossval_cif |
 | Analytic CIF SE vs closed-form jackknife; `finegray_cif`/`finegray_predict` SE agreement | validation_cif_se |

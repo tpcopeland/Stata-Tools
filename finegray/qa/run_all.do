@@ -33,10 +33,11 @@ local skip_file "`qa_dir'/_skip.txt"
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local quick_files test_finegray.do test_finegray_v110.do
+local quick_files test_finegray.do test_finegray_v110.do test_finegray_v111.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
-    validation_finegray_cif_se.do crossval_predict_stcrreg.do
+    validation_finegray_cif_se.do validation_finegray_lt_se.do ///
+    crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do
 local full_files `core_files' `python_files'
 

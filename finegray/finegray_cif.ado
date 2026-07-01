@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.1.0  2026/06/21
+*! finegray_cif Version 1.1.1  2026/07/01
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -67,6 +67,20 @@ program define finegray_cif, rclass sortpreserve
         exit 2000
     }
     if "`level'" == "" local level = c(level)
+
+    * Entry-time source: multi-record fits persist each subject's earliest
+    * entry in a finegray-created variable; single-record fits use _t0.
+    local _t0var "_t0"
+    if `"`_dta[_finegray_entryvar]'"' != "" {
+        local _t0var `"`_dta[_finegray_entryvar]'"'
+        capture confirm numeric variable `_t0var'
+        if _rc {
+            display as error "variable `_t0var' not found"
+            display as error "finegray recorded subject entry times in `_t0var' for its"
+            display as error "multiple-record reduction; re-run finegray before finegray_cif"
+            exit 111
+        }
+    }
 
     * Parse saving(filename[, replace]); reject shell metacharacters
     local savefile ""
@@ -186,9 +200,21 @@ program define finegray_cif, rclass sortpreserve
 
     tempvar es
     quietly gen byte `es' = e(sample)
+
+    * Combine multiple strata variables into a single group variable
+    * (the Mata engine expects one column)
+    local _byg_mata "`e(strata)'"
+    local _byg_nvar : word count `e(strata)'
+    if `_byg_nvar' > 1 {
+        tempvar _byg_grp
+        quietly egen long `_byg_grp' = group(`e(strata)')
+        local _byg_mata "`_byg_grp'"
+    }
+
     tempname OUT
     mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
-        `=e(censvalue)', "`e(strata)'", "`e(clustvar)'", "`es'", "`E'", "`OUT'")
+        `=e(censvalue)', "`_byg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
+        "`OUT'", "`_t0var'")
 
     * =====================================================================
     * BOOTSTRAP STANDARD ERRORS (optional; exact, includes censoring weights)
@@ -203,17 +229,25 @@ program define finegray_cif, rclass sortpreserve
             local ++r
             matrix `Gmat'[`r', 1] = `tt'
         }
-        preserve
-        local _preserved = 1
-        quietly keep if e(sample)
-        tempfile _bdata
-        quietly save `"`_bdata'"'
-
-        * Protect the user's estimation results across the refits
-        * (hold AFTER capturing e(sample) above, since hold clears active e())
+        * Protect the user's estimation results across the refits. Hold
+        * BEFORE preserve: hold records e(sample) in a hidden variable, and
+        * only a hold placed before preserve puts that variable into the
+        * preserved snapshot so that restore + unhold can bring e(sample)
+        * back. (e(sample) itself was already captured in `es' above, and
+        * e(cmdline) in `_fgcmd', since hold clears the active e().)
         tempname _esth
         _estimates hold `_esth', restore
         local _held = 1
+
+        preserve
+        local _preserved = 1
+        quietly keep if `es'
+        * Refits must see each subject's true entry time, not the kept
+        * record's own interval start (multi-record reduction)
+        if "`_t0var'" != "_t0" quietly replace _t0 = `_t0var'
+        tempfile _bdata
+        quietly save `"`_bdata'"'
+
         if "`seed'" != "" set seed `seed'
 
         tempname BSUM BSS bcif

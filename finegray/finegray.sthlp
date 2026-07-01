@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  21jun2026}{...}
+{* *! version 1.1.1  01jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -254,6 +254,15 @@ the model covariates are constant within {cmd:id()}.
 Such records are reduced automatically to one risk-set unit per subject
 (earliest entry, latest exit, final status), and the engine's left-truncation
 handles the entry times.
+
+{pmore}
+For multi-record fits, {cmd:finegray} records each subject's earliest entry
+time in the variable {cmd:_fg_entry}, which post-estimation commands
+({helpb finegray_cif}, {helpb finegray_phtest}, and the {opt ci},
+{opt schoenfeld}, and {opt bootstrap()} paths of {helpb finegray_predict})
+require to reconstruct the estimation risk sets. It persists like the
+{cmd:_fg_*} factor-variable columns and is dropped or refreshed by the next
+{cmd:finegray} run; do not drop it while post-estimation is still needed.
 
 {pmore}
 Genuinely time-varying covariates are not supported and produce an error,
@@ -552,12 +561,18 @@ When factor variables are used it also records {cmd:_dta[_finegray_fvvars]} and
 subsequent {cmd:finegray} runs to clean up prior finegray-generated
 factor-variable columns safely.
 
+{pstd}
+When multiple records per subject are reduced, {cmd:finegray} records the name
+of the persistent entry-time variable ({cmd:_fg_entry}) in
+{cmd:_dta[_finegray_entryvar]}; post-estimation commands read it to
+reconstruct each subject's risk window.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-06-21{p_end}
+{pstd}Version 1.1.1, 2026-07-01{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

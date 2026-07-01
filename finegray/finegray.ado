@@ -1,4 +1,4 @@
-*! finegray Version 1.1.0  2026/06/21
+*! finegray Version 1.1.1  2026/07/01
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -117,8 +117,8 @@ program define finegray, eclass sortpreserve
     quietly summarize `_fg_nrec' if `touse', meanonly
     local _fg_maxrec = r(max)
 
-    tempvar _fg_entry
     local _fg_reduced = 0
+    local _fg_entryvar ""
     if `_fg_maxrec' > 1 {
         * --- covariate constancy check (raw vars, strata, cluster) ---
         local _fg_checkvars ""
@@ -174,8 +174,29 @@ program define finegray, eclass sortpreserve
             exit 198
         }
 
+        * --- persist each subject's earliest entry for post-estimation ---
+        * Post-estimation (finegray_cif, finegray_predict ci/schoenfeld,
+        * finegray_phtest, bootstrap refits) recomputes risk sets from the
+        * data; the kept record's own _t0 is its last interval start, so the
+        * true entry must survive outside this program's preserve block.
+        capture confirm variable _fg_entry
+        if !_rc {
+            if `"`_dta[_finegray_entryvar]'"' == "_fg_entry" {
+                display as text "(note: replacing existing variable _fg_entry)"
+                quietly drop _fg_entry
+            }
+            else {
+                display as error "variable _fg_entry already exists"
+                display as error "finegray uses this name to record subject entry times"
+                display as error "for multiple-record data; rename or drop it before running finegray"
+                exit 198
+            }
+        }
+        quietly gen double _fg_entry = `_fg_mint0'
+        label variable _fg_entry "finegray: earliest subject entry time (multi-record reduction)"
+        local _fg_entryvar "_fg_entry"
+
         * --- reduce: keep the record at max(_t) per subject ---
-        quietly gen double `_fg_entry' = `_fg_mint0'
         tempvar _fg_obs _fg_seen _fg_surv
         gen long `_fg_obs' = _n
         gsort `_fg_id' -_t -_d -`_fg_obs'
@@ -263,6 +284,15 @@ program define finegray, eclass sortpreserve
             local _has_fv = 1
             continue, break
         }
+    }
+
+    * Clean up the entry-time variable from any prior finegray run when this
+    * run did not just (re)create it in the reduction step above.
+    local _prev_entryvar `"`_dta[_finegray_entryvar]'"'
+    if `"`_dta[_finegray_estimated]'"' == "1" & `"`_prev_entryvar'"' != "" ///
+        & "`_prev_entryvar'" != "`_fg_entryvar'" {
+        capture confirm variable `_prev_entryvar'
+        if !_rc quietly drop `_prev_entryvar'
     }
 
     * Clean up FV variables from any prior finegray run, unconditionally.
@@ -489,7 +519,7 @@ program define finegray, eclass sortpreserve
 
         * Use each subject's earliest entry time after multi-record reduction
         * (engine left-truncation consumes _t0). Non-destructive: inside preserve.
-        if `_fg_reduced' quietly replace _t0 = `_fg_entry'
+        if `_fg_reduced' quietly replace _t0 = _fg_entry
 
         * Combine multiple strata variables into a single group variable
         local _byg_mata "`strata'"
@@ -609,6 +639,7 @@ program define finegray, eclass sortpreserve
     char _dta[_finegray_cause]     "`cause'"
     char _dta[_finegray_covars]    "`varlist'"
     char _dta[_finegray_fvvars]    "`_fv_created'"
+    char _dta[_finegray_entryvar]  "`_fg_entryvar'"
     if `_has_fv' {
         char _dta[_finegray_fvvarlist] "`_orig_varlist'"
     }
@@ -679,6 +710,12 @@ program define finegray, eclass sortpreserve
         foreach v of local _fv_created {
             capture drop `v'
         }
+    }
+
+    * Drop the entry-time variable on error (persists on success for
+    * post-estimation on reduced multi-record fits)
+    if `rc' & "`_fg_entryvar'" != "" {
+        capture drop `_fg_entryvar'
     }
 
     set varabbrev `_orig_varabbrev'
