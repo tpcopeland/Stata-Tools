@@ -21,17 +21,6 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 
 After installation, start with `help tabtools` for the suite overview and `tabtools_tips` for the quick reference and worked recipes.
 
-## Markdown Export
-
-Every table-producing command accepts `markdown(filename)` to write the rendered table as GitHub-Flavored Markdown. Use `mdappend` to append several tables into one report file. Markdown can be requested alone where a workbook is not structurally required, or in the same call as `xlsx()`/`excel()`, `csv()`, and `frame()`.
-
-```stata
-table1_tc age bmi sex, by(treated) markdown("table1.md")
-regtab, xlsx("models.xlsx") markdown("models.md")
-crosstab sex treated, markdown("tables.md")
-corrtab age bmi sbp, markdown("tables.md") mdappend
-```
-
 ## Commands
 
 ### Direct table builders
