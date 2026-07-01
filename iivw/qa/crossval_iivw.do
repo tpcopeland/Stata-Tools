@@ -197,6 +197,12 @@ if `run_only' == 0 | `run_only' == 2 {
 
         merge 1:1 id time using `r_weights', nogenerate
 
+        * Compare IIW weights up to scale: the package normalizes _iivw_iw to
+        * mean 1, so normalize both series to mean 1 before differencing.
+        foreach wv in stata_weight iiw_weight {
+            quietly summarize `wv' if !missing(`wv'), meanonly
+            quietly replace `wv' = `wv' / r(mean)
+        }
         gen double wdiff = abs(stata_weight - iiw_weight)
         quietly summarize wdiff, detail
         local max_diff = r(max)
@@ -252,8 +258,11 @@ if `run_only' == 0 | `run_only' == 3 {
         assert r(n_ids) == `n_ids_kept'
         quietly count if _iivw_weight <= 0 & !missing(_iivw_weight)
         assert r(N) == 0
-        bysort id (time): assert _iivw_iw == 1 if _n == 1
-        assert r(mean_weight) > 0
+        * First-obs IIW weights identical across subjects (mean-1 normalized)
+        tempvar _xv3first
+        bysort id (time): gen byte `_xv3first' = (_n == 1)
+        quietly summarize _iivw_iw if `_xv3first'
+        assert r(sd) < 1e-9
     }
     if _rc == 0 {
         display as result "  PASS: XV3 - iivw_weight on Phenobarb produces valid weights"
@@ -355,6 +364,9 @@ if `run_only' == 0 | `run_only' == 5 {
         iivw_weight, id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) nolog
 
+        * Normalize R's IIW weights to mean 1 to match the package's normalization
+        quietly summarize r_iiw_weight if !missing(r_iiw_weight), meanonly
+        quietly replace r_iiw_weight = r_iiw_weight / r(mean)
         gen double iiw_diff = abs(_iivw_iw - r_iiw_weight)
         quietly summarize iiw_diff, detail
         local max_diff = r(max)

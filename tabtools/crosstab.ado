@@ -1,4 +1,4 @@
-*! crosstab Version 1.8.9  2026/07/01
+*! crosstab Version 1.9.0  2026/07/01
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ DESCRIPTION:
 SYNTAX:
     crosstab rowvar colvar [if] [in] [weight], xlsx(filename)
         [colpct rowpct totalpct exact fisher
-        or rr rd trend label missing
+        or rr rd trend cochran label missing
         sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra headershade headercolor(string) zebracolor(string)
@@ -50,7 +50,7 @@ capture noisily {
     syntax varlist(min=2 max=2) [if] [in] [fweight], ///
         [xlsx(string) excel(string) sheet(string) ///
         COLpct ROWpct TOTALpct EXact FIsher ///
-        OR RR RD TRend LABel MISsing ///
+        OR RR RD TRend COCHran LABel MISsing ///
         DIGits(integer -1) ///
         title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
@@ -121,6 +121,15 @@ capture noisily {
         }
     }
 
+    if "`cochran'" != "" & "`trend'" != "" {
+        noisily display as error "cochran and trend are mutually exclusive; choose one trend test"
+        exit 198
+    }
+    if "`cochran'" != "" & "`missing'" != "" {
+        noisily display as error "cochran cannot be combined with missing (a missing category is not ordered)"
+        exit 198
+    }
+
     local _pct_modes = 0
     if "`colpct'" != "" local ++_pct_modes
     if "`rowpct'" != "" local ++_pct_modes
@@ -160,6 +169,11 @@ capture noisily {
     qui levelsof `colvar', local(col_levels) `missing'
     local n_rows : word count `row_levels'
     local n_cols : word count `col_levels'
+    if "`cochran'" != "" & `n_rows' != 2 {
+        noisily display as error "cochran requires a binary row (outcome) variable; `rowvar' has `n_rows' levels"
+        restore
+        exit 198
+    }
     local _assoc_requested = ("`or'" != "" | "`rr'" != "" | "`rd'" != "")
     if `_assoc_requested' & (`n_rows' != 2 | `n_cols' != 2) {
         noisily display as error "or, rr, and rd require a 2x2 table"
@@ -317,6 +331,47 @@ capture noisily {
 	        }
 	        qui use `_trend_snap', clear
 	        return scalar p_trend = `_p_trend'
+	        return local trend_method "Spearman rank correlation"
+	    }
+
+	    * Cochran-Armitage trend test: linear trend in the proportion of the
+	    * higher row (outcome) level across ordered column scores. Scores are the
+	    * numeric colvar values, so recoding colvar sets the trend spacing.
+	    if "`cochran'" != "" {
+	        tempfile _ca_snap
+	        qui save `_ca_snap'
+	        if "`weight'" == "fweight" {
+	            local _cawexp = substr("`exp'", 2, .)
+	            qui expand `_cawexp'
+	        }
+	        qui levelsof `rowvar', local(_ca_rlevs)
+	        local _ca_evlev : word 2 of `_ca_rlevs'
+	        tempvar _ca_ev _ca_evs _ca_dev2
+	        qui gen byte `_ca_ev' = (`rowvar' == `_ca_evlev') ///
+	            if !missing(`rowvar') & !missing(`colvar')
+	        qui count if !missing(`_ca_ev')
+	        local _ca_N = r(N)
+	        qui summarize `_ca_ev' if !missing(`_ca_ev'), meanonly
+	        local _ca_R = r(sum)
+	        local _ca_pbar = `_ca_R' / `_ca_N'
+	        qui summarize `colvar' if !missing(`_ca_ev'), meanonly
+	        local _ca_sbar = r(mean)
+	        qui gen double `_ca_evs' = `_ca_ev' * `colvar' if !missing(`_ca_ev')
+	        qui summarize `_ca_evs' if !missing(`_ca_ev'), meanonly
+	        local _ca_T = r(sum) - `_ca_R' * `_ca_sbar'
+	        qui gen double `_ca_dev2' = (`colvar' - `_ca_sbar')^2 if !missing(`_ca_ev')
+	        qui summarize `_ca_dev2' if !missing(`_ca_ev'), meanonly
+	        local _ca_varT = `_ca_pbar' * (1 - `_ca_pbar') * r(sum)
+	        if `_ca_varT' > 0 & !missing(`_ca_varT') {
+	            local _ca_z = `_ca_T' / sqrt(`_ca_varT')
+	            local _ca_chi2 = `_ca_z'^2
+	            local _p_trend = chi2tail(1, `_ca_chi2')
+	            return scalar chi2_trend = `_ca_chi2'
+	            return scalar z_trend = `_ca_z'
+	        }
+	        qui use `_ca_snap', clear
+	        return scalar p_trend = `_p_trend'
+	        return local trend_method "Cochran-Armitage"
 	    }
 
 **# Build Output Dataset
@@ -424,7 +479,8 @@ capture noisily {
         qui set obs `row'
         local _trend_row = `row'
         local _pt_str = cond(`_p_trend' < 0.001, "<0.001", string(`_p_trend', "%5.3f"))
-        qui replace c1 = "P for trend = `_pt_str'" in `row'
+        local _trend_lbl = cond("`cochran'" != "", "P for trend (Cochran-Armitage)", "P for trend")
+        qui replace c1 = "`_trend_lbl' = `_pt_str'" in `row'
     }
 
     local num_rows = _N
@@ -493,7 +549,8 @@ capture noisily {
     if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
     if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
     if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_p_trend') local _methods "`_methods' A trend test across ordered column levels is also reported."
+    if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
+    else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
     return local methods "`_methods'"
 

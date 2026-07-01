@@ -105,6 +105,9 @@ if `run_only' == 0 | `run_only' == 1 {
         iivw_weight, id(id) time(time) ///
             visit_cov(rx2 number size) efron nolog
 
+        * Package normalizes _iivw_iw to mean 1; align R's weights to mean 1 too
+        quietly summarize r_iivw if !missing(r_iivw), meanonly
+        quietly replace r_iivw = r_iivw / r(mean)
         gen double diff_iw = abs(_iivw_iw - r_iivw)
         quietly summarize diff_iw, detail
         local max_diff = r(max)
@@ -277,9 +280,19 @@ if `run_only' == 0 | `run_only' == 3 {
             treat(cu_high) treat_cov(startwt evit100 evit200) ///
             efron nolog
 
+        * Package normalizes the IIW component to mean 1; align R's IIW and
+        * FIPTIW weights to mean 1 too (IPTW is unchanged by the normalization,
+        * and the product identity below holds on either scale).
+        quietly summarize r_iiw if !missing(r_iiw), meanonly
+        quietly replace r_iiw = r_iiw / r(mean)
+        tempvar s_fiptiw
+        quietly summarize _iivw_weight if !missing(_iivw_weight), meanonly
+        gen double `s_fiptiw' = _iivw_weight / r(mean)
+        quietly summarize r_fiptiw if !missing(r_fiptiw), meanonly
+        quietly replace r_fiptiw = r_fiptiw / r(mean)
         gen double diff_iiw = abs(_iivw_iw - r_iiw)
         gen double diff_iptw = abs(_iivw_tw - r_iptw)
-        gen double diff_fiptiw = abs(_iivw_weight - r_fiptiw)
+        gen double diff_fiptiw = abs(`s_fiptiw' - r_fiptiw)
         gen double diff_product = abs(_iivw_weight - _iivw_iw * _iivw_tw)
 
         foreach dvar in diff_iiw diff_iptw diff_fiptiw diff_product {

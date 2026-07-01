@@ -151,7 +151,12 @@ capture noisily {
     iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert r(N) == 60
     assert r(n_ids) == 20
-    bysort id (time): assert _iivw_iw == 1 if _n == 1
+    * First-obs IIW weights are identical across subjects (baseline convention,
+    * mean-1 normalized: common value 1/mean(exp(-xb)), not 1)
+    tempvar _gfirst
+    bysort id (time): gen byte `_gfirst' = (_n == 1)
+    quietly summarize _iivw_iw if `_gfirst'
+    assert r(sd) < 1e-9
     assert "`: char _dta[_iivw_weighted]'" == "1"
 }
 if _rc == 0 {

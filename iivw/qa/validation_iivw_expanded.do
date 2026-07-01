@@ -393,10 +393,15 @@ if `run_only' == 0 | `run_only' == 12 {
         _setup_panel_v
         iivw_weight, id(id) time(months) visit_cov(severity) ///
             stabcov(sev_bl) nolog
-        bysort id (months): assert _iivw_iw == 1 if _n == 1
+        * First-obs IIW weights identical across subjects (baseline convention,
+        * mean-1 normalized) even with a stabilization model
+        tempvar _ev12first
+        bysort id (months): gen byte `_ev12first' = (_n == 1)
+        quietly summarize _iivw_iw if `_ev12first'
+        assert r(sd) < 1e-9
     }
     if _rc == 0 {
-        display as result "  PASS: EV12 - First obs IW = 1 with stabcov"
+        display as result "  PASS: EV12 - First-obs IW identical with stabcov"
         local ++pass_count
     }
     else {

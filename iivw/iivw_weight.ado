@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.8.0  2026/07/01
+*! iivw_weight Version 1.9.0  2026/07/01
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -608,6 +608,19 @@ program define iivw_weight, rclass sortpreserve
             display as error "warning: stabilization Cox model did not converge"
         }
 
+        * Normalize the IIW component to mean 1 over the estimating sample.
+        * exp(-xb) has an arbitrary scale: the Cox model carries no intercept and
+        * predict, xb is uncentered, so the raw mean of exp(-xb) is a function of
+        * covariate location, not of model fit. Rescaling to mean 1 is invariant
+        * for the weighted point estimates AND the cluster-robust (sandwich) SE --
+        * a constant weight factor cancels in the estimating equation and both the
+        * bread and meat of the sandwich -- but it makes the reported mean, ESS,
+        * and max-weight diagnostics interpretable rather than scale-dependent.
+        quietly summarize `prefix'iw if !missing(`prefix'iw), meanonly
+        if r(N) > 0 & r(mean) > 0 & r(mean) < . {
+            quietly replace `prefix'iw = `prefix'iw / r(mean)
+        }
+
         label variable `prefix'iw "Inverse intensity weight"
     }
 
@@ -871,6 +884,14 @@ program define iivw_weight, rclass sortpreserve
     display as text "Subjects:              " as result %9.0f `n_ids'
     display as text "Effective sample size: " as result %9.1f `ess' ///
         as text " (of " as result `N' as text ")"
+
+    * Note the mean-1 normalization of the visit-intensity component
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        display as text ""
+        display as text "Note: IIW component normalized to mean 1"
+        display as text "  (weighted point estimates and cluster-robust SEs are unchanged;"
+        display as text "  the rescaling only makes the mean/ESS/max diagnostics interpretable)"
+    }
 
     * Warn if mean deviates from 1
     if abs(`w_mean' - 1) > 0.2 {

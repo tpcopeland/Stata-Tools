@@ -120,17 +120,20 @@ local ++test_count
 capture noisily {
     _iivw_v130_panel
     iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
-    * every first visit per subject has IIW weight exactly 1
+    * every first/baseline visit shares one IIW weight. Under mean-1
+    * normalization the study-entry convention weight (1 before scaling) becomes
+    * 1/mean(exp(-xb)) -- identical across baseline rows (SD 0), not literally 1.
     bysort id (days): gen byte _first = (_n == 1)
-    quietly count if _first & _iivw_iw != 1
-    assert r(N) == 0
+    quietly summarize _iivw_iw if _first
+    assert r(sd) < 1e-9
     * single-visit subjects (id 31-40) are still present with a valid weight
     quietly count if id > 30
     assert r(N) == 10
     quietly count if id > 30 & missing(_iivw_weight)
     assert r(N) == 0
-    quietly count if id > 30 & _iivw_iw != 1
-    assert r(N) == 0
+    * their single (baseline) row carries the shared first-visit weight
+    quietly summarize _iivw_iw if id > 30
+    assert r(sd) < 1e-9
 }
 if _rc == 0 {
     display as result "  PASS: T4 - first-visit weight 1, single-visit subjects retained"
@@ -153,9 +156,12 @@ capture noisily {
     iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent replace nolog
     gen double w_nbe = _iivw_iw
     bysort id (days): gen byte _f = (_n == 1)
-    * first visits are weight 1 in both modes
-    quietly count if _f & (w_def != 1 | w_nbe != 1)
-    assert r(N) == 0
+    * first visits share one weight within each mode (mean-1 normalized: the
+    * study-entry convention weight rescaled by that run's own mean)
+    quietly summarize w_def if _f
+    assert r(sd) < 1e-9
+    quietly summarize w_nbe if _f
+    assert r(sd) < 1e-9
     * follow-up visits differ because the fitted intensity model changed
     quietly count if !_f & abs(w_def - w_nbe) > 1e-8
     assert r(N) > 0

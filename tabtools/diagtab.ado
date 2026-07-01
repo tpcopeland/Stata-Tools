@@ -1,4 +1,4 @@
-*! diagtab Version 1.8.9  2026/07/01
+*! diagtab Version 1.9.0  2026/07/01
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -499,15 +499,15 @@ capture noisily {
     local DOR_hi = .
     if `TP' > 0 & `FP' > 0 & `FN' > 0 & `TN' > 0 {
         local _se_ln_lrp = sqrt(1/`TP' - 1/(`TP'+`FN') + 1/`FP' - 1/(`FP'+`TN'))
-        local LRp_lo = exp(ln(`LRp') - 1.96 * `_se_ln_lrp')
-        local LRp_hi = exp(ln(`LRp') + 1.96 * `_se_ln_lrp')
+        local LRp_lo = exp(ln(`LRp') - invnormal(0.975) * `_se_ln_lrp')
+        local LRp_hi = exp(ln(`LRp') + invnormal(0.975) * `_se_ln_lrp')
         local _se_ln_lrn = sqrt(1/`FN' - 1/(`TP'+`FN') + 1/`TN' - 1/(`FP'+`TN'))
-        local LRn_lo = exp(ln(`LRn') - 1.96 * `_se_ln_lrn')
-        local LRn_hi = exp(ln(`LRn') + 1.96 * `_se_ln_lrn')
+        local LRn_lo = exp(ln(`LRn') - invnormal(0.975) * `_se_ln_lrn')
+        local LRn_hi = exp(ln(`LRn') + invnormal(0.975) * `_se_ln_lrn')
         * DOR CI (Woolf's method)
         local _se_ln_dor = sqrt(1/`TP' + 1/`FP' + 1/`FN' + 1/`TN')
-        local DOR_lo = exp(ln(`DOR') - 1.96 * `_se_ln_dor')
-        local DOR_hi = exp(ln(`DOR') + 1.96 * `_se_ln_dor')
+        local DOR_lo = exp(ln(`DOR') - invnormal(0.975) * `_se_ln_dor')
+        local DOR_hi = exp(ln(`DOR') + invnormal(0.975) * `_se_ln_dor')
     }
 
     * AUC

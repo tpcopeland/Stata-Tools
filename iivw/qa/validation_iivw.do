@@ -53,13 +53,18 @@ if `run_only' == 0 | `run_only' == 1 {
             4 16   4
         end
         iivw_weight, id(id) time(months) visit_cov(severity) nolog
-        * First obs per subject must have weight = 1
-        bysort id (months): assert _iivw_iw == 1 if _n == 1
-        * First obs per subject must have weight = 1 for composite too
-        bysort id (months): assert _iivw_weight == 1 if _n == 1
+        * First obs per subject share the baseline-convention weight. After the
+        * mean-1 normalization of _iivw_iw the common value is 1/mean(exp(-xb)),
+        * not 1, but it is identical across subjects (SD 0).
+        tempvar _v1first
+        bysort id (months): gen byte `_v1first' = (_n == 1)
+        quietly summarize _iivw_iw if `_v1first'
+        assert r(sd) < 1e-9
+        quietly summarize _iivw_weight if `_v1first'
+        assert r(sd) < 1e-9
     }
     if _rc == 0 {
-        display as result "  PASS: V1 - First observation weight = 1"
+        display as result "  PASS: V1 - First-observation weights identical (baseline convention)"
         local ++pass_count
     }
     else {
@@ -101,6 +106,9 @@ if `run_only' == 0 | `run_only' == 2 {
         predict double `xb', xb
         gen double `manual_w' = exp(-`xb')
         bysort id (months): replace `manual_w' = 1 if _n == 1
+        * Mirror the package's mean-1 normalization of the IIW component
+        quietly summarize `manual_w' if !missing(`manual_w'), meanonly
+        quietly replace `manual_w' = `manual_w' / r(mean)
 
         * Compare - should match within floating point tolerance
         gen double wdiff = abs(_iivw_iw - `manual_w')
@@ -708,11 +716,14 @@ if `run_only' == 0 | `run_only' == 18 {
         * Both should produce valid weights
         assert `n_entry' == `n_noentry'
         assert `n_entry' == 9
-        * First obs still gets weight = 1
-        bysort id (months): assert _iivw_iw == 1 if _n == 1
+        * First obs still shares the baseline-convention weight (equal, mean-1 scaled)
+        tempvar _v18first
+        bysort id (months): gen byte `_v18first' = (_n == 1)
+        quietly summarize _iivw_iw if `_v18first'
+        assert r(sd) < 1e-9
     }
     if _rc == 0 {
-        display as result "  PASS: V18 - Entry option works, first obs weight=1"
+        display as result "  PASS: V18 - Entry option works, first-obs weights identical"
         local ++pass_count
     }
     else {
@@ -724,8 +735,8 @@ if `run_only' == 0 | `run_only' == 18 {
 * =============================================================================
 * V19: Weight sum invariant - unstabilized IIW weights
 * =============================================================================
-* For well-specified models, the mean of unstabilized IIW weights
-* should be close to 1 (not exact, but within reasonable bounds)
+* The IIW component is normalized to mean 1, so the reported weight mean is
+* exactly 1 (up to floating point) rather than merely close to it.
 local ++test_count
 if `run_only' == 0 | `run_only' == 19 {
     capture noisily {
@@ -739,8 +750,8 @@ if `run_only' == 0 | `run_only' == 19 {
 
         iivw_weight, id(id) time(months) visit_cov(severity) nolog
 
-        * Mean weight should be in reasonable range (0.5 to 2.0)
-        assert r(mean_weight) > 0.5 & r(mean_weight) < 2.0
+        * IIW weights are normalized to mean 1 by construction (exact, not a range)
+        assert abs(r(mean_weight) - 1) < 1e-8
         * All weights strictly positive
         quietly count if _iivw_weight <= 0 & !missing(_iivw_weight)
         assert r(N) == 0

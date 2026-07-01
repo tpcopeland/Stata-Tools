@@ -19,7 +19,7 @@
 
 {p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{it:fweight}],
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
-{opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
+{opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
@@ -47,6 +47,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt rr}}risk ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rd}}risk difference with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt tr:end}}Test for trend across ordered columns via Spearman rank correlation ({it:fweight}s honored).{p_end}
+{synopt:{opt coch:ran}}Cochran-Armitage test for trend in the proportion of the higher row (outcome) level across ordered column scores; requires a binary {it:rowvar}. Mutually exclusive with {opt trend}. See {help crosstab##trendnote:Trend tests}.{p_end}
 {syntab:Tests}
 {synopt:{opt ex:act}}force Fisher's exact test{p_end}
 {synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}
@@ -86,6 +87,20 @@ matches the direction you want to report. If a requested association measure is
 undefined, for example because a required 2x2 cell count is zero, {cmd:crosstab}
 exits with an error instead of silently omitting the measure.{p_end}
 
+{marker trendnote}{title:Trend tests}
+
+{pstd}{cmd:crosstab} offers two trend tests, and they answer different
+questions. {opt trend} runs a {bf:Spearman rank-correlation} test — a general
+ordinal-by-ordinal association across the ordered column levels — and is the
+right default when both variables are ordinal. {opt cochran} runs the classic
+{bf:Cochran-Armitage} test for a {bf:linear trend in a binary outcome across an
+ordered exposure}: {it:rowvar} must be binary (the outcome), and the ordered
+{it:colvar} supplies the column scores. Column scores are the numeric
+{it:colvar} values, so recoding {it:colvar} (for example, to dose levels)
+changes the assumed spacing. The two options are mutually exclusive; both store
+their p-value in {cmd:r(p_trend)} and label the trend row accordingly.
+{it:fweight}s are honored by both.{p_end}
+
 {marker examples}{title:Examples}
 
 {pstd}{bf:Example 1: Basic 2x2 table with OR}{p_end}
@@ -99,10 +114,15 @@ exits with an error instead of silently omitting the measure.{p_end}
 {phang3}{cmd:xlsx(crosstab.xlsx) sheet("RR") ///}{p_end}
 {phang3}{cmd:title("Risk Ratios and Trend Test")}{p_end}
 
-{pstd}{bf:Example 3: Console preview}{p_end}
+{pstd}{bf:Example 3: Cochran-Armitage trend for a binary outcome across an ordered exposure}{p_end}
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "gen byte expensive = (price > 6000)":. gen byte expensive = (price > 6000)}{p_end}
+{phang2}{cmd:. crosstab expensive rep78, cochran label}{p_end}
+
+{pstd}{bf:Example 4: Console preview}{p_end}
 {phang2}{cmd:. crosstab rep78 foreign, label}{p_end}
 
-{pstd}{bf:Example 4: Row percentages with Fisher's exact test}{p_end}
+{pstd}{bf:Example 5: Row percentages with Fisher's exact test}{p_end}
 {phang2}{cmd:. crosstab rep78 foreign, rowpct fisher label ///}{p_end}
 {phang3}{cmd:xlsx(crosstab.xlsx) sheet("Fisher") ///}{p_end}
 {phang3}{cmd:title("Repair Record by Origin") zebra}{p_end}
@@ -117,13 +137,16 @@ exits with an error instead of silently omitting the measure.{p_end}
 {synopt:{cmd:r(or)}}odds ratio (2x2){p_end}
 {synopt:{cmd:r(rr)}}risk ratio (2x2){p_end}
 {synopt:{cmd:r(rd)}}risk difference (2x2){p_end}
-{synopt:{cmd:r(p_trend)}}trend p-value{p_end}
+{synopt:{cmd:r(p_trend)}}trend p-value (Spearman or Cochran-Armitage){p_end}
+{synopt:{cmd:r(chi2_trend)}}Cochran-Armitage trend chi-squared statistic (1 df; when {opt cochran} is used){p_end}
+{synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic (when {opt cochran} is used){p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}frequency matrix{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
+{synopt:{cmd:r(trend_method)}}trend test used ({cmd:Spearman rank correlation} or {cmd:Cochran-Armitage}); returned when a trend test is requested{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}

@@ -1,4 +1,4 @@
-*! survtab Version 1.8.9  2026/07/01
+*! survtab Version 1.9.0  2026/07/01
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -426,6 +426,20 @@ capture noisily {
         }
         if `has_by' & `n_groups' == 2 {
             local rmst_diff = `rmst_g1' - `rmst_g2'
+            local rmst_diff_se = .
+            local rmst_diff_lb = .
+            local rmst_diff_ub = .
+            local rmst_diff_p  = .
+            * Between-group RMST difference: independent-group variance
+            * (groups are disjoint), Wald 95% CI and two-sided p-value.
+            if !missing(`rmst_se_g1') & !missing(`rmst_se_g2') {
+                local rmst_diff_se = sqrt(`rmst_se_g1'^2 + `rmst_se_g2'^2)
+                if `rmst_diff_se' > 0 & !missing(`rmst_diff_se') {
+                    local rmst_diff_lb = `rmst_diff' - invnormal(0.975) * `rmst_diff_se'
+                    local rmst_diff_ub = `rmst_diff' + invnormal(0.975) * `rmst_diff_se'
+                    local rmst_diff_p  = 2 * normal(-abs(`rmst_diff' / `rmst_diff_se'))
+                }
+            }
         }
     }
 
@@ -592,7 +606,14 @@ capture noisily {
             }
         }
         if "`difference'" != "" & `n_groups' == 2 & !missing(`rmst_diff') {
-            qui replace c`_diff_col' = string(`rmst_diff', "%5.`=`digits'+1'f") in `row'
+            if !missing(`rmst_diff_lb') & !missing(`rmst_diff_ub') {
+                qui replace c`_diff_col' = string(`rmst_diff', "%5.`=`digits'+1'f") + ///
+                    " (" + string(`rmst_diff_lb', "%5.`=`digits'+1'f") + ///
+                    ", " + string(`rmst_diff_ub', "%5.`=`digits'+1'f") + ")" in `row'
+            }
+            else {
+                qui replace c`_diff_col' = string(`rmst_diff', "%5.`=`digits'+1'f") in `row'
+            }
         }
     }
 
@@ -715,7 +736,11 @@ capture noisily {
 **# Console Display
     noisily _tabtools_console_display `ncols' `"`title'"'
     if "`reverse'" != "" {
-        noisily display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
+        noisily display as text "Note: reverse reports 1 - Kaplan-Meier, which equals the cumulative"
+        noisily display as text "      incidence only with a single event type (no competing risks). With"
+        noisily display as text "      competing events, 1 - KM overestimates absolute risk; use a"
+        noisily display as text "      competing-risks estimator instead (Aalen-Johansen: stcompet, stcrreg,"
+        noisily display as text "      or the finegray package)."
     }
 
 **# CSV Export
@@ -783,13 +808,19 @@ capture noisily {
         if `n_groups' >= 2 {
             capture return scalar rmst_diff = `rmst_diff'
         }
+        if `has_by' & `n_groups' == 2 {
+            capture return scalar rmst_diff_se = `rmst_diff_se'
+            capture return scalar rmst_diff_lb = `rmst_diff_lb'
+            capture return scalar rmst_diff_ub = `rmst_diff_ub'
+            capture return scalar rmst_diff_p  = `rmst_diff_p'
+        }
     }
     if "`frame'" != "" return local frame "`frame'"
 
     * Build methods paragraph
     local _methods "Survival was estimated using the Kaplan-Meier method."
     if "`reverse'" != "" {
-        local _methods "`_methods' Cumulative incidence (1 minus survival) is reported."
+        local _methods "`_methods' Cumulative incidence is reported as 1 minus the Kaplan-Meier survival estimate, which is valid only in the absence of competing risks; with competing events a competing-risks estimator (Aalen-Johansen) should be used instead."
     }
     if `has_by' {
         local _methods "`_methods' Groups were compared using the log-rank test."
@@ -800,6 +831,9 @@ capture noisily {
     if `has_rmst' {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
         local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with 95% confidence intervals based on the Greenwood variance formula."
+        if "`difference'" != "" & `has_by' & `n_groups' == 2 {
+            local _methods "`_methods' The between-group RMST difference is reported with a 95% confidence interval and two-sided Wald p-value based on the independent-group variance."
+        }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
     return local methods "`_methods'"

@@ -408,6 +408,20 @@ interpreting a precise-looking weighted coefficient.
 {title:Remarks}
 
 {pstd}
+{bf:Core identifying assumption}
+
+{pstd}
+IIW is valid under {it:conditional non-informativeness} of the visit process:
+visit intensity is independent of the current outcome given the covariates in
+the visit-intensity model.  This is the central assumption of the method.  It
+is broken if the {it:concurrent} outcome is placed in {opt visit_cov()},
+because the current visit's measurement is then used to explain the timing of
+that same visit.  Use {opt lagvars()} (or precomputed baseline/lagged values)
+so the visit model conditions only on information available before each visit.
+{helpb iivw_exogtest} is a falsification check for this assumption, not a proof
+of it.
+
+{pstd}
 {bf:Data requirements}
 
 {pstd}
@@ -438,10 +452,26 @@ endogenous.
 {bf:First-observation weights}
 
 {pstd}
-The first observation per subject always receives IIW weight 1, by
-convention.  There is no prior visit from which to estimate intensity at
-the first visit.  If visit covariates are missing for first observations,
-a note is displayed and the weight remains 1.
+The first observation per subject receives IIW weight 1 by convention before
+normalization: there is no prior visit from which to estimate intensity at the
+first visit.  If visit covariates are missing for first observations, a note
+is displayed and the weight is set to 1.
+
+{pstd}
+{bf:Mean-1 normalization}
+
+{pstd}
+The visit-intensity component ({cmd:_iivw_iw}, and hence the FIPTIW product)
+is normalized to mean 1 over the estimating sample.  The raw IIW weight
+{cmd:exp(-xb)} has an arbitrary scale, because the Andersen-Gill Cox model
+carries no intercept and its linear predictor is uncentered, so the raw weight
+mean reflects covariate location rather than model fit.  Rescaling to mean 1
+leaves the weighted point estimates and the cluster-robust standard errors
+unchanged -- a constant weight factor cancels in the estimating equation and
+in both the bread and the meat of the sandwich variance -- while making the
+reported weight mean, effective sample size, and {cmd:max > 10} thresholds
+interpretable on a common scale.  After normalization the first-observation
+weight equals 1 divided by the sample mean of {cmd:exp(-xb)}, not exactly 1.
 
 {pstd}
 {bf:Truncation}

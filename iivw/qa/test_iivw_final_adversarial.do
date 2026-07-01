@@ -458,7 +458,11 @@ if `run_only' == 0 | `run_only' == 11 {
         iivw_weight, id(pid) time(months) visit_cov(severity) nolog
         assert r(N) == 160
         assert r(n_ids) == 40
-        bysort pid (months): assert _iivw_iw == 1 if _n == 1
+        * First-obs IIW weights identical across subjects (mean-1 normalized)
+        tempvar _fafirst
+        bysort pid (months): gen byte `_fafirst' = (_n == 1)
+        quietly summarize _iivw_iw if `_fafirst'
+        assert r(sd) < 1e-9
 
         * String id stored in metadata means markout on cluster fails
         * (markout excludes all obs for string vars). Must supply numeric cluster.

@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.8.0  2026/07/01
+*! iivw_fit Version 1.9.0  2026/07/01
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -991,6 +991,20 @@ program define iivw_fit, eclass
         local wt_clause ""
         if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
 
+        * Fence the weighted mixed path: IIVW weights enter mixed via a single
+        * observation-level [pw=], which Stata does not rescale across levels.
+        * The random-effects variance components are therefore not consistently
+        * weight-estimated (Rabe-Hesketh & Skrondal 2006). The marginal (GEE)
+        * estimator is the one the IIW theory identifies; model(gee) is the
+        * defensible primary weighted analysis.
+        if "`unweighted'" == "" {
+            display as text "note: weighted model(mixed) applies IIVW weights through a single"
+            display as text "  observation-level [pw=]; Stata does not rescale these across levels,"
+            display as text "  so the random-effects variance components are not consistently"
+            display as text "  weight-estimated. Interpret the fixed-effect (mean) structure as the"
+            display as text "  target and prefer model(gee) for the primary weighted analysis."
+        }
+
         display as text "Fitting `weighttype' mixed model..."
         display as text ""
 
@@ -1024,6 +1038,27 @@ program define iivw_fit, eclass
         if `bootstrap' == 0 & e(converged) == 0 {
             display as error "warning: mixed outcome model did not converge"
             display as text  "  results may be unreliable; check model specification"
+        }
+    }
+
+    * =========================================================================
+    * FEW-CLUSTER INFERENCE WARNING
+    * =========================================================================
+    * Cluster-robust (sandwich) SEs are anti-conservative when the number of
+    * clusters is modest, and IIVW weighting concentrates influence on a few
+    * subjects, which worsens the effective-cluster count. Only relevant for the
+    * analytic-SE path (bootstrap() already resamples clusters).
+    if `bootstrap' == 0 {
+        tempvar _iivw_cltag
+        quietly egen byte `_iivw_cltag' = tag(`cluster') if `touse'
+        quietly count if `_iivw_cltag' == 1
+        local n_clusters = r(N)
+        drop `_iivw_cltag'
+        if `n_clusters' < 40 {
+            display as text ""
+            display as text "note: `n_clusters' clusters (`cluster'); cluster-robust SEs can be"
+            display as text "  anti-conservative with few clusters. Consider bootstrap(#) for"
+            display as text "  inference (add refitweights to also propagate weight uncertainty)."
         }
     }
 

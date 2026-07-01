@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.8.0** | 2026-07-01
+**Version 1.9.0** | 2026-07-01
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -209,6 +209,8 @@ For IPTW and FIPTIW, `treat()` must be a binary 0/1 treatment indicator, observe
 
 By default, `iivw_weight` creates `_iivw_weight`, the final weight used by `iivw_fit`.  It also creates component variables when needed: `_iivw_iw` for visit-intensity weights, `_iivw_ps` for the treatment propensity score, and `_iivw_tw` for treatment weights.  Use `generate(prefix)` to change the prefix.
 
+The visit-intensity component (`_iivw_iw`) is normalized to mean 1.  The raw IIW weight `exp(-xb)` has an arbitrary scale — the Andersen-Gill Cox model has no intercept and its linear predictor is uncentered — so its raw mean depends on covariate location rather than model fit.  Rescaling to mean 1 leaves the weighted point estimates and the cluster-robust standard errors unchanged (a constant weight factor cancels in the estimating equation and in both the bread and meat of the sandwich), but it makes the reported weight mean, effective sample size, and `max > 10` thresholds interpretable on a common scale.
+
 The weighting step also stores dataset metadata, including the panel ID, time variable, weight type, weight variable, component variables, prefix, expanded visit-model covariate list, treatment variable, treatment-model covariates, and the treatment propensity-score contract.  `iivw_balance`, `iivw_fit`, and `psdash` read that metadata automatically, so the usual workflow is to run `iivw_weight`, inspect the relevant diagnostics, and then run `iivw_fit` without re-entering the panel structure.
 
 ## Using psdash with iivw
@@ -250,6 +252,7 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 
 | Requirement | Why it matters |
 |-------------|----------------|
+| **Conditional non-informativeness of the visit process** — visit intensity is independent of the current outcome given the visit-model covariates | This is the core identifying assumption of IIW. It is violated if you put the *concurrent* outcome in `visit_cov()` (use `lagvars()` or baseline values instead). `iivw_exogtest` is a falsification check, not proof, of this condition |
 | Visit model covariates capture the drivers of visit timing | IIW only removes bias explained by measured covariates |
 | Treatment model covariates capture measured treatment confounding | IPTW/FIPTIW assume no unmeasured confounding after adjustment |
 | Treatment is binary and time-invariant within subject | Current IPTW/FIPTIW implementation is not for treatment switching |
@@ -429,6 +432,8 @@ After running `iivw_weight`, check these before fitting the outcome model:
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
 - **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
 - **Standard errors** are sandwich (robust) SEs clustered at `cluster()` when specified and otherwise at the subject ID stored by `iivw_weight`.  By default they do not account for weight estimation uncertainty; use `bootstrap(#) refitweights` to obtain SEs that re-estimate the weights inside each replicate.
+- **Few clusters**: cluster-robust SEs are anti-conservative when the number of clusters (subjects) is modest, and weighting concentrates influence on a few subjects, which worsens the effective-cluster count.  `iivw_fit` prints a note when fewer than 40 clusters contribute; prefer `bootstrap(#)` for inference in that regime.
+- **GEE vs mixed with weights**: `model(gee)` is the defensible primary weighted estimator — it is the marginal estimating equation that IIW theory identifies.  `model(mixed)` applies IIVW weights through a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated (Rabe-Hesketh & Skrondal 2006).  For a weighted mixed fit, interpret the fixed-effect (mean) structure only; `iivw_fit` prints a note to this effect.
 - **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
 
 ## What to Report
@@ -526,9 +531,18 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Buzkova P, Lumley T. Longitudinal data analysis for generalized linear models with follow-up dependent on outcome-related variables. *Canadian Journal of Statistics*. 2007;35(4):485-500. doi:10.1002/cjs.5550350402.
 - Lin H, Scharfstein DO, Rosenheck RA. Analysis of longitudinal data with irregular, outcome-dependent follow-up. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*. 2004;66(3):791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 - Pullenayegum EM. Multiple outputation for the analysis of longitudinal data subject to irregular observation. *Statistics in Medicine*. 2016;35(11):1800-1818. doi:10.1002/sim.6829.
+- Rabe-Hesketh S, Skrondal A. Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society: Series A (Statistics in Society)*. 2006;169(4):805-827. doi:10.1111/j.1467-985X.2006.00426.x.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.0 (2026-07-01)
+
+- **Normalized the IIW component to mean 1.** `iivw_weight` now rescales `_iivw_iw` (and hence the FIPTIW product) so the visit-intensity weight averages 1 over the estimating sample. The raw `exp(-xb)` weight has an arbitrary scale because the Andersen-Gill Cox model has no intercept and its linear predictor is uncentered, so the previous weight mean depended on covariate location rather than model fit. **Weighted point estimates and cluster-robust SEs are unchanged** (a constant weight factor cancels in the estimating equation and in both halves of the sandwich), but the reported weight mean, effective sample size, and `max > 10` diagnostics are now interpretable on a common scale. `iivw_fit, refitweights` inherits the normalization automatically because it recomputes weights through `iivw_weight`
+- **Fenced the weighted `mixed` path.** `iivw_fit, model(mixed)` now prints a note when weights are applied, explaining that a single observation-level `[pw=]` is not rescaled across levels, so the random-effects variance components are not consistently weight-estimated (Rabe-Hesketh & Skrondal 2006). `model(gee)` remains the defensible primary weighted estimator; the mixed fixed-effect (mean) structure is the interpretable target under weighting
+- **Added a few-cluster inference note.** `iivw_fit` prints a note when fewer than 40 clusters contribute to an analytic-SE (non-bootstrap) fit, since cluster-robust SEs are anti-conservative with few clusters and weighting concentrates influence on a few subjects. The note recommends `bootstrap(#)`
+- **Promoted the conditional non-informativeness assumption** to the first row of the Assumptions and Limits table, and documented it as the core identifying assumption of IIW: visit intensity independent of the current outcome given the visit-model covariates
+- Documentation: documented the mean-1 normalization, the few-cluster note, and the GEE-vs-mixed weighting caveat in the README and the `iivw_weight`/`iivw_fit` help files; added the Rabe-Hesketh & Skrondal (2006) reference
 
 ### v1.8.0 (2026-07-01)
 

@@ -149,6 +149,18 @@ fits a GLM with clustered robust standard errors via {cmd:glm}, equivalent to
 independence working correlation GEE.  {cmd:mixed} fits a mixed-effects model
 via {cmd:mixed} with a random intercept per subject (requires Stata 17+).
 
+{phang2}
+{bf:Weighted mixed models.}  {cmd:model(gee)} is the defensible primary
+weighted estimator: it is the marginal estimating equation that IIW theory
+identifies.  {cmd:model(mixed)} applies IIVW weights through a single
+observation-level {cmd:[pw=]}, which Stata does not rescale across levels, so
+the random-effects variance components are {it:not} consistently
+weight-estimated (Rabe-Hesketh and Skrondal 2006).  Under weighting, interpret
+only the fixed-effect (mean) structure of a mixed fit; {cmd:iivw_fit} prints a
+note to this effect.  For a properly weighted subject-specific model, a
+multilevel-pseudolikelihood approach with level-specific weight scaling is
+required and is outside the scope of this command.
+
 {phang}
 {opt family(string)} specifies the GLM family distribution for GEE models.
 Default is {cmd:gaussian} (identity link, for continuous outcomes).  Other
@@ -256,6 +268,13 @@ errors.  Default is the panel ID variable stored by {cmd:iivw_weight}.  You
 rarely need to change this, but it is available for designs where the
 clustering level differs from the panel ID (e.g., clustering at the clinic
 level when patients are nested within clinics).
+
+{phang2}
+{bf:Few clusters.}  Cluster-robust standard errors are anti-conservative when
+the number of clusters is modest, and IIVW weighting concentrates influence on
+a few subjects, which worsens the effective-cluster count.  {cmd:iivw_fit}
+prints a note when fewer than 40 clusters contribute to an analytic-SE
+(non-bootstrap) fit; prefer {opt bootstrap(#)} for inference in that regime.
 
 {phang}
 {opt bootstrap(#)} specifies the number of bootstrap replicates.  When

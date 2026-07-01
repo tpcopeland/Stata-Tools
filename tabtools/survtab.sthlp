@@ -64,7 +64,7 @@ colors — are supported.{p_end}
 {synopt:{opt med:ian}}include median survival with 95% CI{p_end}
 {synopt:{opt risk:set}}add number-at-risk rows at each timepoint{p_end}
 {synopt:{opt timeu:nit(string)}}time unit label: {cmd:years} (default), {cmd:months}, {cmd:days}, {cmd:weeks}{p_end}
-{synopt:{opt rev:erse}}report cumulative incidence (1 minus survival){p_end}
+{synopt:{opt rev:erse}}report cumulative incidence as 1 minus survival; valid only without competing risks (see {help survtab##cirisk:Competing risks}){p_end}
 {synopt:{opt diff:erence}}add between-group difference column; requires {cmd:by()} with exactly 2 groups{p_end}
 {synopt:{opt ev:ents}}add aggregate Events / N row per group{p_end}
 
@@ -97,6 +97,25 @@ colors — are supported.{p_end}
 {pstd}When {opt rmst()} is used, interpret RMST summaries relative to the
 requested truncation time. The estimate is restricted to the observed follow-up
 window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
+
+{pstd}With {opt rmst()}, {opt difference}, and a {opt by()} of exactly two
+groups, the between-group RMST difference is reported with a 95% confidence
+interval and a two-sided Wald p-value. Because the two groups are disjoint, the
+variance of the difference is the sum of the group-specific Greenwood RMST
+variances; the CI and p-value are returned as {cmd:r(rmst_diff_se)},
+{cmd:r(rmst_diff_lb)}, {cmd:r(rmst_diff_ub)}, and {cmd:r(rmst_diff_p)}. The RMST
+difference (and its CI) is the interpretable, proportional-hazards-free
+between-group contrast, in the same time units as {opt rmst()}.{p_end}
+
+{marker cirisk}{...}
+{pstd}{bf:Competing risks.} {opt reverse} reports 1 minus the Kaplan-Meier
+survival estimate. This equals the cumulative incidence {it:only} when there is a
+single event type. When failures include competing events, 1 minus KM
+{it:overestimates} the absolute risk of the event of interest, because it treats
+subjects who fail from a competing cause as if they remained at risk. In that
+setting use a competing-risks estimator — the Aalen-Johansen cumulative
+incidence function via {helpb stcompet}, {helpb stcrreg} (with {cmd:predict, basecif}),
+or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -135,6 +154,10 @@ window up to that horizon and should not be read as a lifetime mean survival mea
 {synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(rmst_diff)}}RMST difference (when {cmd:rmst()} and exactly 2 groups are compared){p_end}
+{synopt:{cmd:r(rmst_diff_se)}}standard error of the RMST difference (independent-group variance){p_end}
+{synopt:{cmd:r(rmst_diff_lb)}}lower 95% CI bound of the RMST difference{p_end}
+{synopt:{cmd:r(rmst_diff_ub)}}upper 95% CI bound of the RMST difference{p_end}
+{synopt:{cmd:r(rmst_diff_p)}}two-sided Wald p-value for the RMST difference{p_end}
 {synopt:{cmd:r(rmst_{it:#})}}restricted mean survival time for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_se_{it:#})}}standard error of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_lb_{it:#})}}lower 95% CI bound of RMST for group {it:#}{p_end}
