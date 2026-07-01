@@ -1,4 +1,4 @@
-*! diagtab Version 1.9.0  2026/07/01
+*! diagtab Version 1.9.1  2026/07/01
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -329,7 +329,7 @@ capture noisily {
         * Row 1: Title
         local row 1
         qui set obs 1
-        qui replace title = "`title'" in 1
+        qui replace title = `"`title'"' in 1
 
         * Row 2: Column headers
         local row = `row' + 1
@@ -598,7 +598,7 @@ capture noisily {
     * Row 1: Title
     local row 1
     qui set obs 1
-    qui replace title = "`title'" in 1
+    qui replace title = `"`title'"' in 1
 
     * Row 2: Confusion matrix header
     local row = `row' + 1

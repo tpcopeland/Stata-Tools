@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.9.0  2026/07/01
+*! iivw_balance Version 1.9.1  2026/07/01
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -90,6 +90,8 @@ program define iivw_balance, rclass
     local weight_var   "`r(weight_var)'"
     local prefix       "`r(prefix)'"
     local visit_covars "`r(visit_covars)'"
+    local rep_entry     "`r(entry)'"
+    local rep_baseevent "`r(baseevent)'"
 
     if !inlist("`weighttype'", "iivw", "fiptiw") {
         display as error "iivw_balance requires weights with an IIW visit-intensity component"
@@ -278,6 +280,22 @@ program define iivw_balance, rclass
         local __iivw_restore_needed = 0
         local zcrit = invnormal((100 + `level') / 200)
 
+        * Replay the stored weighting contract when rebuilding the AG
+        * intervals: entry() start times and the nobaseevent baseline
+        * exclusion must match the weight-generating model, or the refit
+        * compares hazard ratios over different risk sets.
+        local __iivw_ag_nobase = ("`rep_baseevent'" == "1")
+        local __iivw_ag_entry ""
+        if !`__iivw_ag_nobase' & "`rep_entry'" != "" {
+            capture confirm numeric variable `rep_entry'
+            if _rc {
+                display as error "stored entry() variable `rep_entry' not found"
+                display as error "rerun iivw_weight or restore it before using agrefit"
+                error 111
+            }
+            local __iivw_ag_entry "`rep_entry'"
+        }
+
         * Efron ties are illegal with pweighted stcox (rc 101), so the weighted
         * AG refit always uses Breslow; efron applies to the unweighted refit
         * only.  Note this once rather than letting the weighted refit fail.
@@ -302,10 +320,24 @@ program define iivw_balance, rclass
             sort `panel_id' `panel_time'
 
             tempvar __iivw_start __iivw_stop __iivw_event
-            bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
-                cond(_n == 1, 0, `panel_time'[_n-1])
+            if "`__iivw_ag_entry'" != "" {
+                tempvar __iivw_entry_val
+                bysort `panel_id' (`panel_time'): gen double ///
+                    `__iivw_entry_val' = `__iivw_ag_entry'[1]
+                bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
+                    cond(_n == 1, `__iivw_entry_val', `panel_time'[_n-1])
+            }
+            else {
+                bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
+                    cond(_n == 1, 0, `panel_time'[_n-1])
+            }
             gen double `__iivw_stop' = `panel_time'
             gen byte `__iivw_event' = 1
+            if `__iivw_ag_nobase' {
+                * The weight model treated the baseline visit as study entry,
+                * not a modeled event; mirror that in the refit risk sets.
+                bysort `panel_id' (`panel_time'): drop if _n == 1
+            }
             keep if !missing(`__iivw_start', `__iivw_stop') & ///
                 `__iivw_stop' > `__iivw_start'
 

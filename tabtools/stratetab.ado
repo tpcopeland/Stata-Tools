@@ -1,4 +1,4 @@
-*! stratetab Version 1.9.0  2026/07/01
+*! stratetab Version 1.9.1  2026/07/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -390,7 +390,7 @@ quietly gen str244 title = ""
 
 * Row 1: Title (in title column, will be merged across all)
 quietly set obs 1
-quietly replace title = "`title'" in 1
+quietly replace title = `"`title'"' in 1
 
 * Row 2: Outcome headers (merged across columns)
 local new = _N + 1

@@ -1,4 +1,4 @@
-*! desctab Version 1.9.0  2026/07/01
+*! desctab Version 1.9.1  2026/07/01
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -673,6 +673,38 @@ else {
     local ++fail_count
 }
 
+**## 1d. RMST difference inference returns (se, lb, ub, p) are internally consistent
+capture noisily {
+    sysuse cancer, clear
+    keep if inlist(drug, 1, 2)
+    stset studytime, failure(died)
+    survtab, times(10 20 30) by(drug) rmst(39) difference
+    assert r(rmst_diff_se) < .
+    assert r(rmst_diff_se) > 0
+    local d   = r(rmst_diff)
+    local se  = r(rmst_diff_se)
+    local lb  = r(rmst_diff_lb)
+    local ub  = r(rmst_diff_ub)
+    local p   = r(rmst_diff_p)
+    local se1 = r(rmst_se_1)
+    local se2 = r(rmst_se_2)
+    * Independent-group variance: se = sqrt(se1^2 + se2^2)
+    assert abs(`se' - sqrt(`se1'^2 + `se2'^2)) < 1e-10
+    assert abs(`lb' - (`d' - invnormal(0.975) * `se')) < 1e-10
+    assert abs(`ub' - (`d' + invnormal(0.975) * `se')) < 1e-10
+    assert abs(`p' - 2 * normal(-abs(`d' / `se'))) < 1e-12
+    assert `p' > 0 & `p' <= 1
+    assert `lb' < `d' & `d' < `ub'
+}
+if _rc == 0 {
+    display as result "  PASS [1d]: survtab RMST diff se/lb/ub/p returned and consistent"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL [1d]: survtab RMST diff inference returns (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 
 **# Migrated: RMST no-late-entry regression

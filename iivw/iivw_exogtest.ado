@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.9.0  2026/07/01
+*! iivw_exogtest Version 1.9.1  2026/07/01
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -121,6 +121,18 @@ program define iivw_exogtest, rclass sortpreserve
     }
     drop `__iivw_dup'
 
+    * The counting process is at risk from time 0: stset silently drops any
+    * interval ending at or before 0, so negative visit times would remove
+    * events from the exogeneity Cox model without warning.
+    quietly count if `touse' & `time' < 0
+    if r(N) > 0 {
+        display as error "time() contains negative values"
+        display as error "the visit-timing model is at risk from time 0, so visits at negative"
+        display as error "times would be silently excluded from the Cox model"
+        display as error "shift or rescale time() so all visit times are nonnegative"
+        error 198
+    }
+
     if "`entry'" != "" {
         tempvar __iivw_entry_min __iivw_entry_max __iivw_first_time
         quietly bysort `id': egen double `__iivw_entry_min' = min(`entry') if `touse'
@@ -136,6 +148,12 @@ program define iivw_exogtest, rclass sortpreserve
         if r(N) > 0 {
             display as error "entry() must be strictly less than the first visit time within each id()"
             error 198
+        }
+
+        quietly count if `touse' & `entry' < 0
+        if r(N) > 0 {
+            display as text "note: entry() contains negative values; risk time before 0 is"
+            display as text "  not counted by the visit-timing model (risk starts at time 0)"
         }
     }
 

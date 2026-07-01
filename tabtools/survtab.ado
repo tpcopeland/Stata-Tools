@@ -1,4 +1,4 @@
-*! survtab Version 1.9.0  2026/07/01
+*! survtab Version 1.9.1  2026/07/01
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -464,7 +464,7 @@ capture noisily {
     * Row 1: Title
     local row = `row' + 1
     qui set obs `row'
-    qui replace title = "`title'" in `row'
+    qui replace title = `"`title'"' in `row'
 
     * Row 2: Column headers
     local row = `row' + 1

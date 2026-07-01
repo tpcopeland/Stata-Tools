@@ -135,6 +135,10 @@ subject.
 since baseline, months since enrollment).  Must be numeric and uniquely
 identify visits within each subject.  If your time variable has ties within
 a subject (e.g., two visits on the same day), resolve them first.
+For IIW/FIPTIW weights, visit times must also be nonnegative: the
+visit-intensity counting process is at risk from time 0, so visits at
+negative times are rejected rather than silently excluded from the Cox
+model.  Shift or rescale a centered time variable before weighting.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
@@ -236,8 +240,11 @@ This option is allowed only for IIW or FIPTIW weights.
 In designs with late entry or left truncation, set this to the date
 (in the same units as {opt time()}) when each subject became eligible for
 observation.  Ensure that entry times are strictly less than first visit
-times.  Examine the weight distribution carefully in such designs, as late
-entry can concentrate weight on a few early-entering subjects.
+times.  Negative entry times are accepted (useful when first visits occur
+at time 0), but risk time before 0 is not counted by the visit-intensity
+model; a note is displayed when this applies.  Examine the weight
+distribution carefully in such designs, as late entry can concentrate
+weight on a few early-entering subjects.
 
 {phang}
 {opt nobaseevent} treats each subject's first visit as study entry (risk

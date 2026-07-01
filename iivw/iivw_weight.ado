@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.9.0  2026/07/01
+*! iivw_weight Version 1.9.1  2026/07/01
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -191,12 +191,32 @@ program define iivw_weight, rclass sortpreserve
         error 198
     }
 
+    * The counting process is at risk from time 0: stset silently drops any
+    * interval ending at or before 0, so negative visit times would remove
+    * events from the Cox model while weights are still produced for them.
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        quietly count if `time' < 0
+        if r(N) > 0 {
+            display as error "time() contains negative values"
+            display as error "the visit-intensity model is at risk from time 0, so visits at negative"
+            display as error "times would be silently excluded from the Cox model"
+            display as error "shift or rescale time() so all visit times are nonnegative"
+            error 198
+        }
+    }
+
     if "`entry'" != "" & !`exclude_base' {
         quietly count if missing(`entry')
         if r(N) > 0 {
             display as error "entry() contains missing values"
             display as error "each observation must have a nonmissing study entry time"
             error 198
+        }
+
+        quietly count if `entry' < 0
+        if r(N) > 0 {
+            display as text "note: entry() contains negative values; risk time before 0 is"
+            display as text "  not counted by the visit-intensity model (risk starts at time 0)"
         }
 
         tempvar _entry_min _entry_max _first_time

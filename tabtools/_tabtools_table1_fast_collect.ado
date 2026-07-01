@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.9.0  2026/07/01
+*! _tabtools_table1_fast_collect Version 1.9.1  2026/07/01
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -366,6 +366,9 @@ program define _tabtools_table1_fast_collect, rclass
                         preserve
                         local _restore_needed 1
                         quietly keep if `touse' & `by' < . & `v' < .
+                        * expand keeps n<=0 rows, so zero/missing weights must
+                        * be dropped explicitly to match weighted results
+                        quietly drop if missing(`fwvar') | (`fwvar') <= 0
                         quietly expand `fwvar'
                         if `nglevels' > 2 {
                             capture quietly kwallis `v', by(`by')

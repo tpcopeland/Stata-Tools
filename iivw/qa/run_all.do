@@ -66,6 +66,7 @@ else {
         test_iivw_v131_regressions ///
         test_iivw_v180_regressions ///
         test_iivw_v190_regressions ///
+        test_iivw_v191_regressions ///
         test_iivw_final_adversarial ///
         test_iivw_release_adversarial
 }

@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.0** | 2026-07-01
+**Version 1.9.1** | 2026-07-01
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -535,6 +535,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.1 (2026-07-01)
+
+- **Rejected negative visit times.** `iivw_weight` (IIW/FIPTIW) and `iivw_exogtest` now stop with an error when `time()` contains negative values. The Andersen-Gill counting process is at risk from time 0, so `stset` was silently dropping every interval ending at or before 0 from the visit-intensity Cox model while weights were still produced for all rows -- on a centered time scale this could discard half the visit events without any warning. Negative `entry()` times remain accepted (first visits at time 0 require them) but now print a note that risk time before 0 is not counted
+- **Aligned `iivw_balance, agrefit` with the stored weighting contract.** The AG refit now rebuilds its counting-process intervals using the stored `entry()` times and, under `nobaseevent`, again excludes each subject's baseline visit from the modeled events. Previously the refit always started risk at 0 and treated the baseline visit as an event, so its hazard ratios were computed over different risk sets than the weight-generating model
+- **Rejected backslash in export sheet names.** `xlsx()` exports now refuse `sheet()` names containing a backslash, which Excel forbids alongside the other invalid worksheet characters already checked
 
 ### v1.9.0 (2026-07-01)
 

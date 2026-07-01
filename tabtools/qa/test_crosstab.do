@@ -370,6 +370,143 @@ else {
 	    local ++fail_count
 	}
 
+	**## zero-weight fweight rows are excluded from trend tests
+	* Regression: expand keeps n<=0 rows, so a wt==0 row used to enter the
+	* trend/cochran computations as a weight-1 observation.
+	local ++test_count
+	capture noisily {
+	    clear
+	    input byte outcome byte dose int wt
+	    0 0 25
+	    1 0 5
+	    0 1 20
+	    1 1 10
+	    0 2 10
+	    1 2 20
+	    1 0 0
+	    end
+
+	    crosstab outcome dose [fw=wt], trend
+	    local weighted_p = r(p_trend)
+
+	    crosstab outcome dose [fw=wt], cochran
+	    local weighted_ca = r(chi2_trend)
+
+	    preserve
+	    drop if wt == 0
+	    expand wt
+	    crosstab outcome dose, trend
+	    local expanded_p = r(p_trend)
+	    crosstab outcome dose, cochran
+	    local expanded_ca = r(chi2_trend)
+	    restore
+
+	    assert !missing(`weighted_p')
+	    assert abs(`weighted_p' - `expanded_p') < 1e-12
+	    assert !missing(`weighted_ca')
+	    assert abs(`weighted_ca' - `expanded_ca') < 1e-10
+	}
+	if _rc == 0 {
+	    display as result "  PASS: crosstab zero-weight rows excluded from trend tests"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: crosstab zero-weight rows excluded from trend tests (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## cochran matches the N*r^2 identity and return contract
+	* For a binary outcome the Cochran-Armitage chi2 equals N times the
+	* squared Pearson correlation between outcome and score.
+	local ++test_count
+	capture noisily {
+	    clear
+	    input byte outcome byte dose int freq
+	    0 0 25
+	    1 0 5
+	    0 1 20
+	    1 1 10
+	    0 2 10
+	    1 2 20
+	    end
+	    expand freq
+
+	    crosstab outcome dose, cochran
+	    local ca_chi2 = r(chi2_trend)
+	    local ca_z = r(z_trend)
+	    local ca_p = r(p_trend)
+	    local ca_method "`r(trend_method)'"
+
+	    assert "`ca_method'" == "Cochran-Armitage"
+	    assert `ca_z' > 0
+	    assert abs(`ca_z'^2 - `ca_chi2') < 1e-10
+	    assert abs(`ca_p' - chi2tail(1, `ca_chi2')) < 1e-12
+
+	    qui corr outcome dose
+	    assert abs(`ca_chi2' - r(N) * r(rho)^2) < 1e-8
+	}
+	if _rc == 0 {
+	    display as result "  PASS: crosstab cochran known-answer identity"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: crosstab cochran known-answer identity (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## cochran option contracts reject cleanly
+	local ++test_count
+	capture noisily {
+	    clear
+	    input byte outcome byte dose int freq
+	    0 0 25
+	    1 0 5
+	    0 1 20
+	    1 1 10
+	    0 2 10
+	    1 2 20
+	    end
+	    expand freq
+
+	    capture crosstab outcome dose, cochran trend
+	    assert _rc == 198
+	    capture crosstab outcome dose, cochran missing
+	    assert _rc == 198
+	    * dose has 3 levels, so it cannot be the cochran outcome
+	    capture crosstab dose outcome, cochran
+	    assert _rc == 198
+	}
+	if _rc == 0 {
+	    display as result "  PASS: crosstab cochran option contracts"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: crosstab cochran option contracts (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## quoted title survives to the output frame
+	* Regression: titles containing embedded double quotes were silently
+	* truncated at the first quote by a bare-quoted replace.
+	local ++test_count
+	capture noisily {
+	    sysuse auto, clear
+	    gen byte highmpg = mpg > 22
+	    capture frame drop _qt_frame
+	    crosstab highmpg foreign, title(`"Effect of "high" mpg"') ///
+	        frame(_qt_frame, replace)
+	    frame _qt_frame: assert title[1] == `"Effect of "high" mpg"'
+	    capture frame drop _qt_frame
+	}
+	if _rc == 0 {
+	    display as result "  PASS: crosstab quoted title survives to frame"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: crosstab quoted title survives to frame (rc=`=_rc')"
+	    local ++fail_count
+	}
+
 	**## invalid input contracts reject cleanly
 	local ++test_count
 capture noisily {

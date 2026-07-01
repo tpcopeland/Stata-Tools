@@ -1,4 +1,4 @@
-*! crosstab Version 1.9.0  2026/07/01
+*! crosstab Version 1.9.1  2026/07/01
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -323,6 +323,9 @@ capture noisily {
 	        qui egen `_trend_score' = group(`colvar')
 	        if "`weight'" == "fweight" {
 	            local _fwexp = substr("`exp'", 2, .)
+	            * expand keeps n<=0 rows, so zero/missing weights must be dropped
+	            * explicitly to match tabulate's fweight handling
+	            qui drop if missing(`_fwexp') | (`_fwexp') <= 0
 	            qui expand `_fwexp'
 	        }
 	        capture qui spearman `rowvar' `_trend_score'
@@ -342,6 +345,9 @@ capture noisily {
 	        qui save `_ca_snap'
 	        if "`weight'" == "fweight" {
 	            local _cawexp = substr("`exp'", 2, .)
+	            * expand keeps n<=0 rows, so zero/missing weights must be dropped
+	            * explicitly to match tabulate's fweight handling
+	            qui drop if missing(`_cawexp') | (`_cawexp') <= 0
 	            qui expand `_cawexp'
 	        }
 	        qui levelsof `rowvar', local(_ca_rlevs)
@@ -385,7 +391,7 @@ capture noisily {
     * Row 1: Title
     local row 1
     qui set obs `row'
-    qui replace title = "`title'" in `row'
+    qui replace title = `"`title'"' in `row'
 
     * Row 2: Column headers
     local row = `row' + 1

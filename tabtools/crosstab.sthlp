@@ -47,7 +47,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt rr}}risk ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rd}}risk difference with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt tr:end}}Test for trend across ordered columns via Spearman rank correlation ({it:fweight}s honored).{p_end}
-{synopt:{opt coch:ran}}Cochran-Armitage test for trend in the proportion of the higher row (outcome) level across ordered column scores; requires a binary {it:rowvar}. Mutually exclusive with {opt trend}. See {help crosstab##trendnote:Trend tests}.{p_end}
+{synopt:{opt coch:ran}}Cochran-Armitage trend test for a binary {it:rowvar}; see {help crosstab##trendnote:Trend tests}{p_end}
 {syntab:Tests}
 {synopt:{opt ex:act}}force Fisher's exact test{p_end}
 {synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}

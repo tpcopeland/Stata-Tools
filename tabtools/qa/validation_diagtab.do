@@ -989,10 +989,11 @@ foreach _m in wilson exact {
 }
 
 * --- VC13.6: LR+/LR-/DOR bounds match hand-computed log-method oracle ---
-* diagtab uses log-method CIs with z=1.96 (diagtab.ado:501-510): LR+/LR- use
-* the Simel/Altman SE, DOR uses Woolf's SE. Reproduce exactly for the
-* reference 2x2 (TP=80, FP=10, FN=20, TN=90). Pins r(lr_pos_lb) etc. with
-* literal names (VC13.1/.2 only range/order-check the ratio bounds).
+* diagtab uses log-method CIs with z=invnormal(0.975) (v1.9.0; previously a
+* rounded 1.96): LR+/LR- use the Simel/Altman SE, DOR uses Woolf's SE.
+* Reproduce exactly for the reference 2x2 (TP=80, FP=10, FN=20, TN=90).
+* Pins r(lr_pos_lb) etc. with literal names (VC13.1/.2 only
+* range/order-check the ratio bounds).
 local ++n_total
 capture noisily {
     _ke_diag2x2
@@ -1001,16 +1002,17 @@ capture noisily {
     local _lrp = 8.0
     local _lrn = 0.2/0.9
     local _dor = 36.0
+    local _z = invnormal(0.975)
     local _se_lrp = sqrt(1/80 - 1/100 + 1/10 - 1/100)
     local _se_lrn = sqrt(1/20 - 1/100 + 1/90 - 1/100)
     local _se_dor = sqrt(1/80 + 1/10 + 1/20 + 1/90)
 
-    assert abs(r(lr_pos_lb) - exp(ln(`_lrp') - 1.96*`_se_lrp')) < 1e-9
-    assert abs(r(lr_pos_ub) - exp(ln(`_lrp') + 1.96*`_se_lrp')) < 1e-9
-    assert abs(r(lr_neg_lb) - exp(ln(`_lrn') - 1.96*`_se_lrn')) < 1e-9
-    assert abs(r(lr_neg_ub) - exp(ln(`_lrn') + 1.96*`_se_lrn')) < 1e-9
-    assert abs(r(dor_lb) - exp(ln(`_dor') - 1.96*`_se_dor')) < 1e-9
-    assert abs(r(dor_ub) - exp(ln(`_dor') + 1.96*`_se_dor')) < 1e-9
+    assert abs(r(lr_pos_lb) - exp(ln(`_lrp') - `_z'*`_se_lrp')) < 1e-9
+    assert abs(r(lr_pos_ub) - exp(ln(`_lrp') + `_z'*`_se_lrp')) < 1e-9
+    assert abs(r(lr_neg_lb) - exp(ln(`_lrn') - `_z'*`_se_lrn')) < 1e-9
+    assert abs(r(lr_neg_ub) - exp(ln(`_lrn') + `_z'*`_se_lrn')) < 1e-9
+    assert abs(r(dor_lb) - exp(ln(`_dor') - `_z'*`_se_dor')) < 1e-9
+    assert abs(r(dor_ub) - exp(ln(`_dor') + `_z'*`_se_dor')) < 1e-9
 }
 if _rc == 0 {
     display as result "  PASS: VC13.6 — diagtab LR+/LR-/DOR bounds match log-method oracle"

@@ -1,4 +1,4 @@
-*! regtab Version 1.9.0  2026/07/01
+*! regtab Version 1.9.1  2026/07/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2384,7 +2384,7 @@ sort id
 drop id
 gen title = ""
 order title
-replace title = "`title'" if _n == 1
+replace title = `"`title'"' if _n == 1
 
 * Save p-value strings before optional layout changes remove p columns.
 if `has_boldp' | `has_highlight' {

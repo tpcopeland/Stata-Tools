@@ -220,6 +220,14 @@ the modeled covariate composition changed beyond the documented convention
 and the result needs more scrutiny.
 
 {pstd}
+The AG refit reconstructs the counting-process intervals using the stored
+weighting contract: when the weights were built with {opt entry()}, the same
+entry times define the first interval's start, and when they were built with
+{opt nobaseevent}, each subject's baseline visit is again excluded from the
+modeled events.  This keeps the refit's risk sets aligned with the
+weight-generating model.
+
+{pstd}
 The supplementary {opt agrefit} output is deliberately secondary.  Cox
 partial-likelihood weighting does not guarantee hazard ratios shrink to one,
 so these matrices are best used to understand direction and scale rather than

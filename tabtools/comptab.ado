@@ -1,4 +1,4 @@
-*! comptab Version 1.9.0  2026/07/01
+*! comptab Version 1.9.1  2026/07/01
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -734,7 +734,7 @@ program define comptab, rclass
     drop id
     gen str244 title = ""
     order title
-    qui replace title = "`title'" in 1
+    qui replace title = `"`title'"' in 1
 
     * =====================================================================
     * DETECT REFERENCE ROWS (after title insertion — row numbers = Excel rows)

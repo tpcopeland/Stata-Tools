@@ -1444,6 +1444,50 @@ else {
     local ++fail_count
 }
 
+**# Regression: zero-weight rows excluded from rank-based tests under fweights
+* expand keeps n<=0 rows, so a fw==0 row used to enter the ranksum/kwallis
+* computations as a weight-1 observation.
+
+capture noisily {
+    tempname FWP EXP
+
+    clear
+    set obs 20
+    gen byte trt = _n > 10
+    gen double y = _n + cond(trt, 5, 0)
+    gen int fw = 1 + mod(_n, 3)
+    * zero-weight extreme outlier that must not influence the rank test
+    set obs 21
+    replace trt = 0 in 21
+    replace y = 999 in 21
+    replace fw = 0 in 21
+
+    table1_tc [fw=fw], by(trt) vars(y conts)
+    matrix `FWP' = r(table)
+    local p_fw = `FWP'[1, colnumb(`FWP', "p_value")]
+
+    clear
+    set obs 20
+    gen byte trt = _n > 10
+    gen double y = _n + cond(trt, 5, 0)
+    gen int fw = 1 + mod(_n, 3)
+    expand fw
+    table1_tc, by(trt) vars(y conts)
+    matrix `EXP' = r(table)
+    local p_ex = `EXP'[1, colnumb(`EXP', "p_value")]
+
+    assert !missing(`p_fw') & !missing(`p_ex')
+    assert abs(`p_fw' - `p_ex') < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: zero-weight rows excluded from rank-based tests"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: zero-weight rank-test exclusion (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# wt(), wtcompare, SMD, and weighted p-value suppression
 
 capture noisily {

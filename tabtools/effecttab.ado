@@ -1,4 +1,4 @@
-*! effecttab Version 1.9.0  2026/07/01
+*! effecttab Version 1.9.1  2026/07/01
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1028,7 +1028,7 @@ quietly {
 	drop id
 	gen title = ""
 	order title
-	replace title = "`title'" if _n == 1
+	replace title = `"`title'"' if _n == 1
 
 	* Track Reference rows for merged cell formatting (after title row added)
 	local ref_rows ""

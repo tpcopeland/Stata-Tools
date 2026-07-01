@@ -104,8 +104,10 @@ combination used in the diagnostic must be unique.
 
 {phang}
 {opt time(varname)} specifies the visit or measurement time.  It must be
-numeric.  Within subject, observations are sorted by this variable before lags
-and counting-process intervals are constructed.
+numeric and nonnegative: the counting process is at risk from time 0, so
+visits at negative times are rejected rather than silently excluded from the
+Cox model.  Within subject, observations are sorted by this variable before
+lags and counting-process intervals are constructed.
 
 {dlgtab:Model}
 
@@ -122,7 +124,9 @@ within treatment arm rather than only in the pooled cohort.
 {phang}
 {opt entry(varname)} specifies a subject-specific entry time.  The variable
 must be nonmissing, constant within subject, and strictly less than the first
-visit time used for that subject.
+visit time used for that subject.  Negative entry times are accepted (useful
+when first visits occur at time 0), but risk time before 0 is not counted;
+a note is displayed when this applies.
 
 {dlgtab:Generated lags}
 

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.9.0  2026/07/01
+*! _iivw_export_table Version 1.9.1  2026/07/01
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -214,7 +214,8 @@ program define _iivw_export_table, rclass
         display as error "sheet() must be 31 characters or fewer"
         error 198
     }
-    foreach bad in "[" "]" ":" "*" "?" "/" {
+    local __iivw_bslash = char(92)
+    foreach bad in "[" "]" ":" "*" "?" "/" "`__iivw_bslash'" {
         if strpos(`"`sheet'"', `"`bad'"') > 0 {
             display as error "sheet() contains an invalid Excel worksheet character"
             error 198
