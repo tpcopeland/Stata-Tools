@@ -3290,6 +3290,305 @@ foreach f in ds_prop ds_exp2 master_23 using_23 master_ev intervals_ev master_oo
     capture erase "``f''"
 }
 
+**# ===== SECTION 25: v1.6.5 regression fixes (audit of tvexpose/tvmerge/tvevent) =====
+
+* ---- Shared fixtures for section 25 ----
+tempfile s25_dj_a s25_dj_b s25_exp2 s25_ivl s25_multiA s25_multiB s25_multiA2
+capture {
+    * Two single-person datasets with NO overlapping time (empty merge result)
+    clear
+    input long pid double(a_start a_stop) byte expA
+    1 0 99 1
+    end
+    save `s25_dj_a', replace
+    clear
+    input long pid double(b_start b_stop) byte expB
+    1 200 299 1
+    end
+    save `s25_dj_b', replace
+
+    * Two-type exposure data with NO value label on the exposure variable
+    clear
+    input long pid double(rx_start rx_stop) byte drug
+    1 100 199 1
+    1 250 299 2
+    end
+    save `s25_exp2', replace
+
+    * Interval data for tvevent tests
+    clear
+    input long pid double(start stop) byte tv_exp
+    1 0 99 0
+    1 100 299 1
+    1 300 400 0
+    2 0 400 0
+    end
+    format start stop %td
+    save `s25_ivl', replace
+
+    * Advanced multi-exposure fixtures: exposure(expA expB expC), 2 datasets,
+    * expC continuous and non-positional (lives in dataset 2)
+    clear
+    input long pid double(a_start a_stop) byte expA
+    1 0 99 1
+    end
+    save `s25_multiA', replace
+    clear
+    input long pid double(b_start b_stop) byte expB double expC
+    1 50 149 2 100
+    end
+    save `s25_multiB', replace
+    * Variant of dataset 1 that also carries an (ignored) expC column
+    clear
+    input long pid double(a_start a_stop) byte expA double expC
+    1 0 99 1 999
+    end
+    save `s25_multiA2', replace
+}
+
+* TEST 25.1: tvmerge validatecoverage must not crash when merged result is empty
+* (v1.6.4: `n_gaps' undefined on the empty path -> ">0 invalid name", r(199))
+capture {
+    tvmerge `s25_dj_a' `s25_dj_b', id(pid) start(a_start b_start) ///
+        stop(a_stop b_stop) exposure(expA expB) validatecoverage validateoverlap
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "PASS: 25.1 tvmerge validatecoverage on empty merge result"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.1 tvmerge validatecoverage empty-result regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.1"
+}
+
+* TEST 25.2: tvmerge frameout() from an empty caller frame (fresh session)
+* (v1.6.4: unconditional snapshot save -> "no variables defined", r(111))
+capture {
+    clear
+    capture frame drop __s25_out
+    tvmerge `s25_dj_a' `s25_dj_b', id(pid) start(a_start b_start) ///
+        stop(a_stop b_stop) exposure(expA expB) frameout(__s25_out) replace
+    assert c(k) == 0            // caller frame restored to empty
+    frame __s25_out: assert _N == 0
+    frame drop __s25_out
+}
+if _rc == 0 {
+    display as result "PASS: 25.2 tvmerge frameout from empty caller frame"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.2 tvmerge frameout empty-caller regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.2"
+}
+
+* TEST 25.3: tvmerge proportions NON-positional continuous exposures
+* (v1.6.4: only the positional exposure of each dataset was flagged continuous;
+*  extra continuous() exposures passed through unscaled)
+capture {
+    clear
+    tvmerge `s25_multiA' `s25_multiB', id(pid) start(a_start b_start) ///
+        stop(a_stop b_stop) exposure(expA expB expC) continuous(expC)
+    * overlap [50,99] = 50 of expC's 100 days at rate 1/day -> 50
+    assert _N == 1
+    assert reldif(expC, 50) < 1e-9
+}
+if _rc == 0 {
+    display as result "PASS: 25.3 tvmerge non-positional continuous exposure proportioned"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.3 tvmerge non-positional continuous regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.3"
+}
+
+* TEST 25.4: same as 25.3 but dataset 1 also carries an expC column, which is
+* ignored (with a warning); result must be identical
+capture {
+    clear
+    tvmerge `s25_multiA2' `s25_multiB', id(pid) start(a_start b_start) ///
+        stop(a_stop b_stop) exposure(expA expB expC) continuous(expC)
+    assert _N == 1
+    assert reldif(expC, 50) < 1e-9
+}
+if _rc == 0 {
+    display as result "PASS: 25.4 tvmerge ignores dataset-1 extra exposure column"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.4 tvmerge dataset-1 extra exposure regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.4"
+}
+
+* TEST 25.5: tvexpose bytype labels must be per-type when exposure has no value label
+* (v1.6.4: stale `vallab' local -> ever2 labeled "Ever exposed: 1"/"Never 1")
+capture {
+    clear
+    input long pid double(entry exitd)
+    1 0 400
+    end
+    tvexpose using `s25_exp2', id(pid) start(rx_start) stop(rx_stop) ///
+        exposure(drug) reference(0) entry(entry) exit(exitd) evertreated bytype
+    local _l2 : variable label ever2
+    assert "`_l2'" == "Ever exposed: 2"
+    local _v20 : label (ever2) 0
+    local _v21 : label (ever2) 1
+    assert "`_v20'" == "Never 2"
+    assert "`_v21'" == "Ever 2"
+}
+if _rc == 0 {
+    display as result "PASS: 25.5 tvexpose bytype per-type labels (no value label on exposure)"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.5 tvexpose bytype stale-label regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.5"
+}
+
+* TEST 25.6: tvexpose summarize with bytype must not tabulate id/date variables
+* (v1.6.4: empty generate() made `tab1 \`generate'*' expand to `tab1 *')
+capture {
+    clear
+    input long pid double(entry exitd)
+    1 0 400
+    end
+    tempname s25lh
+    quietly log using "_s25_sumcheck.log", replace name(`s25lh') nomsg text
+    tvexpose using `s25_exp2', id(pid) start(rx_start) stop(rx_stop) ///
+        exposure(drug) reference(0) entry(entry) exit(exitd) evertreated bytype summarize
+    quietly log close `s25lh'
+    * The summarize output must not contain a tabulation of pid or start
+    tempname fh
+    local bad = 0
+    file open `fh' using "_s25_sumcheck.log", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "tabulation of pid") | strpos(`"`line'"', "tabulation of start") {
+            local bad = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    erase "_s25_sumcheck.log"
+    assert `bad' == 0
+}
+if _rc == 0 {
+    display as result "PASS: 25.6 tvexpose summarize+bytype tabulates only per-type variables"
+    local ++pass_count
+}
+else {
+    capture quietly log close `s25lh'
+    capture erase "_s25_sumcheck.log"
+    display as error "FAIL: 25.6 tvexpose summarize+bytype tab1 regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.6"
+}
+
+* TEST 25.7: tvexpose validate + saveas() without .dta -> distinct validation file
+* (v1.6.4: validation dataset took the saveas name and was overwritten by the
+*  main output, or blocked the main save without replace)
+capture {
+    clear
+    input long pid double(entry exitd)
+    1 0 400
+    end
+    capture erase "_s25_out.dta"
+    capture erase "_s25_out_validation.dta"
+    tvexpose using `s25_exp2', id(pid) start(rx_start) stop(rx_stop) ///
+        exposure(drug) reference(0) entry(entry) exit(exitd) ///
+        validate saveas("_s25_out") replace
+    confirm file "_s25_out.dta"
+    confirm file "_s25_out_validation.dta"
+    use "_s25_out_validation.dta", clear
+    confirm variable pct_covered
+    erase "_s25_out.dta"
+    erase "_s25_out_validation.dta"
+}
+if _rc == 0 {
+    display as result "PASS: 25.7 tvexpose validate+saveas(no extension) keeps files distinct"
+    local ++pass_count
+}
+else {
+    capture erase "_s25_out.dta"
+    capture erase "_s25_out_validation.dta"
+    display as error "FAIL: 25.7 tvexpose validation-file collision regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.7"
+}
+
+* TEST 25.8: tvevent validate with an empty event dataset -> all-censored output
+* (v1.6.4: validation machinery crashed with r(111) on 0-obs master)
+capture {
+    clear
+    set obs 0
+    gen long pid = .
+    gen double evdate = .
+    tvevent using `s25_ivl', id(pid) date(evdate) validate
+    assert r(N) == 4
+    assert r(N_events) == 0
+    assert r(v_outside_bounds) == 0
+    assert r(v_multiple_events) == 0
+    quietly count if _failure != 0
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "PASS: 25.8 tvevent validate with empty event dataset"
+    local ++pass_count
+}
+else {
+    display as error "FAIL: 25.8 tvevent empty-master validate regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.8"
+}
+
+* TEST 25.9: tvevent validate/summary display leaks (reshape/merge tables) stay
+* suppressed; results identical with validate
+capture {
+    clear
+    input long pid double evdate
+    1 150
+    2 0
+    end
+    tempname s25lh2
+    quietly log using "_s25_evcheck.log", replace name(`s25lh2') nomsg text
+    tvevent using `s25_ivl', id(pid) date(evdate) generate(fail) validate
+    * capture r() before log close, which clears returned results
+    local _s25_rN = r(N)
+    local _s25_rE = r(N_events)
+    quietly log close `s25lh2'
+    assert `_s25_rN' == 3
+    assert `_s25_rE' == 2
+    tempname fh2
+    local bad = 0
+    file open `fh2' using "_s25_evcheck.log", read text
+    file read `fh2' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "Wide   ->   Long") | strpos(`"`line'"', "Not matched") {
+            local bad = 1
+        }
+        file read `fh2' line
+    }
+    file close `fh2'
+    erase "_s25_evcheck.log"
+    assert `bad' == 0
+}
+if _rc == 0 {
+    display as result "PASS: 25.9 tvevent validate output stays clean (no reshape/merge leaks)"
+    local ++pass_count
+}
+else {
+    capture quietly log close `s25lh2'
+    capture erase "_s25_evcheck.log"
+    display as error "FAIL: 25.9 tvevent display-leak regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25.9"
+}
+
 * CLEANUP: Remove temporary files
 foreach f in _gap_tvage _gap_tc_cohort _gap_tc_exp _gap_empty_exp ///
     _gap_str_exp _gap_wrongvars_exp _gap_reversed _gap_intervals ///

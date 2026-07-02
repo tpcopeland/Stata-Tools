@@ -1,4 +1,4 @@
-*! tvevent Version 1.6.4  2026/07/01
+*! tvevent Version 1.6.5  2026/07/02
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -357,6 +357,19 @@ program define tvevent, rclass
         noisily di as txt "{bf:Validation Diagnostics}"
         noisily di as txt "{hline 50}"
 
+        * An empty event dataset has nothing to validate; the reshape/egen
+        * machinery below errors on 0 observations, so short-circuit here.
+        * The empty-master path later still produces the all-censored output.
+        if _N == 0 {
+            noisily di as txt "  Event dataset is empty: checks skipped"
+            noisily di as txt "{hline 50}"
+            noisily di ""
+            return scalar v_outside_bounds = 0
+            return scalar v_multiple_events = 0
+            return scalar v_same_date_compete = 0
+        }
+        else {
+
         * Check 1: Multiple events per person when type(single)
         if "`type'" == "single" {
             preserve
@@ -401,7 +414,9 @@ program define tvevent, rclass
 
         * Check 3: Events outside interval boundaries
         * This requires loading the using (interval) dataset
+        * (quietly: the reshape/save/merge here would otherwise leak tables)
         preserve
+        quietly {
         tempfile master_events
         if "`type'" == "single" {
             keep `id' `date' `compete'
@@ -443,9 +458,9 @@ program define tvevent, rclass
         merge 1:m `id' using `master_events', keep(match) nogen
 
         * Check events outside boundaries
-        quietly count if _event_date < _min_start | _event_date > _max_stop
+        count if _event_date < _min_start | _event_date > _max_stop
         local v_outside = r(N)
-
+        }
         restore
 
         if `v_outside' > 0 {
@@ -463,6 +478,7 @@ program define tvevent, rclass
         return scalar v_outside_bounds = `v_outside'
         return scalar v_multiple_events = `v_multiple'
         return scalar v_same_date_compete = `v_same_date'
+        } // end non-empty master validation checks
     }
 
     quietly {
@@ -1103,7 +1119,7 @@ program define tvevent, rclass
     
     * Display active labels for clarity
     local lblname : value label `generate'
-    levelsof `generate', local(vals)
+    quietly levelsof `generate', local(vals)
     foreach v of local vals {
         local l : label `lblname' `v'
         di as txt "    `v' = `l'"

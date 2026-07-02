@@ -1,4 +1,4 @@
-*! tvexpose Version 1.6.4  2026/07/01
+*! tvexpose Version 1.6.5  2026/07/02
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -211,9 +211,14 @@ program define tvexpose, rclass
             noisily display as error "frame `frameout' already exists; use replace option"
             exit 110
         }
-        tempfile _tvx_caller_snap
-        quietly save "`_tvx_caller_snap'", replace
-        local _frameout_snap_taken = 1
+        * Only snapshot when the caller actually has data in memory; `save'
+        * errors on a dataset with no variables, masking the real problem
+        * (tvexpose needs master data) with "no variables defined".
+        if c(k) > 0 {
+            tempfile _tvx_caller_snap
+            quietly save "`_tvx_caller_snap'", replace
+            local _frameout_snap_taken = 1
+        }
     }
 
     * Handle reference() option
@@ -2238,6 +2243,7 @@ program define tvexpose, rclass
                 drop __pre_first_start
 
                 * Get label from original exposure variable for this type
+                local vallab ""
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
@@ -2381,6 +2387,7 @@ program define tvexpose, rclass
                 quietly replace `stub_name'`suffix' = 2 if exp_start >= __first_any_`suffix' & `stub_name'`suffix' != 1 & !missing(__first_any_`suffix')
 
                 * Get label from original exposure variable for this type
+                local vallab ""
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
@@ -2662,6 +2669,7 @@ program define tvexpose, rclass
                 quietly gen double `stub_name'`suffix' = cumul_days_`suffix' / `unit_divisor'
 
                 * Label the variable with value label and units from continuousunit
+                local vallab ""
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
@@ -3097,6 +3105,7 @@ program define tvexpose, rclass
                 quietly bysort id (exp_start exp_stop): replace `stub_name'`suffix' = max(`stub_name'`suffix', `stub_name'`suffix'[_n-1]) if _n > 1 & _n > __first_exp_any
 
                 * Create value labels
+                local vallab ""
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
@@ -3659,6 +3668,7 @@ program define tvexpose, rclass
                 }
 
                 * Get label from original exposure variable for this type
+                local vallab ""
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
@@ -4345,8 +4355,19 @@ program define tvexpose, rclass
         noisily display as text "{hline 60}"
         
         * For categorical exposures, show distribution table
+        * With bytype, tabulate the per-type variables; otherwise the single
+        * output variable. (A bare `generate'* wildcard tabulated EVERY
+        * variable — id, dates — when bytype left generate() empty.)
         if "`exp_type'" != "continuous" {
-            noisily tab1 `generate'*, missing
+            if "`bytype'" != "" {
+                quietly ds `stub_name'*
+                if "`r(varlist)'" != "" {
+                    noisily tab1 `r(varlist)', missing
+                }
+            }
+            else {
+                noisily tab1 `generate', missing
+            }
         }
         else {
             * For continuous exposure, show descriptive statistics
@@ -4457,6 +4478,11 @@ program define tvexpose, rclass
         local validation_file = "tv_validation.dta"
         if "`saveas'" != "" {
             local validation_file = subinstr("`saveas'", ".dta", "_validation.dta", .)
+            * saveas() without a .dta extension: subinstr changes nothing and
+            * the validation file would silently collide with the main output
+            if "`validation_file'" == "`saveas'" {
+                local validation_file "`saveas'_validation.dta"
+            }
         }
         
         if "`replace'" != "" {
@@ -4729,6 +4755,7 @@ program define tvexpose, rclass
         capture frame drop `frameout'
         frame copy `c(frame)' `frameout'
         if `_frameout_snap_taken' quietly use "`_tvx_caller_snap'", clear
+        else quietly clear
         noisily display as text "Result placed in frame: " as result "`frameout'"
         return local frameout "`frameout'"
     }
@@ -4776,8 +4803,11 @@ program define tvexpose, rclass
     local rc = _rc
 
     * On error in frameout mode, restore the caller's data so a failed run
-    * leaves their working frame as it was (the snapshot precedes any mutation).
+    * leaves their working frame as it was (the snapshot precedes any mutation;
+    * an empty caller frame has no snapshot and is restored with clear).
     if `rc' & `_frameout_snap_taken' capture quietly use "`_tvx_caller_snap'", clear
+    else if `rc' & "`frameout'" != "" capture quietly clear
+    local _tvx_drc = _rc    // best-effort restore; do not mask `rc'
 
     set varabbrev `orig_varabbrev'
 

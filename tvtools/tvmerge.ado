@@ -1,4 +1,4 @@
-*! tvmerge Version 1.6.4  2026/07/01
+*! tvmerge Version 1.6.5  2026/07/02
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -135,9 +135,14 @@ program define tvmerge, rclass
             di as error "frame `frameout' already exists; use replace option"
             exit 110
         }
-        tempfile _tvm_caller_snap
-        quietly save "`_tvm_caller_snap'", replace
-        local _frameout_snap_taken = 1
+        * Only snapshot when the caller actually has data in memory; `save'
+        * errors on a dataset with no variables (fresh session), and an empty
+        * caller frame is simply restored with `clear' instead.
+        if c(k) > 0 {
+            tempfile _tvm_caller_snap
+            quietly save "`_tvm_caller_snap'", replace
+            local _frameout_snap_taken = 1
+        }
     }
 
     * Parse and validate dataset count
@@ -578,7 +583,25 @@ program define tvmerge, rclass
             noisily di as error "Variable `exp1' not found in `first_ds'"
             exit 111
         }
-        
+
+        * Non-positional exposures are only read from datasets 2+; warn if the
+        * user placed extra exposure() variables in dataset 1, where they are
+        * silently dropped by the keep below.
+        local _ds1_extra ""
+        foreach _possible_exp in `exposures_raw' {
+            if "`_possible_exp'" != "`exp1'" {
+                capture confirm variable `_possible_exp'
+                if _rc == 0 {
+                    local _ds1_extra "`_ds1_extra' `_possible_exp'"
+                }
+            }
+        }
+        local _ds1_extra: list uniq _ds1_extra
+        if "`_ds1_extra'" != "" {
+            noisily di as text "Warning: exposure variable(s)`_ds1_extra' found in dataset 1 are ignored."
+            noisily di as text "         Non-positional exposure() variables are read from datasets 2 onward."
+        }
+
         * Rename variables to standard names
         rename `id' id
         rename `start1' `startname'
@@ -817,21 +840,31 @@ program define tvmerge, rclass
             }
 
             * Build complete list of exposures for this dataset with renamed variables
+            * Also track which of them are continuous (by ORIGINAL name, since
+            * continuous_names holds pre-rename names), so non-positional
+            * exposures in the advanced numexp > numds case are proportioned
+            * exactly like the positional one.
             local exp_k_list_final ""
+            local exp_k_cont_list ""
             foreach found_exp in `exp_k_list' {
+                local _found_is_cont: list found_exp in continuous_names
                 if "`found_exp'" == "`exp_k_raw'" {
                     * This is the positional exposure, use the renamed version
-                    local exp_k_list_final "`exp_k_list_final' `exp_k'"
+                    local _renamed_exp "`exp_k'"
                 }
                 else {
                     * Other exposure found in dataset, apply prefix if specified
                     if "`prefix'" != "" {
                         rename `found_exp' `prefix'`found_exp'
-                        local exp_k_list_final "`exp_k_list_final' `prefix'`found_exp'"
+                        local _renamed_exp "`prefix'`found_exp'"
                     }
                     else {
-                        local exp_k_list_final "`exp_k_list_final' `found_exp'"
+                        local _renamed_exp "`found_exp'"
                     }
+                }
+                local exp_k_list_final "`exp_k_list_final' `_renamed_exp'"
+                if `_found_is_cont' {
+                    local exp_k_cont_list "`exp_k_cont_list' `_renamed_exp'"
                 }
             }
 
@@ -898,15 +931,15 @@ program define tvmerge, rclass
             **# INTERSECT TIME INTERVALS (Mata sweep)
 
             * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
-            * FIX: Must handle renamed variables - compare original names to continuous_names,
-            * then apply result to the renamed variable names in exp_k_list
+            * exp_k_cont_list was built alongside exp_k_list_final above and
+            * already maps continuous_names (original names) onto the renamed
+            * variables, covering positional AND non-positional exposures.
             foreach exp_var in `exp_k_list' {
                 local is_cont_`exp_var' = 0
             }
-            * Set continuous flag for the primary exposure of this dataset
-            * is_cont_k was computed earlier using original name (exp_k_raw) vs continuous_names
-            * exp_k is the renamed version of exp_k_raw
-            local is_cont_`exp_k' = `is_cont_k'
+            foreach exp_var in `exp_k_cont_list' {
+                local is_cont_`exp_var' = 1
+            }
 
             * BATCH PROCESSING: Create numeric sequence for batching
             * This handles string IDs and avoids macro length limits
@@ -1183,9 +1216,11 @@ program define tvmerge, rclass
             * Save updated merged data
             save `merged_data', replace
 
-            * Update tracking list: add this dataset's continuous exposure if applicable
-            if `is_cont_k' == 1 {
-                local merged_continuous_exps "`merged_continuous_exps' `exp_k'"
+            * Update tracking list: add ALL of this dataset's continuous
+            * exposures (positional and non-positional) so later merges
+            * re-proportion them when intervals shrink further.
+            if "`exp_k_cont_list'" != "" {
+                local merged_continuous_exps "`merged_continuous_exps' `exp_k_cont_list'"
             }
         }
 
@@ -1256,6 +1291,9 @@ program define tvmerge, rclass
         
         * Validate coverage if requested
         * This checks for gaps in coverage within each person's time span
+        * (initialize counts so the display blocks below are safe when _N == 0)
+        local n_gaps = 0
+        local n_overlaps = 0
         if "`validatecoverage'" != "" & _N > 0 {
             * Check for gaps between consecutive periods
             bysort id (`startname'): generate double _gap = `startname'[_n] - `stopname'[_n-1] if _n > 1
@@ -1279,7 +1317,7 @@ program define tvmerge, rclass
         * Checks for unexpected overlapping periods within person
         * Note: In cartesian merges, overlaps are expected when exposure combinations differ
         * This diagnostic flags overlaps with IDENTICAL exposure values (likely errors)
-        if "`validateoverlap'" != "" {
+        if "`validateoverlap'" != "" & _N > 0 {
             * Check if any period starts before or on the day previous one ends
             * Uses <= to catch one-day overlaps (consistent with [start, stop] inclusive intervals)
             by id (`startname'): generate byte _overlap = `startname'[_n] <= `stopname'[_n-1] if _n > 1
@@ -1526,6 +1564,7 @@ program define tvmerge, rclass
         capture frame drop `frameout'
         frame copy `c(frame)' `frameout'
         if `_frameout_snap_taken' quietly use "`_tvm_caller_snap'", clear
+        else quietly clear
         noisily display as text "Result placed in frame: " as result "`frameout'"
         return local frameout "`frameout'"
     }
@@ -1544,8 +1583,11 @@ program define tvmerge, rclass
         capture frame drop __tvm_out
         local _tvm_drc = _rc
         * In frameout mode, restore the caller's data so a failed run leaves
-        * their working frame as it was (snapshot precedes any mutation).
+        * their working frame as it was (snapshot precedes any mutation; an
+        * empty caller frame has no snapshot and is restored with clear).
         if `_frameout_snap_taken' capture quietly use "`_tvm_caller_snap'", clear
+        else if "`frameout'" != "" capture quietly clear
+        local _tvm_drc = _rc    // best-effort restore; do not mask `rc'
     }
     set varabbrev `_orig_varabbrev'
 
