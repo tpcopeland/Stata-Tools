@@ -92,7 +92,9 @@ building that grid before {helpb msm_prepare}/{helpb msm_weight}.
 
 {phang}
 {opth id(varname)}, {opth entry(varname)}, {opth exit(varname)} identify the person and
-the study window in the master data (one row per person). {opt entry()} anchors the grid.
+the study window in the master data (one row per person). {opt id()} must be
+numeric; encode a string identifier first (e.g. {cmd:egen long id2 = group(id)}).
+{opt entry()} anchors the grid.
 
 {phang}
 {opt frame(name)} reads the episode data from a named {help frame:frame} held in

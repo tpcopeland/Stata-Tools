@@ -3600,6 +3600,208 @@ foreach f in _gap_tvage _gap_tc_cohort _gap_tc_exp _gap_empty_exp ///
     capture erase "/tmp/`f'.dta"
 }
 
+**# ===== SECTION 19 (v1.6.7): strL id() guards =====
+* strL variables cannot be merge keys; tvmerge/tvexpose/tvevent previously
+* died mid-run with merge's cryptic "key variable id is strL" r(106). Each
+* now rejects strL ids upfront with r(109). tvpanel requires a numeric id
+* and now says so instead of "not found or not numeric (date format)".
+
+* Shared strL fixtures
+local _s19_e1 = mdy(1,1,2020)
+tempfile _s19_strl_a _s19_strl_b _s19_str_b _s19_strl_int _s19_str_cohort _s19_epi
+quietly {
+    clear
+    set obs 3
+    gen strL id = "P" + string(_n)
+    gen double s1 = `_s19_e1' + _n
+    gen double e1v = `_s19_e1' + _n + 100
+    gen byte drugA = 1
+    save "`_s19_strl_a'"
+
+    clear
+    set obs 3
+    gen strL id = "P" + string(_n)
+    gen double s2 = `_s19_e1' + _n + 10
+    gen double e2v = `_s19_e1' + _n + 90
+    gen byte drugB = 1
+    save "`_s19_strl_b'"
+
+    clear
+    set obs 3
+    gen str4 id = "P" + string(_n)
+    gen double rx_start = `_s19_e1' + 10
+    gen double rx_stop = `_s19_e1' + 200
+    gen byte drug = 1
+    save "`_s19_str_b'"
+
+    clear
+    set obs 3
+    gen strL id = "P" + string(_n)
+    gen double start = `_s19_e1' + 1
+    gen double stop = `_s19_e1' + 300
+    gen byte tv_exposure = 1
+    save "`_s19_strl_int'"
+
+    clear
+    set obs 3
+    gen str4 id = "P" + string(_n)
+    gen double study_entry = `_s19_e1'
+    gen double study_exit = `_s19_e1' + 365
+    save "`_s19_str_cohort'"
+}
+
+* E.strl.1: tvmerge rejects strL id upfront (r 109)
+local ++test_count
+capture {
+    clear
+    capture noisily tvmerge "`_s19_strl_a'" "`_s19_strl_b'", id(id) ///
+        start(s1 s2) stop(e1v e2v) exposure(drugA drugB)
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge strL id rejected upfront (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge strL id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.2: tvexpose rejects strL id in the master data (r 109)
+local ++test_count
+capture {
+    clear
+    set obs 3
+    gen strL id = "P" + string(_n)
+    gen double study_entry = `_s19_e1'
+    gen double study_exit = `_s19_e1' + 365
+    capture noisily tvexpose using "`_s19_str_b'", id(id) start(rx_start) ///
+        stop(rx_stop) exposure(drug) reference(0) ///
+        entry(study_entry) exit(study_exit) generate(tv_drug)
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose strL master id rejected upfront (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose strL master id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.3: tvexpose rejects strL id in the using data (r 109)
+local ++test_count
+capture {
+    quietly use "`_s19_strl_b'", clear
+    quietly rename (s2 e2v drugB) (rx_start rx_stop drug)
+    tempfile _s19_strl_exp
+    quietly save "`_s19_strl_exp'"
+    quietly use "`_s19_str_cohort'", clear
+    capture noisily tvexpose using "`_s19_strl_exp'", id(id) start(rx_start) ///
+        stop(rx_stop) exposure(drug) reference(0) ///
+        entry(study_entry) exit(study_exit) generate(tv_drug)
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose strL using id rejected upfront (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose strL using id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.4: tvevent rejects strL id in the master (event) data (r 109)
+local ++test_count
+capture {
+    clear
+    set obs 3
+    gen strL id = "P" + string(_n)
+    gen double eventdate = `_s19_e1' + 50
+    capture noisily tvevent using "`_s19_strl_int'", id(id) date(eventdate) replace
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent strL master id rejected upfront (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent strL master id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.5: tvevent rejects strL id in the using (interval) data (r 109)
+local ++test_count
+capture {
+    clear
+    set obs 3
+    gen str4 id = "P" + string(_n)
+    gen double eventdate = `_s19_e1' + 50
+    capture noisily tvevent using "`_s19_strl_int'", id(id) date(eventdate) replace
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent strL using id rejected upfront (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent strL using id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.6: tvpanel rejects a string id with the id-specific message (r 109)
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen long id = 1
+    gen double start = `_s19_e1' + 50
+    gen double stop  = `_s19_e1' + 100
+    gen int eclass = 5
+    save "`_s19_epi'"
+    clear
+    set obs 2
+    gen str4 id = "P" + string(_n)
+    gen double entry = `_s19_e1'
+    gen double exit  = `_s19_e1' + 364
+    capture noisily tvpanel using "`_s19_epi'", id(id) entry(entry) exit(exit) ///
+        exposure(eclass) reference(0) width(91)
+    assert _rc == 109
+}
+if _rc == 0 {
+    display as result "  PASS: tvpanel string id rejected with id-specific message (109)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvpanel string id guard (error `=_rc')"
+    local ++fail_count
+}
+
+* E.strl.7: positive control -- str# ids still work in tvmerge
+local ++test_count
+capture {
+    quietly use "`_s19_strl_a'", clear
+    quietly recast str4 id, force
+    tempfile _s19_str_a2
+    quietly save "`_s19_str_a2'"
+    quietly use "`_s19_strl_b'", clear
+    quietly recast str4 id, force
+    tempfile _s19_str_b2
+    quietly save "`_s19_str_b2'"
+    clear
+    quietly tvmerge "`_s19_str_a2'" "`_s19_str_b2'", id(id) ///
+        start(s1 s2) stop(e1v e2v) exposure(drugA drugB)
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: str# id still accepted by tvmerge"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: str# id positive control (error `=_rc')"
+    local ++fail_count
+}
+
 * TEST RESULTS
 
 * ===== Summary =====

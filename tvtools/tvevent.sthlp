@@ -35,7 +35,7 @@ via {opt frame()}; supply one or the other.
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt id(varname)}}person identifier matching the master dataset{p_end}
+{synopt:{opt id(varname)}}person identifier matching the master dataset (numeric or {cmd:str#}; {cmd:strL} not allowed){p_end}
 {synopt:{opt fr:ame(name)}}read the interval data from a named frame instead of a file{p_end}
 {synopt:{opt date(name)}}variable name or stubname for event date(s); for {cmd:type(recurring)}, specifies the stub for {it:stub}1, {it:stub}2, etc.{p_end}
 

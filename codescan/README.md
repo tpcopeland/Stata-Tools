@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.5** | 2026-07-01
+**Version 2.0.6** | 2026-07-02
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -384,6 +384,11 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.6 (2026-07-02)
+
+- **Bugfix:** with `countmode` + `merge`, patients merged back with a *missing* count (no rows inside the analysis window, or excluded by `if`/`in`) were counted as matches in the console summary, `r(summary)`, and `r(codelist)` — missing is greater than zero in Stata — which could push the reported prevalence past 100%. Missing counts are now screened out; the stored count variables themselves were always correct.
+- **Usability:** `strL` scan variables are now rejected up front with a clear message (convert with `compress` or `recast`) in both `codescan` and `codescan_describe`, instead of aborting with a raw Mata `st_sview()` traceback (r3300).
 
 ### 2.0.5 (2026-07-01)
 

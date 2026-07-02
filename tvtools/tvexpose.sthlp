@@ -148,7 +148,9 @@ dataset must contain the variables specified in {cmd:id()}, {cmd:start()},
 
 {phang}
 {opt id(varname)} specifies the person identifier that links the exposure dataset
-to the master dataset currently in memory. Must be present in both datasets.
+to the master dataset currently in memory. Must be present in both datasets. It
+may be numeric or {cmd:str#}; {cmd:strL} identifiers are not allowed (recast to
+{cmd:str#} first).
 
 {phang}
 {opt start(varname)} specifies the variable in the exposure dataset containing the

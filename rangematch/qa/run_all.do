@@ -52,6 +52,7 @@ local suites ///
     test_rangematch_overlap_inverted.do ///
     test_rangematch_edge_topup.do ///
     test_rangematch_saving_matrix.do ///
+    test_rangematch_labels.do ///
     test_rangematch_v16compat.do ///
     test_documentation_examples.do ///
     test_release_integrity.do

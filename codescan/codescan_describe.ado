@@ -1,4 +1,4 @@
-*! codescan_describe Version 2.0.5  2026/07/01
+*! codescan_describe Version 2.0.6  2026/07/02
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -39,15 +39,22 @@ program define codescan_describe, rclass
         exit 198
     }
 
-    * Validate string variables (before tostring, to catch missing option early)
-    if "`tostring'" == "" {
-        foreach var of local varlist {
-            capture confirm string variable `var'
-            if _rc {
+    * Validate string variables (before tostring, to catch missing option early).
+    * strL is rejected unconditionally: the Mata tabulator reads columns with
+    * st_sview(), which cannot form views onto strL variables.
+    foreach var of local varlist {
+        capture confirm string variable `var'
+        if _rc {
+            if "`tostring'" == "" {
                 display as error "`var' is not a string variable"
                 display as error "codescan_describe requires string variables; use tostring or the tostring option"
                 exit 109
             }
+        }
+        else if "`: type `var''" == "strL" {
+            display as error "`var' is a strL variable and cannot be scanned"
+            display as error "convert it to a fixed-width string first, e.g. {bf:compress `var'} or {bf:recast str244 `var'}"
+            exit 109
         }
     }
 

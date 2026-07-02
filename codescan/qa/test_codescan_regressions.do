@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 2.0.5
+*   T7: Version header reports 2.0.6
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T11: r(date) returned when date() specified (I8 fix)
@@ -20,6 +20,8 @@
 *   T17: bundled helper files are idempotent on reload (cap program drop fix) —
 *        re-running a helper file in one session must not crash "already defined"
 *   T18: level() is inert in mode(regex) — patterns not truncated (1.1.4)
+*   T20: countmode+merge screens merged-in missing counts from the summary (2.0.6)
+*   T21: strL scan variables rejected up front with rc 109 in both commands (2.0.6)
 
 clear all
 set seed 12345
@@ -218,7 +220,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 2.0.5
+* T7: header advertises version 2.0.6
 * ============================================================
 
 local ++test_count
@@ -229,10 +231,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.5") > 0
+    assert strpos("`_line1'", "2.0.6") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.5"
+    display as result "  PASS T7: version header is 2.0.6"
     local ++pass_count
 }
 else {
@@ -590,6 +592,81 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T19: protected-name collision check (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T20: countmode + merge does not count merged-in missing as a match (2.0.6)
+* ============================================================
+* A patient whose rows are all excluded (here: by if) comes back from the
+* merge with a MISSING count. Missing > 0 is true in Stata, so before the
+* fix the summary counted that patient in Obs>0, inflating prevalence.
+
+local ++test_count
+capture noisily {
+    clear
+    input str4 pid str5 dx1 str5 dx2
+    "p1" "E11" ""
+    "p1" "E11" "E11"
+    "p2" "I10" ""
+    "p3" "E11" ""
+    end
+    codescan dx1 dx2 if pid != "p3", define(dm2 "E11") id(pid) merge countmode
+    * p3 is excluded: N = 2 patients (p1, p2); only p1 matches
+    assert r(N) == 2
+    matrix _S = r(summary)
+    assert _S[1,1] == 3            // Total: 3 matched slots, all p1
+    assert reldif(_S[1,2], 50) < 1e-12   // prevalence 50%, not 100%
+    matrix drop _S
+    * The merged variable itself: p3 must be missing, not counted
+    assert dm2 == . if pid == "p3"
+    assert dm2 == 3 if pid == "p1"
+    assert dm2 == 0 if pid == "p2"
+    drop dm2
+}
+if _rc == 0 {
+    display as result "  PASS T20: countmode+merge screens missing counts from the summary"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T20: countmode+merge missing-count screening (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T21: strL scan variables rejected up front with rc 109 (2.0.6)
+* ============================================================
+* st_sview() cannot form views onto strL; both commands must reject strL
+* with a clear error instead of dying inside Mata with r(3300).
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 4
+    gen str4 pid = "p" + string(_n)
+    gen strL dxL = cond(mod(_n, 2), "E11", "I10")
+    capture codescan dxL, define(dm2 "E11")
+    assert _rc == 109
+    capture codescan dxL, define(dm2 "E11") tostring
+    assert _rc == 109
+    capture codescan_describe dxL
+    assert _rc == 109
+    capture codescan_describe dxL, tostring
+    assert _rc == 109
+    * Fixed-width strings still scan fine
+    gen str5 dx1 = dxL
+    codescan dx1, define(dm2 "E11")
+    assert r(N) == 4
+    drop dm2
+}
+if _rc == 0 {
+    display as result "  PASS T21: strL inputs rejected with rc 109, str# unaffected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T21: strL rejection (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! tvevent Version 1.6.6  2026/07/02
+*! tvevent Version 1.6.7  2026/07/02
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -235,6 +235,14 @@ program define tvevent, rclass
     if _rc {
         di as error "ID variable `id' not found in master (event) dataset."
         exit 111
+    }
+    * strL ids cannot serve as merge keys; without this screen the internal
+    * merge fails mid-run with a cryptic "key variable id is strL" r(106).
+    local _tve_idtype : type `id'
+    if "`_tve_idtype'" == "strL" {
+        di as error "id() variable `id' is strL in the master (event) dataset; strL variables cannot be used as merge keys"
+        di as error "recast it first, e.g. generate str20 `id'2 = `id'"
+        exit 109
     }
 
     * Check for duplicate IDs in master (should be 1 row per person for event data)
@@ -619,6 +627,12 @@ program define tvevent, rclass
         if _rc {
              noisily di as error "ID variable `id' not found in using (interval) dataset."
              exit 111
+        }
+        local _tve_uidtype : type `id'
+        if "`_tve_uidtype'" == "strL" {
+            noisily di as error "id() variable `id' is strL in the using (interval) dataset; strL variables cannot be used as merge keys"
+            noisily di as error "recast it first, e.g. generate str20 `id'2 = `id'"
+            exit 109
         }
 
         foreach v in `startvar' `stopvar' {

@@ -32,14 +32,14 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
-| [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-2.0.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--01-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
+| [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-2.0.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--02-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
 | [compress_tc](https://github.com/tpcopeland/Stata-Tools/tree/main/compress_tc) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--19-brightgreen) | Two-stage compression for string-heavy Stata data via strL and compress |
 | [datamap](https://github.com/tpcopeland/Stata-Tools/tree/main/datamap) | ![version](https://img.shields.io/badge/version-1.5.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--19-brightgreen) | Privacy-safe dataset maps, Markdown dictionaries, console QC/expectation gates (datacheck), and missing-value pattern analysis (datamvp) |
 | [datefix](https://github.com/tpcopeland/Stata-Tools/tree/main/datefix) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--25-brightgreen) | Convert imported date strings to Stata daily dates |
 | [fvgen](https://github.com/tpcopeland/Stata-Tools/tree/main/fvgen) | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--01-brightgreen) | Flatten factor-variable interactions into labeled main and product variables for clean regression export |
 | [massdesas](https://github.com/tpcopeland/Stata-Tools/tree/main/massdesas) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Batch convert SAS datasets to Stata (Stata 14+; requires import sas, filelist, and fs) |
 | [pkgtransfer](https://github.com/tpcopeland/Stata-Tools/tree/main/pkgtransfer) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Transfer installed package sets between systems via online reinstall or offline ZIP |
-| [rangematch](https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch) | ![version](https://img.shields.io/badge/version-1.3.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--01-brightgreen) | Range join between master and using datasets (file or frame) via a Mata binary-search backend (Stata 16.1+) |
+| [rangematch](https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch) | ![version](https://img.shields.io/badge/version-1.3.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--02-brightgreen) | Range join between master and using datasets (file or frame) via a Mata binary-search backend (Stata 16.1+) |
 
 ### Analysis
 
@@ -58,7 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--15-brightgreen) | Swedish registry tools for Charlson scoring, procedure-code matching, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.6.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--02-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
+| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.6.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--02-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 
 ### Reporting & Visualization
 

@@ -1,4 +1,4 @@
-*! tvexpose Version 1.6.6  2026/07/02
+*! tvexpose Version 1.6.7  2026/07/02
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -613,6 +613,14 @@ program define tvexpose, rclass
             restore
             exit 111
         }
+
+        local _tvx_uidtype : type `id'
+        if "`_tvx_uidtype'" == "strL" {
+            noisily display as error "id() variable `id' is strL in the using dataset; strL variables cannot be used as merge keys"
+            noisily display as error "recast it first, e.g. generate str20 `id'2 = `id'"
+            restore
+            exit 109
+        }
     }
     restore
     
@@ -620,6 +628,15 @@ program define tvexpose, rclass
     quietly {
         local original_id_type : type `id'
         local original_id_format : format `id'
+    }
+
+    * strL ids cannot serve as merge keys; without this screen the internal
+    * ID-mismatch merge fails mid-run with a cryptic "key variable id is strL"
+    * r(106).
+    if "`original_id_type'" == "strL" {
+        noisily display as error "id() variable `id' is strL in the master data; strL variables cannot be used as merge keys"
+        noisily display as error "recast it first, e.g. generate str20 `id'2 = `id'"
+        exit 109
     }
     
     * Save original master dataset state

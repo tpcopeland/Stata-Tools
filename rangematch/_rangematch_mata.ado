@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.3.0  2026/07/01
+*! _rangematch_mata Version 1.3.1  2026/07/02
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.3.0")
+    return("1.3.1")
 }
 
 void _rm_prepare_sweep_master(
@@ -1312,14 +1312,14 @@ void _rm_materialize(
     string rowvector out_vars
 )
 {
-    string scalar oldframe, vtype, fmt
+    string scalar oldframe, vtype, fmt, vlbl, vvl
     string rowvector num_types, num_fmts, num_out
     real scalar j, k, nv, nout, vidx_src, vidx_out, nnum, all_valid
-    real scalar c0, c1, chunk_cols
+    real scalar c0, c1, chunk_cols, havedef
     real rowvector num_src_idx, num_out_idx, src_chunk, out_chunk
-    real colvector idx, valid_idx
+    real colvector idx, valid_idx, vlvals
     real matrix nummat
-    string colvector strcol
+    string colvector strcol, vltxt
 
     oldframe = st_framecurrent()
     nv = cols(src_vars)
@@ -1340,12 +1340,27 @@ void _rm_materialize(
         st_framecurrent(src_frame)
         vtype = st_vartype(src_vars[j])
         fmt = st_varformat(src_vars[j])
+        vlbl = st_varlabel(src_vars[j])
+        vvl = st_varvaluelabel(src_vars[j])
+        havedef = 0
+        if (vvl != "") {
+            havedef = st_vlexists(vvl)
+            if (havedef) st_vlload(vvl, vlvals, vltxt)
+        }
         vidx_src = st_varindex(src_vars[j])
 
         st_framecurrent(out_frame)
         (void) st_addvar(vtype, out_vars[j])
         vidx_out = st_varindex(out_vars[j])
         st_varformat(out_vars[j], fmt)
+        if (vlbl != "") st_varlabel(out_vars[j], vlbl)
+        if (vvl != "") {
+            // Value-label definitions are frame-scoped; recreate the source
+            // definition in the output frame. If master and using both define
+            // the same label name, the first copy (master) wins.
+            if (havedef & !st_vlexists(vvl)) st_vlmodify(vvl, vlvals, vltxt)
+            st_varvaluelabel(out_vars[j], vvl)
+        }
 
         if (substr(vtype, 1, 3) == "str") {
             if (nout > 0) {
@@ -1516,10 +1531,10 @@ void _rm_generate_distance(
 
 void _rm_copy_output(string scalar src_frame, string rowvector varnames)
 {
-    string scalar oldframe, vtype
-    real scalar j, nv, vidx
-    real colvector numcol
-    string colvector strcol
+    string scalar oldframe, vtype, vlbl, vvl
+    real scalar j, nv, vidx, havedef
+    real colvector numcol, vlvals
+    string colvector strcol, vltxt
 
     oldframe = st_framecurrent()
     nv = cols(varnames)
@@ -1529,19 +1544,32 @@ void _rm_copy_output(string scalar src_frame, string rowvector varnames)
     for (j = 1; j <= nv; j++) {
         vtype = st_vartype(varnames[j])
         vidx = st_varindex(varnames[j])
+        vlbl = st_varlabel(varnames[j])
+        vvl = st_varvaluelabel(varnames[j])
+        havedef = 0
+        if (vvl != "") {
+            havedef = st_vlexists(vvl)
+            if (havedef) st_vlload(vvl, vlvals, vltxt)
+        }
 
         if (substr(vtype, 1, 3) == "str") {
             strcol = st_sdata(., vidx)
             st_framecurrent(oldframe)
             st_sstore(., varnames[j], strcol)
-            st_framecurrent(src_frame)
         }
         else {
             numcol = st_data(., vidx)
             st_framecurrent(oldframe)
             st_store(., varnames[j], numcol)
-            st_framecurrent(src_frame)
         }
+        // The destination frame was just cleared, wiping its value-label
+        // definitions; restore labels from the output frame's copies.
+        if (vlbl != "") st_varlabel(varnames[j], vlbl)
+        if (vvl != "") {
+            if (havedef & !st_vlexists(vvl)) st_vlmodify(vvl, vlvals, vltxt)
+            st_varvaluelabel(varnames[j], vvl)
+        }
+        st_framecurrent(src_frame)
     }
 
     st_framecurrent(oldframe)

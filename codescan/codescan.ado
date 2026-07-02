@@ -1,4 +1,4 @@
-*! codescan Version 2.0.5  2026/07/01
+*! codescan Version 2.0.6  2026/07/02
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -128,15 +128,23 @@ program define codescan, rclass
         exit 198
     }
 
-    * All varlist variables must be string (skip if tostring will handle them)
-    if "`tostring'" == "" {
-        foreach var of local varlist {
-            capture confirm string variable `var'
-            if _rc {
+    * All varlist variables must be string (numeric is allowed only when
+    * tostring will convert it).  strL is rejected unconditionally: the Mata
+    * scanner reads columns with st_sview(), which cannot form views onto strL
+    * variables (r(3300) with a raw Mata traceback).
+    foreach var of local varlist {
+        capture confirm string variable `var'
+        if _rc {
+            if "`tostring'" == "" {
                 display as error "`var' is not a string variable"
                 display as error "codescan requires string variables; use tostring or the tostring option"
                 exit 109
             }
+        }
+        else if "`: type `var''" == "strL" {
+            display as error "`var' is a strL variable and cannot be scanned"
+            display as error "convert it to a fixed-width string first, e.g. {bf:compress `var'} or {bf:recast str244 `var'}"
+            exit 109
         }
     }
 
@@ -1313,11 +1321,14 @@ program define codescan, rclass
     forvalues i = 1/`n_conditions' {
         local name "`def_name_`i''"
         if "`countmode'" != "" & "`merge'" != "" {
-            * merge+countmode: compute from patient-level (one row per patient)
+            * merge+countmode: compute from patient-level (one row per patient).
+            * Patients with no in-window rows come back from the merge with a
+            * MISSING count; missing > 0 is true in Stata, so screen it out or
+            * they are counted as matches (inflating Obs>0 past 100%).
             quietly {
                 tempvar _cmtag
                 bysort `id': gen byte `_cmtag' = (_n == 1)
-                count if `_cmtag' == 1 & `name' > 0
+                count if `_cmtag' == 1 & `name' > 0 & !missing(`name')
                 local n_match = r(N)
                 summarize `name' if `_cmtag' == 1, meanonly
                 local n_total_match = r(sum)

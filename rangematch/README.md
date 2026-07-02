@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.3.0, 01jul2026
+Version 1.3.1, 02jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -179,12 +179,14 @@ rangematch event_date -30 30 using `events'
 rangematch event_date . 30 using `events'
 ```
 
+Output preserves variable labels, value-label attachments and definitions, and the master dataset label for both master and carried using variables, as `merge` does. If master and using data define the same value-label name with different mappings, the master definition wins.
+
 ## Options
 
 | Option | Description |
 |--------|-------------|
 | `overlap(ulow uhigh)` | Switch to interval-overlap mode: match where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval. With `closed(both)` (default) touching endpoints count; with `closed(none)` comparisons are strict. Not combinable with `nearest()`, `ties()`, `distance()`, scalar offset bounds, or `closed(left|right)`. `r(backend)` reports `overlap`. |
-| `by(varlist)` | Restrict matches to groups with identical values in master and using. |
+| `by(varlist)` | Restrict matches to groups with identical values in master and using. `strL` by-variables are not allowed; recast to `str#` first. |
 | `keepusing(varlist)` | Variables to carry from the using dataset. |
 | `prefix(string)` | Prefix for renamed using variables. |
 | `suffix(string)` | Suffix for renamed using variables; default conflict suffix is `_U` when no prefix or suffix is specified. |
@@ -433,6 +435,35 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.3.1 (2026-07-02)
+
+- **Fixed: `saving()` silently ignored with a compound-quoted filename.** With
+  `` saving(`"path"') `` (the standard idiom for tempfiles and paths built in
+  macros), the internal quote-stripping left a bare `` `...' `` wrapper that
+  downstream macro expansion swallowed as an undefined macro reference. The
+  filename became empty, no file was written, no error was raised, and the
+  output was rerouted to the default in-place path -- replacing the data in
+  memory. Filenames are now unquoted with `gettoken`, which strips one binding
+  layer of either quote style. Plain-quoted and unquoted filenames were
+  unaffected.
+- **Fixed: variable labels, value labels, and the dataset label were dropped
+  from output.** The output materializer copied storage types and display
+  formats but not labels, and value-label definitions did not survive the
+  output-frame swap. Output now preserves variable labels, value-label
+  attachments and definitions (for master and carried using variables, on
+  every output route: in-place, `frame()`, and `saving()`), and the master
+  dataset label, matching `merge` behavior. If master and using data define
+  the same value-label name differently, the master definition wins.
+- **Fixed: `by()` with a strL variable failed mid-run with a misleading
+  error.** The internal group-catalog merge rejected strL keys with
+  "key variable ... is strL" (r(106)), misattributing the problem to the match
+  key. strL `by()` variables are now rejected upfront on both the master and
+  using side with a clear message (r(109)); recast to str# first.
+- QA: added a label-preservation suite (all output routes, using-as-frame,
+  `keepusing()`, label-name collision, extended-missing labels, dataset
+  label), compound-quoted `saving()` regression cells, and strL `by()` guard
+  tests.
 
 ### 1.3.0 (2026-07-01)
 

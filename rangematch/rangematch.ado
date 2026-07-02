@@ -1,4 +1,4 @@
-*! rangematch Version 1.3.0  2026/07/01
+*! rangematch Version 1.3.1  2026/07/02
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -379,6 +379,12 @@ program define _rangematch_load_using, sclass
                             `"by-variable {bf:`bv'} not found in using dataset"'
                         exit 111
                     }
+                    local _rm_u_bvtype : type `bv'
+                    if "`_rm_u_bvtype'" == "strL" {
+                        noisily display as error ///
+                            `"by() variable {bf:`bv'} is strL in the using data; strL variables cannot be used as match keys"'
+                        exit 109
+                    }
                 }
                 local m_isstr = 0
                 local u_isstr = 0
@@ -715,7 +721,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.3.0"
+    local _rm_required_mata_version "1.3.1"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -877,6 +883,22 @@ program define rangematch, rclass
         }
     }
 
+    * strL variables cannot serve as sort/merge keys, which the by() group
+    * catalog requires; without this screen the internal merge fails mid-run
+    * with a message that misattributes the problem to a "key variable".
+    if "`by'" != "" {
+        foreach _rm_bv of local by {
+            local _rm_bvtype : type `_rm_bv'
+            if "`_rm_bvtype'" == "strL" {
+                display as error ///
+                    `"by() variable {bf:`_rm_bv'} is strL; strL variables cannot be used as match keys"'
+                display as error ///
+                    `"recast it first, e.g. {bf:generate str2045 `_rm_bv'2 = `_rm_bv'}"'
+                exit 109
+            }
+        }
+    }
+
     if `uses_key_offsets' {
         capture confirm numeric variable `key'
         if _rc {
@@ -1034,7 +1056,16 @@ program define rangematch, rclass
             display as error "saving() requires a filename"
             exit 198
         }
-        local saving_file = subinstr(`"`saving_file'"', char(34), "", .)
+        * Unquote with gettoken: it strips one binding layer of either quote
+        * style. A blanket subinstr on char(34) would leave the bare `...'
+        * of a compound-quoted filename behind, which downstream macro
+        * expansion then swallows as an undefined macro reference -- silently
+        * discarding the filename and rerouting output in place of saving.
+        gettoken saving_file : saving_file
+        if `"`saving_file'"' == "" {
+            display as error "saving() requires a filename"
+            exit 198
+        }
         if `"`saving_opts'"' != "" {
             if substr(`"`saving_opts'"', 1, 1) == "," {
                 local saving_opts = substr(`"`saving_opts'"', 2, .)
@@ -1527,6 +1558,12 @@ program define rangematch, rclass
         quietly drop __rm_mi __rm_ui
     }
 
+    * Carry the master dataset label onto the output (as merge does).
+    local _rm_data_label : data label
+    if `"`_rm_data_label'"' != "" {
+        frame __rm_out: label data `"`_rm_data_label'"'
+    }
+
     * -------------------------------------------------------------------
     * Route output
     * -------------------------------------------------------------------
@@ -1562,6 +1599,9 @@ program define rangematch, rclass
 
             clear
             quietly set obs `outN'
+            if `"`_rm_data_label'"' != "" {
+                label data `"`_rm_data_label'"'
+            }
 
             * Create variables with correct types
             foreach v of local outvars {

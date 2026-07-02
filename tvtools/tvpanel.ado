@@ -1,4 +1,4 @@
-*! tvpanel Version 1.6.6  2026/07/02
+*! tvpanel Version 1.6.7  2026/07/02
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -80,7 +80,13 @@ program define tvpanel, rclass
     }
 
     * Validate master variables (in memory)
-    foreach v in `id' `entry' `exit' {
+    capture confirm numeric variable `id'
+    if _rc {
+        display as error "id() variable '`id'' not found or not numeric; tvpanel requires a numeric person identifier"
+        display as error "for a string id, encode it first, e.g. egen long `id'2 = group(`id')"
+        exit 109
+    }
+    foreach v in `entry' `exit' {
         capture confirm numeric variable `v'
         if _rc {
             display as error "Master variable '`v'' not found or not numeric (date format)"

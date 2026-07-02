@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  01jul2026}{...}
+{* *! version 1.3.1  02jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -131,6 +131,12 @@ plus unmatched master observations. With {opt frame()}, it writes the output to
 a named frame and leaves the current data unchanged.
 
 {pstd}
+Output preserves variable labels, value-label attachments and definitions, and
+the master dataset label for both master and carried using variables, as
+{helpb merge} does. If the master and using data define the same value-label
+name with different mappings, the master definition wins.
+
+{pstd}
 If you only need summary statistics over a range, {cmd:rangestat} is usually
 more efficient. {cmd:rangematch} is for workflows that need the joined rows
 themselves.
@@ -185,8 +191,9 @@ in this mode, and the point-only options {opt nearest()}, {opt ties()},
 {phang}
 {opt by(varlist)} restricts matches to observations that share the same values
 of {it:varlist} in both master and using datasets. By-variables must exist in
-both datasets and have compatible types. Matches are only considered within
-groups defined by {opt by()}.
+both datasets and have compatible types. {cmd:strL} by-variables are not
+allowed (Stata cannot sort or merge on {cmd:strL}); recast to {cmd:str#}
+first. Matches are only considered within groups defined by {opt by()}.
 
 {phang}
 {opt keepu:sing(varlist)} specifies which variables to carry from the using
@@ -760,7 +767,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 01jul2026{p_end}
+{pstd}Version 1.3.1, 02jul2026{p_end}
 
 
 {title:Also see}

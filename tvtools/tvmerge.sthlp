@@ -129,7 +129,8 @@ if you need to preserve it.
 
 {phang}
 {opt id(varname)} specifies the person identifier variable that must exist in all datasets with identical 
-names. This variable links records across datasets.
+names. This variable links records across datasets. It may be numeric or
+{cmd:str#}; {cmd:strL} identifiers are not allowed (recast to {cmd:str#} first).
 
 {phang}
 {opt start(namelist)} specifies the start date variables for all datasets,

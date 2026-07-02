@@ -109,7 +109,9 @@ data are never modified.
 {opt tostring} converts numeric variables in {varlist} to string before
 tabulating.  Use this when code variables were inadvertently imported as
 numeric rather than text.  The original numeric variables are restored
-afterward.
+afterward.  Variables must be fixed-width strings ({cmd:str#}); {cmd:strL}
+variables are rejected — convert them first with {helpb compress} or
+{helpb recast}.
 
 {phang}
 {opt save(filename)} writes a draft CSV codefile based on the chapter summary.

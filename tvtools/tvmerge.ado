@@ -1,4 +1,4 @@
-*! tvmerge Version 1.6.6  2026/07/02
+*! tvmerge Version 1.6.7  2026/07/02
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -184,6 +184,19 @@ program define tvmerge, rclass
             local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
             local error_code = 610
             continue, break
+        }
+        * strL ids cannot serve as merge keys; without this screen the internal
+        * ID-mismatch merge fails mid-run with a cryptic "key variable id is
+        * strL" r(106). (id existence per dataset is validated later.)
+        capture confirm variable `id'
+        if _rc == 0 {
+            local _tvm_idtype : type `id'
+            if "`_tvm_idtype'" == "strL" {
+                local validation_error = 1
+                local error_msg "id() variable `id' is strL in `ds'; strL variables cannot be used as merge keys -- recast to str# first (e.g. generate str20 `id'2 = `id')"
+                local error_code = 109
+                continue, break
+            }
         }
     }
     restore

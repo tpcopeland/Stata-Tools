@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.5  01jul2026}{...}
+{* *! version 2.0.6  02jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -469,6 +469,8 @@ data are unchanged.
 {phang}
 {opt tostring} converts numeric variables in {varlist} to string before scanning.
 This is helpful when code variables were imported as numeric rather than text.
+Scan variables must be fixed-width strings ({cmd:str#}); {cmd:strL} variables
+are rejected — convert them first with {helpb compress} or {helpb recast}.
 
 {phang}
 {opt countmode} stores integer counts rather than 0/1 indicators.  At the row
