@@ -1,4 +1,4 @@
-*! tvweight Version 1.6.5  2026/07/02
+*! tvweight Version 1.6.6  2026/07/02
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -124,13 +124,6 @@ program define tvweight, rclass
         if "`censorcovariates'" == "" local censorcovariates "`covariates' `tvcovariates'"
         if "`censgenerate'" == "" local censgenerate "ipcw"
         if "`combgenerate'" == "" local combgenerate "`generate'_ipcw"
-        * The censoring indicator must be coded 0/1
-        quietly summarize `ipcw'
-        if !inlist(r(min), 0, 1) | !inlist(r(max), 0, 1) {
-            display as error "ipcw() censoring indicator must be coded 0/1 " ///
-                "(1 = censored at end of this interval, 0 = remained under observation)"
-            exit 198
-        }
         * Resolve and check the censoring/combined weight variable names
         foreach _v in censgenerate combgenerate {
             capture confirm variable ``_v''
@@ -153,12 +146,13 @@ program define tvweight, rclass
         local trunc_lo: word 1 of `truncate'
         local trunc_hi: word 2 of `truncate'
 
-        if `trunc_lo' < 0 | `trunc_lo' > 100 {
-            display as error "truncate() lower bound must be between 0 and 100"
+        * _pctile requires percentiles strictly inside (0, 100)
+        if `trunc_lo' <= 0 | `trunc_lo' >= 100 {
+            display as error "truncate() lower bound must be strictly between 0 and 100"
             exit 198
         }
-        if `trunc_hi' < 0 | `trunc_hi' > 100 {
-            display as error "truncate() upper bound must be between 0 and 100"
+        if `trunc_hi' <= 0 | `trunc_hi' >= 100 {
+            display as error "truncate() upper bound must be strictly between 0 and 100"
             exit 198
         }
         if `trunc_lo' >= `trunc_hi' {
@@ -228,6 +222,17 @@ program define tvweight, rclass
     if `n_obs' == 0 {
         display as error "no valid observations"
         exit 2000
+    }
+
+    * The censoring indicator must be coded 0/1 within the estimation sample
+    * (checked after marksample so if/in and markout restrictions apply)
+    if `do_ipcw' {
+        quietly summarize `ipcw' if `touse'
+        if !inlist(r(min), 0, 1) | !inlist(r(max), 0, 1) {
+            display as error "ipcw() censoring indicator must be coded 0/1 " ///
+                "(1 = censored at end of this interval, 0 = remained under observation)"
+            exit 198
+        }
     }
 
     * Check exposure levels within estimation sample

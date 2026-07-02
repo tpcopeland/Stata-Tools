@@ -145,8 +145,8 @@ unstabilized weights, leading to more efficient estimates.
 {phang}
 {opt truncate(# #)} truncates weights at the specified lower and upper
 percentiles. For example, {cmd:truncate(1 99)} truncates at the 1st and 99th
-percentiles. Truncation reduces the influence of extreme weights but may
-introduce some bias.
+percentiles. Both percentiles must be strictly between 0 and 100. Truncation
+reduces the influence of extreme weights but may introduce some bias.
 
 {phang}
 {opt cumulative} additionally generates a within-person cumulative product of

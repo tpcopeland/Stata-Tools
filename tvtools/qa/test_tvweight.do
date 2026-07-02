@@ -1116,6 +1116,59 @@ else {
 }
 
 
+* TEST (regression, 1.6.6): truncate() percentiles of 0 or 100 are rejected
+* upfront with rc 198, not mid-run by _pctile after the model has already fit
+local ++test_count
+capture {
+    use `testdata', clear
+    capture tvweight treatment, covariates(age) truncate(0 99) nolog
+    assert _rc == 198
+    capture tvweight treatment, covariates(age) truncate(1 100) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: truncate() rejects boundary percentiles 0/100 upfront"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: truncate() boundary percentile guard (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' truncate_bounds"
+}
+
+* TEST (regression, 1.6.6): the ipcw() 0/1 coding check respects if/in —
+* non-0/1 codes outside the estimation sample must not trigger a rejection
+local ++test_count
+capture noisily {
+    clear
+    set obs 300
+    set seed 20260702
+    gen long id = ceil(_n/3)
+    bysort id: gen byte t = _n
+    gen double x = rnormal()
+    gen byte treat = runiform() < .5
+    gen byte cens = runiform() < .1
+    replace cens = 9 in 1
+    tvweight treat if _n > 1, covariates(x) id(id) time(t) ipcw(cens) ///
+        generate(w_ifreg) nolog
+    confirm variable w_ifreg
+    * and a genuine in-sample violation still errors with rc 198
+    * (drop the first call's outputs so the name check is not hit first)
+    drop w_ifreg ipcw w_ifreg_ipcw
+    capture tvweight treat, covariates(x) id(id) time(t) ipcw(cens) ///
+        generate(w_bad2) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: ipcw() 0/1 check restricted to the estimation sample"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ipcw() sample-restricted coding check (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' ipcw_sample_check"
+}
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS

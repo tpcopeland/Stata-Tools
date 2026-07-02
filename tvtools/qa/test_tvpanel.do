@@ -19,9 +19,12 @@ display as result "tvtools QA: tvpanel functional -- $S_DATE $S_TIME"
 
 * ---------------------------------------------------------------------------
 * Known-answer fixture
-*   Person 1: entry 01jan2020, exit entry+364 -> ceil(364/91)=4 periods (0..3)
+*   Person 1: entry 01jan2020, exit entry+364 -> 365 inclusive days,
+*     ceil(365/91)=5 periods (0..4; period 4 is the exit day [exit, exit],
+*     regression for the exact-multiple exit-day drop fixed in 1.6.6)
 *     one episode of class 5 spanning entry+50 .. entry+1000
-*   Person 2: entry 01jun2020, exit entry+200 -> ceil(200/91)=3 periods (0..2)
+*   Person 2: entry 01jun2020, exit entry+200 -> 201 inclusive days,
+*     ceil(201/91)=3 periods (0..2)
 *     no episodes -> all reference, cumulative 0
 * ---------------------------------------------------------------------------
 local e1 = mdy(1,1,2020)
@@ -51,7 +54,7 @@ capture noisily {
     tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(91) cumulative(years)
     assert_exact `=r(n_persons)' 2 "n_persons"
-    assert_exact `=r(n_observations)' 7 "n_observations (4+3)"
+    assert_exact `=r(n_observations)' 8 "n_observations (5+3)"
     * period is 0-based and contiguous per person
     quietly bysort id (period): assert period == _n - 1
     restore
@@ -69,10 +72,14 @@ capture noisily {
     gen double expect_start = entry_keep + 91 * period
     quietly count if start != expect_start
     assert_exact `=r(N)' 0 "start drift rows"
-    * person 1 first start == entry, last stop == exit
+    * person 1 first start == entry, last stop == exit (the exit day itself
+    * is covered even though exit-entry is an exact multiple of width)
     quietly sum start if id==1 & period==0, meanonly
     assert_exact `=r(mean)' `e1' "p1 start[0]==entry"
     quietly sum stop if id==1, meanonly
+    assert_exact `=r(max)' `=`e1'+364' "p1 last stop==exit"
+    quietly sum stop if id==2, meanonly
+    assert_exact `=r(max)' `=`e2'+200' "p2 last stop==exit"
     restore
 }
 if _rc test_fail "rc=`=_rc'"
@@ -86,7 +93,7 @@ capture noisily {
     * p1 period 0 starts at entry (< episode start entry+50) -> reference 0
     quietly sum tv_class if id==1 & period==0, meanonly
     assert_exact `=r(mean)' 0 "p1 period0 reference"
-    * p1 periods 1..3 covered by class 5
+    * p1 periods 1..4 covered by class 5
     quietly count if id==1 & period>=1 & tv_class!=5
     assert_exact `=r(N)' 0 "p1 covered=class5"
     * p2 has no episodes -> all reference
@@ -351,7 +358,7 @@ capture noisily {
     tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(91) cumulative(days) ///
         keepvars(__tp_row __tp_active __tp_days)
-    assert_exact `=r(n_observations)' 7 "n_observations with collision keepvars"
+    assert_exact `=r(n_observations)' 8 "n_observations with collision keepvars"
     confirm variable __tp_row
     confirm variable __tp_active
     confirm variable __tp_days

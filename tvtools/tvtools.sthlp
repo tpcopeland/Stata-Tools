@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.5  02jul2026}{...}
+{* *! version 1.6.6  02jul2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}

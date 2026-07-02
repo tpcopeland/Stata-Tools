@@ -26,17 +26,21 @@
 *!       p1: cum_1=min(120,99)-20+1 =80 ; cum_2=min(260,99)-90+1 =10
 *!       p2: cum_1=min(120,199)-20+1=101; cum_2=min(260,199)-90+1=110
 *!       (C never accrues: estart E1+210 is never < any pstart in {0,100,200})
-*!   Person 2: entry E2, exit E2+100 -> 1 period (0); start E2, stop E2+99
+*!   Person 2: entry E2, exit E2+100 -> 101 inclusive days -> 2 periods (0,1);
+*!       period 1 is the 1-day exit interval [E2+100,E2+100] (1.6.6 fix: an
+*!       exit-entry that is an exact multiple of width still covers the exit day)
 *!       episode class 1 [E2,E2+50] starts AT entry
-*!     active@start p0 -> 1 (estart=E2 <= pstart=E2)
+*!     active@start p0 -> 1 (estart=E2 <= pstart=E2); p1 -> 0 (episode over)
 *!     cumulative   p0 -> 0 (estart=E2 is NOT < pstart=E2: strict bound)
-*!   Person 3: entry E3, exit E3+100 -> 1 period (0)
+*!                  p1 -> cum_1 = min(E2+50,E2+99)-E2+1 = 51
+*!   Person 3: entry E3, exit E3+100 -> 2 periods (0,1), same exit-day shape
 *!       episodes class 3 [E3,E3+80] and class 7 [E3,E3+80] (identical span)
-*!     active@start p0 -> 7 (tie on estart -> highest eclass wins)
+*!     active@start p0 -> 7 (tie on estart -> highest eclass wins); p1 -> 0
 *!     cumulative   p0 -> 0 for every class (estart=E3 not < pstart=E3)
-*!   Reshape: only classes 1 and 2 ever accrue positive prior days -> the panel
-*!   carries cum_1 and cum_2 only; persons 2 and 3 are filled 0.
-*!   Totals: n_persons=3, n_observations=3+1+1=5.
+*!                  p1 -> cum_3 = cum_7 = min(E3+80,E3+99)-E3+1 = 81
+*!   Reshape: classes 1, 2, 3, and 7 all accrue positive prior days somewhere
+*!   -> the panel carries cum_1, cum_2, cum_3, cum_7 (0-filled elsewhere).
+*!   Totals: n_persons=3, n_observations=3+2+2=7.
 clear all
 set more off
 set varabbrev off
@@ -119,9 +123,17 @@ capture {
     tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(100) cumulative(days)
     assert r(n_persons) == 3
-    assert r(n_observations) == 5
+    assert r(n_observations) == 7
     sort id period
     by id: assert period == _n - 1
+    * persons 2 and 3: exit-entry is an exact multiple of width, so the last
+    * period is the 1-day exit interval (regression for the 1.6.6 fix)
+    quietly sum stop if id==2 & period==1, meanonly
+    assert r(mean) == `E2'+100
+    quietly sum start if id==2 & period==1, meanonly
+    assert r(mean) == `E2'+100
+    quietly sum stop if id==3 & period==1, meanonly
+    assert r(mean) == `E3'+100
     * exact entry anchoring: start == entry + 100*period for every row
     gen double _e = cond(id==1, `E1', cond(id==2, `E2', `E3'))
     quietly count if start != _e + 100*period
@@ -165,9 +177,15 @@ capture {
     * p2 period0: episode starts AT entry -> active class 1
     quietly sum tv_class if id==2 & period==0, meanonly
     assert r(mean) == 1
+    * p2 period1 (exit day E2+100): episode ended at E2+50 -> reference 0
+    quietly sum tv_class if id==2 & period==1, meanonly
+    assert r(mean) == 0
     * p3 period0: two episodes share start E3 -> highest eclass wins -> 7
     quietly sum tv_class if id==3 & period==0, meanonly
     assert r(mean) == 7
+    * p3 period1 (exit day E3+100): both episodes ended at E3+80 -> reference 0
+    quietly sum tv_class if id==3 & period==1, meanonly
+    assert r(mean) == 0
 }
 if _rc==0 {
     display as result "  PASS [KA2.active]: latest-start + eclass tie-break + ref fill"
@@ -188,11 +206,12 @@ capture {
     use `master', clear
     tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) ///
         reference(0) width(100) cumulative(days)
-    * reshape kept only the accruing classes: cum_1 and cum_2 exist, cum_3/cum_7 do not
+    * reshape kept exactly the accruing classes: with the exit-day periods,
+    * classes 3 and 7 accrue at person 3 period 1, so all four exist
     confirm variable cum_1
     confirm variable cum_2
-    capture confirm variable cum_3
-    assert _rc != 0
+    confirm variable cum_3
+    confirm variable cum_7
     sort id period
     * person 1 exact accrued days
     quietly sum cum_1 if id==1 & period==0, meanonly
@@ -210,10 +229,24 @@ capture {
     * person 2: episode starts AT interval start -> active but cumulative 0 (strict <)
     quietly sum cum_1 if id==2 & period==0, meanonly
     assert r(mean) == 0
-    * person 3: never accrues prior days -> all cumulative 0
+    * person 2 exit-day period: 51 prior class-1 days (E2..E2+50)
+    quietly sum cum_1 if id==2 & period==1, meanonly
+    assert r(mean) == 51
+    * person 3: nothing accrues before period 1; both classes accrue 81 days there
     quietly sum cum_1 if id==3, meanonly
     assert r(mean) == 0
     quietly sum cum_2 if id==3, meanonly
+    assert r(mean) == 0
+    quietly sum cum_3 if id==3 & period==0, meanonly
+    assert r(mean) == 0
+    quietly sum cum_3 if id==3 & period==1, meanonly
+    assert r(mean) == 81
+    quietly sum cum_7 if id==3 & period==1, meanonly
+    assert r(mean) == 81
+    * person 1 is 0-filled on the classes it never held
+    quietly sum cum_3 if id==1, meanonly
+    assert r(mean) == 0
+    quietly sum cum_7 if id==1, meanonly
     assert r(mean) == 0
 }
 if _rc==0 {

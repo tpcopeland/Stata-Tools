@@ -1,4 +1,4 @@
-*! tvpanel Version 1.6.5  2026/07/02
+*! tvpanel Version 1.6.6  2026/07/02
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -187,7 +187,10 @@ program define tvpanel, rclass
         }
 
         tempvar nper tp_row tp_active tp_days
-        gen double `nper' = ceil((`exit' - `entry') / `width')
+        * Inclusive [entry, exit] follow-up: emit interval k whenever
+        * entry + width*k <= exit. Without the +1, an exit-entry that is an
+        * exact multiple of width left the exit day itself uncovered.
+        gen double `nper' = ceil((`exit' - `entry' + 1) / `width')
         replace `nper' = 1 if `nper' < 1
         expand `nper'
         bysort `id': gen long `period' = _n - 1

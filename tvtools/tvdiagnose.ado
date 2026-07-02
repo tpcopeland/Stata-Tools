@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.6.5  2026/07/02
+*! tvdiagnose Version 1.6.6  2026/07/02
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -133,14 +133,22 @@ program define tvdiagnose, rclass
 
         quietly by `id': egen double `_nper' = count(`id')
 
-        * Calculate number of gaps
-        quietly by `id' (`start'): gen double `_gind' = (`start' > `stop'[_n-1] + 1) if _n > 1 & `id' == `id'[_n-1]
+        * Calculate number of gaps using a running max of stop so nested
+        * intervals are not miscounted (same logic as the gap-analysis report)
+        tempvar _rmax
+        quietly by `id' (`start'): gen double `_rmax' = `stop' if _n == 1
+        quietly by `id' (`start'): replace `_rmax' = max(`_rmax'[_n-1], `stop') if _n > 1
+        quietly by `id' (`start'): gen double `_gind' = (`start' > `_rmax'[_n-1] + 1) if _n > 1
         quietly by `id': egen double `_ngap' = total(`_gind')
 
         * Keep one row per person for display
         quietly by `id': keep if _n == 1
 
-        * Rename tempvars for display
+        * Rename tempvars for display; drop same-named user variables first
+        * (this is a preserved working copy, the originals are untouched)
+        foreach _v in pct_covered n_periods n_gaps {
+            capture drop `_v'
+        }
         rename `_pctcov' pct_covered
         rename `_nper' n_periods
         rename `_ngap' n_gaps
@@ -208,6 +216,11 @@ program define tvdiagnose, rclass
 
         if `n_gaps' > 0 {
             format `_gs' `_ge' %tdCCYY/NN/DD
+            * Drop same-named user variables before the display renames
+            * (preserved working copy, originals untouched)
+            foreach _v in gap_start gap_end gap_days {
+                capture drop `_v'
+            }
             rename `_gs' gap_start
             rename `_ge' gap_end
             rename `_gd' gap_days

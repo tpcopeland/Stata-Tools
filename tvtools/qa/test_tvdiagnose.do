@@ -417,6 +417,64 @@ else {
     local failed_tests "`failed_tests' 4.SW3"
 }
 
+* TEST 4.R1 (regression, 1.6.6): nested intervals — coverage gap column uses a
+* running max of stop, so coverage and gap analysis agree (no phantom gap)
+local ++test_count
+capture noisily {
+    clear
+    set obs 3
+    gen long id = 1
+    gen double start = cond(_n==1, mdy(1,1,2020), cond(_n==2, mdy(1,10,2020), mdy(1,30,2020)))
+    gen double stop  = cond(_n==1, mdy(4,9,2020), cond(_n==2, mdy(1,20,2020), mdy(2,8,2020)))
+    gen double entry = mdy(1,1,2020)
+    gen double exit_d = mdy(4,9,2020)
+    format start stop entry exit_d %td
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_d) coverage gaps verbose
+    assert r(n_gaps) == 0
+    assert r(n_with_gaps) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: nested intervals produce no phantom gaps in coverage"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: nested-interval coverage/gap consistency (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.R1"
+}
+
+* TEST 4.R2 (regression, 1.6.6): user variables named like the display columns
+* (n_gaps, pct_covered, gap_start, ...) must not crash the reports (was rc 110)
+local ++test_count
+capture noisily {
+    clear
+    set obs 2
+    gen long id = _n
+    gen double start = mdy(1,1,2020) + 40*(_n-1)
+    gen double stop  = start + 30
+    gen double entry = mdy(1,1,2020)
+    gen double exit_d = mdy(6,1,2020)
+    gen double n_gaps = 99
+    gen double pct_covered = 99
+    gen double n_periods = 99
+    gen double gap_start = 99
+    gen double gap_end = 99
+    gen double gap_days = 99
+    format start stop entry exit_d %td
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_d) coverage gaps verbose
+    * original data (and the clashing variables) untouched after the run
+    assert n_gaps == 99 & pct_covered == 99 & gap_start == 99
+}
+if _rc == 0 {
+    display as result "  PASS: display-name collisions no longer crash coverage/gaps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: display-name collision regression (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.R2"
+}
+
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
 local pass_count = `pass_count' + $TVQA_PASS
