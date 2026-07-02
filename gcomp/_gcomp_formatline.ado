@@ -1,4 +1,4 @@
-*! _gcomp_formatline Version 1.4.0  2026/06/28
+*! _gcomp_formatline Version 1.4.1  2026/07/02
 *! Line-formatting helper for gcomp output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

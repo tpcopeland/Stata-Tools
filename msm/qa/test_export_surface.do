@@ -709,6 +709,39 @@ else {
     local failed_tests "`failed_tests' X14"
 }
 
+* --- X15: quoted titles survive intact to the workbook title cell ---
+local ++test_count
+local table_title_xlsx "`work_dir'/table_surface_title.xlsx"
+local report_title_xlsx "`work_dir'/report_surface_title.xlsx"
+capture erase "`table_title_xlsx'"
+capture erase "`report_title_xlsx'"
+capture noisily {
+    _setup_export_surface
+    msm_table, xlsx("`table_title_xlsx'") coefficients replace ///
+        title(`"Effect of "high" dose"')
+    msm_report, format(excel) export("`report_title_xlsx'") replace ///
+        title(`"Report for "special" cohort"')
+}
+if _rc == 0 {
+    tempfile x15_status
+    capture noisily shell python3 "`checker'" "`table_title_xlsx'" --sheet Coefficients --cell A1 'Effect of "high" dose' --result-file "`x15_status'"
+    quietly _read_check_status "`x15_status'"
+    if "`r(status)'" == "PASS" {
+        tempfile x15b_status
+        capture noisily shell python3 "`checker'" "`report_title_xlsx'" --sheet Summary --cell A1 'Report for "special" cohort' --result-file "`x15b_status'"
+        quietly _read_check_status "`x15b_status'"
+    }
+}
+if _rc == 0 & "`r(status)'" == "PASS" {
+    display as result "  PASS X15: quoted titles reach the title cell intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X15: quoted title handling (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X15"
+}
+
 display as text ""
 display as text "========================================"
 display as text "EXPORT SURFACE QA SUMMARY"
@@ -730,6 +763,8 @@ capture erase "`table_bal_wt_xlsx'"
 capture erase "`table_sens_xlsx'"
 capture erase "`table_nclass_xlsx'"
 capture erase "`table_preserve_xlsx'"
+capture erase "`table_title_xlsx'"
+capture erase "`report_title_xlsx'"
 capture erase "`protocol_csv'"
 capture erase "`protocol_xlsx'"
 capture erase "`protocol_tex'"

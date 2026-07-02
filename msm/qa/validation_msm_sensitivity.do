@@ -200,6 +200,66 @@ else {
     local failed_tests "`failed_tests' S6"
 }
 
+* --- S7: protective effect corrected TOWARD the null (multiply by B) ---
+* VanderWeele & Ding (2017): for RR_obs < 1 the confounding-adjusted bound
+* is RR_obs * B, moving the estimate toward 1 (not RR_obs / B, which would
+* strengthen a protective effect).
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260701
+    local N = 600
+    local T = 4
+    set obs `=`N' * `T''
+    gen id = ceil(_n / `T')
+    bysort id: gen period = _n - 1
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
+    bysort id: gen treatment = (runiform() < invlogit(-0.20 + 0.30 * bl))
+    bysort id: gen outcome = ///
+        (runiform() < invlogit(-4.20 - 0.80 * treatment + 0.30 * bl))
+
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) baseline_covariates(bl)
+    msm_weight, treat_d_cov(bl) nolog
+    msm_fit, model(logistic) period_spec(linear) nolog
+
+    msm_sensitivity, confounding_strength(2 2)
+    assert r(effect) < 1
+    assert abs(r(bias_factor) - (4/3)) < 1e-6
+    assert abs(r(corrected_effect) - (r(effect) * r(bias_factor))) < 1e-6
+    assert r(corrected_effect) > r(effect)
+}
+if _rc == 0 {
+    display as result "  PASS S7: protective effect corrected toward null"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL S7: protective effect corrected toward null (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' S7"
+}
+
+* --- S8: confounding_strength() values below 1 are rejected ---
+local ++test_count
+capture noisily {
+    _setup_example_logistic
+    capture msm_sensitivity, confounding_strength(0.5 2)
+    assert _rc == 198
+    capture msm_sensitivity, confounding_strength(2 0.8)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS S8: sub-1 confounding_strength rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL S8: sub-1 confounding_strength rejected (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' S8"
+}
+
 display as text ""
 display as text "=== Sensitivity Validation Summary ==="
 display as text "Tests run: `test_count'"

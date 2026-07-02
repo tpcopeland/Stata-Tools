@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.2.1  2026/06/25
+*! msm_sensitivity Version 1.2.2  2026/07/02
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -337,6 +337,14 @@ program define msm_sensitivity, rclass
         local rr_ud: word 1 of `confounding_strength'
         local rr_uy: word 2 of `confounding_strength'
 
+        * Both associations must be on the RR >= 1 scale; the bias-factor
+        * formula is undefined below that (denominator can reach 0).
+        if `rr_ud' < 1 | `rr_uy' < 1 {
+            display as error "confounding_strength() values must each be >= 1"
+            display as error "Express both confounder associations as risk ratios >= 1 (invert protective associations)."
+            exit 198
+        }
+
         display as text ""
         display as text "{bf:Confounding Strength Bounds}"
         display as text ""
@@ -359,7 +367,14 @@ program define msm_sensitivity, rclass
         }
 
         if inlist("`model'", "logistic", "cox") {
-            local corrected = `rr_scale_point' / `bias_factor'
+            * VanderWeele & Ding (2017): the bias factor moves the estimate
+            * toward the null. RR > 1 shifts down by /B; RR < 1 shifts up by *B.
+            if `rr_scale_point' < 1 {
+                local corrected = `rr_scale_point' * `bias_factor'
+            }
+            else {
+                local corrected = `rr_scale_point' / `bias_factor'
+            }
             if "`model'" == "logistic" {
                 display as text "  Observed OR:          " as result %9.4f `effect'
                 display as text "  Corrected RR-scale approximation: " ///

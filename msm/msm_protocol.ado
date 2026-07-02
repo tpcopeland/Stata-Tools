@@ -1,4 +1,4 @@
-*! msm_protocol Version 1.2.1  2026/06/25
+*! msm_protocol Version 1.2.2  2026/07/02
 *! MSM study protocol specification
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

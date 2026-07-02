@@ -1,4 +1,4 @@
-*! _msm_natural_spline Version 1.2.1  2026/06/25
+*! _msm_natural_spline Version 1.2.2  2026/07/02
 *! Generate natural spline basis variables
 *! Author: Timothy P Copeland
 
@@ -71,27 +71,20 @@ program define _msm_natural_spline
             local t_last = `knot`df''
             local t_pen  = `knot`n_internal''
 
-            if `n_internal' == 1 {
-                local jj = 2
+            * Natural cubic spline: df-1 nonlinear bases d_j - d_pen using
+            * knots 0..n_internal-1 (boundary min through second-to-last
+            * knot). The d_pen correction cancels the quadratic/cubic terms
+            * beyond the last knot, keeping the basis linear outside the
+            * boundary knots (this also covers the single-internal-knot case).
+            forvalues j = 0/`=`n_internal'-1' {
+                local jj = `j' + 2
                 gen double `prefix'`jj' = ///
-                    (max(0, `x' - `knot1')^3 - ///
-                     max(0, `x' - `knot`df'')^3) / ///
-                    (`knot`df'' - `knot1')
-                local basisvars "`basisvars' `prefix'`jj'"
-            }
-            else {
-                * Harrell RCS: df-1 nonlinear bases using knots 0..n_internal-1
-                * (boundary min through second-to-last internal knot)
-                forvalues j = 0/`=`n_internal'-1' {
-                    local jj = `j' + 2
-                    gen double `prefix'`jj' = ///
-                        (max(0, `x' - `knot`j'')^3 - max(0, `x' - `t_last')^3) / ///
-                        (`t_last' - `knot`j'') - ///
-                        (max(0, `x' - `t_pen')^3 - max(0, `x' - `t_last')^3) / ///
-                        (`t_last' - `t_pen')
+                    (max(0, `x' - `knot`j'')^3 - max(0, `x' - `t_last')^3) / ///
+                    (`t_last' - `knot`j'') - ///
+                    (max(0, `x' - `t_pen')^3 - max(0, `x' - `t_last')^3) / ///
+                    (`t_last' - `t_pen')
 
-                    local basisvars "`basisvars' `prefix'`jj'"
-                }
+                local basisvars "`basisvars' `prefix'`jj'"
             }
         }
 

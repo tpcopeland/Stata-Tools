@@ -1,4 +1,4 @@
-*! _msm_tbl_coef Version 1.2.1  2026/06/25
+*! _msm_tbl_coef Version 1.2.2  2026/07/02
 *! Author: Timothy P Copeland
 program define _msm_tbl_coef, nclass
     version 16.0
@@ -63,8 +63,8 @@ program define _msm_tbl_coef, nclass
         gen str20 D = ""
 
         * Row 1: title
-        if "`title'" != "" {
-            replace A = "`title'" in 1
+        if `"`title'"' != "" {
+            replace A = `"`title'"' in 1
         }
         else {
             replace A = "Outcome Model (`model')" in 1

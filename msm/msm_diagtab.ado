@@ -1,4 +1,4 @@
-*! msm_diagtab Version 1.2.1  2026/06/25
+*! msm_diagtab Version 1.2.2  2026/07/02
 *! Export an accumulated cross-contrast MSM weight-diagnostics frame to Excel
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -135,7 +135,7 @@ program define msm_diagtab, nclass
         gen str20 J = ""
 
         * Row 1: title
-        replace A = "`title'" in 1
+        replace A = `"`title'"' in 1
 
         * Row 2: header
         replace A = "Contrast"     in 2

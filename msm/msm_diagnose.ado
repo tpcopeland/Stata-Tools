@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.2.1  2026/06/25
+*! msm_diagnose Version 1.2.2  2026/07/02
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

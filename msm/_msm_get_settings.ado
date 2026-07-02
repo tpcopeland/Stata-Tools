@@ -1,4 +1,4 @@
-*! _msm_get_settings Version 1.2.1  2026/06/25
+*! _msm_get_settings Version 1.2.2  2026/07/02
 *! Retrieve stored metadata from characteristics
 *! Author: Timothy P Copeland
 

@@ -1,4 +1,4 @@
-*! msm_table Version 1.2.1  2026/06/25
+*! msm_table Version 1.2.2  2026/07/02
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -219,7 +219,7 @@ program define msm_table, nclass
     * Export tables
     if `do_coef' {
         _msm_tbl_coef, xlsx("`xlsx'") decimals(`decimals') ///
-            sep("`sep'") title("`title'") `eform' ///
+            sep("`sep'") title(`"`title'"') `eform' ///
             font("`font'") fontsize(`fontsize') ///
             borderstyle("`borderstyle'") nformat("`nformat'") ///
             `zebra' boldp(`boldp') highlight(`highlight') ///
@@ -227,28 +227,28 @@ program define msm_table, nclass
     }
     if `do_pred' {
         _msm_tbl_pred, xlsx("`xlsx'") decimals(`decimals') ///
-            sep("`sep'") title("`title'") ///
+            sep("`sep'") title(`"`title'"') ///
             font("`font'") fontsize(`fontsize') ///
             borderstyle("`borderstyle'") nformat("`nformat'") ///
             `zebra' footnote(`"`footnote'"')
     }
     if `do_bal' {
         _msm_tbl_bal, xlsx("`xlsx'") decimals(`decimals') ///
-            title("`title'") ///
+            title(`"`title'"') ///
             font("`font'") fontsize(`fontsize') ///
             borderstyle("`borderstyle'") nformat("`nformat'") ///
             `zebra' footnote(`"`footnote'"')
     }
     if `do_wt' {
         _msm_tbl_wt, xlsx("`xlsx'") decimals(`decimals') ///
-            title("`title'") ///
+            title(`"`title'"') ///
             font("`font'") fontsize(`fontsize') ///
             borderstyle("`borderstyle'") nformat("`nformat'") ///
             `zebra' footnote(`"`footnote'"')
     }
     if `do_sens' {
         _msm_tbl_sens, xlsx("`xlsx'") decimals(`decimals') ///
-            title("`title'") ///
+            title(`"`title'"') ///
             font("`font'") fontsize(`fontsize') ///
             borderstyle("`borderstyle'") nformat("`nformat'") ///
             `zebra' footnote(`"`footnote'"')

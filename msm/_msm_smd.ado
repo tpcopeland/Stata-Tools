@@ -1,4 +1,4 @@
-*! _msm_smd Version 1.2.1  2026/06/25
+*! _msm_smd Version 1.2.2  2026/07/02
 *! Compute standardized mean difference between treatment groups
 *! Author: Timothy P Copeland
 
@@ -54,11 +54,19 @@ program define _msm_smd
         * Pooled SD (average of variances, then square root)
         local pooled_sd = sqrt((`var1' + `var0') / 2)
 
-        if `pooled_sd' > 0 {
+        if missing(`mean1') | missing(`mean0') | missing(`pooled_sd') {
+            local smd = .
+        }
+        else if `pooled_sd' > 0 {
             local smd = (`mean1' - `mean0') / `pooled_sd'
         }
-        else {
+        else if `mean1' == `mean0' {
             local smd = 0
+        }
+        else {
+            * Zero variance in both groups but different means: the SMD is
+            * undefined (infinite); report missing rather than a false 0.
+            local smd = .
         }
 
         c_local _msm_smd_value "`smd'"

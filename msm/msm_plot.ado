@@ -1,4 +1,4 @@
-*! msm_plot Version 1.2.1  2026/06/25
+*! msm_plot Version 1.2.2  2026/07/02
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -75,7 +75,7 @@ program define msm_plot, rclass
     if "`type'" == "weights" {
         _msm_check_weighted
 
-        if "`title'" == "" local title "IP Weight Distribution by Treatment Group"
+        if `"`title'"' == "" local title "IP Weight Distribution by Treatment Group"
 
         twoway (kdensity _msm_weight if `treatment' == 0, ///
                 lcolor(navy) lwidth(medthick)) ///
@@ -84,7 +84,7 @@ program define msm_plot, rclass
             legend(order(1 "Untreated" 2 "Treated") ///
                 pos(6)) ///
             xtitle("IP Weight") ytitle("Density") ///
-            title("`title'") `save_opts'
+            title(`"`title'"') `save_opts'
     }
 
     * =========================================================================
@@ -103,7 +103,7 @@ program define msm_plot, rclass
             exit 198
         }
 
-        if "`title'" == "" local title "Covariate Balance (Love Plot)"
+        if `"`title'"' == "" local title "Covariate Balance (Love Plot)"
 
         local n_covs : word count `covariates'
 
@@ -156,7 +156,7 @@ program define msm_plot, rclass
             legend(order(1 "Unweighted" 2 "Weighted") pos(6)) ///
             xtitle("Absolute Standardized Mean Difference") ///
             ytitle("") ///
-            title("`title'") `save_opts'
+            title(`"`title'"') `save_opts'
 
         restore
         local _restore_needed = 0
@@ -174,7 +174,7 @@ program define msm_plot, rclass
             exit 198
         }
 
-        if "`title'" == "" local title "Counterfactual Cumulative Incidence"
+        if `"`title'"' == "" local title "Counterfactual Cumulative Incidence"
 
         local seed_opt ""
         if `seed' >= 0 local seed_opt "seed(`seed')"
@@ -244,7 +244,7 @@ program define msm_plot, rclass
             legend(order(3 "Never treated" 4 "Always treated") ///
                 pos(6)) ///
             xtitle("Period") ytitle("Cumulative Incidence") ///
-            title("`title'") `save_opts'
+            title(`"`title'"') `save_opts'
 
         restore
         local _restore_needed = 0
@@ -255,7 +255,7 @@ program define msm_plot, rclass
     * =========================================================================
 
     else if "`type'" == "trajectory" {
-        if "`title'" == "" local title "Treatment Trajectories"
+        if `"`title'"' == "" local title "Treatment Trajectories"
 
         if `seed' >= 0 {
             set seed `seed'
@@ -279,7 +279,7 @@ program define msm_plot, rclass
 
         twoway (line `treatment' `period', connect(ascending) ///
                 by(`id', compact note("") cols(10) ///
-                title("`title'") ///
+                title(`"`title'"') ///
                 ) ///
                 lcolor(navy%60) lwidth(thin)), ///
             xtitle("Period") ytitle("Treatment") ///
@@ -295,7 +295,7 @@ program define msm_plot, rclass
     * =========================================================================
 
     else if "`type'" == "positivity" {
-        if "`title'" == "" local title "Treatment Probability by Period"
+        if `"`title'"' == "" local title "Treatment Probability by Period"
 
         preserve
         local _restore_needed = 1
@@ -308,7 +308,7 @@ program define msm_plot, rclass
             yline(0.5, lcolor(gs10) lpattern(dash)) ///
             ylabel(0(0.1)1) ///
             xtitle("Period") ytitle("Treatment Probability") ///
-            title("`title'") `save_opts'
+            title(`"`title'"') `save_opts'
 
         restore
         local _restore_needed = 0

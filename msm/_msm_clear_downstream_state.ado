@@ -1,4 +1,4 @@
-*! _msm_clear_downstream_state Version 1.2.1  2026/06/25
+*! _msm_clear_downstream_state Version 1.2.2  2026/07/02
 *! Clear downstream MSM pipeline artifacts after re-prepare
 *! Author: Timothy P Copeland
 
@@ -31,6 +31,8 @@ program define _msm_clear_downstream_state
             _msm_per_ns_knots ///
             _msm_per_ns_df ///
             _msm_cluster ///
+            _msm_vce ///
+            _msm_strata ///
             _msm_time_vars ///
             _msm_fit_level ///
             _msm_weight_var ///

@@ -2881,6 +2881,69 @@ else {
     local ++fail_count
 }
 
+* 117. Regression (v1.4.1): survival + death() + all completes with labeled CI table
+* Before the fix, the all+death cumulative-incidence display referenced an
+* undefined macro (`k') -> "==2 invalid name", mislabeled rows, and derailed
+* into the mediation display branch ending in r(102).
+local ++test_count
+capture noisily {
+    clear
+    set seed 33335
+    set obs 500
+    gen long id = ceil(_n / 5)
+    bysort id: gen int time = _n
+    gen double L = rnormal()
+    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
+    gen double D = rbinomial(1, invlogit(-3 + 0.1*L))
+    gen double Y = rbinomial(1, invlogit(-2 + 0.3*L + 0.2*A))
+    gcomp Y D L A id time, outcome(Y) ///
+        idvar(id) tvar(time) ///
+        varyingcovariates(L) ///
+        commands(D: logit, Y: logit, L: regress, A: logit) ///
+        equations(D: L A, Y: L A, L: A, A: L) ///
+        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        death(D) all sim(50) samples(4) seed(1)
+    assert "`e(analysis_type)'" == "time_varying"
+    confirm matrix e(b)
+    confirm matrix e(ci_bca)
+}
+if _rc == 0 {
+    display as result "  PASS: Survival death() + all completes (v1.4.1 regression)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Survival death() + all (error `=_rc')"
+    local ++fail_count
+}
+
+* 118. Regression (v1.4.1): mediation msm() with options completes
+* Before the fix, the mediation MSM fallback had a stray & before the options
+* comma -> r(198) "1& invalid name" whenever msm() contained options.
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 800
+    gen double C = rnormal()
+    gen byte X = rbinomial(1, invlogit(0.3*C))
+    gen byte M = rbinomial(1, invlogit(-0.5 + 0.8*X + 0.3*C))
+    gen byte Y = rbinomial(1, invlogit(-1 + 0.5*X + 0.7*M + 0.3*C))
+    gcomp Y X M C, outcome(Y) mediation exposure(X) mediator(M) base_confs(C) ///
+        commands(M: logit, Y: logit) equations(M: X C, Y: X M C) ///
+        baseline(X: 0) msm(logit Y_ X_ M_, or) sim(400) samples(4) seed(7)
+    assert "`e(analysis_type)'" == "mediation"
+    confirm matrix e(b)
+    assert e(tce) < .
+}
+if _rc == 0 {
+    display as result "  PASS: Mediation msm() with options completes (v1.4.1 regression)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Mediation msm() with options (error `=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 * Cleanup
 * ============================================================

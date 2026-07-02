@@ -698,7 +698,9 @@ capture noisily {
     assert abs(r(evalue_point) - `expected_evalue') < 1e-10
     assert abs(r(evalue_ci) - `expected_evalue') < 1e-10
     assert abs(r(bias_factor) - 1.5) < 1e-10
-    assert abs(r(corrected_effect) - (1 / 3)) < 1e-10
+    * Protective OR corrected toward the null: 0.5 * 1.5 = 0.75
+    * (VanderWeele & Ding 2017; pre-1.2.2 wrongly divided to 1/3)
+    assert abs(r(corrected_effect) - 0.75) < 1e-10
     assert "`r(effect_label)'" == "OR"
     assert "`r(model)'" == "logistic"
     assert "`r(approximation)'" == "rare-outcome auto"

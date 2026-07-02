@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  28jun2026}{...}
+{* *! version 1.4.1  02jul2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}

@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.4.0  2026/06/28
+*! _gcomp_bootstrap_impl Version 1.4.1  2026/07/02
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
@@ -2246,7 +2246,7 @@ if "`mediation'"=="" {
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"
-    		if e(cmd)=="cox" {
+    		if inlist("`e(cmd)'", "stcox", "cox") {
     			noi di
     			noi di as err "   Note: MSM results will be reported on the log hazard scale, irrespective of whether or not the " as result "nohr" as err " option was" 
     			noi di as err "   specified" 
@@ -2518,20 +2518,10 @@ else {
 			noi di as text "                                              {c LT}{hline 1}PROGRESS{hline 1}{c RT}"
 			noi di as text "   Estimating parameters of MSM:              {c LT}" _cont
 		}
-		if "`control'"=="" {
-			qui capture `msm' if `msm_switch_on'==1
-			if _rc>0 {
-				tokenize "`msm'", parse(",")
-				qui `1' if `msm_switch_on'==1 & `2' `3'
-			}
-		}
-		else {
-			qui capture `msm' if `msm_switch_on'==1
-			
-			if _rc>0 {
-				tokenize "`msm'", parse(",")
-				qui `1' if `msm_switch_on'==1 & `2' `3'
-			}
+		qui capture `msm' if `msm_switch_on'==1
+		if _rc>0 {
+			tokenize "`msm'", parse(",")
+			qui `1' if `msm_switch_on'==1 `2' `3'
 		}
 		tempname msm_params
 		mat `msm_params'=e(b)
@@ -2556,7 +2546,7 @@ else {
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"
-    		if e(cmd)=="cox" {
+    		if inlist("`e(cmd)'", "stcox", "cox") {
     			noi di
     			noi di as err "   Note: MSM results will be reported on the log hazard scale, irrespective of whether or not the " as result "nohr" as err " option was" 
     			noi di as err "   specified" 

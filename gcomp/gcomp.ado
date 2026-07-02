@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.0  2026/06/28
+*! gcomp Version 1.4.1  2026/07/02
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -143,8 +143,8 @@ if "`mediation'"=="" {
 			noi di as err "Missing values of " as text "`var'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `var'==.
-		qui replace `missing'=1 if `var'==.
+		qui count if `var'>=.
+		qui replace `missing'=1 if `var'>=.
 		if r(N)!=0 {
 			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 		}
@@ -156,15 +156,15 @@ if "`mediation'"=="" {
 	foreach var in `intvars' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
 			if "`death'"=="" {
-				qui count if `var'==. & `tvar'!=`maxvlab'
-				qui replace `missing'=1 if `var'==. & `tvar'!=`maxvlab'
+				qui count if `var'>=. & `tvar'!=`maxvlab'
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`maxvlab'
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
 			}
 			else {
-				qui count if `var'==. & `tvar'!=`maxvlab' & `death'!=1
-				qui replace `missing'=1 if `var'==. & `tvar'!=`maxvlab' & `death'!=1
+				qui count if `var'>=. & `tvar'!=`maxvlab' & `death'!=1
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`maxvlab' & `death'!=1
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
@@ -174,15 +174,15 @@ if "`mediation'"=="" {
 	foreach var in `fixedcovariates' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
 			if "`death'"=="" {
-				qui count if `var'==. & `tvar'!=`maxvlab'
-				qui replace `missing'=1 if `var'==. & `tvar'!=`maxvlab'
+				qui count if `var'>=. & `tvar'!=`maxvlab'
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`maxvlab'
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
 			}
 			else {
-				qui count if `var'==. & `tvar'!=`maxvlab' & `death'!=1
-				qui replace `missing'=1 if `var'==. & `tvar'!=`maxvlab' & `death'!=1
+				qui count if `var'>=. & `tvar'!=`maxvlab' & `death'!=1
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`maxvlab' & `death'!=1
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
@@ -206,8 +206,8 @@ if "`mediation'"=="" {
 			noi di as err "Missing values of " as text "`death'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `death'==. & `tvar'!=`firstv'
-		qui replace `missing'=1 if `death'==. & `tvar'!=`firstv'
+		qui count if `death'>=. & `tvar'!=`firstv'
+		qui replace `missing'=1 if `death'>=. & `tvar'!=`firstv'
 		if r(N)!=0 {
 			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`death'" as err "." 
 		}
@@ -215,15 +215,15 @@ if "`mediation'"=="" {
 	foreach var in `varyingcovariates' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
 			if "`death'"=="" {
-				qui count if `var'==. & `tvar'!=`firstv' & `tvar'!=`maxvlab'
-				qui replace `missing'=1 if `var'==. & `tvar'!=`firstv' & `tvar'!=`maxvlab'
+				qui count if `var'>=. & `tvar'!=`firstv' & `tvar'!=`maxvlab'
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`firstv' & `tvar'!=`maxvlab'
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
 			}
 			else {
-				qui count if `var'==. & `tvar'!=`firstv' & `tvar'!=`maxvlab' & `death'!=1
-				qui replace `missing'=1 if `var'==. & `tvar'!=`firstv' & `tvar'!=`maxvlab' & `death'!=1
+				qui count if `var'>=. & `tvar'!=`firstv' & `tvar'!=`maxvlab' & `death'!=1
+				qui replace `missing'=1 if `var'>=. & `tvar'!=`firstv' & `tvar'!=`maxvlab' & `death'!=1
 				if r(N)!=0 {
 					noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 				}
@@ -235,8 +235,8 @@ if "`mediation'"=="" {
 			noi di as err "Missing values of " as text "`outcome'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `outcome'==. & `tvar'!=`firstv' & `death'!=1
-		qui replace `missing'=1 if `outcome'==. & `tvar'!=`firstv' & `death'!=1
+		qui count if `outcome'>=. & `tvar'!=`firstv' & `death'!=1
+		qui replace `missing'=1 if `outcome'>=. & `tvar'!=`firstv' & `death'!=1
 		if r(N)!=0 {
 			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "." 
 		}
@@ -246,8 +246,8 @@ if "`mediation'"=="" {
 			noi di as err "Missing values of " as text "`outcome'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `outcome'==. & `tvar'!=`firstv'
-		qui replace `missing'=1 if `outcome'==. & `tvar'!=`firstv'
+		qui count if `outcome'>=. & `tvar'!=`firstv'
+		qui replace `missing'=1 if `outcome'>=. & `tvar'!=`firstv'
 		if r(N)!=0 {
 			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "." 
 		}
@@ -280,8 +280,8 @@ if "`mediation'"=="" {
 else {
 	foreach var in `exposure' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
-			qui count if `var'==.
-			qui replace `missing'=1 if `var'==.
+			qui count if `var'>=.
+			qui replace `missing'=1 if `var'>=.
 			if r(N)!=0 {
 				noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 			}
@@ -289,8 +289,8 @@ else {
 	}
 	foreach var in `mediator' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
-			qui count if `var'==.
-			qui replace `missing'=1 if `var'==.
+			qui count if `var'>=.
+			qui replace `missing'=1 if `var'>=.
 			if r(N)!=0 {
 				noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 			}
@@ -298,8 +298,8 @@ else {
 	}
 	foreach var in `base_confs' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
-			qui count if `var'==.
-			qui replace `missing'=1 if `var'==.
+			qui count if `var'>=.
+			qui replace `missing'=1 if `var'>=.
 			if r(N)!=0 {
 				noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 			}
@@ -307,8 +307,8 @@ else {
 	}
 	foreach var in `post_confs' {
 		if strmatch(" "+"`impute'"+" ","* `var' *")==0 {
-			qui count if `var'==.
-			qui replace `missing'=1 if `var'==.
+			qui count if `var'>=.
+			qui replace `missing'=1 if `var'>=.
 			if r(N)!=0 {
 				noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`var'" as err "." 
 			}
@@ -332,7 +332,7 @@ if "`impute'"!="" {
 		local imp_var`i': word `i' of `impute'
 		foreach var in `imp_eq`i'' {
 			local var=subinstr("`var'","i.","",1)
-			qui replace `missing2'=0 if `var'!=.
+			qui replace `missing2'=0 if `var'<.
 		}
 		qui count if `missing2'==1
 		if r(N)!=0 {
@@ -1746,25 +1746,26 @@ if "`mediation'"=="" {
 			local od=0
 			forvalues i=`r3'/`r4' {
 				local j=`i'-`subtract'
-				if `j'<=`nint' {
-					if "`death'"=="" {
+				if "`death'"=="" {
+					if `j'<=`nint' {
 						noi di as text _col(7) "Int. " `j'  _col(15) "{c |}" _cont
 					}
 					else {
-						if `od'==0 {
-							noi di as text _col(3) "Int. " `j' " (o)" _col(15) "{c |}" _cont
-						}
-						else {
-							local indent=9+ceil(log10(`j'+1))
-							noi di as text _col(`indent') "(d)" _col(15) "{c |}" _cont
-						}
-						local od=1-`od'
+						noi di as result _col(2) "Obs. regime" _col(15) "{c |}"
+						noi di as text _col(4) "simulated" _col(15) "{c |}" _cont
 					}
 				}
 				else {
-					if "`death'"=="" {
-						noi di as result _col(2) "Obs. regime" _col(15) "{c |}"
-						noi di as text _col(4) "simulated" _col(15) "{c |}" _cont
+					local k=ceil(`j'/2)
+					if `k'<=`nint' {
+						if `od'==0 {
+							noi di as text _col(3) "Int. " `k' " (o)" _col(15) "{c |}" _cont
+						}
+						else {
+							local indent=9+ceil(log10(`k'+1))
+							noi di as text _col(`indent') "(d)" _col(15) "{c |}" _cont
+						}
+						local od=1-`od'
 					}
 					else {
 						if `od'==0 {
@@ -1772,7 +1773,7 @@ if "`mediation'"=="" {
 							noi di as text _col(2) "simulated (o)" _col(15) "{c |}" _cont
 						}
 						else {
-							noi di as text _col(2) "          (d)" _col(15) "{c |}" _cont						
+							noi di as text _col(2) "          (d)" _col(15) "{c |}" _cont
 						}
 						local od=1-`od'
 					}
@@ -2617,7 +2618,7 @@ else {
 				if "`oce'"=="" {
 					_gcomp_display_stats, est(`=b[1,`i']') se(`=se[1,`i']') ci_lo(`=ci_normal[1,`i']') ci_hi(`=ci_normal[2,`i']') se_col(36) p_col(57) continue
 					noi di as text "   (N)"
-					noi di as text _col(18) "{c |}" _cont
+					noi di as text _col(15) "{c |}" _cont
 					noi di as result _col(66) %9.0g ci_percentile[1,`i'] _cont
 					noi di as result _col(78) %9.0g ci_percentile[2,`i'] _cont
 					noi di as text "   (P)"
@@ -2717,6 +2718,7 @@ forvalues _gc_i = 1/50 {
 
 * Clean up non-temp matrices (outside capture noisily so they're always cleaned)
 capture matrix drop b
+capture matrix drop V
 capture matrix drop se
 capture matrix drop ci_normal
 capture matrix drop ci_percentile

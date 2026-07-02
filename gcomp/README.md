@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.4.0** | 2026-06-28
+**Version 1.4.1** | 2026-07-02
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -222,6 +222,12 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.4.1** (2026-07-02): **Bug fixes: `all`+`death()` display crash, mediation MSM-with-options crash, extended-missing screening.**
+  - **`all` + `death()` display crash.** In a survival (non-`eofu`) time-varying run with both `all` and `death()`, the cumulative-incidence table used the raw row counter instead of the per-intervention index (`ceil(j/2)`) and referenced a never-defined macro in its separator rule. The first intervention's rows were mislabeled, later interventions printed as "Obs. regime", and the undefined macro (`"==2 invalid name"`) derailed execution into the mediation display branch, ending in a spurious `r(102)`. The block now mirrors the working non-`all` layout.
+  - **Mediation MSM with options.** In mediation mode an `msm()` containing options (e.g. `msm(logit Y_ X_ M_, or)`) crashed with `r(198) "1& invalid name"`: the fallback that re-inserts the `if` restriction before the options had a stray `&` ahead of the comma. Time-varying MSMs were unaffected.
+  - **Extended missing values.** The up-front missing-data screens tested `==.`/`!=.`, so extended missings (`.a`-`.z`) in id/time/outcome/covariates evaded the drop-missing screen (and counted as "observed" when deciding whether a row can support imputation). Screens now use `>=.`/`<.`.
+  - **Smaller fixes.** The "MSM results are on the log hazard scale" note now fires after `stcox` (it tested `e(cmd)=="cox"`, which never matches); a p-value that rounds to exactly 1 now prints as `1.000` instead of `01 00`; a misaligned table border in the mediation `all` output; the leftover global matrix `V` is now also dropped when `gcomp` exits with error.
+  - **QA.** `test_gcomp.do` gains regression tests for the `all`+`death()` survival display and for a mediation `msm()` with options.
 - **1.4.0** (2026-06-28): **Markdown and CSV companion exports for mediation and dose-response tables.** Previously `gcomptab`'s `markdown()` and `csv()` options worked only in component-model (`models`) mode; in the default **mediation** and **dose-response** modes they were silently ignored (no file, no error). They now write the same table — identical cells to the Excel workbook — to a Markdown (`.md`/`.markdown`/`.qmd`/`.rmd`) and/or CSV (`.csv`) file alongside the `.xlsx`, matching the export surface of `tabtools regtab`/`effecttab`. Paths are validated for extension and shell-safety, a confirmation line is printed, and the written paths are returned in `r(markdown)`/`r(csv)`. Added `qa/test_gcomptab_text_export.do` (content + structure of both modes' Markdown/CSV, extension rejection, returns) and extended `qa/test_gcomptab_regressions.do` option coverage.
 - **1.3.2** (2026-06-25): **Fix `r(134)` "too many values" crash at moderate N.** gcomp's `commands()`/`equations()` validation used `tabulate` to count the distinct values of each modeled variable. On a **continuous** covariate modeled with `regress` (the normal case), `tabulate` errors with `r(134)` once the variable has too many distinct levels — which happens at roughly N ≥ 5000 subjects — crashing the whole command before estimation. The binary/non-binary check is now done with `count` (no enumeration of distinct values), so g-computation runs at any N. Added `qa/validation_gcomp_recovery.do`: a self-contained known-truth parameter-recovery suite (forward-simulated g-formula oracle, matching the existing Python benchmark) that also regression-tests this fix at N=10000.
 - **1.3.1** (2026-06-16): **Bug fixes for categorical (mlogit/ologit) models and a degenerate-intervention guard.**

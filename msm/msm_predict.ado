@@ -1,4 +1,4 @@
-*! msm_predict Version 1.2.1  2026/06/25
+*! msm_predict Version 1.2.2  2026/07/02
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -689,34 +689,21 @@ program define _msm_predict_xb
                 local _n_int = `ns_df' - 1
                 local _t_last = `_pk`ns_df''
                 local _t_pen  = `_pk`_n_int''
-                if `_n_int' == 1 {
-                    local jj = 2
-                    local _bval = (max(0, `time' - `_pk1')^3 - ///
+                * Natural cubic spline bases d_j - d_pen, matching the
+                * construction in _msm_natural_spline (covers _n_int == 1).
+                forvalues j = 0/`=`_n_int'-1' {
+                    local jj = `j' + 2
+                    local _d_j = (max(0, `time' - `_pk`j'')^3 - ///
                         max(0, `time' - `_t_last')^3) / ///
-                        (`_t_last' - `_pk1')
+                        (`_t_last' - `_pk`j'')
+                    local _d_pen = (max(0, `time' - `_t_pen')^3 - ///
+                        max(0, `time' - `_t_last')^3) / ///
+                        (`_t_last' - `_t_pen')
+                    local _bval = `_d_j' - `_d_pen'
                     forvalues i = 1/`n_coefs' {
                         local cname: word `i' of `coef_names'
                         if "`cname'" == "_msm_per_ns`jj'" {
                             quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_bval'
-                        }
-                    }
-                }
-                else {
-                    * Harrell RCS: df-1 nonlinear bases using knots 0..n_int-1
-                    forvalues j = 0/`=`_n_int'-1' {
-                        local jj = `j' + 2
-                        local _d_j = (max(0, `time' - `_pk`j'')^3 - ///
-                            max(0, `time' - `_t_last')^3) / ///
-                            (`_t_last' - `_pk`j'')
-                        local _d_pen = (max(0, `time' - `_t_pen')^3 - ///
-                            max(0, `time' - `_t_last')^3) / ///
-                            (`_t_last' - `_t_pen')
-                        local _bval = `_d_j' - `_d_pen'
-                        forvalues i = 1/`n_coefs' {
-                            local cname: word `i' of `coef_names'
-                            if "`cname'" == "_msm_per_ns`jj'" {
-                                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_bval'
-                            }
                         }
                     }
                 }

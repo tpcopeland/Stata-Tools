@@ -1,4 +1,4 @@
-*! _gcomp_display_stats Version 1.4.0  2026/06/28
+*! _gcomp_display_stats Version 1.4.1  2026/07/02
 *! Display helper for gcomp result rows
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -32,7 +32,13 @@ if `se' > 0 {
 	}
 	noi di as result _col(`w') `z' _cont
 	local p = round(2*(1-normal(abs(`est'/`se'))), 0.001)
-	if `p' > 0 {
+	if `p' >= . {
+		noi di as result _col(`p_col') "    ." _cont
+	}
+	else if `p' >= 1 {
+		noi di as result _col(`p_col') "1.000" _cont
+	}
+	else if `p' > 0 {
 		noi di as result _col(`p_col') "0" _col(`=`p_col'+1') `p' _cont
 		if `p' == round(`p', 0.1) {
 			noi di _col(`=`p_col'+3') "00" _cont

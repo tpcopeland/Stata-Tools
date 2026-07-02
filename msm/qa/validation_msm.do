@@ -1781,6 +1781,8 @@ else {
 
 local data_dir_v9 "`qa_dir'/crossval_data"
 local results_dir "`qa_dir'/crossval_results"
+capture mkdir "`data_dir_v9'"
+capture mkdir "`results_dir'"
 
 capture log close crossval
 log using "`qa_dir'/crossval_msm.log", replace name(crossval)

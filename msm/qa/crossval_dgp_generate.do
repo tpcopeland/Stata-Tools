@@ -17,6 +17,7 @@ local pkg_dir "`qa_dir'/.."
 set varabbrev off
 
 local data_dir "`qa_dir'/crossval_data"
+capture mkdir "`data_dir'"
 
 display "CROSS-VALIDATION DGP GENERATOR"
 display "Date: $S_DATE $S_TIME"

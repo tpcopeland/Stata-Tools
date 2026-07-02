@@ -209,17 +209,25 @@ else {
     local failed_tests "`failed_tests' V2.2"
 }
 
-* --- V2.3: corrected effect = effect / bias_factor ---
+* --- V2.3: corrected effect moves toward the null by the bias factor ---
+* VanderWeele & Ding (2017): effect / B when effect > 1, effect * B when < 1.
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_fit, model(logistic) nolog
     msm_sensitivity, confounding_strength(2 3)
-    local expected_corrected = r(effect) / r(bias_factor)
+    if r(effect) < 1 {
+        local expected_corrected = r(effect) * r(bias_factor)
+        assert r(corrected_effect) > r(effect)
+    }
+    else {
+        local expected_corrected = r(effect) / r(bias_factor)
+        assert r(corrected_effect) < r(effect)
+    }
     assert abs(r(corrected_effect) - `expected_corrected') < 0.0001
 }
 if _rc == 0 {
-    display as result "  PASS V2.3: Corrected effect = effect / bias_factor"
+    display as result "  PASS V2.3: Corrected effect moves toward null by bias factor"
     local ++pass_count
 }
 else {
@@ -703,6 +711,34 @@ else {
     display as error "  FAIL V8.3: ns(3) (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' V8.3"
+}
+
+* --- V8.4: ns(2) nonlinear basis follows the natural-spline formula ---
+* Natural cubic spline basis (ESL 5.4/Harrell): basis2 = d_0 - d_pen with
+* d_j(x) = ((x - t_j)+^3 - (x - t_K)+^3) / (t_K - t_j). With x = 0..10 the
+* knots are {0, 5, 10}, so basis2 at x = 8 must be 8^3/10 - 3^3/5 = 45.8.
+* The pre-1.2.2 special case emitted d_pen alone (5.4), which is not linear
+* beyond the boundary knot.
+local ++test_count
+capture noisily {
+    clear
+    set obs 11
+    gen double x = _n - 1
+    _msm_natural_spline x, df(2) prefix(_qa_ns)
+    assert "`_msm_spline_vars'" == "_qa_ns1 _qa_ns2"
+    assert "`_msm_spline_knots'" == "0 5 10"
+    assert abs(_qa_ns2[9] - 45.8) < 1e-9
+    assert _qa_ns2[1] == 0
+    drop _qa_ns1 _qa_ns2
+}
+if _rc == 0 {
+    display as result "  PASS V8.4: ns(2) natural-spline basis formula"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL V8.4: ns(2) basis formula (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' V8.4"
 }
 
 * =============================================================================

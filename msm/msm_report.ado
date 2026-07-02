@@ -1,4 +1,4 @@
-*! msm_report Version 1.2.1  2026/06/25
+*! msm_report Version 1.2.2  2026/07/02
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -352,8 +352,8 @@ program define msm_report, rclass
         if "`replace'" != "" local coef_sheet_opt "sheetreplace"
 
         * Build title text
-        local _title "`title'"
-        if "`_title'" == "" local _title "MSM Analysis Summary"
+        local _title `"`title'"'
+        if `"`_title'"' == "" local _title "MSM Analysis Summary"
 
         local _has_footnote = (`"`footnote'"' != "")
 
@@ -378,7 +378,7 @@ program define msm_report, rclass
             gen str40 B = ""
 
             * Row 1: title
-            replace A = "`_title'" in 1
+            replace A = `"`_title'"' in 1
 
             * Row 2: headers
             replace A = "Metric" in 2

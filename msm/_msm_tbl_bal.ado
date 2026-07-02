@@ -1,4 +1,4 @@
-*! _msm_tbl_bal Version 1.2.1  2026/06/25
+*! _msm_tbl_bal Version 1.2.2  2026/07/02
 *! Author: Timothy P Copeland
 program define _msm_tbl_bal, nclass
     version 16.0
@@ -53,8 +53,8 @@ program define _msm_tbl_bal, nclass
         gen str10 E = ""
 
         * Row 1: title
-        if "`title'" != "" {
-            replace A = "`title'" in 1
+        if `"`title'"' != "" {
+            replace A = `"`title'"' in 1
         }
         else {
             replace A = "Covariate Balance" in 1

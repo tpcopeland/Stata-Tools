@@ -1,4 +1,4 @@
-*! msm_weight Version 1.2.1  2026/06/25
+*! msm_weight Version 1.2.2  2026/07/02
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -585,7 +585,7 @@ program define _msm_weight_treatment, rclass
             replace `_denom_complete' = 0 if missing(`_v')
         }
 
-        noisily display as text "  Denominator model: `treatment' ~ `lag_treat' `d_cov' `period'"
+        noisily display as text "  Denominator model: `treatment' ~ lagged `treatment' `d_cov' `period'"
         quietly count if `_denom_complete'
         local _n_denom_complete = r(N)
         if `_n_denom_complete' == 0 {
@@ -744,7 +744,7 @@ program define _msm_weight_treatment, rclass
         }
 
         if "`n_cov'" != "" {
-            noisily display as text "  Numerator model:   `treatment' ~ `lag_treat' `n_cov'"
+            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment' `n_cov'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {
@@ -798,7 +798,7 @@ program define _msm_weight_treatment, rclass
             }
         }
         else {
-            noisily display as text "  Numerator model:   `treatment' ~ `lag_treat'"
+            noisily display as text "  Numerator model:   `treatment' ~ lagged `treatment'"
             quietly count if `_numer_complete'
             local _n_numer_complete = r(N)
             if `_n_numer_complete' == 0 {

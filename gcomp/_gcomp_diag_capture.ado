@@ -1,4 +1,4 @@
-*! _gcomp_diag_capture Version 1.4.0  2026/06/28
+*! _gcomp_diag_capture Version 1.4.1  2026/07/02
 *! Diagnostic capture helper for gcomp model fits
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

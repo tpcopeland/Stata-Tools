@@ -126,8 +126,11 @@ Not available for linear models.
 {opt conf:ounding_strength(# #)} specifies hypothetical association strengths
 for a specific unmeasured confounder.  The first number is RR(U,D), the
 confounder-treatment association; the second is RR(U,Y), the
-confounder-outcome association.  The command computes the bias factor
-= (RR_UD x RR_UY) / (RR_UD + RR_UY - 1) and reports the corrected effect.
+confounder-outcome association.  Both values must be >= 1 (invert
+protective associations).  The command computes the bias factor
+= (RR_UD x RR_UY) / (RR_UD + RR_UY - 1) and reports the corrected effect,
+shifted toward the null: the observed effect is divided by the bias factor
+when it exceeds 1 and multiplied by it when it is below 1.
 
 {phang}
 {opt level(#)} specifies the confidence level.  Default is 95.
@@ -188,7 +191,7 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {synopt:{cmd:r(effect_lo)}}lower confidence bound{p_end}
 {synopt:{cmd:r(effect_hi)}}upper confidence bound{p_end}
 {synopt:{cmd:r(bias_factor)}}computed bias factor (with {opt confounding_strength()}){p_end}
-{synopt:{cmd:r(corrected_effect)}}corrected effect after dividing by bias factor{p_end}
+{synopt:{cmd:r(corrected_effect)}}effect corrected toward the null by the bias factor{p_end}
 {synopt:{cmd:r(rr_ud)}}hypothetical RR(U,D) specified{p_end}
 {synopt:{cmd:r(rr_uy)}}hypothetical RR(U,Y) specified{p_end}
 {synopt:{cmd:r(outcome_prevalence)}}weighted outcome prevalence (logistic models){p_end}
