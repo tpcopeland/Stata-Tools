@@ -1,4 +1,4 @@
-*! stratetab Version 1.9.1  2026/07/01
+*! stratetab Version 1.9.2  2026/07/03
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -322,7 +322,7 @@ forvalues e = 1/`n_exposures' {
 					}
 					if `_match_count' != 1 {
 						noi di as err "Category label mismatch for exposure `e', outcome `o' in `file'.dta"
-						noi di as err `"Expected category `"_target_cat'" from outcome 1"'
+						noi di as err `"Expected category "`_target_cat'" from outcome 1"'
 						restore
 						exit 198
 					}
@@ -354,7 +354,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				}
 				if `_ref_count' != 1 {
 					noi di as err "rateratio requires exposure `e' categories to match exposure 1"
-					noi di as err `"No unique match for category `"_target_cat'" in exposure 1"'
+					noi di as err `"No unique match for category "`_target_cat'" in exposure 1"'
 					exit 198
 				}
 				local _d_ref = `D_o`o'_e1_`_ref_i''

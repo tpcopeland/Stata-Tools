@@ -1724,6 +1724,46 @@ else {
 }
 
 
+**# Category-mismatch error messages name the offending category (v1.9.2)
+
+* Regression for malformed compound quoting that printed the literal text
+* _target_cat' instead of the category label in both mismatch messages.
+capture noisily {
+    tempfile good mismatch
+    _review_strate_file, basename("`good'")
+    _review_strate_file, basename("`mismatch'") mode(mismatch)
+
+    * Outcome-file mismatch message: outcome 2 lacks category "High"
+    local _msglog "`output_dir'/_msgcheck_stratetab_mismatch.log"
+    capture log close _msgcheck
+    quietly log using "`_msglog'", replace text name(_msgcheck)
+    capture noisily stratetab, using("`good'" "`mismatch'") outcomes(2)
+    local _mm_rc = _rc
+    quietly log close _msgcheck
+    assert `_mm_rc' == 198
+    assert strpos(fileread("`_msglog'"), `"Expected category "High" from outcome 1"') > 0
+
+    * rateratio reference-lookup message: exposure 2 has "Medium", exposure 1 does not
+    local _msglog2 "`output_dir'/_msgcheck_stratetab_rateratio.log"
+    capture log close _msgcheck
+    quietly log using "`_msglog2'", replace text name(_msgcheck)
+    capture noisily stratetab, using("`good'" "`mismatch'") outcomes(1) rateratio
+    local _rr_rc = _rc
+    quietly log close _msgcheck
+    assert `_rr_rc' == 198
+    assert strpos(fileread("`_msglog2'"), `"No unique match for category "Medium" in exposure 1"') > 0
+}
+if _rc == 0 {
+    display as result "  PASS: stratetab mismatch messages show the offending category"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stratetab mismatch message content (rc=`=_rc')"
+    local ++fail_count
+    capture log close _msgcheck
+}
+
+
 **# Migrated: ratiodigits abbreviation
 
 * T9: stratetab ratiodigits via `ratio` short form. Build two synthetic
