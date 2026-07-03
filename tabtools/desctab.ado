@@ -1,4 +1,4 @@
-*! desctab Version 1.9.2  2026/07/03
+*! desctab Version 1.9.3  2026/07/03
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,8 +32,8 @@ program define desctab, rclass
     }
     _tabtools_require_helpers
 
-    syntax , [XLSX(string) EXCEL(string) SHEET(string) TITLE(string asis) ///
-        FOOTnote(string asis) COMPOSE(string asis) NFORMATS(string asis) ///
+    syntax , [XLSX(string) EXCEL(string) SHEET(string) TITLE(string) ///
+        FOOTnote(string) COMPOSE(string asis) NFORMATS(string asis) ///
         DIGITS(integer -1) PCTDIGITS(integer -1) NINTEGERFMT(string) ///
         PCTSCALE(string) PCTSIGN ROWTOTALS COLTOTALS NOTOTALS ///
         KEEP(string asis) DROP(string asis) ///

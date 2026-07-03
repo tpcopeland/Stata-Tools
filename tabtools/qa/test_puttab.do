@@ -284,6 +284,13 @@ capture noisily {
     capture puttab if mpg>20 using "`fe'", sheet("X") matrix(Q)
     assert _rc == 198
 
+    * matrix + frame (two mutually exclusive sources)
+    capture frame drop _pt_confl
+    frame create _pt_confl
+    capture puttab using "`fe'", sheet("X") matrix(Q) frame(_pt_confl)
+    assert _rc == 198
+    capture frame drop _pt_confl
+
     * bad varlist
     capture puttab nosuchvar using "`fe'", sheet("X")
     assert _rc == 111

@@ -1,4 +1,4 @@
-*! stacktab Version 1.9.2  2026/07/03
+*! stacktab Version 1.9.3  2026/07/03
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -277,6 +277,10 @@ program define stacktab, rclass
             }
 
             if "`layout'" == "vstack" {
+                * All source columns are renamed to the _xcol scaffolding first, so
+                * the _xblock/_xorder gens below cannot collide with a block column
+                * of the same name (it was already renamed away above; and block
+                * columns are always A/B/C from import excel without firstrow).
                 local vnum = 0
                 foreach v of varlist _all {
                     local ++vnum
@@ -319,7 +323,11 @@ program define stacktab, rclass
                     display as error "stacktab: hstack blocks must have the same row count"
                     exit 459
                 }
-                quietly gen long _rowid = _n
+                * Rename source columns to the _xcol scaffolding FIRST, then gen the
+                * row key, so the gen can never collide with a block column named
+                * _rowid. Not reachable today (blocks import via import excel without
+                * firstrow, so columns are always A/B/C), but defensive against any
+                * future non-Excel block source.
                 local vnum = 0
                 foreach v of local block_vars {
                     local ++vnum
@@ -327,6 +335,7 @@ program define stacktab, rclass
                     rename `v' _xcol`new_col'
                 }
                 local hstack_next_col = `hstack_next_col' + `nvars'
+                quietly gen long _rowid = _n
 
                 if `composite_n' == 0 {
                     tempfile composite

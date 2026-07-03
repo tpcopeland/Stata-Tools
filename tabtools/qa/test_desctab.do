@@ -1182,6 +1182,79 @@ else {
     local ++fail
 }
 
+**# T43 title()/footnote() with embedded double quotes and apostrophes
+* Regression (v1.9.3): TITLE()/FOOTnote() were declared string asis, so a
+* value containing a double quote (`Q "x" Z`) was silently dropped entirely
+* from every sink and an apostrophe (`It's`) was corrupted to `s here'`.
+* asis preserved the compound-quote wrappers as literal content, which the
+* internal quote-strip step (subinstr local title `"""' "", all) then mangled
+* into a stray macro reference that expanded to empty. Fix drops asis; the
+* strip now removes embedded double quotes and preserves everything else.
+local ++total
+capture noisily {
+    * --- embedded double quotes: markdown ---
+    sysuse auto, clear
+    collect clear
+    collect: table rep78, statistic(mean price)
+    local mdq "`outdir'/desctab_titleq.md"
+    desctab, markdown("`mdq'") title(`"Q "x" Z"') footnote(`"F "y" G"')
+    * read the title (### line) and footnote (*...* line)
+    tempname fh
+    local _title_line ""
+    local _foot_line ""
+    file open `fh' using "`mdq'", read
+    file read `fh' line
+    while r(eof) == 0 {
+        if substr(`"`macval(line)'"', 1, 4) == "### " ///
+            local _title_line `"`macval(line)'"'
+        if substr(`"`macval(line)'"', 1, 1) == "*" & ///
+           substr(`"`macval(line)'"', 2, 1) != "*" ///
+            local _foot_line `"`macval(line)'"'
+        file read `fh' line
+    }
+    file close `fh'
+    * quotes stripped, content preserved (not empty, not corrupted)
+    assert `"`_title_line'"' == "### Q x Z"
+    assert `"`_foot_line'"'  == "*F y G*"
+
+    * --- apostrophe preserved: markdown ---
+    collect clear
+    collect: table rep78, statistic(mean price)
+    local mda "`outdir'/desctab_titlea.md"
+    desctab, markdown("`mda'") title(`"It's here"') footnote(`"Don't drop"')
+    local _title_line ""
+    local _foot_line ""
+    file open `fh' using "`mda'", read
+    file read `fh' line
+    while r(eof) == 0 {
+        if substr(`"`macval(line)'"', 1, 4) == "### " ///
+            local _title_line `"`macval(line)'"'
+        if substr(`"`macval(line)'"', 1, 1) == "*" & ///
+           substr(`"`macval(line)'"', 2, 1) != "*" ///
+            local _foot_line `"`macval(line)'"'
+        file read `fh' line
+    }
+    file close `fh'
+    assert `"`_title_line'"' == "### It's here"
+    assert `"`_foot_line'"'  == "*Don't drop*"
+
+    * --- embedded double quotes: xlsx title cell round-trips ---
+    collect clear
+    collect: table rep78, statistic(mean price)
+    local xq "`outdir'/desctab_titleq.xlsx"
+    desctab, xlsx("`xq'") sheet("S") title(`"Q "x" Z"')
+    import excel using "`xq'", sheet("S") clear allstring
+    assert A[1] == "Q x Z"
+}
+if _rc == 0 {
+    display as result "  PASS: quoted/apostrophe title & footnote round-trip"
+    local ++pass
+}
+else {
+    display as error "  FAIL: quoted title/footnote regression (rc=`=_rc')"
+    local ++fail
+}
+
 display as result "Results: `pass'/`total' passed, `fail' failed"
 if `fail' > 0 {
     display as error "SOME TESTS FAILED"
