@@ -31,6 +31,7 @@ foreach f in ///
     test_cci_se_adversarial ///
     validation_cci_se_era_boundaries ///
     test_cdp_adversarial ///
+    test_cdp_roving_determinism ///
     validation_cdp_known_answers ///
     validation_setools ///
     validation_known_answer_boundaries ///
@@ -40,6 +41,7 @@ foreach f in ///
     test_migrations_minresidence ///
     test_migrations_malformed_rollback ///
     validation_migrations_adversarial_boundaries ///
+    validation_migrations_type2_censoring ///
     validation_migrations_longwide_equivalence ///
     validation_sustainedss_known_answers ///
     validation_pira_known_answers ///

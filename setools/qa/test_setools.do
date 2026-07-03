@@ -21,7 +21,15 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
-local expected_version "1.4.0"
+* Derive the expected version from the flagship .ado header (single source of
+* truth) so this literal cannot go stale on a version bump.
+tempname _vfh
+file open `_vfh' using "`pkg_dir'/setools.ado", read text
+file read `_vfh' _vline
+file close `_vfh'
+local expected_version ""
+if regexm(`"`_vline'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)") local expected_version = regexs(1)
+assert "`expected_version'" != ""
 local expected_all "cci_se migrations sustainedss cdp pira"
 
 **# Fresh Local Install
@@ -71,12 +79,12 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: default dispatcher metadata matches v1.4.0 surface"
+    display as result "  PASS: default dispatcher metadata matches current-version surface"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' dispatcher_default"
-    display as error "  FAIL: default dispatcher metadata matches v1.4.0 surface (error `=_rc')"
+    display as error "  FAIL: default dispatcher metadata matches current-version surface (error `=_rc')"
 }
 
 local ++test_count

@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.9.1  2026/07/01
+*! iivw_balance Version 1.9.2  2026/07/03
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -127,7 +127,11 @@ program define iivw_balance, rclass
     local balance_covars : list clean balance_covars
 
     marksample touse, novarlist
-    markout `touse' `panel_id' `panel_time' `weight_var'
+    * strok: the stored panel id may legitimately be a string variable;
+    * without strok, markout silently marks EVERY observation out for a
+    * string variable and the diagnostic dies with a misleading
+    * "no observations".
+    markout `touse' `panel_id' `panel_time' `weight_var', strok
 
     quietly count if `touse'
     if r(N) == 0 {

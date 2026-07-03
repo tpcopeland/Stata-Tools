@@ -1,4 +1,4 @@
-*! tvevent Version 1.6.7  2026/07/02
+*! tvevent Version 1.6.8  2026/07/03
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -919,7 +919,10 @@ program define tvevent, rclass
             append using `needs_splits'
 
             sort `id' `startvar' `stopvar'
-            duplicates drop `id' `startvar' `stopvar', force
+            * Full-row dedup only: keying on (id, start, stop) with force
+            * silently destroyed legitimate rows that share an interval but
+            * differ on payload (e.g. per-stratum rows from tvexpose split).
+            duplicates drop
         }
 
         * Adjust Continuous Variables
@@ -999,6 +1002,10 @@ program define tvevent, rclass
         **# 6. APPLY LABELS
         
         * A. Define Defaults (from Variable Labels)
+        * Drop any same-named label loaded from the using file (e.g. when the
+        * intervals are a prior tvevent output); label define has no replace-
+        * from-scratch form and errors r(110) on an existing name.
+        capture label drop `_ev_lbl_name'
         label define `_ev_lbl_name' 0 "Censored"
         label define `_ev_lbl_name' 1 "`lab_1'", add
         
@@ -1226,6 +1233,8 @@ program define _tvevent_empty_output, rclass
     label var `generate' "Event outcome"
     local _short_gen = substr("`generate'", 1, 28)
     local _ev_lbl_name "`_short_gen'_lbl"
+    * The using file may already carry this label (re-run over prior output)
+    capture label drop `_ev_lbl_name'
     label define `_ev_lbl_name' 0 "Censored"
     label values `generate' `_ev_lbl_name'
 

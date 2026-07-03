@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.9.1  2026/07/01
+*! iivw_fit Version 1.9.2  2026/07/03
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -149,8 +149,11 @@ program define iivw_fit, eclass
 
     if "`cluster'" == "" local cluster "`panel_id'"
 
-    * Extend markout to variables not in varlist()
-    markout `touse' `cluster'
+    * Extend markout to variables not in varlist(). strok: the cluster
+    * variable (default: the subject id) may legitimately be a string;
+    * without strok, markout silently marks EVERY observation out for a
+    * string variable and the fit dies with a misleading "no observations".
+    markout `touse' `cluster', strok
     if "`timespec'" != "none" {
         markout `touse' `panel_time'
     }

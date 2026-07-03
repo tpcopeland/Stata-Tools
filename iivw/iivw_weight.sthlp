@@ -139,6 +139,9 @@ For IIW/FIPTIW weights, visit times must also be nonnegative: the
 visit-intensity counting process is at risk from time 0, so visits at
 negative times are rejected rather than silently excluded from the Cox
 model.  Shift or rescale a centered time variable before weighting.
+A first visit at exactly time 0 is allowed; it spans no risk time, so it is
+excluded from the visit-intensity model and keeps the conventional baseline
+weight of 1, and a note reports how many subjects are affected.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 

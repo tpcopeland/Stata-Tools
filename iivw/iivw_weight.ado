@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.9.1  2026/07/01
+*! iivw_weight Version 1.9.2  2026/07/03
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -202,6 +202,26 @@ program define iivw_weight, rclass sortpreserve
             display as error "times would be silently excluded from the Cox model"
             display as error "shift or rescale time() so all visit times are nonnegative"
             error 198
+        }
+
+        * A first visit at exactly time 0 spans a zero-length interval, so
+        * stset excludes it from the visit-intensity risk sets. The row still
+        * gets the conventional baseline weight of 1; only the intensity model
+        * loses it as an event. Say so rather than leaving the exclusion
+        * buried in the stset table. (Under nobaseevent baseline rows are
+        * dropped by design, so no note is needed.)
+        if !`exclude_base' {
+            tempvar _first_t0
+            quietly bysort `id' (`time'): gen byte `_first_t0' = ///
+                (_n == 1 & `time' == 0)
+            quietly count if `_first_t0'
+            if r(N) > 0 {
+                display as text "note: " as result r(N) as text ///
+                    " subjects have their first visit at time 0"
+                display as text "  these baseline rows span no risk time and are excluded from the"
+                display as text "  visit-intensity model; they keep the conventional weight of 1"
+            }
+            drop `_first_t0'
         }
     }
 

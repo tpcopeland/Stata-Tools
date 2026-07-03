@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}

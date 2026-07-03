@@ -1,4 +1,4 @@
-*! migrations Version 1.4.0  2026/06/15
+*! migrations Version 1.4.1  2026/07/03
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -461,7 +461,14 @@ program define migrations, rclass
         display as error "Variable 'out_1' not found after migration data normalization"
         exit 111
     }
-    
+
+    * Keep only the migration columns before merging. Any other migfile column
+    * that shares a name with a master column (e.g. a stray `startvar' copy)
+    * would otherwise silently shadow the master values during exclusion and
+    * censoring computation — the master is the using dataset in the merge
+    * below, and memory values win for overlapping variables.
+    qui keep `idvar' in_* out_*
+
     * Merge with master (keep only cohort members)
     qui merge 1:1 `idvar' using `master', nogen keep(3)
 
@@ -714,20 +721,32 @@ program define migrations, rclass
             * Drop if only one migration and it's an immigration before study_start
             qui drop if _mig_total == 1 & _mig_last_in < `startvar'
 
-            * EXCLUSION 2: Immigration only after study_start (not in Sweden at baseline)
-            * Use person-level state helpers so duplicate or repeated post-start
-            * immigration records do not evade classification.
+            * EXCLUSION 2: First-ever migration event is a post-start immigration
+            * (no evidence of being in Sweden at baseline). Use person-level state
+            * helpers so duplicate or repeated post-start immigration records do
+            * not evade classification. The first post-start EMIGRATION date
+            * discriminates the born-in-Sweden emigrant (out before in: present at
+            * baseline) from the late arrival (in before out: abroad at baseline) —
+            * a later emigration must not launder a post-start immigrant into the
+            * baseline cohort. All surviving out_ rows are >= `startvar' here
+            * (pre-start emigration rows were dropped above).
+            qui gen long _mig_first_post_out = out_
+            qui bysort `idvar' (_mig_first_post_out): replace _mig_first_post_out = _mig_first_post_out[1]
             qui gen _mig_excl_inmig = 0
-            qui replace _mig_excl_inmig = 1 if missing(_mig_last_out) & ///
-                missing(_mig_last_pre_in) & ///
-                !missing(_mig_first_post_in)
+            qui replace _mig_excl_inmig = 1 if missing(_mig_last_pre_in) & ///
+                !missing(_mig_first_post_in) & ///
+                (missing(_mig_first_post_out) | _mig_first_post_in < _mig_first_post_out)
+            qui drop _mig_first_post_out
 
             * Calculate emigration censoring date
-            * Only permanent emigrations (no subsequent return) generate censoring dates
+            * Only permanent emigrations (no subsequent return) generate censoring dates.
+            * Computed for Type 2 persons too: under keepimmigrants they are retained
+            * and must carry their permanent-emigration censoring date; in the default
+            * path they are dropped before censor_data is built, so this is inert.
             * Note: use person-level _mig_last_in (latest immigration across all rows),
             * not row-level in_ — the in_/out_ at the same reshape index are independently
             * numbered sequences, not paired emigration-return events.
-            qui gen byte _mig_perm_emig = (_mig_excl_inmig == 0 & out_ != . & out_ > `startvar' & (missing(_mig_last_in) | _mig_last_in <= out_))
+            qui gen byte _mig_perm_emig = (out_ != . & out_ > `startvar' & (missing(_mig_last_in) | _mig_last_in <= out_))
 
             * Earliest permanent emigration per person
             * Note: avoid egen here — Stata's internal tempvar counter can be

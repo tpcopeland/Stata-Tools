@@ -1,4 +1,4 @@
-*! _setools_cdp_thresh Version 1.4.0  2026/06/15
+*! _setools_cdp_thresh Version 1.4.1  2026/07/03
 *! setools internal: EDSS progression threshold column from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

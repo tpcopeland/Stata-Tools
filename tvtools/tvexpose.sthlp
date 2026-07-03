@@ -405,6 +405,9 @@ distribution, including frequencies of each category and person-time totals.
 {phang}
 {opt validate} creates a separate validation dataset ({cmd:tv_validation.dta})
 containing coverage metrics for each person, useful for quality control.
+{opt validate} is not available together with {opt bytype} (the metrics require
+the single output exposure variable); a note is displayed and no validation
+dataset is created.
 
 {phang}
 {opt flow} reports an attrition table of persons and records entering versus

@@ -1,4 +1,4 @@
-*! tvmerge Version 1.6.7  2026/07/02
+*! tvmerge Version 1.6.8  2026/07/03
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1010,7 +1010,10 @@ program define tvmerge, rclass
                     if `n_only_dsk' > 0 {
                         noisily di as error "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1':"
                         local n_show = min(20, `n_only_dsk')
-                        noisily list id if _merge_check == 2 in 1/`n_show', noheader sep(0)
+                        * ==2 rows sit after the ==1 block in the sorted data,
+                        * so the in-range must be offset by n_only_merged
+                        noisily list id if _merge_check == 2 ///
+                            in `=`n_only_merged'+1'/`=`n_only_merged'+`n_show'', noheader sep(0)
                         if `n_only_dsk' > 20 {
                             noisily di as error "  ... and `=`n_only_dsk'-20' more"
                         }
@@ -1045,7 +1048,10 @@ program define tvmerge, rclass
                         noisily di as text "  Sample of dropped IDs:"
                         quietly count if _merge_check == 2
                         local n_show = min(10, r(N))
-                        noisily list id if _merge_check == 2 in 1/`n_show', noheader sep(0)
+                        * ==2 rows sit after the ==1 block in the sorted data,
+                        * so the in-range must be offset by n_only_merged
+                        noisily list id if _merge_check == 2 ///
+                            in `=`n_only_merged'+1'/`=`n_only_merged'+`n_show'', noheader sep(0)
                         if `n_only_dsk' > 10 {
                             noisily di as text "  ... and `=`n_only_dsk'-10' more"
                         }

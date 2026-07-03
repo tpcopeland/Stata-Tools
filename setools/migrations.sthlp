@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -98,9 +97,12 @@ pass.{p_end}
 {phang2}{bf:Type 3} {hline 2} Abroad at baseline: emigrated before study start and
 returned after.{p_end}
 
-{phang2}{bf:Type 2} {hline 2} No evidence of being in Sweden at study start;
-migration history only shows immigration after study start.  (With
-{opt keepimmigrants}, these are retained instead of excluded.){p_end}
+{phang2}{bf:Type 2} {hline 2} No evidence of being in Sweden at study start: no
+migration event before study start, and the first migration event after study
+start is an immigration.  A later emigration does not change this — the person
+was still abroad at baseline.  (Persons whose first post-start event is an
+emigration are treated as resident at baseline, e.g. born in Sweden.  With
+{opt keepimmigrants}, Type 2 persons are retained instead of excluded.){p_end}
 
 
 {marker options}{...}
@@ -110,7 +112,10 @@ migration history only shows immigration after study start.  (With
 
 {phang}
 {opt migfile(filename)} specifies the path to the migration data file.  The file
-must contain the same ID variable as {opt idvar()} and be in one of these formats:
+must contain the same ID variable as {opt idvar()} and be in one of these formats.
+Columns other than the ID and migration-date variables are ignored, so a
+migration extract may safely carry extra fields (they never override master-data
+values):
 
 {phang2}{bf:Wide:}  variables {it:in_1}, {it:out_1}, {it:in_2}, {it:out_2}, ... with
 one row per person.  All date variables must use Stata daily {cmd:%td} formats with
@@ -167,13 +172,15 @@ and {opt savecensor()}.
 format detection and exclusion/censoring progress.
 
 {phang}
-{opt keepimmigrants} specifies that Type 2 individuals (whose only migration
-record is immigration after study start) should be included rather than excluded.
+{opt keepimmigrants} specifies that Type 2 individuals (whose first migration
+event is a post-start immigration) should be included rather than excluded.
 The command generates a variable {cmd:migration_in_dt} containing the post-start
 immigration date for these individuals.  Use this when late immigrants should
 contribute person-time from their arrival date rather than being dropped entirely.
 Individuals who were in Sweden at study start have {cmd:migration_in_dt} set to
-missing.
+missing.  If an included immigrant later emigrates permanently, their
+{cmd:migration_out_dt} is set as usual, so their person-time can be bounded on
+both sides.
 
 {phang}
 {opt flag} retains every cohort member instead of dropping the excluded ones.  Two

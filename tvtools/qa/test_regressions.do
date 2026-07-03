@@ -3802,6 +3802,331 @@ else {
     local ++fail_count
 }
 
+**# ===== SECTION 20: v1.6.8 deep-audit regressions (2026-07-03) =====
+
+* ---- Shared fixtures for the v1.6.8 tests ----
+quietly {
+    clear
+    input long pid double(estart estop) byte drug
+    1 100 200 1
+    2 150 250 1
+    end
+    format estart estop %td
+    tempfile _s20_expo
+    save "`_s20_expo'"
+
+    clear
+    input long pid double(entry exitd)
+    1 50 400
+    2 50 400
+    end
+    format entry exitd %td
+    tempfile _s20_master
+    save "`_s20_master'"
+}
+
+* --- 20.1 tvexpose: "Gaps in Coverage" must NOT display without the gaps option
+*     (the gap-period tempfile local was named `gaps', shadowing the option)
+display as text "TEST 20.1: tvexpose gaps report is opt-in"
+local _t_ok = 1
+quietly use "`_s20_master'", clear
+tempfile _s20_log1
+quietly log using "`_s20_log1'.log", replace text name(_s20l1)
+* capture noisily: output must reach the nested log for the scrape below
+capture noisily tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+    exposure(drug) reference(0) entry(entry) exit(exitd)
+if _rc local _t_ok = 0
+quietly log close _s20l1
+capture {
+    tempname fh
+    local _hit = 0
+    file open `fh' using "`_s20_log1'.log", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "Gaps in Coverage") local _hit = 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_hit' == 0
+}
+if _rc local _t_ok = 0
+if `_t_ok' {
+    display as result "  PASS: no unsolicited gaps report"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: gaps report displayed without gaps option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.1"
+}
+
+* --- 20.2 tvexpose: gaps option still produces its report (positive control)
+display as text "TEST 20.2: tvexpose gaps option still reports"
+local _t_ok = 1
+quietly use "`_s20_master'", clear
+tempfile _s20_log2
+quietly log using "`_s20_log2'.log", replace text name(_s20l2)
+capture noisily tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+    exposure(drug) reference(0) entry(entry) exit(exitd) gaps
+if _rc local _t_ok = 0
+quietly log close _s20l2
+capture {
+    tempname fh
+    local _hit = 0
+    file open `fh' using "`_s20_log2'.log", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "Gaps in Coverage") local _hit = 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_hit' == 1
+}
+if _rc local _t_ok = 0
+if `_t_ok' {
+    display as result "  PASS: gaps option report intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: gaps option report missing (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.2"
+}
+
+* --- 20.3 tvexpose: exit<entry error path with <5 obs exits 498, not r(198)
+*     (list ... in 1/5 errored out before the intended exit on tiny masters)
+display as text "TEST 20.3: tvexpose reversed-dates error path with 3 obs"
+quietly {
+    clear
+    input long pid double(entry exitd)
+    1 400 50
+    2 50 400
+    3 50 400
+    end
+}
+capture tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+    exposure(drug) reference(0) entry(entry) exit(exitd)
+if _rc == 498 {
+    display as result "  PASS: rc 498 on tiny reversed-dates master"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: expected rc 498, got `=_rc'"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.3"
+}
+
+* --- 20.4 tvexpose: keepvars(time) and keepvars(tag) must not collide with
+*     internal summary variables (previously hardcoded gen time / egen tag)
+display as text "TEST 20.4: tvexpose keepvars(time) and keepvars(tag)"
+capture {
+    quietly {
+        clear
+        input long pid double(entry exitd) double time byte tag
+        1 50 400 3.5 1
+        2 50 400 4.5 0
+        end
+    }
+    tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+        exposure(drug) reference(0) entry(entry) exit(exitd) keepvars(time tag)
+    confirm variable time
+    confirm variable tag
+}
+if _rc == 0 {
+    display as result "  PASS: keepvars(time tag) survive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: keepvars(time tag) collision (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.4"
+}
+
+* --- 20.5 tvexpose: validate + bytype displays an explicit note
+display as text "TEST 20.5: tvexpose validate+bytype note"
+local _t_ok = 1
+quietly use "`_s20_master'", clear
+tempfile _s20_log5
+quietly log using "`_s20_log5'.log", replace text name(_s20l5)
+capture noisily tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+    exposure(drug) reference(0) entry(entry) exit(exitd) ///
+    evertreated bytype validate replace
+if _rc local _t_ok = 0
+quietly log close _s20l5
+capture {
+    tempname fh
+    local _hit = 0
+    file open `fh' using "`_s20_log5'.log", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "validate is not available with bytype") local _hit = 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_hit' == 1
+}
+if _rc local _t_ok = 0
+if `_t_ok' {
+    display as result "  PASS: validate+bytype note displayed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: validate+bytype note missing (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.5"
+}
+
+* --- 20.6 tvevent: rows sharing (id, start, stop) but differing on payload
+*     survive interval splitting (the old triple-key force dedup silently
+*     deleted per-stratum rows, e.g. from tvexpose, split)
+display as text "TEST 20.6: tvevent retains duplicate-interval strata through split"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop) byte expA
+        1 1 10 1
+        1 1 10 2
+        1 11 20 1
+        1 11 20 2
+        end
+        format start stop %td
+        tempfile _s20_dup
+        save "`_s20_dup'"
+        clear
+        input long pid double evd
+        1 5
+        end
+        format evd %td
+    }
+    tvevent using "`_s20_dup'", id(pid) date(evd)
+    * type(single): both [1,5] stratum rows must remain after censoring
+    quietly count
+    assert r(N) == 2
+    quietly count if expA == 1
+    assert r(N) == 1
+    quietly count if expA == 2
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: both exposure strata retained"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stratum rows lost through split dedup (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.6"
+}
+
+* --- 20.7 tvevent: re-run over its own saved output (value label already in
+*     the using file) must not fail with "label already defined" r(110);
+*     covers the no-split path and the empty-events path
+display as text "TEST 20.7: tvevent label redefine over prior output"
+capture {
+    quietly {
+        use "`_s20_master'", clear
+        tvexpose using "`_s20_expo'", id(pid) start(estart) stop(estop) ///
+            exposure(drug) reference(0) entry(entry) exit(exitd)
+        tempfile _s20_ivl
+        save "`_s20_ivl'"
+        clear
+        input long pid double evd
+        1 180
+        end
+        format evd %td
+        tvevent using "`_s20_ivl'", id(pid) date(evd) start(estart) stop(estop)
+        tempfile _s20_evented
+        save "`_s20_evented'"
+        * boundary event (no split needed) on the prior output
+        su estop if _failure == 0, meanonly
+        local _bnd = r(max)
+        clear
+        input long pid double evd
+        2 0
+        end
+        replace evd = `_bnd'
+        format evd %td
+        tvevent using "`_s20_evented'", id(pid) date(evd) ///
+            start(estart) stop(estop) replace
+        * empty-events path on the prior output
+        clear
+        input long pid double evd
+        1 .
+        end
+        tvevent using "`_s20_evented'", id(pid) date(evd) ///
+            start(estart) stop(estop) replace
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: re-run over prior output succeeds"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: label redefine over prior output (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.7"
+}
+
+* --- 20.8 tvmerge: two-sided ID-mismatch report lists the dataset-k-only ids
+*     (the in-range started at the top of the sorted data, where dataset-1-only
+*     ids sort first, so the second listing showed wrong or no ids)
+display as text "TEST 20.8: tvmerge two-sided mismatch listing"
+capture {
+    quietly {
+        clear
+        input long pid double(s1 e1) byte x1
+        1 1 10 1
+        9 1 10 1
+        end
+        tempfile _s20_m1
+        save "`_s20_m1'"
+        clear
+        input long pid double(s2 e2) byte x2
+        1 1 10 1
+        2 1 10 1
+        3 2 9 1
+        end
+        tempfile _s20_m2
+        save "`_s20_m2'"
+    }
+    tempfile _s20_log8
+    quietly log using "`_s20_log8'.log", replace text name(_s20l8)
+    capture noisily tvmerge "`_s20_m1'" "`_s20_m2'", id(pid) ///
+        start(s1 s2) stop(e1 e2) exposure(x1 x2)
+    local _rc8 = _rc
+    quietly log close _s20l8
+    assert `_rc8' == 459
+    tempname fh
+    local _saw2 = 0
+    local _saw3 = 0
+    local _saw9after = 0
+    local _in_dsk = 0
+    file open `fh' using "`_s20_log8'.log", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "IDs exist in dataset 2") local _in_dsk = 1
+        if `_in_dsk' {
+            if regexm(`"`macval(line)'"', "\| +2 \|") local _saw2 = 1
+            if regexm(`"`macval(line)'"', "\| +3 \|") local _saw3 = 1
+            if regexm(`"`macval(line)'"', "\| +9 \|") local _saw9after = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_saw2' == 1
+    assert `_saw3' == 1
+    assert `_saw9after' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: dataset-k-only ids listed correctly"
+    local ++pass_count
+}
+else {
+    capture log close _s20l8
+    display as error "  FAIL: two-sided mismatch listing (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.8"
+}
+
 * TEST RESULTS
 
 * ===== Summary =====

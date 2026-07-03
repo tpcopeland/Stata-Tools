@@ -20,7 +20,20 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
-local version "1.3.0"
+* Derive the package version from the flagship .ado header (single source of
+* truth) so this literal cannot go stale on a version bump.
+tempname _vfh
+file open `_vfh' using "`pkg_dir'/setools.ado", read text
+file read `_vfh' _vline
+file close `_vfh'
+local version ""
+local distdate ""
+if regexm(`"`_vline'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)[ ]+([0-9]+)/([0-9]+)/([0-9]+)") {
+    local version = regexs(1)
+    local distdate = regexs(2) + regexs(3) + regexs(4)
+}
+assert "`version'" != ""
+assert "`distdate'" != ""
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
 local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado"
 local metadata_files "README.md setools.pkg stata.toc"
@@ -82,7 +95,9 @@ capture noisily {
     _assert_file_contains "`pkg_dir'/setools.sthlp", pattern("version `version'")
     foreach cmd in cci_se migrations sustainedss cdp pira {
         _assert_file_contains "`pkg_dir'/`cmd'.ado", pattern("Version `version'")
-        _assert_file_contains "`pkg_dir'/`cmd'.sthlp", pattern("version `version'")
+        * Sub-command help files must NOT carry a package version line;
+        * the version lives in the flagship setools.sthlp only.
+        _assert_file_not_contains "`pkg_dir'/`cmd'.sthlp", pattern("*! version")
     }
     _assert_file_contains "`pkg_dir'/README.md", pattern("**Version `version'**")
     capture ado uninstall setools
@@ -108,7 +123,9 @@ capture noisily {
         _assert_file_contains "`pkg_dir'/setools.pkg", pattern("f `f'")
     }
     _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Author: Timothy P Copeland, Karolinska Institutet")
-    _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Distribution-Date: 20260614")
+    * Distribution-Date must match the flagship .ado header date (derived
+    * above), so this assertion cannot go stale on a version bump.
+    _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Distribution-Date: `distdate'")
 }
 if _rc == 0 {
     local ++pass_count
@@ -211,18 +228,17 @@ else {
     display as error "  FAIL: shipped surface has no dev-only path leaks (error `=_rc')"
 }
 
-**# README Demo References
+**# Demo Assets
 
+* Console screenshots/PNG captures were removed from demos and READMEs by
+* design; the demo surface is the runnable script only.
 local ++test_count
 capture noisily {
-    foreach f in setools_overview.png cci_se.png migrations.png sustainedss.png cdp.png pira.png {
-        _assert_file_contains "`pkg_dir'/README.md", pattern("demo/`f'")
-        confirm file "`pkg_dir'/demo/`f'"
-    }
+    confirm file "`pkg_dir'/demo/demo_setools.do"
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: README demo image references resolve to shipped files"
+    display as result "  PASS: demo script ships with the package"
 }
 else {
     local ++fail_count

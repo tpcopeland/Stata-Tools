@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -132,7 +131,12 @@ named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
 {help cci_se##comorbidities:Comorbidities} for the full list.
 
 {phang}
-{opt dates} generates a Stata daily date variable for each comorbidity containing the earliest diagnosis date. Variables are named {cmd:{it:prefix}mi_date}, {cmd:{it:prefix}chf_date}, etc. The date is missing for patients without that comorbidity. Hierarchy rules are applied to dates in the same way as indicators: when a comorbidity is cleared by a hierarchy rule, its date is also cleared. Specifying {opt dates} implies {opt components}.
+{opt dates} generates a Stata daily date variable for each comorbidity containing
+the earliest diagnosis date. Variables are named {cmd:{it:prefix}mi_date},
+{cmd:{it:prefix}chf_date}, etc. The date is missing for patients without that
+comorbidity. Hierarchy rules are applied to dates in the same way as indicators:
+when a comorbidity is cleared by a hierarchy rule, its date is also cleared.
+Specifying {opt dates} implies {opt components}.
 
 {phang}
 {opt prefix(string)} specifies the prefix for component variable names when

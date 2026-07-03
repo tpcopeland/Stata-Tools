@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.1** | 2026-07-01
+**Version 1.9.2** | 2026-07-03
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -535,6 +535,11 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.2 (2026-07-03)
+
+- **Fixed string subject ids being silently rejected as "no observations".** `iivw_fit`, `iivw_exogtest`, and `iivw_balance` extended their estimation sample with `markout` on the id/cluster/by variable, but `markout` without `strok` marks *every* observation out when the variable is a string -- so a perfectly valid string subject id (which `stset`, `stcox`, `glm, vce(cluster)`, and `mixed` all accept, and which `iivw_weight` handles correctly) died downstream with a misleading `no observations` error. The sample screens now use `strok`, which also correctly treats empty-string ids as missing
+- **Noted first visits at time 0.** In the default (baseline-visit-modeled) mode, a first visit at exactly time 0 spans a zero-length risk interval, so `stset` excludes it from the visit-intensity model while the row still receives the conventional baseline weight of 1. `iivw_weight` now prints a note with the affected subject count instead of leaving the exclusion buried in the `stset` table (invisible under `quietly`). Under `nobaseevent` baseline rows are excluded by design and no note is printed
 
 ### v1.9.1 (2026-07-01)
 

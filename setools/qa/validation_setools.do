@@ -1598,9 +1598,17 @@ run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 **# V11: STORED RESULTS COMPLETENESS
 
 * V11.1: setools stored results
+* Package version derived from the flagship .ado header so the oracle cannot
+* go stale on a version bump.
+tempname _vfh
+file open `_vfh' using "`pkg_dir'/setools.ado", read text
+file read `_vfh' _vline
+file close `_vfh'
+local _pkg_version ""
+if regexm(`"`_vline'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)") local _pkg_version = regexs(1)
 setools
 local t = ("`r(commands)'" == "cci_se migrations sustainedss cdp pira" & ///
-    r(n_commands) == 5 & "`r(version)'" == "1.4.0" & ///
+    r(n_commands) == 5 & "`r(version)'" == "`_pkg_version'" & ///
     "`r(categories)'" == "all codes migration ms" & ///
     "`r(category)'" == "all" & "`r(display)'" == "grouped")
 run_val "V11.1: setools exact stored results" `t'

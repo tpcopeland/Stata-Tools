@@ -1,4 +1,4 @@
-*! tvexpose Version 1.6.7  2026/07/02
+*! tvexpose Version 1.6.8  2026/07/03
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -742,7 +742,7 @@ program define tvexpose, rclass
         noisily display as error "Error: found `n_invalid' persons with study_exit < study_entry"
         noisily display as error "Please verify entry(varname) and exit(varname) are correct"
         noisily display as error "First few cases:"
-        noisily list id study_entry study_exit if study_exit < study_entry in 1/5, noobs
+        noisily list id study_entry study_exit if study_exit < study_entry in 1/`=min(5, _N)', noobs
         exit 498
     }
     
@@ -1958,22 +1958,24 @@ program define tvexpose, rclass
         quietly save `ref_gaps', replace
         
         * Combine carryforward and reference gap periods
+        * (tempfile local is _gapsfile, NOT gaps: naming it `gaps' would fill
+        * the `gaps' display-option local and force the diagnostic every run)
         quietly use `carryforward_gaps', clear
         keep id exp_start exp_stop exp_value
         capture confirm file `ref_gaps'
         if _rc == 0 {
             quietly append using `ref_gaps'
         }
-        tempfile gaps
-        quietly save `gaps', replace
+        tempfile _gapsfile
+        quietly save `_gapsfile', replace
     }
     else {
         * No carryforward: all gaps are reference periods
         keep id __gap_start __gap_stop
         rename (__gap_start __gap_stop) (exp_start exp_stop)
         quietly gen exp_value = `reference'
-        tempfile gaps
-        quietly save `gaps', replace
+        tempfile _gapsfile
+        quietly save `_gapsfile', replace
     }
     
     quietly use `pregap', clear
@@ -2098,9 +2100,9 @@ program define tvexpose, rclass
     }
     
     * Append gap periods
-    capture confirm file `gaps'
+    capture confirm file `_gapsfile'
     if _rc == 0 {
-        quietly append using `gaps'
+        quietly append using `_gapsfile'
     }
     
     * Append baseline period
@@ -4049,15 +4051,16 @@ program define tvexpose, rclass
     quietly count
     local N_periods = r(N)
     
-    * Count unique persons
-    egen double tag = tag(id)
-    quietly count if tag
+    * Count unique persons (tempvars: hardcoded names collide with keepvars)
+    tempvar _ptag _ptime
+    quietly egen double `_ptag' = tag(id)
+    quietly count if `_ptag'
     local N_persons = r(N)
-    drop tag
-    
+    drop `_ptag'
+
     * Calculate total person-time
-    quietly gen double time = stop - start + 1
-    quietly sum time
+    quietly gen double `_ptime' = stop - start + 1
+    quietly sum `_ptime'
     local total_time = r(sum)
     
     * Calculate exposed person-time
@@ -4133,7 +4136,7 @@ program define tvexpose, rclass
         }
     }
 
-    quietly sum time if __final_binary
+    quietly sum `_ptime' if __final_binary
     if r(N) > 0 {
         local exposed_time = r(sum)
     }
@@ -4149,7 +4152,7 @@ program define tvexpose, rclass
         local pct_exposed = 0
     }
     
-    drop time __final_binary
+    drop `_ptime' __final_binary
     
     * Drop exp_value after calculations when bytype is used
     if `skip_main_var' == 1 {
@@ -4439,6 +4442,11 @@ program define tvexpose, rclass
     }
     
     **# Validation dataset creation (validate option)
+    * Per-person exposure metrics need the single output variable, so validate
+    * is unavailable with bytype; say so rather than silently skipping.
+    if "`validate'" != "" & "`bytype'" != "" {
+        noisily display as text "Note: validate is not available with bytype; validation dataset not created."
+    }
     if "`validate'" != "" & "`bytype'" == "" {
         * Create comprehensive validation dataset with per-person metrics
         tempfile _validate_temp

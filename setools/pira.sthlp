@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.4.0  15jun2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "setools" "help setools"}{...}

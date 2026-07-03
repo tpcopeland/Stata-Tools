@@ -1,4 +1,4 @@
-*! cdp Version 1.4.0  2026/06/15
+*! cdp Version 1.4.1  2026/07/03
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -347,10 +347,13 @@ program define cdp, rclass
                 // and reset baseline
                 qui drop if !missing(`generate') & `datevar' <= `generate'
 
-                // Update baseline for next iteration (first obs after event)
-                qui bysort `idvar' (`datevar'): replace `baseline_edss' = `edssvar'[1] ///
+                // Update baseline for next iteration (first obs after event).
+                // `edssvar' is a secondary sort key so same-day duplicate visits
+                // deterministically re-baseline on the lower EDSS (the package-wide
+                // tie convention; an unkeyed tie would be sort-order dependent).
+                qui bysort `idvar' (`datevar' `edssvar'): replace `baseline_edss' = `edssvar'[1] ///
                     if !missing(`generate')
-                qui bysort `idvar' (`datevar'): replace `baseline_date' = `datevar'[1] ///
+                qui bysort `idvar' (`datevar' `edssvar'): replace `baseline_date' = `datevar'[1] ///
                     if !missing(`generate')
 
                 qui drop `generate' baseline_edss_at_event `event_num'
@@ -409,7 +412,10 @@ program define cdp, rclass
         if "`quietly'" == "" {
             di as text "Note: allevents reshapes data to event-level (one row per CDP event)"
         }
-        qui bysort `idvar': keep if _n == 1
+        // Keyed on `sortorder' so the retained covariate row per person is
+        // deterministically the first row of the original data, not whichever
+        // row Stata's non-stable sort happens to leave first.
+        qui bysort `idvar' (`sortorder'): keep if _n == 1
         if "`keepall'" == "" {
             qui merge 1:m `idvar' using `results', nogen keep(3)
         }

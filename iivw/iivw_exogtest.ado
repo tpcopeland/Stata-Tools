@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.9.1  2026/07/01
+*! iivw_exogtest Version 1.9.2  2026/07/03
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -96,9 +96,12 @@ program define iivw_exogtest, rclass sortpreserve
     local __iivw_hold_ok = 1
 
     marksample touse
-    markout `touse' `id' `time' `varlist' `adjust'
+    * strok: id() and by() may legitimately be string variables; without
+    * strok, markout silently marks EVERY observation out for a string
+    * variable and the diagnostic dies with a misleading "no observations".
+    markout `touse' `id' `time' `varlist' `adjust', strok
     if "`by'" != "" {
-        markout `touse' `by'
+        markout `touse' `by', strok
     }
     if "`entry'" != "" {
         markout `touse' `entry'

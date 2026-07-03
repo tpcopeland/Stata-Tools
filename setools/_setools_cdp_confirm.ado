@@ -1,4 +1,4 @@
-*! _setools_cdp_confirm Version 1.4.0  2026/06/15
+*! _setools_cdp_confirm Version 1.4.1  2026/07/03
 *! setools internal: per-person confirmation EDSS value for a candidate date
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
