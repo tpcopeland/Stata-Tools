@@ -37,7 +37,8 @@ local quick_suites test_codescan test_countrows test_mata_opt ///
 * Correctness lane: quick plus every validation suite and the adversarial
 * functional suites.
 local core_suites `quick_suites' ///
-    validation_codescan_known_answers validation_mata ///
+    validation_codescan_known_answers validation_codescan_dgp_recovery ///
+    validation_mata ///
     validation_codescan_io ///
     validation_codescan_output validation_codescan_describe ///
     validation_codescan_describe_adversarial validation_codescan_crosscheck ///

@@ -56,6 +56,8 @@ foreach f in ///
     validation_extra ///
     validation_timevarying ///
     validation_gcomp_recovery ///
+    validation_gcomp_recovery_extended ///
+    validation_gcomp_recovery_surface ///
     crossval_gcomp ///
     crossval_external_replication ///
     crossval_mediation_se ///

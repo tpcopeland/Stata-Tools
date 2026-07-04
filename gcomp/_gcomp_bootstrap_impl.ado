@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.4.1  2026/07/02
+*! _gcomp_bootstrap_impl Version 1.4.3  2026/07/04
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel
@@ -6,6 +6,62 @@
 
 * Inner bootstrap program (was gformula_.ado in SSC)
 * =============================================================================
+
+* Build positional per-subject covariate lookup tables in a single O(N) pass.
+* Row k of each target variable receives the mean of the source covariate over
+* the rows whose group id (`ordvar', dense 1..cnt, nonmissing only on original
+* rows) equals k. Fixed covariates average over all of subject k's rows; varying
+* covariates over the first-visit rows (`tvarname'==firstv) only. A group with no
+* qualifying nonmissing observation is left missing. Replaces an O(N^2) per-
+* subject `summarize ... if' loop.
+capture mata: mata drop _gcomp_build_lookups()
+mata:
+void _gcomp_build_lookups(string scalar ordvar, string scalar tvarname,
+                          real scalar firstv, real scalar cnt,
+                          string scalar fsrc, string scalar ftgt,
+                          string scalar vsrc, string scalar vtgt)
+{
+    real colvector ord, v, tv, s, c, res
+    string rowvector src, tgt
+    real scalar j, i, k
+
+    ord = st_data(., ordvar)
+
+    src = tokens(fsrc); tgt = tokens(ftgt)
+    for (j = 1; j <= cols(src); j++) {
+        v = st_data(., src[j])
+        s = J(cnt, 1, 0); c = J(cnt, 1, 0)
+        for (i = 1; i <= rows(ord); i++) {
+            k = ord[i]
+            if (k >= . | v[i] >= .) continue
+            s[k] = s[k] + v[i]
+            c[k] = c[k] + 1
+        }
+        res = J(cnt, 1, .)
+        for (k = 1; k <= cnt; k++) if (c[k] > 0) res[k] = s[k] / c[k]
+        st_store((1, cnt), tgt[j], res)
+    }
+
+    src = tokens(vsrc); tgt = tokens(vtgt)
+    if (cols(src) > 0) {
+        tv = st_data(., tvarname)
+        for (j = 1; j <= cols(src); j++) {
+            v = st_data(., src[j])
+            s = J(cnt, 1, 0); c = J(cnt, 1, 0)
+            for (i = 1; i <= rows(ord); i++) {
+                k = ord[i]
+                if (k >= . | v[i] >= .) continue
+                if (tv[i] != firstv) continue
+                s[k] = s[k] + v[i]
+                c[k] = c[k] + 1
+            }
+            res = J(cnt, 1, .)
+            for (k = 1; k <= cnt; k++) if (c[k] > 0) res[k] = s[k] / c[k]
+            st_store((1, cnt), tgt[j], res)
+        }
+    }
+}
+end
 
 capture program drop _gcomp_filter_omitted
 program define _gcomp_filter_omitted, rclass
@@ -727,29 +783,39 @@ if `_gc_chk_prt'==0 {
 		tempvar _gc_source_id
 		qui gen long `_gc_source_id' = `_gc_source_ord' if _n<=`oldN'
 		qui replace `_gc_source_id' = mod(ceil(`_gc_app_index'/`maxv') - 1, `_gc_source_count') + 1 if _n>`oldN'
+		* Positional covariate lookup tables: row k holds the (per-subject) mean of
+		* the covariate over subject k's original rows, keyed by `_gc_source_ord'
+		* (a dense 1..`_gc_source_count' group id, nonmissing only on original
+		* rows -- so `_gc_source_ord'==k already selects int_no==0). Fixed
+		* covariates average over all of subject k's rows; varying covariates over
+		* the first visit (`tvar'==`firstv') only. Built in a single O(N) pass per
+		* covariate via Mata, replacing an O(N^2) per-subject `summarize' loop that
+		* re-scanned the whole dataset once per subject (~90s at N=10000). A group
+		* with no qualifying nonmissing obs stays missing, matching r(N)==0 before.
+		local _gc_lk_fsrc ""
+		local _gc_lk_ftgt ""
 		local _gc_fixed_lookup_count 0
 		foreach var in `fixedcovariates' {
 			local _gc_fixed_lookup_count = `_gc_fixed_lookup_count' + 1
 			tempvar _gc_fixed_lookup`_gc_fixed_lookup_count'
 			qui gen double `_gc_fixed_lookup`_gc_fixed_lookup_count'' = .
-			forvalues _gc_src=1/`_gc_source_count' {
-				qui summarize `var' if `_gc_source_ord'==`_gc_src' & `int_no'==0, meanonly
-				if r(N)>0 {
-					qui replace `_gc_fixed_lookup`_gc_fixed_lookup_count'' = r(mean) in `_gc_src'
-				}
-			}
+			local _gc_lk_fsrc "`_gc_lk_fsrc' `var'"
+			local _gc_lk_ftgt "`_gc_lk_ftgt' `_gc_fixed_lookup`_gc_fixed_lookup_count''"
 		}
+		local _gc_lk_vsrc ""
+		local _gc_lk_vtgt ""
 		local _gc_varying_lookup_count 0
 		foreach var in `varyingcovariates' {
 			local _gc_varying_lookup_count = `_gc_varying_lookup_count' + 1
 			tempvar _gc_varying_lookup`_gc_varying_lookup_count'
 			qui gen double `_gc_varying_lookup`_gc_varying_lookup_count'' = .
-			forvalues _gc_src=1/`_gc_source_count' {
-				qui summarize `var' if `_gc_source_ord'==`_gc_src' & `tvar'==`firstv' & `int_no'==0, meanonly
-				if r(N)>0 {
-					qui replace `_gc_varying_lookup`_gc_varying_lookup_count'' = r(mean) in `_gc_src'
-				}
-			}
+			local _gc_lk_vsrc "`_gc_lk_vsrc' `var'"
+			local _gc_lk_vtgt "`_gc_lk_vtgt' `_gc_varying_lookup`_gc_varying_lookup_count''"
+		}
+		if `_gc_fixed_lookup_count' > 0 | `_gc_varying_lookup_count' > 0 {
+			mata: _gcomp_build_lookups("`_gc_source_ord'", "`tvar'", `firstv', ///
+				`_gc_source_count', "`_gc_lk_fsrc'", "`_gc_lk_ftgt'", ///
+				"`_gc_lk_vsrc'", "`_gc_lk_vtgt'")
 		}
     }
 	if `_gc_chk_prt'==0 {

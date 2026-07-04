@@ -53,12 +53,13 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `validation_rangematch_oracle.do` | Known-answer oracle scenarios |
 | `validation_rangematch_manual.do` | Manual count/statistic validation |
 | `validation_rangematch_nearest.do` | Nearest/ties validation scenarios |
+| `validation_rangematch_known_answers.do` | 21 hand-computed scenarios: 4 closure rules, inverted/degenerate intervals, wildcard vs literal open bounds, `missing()` policy, scalar key-offsets, `by()` isolation, match statistics, `maxpairs()` guard, point-mode distance, tolerance boundaries, full-outer accounting, overlap incl. open-ended bounds |
 
 ## Coverage Map
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | manual, nearest, oracle | N/A | documentation examples and release integrity |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle | N/A | documentation examples and release integrity |
 
 `rangematch` is a deterministic data-join command, so no external R/Python
 cross-validation suite is required. The validation layer uses hand-built oracle
@@ -69,4 +70,4 @@ datasets and invariant checks.
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_install.do`, `test_rangematch_basic.do`, `test_rangematch_by.do`, `test_rangematch_overlap.do`, `test_rangematch_missing.do`, `test_rangematch_v110.do`, `test_rangematch_v120.do`, `test_rangematch_v130.do`, `test_rangematch_v140.do`, `test_rangematch_v141.do`, `test_rangematch_v144.do`, `test_rangematch_v145.do`, `test_rangematch_v147.do`, `test_rangematch_v148.do`, `test_rangematch_v101.do`, `test_rangematch_missing_option.do`, `test_rangematch_missing_option_extra.do`, `test_rangematch_abbrev.do`, `test_rangematch_adversarial.do`, `test_rangematch_return_contract.do`, `test_rangematch_display_contract.do`, `test_rangematch_routing_contract.do`, `test_rangematch_backend_equivalence.do`, `test_rangematch_saving_matrix.do`, `test_rangematch_v16compat.do`, `test_documentation_examples.do`, `test_release_integrity.do` |
-| `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do` |
+| `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do`, `validation_rangematch_known_answers.do` |

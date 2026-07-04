@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.4.1** | 2026-07-02
+**Version 1.4.3** | 2026-07-04
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -222,6 +222,8 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.4.3** (2026-07-04): **Bug fix: continuous end-of-follow-up outcome with time-varying confounding.** In `eofu` mode the outcome is only observed at the final visit, so its intermediate-visit values are legitimately missing. The missing-data screen incorrectly required the outcome at every non-first visit and dropped those intermediate rows, severing any lagged-confounder cascade. With a continuous (`regress`) outcome this silently flattened the estimated effect toward zero (a binary/`logit` outcome coded 0 at intermediate visits happened to dodge it). The screen now requires the `eofu` outcome only at the last visit; non-`eofu` behavior is unchanged. Added a known-truth recovery scenario for the continuous time-varying lagged-confounder cascade.
+- **1.4.2** (2026-07-04): **Performance and robustness.** (1) The per-subject baseline-covariate lookup used to seed the Monte-Carlo sample was rebuilt with a single O(N) pass (Mata) instead of an O(N²) `summarize`-per-subject loop; results are byte-for-byte identical but a time-varying/point-treatment run at N=20,000 now takes ~1s instead of minutes. (2) A malformed `control()` value (e.g. `control(m=0)` instead of the documented `control(0)`) was silently swallowed, collapsing the controlled direct effect to the total effect with no error — it is now rejected up front (`r(198)`) with a message pointing to the correct syntax. Added `qa/validation_gcomp_recovery_extended.do`: 13 known-truth parameter-recovery scenarios (point-treatment binary/continuous ATE, null effect, effect modification, strong confounding, multi-level dose-response, linear- and binary-model mediation NDE/NIE/TCE decomposition, controlled-direct-effect recovery, and a continuous time-varying static-regime contrast), each with an analytic g-formula oracle.
 - **1.4.1** (2026-07-02): **Bug fixes: `all`+`death()` display crash, mediation MSM-with-options crash, extended-missing screening.**
   - **`all` + `death()` display crash.** In a survival (non-`eofu`) time-varying run with both `all` and `death()`, the cumulative-incidence table used the raw row counter instead of the per-intervention index (`ceil(j/2)`) and referenced a never-defined macro in its separator rule. The first intervention's rows were mislabeled, later interventions printed as "Obs. regime", and the undefined macro (`"==2 invalid name"`) derailed execution into the mediation display branch, ending in a spurious `r(102)`. The block now mirrors the working non-`all` layout.
   - **Mediation MSM with options.** In mediation mode an `msm()` containing options (e.g. `msm(logit Y_ X_ M_, or)`) crashed with `r(198) "1& invalid name"`: the fallback that re-inserts the `if` restriction before the options had a stray `&` ahead of the comma. Time-varying MSMs were unaffected.

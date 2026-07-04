@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.1  2026/07/02
+*! gcomp Version 1.4.3  2026/07/04
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -229,16 +229,28 @@ if "`mediation'"=="" {
 				}
 			}
 		}
-	}	
+	}
+	* An end-of-follow-up outcome (eofu) is only observed at the final visit; its
+	* intermediate-visit values are legitimately missing and are ignored by the
+	* simulation engine. Requiring it at every non-first visit would drop those
+	* intermediate rows and sever any lagged-confounder cascade (silently flat
+	* effects with a continuous/regress outcome). In eofu mode require the
+	* outcome only at the last visit; otherwise require it at every non-first visit.
+	if "`eofu'"!="" {
+		local _gc_out_visit "`tvar'==`maxvlab'"
+	}
+	else {
+		local _gc_out_visit "`tvar'!=`firstv'"
+	}
 	if "`death'"!="" {
 		if strmatch(" "+"`impute'"+" ","* `outcome' *")==1 {
 			noi di as err "Missing values of " as text "`outcome'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `outcome'>=. & `tvar'!=`firstv' & `death'!=1
-		qui replace `missing'=1 if `outcome'>=. & `tvar'!=`firstv' & `death'!=1
+		qui count if `outcome'>=. & `_gc_out_visit' & `death'!=1
+		qui replace `missing'=1 if `outcome'>=. & `_gc_out_visit' & `death'!=1
 		if r(N)!=0 {
-			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "." 
+			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "."
 		}
 	}
 	else {
@@ -246,10 +258,10 @@ if "`mediation'"=="" {
 			noi di as err "Missing values of " as text "`outcome'" as err " cannot be imputed."
 			exit 198
 		}
-		qui count if `outcome'>=. & `tvar'!=`firstv'
-		qui replace `missing'=1 if `outcome'>=. & `tvar'!=`firstv'
+		qui count if `outcome'>=. & `_gc_out_visit'
+		qui replace `missing'=1 if `outcome'>=. & `_gc_out_visit'
 		if r(N)!=0 {
-			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "." 
+			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on " as text "`outcome'" as err "."
 		}
 	}
 	if "`monotreat'"!="" {
@@ -416,6 +428,26 @@ if "`mediation'"!="" & "`mediator'"=="" {
 if "`mediation'"!="" & "`baseline'"=="" & "`obe'"=="" & "`oce'"=="" & "`linexp'"=="" {
 	noi di as err "Error: With the mediation option, either baseline(), obe, oce or linexp must be specified."
 	exit 198
+}
+if "`mediation'"!="" & "`control'"!="" {
+	* control() sets the CDE mediator level(s): numeric only -- "0", "0 1", or
+	* "mediator: 0". Reject a non-numeric value (e.g. the natural but wrong
+	* control(m=0)); otherwise it is silently swallowed downstream and the CDE
+	* collapses to the total effect with no error.
+	local _ctrl_vals "`control'"
+	if strpos("`control'", ":") {
+		local _ctrl_vals = substr("`control'", strpos("`control'", ":")+1, .)
+	}
+	local _ctrl_ok 1
+	foreach _cv of local _ctrl_vals {
+		capture confirm number `_cv'
+		if _rc local _ctrl_ok 0
+	}
+	if !`_ctrl_ok' {
+		noi di as err "Error: control() expects numeric mediator level(s), e.g. control(0)."
+		noi di as err "       Received control(`control'). Use control(0), not control(m=0) or control(mediator=0)."
+		exit 198
+	}
 }
 if "`boceam'"!="" {
 	local _nmed: word count `mediator'
