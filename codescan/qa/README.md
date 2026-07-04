@@ -57,7 +57,8 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_release_integrity.do` | functional | 6 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris |
 | `validation_codescan.do` | validation | 65 | Hand-computed oracles for `codescan` |
 | `validation_codescan_known_answers.do` | validation | 8 | Known-answer matrix across option combinations |
-| `validation_codescan_dgp_recovery.do` | validation | 23 | DGP known-answer recovery: simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic/Wilson) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, CI, and describe |
+| `validation_codescan_dgp_recovery.do` | validation | 23 | DGP known-answer recovery (batch 1): simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic/Wilson) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, CI, and describe |
+| `validation_codescan_dgp_recovery2.do` | validation | 19 | DGP known-answer recovery (batch 2): the option/output paths batch 1 omitted — matched_code first-hit, unmatched flag, regex/prefix alternation in one condition, multi-pattern & prefix exclusion, multi-window lookback + fixed lookforward, merge-broadcast date/count summaries, countrows+collapse, countmode+merge, patient-level cooccurrence, tostring numeric codes, label() variable labels, detail varcounts first-slot attribution, combined multi-output collapse, alldates shorthand, empty/wide window contract, and a 99% Wilson CI |
 | `validation_mata.do` | validation | 8 | Known-answer equivalence for the Mata fast paths |
 | `validation_codescan_io.do` | validation | 5 | Save/export/saving artifact fidelity |
 | `validation_codescan_output.do` | validation | 3 | Graph/co-occurrence output structure and failed-export cleanup |
@@ -106,6 +107,7 @@ contract (`test_codescan_v2_no_scoring.do`), and the release surface
 | `validation_countrows` | ✓ | ✓ | ✓ |
 | `validation_codescan_known_answers` |  | ✓ | ✓ |
 | `validation_codescan_dgp_recovery` |  | ✓ | ✓ |
+| `validation_codescan_dgp_recovery2` |  | ✓ | ✓ |
 | `validation_mata` |  | ✓ | ✓ |
 | `validation_codescan_io` |  | ✓ | ✓ |
 | `validation_codescan_output` |  | ✓ | ✓ |

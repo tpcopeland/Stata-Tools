@@ -38,6 +38,7 @@ local quick_suites test_codescan test_countrows test_mata_opt ///
 * functional suites.
 local core_suites `quick_suites' ///
     validation_codescan_known_answers validation_codescan_dgp_recovery ///
+    validation_codescan_dgp_recovery2 ///
     validation_mata ///
     validation_codescan_io ///
     validation_codescan_output validation_codescan_describe ///
