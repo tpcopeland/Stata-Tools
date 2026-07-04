@@ -1,4 +1,4 @@
-*! msm_weight Version 1.2.2  2026/07/02
+*! msm_weight Version 1.2.3  2026/07/04
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -592,6 +592,12 @@ program define _msm_weight_treatment, rclass
             gen double `_denom_pr' = .
         }
         else {
+            * Time-invariant treatment (A_t == A_{t-1} for every person-period)
+            * makes A_t perfectly predicted by its own lag, so the denominator
+            * logit degenerates. Detect it up front so the hard-fail diagnostic
+            * can name the real cause instead of a bare model-failure code.
+            quietly count if `_denom_complete' & `treatment' != `_lag_treat'
+            local _treat_time_invariant = (r(N) == 0)
             capture logit `treatment' `_lag_treat' `d_cov' `period' ///
                 if `_denom_complete', `log_opt'
             local _fit_rc = _rc
@@ -607,6 +613,7 @@ program define _msm_weight_treatment, rclass
                 else {
                     noisily display as error ///
                         "  Treatment denominator model failed (rc=`_fit_rc')."
+                    if `_treat_time_invariant' _msm_time_invariant_hint "`treatment'"
                     noisily display as error ///
                         "  Refusing to substitute a marginal probability by default."
                     noisily display as error ///
@@ -626,6 +633,7 @@ program define _msm_weight_treatment, rclass
                 else {
                     noisily display as error ///
                         "  Treatment denominator model did not converge."
+                    if `_treat_time_invariant' _msm_time_invariant_hint "`treatment'"
                     noisily display as error ///
                         "  Refusing to substitute a marginal probability by default."
                     noisily display as error ///

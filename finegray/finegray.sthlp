@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  01jul2026}{...}
+{* *! version 1.1.1  04jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -572,7 +572,7 @@ reconstruct each subject's risk window.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.1, 2026-07-01{p_end}
+{pstd}Version 1.1.1, 2026-07-04{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

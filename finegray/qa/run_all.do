@@ -36,6 +36,7 @@ local skip_file "`qa_dir'/_skip.txt"
 local quick_files test_finegray.do test_finegray_v110.do test_finegray_v111.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
+    validation_finegray_recovery_paths.do validation_finegray_cif_recovery.do ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     crossval_predict_stcrreg.do
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do

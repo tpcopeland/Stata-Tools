@@ -1,6 +1,6 @@
 # finegray - Fast Fine-Gray competing risks regression
 
-**Version 1.1.1** | 2026-07-01
+**Version 1.1.1** | 2026-07-04
 
 `finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
 
@@ -188,7 +188,8 @@ Standard errors are robust (sandwich) by default in both commands and agree to r
 
 ## Version History
 
-- **1.1.1** (2026-07-01; Pending SSC release): Correctness fixes for left truncation and multi-record fits.
+- **1.1.1** (2026-07-04; Pending SSC release): Correctness fixes for left truncation and multi-record fits.
+  - Performance: the CIF influence-function variance (`finegray_cif` and `finegray_predict, cif ci`) was rewritten from an O(_n_&sup2;) per-evaluation-point loop over the cause events to an O(_n_&nbsp;log&nbsp;_n_) prefix-sum computation. Standard errors are numerically identical (max abs difference 1e-16); a `finegray_cif` call at _n_&nbsp;=&nbsp;120,000 dropped from ~91s to ~7s. This makes CIF standard errors practical at epidemiological sample sizes.
   - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, PH tests, and bootstrap refits after `stsplit`-style data.
   - Robust/cluster SEs and CIF influence-function SEs under delayed entry (left truncation) fixed: the per-subject score residuals now restrict the at-risk contribution to each subject's actual risk window `[t0, t]`. Validated against a delete-one jackknife oracle; results with no delayed entry are unchanged.
   - `finegray_cif, bootstrap()` no longer destroys `e(sample)`: estimates are now held before `preserve` so the `e(sample)` marker survives the resampling loop; previously any post-estimation command run after a bootstrap call failed with "no observations".

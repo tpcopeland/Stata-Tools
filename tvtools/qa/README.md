@@ -95,6 +95,8 @@ and re-bootstraps after its own `clear all`.
 | `validation_pipeline.do` | end-to-end pipeline + continuous/person-time conservation |
 | `validation_supplemental.do` | cross-command math validation, return-value completeness, invariants |
 | `validation_known_answers.do` | hand-computed tvexpose→tvmerge→tvage→tvevent workflows |
+| `validation_dgp_known_answers.do` | **known-answer DGP battery** (20 scenarios, S1–S20): each builds data from a generating process whose exact output is derived analytically from the DGP — never the package. Deterministic transforms carry exact integer oracles (tvage continuous/grouped band counts, tvband elapsed/calendar bands, tvsplit Lexis invariants, tvpanel period count + exact-multiple exit-day coverage + cumulative accrual, tvexpose interval/exposed-PT, tvmerge intersection lattice, tvevent recurring split); tvweight uses saturated-model IPTW identities (mean unstabilized weight = 2, mean stabilized weight = 1, covariate balance) exact to machine precision. Person-time conservation and no-gap/overlap asserted throughout |
+| `validation_dgp_known_answers2.do` | **known-answer DGP battery, part 2** (25 scenarios, S21–S45): reaches the option surfaces the first battery did not. tvexpose exposure-definition/data-handling (evertreated monotone, currentformer never/current/former PT, lag/washout window shifts, grace gap-bridge from both sides, dose accrual); tvmerge simultaneous-overlap lattice cell; tvevent event logic (single terminal censoring, earlier competing-date resolution, recurring PWP enum + gap-time clock, timegen elapsed, continuous() proportional split conservation); tvweight estimand identities (ATO/matching exact balance, matched pseudo-population size = 2200, saturated stabilized ESS, multinomial mean weight = #levels, truncate percentile-clamp identity + exact trim count); tvpanel active-class vector + per-class cumulative accrual; tvage minage/maxage clamp; tvsplit single- and three-axis invariants; tvdiagnose three-way overlap + exclusive large-gap threshold boundary. Each oracle confirmed against documented option semantics before pinning |
 
 ### Cross-validation
 | File | Purpose |
@@ -118,22 +120,22 @@ and re-bootstraps after its own `clear all`.
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---------|-----------|-----------|-----------|-------------------|
-| tvage | `test_tvage` | `validation_tvage`, `validation_known_answers` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvband | `test_tvband` | `validation_tvband` | `crossval_tvsplit_lexis` | `test_tvsplit`, `test_default_naming` |
-| tvdiagnose | `test_tvdiagnose` | `validation_tvdiagnose` | `crossval_tvtools` | `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
-| tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_boundary` | `crossval_tvevent_recurring` | `test_options`, `test_frames_input`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
-| tvmerge | `test_tvmerge` | `validation_tvmerge` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_frames_input`, `test_regressions`, `validation_supplemental` |
-| tvpanel | `test_tvpanel` | `validation_tvpanel` | — | `test_frames_input`, `test_regressions` |
-| tvsplit | `test_tvsplit` | `validation_tvsplit` | `crossval_tvsplit_lexis` | `test_default_naming` |
+| tvage | `test_tvage` | `validation_tvage`, `validation_known_answers`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | `crossval_tvtools` | `test_options`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvband | `test_tvband` | `validation_tvband`, `validation_dgp_known_answers` | `crossval_tvsplit_lexis` | `test_tvsplit`, `test_default_naming` |
+| tvdiagnose | `test_tvdiagnose` | `validation_tvdiagnose`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | `crossval_tvtools` | `test_integration`, `test_verbose`, `test_regressions`, `validation_supplemental` |
+| tvevent | `test_tvevent` | `validation_tvevent`, `validation_known_answers`, `validation_dgp_known_answers`, `validation_dgp_known_answers2`, `validation_boundary` | `crossval_tvevent_recurring` | `test_options`, `test_frames_input`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvexpose | `test_tvexpose` | `validation_tvexpose`, `validation_dgp_known_answers`, `validation_dgp_known_answers2`, `validation_boundary` | `crossval_tvtools`, `crossval_tvexpose_expand` | `test_options`, `test_integration`, `test_verbose`, `test_regressions`, `validation_pipeline`, `validation_supplemental` |
+| tvmerge | `test_tvmerge` | `validation_tvmerge`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | `crossval_tvtools`, `crossval_tvmerge_mata` | `test_options`, `test_integration`, `test_verbose`, `test_frames_input`, `test_regressions`, `validation_supplemental` |
+| tvpanel | `test_tvpanel` | `validation_tvpanel`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | — | `test_frames_input`, `test_regressions` |
+| tvsplit | `test_tvsplit` | `validation_tvsplit`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | `crossval_tvsplit_lexis` | `test_default_naming` |
 | tvtools (dispatcher) | `test_tvtools` | — | — | — |
-| tvweight | `test_tvweight` | `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery` | `crossval_tvtools`, `crossval_tvweight_ipcw` | `test_options`, `test_regressions`, `validation_flow`, `validation_supplemental` |
+| tvweight | `test_tvweight` | `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_dgp_known_answers`, `validation_dgp_known_answers2` | `crossval_tvtools`, `crossval_tvweight_ipcw` | `test_options`, `test_regressions`, `validation_flow`, `validation_supplemental` |
 
 ## Lane membership
 
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_tvage`, `test_tvband`, `test_tvsplit`, `test_tvevent`, `test_tvexpose`, `test_tvmerge`, `test_tvpanel`, `test_tvweight`, `test_tvdiagnose`, `test_tvtools`, `test_options`, `test_integration`, `test_edge_cases`, `test_verbose`, `test_frames_input`, `test_default_naming` |
-| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_tvage`, `validation_tvband`, `validation_tvsplit`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvpanel`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand`, `crossval_tvsplit_lexis`, `crossval_tvweight_ipcw`, `crossval_tvevent_recurring` |
+| `core` | `quick` + `test_regressions`, `validation_known_answers`, `validation_dgp_known_answers`, `validation_dgp_known_answers2`, `validation_tvage`, `validation_tvband`, `validation_tvsplit`, `validation_tvevent`, `validation_tvexpose`, `validation_tvmerge`, `validation_tvpanel`, `validation_tvweight`, `validation_tvweight_balance`, `validation_tvweight_recovery`, `validation_tvweight_msm_recovery`, `validation_tvdiagnose`, `validation_flow`, `validation_boundary`, `validation_pipeline`, `validation_supplemental`, `crossval_tvmerge_mata`, `crossval_tvexpose_expand`, `crossval_tvsplit_lexis`, `crossval_tvweight_ipcw`, `crossval_tvevent_recurring` |
 | `python` | `crossval_tvtools` |
 | `full` *(default)* | `core` + `python` |

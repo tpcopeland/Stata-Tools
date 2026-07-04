@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.1.1, 2026-07-01): the
+Quality assurance for the **finegray** package (v1.1.1, 2026-07-04): the
 Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its
 post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
@@ -33,19 +33,21 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 | `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata) | 8 | 8 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
+| `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
+| `validation_finegray_cif_recovery.do` | analytic CIF known-answer recovery | 5 | 5 | 0 | 0 |
 | `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 7 | 7 | 0 | 0 |
 | `validation_finegray_lt_se.do` | left-truncation SE oracles (score identity + jackknife) | 3 | 3 | 0 | 0 |
 | `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 49 | 0 | 6 |
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| **Total** | | **304** | **298** | **0** | **6** |
+| **Total** | | **324** | **318** | **0** | **6** |
 
 *The 6 skips are `fastcmprsk` cross-checks (C45–C50), a redundant secondary
 oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
 `fastcmprsk` only confirms it a second time. Skipping it loses no coverage.*
 
-Last full run: 2026-07-01 via `stata-mp -b do run_all.do full`, R with
+Last full run: 2026-07-04 via `stata-mp -b do run_all.do full`, R with
 `cmprsk` and `riskRegression` present.
 
 ## How to run
@@ -100,6 +102,8 @@ install.packages(c("cmprsk", "riskRegression"))
 | `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, and multi-variable `strata()` through the CIF SE paths |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
+| `validation_finegray_recovery_paths.do` | Known-truth log-SHR recovery across 15 option/coding/estimand code paths (null/strong effects, binary/factor/interaction covariates, non-default `cause()`/`censvalue()`, cluster/norobust VCE, heavy censoring, high/low incidence, `level()`, multi-record reduction) |
+| `validation_finegray_cif_recovery.do` | Analytic CIF known-answer recovery: `finegray_cif` vs the closed-form DGP oracle F₁(t;z)=1−(1−p·(1−e^−ᵗ))^exp(z′b) at reference and non-zero profiles, plateau, monotonicity/bounds |
 | `validation_finegray_cif_se.do` | Closed-form (deterministic delete-one jackknife) oracle for the analytic CIF standard error |
 | `validation_finegray_lt_se.do` | Left-truncation SE oracles: exact score-residual sum identity plus delete-one jackknife for robust coefficient SEs and the influence-function CIF SE on a delayed-entry DGP |
 | `crossval_finegray.do` | Systematic estimator parity vs `stcrreg` and `cmprsk::crr` (coefficients, SEs, LL, CIF, strata, benchmarks) |
@@ -116,7 +120,7 @@ install.packages(c("cmprsk", "riskRegression"))
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do` |
-| `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
+| `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
 | `full` | `core` + `python` |
 
@@ -213,7 +217,7 @@ jackknife across two covariate profiles and three horizons (the ~1–2% gap is
 exactly the known-censoring assumption), and `finegray_cif` and
 `finegray_predict` are confirmed to report a bit-identical SE.
 
-### 3. Known-truth parameter recovery (4 tests) — the lead oracle
+### 3. Known-truth parameter recovery (24 tests across three suites) — the lead oracle
 
 `validation_finegray_recovery.do` is the strongest correctness statement the
 suite makes, because the truth is set by us, not borrowed from another
@@ -238,6 +242,29 @@ actually exercises what the Fine-Gray estimator is built to do rather than
 passing trivially. The 0.03 tolerance is ~2× the worst Monte-Carlo error
 observed across a 6-seed mini-MC and ~4× the analytic SE — deterministic at the
 fixed seeds, not a loose band.
+
+`validation_finegray_recovery_paths.do` (15) drives the **same** closed-form DGP
+through fifteen distinct invocation and coding paths, so recovery is proven not
+just for the core fit but for every branch a user can reach: a null effect
+(β = 0, SHR = 1) and a strong one (β = 1.0, cause-specific Cox provably misses); a
+binary covariate, three continuous covariates, an `i.grp` factor, and an
+`i.grp##c.z1` interaction; non-default `cause(2)` and `censvalue(9)` codings;
+`cluster()` and `norobust` variance estimators (point estimate recovers,
+`e(vce)` correct); heavy independent censoring (~75% censored, IPCW stress);
+high (p = 0.6) and low (p = 0.2) baseline incidence; `level(90)` invariance; and
+the multiple-record reduction — an `stsplit` panel fit recovers the truth and
+matches its single-record counterpart to `reldif < 1e-4`.
+
+`validation_finegray_cif_recovery.do` (5) extends the known-truth idea to the
+**predicted cumulative incidence** (`finegray_cif`). At the reference profile
+z = 0 the DGP collapses to the exact, estimator-free oracle
+F₁(t; 0) = p·(1 − e^(−t)); the suite asserts `finegray_cif` reproduces it across
+horizons (and the general F₁(t; z) = 1 − (1 − p·(1 − e^(−t)))^exp(z′b) at z = 1),
+checks the plateau and the [0,1]/monotonicity invariants, and repeats at
+p = 0.6. Observed max absolute error 0.0015–0.0030 at N = 120 000. This suite
+also exercises the CIF influence-function variance code at realistic N, where the
+O(_n_ log _n_) prefix-sum rewrite (v1.1.1, numerically identical to the prior
+O(_n_²) implementation) keeps it practical (~7 s vs ~91 s per call at N = 120 000).
 
 ### 4. Cross-validation (80 tests against 3 independent references)
 

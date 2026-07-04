@@ -44,6 +44,7 @@ else {
         test_iivw_expanded ///
         validation_iivw_recovery ///
         validation_iivw_recovery_extended ///
+        validation_iivw_recovery_extended2 ///
         validation_iivw    ///
         validation_iivw_expanded ///
         validation_iivw_known_answers ///

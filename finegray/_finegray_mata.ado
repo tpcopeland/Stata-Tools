@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.1.1  2026/07/01
+*! _finegray_mata Version 1.1.1  2026/07/04
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -1002,11 +1002,13 @@ real matrix _finegray_cif_core(
 {
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, Gm, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector atrisk, fict, w, clev, sel
+    real colvector clev, sel
+    real colvector cle, clt0, Acs, Bcs, invS0, invS0sq, GmInvS0sq, hi, lo
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out
     real rowvector risk_S1, bwd_s1_raw, zstar, bvec, S1_t
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, bwd_s0_raw, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+    real scalar Bmstar, mp, ii
 
     n = rows(Z)
     p = cols(Z)
@@ -1077,6 +1079,49 @@ real matrix _finegray_cif_core(
     }
     cum_invS0 = runningsum(1 :/ S0m)
 
+    /* --- Prefix-sum scaffolding for the influence-function `sub' term ------
+       The original per-eval-point loop over the cause events accumulated, for
+       each observation i,
+         sub_i = sum_{m<=mstar} [ 1{t0_i<=Tm[m]<=t_i}                       (at-risk)
+                                  + is_compete_i * 1{t_i<Tm[m]} * Gm[m]/G_i ] (fictitious)
+                                 / S0m[m]^2,
+       an O(M*n) inner loop per point. The two indicator families are step
+       functions of the sorted cause-event times (Tm ascending), so cumulative
+       sums over m collapse each observation's contribution to O(1):
+         at-risk term    = A[hi_i] - A[lo_i],       A[k] = sum_{m<=k} 1/S0m^2
+         fictitious term = (B[mstar]-B[hi_i])/G_i,  B[k] = sum_{m<=k} Gm/S0m^2
+       with hi_i = #{m<=mstar : Tm[m]<=t_i}  and  lo_i = #{m<=mstar : Tm[m]<t0_i}.
+       cle/clt0 (counts of cause events at/below each observation's exit/entry)
+       are eval-point independent, so they are built once via two-pointer merges
+       over the ascending Tm array. This makes the whole variance O(n log n). */
+    invS0     = 1 :/ S0m
+    invS0sq   = 1 :/ (S0m :^ 2)
+    GmInvS0sq = Gm :/ (S0m :^ 2)
+    Acs = 0 \ runningsum(invS0sq)          /* Acs[k+1] = sum_{m<=k} 1/S0m^2 */
+    Bcs = 0 \ runningsum(GmInvS0sq)        /* Bcs[k+1] = sum_{m<=k} Gm/S0m^2 */
+
+    cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
+    clt0 = J(n, 1, 0)                       /* #{cause events with Tm <  t0_i} */
+    mp = 0
+    for (ii = 1; ii <= n; ii++) {
+        idx = ord[ii]
+        /* Mata & is not short-circuit: guard Tm[mp+1] with a nested test */
+        while (mp < M) {
+            if (Tm[mp + 1] <= t[idx]) mp++
+            else break
+        }
+        cle[idx] = mp
+    }
+    mp = 0
+    for (ii = 1; ii <= n; ii++) {
+        idx = entry_ord[ii]
+        while (mp < M) {
+            if (Tm[mp + 1] < t0[idx]) mp++
+            else break
+        }
+        clt0[idx] = mp
+    }
+
     ne = rows(E)
     out = J(ne, 2, 0)
     for (e = 1; e <= ne; e++) {
@@ -1094,14 +1139,13 @@ real matrix _finegray_cif_core(
         factor = rstar * exp(-L0 * rstar)
 
         own = J(n, 1, 0)
-        sub = J(n, 1, 0)
-        for (m = 1; m <= mstar; m++) {
-            own[obsm[m]] = 1 / S0m[m]
-            atrisk = (t0 :<= Tm[m]) :& (t :>= Tm[m])
-            fict = is_compete :& (t :< Tm[m])
-            w = atrisk :+ (fict :* (Gm[m] :/ G))
-            sub = sub :+ w :/ (S0m[m] ^ 2)
-        }
+        for (m = 1; m <= mstar; m++) own[obsm[m]] = invS0[m]
+
+        /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<t0_i} */
+        hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
+        lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
+        Bmstar = Bcs[mstar + 1]
+        sub = (Acs[hi :+ 1] - Acs[lo :+ 1]) :+ is_compete :* (Bmstar :- Bcs[hi :+ 1]) :/ G
         q = own - expeta :* sub
         psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
 

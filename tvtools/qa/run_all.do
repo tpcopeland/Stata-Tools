@@ -44,7 +44,8 @@ local quick_suites test_tvage test_tvband test_tvsplit ///
 * crossval_tvmerge_mata is a pure-Stata parity gate (no external dependency):
 * it lives in the always-run correctness lane, not the python lane.
 local core_suites `quick_suites' test_regressions ///
-    validation_known_answers ///
+    validation_known_answers validation_dgp_known_answers ///
+    validation_dgp_known_answers2 ///
     validation_tvage validation_tvband validation_tvsplit ///
     validation_tvevent validation_tvexpose ///
     validation_tvmerge validation_tvpanel ///

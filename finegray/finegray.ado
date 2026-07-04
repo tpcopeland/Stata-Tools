@@ -1,4 +1,4 @@
-*! finegray Version 1.1.1  2026/07/01
+*! finegray Version 1.1.1  2026/07/04
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
