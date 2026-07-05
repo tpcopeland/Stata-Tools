@@ -151,6 +151,26 @@ foreach f in demo/workflow.md demo/benchmark.md {
 }
 display as result "PASS: no forbidden release paths"
 
+**# Auxiliary .do files honor the package's Stata version floor
+* The package advertises Stata 16.1+; the shipped benchmark and the demo must
+* not pin a language level above it, or a 16.1 user gets r(9) before the file
+* runs. Assert each declares `version 16.1' and none pins `version 17/18/19'.
+* Guards the fix that lowered both from `version 17.0'.
+local ++test_count
+foreach f in bench_rangematch.do demo/demo_rangematch.do {
+    local path "`pkg_dir'/`f'"
+    confirm file "`path'"
+    local needle "version 16.1"
+    mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
+    assert scalar(__found) == 1
+    foreach bad in "version 17" "version 18" "version 19" {
+        local needle "`bad'"
+        mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
+        assert scalar(__found) == 0
+    }
+}
+display as result "PASS: auxiliary .do files honor the 16.1 version floor"
+
 capture mata: mata drop _qa_file_contains()
 capture scalar drop __found
 

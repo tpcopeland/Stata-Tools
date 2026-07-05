@@ -1,7 +1,9 @@
 *! bench_rangematch.do  12may2026
 *! Benchmark rangematch against SSC rangejoin on synthetic range joins
 
-version 17.0
+* Language level pinned to the package's stated minimum (Stata 16.1+) so the
+* shipped benchmark runs for every supported user, not only Stata 17 sessions.
+version 16.1
 clear all
 set more off
 set varabbrev off

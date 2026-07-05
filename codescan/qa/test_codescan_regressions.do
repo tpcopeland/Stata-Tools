@@ -22,6 +22,8 @@
 *   T18: level() is inert in mode(regex) — patterns not truncated (1.1.4)
 *   T20: countmode+merge screens merged-in missing counts from the summary (2.0.6)
 *   T21: strL scan variables rejected up front with rc 109 in both commands (2.0.6)
+*   T22: r() survives saving() to an unwritable path (return-before-side-effect)
+*   T23: graph tempfile round-trip leaves r() populated and restores indicators
 
 clear all
 set seed 12345
@@ -667,6 +669,84 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T21: strL rejection (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T22: r() survives saving() to an unwritable path (2.0.6)
+* ============================================================
+* saving() posts r() before the save side effect and does not touch memory,
+* so a failed save must still leave r() and the collapsed dataset intact —
+* the same return-before-side-effect contract exercised for export() in T1/T2.
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
+        saving(/nonexistent_dir_codescan_v101/out.dta, replace)
+    local _saving_rc = _rc
+    * The save itself must have failed (proves the failure path is exercised).
+    assert `_saving_rc' != 0
+    * Whether saving succeeded or failed, r() must be present and correct.
+    assert r(n_conditions) == 2
+    assert r(collapsed) == 1
+    assert `"`=r(conditions)'"' == "dm2 htn"
+    matrix _SmrySv = r(summary)
+    assert rowsof(_SmrySv) == 2
+    assert colsof(_SmrySv) == 4
+    matrix drop _SmrySv
+    * The collapse ran and left patient-level data in memory (5 pids).
+    assert _N == 5
+}
+if _rc == 0 {
+    display as result "  PASS T22: r() present after unwritable saving() path"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T22: r() present after failed saving() (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T23: graph tempfile round-trip preserves r() and restores data (2.0.6)
+* ============================================================
+* The graph block saves the analysis dataset to a tempfile, builds a throwaway
+* condition/prevalence dataset to draw the bar chart, then restores. Existing
+* graph tests only assert "runs without error"; this guards the round-trip
+* post-conditions: r() populated AND the original indicators back in memory
+* (not the temporary graph dataset).
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    quietly count
+    local _pre_N = r(N)
+    codescan dx1, define(dm2 "E11" | htn "I10") graph
+    graph close _all
+    * r() survives the graph side effect.
+    assert r(n_conditions) == 2
+    assert `"`=r(conditions)'"' == "dm2 htn"
+    matrix _SmryG = r(summary)
+    assert rowsof(_SmryG) == 2
+    matrix drop _SmryG
+    * Original dataset restored: row count unchanged and indicators present
+    * (the transient graph dataset had variables condition/prevalence/order).
+    quietly count
+    assert r(N) == `_pre_N'
+    confirm variable dx1 pid dm2 htn
+    capture confirm variable prevalence
+    assert _rc != 0
+    capture confirm variable condition
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS T23: graph round-trip preserves r() and restores data"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T23: graph round-trip (rc=`=_rc')"
     local ++fail_count
 }
 
