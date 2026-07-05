@@ -303,6 +303,114 @@ capture noisily {
 }
 _vka_result "KA9 support if-sample indicator exact by row" `=_rc'
 
+* KA10: Crump (2009) optimal alpha is the fixed-point minimizer and the
+* trim bounds/count it implies are exact. Designed data: a symmetric bulk in
+* [0.15,0.85] plus 5 low (0.02) and 5 high (0.97) tails that must be trimmed.
+capture noisily {
+    clear
+    set seed 12345
+    set obs 200
+    gen double ps = runiform(0.15, 0.85)
+    replace ps = 0.02 in 1/5
+    replace ps = 0.97 in 6/10
+    gen byte treated = rbinomial(1, ps)
+
+    psdash support treated ps, crump nograph
+    * snapshot returns before any r-class command (count) clobbers r()
+    local a = r(crump_alpha)
+    local tl = r(trim_lower)
+    local tu = r(trim_upper)
+    local nt = r(n_trimmed)
+    * alpha is a genuine trimming threshold inside the admissible grid
+    assert `a' >= 0.01 & `a' <= 0.49
+    * trim window is symmetric about 0.5 by construction
+    assert abs(`tl' - `a') < 1e-12
+    assert abs(`tu' - (1 - `a')) < 1e-12
+    * n_trimmed matches an independent recount (the 10 injected tails)
+    count if (ps < `a' | ps > 1 - `a')
+    assert `nt' == r(N)
+    assert `nt' == 10
+    * defining property: alpha minimises |1/(a(1-a)) - 2*E[1/(e(1-e))|a<=e<=1-a]|
+    * on the 0.001 refinement grid, so residual(a) <= residual(a +/- 0.001)
+    gen double _ivp = 1 / (ps * (1 - ps))
+    local lhs_a = 1 / (`a' * (1 - `a'))
+    quietly summarize _ivp if ps >= `a' & ps <= 1 - `a'
+    local res_a = abs(`lhs_a' - 2 * r(mean))
+    foreach d in -0.001 0.001 {
+        local al = `a' + (`d')
+        local lhs = 1 / (`al' * (1 - `al'))
+        quietly summarize _ivp if ps >= `al' & ps <= 1 - `al'
+        assert `res_a' <= abs(`lhs' - 2 * r(mean)) + 1e-9
+    }
+    drop _ivp
+}
+_vka_result "KA10 Crump optimal alpha fixed-point minimizer + exact trim" `=_rc'
+
+* KA11: dispersion summaries are exact. wt={1,1,4,1,1,1}: mean=1.5,
+* sample SD=sqrt(1.5), so CV=sqrt(1.5)/1.5 and max_ratio=max/mean=4/1.5.
+capture noisily {
+    _vka_exact_data
+    psdash weights treated ps, wvar(wt)
+    assert abs(r(cv) - (sqrt(1.5) / 1.5)) < 1e-10
+    assert abs(r(max_ratio) - (4 / 1.5)) < 1e-10
+}
+_vka_result "KA11 weight CV and max_ratio exact" `=_rc'
+
+* KA12: weighted Kolmogorov-Smirnov (balance col 10) is exact. Weighted ECDFs
+* of x1 by group (weights wt) diverge to 2/3 at x1=5; x2 ECDFs coincide (0).
+capture noisily {
+    _vka_exact_data
+    psdash balance treated ps, covariates(x1 x2) wvar(wt)
+    matrix B = r(balance)
+    assert abs(B[1,10] - (2 / 3)) < 1e-10
+    assert abs(B[2,10]) < 1e-10
+}
+_vka_result "KA12 weighted KS statistic exact" `=_rc'
+
+* KA13: in the combined dashboard, overlap and support share
+* _psdash_support_stats with identical (untrimmed) arguments, so their
+* colliding r(pct_outside)/r(n_outside) hold the SAME value. return add is
+* therefore benign: whichever panel writes last, combined reports that value.
+capture noisily {
+    _vka_exact_data
+    psdash overlap treated ps, nograph
+    local ov_pct = r(pct_outside)
+    local ov_no = r(n_outside)
+    psdash support treated ps, nograph
+    assert abs(r(pct_outside) - `ov_pct') < 1e-10
+    assert r(n_outside) == `ov_no'
+    _vka_exact_data
+    psdash combined treated ps, covariates(x1 x2)
+    assert abs(r(pct_outside) - `ov_pct') < 1e-10
+    assert r(n_outside) == `ov_no'
+}
+_vka_result "KA13 combined pct_outside/n_outside collision is value-identical" `=_rc'
+
+* KA14: known-truth balance recovery. Data are generated from a logit PS in
+* two confounders; the raw SMD is large, and IPTW (ATE) weights from the
+* correctly specified model drive the adjusted SMD to ~0. This is the core
+* diagnostic contract: correct weights => recovered balance.
+capture noisily {
+    clear
+    set seed 20260706
+    set obs 8000
+    gen double x1 = rnormal()
+    gen double x2 = rnormal()
+    gen double etrue = invlogit(0.9 * x1 - 0.6 * x2)
+    gen byte treat = rbinomial(1, etrue)
+    logit treat x1 x2
+    predict double pshat, pr
+    gen double wate = cond(treat == 1, 1 / pshat, 1 / (1 - pshat))
+
+    psdash balance treat pshat, covariates(x1 x2) wvar(wate)
+    * confounding is real: at least one raw SMD is substantial
+    assert r(max_smd_raw) > 0.3
+    * correct IPTW recovers balance: adjusted SMDs collapse toward zero
+    assert r(max_smd_adj) < 0.1
+    assert r(n_imbalanced) == 0
+}
+_vka_result "KA14 known-truth IPTW balance recovery (correct model)" `=_rc'
+
 capture drop _psdash_ps _psdash_wt
 graph close _all
 
