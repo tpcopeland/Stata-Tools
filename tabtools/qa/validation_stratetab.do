@@ -433,8 +433,8 @@ capture noisily {
 
     local irr_low = (80/8000) / ((250/50000))
     local se_ln_low = sqrt(1/80 + 1/250)
-    local irr_low_lo = exp(ln(`irr_low') - 1.96 * `se_ln_low')
-    local irr_low_hi = exp(ln(`irr_low') + 1.96 * `se_ln_low')
+    local irr_low_lo = exp(ln(`irr_low') - invnormal(0.975) * `se_ln_low')
+    local irr_low_hi = exp(ln(`irr_low') + invnormal(0.975) * `se_ln_low')
     local irr_low_fmt = ///
         strtrim(string(round(`irr_low', 0.01), "%11.2f")) + ///
         " (" + strtrim(string(round(`irr_low_lo', 0.01), "%11.2f")) + ///
@@ -483,6 +483,82 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V19b stratetab aligned rateratio/CSV (error `=_rc')"
+    local ++fail_count
+}
+
+* V20: stratetab rate-ratio CI uses the exact normal quantile invnormal(0.975)
+* Known-answer guard for the v1.9.4 fix (hardcoded 1.96 -> invnormal(0.975)).
+* The IRR CI is emitted only in the formatted output cell, so we pin it through
+* the CSV at ratiodigits(6): at six decimals the ~9e-6 gap between 1.96 and
+* invnormal(0.975) is visible, so this test FAILS on the pre-1.9.4 code and
+* PASSES only when stratetab uses the exact quantile.  Oracle is hand-computed
+* from the event counts, independent of stratetab's own arithmetic path.
+capture noisily {
+    quietly {
+        clear
+        set obs 3
+        gen exposure = _n - 1
+        gen _D = cond(_n==1, 250, cond(_n==2, 180, 320))
+        gen _Y = cond(_n==1, 50000, cond(_n==2, 45000, 52000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define _val_exp_z 0 "Low" 1 "Med" 2 "High"
+        label values exposure _val_exp_z
+        save "`output_dir'/_val_strate_z_ref.dta", replace
+
+        clear
+        set obs 3
+        gen exposure = cond(_n==1, 2, cond(_n==2, 1, 0))
+        gen _D = cond(_n==1, 220, cond(_n==2, 140, 80))
+        gen _Y = cond(_n==1, 20000, cond(_n==2, 12000, 8000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define _val_exp_z 0 "Low" 1 "Med" 2 "High", replace
+        label values exposure _val_exp_z
+        save "`output_dir'/_val_strate_z_exp.dta", replace
+
+        sysuse auto, clear
+    }
+
+    * Hand oracle for the "Low" category (exp D=80/Y=8000 vs ref D=250/Y=50000)
+    local rd = 6
+    local z  = invnormal(0.975)
+    local irr    = (80/8000) / (250/50000)
+    local se_ln  = sqrt(1/80 + 1/250)
+    local irr_lo = exp(ln(`irr') - `z' * `se_ln')
+    local irr_hi = exp(ln(`irr') + `z' * `se_ln')
+    local irr_cell = ///
+        strtrim(string(round(`irr',    10^(-`rd')), "%11.`rd'f")) + ///
+        " (" + strtrim(string(round(`irr_lo', 10^(-`rd')), "%11.`rd'f")) + ///
+        "-"  + strtrim(string(round(`irr_hi', 10^(-`rd')), "%11.`rd'f")) + ")"
+
+    stratetab, using("`output_dir'/_val_strate_z_ref" "`output_dir'/_val_strate_z_exp") ///
+        csv("`output_dir'/_val_stratetab_z.csv") ///
+        outcomes(1) rateratio ratiodigits(`rd')
+
+    * Point estimate returned exactly in r(ratios)
+    local row_low = rownumb(r(ratios), "Low")
+    assert `row_low' > 0
+    assert abs(r(ratios)[`row_low',1] - 2) < 1e-9
+
+    * CSV IRR cell (column 5) must equal the invnormal(0.975) oracle to 6 dp
+    preserve
+    import delimited "`output_dir'/_val_stratetab_z.csv", clear varnames(nonames)
+    local _found = 0
+    forvalues _r = 1/`=_N' {
+        if strtrim(v1[`_r']) == "Low" & strtrim(v5[`_r']) == "`irr_cell'" local _found = 1
+    }
+    assert `_found' == 1
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: V20 stratetab IRR CI uses invnormal(0.975) (6-dp oracle)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V20 stratetab IRR CI invnormal(0.975) guard (error `=_rc')"
     local ++fail_count
 }
 

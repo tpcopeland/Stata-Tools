@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.9.3** | 2026-07-03
+**Version 1.9.4** | 2026-07-06
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -382,6 +382,7 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.9.4** (2026-07-06): `stratetab` rate-ratio confidence intervals now use the exact standard-normal quantile `invnormal(0.975)` (≈1.959964) instead of the rounded constant `1.96`, matching the convention used throughout the rest of the suite (`diagtab`, `survtab`). The change affects the fourth significant figure of the IRR CI only; displayed values at the default `ratiodigits(2)` are unchanged in virtually all cases. No other command's behavior changed.
 - **1.9.3** (2026-07-03): `desctab` bug fix: a `title()` or `footnote()` containing a double quote was silently dropped entirely from every output sink (Excel, CSV, Markdown, console), and one containing an apostrophe was corrupted (e.g. `It's here` printed as `s here'`). Root cause was the `asis` modifier on the `title`/`footnote` options interacting with the internal quote-stripping step. Titles and footnotes now round-trip correctly: embedded double quotes are stripped and all other characters (apostrophes included) are preserved. Also includes an internal defensive reorder in `stacktab` (the `hstack` row key is now generated after the block columns are renamed) with no user-visible behavior change. No changes to any other command's behavior.
 - **1.9.2** (2026-07-03): `stratetab` bug fix: two category-mismatch error messages (outcome-file label mismatch and `rateratio` reference-category lookup) contained malformed compound quoting and printed the literal text `_target_cat'` instead of the offending category label. The messages now show the actual category value. Error detection and exit codes are unchanged.
 - **1.9.1** (2026-07-01): Two bug fixes. (1) `crosstab` trend tests (`trend` and `cochran`) and `table1_tc` rank-based tests (Wilcoxon rank-sum, Kruskal-Wallis) now exclude zero-weight and missing-weight observations under `fweight`s. The internal `expand` retained such rows as weight-1 observations (Stata's `expand` keeps the original row when the count is 0 or missing), so those p-values could disagree with the tabulated counts, which correctly exclude them. (2) `title()` strings containing embedded double quotes are no longer silently truncated at the first quote in `crosstab`, `diagtab`, `effecttab`, `comptab`, `stratetab`, `table1_tc`, `regtab`, and `survtab` (the title row is now written with compound quotes, as `desctab`, `corrtab`, and `hrcomptab` already did).

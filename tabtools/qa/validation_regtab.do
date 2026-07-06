@@ -2042,6 +2042,10 @@ else {
 
 **# Summary
 
+* Section 1 (Tests 1-9) tracks test_count directly; the migrated V2.x section
+* below tracks only pass/fail per block.  Derive the total from pass+fail so the
+* RESULT sentinel reports every executed block, not just the first section.
+local test_count = `pass_count' + `fail_count'
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"

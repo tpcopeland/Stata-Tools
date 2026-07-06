@@ -1,4 +1,4 @@
-*! stratetab Version 1.9.3  2026/07/03
+*! stratetab Version 1.9.4  2026/07/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -365,8 +365,8 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 					local _irr = `_r_exp' / `_r_ref'
 					local _se_ln = sqrt(1/`_d_exp' + 1/`_d_ref')
 					local IRR_o`o'_e`e'_`i' = `_irr'
-					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - 1.96 * `_se_ln')
-					local IRRhi_o`o'_e`e'_`i' = exp(ln(`_irr') + 1.96 * `_se_ln')
+					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - invnormal(0.975) * `_se_ln')
+					local IRRhi_o`o'_e`e'_`i' = exp(ln(`_irr') + invnormal(0.975) * `_se_ln')
 				}
 				else {
 					local IRR_o`o'_e`e'_`i' .
