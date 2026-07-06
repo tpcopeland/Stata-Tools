@@ -411,6 +411,34 @@ capture noisily {
 }
 _vka_result "KA14 known-truth IPTW balance recovery (correct model)" `=_rc'
 
+* KA15: discrimination negative control. Two INDEPENDENT confounders both
+* drive treatment, but the PS model omits x2. IPTW then balances the included
+* covariate (x1) while the omitted confounder (x2) stays imbalanced and is
+* flagged. This proves the balance diagnostic discriminates -- a diagnostic
+* that always reported "balanced" would pass KA14 yet fail here.
+capture noisily {
+    clear
+    set seed 20260706
+    set obs 8000
+    gen double x1 = rnormal()
+    gen double x2 = rnormal()
+    gen byte treat = rbinomial(1, invlogit(0.9 * x1 + 0.9 * x2))
+    logit treat x1
+    predict double psbad, pr
+    gen double wbad = cond(treat == 1, 1 / psbad, 1 / (1 - psbad))
+
+    psdash balance treat psbad, covariates(x1 x2) wvar(wbad)
+    matrix B = r(balance)
+    * included covariate x1 is driven to balance by IPTW
+    assert abs(B[1,8]) < 0.05
+    * omitted confounder x2 remains materially imbalanced after weighting
+    assert abs(B[2,8]) > 0.3
+    * and psdash flags the residual imbalance
+    assert r(n_imbalanced) >= 1
+    assert r(max_smd_adj) > 0.3
+}
+_vka_result "KA15 misspecified-model negative control (diagnostic discriminates)" `=_rc'
+
 capture drop _psdash_ps _psdash_wt
 graph close _all
 
