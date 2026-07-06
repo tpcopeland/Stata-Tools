@@ -1,4 +1,4 @@
-*! eplot Version 1.2.3  2026/06/15
+*! eplot Version 1.2.4  2026/07/06
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -382,7 +382,7 @@ program define _eplot_data, rclass
             EFORM ///
             REScale(real 1) ///
             /// Reference lines
-            XLine(numlist) ///
+            XLine(string asis) ///
             XLABel(string asis) ///
             NULL(real -999) ///
             NONULL ///
@@ -895,7 +895,7 @@ program define _eplot_data, rclass
     }
 
     local _xline_opt ""
-    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
         `horizontal' `nonull'
     local refline_cmd `"`s(cmd)'"'
@@ -1133,7 +1133,7 @@ program define _eplot_estimates, rclass
             EFORM ///
             REScale(real 1) ///
             /// Reference lines
-            XLine(numlist) ///
+            XLine(string asis) ///
             XLABel(string asis) ///
             NULL(real -999) ///
             NONULL ///
@@ -1880,7 +1880,7 @@ program define _eplot_estimates, rclass
     }
 
     local _xline_opt ""
-    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
         `horizontal' `nonull'
     local refline_cmd `"`s(cmd)'"'
@@ -2089,7 +2089,7 @@ program define _eplot_matrix, rclass
             DROP(string asis) ///
             COEFLabels(string asis) ///
             /// Reference lines
-            XLine(numlist) ///
+            XLine(string asis) ///
             XLABel(string asis) ///
             NULL(real -999) ///
             NONULL ///
@@ -2443,7 +2443,7 @@ program define _eplot_matrix, rclass
     }
 
     local _xline_opt ""
-    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
         `horizontal' `nonull'
     local graphcmd `"`graphcmd' `s(cmd)'"'
@@ -2655,7 +2655,7 @@ program define _eplot_build_reflines, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, NULL(real) [XLine(numlist) HORizontal NONULL]
+        syntax, NULL(real) [XLine(string asis) HORizontal NONULL]
 
         local cmd ""
         if "`nonull'" == "" {
@@ -2667,13 +2667,21 @@ program define _eplot_build_reflines, sclass
             }
         }
 
-        if "`xline'" != "" {
-            foreach val of numlist `xline' {
+        // xline() accepts "numlist [, line_options]": bare positions get eplot's
+        // default reference-line style; a user suboption clause is honored as-is.
+        if `"`xline'"' != "" {
+            gettoken _xl_pos _xl_rest : xline, parse(",")
+            local _xl_supp ""
+            if `"`_xl_rest'"' != "" {
+                gettoken _xl_comma _xl_supp : _xl_rest, parse(",")
+            }
+            if `"`_xl_supp'"' == "" local _xl_supp "lcolor(gs10) lpattern(shortdash)"
+            foreach val of numlist `_xl_pos' {
                 if "`horizontal'" != "" {
-                    local cmd `"`cmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
+                    local cmd `"`cmd' xline(`val', `_xl_supp')"'
                 }
                 else {
-                    local cmd `"`cmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
+                    local cmd `"`cmd' yline(`val', `_xl_supp')"'
                 }
             }
         }

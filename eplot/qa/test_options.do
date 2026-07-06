@@ -5,7 +5,7 @@
 * Tests: multi-model, values, vformat, dp, sort, order, cicap, marker/CI
 *   customization, boxscale, nobox, nodiamonds, matrix mode, modellabels,
 *   offset, palette, legendopts, rename, headers, eform+rescale, values+
-*   vertical note, varabbrev restore
+*   vertical note, varabbrev restore, xline reference-line styling (v1.2.4)
 *
 * Run modes:
 *   Standalone: do test_options.do
@@ -962,6 +962,153 @@ else {
     local failed_tests "`failed_tests' 40"
 }
 capture graph drop _v2_t40
+
+* ==========================================================================
+* REFERENCE-LINE (xline) STYLING  -- v1.2.4 passthrough regression
+* ==========================================================================
+
+* Test 41: styled xline suboptions pass through (was r(121) invalid numlist)
+local ++test_count
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+    eplot es lci uci, labels(study) ///
+        xline(0.25, lpattern(dash) lcolor(red)) name(_v2_t41, replace)
+    assert `"`r(cmd)'"' != ""
+}
+if _rc == 0 {
+    display as result "  PASS: Test 41 - styled xline() passthrough"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 41 - styled xline() passthrough (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 41"
+}
+capture graph drop _v2_t41
+
+* Test 42: bare xline() keeps eplot's default reference-line style
+local ++test_count
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+    eplot es lci uci, labels(study) xline(0.25) name(_v2_t42, replace)
+    local cmd `"`r(cmd)'"'
+    * added line carries the default gs10/shortdash look
+    assert strpos(`"`cmd'"', "lcolor(gs10) lpattern(shortdash)") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: Test 42 - bare xline() default style"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 42 - bare xline() default style (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 42"
+}
+capture graph drop _v2_t42
+
+* Test 43: styled suboptions land on EVERY added line (multi-value spec)
+local ++test_count
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+    eplot es lci uci, labels(study) ///
+        xline(0.15 0.30, lpattern(dot)) name(_v2_t43, replace)
+    local cmd `"`r(cmd)'"'
+    * both added lines styled, default style not substituted for either
+    local _n_dot = (length(`"`cmd'"') - ///
+        length(subinstr(`"`cmd'"', "lpattern(dot)", "", .))) / length("lpattern(dot)")
+    assert `_n_dot' == 2
+    assert strpos(`"`cmd'"', "lpattern(shortdash)") == 0
+}
+if _rc == 0 {
+    display as result "  PASS: Test 43 - styled multi-value xline()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 43 - styled multi-value xline() (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 43"
+}
+capture graph drop _v2_t43
+
+* Test 44: legacy numlist range still expands
+local ++test_count
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+    eplot es lci uci, labels(study) xline(0.1(0.1)0.4) name(_v2_t44, replace)
+    assert `"`r(cmd)'"' != ""
+}
+if _rc == 0 {
+    display as result "  PASS: Test 44 - legacy xline() numlist range"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 44 - legacy xline() numlist range (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 44"
+}
+capture graph drop _v2_t44
+
+* Test 45: non-numeric positions still error (validation preserved)
+local ++test_count
+capture noisily {
+    clear
+    input str12 study double(es lci uci)
+    "Study A" 0.20 0.10 0.30
+    "Study B" 0.35 0.20 0.50
+    "Study C" 0.10 0.02 0.18
+    end
+    capture eplot es lci uci, labels(study) xline(abc) name(_v2_t45, replace)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: Test 45 - garbage xline() still errors"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 45 - garbage xline() still errors (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 45"
+}
+capture graph drop _v2_t45
+
+* Test 46: styled xline() also passes through in estimates/coefplot mode
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    quietly regress price mpg weight foreign
+    eplot, xline(0, lpattern(solid) lcolor(gs6)) name(_v2_t46, replace)
+    assert `"`r(cmd)'"' != ""
+}
+if _rc == 0 {
+    display as result "  PASS: Test 46 - styled xline() in estimates mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 46 - styled xline() in estimates mode (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 46"
+}
+capture graph drop _v2_t46
 
 * ==========================================================================
 * SUMMARY

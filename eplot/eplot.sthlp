@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.3  15jun2026}{...}
+{* *! version 1.2.4  06jul2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -80,7 +80,7 @@ Plot from a graph-ready frame:
 {synopt:{opt res:cale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
-{synopt:{opt xl:ine(numlist)}}add vertical reference lines{p_end}
+{synopt:{opt xl:ine(numlist[, line_options])}}add vertical reference lines{p_end}
 {synopt:{opt xlab:el(spec)}}effect-axis tick specification; maps to the effect axis in either layout{p_end}
 {synopt:{opt null(#)}}null hypothesis line position{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
@@ -378,8 +378,11 @@ value.
 suppresses the null hypothesis line entirely.
 
 {phang}
-{opt xline(numlist)}
-adds additional vertical reference lines at the specified positions.
+{opt xline(numlist[, line_options])}
+adds additional vertical reference lines at the specified positions.  By default
+the added lines use a light dashed style; supply {it:line_options} after a comma
+(for example, {cmd:xline(0.5, lpattern(dash) lcolor(red))}) to override the
+appearance of every added line.
 
 {phang}
 {opt xlabel(spec)}
@@ -832,7 +835,7 @@ supplied, in estimates mode for a single model, and in 2-column matrix mode.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.3, 15jun2026{p_end}
+{pstd}Version 1.2.4, 06jul2026{p_end}
 
 
 {marker alsosee}{...}

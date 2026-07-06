@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.3** | 2026-06-15
+**Version 1.2.4** | 2026-07-06
 
 `eplot` creates forest plots and coefficient plots from four sources — variables in memory, active or stored estimation results, preassembled matrices, and graph-ready frames — under one command with one set of options.
 
@@ -267,6 +267,7 @@ Options are organized by function. Not every option works in every mode — see 
 
 ## Version History
 
+- **1.2.4** (2026-07-06): `xline()` now accepts an optional `line_options` clause after the positions (for example, `xline(0.5, lpattern(dash) lcolor(red))`) so added reference lines can be styled; bare `xline(numlist)` keeps the default light dashed look. Previously any suboption errored with "invalid numlist".
 - **1.2.3** (2026-06-15): Internal hygiene — declared the label-mutating helpers (`coeflabels`/`keep`/`drop`/`rename`) `nclass` so they no longer touch the caller's stored results, and aligned the estimates-mode stars p-value guard with matrix mode (`!missing(es)`). No user-visible behavior change.
 - **1.2.2** (2026-06-14): The category (y) axis line and tick marks are now suppressed by default in data/forest mode and matrix mode, matching estimates mode — every effect plot now has a clean left edge. In estimates mode, `coeflabels()` is now honored when the model's variables also carry variable labels; previously the automatic variable-label pass overwrote the coefficient names before `coeflabels()` could match them, so user-supplied labels were silently ignored.
 - **1.2.1** (2026-06-14): Fixed `insigncolor()` — the option was silently ignored in all modes (non-significant markers always drew in `gs10`) and the documented spelling aborted; it now applies. Estimates-mode coefficients now plot in model order by default (they were incorrectly sorted alphabetically by coefficient name); `sort` and `order()` are unaffected. A mistyped estimate name no longer misreports as a missing variable. Added `capture program drop` guards so the file is safe to re-run in a session.
