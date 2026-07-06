@@ -139,5 +139,63 @@ foreach seed in 11 4242 90210 {
 }
 display as result "PASS: randomized nearest() parity vs joinby oracle (18 grids)"
 
+**# 3. Cross-side symmetric-distance tie collapsed by ties(first|last|random).
+* Distinct from scenario 1 (ties(all), which skips the tie-collapse branch) and
+* from test_rangematch_edge_topup's same-key ties (which never reach the
+* cross-side block concatenation). Here nearest(both) selects the nearest-before
+* block (key 8) AND the nearest-after block (key 12) -- both at |d|=2 but with
+* DIFFERENT keys -- and concatenates the two blocks; ties(first|last|random)
+* then collapse that combined set. Using rows are interleaved in original-obs
+* order so first/last are unambiguous across the concatenation:
+*   original obs 1=uid1 key12, 2=uid2 key8, 3=uid3 key12, 4=uid4 key8.
+* Sorted (key,obs) the selected uobs set is {2,4} (key8) then {1,3} (key12);
+* ties(first)=min=obs1=uid1, ties(last)=max=obs4=uid4.
+local ++test_count
+tempfile xside_using xside_master
+clear
+input int uid double xkey
+1 12
+2  8
+3 12
+4  8
+end
+save "`xside_using'", replace
+clear
+input int mid double(xkey lo hi)
+1 10 0 20
+end
+save "`xside_master'", replace
+
+* ties(all): all four in-range nearest rows survive.
+use "`xside_master'", clear
+rangematch xkey lo hi using "`xside_using'", keepusing(uid) ///
+    nearest(both) ties(all) unmatched(none)
+assert _N == 4
+* ties(first): single lowest original using obs across BOTH blocks -> uid 1.
+use "`xside_master'", clear
+rangematch xkey lo hi using "`xside_using'", keepusing(uid) ///
+    nearest(both) ties(first) unmatched(none)
+assert _N == 1
+assert uid[1] == 1
+* ties(last): single highest original using obs across BOTH blocks -> uid 4.
+use "`xside_master'", clear
+rangematch xkey lo hi using "`xside_using'", keepusing(uid) ///
+    nearest(both) ties(last) unmatched(none)
+assert _N == 1
+assert uid[1] == 4
+* ties(random)+seed(): exactly one row, drawn from the four, and reproducible
+* across identical calls (seed set internally, caller RNG restored after).
+use "`xside_master'", clear
+rangematch xkey lo hi using "`xside_using'", keepusing(uid) ///
+    nearest(both) ties(random) seed(20260706) unmatched(none)
+assert _N == 1
+local xside_r1 = uid[1]
+assert inlist(`xside_r1', 1, 2, 3, 4)
+use "`xside_master'", clear
+rangematch xkey lo hi using "`xside_using'", keepusing(uid) ///
+    nearest(both) ties(random) seed(20260706) unmatched(none)
+assert uid[1] == `xside_r1'
+display as result "PASS: cross-side symmetric tie collapsed by ties(first|last|random)"
+
 display as result "ALL RANGEMATCH NEAREST VALIDATION TESTS PASSED"
 display "RESULT: validation_rangematch_nearest tests=`test_count' pass=`test_count' fail=0"

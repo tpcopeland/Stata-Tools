@@ -1,4 +1,4 @@
-*! codescan Version 2.0.6  2026/07/02
+*! codescan Version 2.0.7  2026/07/06
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -125,6 +125,18 @@ program define codescan, rclass
     }
     if `"`define'"' != "" & "`codefile'" != "" {
         display as error "define() and codefile() cannot both be specified"
+        exit 198
+    }
+
+    * Reject a variable that appears more than once in varlist (directly or via
+    * overlapping ranges like dx1-dx5 dx3-dx8). A repeated scan column is read
+    * once per occurrence, so under countmode/countrows/detail its codes are
+    * counted multiple times — a silent inflation with rc=0. Binary indicators
+    * are idempotent, but the count paths are not, so reject the ambiguity.
+    local _dupvars : list dups varlist
+    if `"`_dupvars'"' != "" {
+        display as error "varlist contains repeated variable(s): `_dupvars'"
+        display as error "remove duplicate or overlapping scan variables"
         exit 198
     }
 

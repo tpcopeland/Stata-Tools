@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 2.0.5  2026/07/01
+*! _codescan_definitions Version 2.0.7  2026/07/06
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland
 
@@ -188,6 +188,9 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
 {
     real scalar i, n, depth_paren, depth_bracket, escaped
     string scalar ch
+    real scalar j, sp, db, esc
+    real colvector cur_nonempty, has_alt
+    string scalar c2
 
     n = strlen(pat)
     depth_paren = 0
@@ -230,12 +233,80 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
         exit(198)
     }
 
+    // ── Empty-alternation-branch check (match-everything false-cohort guard) ──
+    // An empty branch in an alternation — "E11|", "|E11", "E11||E12", "(E11|)" —
+    // anchors as ^(...|...) with an empty operand. The empty branch matches the
+    // start of EVERY code, so ustrregexm() returns 1 (valid, not -1) for every
+    // value: a silent match-everything cohort for a pattern, or a match-
+    // everything drop for an exclusion. The compile-probe below cannot catch it
+    // (ICU accepts empty alternations), so detect it structurally here. Parens
+    // are already known balanced at this point, so the frame stack (one slot per
+    // open group plus the top level) cannot underflow. '|' inside '[...]' or an
+    // escaped '\|' is a literal and is never treated as an alternation.
+    cur_nonempty = J(n + 1, 1, 0)
+    has_alt      = J(n + 1, 1, 0)
+    sp = 1
+    db = 0
+    esc = 0
+    for (j = 1; j <= n; j++) {
+        c2 = substr(pat, j, 1)
+        if (esc) {
+            esc = 0
+            cur_nonempty[sp] = 1
+            continue
+        }
+        if (c2 == "\") {
+            esc = 1
+            continue
+        }
+        if (db > 0) {
+            if (c2 == "]") db = db - 1
+            cur_nonempty[sp] = 1
+            continue
+        }
+        if (c2 == "[") {
+            db = db + 1
+            cur_nonempty[sp] = 1
+            continue
+        }
+        if (c2 == "(") {
+            cur_nonempty[sp] = 1
+            sp = sp + 1
+            cur_nonempty[sp] = 0
+            has_alt[sp] = 0
+            continue
+        }
+        if (c2 == ")") {
+            if (has_alt[sp] & !cur_nonempty[sp]) {
+                errprintf("{err}" + ptype + " for %s: empty alternation branch (matches every code) in pattern: %s\n", cname, pat)
+                exit(198)
+            }
+            if (sp > 1) sp = sp - 1
+            continue
+        }
+        if (c2 == "|") {
+            if (!cur_nonempty[sp]) {
+                errprintf("{err}" + ptype + " for %s: empty alternation branch (matches every code) in pattern: %s\n", cname, pat)
+                exit(198)
+            }
+            has_alt[sp] = 1
+            cur_nonempty[sp] = 0
+            continue
+        }
+        cur_nonempty[sp] = 1
+    }
+    if (has_alt[sp] & !cur_nonempty[sp]) {
+        errprintf("{err}" + ptype + " for %s: empty alternation branch (matches every code) in pattern: %s\n", cname, pat)
+        exit(198)
+    }
+
     // Runtime compile-probe (catch-all). The structural checks above only
-    // balance delimiters; malformed quantifiers ({2,1}, leading *), bad groups,
-    // and empty alternations slip through and make regexm() silently return 0
-    // (a false-zero cohort). ustrregexm() returns -1 (not a Stata error) on a
-    // structurally invalid ICU pattern, so probe the *anchored* form the scanner
-    // actually uses ("^(...)" — see _codescan_mata_scan) and reject -1.
+    // balance delimiters and reject empty alternations; malformed quantifiers
+    // ({2,1}, leading *) and bad groups still slip through and make regexm()
+    // silently return 0 (a false-zero cohort). ustrregexm() returns -1 (not a
+    // Stata error) on a structurally invalid ICU pattern, so probe the
+    // *anchored* form the scanner actually uses ("^(...)" — see
+    // _codescan_mata_scan) and reject -1.
     if (ustrregexm("__codescan_probe__", "^(" + pat + ")") == -1) {
         errprintf("{err}" + ptype + " for %s: invalid regex pattern: %s\n", cname, pat)
         exit(198)

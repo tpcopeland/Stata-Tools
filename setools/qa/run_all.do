@@ -31,10 +31,12 @@ foreach f in ///
     test_cci_se_adversarial ///
     validation_cci_se_era_boundaries ///
     validation_cci_se_known_scores ///
+    validation_cci_se_date_hierarchy ///
     test_cdp_adversarial ///
     test_cdp_roving_determinism ///
     validation_cdp_known_answers ///
     validation_cdp_threetier_confirmtype ///
+    validation_cdp_roving_exit ///
     validation_setools ///
     validation_known_answer_boundaries ///
     validation_cci_se_v121 ///

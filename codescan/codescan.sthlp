@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.6  02jul2026}{...}
+{* *! version 2.0.7  06jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -204,9 +204,12 @@ that varlist.
 Use explicit names when there are only a few code variables.  Use a range such
 as {cmd:dx1-dx30} when those variables sit next to each other in the dataset
 order.  Use a wildcard such as {cmd:dx*} when every variable with that prefix
-should be scanned.  If diagnosis, procedure, and medication codes need
-different dictionaries, run separate scans and add {cmd:generate()} prefixes so
-the output names do not collide.
+should be scanned.  A variable may appear only once in {varlist}; a repeat —
+directly or through overlapping ranges such as {cmd:dx1-dx5 dx3-dx8} — is
+rejected, because the repeated column would be counted twice under
+{cmd:countmode}, {cmd:countrows}, or {cmd:detail}.  If diagnosis, procedure, and
+medication codes need different dictionaries, run separate scans and add
+{cmd:generate()} prefixes so the output names do not collide.
 
 {phang2}{cmd:. codescan dx1-dx30, define(dm2 "E11" | htn "I1[0-35]") generate(dx_)}{p_end}
 {phang2}{cmd:. codescan proc1-proc20, define(mammo "XF001|XF002" | colectomy "JFB|JFH") ///}{p_end}
@@ -558,7 +561,11 @@ as {cmd:"Å"} matches both {cmd:å} and {cmd:Å} (useful for Nordic
 register codes).  A structurally invalid {cmd:regex} pattern (for example an
 unbalanced bracket, an empty group, or a malformed quantifier like
 {cmd:a{c -(}2,1{c )-}}) is {it:rejected} with an error rather than silently
-matching nothing, so a typo cannot quietly produce an all-zero cohort.  Reserve
+matching nothing, so a typo cannot quietly produce an all-zero cohort.  An empty
+alternation branch — a stray leading, trailing, or doubled {cmd:|} such as
+{cmd:"E11|"} or {cmd:"E11||E12"} — is likewise rejected, because its empty branch
+would otherwise match {it:every} code and silently produce a match-everything
+cohort (or, in an exclusion, drop every row).  Reserve
 {cmd:nocase} for literal codes and character classes; uppercasing a regex escape
 sequence under {cmd:nocase} can change its meaning.
 

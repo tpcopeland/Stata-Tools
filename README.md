@@ -32,7 +32,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
-| [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-2.0.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--02-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
+| [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-2.0.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--06-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
 | [compress_tc](https://github.com/tpcopeland/Stata-Tools/tree/main/compress_tc) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--19-brightgreen) | Two-stage compression for string-heavy Stata data via strL and compress |
 | [datamap](https://github.com/tpcopeland/Stata-Tools/tree/main/datamap) | ![version](https://img.shields.io/badge/version-1.5.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--19-brightgreen) | Privacy-safe dataset maps, Markdown dictionaries, console QC/expectation gates (datacheck), and missing-value pattern analysis (datamvp) |
 | [datefix](https://github.com/tpcopeland/Stata-Tools/tree/main/datefix) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--25-brightgreen) | Convert imported date strings to Stata daily dates |

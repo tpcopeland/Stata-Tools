@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.6** | 2026-07-02
+**Version 2.0.7** | 2026-07-06
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -384,6 +384,11 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.7 (2026-07-06)
+
+- **Bugfix:** a `regex` pattern (or exclusion) with an empty alternation branch — a stray leading, trailing, or doubled `|` such as `"E11|"`, `"|E11"`, or `"E11||E12"` — is now rejected with an error. Its empty branch anchored to `^(...|...)` matched the start of *every* code, so a single mistyped pipe silently produced a match-everything cohort (or, in an exclusion, dropped every row) with no error. Well-formed alternations (`"E11|E12"`), a literal `|` inside a character class (`"E1[1|2]"`), and an escaped `\|` are unaffected.
+- **Bugfix:** a scan variable that appears more than once in `varlist` — directly or through overlapping ranges such as `dx1-dx5 dx3-dx8` — is now rejected in both `codescan` and `codescan_describe`. A repeated column was read once per occurrence, silently double-counting its codes under `countmode`, `countrows`, and `detail`.
 
 ### 2.0.6 (2026-07-02)
 

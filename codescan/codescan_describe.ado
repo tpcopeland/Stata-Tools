@@ -1,4 +1,4 @@
-*! codescan_describe Version 2.0.6  2026/07/02
+*! codescan_describe Version 2.0.7  2026/07/06
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -36,6 +36,16 @@ program define codescan_describe, rclass
     * Validate top
     if `top' < 1 {
         display as error "top() must be a positive integer"
+        exit 198
+    }
+
+    * Reject a variable that appears more than once in varlist (directly or via
+    * overlapping ranges like dx1-dx5 dx3-dx8). A repeated scan column would be
+    * tabulated once per occurrence, double-counting its codes and entries.
+    local _dupvars : list dups varlist
+    if `"`_dupvars'"' != "" {
+        display as error "varlist contains repeated variable(s): `_dupvars'"
+        display as error "remove duplicate or overlapping scan variables"
         exit 198
     }
 

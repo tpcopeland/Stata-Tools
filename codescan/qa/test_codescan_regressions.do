@@ -24,6 +24,8 @@
 *   T21: strL scan variables rejected up front with rc 109 in both commands (2.0.6)
 *   T22: r() survives saving() to an unwritable path (return-before-side-effect)
 *   T23: graph tempfile round-trip leaves r() populated and restores indicators
+*   T24: empty alternation branch (E11|, |E11, E11||E12, (E11|)) rejected 198 (2.0.7)
+*   T25: duplicate/overlapping varlist rejected 198 in both commands (2.0.7)
 
 clear all
 set seed 12345
@@ -222,7 +224,7 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 2.0.6
+* T7: header advertises version 2.0.7
 * ============================================================
 
 local ++test_count
@@ -233,10 +235,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.6") > 0
+    assert strpos("`_line1'", "2.0.7") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.6"
+    display as result "  PASS T7: version header is 2.0.7"
     local ++pass_count
 }
 else {
@@ -747,6 +749,105 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T23: graph round-trip (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T24: empty alternation branch rejected (2.0.7)
+*   A stray leading/trailing/doubled | in a regex pattern anchors as
+*   ^(...|...) with an empty branch that matches EVERY code — a silent
+*   match-everything cohort. Every such form must exit 198 (pattern and
+*   exclusion), while well-formed alternations, a literal | inside a class,
+*   and an escaped \| must still be accepted and match correctly.
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 3
+    gen str6 dx1 = "E11" in 1
+    replace dx1 = "Z00" in 2
+    replace dx1 = "I10" in 3
+
+    * Every empty-branch form is rejected with 198
+    foreach _bad in "E11|" "|E11" "E11||E12" "(E11|)" "(|E11)" "(E11||E12)" {
+        capture codescan dx1, define(dm2 `"`_bad'"')
+        assert _rc == 198
+    }
+    * Empty branch in an EXCLUSION is rejected too
+    capture codescan dx1, define(dm2 "E1" ~ "E11|")
+    assert _rc == 198
+    capture codescan dx1, define(dm2 "E1" ~ "|E11")
+    assert _rc == 198
+
+    * Well-formed top-level alternation still works and matches both arms
+    codescan dx1, define(a "E11|I10")
+    assert el(r(summary), 1, 1) == 2
+    drop a
+    * Literal | inside a character class is not an alternation (matches E11 only here)
+    codescan dx1, define(b "E1[0-9|]")
+    assert el(r(summary), 1, 1) == 1
+    drop b
+    * Escaped \| is a literal pipe: matches nothing in this data, but must NOT
+    * be rejected as an empty branch (rc 0 with zero matches, not rc 198)
+    capture codescan dx1, define(c "E11\|x")
+    assert _rc == 0
+    assert el(r(summary), 1, 1) == 0
+}
+if _rc == 0 {
+    display as result "  PASS T24: empty alternation branch rejected; legit alternations pass"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T24: empty alternation guard (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T25: duplicate/overlapping varlist rejected (2.0.7)
+*   A scan variable read more than once (directly or via overlapping ranges)
+*   silently double-counts under countmode/countrows/detail. Both codescan
+*   and codescan_describe must reject the repeat with 198; distinct varlists
+*   are unaffected.
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 3
+    gen str6 dx1 = "E11"
+    gen str6 dx2 = "I10"
+    gen str6 dx3 = "Z00"
+    gen str6 dx4 = ""
+    gen str6 dx5 = ""
+
+    * Exact repeat rejected in codescan
+    capture codescan dx1 dx1, define(dm2 "E11") countmode
+    assert _rc == 198
+    * Overlapping ranges (dx1-dx3 dx2-dx4 repeats dx2,dx3) rejected
+    capture codescan dx1-dx3 dx2-dx4, define(dm2 "E11")
+    assert _rc == 198
+    * Exact repeat rejected in codescan_describe
+    capture codescan_describe dx1 dx1
+    assert _rc == 198
+    capture codescan_describe dx1-dx3 dx2-dx4
+    assert _rc == 198
+
+    * Distinct varlist still works in both commands
+    codescan dx1 dx2 dx3, define(dm2 "E11")
+    assert r(N) == 3
+    drop dm2
+    codescan_describe dx1 dx2 dx3
+    assert r(n_vars) == 3
+}
+if _rc == 0 {
+    display as result "  PASS T25: duplicate/overlapping varlist rejected in both commands"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T25: duplicate varlist guard (rc=`=_rc')"
     local ++fail_count
 }
 
