@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.4.0  2026/07/01
+*! psdash_combined Version 1.4.1  2026/07/07
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -75,6 +75,10 @@ program define psdash_combined, rclass
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto wt_auto
+    * Accept twoway-style saving(f, replace) gracefully
+    _psdash_strip_replace, option(saving) value(`"`saving'"')
+    local saving `"`r(value)'"'
+
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
 
     * Pass reference and psvars to detect if specified

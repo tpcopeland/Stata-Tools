@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.0.1  19jun2026}{...}
 {vieweralsosee "qba" "help qba"}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
@@ -288,6 +287,5 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-06-19{p_end}
 
 {hline}

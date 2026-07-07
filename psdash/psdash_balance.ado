@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.4.0  2026/07/01
+*! psdash_balance Version 1.4.1  2026/07/07
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -104,6 +104,12 @@ program define psdash_balance, rclass
 
     * MARK SAMPLE
     tempvar touse ps_auto wt_auto
+    * Accept twoway-style name(x, replace) / saving(f, replace) gracefully
+    _psdash_strip_replace, option(name) value(`"`name'"')
+    local name `"`r(value)'"'
+    _psdash_strip_replace, option(saving) value(`"`saving'"')
+    local saving `"`r(value)'"'
+
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
 
     * AUTO-DETECT PS COMPONENTS

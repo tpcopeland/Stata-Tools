@@ -14,21 +14,34 @@ program define _qba_parse_saving, rclass
 
         local savefile ""
         local save_replace ""
+        local save_opts ""
         local _saving_spec = strtrim(`"`saving'"')
-        local _comma_pos = strrpos(`"`_saving_spec'"', ",")
-        if `_comma_pos' > 0 {
-            local savefile = strtrim(substr(`"`_saving_spec'"', 1, `_comma_pos' - 1))
-            local save_opts = strtrim(substr(`"`_saving_spec'"', `_comma_pos' + 1, .))
+        if substr(`"`_saving_spec'"', 1, 1) == `"""' {
+            * Quoted filename: the closing quote ends the filename, so a comma
+            * is only an option separator when it follows that closing quote.
+            * This keeps commas inside the quoted name (e.g. "my, file.dta") intact.
+            local _close = strpos(substr(`"`_saving_spec'"', 2, .), `"""')
+            if `_close' > 0 {
+                local savefile = substr(`"`_saving_spec'"', 2, `_close' - 1)
+                local _rest = strtrim(substr(`"`_saving_spec'"', `_close' + 2, .))
+                if substr(`"`_rest'"', 1, 1) == "," {
+                    local save_opts = strtrim(substr(`"`_rest'"', 2, .))
+                }
+            }
+            else {
+                * Unbalanced quote: treat the whole spec as the filename
+                local savefile `"`_saving_spec'"'
+            }
         }
         else {
-            local savefile `"`_saving_spec'"'
-            local save_opts ""
-        }
-        local _save_len = length(`"`savefile'"')
-        if `_save_len' >= 2 {
-            if substr(`"`savefile'"', 1, 1) == `"""' & ///
-                substr(`"`savefile'"', `_save_len', 1) == `"""' {
-                local savefile = substr(`"`savefile'"', 2, `_save_len' - 2)
+            * Unquoted spec: a comma separates the filename from its options
+            local _comma_pos = strrpos(`"`_saving_spec'"', ",")
+            if `_comma_pos' > 0 {
+                local savefile = strtrim(substr(`"`_saving_spec'"', 1, `_comma_pos' - 1))
+                local save_opts = strtrim(substr(`"`_saving_spec'"', `_comma_pos' + 1, .))
+            }
+            else {
+                local savefile `"`_saving_spec'"'
             }
         }
         if `"`save_opts'"' != "" {

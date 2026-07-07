@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  01jul2026}{...}
+{* *! version 1.4.1  07jul2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -228,7 +228,10 @@ dashboard. The options below apply wherever a graph is produced.
 {phang}
 {opt saving(filename)} exports the graph to an image file. The format is
 determined by the filename extension ({cmd:.png}, {cmd:.pdf}, {cmd:.eps}, etc.);
-use Stata's {helpb graph save} for a {cmd:.gph} file.
+use Stata's {helpb graph save} for a {cmd:.gph} file. {cmd:psdash} always
+overwrites an existing file, so a {cmd:replace} suboption is unnecessary; if you
+write {cmd:saving(f.png, replace)} out of {cmd:twoway} habit, the redundant
+{cmd:replace} is ignored with a note.
 
 {phang}
 {opt title(string)} specifies a custom title for the output header and/or graph.
@@ -238,7 +241,10 @@ use Stata's {helpb graph save} for a {cmd:.gph} file.
 passed through to the graph command.
 
 {phang}
-{opt name(string)} specifies the graph name in memory.
+{opt name(string)} specifies the graph name in memory. {cmd:psdash} always
+replaces an existing graph of that name, so a {cmd:replace} suboption is
+unnecessary; a redundant {cmd:name(g, replace)} is accepted and the trailing
+{cmd:replace} ignored with a note.
 
 {dlgtab:overlap options}
 
@@ -595,10 +601,15 @@ or {cmd:psdash weights, generate()} with a modification option when you want to
 save a new weight variable.
 
 {pstd}
-{bf:Multi-group ATC note:} For multi-group treatments, the ATC estimand uses
-the same generalized IPTW formula as ATE ({cmd:w = 1 / P(A=a|X)}). This is
-standard practice; ATT and ATC are less commonly applied to multi-valued
-treatments, and the ATE weights are the natural generalization.
+{bf:Multi-group ATC note:} The ATC estimand is not uniquely defined for a
+multi-valued treatment (K>2 groups), because there is no single control group
+to target. When {opt estimand(atc)} is requested with K>2 groups, {cmd:psdash}
+falls back to the generalized ATE weights ({cmd:w = 1 / P(A=a|X)}) and prints a
+one-time note. For a group-targeted estimand with K>2 groups, use
+{opt estimand(att)} together with {opt reference()} to weight every group toward
+a chosen reference group's covariate distribution. Binary (K=2) treatments are
+unaffected and use the standard ATC weights ({cmd:(1-e)/e} for treated,
+{cmd:1} for control).
 
 {pstd}
 {bf:Diagnostic workflow:} A typical PS analysis proceeds as follows:
@@ -908,7 +919,12 @@ are available).
 
 {pstd}
 {cmd:psdash combined} inherits all stored results from its subcommands
-(via {cmd:return add}). In addition:
+(via {cmd:return add}). The combined-level results listed below are the
+documented, stable return surface. Because the panels run in sequence and share
+some result names (for example {cmd:r(N)}, {cmd:r(pct_outside)}, {cmd:r(treatment)}),
+any inherited per-panel result that is not listed below reflects the
+{it:last-run} panel (support) rather than a specific one; to read a specific
+panel's diagnostics reliably, run that subcommand on its own. In addition:
 
 {synoptset 30 tabbed}{...}
 {p2col 5 30 34 2: Macros}{p_end}

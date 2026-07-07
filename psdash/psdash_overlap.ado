@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.4.0  2026/07/01
+*! psdash_overlap Version 1.4.1  2026/07/07
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -94,6 +94,12 @@ program define psdash_overlap, rclass
 
     * MARK SAMPLE AND AUTO-DETECT
     tempvar touse ps_auto
+    * Accept twoway-style name(x, replace) / saving(f, replace) gracefully
+    _psdash_strip_replace, option(name) value(`"`name'"')
+    local name `"`r(value)'"'
+    _psdash_strip_replace, option(saving) value(`"`saving'"')
+    local saving `"`r(value)'"'
+
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
 
     * Pass reference and psvars to detect if specified

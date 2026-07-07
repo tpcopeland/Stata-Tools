@@ -45,12 +45,8 @@ program define qba_confound, rclass
 	        from_model COEF(string) ///
 	        SAving(string asis)]
 
-	    if missing(`reps') | `reps' < 0 {
+	    if `reps' < 0 {
 	        display as error "reps() must be a nonnegative integer"
-	        exit 198
-	    }
-	    if `seed' != -1 & missing(`seed') {
-	        display as error "seed() must be a nonmissing integer"
 	        exit 198
 	    }
 	    if `ci_bound' != -999 & "`evalue'" == "" {
@@ -100,14 +96,22 @@ program define qba_confound, rclass
             display as error "no estimation results found; run a model first"
             exit 301
         }
-        * Get treatment variable
+        * Get treatment variable: eligible coefficients are the main-equation
+        * terms only. Ancillary parameters (streg /ln_p, /lnsigma, /lngamma;
+        * nbreg /lnalpha; melogit variance components; etc.) sit in a separate
+        * equation (coleq "/") and must never be treated as the treatment.
         local names : colnames e(b)
+        local eqs   : coleq e(b)
+        local main_eq : word 1 of `eqs'
+        local ncols  : word count `names'
         local n_coefs = 0
         local first_coef ""
         local eligible_names ""
-        foreach v of local names {
+        forvalues i = 1/`ncols' {
+            local v  : word `i' of `names'
+            local eq : word `i' of `eqs'
             local _is_omitted = (strpos("`v'", "b.") > 0 | strpos("`v'", "o.") > 0)
-            if "`v'" != "_cons" & !`_is_omitted' {
+            if "`v'" != "_cons" & !`_is_omitted' & "`eq'" == "`main_eq'" {
                 local ++n_coefs
                 if "`first_coef'" == "" local first_coef "`v'"
                 local eligible_names "`eligible_names' `v'"
@@ -118,24 +122,28 @@ program define qba_confound, rclass
             exit 198
         }
         if "`coef'" != "" {
-            * Validate that coef() names a column in e(b)
+            * coef() must name an eligible main-equation coefficient
             local found = 0
-            local found_omitted = 0
-            foreach v of local names {
+            foreach v of local eligible_names {
                 if "`v'" == "`coef'" {
                     local found = 1
-                    if "`v'" == "_cons" | strpos("`v'", "b.") > 0 | strpos("`v'", "o.") > 0 {
-                        local found_omitted = 1
-                    }
                     continue, break
                 }
             }
             if !`found' {
-                display as error "coef(`coef') not found in estimation results"
-                exit 198
-            }
-            if `found_omitted' {
-                display as error "coef(`coef') is a constant, base, or omitted coefficient"
+                * Distinguish "not in the model" from "ineligible column"
+                * (constant, base, omitted, or ancillary parameter)
+                local in_model = 0
+                foreach v of local names {
+                    if "`v'" == "`coef'" local in_model = 1
+                }
+                if `in_model' {
+                    display as error ///
+                        "coef(`coef') is a constant, base, omitted, or ancillary coefficient"
+                }
+                else {
+                    display as error "coef(`coef') not found in estimation results"
+                }
                 exit 198
             }
             local treat_var "`coef'"
@@ -151,7 +159,13 @@ program define qba_confound, rclass
         local b_treat = _b[`treat_var']
         local se_treat = _se[`treat_var']
         * Exponentiate only for log-scale models (logistic, Cox, Poisson, etc.)
+        * For the st-family, e(cmd) holds the distribution ("cox", "weibull",
+        * "lnormal", ...) while e(cmd2) holds the st-command ("stcox"/"streg"/
+        * "stcrreg"); key survival detection off e(cmd2).
         local ecmd "`e(cmd)'"
+        local ecmd2 "`e(cmd2)'"
+        local st_cmd ""
+        if inlist("`ecmd2'", "stcox", "streg", "stcrreg") local st_cmd "`ecmd2'"
         if "`ecmd'" == "cloglog" {
             if "`measure'" == "" {
                 display as error "cloglog from_model requires explicit measure(RR)"
@@ -162,6 +176,17 @@ program define qba_confound, rclass
                 exit 198
             }
         }
+        * streg accelerated-failure-time distributions (lognormal, loglogistic,
+        * gamma) report a time ratio, not a hazard ratio (e(frm2)=="time"). The
+        * confounding bias factor corrects a risk/rate/hazard ratio; a time ratio
+        * is a different scale and cannot be corrected here.
+        if "`st_cmd'" == "streg" & "`e(frm2)'" == "time" {
+            display as error ///
+                "streg accelerated-failure-time models report a time ratio, not a hazard ratio"
+            display as error ///
+                "qba_confound corrects ratio measures (OR/RR/HR); refit with a proportional-hazards distribution (e.g. dist(weibull), dist(exponential))"
+            exit 198
+        }
         local is_logscale = 0
         if inlist("`ecmd'", "logistic", "logit", "stcox", "poisson", "nbreg", "cloglog") {
             local is_logscale = 1
@@ -170,6 +195,11 @@ program define qba_confound, rclass
             local is_logscale = 1
         }
         if inlist("`ecmd'", "streg", "stcrreg") {
+            local is_logscale = 1
+        }
+        * st-family via e(cmd2): stcox/stcrreg are always hazard-scale, and any
+        * streg reaching here is a proportional-hazards parameterization.
+        if inlist("`st_cmd'", "stcox", "streg", "stcrreg") {
             local is_logscale = 1
         }
         if "`ecmd'" == "glm" {
@@ -189,6 +219,13 @@ program define qba_confound, rclass
             local est_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
             local est_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
             local is_linear = 1
+            * Estimators without a recognized log/linear scale (probit, ologit,
+            * ...) fall through to the additive-coefficient path. Flag it so the
+            * user can confirm the coefficient really is an additive contrast.
+            if !inlist("`ecmd'", "regress", "areg", "cnsreg", "") {
+                display as text ///
+                    "note: `ecmd' coefficient is corrected on the linear (additive) scale"
+            }
         }
         local from_model_flag = 1
 
@@ -207,6 +244,10 @@ program define qba_confound, rclass
                 local elink2 = strlower("`e(link)'")
                 if inlist("`elink2'", "logit", "glim_l02") local measure "OR"
                 else if inlist("`elink2'", "log", "glim_l03") local measure "RR"
+            }
+            * st-family point measure is a hazard ratio, carried as RR
+            if "`measure'" == "" & inlist("`st_cmd'", "stcox", "streg", "stcrreg") {
+                local measure "RR"
             }
         }
     }

@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.0.1  19jun2026}{...}
 {vieweralsosee "qba" "help qba"}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -249,6 +248,5 @@ Greenland S. Basic methods for sensitivity analysis of biases.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-06-19{p_end}
 
 {hline}

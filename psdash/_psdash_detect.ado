@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.4.0  2026/07/01
+*! _psdash_detect Version 1.4.1  2026/07/07
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -295,9 +295,14 @@ program define _psdash_detect
                         }
                     }
                     else if "`estimand'" == "atc" {
-                        * ATC is symmetric to ATT but reference is the non-reference group
-                        * For simplicity, ATC with multi-group uses same formula as ATE
-                        * This is the standard approach; ATT/ATC are less common with K>2
+                        * ATC is not uniquely defined for K>2 groups: fall back to the
+                        * generalized ATE weights (w = 1/P(A=a|X)) and warn the user once.
+                        if "$PSDASH_atc_warned" == "" {
+                            noisily display as text "note: estimand(atc) with a multi-valued treatment (K>2) is not uniquely"
+                            noisily display as text "      defined; using generalized ATE weights (w = 1/P(A=a|X)). For a"
+                            noisily display as text "      group-targeted estimand use estimand(att) with reference()."
+                            global PSDASH_atc_warned 1
+                        }
                         foreach _lv of local _trt_levels {
                             local _ps_expr "`_ownps_`_lv''"
                             replace `wt_storage' = 1 / (`_ps_expr') ///
@@ -1199,6 +1204,14 @@ program define _psdash_detect
                                 }
                             }
                             else if "`estimand'" == "atc" {
+                                * ATC is not uniquely defined for K>2 groups: fall back to
+                                * generalized ATE weights (w = 1/P(A=a|X)) and warn once.
+                                if "$PSDASH_atc_warned" == "" {
+                                    noisily display as text "note: estimand(atc) with a multi-valued treatment (K>2) is not uniquely"
+                                    noisily display as text "      defined; using generalized ATE weights (w = 1/P(A=a|X)). For a"
+                                    noisily display as text "      group-targeted estimand use estimand(att) with reference()."
+                                    global PSDASH_atc_warned 1
+                                }
                                 foreach _lv of local _trt_levels {
                                     local _ps_lv "_psdash_ps_`_lv'"
                                     replace `wt_storage' = 1 / `_ps_lv' ///

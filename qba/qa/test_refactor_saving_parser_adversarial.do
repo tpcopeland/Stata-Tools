@@ -29,10 +29,19 @@ capture noisily {
     capture _qba_parse_saving, saving("`spaced_path'", append)
     assert _rc == 198
 
+    * A comma inside a quoted filename is part of the name, not an option
+    * separator. Previously this legitimate filename was mis-rejected as an
+    * unknown suboption; it is now parsed verbatim.
     tempfile comma
     local comma_path "`comma',literal.dta"
-    capture _qba_parse_saving, saving("`comma_path'")
-    assert _rc == 198
+    _qba_parse_saving, saving("`comma_path'")
+    assert `"`r(filename)'"' == `"`comma_path'"'
+    assert "`r(replace)'" == ""
+
+    * ... and an explicit replace suboption after the closing quote is honored
+    _qba_parse_saving, saving("`comma_path'", replace)
+    assert `"`r(filename)'"' == `"`comma_path'"'
+    assert "`r(replace)'" == "replace"
 }
 local rc = _rc
 

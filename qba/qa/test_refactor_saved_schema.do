@@ -41,7 +41,7 @@ capture noisily {
         dist_p1("constant .4") dist_p0("constant .2") dist_rr("constant 2") ///
         saving("`conf'", replace)
     use "`conf'", clear
-    foreach v in p1 p0 rr_confound bias_factor corrected_rr {
+    foreach v in p1 p0 rr_confounder bias_factor corrected_rr {
         confirm variable `v'
     }
     assert _N == 100

@@ -163,23 +163,13 @@ qba_plot, tipping a(136) b(297) c(1432) d(6738) ///
 
 ## Demo
 
-The demo script (`qba/demo/demo_qba.do`) produces three plots. It is a development artifact run from the full Stata-Tools checkout, not from a `net install qba` install: in addition to `qba` it requires the sibling packages `tc_schemes` and `logdoc` (for the plot scheme), which it locates next to the repository directory. Run it from the repository root with:
+The demo script (`qba/demo/demo_qba.do`) produces three plots. It is a development artifact run from the full Stata-Tools checkout, not from a `net install qba` install: in addition to `qba` it requires the sibling package `tc_schemes` (for the plot scheme), which it locates next to the repository directory. Run it from the repository root with:
 
 ```bash
 stata-mp -b do qba/demo/demo_qba.do
 ```
 
-The demo uses a case-control pesticide exposure scenario with 136 exposed cases, 297 unexposed cases, 1432 exposed controls, 6738 unexposed controls, and an observed OR of 2.15. It covers fixed single-bias corrections, model-based confounding correction, probabilistic single-bias analyses, multi-bias analysis, saved Monte Carlo dataset validation, and visualization.
-
-### Fixed-Parameter Single-Bias Analyses
-
-### Model-Based Confounding
-
-The demo creates a synthetic dataset, fits a logistic outcome model and a linear biomarker model, then applies `qba_confound, from_model`.
-
-### Probabilistic Bias Analyses
-
-### Multi-Bias Analysis
+The demo uses a case-control pesticide exposure scenario with 136 exposed cases, 297 unexposed cases, 1432 exposed controls, 6738 unexposed controls, and an observed OR of 2.15. It runs the full range of analyses as a worked example -- fixed single-bias corrections; model-based confounding correction (fitting a logistic outcome model and a linear biomarker model, then applying `qba_confound, from_model`); probabilistic single-bias analyses; multi-bias analysis; and saved Monte Carlo dataset validation -- before building the plots below.
 
 ### Demo Plots
 

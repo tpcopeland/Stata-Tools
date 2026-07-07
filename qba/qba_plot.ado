@@ -391,7 +391,6 @@ program define qba_plot, rclass
         local n_missing = r(n_missing)
     }
 
-    return clear
     return local plot_type "`tornado'`distribution'`tipping'"
     return local scheme "`scheme'"
     local measure_return "`measure_branch'"

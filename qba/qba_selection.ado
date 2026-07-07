@@ -205,7 +205,6 @@ program define qba_selection, rclass
         }
 
         * Store results
-        return clear
         return scalar a = `a'
         return scalar b = `b'
         return scalar c = `c'
@@ -362,7 +361,6 @@ program define qba_selection, rclass
             as text " - " as result %9.4f `mc_hi'
 
         * Store results
-        return clear
         if "`measure'" == "OR" {
             return scalar observed = `obs_or'
         }

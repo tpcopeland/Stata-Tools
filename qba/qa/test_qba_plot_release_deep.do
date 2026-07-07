@@ -60,7 +60,9 @@ capture noisily {
         confirm file "`r(fn)'"
     }
     qba
-    assert "`r(version)'" == "1.0.1"
+    * Assert a well-formed semantic version rather than pinning a literal that
+    * goes stale on every bump (currency is enforced by the CLI version check).
+    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
     assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 
     findfile _qba_distributions.ado
@@ -83,11 +85,26 @@ capture noisily {
     _assert_file_contains "`pkg_dir'/qba.ado" "Version 1.0.1  2026/06/19"
     _assert_file_contains "`pkg_dir'/qba_plot.ado" "Version 1.0.1  2026/06/19"
     _assert_file_contains "`pkg_dir'/qba.sthlp" "version 1.0.1  19jun2026"
-    _assert_file_contains "`pkg_dir'/qba_plot.sthlp" "version 1.0.1  19jun2026"
-    shell grep -Fq "Version 1.0.1" "`pkg_dir'/README.md"
-    assert _rc == 0
-    shell grep -Fq "2026-06-19" "`pkg_dir'/README.md"
-    assert _rc == 0
+    * House standard: only the flagship qba.sthlp carries a version line;
+    * sub-command help files must not (see CLAUDE.md version-consistency rule).
+    * (Stata's shell does not propagate grep's exit code to _rc, so assert on
+    * file content via the helper rather than on _rc after a shell grep.)
+    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "version 1.0.1"
+    _assert_text_file_not_contains "`pkg_dir'/qba_plot.sthlp" "Version 1.0.1"
+    * README is prose with markdown code fences; reading it line-by-line into a
+    * macro is fragile (unbalanced backticks). Grep the count into a temp file
+    * and read the integer -- Stata's shell does not propagate grep's exit code.
+    tempfile _grep_cnt
+    shell grep -Fc "Version 1.0.1" "`pkg_dir'/README.md" > "`_grep_cnt'"
+    file open _gfh using "`_grep_cnt'", read text
+    file read _gfh _gline
+    file close _gfh
+    assert real("`_gline'") > 0
+    shell grep -Fc "2026-06-19" "`pkg_dir'/README.md" > "`_grep_cnt'"
+    file open _gfh using "`_grep_cnt'", read text
+    file read _gfh _gline
+    file close _gfh
+    assert real("`_gline'") > 0
     _assert_file_contains "`pkg_dir'/qba.pkg" "Distribution-Date: 20260619"
     _assert_file_contains "`pkg_dir'/qba.pkg" "Author: Timothy P Copeland, Karolinska Institutet"
 

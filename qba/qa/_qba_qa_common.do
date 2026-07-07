@@ -163,7 +163,7 @@ program define _qba_qa_assert_file_contains
     file open `fh' using "`using'", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') local found = 1
+        if strpos(`"`macval(line)'"', `"`pattern'"') local found = 1
         file read `fh' line
     }
     file close `fh'
@@ -180,7 +180,7 @@ program define _qba_qa_assert_file_not_contains
     file open `fh' using "`using'", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', `"`pattern'"') local found = 1
+        if strpos(`"`macval(line)'"', `"`pattern'"') local found = 1
         file read `fh' line
     }
     file close `fh'

@@ -30,7 +30,10 @@ capture noisily {
         confirm file "`r(fn)'"
 	    }
 	    qba
-	    assert "`r(version)'" == "1.0.1"
+	    * Assert a well-formed semantic version rather than pinning a literal
+	    * that goes stale on every bump (currency is enforced by the CLI
+	    * version check, not this suite).
+	    assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
 	    assert "`r(commands)'" == "qba_misclass qba_selection qba_confound qba_multi qba_plot"
 	}
 if _rc == 0 {

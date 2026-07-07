@@ -248,7 +248,7 @@ def check_cell_value_exact(ws: Worksheet, ref: str, expected: str) -> CheckResul
     return CheckResult(
         name=f"Cell {ref} == \"{expected}\"",
         passed=passed,
-        message=f"matched" if passed else f"expected \"{expected}\", got \"{actual_str}\"",
+        message="matched" if passed else f"expected \"{expected}\", got \"{actual_str}\"",
     )
 
 
@@ -292,7 +292,7 @@ def check_cell_approx(ws: Worksheet, ref: str, expected: float,
         return CheckResult(
             name=f"Cell {ref} ~= {expected} (±{tolerance})",
             passed=False,
-            message=f"cell is empty",
+            message="cell is empty",
         )
     try:
         actual_num = float(actual)
@@ -415,13 +415,20 @@ def check_merged_rows(ws: Worksheet, row_nums: list[int]) -> CheckResult:
 
 
 def check_font(ws: Worksheet, expected_name: str) -> CheckResult:
-    """Check that the primary font matches expected name."""
+    """Check that the primary font matches expected name.
+
+    Only cells with content count: empty cells carry the workbook default
+    font, which would otherwise outvote the styled table on sparse sheets
+    (and disagree with --theme, which already counts non-empty cells only).
+    """
     from collections import Counter
     font_counts = Counter()
     for row in range(1, get_used_rows(ws) + 1):
         for col in range(1, get_used_cols(ws) + 1):
             cell = ws.cell(row=row, column=col)
             if isinstance(cell, MergedCell):
+                continue
+            if _stringify(cell.value) == "":
                 continue
             name = cell.font.name if cell.font else None
             if name:
@@ -442,13 +449,15 @@ def check_font(ws: Worksheet, expected_name: str) -> CheckResult:
 
 
 def check_fontsize(ws: Worksheet, expected_size: float) -> CheckResult:
-    """Check that the primary font size matches."""
+    """Check that the primary font size matches (non-empty cells only)."""
     from collections import Counter
     size_counts = Counter()
     for row in range(1, get_used_rows(ws) + 1):
         for col in range(1, get_used_cols(ws) + 1):
             cell = ws.cell(row=row, column=col)
             if isinstance(cell, MergedCell):
+                continue
+            if _stringify(cell.value) == "":
                 continue
             size = cell.font.size if cell.font else None
             if size:
@@ -572,7 +581,10 @@ def _stringify(value) -> str:
     if isinstance(value, float):
         if value.is_integer():
             return str(int(value))
-        return str(value).rstrip("0").rstrip(".")
+        # Python float repr is already the shortest form (no trailing zeros);
+        # stripping characters would corrupt scientific notation (1e-10 ->
+        # "1e-1").
+        return str(value)
     return str(value).strip()
 
 

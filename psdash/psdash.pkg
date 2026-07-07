@@ -10,7 +10,7 @@ d propensity scores.
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
-d Distribution-Date: 20260701
+d Distribution-Date: 20260707
 d License: MIT
 d
 d Requires: Stata version 16.0 or higher
@@ -31,6 +31,7 @@ f _psdash_mgps_map.ado
 f _psdash_pscheck.ado
 f _psdash_support_stats.ado
 f _psdash_strip_fv.ado
+f _psdash_strip_replace.ado
 f _psdash_validate_levels.ado
 f _psdash_validate_path.ado
 f _psdash_validate_psvars.ado
