@@ -1,6 +1,6 @@
 # finegray - Fast Fine-Gray competing risks regression
 
-**Version 1.1.1** | 2026-07-04
+**Version 1.1.1** | 2026-07-07
 
 `finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
 
@@ -188,12 +188,15 @@ Standard errors are robust (sandwich) by default in both commands and agree to r
 
 ## Version History
 
-- **1.1.1** (2026-07-04; Pending SSC release): Correctness fixes for left truncation and multi-record fits.
+- **1.1.1** (2026-07-07; Pending SSC release): Correctness fixes for left truncation and multi-record fits.
   - Performance: the CIF influence-function variance (`finegray_cif` and `finegray_predict, cif ci`) was rewritten from an O(_n_&sup2;) per-evaluation-point loop over the cause events to an O(_n_&nbsp;log&nbsp;_n_) prefix-sum computation. Standard errors are numerically identical (max abs difference 1e-16); a `finegray_cif` call at _n_&nbsp;=&nbsp;120,000 dropped from ~91s to ~7s. This makes CIF standard errors practical at epidemiological sample sizes.
   - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, PH tests, and bootstrap refits after `stsplit`-style data.
   - Robust/cluster SEs and CIF influence-function SEs under delayed entry (left truncation) fixed: the per-subject score residuals now restrict the at-risk contribution to each subject's actual risk window `[t0, t]`. Validated against a delete-one jackknife oracle; results with no delayed entry are unchanged.
   - `finegray_cif, bootstrap()` no longer destroys `e(sample)`: estimates are now held before `preserve` so the `e(sample)` marker survives the resampling loop; previously any post-estimation command run after a bootstrap call failed with "no observations".
   - `finegray_cif, ci` and `finegray_predict, cif ci` no longer error (Mata type mismatch) when the model was fit with two or more `strata()` variables; they now combine the strata into a single group column like `finegray_phtest` already did.
+  - `finegray_cif, bootstrap()` and `finegray_predict, cif ci bootstrap()` no longer crash (type mismatch, `r(109)`) when the data were `stset` with a string `id()` variable; each resampled record is now assigned a fresh unique numeric subject id for the within-subject reduction. Numeric-id results are unchanged.
+  - The `bootstrap()` resampling in `finegray_cif` and `finegray_predict, cif ci` now resamples whole clusters as units when the fit declared `cluster()`, instead of resampling subjects; the band therefore reflects within-cluster correlation. Fits without `cluster()` are unchanged.
+  - `finegray_cif, at()` now accepts factor variables by their natural name (e.g. `at(pelnode=1)` after `finegray i.pelnode ...`), mapping the requested level onto the internal `_fg_*` dummies (a reference level sets all dummies to 0). A variable that enters an interaction, or a level not observed in the data, is rejected with a clear message; the internal `_fg_*` names remain accepted.
 
 - **1.1.0** (2026-06-21; Not released to SSC): Feature release.
   - New command `finegray_cif`: cumulative incidence curves with pointwise confidence bands (an `stcurve, cif` analogue that also plots the interval), fixed-horizon CIF tables (`attime()`), curves on a custom time grid (`timepoints()`), an exact subject-bootstrap band (`bootstrap()`/`seed()`), and exportable estimates via `saving()`. The CIF plot's legend defaults to a single row, and all `twoway` graph options (including `legend()` — e.g. `legend(off)`, `legend(pos(6))`) pass through and override the defaults.

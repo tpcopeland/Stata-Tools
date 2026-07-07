@@ -30,7 +30,7 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 |-------|------|------:|-----:|-----:|-----:|
 | `test_finegray.do` | functional / regression | 127 | 127 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
-| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata) | 8 | 8 | 0 | 0 |
+| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 13 | 13 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
@@ -99,7 +99,7 @@ install.packages(c("cmprsk", "riskRegression"))
 | `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
-| `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, and multi-variable `strata()` through the CIF SE paths |
+| `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), and `finegray_cif, at()` factor-variable natural names |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
 | `validation_finegray_recovery_paths.do` | Known-truth log-SHR recovery across 15 option/coding/estimand code paths (null/strong effects, binary/factor/interaction covariates, non-default `cause()`/`censvalue()`, cluster/norobust VCE, heavy censoring, high/low incidence, `level()`, multi-record reduction) |
@@ -156,8 +156,8 @@ is exercised somewhere below.
 
 | Surface | Where tested |
 |---------|--------------|
-| Fixed-horizon table, `at()`, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, `r(profile_vars)` | test_v110 |
-| Bootstrap CI, `level()` width control | test_v110, test_v111 (after reduction; e(sample) preserved) |
+| Fixed-horizon table, `at()`, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, `r(profile_vars)` | test_v110, test_v111 (factor-variable `at()` natural names) |
+| Bootstrap CI, `level()` width control | test_v110, test_v111 (after reduction; e(sample) preserved; string id(); cluster resampling) |
 | Graph legend, `legend()`/`title()`/`xtitle()` passthrough, `nograph` | test_v110 |
 | CIF point estimates vs `riskRegression::predictRisk`; SEs vs bootstrap | crossval_cif |
 | Analytic CIF SE vs closed-form jackknife; `finegray_cif`/`finegray_predict` SE agreement | validation_cif_se |

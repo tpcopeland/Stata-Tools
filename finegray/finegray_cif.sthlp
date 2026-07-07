@@ -79,7 +79,12 @@ band).
 {opt at(var=# ...)} sets the covariate profile at which the CIF is evaluated, for
 example {cmd:at(age=60 male=1)}. Variables not listed are held at their
 estimation-sample mean. The default profile is the estimation-sample means of all
-model covariates.
+model covariates. Factor variables may be named directly by their level, for
+example {cmd:at(pelnode=1)} after {cmd:finegray i.pelnode ...}; the requested
+level is mapped onto the internal indicator variables (the reference level sets
+every indicator to 0). A factor variable that enters an interaction term must be
+set through its internal {cmd:_fg_*} indicator names instead (see
+{cmd:e(covariates)}).
 
 {phang}
 {opt attime(numlist)} requests a table of the CIF at the listed time horizons

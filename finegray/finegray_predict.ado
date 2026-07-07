@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.1.1  2026/07/01
+*! finegray_predict Version 1.1.1  2026/07/07
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -305,6 +305,12 @@ program define finegray_predict, nclass sortpreserve
                 * user's e() across the refits.
                 local _fgid `"`_dta[st_id]'"'
                 local _fgcmd `"`e(cmdline)'"'
+                local _fgclust `"`e(clustvar)'"'
+                * A string id() cannot store _n; when it is non-numeric, give
+                * each resampled row a fresh unique numeric id instead.
+                capture confirm numeric variable `_fgid'
+                local _idnum = (_rc == 0)
+                if !`_idnum' tempvar _bsid
                 tempvar _bsum _bss
                 quietly gen double `_bsum' = 0 if `touse'
                 quietly gen double `_bss' = 0 if `touse'
@@ -330,8 +336,17 @@ program define finegray_predict, nclass sortpreserve
                 forvalues b = 1/`bootstrap' {
                     frame `_bf' {
                         quietly use `"`_bdata'"', clear
-                        bsample
-                        quietly replace `_fgid' = _n
+                        * Resample whole clusters as units when the fit
+                        * declared cluster(); otherwise resample subjects.
+                        if `"`_fgclust'"' != "" bsample, cluster(`_fgclust')
+                        else bsample
+                        * Each resampled draw must be a distinct subject for
+                        * finegray's within-id reduction.
+                        if `_idnum' quietly replace `_fgid' = _n
+                        else {
+                            quietly gen long `_bsid' = _n
+                            char _dta[st_id] "`_bsid'"
+                        }
                         capture `_fgcmd'
                         local _reprc = _rc
                     }

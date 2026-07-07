@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.1.1  2026/07/01
+*! finegray_cif Version 1.1.1  2026/07/07
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -127,18 +127,73 @@ program define finegray_cif, rclass sortpreserve
             }
             local _avar = substr(`"`_pair'"', 1, `_eqp' - 1)
             local _aval = substr(`"`_pair'"', `_eqp' + 1, .)
-            local _pos : list posof "`_avar'" in covs
-            if `_pos' == 0 {
-                display as error "at(): `_avar' is not a model covariate"
-                display as error "covariates are: `covs'"
-                exit 198
-            }
             capture confirm number `_aval'
             if _rc {
                 display as error "at(): `_aval' is not a number"
                 exit 198
             }
-            matrix `zrow'[1, `_pos'] = `_aval'
+            local _pos : list posof "`_avar'" in covs
+            if `_pos' > 0 {
+                * Direct covariate column (continuous term, or an internal
+                * _fg_* dummy typed by name)
+                matrix `zrow'[1, `_pos'] = `_aval'
+            }
+            else {
+                * Factor variable named by its user-facing name (e.g.
+                * at(pelnode=1) after finegray i.pelnode ...): map the level
+                * onto the internal _fg_<var>_<level> dummies.  Reject vars
+                * that also enter interactions, since one level cannot drive
+                * an interaction profile unambiguously.
+                local _fvlist "`e(fvvarlist)'"
+                foreach _fvt of local _fvlist {
+                    if strpos("`_fvt'", "#") {
+                        local _fvtn = subinstr("`_fvt'", "##", "#", .)
+                        local _fvparts : subinstr local _fvtn "#" " ", all
+                        foreach _fvp of local _fvparts {
+                            local _fvpv = "`_fvp'"
+                            if regexm("`_fvp'", "\.([^.]+)$") ///
+                                local _fvpv = regexs(1)
+                            if "`_fvpv'" == "`_avar'" {
+                                display as error ///
+                                    "at(): `_avar' enters an interaction; set its {cmd:_fg_*} dummies directly"
+                                display as error "covariates are: `covs'"
+                                exit 198
+                            }
+                        }
+                    }
+                }
+                * Collect this factor's main-effect dummies (_fg_<var>_<lvl>),
+                * zero them all, then set the requested level to 1.  A
+                * reference level leaves every dummy at 0.
+                local _found = 0
+                local _tgt "_fg_`_avar'_`_aval'"
+                local _tgtpos = 0
+                local _cc = 0
+                foreach _cn of local covs {
+                    local ++_cc
+                    if regexm("`_cn'", "^_fg_`_avar'_([0-9]+)$") {
+                        local _found = 1
+                        matrix `zrow'[1, `_cc'] = 0
+                        if "`_cn'" == "`_tgt'" local _tgtpos = `_cc'
+                    }
+                }
+                if !`_found' {
+                    display as error "at(): `_avar' is not a model covariate"
+                    display as error "covariates are: `covs'"
+                    exit 198
+                }
+                * Validate the requested level against the observed data
+                capture confirm variable `_avar'
+                if !_rc {
+                    quietly levelsof `_avar' if e(sample), local(_lvls)
+                    local _lvlok : list posof "`_aval'" in _lvls
+                    if `_lvlok' == 0 {
+                        display as error "at(): `_aval' is not an observed level of `_avar'"
+                        exit 198
+                    }
+                }
+                if `_tgtpos' > 0 matrix `zrow'[1, `_tgtpos'] = 1
+            }
         }
     }
 
@@ -222,6 +277,12 @@ program define finegray_cif, rclass sortpreserve
     if `bootstrap' > 0 {
         local _fgid `"`_dta[st_id]'"'
         local _fgcmd `"`e(cmdline)'"'
+        local _fgclust `"`e(clustvar)'"'
+        * A string id() cannot store _n; when it is non-numeric, give each
+        * resampled row a fresh unique numeric id instead.
+        capture confirm numeric variable `_fgid'
+        local _idnum = (_rc == 0)
+        if !`_idnum' tempvar _bsid
         tempname Gmat
         matrix `Gmat' = J(`ngrid', 1, 0)
         local r 0
@@ -257,8 +318,17 @@ program define finegray_cif, rclass sortpreserve
         forvalues b = 1/`bootstrap' {
             quietly {
                 use `"`_bdata'"', clear
-                bsample
-                replace `_fgid' = _n
+                * Resample whole clusters as units when the fit declared
+                * cluster(); otherwise resample subjects.
+                if `"`_fgclust'"' != "" bsample, cluster(`_fgclust')
+                else bsample
+                * Each resampled draw must be a distinct subject for
+                * finegray's within-id reduction.
+                if `_idnum' replace `_fgid' = _n
+                else {
+                    gen long `_bsid' = _n
+                    char _dta[st_id] "`_bsid'"
+                }
                 capture `_fgcmd'
                 if _rc continue
                 mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'")
