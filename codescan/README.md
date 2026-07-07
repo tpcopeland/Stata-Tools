@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.7** | 2026-07-06
+**Version 2.0.8** | 2026-07-07
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -384,6 +384,12 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.8 (2026-07-07)
+
+- **Bugfix:** a `label()` entry whose text contained a backslash — a Windows path such as `label(dm2 "C:\data")` or any regex/text with `\` — aborted with an opaque `r(132)` and produced no output. The `\` entry separator is now parsed quote-aware, so a backslash inside quoted label text is kept while `\` between entries still separates them.
+- **Bugfix:** a bare `.` in a code slot (a common missing-value placeholder in registry extracts) was scanned by `codescan` as a real code — so a broad pattern like `".*"` matched those rows — even though `codescan_describe` treated `.` as missing and hid it. The two commands now agree: `.` (and any all-dots value under `nodots`) is skipped by both.
+- **Internal:** `if`/`in` sample restriction is now evaluated before `tostring`, so an `if` expression that references a numeric scan variable (e.g. `if dx1 > 5`) is tested against the call-time data instead of failing after the variable is recast to string. Removed a shadowed row count in the `merge` path and stopped preparing collapse-only date tempvars on the `merge` path. No change to any documented output or stored result.
 
 ### 2.0.7 (2026-07-06)
 

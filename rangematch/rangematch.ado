@@ -1,4 +1,4 @@
-*! rangematch Version 1.3.1  2026/07/02
+*! rangematch Version 1.3.2  2026/07/07
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -607,7 +607,7 @@ program define _rangematch_run_backend, sclass
 
         if "`_rm_err_maxpairs'" == "1" {
             display as error ///
-                "maxpairs(`maxpairs') exceeded; join would produce `_rm_n_pairs' output rows"
+                "maxpairs(`maxpairs') exceeded; join would produce at least `_rm_n_pairs' output rows"
             display as error "increase maxpairs() or add by() to reduce output size"
             exit 198
         }
@@ -721,7 +721,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.3.1"
+    local _rm_required_mata_version "1.3.2"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1621,10 +1621,8 @@ program define rangematch, rclass
                 if `"`vlbl'"' != "" {
                     label variable `v' `"`vlbl'"'
                 }
-                if `"`vvallbl'"' != "" {
-                    capture label values `v' `vvallbl'
-                    local _rm_label_rc = _rc
-                }
+                * Value-label definitions were wiped by `clear' above;
+                * _rm_copy_output re-creates each definition and re-attaches it.
             }
 
             mata: _rm_copy_output("__rm_out", tokens(st_local("outvars")))

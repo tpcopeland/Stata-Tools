@@ -235,10 +235,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.7") > 0
+    assert strpos("`_line1'", "2.0.8") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.7"
+    display as result "  PASS T7: version header is 2.0.8"
     local ++pass_count
 }
 else {

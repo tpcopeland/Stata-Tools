@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.2** | 2026-07-03
+**Version 1.9.3** | 2026-07-07
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -535,6 +535,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.3 (2026-07-07)
+
+- **Fixed the `model(mixed)` bootstrap collapsing resampled subjects into one random-effect group.** `iivw_fit, model(mixed) bootstrap(#)` (without `refitweights`) resampled clusters but did not relabel them, so a subject drawn twice kept its original panel id and entered `mixed` as a single merged random-effect group. This biased the resampled random-effects variance components and understated the intercept standard error (the gap widens with smaller panels or higher resampling). The bootstrap now passes `idcluster()` and fits each replicate on the fresh per-draw id, matching the `refitweights` path. GEE bootstrap is unaffected (cluster resampling without `idcluster()` is valid for GLM)
+- **Cluster-robust standard errors in the `iivw_balance, agrefit` Cox refits.** Both the unweighted and weighted Andersen-Gill refits now request `vce(cluster` _id_ `)`. The counting-process intervals of a subject are correlated, so the previous naive standard errors were anti-conservative; hazard-ratio point estimates are unchanged
+- **Documented `refitweights` in the flagship help.** The `iivw` overview help previously stated that `bootstrap()` never re-fits the weights; it now points to `iivw_fit`'s `refitweights` option, which re-estimates the IIW/IPTW/FIPTIW weights inside every replicate so the interval also propagates weight-estimation uncertainty
 
 ### v1.9.2 (2026-07-03)
 

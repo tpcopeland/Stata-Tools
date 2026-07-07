@@ -1,4 +1,4 @@
-*! codescan Version 2.0.7  2026/07/06
+*! codescan Version 2.0.8  2026/07/07
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -572,7 +572,23 @@ program define codescan, rclass
     if `"`label'"' != "" {
         local lab_remaining `"`label'"'
         while `"`lab_remaining'"' != "" {
-            local bspos = strpos(`"`lab_remaining'"', "\")
+            * Find the first backslash that is OUTSIDE a quoted string so the
+            * "\" entry separator can still be used, while a backslash inside
+            * quoted label text (e.g. a Windows path "C:\dir") does not split
+            * the entry mid-quote. Toggle in_quotes on each double-quote.
+            local _lr_len = length(`"`lab_remaining'"')
+            local bspos = 0
+            local _inq  = 0
+            forvalues _c = 1/`_lr_len' {
+                local _ch = substr(`"`lab_remaining'"', `_c', 1)
+                if `"`_ch'"' == `"""' {
+                    local _inq = !`_inq'
+                }
+                else if `"`_ch'"' == "\" & !`_inq' {
+                    local bspos = `_c'
+                    continue, break
+                }
+            }
             if `bspos' > 0 {
                 local lab_segment = substr(`"`lab_remaining'"', 1, `bspos' - 1)
                 local lab_remaining = substr(`"`lab_remaining'"', `bspos' + 1, .)
@@ -677,6 +693,18 @@ program define codescan, rclass
     }
 
     * =========================================================================
+    * MARK SAMPLE & TIME WINDOW
+    * =========================================================================
+    * Note: cannot use marksample — string asis puts quotes in `0' which
+    * breaks marksample's parser. Use mark for if/in only.
+    * Do NOT markout the varlist: empty strings in code variables are expected.
+    * Mark BEFORE tostring so an if-expression that references a scan variable
+    * is evaluated against the data as the user sees it at call time (numeric),
+    * not after tostring has recast it to string.
+    tempvar touse
+    mark `touse' `if' `in'
+
+    * =========================================================================
     * TOSTRING (auto-convert numeric variables)
     * =========================================================================
     if "`tostring'" != "" {
@@ -688,15 +716,6 @@ program define codescan, rclass
             }
         }
     }
-
-    * =========================================================================
-    * MARK SAMPLE & TIME WINDOW
-    * =========================================================================
-    * Note: cannot use marksample — string asis puts quotes in `0' which
-    * breaks marksample's parser. Use mark for if/in only.
-    * Do NOT markout the varlist: empty strings in code variables are expected.
-    tempvar touse
-    mark `touse' `if' `in'
 
     * Exclude missing id values from collapse/merge to prevent phantom grouping
     if "`collapse'" != "" | "`merge'" != "" {
@@ -1016,7 +1035,11 @@ program define codescan, rclass
     * =========================================================================
     * PREPARE DATE VARIABLES (PRE-COLLAPSE/MERGE)
     * =========================================================================
-    if ("`collapse'" != "" | "`merge'" != "") & "`date'" != "" {
+    * Only collapse consumes these tempvars; the merge path builds its own
+    * m*-prefixed date summaries below (collapse and merge are mutually
+    * exclusive), so preparing them under merge is wasted work and an
+    * unnecessary reorder of the data.
+    if "`collapse'" != "" & "`date'" != "" {
         local datefmt : format `date'
 
         quietly {
@@ -1194,7 +1217,6 @@ program define codescan, rclass
         }
         quietly merge m:1 `id' using `_merge_tf', nogenerate keep(master match)
 
-        quietly count if `touse'
         quietly {
             tempvar _uniq_id
             bysort `id': gen byte `_uniq_id' = (`touse' & sum(`touse') == 1)
@@ -1871,9 +1893,13 @@ void _codescan_mata_scan()
         st_sview(col, ., scanvars[j])
         for (i = 1; i <= N; i++) {
             if (!touse[i]) continue
-            if (col[i] == "") continue
+            // Skip empty cells and bare "." placeholders (missing-value
+            // convention in registry data).  This mirrors codescan_describe
+            // so the exploration and scan tools agree on what is scannable.
+            if (col[i] == "" | col[i] == ".") continue
             val = col[i]
             if (strip_dots) val = subinstr(val, ".", "", .)
+            if (val == "") continue
             if (use_nocase) val = ustrupper(val)
             if (asarray(A, val) == 0) asarray(A, val, 1)
         }
@@ -1945,10 +1971,13 @@ void _codescan_mata_scan()
 
         for (i = 1; i <= N; i++) {
             if (!touse[i]) continue
-            if (col[i] == "") continue
+            // Guard MUST match Pass 1 exactly (same skip set), or a value
+            // scanned here but absent from asarray A would return didx==0.
+            if (col[i] == "" | col[i] == ".") continue
 
             val = col[i]
             if (strip_dots) val = subinstr(val, ".", "", .)
+            if (val == "") continue
             if (use_nocase) val = ustrupper(val)
             didx = asarray(A, val)
             // Values that match no condition (common: codes in untargeted

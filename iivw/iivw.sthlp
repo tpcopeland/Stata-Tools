@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.2  03jul2026}{...}
+{* *! version 1.9.3  07jul2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -214,9 +214,11 @@ package is not a time-varying treatment MSM implementation.{p_end}
 near-certain treatment assignments create extreme weights and unstable
 estimates.{p_end}
 
-{phang2}(e) Built-in standard errors treat the weights as fixed.  The
-{cmd:bootstrap()} option re-samples the outcome model but does not re-fit
-{cmd:iivw_weight} inside each replicate.{p_end}
+{phang2}(e) Built-in standard errors treat the weights as fixed.  A plain
+{cmd:bootstrap()} in {help iivw_fit:iivw_fit} also holds the weights fixed;
+add {opt refitweights} there to re-estimate the {cmd:iivw_weight} models
+inside every replicate so the reported interval also propagates
+weight-estimation uncertainty.{p_end}
 
 {pstd}
 Use IPCW methods for censoring/dropout problems, and use a time-varying
@@ -427,7 +429,7 @@ R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.9.2, 2026-07-03{p_end}
+{pstd}Version 1.9.3, 2026-07-07{p_end}
 
 
 {title:Also see}

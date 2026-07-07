@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.9.2  2026/07/03
+*! iivw_balance Version 1.9.3  2026/07/07
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -371,7 +371,10 @@ program define iivw_balance, rclass
                 quietly stset `__iivw_stop', enter(time `__iivw_start') ///
                     failure(`__iivw_event') id(`panel_id') exit(time .)
 
-                capture noisily stcox `v', level(`level') `log_opt' `efron_opt'
+                * Cluster on the subject id: Andersen-Gill intervals are
+                * correlated within subject, so naive SEs are anti-conservative.
+                capture noisily stcox `v', level(`level') ///
+                    vce(cluster `panel_id') `log_opt' `efron_opt'
                 local hr_rc = _rc
                 matrix `__iivw_hr_unweighted'[`hrow', 6] = `hr_rc'
                 if `hr_rc' == 0 {
@@ -387,17 +390,22 @@ program define iivw_balance, rclass
                     noisily display as text "note: unweighted AG refit failed for `v' (rc=`hr_rc'); skipped"
                 }
 
-                * Note: stset forbids weights together with id() (rc 459), so
-                * the weighted Andersen-Gill refit is set without id().  The
-                * counting-process (start, stop] intervals already define the
-                * recurrent-event risk sets, and no cluster-robust SE is
-                * requested here, so the omission does not change the HRs.
+                * Note: stset id() rejects pweights that vary within id (rc 459).
+                * IIW weights are visit-specific, so the weighted AG refit drops
+                * id() from stset and fits stcox on the (start, stop] intervals
+                * directly. The counting-process intervals still define the
+                * recurrent-event risk sets, so the HR point estimates are
+                * identical to a properly-clustered fit; cluster-robust SEs are
+                * requested on stcox itself via vce(cluster) below.
                 quietly stset `__iivw_stop' [pw=`weight_var'], ///
                     enter(time `__iivw_start') failure(`__iivw_event') ///
                     exit(time .)
 
                 * Breslow forced: stcox forbids efron with pweights (rc 101).
-                capture noisily stcox `v', level(`level') `log_opt'
+                * Cluster on the subject id so the (start, stop] intervals of a
+                * subject share a variance contribution (matches unweighted path).
+                capture noisily stcox `v', level(`level') ///
+                    vce(cluster `panel_id') `log_opt'
                 local hr_rc = _rc
                 matrix `__iivw_hr_weighted'[`hrow', 6] = `hr_rc'
                 if `hr_rc' == 0 {

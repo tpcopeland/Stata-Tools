@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 2.0.7  2026/07/06
+*! _codescan_definitions Version 2.0.8  2026/07/07
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland
 

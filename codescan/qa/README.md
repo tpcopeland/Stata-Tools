@@ -46,6 +46,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_countrows.do` | functional | 24 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 14 | Mata fast-path: match accumulation, co-occurrence, multi-window, describe hash |
 | `test_codescan_regressions.do` | functional | 24 | Fixed-bug regression guards (incl. output-name vs id/date/refdate collisions, empty-alternation `|` rejection, duplicate-varlist rejection) |
+| `test_codescan_v208.do` | functional | 4 | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
 | `test_codescan_v2_no_scoring.do` | functional | 4 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
 | `test_codescan_v203_hardening.do` | functional | 14 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
 | `test_codescan_perf_equiv.do` | functional | 5 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |

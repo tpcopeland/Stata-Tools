@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.9.2  2026/07/03
+*! iivw_fit Version 1.9.3  2026/07/07
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -1026,10 +1026,18 @@ program define iivw_fit, eclass
         else if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
+            * idcluster() relabels each resampled cluster with a unique id, so a
+            * subject drawn twice enters mixed as two separate random-effect
+            * groups rather than one merged group. Without it, mixed collapses
+            * the duplicated draws into a single panel, biasing the resampled
+            * random-effects variance components and understating the intercept
+            * SE. Pass the fresh id as panelid() (mirrors the refitweights path).
+            tempvar bsid
+            bootstrap, reps(`bootstrap') cluster(`cluster') ///
+                idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(mixed) ///
-                panelid(`panel_id') `log_opt' ///
+                panelid(`bsid') `log_opt' ///
                 mixedopts(`mixedopts')
         }
         else {

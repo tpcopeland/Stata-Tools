@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.3.1  2026/07/02
+*! _rangematch_mata Version 1.3.2  2026/07/07
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.3.1")
+    return("1.3.2")
 }
 
 void _rm_prepare_sweep_master(
@@ -970,9 +970,14 @@ void _rm_build_pairs_overlap(
         if (M[i, 3] >= .) M[i, 3] = maxdouble()
     }
 
-    // Sort using by (gid, ulo)
+    // Sort using by (gid, ulo, uobs). The trailing uobs (col 4, unique) is a
+    // tiebreaker that makes the order of equal-(gid, ulo) rows deterministic:
+    // Mata's sort() does not order ties reproducibly across calls, so without
+    // it the pair order emitted for a master row (and hence nosort output
+    // order) would be unstable. Keys stay sorted, so binary search is
+    // unaffected.
     if (nu > 0) {
-        Usorted = sort(U, (1, 2))
+        Usorted = sort(U, (1, 2, 4))
         ugid = Usorted[., 1]
         ulo  = Usorted[., 2]
         uhi  = Usorted[., 3]
@@ -1509,14 +1514,13 @@ void _rm_generate_distance(
     matched = selectindex(mi :< . :& ui :< .)
 
     if (length(matched) > 0) {
-        // Read the full key columns and subscript in Mata. st_data() with a
-        // row-index vector containing duplicate indices does not reliably
-        // return one value per duplicate (it is row-selection semantics, not
-        // subscript semantics), so the same using observation matched to
-        // multiple master observations would yield wrong differences. The
-        // explicit (idx, 1) row-subscript forces colvector semantics even
-        // when master_key_vals or using_key_vals has only one element, where
-        // v[idx] would otherwise resolve to row/col matrix subscripting.
+        // Read the full key columns and subscript in Mata. The explicit
+        // (idx, 1) row-subscript forces colvector semantics even when
+        // master_key_vals or using_key_vals has only one element, where
+        // v[idx] would otherwise resolve to row/col matrix subscripting
+        // (a scalar v with a vector idx errors). Duplicate indices in idx
+        // correctly yield one value per duplicate, so a using observation
+        // matched to multiple master rows is handled.
         st_framecurrent(master_frame)
         master_key_vals = st_data(., master_key)
         st_framecurrent(using_frame)

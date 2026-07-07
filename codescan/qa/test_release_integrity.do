@@ -90,7 +90,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile marker
-    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 2.0.7  2026/07/06" codescan.ado && grep -Fq "codescan_describe Version 2.0.7  2026/07/06" codescan_describe.ado && grep -Fq "{* *! version 2.0.7  06jul2026}" codescan.sthlp && ! grep -Fq "*! version" codescan_describe.sthlp && grep -Fq "**Version 2.0.7** | 2026-07-06" README.md && grep -Fq "d Distribution-Date: 20260706" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
+    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 2.0.8  2026/07/07" codescan.ado && grep -Fq "codescan_describe Version 2.0.8  2026/07/07" codescan_describe.ado && grep -Fq "_codescan_codefile Version 2.0.8  2026/07/07" _codescan_codefile.ado && grep -Fq "_codescan_outputs Version 2.0.8  2026/07/07" _codescan_outputs.ado && grep -Fq "_codescan_definitions Version 2.0.8  2026/07/07" _codescan_definitions.ado && grep -Fq "{* *! version 2.0.8  07jul2026}" codescan.sthlp && ! grep -Fq "*! version" codescan_describe.sthlp && grep -Fq "**Version 2.0.8** | 2026-07-07" README.md && grep -Fq "d Distribution-Date: 20260707" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
     _assert_marker_pass "`marker'"
 }
 if _rc == 0 {

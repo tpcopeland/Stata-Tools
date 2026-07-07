@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.3.1, 02jul2026
+Version 1.3.2, 07jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -435,6 +435,22 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.3.2 (2026-07-07)
+
+- **Fixed: non-deterministic output order under `nosort` in interval-overlap
+  mode.** When several using intervals shared the same group and lower bound,
+  the overlap backend sorted them without a unique tiebreaker, so `nosort`
+  output row order could differ between otherwise-identical runs. A per-row
+  tiebreaker now fixes the order (matching the point-in-interval backend). The
+  default (sorted) output was already deterministic and is unchanged; matching
+  results were never affected.
+- The `maxpairs()` overflow message now reads "would produce **at least** N
+  output rows" -- N is the pair count at the point the limit was hit, a lower
+  bound on the full join size.
+- Internal cleanup: removed a redundant value-label reassignment on the
+  default-frame output path (labels are already restored by the output copier)
+  and corrected a stale code comment. No behavior change.
 
 ### 1.3.1 (2026-07-02)
 
