@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.0  2026/06/14
+*! logdoc Version 1.1.1  2026/07/07
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -134,6 +134,14 @@ program define _logdoc_convert, rclass
     * --- U3: quiet/verbose mutual exclusion ---
     if "`quiet'" != "" & "`verbose'" != "" {
         display as error "quiet and verbose are mutually exclusive"
+        exit 198
+    }
+
+    * stataexe() only affects the run option's child session; catch the
+    * mismatch before the config files (which may legitimately preset a
+    * stataexe default) are merged in.
+    if `"`stataexe'"' != "" & "`run'" == "" {
+        display as error "stataexe() requires the run option"
         exit 198
     }
 
@@ -313,7 +321,7 @@ program define _logdoc_convert, rclass
         }
         local _runwrapper_path "`_runwrapper_base'.do"
         local _runlog_path "`_runwrapper_base'.smcl"
-        file open `_runfh' using "`_runwrapper_path'", write text replace
+        quietly file open `_runfh' using "`_runwrapper_path'", write text replace
         file write `_runfh' "version 16.0" _n
         file write `_runfh' "capture log close _logdoc_run" _n
         file write `_runfh' `"log using "`_runlog_path'", replace smcl name(_logdoc_run) nomsg"' _n
@@ -605,7 +613,25 @@ program define _logdoc_convert, rclass
     local _ngraphs = r(ngraphs)
     local _ntables = r(ntables)
     local _nwarnings = r(nwarnings)
+    local _ngenerated = r(ngenerated)
     local _py_lastmsg `"`r(lastmsg)'"'
+
+    * Stata's shell does not report the renderer's exit status, and with
+    * replace/append the output path may already exist, so file existence
+    * alone cannot prove success.  Require the renderer's own
+    * "Generated:" confirmation before any file check.
+    if `_ngenerated' == 0 {
+        display as error "failed to generate output document"
+        if `"`_py_lastmsg'"' != "" {
+            display as error `"`_py_lastmsg'"'
+        }
+        else {
+            display as error "ensure Python 3 is installed and accessible"
+        }
+        display as error "command attempted:"
+        display as error `"`cmd'"'
+        exit 601
+    }
 
     * --- F2/F1: Post-process for docx/pdf formats ---
     if "`_actual_format'" == "docx" {
@@ -641,7 +667,11 @@ program define _logdoc_convert, rclass
             display as error `"`cmd'"'
             exit 601
         }
-        * Try xhtml2pdf (via Python) first, then fall back to wkhtmltopdf
+        * Try xhtml2pdf (via Python) first, then fall back to wkhtmltopdf.
+        * A stale PDF from a previous run would make the existence checks
+        * below report success even when both converters fail; replace was
+        * already validated, so clear the target first.
+        capture erase "`output'"
         local _pdf_done = 0
         if "`quiet'" == "" {
             display as text "Converting HTML to PDF..."
@@ -813,6 +843,8 @@ program define _logdoc_convert, rclass
     global LOGDOC_LAST_EMAIL "`email'"
     global LOGDOC_LAST_ANNOTATE `"`annotate'"'
     global LOGDOC_LAST_GENERATED "`generated'"
+    global LOGDOC_LAST_RUN "`run'"
+    global LOGDOC_LAST_STATAEXE `"`stataexe'"'
 
     * Return values
     return local output "`output'"
@@ -966,7 +998,7 @@ program define _logdoc_start
     global LOGDOC_TMPLOG "`_tmplog'"
 
     capture log close _logdoc
-    log using "`_tmplog'", replace name(_logdoc)
+    quietly log using "`_tmplog'", replace name(_logdoc)
 
     if "`quiet'" == "" {
         display as text "logdoc session started"
@@ -1132,8 +1164,18 @@ program define _logdoc_stop, rclass
     capture noisily _logdoc_convert using "`_tmplog'", `_opts'
     local _convert_rc = _rc
 
-    * Always clean up globals and temp file, even on error
-    capture erase "`_tmplog'"
+    * Clean up globals even on error, but only erase the captured log
+    * after a successful conversion -- it is the only copy of the session
+    * transcript, and erasing it on failure would make the error
+    * unrecoverable.
+    if `_convert_rc' == 0 {
+        capture erase "`_tmplog'"
+    }
+    else {
+        display as error "conversion failed; captured session log preserved:"
+        display as error `"  `_tmplog'"'
+        display as error `"retry with: logdoc using "`_tmplog'", ..."'
+    }
     capture macro drop LOGDOC_ACTIVE LOGDOC_OUTPUT LOGDOC_FORMAT LOGDOC_THEME ///
         LOGDOC_TITLE LOGDOC_DATE LOGDOC_PREFORMATTED LOGDOC_NOFOLD ///
         LOGDOC_NODOTS LOGDOC_PYTHON LOGDOC_CSS LOGDOC_OPEN ///
@@ -1255,7 +1297,7 @@ program define _logdoc_combine, rclass
 
     tempfile _manifest
     tempname _mfh
-    file open `_mfh' using "`_manifest'", write text replace
+    quietly file open `_mfh' using "`_manifest'", write text replace
     local _source_count = 0
     local _first_source ""
     local _source_list ""
@@ -1283,9 +1325,14 @@ program define _logdoc_combine, rclass
     if "`format'" == "" {
         local _outext = lower(substr("`output'", -3, .))
         local _outext4 = lower(substr("`output'", -4, .))
+        local _outext5 = lower(substr("`output'", -5, .))
         if "`_outext'" == ".md" local format "md"
         if "`_outext4'" == ".tex" local format "tex"
         if "`_outext4'" == ".qmd" local format "qmd"
+        * Detected so the format validation below rejects them instead of
+        * silently writing HTML bytes into a .pdf/.docx file.
+        if "`_outext4'" == ".pdf" local format "pdf"
+        if "`_outext5'" == ".docx" local format "docx"
     }
     if "`format'" == "" local format "html"
     if "`theme'" == "" local theme "light"
@@ -1466,7 +1513,18 @@ program define _logdoc_combine, rclass
     local _ngraphs = r(ngraphs)
     local _ntables = r(ntables)
     local _nwarnings = r(nwarnings)
+    local _ngenerated = r(ngenerated)
     local _py_lastmsg `"`r(lastmsg)'"'
+
+    * File existence cannot prove success when the output pre-exists
+    * (replace/append); require the renderer's "Generated:" confirmation.
+    if `_ngenerated' == 0 {
+        display as error "failed to generate combined output document"
+        if `"`_py_lastmsg'"' != "" display as error `"`_py_lastmsg'"'
+        display as error "command attempted:"
+        display as error `"`cmd'"'
+        exit 601
+    }
 
     local _secondary_path ""
     if "`format'" == "both" {
@@ -1763,10 +1821,13 @@ program define _logdoc_diff, rclass
     shell `cmd' > "`_pyout'" 2>&1
 
     _logdoc_parse_pyout using "`_pyout'"
+    local _ngenerated = r(ngenerated)
     local _py_lastmsg `"`r(lastmsg)'"'
 
+    * File existence cannot prove success when the output pre-exists
+    * (replace); require the renderer's "Generated:" confirmation.
     capture confirm file "`output'"
-    if _rc {
+    if _rc | `_ngenerated' == 0 {
         display as error "failed to generate diff document"
         if `"`_py_lastmsg'"' != "" {
             display as error `"`_py_lastmsg'"'
@@ -1906,6 +1967,14 @@ program define _logdoc_replay, rclass
     if "$LOGDOC_LAST_GENERATED" != "" {
         local _replay_args `"`_replay_args' generated"'
     }
+    * A run conversion stored the .do file as its input; without re-running
+    * it, replay would silently document the source instead of the output.
+    if "$LOGDOC_LAST_RUN" != "" {
+        local _replay_args `"`_replay_args' run"'
+        if `"$LOGDOC_LAST_STATAEXE"' != "" {
+            local _replay_args `"`_replay_args' stataexe("$LOGDOC_LAST_STATAEXE")"'
+        }
+    }
     if "`open'" != "" {
         local _replay_args `"`_replay_args' open"'
     }
@@ -1938,6 +2007,7 @@ program define _logdoc_parse_pyout, rclass
     local _ngraphs = 0
     local _ntables = 0
     local _nwarnings = 0
+    local _ngenerated = 0
     local _lastmsg ""
 
     capture confirm file "`using'"
@@ -1962,7 +2032,10 @@ program define _logdoc_parse_pyout, rclass
                 }
                 else if strtrim(`"`_pyoline'"') != "" {
                     local _trimline = strtrim(`"`_pyoline'"')
-                    if !regexm(`"`_trimline'"', "^(Generated:|logdoc: processing )") {
+                    if regexm(`"`_trimline'"', "^Generated: ") {
+                        local _ngenerated = `_ngenerated' + 1
+                    }
+                    else if !regexm(`"`_trimline'"', "^logdoc: processing ") {
                         local _lastmsg `"`_trimline'"'
                     }
                 }
@@ -1978,6 +2051,7 @@ program define _logdoc_parse_pyout, rclass
     return scalar ngraphs = `_ngraphs'
     return scalar ntables = `_ntables'
     return scalar nwarnings = `_nwarnings'
+    return scalar ngenerated = `_ngenerated'
     return local lastmsg `"`_lastmsg'"'
 
     }
@@ -2047,7 +2121,9 @@ program define _logdoc_write_argfile
     syntax , path(string) text(string)
 
     tempname _argfh
-    file open `_argfh' using "`path'", write text replace
+    * quietly: file open ..., replace notes "(file ... not found)" for a
+    * fresh tempfile, which leaks into the caller's console
+    quietly file open `_argfh' using "`path'", write text replace
     file write `_argfh' `"`text'"'
     file close `_argfh'
 

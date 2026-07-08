@@ -1,4 +1,4 @@
-*! datamvp Version 1.5.0  2026/06/19
+*! datamvp Version 1.5.1  2026/07/08
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -309,6 +309,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     local nmvtotal = 0
     local origvarlist "`varlist'"
+    local pctlist ""
     foreach v of local varlist {
         qui count if missing(`v') & `touse'
         local thismv = r(N)
@@ -317,8 +318,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             local nmv `nmv' `p'
             local vlist `vlist' `v'
             local nmvtotal = `nmvtotal' + `thismv'
-            * Store percent missing for bar graph
-            local pct_`v' = 100 * `thismv' / `N'
+            * Store percent missing for bar graph, parallel to `vlist'
+            * (a `pct_<varname>' local would overflow the 31-char macro-name
+            * limit for long variable names and error r(198))
+            local pctlist `pctlist' `=100 * `thismv' / `N''
         }
         else {
             local varnomv `varnomv' `v'
@@ -338,12 +341,16 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
         mata: st_matrix(st_local("sortmat"), sort(st_matrix(st_local("sortmat")), -1))
         local newvarlist ""
+        local newpctlist ""
         forv i = 1/`nv' {
             local idx = `sortmat'[`i', 2]
             local v : word `idx' of `varlist'
             local newvarlist `newvarlist' `v'
+            local p : word `idx' of `pctlist'
+            local newpctlist `newpctlist' `p'
         }
         local varlist `newvarlist'
+        local pctlist `newpctlist'
     }
 
     * Report variables with no missing
@@ -365,6 +372,10 @@ program define datamvp, rclass byable(recall) sortpreserve
         if "`origvarlist'" != "" {
             return local varlist_nomiss "`origvarlist'"
         }
+        // A clean -exit 0- here would leave the capture block WITHOUT reaching
+        // the post-block restore (capture only intercepts errors), leaking
+        // -set varabbrev off- to the user; restore before exiting.
+        set varabbrev `_uservarabbrev'
         exit 0
     }
 
@@ -720,9 +731,17 @@ program define datamvp, rclass byable(recall) sortpreserve
             exit 198
         }
         local maxvlen = 32 - length("`generate'") - 1
+        local _gennames ""
         tokenize `varlist'
         forv i = 1/`nvar' {
             local vname = substr("``i''", 1, `maxvlen')
+            * Two long names can truncate to the same stub; disambiguate with
+            * the variable's position so the first indicator is not silently
+            * dropped and regenerated from the second variable.
+            if `: list vname in _gennames' {
+                local vname = substr("``i''", 1, `maxvlen' - 1 - length("`i'")) + "_`i'"
+            }
+            local _gennames "`_gennames' `vname'"
             capture drop `generate'_`vname'
             local _drop_missvar_rc = _rc
             qui gen byte `generate'_`vname' = missing(``i'') if `touse'
@@ -996,7 +1015,8 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                     tokenize `varlist'
                     forv i = 1/`nvar' {
-                        gen double pct`i' = `pct_``i'''
+                        local _p : word `i' of `pctlist'
+                        gen double pct`i' = `_p'
                         label var pct`i' "``i''"
                     }
                 }
@@ -1036,8 +1056,9 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                     tokenize `varlist'
                     forv i = 1/`nvar' {
+                        local _p : word `i' of `pctlist'
                         replace varname = "``i''" in `i'
-                        replace pctmiss = `pct_``i''' in `i'
+                        replace pctmiss = `_p' in `i'
                     }
                 }
 
@@ -1483,6 +1504,14 @@ end
 
 exit
 
+* Version 1.5.1 (08jul2026):
+* - Fixed r(198) crash on variable names >=28 chars (per-variable pct local
+*   keyed by name overflowed the 31-char macro-name limit; now parallel list)
+* - Fixed generate() silently overwriting one indicator when two long names
+*   truncated to the same stub
+* - Fixed set varabbrev off leaking to the user on the no-missing-values exit
+*   path (clean exit 0 inside capture bypassed the restore)
+*
 * Version 1.2.1 (21mar2026):
 * - Fixed varabbrev unconditionally set to on (now saves/restores user setting)
 * - Fixed string gby()/over() crashes in graph code (unquoted string comparison)

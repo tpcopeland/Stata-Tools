@@ -1,8 +1,9 @@
-*! logdoc_py Version 1.1.0  2026/06/14
+*! logdoc_py Version 1.1.1  2026/07/07
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
+capture program drop logdoc_py
 program define logdoc_py, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -537,18 +538,37 @@ program define _logdoc_py_read_config
 
     syntax , result(name) path(name) read(name)
 
-    local cfg ".logdocrc"
     local value ""
+    local value_path ""
     local read_file 0
-    capture confirm file "`cfg'"
+
+    * Read the global ~/.logdocrc first, then the project .logdocrc so a
+    * project-level python= overrides the global one -- the same
+    * resolution order logdoc itself uses when converting.
+    local _cfgfiles ""
+    local _home : environment HOME
+    if `"`_home'"' != "" {
+        capture confirm file `"`_home'/.logdocrc"'
+        if !_rc {
+            local _cfgfiles `"`_cfgfiles' `"`_home'/.logdocrc"'"'
+        }
+    }
+    capture confirm file ".logdocrc"
     if !_rc {
+        local _cfgfiles `"`_cfgfiles' `".logdocrc"'"'
+    }
+
+    local last_cfg ""
+    foreach cfg of local _cfgfiles {
         local read_file 1
+        local last_cfg `"`cfg'"'
         tempname fh
-        file open `fh' using "`cfg'", read text
+        file open `fh' using `"`cfg'"', read text
         file read `fh' line
         while r(eof) == 0 {
             if regexm(`"`line'"', "^[ 	]*python[ 	]*=(.*)$") {
                 local value = strtrim(regexs(1))
+                local value_path `"`cfg'"'
             }
             file read `fh' line
         }
@@ -556,11 +576,11 @@ program define _logdoc_py_read_config
     }
 
     c_local `result' `"`value'"'
-    if `read_file' == 1 {
-        c_local `path' "`cfg'"
+    if `"`value_path'"' != "" {
+        c_local `path' `"`value_path'"'
     }
     else {
-        c_local `path' ""
+        c_local `path' `"`last_cfg'"'
     }
     c_local `read' `read_file'
 

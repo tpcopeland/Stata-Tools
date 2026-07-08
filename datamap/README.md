@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.5.0** | 2026-06-19
+**Version 1.5.1** | 2026-07-08
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -238,7 +238,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.5.0",
+  "datamap_version": "1.5.1",
   "format": "json",
   "datasets": [
     {
@@ -523,6 +523,15 @@ The suite covers all four public commands with 14 QA files: 12 functional test f
 - `validation_datamvp.do` - 60 validations
 
 ## Changelog
+
+### 1.5.1 (2026-07-08)
+
+- Fix crashes (`r(198)`) on datasets with long variable names: per-variable locals keyed by variable name overflowed Stata's 31-character macro-name limit in `datacheck`, `datamap`/`datacheck` `saving()`, `datamap` `samples()` and value-label output, and `datamvp`.
+- Fix `r(134)` crashes on high-cardinality identifier/design variables: `datamap` panel/survey/survival detection and the dataset summary now count distinct values without `tabulate`, and the panel-structure fallback no longer relies on a statistic `codebook, compact` never stores.
+- Fix `datamvp`'s `generate()` silently overwriting one indicator when two long variable names truncated to the same stub, and its leak of `set varabbrev off` on the no-missing-values exit path.
+- Fix privacy-safe documentation dropping `$name`/backtick text from variable, value, and data labels in both text and JSON output.
+- `datamap` now rejects negative `maxfreq()`/`maxcat()`/`mincell()`/`samples()` at every legal abbreviation instead of silently substituting the default.
+- Internal: `datamap` JSON output derives its version from the package header (no drift); removed a permanent "File modified: unavailable" line from `datadict`; removed unused legacy code.
 
 ### 1.5.0 (2026-06-19)
 

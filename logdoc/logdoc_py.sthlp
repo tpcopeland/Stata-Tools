@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.1.0  14jun2026}{...}
 {vieweralsosee "logdoc" "help logdoc"}{...}
 {viewerjumpto "Syntax" "logdoc_py##syntax"}{...}
 {viewerjumpto "Description" "logdoc_py##description"}{...}
@@ -203,7 +202,9 @@ The default search order (without {opt python()}) is:
 
 {phang2}{cmd:1.} Stata's configured {cmd:python:} executable, when available.{p_end}
 {phang2}{cmd:2.} {cmd:$LOGDOC_PYTHON}, if set by {cmd:logdoc_py, set}.{p_end}
-{phang2}{cmd:3.} {cmd:python=} in the current directory's {cmd:.logdocrc}.{p_end}
+{phang2}{cmd:3.} {cmd:python=} in {cmd:.logdocrc} -- the global
+{cmd:~/.logdocrc} is read first, and a {cmd:.logdocrc} in the current
+directory overrides it, matching {cmd:logdoc}'s own resolution.{p_end}
 {phang2}{cmd:4.} Platform defaults found on the system path, such as
 {cmd:python3}, {cmd:python}, or Windows launcher commands such as
 {cmd:py -3}.{p_end}

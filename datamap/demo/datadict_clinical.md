@@ -20,7 +20,6 @@ Version 1.1
 **Variables in file:** 17  
 **Variables documented:** 17  
 **File size:** 38,293 bytes  
-**File modified:** unavailable  
 
 ### Variables
 

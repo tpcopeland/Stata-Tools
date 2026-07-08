@@ -1919,7 +1919,7 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
             # C1: Notebook mode — open cell div and add In[] label
             if notebook:
                 cell_counter += 1
-                parts.append(f'<div class="notebook-cell">')
+                parts.append('<div class="notebook-cell">')
                 parts.append(
                     f'<div class="cell-number">In [{cell_counter}]:</div>'
                 )
@@ -1927,10 +1927,10 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
             copy_btn = ""
             if copy:
                 copy_btn = (
-                    f'<button class="copy-btn" onclick="navigator.clipboard'
-                    f".writeText(this.parentElement.querySelector('pre')"
-                    f'.textContent.trim())">'
-                    f'Copy</button>'
+                    '<button class="copy-btn" onclick="navigator.clipboard'
+                    ".writeText(this.parentElement.querySelector('pre')"
+                    '.textContent.trim())">'
+                    'Copy</button>'
                 )
             parts.append(
                 f'<div class="code-block{error_source_class}">'
@@ -2185,7 +2185,6 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
         parts.append(f'date: "{safe_date}"')
     parts.append("---")
     parts.append("")
-    last_command_text = ""
 
     for idx, block in enumerate(blocks):
         if block.kind == "command":
@@ -2193,7 +2192,6 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
             clean_cmd_texts = [extract_command_text(l, strip_dots=True)
                                for l in block.raw_lines]
             clean_cmd = " ".join(clean_cmd_texts)
-            last_command_text = clean_cmd
 
             if clean_cmd.startswith("*") or clean_cmd.startswith("//"):
                 # F4: Section markers in Markdown
@@ -2376,14 +2374,11 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
     parts.append(r"\maketitle")
     parts.append("")
 
-    last_command_text = ""
-
     for idx, block in enumerate(blocks):
         if block.kind == "command":
             clean_cmd_texts = [extract_command_text(l, strip_dots=True)
                                for l in block.raw_lines]
             clean_cmd = " ".join(clean_cmd_texts)
-            last_command_text = clean_cmd
 
             # Comments
             if clean_cmd.startswith("*") or clean_cmd.startswith("//"):
@@ -2531,7 +2526,7 @@ def convert_html_to_pdf(html_path, pdf_path):
 def load_css(css_path):
     """Load CSS from file, return empty string if not found."""
     if css_path and os.path.isfile(css_path):
-        with open(css_path, "r") as f:
+        with open(css_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     return ""
 
@@ -2998,7 +2993,7 @@ def main():
     parser.add_argument("--download", action="store_true",
                         help="Add a Download .do toolbar button")
     parser.add_argument("--legacy", action="store_true",
-                        help="Enable the pre-1.4 HTML enhancement defaults")
+                        help="Enable all HTML enhancements in one switch")
     parser.add_argument("--date", default=None,
                         help="Date subtitle shown in document header")
     parser.add_argument("--title-file", default=None,
@@ -3199,11 +3194,12 @@ def main():
             )
             totals = html_totals
             if args.append and os.path.isfile(html_out):
-                with open(html_out, "r") as f:
+                with open(html_out, "r", encoding="utf-8",
+                          errors="replace") as f:
                     existing = f.read()
                 html_content = _append_html_document(existing, html_content)
             os.makedirs(os.path.dirname(os.path.abspath(html_out)), exist_ok=True)
-            with open(html_out, "w") as f:
+            with open(html_out, "w", encoding="utf-8") as f:
                 f.write(html_content)
             print(f"Generated: {html_out}")
 
@@ -3213,22 +3209,24 @@ def main():
             if totals["blocks"] == 0:
                 totals = md_totals
             if args.append and os.path.isfile(md_out):
-                with open(md_out, "r") as f:
+                with open(md_out, "r", encoding="utf-8",
+                          errors="replace") as f:
                     existing_md = f.read()
                 md_content = _append_markdown_document(existing_md, md_content)
             os.makedirs(os.path.dirname(os.path.abspath(md_out)), exist_ok=True)
-            with open(md_out, "w") as f:
+            with open(md_out, "w", encoding="utf-8") as f:
                 f.write(md_content)
             print(f"Generated: {md_out}")
 
         if fmt == "tex":
             tex_content, totals = render_combined_latex(sources, args)
             if args.append and os.path.isfile(output_path):
-                with open(output_path, "r") as f:
+                with open(output_path, "r", encoding="utf-8",
+                          errors="replace") as f:
                     existing_tex = f.read()
                 tex_content = _append_latex_document(existing_tex, tex_content)
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(tex_content)
             print(f"Generated: {output_path}")
 
@@ -3274,7 +3272,7 @@ def main():
         )
         os.makedirs(os.path.dirname(os.path.abspath(args.output)),
                      exist_ok=True)
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             f.write(diff_html)
         print(f"Generated: {args.output}")
         nblocks = len(blocks) + len(blocks_b)
@@ -3334,12 +3332,13 @@ def main():
 
         # I4: Append mode
         if args.append and os.path.isfile(html_out):
-            with open(html_out, "r") as f:
+            with open(html_out, "r", encoding="utf-8",
+                      errors="replace") as f:
                 existing = f.read()
             html_content = _append_html_document(existing, html_content)
 
         os.makedirs(os.path.dirname(os.path.abspath(html_out)), exist_ok=True)
-        with open(html_out, "w") as f:
+        with open(html_out, "w", encoding="utf-8") as f:
             f.write(html_content)
         print(f"Generated: {html_out}")
 
@@ -3358,12 +3357,13 @@ def main():
         )
         # I4: Append mode for non-HTML
         if args.append and os.path.isfile(md_out):
-            with open(md_out, "r") as f:
+            with open(md_out, "r", encoding="utf-8",
+                      errors="replace") as f:
                 existing_md = f.read()
             md_content = _append_markdown_document(existing_md, md_content)
 
         os.makedirs(os.path.dirname(os.path.abspath(md_out)), exist_ok=True)
-        with open(md_out, "w") as f:
+        with open(md_out, "w", encoding="utf-8") as f:
             f.write(md_content)
         print(f"Generated: {md_out}")
 
@@ -3380,12 +3380,13 @@ def main():
         )
         # I4: Append mode for non-HTML
         if args.append and os.path.isfile(tex_out):
-            with open(tex_out, "r") as f:
+            with open(tex_out, "r", encoding="utf-8",
+                      errors="replace") as f:
                 existing_tex = f.read()
             tex_content = _append_latex_document(existing_tex, tex_content)
 
         os.makedirs(os.path.dirname(os.path.abspath(tex_out)), exist_ok=True)
-        with open(tex_out, "w") as f:
+        with open(tex_out, "w", encoding="utf-8") as f:
             f.write(tex_content)
         print(f"Generated: {tex_out}")
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  19jun2026}{...}
+{* *! datadict (version recorded in datamap.sthlp)}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] labelbook" "help labelbook"}{...}
@@ -466,8 +466,6 @@ Or pass a short note inline:{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
-
-{pstd}Version 1.5.0 {hline 2} 19jun2026{p_end}
 
 
 {title:Also see}

@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.5.0  2026/06/19
+*! _datamap_post_metadata_rows Version 1.5.1  2026/07/08
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,14 +26,17 @@ program define _datamap_post_metadata_rows, nclass
         quietly use `"`classifications'"', clear
         quietly count
         local C = r(N)
+        // Index-keyed metadata locals: locals keyed by variable name
+        // (meta_class_<varname>) exceed Stata's 31-character macro-name
+        // limit for long variable names and error r(198).
         local classvars ""
         forvalues i = 1/`C' {
             local vn = varname[`i']
             local classvars "`classvars' `vn'"
-            local meta_class_`vn' = classification[`i']
-            local meta_missing_`vn' = missing_n[`i']
-            local meta_missing_pct_`vn' = missing_pct[`i']
-            local meta_unique_`vn' = unique_vals[`i']
+            local m_class`i' = classification[`i']
+            local m_mn`i' = missing_n[`i']
+            local m_mp`i' = missing_pct[`i']
+            local m_uv`i' = unique_vals[`i']
         }
         restore
         local _restore_needed = 0
@@ -49,21 +52,26 @@ program define _datamap_post_metadata_rows, nclass
             local vfmt : format `vname'
             local vlab : variable label `vname'
             local vallabname : value label `vname'
-            local varclass "`meta_class_`vname''"
-            if "`varclass'" == "" local varclass "unknown"
-
-            local nmiss = `meta_missing_`vname''
+            local ix : list posof "`vname'" in classvars
+            local varclass "unknown"
+            local nmiss = .
+            local pctmiss = .
+            local nuniq = .
+            if `ix' > 0 {
+                local varclass "`m_class`ix''"
+                if "`varclass'" == "" local varclass "unknown"
+                local nmiss = `m_mn`ix''
+                local pctmiss = `m_mp`ix''
+                local nuniq = `m_uv`ix''
+            }
             if missing(`nmiss') {
                 quietly count if missing(`vname')
                 local nmiss = r(N)
             }
-            local pctmiss = `meta_missing_pct_`vname''
             if missing(`pctmiss') {
                 local pctmiss = 0
                 if `obs' > 0 local pctmiss = round(100 * `nmiss' / `obs', 0.1)
             }
-
-            local nuniq = `meta_unique_`vname''
             local mean = .
             local sd = .
             local p50 = .

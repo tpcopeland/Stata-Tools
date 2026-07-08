@@ -1,6 +1,6 @@
 # logdoc
 
-![version](https://img.shields.io/badge/version-1.1.0-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+![version](https://img.shields.io/badge/version-1.1.1-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
 Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents.
 
@@ -32,7 +32,7 @@ Semantic enhancements are now opt-in. Syntax highlighting, parsed HTML tables, c
 - **Annotations** -- embed notes alongside commands
 - **Stamp** -- add Stata version, date, and data filename to the header
 - **Line numbers** -- numbered command blocks for reference
-- **Legacy mode** -- `legacy` enables the pre-1.4 HTML enhancement defaults
+- **Legacy mode** -- `legacy` enables all HTML enhancements in one switch
 - **Project config** -- global `~/.logdocrc` defaults with per-project `.logdocrc` overrides
 - **Print-optimized CSS** -- clean output for paper/PDF
 - **Dialog box** -- GUI interface via `db logdoc`
@@ -145,7 +145,7 @@ logdoc replay [, theme() format() open]
 | `tables` | Parse supported Stata tables into HTML tables |
 | `copy` | Add copy-to-clipboard buttons to command blocks |
 | `download` | Add a Download .do toolbar button |
-| `legacy` | Enable the pre-1.4 HTML enhancement defaults |
+| `legacy` | Enable all HTML enhancements in one switch |
 | `linenumbers` | Show line numbers in command blocks |
 | `toc` | Generate table of contents from `* # Section` markers |
 | `notebook` | Jupyter-style cell layout with In/Out labels |
@@ -437,7 +437,7 @@ Includes the `logdoc` conversion results above, plus:
 - Use `log using "file.smcl", nomsg` to avoid metadata clutter
 - `logdoc start` and `logdoc using ..., run` set Stata's line size to the maximum (`255`) while capturing output; existing logs must be rerun if they were already wrapped
 - Structure .do files with `* # Section Title` comments for navigable documents with `toc`
-- Use `legacy` when you want the pre-1.4 enhanced HTML defaults in one switch
+- Use `legacy` when you want every HTML enhancement enabled in one switch
 - Use `~/.logdocrc` for personal defaults, then `.logdocrc` in a project directory for project-specific overrides
 - Run `python query` or `logdoc_py, check verbose` when diagnosing Python setup; the default path uses Stata's configured Python before project or PATH fallbacks
 
@@ -459,7 +459,12 @@ The suite contains 5 QA files: 4 functional test files and 1 validation file.
 
 ## Version
 
-Version 1.1.0
+Version 1.1.1
+
+### Changelog
+
+- **1.1.1** (2026-07-07) -- Conversion failures are now reported even when a previous output file exists (renderer success is verified, not inferred from file existence); UTF-8 output encoding on Windows; `logdoc replay` re-executes `run` conversions instead of rendering the .do source; `logdoc stop` preserves the captured session log when conversion fails; `logdoc_py` reads `~/.logdocrc` in addition to the project `.logdocrc`; `combine` rejects `.pdf`/`.docx` outputs; `stataexe()` without `run` is an error.
+- **1.1.0** (2026-06-14) -- Faithful-by-default HTML rendering; opt-in enhancements; `run`, `combine`, `accent()`, `.logdocrc` support.
 
 ## Author
 

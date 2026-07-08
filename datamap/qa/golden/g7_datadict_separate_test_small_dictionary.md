@@ -10,7 +10,6 @@
 **Variables in file:** 2
 **Variables documented:** 2
 **File size:** <normalized>
-**File modified:** <normalized>
 
 ### Variables
 

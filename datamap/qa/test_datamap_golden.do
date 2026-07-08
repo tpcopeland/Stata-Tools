@@ -45,9 +45,6 @@ program define _golden_normalize
             if regexm(`"`macval(norm)'"', "^\*\*File size:\*\* .* bytes") {
                 local norm "**File size:** <normalized>"
             }
-            if regexm(`"`macval(norm)'"', "^\*\*File modified:\*\* .*") {
-                local norm "**File modified:** <normalized>"
-            }
             if regexm(`"`macval(norm)'"', "^\*\*Last Updated:\*\* .*") & ///
                !regexm(`"`macval(norm)'"', "^\*\*Last Updated:\*\* [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$") {
                 local norm "**Last Updated:** <normalized>"

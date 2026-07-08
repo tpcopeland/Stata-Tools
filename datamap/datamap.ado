@@ -1,4 +1,4 @@
-*! datamap Version 1.5.0  2026/06/19
+*! datamap Version 1.5.1  2026/07/08
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -113,13 +113,17 @@ program define datamap, rclass
 			          DETect(string) AUTODETect PANELid(string) ///
 			          SURVIVALvars(string) QUality QUality2(string) ///
 		          SAMples(integer -1) MISSing(string)]
+			// Detect whether the user actually typed each numeric option (at any
+			// legal abbreviation), so an explicit negative errors instead of
+			// being silently reset to the default.  regexm covers every prefix
+			// from the minimum abbreviation through the full name; a bare
+			// strpos on one or two forms missed the intermediate abbreviations
+			// (e.g. maxfr(), mince()).
 			local _raw_lower = lower(`"`macval(_raw0)'"')
-			local _user_maxfreq = strpos(`"`_raw_lower'"', "maxfreq(") | strpos(`"`_raw_lower'"', "maxf(")
-			local _user_maxcat = strpos(`"`_raw_lower'"', "maxcat(") | strpos(`"`_raw_lower'"', "maxc(")
-			local _user_mincell = strpos(`"`_raw_lower'"', "mincell(") | strpos(`"`_raw_lower'"', "minc(")
-			local _user_samples = strpos(`"`_raw_lower'"', "samples(") | strpos(`"`_raw_lower'"', "sample(") | ///
-				strpos(`"`_raw_lower'"', "sampl(") | strpos(`"`_raw_lower'"', "samp(") | ///
-				strpos(`"`_raw_lower'"', "sam(")
+			local _user_maxfreq = regexm(`"`_raw_lower'"', "maxf(r(e(q)?)?)?\(")
+			local _user_maxcat  = regexm(`"`_raw_lower'"', "maxc(a(t)?)?\(")
+			local _user_mincell = regexm(`"`_raw_lower'"', "minc(e(l(l)?)?)?\(")
+			local _user_samples = regexm(`"`_raw_lower'"', "sam(p(l(e(s)?)?)?)?\(")
 
 			if `"`config'"' != "" {
 				_datamap_validate_path "`config'", option("config()")
@@ -557,6 +561,31 @@ program define datamap, rclass
 		if `rc' exit `rc'
 	end
 
+// Parse the package version from the datamap.ado header so JSON output never
+// carries a hardcoded literal that drifts from the *! header on a version bump.
+capture program drop _datamap_pkgversion
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datamap_pkgversion, rclass
+	version 16.0
+	local ver "unknown"
+	capture findfile datamap.ado
+	if _rc == 0 {
+		tempname fh
+		file open `fh' using `"`r(fn)'"', read text
+		file read `fh' line
+		while r(eof) == 0 {
+			if regexm(`"`macval(line)'"', "^\*! datamap Version ([0-9.]+)") {
+				local ver = regexs(1)
+				continue, break
+			}
+			file read `fh' line
+		}
+		file close `fh'
+	}
+	return local version "`ver'"
+end
+
 // =============================================================================
 // Helper: _datamap_ProcessCombined
 // Generate single output file containing all datasets
@@ -566,6 +595,11 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessCombined, rclass
 	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	local _fh_open = 0
+	local _fhlist_open = 0
+	capture noisily {
 		syntax, FILElist(string) Output(string) Format(string) [APPend ///
 			NOSTats NOFReq NOLAbels MAXFreq(integer 25) ///
 			MAXCat(integer 25) MINCell(integer 5) NOGuidance COMpact ///
@@ -576,6 +610,9 @@ program define _datamap_ProcessCombined, rclass
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
 		missing_detail(integer 0) missing_pattern(integer 0)]
+
+	_datamap_pkgversion
+	local _pkgver "`r(version)'"
 
 	// Open output file (append or replace mode)
 	tempname fh
@@ -589,7 +626,7 @@ program define _datamap_ProcessCombined, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.5.0","' _n
+				file write `fh' `"  "datamap_version": "`_pkgver'","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -600,6 +637,7 @@ program define _datamap_ProcessCombined, rclass
 				file write `fh' "Generated: `cdate' `ctime'" _n _n
 			}
 		}
+		local _fh_open = 1
 
 		// Process each file in list
 		local n_categorical = 0
@@ -640,6 +678,7 @@ program define _datamap_ProcessCombined, rclass
 		// Multiple files from list - read from file
 		tempname fh_list
 		file open `fh_list' using "`filelist'", read text
+		local _fhlist_open = 1
 		local i 0
 		file read `fh_list' thisfile
 		while r(eof) == 0 {
@@ -665,6 +704,7 @@ program define _datamap_ProcessCombined, rclass
 				file read `fh_list' thisfile
 			}
 			file close `fh_list'
+			local _fhlist_open = 0
 		}
 
 		if "`format'" == "json" {
@@ -674,6 +714,7 @@ program define _datamap_ProcessCombined, rclass
 
 		// Always close file handle
 		file close `fh'
+		local _fh_open = 0
 		noisily di as result `"Output written to: `output'"'
 
 		return scalar n_categorical = `n_categorical'
@@ -688,6 +729,12 @@ program define _datamap_ProcessCombined, rclass
 		return local string_vars "`string_vars'"
 		return local excluded_vars "`excluded_vars'"
 		return local suggested_exclude "`suggested_exclude'"
+	}
+	local rc = _rc
+	if `_fhlist_open' capture file close `fh_list'
+	if `_fh_open' capture file close `fh'
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -699,6 +746,10 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessSeparate, rclass
 	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	local _fhlist_open = 0
+	capture noisily {
 		syntax, FILElist(string) Format(string) [NOSTats NOFReq NOLAbels ///
 			MAXFreq(integer 25) MAXCat(integer 25) MINCell(integer 5) ///
 			NOGuidance COMpact EXClude(string) CONTinuous(string) ///
@@ -709,9 +760,13 @@ program define _datamap_ProcessSeparate, rclass
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
 		missing_detail(integer 0) missing_pattern(integer 0)]
 
+	_datamap_pkgversion
+	local _pkgver "`r(version)'"
+
 	// Loop through each file and generate separate output
 	tempname fh_list
 	file open `fh_list' using "`filelist'", read text
+	local _fhlist_open = 1
 	local n_categorical = 0
 	local n_continuous = 0
 	local n_date = 0
@@ -748,7 +803,7 @@ program define _datamap_ProcessSeparate, rclass
 			local ctime = c(current_time)
 			if "`format'" == "json" {
 				file write `fh' "{" _n
-				file write `fh' `"  "datamap_version": "1.5.0","' _n
+				file write `fh' `"  "datamap_version": "`_pkgver'","' _n
 				file write `fh' `"  "generated": "`cdate' `ctime'","' _n
 				file write `fh' `"  "format": "json","' _n
 				file write `fh' `"  "datasets": ["' _n
@@ -789,14 +844,12 @@ program define _datamap_ProcessSeparate, rclass
 			capture file close `fh'
 			local close_rc = _rc
 
-			// Re-throw error if one occurred
+			// Re-throw error if one occurred (outer cleanup closes fh_list)
 			if `rc' {
-				file close `fh_list'
 				noisily di as error "Error processing `thisfile' (rc=`rc')"
 				exit `rc'
 			}
 			if `close_rc' {
-				file close `fh_list'
 				noisily di as error "Error closing `outfile' (rc=`close_rc')"
 				exit `close_rc'
 			}
@@ -805,6 +858,7 @@ program define _datamap_ProcessSeparate, rclass
 		file read `fh_list' thisfile
 	}
 	file close `fh_list'
+	local _fhlist_open = 0
 
 	return scalar n_categorical = `n_categorical'
 	return scalar n_continuous = `n_continuous'
@@ -818,6 +872,11 @@ program define _datamap_ProcessSeparate, rclass
 	return local string_vars "`string_vars'"
 	return local excluded_vars "`excluded_vars'"
 	return local suggested_exclude "`suggested_exclude'"
+	}
+	local rc = _rc
+	if `_fhlist_open' capture file close `fh_list'
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -892,8 +951,8 @@ program define _datamap_ProcessDataset, rclass
 		file write `fh' "--------" _n
 		file write `fh' "Observations: `obs'" _n
 		file write `fh' "Variables: `nvars'" _n
-		if `"`label'"' != "" & `"`label'"' != "." {
-			file write `fh' `"Label: `label'"' _n
+		if `"`macval(label)'"' != "" & `"`macval(label)'"' != "." {
+			file write `fh' `"Label: `macval(label)'"' _n
 		}
 		if "`dsig'" != "" {
 			file write `fh' "Data Signature: `dsig'" _n
@@ -932,7 +991,7 @@ program define _datamap_ProcessDataset, rclass
 
 	if "`format'" == "json" {
 		_datamap_ProcessDatasetJson `fh' "`filepath'" "`classifications'" ///
-			"`basename'" `obs' `nvars' "`label'" "`dsig'" "`sortorder'" ///
+			"`basename'" `obs' `nvars' `"`macval(label)'"' "`dsig'" "`sortorder'" ///
 			`idx' `total' "`nostats'" "`nofreq'" "`nolabels'" `maxfreq' ///
 			`mincell' "`datesafe'" "`dateformat'" ///
 			`detect_panel' `detect_binary' `detect_survival' `detect_survey' ///
@@ -971,7 +1030,7 @@ program define _datamap_ProcessDataset, rclass
 	file write `fh' _n
 
 	// Generate natural language summary
-	_datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' "`label'" ///
+	_datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' `"`macval(label)'"' ///
 		`detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'"
 
 	// Run detection features if requested
@@ -1116,7 +1175,9 @@ program define _datamap_ProcessVariables, nclass
 		file write `fh' "  `vname'" _n
 		file write `fh' "    Type: `vtype'" _n
 		file write `fh' "    Format: `vfmt'" _n
-		if `"`vlab'"' != "" file write `fh' `"    Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"    Label: `macval(vlab)'"' _n
+		}
 		file write `fh' "    Missing: `nmiss' (`pctmiss'%)" _n
 			file write `fh' "    Classification: `vclass'" _n _n
 		}
@@ -1319,6 +1380,25 @@ program define _datamap_json_number, rclass
 	return local number "`number'"
 end
 
+// JSON string escaper that runs entirely in Mata.  A macro-based escape
+// (subinstr on the command line, or an -args- helper) re-expands any $macro
+// or backtick the string contains, silently corrupting labels; Mata's
+// st_local/subinstr copy bytes verbatim with no macro expansion.  Reads the
+// caller's local `src', escapes it, and writes the caller's local `dst'.
+capture mata: mata drop _datamap_jsonesc()
+mata:
+void _datamap_jsonesc(string scalar src, string scalar dst)
+{
+	string scalar s
+	s = st_local(src)
+	s = subinstr(s, char(92), char(92) + char(92))
+	s = subinstr(s, char(34), char(92) + char(34))
+	s = subinstr(s, char(10), char(92) + "n")
+	s = subinstr(s, char(13), char(92) + "r")
+	st_local(dst, s)
+}
+end
+
 capture program drop _datamap_ProcessDatasetJson
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
@@ -1329,12 +1409,16 @@ program define _datamap_ProcessDatasetJson, nclass
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
 	     panelid survivalvars quality_level samples missing_detail missing_pattern
 
+	// The data label arrives through the -args- pipeline, which re-expands
+	// $macro/backtick on the command line.  Re-read it from the source
+	// dataset (still in memory; -preserve- below has not run yet) so the
+	// JSON label matches the true data label.
+	local label : data label
+
 	if `idx' > 1 file write `fh' "," _n
 
-	_datamap_json_escape `"`basename'"'
-	local basename_json `"`r(escaped)'"'
-	_datamap_json_escape `"`macval(label)'"'
-	local label_json `"`r(escaped)'"'
+	mata: _datamap_jsonesc("basename", "basename_json")
+	mata: _datamap_jsonesc("label", "label_json")
 	_datamap_json_escape `"`dsig'"'
 	local dsig_json `"`r(escaped)'"'
 	_datamap_json_escape `"`sortorder'"'
@@ -1380,10 +1464,10 @@ program define _datamap_ProcessDatasetJson, nclass
 	local suggested_json `"`r(escaped)'"'
 
 	file write `fh' "    {" _n
-	file write `fh' `"      "name": "`basename_json'","' _n
+	file write `fh' `"      "name": "`macval(basename_json)'","' _n
 	file write `fh' `"      "observations": `obs',"' _n
 	file write `fh' `"      "variables": `nvars',"' _n
-	file write `fh' `"      "label": "`label_json'","' _n
+	file write `fh' `"      "label": "`macval(label_json)'","' _n
 	file write `fh' `"      "data_signature": "`dsig_json'","' _n
 	file write `fh' `"      "sort_order": "`sortorder_json'","' _n
 	file write `fh' `"      "privacy": {"' _n
@@ -1410,7 +1494,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local valab "`valab_`i''"
 		local vclass "`class_`i''"
 		local nmiss = `nmiss_`i''
@@ -1426,8 +1510,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		local vtype_json `"`r(escaped)'"'
 		_datamap_json_escape `"`vfmt'"'
 		local vfmt_json `"`r(escaped)'"'
-		_datamap_json_escape `"`macval(vlab)'"'
-		local vlab_json `"`r(escaped)'"'
+		mata: _datamap_jsonesc("vlab", "vlab_json")
 		_datamap_json_escape `"`valab'"'
 		local valab_json `"`r(escaped)'"'
 		_datamap_json_escape `"`vclass'"'
@@ -1437,7 +1520,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		file write `fh' `"          "name": "`vname_json'","' _n
 		file write `fh' `"          "type": "`vtype_json'","' _n
 		file write `fh' `"          "format": "`vfmt_json'","' _n
-		file write `fh' `"          "label": "`vlab_json'","' _n
+		file write `fh' `"          "label": "`macval(vlab_json)'","' _n
 		file write `fh' `"          "value_label": "`valab_json'","' _n
 		file write `fh' `"          "classification": "`vclass_json'","' _n
 		file write `fh' `"          "missing_n": `nmiss',"' _n
@@ -1539,11 +1622,10 @@ program define _datamap_ProcessDatasetJson, nclass
 					if _rc != 0 local vallabtext ""
 					_datamap_json_escape "`val'"
 					local val_json "`r(escaped)'"
-					_datamap_json_escape `"`vallabtext'"'
-					local vallab_json `"`r(escaped)'"'
+					mata: _datamap_jsonesc("vallabtext", "vallab_json")
 					file write `fh' "            {" _n
 					file write `fh' `"              "value": "`val_json'","' _n
-					file write `fh' `"              "label": "`vallab_json'","' _n
+					file write `fh' `"              "label": "`macval(vallab_json)'","' _n
 					if `mincell' > 0 & `freq' < `mincell' {
 						file write `fh' `"              "count": null,"' _n
 						file write `fh' `"              "pct": null,"' _n
@@ -1608,7 +1690,7 @@ program define _datamap_ProcessCategorical, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local valab "`valab_`i''"
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
@@ -1621,7 +1703,9 @@ program define _datamap_ProcessCategorical, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"Label: `macval(vlab)'"' _n
+		}
 		if "`valab'" != "" file write `fh' "Value Label: `valab'" _n
 		file write `fh' "Classification: categorical" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
@@ -1643,12 +1727,12 @@ program define _datamap_ProcessCategorical, nclass
 					else {
 						local pct "."
 					}
-					local vlab : label (`vname') `val'
+					local vltext : label (`vname') `val'
 					if `mincell' > 0 & `freq' < `mincell' {
-						file write `fh' "    `val' = `vlab': suppressed (<`mincell')" _n
+						file write `fh' `"    `val' = `macval(vltext)': suppressed (<`mincell')"' _n
 					}
 					else {
-						file write `fh' "    `val' = `vlab': `freq' (`pct'%)" _n
+						file write `fh' `"    `val' = `macval(vltext)': `freq' (`pct'%)"' _n
 					}
 				}
 			}
@@ -1714,7 +1798,7 @@ program define _datamap_ProcessContinuous, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -1726,7 +1810,9 @@ program define _datamap_ProcessContinuous, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"Label: `macval(vlab)'"' _n
+		}
 		file write `fh' "Classification: continuous" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
 		file write `fh' "Unique Values: `nuniq'" _n _n
@@ -1836,7 +1922,7 @@ program define _datamap_ProcessDate, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -1847,7 +1933,9 @@ program define _datamap_ProcessDate, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"Label: `macval(vlab)'"' _n
+		}
 		file write `fh' "Classification: date" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n _n
 
@@ -1950,7 +2038,7 @@ program define _datamap_ProcessString, nclass
 	forvalues i = 1/`nvars' {
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -1975,7 +2063,9 @@ program define _datamap_ProcessString, nclass
 		if `is_strL' {
 			file write `fh' "Note: strL (long string) — can store up to 2 billion characters" _n
 		}
-		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"Label: `macval(vlab)'"' _n
+		}
 		file write `fh' "Classification: string" _n
 		file write `fh' "Max Length: `maxlen' characters" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
@@ -2035,7 +2125,7 @@ program define _datamap_ProcessExcluded, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -2046,7 +2136,9 @@ program define _datamap_ProcessExcluded, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `"Label: `macval(vlab)'"' _n
+		}
 		file write `fh' "Classification: excluded (privacy)" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
 		file write `fh' "(values excluded from documentation)" _n _n
@@ -2084,23 +2176,29 @@ program define _datamap_ProcessValueLabels, nclass
 		exit
 	}
 
+	// Index-keyed by position in `vallabs': `vars_<labelname>' locals
+	// overflow the 31-character macro-name limit for long label names.
+	local li = 0
 	foreach vl of local vallabs {
-		local vars_`vl' ""
+		local ++li
+		local vars`li' ""
 		forvalues i = 1/`=_N' {
 			if valuelabel[`i'] == "`vl'" {
 				local vn = varname[`i']
-				local vars_`vl' "`vars_`vl'' `vn'"
+				local vars`li' "`vars`li'' `vn'"
 			}
 		}
-		local vars_`vl' = strtrim("`vars_`vl''")
+		local vars`li' = strtrim("`vars`li''")
 	}
 	restore
 
 	_datamap_write_rule_header `fh' "VALUE LABEL DEFINITIONS"
 
 	// Process each value label
+	local li = 0
 	foreach vl of local vallabs {
-		local varlist "`vars_`vl''"
+		local ++li
+		local varlist "`vars`li''"
 
 		file write `fh' "`vl' (used by: `varlist')" _n
 
@@ -2115,7 +2213,7 @@ program define _datamap_ProcessValueLabels, nclass
 			quietly levelsof `firstvar', local(levels)
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
-				file write `fh' "  `lev' = `labtext'" _n
+				file write `fh' `"  `lev' = `macval(labtext)'"' _n
 			}
 		}
 		else {
@@ -2159,12 +2257,14 @@ program define _datamap_ProcessBinary, nclass
 	forvalues i = 1/`nvars' {
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
-		local vlab "`vlab_`i''"
+		local vlab `"`macval(vlab_`i')'"'
 		local nmiss = `nmiss_`i''
 		local pctmiss = `pctmiss_`i''
 
 		file write `fh' "`vname'"
-		if `"`vlab'"' != "" file write `fh' ": `vlab'"
+		if `"`macval(vlab)'"' != "" {
+			file write `fh' `": `macval(vlab)'"'
+		}
 		file write `fh' _n
 		file write `fh' "  Type: `vtype' (binary)" _n
 		file write `fh' "  Missing: `nmiss' obs (`pctmiss'%)" _n
@@ -2184,17 +2284,18 @@ program define _datamap_ProcessBinary, nclass
 			else {
 				local pct "."
 			}
+			local vallabtext ""
 			capture local vallabtext : label (`vname') `val'
 			if `mincell' > 0 & `freq' < `mincell' {
-				if _rc == 0 & "`vallabtext'" != "" {
-					file write `fh' "    `val' (`vallabtext'): suppressed (<`mincell')" _n
+				if _rc == 0 & `"`macval(vallabtext)'"' != "" {
+					file write `fh' `"    `val' (`macval(vallabtext)'): suppressed (<`mincell')"' _n
 				}
 				else {
 					file write `fh' "    `val': suppressed (<`mincell')" _n
 				}
 			}
-			else if _rc == 0 & "`vallabtext'" != "" {
-				file write `fh' "    `val' (`vallabtext'): `freq' (`pct'%)" _n
+			else if _rc == 0 & `"`macval(vallabtext)'"' != "" {
+				file write `fh' `"    `val' (`macval(vallabtext)'): `freq' (`pct'%)"' _n
 			}
 			else {
 				file write `fh' "    `val': `freq' (`pct'%)" _n
@@ -2248,11 +2349,15 @@ program define _datamap_ProcessSamples, nclass
 	version 16.0
 	args fh classifications format nsamples exclude datesafe dateformat
 
+	// Index-keyed by position in `classvars': `class_<varname>' locals
+	// overflow the 31-character macro-name limit for long variable names.
 	preserve
 	quietly use "`classifications'", clear
+	local classvars ""
 	forvalues i = 1/`=_N' {
 		local vn = varname[`i']
-		local class_`vn' = classification[`i']
+		local classvars "`classvars' `vn'"
+		local class`i' = classification[`i']
 	}
 	restore
 
@@ -2301,27 +2406,30 @@ program define _datamap_ProcessSamples, nclass
 				if "`vn'" == "`ev'" local isexcl 1
 			}
 
+				local cx : list posof "`vn'" in classvars
+				local vnclass ""
+				if `cx' > 0 local vnclass "`class`cx''"
 				if `isexcl' {
 					file write `fh' "[MASKED] | "
 				}
-				else if "`datesafe'" != "" & "`class_`vn''" == "date" {
+				else if "`datesafe'" != "" & "`vnclass'" == "date" {
 					file write `fh' "[DATE SUPPRESSED] | "
 				}
 				else {
 					local vtype : type `vn'
 					if substr("`vtype'", 1, 3) == "str" {
-					local val `"`=`vn'[`row']'"'
-					if length(`"`val'"') > 20 {
-						local val = substr(`"`val'"', 1, 17) + "..."
+					local val = `vn'[`row']
+					if length(`"`macval(val)'"') > 20 {
+						local val = substr(`"`macval(val)'"', 1, 17) + "..."
 					}
-					file write `fh' `"`val' | "'
+					file write `fh' `"`macval(val)' | "'
 				}
 					else {
 						local val = `vn'[`row']
 						if missing(`val') {
 							file write `fh' ". | "
 						}
-						else if "`class_`vn''" == "date" {
+						else if "`vnclass'" == "date" {
 							local vfmt : format `vn'
 							_datamap_DateDisplayFormat, vfmt("`vfmt'") dateformat("`dateformat'")
 							local dispfmt "`r(display_format)'"
@@ -2342,6 +2450,20 @@ end
 // =============================================================================
 // Detection Programs
 // =============================================================================
+
+// Count distinct non-missing values of a variable.  Unlike -tabulate-, which
+// errors r(134) above ~12,000 distinct values, this works at any cardinality.
+capture program drop _datamap_ndistinct
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datamap_ndistinct, rclass
+	version 16.0
+	args v
+	tempvar tg
+	quietly egen byte `tg' = tag(`v') if !missing(`v')
+	quietly count if `tg' == 1
+	return scalar n = r(N)
+end
 
 // Detect panel/longitudinal data structure
 capture program drop _datamap_DetectPanel
@@ -2377,17 +2499,12 @@ program define _datamap_DetectPanel, nclass
 		if "`id_var'" == "" exit
 	}
 
-	// Check for repeated observations
-	capture quietly tab `id_var'
-	if _rc != 0 {
-		// tab failed (too many unique values) — use codebook as fallback
-		capture quietly codebook `id_var', compact
-		if _rc != 0 exit
-		local n_units = r(ndistinct)
-	}
-	else {
-		local n_units = r(r)
-	}
+	// Check for repeated observations.  -tabulate- errors r(134) above
+	// ~12k units, and -codebook, compact- stores no r(ndistinct), so both
+	// prior approaches failed for high-cardinality IDs.
+	_datamap_ndistinct `id_var'
+	local n_units = r(n)
+	if `n_units' == 0 exit
 	local n_obs = _N
 
 	if `n_units' < `n_obs' {
@@ -2438,23 +2555,30 @@ program define _datamap_DetectSurvival, nclass
 
 	if "`time_vars'" != "" {
 		file write `fh' "  Likely time variables:`time_vars'" _n
-		// Show range for first time variable
+		// Show range for first time variable (numeric only)
 		local first_time : word 1 of `time_vars'
-		quietly summarize `first_time'
-		local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
-		local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
-		file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
+		capture confirm numeric variable `first_time'
+		if _rc == 0 {
+			quietly summarize `first_time'
+			local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
+			local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
+			file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
+		}
 	}
 
 	if "`event_vars'" != "" {
 		file write `fh' "  Likely event indicators:`event_vars'" _n
-		// Show event rate for first event variable
+		// Show event rate for first event variable (numeric binary only;
+		// unguarded tab errors r(134) on high-cardinality name matches)
 		local first_event : word 1 of `event_vars'
-		quietly tab `first_event'
-		if r(r) == 2 {
-			quietly summarize `first_event'
-			local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
-			file write `fh' "    `first_event' rate: `event_rate'%" _n
+		capture confirm numeric variable `first_event'
+		if _rc == 0 {
+			_datamap_ndistinct `first_event'
+			if r(n) == 2 {
+				quietly summarize `first_event'
+				local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
+				file write `fh' "    `first_event' rate: `event_rate'%" _n
+			}
 		}
 	}
 
@@ -2502,8 +2626,10 @@ program define _datamap_DetectSurvey, nclass
 	// Write output
 	file write `fh' "Survey Design Elements Detected" _n
 
-	// Process weight variables
+	// Process weight variables (numeric only)
 	foreach wvar of local weight_vars {
+		capture confirm numeric variable `wvar'
+		if _rc continue
 		quietly summarize `wvar'
 		local w_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
 		local w_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
@@ -2511,17 +2637,17 @@ program define _datamap_DetectSurvey, nclass
 		file write `fh' "  Sampling weight: `wvar' (range: `w_min' to `w_max', mean: `w_mean')" _n
 	}
 
-	// Process strata variables
+	// Process strata variables (-tabulate- errors r(134) above ~12k levels)
 	foreach svar of local strata_vars {
-		quietly tab `svar'
-		local n_strata = r(r)
+		_datamap_ndistinct `svar'
+		local n_strata = r(n)
 		file write `fh' "  Stratification: `svar' (`n_strata' strata)" _n
 	}
 
 	// Process cluster variables
 	foreach cvar of local cluster_vars {
-		quietly tab `cvar'
-		local n_clusters = r(r)
+		_datamap_ndistinct `cvar'
+		local n_clusters = r(n)
 		file write `fh' "  Clustering: `cvar' (`n_clusters' primary sampling units)" _n
 	}
 
@@ -2686,8 +2812,9 @@ program define _datamap_GenerateDatasetSummary, nclass
 	if `detect_panel' & "`panelid'" != "" {
 		capture confirm variable `panelid'
 		if _rc == 0 {
-			quietly tab `panelid'
-			local n_units = r(r)
+			// -tabulate- errors r(134) above ~12k units
+			_datamap_ndistinct `panelid'
+			local n_units = r(n)
 			local summary "`summary'longitudinal data with `n_units' units observed over time. "
 			local is_cross_sectional 0
 		}

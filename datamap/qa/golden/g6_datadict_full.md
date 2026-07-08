@@ -20,7 +20,6 @@ Version 2.0
 **Variables in file:** 8
 **Variables documented:** 8
 **File size:** <normalized>
-**File modified:** <normalized>
 
 ### Variables
 

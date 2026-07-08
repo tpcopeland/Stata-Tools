@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  14jun2026}{...}
+{* *! version 1.1.1  07jul2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -108,7 +108,7 @@ Other subcommands:
 {synopt:{opt tab:les}}parse supported Stata tables into HTML tables{p_end}
 {synopt:{opt copy}}add copy-to-clipboard buttons to command blocks{p_end}
 {synopt:{opt down:load}}add a Download .do toolbar button{p_end}
-{synopt:{opt leg:acy}}enable the pre-1.4 HTML enhancement defaults{p_end}
+{synopt:{opt leg:acy}}enable all HTML enhancements in one switch{p_end}
 {synopt:{opt line:numbers}}show line numbers in command blocks{p_end}
 {synopt:{opt toc}}generate a table of contents from section markers{p_end}
 {synopt:{opt note:book}}Jupyter-style cell layout with In/Out labels{p_end}
@@ -189,7 +189,9 @@ Markdown format.
 {pstd}
 Wraps an interactive session. {cmd:logdoc start} opens a background SMCL log;
 {cmd:logdoc stop} closes the log and converts it. This eliminates the
-two-step "log then convert" workflow.
+two-step "log then convert" workflow. If the conversion fails,
+{cmd:logdoc stop} keeps the captured SMCL log and prints its path so the
+session transcript can be converted manually.
 
 {phang2}{cmd:. logdoc start, output("session.html") theme(dark)}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
@@ -225,7 +227,9 @@ Quarto Markdown, LaTeX, and {opt format(both)}.
 {pstd}
 Re-runs the most recent {cmd:logdoc} conversion using the last resolved
 options, with optional overrides. Useful for quickly switching themes
-or formats without retyping metadata or filtering options.
+or formats without retyping metadata or filtering options. If the
+previous conversion used {opt run}, replay re-executes the .do file in
+batch mode (with the same {opt stataexe()} setting) before converting.
 
 {phang2}{cmd:. logdoc replay, theme(dark)}{p_end}
 
@@ -290,8 +294,9 @@ must be on the system {cmd:PATH}.
 {phang}
 {opt stataexe(string)} overrides the auto-detected batch executable used by
 {opt run}. Use it when your Stata binary has a nonstandard name or is not on
-{cmd:PATH}. Example: {cmd:stataexe(/opt/stata18/stata-mp)}. Ignored unless
-{opt run} is also specified.
+{cmd:PATH}. Example: {cmd:stataexe(/opt/stata18/stata-mp)}. Specifying
+{opt stataexe()} without {opt run} is an error; a {cmd:stataexe=} line in
+{cmd:.logdocrc} is simply ignored when {opt run} is not used.
 
 {phang}
 {opt preformatted} is retained for compatibility. HTML tables are already
@@ -324,7 +329,7 @@ If parsing fails, logdoc falls back to monospace output.
 as a .do file.
 
 {phang}
-{opt legacy} enables the pre-1.4 HTML enhancement defaults:
+{opt legacy} enables all HTML enhancements in one switch:
 {opt highlight}, {opt tables}, {opt fold}, {opt copy}, and {opt download}.
 Use {opt preformatted} or {opt nofold} with {opt legacy} to suppress table
 parsing or folding.
@@ -591,7 +596,7 @@ Structure your .do files with {cmd:* # Section Title} comments to create
 navigable documents with the {opt toc} option.
 
 {phang}
-Use {opt legacy} if you want the pre-1.4 enhanced HTML defaults in one
+Use {opt legacy} if you want every HTML enhancement enabled in one
 switch.
 
 {phang}

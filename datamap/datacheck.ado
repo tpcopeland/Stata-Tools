@@ -1,4 +1,4 @@
-*! datacheck Version 1.5.0  2026/06/19
+*! datacheck Version 1.5.1  2026/07/08
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -505,16 +505,21 @@ program define datacheck, rclass
         local sugg_exclude   "`r(suggested_exclude)'"
 
         // ---- read per-variable metadata into parallel locals ----
+        // All per-variable locals are index-keyed (`m_class3', `FC3'), never
+        // name-keyed (`idx_<varname>'): prefix+varname exceeds Stata's
+        // 31-character macro-name limit for long variable names and errors
+        // r(198).  Row index i comes from `: list posof' against `pvars'.
         tempname pframe
         frame create `pframe'
         local _pframe_made = 1
+        local pvars ""
         frame `pframe' {
             quietly use `"`proff'"', clear
             quietly count
             local P = r(N)
             forvalues i = 1/`P' {
                 local vn = varname[`i']
-                local idx_`vn' = `i'
+                local pvars "`pvars' `vn'"
                 local m_class`i' = classification[`i']
                 local m_type`i'  = vartype[`i']
                 local m_mn`i'    = missing_n[`i']
@@ -526,14 +531,17 @@ program define datacheck, rclass
         }
 
         // ---- final class assignment (auto classifier + manual overrides) ----
+        // `FC<j>' is keyed by the variable's position j in `profilevars'.
         local f_continuous ""
         local f_categorical ""
         local f_date ""
         local f_string ""
         local f_excluded ""
+        local pj = 0
         foreach v of local profilevars {
+            local ++pj
             local vv "`v'"
-	            local i = `idx_`v''
+	            local i : list posof "`v'" in pvars
 	            local fc "`m_class`i''"
 	            if "`fc'" != "excluded" {
 	                if `: list vv in continuous'       local fc "continuous"
@@ -541,7 +549,7 @@ program define datacheck, rclass
 	                else if `: list vv in date'        local fc "date"
 	            }
             local f_`fc' "`f_`fc'' `v'"
-            local FC_`v' "`fc'"
+            local FC`pj' "`fc'"
         }
 
         // ---- N and complete-case accounting on the analytical varlist ----
@@ -550,8 +558,10 @@ program define datacheck, rclass
         local nobs = c(N)
         tempvar cc
         quietly gen byte `cc' = 1
+        local pj = 0
         foreach v of local profilevars {
-            if "`FC_`v''" == "excluded" continue
+            local ++pj
+            if "`FC`pj''" == "excluded" continue
             quietly replace `cc' = 0 if missing(`v')
         }
         quietly count if `cc'
@@ -566,31 +576,33 @@ program define datacheck, rclass
         local missing_vars ""
         local outlier_vars ""
         local rare_vars ""
+        local pj = 0
         foreach v of local profilevars {
-            local fc "`FC_`v''"
+            local ++pj
+            local fc "`FC`pj''"
             local flg ""
-            local i = `idx_`v''
+            local i : list posof "`v'" in pvars
             if `m_mn`i'' > 0 & `m_mn`i'' < . {
                 local missing_vars "`missing_vars' `v'"
             }
             if "`fc'" == "continuous" {
                 quietly summarize `v', detail
-                local c_N_`v' = r(N)
-                local c_mean_`v' = r(mean)
-                local c_sd_`v' = r(sd)
-                local c_min_`v' = r(min)
-                local c_p1_`v' = r(p1)
-                local c_p5_`v' = r(p5)
-                local c_p10_`v' = r(p10)
-                local c_p25_`v' = r(p25)
-                local c_p50_`v' = r(p50)
-                local c_p75_`v' = r(p75)
-                local c_p90_`v' = r(p90)
-                local c_p95_`v' = r(p95)
-                local c_p99_`v' = r(p99)
-                local c_max_`v' = r(max)
-                local c_var_`v' = r(Var)
-                local c_nout_`v' = 0
+                local cN`pj' = r(N)
+                local cmean`pj' = r(mean)
+                local csd`pj' = r(sd)
+                local cmin`pj' = r(min)
+                local cp1_`pj' = r(p1)
+                local cp5_`pj' = r(p5)
+                local cp10_`pj' = r(p10)
+                local cp25_`pj' = r(p25)
+                local cp50_`pj' = r(p50)
+                local cp75_`pj' = r(p75)
+                local cp90_`pj' = r(p90)
+                local cp95_`pj' = r(p95)
+                local cp99_`pj' = r(p99)
+                local cmax`pj' = r(max)
+                local cvar`pj' = r(Var)
+                local cnout`pj' = 0
                 if r(N) > 0 & r(Var) == 0 {
                     local flg "constant"
                     local constant_vars "`constant_vars' `v'"
@@ -600,7 +612,7 @@ program define datacheck, rclass
                     local lof = r(p25) - `outliers' * `iqr'
                     local hif = r(p75) + `outliers' * `iqr'
                     quietly count if (`v' < `lof' | `v' > `hif') & !missing(`v')
-                    local c_nout_`v' = r(N)
+                    local cnout`pj' = r(N)
                     if r(N) > 0 {
                         local flg "outliers"
                         local outlier_vars "`outlier_vars' `v'"
@@ -622,7 +634,7 @@ program define datacheck, rclass
             }
             if "`flg'" == "" & `m_mn`i'' > 0 & `m_mn`i'' < . local flg "missing"
             if "`flg'" != "" local flagged_vars "`flagged_vars' `v'"
-            local flag_`v' "`flg'"
+            local flag`pj' "`flg'"
         }
         local flagged_vars : list uniq flagged_vars
         local constant_vars : list uniq constant_vars
@@ -640,8 +652,10 @@ program define datacheck, rclass
         // ---- groupwise profile summaries ----
         local group_missing_vars ""
         if `has_groups' {
+            local pj = 0
             foreach v of local profilevars {
-                if "`FC_`v''" == "excluded" continue
+                local ++pj
+                if "`FC`pj''" == "excluded" continue
                 local has_group_miss = 0
                 foreach gg of local group_levels {
                     quietly count if `dc_group' == `gg' & missing(`v')
@@ -682,12 +696,14 @@ program define datacheck, rclass
             display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
                 %7s "Miss%" %9s "Unique" "  " %-14s "Flag"
             local n_shown = 0
+            local pj = 0
             foreach v of local profilevars {
-                local flg "`flag_`v''"
+                local ++pj
+                local flg "`flag`pj''"
                 if `showflagged' & "`flg'" == "" continue
                 local ++n_shown
-                local i = `idx_`v''
-                local fc "`FC_`v''"
+                local i : list posof "`v'" in pvars
+                local fc "`FC`pj''"
                 local vt "`m_type`i''"
                 local mp = `m_mp`i''
                 if missing(`mp') local mp = 0
@@ -709,33 +725,34 @@ program define datacheck, rclass
             display ""
             display as text "CONTINUOUS"
             foreach v of local f_continuous {
-                if `showflagged' & "`flag_`v''" == "" continue
-                local n = `c_N_`v''
+                local pj : list posof "`v'" in profilevars
+                if `showflagged' & "`flag`pj''" == "" continue
+                local n = `cN`pj''
                 if `n' == 0 {
                     display as text "  " as result "`v'" as text ": all missing"
                     continue
                 }
                 display as text "  " as result "`v'" as text ":  N=" ///
-                    as result `c_N_`v'' as text "  mean=" as result %10.4g `c_mean_`v'' ///
-                    as text "  sd=" as result %10.4g `c_sd_`v''
-                display as text "    min=" as result %10.4g `c_min_`v'' ///
-                    as text "  p25=" as result %10.4g `c_p25_`v'' ///
-                    as text "  p50=" as result %10.4g `c_p50_`v'' ///
-                    as text "  p75=" as result %10.4g `c_p75_`v'' ///
-                    as text "  max=" as result %10.4g `c_max_`v''
+                    as result `cN`pj'' as text "  mean=" as result %10.4g `cmean`pj'' ///
+                    as text "  sd=" as result %10.4g `csd`pj''
+                display as text "    min=" as result %10.4g `cmin`pj'' ///
+                    as text "  p25=" as result %10.4g `cp25_`pj'' ///
+                    as text "  p50=" as result %10.4g `cp50_`pj'' ///
+                    as text "  p75=" as result %10.4g `cp75_`pj'' ///
+                    as text "  max=" as result %10.4g `cmax`pj''
                 if "`detail'" != "" {
-                    display as text "    p1=" as result %10.4g `c_p1_`v'' ///
-                        as text "  p5=" as result %10.4g `c_p5_`v'' ///
-                        as text "  p10=" as result %10.4g `c_p10_`v'' ///
-                        as text "  p90=" as result %10.4g `c_p90_`v'' ///
-                        as text "  p95=" as result %10.4g `c_p95_`v'' ///
-                        as text "  p99=" as result %10.4g `c_p99_`v''
+                    display as text "    p1=" as result %10.4g `cp1_`pj'' ///
+                        as text "  p5=" as result %10.4g `cp5_`pj'' ///
+                        as text "  p10=" as result %10.4g `cp10_`pj'' ///
+                        as text "  p90=" as result %10.4g `cp90_`pj'' ///
+                        as text "  p95=" as result %10.4g `cp95_`pj'' ///
+                        as text "  p99=" as result %10.4g `cp99_`pj''
                 }
-                if `c_var_`v'' == 0 {
+                if `cvar`pj'' == 0 {
                     display as text "    " as error "zero variance (constant)"
                 }
                 if `outliers' > 0 {
-                    local nout = `c_nout_`v''
+                    local nout = `cnout`pj''
                     if `nout' > 0 {
                         local pout = round(100 * `nout' / `n', 0.1)
                         display as text "    " as error "`nout' outlier(s)" ///
@@ -751,8 +768,9 @@ program define datacheck, rclass
             display ""
             display as text "CATEGORICAL"
             foreach v of local f_categorical {
-                if `showflagged' & "`flag_`v''" == "" continue
-                local i = `idx_`v''
+                local pj : list posof "`v'" in profilevars
+                if `showflagged' & "`flag`pj''" == "" continue
+                local i : list posof "`v'" in pvars
                 local nlev = `m_uv`i''
                 display as text "  " as result "`v'" as text ":  " ///
                     as result `nlev' as text " levels"
@@ -772,8 +790,9 @@ program define datacheck, rclass
             display ""
             display as text "DATE"
             foreach v of local f_date {
-                if `showflagged' & "`flag_`v''" == "" continue
-                local i = `idx_`v''
+                local pj : list posof "`v'" in profilevars
+                if `showflagged' & "`flag`pj''" == "" continue
+                local i : list posof "`v'" in pvars
                 local vfmt : format `v'
                 quietly summarize `v'
                 local n = r(N)
@@ -803,8 +822,9 @@ program define datacheck, rclass
             display ""
             display as text "STRING"
             foreach v of local f_string {
-                if `showflagged' & "`flag_`v''" == "" continue
-                local i = `idx_`v''
+                local pj : list posof "`v'" in profilevars
+                if `showflagged' & "`flag`pj''" == "" continue
+                local i : list posof "`v'" in pvars
                 quietly count if `v' == ""
                 local nblank = r(N)
                 local ml "."
@@ -832,9 +852,11 @@ program define datacheck, rclass
             display ""
             display as text "MISSINGNESS"
             local any_miss = 0
+            local pj = 0
             foreach v of local profilevars {
-                local i = `idx_`v''
-                if "`FC_`v''" == "excluded" continue
+                local ++pj
+                local i : list posof "`v'" in pvars
+                if "`FC`pj''" == "excluded" continue
                 if `m_mn`i'' > 0 & `m_mn`i'' < . {
                     local any_miss = 1
                     display as text "  " as result %-22s "`v'" as text "  " ///
@@ -881,8 +903,10 @@ program define datacheck, rclass
                 local gpct = 0
                 if `gn' > 0 local gpct = round(100 * `gc' / `gn', 0.1)
                 local gmissvars ""
+                local pj = 0
                 foreach v of local profilevars {
-                    if "`FC_`v''" == "excluded" continue
+                    local ++pj
+                    if "`FC`pj''" == "excluded" continue
                     quietly count if `dc_group' == `gg' & missing(`v')
                     if r(N) > 0 local gmissvars "`gmissvars' `v'"
                 }
@@ -946,7 +970,9 @@ program define datacheck, rclass
                 local kmax = r(max)
                 quietly count if `ktag' & `kn' > 1
                 local nmulti = r(N)
-                local kvkey = subinstr("`kv'", " ", "_", .)
+                // r() scalar names are capped at 32 characters; truncate the
+                // key portion so long/multi-variable keys cannot error r(198).
+                local kvkey = substr(subinstr("`kv'", " ", "_", .), 1, 26)
                 return scalar n_dup_`kvkey' = `nmulti'
                 display as text "  key (" as result "`kv'" as text "):  " ///
                     as result `nobs' as text " obs, " as result `ndist' ///
@@ -1314,40 +1340,51 @@ program define datacheck, rclass
 	                    quietly count
 	                    local B = r(N)
 	                    if `has_N' & `B' > 0 local base_N = N[1]
+	                    // `bt<k>'/`bc<k>' are keyed by position in `basevars'
+	                    // (name-keyed locals overflow the 31-char macro-name
+	                    // limit); duplicates are skipped on insert so positions
+	                    // stay aligned.
+	                    local nb = 0
 	                    forvalues bi = 1/`B' {
 	                        local bv = variable[`bi']
 	                        if "`bv'" == "" continue
+	                        if `: list bv in basevars' continue
 	                        local basevars "`basevars' `bv'"
-	                        if `has_storage' local base_type_`bv' = storage_type[`bi']
-	                        else local base_type_`bv' ""
-	                        if `has_class' local base_class_`bv' = class[`bi']
-	                        else local base_class_`bv' ""
+	                        local ++nb
+	                        if `has_storage' local bt`nb' = storage_type[`bi']
+	                        else local bt`nb' ""
+	                        if `has_class' local bc`nb' = class[`bi']
+	                        else local bc`nb' ""
 	                    }
 	                }
 	                else {
 	                    local base_N = _N
 	                    quietly ds
 	                    local basevars `r(varlist)'
+	                    local nb = 0
 	                    foreach bv of local basevars {
+	                        local ++nb
 	                        local _bt : type `bv'
-	                        local base_type_`bv' "`_bt'"
-	                        local base_class_`bv' ""
+	                        local bt`nb' "`_bt'"
+	                        local bc`nb' ""
 	                    }
 	                }
 	            }
-	            local basevars : list uniq basevars
+	            local pj = 0
 	            foreach v of local profilevars {
-	                if !`: list v in basevars' {
+	                local ++pj
+	                local bx : list posof "`v'" in basevars
+	                if `bx' == 0 {
 	                    local compare_added "`compare_added' `v'"
 	                }
 	                else {
-	                    local i = `idx_`v''
+	                    local i : list posof "`v'" in pvars
 	                    local cur_type "`m_type`i''"
-	                    local cur_class "`FC_`v''"
-	                    if "`base_type_`v''" != "" & "`cur_type'" != "`base_type_`v''" {
+	                    local cur_class "`FC`pj''"
+	                    if "`bt`bx''" != "" & "`cur_type'" != "`bt`bx''" {
 	                        local compare_type_changed "`compare_type_changed' `v'"
 	                    }
-	                    if "`base_class_`v''" != "" & "`cur_class'" != "`base_class_`v''" {
+	                    if "`bc`bx''" != "" & "`cur_class'" != "`bc`bx''" {
 	                        local compare_class_changed "`compare_class_changed' `v'"
 	                    }
 	                }
@@ -1536,15 +1573,16 @@ program define datacheck, rclass
             frame `sframe': quietly replace values = "`profilevars'" in `srow'
             frame `sframe': quietly replace note = "profiled variables" in `srow'
             foreach v of local f_continuous {
-                if `c_N_`v'' == 0 continue
+                local pj : list posof "`v'" in profilevars
+                if `cN`pj'' == 0 continue
                 local ++srow
                 frame `sframe': quietly set obs `srow'
                 frame `sframe': quietly replace check = "inrange" in `srow'
                 frame `sframe': quietly replace gate = "inrange" in `srow'
                 frame `sframe': quietly replace variable = "`v'" in `srow'
                 frame `sframe': quietly replace var = "`v'" in `srow'
-                local _amin = strtrim(string(`c_min_`v'', "%14.0g"))
-                local _amax = strtrim(string(`c_max_`v'', "%14.0g"))
+                local _amin = strtrim(string(`cmin`pj'', "%14.0g"))
+                local _amax = strtrim(string(`cmax`pj'', "%14.0g"))
                 frame `sframe': quietly replace arg1 = "`_amin'" in `srow'
                 frame `sframe': quietly replace arg2 = "`_amax'" in `srow'
                 frame `sframe': quietly replace note = "observed continuous range" in `srow'
@@ -1563,7 +1601,7 @@ program define datacheck, rclass
                 frame `sframe': quietly replace note = "observed date range" in `srow'
             }
             foreach v of local f_categorical {
-                local i = `idx_`v''
+                local i : list posof "`v'" in pvars
                 if `m_uv`i'' > `maxcat' continue
                 quietly levelsof `v' if !missing(`v'), local(_levels) clean
                 local ++srow
@@ -1576,7 +1614,7 @@ program define datacheck, rclass
                 frame `sframe': quietly replace note = "observed levels" in `srow'
             }
             foreach v of local f_string {
-                local i = `idx_`v''
+                local i : list posof "`v'" in pvars
                 if `m_uv`i'' > `maxcat' continue
                 quietly levelsof `v' if !missing(`v'), local(_levels) clean
                 local ++srow

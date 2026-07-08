@@ -32,9 +32,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 try:
-    from openpyxl import load_workbook
+    from openpyxl import Workbook, load_workbook
     from openpyxl.cell import MergedCell
-    from openpyxl.utils import get_column_letter, column_index_from_string
+    from openpyxl.utils import column_index_from_string, get_column_letter
     from openpyxl.worksheet.worksheet import Worksheet
 except ImportError:
     print("Error: openpyxl is required. Install with: pip install openpyxl",
@@ -422,7 +422,7 @@ def check_font(ws: Worksheet, expected_name: str) -> CheckResult:
     (and disagree with --theme, which already counts non-empty cells only).
     """
     from collections import Counter
-    font_counts = Counter()
+    font_counts: Counter[str] = Counter()
     for row in range(1, get_used_rows(ws) + 1):
         for col in range(1, get_used_cols(ws) + 1):
             cell = ws.cell(row=row, column=col)
@@ -451,7 +451,7 @@ def check_font(ws: Worksheet, expected_name: str) -> CheckResult:
 def check_fontsize(ws: Worksheet, expected_size: float) -> CheckResult:
     """Check that the primary font size matches (non-empty cells only)."""
     from collections import Counter
-    size_counts = Counter()
+    size_counts: Counter[float] = Counter()
     for row in range(1, get_used_rows(ws) + 1):
         for col in range(1, get_used_cols(ws) + 1):
             cell = ws.cell(row=row, column=col)
@@ -503,7 +503,7 @@ def check_has_borders(ws: Worksheet) -> CheckResult:
 def check_border_style(ws: Worksheet, expected_style: str) -> CheckResult:
     """Check that the primary border style matches."""
     from collections import Counter
-    style_counts = Counter()
+    style_counts: Counter[str] = Counter()
     for row in range(1, get_used_rows(ws) + 1):
         for col in range(1, get_used_cols(ws) + 1):
             cell = ws.cell(row=row, column=col)
@@ -695,9 +695,9 @@ def _row_any_italic(ws, row: int) -> bool:
     return False
 
 
-def _dominant_font(ws):
+def _dominant_font(ws: Worksheet) -> tuple[str, Optional[float]]:
     from collections import Counter
-    counts: Counter = Counter()
+    counts: Counter[tuple[str, Optional[float]]] = Counter()
     for cell in _iter_nonempty_cells(ws):
         font = getattr(cell, "font", None)
         if font is None:
@@ -994,16 +994,18 @@ def check_col_width_fits_content(ws: Worksheet, col: str, start_row: int) -> Che
     except ValueError:
         col_idx = column_index_from_string(col.strip().upper())
     failures = _cell_width_fit_failures(ws, [col_idx], start_row, 0.0)
-    passed = not failures
-    failure = failures[0] if failures else None
-    return CheckResult(
-        name=f"Column {col} width fits content",
-        passed=passed,
-        message="all unwrapped cells fit" if passed
-        else (
+    if failures:
+        failure = failures[0]
+        message = (
             f"width {failure['width']:.2f} < content len {failure['max_len']} "
             f"(row {failure['row']}: '{failure['sample']}')"
-        ),
+        )
+    else:
+        message = "all unwrapped cells fit"
+    return CheckResult(
+        name=f"Column {col} width fits content",
+        passed=not failures,
+        message=message,
     )
 
 
@@ -1064,7 +1066,7 @@ class CheckRunner:
     def __init__(self, filepath: str, sheet_name: Optional[str] = None):
         self.filepath = Path(filepath)
         self.sheet_name = sheet_name
-        self.wb = None
+        self.wb: Optional[Workbook] = None
         self.ws: Optional[Worksheet] = None
         self.results: list[CheckResult] = []
 
@@ -1084,8 +1086,12 @@ class CheckRunner:
                           file=sys.stderr)
                     return False
             else:
-                self.ws = self.wb.active
-                self.sheet_name = self.ws.title
+                active = self.wb.active
+                if not isinstance(active, Worksheet):
+                    print("Error: workbook has no active worksheet.", file=sys.stderr)
+                    return False
+                self.ws = active
+                self.sheet_name = active.title
             return True
         except Exception as e:
             print(f"Error loading file: {e}", file=sys.stderr)
@@ -1095,6 +1101,8 @@ class CheckRunner:
         """Parse args into checks and run them all."""
         ws = self.ws
         wb = self.wb
+        if wb is None or ws is None:
+            raise RuntimeError("CheckRunner.run() called before a successful load()")
         results = []
 
         # Sheet-level checks (operate on workbook, not worksheet)

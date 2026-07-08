@@ -16,7 +16,6 @@
 **Variables in file:** 12  
 **Variables documented:** 12  
 **File size:** 12,765 bytes  
-**File modified:** unavailable  
 
 ### Variables
 
