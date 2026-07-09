@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.8  07jul2026}{...}
+{* *! version 2.0.9  09jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -216,7 +216,7 @@ medication codes need different dictionaries, run separate scans and add
 {phang2}{cmd:    mode(prefix) generate(proc_)}{p_end}
 
 {pstd}
-In the default {cmd:mode(regex)}, {cmd:codescan} uses Stata's {cmd:regexm()}
+In the default {cmd:mode(regex)}, {cmd:codescan} uses Stata's {cmd:ustrregexm()}
 function and automatically adds a start-of-string anchor.  The rule
 {cmd:define(dm2 "E11")} is checked like {cmd:regexm(code, "^(E11)")}: the code
 must start with {cmd:E11}.
@@ -462,16 +462,18 @@ pipe-separated prefixes and is usually faster on large datasets.
 It is meaningful only in {cmd:mode(prefix)} and must be between 1 and 10.
 
 {phang}
-{opt nocase} uppercases both patterns and code values internally so matching is
-case-insensitive.
+{opt nocase} makes matching case-insensitive.  Prefix mode uses unicode case
+folding; regex mode uses the ICU case-insensitive flag without rewriting the
+pattern, so escapes such as {cmd:\d} retain their meaning.
 
 {phang}
 {opt nodots} strips periods from each code value during matching.  The original
 data are unchanged.
 
 {phang}
-{opt tostring} converts numeric variables in {varlist} to string before scanning.
-This is helpful when code variables were imported as numeric rather than text.
+{opt tostring} converts numeric variables in {varlist} to temporary strings for
+scanning, leaving the original numeric variables unchanged.  This is helpful
+when code variables were imported as numeric rather than text.
 Scan variables must be fixed-width strings ({cmd:str#}); {cmd:strL} variables
 are rejected — convert them first with {helpb compress} or {helpb recast}.
 
@@ -556,7 +558,8 @@ rule is a simple startswith comparison and performance matters.
 {pstd}
 {bf:Regex engine and unicode.}  {cmd:regex} patterns are matched with Stata's
 unicode-aware {help strregex:ustrregexm()} engine and are case-sensitive unless
-{cmd:nocase} is given; {cmd:nocase} folds case across unicode, so a pattern such
+{cmd:nocase} is given; {cmd:nocase} matches case-insensitively across unicode,
+so a pattern such
 as {cmd:"Å"} matches both {cmd:å} and {cmd:Å} (useful for Nordic
 register codes).  A structurally invalid {cmd:regex} pattern (for example an
 unbalanced bracket, an empty group, or a malformed quantifier like
@@ -565,9 +568,14 @@ matching nothing, so a typo cannot quietly produce an all-zero cohort.  An empty
 alternation branch — a stray leading, trailing, or doubled {cmd:|} such as
 {cmd:"E11|"} or {cmd:"E11||E12"} — is likewise rejected, because its empty branch
 would otherwise match {it:every} code and silently produce a match-everything
-cohort (or, in an exclusion, drop every row).  Reserve
-{cmd:nocase} for literal codes and character classes; uppercasing a regex escape
-sequence under {cmd:nocase} can change its meaning.
+cohort (or, in an exclusion, drop every row).  Empty alternatives are rejected
+in {cmd:prefix} mode as well, where silently dropping one would hide a malformed
+code list.
+
+{pstd}
+{bf:File paths.}  For safety, {cmd:codefile()}, {cmd:save()}, {cmd:export()},
+and {cmd:saving()} reject quotes, shell metacharacters, and control characters
+inside filenames.  Use ordinary quoted paths with spaces or hyphens.
 
 {pstd}
 {bf:Reusable workflows.}  Many projects start with

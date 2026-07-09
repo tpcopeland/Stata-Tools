@@ -3885,17 +3885,25 @@ capture noisily {
     replace dx1 = 110 in 1
     replace dx1 = 660 in 2
     replace dx2 = 119 in 3
+    clonevar expected_dx1 = dx1
+    clonevar expected_dx2 = dx2
+    local type_dx1 : type dx1
+    local type_dx2 : type dx2
     codescan dx1 dx2, define(dm2 "11") tostring
     * Indicators created correctly
     assert dm2 == 1 in 1
     assert dm2 == 0 in 2
     assert dm2 == 1 in 3
-    * Original variables are now string (tostring converts in place)
-    capture confirm string variable dx1
-    assert _rc == 0
+    * Original numeric variables and storage types are unchanged.
+    assert dx1 == expected_dx1
+    assert dx2 == expected_dx2
+    local after_dx1 : type dx1
+    local after_dx2 : type dx2
+    assert "`type_dx1'" == "`after_dx1'"
+    assert "`type_dx2'" == "`after_dx2'"
 }
 if _rc == 0 {
-    display as result "  PASS: Tostring converts and matches correctly"
+    display as result "  PASS: Tostring scans without mutating inputs"
     local ++pass_count
 }
 else {

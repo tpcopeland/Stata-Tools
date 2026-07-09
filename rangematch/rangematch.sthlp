@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.2  07jul2026}{...}
+{* *! version 1.3.3  09jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -437,6 +437,11 @@ current data are left unchanged. Existing target frames are protected unless
 {opt replace} is specified.
 
 {pstd}
+Names beginning with {cmd:__rm_} are reserved for temporary workspace frames.
+If a same-named frame already exists, {cmd:rangematch} aborts without changing
+or dropping it.
+
+{pstd}
 The token after {cmd:using} may name an existing frame. If a frame with that
 name exists, {cmd:rangematch} copies it into an internal work frame and leaves
 the source frame unchanged. Otherwise the token is treated as a filename; if
@@ -767,7 +772,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.2, 07jul2026{p_end}
+{pstd}Version 1.3.3, 09jul2026{p_end}
 
 
 {title:Also see}

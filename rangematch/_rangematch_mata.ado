@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.3.2  2026/07/07
+*! _rangematch_mata Version 1.3.3  2026/07/09
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,7 +26,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.3.2")
+    return("1.3.3")
 }
 
 void _rm_prepare_sweep_master(
@@ -393,6 +393,12 @@ void _rm_build_pairs_sweep(
 
         if (nmatch == 0) {
             if (keep_unmatched_master) {
+                if (maxpairs > 0 & (n_pairs + 1) > maxpairs) {
+                    st_framecurrent(oldframe)
+                    st_local("_rm_err_maxpairs", "1")
+                    st_local("_rm_n_pairs", strofreal(n_pairs + 1))
+                    return
+                }
                 n_pairs++
                 if (!dryrun) {
                     if (n_pairs > rows(mi)) {
@@ -629,6 +635,12 @@ void _rm_build_pairs(
 
         if (lo > hi) {
             if (keep_unmatched_master) {
+                if (maxpairs > 0 & (n_pairs + 1) > maxpairs) {
+                    st_framecurrent(oldframe)
+                    st_local("_rm_err_maxpairs", "1")
+                    st_local("_rm_n_pairs", strofreal(n_pairs + 1))
+                    return
+                }
                 n_pairs++
                 if (!dryrun) {
                     if (n_pairs > rows(mi)) {
@@ -761,6 +773,12 @@ void _rm_build_pairs(
 
         if (nmatch == 0) {
             if (keep_unmatched_master) {
+                if (maxpairs > 0 & (n_pairs + 1) > maxpairs) {
+                    st_framecurrent(oldframe)
+                    st_local("_rm_err_maxpairs", "1")
+                    st_local("_rm_n_pairs", strofreal(n_pairs + 1))
+                    return
+                }
                 n_pairs++
                 if (!dryrun) {
                     if (n_pairs > rows(mi)) {
@@ -1068,6 +1086,12 @@ void _rm_build_pairs_overlap(
 
         if (nmatch == 0) {
             if (keep_unmatched_master) {
+                if (maxpairs > 0 & (n_pairs + 1) > maxpairs) {
+                    st_framecurrent(oldframe)
+                    st_local("_rm_err_maxpairs", "1")
+                    st_local("_rm_n_pairs", strofreal(n_pairs + 1))
+                    return
+                }
                 n_pairs++
                 if (!dryrun) {
                     if (n_pairs > rows(mi)) {

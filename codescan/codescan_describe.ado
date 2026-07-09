@@ -1,6 +1,6 @@
-*! codescan_describe Version 2.0.8  2026/07/07
+*! codescan_describe Version 2.0.9  2026/07/09
 *! Tabulate unique codes across wide-format variables
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 *! Requires: Stata 16.0+
 
@@ -32,6 +32,10 @@ program define codescan_describe, rclass
     capture noisily {
 
     syntax varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string)]
+
+    if `"`save'"' != "" {
+        _codescan_validate_path, path(`"`save'"') context(save())
+    }
 
     * Validate top
     if `top' < 1 {
@@ -168,9 +172,8 @@ program define codescan_describe, rclass
         matrix `top_codes'[`i', 1] = `_tc_freq'
         matrix `top_codes'[`i', 2] = `_tc_pct'
         matrix `top_codes'[`i', 3] = `_tc_cum'
-        local _tc_rnames `"`_tc_rnames' `_tc_code'"'
+        local _tc_rnames `"`_tc_rnames' `"`_tc_code'"'"'
     }
-    local _tc_rnames = trim(`"`_tc_rnames'"')
     matrix rownames `top_codes' = `_tc_rnames'
     matrix colnames `top_codes' = frequency percent cumul_pct
 
@@ -195,11 +198,24 @@ program define codescan_describe, rclass
         local _ch_ch "`_desc_ch_`i''"
         matrix `chapters'[`i', 1] = `_desc_ch_codes_`i''
         matrix `chapters'[`i', 2] = `_desc_ch_entries_`i''
-        local _ch_rnames "`_ch_rnames' `_ch_ch'"
+        local _ch_rnames `"`_ch_rnames' `"`_ch_ch'"'"'
     }
-    local _ch_rnames = trim("`_ch_rnames'")
     matrix rownames `chapters' = `_ch_rnames'
     matrix colnames `chapters' = codes entries
+
+    * Draft-rule names must remain valid Stata names even when a chapter starts
+    * with punctuation. strtoname() can map different punctuation to the same
+    * name, so suffix collisions deterministically.
+    forvalues i = 1/`n_chapters' {
+        local _ch `"`_desc_ch_`i''"'
+        local _rule_name = strtoname(`"chapter_`_ch'"')
+        local _rule_dup = 0
+        forvalues j = 1/`=`i'-1' {
+            if "`_rule_name'" == "`_desc_rule_name_`j''" local _rule_dup = 1
+        }
+        if `_rule_dup' local _rule_name "`_rule_name'_`i'"
+        local _desc_rule_name_`i' "`_rule_name'"
+    }
 
     * Pattern suggestion
     if `n_chapters' >= 2 {
@@ -209,7 +225,7 @@ program define codescan_describe, rclass
             local ch "`_desc_ch_`i''"
             local nc = `_desc_ch_codes_`i''
             local ne = `_desc_ch_entries_`i''
-            display as text `"    define(chapter_`ch' "`ch'") — `nc' codes, `ne' entries"'
+            display as text `"    define(`_desc_rule_name_`i'' "`ch'") — `nc' codes, `ne' entries"'
         }
     }
 
@@ -238,8 +254,8 @@ program define codescan_describe, rclass
             gen str244 exclusion = ""
             gen str80 label = ""
             forvalues i = 1/`n_chapters' {
-                replace name = "chapter_`_desc_ch_`i''" in `i'
-                replace pattern = "`_desc_ch_`i''" in `i'
+                replace name = "`_desc_rule_name_`i''" in `i'
+                replace pattern = `"`_desc_ch_`i''"' in `i'
             }
             keep name pattern exclusion label
             export delimited using `"`save'"', replace
@@ -339,7 +355,7 @@ void _codescan_describe_tabulate()
     asarray_notfound(ch_map, J(1, 2, 0))
 
     for (i = 1; i <= n_unique; i++) {
-        ch = substr(keys[i], 1, 1)
+        ch = usubstr(keys[i], 1, 1)
         prev = asarray(ch_map, ch)
         asarray(ch_map, ch, (prev[1] + 1, prev[2] + freqs[i]))
     }

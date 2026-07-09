@@ -1,6 +1,6 @@
-*! _codescan_outputs Version 2.0.8  2026/07/07
+*! _codescan_outputs Version 2.0.9  2026/07/09
 *! Private output-name helpers for codescan
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 capture program drop _codescan_plan_outputs
 program define _codescan_plan_outputs, rclass

@@ -109,6 +109,17 @@ foreach needle in "v 3" "d Stata-Tools: rangematch" ///
 }
 display as result "PASS: package manifest and stata.toc"
 
+**# README option and stored-result surface
+local ++test_count
+local path "`pkg_dir'/README.md"
+foreach needle in "ties(all|first|last|random)" "seed(#)" ///
+    "N_using_missing" "N_using_inverted" "r(overlap)" "r(seed)" ///
+    "Pair-generation backend selected" {
+    mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
+    assert scalar(__found) == 1
+}
+display as result "PASS: README option and stored-result surface"
+
 **# No forbidden release paths in shipped text
 local ++test_count
 local needle_home "/hom"

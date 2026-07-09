@@ -1,6 +1,6 @@
-*! _codescan_codefile Version 2.0.8  2026/07/07
+*! _codescan_codefile Version 2.0.9  2026/07/09
 *! Private codefile helpers for codescan
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 capture program drop _codescan_parse_codefile
 program define _codescan_parse_codefile, rclass

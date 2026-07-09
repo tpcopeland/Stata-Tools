@@ -226,8 +226,8 @@ if "`vl'" != "catlbl" | "`lbl1'" != "one" | "`lbl2'" != "two" {
 * backend was bumped to this release's version (guards a "forgot to bump the
 * handshake after changing the backend" regression).
 capture mata: st_local("_mv", _rm_mata_version())
-if "`_mv'" != "1.3.2" {
-    di as error "T6 backend version=`_mv' (want 1.3.2) -- bump _rm_mata_version() and _rm_required_mata_version together"
+if "`_mv'" != "1.3.3" {
+    di as error "T6 backend version=`_mv' (want 1.3.3) -- bump _rm_mata_version() and _rm_required_mata_version together"
     local ++FAIL
 }
 

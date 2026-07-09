@@ -1,4 +1,4 @@
-*! rangematch Version 1.3.2  2026/07/07
+*! rangematch Version 1.3.3  2026/07/09
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -126,9 +126,6 @@ program define _rangematch_display_timing
             display as text "    Materialize" ///
                 _col(44) as result %12.3fc `materializetime'
         }
-        capture timer clear 91
-        capture timer clear 92
-        capture timer clear 93
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -161,6 +158,9 @@ program define _rangematch_build_output_names, sclass
             }
             local carry_vars : list retokenize carry_vars
         }
+        if "`by'" != "" {
+            local carry_vars : list carry_vars - by
+        }
 
         quietly describe, varlist short
         local master_vars `r(varlist)'
@@ -170,6 +170,12 @@ program define _rangematch_build_output_names, sclass
         local out_names ""
         foreach v of local carry_vars {
             local outname "`prefix'`v'`suffix'"
+            capture confirm name `outname'
+            if _rc {
+                display as error ///
+                    `"prefix()/suffix() constructs invalid output name {bf:`outname'}"'
+                exit 198
+            }
             if "`all'" != "" {
                 local out_names `"`out_names' `outname'"'
             }
@@ -601,10 +607,6 @@ program define _rangematch_run_backend, sclass
             }
         }
 
-        if `timing' {
-            timer off 92
-        }
-
         if "`_rm_err_maxpairs'" == "1" {
             display as error ///
                 "maxpairs(`maxpairs') exceeded; join would produce at least `_rm_n_pairs' output rows"
@@ -716,12 +718,19 @@ end
 program define rangematch, rclass
     version 16.1
     local _orig_varabbrev = c(varabbrev)
+    local _rm_caller_frame = c(frame)
     set varabbrev off
     local _rm_rng_restore = 0
+    local _rm_frames_owned = 0
+    local _rm_timer_load = 0
+    local _rm_timer_match = 0
+    local _rm_timer_materialize = 0
+    local _rm_return_ready = 0
+    local _rm_output_succeeded = 0
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.3.2"
+    local _rm_required_mata_version "1.3.3"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -747,7 +756,6 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Parse syntax
     * -------------------------------------------------------------------
-    local _rm_caller_frame = c(frame)
     local _rm_cmdline `"rangematch `0'"'
 
     syntax anything(name=interval id="keyvar low high") ///
@@ -759,6 +767,20 @@ program define rangematch, rclass
           CLOSED(string) NEARest(string) TIES(string) SEED(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
+
+    * Fixed internal frame names are private implementation details, but they
+    * must never overwrite a same-named user frame. Once this preflight passes,
+    * cleanup owns these names for the remainder of the call.
+    foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
+        capture frame `_rm_frame': describe
+        if !_rc {
+            display as error ///
+                `"internal workspace frame {bf:`_rm_frame'} already exists"'
+            display as error "rename or drop that frame before running rangematch"
+            exit 110
+        }
+    }
+    local _rm_frames_owned = 1
 
     * -------------------------------------------------------------------
     * Interval-overlap mode is selected by overlap(ulow uhigh). It names
@@ -1041,11 +1063,27 @@ program define rangematch, rclass
     local dryrun_mode = ("`dryrun'" != "" | "`count'" != "")
     local _rm_timing = ("`verbose'" != "")
     if `_rm_timing' {
-        foreach _rm_timer in 91 92 93 {
-            capture timer clear `_rm_timer'
-            local _rm_timer_rc = _rc
+        local _rm_free_timers ""
+        forvalues _rm_candidate = 1/100 {
+            quietly timer list `_rm_candidate'
+            if r(t`_rm_candidate') >= . {
+                local _rm_free_timers "`_rm_free_timers' `_rm_candidate'"
+                local _rm_nfree : word count `_rm_free_timers'
+                if `_rm_nfree' == 3 continue, break
+            }
         }
-        timer on 91
+        local _rm_nfree : word count `_rm_free_timers'
+        if `_rm_nfree' < 3 {
+            display as error "verbose requires three unused Stata timers"
+            exit 498
+        }
+        local _rm_timer_load : word 1 of `_rm_free_timers'
+        local _rm_timer_match : word 2 of `_rm_free_timers'
+        local _rm_timer_materialize : word 3 of `_rm_free_timers'
+        foreach _rm_timer in `_rm_timer_load' `_rm_timer_match' `_rm_timer_materialize' {
+            timer clear `_rm_timer'
+        }
+        timer on `_rm_timer_load'
     }
 
     local saving_file ""
@@ -1290,8 +1328,8 @@ program define rangematch, rclass
     local out_names `"`s(out_names)'"'
 
     if `_rm_timing' {
-        timer off 91
-        timer on 92
+        timer off `_rm_timer_load'
+        timer on `_rm_timer_match'
     }
 
     * -------------------------------------------------------------------
@@ -1411,6 +1449,10 @@ program define rangematch, rclass
         tiescode(`ties_code') timing(`_rm_timing') ///
         overlapmode(`overlap_mode')
 
+    if `_rm_timing' {
+        timer off `_rm_timer_match'
+    }
+
     local _rm_backend "`s(backend)'"
     local N_pairs = `s(N_pairs)'
     local N_matched_pairs = `s(N_matched_pairs)'
@@ -1436,6 +1478,7 @@ program define rangematch, rclass
         local N_master_groups = `s(N_master_groups)'
         local density_warn_threshold = 100
     }
+    local _rm_return_ready = 1
 
     if `dryrun_mode' {
         restore
@@ -1472,10 +1515,10 @@ program define rangematch, rclass
         }
 
         if `_rm_timing' {
-            quietly timer list 91
-            local _rm_t_load = r(t91)
-            quietly timer list 92
-            local _rm_t_match = r(t92)
+            quietly timer list `_rm_timer_load'
+            local _rm_t_load = r(t`_rm_timer_load')
+            quietly timer list `_rm_timer_match'
+            local _rm_t_match = r(t`_rm_timer_match')
             local _rm_t_materialize = .
             _rangematch_display_timing, loadtime(`_rm_t_load') ///
                 matchtime(`_rm_t_match') ///
@@ -1489,7 +1532,7 @@ program define rangematch, rclass
     * Materialize output
     * -------------------------------------------------------------------
     if `_rm_timing' {
-        timer on 93
+        timer on `_rm_timer_materialize'
     }
 
     * Materialize master variables
@@ -1537,12 +1580,26 @@ program define rangematch, rclass
     * Generate match indicator
     if "`generate'" != "" {
         frame __rm_out {
+            local _rm_merge_label ""
+            forvalues _rm_label_i = 0/999 {
+                if `_rm_label_i' == 0 local _rm_label_candidate "__rm_merge"
+                else local _rm_label_candidate "__rm_merge`_rm_label_i'"
+                capture label list `_rm_label_candidate'
+                if _rc {
+                    local _rm_merge_label "`_rm_label_candidate'"
+                    continue, break
+                }
+            }
+            if "`_rm_merge_label'" == "" {
+                display as error "could not allocate a match-indicator value label"
+                exit 498
+            }
             quietly gen byte `generate' = ///
                 cond(__rm_mi >= . & __rm_ui < ., 2, ///
                 cond(__rm_ui < ., 3, 1))
-            label define __rm_merge 1 "master only" ///
+            label define `_rm_merge_label' 1 "master only" ///
                 2 "using only" 3 "matched", replace
-            label values `generate' __rm_merge
+            label values `generate' `_rm_merge_label'
         }
     }
 
@@ -1633,8 +1690,9 @@ program define rangematch, rclass
     }
 
     if `_rm_timing' {
-        timer off 93
+        timer off `_rm_timer_materialize'
     }
+    local _rm_output_succeeded = 1
 
     * -------------------------------------------------------------------
     * Display
@@ -1682,100 +1740,99 @@ program define rangematch, rclass
     }
 
     if `_rm_timing' {
-        quietly timer list 91
-        local _rm_t_load = r(t91)
-        quietly timer list 92
-        local _rm_t_match = r(t92)
-        quietly timer list 93
-        local _rm_t_materialize = r(t93)
+        quietly timer list `_rm_timer_load'
+        local _rm_t_load = r(t`_rm_timer_load')
+        quietly timer list `_rm_timer_match'
+        local _rm_t_match = r(t`_rm_timer_match')
+        quietly timer list `_rm_timer_materialize'
+        local _rm_t_materialize = r(t`_rm_timer_materialize')
         _rangematch_display_timing, loadtime(`_rm_t_load') ///
             matchtime(`_rm_t_match') ///
             materializetime(`_rm_t_materialize')
     }
     }
 
-    * -------------------------------------------------------------------
-    * Return results
-    * -------------------------------------------------------------------
-    return scalar N_master         = `N_master'
-    return scalar N_using          = `N_using'
-    return scalar N_pairs          = `N_pairs'
-    return scalar N_unmatched      = `N_unmatched'
-    return scalar N_matched_pairs  = `N_matched_pairs'
-    return scalar N_missing_bounds = `N_missing_bounds'
-    return scalar N_using_missing  = `N_using_missing'
-    return scalar N_using_inverted = `N_using_inverted'
-    if `_rm_stats_mode' {
-        return scalar N_matched_master = `N_matched_master'
-        return scalar N_matched_using  = `N_matched_using'
-        return scalar N_unmatched_master = `N_unmatched_master'
-        return scalar N_unmatched_using = `N_unmatched_using'
-        return scalar max_matches      = `max_matches'
-        return scalar mean_matches     = `mean_matches'
-        return scalar median_matches   = `median_matches'
-        return scalar p50_matches      = `p50_matches'
-        return scalar p90_matches      = `p90_matches'
-        return scalar p99_matches      = `p99_matches'
-        return scalar N_empty_groups   = `N_empty_groups'
-        return scalar N_master_groups  = `N_master_groups'
-    }
-    return scalar tolerance        = `tolerance'
-    return local using `"`using'"'
-    return local using_source "`using_source'"
-    if "`frame'" != "" & !`dryrun_mode' return local frame "`frame'"
-    if `"`saving_file'"' != "" & !`dryrun_mode' return local saving `"`saving_file'"'
-    return local key `"`key'"'
-    return local low `"`low'"'
-    return local high `"`high'"'
-    if `overlap_mode' return local overlap `"`ulo' `uhi'"'
-    return local by `"`by'"'
-    return local keepusing `"`keepusing'"'
-    return local prefix `"`prefix'"'
-    return local suffix `"`suffix'"'
-    return local unmatched `"`unmatched'"'
-    return local closed `"`closed'"'
-    return local missing `"`missing'"'
-    return local nearest `"`nearest'"'
-    return local ties `"`ties'"'
-    if `"`seed'"' != "" & "`ties'" == "random" return local seed `"`seed'"'
-    return local sort "`sort'"
-    return local nosort "`nosort'"
-    return local assert `"`assert'"'
-    return local generate `"`generate'"'
-    return local distance `"`distance'"'
-    return local masterid `"`masterid'"'
-    return local usingid `"`usingid'"'
-    return local maxpairs "`maxpairs'"
-    return local all "`all'"
-    return local stats "`stats'"
-    return local dryrun "`dryrun'"
-    return local count "`count'"
-    return local verbose "`verbose'"
-    return local backend "`_rm_backend'"
-    return local cmdline `"`_rm_cmdline'"'
-    return local cmd "rangematch"
-
     }
     local rc = _rc
-    foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
-        capture frame drop `_rm_frame'
-        local _rm_cleanup_rc = _rc
+    capture frame change `_rm_caller_frame'
+    local _rm_frame_change_rc = _rc
+    if `_rm_frames_owned' {
+        foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
+            capture frame drop `_rm_frame'
+            local _rm_cleanup_rc = _rc
+        }
     }
-    foreach _rm_matrix in __rm_mi __rm_ui {
-        capture matrix drop `_rm_matrix'
-        local _rm_cleanup_rc = _rc
-    }
-    foreach _rm_timer in 91 92 93 {
-        capture timer clear `_rm_timer'
+    foreach _rm_timer in `_rm_timer_load' `_rm_timer_match' `_rm_timer_materialize' {
+        if `_rm_timer' > 0 capture timer clear `_rm_timer'
         local _rm_cleanup_rc = _rc
     }
     if `_rm_rng_restore' {
         capture set rngstate `_rm_rng_state0'
         local _rm_cleanup_rc = _rc
     }
-    set varabbrev `_orig_varabbrev'
     if `rc' {
         capture restore
-        exit `rc'
     }
+    set varabbrev `_orig_varabbrev'
+
+    if `_rm_return_ready' {
+        return scalar N_master         = `N_master'
+        return scalar N_using          = `N_using'
+        return scalar N_pairs          = `N_pairs'
+        return scalar N_unmatched      = `N_unmatched'
+        return scalar N_matched_pairs  = `N_matched_pairs'
+        return scalar N_missing_bounds = `N_missing_bounds'
+        return scalar N_using_missing  = `N_using_missing'
+        return scalar N_using_inverted = `N_using_inverted'
+        if `_rm_stats_mode' {
+            return scalar N_matched_master = `N_matched_master'
+            return scalar N_matched_using  = `N_matched_using'
+            return scalar N_unmatched_master = `N_unmatched_master'
+            return scalar N_unmatched_using = `N_unmatched_using'
+            return scalar max_matches      = `max_matches'
+            return scalar mean_matches     = `mean_matches'
+            return scalar median_matches   = `median_matches'
+            return scalar p50_matches      = `p50_matches'
+            return scalar p90_matches      = `p90_matches'
+            return scalar p99_matches      = `p99_matches'
+            return scalar N_empty_groups   = `N_empty_groups'
+            return scalar N_master_groups  = `N_master_groups'
+        }
+        return scalar tolerance        = `tolerance'
+        return local using `"`using'"'
+        return local using_source "`using_source'"
+        if "`frame'" != "" & `_rm_output_succeeded' return local frame "`frame'"
+        if `"`saving_file'"' != "" & `_rm_output_succeeded' return local saving `"`saving_file'"'
+        return local key `"`key'"'
+        return local low `"`low'"'
+        return local high `"`high'"'
+        if `overlap_mode' return local overlap `"`ulo' `uhi'"'
+        return local by `"`by'"'
+        return local keepusing `"`keepusing'"'
+        return local prefix `"`prefix'"'
+        return local suffix `"`suffix'"'
+        return local unmatched `"`unmatched'"'
+        return local closed `"`closed'"'
+        return local missing `"`missing'"'
+        return local nearest `"`nearest'"'
+        return local ties `"`ties'"'
+        if `"`seed'"' != "" & "`ties'" == "random" return local seed `"`seed'"'
+        return local sort "`sort'"
+        return local nosort "`nosort'"
+        return local assert `"`assert'"'
+        return local generate `"`generate'"'
+        return local distance `"`distance'"'
+        return local masterid `"`masterid'"'
+        return local usingid `"`usingid'"'
+        return local maxpairs "`maxpairs'"
+        return local all "`all'"
+        return local stats "`stats'"
+        return local dryrun "`dryrun'"
+        return local count "`count'"
+        return local verbose "`verbose'"
+        return local backend "`_rm_backend'"
+        return local cmdline `"`_rm_cmdline'"'
+        return local cmd "rangematch"
+    }
+    if `rc' exit `rc'
 end

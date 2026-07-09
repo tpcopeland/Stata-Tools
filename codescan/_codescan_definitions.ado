@@ -1,6 +1,6 @@
-*! _codescan_definitions Version 2.0.8  2026/07/07
+*! _codescan_definitions Version 2.0.9  2026/07/09
 *! Private definition helpers for codescan
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 capture program drop _codescan_parse_define
 program define _codescan_parse_define, rclass
@@ -178,6 +178,47 @@ program define _codescan_apply_level, rclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     return local pattern `"`pattern'"'
+end
+
+capture program drop _codescan_validate_def_prefix
+program define _codescan_validate_def_prefix
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , NAME(string asis) PATtern(string asis) [EXCLusion(string asis)]
+
+    foreach _kind in pattern exclusion {
+        local _value `"``_kind''"'
+        local _value = subinstr(`"`macval(_value)'"', char(3), ",", .)
+        local _value = subinstr(`"`macval(_value)'"', char(2), ")", .)
+        local _value = subinstr(`"`macval(_value)'"', char(4), "(", .)
+        local _value = subinstr(`"`macval(_value)'"', char(1), `"""', .)
+        if `"`_value'"' == "" & "`_kind'" == "exclusion" continue
+
+        local _remaining `"`_value'"'
+        while `"`_remaining'"' != "" {
+            local _pipe = strpos(`"`_remaining'"', "|")
+            if `_pipe' > 0 {
+                local _token = strtrim(substr(`"`_remaining'"', 1, `_pipe' - 1))
+                local _remaining = substr(`"`_remaining'"', `_pipe' + 1, .)
+            }
+            else {
+                local _token = strtrim(`"`_remaining'"')
+                local _remaining ""
+            }
+            if `"`_token'"' == "" | (`_pipe' > 0 & `"`_remaining'"' == "") {
+                display as error "`_kind' for `name': empty prefix alternative in pattern: `_value'"
+                exit 198
+            }
+        }
+    }
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 * Drop first so a reload of this bundled file (loader re-runs it on partial-load)

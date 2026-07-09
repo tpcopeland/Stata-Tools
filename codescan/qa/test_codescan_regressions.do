@@ -8,7 +8,7 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 2.0.6
+*   T7: Version header reports the current package version
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T11: r(date) returned when date() specified (I8 fix)
@@ -235,10 +235,10 @@ capture noisily {
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.8") > 0
+    assert strpos("`_line1'", "2.0.9") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.8"
+    display as result "  PASS T7: version header is 2.0.9"
     local ++pass_count
 }
 else {
@@ -852,6 +852,214 @@ else {
 }
 
 
+* ============================================================
+* T26: nocase preserves regex escape semantics (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input str6 dx1
+    "123"
+    "ABC"
+    "a1"
+    end
+    codescan dx1, define(digit "\d") nocase
+    assert digit[1] == 1
+    assert digit[2] == 0
+    assert digit[3] == 0
+}
+if _rc == 0 {
+    display as result "  PASS T26: nocase leaves regex escapes intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T26: nocase regex escape semantics (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T27: merge preserves the caller's row order (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long seq long pid str4 dx1 long visit_dt
+    1 2 "E11" 2
+    2 1 "Z00" 2
+    3 2 "Z00" 1
+    4 1 "E11" 1
+    end
+    codescan dx1, define(hit "E11") id(pid) date(visit_dt) ///
+        merge countdate countrows cooccurrence
+    assert seq == _n
+}
+if _rc == 0 {
+    display as result "  PASS T27: merge preserves input row order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T27: merge row order (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T28: tostring scans through tempvars without recasting inputs (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long dx1
+    11
+    12
+    end
+    clonevar expected = dx1
+    local before_type : type dx1
+    codescan dx1, define(hit "11") tostring
+    assert dx1 == expected
+    local after_type : type dx1
+    assert "`before_type'" == "`after_type'"
+    assert hit[1] == 1 & hit[2] == 0
+}
+if _rc == 0 {
+    display as result "  PASS T28: tostring preserves numeric scan variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T28: tostring input preservation (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T29: describe accepts arbitrary code rownames and saves valid rules (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input str12 code
+    "A B"
+    "A B"
+    "A B"
+    "A/B"
+    "A/B"
+    "A-B"
+    end
+    codescan_describe code
+    matrix _TC = r(top_codes)
+    mata: st_local("_rn1", st_matrixrowstripe("_TC")[1,2])
+    assert `"`_rn1'"' == "A B"
+    matrix drop _TC
+
+    clear
+    input str4 code
+    "Å1"
+    "Å2"
+    "Ö1"
+    end
+    codescan_describe code
+    matrix _CH = r(chapters)
+    assert rowsof(_CH) == 2
+    matrix drop _CH
+
+    clear
+    input str4 code
+    "/A"
+    "-B"
+    end
+    tempfile _draft_base
+    local _draft "`_draft_base'.csv"
+    codescan_describe code, save("`_draft'")
+    import delimited using "`_draft'", clear stringcols(_all)
+    assert _N == 2
+    assert name[1] != name[2]
+    forvalues i = 1/2 {
+        local _nm = name[`i']
+        confirm name `_nm'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS T29: describe rownames and draft rule names are valid"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T29: describe arbitrary code names (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T30: prefix mode rejects empty alternatives (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input str4 dx1
+    "E11"
+    "Z00"
+    end
+    foreach _bad in "E11|" "|E11" "E11||E12" "E11| |E12" {
+        capture codescan dx1, define(hit `"`_bad'"') mode(prefix)
+        assert _rc == 198
+    }
+    capture codescan dx1, define(hit "E1" ~ "|E11") mode(prefix)
+    assert _rc == 198
+    codescan dx1, define(hit "E11|E12") mode(prefix)
+    assert hit[1] == 1 & hit[2] == 0
+}
+if _rc == 0 {
+    display as result "  PASS T30: empty prefix alternatives rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T30: empty prefix alternative guard (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T31: all file-path options reject unsafe metacharacters (2.0.9)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str4 dx1
+    1 "E11"
+    2 "Z00"
+    end
+    capture codescan dx1, define(hit "E11") save("bad;name.csv")
+    assert _rc == 198
+    capture codescan dx1, define(hit "E11") export("bad;name.csv")
+    assert _rc == 198
+    capture codescan dx1, define(hit "E11") id(pid) collapse saving("bad;name.dta")
+    assert _rc == 198
+    capture codescan dx1, codefile("bad;name.csv")
+    assert _rc == 198
+    capture codescan_describe dx1, save("bad;name.csv")
+    assert _rc == 198
+
+    * A comma inside an ordinarily quoted path is data, not a suboption split.
+    tempfile _comma_base
+    local _comma_save "`_comma_base',result.dta"
+    codescan dx1, define(hit "E11") id(pid) collapse ///
+        saving(`"`_comma_save'"', replace)
+    confirm file `"`_comma_save'"'
+}
+if _rc == 0 {
+    display as result "  PASS T31: unsafe file paths rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T31: file-path guards (rc=`=_rc')"
+    local ++fail_count
+}
 * ============================================================
 * Summary
 * ============================================================

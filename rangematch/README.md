@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.3.2, 07jul2026
+Version 1.3.3, 09jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -203,9 +203,10 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
-| `missing(wildcard|drop|error)` | Policy for master rows with a missing variable bound: `wildcard` (default) treats missing as open-ended on that side; `drop` removes those rows before matching; `error` aborts. Applies only to bound variables; literal `.` is unaffected. If `drop` empties an entire `by()` group from master, the corresponding using rows still surface under `unmatched(using|both)` and trip `assert(using)`. `r(N_master)` is the post-drop count; `r(N_master) + r(N_missing_bounds)` recovers the post-`if`/`in`, pre-drop master count. |
+| `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_using_missing)`. |
 | `nearest(before|after|both)` | Keep nearest using observations within the interval relative to the master key. |
-| `ties(all|first|last)` | Tie handling for `nearest()`; default is `all`. |
+| `ties(all|first|last|random)` | Tie handling for `nearest()`; `random` chooses one tied row uniformly. Default is `all`. |
+| `seed(#)` | Reproducible seed for `ties(random)`; the caller's RNG state is restored after the call. |
 | `assert(match|using)` | Abort if every master row must match (`match`), every using row must match (`using`), or both. |
 | `sort` | Sort output by original master row and using row; default. |
 | `nosort` | Skip the final output sort and leave rows in backend materialization order. |
@@ -225,6 +226,8 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(N_unmatched)` | Unmatched output rows |
 | `r(N_matched_pairs)` | Matched output rows |
 | `r(N_missing_bounds)` | Master rows with a missing variable bound for `low` or `high` |
+| `r(N_using_missing)` | Using rows with a missing point key or interval bound |
+| `r(N_using_inverted)` | Using intervals with inverted bounds in overlap mode; 0 otherwise |
 | `r(tolerance)` | Boundary-comparison tolerance used |
 
 | Match-density scalar, only with `stats` | Description |
@@ -251,6 +254,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(key)` | Parsed key variable |
 | `r(low)` | Parsed lower bound |
 | `r(high)` | Parsed upper bound |
+| `r(overlap)` | Using interval-bound variables, when `overlap()` is used |
 | `r(by)` | Parsed `by()` variables |
 | `r(keepusing)` | Parsed `keepusing()` variables |
 | `r(prefix)` | Parsed `prefix()` string |
@@ -262,6 +266,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(saving)` | Output filename, when `saving()` is used |
 | `r(nearest)` | Parsed nearest mode |
 | `r(ties)` | Parsed tie mode |
+| `r(seed)` | Seed value, when specified with `ties(random)` |
 | `r(sort)` | `sort`, when final output sorting is active |
 | `r(nosort)` | `nosort`, when specified |
 | `r(assert)` | Parsed `assert()` tokens |
@@ -275,11 +280,13 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(dryrun)` | `dryrun`, when specified |
 | `r(count)` | `count`, when specified |
 | `r(verbose)` | `verbose`, when specified |
-| `r(backend)` | Pair-generation backend selected: `sweep` or `binary` |
+| `r(backend)` | Pair-generation backend selected: `sweep`, `binary`, or `overlap` |
 
 ## Notes
 
-- Missing using keys never match.
+- Under `missing(wildcard)`, missing using point keys never match and missing
+  interval bounds are open-ended; `missing(drop|error)` applies symmetrically
+  to both data sources.
 - Literal `.` as a positional bound is open-ended.
 - Missing values in variable bounds are treated as open-ended on that side.
 - `frame(name)` is the safe exploratory mode: it preserves the current frame and writes output elsewhere.
@@ -368,39 +375,10 @@ Run the full release gate from `rangematch/qa`:
 stata-mp -b do run_all.do
 ```
 
-The `qa/` directory contains 888 counted assertions across 30 QA files:
-27 functional test files and 3 validation files.
-
-- `test_documentation_examples.do` - 28 tests
-- `test_install.do` - 5 tests
-- `test_rangematch_abbrev.do` - 1 test
-- `test_rangematch_adversarial.do` - 64 tests
-- `test_rangematch_backend_equivalence.do` - 15 tests
-- `test_rangematch_basic.do` - 26 tests
-- `test_rangematch_by.do` - 17 tests
-- `test_rangematch_display_contract.do` - 1 test
-- `test_rangematch_missing.do` - 16 tests
-- `test_rangematch_missing_option.do` - 18 tests
-- `test_rangematch_missing_option_extra.do` - 31 tests
-- `test_rangematch_overlap.do` - 44 tests
-- `test_rangematch_return_contract.do` - 79 tests
-- `test_rangematch_routing_contract.do` - 33 tests
-- `test_rangematch_saving_matrix.do` - 22 tests
-- `test_rangematch_v101.do` - 4 tests
-- `test_rangematch_v110.do` - 98 tests
-- `test_rangematch_v120.do` - 47 tests
-- `test_rangematch_v130.do` - 45 tests
-- `test_rangematch_v140.do` - 49 tests
-- `test_rangematch_v141.do` - 21 tests
-- `test_rangematch_v144.do` - 33 tests
-- `test_rangematch_v145.do` - 84 tests
-- `test_rangematch_v147.do` - 15 tests
-- `test_rangematch_v148.do` - 24 tests
-- `test_rangematch_v16compat.do` - 0 tests
-- `test_release_integrity.do` - 9 tests
-- `validation_rangematch_manual.do` - 26 validations
-- `validation_rangematch_nearest.do` - 7 validations
-- `validation_rangematch_oracle.do` - 26 validations
+The curated `quick` lane runs every functional, regression, installed-user,
+documentation, and release-surface suite. The default `full` lane adds all
+hand-computable validation suites. See [`qa/README.md`](qa/README.md) for the
+complete file index, coverage map, and lane membership.
 
 ## Benchmark
 
@@ -435,6 +413,27 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.3.3 (2026-07-09)
+
+- **Fixed: `maxpairs()` did not cap unmatched master rows.** All three Mata
+  backends now enforce the output-row limit before emitting every master-only
+  row, including all-unmatched and inverted-master-interval joins.
+- **Fixed: user session objects with internal-looking names were clobbered.**
+  `rangematch` no longer drops user matrices named `__rm_mi`/`__rm_ui`; it
+  detects pre-existing `__rm_*` workspace frames and aborts without changing
+  them; and `verbose` allocates unused timers instead of clearing timers 91--93.
+- **Fixed: `generate()` could overwrite a user value-label definition named
+  `__rm_merge`.** The match indicator now uses an unused private label name
+  while preserving the documented label text.
+- **Fixed: an explicitly repeated `by()` variable in `keepusing()` was carried
+  twice despite the documented one-copy contract.** By-variables are now
+  excluded from carried using variables in every naming mode.
+- Invalid variable names constructed by `prefix()`/`suffix()` now fail early
+  with an actionable message. Analytical `r()` results are posted from a
+  cleanup-safe return gate, including after a late output-side failure.
+- Synchronized the README option/result tables and expanded regression QA for
+  the state-safety, output-contract, and all-backend `maxpairs()` fixes.
 
 ### 1.3.2 (2026-07-07)
 

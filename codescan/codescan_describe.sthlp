@@ -116,10 +116,12 @@ variables are rejected — convert them first with {helpb compress} or
 {phang}
 {opt save(filename)} writes a draft CSV codefile based on the chapter summary.
 The file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and
-{cmd:label}.  Each row is a first-character chapter such as {cmd:chapter_E},
+{cmd:label}.  Each row is a first-character chapter such as {cmd:chapter_E}.
+Punctuation chapter characters are converted to valid, unique Stata names,
 which you can open in a spreadsheet and refine into real scan rules before
 using with {helpb codescan:codescan, codefile()}.  The filename must end in
-{cmd:.csv}.
+{cmd:.csv}; quotes, shell metacharacters, and control characters inside the
+filename are rejected.
 
 
 {marker remarks}{...}

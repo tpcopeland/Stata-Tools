@@ -1,6 +1,6 @@
-*! codescan Version 2.0.8  2026/07/07
+*! codescan Version 2.0.9  2026/07/09
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 *! Requires: Stata 16.0+
 
@@ -128,6 +128,11 @@ program define codescan, rclass
         exit 198
     }
 
+    * Guard every user-supplied file path before any file operation.
+    if `"`codefile'"' != "" {
+        _codescan_validate_path, path(`"`codefile'"') context(codefile())
+    }
+
     * Reject a variable that appears more than once in varlist (directly or via
     * overlapping ranges like dx1-dx5 dx3-dx8). A repeated scan column is read
     * once per occurrence, so under countmode/countrows/detail its codes are
@@ -235,6 +240,7 @@ program define codescan, rclass
 
     * Export validation
     if `"`export'"' != "" {
+        _codescan_validate_path, path(`"`export'"') context(export())
         local _exp_ext = lower(substr(`"`export'"', -4, .))
         local _exp_ext5 = lower(substr(`"`export'"', -5, .))
         if "`_exp_ext'" != ".csv" & "`_exp_ext'" != ".xlsx" & "`_exp_ext5'" != ".xlsx" {
@@ -261,8 +267,20 @@ program define codescan, rclass
             display as error "saving() requires collapse or merge"
             exit 198
         }
-        * Split filename from suboptions at first comma
-        local _comma_pos = strpos(`"`saving'"', ",")
+        * Split filename from suboptions at the first comma outside quotes, so
+        * a quoted filename may itself contain a comma.
+        local _saving_len = length(`"`saving'"')
+        local _comma_pos = 0
+        local _saving_in_quotes = 0
+        forvalues _c = 1/`_saving_len' {
+            if substr(`"`saving'"', `_c', 1) == char(34) {
+                local _saving_in_quotes = !`_saving_in_quotes'
+            }
+            else if substr(`"`saving'"', `_c', 1) == char(44) & !`_saving_in_quotes' {
+                local _comma_pos = `_c'
+                continue, break
+            }
+        }
         if `_comma_pos' > 0 {
             local _saving_fn  = strtrim(substr(`"`saving'"', 1, `_comma_pos' - 1))
             local _saving_sub = strtrim(substr(`"`saving'"', `_comma_pos' + 1, .))
@@ -291,6 +309,7 @@ program define codescan, rclass
             display as error "saving() requires a filename"
             exit 198
         }
+        _codescan_validate_path, path(`"`_saving_fn'"') context(saving())
     }
 
     * Validate date/refdate are numeric
@@ -384,6 +403,8 @@ program define codescan, rclass
     capture program list _codescan_validate_def_regex
     if _rc local _need_definitions_helper = 1
     capture program list _codescan_apply_level
+    if _rc local _need_definitions_helper = 1
+    capture program list _codescan_validate_def_prefix
     if _rc local _need_definitions_helper = 1
     if `_need_definitions_helper' {
         capture findfile _codescan_definitions.ado
@@ -489,6 +510,24 @@ program define codescan, rclass
             local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ")", char(2), .)
             local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ",", char(3), .)
             _codescan_validate_def_regex, ///
+                name(`macval(def_name_`i')') ///
+                pattern(`macval(_pat_arg)') ///
+                exclusion(`macval(_excl_arg)')
+        }
+    }
+    else {
+        forvalues i = 1/`n_conditions' {
+            local _pat_arg `"`macval(def_pattern_`i')'"'
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', `"""', char(1), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', "(", char(4), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ")", char(2), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ",", char(3), .)
+            local _excl_arg `"`macval(def_excl_`i')'"'
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', `"""', char(1), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', "(", char(4), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ")", char(2), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ",", char(3), .)
+            _codescan_validate_def_prefix, ///
                 name(`macval(def_name_`i')') ///
                 pattern(`macval(_pat_arg)') ///
                 exclusion(`macval(_excl_arg)')
@@ -647,6 +686,7 @@ program define codescan, rclass
     * SAVE DEFINE TO CSV (W3)
     * =========================================================================
     if `"`save'"' != "" {
+        _codescan_validate_path, path(`"`save'"') context(save())
         local _save_ext = lower(substr(`"`save'"', -4, .))
         if "`_save_ext'" != ".csv" {
             display as error "save() requires a .csv file extension"
@@ -707,15 +747,22 @@ program define codescan, rclass
     * =========================================================================
     * TOSTRING (auto-convert numeric variables)
     * =========================================================================
-    if "`tostring'" != "" {
-        foreach var of local varlist {
-            capture confirm string variable `var'
-            if _rc {
-                noisily display as text "(note: converting `var' from numeric to string)"
-                quietly tostring `var', replace force
-            }
+    local scan_varlist ""
+    local _scan_index = 0
+    foreach var of local varlist {
+        local ++_scan_index
+        capture confirm string variable `var'
+        if _rc {
+            noisily display as text "(note: converting `var' from numeric to string)"
+            tempvar _scan_string_`_scan_index'
+            quietly tostring `var', generate(`_scan_string_`_scan_index'') force
+            local scan_varlist "`scan_varlist' `_scan_string_`_scan_index''"
+        }
+        else {
+            local scan_varlist "`scan_varlist' `var'"
         }
     }
+    local scan_varlist = trim("`scan_varlist'")
 
     * Exclude missing id values from collapse/merge to prevent phantom grouping
     if "`collapse'" != "" | "`merge'" != "" {
@@ -774,7 +821,6 @@ program define codescan, rclass
     * NODOTS — handled inline in Mata scanner (no temp variables needed)
     * =========================================================================
     local nvars_scan : word count `varlist'
-    local scan_varlist "`varlist'"
 
     * =========================================================================
     * DETAIL SETUP — per-variable match tracking
@@ -1030,6 +1076,12 @@ program define codescan, rclass
     }
     else {
         local _has_sensitivity = 0
+    }
+
+    * Preserve the caller's row ordering across merge's internal bysort/collapse.
+    if "`merge'" != "" {
+        tempvar _merge_input_order
+        quietly gen long `_merge_input_order' = _n
     }
 
     * =========================================================================
@@ -1429,6 +1481,9 @@ program define codescan, rclass
 
     matrix colnames `summary' = count prevalence ci_low ci_high
     matrix rownames `summary' = `rnames'
+    if "`merge'" != "" {
+        quietly sort `_merge_input_order'
+    }
 
     if "`collapse'" != "" {
         display as text _n "  Collapsed to " as result %10.0fc `N_collapsed' ///
@@ -1808,11 +1863,10 @@ void _codescan_mata_scan()
         excl_patterns[i] = st_local("_mata_excl_" + strofreal(i))
     }
 
-    // F1: nocase — uppercase patterns for case-insensitive matching.
-    // ustrupper() (not strupper()) folds unicode case correctly (e.g. å→Å),
-    // matching the unicode-aware ustrregexm() engine used below. Values are
-    // folded with ustrupper() at scan time (see below) so both sides agree.
-    if (use_nocase) {
+    // F1: prefix nocase uses unicode-aware case folding. Regex nocase is
+    // implemented with ICU's inline (?i) flag below so escapes such as \d are
+    // never corrupted by uppercasing the pattern to \D.
+    if (use_nocase & is_prefix) {
         for (i = 1; i <= ncond; i++) {
             patterns[i] = ustrupper(patterns[i])
             if (excl_patterns[i] != "") {
@@ -1826,9 +1880,9 @@ void _codescan_mata_scan()
         anchored_pats = J(ncond, 1, "")
         anchored_excl = J(ncond, 1, "")
         for (i = 1; i <= ncond; i++) {
-            anchored_pats[i] = "^(" + patterns[i] + ")"
+            anchored_pats[i] = (use_nocase ? "(?i)^(" : "^(") + patterns[i] + ")"
             if (excl_patterns[i] != "") {
-                anchored_excl[i] = "^(" + excl_patterns[i] + ")"
+                anchored_excl[i] = (use_nocase ? "(?i)^(" : "^(") + excl_patterns[i] + ")"
             }
         }
     }
@@ -1900,7 +1954,7 @@ void _codescan_mata_scan()
             val = col[i]
             if (strip_dots) val = subinstr(val, ".", "", .)
             if (val == "") continue
-            if (use_nocase) val = ustrupper(val)
+            if (use_nocase & is_prefix) val = ustrupper(val)
             if (asarray(A, val) == 0) asarray(A, val, 1)
         }
     }
@@ -1978,7 +2032,7 @@ void _codescan_mata_scan()
             val = col[i]
             if (strip_dots) val = subinstr(val, ".", "", .)
             if (val == "") continue
-            if (use_nocase) val = ustrupper(val)
+            if (use_nocase & is_prefix) val = ustrupper(val)
             didx = asarray(A, val)
             // Values that match no condition (common: codes in untargeted
             // chapters) skip the condition loop entirely.

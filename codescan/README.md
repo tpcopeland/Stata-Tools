@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.8** | 2026-07-07
+**Version 2.0.9** | 2026-07-09
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -282,7 +282,7 @@ codescan: 6 conditions, 4 variables, N =      1,500
 - **Regex vs. prefix:** `mode(regex)` (default) supports character classes and alternation.  `mode(prefix)` uses simple starts-with comparisons and is usually faster.
 - **Exclusion patterns:** use `~` after the inclusion pattern, e.g. `define(dm2 "E11" ~ "E116")`.  Multiple exclusions are allowed: `define(x "A" ~ "A1" ~ "A2")`.
 - **nodots:** strips periods during matching without modifying the stored data.
-- **nocase:** uppercases patterns and code values internally for case-insensitive matching.
+- **nocase:** performs unicode-aware case-insensitive matching without rewriting regex escapes such as `\d`.
 - **tostring:** converts numeric code variables to string before scanning; original data are restored afterward.
 - **collapse vs. merge:** `collapse` creates one row per `id()`.  `merge` attaches patient-level results back to the original row structure.
 - **alldates:** shorthand for `earliestdate`, `latestdate`, and `countdate`.  These create `_first`, `_last`, and `_count` date-summary variables.
@@ -330,7 +330,52 @@ Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched c
 
 Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable codefile.  Use `saving(results.dta, replace)` for the final transformed dataset; the two option names deliberately do different jobs.
 
-## Output Reference
+## Options
+
+| Option | Purpose |
+|--------|---------|
+| `define()` | Supply inline condition rules |
+| `codefile()` | Read condition rules from CSV or `.dta` |
+| `id()` | Identify patients/entities for `collapse` or `merge` |
+| `date()` | Supply the row-level event date |
+| `refdate()` | Supply the reference date for windows |
+| `lookback()` | Restrict matching to one or more backward windows |
+| `lookforward()` | Restrict matching to a forward window |
+| `inclusive` | Include the reference date in a one-direction window |
+| `earliestdate` | Create `<condition>_first` |
+| `latestdate` | Create `<condition>_last` |
+| `countdate` | Create `<condition>_count` for unique matching dates |
+| `countrows` | Create `<condition>_nrows` for matching rows/hits |
+| `alldates` | Request all three date-summary outputs |
+| `label()` | Assign human-readable condition labels |
+| `collapse` | Reduce to one row per `id()` |
+| `merge` | Broadcast patient-level results back to original rows |
+| `mode()` | Choose `regex` (default) or `prefix` matching |
+| `replace` | Permit replacement of planned outputs or frames |
+| `noisily` | Display per-condition match totals |
+| `detail` | Return per-variable match contributions |
+| `nodots` | Remove dots while matching/tabulating |
+| `tostring` | Scan numeric codes through temporary strings |
+| `preserve` | Restore the active data after patient-level processing |
+| `frame()` | Store results in a named frame and imply `preserve` |
+| `cooccurrence` | Return pairwise condition co-occurrence counts |
+| `nocase` | Use unicode-aware case-insensitive matching |
+| `generate()` | Prefix created variable names |
+| `unmatched()` | Create a row-level no-match flag |
+| `matched_code()` | Store the first matching code on each row |
+| `level()` | Truncate prefix tokens to a fixed length |
+| `graph` | Draw a prevalence bar chart |
+| `export()` | Write the summary to CSV or Excel |
+| `save()` | Write reusable definitions (or describe chapters) to CSV |
+| `saving()` | Save the transformed result dataset |
+| `format()` | Set the prevalence/CI display format |
+| `countmode` | Store code-slot counts instead of binary indicators |
+| `top()` | Set the number of codes shown by `codescan_describe` |
+
+File options reject quotes, shell metacharacters, and control characters inside
+filenames. Ordinary quoted paths containing spaces or hyphens are supported.
+
+## Stored Results
 
 `codescan` creates one variable per condition.  Without `countmode`, those variables are 0/1 indicators.  With `countmode`, they are integer counts of matching code slots.  With `collapse` or `merge`, optional date/count variables are added as requested:
 
@@ -341,9 +386,47 @@ Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable code
 | `countdate` | `<condition>_count` for unique dates |
 | `countrows` | `<condition>_nrows` for matching rows or code-slot hits under `countmode` |
 
-Important returned results include `r(summary)` with count, prevalence, and Wilson confidence interval columns; `r(codelist)` with count and prevalence; `r(varcounts)` when `detail` is used; `r(cooccurrence)` when `cooccurrence` is used; and `r(sensitivity)` for multi-window `lookback()` analyses.
+`codescan` returns:
 
-`codescan_describe` returns `r(top_codes)` with columns `frequency`, `percent`, and `cumul_pct`, and `r(chapters)` with columns `codes` and `entries`.  These are useful for automated checks before freezing a code dictionary.
+| Result | Meaning |
+|--------|---------|
+| `r(N)` | Analyzed rows or unique IDs |
+| `r(n_conditions)` | Number of conditions |
+| `r(collapsed)` | Whether `collapse` ran |
+| `r(merged)` | Whether `merge` ran |
+| `r(mode_count)` | Whether `countmode` was used |
+| `r(conditions)` | Condition names |
+| `r(newvars)` | Created variables remaining in memory |
+| `r(varlist)` | Scanned variables |
+| `r(mode)` | Matching mode |
+| `r(nocase)` | Case-insensitive mode marker |
+| `r(generate)` | Output prefix |
+| `r(define)` | Inline definition text |
+| `r(codefile)` | Codefile path |
+| `r(id)` | ID variable |
+| `r(date)` | Event-date variable |
+| `r(lookback)` | Lookback value(s) |
+| `r(lookforward)` | Lookforward value |
+| `r(refdate)` | Reference-date variable |
+| `r(n_excluded_missingdate)` | Rows excluded for missing window dates |
+| `r(frame)` | Result frame name |
+| `r(ci_level)` | Confidence level |
+| `r(summary)` | Counts, prevalence, and Wilson CI |
+| `r(codelist)` | Counts and prevalence |
+| `r(varcounts)` | Per-variable match counts |
+| `r(cooccurrence)` | Pairwise co-occurrence matrix |
+| `r(sensitivity)` | Multi-window prevalence matrix |
+
+`codescan_describe` returns:
+
+| Result | Meaning |
+|--------|---------|
+| `r(n_unique)` | Number of unique nonempty codes |
+| `r(n_entries)` | Number of nonempty code entries |
+| `r(n_vars)` | Number of variables scanned |
+| `r(varlist)` | Variables scanned |
+| `r(top_codes)` | Frequency, percent, and cumulative-percent table |
+| `r(chapters)` | Code and entry counts by first character |
 
 ## Troubleshooting
 
@@ -359,14 +442,17 @@ Important returned results include `r(summary)` with count, prevalence, and Wils
 ## Validation
 
 The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`,
-`core`, and `full` lanes. The full lane currently includes 11 functional test
-files and 9 validation files, for 563 tests:
+`core`, and `full` lanes. The full lane currently includes 14 functional test
+files and 11 validation files, for 641 tests:
 
 - `test_codescan.do` - 308 tests
 - `test_codescan_adversarial.do` - 11 tests
 - `test_codescan_describe_adversarial.do` - 9 tests
 - `test_codescan_install_docs.do` - 11 tests
-- `test_codescan_regressions.do` - 18 tests
+- `test_codescan_regressions.do` - 30 tests
+- `test_codescan_perf_equiv.do` - 5 tests
+- `test_codescan_v203_hardening.do` - 14 tests
+- `test_codescan_v208.do` - 4 tests
 - `test_codescan_stress_adversarial.do` - 6 tests
 - `test_codescan_v2_no_scoring.do` - 4 tests
 - `test_countrows.do` - 24 tests
@@ -377,6 +463,8 @@ files and 9 validation files, for 563 tests:
 - `validation_codescan_crosscheck.do` - 33 validations
 - `validation_codescan_describe.do` - 6 validations
 - `validation_codescan_describe_adversarial.do` - 9 validations
+- `validation_codescan_dgp_recovery.do` - 23 validations
+- `validation_codescan_dgp_recovery2.do` - 19 validations
 - `validation_codescan_io.do` - 5 validations
 - `validation_codescan_known_answers.do` - 8 validations
 - `validation_codescan_output.do` - 3 validations
@@ -384,6 +472,14 @@ files and 9 validation files, for 563 tests:
 - `validation_mata.do` - 8 validations
 
 ## Changelog
+
+### 2.0.9 (2026-07-09)
+
+- **Bugfix:** `nocase` in regex mode now uses ICU's case-insensitive flag instead of uppercasing the regex text, which changed escapes such as `\d` into their opposites (`\D`). Prefix matching retains unicode-aware case folding.
+- **Bugfix:** `merge` restores the caller's original row order after its internal grouping and patient-level joins.
+- **Bugfix:** `codescan, tostring` now scans numeric code variables through temporary strings and leaves their original storage types and values unchanged.
+- **Bugfix:** `codescan_describe` now quotes arbitrary code values used as matrix row names, uses unicode characters for chapter grouping, and writes valid unique condition names for punctuation chapters.
+- **Hardening:** malformed empty alternatives are rejected in prefix rules, and every file-path option rejects unsafe shell/control characters. QA adds six proven-fail regression cases.
 
 ### 2.0.8 (2026-07-07)
 
