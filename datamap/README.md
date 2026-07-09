@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.5.1** | 2026-07-08
+**Version 1.5.2** | 2026-07-09
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -238,7 +238,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.5.1",
+  "datamap_version": "1.5.2",
   "format": "json",
   "datasets": [
     {
@@ -523,6 +523,12 @@ The suite covers all four public commands with 14 QA files: 12 functional test f
 - `validation_datamvp.do` - 60 validations
 
 ## Changelog
+
+### 1.5.2 (2026-07-09)
+
+- Fix `format(json)` aborting with `r(198)` whenever a reported number was negative and smaller than 1 in magnitude (any continuous variable with, say, a mean of `-0.03`). JSON output was unusable on most real datasets.
+- Large datasets now map several times faster. Classification counted distinct values with `tabulate`, which builds a full frequency table and aborts above ~12k levels, then fell back to `duplicates report`, which sorts the whole dataset once per variable. Both are replaced by a single-column `uniqrows()` count. On a 500k x 60 dataset, `datamap` drops from ~25s to ~9s; the classification pass itself drops from ~20s to ~4s.
+- Fix inflated `unique_values` for high-cardinality numeric variables containing missing values: the `duplicates report` fallback counted `.` and `.a`-`.z` as distinct values, while low-cardinality variables (counted with `tabulate`) excluded them. All numeric counts now exclude missing.
 
 ### 1.5.1 (2026-07-08)
 

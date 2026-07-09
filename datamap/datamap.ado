@@ -1,4 +1,4 @@
-*! datamap Version 1.5.1  2026/07/08
+*! datamap Version 1.5.2  2026/07/09
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1375,7 +1375,7 @@ program define _datamap_json_number, rclass
 		local number "0`number'"
 	}
 	else if substr("`number'", 1, 2) == "-." {
-		local number "-0" + substr("`number'", 2, .)
+		local number = "-0" + substr("`number'", 2, .)
 	}
 	return local number "`number'"
 end
@@ -2456,13 +2456,14 @@ end
 capture program drop _datamap_ndistinct
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+// Thin wrapper over _datamap_nuniq, which counts distinct values without the
+// full-dataset sort that -egen tag()- required.  Missing (and "" for strings)
+// stay uncounted, as they were under the `if !missing(v)' restriction.
 program define _datamap_ndistinct, rclass
 	version 16.0
 	args v
-	tempvar tg
-	quietly egen byte `tg' = tag(`v') if !missing(`v')
-	quietly count if `tg' == 1
-	return scalar n = r(N)
+	_datamap_nuniq `v'
+	return scalar n = r(n)
 end
 
 // Detect panel/longitudinal data structure

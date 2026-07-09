@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.5.1  2026/07/08
+*! _datamap_classify Version 1.5.2  2026/07/09
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -117,8 +117,10 @@ program define _datamap_classify, rclass
             // variable's cardinality, max length, or frequency distribution.
             if !`isexcluded' {
                 if strpos("`vtype'", "str") == 1 {
-                    capture quietly duplicates report `vname'
-                    if _rc == 0 local nuniq = r(unique_value)
+                    // countempty: "" has always counted as a distinct value
+                    // here, matching the -duplicates report- this replaced.
+                    capture _datamap_nuniq `vname', countempty
+                    if _rc == 0 local nuniq = r(n)
 
                     tempvar _slen
                     quietly gen double `_slen' = length(`vname')
@@ -127,14 +129,10 @@ program define _datamap_classify, rclass
                     quietly drop `_slen'
                 }
                 else {
-                    capture quietly tab `vname'
+                    capture _datamap_nuniq `vname'
                     if _rc == 0 {
-                        local nuniq = r(r)
-                        if `detect_binary' & r(r) == 2 local is_binary = 1
-                    }
-                    else {
-                        capture quietly duplicates report `vname'
-                        if _rc == 0 local nuniq = r(unique_value)
+                        local nuniq = r(n)
+                        if `detect_binary' & `nuniq' == 2 local is_binary = 1
                     }
                 }
             }
