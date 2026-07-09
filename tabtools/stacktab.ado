@@ -51,6 +51,8 @@ program define stacktab, rclass
         }
         _tabtools_require_helpers
 
+        tempvar _xblock _xorder _rowid
+
         if !strmatch(lower(`"`using'"'), "*.xlsx") {
             display as error "using file must have a .xlsx extension"
             exit 198
@@ -87,9 +89,6 @@ program define stacktab, rclass
                 local `opt' = substr(`"``opt''"', 2, strlen(`"``opt''"') - 2)
             }
         }
-        local csv = subinstr(`"`csv'"', `"""', "", .)
-        local csv = subinstr(`"`csv'"', char(96), "", .)
-        local csv = subinstr(`"`csv'"', char(39), "", .)
         if `"`csv'"' != "" & !strmatch(lower(`"`csv'"'), "*.csv") {
             display as error "csv() must have .csv extension"
             exit 198
@@ -286,15 +285,15 @@ program define stacktab, rclass
                     local ++vnum
                     rename `v' _xcol`vnum'
                 }
-                quietly gen long _xblock = `b'
-                quietly gen long _xorder = _n
+                quietly gen long `_xblock' = `b'
+                quietly gen long `_xorder' = _n
                 quietly gen byte `section_marker' = (_n == 1)
 
                 if `spacing' > 0 & `b' < `n_blocks' {
                     local old_n = _N
                     quietly set obs `=`old_n' + `spacing''
-                    quietly replace _xblock = `b' if missing(_xblock)
-                    quietly replace _xorder = _n if missing(_xorder)
+                    quietly replace `_xblock' = `b' if missing(`_xblock')
+                    quietly replace `_xorder' = _n if missing(`_xorder')
                     quietly replace `section_marker' = 0 ///
                         if missing(`section_marker')
                     forvalues si = `=`old_n' + 1'/`=_N' {
@@ -335,14 +334,14 @@ program define stacktab, rclass
                     rename `v' _xcol`new_col'
                 }
                 local hstack_next_col = `hstack_next_col' + `nvars'
-                quietly gen long _rowid = _n
+                quietly gen long `_rowid' = _n
 
                 if `composite_n' == 0 {
                     tempfile composite
                     quietly save `"`composite'"', replace
                 }
                 else {
-                    quietly merge 1:1 _rowid using `"`composite'"', nogen
+                    quietly merge 1:1 `_rowid' using `"`composite'"', nogen
                     quietly save `"`composite'"', replace
                 }
                 local composite_ncols = `hstack_next_col' - 1
@@ -352,12 +351,12 @@ program define stacktab, rclass
 
         quietly use `"`composite'"', clear
         if "`layout'" == "vstack" {
-            sort _xblock _xorder
-            drop _xblock _xorder
+            sort `_xblock' `_xorder'
+            drop `_xblock' `_xorder'
         }
         else {
-            sort _rowid
-            drop _rowid
+            sort `_rowid'
+            drop `_rowid'
         }
         local section_rows ""
         capture confirm variable `section_marker'
@@ -372,8 +371,8 @@ program define stacktab, rclass
             local section_rows = strtrim("`section_rows'")
             drop `section_marker'
         }
-        capture confirm variable _xblock
-        if !_rc drop _xblock
+        capture confirm variable `_xblock'
+        if !_rc drop `_xblock'
         forvalues cn = 1/`composite_ncols' {
             capture confirm variable _xcol`cn'
             if _rc == 0 {

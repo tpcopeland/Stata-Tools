@@ -1897,11 +1897,9 @@ if `r_strata_available' {
         clear
 
     * C51: Strata coefficients vs crr cengroup
-    * Note: Strata results show ~0.002 coef difference (vs exact match unstratified).
-    * This reflects different KM censoring implementations: finegray uses sts generate
-    * (Nelson-Aalen) within strata, cmprsk::crr cengroup uses its own internal KM.
-    * Both estimate the same quantity but diverge at finite precision, especially
-    * with small strata (pelnode ~30-40 per group in n=109 hypoxia data).
+    * This is a regression gate for group-specific IPCW numerators: using one
+    * pooled competing-event accumulator shifts tumsize by about .002 in this
+    * dataset even though each stratum's censoring KM is otherwise correct.
     local ++test_count
     local t51_pass = 1
     foreach var in ifp tumsize {
@@ -1921,14 +1919,14 @@ if `r_strata_available' {
         local adiff = abs(`s_coef' - `r_coef')
         display as text "  strata coef[`var']: Stata=" %10.6f `s_coef' ///
             " R(cengroup)=" %10.6f `r_coef' " diff=" %8.6f `adiff'
-        if `adiff' >= 0.01 {
-            display as error "  FAIL [C51.`var']: diff `adiff' >= 0.01"
+        if `adiff' >= 1e-6 {
+            display as error "  FAIL [C51.`var']: diff `adiff' >= 1e-6"
             local t51_pass = 0
         }
     }
     if `t51_pass' {
         display as result ///
-            "  PASS: C51 strata coefficients vs crr cengroup (< 0.01)"
+            "  PASS: C51 strata coefficients vs crr cengroup (< 1e-6)"
         local ++pass_count
     }
     else {
@@ -1956,14 +1954,14 @@ if `r_strata_available' {
         local rdiff = abs(`s_se' - `r_se') / `r_se'
         display as text "  strata se[`var']: Stata=" %10.6f `s_se' ///
             " R(cengroup)=" %10.6f `r_se' " rel_diff=" %6.3f `rdiff'
-        if `rdiff' >= 0.15 {
-            display as error "  FAIL [C52.`var']: rel_diff `rdiff' >= 0.15"
+        if `rdiff' >= 0.001 {
+            display as error "  FAIL [C52.`var']: rel_diff `rdiff' >= 0.001"
             local t52_pass = 0
         }
     }
     if `t52_pass' {
         display as result ///
-            "  PASS: C52 strata robust SEs vs crr cengroup (< 15%)"
+            "  PASS: C52 strata robust SEs vs crr cengroup (< 0.1%)"
         local ++pass_count
     }
     else {
@@ -1982,11 +1980,11 @@ if `r_strata_available' {
         local rdiff = abs(`ll_strata_stata' - `r_ll') / abs(`r_ll')
         display as text "  strata loglik: Stata=" %12.4f `ll_strata_stata' ///
             " R(cengroup)=" %12.4f `r_ll' " rel_diff=" %8.6f `rdiff'
-        assert `rdiff' < 0.001
+        assert `rdiff' < 1e-6
     }
     if _rc == 0 {
         display as result ///
-            "  PASS: C53 strata log-likelihood vs crr cengroup (< 0.1%)"
+            "  PASS: C53 strata log-likelihood vs crr cengroup (< 1e-6 relative)"
         local ++pass_count
     }
     else {
@@ -2028,14 +2026,14 @@ if `r_strata_available' {
         local adiff = abs(`s_cif' - `r_cif')
         display as text "  strata CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' ///
             " R(cengroup)=" %8.6f `r_cif' " diff=" %8.6f `adiff'
-        if `adiff' >= 0.02 {
-            display as error "  FAIL [C54.t`tt']: diff `adiff' >= 0.02"
+        if `adiff' >= 1e-5 {
+            display as error "  FAIL [C54.t`tt']: diff `adiff' >= 1e-5"
             local t54_pass = 0
         }
     }
     if `t54_pass' {
         display as result ///
-            "  PASS: C54 strata CIF at z=0 vs crr cengroup (< 0.02)"
+            "  PASS: C54 strata CIF at z=0 vs crr cengroup (< 1e-5)"
         local ++pass_count
     }
     else {

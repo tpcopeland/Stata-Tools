@@ -241,6 +241,29 @@ else {
 }
 
 * =====================================================================
+**# T5b: power MCSE uses nonmissing rejection denominator
+* =====================================================================
+capture noisily {
+    _simtab_make_data, reps(80) estimands(1)
+    keep if emd == 1
+    replace pval = . if estid == 1 & sim <= 20
+    simtab estid, by(sc) estimate(est) se(se) true(truev) metrics(power n) ///
+        pvalue(pval) plotframe(pf_pm, replace) display
+    frame pf_pm: quietly summarize n if estimator_value == 1, meanonly
+    assert r(mean) == 80
+    frame pf_pm: assert reldif(mcse_power, ///
+        sqrt(power * (1 - power) / 60)) < 1e-10 if estimator_value == 1
+}
+if _rc == 0 {
+    display as result "  PASS T5b: power MCSE denominator"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T5b (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =====================================================================
 **# T6: nsim() -> nonconv / nfail / pctfail correctness
 * =====================================================================
 capture noisily {
@@ -384,6 +407,30 @@ restore
 * bad xlsx extension
 capture simtab estid, estimate(est) se(se) true(truev) xlsx("bad.txt")
 if _rc == 0 local err_ok = 0
+* interval bounds must be paired and ordered
+capture simtab estid, estimate(est) se(se) true(truev) lci(lo) display
+if _rc == 0 local err_ok = 0
+preserve
+replace lo = hi + 1 in 1
+capture simtab estid, estimate(est) se(se) true(truev) lci(lo) uci(hi) display
+if _rc == 0 local err_ok = 0
+restore
+* binary indicators and p-values must honor their documented domains
+preserve
+replace covered = 2 in 1
+capture simtab estid, estimate(est) se(se) true(truev) coverage(covered) display
+if _rc == 0 local err_ok = 0
+restore
+preserve
+replace rej = -1 in 1
+capture simtab estid, estimate(est) se(se) true(truev) metrics(power) reject(rej) display
+if _rc == 0 local err_ok = 0
+restore
+preserve
+replace pval = 1.1 in 1
+capture simtab estid, estimate(est) se(se) true(truev) metrics(power) pvalue(pval) display
+if _rc == 0 local err_ok = 0
+restore
 if `err_ok' {
     display as result "  PASS T10: error paths fire"
     local ++pass_count

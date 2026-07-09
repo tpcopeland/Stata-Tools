@@ -34,7 +34,7 @@
 {synopt:{opt sch:oenfeld}}Schoenfeld residuals at cause-event times{p_end}
 {synopt:{opth time:var(varname)}}use {it:varname} instead of {cmd:_t} for time{p_end}
 {synopt:{opt ci}}also generate CIF confidence limits ({it:newvar}{cmd:_lci}, {it:newvar}{cmd:_uci}){p_end}
-{synopt:{opt boot:strap(#)}}compute the {opt ci} limits by subject bootstrap with {it:#} replications (exact){p_end}
+{synopt:{opt boot:strap(#)}}compute bootstrap-based {opt ci} limits with {it:#} subject resamples{p_end}
 {synopt:{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
 {synopt:{opt l:evel(#)}}confidence level for {opt ci}; default {cmd:level(95)}{p_end}
 {synoptline}
@@ -93,6 +93,13 @@ models fit with factor variables or interactions, the current data must
 preserve the same factor-level support as the estimation sample. If a factor
 level has been dropped (e.g., by {cmd:drop if}), prediction will fail with an
 informative error.
+
+{pstd}
+The {opt ci} and {opt schoenfeld} paths verify that the original estimation
+sample and its model variables are unchanged. If those data have been edited,
+the command exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run.
+Point predictions with {opt xb}, and point {opt cif} predictions without
+{opt ci}, remain available on compatible new data.
 
 {pstd}
 {bf:Data requirements by prediction type:} {opt xb} predictions can be
@@ -177,9 +184,11 @@ see {helpb finegray_cif}.
 {phang}
 {opt bootstrap(#)} (with {opt ci}) computes the confidence limits by a subject
 bootstrap with {it:#} replications instead of the analytic influence-function
-SE. Each replication resamples subjects with replacement and refits; the band
-is exact and accounts for estimation of the censoring weights. The point
-predictions are unchanged and the original {cmd:e()} results are preserved.
+SE. Each replication resamples subjects with replacement and refits;
+nonconverged refits are skipped and at least two successful replications are
+required. The interval includes uncertainty from estimation of the censoring
+weights. Point predictions are unchanged, and the original {cmd:e()} results
+and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()}.

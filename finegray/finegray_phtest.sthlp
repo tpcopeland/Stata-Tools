@@ -58,10 +58,11 @@ the underlying factor term names in output and {cmd:r(phtest)} rownames.
 
 {pstd}
 {bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on
-the estimation sample and therefore requires the original {cmd:stset} data —
-specifically {cmd:_t}, {cmd:_d}, and a nonempty estimation sample
-({cmd:e(sample)}). Unlike {cmd:finegray_predict, xb}, it cannot be run after
-loading a new dataset.
+the estimation sample and therefore requires the unchanged original {cmd:stset}
+data. It verifies a signature covering {cmd:_t}, {cmd:_t0}, {cmd:_d}, the event
+type, covariates, strata, cluster, and any persisted entry-time variable. If
+those data have changed, it exits with {cmd:r(459)}; re-run {cmd:finegray}.
+Unlike {cmd:finegray_predict, xb}, it cannot be run after loading a new dataset.
 
 
 {marker options}{...}

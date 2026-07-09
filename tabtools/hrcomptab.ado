@@ -7,13 +7,15 @@ program define hrcomptab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _userdata_saved 0
 
     tempfile _userdata_outer
     local _userdata_path "`_userdata_outer'"
 
-    quietly save "`_userdata_path'", emptyok
-
     capture noisily {
+
+        quietly save "`_userdata_path'", emptyok
+        local _userdata_saved 1
 
         capture putexcel close
 
@@ -963,7 +965,7 @@ program define hrcomptab, rclass
 
     local _rc = _rc
     if `_rc' {
-        quietly use "`_userdata_path'", clear
+        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
         set varabbrev `_orig_varabbrev'
         exit `_rc'
     }

@@ -1197,6 +1197,7 @@ capture noisily {
     collect clear
     collect: table rep78, statistic(mean price)
     local mdq "`outdir'/desctab_titleq.md"
+    capture erase "`mdq'"
     desctab, markdown("`mdq'") title(`"Q "x" Z"') footnote(`"F "y" G"')
     * read the title (### line) and footnote (*...* line)
     tempname fh
@@ -1213,14 +1214,15 @@ capture noisily {
         file read `fh' line
     }
     file close `fh'
-    * quotes stripped, content preserved (not empty, not corrupted)
-    assert `"`_title_line'"' == "### Q x Z"
-    assert `"`_foot_line'"'  == "*F y G*"
+    * embedded quotes round-trip through Markdown
+    assert `"`_title_line'"' == `"### Q "x" Z"'
+    assert `"`_foot_line'"'  == `"*F "y" G*"'
 
     * --- apostrophe preserved: markdown ---
     collect clear
     collect: table rep78, statistic(mean price)
     local mda "`outdir'/desctab_titlea.md"
+    capture erase "`mda'"
     desctab, markdown("`mda'") title(`"It's here"') footnote(`"Don't drop"')
     local _title_line ""
     local _foot_line ""
@@ -1242,9 +1244,10 @@ capture noisily {
     collect clear
     collect: table rep78, statistic(mean price)
     local xq "`outdir'/desctab_titleq.xlsx"
+    capture erase "`xq'"
     desctab, xlsx("`xq'") sheet("S") title(`"Q "x" Z"')
     import excel using "`xq'", sheet("S") clear allstring
-    assert A[1] == "Q x Z"
+    assert A[1] == `"Q "x" Z"'
 }
 if _rc == 0 {
     display as result "  PASS: quoted/apostrophe title & footnote round-trip"
@@ -1252,6 +1255,28 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: quoted title/footnote regression (rc=`=_rc')"
+    local ++fail
+}
+
+**# T44 failed Excel export does not claim a workbook path
+local ++total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: table rep78, statistic(mean price)
+    return clear
+    capture desctab, xlsx("`c(tmpdir)'/__missing_tabtools_dir__/bad.xlsx") sheet("S")
+    local _xrc = _rc
+    assert `_xrc' != 0
+    assert r(N_rows) > 0
+    assert `"`r(xlsx)'"' == ""
+}
+if _rc == 0 {
+    display as result "  PASS: unsuccessful export omits r(xlsx)"
+    local ++pass
+}
+else {
+    display as error "  FAIL: failed export r(xlsx) contract (rc=`=_rc')"
     local ++fail
 }
 

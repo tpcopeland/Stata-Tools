@@ -192,17 +192,17 @@ else {
 * {smcl}
 * {* SECTION 2: Model invariants}{...}
 
-* V7: Null covariate — near-zero beta
+* V7: Null covariate is rejected as unidentified
 local ++test_count
 capture noisily {
     _setup_hypoxia
     gen double null_x = 0
-    finegray null_x, compete(status) cause(1) nolog
-    assert abs(e(b)[1,1]) < 0.01
+    capture finegray null_x, compete(status) cause(1) nolog
+    assert _rc == 459
     drop null_x
 }
 if _rc == 0 {
-    display as result "  PASS: V7 null covariate near-zero beta"
+    display as result "  PASS: V7 null covariate rejected"
     local ++pass_count
 }
 else {
@@ -337,22 +337,17 @@ else {
     local ++fail_count
 }
 
-* V14: Constant covariate — other coefs unchanged
-* Note: constant covariate coefficient is numerically undefined (flat
-* likelihood surface), so we only test that the ifp coefficient is stable
+* V14: Constant covariate is rejected rather than ridge-regularized
 local ++test_count
 capture noisily {
     _setup_hypoxia
     gen double const_x = 5
-    finegray const_x ifp, compete(status) cause(1) nolog
-    local b_ifp_bivar = e(b)[1,2]
-    drop const_x
-    finegray ifp, compete(status) cause(1) nolog
-    local b_ifp_univar = e(b)[1,1]
-    assert abs(`b_ifp_bivar' - `b_ifp_univar') < 0.01
+    capture finegray const_x ifp, compete(status) cause(1) nolog
+    assert _rc == 459
+    assert `"`_dta[_finegray_estimated]'"' == ""
 }
 if _rc == 0 {
-    display as result "  PASS: V14 constant covariate stability"
+    display as result "  PASS: V14 constant covariate rejected"
     local ++pass_count
 }
 else {
@@ -971,19 +966,18 @@ else {
     local ++fail_count
 }
 
-* V38: Collinear covariates — regularization handles gracefully
+* V38: Collinear covariates are rejected rather than ridge-regularized
 local ++test_count
 capture noisily {
     _setup_hypoxia
     gen double ifp2 = ifp * 2
-    finegray ifp ifp2 tumsize, compete(status) cause(1) nolog
-    * Should converge (regularization kicks in) or at least not crash
-    confirm matrix e(b)
-    confirm matrix e(V)
+    capture finegray ifp ifp2 tumsize, compete(status) cause(1) nolog
+    assert _rc == 459
+    assert `"`_dta[_finegray_estimated]'"' == ""
     drop ifp2
 }
 if _rc == 0 {
-    display as result "  PASS: V38 collinear covariates handled"
+    display as result "  PASS: V38 collinear covariates rejected"
     local ++pass_count
 }
 else {

@@ -51,7 +51,7 @@ clear
 set obs 500
 set seed 456
 gen treatment = cond(runiform() < 0.5, 1, 0)
-gen time = rexponential(1/(3 + 2*treatment))
+gen time = rexponential(3 + 2*treatment)
 gen event = cond(runiform() < 0.7, 1, 0)
 replace time = min(time, 10)
 replace event = 0 if time >= 10
@@ -182,6 +182,27 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: survtab rmst(5) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* RMST must not extrapolate a group's final KM plateau beyond support.
+capture noisily {
+    use `survdata', clear
+    stset time, failure(event)
+    quietly summarize _t if treatment == 0 & _st, meanonly
+    local _max0 = r(max)
+    quietly summarize _t if treatment == 1 & _st, meanonly
+    local _common_max = min(`_max0', r(max))
+    capture survtab, times(1 3 5) by(treatment) rmst(`=`_common_max' + 1')
+    assert _rc == 198
+    survtab, times(1 3 5) by(treatment) rmst(`_common_max')
+}
+if _rc == 0 {
+    display as result "  PASS: survtab RMST common-support guard"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: survtab RMST common-support guard (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -536,7 +557,7 @@ gen byte _last_in_t = .
 gen double _n_risk_first = .
 gen double _tail_area = .
 gen double _gw_term = .
-capture noisily survtab, times(20 40) by(drug) rmst(40)
+capture noisily survtab, times(10 20) by(drug) rmst(20)
 local _rmst_rc = _rc
 * user variables must still be present after the call (preserve/restore)
 foreach v in _dt _area _n_at_risk _d_count _last_in_t _n_risk_first _tail_area _gw_term {
@@ -595,7 +616,7 @@ capture noisily {
     * drug has 3 levels; keep only 2 for rmst_diff
     keep if inlist(drug, 1, 2)
     stset studytime, failure(died)
-    survtab, times(10 20 30) by(drug) rmst(39)
+    survtab, times(10 20 30) by(drug) rmst(20)
     assert r(rmst_diff) < .
     assert r(rmst_1) < .
     assert r(rmst_2) < .
@@ -620,7 +641,7 @@ capture noisily {
     keep if inlist(drug, 1, 2)
     stset studytime, failure(died)
     capture frame drop _rmst_test
-    survtab, times(10 20) by(drug) rmst(39) difference frame(_rmst_test, replace)
+    survtab, times(10 20) by(drug) rmst(20) difference frame(_rmst_test, replace)
     frame _rmst_test {
         * Difference column should exist
         local _diff_col = 0
@@ -655,7 +676,7 @@ else {
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    survtab, times(10 20 30) by(drug) rmst(39)
+    survtab, times(10 20 30) by(drug) rmst(20)
     assert r(rmst_lb_1) < .
     assert r(rmst_ub_1) < .
     assert r(rmst_lb_2) < .
@@ -678,7 +699,7 @@ capture noisily {
     sysuse cancer, clear
     keep if inlist(drug, 1, 2)
     stset studytime, failure(died)
-    survtab, times(10 20 30) by(drug) rmst(39) difference
+    survtab, times(10 20 30) by(drug) rmst(20) difference
     assert r(rmst_diff_se) < .
     assert r(rmst_diff_se) > 0
     local d   = r(rmst_diff)
@@ -715,7 +736,7 @@ else {
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    survtab, times(10 20) by(drug) rmst(39)
+    survtab, times(10 20) by(drug) rmst(20)
     assert r(rmst_se_1) > 0
     assert r(rmst_se_2) > 0
     assert r(rmst_lb_1) < r(rmst_1)

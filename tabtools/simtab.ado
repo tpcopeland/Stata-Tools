@@ -365,6 +365,40 @@ program define simtab, rclass
                 exit 198
             }
 
+            * Paired interval inputs and indicator/range contracts.
+            if (`"`lci'"' != "") != (`"`uci'"' != "") {
+                display as error "lci() and uci() must be specified together"
+                exit 198
+            }
+            if `"`lci'"' != "" {
+                quietly count if `touse' & !missing(`lci', `uci') & `lci' > `uci'
+                if r(N) > 0 {
+                    display as error "lci() exceeds uci() in `r(N)' observation(s)"
+                    exit 198
+                }
+            }
+            if `"`coverage'"' != "" {
+                quietly count if `touse' & !missing(`coverage') & !inlist(`coverage', 0, 1)
+                if r(N) > 0 {
+                    display as error "coverage() must contain only 0, 1, or missing"
+                    exit 198
+                }
+            }
+            if `"`reject'"' != "" {
+                quietly count if `touse' & !missing(`reject') & !inlist(`reject', 0, 1)
+                if r(N) > 0 {
+                    display as error "reject() must contain only 0, 1, or missing"
+                    exit 198
+                }
+            }
+            if `"`pvalue'"' != "" {
+                quietly count if `touse' & !missing(`pvalue') & !inrange(`pvalue', 0, 1)
+                if r(N) > 0 {
+                    display as error "pvalue() must contain values between 0 and 1"
+                    exit 198
+                }
+            }
+
             * ----- true-value variable -----
             tempvar truev
             if `_true_isvar' {
@@ -464,7 +498,8 @@ program define simtab, rclass
             quietly gen double `sqdev' = (`estimate' - `truev')^2
 
             * ----- collapse to cell level -----
-            collapse (count) n=`estimate' (mean) m_mean=`estimate' m_meanse=`se' ///
+            collapse (count) n=`estimate' n_coverage=`covered' n_power=`rejected' ///
+                (mean) m_mean=`estimate' m_meanse=`se' ///
                 truev=`truev' m_coverage=`covered' m_power=`rejected' m_mse=`sqdev' ///
                 (sd) m_empse=`estimate' _sd_sqdev=`sqdev', ///
                 by(`byord' bylab `estord' estlab `emdord' emdlab)
@@ -498,8 +533,9 @@ program define simtab, rclass
             quietly gen double mc_mse      = _sd_sqdev/sqrt(n)
             quietly gen double mc_rmse     = .
             quietly replace    mc_rmse     = mc_mse/(2*m_rmse) if m_rmse > 0 & !missing(m_rmse)
-            quietly gen double mc_coverage = sqrt(m_coverage*(1-m_coverage)/n)
-            quietly gen double mc_power    = sqrt(m_power*(1-m_power)/n)
+            quietly gen double mc_coverage = sqrt(m_coverage*(1-m_coverage)/n_coverage)
+            quietly gen double mc_power    = sqrt(m_power*(1-m_power)/n_power)
+            quietly drop n_coverage n_power
             quietly drop _sd_sqdev
 
             * ----- validation against requested metrics -----

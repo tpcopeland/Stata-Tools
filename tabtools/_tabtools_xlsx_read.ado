@@ -78,7 +78,8 @@ void _tt_xlsx_read_mata(
     sheets = b.get_sheets()
     found = 0
     for (i = 1; i <= length(sheets); i++) {
-        if (sheets[i] == sheet) {
+        if (strlower(sheets[i]) == strlower(sheet)) {
+            sheet = sheets[i]
             found = 1
             break
         }

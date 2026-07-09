@@ -1023,6 +1023,41 @@ else {
     local ++fail_count
 }
 
+* --- VC13.7: prevalence-adjusted PPV/NPV delta CIs use Se and Sp variance ---
+local ++n_total
+capture noisily {
+    _ke_diag2x2
+    local p = 0.2
+    diagtab test gold, prevalence(`p')
+    local se = 0.8
+    local sp = 0.9
+    local dppv = `se'*`p' + (1-`sp')*(1-`p')
+    local dnpv = (1-`se')*`p' + `sp'*(1-`p')
+    local ppv = (`se'*`p')/`dppv'
+    local npv = (`sp'*(1-`p'))/`dnpv'
+    local vse = `se'*(1-`se')/100
+    local vsp = `sp'*(1-`sp')/100
+    local ppv_dse = `p'*(1-`sp')*(1-`p')/(`dppv'^2)
+    local ppv_dsp = (`se'*`p')*(1-`p')/(`dppv'^2)
+    local npv_dse = (`sp'*(1-`p'))*`p'/(`dnpv'^2)
+    local npv_dsp = (1-`p')*(1-`se')*`p'/(`dnpv'^2)
+    local z = invnormal(0.975)
+    local se_ppv = sqrt((`ppv_dse'^2)*`vse' + (`ppv_dsp'^2)*`vsp')
+    local se_npv = sqrt((`npv_dse'^2)*`vse' + (`npv_dsp'^2)*`vsp')
+    assert abs(r(ppv_lb) - max(0, `ppv' - `z'*`se_ppv')) < 1e-9
+    assert abs(r(ppv_ub) - min(1, `ppv' + `z'*`se_ppv')) < 1e-9
+    assert abs(r(npv_lb) - max(0, `npv' - `z'*`se_npv')) < 1e-9
+    assert abs(r(npv_ub) - min(1, `npv' + `z'*`se_npv')) < 1e-9
+}
+if _rc == 0 {
+    display as result "  PASS: VC13.7 — prevalence-adjusted delta CIs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: VC13.7 — prevalence-adjusted delta CIs (rc=`=_rc')"
+    local ++fail_count
+}
+
 * --- VC13.4: AUC CI bounds present, in [0,1], ordered (auc option) ---
 local ++n_total
 capture noisily {
@@ -1062,4 +1097,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_diagtab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _valdiag
-

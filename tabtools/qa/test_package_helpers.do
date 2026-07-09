@@ -756,6 +756,46 @@ else {
     local ++fail_count
 }
 
+* Unicode length is measured in characters, not UTF-8 bytes.
+capture noisily {
+    local _u31 ""
+    forvalues _i = 1/31 {
+        local _u31 "`_u31'ä"
+    }
+    _tabtools_validate_sheet `"`_u31'"' "sheet()"
+    capture _tabtools_validate_sheet `"`_u31'ä"' "sheet()"
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: Unicode sheet names use character length"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Unicode sheet-name length (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Excel sheet identity is case-insensitive for both replace and read paths.
+capture noisily {
+    local _casebook "`output_dir'/test_sheet_case.xlsx"
+    capture erase "`_casebook'"
+    sysuse auto, clear
+    corrtab price mpg weight, xlsx("`_casebook'") sheet("Table")
+    corrtab price mpg weight, xlsx("`_casebook'") sheet("table")
+    import excel using "`_casebook'", describe
+    assert r(N_worksheet) == 1
+    _tabtools_xlsx_read using "`_casebook'", sheet("TABLE")
+    assert r(n_rows) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: case-insensitive sheet replace/read"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: case-insensitive sheet replace/read (rc=`=_rc')"
+    local ++fail_count
+}
+
 * --- 7.13: Custom theme builder ---
 capture noisily {
     tabtools set clear

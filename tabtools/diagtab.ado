@@ -262,16 +262,25 @@ capture noisily {
                     local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
                     if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
                     if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
-                    if !missing(`Se_lo') & !missing(`Sp_lo') {
-                        local _p = `prevalence'
-                        local _d1 = `Se_lo' * `_p' + (1 - `Sp') * (1 - `_p')
-                        local _d2 = `Se_hi' * `_p' + (1 - `Sp') * (1 - `_p')
-                        if `_d1' > 0 local PPV_lo = (`Se_lo' * `_p') / `_d1'
-                        if `_d2' > 0 local PPV_hi = (`Se_hi' * `_p') / `_d2'
-                        local _d3 = (1 - `Se') * `_p' + `Sp_lo' * (1 - `_p')
-                        local _d4 = (1 - `Se') * `_p' + `Sp_hi' * (1 - `_p')
-                        if `_d3' > 0 local NPV_lo = (`Sp_lo' * (1 - `_p')) / `_d3'
-                        if `_d4' > 0 local NPV_hi = (`Sp_hi' * (1 - `_p')) / `_d4'
+                    * Delta-method intervals with fixed external prevalence;
+                    * both sensitivity and specificity uncertainty contribute.
+                    local _p = `prevalence'
+                    local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
+                    local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
+                    local _z = invnormal(0.975)
+                    if `_ppv_d' > 0 & !missing(`PPV') {
+                        local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
+                        local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)
+                        local _seppv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
+                        local PPV_lo = max(0, `PPV' - `_z' * `_seppv')
+                        local PPV_hi = min(1, `PPV' + `_z' * `_seppv')
+                    }
+                    if `_npv_d' > 0 & !missing(`NPV') {
+                        local _dse = (`Sp' * (1 - `_p')) * `_p' / (`_npv_d'^2)
+                        local _dsp = (1 - `_p') * (1 - `Se') * `_p' / (`_npv_d'^2)
+                        local _senpv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
+                        local NPV_lo = max(0, `NPV' - `_z' * `_senpv')
+                        local NPV_hi = min(1, `NPV' + `_z' * `_senpv')
                     }
                 }
             }
@@ -530,19 +539,25 @@ capture noisily {
             local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
             if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
             if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
-            * Transform Se/Sp CI bounds through Bayes' formula for PPV/NPV CIs
-            if !missing(`Se_lo') & !missing(`Sp_lo') {
-                local _p = `prevalence'
-                * PPV CI: use Se bounds with Sp point estimate
-                local _d1 = `Se_lo' * `_p' + (1 - `Sp') * (1 - `_p')
-                local _d2 = `Se_hi' * `_p' + (1 - `Sp') * (1 - `_p')
-                if `_d1' > 0 local PPV_lo = (`Se_lo' * `_p') / `_d1'
-                if `_d2' > 0 local PPV_hi = (`Se_hi' * `_p') / `_d2'
-                * NPV CI: use Sp bounds with Se point estimate
-                local _d3 = (1 - `Se') * `_p' + `Sp_lo' * (1 - `_p')
-                local _d4 = (1 - `Se') * `_p' + `Sp_hi' * (1 - `_p')
-                if `_d3' > 0 local NPV_lo = (`Sp_lo' * (1 - `_p')) / `_d3'
-                if `_d4' > 0 local NPV_hi = (`Sp_hi' * (1 - `_p')) / `_d4'
+            * Delta-method intervals with fixed external prevalence;
+            * both sensitivity and specificity uncertainty contribute.
+            local _p = `prevalence'
+            local _vse = `Se' * (1 - `Se') / (`TP' + `FN')
+            local _vsp = `Sp' * (1 - `Sp') / (`TN' + `FP')
+            local _z = invnormal(0.975)
+            if `_ppv_d' > 0 & !missing(`PPV') {
+                local _dse = `_p' * (1 - `Sp') * (1 - `_p') / (`_ppv_d'^2)
+                local _dsp = (`Se' * `_p') * (1 - `_p') / (`_ppv_d'^2)
+                local _seppv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
+                local PPV_lo = max(0, `PPV' - `_z' * `_seppv')
+                local PPV_hi = min(1, `PPV' + `_z' * `_seppv')
+            }
+            if `_npv_d' > 0 & !missing(`NPV') {
+                local _dse = (`Sp' * (1 - `_p')) * `_p' / (`_npv_d'^2)
+                local _dsp = (1 - `_p') * (1 - `Se') * `_p' / (`_npv_d'^2)
+                local _senpv = sqrt((`_dse'^2)*`_vse' + (`_dsp'^2)*`_vsp')
+                local NPV_lo = max(0, `NPV' - `_z' * `_senpv')
+                local NPV_hi = min(1, `NPV' + `_z' * `_senpv')
             }
         }
     }

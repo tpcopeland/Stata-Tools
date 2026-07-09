@@ -27,7 +27,8 @@ The Mata engine matches `stcrreg` to machine precision. From the validation suit
 - Coefficients agree to 6+ decimal places
 - Log pseudo-likelihoods match exactly
 - Model-based SEs (`norobust`) match exactly
-- Default robust SEs may differ by 10-15% due to different sandwich estimator implementations
+- Default robust SEs differ by roughly 0.5% because `stcrreg` computes its
+  sandwich on an expanded dataset while `finegray` works on subject-level data
 
 See `../qa/validation_finegray.do` for the full cross-validation against `stcrreg`.
 

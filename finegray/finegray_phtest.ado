@@ -1,7 +1,6 @@
-*! finegray_phtest Version 1.1.1  2026/07/01
+*! finegray_phtest Version 1.1.2  2026/07/09
 *! Proportional subdistribution hazards test after finegray
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -35,6 +34,7 @@ program define finegray_phtest, rclass
         display as error "you must run {bf:finegray} before using finegray_phtest"
         exit 301
     }
+    _finegray_check_data
 
     * Default time function
     if "`time'" == "" local time "rank"

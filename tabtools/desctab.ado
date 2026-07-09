@@ -43,8 +43,6 @@ program define desctab, rclass
         FRAme(string) HIGHlight(real -1) HLStat(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    local title : subinstr local title `"""' "", all
-    local footnote : subinstr local footnote `"""' "", all
     local nformats : subinstr local nformats `"""' "", all
     local statlabels : subinstr local statlabels `"""' "", all
     local _has_xlsx = "`xlsx'" != ""
@@ -763,11 +761,6 @@ program define desctab, rclass
     return local stats "`stats_layout'"
     return local compose `"`compose_resolved'"'
     return local methods "`_methods'"
-    if `_has_xlsx' {
-        return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
-    }
-
     if "`csv'" != "" {
         _tabtools_csv_write using "`csv'", labelvar(A)
     }
@@ -929,6 +922,8 @@ program define desctab, rclass
             display as error "Export command succeeded but file not found"
             exit 601
         }
+        return local xlsx "`xlsx'"
+        return local sheet "`sheet'"
         display as text "Exported " as result "`=`num_rows' - 1'" ///
             as text " rows x " as result "`=`num_cols' - 1'" ///
             as text " cols to " as result `"`xlsx'"' ///

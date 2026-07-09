@@ -368,7 +368,12 @@ else {
 
 **## Bundled helper ado files are on adopath
 capture noisily {
-    foreach helper in _tabtools_common.ado {
+    foreach helper in _tabtools_common.ado _tabtools_xlsx_write.ado ///
+        _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
+        _tabtools_markdown_write.ado _tabtools_simtab_ingest.ado ///
+        _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
+        _tabtools_table1_fast_collect.ado _tabtools_visible_vars.ado ///
+        _tabtools_csv_write.ado {
         findfile `helper'
     }
 }
@@ -1121,7 +1126,8 @@ else {
             demo_survtab.xlsx ///
             demo_hrcomptab.xlsx ///
             demo_puttab.xlsx ///
-            demo_stacktab.xlsx
+            demo_stacktab.xlsx ///
+            demo_simtab.xlsx
 
         local actual_sheets 0
         confirm file "`checker'"

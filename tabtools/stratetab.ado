@@ -36,14 +36,16 @@ program define stratetab, rclass
 	set varabbrev off
 	local _xlsx_ok 0
 	local _fatal_rc 0
+	local _userdata_saved 0
 
 tempfile _userdata_outer
 local _userdata_path "`_userdata_outer'"
 
-* Save user data immediately on entry so restore always works, even if memory is empty
-qui save "`_userdata_path'", emptyok
-
 capture noisily {
+
+* Keep the snapshot inside the wrapper so an I/O failure cannot leak settings.
+qui save "`_userdata_path'", emptyok
+local _userdata_saved 1
 
 capture putexcel close
 
@@ -828,7 +830,7 @@ if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 local _rc = _rc
 if `_rc' == 0 & `_fatal_rc' != 0 local _rc = `_fatal_rc'
 if `_rc' {
-    capture qui use "`_userdata_path'", clear
+    if `_userdata_saved' capture qui use "`_userdata_path'", clear
 }
 set varabbrev `_orig_varabbrev'
 if `_rc' error `_rc'

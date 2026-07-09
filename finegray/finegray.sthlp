@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  07jul2026}{...}
+{* *! version 1.1.2  09jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -285,7 +285,7 @@ systematically validated against three independent implementations: Stata's
 {cmd:stcrreg}, R's {cmd:cmprsk::crr}, and R's {cmd:fastcmprsk::fastCrr}.
 
 {pstd}
-The cross-validation suite (68 tests) covers coefficients, standard errors,
+The cross-validation suite covers coefficients, standard errors,
 log-likelihoods, cumulative incidence functions, baseline hazards, stratified
 censoring, and post-estimation predictions (xb, CIF, and Schoenfeld residuals)
 across real and simulated datasets.
@@ -310,9 +310,10 @@ variables, cluster SEs, and left-truncated data.
 
 {pstd}
 The {opt strata()} option is cross-validated against
-{cmd:crr(..., cengroup=)}; coefficients agree within 0.002 and SEs within 0.3%,
-reflecting minor differences in how the stratified censoring KM is computed
-internally.
+{cmd:crr(..., cengroup=)}. Coefficients and log pseudo-likelihood agree to
+numerical precision, CIFs agree within 1e-5, and robust SEs agree within 0.1%.
+Each retained competing-event subject is weighted by the censoring survival
+from that subject's own stratum.
 
 {pstd}
 {bf:Technical note on standard errors:} The only quantity where implementations
@@ -532,6 +533,9 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
 {synopt:{cmd:e(marginsok)}}{cmd:xb} (empty for factor-variable models){p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}
+{synopt:{cmd:e(datasignature)}}signature of the estimation data used by data-dependent post-estimation{p_end}
+{synopt:{cmd:e(datasignaturevars)}}variables covered by {cmd:e(datasignature)}{p_end}
+{synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
@@ -567,12 +571,18 @@ of the persistent entry-time variable ({cmd:_fg_entry}) in
 {cmd:_dta[_finegray_entryvar]}; post-estimation commands read it to
 reconstruct each subject's risk window.
 
+{pstd}
+Constant and exactly collinear covariate columns are not identified by the
+unpenalized Fine-Gray model. {cmd:finegray} rejects such specifications with
+{cmd:r(459)} and names the expanded terms that must be removed or recoded;
+it does not silently impose a ridge penalty.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.1, 2026-07-07{p_end}
+{pstd}Version 1.1.2, 2026-07-09{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

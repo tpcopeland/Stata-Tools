@@ -1,7 +1,6 @@
-*! finegray_cif Version 1.1.1  2026/07/07
+*! finegray_cif Version 1.1.2  2026/07/09
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -30,6 +29,7 @@ program define finegray_cif, rclass sortpreserve
     set varabbrev off
     local _preserved = 0
     local _held = 0
+    local _side_rc = 0
 
     capture noisily {
 
@@ -50,6 +50,7 @@ program define finegray_cif, rclass sortpreserve
         display as error "you must run {bf:finegray} before using finegray_cif"
         exit 301
     }
+    _finegray_check_data
     capture confirm matrix e(basehaz)
     if _rc {
         display as error "baseline hazard not available"
@@ -86,14 +87,20 @@ program define finegray_cif, rclass sortpreserve
     local savefile ""
     local savereplace ""
     if `"`saving'"' != "" {
-        local _dq = char(34)
-        local _sv : subinstr local saving `"`_dq'"' "", all
-        gettoken savefile _svrest : _sv, parse(",")
+        gettoken savefile _svrest : saving, parse(",") bind
         local savefile = strtrim(`"`savefile'"')
-        if strpos(`"`_svrest'"', "replace") local savereplace "replace"
+        local _svrest = lower(strtrim(`"`_svrest'"'))
+        if `"`savefile'"' == "" | !inlist(`"`_svrest'"', "", ", replace") {
+            display as error "saving() must be filename[, replace]"
+            exit 198
+        }
+        if `"`_svrest'"' == ", replace" local savereplace "replace"
         if strpos(`"`savefile'"', ";") | strpos(`"`savefile'"', "|") | ///
-           strpos(`"`savefile'"', "&") | strpos(`"`savefile'"', "`=char(96)'") | ///
-           strpos(`"`savefile'"', "$") {
+           strpos(`"`savefile'"', "&") | strpos(`"`savefile'"', "<") | ///
+           strpos(`"`savefile'"', ">") | strpos(`"`savefile'"', "$") | ///
+           strpos(`"`savefile'"', char(96)) | ///
+           strpos(`"`savefile'"', char(34)) | ///
+           strpos(`"`savefile'"', char(39)) {
             display as error "invalid characters in saving() filename"
             exit 198
         }
@@ -130,6 +137,10 @@ program define finegray_cif, rclass sortpreserve
             capture confirm number `_aval'
             if _rc {
                 display as error "at(): `_aval' is not a number"
+                exit 198
+            }
+            if real(`"`_aval'"') >= . {
+                display as error "at(): values must be finite numbers"
                 exit 198
             }
             local _pos : list posof "`_avar'" in covs
@@ -331,6 +342,7 @@ program define finegray_cif, rclass sortpreserve
                 }
                 capture `_fgcmd'
                 if _rc continue
+                if e(converged) != 1 continue
                 mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'")
                 forvalues r = 1/`ngrid' {
                     matrix `BSUM'[`r',1] = `BSUM'[`r',1] + `bcif'[`r',1]
@@ -431,33 +443,43 @@ program define finegray_cif, rclass sortpreserve
             * options merge, anything in `options' (e.g. legend(off),
             * legend(rows(2)), legend(pos(6))) overrides these defaults.
             if "`ci'" != "" {
-                twoway (rarea lci uci time, color(%30) lwidth(none)) ///
+                capture noisily twoway (rarea lci uci time, color(%30) lwidth(none)) ///
                     (line cif time, lwidth(medthick)), ///
                     ytitle("Cumulative incidence") xtitle("Analysis time") ///
                     legend(order(2 "CIF" 1 "`level'% CI") rows(1)) `options'
             }
             else {
-                twoway (line cif time, lwidth(medthick)), ///
+                capture noisily twoway (line cif time, lwidth(medthick)), ///
                     ytitle("Cumulative incidence") xtitle("Analysis time") ///
                     legend(rows(1)) `options'
             }
+            local _graph_rc = _rc
+            if `_graph_rc' {
+                if !`_side_rc' local _side_rc = `_graph_rc'
+                display as error "failed to draw cumulative-incidence graph"
+            }
         }
         if `"`savefile'"' != "" {
-            quietly save `"`savefile'"', `savereplace'
-            display as text `"(estimates saved to `savefile')"'
+            capture noisily save `"`savefile'"', `savereplace'
+            local _save_rc = _rc
+            local _saved_path `"`savefile'"'
+            if !`_save_rc' {
+                capture confirm file `"`_saved_path'"'
+                if _rc & !regexm(lower(`"`_saved_path'"'), "\.dta$") {
+                    local _saved_path `"`_saved_path'.dta"'
+                    capture confirm file `"`_saved_path'"'
+                }
+                if _rc local _save_rc = 601
+            }
+            if `_save_rc' {
+                if !`_side_rc' local _side_rc = `_save_rc'
+                display as error `"failed to save estimates to `savefile'"'
+            }
+            else display as text `"(estimates saved to `_saved_path')"'
         }
         restore
         local _preserved = 0
     }
-
-    * =====================================================================
-    * RETURN
-    * =====================================================================
-    return matrix table = `R'
-    return matrix at = `zrow'
-    return scalar level = `level'
-    return scalar cause = e(cause)
-    return local profile_vars "`covs'"
 
     } /* end capture noisily */
 
@@ -465,5 +487,21 @@ program define finegray_cif, rclass sortpreserve
     if `_preserved' capture restore
     if `_held' capture _estimates unhold `_esth'
     set varabbrev `_orig_varabbrev'
+
+    * Post the complete analytical payload even when graph/save side work
+    * failed; callers can inspect r() while still receiving the side-effect rc.
+    if `rc' == 0 {
+        return matrix table = `R'
+        return matrix at = `zrow'
+        return scalar level = `level'
+        return scalar cause = e(cause)
+        return local profile_vars "`covs'"
+        if `bootstrap' > 0 {
+            return scalar bootstrap_requested = `bootstrap'
+            return scalar bootstrap_success = `_bok'
+            return scalar bootstrap_failed = `bootstrap' - `_bok'
+        }
+        if `_side_rc' local rc = `_side_rc'
+    }
     if `rc' exit `rc'
 end

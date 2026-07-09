@@ -1,7 +1,6 @@
-*! _finegray_mata Version 1.1.1  2026/07/04
+*! _finegray_mata Version 1.1.2  2026/07/09
 *! Mata forward-backward scan engine for Fine-Gray regression
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
 
 /*
@@ -155,6 +154,60 @@ real colvector _finegray_km_censor(
     return(G)
 }
 
+/* Map each observation to its censoring-distribution group. */
+real colvector _finegray_group_index(
+    real colvector byg_id,
+    real colvector levels)
+{
+    real scalar g
+    real colvector gidx, sel
+
+    gidx = J(rows(byg_id), 1, .)
+    for (g = 1; g <= rows(levels); g++) {
+        sel = selectindex(byg_id :== levels[g])
+        gidx[sel] = J(rows(sel), 1, g)
+    }
+    return(gidx)
+}
+
+/* Evaluate every stratum-specific censoring KM at arbitrary target times.
+   Column g is G_g(target_t), carried forward as a right-continuous step
+   function. Fine-Gray IPCW weights for a retained competing-event subject
+   use the numerator from THAT SUBJECT'S censoring stratum, not the stratum of
+   the cause event currently being processed. */
+real matrix _finegray_G_at_times(
+    real colvector t,
+    real colvector G,
+    real colvector byg_id,
+    real colvector target_t)
+{
+    real scalar g, i, p, lastg
+    real colvector levels, sel, gord, tord
+    real matrix out
+
+    levels = uniqrows(byg_id)
+    out = J(rows(target_t), rows(levels), 1)
+    tord = order(target_t, 1)
+
+    for (g = 1; g <= rows(levels); g++) {
+        sel = selectindex(byg_id :== levels[g])
+        gord = sel[order(t[sel], 1)]
+        p = 1
+        lastg = 1
+        for (i = 1; i <= rows(tord); i++) {
+            while (p <= rows(gord)) {
+                if (t[gord[p]] <= target_t[tord[i]]) {
+                    lastg = G[gord[p]]
+                    p++
+                }
+                else break
+            }
+            out[tord[i], g] = lastg
+        }
+    }
+    return(out)
+}
+
 /* Log pseudo-likelihood via incremental risk-set scan with Breslow ties.
    Supports left truncation via entry-time pointer. */
 real scalar _finegray_loglik(
@@ -166,11 +219,15 @@ real scalar _finegray_loglik(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real colvector t0)
 {
-    real scalar n, p, i, j, k, ll, raw_bwd, idx, cur_time
+    real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
     real scalar risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector levels, gidx
+    real rowvector raw_bwd
+    real matrix Gt
 
     n = rows(t)
     p = cols(Z)
@@ -182,12 +239,16 @@ real scalar _finegray_loglik(
 
     ord = order(t, 1)
     entry_ord = order(t0, 1)
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     /* Incremental risk-set tracking */
     risk_S0 = 0
     ep = 1
     ll = 0
-    raw_bwd = 0
+    raw_bwd = J(1, ng, 0)
     i = 1
 
     while (i <= n) {
@@ -213,7 +274,7 @@ real scalar _finegray_loglik(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                ll = ll + eta[idx] - log(risk_S0 + G[idx] * raw_bwd)
+                ll = ll + eta[idx] - log(risk_S0 + Gt[idx, .] * raw_bwd')
             }
         }
 
@@ -221,7 +282,8 @@ real scalar _finegray_loglik(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                raw_bwd = raw_bwd + expeta[idx] / G[idx]
+                g = gidx[idx]
+                raw_bwd[g] = raw_bwd[g] + expeta[idx] / G[idx]
             }
         }
 
@@ -247,15 +309,17 @@ void _finegray_score_info(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real colvector score,
     real matrix info,
     real colvector t0)
 {
-    real scalar n, p, i, j, k, idx, bwd_s0_raw, S0_total, cur_time
-    real scalar risk_S0, ep
+    real scalar n, p, i, j, k, idx, S0_total, cur_time
+    real scalar risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real matrix bwd_s2_raw, S2_total, risk_S2
-    real rowvector bwd_s1_raw, S1_total, z_bar, risk_S1
+    real colvector levels, gidx
+    real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2, Gt
+    real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
     n = rows(t)
     p = cols(Z)
@@ -267,6 +331,10 @@ void _finegray_score_info(
 
     ord = order(t, 1)
     entry_ord = order(t0, 1)
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     /* Incremental risk-set sums */
     risk_S0 = 0
@@ -276,9 +344,9 @@ void _finegray_score_info(
 
     score = J(p, 1, 0)
     info = J(p, p, 0)
-    bwd_s0_raw = 0
-    bwd_s1_raw = J(1, p, 0)
-    bwd_s2_raw = J(p, p, 0)
+    bwd_s0_raw = J(1, ng, 0)
+    bwd_s1_raw = J(ng, p, 0)
+    bwd_s2_raw = J(ng, p * p, 0)
 
     i = 1
     while (i <= n) {
@@ -306,9 +374,13 @@ void _finegray_score_info(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                S0_total = risk_S0 + G[idx] * bwd_s0_raw
-                S1_total = risk_S1 + G[idx] * bwd_s1_raw
-                S2_total = risk_S2 + G[idx] * bwd_s2_raw
+                S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
+                S2_total = risk_S2
+                for (g = 1; g <= ng; g++) {
+                    S2_total = S2_total + Gt[idx, g] *
+                        rowshape(bwd_s2_raw[g, .], p)
+                }
 
                 z_bar = S1_total / S0_total
 
@@ -321,10 +393,13 @@ void _finegray_score_info(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
-                bwd_s1_raw = bwd_s1_raw + expeta[idx] / G[idx] * Z[idx, .]
-                bwd_s2_raw = bwd_s2_raw + expeta[idx] / G[idx] *
-                    (Z[idx, .]' * Z[idx, .])
+                g = gidx[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                    expeta[idx] / G[idx] * Z[idx, .]
+                bwd_s2_raw[g, .] = bwd_s2_raw[g, .] +
+                    vec(expeta[idx] / G[idx] *
+                    (Z[idx, .]' * Z[idx, .]))'
             }
         }
 
@@ -360,16 +435,17 @@ real matrix _finegray_score_residuals(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real colvector t0)
 {
-    real scalar n, p, i, j, k, idx, bwd_s0_raw, running_invS0
-    real scalar S0_t, cur_time, risk_S0, ep
-    real scalar running_ginvS0, total_ginvS0
+    real scalar n, p, i, j, k, idx, running_invS0
+    real scalar S0_t, cur_time, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0, entry_invS0
-    real matrix scores, cum_zbars, cum_gzbars, entry_zbars
-    real rowvector bwd_s1_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
-    real rowvector running_gzbars, total_gzbars
+    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx
+    real matrix scores, cum_zbars, cum_gzbars, entry_zbars, Gt
+    real matrix bwd_s1_raw, running_gzbars
+    real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
+    real rowvector running_ginvS0, total_ginvS0, total_gzbars
 
     n = rows(t)
     p = cols(Z)
@@ -381,14 +457,18 @@ real matrix _finegray_score_residuals(
 
     ord = order(t, 1)
     entry_ord = order(t0, 1)
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
     ep = 1
 
     scores = J(n, p, 0)
-    bwd_s0_raw = 0
-    bwd_s1_raw = J(1, p, 0)
+    bwd_s0_raw = J(1, ng, 0)
+    bwd_s1_raw = J(ng, p, 0)
     cum_zbars = J(n, p, 0)
     cum_invS0 = J(n, 1, 0)
     entry_invS0 = J(n, 1, 0)
@@ -398,8 +478,8 @@ real matrix _finegray_score_residuals(
 
     cum_ginvS0 = J(n, 1, 0)
     cum_gzbars = J(n, p, 0)
-    running_ginvS0 = 0
-    running_gzbars = J(1, p, 0)
+    running_ginvS0 = J(1, ng, 0)
+    running_gzbars = J(ng, p, 0)
 
     i = 1
     while (i <= n) {
@@ -429,15 +509,19 @@ real matrix _finegray_score_residuals(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                S0_t = risk_S0 + G[idx] * bwd_s0_raw
-                S1_t = risk_S1 + G[idx] * bwd_s1_raw
+                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
                 z_bar_t = S1_t / S0_t
 
                 scores[idx, .] = Z[idx, .] - z_bar_t
                 running_invS0 = running_invS0 + 1 / S0_t
                 running_zbar_sum = running_zbar_sum + z_bar_t / S0_t
-                running_ginvS0 = running_ginvS0 + G[idx] / S0_t
-                running_gzbars = running_gzbars + G[idx] * z_bar_t / S0_t
+                for (g = 1; g <= ng; g++) {
+                    running_ginvS0[g] = running_ginvS0[g] +
+                        Gt[idx, g] / S0_t
+                    running_gzbars[g, .] = running_gzbars[g, .] +
+                        Gt[idx, g] * z_bar_t / S0_t
+                }
             }
         }
 
@@ -445,15 +529,18 @@ real matrix _finegray_score_residuals(
             idx = ord[k]
             cum_invS0[idx] = running_invS0
             cum_zbars[idx, .] = running_zbar_sum
-            cum_ginvS0[idx] = running_ginvS0
-            cum_gzbars[idx, .] = running_gzbars
+            g = gidx[idx]
+            cum_ginvS0[idx] = running_ginvS0[g]
+            cum_gzbars[idx, .] = running_gzbars[g, .]
         }
 
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
-                bwd_s1_raw = bwd_s1_raw + expeta[idx] / G[idx] * Z[idx, .]
+                g = gidx[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                    expeta[idx] / G[idx] * Z[idx, .]
             }
         }
 
@@ -476,12 +563,13 @@ real matrix _finegray_score_residuals(
 
     /* IPCW at-risk correction for competing-event subjects */
     total_ginvS0 = running_ginvS0
-    total_gzbars = running_gzbars
     for (i = 1; i <= n; i++) {
         if (is_compete[i]) {
+            g = gidx[i]
+            total_gzbars = running_gzbars[g, .]
             scores[i, .] = scores[i, .] -
                 (expeta[i] / G[i]) *
-                (Z[i, .] * (total_ginvS0 - cum_ginvS0[i]) -
+                (Z[i, .] * (total_ginvS0[g] - cum_ginvS0[i]) -
                  (total_gzbars - cum_gzbars[i, .]))
         }
     }
@@ -499,6 +587,7 @@ real matrix _finegray_robust_var(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real matrix info_inv,
     string scalar clust_var,
     real colvector clust_id,
@@ -512,7 +601,7 @@ real matrix _finegray_robust_var(
     p = cols(Z)
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, t0)
+        Z, beta, G, byg_id, t0)
 
     use_cluster = (clust_var != "" & rows(clust_id) == n)
     if (use_cluster) {
@@ -541,12 +630,15 @@ real matrix _finegray_basehazard(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real colvector t0)
 {
-    real scalar n, p, i, j, k, idx, bwd_s0_raw, cum_bh
+    real scalar n, p, i, j, k, idx, cum_bh, g, ng
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real matrix result
+    real colvector levels, gidx
+    real rowvector bwd_s0_raw
+    real matrix result, Gt
 
     n = rows(t)
     p = cols(Z)
@@ -558,6 +650,10 @@ real matrix _finegray_basehazard(
 
     ord = order(t, 1)
     entry_ord = order(t0, 1)
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     risk_S0 = 0
     ep = 1
@@ -565,7 +661,7 @@ real matrix _finegray_basehazard(
     n_events = sum(is_cause)
     result = J(n_events, 2, .)
 
-    bwd_s0_raw = 0
+    bwd_s0_raw = J(1, ng, 0)
     cum_bh = 0
     ev_idx = 0
 
@@ -593,7 +689,7 @@ real matrix _finegray_basehazard(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                S0_t = risk_S0 + G[idx] * bwd_s0_raw
+                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
                 cum_bh = cum_bh + 1 / S0_t
                 ev_idx++
                 result[ev_idx, 1] = t[idx]
@@ -605,7 +701,8 @@ real matrix _finegray_basehazard(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
+                g = gidx[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
             }
         }
 
@@ -632,15 +729,16 @@ real matrix _finegray_schoenfeld(
     real matrix Z,
     real colvector beta,
     real colvector G,
+    real colvector byg_id,
     real scalar do_scale,
     real colvector t0)
 {
-    real scalar n, p, i, j, k, idx, bwd_s0_raw, S0_total, cur_time
-    real scalar ev_idx, n_events, risk_S0, ep
+    real scalar n, p, i, j, k, idx, S0_total, cur_time
+    real scalar ev_idx, n_events, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord, score_vec
-    real colvector row_id
-    real matrix result, info_mat, risk_S1_mat
-    real rowvector bwd_s1_raw, S1_total, z_bar, risk_S1
+    real colvector row_id, levels, gidx
+    real matrix result, info_mat, risk_S1_mat, bwd_s1_raw, Gt
+    real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
     n = rows(t)
     p = cols(Z)
@@ -658,6 +756,10 @@ real matrix _finegray_schoenfeld(
     row_id = (1::n)
     ord = order((t, row_id), (1, 1))
     entry_ord = order((t0, row_id), (1, 1))
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
@@ -666,8 +768,8 @@ real matrix _finegray_schoenfeld(
     n_events = sum(is_cause)
     result = J(n_events, p + 1, .)
 
-    bwd_s0_raw = 0
-    bwd_s1_raw = J(1, p, 0)
+    bwd_s0_raw = J(1, ng, 0)
+    bwd_s1_raw = J(ng, p, 0)
     ev_idx = 0
 
     i = 1
@@ -694,8 +796,8 @@ real matrix _finegray_schoenfeld(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                S0_total = risk_S0 + G[idx] * bwd_s0_raw
-                S1_total = risk_S1 + G[idx] * bwd_s1_raw
+                S0_total = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                S1_total = risk_S1 + Gt[idx, .] * bwd_s1_raw
                 z_bar = S1_total / S0_total
 
                 ev_idx++
@@ -707,8 +809,10 @@ real matrix _finegray_schoenfeld(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
-                bwd_s1_raw = bwd_s1_raw + expeta[idx] / G[idx] * Z[idx, .]
+                g = gidx[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                    expeta[idx] / G[idx] * Z[idx, .]
             }
         }
 
@@ -725,7 +829,7 @@ real matrix _finegray_schoenfeld(
     /* Grambsch-Therneau scaling: multiply by diag(V) */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, score_vec, info_mat, t0)
+            Z, beta, G, byg_id, score_vec, info_mat, t0)
         real matrix info_inv
         info_inv = invsym(info_mat)
         if (missing(info_inv[1,1])) {
@@ -777,7 +881,7 @@ void _finegray_schoenfeld_compute(
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
 
     sch = _finegray_schoenfeld(t, delta, cause, censval, event_type,
-        Z, beta, G, do_scale, t0)
+        Z, beta, G, byg_id, do_scale, t0)
 
     st_matrix("_finegray_schoenfeld", sch)
 }
@@ -830,7 +934,7 @@ void _finegray_engine(
 
     /* Null log-likelihood */
     ll_0 = _finegray_loglik(t, delta, cause, censval, event_type, Z,
-        J(p, 1, 0), G, t0)
+        J(p, 1, 0), G, byg_id, t0)
     ll = ll_0
 
     if (show_log) {
@@ -843,7 +947,7 @@ void _finegray_engine(
     for (iter = 1; iter <= max_iter; iter++) {
         /* Score and information */
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, score_vec, info_mat, t0)
+            Z, beta, G, byg_id, score_vec, info_mat, t0)
 
         /* Newton-Raphson step */
         info_inv = invsym(info_mat)
@@ -857,13 +961,21 @@ void _finegray_engine(
 
         step = info_inv * score_vec
 
+        /* At a numerical optimum the Newton step can be effectively zero, so
+           the trial likelihood is identical to ll. Treat that as convergence
+           before demanding a strictly improving step. */
+        if (max(abs(step)) < sqrt(tol)) {
+            converged = 1
+            break
+        }
+
         /* Step halving */
         step_scale = 1
         ll_new = .
         for (halving = 1; halving <= max_halvings; halving++) {
             beta_new = beta + step_scale * step
             ll_new = _finegray_loglik(t, delta, cause, censval,
-                event_type, Z, beta_new, G, t0)
+                event_type, Z, beta_new, G, byg_id, t0)
 
             if (ll_new > ll) break
             step_scale = step_scale / 2
@@ -871,6 +983,11 @@ void _finegray_engine(
 
         /* If no improving step found, flag nonconvergence and stop */
         if (ll_new <= ll) {
+            if (abs(ll_new - ll) < tol &
+                max(abs(step_scale * step)) < sqrt(tol)) {
+                converged = 1
+                break
+            }
             if (show_log) {
                 printf("{txt}Iteration %g: step halving failed;" +
                     " no improving step found\n", iter)
@@ -901,7 +1018,7 @@ void _finegray_engine(
 
     /* Final information for variance */
     _finegray_score_info(t, delta, cause, censval, event_type,
-        Z, beta, G, score_vec, info_mat, t0)
+        Z, beta, G, byg_id, score_vec, info_mat, t0)
     info_inv = invsym(info_mat)
     if (missing(info_inv[1,1])) {
         errprintf("Warning: information matrix is singular at solution; " +
@@ -926,7 +1043,7 @@ void _finegray_engine(
             clust_id = J(n, 1, .)
         }
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
-            Z, beta, G, info_inv, clust_str, clust_id, t0)
+            Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0)
     }
     else {
         V = info_inv
@@ -934,7 +1051,7 @@ void _finegray_engine(
 
     /* Compute baseline hazard */
     bh = _finegray_basehazard(t, delta, cause, censval, event_type,
-        Z, beta, G, t0)
+        Z, beta, G, byg_id, t0)
 
     /* Model chi2: df_m = rank of V (excludes omitted/collinear terms) */
     real scalar k, rank
@@ -1001,27 +1118,32 @@ real matrix _finegray_cif_core(
     real matrix E)
 {
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector Tm, S0m, Gm, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector clev, sel
-    real colvector cle, clt0, Acs, Bcs, invS0, invS0sq, GmInvS0sq, hi, lo
-    real matrix info_mat, info_inv, scores, PSIb, zbarm, out
-    real rowvector risk_S1, bwd_s1_raw, zstar, bvec, S1_t
-    real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, bwd_s0_raw, S0_t
+    real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
+    real colvector clev, sel, levels, gidx
+    real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
+    real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
+    real matrix bwd_s1_raw, Bcs, GmInvS0sq
+    real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
+    real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
-    real scalar Bmstar, mp, ii
+    real scalar mp, ii, g, ng
 
     n = rows(Z)
     p = cols(Z)
 
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    levels = uniqrows(byg_id)
+    ng = rows(levels)
+    gidx = _finegray_group_index(byg_id, levels)
+    Gt = _finegray_G_at_times(t, G, byg_id, t)
 
     _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
-        score_vec, info_mat, t0)
+        byg_id, score_vec, info_mat, t0)
     info_inv = invsym(info_mat)
     if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, t0)
+        Z, beta, G, byg_id, t0)
     PSIb = scores * info_inv
 
     eta = Z * beta
@@ -1033,10 +1155,10 @@ real matrix _finegray_cif_core(
 
     /* Event scan: per cause-event arrays in ascending time */
     M = sum(is_cause)
-    Tm = J(M, 1, .); S0m = J(M, 1, .); Gm = J(M, 1, .); obsm = J(M, 1, .)
+    Tm = J(M, 1, .); S0m = J(M, 1, .); Gm = J(M, ng, .); obsm = J(M, 1, .)
     zbarm = J(M, p, .)
     risk_S0 = 0; risk_S1 = J(1, p, 0); ep = 1
-    bwd_s0_raw = 0; bwd_s1_raw = J(1, p, 0); ev = 0; i = 1
+    bwd_s0_raw = J(1, ng, 0); bwd_s1_raw = J(ng, p, 0); ev = 0; i = 1
     while (i <= n) {
         cur_time = t[ord[i]]
         while (ep <= n) {
@@ -1056,18 +1178,21 @@ real matrix _finegray_cif_core(
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
-                S0_t = risk_S0 + G[idx] * bwd_s0_raw
-                S1_t = risk_S1 + G[idx] * bwd_s1_raw
+                S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
+                S1_t = risk_S1 + Gt[idx, .] * bwd_s1_raw
                 ev++
-                Tm[ev] = t[idx]; S0m[ev] = S0_t; Gm[ev] = G[idx]; obsm[ev] = idx
+                Tm[ev] = t[idx]; S0m[ev] = S0_t
+                Gm[ev, .] = Gt[idx, .]; obsm[ev] = idx
                 zbarm[ev, .] = S1_t / S0_t
             }
         }
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_compete[idx]) {
-                bwd_s0_raw = bwd_s0_raw + expeta[idx] / G[idx]
-                bwd_s1_raw = bwd_s1_raw + expeta[idx] / G[idx] * Z[idx, .]
+                g = gidx[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
+                    expeta[idx] / G[idx] * Z[idx, .]
             }
         }
         for (k = i; k < j; k++) {
@@ -1096,9 +1221,9 @@ real matrix _finegray_cif_core(
        over the ascending Tm array. This makes the whole variance O(n log n). */
     invS0     = 1 :/ S0m
     invS0sq   = 1 :/ (S0m :^ 2)
-    GmInvS0sq = Gm :/ (S0m :^ 2)
+    GmInvS0sq = Gm :/ ((S0m :^ 2) * J(1, ng, 1))
     Acs = 0 \ runningsum(invS0sq)          /* Acs[k+1] = sum_{m<=k} 1/S0m^2 */
-    Bcs = 0 \ runningsum(GmInvS0sq)        /* Bcs[k+1] = sum_{m<=k} Gm/S0m^2 */
+    Bcs = J(1, ng, 0) \ runningsum(GmInvS0sq) /* one censoring-KM column per group */
 
     cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
     clt0 = J(n, 1, 0)                       /* #{cause events with Tm <  t0_i} */
@@ -1144,8 +1269,15 @@ real matrix _finegray_cif_core(
         /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<t0_i} */
         hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
         lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
-        Bmstar = Bcs[mstar + 1]
-        sub = (Acs[hi :+ 1] - Acs[lo :+ 1]) :+ is_compete :* (Bmstar :- Bcs[hi :+ 1]) :/ G
+        Bmstar = Bcs[mstar + 1, .]
+        sub = Acs[hi :+ 1] - Acs[lo :+ 1]
+        for (i = 1; i <= n; i++) {
+            if (is_compete[i]) {
+                g = gidx[i]
+                sub[i] = sub[i] +
+                    (Bmstar[g] - Bcs[hi[i] + 1, g]) / G[i]
+            }
+        }
         q = own - expeta :* sub
         psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
 

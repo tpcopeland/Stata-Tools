@@ -214,6 +214,20 @@ capture noisily {
         local group_levels "1"
     }
 
+    * RMST is identifiable only through observed follow-up support in every
+    * reported group; never extend the final KM plateau beyond that support.
+    if `has_rmst' {
+        forvalues g = 1/`n_groups' {
+            local _glv : word `g' of `group_levels'
+            quietly summarize _t if `groupvar' == `_glv' & _st, meanonly
+            local _support = r(max)
+            if missing(`_support') | `rmst' > `_support' {
+                noisily display as error "rmst(`rmst') exceeds observed follow-up support (`_support') in group `_glv'"
+                exit 198
+            }
+        }
+    }
+
     * Build group labels and counts
     forvalues g = 1/`n_groups' {
         local _glv : word `g' of `group_levels'

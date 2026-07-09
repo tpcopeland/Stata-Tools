@@ -147,7 +147,7 @@ a bare token appearing in another command's test does not count. This is
 stricter than a package-wide name scan (which trivially reports 100%).
 
 - **Command coverage:** 16/16 (100%) — every public command has a test file.
-- **Testable option coverage: 438/438 (100%)** — every public option of every
+- **Testable option coverage: 425/425 (100%)** — every testable public option of every
   command is passed in a real invocation and accepted.
 
 `test_option_coverage.do` is the dedicated driver; `tools/option_coverage.py`
@@ -172,12 +172,12 @@ surface, scans `test_*.do`/`validation_*.do` for invocations, reports gaps).
 | `simtab` | 45 | 44 | 44 | 100% |
 | `tabtools` | 10 | 10 | 10 | 100% |
 | `tabtools_tips` | 1 | 0 | 0 | 100% |
-| **Total** | **452** | **438** | **438** | **100%** |
+| **Total** | **439** | **425** | **425** | **100%** |
 
 **Excluded by design — `open` (14 commands).** It opens the workbook in the OS
 default application (`shell xdg-open`/`open`/`start`) and cannot be driven
 deterministically in batch, so it is not a coverage target. Raw coverage
-*including* `open` is 447/452 = 98.9% — the only uncounted options are `open`
+*including* `open` is 425/439 = 96.8% — the only unexercised options are `open`
 itself. `tabtools_tips` exposes only `open`, so it has no testable surface.
 
 Regenerate / verify:

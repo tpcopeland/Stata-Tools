@@ -32,7 +32,7 @@ horizons instead of plotting a curve{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times instead of
 the event-time grid{p_end}
 {synopt :{opt ci}}add pointwise confidence limits (influence-function SE){p_end}
-{synopt :{opt boot:strap(#)}}compute the confidence band by subject bootstrap with {it:#} replications (exact; includes censoring-weight uncertainty){p_end}
+{synopt :{opt boot:strap(#)}}compute a subject-bootstrap confidence band with {it:#} replications; includes censoring-weight uncertainty{p_end}
 {synopt :{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
 {synopt :{opt l:evel(#)}}set confidence level; default is {cmd:level(95)}{p_end}
 {synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates
@@ -67,9 +67,10 @@ after {helpb stcrreg}, with two additions: it can plot a pointwise confidence
 estimates behind the curve.
 
 {pstd}
-The command requires the original {cmd:stset} estimation data in memory (it reads
-{cmd:e(basehaz)} and reconstructs the influence functions for the confidence
-band).
+The command requires the unchanged original {cmd:stset} estimation data in
+memory. It verifies a signature of the estimation sample and the variables used
+by the fit before reading {cmd:e(basehaz)} or reconstructing influence
+functions. Re-run {cmd:finegray} after changing those data.
 
 
 {marker options}{...}
@@ -100,17 +101,18 @@ at the distinct cause-event times in {cmd:e(basehaz)}.
 influence-function (sandwich) standard error; limits are formed on the
 complementary log-log scale so that they remain inside (0,1). The standard error
 treats the inverse-probability-of-censoring weights as known; under heavy
-censoring it is mildly anti-conservative, in which case {opt bootstrap()} gives an
-exact band.
+censoring it is mildly anti-conservative, in which case {opt bootstrap()} gives a
+bootstrap-based band that includes censoring-weight uncertainty.
 
 {phang}
 {opt bootstrap(#)} computes the confidence band by a subject bootstrap with {it:#}
 replications instead of the analytic influence-function SE. Each replication
-resamples subjects with replacement and refits the model, so the band is exact
-and fully accounts for estimation of the censoring weights (useful under heavy
-censoring or for publication-grade intervals). The point estimates are unchanged;
-only the standard error / limits differ. The original estimation results in
-{cmd:e()} are preserved.
+resamples subjects with replacement and refits the model, so the simulated band
+accounts for estimation of the censoring weights (useful under heavy
+censoring or for publication-grade intervals). Nonconverged refits are skipped;
+at least two successful replications are required. The point estimates are
+unchanged; only the standard error and limits differ. The original estimation
+results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
@@ -123,7 +125,9 @@ set by {helpb set level}.
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
 {cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci} (one row per evaluated time) - the
-analogue of {cmd:outfile} after {cmd:stcurve}.
+analogue of {cmd:outfile} after {cmd:stcurve}. Only the optional suboption
+{cmd:replace} is accepted. Shell metacharacters and embedded quote characters
+are rejected in {it:filename}.
 
 {phang}
 {opt nograph} suppresses the graph (useful with {opt saving()}).
@@ -174,7 +178,7 @@ baseline cumulative subdistribution hazard. With {opt cluster()} in the original
 {pstd}Save the numeric estimates behind the curve{p_end}
 {phang2}{cmd:. finegray_cif, ci nograph saving(cifcurve.dta, replace)}{p_end}
 
-{pstd}Exact band by subject bootstrap{p_end}
+{pstd}Band by subject bootstrap{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci bootstrap(500) seed(12345)}{p_end}
 
 
@@ -188,6 +192,9 @@ baseline cumulative subdistribution hazard. With {opt cluster()} in the original
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(level)}}confidence level{p_end}
 {synopt:{cmd:r(cause)}}cause of interest{p_end}
+{synopt:{cmd:r(bootstrap_requested)}}requested replications; with {cmd:bootstrap()}{p_end}
+{synopt:{cmd:r(bootstrap_success)}}converged replications used; with {cmd:bootstrap()}{p_end}
+{synopt:{cmd:r(bootstrap_failed)}}failed or nonconverged replications skipped; with {cmd:bootstrap()}{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(profile_vars)}}model covariates, in column order of {cmd:r(at)}{p_end}

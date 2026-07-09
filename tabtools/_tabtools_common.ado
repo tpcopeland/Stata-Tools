@@ -334,7 +334,7 @@ capture program drop _tabtools_validate_sheet
 program _tabtools_validate_sheet
     version 16.0
     args sheet option_name
-    if strlen("`sheet'") > 31 {
+    if ustrlen(`"`sheet'"') > 31 {
         display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
         exit 198
     }

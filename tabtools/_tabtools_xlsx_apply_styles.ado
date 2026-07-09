@@ -77,9 +77,16 @@ void _tt_xlsx_apply_styles(
     string scalar color4)
 {
     real scalar i, op, r1, r2, c1, c2
-    string rowvector colors
+    string rowvector colors, sheets
 
     colors = (color1, color2, color3, color4)
+    sheets = b.get_sheets()
+    for (i = 1; i <= length(sheets); i++) {
+        if (strlower(sheets[i]) == strlower(sheet)) {
+            sheet = sheets[i]
+            break
+        }
+    }
 
     for (i = 1; i <= rows(rules); i++) {
         _tt_xlsx_style_validate(rules, i, colors)

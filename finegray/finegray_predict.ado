@@ -1,8 +1,7 @@
-*! finegray_predict Version 1.1.1  2026/07/07
+*! finegray_predict Version 1.1.2  2026/07/09
 *! Post-estimation predictions after finegray
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
-*! Program class: none (creates variable)
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Program class: rclass (creates variable; returns no results)
 
 /*
 Basic syntax:
@@ -25,7 +24,7 @@ Options:
 See help finegray for complete documentation
 */
 
-program define finegray_predict, nclass sortpreserve
+program define finegray_predict, rclass sortpreserve
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
@@ -72,6 +71,7 @@ program define finegray_predict, nclass sortpreserve
 
     * CI uses influence functions that require the original estimation data
     if "`ci'" != "" {
+        _finegray_check_data
         capture confirm variable _t
         if _rc {
             display as error "ci requires the original stset estimation data"
@@ -99,6 +99,7 @@ program define finegray_predict, nclass sortpreserve
     }
 
     if "`schoenfeld'" != "" {
+        _finegray_check_data
         * Schoenfeld residuals require the original stset estimation data
         capture confirm variable _t
         if _rc {
@@ -349,6 +350,7 @@ program define finegray_predict, nclass sortpreserve
                         }
                         capture `_fgcmd'
                         local _reprc = _rc
+                        if !_reprc & e(converged) != 1 local _reprc = 498
                     }
                     if `_reprc' continue
                     quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
@@ -527,5 +529,7 @@ program define finegray_predict, nclass sortpreserve
     if `_bframe' capture frame drop `_bf'
     if `_held' capture _estimates unhold `_esth'
     set varabbrev `_orig_varabbrev'
+    * Isolate helper r() results; this command intentionally returns nothing.
+    return clear
     if `rc' exit `rc'
 end

@@ -26,8 +26,6 @@ program define _tabtools_markdown_write, rclass
         }
 
         quietly ds
-        local title = subinstr(`"`title'"', char(34), "", .)
-        local footnote = subinstr(`"`footnote'"', char(34), "", .)
         local _allvars `r(varlist)'
         if "`_allvars'" == "" {
             noisily display as error "No variables available for Markdown export"

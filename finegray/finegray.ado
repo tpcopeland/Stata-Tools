@@ -1,7 +1,6 @@
-*! finegray Version 1.1.1  2026/07/04
+*! finegray Version 1.1.2  2026/07/09
 *! Fine-Gray competing risks regression
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
 
 /*
@@ -67,6 +66,29 @@ program define finegray, eclass sortpreserve
     markout `touse' `compete'
     * Save original varlist before FV expansion (for e(fvvarlist))
     local _orig_varlist "`varlist'"
+
+    * Variables whose estimation-sample values define the post-estimation
+    * contract. Factor/interactions are reduced to their underlying variables.
+    local _fg_sigvars "_t _t0 _d `compete'"
+    foreach _sig_tok of local _orig_varlist {
+        local _sig_parts = subinstr(subinstr("`_sig_tok'", "##", "#", .), "#", " ", .)
+        foreach _sig_part of local _sig_parts {
+            if regexm("`_sig_part'", "\.(.+)$") local _sig_part = regexs(1)
+            capture confirm numeric variable `_sig_part'
+            if !_rc {
+                local _sig_seen : list posof "`_sig_part'" in _fg_sigvars
+                if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_sig_part'"
+            }
+        }
+    }
+    foreach _sig_var of local strata {
+        local _sig_seen : list posof "`_sig_var'" in _fg_sigvars
+        if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_sig_var'"
+    }
+    if "`cluster'" != "" {
+        local _sig_seen : list posof "`cluster'" in _fg_sigvars
+        if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `cluster'"
+    }
 
     * Mark out missing values in variables referenced by FV specifications
     foreach _fv_tok of local varlist {
@@ -274,9 +296,22 @@ program define finegray, eclass sortpreserve
     * EXPAND FACTOR VARIABLES (fvrevar-based: supports i., ib#., ##, #, c.)
     * =========================================================================
     local _fv_created ""
+    local _prev_estimated `"`_dta[_finegray_estimated]'"'
     local _prev_fv_created `"`_dta[_finegray_fvvars]'"'
+    local _prev_entryvar `"`_dta[_finegray_entryvar]'"'
     local _has_fv = 0
     local _fv_nrefs = 0
+
+    * Input validation above leaves a prior successful fit intact. Once this
+    * new fit begins mutating package-owned columns, invalidate the old state
+    * first so a failed re-fit cannot masquerade as the previous success.
+    char _dta[_finegray_estimated] ""
+    char _dta[_finegray_compete] ""
+    char _dta[_finegray_cause] ""
+    char _dta[_finegray_covars] ""
+    char _dta[_finegray_fvvars] ""
+    char _dta[_finegray_fvvarlist] ""
+    char _dta[_finegray_entryvar] ""
 
     * Check if any FV operators present
     foreach _fv_tok of local varlist {
@@ -288,8 +323,7 @@ program define finegray, eclass sortpreserve
 
     * Clean up the entry-time variable from any prior finegray run when this
     * run did not just (re)create it in the reduction step above.
-    local _prev_entryvar `"`_dta[_finegray_entryvar]'"'
-    if `"`_dta[_finegray_estimated]'"' == "1" & `"`_prev_entryvar'"' != "" ///
+    if `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" ///
         & "`_prev_entryvar'" != "`_fg_entryvar'" {
         capture confirm variable `_prev_entryvar'
         if !_rc quietly drop `_prev_entryvar'
@@ -298,7 +332,7 @@ program define finegray, eclass sortpreserve
     * Clean up FV variables from any prior finegray run, unconditionally.
     * This ensures stale _fg_* columns are dropped even when the new run
     * does not use factor variables.
-    if `"`_dta[_finegray_estimated]'"' == "1" & `"`_prev_fv_created'"' != "" {
+    if `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
         local _drop_prev ""
         foreach _old_fg of local _prev_fv_created {
             capture confirm variable `_old_fg'
@@ -489,6 +523,20 @@ program define finegray, eclass sortpreserve
         }
     }
 
+    * The unpenalized Fine-Gray likelihood cannot identify constant or exactly
+    * collinear columns.  Do not silently substitute arbitrary ridge estimates:
+    * reject the specification with the offending expanded columns named.
+    quietly _rmcoll `varlist' if `touse', forcedrop
+    if r(k_omitted) > 0 {
+        local _fg_identified `r(varlist)'
+        local _fg_omitted : list varlist - _fg_identified
+        if "`_fv_created'" != "" quietly drop `_fv_created'
+        display as error "finegray covariates are not full rank"
+        display as error "constant or collinear term(s): `_fg_omitted'"
+        display as error "remove or recode these terms and fit the model again"
+        exit 459
+    }
+
     * =========================================================================
     * LOAD MATA ENGINE
     * =========================================================================
@@ -627,6 +675,15 @@ program define finegray, eclass sortpreserve
     else {
         ereturn local marginsok "xb"
     }
+
+    local _sig_entry_seen = 0
+    if "`_fg_entryvar'" != "" {
+        local _sig_entry_seen : list posof "`_fg_entryvar'" in _fg_sigvars
+        if `_sig_entry_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_fg_entryvar'"
+    }
+    quietly _datasignature `_fg_sigvars' if e(sample), nodefault nonames
+    ereturn local datasignature `"`r(datasignature)'"'
+    ereturn local datasignaturevars "`_fg_sigvars'"
 
     capture matrix `basehaz' = _finegray_basehaz
     if _rc == 0 {

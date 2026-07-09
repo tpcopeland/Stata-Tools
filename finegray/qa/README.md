@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.1.1, 2026-07-04): the
+Quality assurance for the **finegray** package (v1.1.2, 2026-07-09): the
 Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its
 post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
@@ -31,23 +31,24 @@ reference (`fastcmprsk`, archived on CRAN) — the authoritative references
 | `test_finegray.do` | functional / regression | 127 | 127 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
 | `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 13 | 13 | 0 | 0 |
+| `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap convergence, safe saving) | 10 | 10 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
 | `validation_finegray_cif_recovery.do` | analytic CIF known-answer recovery | 5 | 5 | 0 | 0 |
-| `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 7 | 7 | 0 | 0 |
+| `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 3 | 3 | 0 | 0 |
 | `validation_finegray_lt_se.do` | left-truncation SE oracles (score identity + jackknife) | 3 | 3 | 0 | 0 |
 | `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 49 | 0 | 6 |
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| **Total** | | **324** | **318** | **0** | **6** |
+| **Total** | | **335** | **329** | **0** | **6** |
 
 *The 6 skips are `fastcmprsk` cross-checks (C45–C50), a redundant secondary
 oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
 `fastcmprsk` only confirms it a second time. Skipping it loses no coverage.*
 
-Last full run: 2026-07-04 via `stata-mp -b do run_all.do full`, R with
+Last full run: 2026-07-09 via `stata-mp -b do run_all.do full`, R with
 `cmprsk` and `riskRegression` present.
 
 ## How to run
@@ -100,6 +101,7 @@ install.packages(c("cmprsk", "riskRegression"))
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
 | `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), and `finegray_cif, at()` factor-variable natural names |
+| `test_finegray_v112.do` | Regression tests for v1.1.2: estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, and helper `r()` isolation |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
 | `validation_finegray_recovery_paths.do` | Known-truth log-SHR recovery across 15 option/coding/estimand code paths (null/strong effects, binary/factor/interaction covariates, non-default `cause()`/`censvalue()`, cluster/norobust VCE, heavy censoring, high/low incidence, `level()`, multi-record reduction) |
@@ -119,7 +121,7 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
 | `full` | `core` + `python` |
@@ -141,7 +143,7 @@ is exercised somewhere below.
 | Stored results `e(b)`, `e(V)`, `e(basehaz)`, all scalars/macros, event-count identity | T31–T37, V19–V20 |
 | Data preservation, `if`/`in`, multi-record / left truncation | T8, T26, V23, V27–V28, test_v110, test_v111 |
 | Coefficients / LL / χ² / SEs vs `stcrreg` | V1–V6, V9–V10, V24b, C1–C10 |
-| Subdistribution-hazard / model invariants (SHR>0, null β≈0, scaling, reproducibility, convergence, separation, zero-event strata) | V7–V14, V37–V41 |
+| Subdistribution-hazard / model invariants (SHR>0, scaling, reproducibility, convergence, explicit rank-deficiency rejection, separation, zero-event strata) | V7–V14, V37–V41 |
 
 ### `finegray_predict`
 
@@ -156,8 +158,8 @@ is exercised somewhere below.
 
 | Surface | Where tested |
 |---------|--------------|
-| Fixed-horizon table, `at()`, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, `r(profile_vars)` | test_v110, test_v111 (factor-variable `at()` natural names) |
-| Bootstrap CI, `level()` width control | test_v110, test_v111 (after reduction; e(sample) preserved; string id(); cluster resampling) |
+| Fixed-horizon table, `at()`, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, complete `r()` payload | test_v110, test_v111, test_v112 (safe parsing and graph/save failure gates) |
+| Bootstrap CI, `level()` width control | test_v110, test_v111, test_v112 (nonconverged refits skipped; counts and state restoration) |
 | Graph legend, `legend()`/`title()`/`xtitle()` passthrough, `nograph` | test_v110 |
 | CIF point estimates vs `riskRegression::predictRisk`; SEs vs bootstrap | crossval_cif |
 | Analytic CIF SE vs closed-form jackknife; `finegray_cif`/`finegray_predict` SE agreement | validation_cif_se |
@@ -171,7 +173,7 @@ is exercised somewhere below.
 
 ## The four assurance layers in detail
 
-### 1. Functional / regression (151 tests)
+### 1. Functional / regression (174 tests)
 
 `test_finegray.do` (127) walks the full command surface in eleven sections:
 installation and helper auto-load, basic fits, every option individually and in
@@ -180,19 +182,22 @@ inventory, data preservation, and edge cases. `test_finegray_v110.do` (24) is a
 version-pinned regression suite that locks in the v1.1.0 CIF/predict/bootstrap
 surface and the `finegray_cif` graph polish (single-row legend default,
 `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths), so
-those features cannot silently regress.
+those features cannot silently regress. `test_finegray_v111.do` (13) and
+`test_finegray_v112.do` (10) lock the subsequent correctness, state-safety,
+return-gate, and bootstrap-convergence fixes.
 
-### 2. Validation (45 + 7 tests)
+### 2. Validation (75 tests across six suites)
 
 `validation_finegray.do` proves correctness against three kinds of ground truth:
 
 - **Live `stcrreg` parity** — coefficients match Stata's own Fine-Gray
   estimator to **< 1e-4** and the log-likelihood to **< 0.001** (V1–V6), both
   against frozen reference values and re-fit in the same session (V4).
-- **Mathematical invariants** — SHR > 0; a null covariate gives β ≈ 0; χ² equals
+- **Mathematical invariants** — SHR > 0; constant and exactly collinear terms are
+  rejected as unidentified; χ² equals
   the Wald form *b′V⁻¹b*; p = `chi2tail(df, χ²)`; covariate scaling moves
-  coefficients proportionally; adding an irrelevant or constant covariate leaves
-  the others unchanged; identical re-runs are bit-identical (V7–V14).
+  coefficients proportionally; adding an irrelevant covariate leaves the others
+  unchanged; identical re-runs are bit-identical (V7–V14).
 - **Prediction invariants** — CIF ∈ [0,1], monotone non-decreasing, and equal to
   `1 − exp(−H₀(t)·exp(xβ))`; `xb` equals manual *Zβ*; baseline cumulative hazard
   is positive, increasing, and time-sorted (V15–V20).
@@ -202,7 +207,7 @@ those features cannot silently regress.
   cases (non-convergence, collinearity, near-separation, zero-event strata,
   interactions) (V21–V45).
 
-`validation_finegray_cif_se.do` (7) adds a **closed-form (deterministic) oracle
+`validation_finegray_cif_se.do` (3) adds a **closed-form (deterministic) oracle
 for the analytic CIF standard error**. finegray reports an influence-function
 (sandwich) SE for the cumulative incidence, with the censoring weights treated
 as known; no R package exposes a Fine-Gray CIF SE, so the only external check
@@ -266,12 +271,12 @@ also exercises the CIF influence-function variance code at realistic N, where th
 O(_n_ log _n_) prefix-sum rewrite (v1.1.1, numerically identical to the prior
 O(_n_²) implementation) keeps it practical (~7 s vs ~91 s per call at N = 120 000).
 
-### 4. Cross-validation (80 tests against 3 independent references)
+### 4. Cross-validation (86 tests against 3 independent references)
 
 | Suite | Reference | What it proves |
 |-------|-----------|----------------|
 | `crossval_predict_stcrreg.do` | StataCorp `stcrreg` | `finegray_predict` `xb`, `exp(xb)` (relative subhazard), covariate and baseline CIF, `e(basehaz)`, Schoenfeld residuals (incl. tied-time group sums), and SHR/SE/95% CI all match the native estimator — bit-exact on point estimates, **< 2%** relative on robust SEs and CIs. Also includes a GitHub issue&nbsp;#1 regression guard (C1/C2): the fixed-horizon (`timevar()`) CIF matches the correct baseline-CIF mapping `1-(1-basecif)^exp(xb)` to ~6e-8 and is asserted **not** to equal the wrong `basecif^exp(xb)`. No external dependency; never skips. |
-| `crossval_finegray.do` | `stcrreg` + `cmprsk::crr` | Coefficients vs `stcrreg` to **< 1e-4** across covariate combinations and both causes; log-likelihood, robust SEs (ratio 0.95–1.05), strata via `cengroup`, high-censoring stress, simulated-DGP direction recovery, and N = 500–50 000 performance benchmarks. Strata parity vs `cmprsk` `cengroup` (C51–C55): coefficients < 0.01, SEs < 15%, LL < 0.1%, CIF < 0.02. |
+| `crossval_finegray.do` | `stcrreg` + `cmprsk::crr` | Coefficients vs `stcrreg` to **< 1e-4** across covariate combinations and both causes; log-likelihood, robust SEs (ratio 0.95–1.05), strata via `cengroup`, high-censoring stress, simulated-DGP direction recovery, and N = 500–50 000 performance benchmarks. Strata parity vs `cmprsk` `cengroup` (C51–C55): coefficients < 1e-6, SEs < 0.1%, relative LL difference < 1e-6, CIF < 1e-5. |
 | `crossval_cif.do` | R `riskRegression` | `finegray_cif` point estimates match `riskRegression::predictRisk` (**< 1e-4**); CIF standard errors match a same-dataset subject bootstrap. (Since no R package exposes a Fine-Gray CIF SE, the *deterministic* SE oracle is the jackknife in `validation_finegray_cif_se.do`.) |
 | `crossval_predict_phtest.do` | `cmprsk::crr` | Row-level `xb` (**< 0.001**) and CIF (**< 0.01**) vs R. Schoenfeld residuals and `finegray_phtest` χ² are cross-checked at a **common β** (finegray's coefficients passed to R, isolating the residual algorithm from optimizer-to-optimizer β differences): on tie-free simulated data the residuals are **bit-exact (< 1e-4)** and the χ² agrees with `cmprsk` across rank/log/identity transforms to **< 0.5%** (observed ~1e-6). Hypoxia (heavy ties + a near-zero censoring weight) is checked for functional validity only — its residuals are validated bit-for-bit against `stcrreg` in `crossval_predict_stcrreg.do`. Includes an internal `predict schoenfeld` → manual correlation → `phtest` consistency check and a determinism check. |
 

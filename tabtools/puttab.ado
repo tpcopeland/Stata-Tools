@@ -85,7 +85,7 @@ program define puttab, rclass
         if "`sheet'" == "" local sheet "Table"
         if `_has_using' _tabtools_validate_sheet "`sheet'" "sheet()"
 
-        local csv = strtrim(subinstr(`"`csv'"', char(34), "", .))
+        local csv = strtrim(`"`csv'"')
         if `"`csv'"' != "" {
             if !strmatch(lower(`"`csv'"'), "*.csv") {
                 noisily display as error "csv() must have a .csv extension"
