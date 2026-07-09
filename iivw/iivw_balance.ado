@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.9.3  2026/07/07
+*! iivw_balance Version 1.9.4  2026/07/09
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -30,6 +30,8 @@ program define iivw_balance, rclass
     set varabbrev off
 
     tempname __iivw_balance __iivw_hr_unweighted __iivw_hr_weighted
+    tempname __iivw_export_table
+    local __iivw_export_frame_created = 0
     local __iivw_return_ok = 0
     local __iivw_export_rc = 0
     local __iivw_export_xlsx ""
@@ -488,7 +490,6 @@ program define iivw_balance, rclass
         local __iivw_export_requested = 1
     }
     if `__iivw_export_requested' {
-        tempname __iivw_export_table
         frame create `__iivw_export_table' ///
             strL A ///
             strL B ///
@@ -500,6 +501,7 @@ program define iivw_balance, rclass
             strL c6 ///
             strL c7 ///
             strL c8
+        local __iivw_export_frame_created = 1
 
         local __iivw_dq = char(34)
         local __iivw_num_fmt "%9.`__iivw_decimals'f"
@@ -507,8 +509,23 @@ program define iivw_balance, rclass
 
         local __iivw_clean_title `"`title'"'
         local __iivw_clean_footnote `"`footnote'"'
-        local __iivw_clean_title = subinstr(`"`__iivw_clean_title'"', `"`__iivw_dq'"', "", .)
-        local __iivw_clean_footnote = subinstr(`"`__iivw_clean_footnote'"', `"`__iivw_dq'"', "", .)
+        foreach __iivw_text in title footnote {
+            local __iivw_text_n = strlen(`"`__iivw_clean_`__iivw_text''"')
+            if `__iivw_text_n' >= 4 & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(96) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 2, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n' - 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(39) {
+                local __iivw_clean_`__iivw_text' = ///
+                    substr(`"`__iivw_clean_`__iivw_text''"', 3, `__iivw_text_n' - 4)
+            }
+            else if `__iivw_text_n' >= 2 & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(34) {
+                local __iivw_clean_`__iivw_text' = ///
+                    substr(`"`__iivw_clean_`__iivw_text''"', 2, `__iivw_text_n' - 2)
+            }
+        }
         if `"`__iivw_clean_title'"' == "" {
             local __iivw_clean_title "IIVW balance diagnostic"
         }
@@ -602,14 +619,38 @@ program define iivw_balance, rclass
             `"`xlsx'"' != "" local __iivw_sheet "Balance"
 
         local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_xlsx = subinstr(`"`__iivw_clean_xlsx'"', `"`__iivw_dq'"', "", .)
-        local __iivw_clean_sheet = subinstr(`"`__iivw_sheet'"', `"`__iivw_dq'"', "", .)
+        local __iivw_clean_sheet `"`__iivw_sheet'"'
+        foreach __iivw_text in xlsx sheet {
+            local __iivw_text_n = strlen(`"`__iivw_clean_`__iivw_text''"')
+            if `__iivw_text_n' >= 4 & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(96) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 2, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n' - 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(39) {
+                local __iivw_clean_`__iivw_text' = ///
+                    substr(`"`__iivw_clean_`__iivw_text''"', 3, `__iivw_text_n' - 4)
+            }
+            else if `__iivw_text_n' >= 2 & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(34) {
+                local __iivw_clean_`__iivw_text' = ///
+                    substr(`"`__iivw_clean_`__iivw_text''"', 2, `__iivw_text_n' - 2)
+            }
+        }
+
+        * Protect embedded quotes while the title and footnote cross the
+        * helper's syntax boundary; the writer decodes this private sentinel.
+        local __iivw_quote_sentinel = uchar(57344)
+        local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_footnote = subinstr(`"`__iivw_clean_footnote'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
 
         local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
         if `"`__iivw_clean_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_clean_xlsx'")"'
         if `"`__iivw_clean_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_clean_sheet'")"'
-        if `"`__iivw_clean_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_clean_title'")"'
-        if `"`__iivw_clean_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_clean_footnote'")"'
+        if `"`__iivw_dispatch_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_dispatch_title'")"'
+        if `"`__iivw_dispatch_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_dispatch_footnote'")"'
         if "`replace'" != "" local __iivw_export_opts `"`__iivw_export_opts' replace"'
         if "`open'" != "" local __iivw_export_opts `"`__iivw_export_opts' open"'
         if `"`borderstyle'"' != "" local __iivw_export_opts `"`__iivw_export_opts' borderstyle(`borderstyle')"'
@@ -638,6 +679,7 @@ program define iivw_balance, rclass
         }
         capture frame drop `__iivw_export_table'
         local __iivw_drop_rc = _rc
+        local __iivw_export_frame_created = 0
         if `__iivw_export_rc' != 0 & `__iivw_export_rc' != 602 {
             exit `__iivw_export_rc'
         }
@@ -647,6 +689,11 @@ program define iivw_balance, rclass
 
     }
     local rc = _rc
+    if `__iivw_export_frame_created' {
+        capture frame drop `__iivw_export_table'
+        local __iivw_drop_rc = _rc
+        if `rc' == 0 & `__iivw_drop_rc' != 0 local rc = `__iivw_drop_rc'
+    }
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
     if !`__iivw_return_ok' exit 498

@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.9.3  2026/07/07
+*! _iivw_export_table Version 1.9.4  2026/07/09
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,10 +25,28 @@ program define _iivw_export_table, rclass
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
     local __iivw_dq = char(34)
+    local __iivw_quote_sentinel = uchar(57344)
     foreach __iivw_opt in xlsx sheet title footnote {
         local __iivw_tmp `"``__iivw_opt''"'
         local __iivw_tmp = strtrim(`"`__iivw_tmp'"')
-        local __iivw_tmp = subinstr(`"`__iivw_tmp'"', `"`__iivw_dq'"', "", .)
+        * syntax, string asis retains a user's enclosing quotes. Remove only
+        * that outer pair: deleting every quote corrupts titles such as
+        * Cohort "A" summary.
+        local __iivw_tmp_n = strlen(`"`__iivw_tmp'"')
+        if `__iivw_tmp_n' >= 4 & ///
+            substr(`"`__iivw_tmp'"', 1, 1) == char(96) & ///
+            substr(`"`__iivw_tmp'"', 2, 1) == char(34) & ///
+            substr(`"`__iivw_tmp'"', `__iivw_tmp_n' - 1, 1) == char(34) & ///
+            substr(`"`__iivw_tmp'"', `__iivw_tmp_n', 1) == char(39) {
+            local __iivw_tmp = substr(`"`__iivw_tmp'"', 3, `__iivw_tmp_n' - 4)
+        }
+        else if `__iivw_tmp_n' >= 2 & ///
+            substr(`"`__iivw_tmp'"', 1, 1) == char(34) & ///
+            substr(`"`__iivw_tmp'"', `__iivw_tmp_n', 1) == char(34) {
+            local __iivw_tmp = substr(`"`__iivw_tmp'"', 2, `__iivw_tmp_n' - 2)
+        }
+        local __iivw_tmp = subinstr(`"`__iivw_tmp'"', ///
+            `"`__iivw_quote_sentinel'"', char(34), .)
         local `__iivw_opt' `"`__iivw_tmp'"'
     }
     local layout = lower(strtrim(`"`layout'"'))
@@ -194,6 +212,16 @@ program define _iivw_export_table, rclass
     if `"`__iivw_xlsx'"' == "" {
         display as error "xlsx() is required for reporting export"
         error 198
+    }
+
+    * xlsx() can reach a post-write shell open. Shell substitutions execute
+    * inside double quotes, so reject metacharacters and quote characters
+    * before any workbook or shell operation.
+    foreach __iivw_badcode in 59 38 124 62 60 36 96 34 39 {
+        if strpos(`"`__iivw_xlsx'"', char(`__iivw_badcode')) > 0 {
+            display as error "xlsx() contains an unsafe path character"
+            error 198
+        }
     }
 
     if `decimals' < 0 | `decimals' > 6 {

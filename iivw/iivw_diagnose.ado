@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.9.3  2026/07/07
+*! iivw_diagnose Version 1.9.4  2026/07/09
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -8,8 +8,9 @@ program define iivw_diagnose, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
-    tempname _held_est _estimates
+    tempname _held_est _estimates _diagnose_export
     local _held_ests = 0
+    local _diagnose_export_created = 0
     local _export_rc = 0
     local _export_xlsx ""
     local _export_sheet ""
@@ -268,13 +269,13 @@ program define iivw_diagnose, rclass
             local _export_requested = 1
         }
         if `_export_requested' {
-            tempname _diagnose_export
             frame create `_diagnose_export' ///
                 strL A ///
                 strL B ///
                 strL c1 ///
                 strL c2 ///
                 strL c3
+            local _diagnose_export_created = 1
 
             local _sheet `"`sheet'"'
             if `"`_sheet'"' == "" & ///
@@ -285,10 +286,24 @@ program define iivw_diagnose, rclass
             local _clean_footnote `"`footnote'"'
             local _dq = char(34)
             local _num_fmt "%9.`_decimals_final'f"
-            local _clean_xlsx = subinstr(`"`_clean_xlsx'"', `"`_dq'"', "", .)
-            local _clean_sheet = subinstr(`"`_sheet'"', `"`_dq'"', "", .)
-            local _clean_title = subinstr(`"`_clean_title'"', `"`_dq'"', "", .)
-            local _clean_footnote = subinstr(`"`_clean_footnote'"', `"`_dq'"', "", .)
+            local _clean_sheet `"`_sheet'"'
+            foreach _text in xlsx sheet title footnote {
+                local _text_n = strlen(`"`_clean_`_text''"')
+                if `_text_n' >= 4 & ///
+                    substr(`"`_clean_`_text''"', 1, 1) == char(96) & ///
+                    substr(`"`_clean_`_text''"', 2, 1) == char(34) & ///
+                    substr(`"`_clean_`_text''"', `_text_n' - 1, 1) == char(34) & ///
+                    substr(`"`_clean_`_text''"', `_text_n', 1) == char(39) {
+                    local _clean_`_text' = ///
+                        substr(`"`_clean_`_text''"', 3, `_text_n' - 4)
+                }
+                else if `_text_n' >= 2 & ///
+                    substr(`"`_clean_`_text''"', 1, 1) == char(34) & ///
+                    substr(`"`_clean_`_text''"', `_text_n', 1) == char(34) {
+                    local _clean_`_text' = ///
+                        substr(`"`_clean_`_text''"', 2, `_text_n' - 2)
+                }
+            }
             if `"`_clean_title'"' == "" {
                 local _clean_title "IIVW diagnostic decomposition"
             }
@@ -459,11 +474,17 @@ program define iivw_diagnose, rclass
             frame post `_diagnose_export' ///
                 ("") (`"`_clean_footnote'"') ("") ("") ("")
 
+            local _quote_sentinel = uchar(57344)
+            local _dispatch_title = subinstr(`"`_clean_title'"', ///
+                char(34), `"`_quote_sentinel'"', .)
+            local _dispatch_footnote = subinstr(`"`_clean_footnote'"', ///
+                char(34), `"`_quote_sentinel'"', .)
+
             local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools) valuespanfrom(`_valuespanfrom')"'
             if `"`_clean_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_clean_xlsx'")"'
             if `"`_clean_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_clean_sheet'")"'
-            if `"`_clean_title'"' != "" local _export_opts `"`_export_opts' title("`_clean_title'")"'
-            if `"`_clean_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_clean_footnote'")"'
+            if `"`_dispatch_title'"' != "" local _export_opts `"`_export_opts' title("`_dispatch_title'")"'
+            if `"`_dispatch_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_dispatch_footnote'")"'
             if "`replace'" != "" local _export_opts `"`_export_opts' replace"'
             if "`open'" != "" local _export_opts `"`_export_opts' open"'
             if `"`borderstyle'"' != "" local _export_opts `"`_export_opts' borderstyle(`borderstyle')"'
@@ -491,12 +512,18 @@ program define iivw_diagnose, rclass
             }
             capture frame drop `_diagnose_export'
             local _drop_rc = _rc
+            local _diagnose_export_created = 0
             if `_export_rc' != 0 & `_export_rc' != 602 {
                 exit `_export_rc'
             }
         }
     }
     local rc = _rc
+    if `_diagnose_export_created' {
+        capture frame drop `_diagnose_export'
+        local _drop_rc = _rc
+        if `rc' == 0 & `_drop_rc' != 0 local rc = `_drop_rc'
+    }
     if `_held_ests' {
         capture _estimates unhold `_held_est'
         if `rc' == 0 & _rc local rc = _rc

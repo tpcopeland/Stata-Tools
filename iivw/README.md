@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.3** | 2026-07-07
+**Version 1.9.4** | 2026-07-09
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -36,6 +36,18 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 | `iivw_fit` | Fit weighted or unweighted outcome models through a consistent interface |
 | `iivw_exogtest` | Check whether lagged outcome/disease activity predicts future visit timing |
 | `iivw_diagnose` | Compare unweighted, weighted, and artifact-adjusted marginal/reference-slope estimates |
+
+## Stored Results
+
+Running `iivw` stores the installed package version in `r(version)`, the
+space-separated public-command list in `r(commands)`, and its length in
+`r(n_commands)`.
+
+| Result | Description |
+|---|---|
+| `r(version)` | Installed package version |
+| `r(commands)` | Space-separated list of public workflow commands |
+| `r(n_commands)` | Number of public workflow commands |
 
 ## Plain-Language Summary
 
@@ -535,6 +547,13 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.4 (2026-07-09)
+
+- Hardened direct Excel exports against unsafe shell metacharacters in `xlsx()` paths before the optional `open` action
+- Preserved embedded double quotes in report titles and footnotes across the public-command/helper boundary instead of silently deleting them
+- Ensured `iivw_balance` and `iivw_diagnose` always drop temporary export frames after failures, and added defensive estimate-state cleanup to `iivw_weight`
+- Added focused v1.9.4 regression QA and a complete `qa/README.md` file index, coverage map, and lane guide
 
 ### v1.9.3 (2026-07-07)
 

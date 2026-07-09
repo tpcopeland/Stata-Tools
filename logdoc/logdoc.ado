@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.1  2026/07/07
+*! logdoc Version 1.1.2  2026/07/09
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -137,6 +137,11 @@ program define _logdoc_convert, rclass
         exit 198
     }
 
+    * These values are interpolated into external shell commands below.
+    * Double quotes preserve spaces but do not neutralize command substitution.
+    _logdoc_validate_shell_path, path(`"`using'"') context("input path")
+    _logdoc_validate_shell_path, path(`"`output'"') context("output path")
+
     * stataexe() only affects the run option's child session; catch the
     * mismatch before the config files (which may legitimately preset a
     * stataexe default) are merged in.
@@ -262,6 +267,7 @@ program define _logdoc_convert, rclass
 
     * --- C7: Validate annotation file ---
     if "`annotate'" != "" {
+        _logdoc_validate_shell_path, path(`"`annotate'"') context("annotate()")
         capture confirm file "`annotate'"
         if _rc {
             display as error `"annotation file "`annotate'" not found"'
@@ -271,6 +277,7 @@ program define _logdoc_convert, rclass
 
     * --- F8: Validate custom CSS file ---
     if "`css'" != "" {
+        _logdoc_validate_shell_path, path(`"`css'"') context("css()")
         capture confirm file "`css'"
         if _rc {
             display as error `"CSS file "`css'" not found"'
@@ -410,6 +417,8 @@ program define _logdoc_convert, rclass
     if "`python'" == "" {
         _logdoc_resolve_python, result(python) configpython(`"`_config_python'"')
     }
+
+    _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
 
     * --- R4 + R6: Validate Python installation and version ---
     _logdoc_check_python "`python'"
@@ -1055,19 +1064,19 @@ program define _logdoc_stop, rclass
     local _orig_linesize `"$LOGDOC_ORIG_LINESIZE"'
 
     * Build option string from globals
-    local _opts `"output("$LOGDOC_OUTPUT")"'
+    local _opts `"output(`"$LOGDOC_OUTPUT"')"'
 
     if `"$LOGDOC_FORMAT"' != "" {
-        local _opts `"`_opts' format("$LOGDOC_FORMAT")"'
+        local _opts `"`_opts' format(`"$LOGDOC_FORMAT"')"'
     }
     if `"$LOGDOC_THEME"' != "" {
-        local _opts `"`_opts' theme("$LOGDOC_THEME")"'
+        local _opts `"`_opts' theme(`"$LOGDOC_THEME"')"'
     }
     if `"$LOGDOC_TITLE"' != "" {
-        local _opts `"`_opts' title("$LOGDOC_TITLE")"'
+        local _opts `"`_opts' title(`"$LOGDOC_TITLE"')"'
     }
     if `"$LOGDOC_DATE"' != "" {
-        local _opts `"`_opts' date("$LOGDOC_DATE")"'
+        local _opts `"`_opts' date(`"$LOGDOC_DATE"')"'
     }
     if "$LOGDOC_PREFORMATTED" != "" {
         local _opts `"`_opts' preformatted"'
@@ -1079,13 +1088,13 @@ program define _logdoc_stop, rclass
         local _opts `"`_opts' nodots"'
     }
     if `"$LOGDOC_PYTHON"' != "" {
-        local _opts `"`_opts' python("$LOGDOC_PYTHON")"'
+        local _opts `"`_opts' python(`"$LOGDOC_PYTHON"')"'
     }
     if `"$LOGDOC_CSS"' != "" {
-        local _opts `"`_opts' css("$LOGDOC_CSS")"'
+        local _opts `"`_opts' css(`"$LOGDOC_CSS"')"'
     }
     if `"$LOGDOC_ACCENT"' != "" {
-        local _opts `"`_opts' accent("$LOGDOC_ACCENT")"'
+        local _opts `"`_opts' accent(`"$LOGDOC_ACCENT"')"'
     }
     if "$LOGDOC_OPEN" != "" {
         local _opts `"`_opts' open"'
@@ -1103,7 +1112,7 @@ program define _logdoc_stop, rclass
         local _opts `"`_opts' verbose"'
     }
     if `"$LOGDOC_FOOTER"' != "" {
-        local _opts `"`_opts' footer("$LOGDOC_FOOTER")"'
+        local _opts `"`_opts' footer(`"$LOGDOC_FOOTER"')"'
     }
     if "$LOGDOC_STAMP" != "" {
         local _opts `"`_opts' stamp"'
@@ -1112,10 +1121,10 @@ program define _logdoc_stop, rclass
         local _opts `"`_opts' nograph"'
     }
     if `"$LOGDOC_GRAPHWIDTH"' != "" {
-        local _opts `"`_opts' graphwidth("$LOGDOC_GRAPHWIDTH")"'
+        local _opts `"`_opts' graphwidth(`"$LOGDOC_GRAPHWIDTH"')"'
     }
     if `"$LOGDOC_GRAPHHEIGHT"' != "" {
-        local _opts `"`_opts' graphheight("$LOGDOC_GRAPHHEIGHT")"'
+        local _opts `"`_opts' graphheight(`"$LOGDOC_GRAPHHEIGHT"')"'
     }
     if "$LOGDOC_LINENUMBERS" != "" {
         local _opts `"`_opts' linenumbers"'
@@ -1139,10 +1148,10 @@ program define _logdoc_stop, rclass
         local _opts `"`_opts' download"'
     }
     if `"$LOGDOC_KEEP"' != "" {
-        local _opts `"`_opts' keep("$LOGDOC_KEEP")"'
+        local _opts `"`_opts' keep(`"$LOGDOC_KEEP"')"'
     }
     if `"$LOGDOC_DROP"' != "" {
-        local _opts `"`_opts' drop("$LOGDOC_DROP")"'
+        local _opts `"`_opts' drop(`"$LOGDOC_DROP"')"'
     }
     if "$LOGDOC_NOTEBOOK" != "" {
         local _opts `"`_opts' notebook"'
@@ -1151,7 +1160,7 @@ program define _logdoc_stop, rclass
         local _opts `"`_opts' email"'
     }
     if `"$LOGDOC_ANNOTATE"' != "" {
-        local _opts `"`_opts' annotate("$LOGDOC_ANNOTATE")"'
+        local _opts `"`_opts' annotate(`"$LOGDOC_ANNOTATE"')"'
     }
     if "$LOGDOC_LEGACY" != "" {
         local _opts `"`_opts' legacy"'
@@ -1235,6 +1244,8 @@ program define _logdoc_combine, rclass
         KEEP(string) DROP(string) APPend NOTEbook EMAil ANNotate(string) ///
         FOLD HIGHlight TABles COPY DOWNload LEGacy GENerated]
 
+    _logdoc_validate_shell_path, path(`"`output'"') context("output path")
+
     if "`quiet'" != "" & "`verbose'" != "" {
         display as error "quiet and verbose are mutually exclusive"
         exit 198
@@ -1304,6 +1315,7 @@ program define _logdoc_combine, rclass
     while `"`sources'"' != "" {
         gettoken _src sources : sources, bind
         if `"`_src'"' != "" {
+            _logdoc_validate_shell_path, path(`"`_src'"') context("input path")
             capture confirm file `"`_src'"'
             if _rc {
                 display as error `"file "`_src'" not found"'
@@ -1369,6 +1381,7 @@ program define _logdoc_combine, rclass
         }
     }
     if "`annotate'" != "" {
+        _logdoc_validate_shell_path, path(`"`annotate'"') context("annotate()")
         capture confirm file "`annotate'"
         if _rc {
             display as error `"annotation file "`annotate'" not found"'
@@ -1376,6 +1389,7 @@ program define _logdoc_combine, rclass
         }
     }
     if "`css'" != "" {
+        _logdoc_validate_shell_path, path(`"`css'"') context("css()")
         capture confirm file "`css'"
         if _rc {
             display as error `"CSS file "`css'" not found"'
@@ -1410,6 +1424,7 @@ program define _logdoc_combine, rclass
     if "`python'" == "" {
         _logdoc_resolve_python, result(python) configpython(`"`_config_python'"')
     }
+    _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
     _logdoc_check_python "`python'"
 
     local scriptpath ""
@@ -1668,17 +1683,17 @@ program define _logdoc_batch, rclass
     if "`open'" != "" local _opts `"`_opts' open"'
     if "`stamp'" != "" local _opts `"`_opts' stamp"'
     if "`nograph'" != "" local _opts `"`_opts' nograph"'
-    if `"`title'"' != "" local _opts `"`_opts' title("`title'")"'
-    if `"`date'"' != "" local _opts `"`_opts' date("`date'")"'
-    if `"`css'"' != "" local _opts `"`_opts' css("`css'")"'
-    if `"`accent'"' != "" local _opts `"`_opts' accent("`accent'")"'
-    if `"`python'"' != "" local _opts `"`_opts' python("`python'")"'
-    if `"`footer'"' != "" local _opts `"`_opts' footer("`footer'")"'
+    if `"`title'"' != "" local _opts `"`_opts' title(`"`title'"')"'
+    if `"`date'"' != "" local _opts `"`_opts' date(`"`date'"')"'
+    if `"`css'"' != "" local _opts `"`_opts' css(`"`css'"')"'
+    if `"`accent'"' != "" local _opts `"`_opts' accent(`"`accent'"')"'
+    if `"`python'"' != "" local _opts `"`_opts' python(`"`python'"')"'
+    if `"`footer'"' != "" local _opts `"`_opts' footer(`"`footer'"')"'
     if "`graphwidth'" != "" local _opts `"`_opts' graphwidth(`graphwidth')"'
     if "`graphheight'" != "" local _opts `"`_opts' graphheight(`graphheight')"'
-    if `"`keep'"' != "" local _opts `"`_opts' keep("`keep'")"'
-    if `"`drop'"' != "" local _opts `"`_opts' drop("`drop'")"'
-    if `"`annotate'"' != "" local _opts `"`_opts' annotate("`annotate'")"'
+    if `"`keep'"' != "" local _opts `"`_opts' keep(`"`keep'"')"'
+    if `"`drop'"' != "" local _opts `"`_opts' drop(`"`drop'"')"'
+    if `"`annotate'"' != "" local _opts `"`_opts' annotate(`"`annotate'"')"'
     if "`append'" != "" local _opts `"`_opts' append"'
 
     * Determine file extension for output
@@ -1743,6 +1758,10 @@ program define _logdoc_diff, rclass
     syntax using/ , COMPare(string) OUTput(string) ///
         [REPlace THeme(string) PYthon(string) CSS(string) ACCent(string) Quiet]
 
+    _logdoc_validate_shell_path, path(`"`using'"') context("input path")
+    _logdoc_validate_shell_path, path(`"`compare'"') context("compare()")
+    _logdoc_validate_shell_path, path(`"`output'"') context("output path")
+
     * Validate both files exist
     capture confirm file "`using'"
     if _rc {
@@ -1778,6 +1797,11 @@ program define _logdoc_diff, rclass
     }
     if "`python'" == "" {
         _logdoc_resolve_python, result(python)
+    }
+
+    _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
+    if "`css'" != "" {
+        _logdoc_validate_shell_path, path(`"`css'"') context("css()")
     }
 
     _logdoc_check_python "`python'"
@@ -1873,12 +1897,12 @@ program define _logdoc_replay, rclass
     if "`format'" != "" local _replay_format "`format'"
     if "`theme'" != "" local _replay_theme "`theme'"
 
-    local _replay_args `"using "$LOGDOC_LAST_INPUT", output("$LOGDOC_LAST_OUTPUT") format(`_replay_format') theme(`_replay_theme')"'
+    local _replay_args `"using `"$LOGDOC_LAST_INPUT"', output(`"$LOGDOC_LAST_OUTPUT"') format(`_replay_format') theme(`_replay_theme')"'
     if `"$LOGDOC_LAST_TITLE"' != "" {
-        local _replay_args `"`_replay_args' title("$LOGDOC_LAST_TITLE")"'
+        local _replay_args `"`_replay_args' title(`"$LOGDOC_LAST_TITLE"')"'
     }
     if `"$LOGDOC_LAST_DATE"' != "" {
-        local _replay_args `"`_replay_args' date("$LOGDOC_LAST_DATE")"'
+        local _replay_args `"`_replay_args' date(`"$LOGDOC_LAST_DATE"')"'
     }
     if "$LOGDOC_LAST_PREFORMATTED" != "" {
         local _replay_args `"`_replay_args' preformatted"'
@@ -1890,13 +1914,13 @@ program define _logdoc_replay, rclass
         local _replay_args `"`_replay_args' nodots"'
     }
     if `"$LOGDOC_LAST_PYTHON"' != "" {
-        local _replay_args `"`_replay_args' python("$LOGDOC_LAST_PYTHON")"'
+        local _replay_args `"`_replay_args' python(`"$LOGDOC_LAST_PYTHON"')"'
     }
     if `"$LOGDOC_LAST_CSS"' != "" {
-        local _replay_args `"`_replay_args' css("$LOGDOC_LAST_CSS")"'
+        local _replay_args `"`_replay_args' css(`"$LOGDOC_LAST_CSS"')"'
     }
     if `"$LOGDOC_LAST_ACCENT"' != "" {
-        local _replay_args `"`_replay_args' accent("$LOGDOC_LAST_ACCENT")"'
+        local _replay_args `"`_replay_args' accent(`"$LOGDOC_LAST_ACCENT"')"'
     }
     if "$LOGDOC_LAST_QUIET" != "" {
         local _replay_args `"`_replay_args' quiet"'
@@ -1905,7 +1929,7 @@ program define _logdoc_replay, rclass
         local _replay_args `"`_replay_args' verbose"'
     }
     if `"$LOGDOC_LAST_FOOTER"' != "" {
-        local _replay_args `"`_replay_args' footer("$LOGDOC_LAST_FOOTER")"'
+        local _replay_args `"`_replay_args' footer(`"$LOGDOC_LAST_FOOTER"')"'
     }
     if "$LOGDOC_LAST_STAMP" != "" {
         local _replay_args `"`_replay_args' stamp"'
@@ -1914,10 +1938,10 @@ program define _logdoc_replay, rclass
         local _replay_args `"`_replay_args' nograph"'
     }
     if `"$LOGDOC_LAST_GRAPHWIDTH"' != "" {
-        local _replay_args `"`_replay_args' graphwidth("$LOGDOC_LAST_GRAPHWIDTH")"'
+        local _replay_args `"`_replay_args' graphwidth(`"$LOGDOC_LAST_GRAPHWIDTH"')"'
     }
     if `"$LOGDOC_LAST_GRAPHHEIGHT"' != "" {
-        local _replay_args `"`_replay_args' graphheight("$LOGDOC_LAST_GRAPHHEIGHT")"'
+        local _replay_args `"`_replay_args' graphheight(`"$LOGDOC_LAST_GRAPHHEIGHT"')"'
     }
     if "$LOGDOC_LAST_LINENUMBERS" != "" {
         local _replay_args `"`_replay_args' linenumbers"'
@@ -1941,10 +1965,10 @@ program define _logdoc_replay, rclass
         local _replay_args `"`_replay_args' download"'
     }
     if `"$LOGDOC_LAST_KEEP"' != "" {
-        local _replay_args `"`_replay_args' keep("$LOGDOC_LAST_KEEP")"'
+        local _replay_args `"`_replay_args' keep(`"$LOGDOC_LAST_KEEP"')"'
     }
     if `"$LOGDOC_LAST_DROP"' != "" {
-        local _replay_args `"`_replay_args' drop("$LOGDOC_LAST_DROP")"'
+        local _replay_args `"`_replay_args' drop(`"$LOGDOC_LAST_DROP"')"'
     }
     if "$LOGDOC_LAST_APPEND" != "" {
         local _replay_args `"`_replay_args' append"'
@@ -1959,7 +1983,7 @@ program define _logdoc_replay, rclass
         local _replay_args `"`_replay_args' email"'
     }
     if `"$LOGDOC_LAST_ANNOTATE"' != "" {
-        local _replay_args `"`_replay_args' annotate("$LOGDOC_LAST_ANNOTATE")"'
+        local _replay_args `"`_replay_args' annotate(`"$LOGDOC_LAST_ANNOTATE"')"'
     }
     if "$LOGDOC_LAST_LEGACY" != "" {
         local _replay_args `"`_replay_args' legacy"'
@@ -1972,7 +1996,7 @@ program define _logdoc_replay, rclass
     if "$LOGDOC_LAST_RUN" != "" {
         local _replay_args `"`_replay_args' run"'
         if `"$LOGDOC_LAST_STATAEXE"' != "" {
-            local _replay_args `"`_replay_args' stataexe("$LOGDOC_LAST_STATAEXE")"'
+            local _replay_args `"`_replay_args' stataexe(`"$LOGDOC_LAST_STATAEXE"')"'
         }
     }
     if "`open'" != "" {
@@ -2344,6 +2368,8 @@ program define _logdoc_check_python
 
     args python_exe
 
+    _logdoc_validate_shell_path, path(`"`python_exe'"') context("Python executable")
+
     tempfile pycheck
     shell "`python_exe'" --version > "`pycheck'" 2>&1
 
@@ -2377,6 +2403,34 @@ program define _logdoc_check_python
             display as error "Python `_pymajor'.`_pyminor' found but logdoc requires Python 3.6+"
             display as error "upgrade Python or specify a different path with python() option"
             exit 601
+        }
+    }
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: reject shell-control characters in user-supplied command arguments
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_validate_shell_path
+program define _logdoc_validate_shell_path
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , Path(string) [CONtext(string)]
+
+    if `"`context'"' == "" local context "path"
+    foreach _ascii in 34 36 38 39 59 60 62 96 124 {
+        if strpos(`"`path'"', char(`_ascii')) > 0 {
+            display as error "`context' contains characters that cannot be passed safely to the shell"
+            exit 198
         }
     }
 

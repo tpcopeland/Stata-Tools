@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.9.3  2026/07/07
+*! iivw_weight Version 1.9.4  2026/07/09
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -41,6 +41,9 @@ program define iivw_weight, rclass sortpreserve
     set varabbrev off
     local __iivw_smcl_lb = char(123)
     local __iivw_smcl_rb = char(125)
+    tempname __iivw_visit_est __iivw_logit_est
+    local __iivw_visit_hold_ok = 0
+    local __iivw_logit_hold_ok = 0
     capture noisily {
 
     * No sample marker: IIW requires full panel, no [if] [in] by design
@@ -489,7 +492,6 @@ program define iivw_weight, rclass sortpreserve
         local __iivw_visit_converged = 1
         local __iivw_stab_converged = 1
         local __iivw_iw_rc = 0
-        tempname __iivw_visit_est
         local __iivw_visit_hold_ok = 0
         capture _estimates hold `__iivw_visit_est', nullok
         if _rc == 0 {
@@ -689,7 +691,6 @@ program define iivw_weight, rclass sortpreserve
 
         tempfile __iivw_psfile
         local logit_rc = 0
-        tempname __iivw_logit_est
         local __iivw_logit_hold_ok = 0
         capture _estimates hold `__iivw_logit_est', nullok
         if _rc == 0 {
@@ -1000,6 +1001,19 @@ program define iivw_weight, rclass sortpreserve
 
     }
     local rc = _rc
+    * Defensive outer cleanup: normally each component unholds immediately,
+    * but an unexpected preserve/restore failure must not strand the caller's
+    * active estimation results.
+    if `__iivw_visit_hold_ok' {
+        capture _estimates unhold `__iivw_visit_est'
+        local __iivw_unhold_rc = _rc
+        if `rc' == 0 & `__iivw_unhold_rc' != 0 local rc = `__iivw_unhold_rc'
+    }
+    if `__iivw_logit_hold_ok' {
+        capture _estimates unhold `__iivw_logit_est'
+        local __iivw_unhold_rc = _rc
+        if `rc' == 0 & `__iivw_unhold_rc' != 0 local rc = `__iivw_unhold_rc'
+    }
     if `rc' != 0 {
         foreach v of local __iivw_created_vars {
             capture drop `v'

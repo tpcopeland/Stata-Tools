@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  07jul2026}{...}
+{* *! version 1.1.2  09jul2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -172,7 +172,7 @@ the chosen format.
 {p2col:{bf:both}}HTML and Markdown from one command{p_end}
 {p2col:{bf:docx}}Word document via Stata's {cmd:html2docx} (requires Stata 17+){p_end}
 {p2col:{bf:tex}}LaTeX document with listings and booktabs{p_end}
-{p2col:{bf:pdf}}PDF via wkhtmltopdf (if installed){p_end}
+{p2col:{bf:pdf}}PDF via xhtml2pdf (preferred) or wkhtmltopdf{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -244,7 +244,8 @@ batch mode (with the same {opt stataexe()} setting) before converting.
 a self-contained HTML document. {bf:md} produces Markdown with YAML front
 matter. {bf:both} generates both formats from the same input.
 {bf:docx} generates Word via {cmd:html2docx} (Stata 17+).
-{bf:tex} generates LaTeX. {bf:pdf} generates PDF via wkhtmltopdf.
+{bf:tex} generates LaTeX. {bf:pdf} generates PDF via {cmd:xhtml2pdf}
+(preferred) or {cmd:wkhtmltopdf}.
 
 {phang}
 {opt theme(string)} selects the CSS theme for HTML output. {bf:light}
@@ -652,7 +653,7 @@ packages are required -- {cmd:logdoc} uses only the standard library.
 
 {pstd}
 Stata 16.0 or later. {opt format(docx)} requires Stata 17+.
-{opt format(pdf)} requires wkhtmltopdf to be installed.
+{opt format(pdf)} requires {cmd:xhtml2pdf} or {cmd:wkhtmltopdf}.
 
 
 {marker setup}{...}

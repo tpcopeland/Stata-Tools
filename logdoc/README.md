@@ -1,6 +1,6 @@
 # logdoc
 
-![version](https://img.shields.io/badge/version-1.1.1-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+![version](https://img.shields.io/badge/version-1.1.2-blue) ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
 Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents.
 
@@ -187,7 +187,7 @@ or location, e.g. `stataexe(/opt/stata18/stata-mp)`.
 | `both` | HTML + Markdown from one command |
 | `docx` | Word document via `html2docx` (Stata 17+) |
 | `tex` | LaTeX with listings and booktabs |
-| `pdf` | PDF via wkhtmltopdf |
+| `pdf` | PDF via xhtml2pdf (preferred) or wkhtmltopdf |
 
 ## When to Use logdoc
 
@@ -449,20 +449,20 @@ Run the full suite from `logdoc/qa`:
 stata-mp -b do run_all.do
 ```
 
-The suite contains 5 QA files: 4 functional test files and 1 validation file.
-
-- `test_logdoc.do` - 23 tests
-- `test_logdoc_py.do` - 90 tests
-- `validation_logdoc.do` - 54 validations
-- `test_logdoc_phase78.do` - 1 test
-- `test_logdoc_refactor_guards.do` - 13 tests
+The suite contains 7 QA files: 6 functional/regression files and 1 validation
+file. See [`qa/README.md`](qa/README.md) for the file index, coverage map, and
+the focused version-regression suites.
 
 ## Version
 
-Version 1.1.1
+Version 1.1.2
 
 ### Changelog
 
+- **1.1.2** (2026-07-09) -- Reject shell-control characters in user-supplied
+  paths, Python executable values, and pip package requests before any external
+  shell call; preserve embedded double quotes when batch, session, and replay
+  commands rebuild options.
 - **1.1.1** (2026-07-07) -- Conversion failures are now reported even when a previous output file exists (renderer success is verified, not inferred from file existence); UTF-8 output encoding on Windows; `logdoc replay` re-executes `run` conversions instead of rendering the .do source; `logdoc stop` preserves the captured session log when conversion fails; `logdoc_py` reads `~/.logdocrc` in addition to the project `.logdocrc`; `combine` rejects `.pdf`/`.docx` outputs; `stataexe()` without `run` is an error.
 - **1.1.0** (2026-06-14) -- Faithful-by-default HTML rendering; opt-in enhancements; `run`, `combine`, `accent()`, `.logdocrc` support.
 

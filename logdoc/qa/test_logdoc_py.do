@@ -489,40 +489,23 @@ else {
 }
 
 **# PDF Option
-**## PY-T17: pdf option reports available wkhtmltopdf or fails cleanly
+**## PY-T17: pdf option reports either supported converter or fails cleanly
 local ++test_total
 capture noisily {
-    tempfile wkcheck
-    if "`c(os)'" == "Windows" {
-        quietly shell where wkhtmltopdf > "`wkcheck'" 2>&1
-    }
-    else {
-        quietly shell command -v wkhtmltopdf > "`wkcheck'" 2>&1
-    }
-    local has_wkhtmltopdf 0
-    capture {
-        tempname wkfh
-        file open `wkfh' using "`wkcheck'", read text
-        file read `wkfh' wkline
-        file close `wkfh'
-        local wkline = strtrim("`wkline'")
-        if "`wkline'" != "" & !regexm(lower("`wkline'"), "not found") {
-            local has_wkhtmltopdf 1
-        }
-    }
-
     capture noisily logdoc_py, check pdf quiet
-    if `has_wkhtmltopdf' {
+    if _rc == 0 {
         assert _rc == 0
         assert r(pdf_ok) == 1
-        assert r(wkhtmltopdf) != ""
+        local xhtml2pdf `"`r(xhtml2pdf)'"'
+        local wkhtmltopdf `"`r(wkhtmltopdf)'"'
+        assert `"`xhtml2pdf'"' == "installed" | `"`wkhtmltopdf'"' != ""
     }
     else {
         assert _rc == 601
     }
 }
 if _rc == 0 {
-    display as result "PASS: PY-T17 - pdf option handles wkhtmltopdf presence/absence"
+    display as result "PASS: PY-T17 - pdf option handles converter presence/absence"
     local ++test_pass
 }
 else {

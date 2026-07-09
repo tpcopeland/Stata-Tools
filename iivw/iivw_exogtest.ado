@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.9.3  2026/07/07
+*! iivw_exogtest Version 1.9.4  2026/07/09
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -522,7 +522,21 @@ program define iivw_exogtest, rclass sortpreserve
         local __iivw_clean_foot `"`footnote'"'
         foreach __iivw_clean in xlsx sheet title foot {
             local __iivw_clean_tmp `"`__iivw_clean_`__iivw_clean''"'
-            local __iivw_clean_tmp = subinstr(`"`__iivw_clean_tmp'"', `"`__iivw_dq'"', "", .)
+            local __iivw_clean_n = strlen(`"`__iivw_clean_tmp'"')
+            if `__iivw_clean_n' >= 4 & ///
+                substr(`"`__iivw_clean_tmp'"', 1, 1) == char(96) & ///
+                substr(`"`__iivw_clean_tmp'"', 2, 1) == char(34) & ///
+                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n' - 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n', 1) == char(39) {
+                local __iivw_clean_tmp = ///
+                    substr(`"`__iivw_clean_tmp'"', 3, `__iivw_clean_n' - 4)
+            }
+            else if `__iivw_clean_n' >= 2 & ///
+                substr(`"`__iivw_clean_tmp'"', 1, 1) == char(34) & ///
+                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n', 1) == char(34) {
+                local __iivw_clean_tmp = ///
+                    substr(`"`__iivw_clean_tmp'"', 2, `__iivw_clean_n' - 2)
+            }
             local __iivw_clean_`__iivw_clean' `"`__iivw_clean_tmp'"'
         }
         if `"`__iivw_clean_sheet'"' == "" {
@@ -636,8 +650,13 @@ program define iivw_exogtest, rclass sortpreserve
                 ("") (`"`__iivw_clean_foot'"') `__iivw_blank_cells'
         }
 
+        local __iivw_quote_sentinel = uchar(57344)
+        local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_foot = subinstr(`"`__iivw_clean_foot'"', ///
+            char(34), `"`__iivw_quote_sentinel'"', .)
         local __iivw_exog_opts ///
-            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_clean_sheet'") title("`__iivw_clean_title'") footnote("`__iivw_clean_foot'") layout(tabtools)"'
+            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_clean_sheet'") title("`__iivw_dispatch_title'") footnote("`__iivw_dispatch_foot'") layout(tabtools)"'
         if `"`__iivw_clean_xlsx'"' != "" {
             local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_clean_xlsx'")"'
         }

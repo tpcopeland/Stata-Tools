@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.1.1  2026/07/07
+*! logdoc_py Version 1.1.2  2026/07/09
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -12,6 +12,13 @@ program define logdoc_py, rclass
 
     syntax [, CHeck SET SAVE INSTall(string) PYthon(string) PDF ///
         REPlace DRYrun Quiet Verbose]
+
+    if `"`python'"' != "" {
+        _logdoc_py_validate_shell_arg, text(`"`python'"') context("python()")
+    }
+    if `"`install'"' != "" {
+        _logdoc_py_validate_shell_arg, text(`"`install'"') context("install()")
+    }
 
     if "`quiet'" != "" & "`verbose'" != "" {
         display as error "quiet and verbose are mutually exclusive"
@@ -367,6 +374,8 @@ program define _logdoc_py_check_candidate, rclass
     capture noisily {
 
     syntax , PYthon(string) source(string) renderer(string) [Verbose]
+
+    _logdoc_py_validate_shell_arg, text(`"`python'"') context("Python executable")
 
     local cmdprefix `""`python'""'
     if `"`python'"' == "py -3" local cmdprefix "py -3"
@@ -736,6 +745,9 @@ program define _logdoc_py_install, rclass
 
     syntax , PYthon(string) INSTall(string) [source(string) DRYrun Quiet Verbose]
 
+    _logdoc_py_validate_shell_arg, text(`"`python'"') context("Python executable")
+    _logdoc_py_validate_shell_arg, text(`"`install'"') context("install()")
+
     local required ""
     local optional ""
     local missing ""
@@ -991,6 +1003,34 @@ program define _logdoc_py_dirname
         local dir ""
     }
     c_local `result' `"`dir'"'
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: reject shell-control characters before external Python invocation
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_py_validate_shell_arg
+program define _logdoc_py_validate_shell_arg
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , Text(string) [CONtext(string)]
+
+    if `"`context'"' == "" local context "argument"
+    foreach _ascii in 34 36 38 39 59 60 62 96 124 {
+        if strpos(`"`text'"', char(`_ascii')) > 0 {
+            display as error "`context' contains characters that cannot be passed safely to the shell"
+            exit 198
+        }
+    }
 
     }
     local rc = _rc

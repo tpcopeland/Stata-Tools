@@ -314,7 +314,7 @@ Show the pip command that would be used for a custom package install:
 {synopt:{cmd:r(ok)}}1 if the requested checks passed, 0 otherwise{p_end}
 {synopt:{cmd:r(python_ok)}}1 if a usable Python executable was found{p_end}
 {synopt:{cmd:r(renderer_ok)}}1 if {cmd:logdoc_render.py} was found and passed the renderer smoke check{p_end}
-{synopt:{cmd:r(pdf_ok)}}1 if {cmd:wkhtmltopdf} is available; missing if {opt pdf} was not requested{p_end}
+{synopt:{cmd:r(pdf_ok)}}1 if either {cmd:xhtml2pdf} or {cmd:wkhtmltopdf} is available; missing if {opt pdf} was not requested{p_end}
 {synopt:{cmd:r(installed)}}1 if {opt install()} completed; missing otherwise{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
@@ -323,6 +323,7 @@ Show the pip command that would be used for a custom package install:
 {synopt:{cmd:r(python_source)}}where the selected executable came from: {cmd:option}, {cmd:global}, {cmd:config}, {cmd:stata}, or {cmd:path}{p_end}
 {synopt:{cmd:r(renderer)}}path to {cmd:logdoc_render.py}{p_end}
 {synopt:{cmd:r(config)}}path to {cmd:.logdocrc}, when read or written{p_end}
+{synopt:{cmd:r(xhtml2pdf)}}{cmd:installed} when the preferred PDF library is available{p_end}
 {synopt:{cmd:r(wkhtmltopdf)}}path or command name for {cmd:wkhtmltopdf}, when found{p_end}
 {synopt:{cmd:r(required)}}space-separated required Python packages; empty for current {cmd:logdoc}{p_end}
 {synopt:{cmd:r(optional)}}space-separated optional Python packages, if any{p_end}
