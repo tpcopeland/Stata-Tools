@@ -7,8 +7,9 @@
       4. Excel table (categorical visit-wave interaction labels) -> .xlsx
       5. Direct reporting exports from iivw_balance/iivw_exogtest/iivw_diagnose -> .xlsx sheets
 
-    Run from the Stata-Tools repository root:
+    Run from the Stata-Tools repository root, from iivw/, or from iivw/demo/:
       stata-mp -b do iivw/demo/demo_iivw.do
+      stata-mp -b do demo_iivw.do
 */
 
 version 16.0
@@ -17,8 +18,21 @@ set varabbrev off
 set linesize 120
 
 **# Paths
-local repo_dir = regexr("`c(pwd)'", "/+$", "")
-local pkg_dir "iivw/demo"
+* Resolve the repository root from the invocation's cwd so the demo runs from the
+* repo root, from iivw/, or from iivw/demo/. Every path below hangs off repo_dir.
+local here = regexr("`c(pwd)'", "/+$", "")
+local basename = substr("`here'", strrpos("`here'", "/") + 1, .)
+if "`basename'" == "demo" {
+    local repo_dir "`here'/../.."
+}
+else if "`basename'" == "iivw" {
+    local repo_dir "`here'/.."
+}
+else {
+    local repo_dir "`here'"
+}
+confirm file "`repo_dir'/iivw/iivw.pkg"
+local pkg_dir "`repo_dir'/iivw/demo"
 local xlsx "`pkg_dir'/iivw_results.xlsx"
 local export_xlsx "`pkg_dir'/iivw_reporting_exports.xlsx"
 local psdash_dashboard "`pkg_dir'/iivw_psdash_dashboard.png"

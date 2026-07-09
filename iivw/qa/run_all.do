@@ -77,16 +77,29 @@ else {
 }
 
 if "`mode'" == "full" {
-    display as text "Generating R references for crossval_iivw.do..."
-    capture noisily shell cd "`repo_dir'" && Rscript iivw/qa/crossval_irreglong.R
-    if _rc {
-        display as error "FAILED: crossval_irreglong.R (rc=`=_rc')"
-        exit _rc
-    }
-    capture noisily shell cd "`repo_dir'" && Rscript iivw/qa/crossval_fiptiw.R
-    if _rc {
-        display as error "FAILED: crossval_fiptiw.R (rc=`=_rc')"
-        exit _rc
+    * Stata's `shell` never propagates the child's exit status: _rc is 0 even when
+    * the command is missing or exits nonzero. Detect R failure with a sentinel the
+    * shell only creates after Rscript succeeds. Without this, a missing R or R
+    * package leaves the tracked reference CSVs stale and the crossval lanes pass
+    * against outdated oracles.
+    foreach rsrc in crossval_irreglong crossval_fiptiw {
+        display as text "Generating R references from `rsrc'.R..."
+        capture erase "`qa_dir'/`rsrc'.ok"
+        capture confirm file "`qa_dir'/`rsrc'.ok"
+        if !_rc {
+            display as error "FAILED: cannot remove stale sentinel `qa_dir'/`rsrc'.ok"
+            exit 603
+        }
+        shell cd "`repo_dir'" && Rscript iivw/qa/`rsrc'.R && touch iivw/qa/`rsrc'.ok
+        capture confirm file "`qa_dir'/`rsrc'.ok"
+        if _rc {
+            display as error "FAILED: `rsrc'.R did not run to completion"
+            display as error "  full mode regenerates the crossval reference CSVs and requires R with"
+            display as error "  the IrregLong, geepack, survival, and nlme packages installed."
+            display as error "  Refusing to continue: the tracked reference CSVs would be stale."
+            exit 198
+        }
+        capture erase "`qa_dir'/`rsrc'.ok"
     }
 
     local suites `suites' ///

@@ -621,6 +621,8 @@ capture noisily {
     assert "`e(compete)'" == "status"
     assert "`e(covariates)'" == "ifp tumsize pelnode"
     assert "`e(title)'" == "Fine-Gray competing risks regression"
+    * e(properties) drives `estimates'/`_estimates hold'; b V must both be posted.
+    assert "`e(properties)'" == "b V"
 }
 if _rc == 0 {
     display as result "  PASS: T32 all e() macros present"
@@ -1221,18 +1223,20 @@ else {
     local ++fail_count
 }
 
-* T60: Single-level factor included (fvrevar does not drop it)
+* T60: Single-level factor expands to a constant column, which the unpenalized
+* Fine-Gray partial likelihood cannot identify -> explicit r(459), not a
+* silent ridge-dependent fit (v1.1.2 behaviour).
 local ++test_count
 capture noisily {
     _setup_hypoxia
     gen byte const_fv = 1
-    finegray i.const_fv ifp, compete(status) cause(1) nolog
-    assert e(converged) == 1
+    capture finegray i.const_fv ifp, compete(status) cause(1) nolog
+    assert _rc == 459
     drop const_fv
     cap drop _fg_*
 }
 if _rc == 0 {
-    display as result "  PASS: T60 single-level factor runs"
+    display as result "  PASS: T60 single-level factor rejected (rc=459)"
     local ++pass_count
 }
 else {
@@ -1260,19 +1264,23 @@ else {
     local ++fail_count
 }
 
-* T62: Nonexistent base category — fvrevar treats as phantom reference
+* T62: Nonexistent base category — fvrevar treats as phantom reference, so both
+* levels enter as indicators.  They sum to 1, and the Fine-Gray partial
+* likelihood is invariant to an additive constant in xb, so the pair is not
+* identified: reject with r(459) rather than return an arbitrary split.
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ib99.pelnode ifp, compete(status) cause(1) nolog
-    * Both levels become indicators; collinear in no-intercept model → df_m < 3
+    capture finegray ib99.pelnode ifp, compete(status) cause(1) nolog
+    assert _rc == 459
+    * The identified spec (real base category) must still fit.
+    finegray ib0.pelnode ifp, compete(status) cause(1) nolog
     assert e(converged) == 1
-    assert e(df_m) <= 3
-    assert e(df_m) >= 1
+    assert e(df_m) == 2
     cap drop _fg_*
 }
 if _rc == 0 {
-    display as result "  PASS: T62 phantom base category"
+    display as result "  PASS: T62 phantom base category rejected (rc=459)"
     local ++pass_count
 }
 else {

@@ -82,7 +82,8 @@ capture noisily {
         t0 = st_data(., "_t0")
         G = _finegray_km_censor(t, dd, 0, et, J(rows(t), 1, 1), t0)
         b = st_matrix("e(b)")'
-        sc = _finegray_score_residuals(t, dd, 1, 0, et, Z, b, G, t0)
+        sc = _finegray_score_residuals(t, dd, 1, 0, et, Z, b, G,
+                                       J(rows(t), 1, 1), t0)
         st_numscalar("cs_max", max(abs(colsum(sc))))
     }
     restore

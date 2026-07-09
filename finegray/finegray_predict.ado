@@ -350,7 +350,7 @@ program define finegray_predict, rclass sortpreserve
                         }
                         capture `_fgcmd'
                         local _reprc = _rc
-                        if !_reprc & e(converged) != 1 local _reprc = 498
+                        if !`_reprc' & e(converged) != 1 local _reprc = 498
                     }
                     if `_reprc' continue
                     quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///

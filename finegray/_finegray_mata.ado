@@ -963,8 +963,13 @@ void _finegray_engine(
 
         /* At a numerical optimum the Newton step can be effectively zero, so
            the trial likelihood is identical to ll. Treat that as convergence
-           before demanding a strictly improving step. */
+           before demanding a strictly improving step -- but TAKE the step
+           first.  Newton converges quadratically, so a step of size s leaves
+           an error of O(s^2): discarding a step as large as sqrt(tol) would
+           strand beta about sqrt(tol) from the optimum, while applying it
+           lands within O(tol). */
         if (max(abs(step)) < sqrt(tol)) {
+            beta = beta + step
             converged = 1
             break
         }
@@ -985,6 +990,11 @@ void _finegray_engine(
         if (ll_new <= ll) {
             if (abs(ll_new - ll) < tol &
                 max(abs(step_scale * step)) < sqrt(tol)) {
+                /* Likelihood is numerically flat, so halving can never find a
+                   strictly improving step.  Accept the trial coefficients:
+                   they are the ones the flat likelihood was evaluated at. */
+                beta = beta_new
+                ll = ll_new
                 converged = 1
                 break
             }
@@ -1223,7 +1233,13 @@ real matrix _finegray_cif_core(
     invS0sq   = 1 :/ (S0m :^ 2)
     GmInvS0sq = Gm :/ ((S0m :^ 2) * J(1, ng, 1))
     Acs = 0 \ runningsum(invS0sq)          /* Acs[k+1] = sum_{m<=k} 1/S0m^2 */
-    Bcs = J(1, ng, 0) \ runningsum(GmInvS0sq) /* one censoring-KM column per group */
+    /* One censoring-KM column per group.  runningsum() takes a vector only, so
+       accumulate column by column -- Gm is M x ng whenever bygroup() strata are
+       in play (ng > 1) and a whole-matrix call would exit 3201. */
+    Bcs = J(M + 1, ng, 0)
+    for (g = 1; g <= ng; g++) {
+        Bcs[|2, g \ M + 1, g|] = runningsum(GmInvS0sq[., g])
+    }
 
     cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
     clt0 = J(n, 1, 0)                       /* #{cause events with Tm <  t0_i} */

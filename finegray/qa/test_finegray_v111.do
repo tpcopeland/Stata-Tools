@@ -308,6 +308,44 @@ else {
     local ++fail_count
 }
 
+* Multi-variable strata() under bootstrap() SEs.  The analytical path above
+* exercises the ng>1 censoring-KM prefix sums; the bootstrap path re-fits inside
+* a frame and must agree with it to within Monte Carlo error.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    gen byte grp = mod(stnum, 2)
+    stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray ifp tumsize, compete(status) cause(1) strata(pelnode grp) nolog
+    quietly finegray_cif, attime(5) ci
+    matrix A = r(table)
+    scalar _an_cif = A[1, 2]
+    scalar _an_se  = A[1, 3]
+    quietly finegray_cif, attime(5) ci bootstrap(60) seed(20260710)
+    matrix B = r(table)
+    assert r(bootstrap_success) > 1
+    * The point estimate is the full-sample fit either way.
+    assert reldif(B[1, 2], _an_cif) < 1e-8
+    * Bootstrap SE is independent of the ng>1 prefix-sum path but must land in
+    * the same ballpark as the analytical SE.
+    assert B[1, 3] > 0 & B[1, 3] < .
+    assert reldif(B[1, 3], _an_se) < 0.5
+    assert B[1, 4] < B[1, 2] & B[1, 2] < B[1, 5]
+
+    gen double t5 = 5
+    quietly finegray_predict cbs, cif timevar(t5) ci bootstrap(60) seed(20260710)
+    quietly count if !missing(cbs) & cbs_lci < cbs & cbs < cbs_uci
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: multi-variable strata() bootstrap CIF SE paths"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: multi-variable strata() bootstrap CIF SE (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# ---------------------------------------------------------------
 **# 9. string id() bootstrap: no r(109) crash, positive SE, no leak
 **# ---------------------------------------------------------------

@@ -168,6 +168,12 @@ forvalues k = 1/3 {
 **# ---------------------------------------------------------------
 local ++test_count
 capture noisily {
+    * The jackknife loop above left the active e() from the last delete-one
+    * refit, whose estimation sample no longer matches the restored data.
+    * Post-estimation commands correctly reject that state (r(459)), so refit
+    * on the full sample before comparing the two SE surfaces.
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+
     * Use observation 1's covariate profile (the estimation data must stay in
     * memory: the influence-function SE is built from e(sample)).
     scalar v1 = x1[1]
