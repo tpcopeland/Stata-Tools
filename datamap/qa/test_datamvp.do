@@ -1268,6 +1268,24 @@ else {
     local ++fail_count
 }
 
+* Test 73: file paths reject shell metacharacters before any write command runs
+local ++test_count
+capture noisily {
+    use `testdata', clear
+    capture datamvp age bmi income, save("bad;path.dta")
+    assert _rc == 198
+    capture datamvp age bmi income, graph(bar) gsaving("bad;path.gph", replace) nodraw
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': save()/gsaving() reject shell metacharacters"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': shell-metacharacter path guard (rc=`=_rc')"
+    local ++fail_count
+}
+
 
 * =========================================================================
 * SUMMARY
@@ -1288,8 +1306,10 @@ display "{hline 60}"
 
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
+    display "RESULT: test_datamvp tests=`test_count' pass=`pass_count' fail=`fail_count'"
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
+    display "RESULT: test_datamvp tests=`test_count' pass=`pass_count' fail=`fail_count'"
 }

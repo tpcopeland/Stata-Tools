@@ -416,7 +416,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(compare_type_changed)}}number of variables with changed storage type{p_end}
 {synopt:{cmd:r(compare_class_changed)}}number of variables with changed classification{p_end}
 {synopt:{cmd:r(compare_changed)}}total schema-drift count, including N delta when present{p_end}
-{synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}duplicate-key count for each declared {opt id()} key{p_end}
+{synopt:{cmd:r(n_dup_)}}duplicate-key count keyed by {opt id()} variables{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(violations)}}space-separated list of failed gate names{p_end}

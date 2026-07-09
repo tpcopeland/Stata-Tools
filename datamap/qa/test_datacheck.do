@@ -348,6 +348,7 @@ capture {
     capture quietly datacheck, onlyflagged rare(5) outliers(3)
     local cmdrc = _rc
     assert `cmdrc' == 0
+    assert r(onlyflagged) == 1
     assert r(n_flagged) >= 5
     assert strpos("`r(flagged_vars)'", "age") > 0
     assert strpos("`r(flagged_vars)'", "email") > 0
@@ -497,6 +498,29 @@ capture {
     assert trim("`r(group_missing_vars)'") == "age"
 }
 _dc `=_rc' "planned over(): groupwise gate violations and missingness are counted and named"
+
+* by(): groupwise gates follow the same contract as the legacy over() alias
+_dc_make_planned
+capture {
+    capture quietly datacheck, by(site) expectn(20)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(n_groups) == 2
+    assert r(n_violations) == 0
+}
+_dc `=_rc' "planned by(): groupwise gates pass and report two groups"
+
+* maxcat()/maxfreq(): classification threshold and displayed-frequency cap
+_dc_make_planned
+capture {
+    capture quietly datacheck raregrp, maxcat(1) maxfreq(1)
+    local cmdrc = _rc
+    assert `cmdrc' == 0
+    assert r(N) == 40
+    assert trim("`r(continuous_vars)'") == "raregrp"
+    assert r(n_categorical) == 0
+}
+_dc `=_rc' "planned maxcat()/maxfreq(): threshold reclassifies raregrp and capped profile runs"
 
 * mincell()/maskrare(): privacy smoke path for small categorical cells
 _dc_make_planned

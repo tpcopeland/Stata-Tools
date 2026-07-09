@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.2  09jul2026}{...}
+{* *! version 1.5.3  10jul2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -332,7 +332,8 @@ becomes identifiable once raw rows are included.  Always combine with
 {phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt date()} are assigned to that class.{p_end}
 {phang2}3. String variables ({cmd:str}{it:#} or {cmd:strL}) are classified as {bf:string}.{p_end}
 {phang2}4. Variables whose display format starts with {cmd:%t} or {cmd:%d} are classified as {bf:date}.{p_end}
-{phang2}5. Numeric variables with an attached value label, or with {opt maxcat()} or fewer unique values, are classified as {bf:categorical}.{p_end}
+{phang2}5. Numeric variables with an attached value label, or with
+{opt maxcat()} or fewer unique values, are classified as {bf:categorical}.{p_end}
 {phang2}6. All remaining numeric variables are classified as {bf:continuous}.{p_end}
 
 {pstd}
@@ -537,7 +538,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.5.2 {hline 2} 09jul2026{p_end}
+{pstd}Version 1.5.3 {hline 2} 10jul2026{p_end}
 
 
 {title:Also see}

@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.5.2** | 2026-07-09
+**Version 1.5.3** | 2026-07-10
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -238,7 +238,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.5.2",
+  "datamap_version": "1.5.3",
   "format": "json",
   "datasets": [
     {
@@ -469,6 +469,74 @@ Monotone missingness test:
 | Schema drift | `compare()` |
 | Metadata export | `saving()` with the shared metadata schema |
 
+## Options
+
+This table is the complete public option contract for the flagship `datamap`
+command. See the command-specific help files for the companion commands.
+
+| Option | Purpose |
+|--------|---------|
+| `append` | Append text output to an existing file. |
+| `autodetect` | Enable all structure detectors. |
+| `categorical` | Force variables to the categorical class. |
+| `compact` | Produce a compact map and omit guidance prose. |
+| `config` | Read reusable project defaults from a configuration file. |
+| `continuous` | Force variables to the continuous class. |
+| `date` | Force variables to the date class. |
+| `dateformat` | Set the display format for dates. |
+| `datesafe` | Show date spans instead of exact dates. |
+| `detect` | Select structure detectors. |
+| `directory` | Scan a directory for Stata datasets. |
+| `exclude` | Document variables without values or statistics. |
+| `filelist` | Process a space-separated dataset list. |
+| `format` | Choose text or JSON output. |
+| `maxcat` | Set the categorical-classification threshold. |
+| `maxfreq` | Cap displayed category frequencies. |
+| `mincell` | Suppress small frequency cells. |
+| `missing` | Include detailed or patterned missingness output. |
+| `nofreq` | Suppress categorical frequency tables. |
+| `noguidance` | Suppress analysis guidance prose. |
+| `nolabels` | Suppress value-label definitions. |
+| `nostats` | Suppress continuous-variable summary statistics. |
+| `output` | Name the generated map file. |
+| `panelid` | Specify the panel identifier for detection. |
+| `quality` | Enable basic quality flags. |
+| `quality2` | Enable strict quality flags. |
+| `recursive` | Include subdirectories in a directory scan. |
+| `samples` | Include a limited number of sample rows. |
+| `saving` | Save standardized metadata alongside the map. |
+| `separate` | Write one output file per input dataset. |
+| `single` | Process one saved dataset. |
+| `survivalvars` | Specify candidate survival variables. |
+
+## Stored Results
+
+After a successful `datamap` run, the following `r()` results describe the
+combined output or the single in-memory dataset.
+
+| Result | Meaning |
+|--------|---------|
+| `r(categorical_vars)` | Categorical variable names. |
+| `r(continuous_vars)` | Continuous variable names. |
+| `r(date_vars)` | Date variable names. |
+| `r(excluded_vars)` | Excluded variable names. |
+| `r(format)` | Output format. |
+| `r(input_source)` | Input mode. |
+| `r(metadata)` | Standardized metadata file, when `saving()` is used. |
+| `r(mincell)` | Small-cell threshold. |
+| `r(n_categorical)` | Number of categorical variables. |
+| `r(n_continuous)` | Number of continuous variables. |
+| `r(n_date)` | Number of date variables. |
+| `r(n_excluded)` | Number of excluded variables. |
+| `r(n_string)` | Number of string variables. |
+| `r(n_suggested_exclude)` | Number of likely identifiers not excluded. |
+| `r(nfiles)` | Number of documented datasets. |
+| `r(nobs)` | Observation count for a single or in-memory dataset. |
+| `r(nvars)` | Variable count for a single or in-memory dataset. |
+| `r(output)` | Combined output filename. |
+| `r(string_vars)` | String variable names. |
+| `r(suggested_exclude)` | Likely identifiers not excluded. |
+
 ### Variable classification (datamap, datadict, datacheck)
 
 | Priority | Condition | Class |
@@ -505,24 +573,25 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 14 QA files: 12 functional test files, 2 validation files, and 0 cross-validation suites.
+The suite covers all four public commands with 15 QA files: 13 functional test
+files, 2 validation files, and no cross-validation suite (the package is a
+deterministic documentation and QC tool, so known-answer validations are the
+appropriate oracle).
 
-- `test_datacheck.do` - 106 tests
-- `test_datadict_v14.do` - 27 tests
-- `test_datamap.do` - 84 tests
-- `test_datamap_bugfixes.do` - 13 tests
-- `test_datamap_float_format.do` - 5 tests
-- `test_datamap_v2.do` - 54 tests
-- `test_datamap_v11.do` - 42 tests
-- `test_datamap_v15.do` - 6 tests
-- `test_datamap_privacy.do` - 22 tests
-- `test_datamap_golden.do` - 9 tests (9 golden cases)
-- `test_datamvp.do` - 72 tests
-- `test_datamvp_labels.do` - 20 tests
-- `validation_datamap.do` - 56 validations
-- `validation_datamvp.do` - 60 validations
+- `test_datacheck.do`, `test_datadict_v14.do`, and `test_datamap*.do`
+- `test_datamvp.do` and `test_datamvp_labels.do`
+- `validation_datamap.do` and `validation_datamvp.do`
+- `qa/README.md` has the complete file index, coverage map, and lane contract.
 
 ## Changelog
+
+### 1.5.3 (2026-07-10)
+
+- Add regression coverage for the existing `datamvp` write-path guards and complete the remaining
+  `datacheck` option/return coverage (`by()`, `maxcat()`, `maxfreq()`, and
+  `r(onlyflagged)`).
+- Add the package QA guide, complete the flagship README option/result contract,
+  and wrap long help-file prose for the Stata Viewer.
 
 ### 1.5.2 (2026-07-09)
 

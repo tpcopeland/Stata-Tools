@@ -50,7 +50,7 @@ help for {cmd:datamvp}
 {synopt:{opt p:ercent}}display percentages{p_end}
 {synopt:{opt cu:mulative}}display cumulative frequencies/percentages{p_end}
 {synopt:{opt cor:relate}}display tetrachoric correlations of missingness{p_end}
-{synopt:{opt mo:notone}}test for monotone missingness pattern{p_end}
+{synopt:{opt mon:otone}}test for monotone missingness pattern{p_end}
 
 {syntab:Output}
 {synopt:{opt gen:erate(stub)}}generate missingness indicator variables{p_end}
@@ -252,8 +252,8 @@ save the graph to a file.
 {phang}
 {opt graphoptions(twoway_options)} specifies additional options passed directly
 to the graph command. Any valid twoway or graph bar option may be specified,
-including {opt note()}, {opt xsize()}, {opt ysize()}, and
-{opt plotregion()} among others.
+including {it:note()}, {it:xsize()}, {it:ysize()}, and
+{it:plotregion()} among others.
 
 {dlgtab:Bar/Patterns graph options}
 

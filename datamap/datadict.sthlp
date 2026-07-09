@@ -322,7 +322,8 @@ Variable classification follows the same hierarchy as {help datamap}:
 {phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt datevars()} are assigned to that class.{p_end}
 {phang2}3. String variables ({cmd:str}{it:#} or {cmd:strL}) are "String".{p_end}
 {phang2}4. Variables with date formats ({cmd:%t*} or {cmd:%d*}) are "Date".{p_end}
-{phang2}5. Numeric variables with value labels, or with {opt maxcat()} or fewer unique values, are "Numeric" (treated as categorical in the Values column).{p_end}
+{phang2}5. Numeric variables with value labels, or with {opt maxcat()} or fewer
+unique values, are "Numeric" (treated as categorical in the Values column).{p_end}
 {phang2}6. All other numeric variables are "Numeric" (treated as continuous).{p_end}
 
 {pstd}
