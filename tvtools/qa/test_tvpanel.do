@@ -371,6 +371,39 @@ capture restore
 if `got' test_fail "rc=`got'"
 else test_pass
 
+* ---- TEST 12: Mata-engine work names do not collide with episode variables ----
+run_test "Mata work-name collision guard"
+capture noisily {
+    preserve
+    clear
+    set obs 1
+    gen long id = 1
+    gen double start = `e1' + 30
+    gen double stop = `e1' + 120
+    gen int eclass = 1
+    gen long __tp_estart = 999
+    format start stop %td
+    tempfile epi_engine_names
+    save `epi_engine_names'
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen double entry = `e1'
+    gen double exit = `e1' + 180
+    format entry exit %td
+    tvpanel using `epi_engine_names', id(id) entry(entry) exit(exit) ///
+        exposure(eclass) reference(0) width(91)
+    assert r(n_observations) == 2
+    assert tv_class[1] == 0
+    assert tv_class[2] == 1
+    restore
+}
+local got = _rc
+capture restore
+if `got' test_fail "rc=`got'"
+else test_pass
+
 * ---------------------------------------------------------------------------
 display as text _n "{hline 60}"
 display as result "tvpanel QA complete: PASS=$TVQA_PASS  FAIL=$TVQA_FAIL"

@@ -23,10 +23,13 @@ log using "`demodir'/demo_finegray.log", ///
 capture ado uninstall finegray
 quietly net install finegray, from("`pkgroot'") replace
 
-* Graph scheme for the cumulative-incidence curve (v1.1.0)
+* Graph scheme for the cumulative-incidence curve (v1.1.0).  tc_schemes is a
+* sibling package, not a finegray dependency: fall back to the session default
+* when it is absent so the demo runs standalone from an installed copy.
 capture ado uninstall tc_schemes
 capture net install tc_schemes, from("`pkgroot'/../tc_schemes") replace
-set scheme plotplainblind
+capture set scheme plotplainblind
+if _rc display as text "(tc_schemes not found; using default graph scheme)"
 
 * =========================================================================
 * Setup: Hypoxia study (competing risks)

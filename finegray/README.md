@@ -1,6 +1,6 @@
 # finegray - Fast Fine-Gray competing risks regression
 
-**Version 1.1.2** | 2026-07-09
+**Version 1.1.3** | 2026-07-10
 
 `finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
 
@@ -195,6 +195,11 @@ Standard errors are robust (sandwich) by default in both commands and agree to r
 - Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*. 2021;30(3):685-693.
 
 ## Version History
+
+- **1.1.3** (2026-07-10; Pending SSC release): Regression fixes for the 1.1.2 estimator refresh.
+  - Fixed the Newton-Raphson early-exit added in 1.1.2, which declared convergence on a small step without applying it. Coefficients could be left up to `sqrt(tolerance())` from the optimum; `predict, xb` is again bit-exact against `stcrreg`.
+  - Fixed `finegray_predict, bootstrap()`, which aborted with `r(111)` on every replication because a local macro was referenced without quotes.
+  - Fixed cumulative-incidence standard errors under multi-stratum censoring (`strata()` spanning more than one group), which exited `r(3201)` because a matrix was passed to Mata's vector-only `runningsum()`.
 
 - **1.1.2** (2026-07-09; Pending SSC release): Deep correctness and state-safety review.
   - Fixed stratified censoring IPCW throughout the estimator, robust variance, baseline hazard, Schoenfeld residuals, and CIF influence functions. Each retained competing-event subject now uses the censoring survival from its own stratum; coefficients and log pseudo-likelihood now match `cmprsk::crr(..., cengroup=)` to numerical precision.

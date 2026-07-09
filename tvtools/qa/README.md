@@ -5,8 +5,8 @@ tvtools builds time-varying datasets for survival analysis (commands `tvage`,
 `tvband`, `tvdiagnose`, `tvevent`, `tvexpose`, `tvmerge`, `tvpanel`, `tvsplit`,
 `tvweight`, and the `tvtools` dispatcher). This suite was consolidated from two
 append-grown monoliths
-(`test_tvtools.do`, 354 functional tests; `validation_tvtools.do`, 558
-validation tests) into per-command and per-concern suites. Merged origins are
+into command- and concern-specific suites from legacy functional and validation
+monoliths. Merged origins are
 preserved verbatim under `**# ===== merged from … =====` banners. Large
 append-grown regions that lived inside a single `capture noisily {}` scope and
 intermixed commands could not be cut per command without changing their
@@ -74,6 +74,8 @@ and re-bootstraps after its own `clear all`.
 | `test_edge_cases.do` | edge cases + stress tests | Revived from previously non-gating local counters |
 | `test_regressions.do` | gap coverage, deliberation/review fixes, Codex audit fixes, bug-fix regressions | Version- and review-specific regressions |
 | `test_verbose.do` | verbose option across tvexpose/tvdiagnose/tvmerge | Log-content assertions via `_check_log` |
+| `test_tvm_overlap_drift_guard.do` | tvmerge Mata overlap engine | Drift guard against the shared interval-engine contract |
+| `test_tvm_point_engine.do` | tvevent Mata point engine | Half-open point-in-interval known-answer checks |
 
 ### Validation (hand-computable oracles)
 | File | Covers |

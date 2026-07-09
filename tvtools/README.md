@@ -38,6 +38,30 @@ do tvtools_menu_setup.do
 | `tvsplit` | Multi-timescale Lexis splitting of follow-up intervals | `help tvsplit` |
 | `tvpanel` | Build a fixed-width, entry-anchored person-period panel for marginal structural models | `help tvpanel` |
 
+## Options
+
+### Package index options
+
+The `tvtools` index command accepts `list`, `detail`, and `category(string)` (one of
+`all`, `prep`, `diag`, or `weight`; default `all`). It returns:
+
+| Option | Meaning |
+|--------|---------|
+| `list` | Print only command names |
+| `detail` | Print command descriptions |
+| `category(string)` | Restrict the index to `all`, `prep`, `diag`, or `weight` |
+
+## Stored Results
+
+### Package index stored results
+
+| Result | Meaning |
+|--------|---------|
+| `r(commands)` | Space-separated command names in the selected category |
+| `r(n_commands)` | Number of commands in the selected category |
+| `r(version)` | Version read from the installed `tvtools.ado` header |
+| `r(categories)` | Available categories (`prep diag weight`) |
+
 ## How It Works
 
 The package follows a pipeline where each command produces output in a consistent id/start/stop format:
@@ -681,6 +705,10 @@ Estimates inverse probability of treatment weights (IPTW) for causal inference. 
 ### tvage
 
 Creates time-varying age intervals from dates of birth and follow-up dates. Expands one-record-per-person data into one row per age (or age group). Output is compatible with `tvmerge` for merging age bands with other time-varying covariates.
+
+### tvtools
+
+Package index and command catalog. `list` prints only command names; `detail` adds descriptions; and `category(prep|diag|weight|all)` filters the catalog (default: `all`). It returns `r(commands)`, `r(n_commands)`, `r(version)`, and `r(categories)`.
 
 ## QA
 

@@ -19,6 +19,8 @@ program define tvpanel, rclass
     local orig_more = c(more)
     set varabbrev off
     set more off
+    tempname _tp_master_frame _tp_using_frame _tp_output_frame
+    tempvar tp_estart tp_estop tp_eclass tp_pobs tp_gid tp_plo tp_phi tp_eobs
 
     capture noisily {
 
@@ -171,9 +173,9 @@ program define tvpanel, rclass
             if _rc local explbl ""
         }
         keep `id' `start' `stop' `exposure'
-        rename (`start' `stop' `exposure') (__tp_estart __tp_estop __tp_eclass)
-        drop if missing(`id', __tp_estart, __tp_estop, __tp_eclass)
-        drop if __tp_estop < __tp_estart
+        rename (`start' `stop' `exposure') (`tp_estart' `tp_estop' `tp_eclass')
+        drop if missing(`id', `tp_estart', `tp_estop', `tp_eclass')
+        drop if `tp_estop' < `tp_estart'
         save `epi', replace
     }
 
@@ -226,60 +228,57 @@ program define tvpanel, rclass
     }
     quietly {
         keep `tp_row' `id' `pstart'
-        gen long __tp_pobs = _n
+        gen long `tp_pobs' = _n
         tempfile _tp_periods
         save `_tp_periods', replace
 
         * id -> contiguous gid crosswalk shared by period rows and episodes
         keep `id'
         duplicates drop
-        gen long __tp_gid = _n
+        gen long `tp_gid' = _n
         tempfile _tp_xwalk
         save `_tp_xwalk', replace
 
         * master work frame: gid, low=pstart, high=pstart, obs
         use `_tp_periods', clear
         merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-        gen double __tp_plo = `pstart'
-        gen double __tp_phi = `pstart'
-        capture frame drop __tp_m
-        frame put __tp_gid __tp_plo __tp_phi __tp_pobs, into(__tp_m)
-        frame __tp_m: order __tp_gid __tp_plo __tp_phi __tp_pobs
+        gen double `tp_plo' = `pstart'
+        gen double `tp_phi' = `pstart'
+        frame put `tp_gid' `tp_plo' `tp_phi' `tp_pobs', into(`_tp_master_frame')
+        frame `_tp_master_frame': order `tp_gid' `tp_plo' `tp_phi' `tp_pobs'
 
         * using work frame: gid, ulo=estart, uhi=estop, obs. Drop missing-estart
-        * episodes so behaviour matches the former `__tp_estart <= pstart' filter
+        * episodes so behaviour matches the former start <= pstart filter
         * (a missing estart never satisfied it; a missing estop matched, and the
         * engine maps missing -> +inf, so open upper bounds still match).
         use `epi', clear
-        drop if missing(__tp_estart)
-        gen long __tp_eobs = _n
+        drop if missing(`tp_estart')
+        gen long `tp_eobs' = _n
         tempfile _tp_epi_idx
         save `_tp_epi_idx', replace
         merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-        capture frame drop __tp_u
-        frame put __tp_gid __tp_estart __tp_estop __tp_eobs, into(__tp_u)
-        frame __tp_u: order __tp_gid __tp_estart __tp_estop __tp_eobs
+        frame put `tp_gid' `tp_estart' `tp_estop' `tp_eobs', into(`_tp_using_frame')
+        frame `_tp_using_frame': order `tp_gid' `tp_estart' `tp_estop' `tp_eobs'
 
         * overlap sweep -> (period, episode) point-in-interval pairs
-        capture frame drop __tp_out
-        frame create __tp_out
-        _tvmerge_overlap_pairs __tp_m __tp_u __tp_out
+        frame create `_tp_output_frame'
+        _tvmerge_overlap_pairs `_tp_master_frame' `_tp_using_frame' `_tp_output_frame'
         tempfile _tp_pairs
-        frame __tp_out: save `_tp_pairs', replace
-        capture frame drop __tp_m
-        capture frame drop __tp_u
-        capture frame drop __tp_out
+        frame `_tp_output_frame': save `_tp_pairs', replace
+        frame drop `_tp_master_frame'
+        frame drop `_tp_using_frame'
+        frame drop `_tp_output_frame'
 
         * latest-start (then highest class) wins, exactly as before
         use `_tp_pairs', clear
-        rename __tvm_mi __tp_pobs
-        rename __tvm_ui __tp_eobs
-        merge m:1 __tp_pobs using `_tp_periods', keep(match) nogenerate ///
+        rename __tvm_mi `tp_pobs'
+        rename __tvm_ui `tp_eobs'
+        merge m:1 `tp_pobs' using `_tp_periods', keep(match) nogenerate ///
             keepusing(`tp_row')
-        merge m:1 __tp_eobs using `_tp_epi_idx', keep(match) nogenerate ///
-            keepusing(__tp_estart __tp_eclass)
-        bysort `tp_row' (__tp_estart __tp_eclass): keep if _n == _N
-        gen long `tp_active' = __tp_eclass
+        merge m:1 `tp_eobs' using `_tp_epi_idx', keep(match) nogenerate ///
+            keepusing(`tp_estart' `tp_eclass')
+        bysort `tp_row' (`tp_estart' `tp_eclass'): keep if _n == _N
+        gen long `tp_active' = `tp_eclass'
         keep `tp_row' `tp_active'
         tempfile active
         save `active', replace
@@ -292,13 +291,13 @@ program define tvpanel, rclass
             use `grid', clear
             keep `tp_row' `id' `pstart'
             joinby `id' using `epi'
-            keep if __tp_estart < `pstart' & __tp_eclass != `reference'
-            gen double `tp_days' = max(0, min(__tp_estop, `pstart' - 1) - __tp_estart + 1)
+            keep if `tp_estart' < `pstart' & `tp_eclass' != `reference'
+            gen double `tp_days' = max(0, min(`tp_estop', `pstart' - 1) - `tp_estart' + 1)
             keep if `tp_days' > 0
             count
             if r(N) > 0 {
-                collapse (sum) `tp_days', by(`tp_row' __tp_eclass)
-                reshape wide `tp_days', i(`tp_row') j(__tp_eclass)
+                collapse (sum) `tp_days', by(`tp_row' `tp_eclass')
+                reshape wide `tp_days', i(`tp_row') j(`tp_eclass')
                 tempfile cum
                 save `cum', replace
             }
@@ -394,6 +393,12 @@ program define tvpanel, rclass
 
     } // end capture noisily
     local rc = _rc
+    capture frame drop `_tp_master_frame'
+    local _tp_cleanup_rc = _rc
+    capture frame drop `_tp_using_frame'
+    local _tp_cleanup_rc = _rc
+    capture frame drop `_tp_output_frame'
+    local _tp_cleanup_rc = _rc
     if `rc' {
         capture restore
     }

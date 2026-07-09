@@ -1421,15 +1421,15 @@ program define tvmerge, rclass
             matrix `_flowmat'[2,3] = `_flow_rin' - `_flow_rout'
             matrix rownames `_flowmat' = persons records
             matrix colnames `_flowmat' = in out dropped
-            display as text "{hline 60}"
-            display as text "Pipeline flow (tvmerge)"
-            display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
-            display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
+            noisily display as text "{hline 60}"
+            noisily display as text "Pipeline flow (tvmerge)"
+            noisily display as text %-12s "" %10s "in" %10s "out" %10s "dropped"
+            noisily display as text %-12s "persons" %10.0f `_flow_pin' %10.0f `_flow_pout' ///
                 %10.0f `=`_flow_pin' - `_flow_pout''
-            display as text %-12s "records" %10.0f `_flow_rin' %10.0f `_flow_rout' ///
+            noisily display as text %-12s "records" %10.0f `_flow_rin' %10.0f `_flow_rout' ///
                 %10.0f `=`_flow_rin' - `_flow_rout''
-            display as text "(persons in = union of distinct ids across inputs)"
-            display as text "{hline 60}"
+            noisily display as text "(persons in = union of distinct ids across inputs)"
+            noisily display as text "{hline 60}"
             return matrix flow = `_flowmat'
         }
 

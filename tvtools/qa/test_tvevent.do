@@ -1778,6 +1778,36 @@ else {
     display as error "TEST 26: FAILED (expected 198, got `=_rc')"
 }
 
+* TEST 27: private point-engine names do not collide with input variables
+capture noisily {
+    clear
+    input long id double(start stop) long __te_iobs
+    1 100 300 77
+    end
+    format start stop %td
+    tempfile _engine_iv
+    save `_engine_iv'
+
+    clear
+    input long id double ev long __te_eobs
+    1 200 88
+    end
+    format ev %td
+    tvevent using `_engine_iv', id(id) date(ev) generate(fail) replace
+    assert r(N_events) == 1
+    quietly count if fail == 1
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "TEST 27: PASSED (private point-engine name collision guard)"
+    local pass_count = `pass_count' + 1
+}
+else {
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' 27"
+    display as error "TEST 27: FAILED (rc `=_rc')"
+}
+
 
 * ===== Summary =====
 * Fold the run_test/test_pass/test_fail harness counters into the totals.
@@ -1795,4 +1825,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-
