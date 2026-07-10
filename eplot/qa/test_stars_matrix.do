@@ -900,6 +900,28 @@ else {
     local failed_tests "`failed_tests' 33"
 }
 
+* Test 34: 2-column matrix mode returns p-values when stars is requested
+local ++test_count
+capture noisily {
+    matrix P_input = (0.5, 0.25 \ -0.4, 0.10)
+    matrix rownames P_input = "First" "Second"
+    eplot, matrix(P_input) stars
+    matrix P = r(pvalues)
+    assert rowsof(P) == 2
+    assert colsof(P) == 1
+    assert abs(P[1, 1] - 2 * normal(-abs(0.5 / 0.25))) < 1e-12
+    assert abs(P[2, 1] - 2 * normal(-abs(-0.4 / 0.10))) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: Test 34 - Matrix stars returns correct r(pvalues)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Test 34 - Matrix r(pvalues) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 34"
+}
+
 * =============================================================================
 **# Summary
 * =============================================================================

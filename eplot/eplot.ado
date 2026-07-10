@@ -1,4 +1,4 @@
-*! eplot Version 1.2.4  2026/07/06
+*! eplot Version 1.2.5  2026/07/10
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1364,11 +1364,11 @@ program define _eplot_estimates, rclass
             local _label ""
             // Factor variable: try value label first
             if "`_facval'" != "" {
-                capture {
-                    local _vallbl : value label `_purvar'
-                    if "`_vallbl'" != "" {
-                        local _label : label `_vallbl' `_facval'
-                    }
+                capture local _vallbl : value label `_purvar'
+                if _rc local _vallbl ""
+                if "`_vallbl'" != "" {
+                    capture local _label : label `_vallbl' `_facval'
+                    if _rc local _label ""
                 }
                 // Fall back to "VarLabel = value" or "varname = value"
                 if `"`_label'"' == "" | `"`_label'"' == "`_facval'" {
@@ -1380,9 +1380,8 @@ program define _eplot_estimates, rclass
             }
             else if "`_cn'" != "_cons" {
                 // Regular variable: use variable label
-                capture {
-                    local _label : variable label `_purvar'
-                }
+                capture local _label : variable label `_purvar'
+                if _rc local _label ""
             }
 
             if `"`_label'"' != "" {
@@ -2044,10 +2043,9 @@ program define _eplot_estimates, rclass
             local _pnames ""
             forvalues i = 1/`=_N' {
                 if _rowtype[`i'] != 1 continue
+                if missing(_pval[`i']) continue
                 local ++_pi
-                capture {
-                    matrix `_rpvals'[`_pi', 1] = _pval[`i']
-                }
+                matrix `_rpvals'[`_pi', 1] = _pval[`i']
                 local _pnm = coef_name[`i']
                 local _pnames `"`_pnames' `"`_pnm'"'"'
             }
@@ -2494,6 +2492,29 @@ program define _eplot_matrix, rclass
         }
         matrix rownames `_rtable' = `_rnames'
         return matrix table = `_rtable'
+    }
+
+    // Two-column matrix input supplies standard errors, so p-values are
+    // available when stars is requested.  Compute them before eform() above.
+    if "`stars'" != "" & `ncols' == 2 {
+        quietly count if !missing(_pval)
+        local _npv = r(N)
+        if `_npv' > 0 {
+            tempname _rpvals
+            matrix `_rpvals' = J(`_npv', 1, .)
+            matrix colnames `_rpvals' = "pvalue"
+            local _pi 0
+            local _pnames ""
+            forvalues i = 1/`=_N' {
+                if missing(_pval[`i']) continue
+                local ++_pi
+                matrix `_rpvals'[`_pi', 1] = _pval[`i']
+                local _pnm = coef_name[`i']
+                local _pnames `"`_pnames' `"`_pnm'"'"
+            }
+            matrix rownames `_rpvals' = `_pnames'
+            return matrix pvalues = `_rpvals'
+        }
     }
 
         return scalar N = `n_coefs'

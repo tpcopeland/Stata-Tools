@@ -298,34 +298,45 @@ foreach scenario in A B C {
     quietly summarize mean_coverage if estimator == "FIPTIW", meanonly
     local cov_fip = r(mean)
 
+    *Format once into plain locals: nesting double quotes inside msg() would
+    *break Stata's option parser.
+    local s_unw   = string(abs(`bias_unw'), "%6.3f")
+    local s_iiw   = string(abs(`bias_iiw'), "%6.3f")
+    local s_fip   = string(abs(`bias_fip'), "%6.3f")
+    local s_cunw  = string(`cov_unw', "%5.3f")
+    local s_gap   = string(`cov_fip' - `cov_unw', "%5.3f")
+    local s_share = string(100 * abs(`bias_fip') / abs(`bias_unw'), "%4.1f")
+    local pct_cut = 100 * (1 - `max_bias_share')
+
     *The scenario must bite: an unadjusted GEE has to miss the truth, otherwise
     *nothing downstream proves the estimator fixed anything.
     local ok = !missing(`bias_unw') & abs(`bias_unw') > `min_naive_bias'
-    _sim_assert `ok', msg("Scenario `scenario': unweighted GEE misses truth (|bias|=`=string(abs(`bias_unw'),"%6.3f")' > `min_naive_bias')")
+    _sim_assert `ok', msg("Scenario `scenario': unweighted GEE misses truth (|bias|=`s_unw' > `min_naive_bias')")
 
     local ok = !missing(`cov_unw') & `cov_unw' < `max_naive_cov'
-    _sim_assert `ok', msg("Scenario `scenario': unweighted coverage degraded (`=string(`cov_unw',"%5.3f")' < `max_naive_cov')")
+    _sim_assert `ok', msg("Scenario `scenario': unweighted coverage degraded (`s_cunw' < `max_naive_cov')")
 
     *FIPTIW targets both mechanisms and must land inside the confirmed envelope.
     local ok = !missing(`bias_fip') & abs(`bias_fip') < `max_fiptiw_bias'
-    _sim_assert `ok', msg("Scenario `scenario': FIPTIW recovers truth (|bias|=`=string(abs(`bias_fip'),"%6.3f")' < `max_fiptiw_bias')")
+    _sim_assert `ok', msg("Scenario `scenario': FIPTIW recovers truth (|bias|=`s_fip' < `max_fiptiw_bias')")
 
     local ok = !missing(`bias_fip') & !missing(`bias_unw') & abs(`bias_fip') < `max_bias_share' * abs(`bias_unw')
-    _sim_assert `ok', msg("Scenario `scenario': FIPTIW removes >`=100*(1-`max_bias_share')'% of naive bias (`=string(100*abs(`bias_fip')/abs(`bias_unw'),"%4.1f")'% remains)")
+    _sim_assert `ok', msg("Scenario `scenario': FIPTIW removes >`pct_cut'% of naive bias (`s_share'% remains)")
 
     local ok = !missing(`cov_fip') & !missing(`cov_unw') & (`cov_fip' - `cov_unw') > `min_cov_gap'
-    _sim_assert `ok', msg("Scenario `scenario': FIPTIW coverage beats unweighted by >`min_cov_gap' (`=string(`cov_fip'-`cov_unw',"%5.3f")')")
+    _sim_assert `ok', msg("Scenario `scenario': FIPTIW coverage beats unweighted by >`min_cov_gap' (gap=`s_gap')")
 
     *IIW alone cannot remove treatment confounding, but weighting must never make
     *the point estimate materially worse than doing nothing.
     local ok = !missing(`bias_iiw') & !missing(`bias_unw') & abs(`bias_iiw') <= abs(`bias_unw') + `iiw_slack'
-    _sim_assert `ok', msg("Scenario `scenario': IIW no worse than unweighted (|bias| `=string(abs(`bias_iiw'),"%6.3f")' <= `=string(abs(`bias_unw'),"%6.3f")' + `iiw_slack')")
+    _sim_assert `ok', msg("Scenario `scenario': IIW no worse than unweighted (|bias| `s_iiw' <= `s_unw' + `iiw_slack')")
 
     if `has_artifact' {
         quietly summarize bias if estimator == "FIPTIW + test count", meanonly
         local bias_fiptc = r(mean)
+        local s_fiptc = string(abs(`bias_fiptc'), "%6.3f")
         local ok = !missing(`bias_fiptc') & abs(`bias_fiptc') < `max_fiptiw_bias'
-        _sim_assert `ok', msg("Scenario `scenario': FIPTIW + test count recovers truth (|bias|=`=string(abs(`bias_fiptc'),"%6.3f")' < `max_fiptiw_bias')")
+        _sim_assert `ok', msg("Scenario `scenario': FIPTIW + test count recovers truth (|bias|=`s_fiptc' < `max_fiptiw_bias')")
     }
 
     erase "sim_results_abc_`scenario'.dta"

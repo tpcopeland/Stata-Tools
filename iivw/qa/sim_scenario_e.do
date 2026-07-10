@@ -1,6 +1,6 @@
 clear all
 version 17.0
-set varabbrev off, perm
+set varabbrev off
 set linesize 250
 set more off
 *IIVW Simulation Scenario E
@@ -50,7 +50,26 @@ local artifact_mean = 0.6
 local artifact_sd   = 0.2
 local artifact_cap  = 6
 local min_success   = floor(0.80 * `n_sims')
-local max_abs_bias  = 3
+
+*Scenario E is a DOCUMENTED FAILURE MODE, not a recovery scenario. The artifact
+*is outcome-dependent (headroom multiplier), so it is not separable from the
+*outcome trajectory, and test_number is nearly collinear with follow-up time.
+*Observed qa-mode run (50 reps, N=200), truth: marginal 0.10, contrast 0.50:
+*                        marginal bias / cov      contrast bias / cov
+*   Unweighted              +0.269 / 0.00           -0.169 / 0.12
+*   IIW                     +0.219 / 0.00           -0.143 / 0.30
+*   FIPTIW                  +0.215 / 0.00           -0.126 / 0.46
+*   FIPTIW + test count     -0.340 / 0.00           -0.224 / 0.00
+*No estimator recovers, and adjusting for the (time-collinear) test count drives
+*the marginal slope to the WRONG SIGN. That is the breakdown this scenario
+*exists to demonstrate. The gates below therefore assert (a) the stress bites,
+*(b) the artifact-share diagnostic flags it, and (c) no estimator blows up past
+*a documented envelope. They are deliberately NOT recovery gates -- writing one
+*here would encode a claim the method does not make.
+local min_naive_bias  = 0.15
+local max_naive_cov   = 0.50
+local max_bias_env    = 0.50
+local min_share_mean  = 0.50
 }
 **# Programs
 {
@@ -58,6 +77,26 @@ local max_abs_bias  = 3
 local pkg_dir "`c(pwd)'/.."
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
+
+*Assertion helper. Counters are globals so the program can bump the caller's
+*totals from inside the gate block.
+global SIM_TESTS = 0
+global SIM_PASS  = 0
+global SIM_FAIL  = 0
+
+capture program drop _sim_assert
+program define _sim_assert
+    syntax anything(name=ok), MSG(string)
+    global SIM_TESTS = ${SIM_TESTS} + 1
+    if `ok' {
+        display as result "  PASS: `msg'"
+        global SIM_PASS = ${SIM_PASS} + 1
+    }
+    else {
+        display as error "  FAIL: `msg'"
+        global SIM_FAIL = ${SIM_FAIL} + 1
+    }
+end
 
 *Simulation DGP
 capture program drop _sim_generate_e
@@ -242,14 +281,14 @@ forvalues s = 1/`n_sims' {
 postclose results
 
 use "sim_results_e.dta", clear
+
+**## Convergence
 foreach est in "Unweighted" "IIW" "FIPTIW" "FIPTIW + test count" {
     foreach estimand in "marginal" "contrast" {
         quietly count if estimator == "`est'" & estimand == "`estimand'"
-        if r(N) < `min_success' {
-            display as error "Scenario E `est' `estimand': " r(N) ///
-                " reps (need `min_success')"
-            exit 9
-        }
+        local n_conv = r(N)
+        local ok = (`n_conv' >= `min_success')
+        _sim_assert `ok', msg("Scenario E `est' `estimand': `n_conv'/`n_sims' reps converged (need `min_success')")
     }
 }
 
@@ -259,7 +298,8 @@ preserve
     gen double truth = cond(estimand == "marginal", ///
         `true_marginal', `true_contrast')
     gen double bias = mean_beta - truth
-    format mean_beta bias mean_se sd_beta %8.4f
+    gen double mc_se = sd_beta / sqrt(`n_sims')
+    format mean_beta bias mean_se sd_beta mc_se %8.4f
     format mean_coverage %6.3f
 
     display _n "Scenario E (`mode' mode): N=`n_subjects', reps=`n_sims'"
@@ -267,21 +307,39 @@ preserve
     display "  Artifact saturates at test `artifact_cap'; headroom ceiling=`y_ceiling'"
     display "  Truth: marginal slope=`true_marginal', contrast slope=`true_contrast'"
 
-    list estimator estimand mean_beta bias sd_beta mean_coverage, noobs clean
+    list estimator estimand mean_beta bias sd_beta mc_se mean_coverage, noobs clean
 
-    quietly count if abs(bias) > `max_abs_bias'
-    if r(N) > 0 {
-        display as error "Scenario E: |bias| > `max_abs_bias'"
-        exit 9
-    }
+    **## Stress gates (see header: E is a documented failure mode, not a recovery scenario)
+    *The outcome-dependent artifact must actually bite the naive estimator,
+    *otherwise the scenario proves nothing about the decomposition's limits.
+    quietly summarize bias if estimator == "Unweighted" & estimand == "marginal", meanonly
+    local bias_unw_marg = r(mean)
+    quietly summarize mean_coverage if estimator == "Unweighted" & estimand == "marginal", meanonly
+    local cov_unw_marg = r(mean)
+
+    local s_unw_marg = string(abs(`bias_unw_marg'), "%6.3f")
+    local s_cov_marg = string(`cov_unw_marg', "%5.3f")
+
+    local ok = !missing(`bias_unw_marg') & abs(`bias_unw_marg') > `min_naive_bias'
+    _sim_assert `ok', msg("Scenario E: outcome-dependent artifact biases the naive marginal slope (|bias|=`s_unw_marg' > `min_naive_bias')")
+
+    local ok = !missing(`cov_unw_marg') & `cov_unw_marg' < `max_naive_cov'
+    _sim_assert `ok', msg("Scenario E: naive marginal coverage collapses (`s_cov_marg' < `max_naive_cov')")
+
+    *No estimator may blow up past the documented envelope. This catches a
+    *behavioural regression without pretending any of them recover the truth.
+    quietly count if abs(bias) > `max_bias_env'
+    local n_blowup = r(N)
+    local ok = (`n_blowup' == 0)
+    _sim_assert `ok', msg("Scenario E: all estimator/estimand |bias| within documented envelope `max_bias_env' (`n_blowup' outside)")
 restore
 
+**## Artifact-share diagnostic
 quietly count if estimator == "FIPTIW + test count" & ///
     estimand == "marginal" & !missing(artifact_share)
-if r(N) < `min_success' {
-    display as error "Scenario E: insufficient artifact-share diagnostics"
-    exit 9
-}
+local n_share = r(N)
+local ok = (`n_share' >= `min_success')
+_sim_assert `ok', msg("Scenario E: artifact-share diagnostic available in `n_share'/`n_sims' reps (need `min_success')")
 gen byte share_in_0_1 = inrange(artifact_share, 0, 1) ///
     if estimator == "FIPTIW + test count" & estimand == "marginal" & ///
     !missing(artifact_share)
@@ -295,8 +353,29 @@ display _n as text "Scenario E robustness diagnostic"
 display as text "  Mean artifact share: " as result %8.4f `mean_share'
 display as text "  Share in [0,1]:      " as result %6.1f `pct_in_range' "%"
 
+local s_pct   = string(`pct_in_range', "%5.1f")
+local s_share = string(`mean_share', "%6.3f")
+
+*artifact_share is a proportion: every replication must report it inside [0,1].
+local ok = (`pct_in_range' == 100)
+_sim_assert `ok', msg("Scenario E: artifact_share within [0,1] in every rep (`s_pct'%)")
+
+*The diagnostic must actually flag the heavy artifact this DGP injects.
+local ok = !missing(`mean_share') & `mean_share' > `min_share_mean'
+_sim_assert `ok', msg("Scenario E: artifact-share diagnostic flags a dominant artifact (mean=`s_share' > `min_share_mean')")
+
 erase "sim_results_e.dta"
 
 capture program drop _sim_generate_e
-display as result "RESULT: sim_scenario_e estimators=4 estimands=2 reps=`n_sims'"
+capture program drop _sim_assert
+
+**# Summary
+display as result "RESULT: sim_scenario_e tests=${SIM_TESTS} pass=${SIM_PASS} fail=${SIM_FAIL}"
+if ${SIM_FAIL} > 0 {
+    display as error "SOME SIMULATION GATES FAILED"
+    macro drop SIM_TESTS SIM_PASS SIM_FAIL
+    exit 1
+}
+display as result "ALL SIMULATION GATES PASSED"
+macro drop SIM_TESTS SIM_PASS SIM_FAIL
 }

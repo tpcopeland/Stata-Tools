@@ -84,6 +84,19 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
   GEE, mixed-model, and propensity-score workflows.
 - `sim_scenarios_abc.do`, `sim_scenario_d.do`, `sim_scenario_e.do` — simulation
   scenarios for visit-process, treatment, and measurement-artifact behavior.
+  Each emits the standard `RESULT: <name> tests=N pass=N fail=N` sentinel and
+  exits 1 on failure. Tolerances are set from observed runs, not guessed, and
+  recorded in each file's header table.
+  - A/B/C and D are **bounded recovery gates**: the unweighted GEE must miss the
+    truth, FIPTIW must remove >60% of that bias and land inside a confirmed
+    residual envelope, and FIPTIW's coverage must beat the naive estimator's.
+    IIW alone is *not* gated on recovery — it targets the visit process, not the
+    treatment confounding induced by latent `u_i`, so it stays biased by design.
+  - E is a **documented failure mode**, not a recovery scenario. The artifact is
+    outcome-dependent and `test_number` is collinear with follow-up time, so no
+    estimator recovers and adjusting for test count drives the marginal slope to
+    the wrong sign. Its gates assert the stress bites, the artifact-share
+    diagnostic flags it, and nothing escapes a documented bias envelope.
 
 ### Support
 

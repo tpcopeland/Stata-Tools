@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.4  06jul2026}{...}
+{* *! version 1.2.5  10jul2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -835,7 +835,7 @@ supplied, in estimates mode for a single model, and in 2-column matrix mode.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.4, 06jul2026{p_end}
+{pstd}Version 1.2.5, 10jul2026{p_end}
 
 
 {marker alsosee}{...}

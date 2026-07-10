@@ -1,6 +1,6 @@
 clear all
 version 17.0
-set varabbrev off, perm
+set varabbrev off
 set linesize 250
 set more off
 *IIVW Simulation Scenario D
@@ -48,7 +48,22 @@ local artifact_mean = 1.5
 local artifact_sd   = 0.5
 local artifact_cap  = 6
 local min_success   = floor(0.80 * `n_sims')
-local max_abs_bias  = 3
+
+*Gate tolerances, set from an observed qa-mode run (50 reps, N=200), not guessed:
+*   Unweighted           bias 0.495  coverage 0.38
+*   IIW                  bias 0.427  coverage 0.48
+*   FIPTIW               bias 0.107  coverage 0.96
+*   FIPTIW + test count  bias 0.131  coverage 0.98
+*MC SE of each mean is sd_beta/sqrt(reps) ~ 0.02-0.03, so FIPTIW's ~0.11 residual
+*under the heterogeneous saturating artifact is systematic, not noise. Bounded
+*recovery gate, as in sim_scenarios_abc.do. IIW alone is not gated on recovery:
+*it does not target the treatment confounding induced by latent u_i.
+local min_naive_bias  = 0.20
+local max_fiptiw_bias = 0.20
+local max_bias_share  = 0.40
+local max_naive_cov   = 0.80
+local min_cov_gap     = 0.25
+local iiw_slack       = 0.05
 }
 **#Programs
 {
@@ -56,6 +71,26 @@ local max_abs_bias  = 3
 local pkg_dir "`c(pwd)'/.."
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
+
+*Assertion helper. Counters are globals so the program can bump the caller's
+*totals from inside the gate block.
+global SIM_TESTS = 0
+global SIM_PASS  = 0
+global SIM_FAIL  = 0
+
+capture program drop _sim_assert
+program define _sim_assert
+    syntax anything(name=ok), MSG(string)
+    global SIM_TESTS = ${SIM_TESTS} + 1
+    if `ok' {
+        display as result "  PASS: `msg'"
+        global SIM_PASS = ${SIM_PASS} + 1
+    }
+    else {
+        display as error "  FAIL: `msg'"
+        global SIM_FAIL = ${SIM_FAIL} + 1
+    }
+end
 
 *Simulation DGP
 capture program drop _sim_generate_d
@@ -193,34 +228,88 @@ forvalues s = 1/`n_sims' {
 postclose results
 
 use "sim_results_d.dta", clear
+
+**## Convergence
 foreach est in "Unweighted" "IIW" "FIPTIW" "FIPTIW + test count" {
     quietly count if estimator == "`est'"
-    if r(N) < `min_success' {
-        display as error "Scenario D `est': " r(N) ///
-            " reps (need `min_success')"
-        exit 9
-    }
+    local n_conv = r(N)
+    local ok = (`n_conv' >= `min_success')
+    _sim_assert `ok', msg("Scenario D `est': `n_conv'/`n_sims' reps converged (need `min_success')")
 }
 
 collapse (mean) mean_beta=beta mean_se=se mean_coverage=coverage ///
     (sd) sd_beta=beta, by(estimator)
 gen double bias = mean_beta - `true_beta'
-format mean_beta bias mean_se sd_beta %8.4f
+gen double mc_se = sd_beta / sqrt(`n_sims')
+format mean_beta bias mean_se sd_beta mc_se %8.4f
 format mean_coverage %6.3f
 
 display _n "Scenario D (`mode' mode): N=`n_subjects', reps=`n_sims', true beta=`true_beta'"
 display "  Artifact coef ~ N(`artifact_mean', `artifact_sd'^2), truncated at 0"
 display "  Artifact saturates at test `artifact_cap'"
 
-list estimator mean_beta bias sd_beta mean_coverage, noobs clean
+list estimator mean_beta bias sd_beta mc_se mean_coverage, noobs clean
 
-quietly count if abs(bias) > `max_abs_bias'
-if r(N) > 0 {
-    display as error "Scenario D: |bias| > `max_abs_bias'"
-    exit 9
-}
+**## Correctness gates
+quietly summarize bias if estimator == "Unweighted", meanonly
+local bias_unw = r(mean)
+quietly summarize mean_coverage if estimator == "Unweighted", meanonly
+local cov_unw = r(mean)
+quietly summarize bias if estimator == "IIW", meanonly
+local bias_iiw = r(mean)
+quietly summarize bias if estimator == "FIPTIW", meanonly
+local bias_fip = r(mean)
+quietly summarize mean_coverage if estimator == "FIPTIW", meanonly
+local cov_fip = r(mean)
+quietly summarize bias if estimator == "FIPTIW + test count", meanonly
+local bias_fiptc = r(mean)
+
+*Format once into plain locals: nesting double quotes inside msg() would break
+*Stata's option parser.
+local s_unw   = string(abs(`bias_unw'), "%6.3f")
+local s_iiw   = string(abs(`bias_iiw'), "%6.3f")
+local s_fip   = string(abs(`bias_fip'), "%6.3f")
+local s_fiptc = string(abs(`bias_fiptc'), "%6.3f")
+local s_cunw  = string(`cov_unw', "%5.3f")
+local s_gap   = string(`cov_fip' - `cov_unw', "%5.3f")
+local s_share = string(100 * abs(`bias_fip') / abs(`bias_unw'), "%4.1f")
+local pct_cut = 100 * (1 - `max_bias_share')
+
+*The scenario must bite before any correction can be credited.
+local ok = !missing(`bias_unw') & abs(`bias_unw') > `min_naive_bias'
+_sim_assert `ok', msg("Scenario D: unweighted GEE misses truth (|bias|=`s_unw' > `min_naive_bias')")
+
+local ok = !missing(`cov_unw') & `cov_unw' < `max_naive_cov'
+_sim_assert `ok', msg("Scenario D: unweighted coverage degraded (`s_cunw' < `max_naive_cov')")
+
+local ok = !missing(`bias_fip') & abs(`bias_fip') < `max_fiptiw_bias'
+_sim_assert `ok', msg("Scenario D: FIPTIW recovers truth (|bias|=`s_fip' < `max_fiptiw_bias')")
+
+local ok = !missing(`bias_fip') & !missing(`bias_unw') & abs(`bias_fip') < `max_bias_share' * abs(`bias_unw')
+_sim_assert `ok', msg("Scenario D: FIPTIW removes >`pct_cut'% of naive bias (`s_share'% remains)")
+
+local ok = !missing(`cov_fip') & !missing(`cov_unw') & (`cov_fip' - `cov_unw') > `min_cov_gap'
+_sim_assert `ok', msg("Scenario D: FIPTIW coverage beats unweighted by >`min_cov_gap' (gap=`s_gap')")
+
+local ok = !missing(`bias_fiptc') & abs(`bias_fiptc') < `max_fiptiw_bias'
+_sim_assert `ok', msg("Scenario D: FIPTIW + test count recovers truth (|bias|=`s_fiptc' < `max_fiptiw_bias')")
+
+*IIW alone cannot remove treatment confounding, but must not be worse than nothing.
+local ok = !missing(`bias_iiw') & !missing(`bias_unw') & abs(`bias_iiw') <= abs(`bias_unw') + `iiw_slack'
+_sim_assert `ok', msg("Scenario D: IIW no worse than unweighted (|bias| `s_iiw' <= `s_unw' + `iiw_slack')")
+
 erase "sim_results_d.dta"
 
 capture program drop _sim_generate_d
-display as result "RESULT: sim_scenario_d estimators=4 reps=`n_sims'"
+capture program drop _sim_assert
+
+**# Summary
+display as result "RESULT: sim_scenario_d tests=${SIM_TESTS} pass=${SIM_PASS} fail=${SIM_FAIL}"
+if ${SIM_FAIL} > 0 {
+    display as error "SOME SIMULATION GATES FAILED"
+    macro drop SIM_TESTS SIM_PASS SIM_FAIL
+    exit 1
+}
+display as result "ALL SIMULATION GATES PASSED"
+macro drop SIM_TESTS SIM_PASS SIM_FAIL
 }
