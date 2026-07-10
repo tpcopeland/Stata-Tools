@@ -115,22 +115,22 @@ unless you pass a {opt scheme()} option through {opt eplotoptions()}.
 {dlgtab:Required}
 
 {phang}
-{opt rows(string)} specifies which data rows to extract from each source frame.
-Specifications are separated by backslashes ({cmd:\}), one per frame in
-{it:framelist}. Each specification is a {help numlist} of row numbers where
-row 1 is the first data row after the column headers.
+{opt rows(string)} specifies which data rows to extract from each source
+frame. Specifications are separated by backslashes ({cmd:\}), one per frame in
+{it:framelist}. Each specification is a {help numlist} of row numbers where row 1 is the
+first data row after the column headers.
 
 {pmore}
-Example with 3 frames: {cmd:rows(1 2 \ 1 3/5 \ 1)} extracts rows 1-2 from
-the first frame, rows 1 and 3 through 5 from the second, and row 1 from the third.
+Example with 3 frames: {cmd:rows(1 2 \ 1 3/5 \ 1)} extracts rows 1-2 from the first
+frame, rows 1 and 3 through 5 from the second, and row 1 from the third.
 
 {phang}
-{cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that selects rows
-by rendered row-label pattern instead of row number. Specifications are separated
-by backslashes, one per frame. Each specification is a space-separated list of
-case-insensitive substrings matched against the first column ({cmd:A}) in the
-source frame. This matches the displayed row labels, not the original source
-variable names.
+{cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that selects rows by rendered
+row-label pattern instead of row number. Specifications are separated by
+backslashes, one per frame. Each specification is a space-separated list of
+case-insensitive substrings matched against the first column ({cmd:A}) in the source
+frame. This matches the displayed row labels, not the original source variable
+names.
 
 {pmore}
 Example: {cmd:rownames(origin weight \ origin length)} extracts rows whose displayed
@@ -147,9 +147,9 @@ publication composite tables. When source frames are already compact, the output
 stays compact and {opt compact} is redundant.
 
 {phang}
-{opt section(string)} inserts bold section header rows before each
-frame's data block. Labels are separated by backslashes, one per frame.
-Borders are automatically drawn above each section header.
+{opt section(string)} inserts bold section header rows before each frame's data
+block. Labels are separated by backslashes, one per frame. Borders are
+automatically drawn above each section header.
 
 {pmore}
 Example: {cmd:section("Binary HRT" \ "Dose Categories" \ "Duration")}
@@ -170,22 +170,17 @@ not needed.
 {dlgtab:Formatting}
 
 {phang}
-{opt theme(string)} applies a journal-inspired formatting preset. Valid themes:
-{cmd:lancet} (Arial 9pt, academic borders),
-{cmd:nejm} (Arial 10pt, academic borders, zebra),
-{cmd:bmj} (Arial 10pt, academic borders),
-{cmd:apa} (Times New Roman 12pt, academic borders),
-{cmd:jama} (Arial 10pt, academic borders),
-{cmd:plos} (Arial 10pt, thin borders),
-{cmd:nature} (Arial 7pt, academic borders),
-{cmd:cell} (Arial 10pt, academic borders),
-{cmd:annals} (Arial 10pt, academic borders, zebra),
-and {cmd:custom}.
-Theme settings can be overridden by explicit options.
+{opt theme(string)} applies a journal-inspired formatting preset. Valid
+themes: {cmd:lancet} (Arial 9pt, academic borders), {cmd:nejm} (Arial 10pt, academic
+borders, zebra), {cmd:bmj} (Arial 10pt, academic borders), {cmd:apa} (Times New Roman
+12pt, academic borders), {cmd:jama} (Arial 10pt, academic borders), {cmd:plos} (Arial
+10pt, thin borders), {cmd:nature} (Arial 7pt, academic borders), {cmd:cell} (Arial 10pt,
+academic borders), {cmd:annals} (Arial 10pt, academic borders, zebra), and
+{cmd:custom}. Theme settings can be overridden by explicit options.
 
 {phang}
-{opt boldp(#)} bolds p-values smaller than the specified threshold.
-Example: {cmd:boldp(0.05)}
+{opt boldp(#)} bolds p-values smaller than the specified
+threshold. Example: {cmd:boldp(0.05)}
 
 {phang}
 {opt highlight(#)} applies yellow background to rows where any p-value is
@@ -233,10 +228,10 @@ smaller than the specified threshold.
 {pstd}
 {bf:Example 5: Typical epidemiology workflow (HRT example)}
 
-{pstd}This example is a workflow sketch: it assumes Cox-model frames {cmd:s1},
-{cmd:s2}, and {cmd:s3} have already been created by {helpb regtab} (see the
-{cmd:f1}/{cmd:f2} setup above for the pattern). Substitute your own model frames.
-For a runnable public-data workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
+{pstd}This example is a workflow sketch: it assumes Cox-model frames {cmd:s1}, {cmd:s2}, and {cmd:s3}
+have already been created by {helpb regtab} (see the {cmd:f1}/{cmd:f2} setup above for the
+pattern). Substitute your own model frames. For a runnable public-data
+workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 
 {phang2}{cmd:. * Each regtab call creates a frame with Cox model results}{p_end}
 {phang2}{cmd:. * Frame s1: binary HRT (any vs none)}{p_end}

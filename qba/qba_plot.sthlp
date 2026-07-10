@@ -94,10 +94,11 @@ null value (gray dotted), and the median (green dashed). Requires a saved
 Monte Carlo dataset from a {cmd:saving()} option.
 
 {phang}
-{bf:tipping} - Heatmap showing combinations of two bias parameters. Points
-are colored by whether the corrected estimate crosses the null (cranberry),
-remains above the observed (blue), or falls below the observed (green).
-Identifies which parameter combinations would change the study conclusion.
+{bf:tipping} - Heatmap showing combinations of two bias parameters. Points are
+colored by whether the corrected estimate crosses the null (cranberry),
+remains above the observed (blue), or falls below the observed
+(green). Identifies which parameter combinations would change the study
+conclusion.
 
 
 {marker options}{...}
@@ -120,13 +121,13 @@ and {opt observed()}.
 {dlgtab:Data}
 
 {phang}
-{opt a(#)}, {opt b(#)}, {opt c(#)}, {opt d(#)} specify the 2x2 table cells.
-Required for tornado and tipping plots.
+{opt a(#)}, {opt b(#)}, {opt c(#)}, {opt d(#)} specify the 2x2 table cells. Required for tornado and
+tipping plots.
 
 {phang}
-{opt type(exposure|outcome)} specifies the misclassification type for
-computing corrected estimates when sweeping misclassification parameters.
-Default is {cmd:exposure}.
+{opt type(exposure|outcome)} specifies the misclassification type for computing
+corrected estimates when sweeping misclassification parameters. Default is
+{cmd:exposure}.
 
 {phang}
 {opt measure(OR|RR|coefficient)} specifies the estimate to plot. Tornado and
@@ -183,11 +184,11 @@ probabilities for non-swept selection parameters. Defaults are 1 (no
 selection bias).
 
 {phang}
-{opt base_p1(#)}, {opt base_p0(#)}, {opt base_rrcd(#)}, and {opt base_rrud(#)}
-specify baseline confounding parameters for non-swept confounding parameters.
-Defaults are 0.3, 0.1, 2, and unset, respectively. Specify {opt base_rrud()}
-to use the Greenland parameterization for p1/p0 sweeps; otherwise p1/p0
-sweeps use {opt base_rrcd()} and the Schneeweiss parameterization.
+{opt base_p1(#)}, {opt base_p0(#)}, {opt base_rrcd(#)}, and {opt base_rrud(#)} specify baseline
+confounding parameters for non-swept confounding parameters. Defaults are 0.3,
+0.1, 2, and unset, respectively. Specify {opt base_rrud()} to use the Greenland
+parameterization for p1/p0 sweeps; otherwise p1/p0 sweeps use {opt base_rrcd()} and
+the Schneeweiss parameterization.
 
 {pmore}
 Baseline values are validated on the same support as their corresponding
@@ -208,9 +209,8 @@ specify {opt measure()}.
 dashed reference line. Required for distribution plots.
 
 {phang}
-{opt null(#)} specifies the null value shown as a gray dotted reference line.
-If omitted, the default is {cmd:1} for OR/RR plots and {cmd:0} for coefficient
-plots.
+{opt null(#)} specifies the null value shown as a gray dotted reference line. If
+omitted, the default is {cmd:1} for OR/RR plots and {cmd:0} for coefficient plots.
 
 {dlgtab:Graph options}
 
@@ -240,14 +240,14 @@ underlying {cmd:twoway} command.
 {title:Remarks}
 
 {pstd}
-{bf:Tipping plot parameter types.} The tipping plot computes corrected
-estimates across a grid of two parameters. For correct results, both
-parameters should be of the same bias type: both misclassification (e.g.,
-{cmd:se} and {cmd:sp}) or both confounding (e.g., {cmd:p1} and {cmd:rrcd}).
-Mixed parameter types (e.g., one misclassification and one confounding) and
-selection parameters are not supported and produce error 198. The two
-alternative confounder-disease parameterizations, {cmd:rrcd} and {cmd:rrud},
-cannot be used as the two axes in the same tipping plot.
+{bf:Tipping plot parameter types.} The tipping plot computes corrected estimates
+across a grid of two parameters. For correct results, both parameters should
+be of the same bias type: both misclassification (e.g., {cmd:se} and {cmd:sp}) or both
+confounding (e.g., {cmd:p1} and {cmd:rrcd}). Mixed parameter types (e.g., one
+misclassification and one confounding) and selection parameters are not
+supported and produce error 198. The two alternative confounder-disease
+parameterizations, {cmd:rrcd} and {cmd:rrud}, cannot be used as the two axes in the same
+tipping plot.
 
 {pstd}
 {bf:Tornado plot with confounding parameters.} When sweeping confounding
@@ -264,46 +264,46 @@ parameters are held at their baseline values ({opt base_p1()},
 {pstd}
 {bf:Example 1: Tornado plot for Se and Sp}
 
-{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///
+{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///{p_end}
 {phang3}{cmd:param1(se) range1(.7 1) param2(sp) range2(.8 1) steps(30)}{p_end}
 
 {pstd}
 {bf:Example 2: Tornado plot for confounding parameters}
 
-{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///
+{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///{p_end}
 {phang3}{cmd:param1(p1) range1(0 .6) param2(rrcd) range2(1 4)}{p_end}
 
 {pstd}
 {bf:Example 3: Tornado with three parameters}
 
-{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///
-{phang3}{cmd:param1(se) range1(.7 1) param2(sp) range2(.8 1)} ///
+{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///{p_end}
+{phang3}{cmd:param1(se) range1(.7 1) param2(sp) range2(.8 1)} ///{p_end}
 {phang3}{cmd:param3(sela) range3(.5 1)}{p_end}
 
 {pstd}
 {bf:Example 4: Distribution plot from saved MC results}
 
-{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///
-{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///
+{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
 {phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0") seed(12345) saving(mc_results, replace)}{p_end}
 {phang2}{cmd:. qba_plot, distribution using(mc_results) observed(2.15)}{p_end}
 
 {pstd}
 {bf:Example 5: Tipping point plot for misclassification (Se vs. Sp)}
 
-{phang2}{cmd:. qba_plot, tipping a(136) b(297) c(1432) d(6738)} ///
+{phang2}{cmd:. qba_plot, tipping a(136) b(297) c(1432) d(6738)} ///{p_end}
 {phang3}{cmd:param1(se) range1(.6 1) param2(sp) range2(.6 1) steps(25)}{p_end}
 
 {pstd}
 {bf:Example 6: Tipping point plot for confounding (p1 vs. RRcd)}
 
-{phang2}{cmd:. qba_plot, tipping a(136) b(297) c(1432) d(6738)} ///
+{phang2}{cmd:. qba_plot, tipping a(136) b(297) c(1432) d(6738)} ///{p_end}
 {phang3}{cmd:param1(p1) range1(0 .6) param2(rrcd) range2(1 5)}{p_end}
 
 {pstd}
 {bf:Example 7: Custom title and scheme}
 
-{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///
+{phang2}{cmd:. qba_plot, tornado a(136) b(297) c(1432) d(6738)} ///{p_end}
 {phang3}{cmd:param1(se) range1(.7 1) title("Sensitivity of OR to Misclassification")}{p_end}
 
 

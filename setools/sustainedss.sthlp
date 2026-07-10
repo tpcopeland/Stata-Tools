@@ -47,11 +47,10 @@
 {p2colreset}{...}
 
 {p 8 17 2}
-{it:idvar} identifies patients (numeric or string).
-{it:edssvar} is the numeric EDSS score.
-{it:datevar} must be a Stata daily date stored as a whole-number value with a
-{cmd:%td} display format.  Other time encodings ({cmd:%tm}, {cmd:%tq}, {cmd:%tc})
-are rejected because {opt confirmwindow()} is interpreted in days.{p_end}
+{it:idvar} identifies patients (numeric or string). {it:edssvar} is the numeric EDSS
+score. {it:datevar} must be a Stata daily date stored as a whole-number value with
+a {cmd:%td} display format. Other time encodings ({cmd:%tm}, {cmd:%tq}, {cmd:%tc}) are rejected
+because {opt confirmwindow()} is interpreted in days.{p_end}
 
 
 {marker description}{...}
@@ -59,14 +58,14 @@ are rejected because {opt confirmwindow()} is interpreted in days.{p_end}
 
 {pstd}
 {cmd:sustainedss} finds the first date each patient's EDSS (Expanded Disability
-Status Scale) reaches or exceeds a user-specified threshold and stays there.
-"Stays there" means the EDSS is not disconfirmed within the
+Status Scale) reaches or exceeds a user-specified threshold and stays
+there. "Stays there" means the EDSS is not disconfirmed within the
 {opt confirmwindow()}.
 
 {pstd}
 This is a {it:threshold crossing} measure: "When did the patient first reach EDSS
 {ul:>}= 4 (or 6, etc.) and remain there?"  It does not reference a baseline EDSS or
-compute a change score.  For a {it:change-from-baseline} progression measure, see
+compute a change score. For a {it:change-from-baseline} progression measure, see
 {helpb cdp}.
 
 {pstd}
@@ -76,7 +75,7 @@ compute a change score.  For a {it:change-from-baseline} progression measure, se
 
 {phang2}2. Within the next {opt confirmwindow()} days, check whether the lowest
 observed EDSS falls below {opt baselinethreshold()} {it:and} the last EDSS in the
-window falls below {opt threshold()}.  If both conditions are true, the event is
+window falls below {opt threshold()}. If both conditions are true, the event is
 rejected as not sustained.{p_end}
 
 {phang2}3. For rejected events, replace the candidate EDSS with the last value
@@ -96,51 +95,51 @@ with a patient ID, an EDSS score, and a measurement date.
 {dlgtab:Required}
 
 {phang}
-{opt threshold(#)} specifies the EDSS value that defines the progression milestone.
-Common choices are {cmd:4} (moderate disability, ambulatory without aid) and
-{cmd:6} (requires unilateral walking aid).  The value must be positive.
+{opt threshold(#)} specifies the EDSS value that defines the progression
+milestone. Common choices are {cmd:4} (moderate disability, ambulatory without aid)
+and {cmd:6} (requires unilateral walking aid). The value must be positive.
 
 {dlgtab:Optional}
 
 {phang}
-{opt generate(name)} specifies the name of the new date variable.  The default
+{opt generate(name)} specifies the name of the new date variable. The default
 is {it:sustained#_dt} where {it:#} is the threshold value (decimal points are
 replaced by underscores, so {cmd:threshold(3.5)} produces {cmd:sustained3_5_dt}).
 
 {phang}
 {opt confirmwindow(#)} specifies the number of days after the initial
-threshold-crossing within which EDSS must be sustained.  The default is {cmd:182}
+threshold-crossing within which EDSS must be sustained. The default is {cmd:182}
 (approximately 6 months), standard in MS research.
 
 {phang}
-{opt baselinethreshold(#)} specifies the EDSS level used to check for reversal.
-If the lowest EDSS in the confirmation window falls below this value AND the last
-EDSS in the window falls below {opt threshold()}, the event is rejected.  The
-default equals {opt threshold()}.  Setting this to a lower value (e.g.,
-{cmd:baselinethreshold(3)} with {cmd:threshold(4)}) makes the algorithm more
-tolerant of temporary dips: only a drop all the way below 3 would disqualify
-the event.
+{opt baselinethreshold(#)} specifies the EDSS level used to check for reversal. If
+the lowest EDSS in the confirmation window falls below this value AND the last
+EDSS in the window falls below {opt threshold()}, the event is rejected. The default
+equals {opt threshold()}. Setting this to a lower value (e.g., {cmd:baselinethreshold(3)}
+with {cmd:threshold(4)}) makes the algorithm more tolerant of temporary dips: only a
+drop all the way below 3 would disqualify the event.
 
 {phang}
 {opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a sustained
-date and 0 otherwise, within the estimation sample, ready for {helpb stset}.  It is
-most useful together with {opt keepall}.  The name must be new and differ from
+date and 0 otherwise, within the estimation sample, ready for {helpb stset}. It is
+most useful together with {opt keepall}. The name must be new and differ from
 {opt generate()}.
 
 {phang}
 {opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
-with a {cmd:%td} format).  When the computed sustained date falls strictly after a
+with a {cmd:%td} format). When the computed sustained date falls strictly after a
 person's exit date, the date is set to missing and {opt eventvar()} (if requested)
 is set to 0 {hline 1} the event is censored as occurring outside the observation
-window.  This replaces the hand-written {cmd:replace sustained#_dt = . if}
-{cmd:sustained#_dt > study_exit} that follows most {cmd:sustainedss} calls.  Persons
-with a missing exit date are left unchanged.  The observation is retained; pair with
+window. This replaces the hand-written {cmd:replace sustained#_dt = . if}
+{cmd:sustained#_dt > study_exit} that follows most {cmd:sustainedss} calls. Persons with a
+missing exit date are left unchanged. The observation is retained; pair with
 {opt eventvar()} for a clean {helpb stset}-ready indicator.
 
 {phang}
 {opt keepall} retains all observations from the original dataset, adding the
-sustained date variable with missing values for patients without sustained events.
-By default, only rows for patients who experienced a sustained event are kept.
+sustained date variable with missing values for patients without sustained
+events. By default, only rows for patients who experienced a sustained event
+are kept.
 
 {phang}
 {opt quietly} suppresses the iteration progress messages and the summary
@@ -158,42 +157,43 @@ All three MS progression commands in {helpb setools} measure disability
 worsening, but they answer different questions:
 
 {phang2}{cmd:sustainedss} {hline 2} "When did EDSS first reach {ul:>}= X and stay
-there?"  Absolute threshold crossing.  No baseline reference, no diagnosis date
+there?"  Absolute threshold crossing. No baseline reference, no diagnosis date
 needed.{p_end}
 
 {phang2}{helpb cdp} {hline 2} "When did EDSS first worsen by {ul:>}= 1.0 (or 0.5)
 points from baseline, confirmed at 6 months?"  Change from a patient-specific
-baseline.  Requires diagnosis date.{p_end}
+baseline. Requires diagnosis date.{p_end}
 
 {phang2}{helpb pira} {hline 2} "Was that confirmed progression driven by
-neurodegeneration or by a relapse?"  Classifies each CDP event.  Requires
+neurodegeneration or by a relapse?"  Classifies each CDP event. Requires
 both a diagnosis date and a relapse file.{p_end}
 
 {pstd}
 {bf:Edge case: no measurements in the confirmation window}
 
 {pstd}
-If a patient reaches the threshold but has no subsequent EDSS measurements within
-{opt confirmwindow()} days, the event is treated as sustained (absence of evidence
-is not evidence of reversal).  This differs from {helpb cdp}, which requires at
-least one confirming measurement after its {cmd:confirmdays()} window.
+If a patient reaches the threshold but has no subsequent EDSS measurements
+within {opt confirmwindow()} days, the event is treated as sustained (absence of
+evidence is not evidence of reversal). This differs from {helpb cdp}, which requires
+at least one confirming measurement after its {cmd:confirmdays()} window.
 
 {pstd}
 {bf:Duplicate EDSS on the same date}
 
 {pstd}
 If multiple EDSS scores exist on the same date for the same patient, the lowest
-value on that date is used for confirmation checks.  This conservative approach
-reduces false positives.  Consider resolving duplicates before running the
+value on that date is used for confirmation checks. This conservative approach
+reduces false positives. Consider resolving duplicates before running the
 command.
 
 {pstd}
 {bf:Patients already above threshold}
 
 {pstd}
-Patients whose first EDSS already meets the threshold will be reported as reaching
-it on that date (assuming confirmation is not disconfirmed).  If these patients
-should be excluded from your analysis, filter them before running {cmd:sustainedss}.
+Patients whose first EDSS already meets the threshold will be reported as
+reaching it on that date (assuming confirmation is not disconfirmed). If these
+patients should be excluded from your analysis, filter them before running
+{cmd:sustainedss}.
 
 
 {marker examples}{...}
@@ -203,8 +203,8 @@ should be excluded from your analysis, filter them before running {cmd:sustained
 {bf:Example 1: Sustained EDSS {ul:>}= 4}
 
 {pstd}
-Find the first date each patient reached and sustained EDSS 4 or above, using the
-default 182-day confirmation window.{p_end}
+Find the first date each patient reached and sustained EDSS 4 or above, using
+the default 182-day confirmation window.{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use "https://.../relapses.dta", clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4)":. sustainedss id edss edss_date, threshold(4)}{p_end}

@@ -1,6 +1,6 @@
 # kmplot - Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.2.1** | 2026-06-26
+**Version 1.2.1** | 2026-07-10
 
 `kmplot` turns an `stset` dataset into publication-ready survival graphics with sensible defaults for confidence intervals, risk tables, fixed-time summaries, median lines, censor marks, and log-rank p-values. It keeps the flexibility of native Stata graphics while returning the reusable curve, risk-table, and landmark numbers needed for manuscripts.
 

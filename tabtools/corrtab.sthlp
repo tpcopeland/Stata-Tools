@@ -48,11 +48,12 @@ significance stars or p-values. It supports Pearson product-moment
 correlations (the default) and Spearman rank correlations, and can display
 the lower triangle (default), upper triangle, or the full symmetric matrix.{p_end}
 
-{pstd}Output is displayed automatically in the Results window and may also be exported to a
-professionally formatted Excel workbook, saved as CSV or Markdown for use in other
-software, or stored in a Stata {helpb frames:frame} for programmatic access.
-When exported to Excel, the table includes a title row, formatted headers,
-significance footnotes, and optional zebra striping or header shading.{p_end}
+{pstd}Output is displayed automatically in the Results window and may also be
+exported to a professionally formatted Excel workbook, saved as CSV or
+Markdown for use in other software, or stored in a Stata {helpb frames:frame} for
+programmatic access. When exported to Excel, the table includes a title row,
+formatted headers, significance footnotes, and optional zebra striping or
+header shading.{p_end}
 
 {pstd}Pairwise complete observations are used: each cell reports the
 correlation computed from all observations with non-missing values on both

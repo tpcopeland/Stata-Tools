@@ -50,14 +50,14 @@ and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean
-Excel sheet with, for each model (each {cmd:cmdset}), columns for the point
-estimate ({cmd:_r_b}), 95% CI ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use
-{opt nopvalue} to suppress the p-value column in the rendered output. It applies
-labels and number formats, exports to a temporary workbook, re-imports to allow
-row edits (e.g., dropping intercept or random-effects rows), optionally merges
-model headers, writes to your target workbook/sheet, and styles borders,
-alignment, fonts, and column widths. Title text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
+{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with,
+for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), 95% CI
+({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use {opt nopvalue} to suppress the p-value column in
+the rendered output. It applies labels and number formats, exports to a
+temporary workbook, re-imports to allow row edits (e.g., dropping intercept or
+random-effects rows), optionally merges model headers, writes to your target
+workbook/sheet, and styles borders, alignment, fonts, and column widths. Title
+text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {marker options}{title:Options}
 
@@ -109,16 +109,15 @@ alignment, fonts, and column widths. Title text can be written to cell {cmd:A1};
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
 
-{pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the
-random intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula
-MOR = exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and
-{cmd:mecloglog}, the conversion produces a {bf:Median Hazard Ratio (MHR)}.
-The 95% CI bounds are transformed on the same scale. In multi-level models,
-each transformed random-intercept row keeps its own grouping label, so the
-output reads, for example, "Median Odds Ratio (District)" and
-"Median Odds Ratio (School)". MOR/MHR values and other random effects
-(slopes, covariances, residual) follow the requested {opt digits()} precision.
-Use {opt nore} to suppress all
+{pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the random
+intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula MOR =
+exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and {cmd:mecloglog}, the
+conversion produces a {bf:Median Hazard Ratio (MHR)}. The 95% CI bounds are
+transformed on the same scale. In multi-level models, each transformed
+random-intercept row keeps its own grouping label, so the output reads, for
+example, "Median Odds Ratio (District)" and "Median Odds Ratio
+(School)". MOR/MHR values and other random effects (slopes, covariances,
+residual) follow the requested {opt digits()} precision. Use {opt nore} to suppress all
 random-effects rows if desired.{p_end}
 
 {marker remarks}{title:Remarks}
@@ -126,9 +125,9 @@ random-effects rows if desired.{p_end}
 {pstd}Prerequisites and expectations{p_end}
 {p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the
 relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
-{p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and
-{cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies
-cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
+{p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items
+{cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as
+{cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
 {p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it
 intentionally updates collect labels, styles, and layout before export. If you
 need the original collection layout unchanged for later commands, save or
@@ -155,18 +154,21 @@ auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR,
 {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg} {it:->} TR/AF,
 {cmd:regress}/{cmd:mixed} {it:->} Coef. Coefficient-scale fits are exponentiated
 for display when the auto header implies a ratio scale.{p_end}
-{p 4 8 2}- {opt relabel}: relabels random effects using variable labels and
-explicit parameter types. For single-level models {cmd:var(_cons)} becomes
+{p 4 8 2}- {opt relabel}: relabels random effects using variable labels and explicit
+parameter types. For single-level models {cmd:var(_cons)} becomes
 {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
-{it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each level separately.{p_end}
-{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for
-{helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul},
-{cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
-metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
-{p 4 8 2}- {opt addrow()}: appends custom label/value rows below the table
-body; separate multiple rows with a backslash, e.g., {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
-{p 4 8 2}- {opt labelwidth()}: caps the label-column width (in characters,
-default 45); labels longer than the cap wrap onto extra lines rather than being clipped by the adjacent estimate cell.{p_end}
+{it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each
+level separately.{p_end}
+{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing
+{cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
+metadata. When {opt frame()} is also set, the display frame records the companion in
+{cmd:_dta[tabtools_eplotframe]}.{p_end}
+{p 4 8 2}- {opt addrow()}: appends custom label/value rows below the table body; separate
+multiple rows with a backslash, e.g.,
+{cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
+{p 4 8 2}- {opt labelwidth()}: caps the label-column width (in characters, default
+45); labels longer than the cap wrap onto extra lines rather than being
+clipped by the adjacent estimate cell.{p_end}
 {p 4 8 2}- {opt dimnonsig}: dims rows whose every displayed fixed-effect CI
 includes the null (1 for ratio scales, 0 for coefficients); reference rows are
 always dimmed and category headers dim unless a level is significant.{p_end}
@@ -178,30 +180,30 @@ adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estima
 {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar
 commands use the same {opt digits()} precision as the main coefficient
 rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
-{p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed
-with {opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you
-intentionally want ordered-model cutpoints displayed with publication-friendly labels.{p_end}
+{p 4 8 2}- Intercept, ordered cutpoint, and ancillary-only rows can be removed with
+{opt noint}. Use {opt keepintercept} plus {opt cutlabels()} if you intentionally want
+ordered-model cutpoints displayed with publication-friendly labels.{p_end}
 {p 4 8 2}- P-value columns can be removed from the rendered table with
 {opt nopvalue}. If {opt stars} is also specified, significance stars are still
 computed from the collected p-values before the p-value columns are dropped.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by
-{opt theme()}, session defaults set with {helpb tabtools:set font} /
-{helpb tabtools:set fontsize}, or both. Borders are drawn around the table and
-model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
-{p 4 8 2}- The command writes Excel and Markdown output through the shared
-tabtools Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
-{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC,
-BIC, QIC, log-likelihood, and groups are extracted per model from the
-{helpb collect} framework and placed in each model's column. If extraction
-fails, statistics fall back to the last model's {cmd:e()} values in the first
-column only. For GEE models ({cmd:xtgee}), AIC is undefined because GEE uses
-quasi-likelihood rather than full maximum likelihood; when {cmd:aic} is
-requested, {cmd:regtab} automatically computes and displays QIC (deviance + 2p)
-instead. QIC can also be requested directly via {cmd:stats(qic)}. ICC is
-computed per model from variance components in the collected results when that
-variance decomposition is defined. For model families without a closed-form
-level-1 variance, ICC is left blank rather than guessed. If the primary
-collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
+{opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders
+are drawn around the table and model blocks. Column widths and row heights are
+adjusted heuristically to fit labels and contents.{p_end}
+{p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools
+Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
+{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QIC,
+log-likelihood, and groups are extracted per model from the {helpb collect} framework
+and placed in each model's column. If extraction fails, statistics fall back
+to the last model's {cmd:e()} values in the first column only. For GEE models
+({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full
+maximum likelihood; when {cmd:aic} is requested, {cmd:regtab} automatically computes and
+displays QIC (deviance + 2p) instead. QIC can also be requested directly via
+{cmd:stats(qic)}. ICC is computed per model from variance components in the
+collected results when that variance decomposition is defined. For model
+families without a closed-form level-1 variance, ICC is left blank rather than
+guessed. If the primary collection path cannot recover supported ICC
+components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -234,9 +236,9 @@ and the estimate header is auto-detected as {cmd:RRR}.{p_end}
 {phang3}{cmd:cutlabels("1 to 2 \ 2 to 3 \ 3 to 4 \ 4 to 5")}{p_end}
 
 {pstd}
-The number of labels may match however many cutpoints the ordered model returns.
-Without {opt keepintercept}, {cmd:regtab} treats cutpoints like ancillary rows and
-omits them from ratio-scale presentation tables.{p_end}
+The number of labels may match however many cutpoints the ordered model
+returns. Without {opt keepintercept}, {cmd:regtab} treats cutpoints like ancillary rows
+and omits them from ratio-scale presentation tables.{p_end}
 
 {pstd}Two models with merged headers, dropping the intercept row:{p_end}
 {phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
@@ -246,11 +248,11 @@ omits them from ratio-scale presentation tables.{p_end}
 {phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Table 2") models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint"':. regtab, xlsx(regression.xlsx) sheet("Table 2") ///}{p_end}
 {phang3}{cmd:models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint}{p_end}
 
-{pstd}The multilevel and survival examples below are workflow sketches: they assume a
-fitted dataset in memory with the named outcome, exposure, and grouping variables
-(for example {cmd:provider}, {cmd:district}, {cmd:school}). Substitute your own
-model; for runnable public-data fits see the {helpb melogit}, {helpb mixed}, and
-{helpb stcox} manual examples.{p_end}
+{pstd}The multilevel and survival examples below are workflow sketches: they assume
+a fitted dataset in memory with the named outcome, exposure, and grouping
+variables (for example {cmd:provider}, {cmd:district}, {cmd:school}). Substitute your own
+model; for runnable public-data fits see the {helpb melogit}, {helpb mixed}, and {helpb stcox} manual
+examples.{p_end}
 
 {pstd}Mixed-effects logistic model with Median Odds Ratio and ICC:{p_end}
 {phang2}{cmd:. collect clear}{p_end}
@@ -271,15 +273,14 @@ bottom.{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet("Nested") title("Table 3") relabel stats(n icc)}{p_end}
 
 {pstd}
-With {opt relabel}, each grouping level gets a separate label derived from
-its variable label and the parameter type: {it:Variance: District (Intercept)},
-{it:Variance: School (Intercept)}, {it:Residual Variance}. Without {opt relabel}, the raw bracket notation is
-shown: {cmd:var(_cons[district])}, {cmd:var(_cons[school])}, {cmd:var(e)}.
-Random effects are sorted by level (outermost first) after fixed effects.
-Models with random slopes and covariance terms (e.g.,
-{cmd:|| school: treatment, cov(unstructured)}) produce additional rows such
-as {it:Variance: School (Treatment)} and
-{it:Covariance: School (Treatment, Intercept)}.{p_end}
+With {opt relabel}, each grouping level gets a separate label derived from its
+variable label and the parameter type: {it:Variance: District (Intercept)},
+{it:Variance: School (Intercept)}, {it:Residual Variance}. Without {opt relabel}, the raw
+bracket notation is shown: {cmd:var(_cons[district])}, {cmd:var(_cons[school])},
+{cmd:var(e)}. Random effects are sorted by level (outermost first) after fixed
+effects. Models with random slopes and covariance terms (e.g.,
+{cmd:|| school: treatment, cov(unstructured)}) produce additional rows such as
+{it:Variance: School (Treatment)} and {it:Covariance: School (Treatment, Intercept)}.{p_end}
 
 {pstd}Auto-detected coefficient labels and conditional formatting:{p_end}
 {phang2}{cmd:. collect clear}{p_end}
@@ -288,15 +289,11 @@ as {it:Variance: School (Treatment)} and
 {phang3}{cmd:noint boldp(0.05) highlight(0.05)}{p_end}
 
 {pstd}
-When {opt coef()} is omitted, {cmd:regtab} auto-detects the label from the
-model type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR,
-{cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR,
-{cmd:mlogit} {it:->} RRR,
-{cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef.,
-{cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time) {it:->} AF,
-{cmd:regress}/{cmd:mixed} {it:->} Coef.
-The {opt boldp()} option bolds p-value cells below
-the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
+When {opt coef()} is omitted, {cmd:regtab} auto-detects the label from the model
+type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR,
+{cmd:mlogit} {it:->} RRR, {cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef., {cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time)
+{it:->} AF, {cmd:regress}/{cmd:mixed} {it:->} Coef. The {opt boldp()} option bolds p-value cells below the
+threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {marker stored}{title:Stored results}
 
@@ -331,9 +328,9 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(table)}}coefficient values for the displayed body (rows = variables, columns = models){p_end}
 {p2colreset}{...}
 
-{pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row
-names are derived from each variable's display label with periods, spaces,
-commas, and colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
+{pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row names are
+derived from each variable's display label with periods, spaces, commas, and
+colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
 
 {pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)},
 {cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)},

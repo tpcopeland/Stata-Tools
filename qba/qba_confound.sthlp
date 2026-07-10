@@ -110,34 +110,29 @@ confounding.
 {dlgtab:Estimate source}
 
 {phang}
-{opt estimate(#)} specifies the observed OR or RR to correct. Must be > 0.
-Cannot be combined with {opt from_model}.
+{opt estimate(#)} specifies the observed OR or RR to correct. Must be > 0. Cannot be
+combined with {opt from_model}.
 
 {phang}
 {opt from_model} reads the point estimate and standard error from the last
-estimation command ({cmd:e(b)} and {cmd:e(V)}). The coefficient is
-automatically exponentiated for log-scale models. Supported log-scale
-commands: {cmd:logistic}, {cmd:logit}, {cmd:stcox},
-{cmd:poisson}, {cmd:nbreg}, {cmd:cloglog}, {cmd:clogit}, {cmd:xtlogit},
-{cmd:xtpoisson}, {cmd:xtnbreg}, {cmd:melogit}, {cmd:mepoisson},
-{cmd:streg}, {cmd:stcrreg}, and {cmd:glm} with log or logit link. All
-other commands are treated as linear (coefficient used directly).
-Because {cmd:cloglog} coefficients are not odds ratios, {cmd:cloglog}
-requires explicit {opt measure(RR)}.
+estimation command ({cmd:e(b)} and {cmd:e(V)}). The coefficient is automatically
+exponentiated for log-scale models. Supported log-scale commands: {cmd:logistic},
+{cmd:logit}, {cmd:stcox}, {cmd:poisson}, {cmd:nbreg}, {cmd:cloglog}, {cmd:clogit}, {cmd:xtlogit}, {cmd:xtpoisson}, {cmd:xtnbreg},
+{cmd:melogit}, {cmd:mepoisson}, {cmd:streg}, {cmd:stcrreg}, and {cmd:glm} with log or logit link. All other
+commands are treated as linear (coefficient used directly). Because {cmd:cloglog}
+coefficients are not odds ratios, {cmd:cloglog} requires explicit {opt measure(RR)}.
 
 {phang}
-When neither {opt estimate()} nor {opt from_model} is specified,
-{cmd:qba_confound} can read the active {cmd:tmle} or {cmd:ltmle} estimation
-contract. It uses {cmd:e(tau)} as the observed effect and, when available,
-{cmd:e(ci_lo)} and {cmd:e(ci_hi)} as confidence limits. Current
-{cmd:tmle}/{cmd:ltmle} contracts are treated as additive coefficients unless
-they explicitly declare a ratio measure through {cmd:e(measure)},
-{cmd:e(effect_measure)}, or {cmd:e(qba_measure)}. Additive contracts use the
-subtractive confounding correction with {opt confeffect()}; E-values are
-skipped because they require an odds ratio or risk ratio.
-This integration requires a separately installed {cmd:tmle} or {cmd:ltmle}
-command that leaves the active contract in {cmd:e()}; {cmd:qba_confound} only
-reads that contract.
+When neither {opt estimate()} nor {opt from_model} is specified, {cmd:qba_confound} can read the
+active {cmd:tmle} or {cmd:ltmle} estimation contract. It uses {cmd:e(tau)} as the observed
+effect and, when available, {cmd:e(ci_lo)} and {cmd:e(ci_hi)} as confidence
+limits. Current {cmd:tmle}/{cmd:ltmle} contracts are treated as additive coefficients
+unless they explicitly declare a ratio measure through {cmd:e(measure)},
+{cmd:e(effect_measure)}, or {cmd:e(qba_measure)}. Additive contracts use the subtractive
+confounding correction with {opt confeffect()}; E-values are skipped because they
+require an odds ratio or risk ratio. This integration requires a separately
+installed {cmd:tmle} or {cmd:ltmle} command that leaves the active contract in
+{cmd:e()}; {cmd:qba_confound} only reads that contract.
 
 {phang}
 {opt coef(coefname)} specifies which coefficient to use when the estimation
@@ -156,29 +151,29 @@ exposed. Must be in [0, 1].
 unexposed. Must be in [0, 1].
 
 {phang}
-{opt rrcd(#)} specifies the risk ratio for the association between the
-confounder and the disease, using the Schneeweiss (2006) parameterization.
-Must be > 0. Cannot be combined with {opt rrud()}.
+{opt rrcd(#)} specifies the risk ratio for the association between the confounder
+and the disease, using the Schneeweiss (2006) parameterization. Must be >
+0. Cannot be combined with {opt rrud()}.
 
 {phang}
-{opt rrud(#)} specifies the risk ratio for the association between the
-confounder and the disease, using the Greenland (1996) parameterization.
-Must be > 0. Cannot be combined with {opt rrcd()}.
+{opt rrud(#)} specifies the risk ratio for the association between the confounder
+and the disease, using the Greenland (1996) parameterization. Must be >
+0. Cannot be combined with {opt rrcd()}.
 
 {phang}
 {opt confeffect(#)} specifies the signed additive effect of the unmeasured
-confounder on the outcome scale for linear {cmd:from_model} corrections.
-It is required instead of {opt rrcd()} or {opt rrud()} when the last
-estimation command is linear.
+confounder on the outcome scale for linear {cmd:from_model} corrections. It is
+required instead of {opt rrcd()} or {opt rrud()} when the last estimation command is
+linear.
 
 {dlgtab:E-value}
 
 {phang}
-{opt evalue} computes the E-value for the point estimate and, when available,
-for the CI bound closest to the null. When {opt from_model} is used, the CI
-bounds are derived from the model's standard error. When {opt from_model} is
-not used, specify {opt ci_bound()} to provide the relevant CI limit.
-E-values are not available for linear models.
+{opt evalue} computes the E-value for the point estimate and, when available, for
+the CI bound closest to the null. When {opt from_model} is used, the CI bounds are
+derived from the model's standard error. When {opt from_model} is not used, specify
+{opt ci_bound()} to provide the relevant CI limit. E-values are not available for
+linear models.
 
 {phang}
 {opt ci_bound(#)} specifies the CI bound for the E-value calculation when not
@@ -204,10 +199,9 @@ confounding parameters ({opt p1()}, {opt p0()}, and {opt rrcd()} or
 {opt rrud()} for ratio measures, or {opt confeffect()} for linear models).
 
 {phang}
-{opt dist_p1(distribution)}, {opt dist_p0(distribution)}, and
-{opt dist_rr(distribution)} specify distributions for the confounding
-parameters. If omitted, constants at the fixed parameter values are used.
-See {helpb qba} for distribution syntax.
+{opt dist_p1(distribution)}, {opt dist_p0(distribution)}, and {opt dist_rr(distribution)}
+specify distributions for the confounding parameters. If omitted, constants at
+the fixed parameter values are used. See {helpb qba} for distribution syntax.
 
 {phang}
 {opt dist_confeffect(distribution)} specifies the distribution for signed
@@ -237,12 +231,12 @@ are algebraically equivalent for the same numeric value; choose the
 option name that matches your external data or expert terminology.
 
 {pstd}
-{bf:E-value interpretation.} An E-value of 3.0 means that an unmeasured
-confounder would need to be associated with both the exposure and the outcome
-by a risk ratio of at least 3.0 each (above and beyond measured covariates)
-to explain away the observed effect. Weaker confounding could not fully
-account for the result. E-values below 2 suggest relatively low robustness;
-values above 3 suggest strong robustness.
+{bf:E-value interpretation.} An E-value of 3.0 means that an unmeasured confounder
+would need to be associated with both the exposure and the outcome by a risk
+ratio of at least 3.0 each (above and beyond measured covariates) to explain
+away the observed effect. Weaker confounding could not fully account for the
+result. E-values below 2 suggest relatively low robustness; values above 3
+suggest strong robustness.
 
 {pstd}
 {bf:E-value for the CI bound.} The E-value for the CI bound closest to the
@@ -257,10 +251,10 @@ the outcome is rare (less than about 15% prevalence) and can be
 anti-conservative otherwise.
 
 {pstd}
-{bf:Linear models.} When {opt from_model} detects a linear model (e.g.,
-{cmd:regress}), the correction is subtractive rather than multiplicative.
-Specify {opt confeffect()} as the signed additive confounder-outcome effect.
-E-values are not computed because they require a ratio measure.
+{bf:Linear models.} When {opt from_model} detects a linear model (e.g., {cmd:regress}), the
+correction is subtractive rather than multiplicative. Specify {opt confeffect()} as
+the signed additive confounder-outcome effect. E-values are not computed
+because they require a ratio measure.
 
 {pstd}
 {bf:After tmle or ltmle.} If a separately installed {cmd:tmle} or
@@ -324,8 +318,8 @@ effect:
 {pstd}
 {bf:Example 7: Probabilistic with distributions}
 
-{phang2}{cmd:. qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0)} ///
-{phang3}{cmd:reps(10000) dist_p1("beta 8 12") dist_p0("beta 4 16")} ///
+{phang2}{cmd:. qba_confound, estimate(1.5) p1(.4) p0(.2) rrcd(2.0)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_p1("beta 8 12") dist_p0("beta 4 16")} ///{p_end}
 {phang3}{cmd:dist_rr("trapezoidal 1.5 1.8 2.2 3.0") seed(99999)}{p_end}
 
 {pstd}
@@ -390,16 +384,16 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 
 {phang}
 Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured
-confounders in epidemiologic database studies of therapeutics.
-{it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303.
+confounders in epidemiologic database studies of
+therapeutics. {it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303.
 
 {phang}
-VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
-introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
+VanderWeele TJ, Ding P. Sensitivity analysis in observational
+research: introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
 
 {phang}
-Greenland S. Basic methods for sensitivity analysis of biases.
-{it:Int J Epidemiol}. 1996;25(6):1107-1116.
+Greenland S. Basic methods for sensitivity analysis of
+biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
 
 
 {title:Author}

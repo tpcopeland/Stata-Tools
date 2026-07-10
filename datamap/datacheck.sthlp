@@ -92,9 +92,9 @@
 
 {pstd}
 {cmd:datacheck} interrogates a dataset in the console and optionally gates on
-declared expectations.  It is the interactive sibling of {help datamap} (which
+declared expectations. It is the interactive sibling of {help datamap} (which
 {it:documents} a dataset to a file) and {help datadict} (which {it:publishes} a
-Markdown dictionary).  All three commands share one classification engine, so a
+Markdown dictionary). All three commands share one classification engine, so a
 variable is classified the same way no matter which command looks at it.
 
 {pstd}
@@ -102,13 +102,13 @@ With no options, {cmd:datacheck} auto-classifies every variable and prints a
 quick-reference table, a per-class profile (distributions for continuous,
 frequency tables for categorical and string, ranges for date), a missingness
 summary, and — when an identifier-like variable is detected — a key-structure
-report.  No gate runs unless a gate option is given.
+report. No gate runs unless a gate option is given.
 
 {pstd}
-With one or more gate options, {cmd:datacheck} evaluates {it:every} gate,
-accumulates all violations, prints them as a single block, and only then exits.
-On any violation it exits with return code {bf:9} (Stata's assertion code), so a
-do-file stops exactly as a bare {help assert} would.  See {help datacheck##gate:Gate mode}.
+With one or more gate options, {cmd:datacheck} evaluates {it:every} gate, accumulates all
+violations, prints them as a single block, and only then exits. On any
+violation it exits with return code {bf:9} (Stata's assertion code), so a do-file
+stops exactly as a bare {help assert} would. See {help datacheck##gate:Gate mode}.
 
 {pstd}
 The data in memory is always preserved and restored; {cmd:datacheck} never
@@ -122,41 +122,41 @@ modifies the user's data.
 
 {phang}
 {opt sing:le(filename)} profiles a saved {opt .dta} file instead of the data in
-memory.  The in-memory data is preserved and restored.  The {opt .dta}
+memory. The in-memory data is preserved and restored. The {opt .dta}
 extension is optional.
 
 {phang}
 {opt conf:ig(filename)} reads reusable defaults from a text file containing
-{cmd:key = value} or {cmd:key: value} lines.  Supported keys include
+{cmd:key = value} or {cmd:key: value} lines. Supported keys include
 {cmd:exclude}, {cmd:continuous}, {cmd:categorical}, {cmd:datevars},
 {cmd:maxcat}, {cmd:maxfreq}, {cmd:rare}, {cmd:mincell}, {cmd:outliers},
 {cmd:maskrare}, {cmd:nomissing}, {cmd:patterns}, {cmd:gatesonly},
-{cmd:onlyflagged}, and {cmd:show}.  Command-line options override config-file
+{cmd:onlyflagged}, and {cmd:show}. Command-line options override config-file
 defaults.
 
 {dlgtab:Classification}
 
 {phang}
 {opt maxc:at(#)} sets the cutoff, passed to the classifier, below which a numeric
-variable is treated as categorical rather than continuous.  The default is 25.
+variable is treated as categorical rather than continuous. The default is 25.
 
 {phang}
-{opt exc:lude(varlist)} skips the named variables entirely.  As with {help datamap},
+{opt exc:lude(varlist)} skips the named variables entirely. As with {help datamap},
 excluded variables are listed by name but their distributions, cardinality, and
 value-label coding are never shown.
 
 {phang}
-{opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)}
-force the named variables into the given group, overriding auto-classification.
-Forcing a variable into the wrong group is itself a check: declaring
-{cmd:continuous(sex)} makes the continuous section reveal a near-zero spread,
-surfacing the mismatch.
+{opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)} force the named
+variables into the given group, overriding auto-classification. Forcing a
+variable into the wrong group is itself a check: declaring {cmd:continuous(sex)}
+makes the continuous section reveal a near-zero spread, surfacing the
+mismatch.
 
 {phang}
-{opt id(keyspec)} declares the identifier key(s) for the uniqueness report.
-{cmd:\}-separate several keys ({cmd:id(lopnr \ tx_id)}); a key may be composite
-({cmd:id(lopnr visitdt)}).  When omitted, the report defaults to the
-classifier's inferred identifier-like names.
+{opt id(keyspec)} declares the identifier key(s) for the uniqueness
+report. {cmd:\}-separate several keys ({cmd:id(lopnr \ tx_id)}); a key may be composite
+({cmd:id(lopnr visitdt)}). When omitted, the report defaults to the classifier's
+inferred identifier-like names.
 
 {dlgtab:Detail}
 
@@ -166,25 +166,25 @@ quartiles already shown for continuous variables.
 
 {phang}
 {opt maxf:req(#)} caps the number of categorical or string levels listed; the
-default is 20.  Levels beyond the cap are summarized in a "more levels" line.
+default is 20. Levels beyond the cap are summarized in a "more levels" line.
 
 {phang}
 {opt rare(#)} flags categorical levels whose count falls below {it:#}.
 
 {phang}
-{opt min:cell(#)} flags any tabulated cell with a count below {it:#}.  This is
+{opt min:cell(#)} flags any tabulated cell with a count below {it:#}. This is
 useful for disclosure checks where a rare level is a warning even when the
 variable itself is otherwise valid.
 
 {phang}
-{opt mask:rare} masks low-count cells in console output.  The threshold is
+{opt mask:rare} masks low-count cells in console output. The threshold is
 {opt mincell(#)} when specified; otherwise it uses {opt rare(#)}, and defaults
-to 5 if neither threshold is given.  The underlying data are not changed.
+to 5 if neither threshold is given. The underlying data are not changed.
 
 {phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
-ranges beyond the first or third quartile.  {cmd:outliers(3)} is a sensible
-start.  The default of 0 disables the check.
+ranges beyond the first or third quartile. {cmd:outliers(3)} is a sensible
+start. The default of 0 disables the check.
 
 {dlgtab:Missingness}
 
@@ -193,17 +193,17 @@ start.  The default of 0 disables the check.
 
 {phang}
 {opt patterns} adds the missing-value pattern table from {help datamvp} (shipped
-with this package).  This option is independent of {opt nomissing}.
+with this package). This option is independent of {opt nomissing}.
 
 {dlgtab:Gate}
 
 {phang}
 {opt gates:only} suppresses the descriptive profile and runs only the requested
-gates.  This keeps batch logs short when {cmd:datacheck} is being used as a
+gates. This keeps batch logs short when {cmd:datacheck} is being used as a
 preflight check in a larger pipeline.
 
 {phang}
-{opt expectn(numlist)} asserts the number of observations.  One number is an
+{opt expectn(numlist)} asserts the number of observations. One number is an
 exact expectation ({cmd:expectn(282252)}); two numbers are an inclusive range
 ({cmd:expectn(1000 1200)}).
 
@@ -221,92 +221,92 @@ exact expectation ({cmd:expectn(282252)}); two numbers are an inclusive range
 values.
 
 {phang}
-{opt inrange(spec)} asserts that variables fall within declared ranges.  The
-specification is {cmd:\}-separated triples of {it:var lo hi}:
-{cmd:inrange(age 18 110 \ edss 0 10)}.  Bounds may be numeric values or Stata
-date literals, such as {cmd:inrange(index_date td(01jan2010) td(31dec2025))}.
+{opt inrange(spec)} asserts that variables fall within declared ranges. The
+specification is {cmd:\}-separated triples of
+{it:var lo hi}: {cmd:inrange(age 18 110 \ edss 0 10)}. Bounds may be numeric values or
+Stata date literals, such as {cmd:inrange(index_date td(01jan2010) td(31dec2025))}.
 
 {phang}
-{opt all:owed(spec)} asserts that variables contain only declared values.  The
-specification is {cmd:\}-separated entries of the form {it:var values}:
-{cmd:allowed(sex 0 1 \ arm "usual" "active")}.  String values may be quoted.
+{opt all:owed(spec)} asserts that variables contain only declared values. The
+specification is {cmd:\}-separated entries of the form
+{it:var values}: {cmd:allowed(sex 0 1 \ arm "usual" "active")}. String values may be
+quoted.
 
 {phang}
 {opt for:bid(spec)} asserts that variables do not contain declared forbidden
-values.  Use it for values that are syntactically valid but impossible in a
+values. Use it for values that are syntactically valid but impossible in a
 clean analysis file, such as a withdrawn treatment code.
 
 {phang}
-{opt regex(spec)} asserts that string variables match regular expressions.  Each
+{opt regex(spec)} asserts that string variables match regular expressions. Each
 {cmd:\}-separated entry is {it:var pattern}, for example
 {cmd:regex(person_id "^[0-9]{12}$" \ center "^[A-Z]{2}[0-9]{3}$")}.
 
 {phang}
-{opt notv:alues(spec)} asserts that variables do not contain sentinel or
-placeholder values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}.  The syntax
-matches {opt allowed()} and {opt forbid()}:
-{cmd:notvalues(age -9 999 \ outcome "UNKNOWN")}.
+{opt notv:alues(spec)} asserts that variables do not contain sentinel or placeholder
+values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}. The syntax matches {opt allowed()} and
+{opt forbid()}: {cmd:notvalues(age -9 999 \ outcome "UNKNOWN")}.
 
 {phang}
-{opt by(varlist)} evaluates gates within groups defined by {it:varlist} and
-adds a groupwise completeness and missingness profile to the console report.
-Use this when a rule is meaningful within strata, for example checking duplicate
-visit numbers within each site.  {opt over(varname)} is a single-variable
-synonym for {opt by(varlist)}.
+{opt by(varlist)} evaluates gates within groups defined by {it:varlist} and adds a
+groupwise completeness and missingness profile to the console report. Use this
+when a rule is meaningful within strata, for example checking duplicate visit
+numbers within each site. {opt over(varname)} is a single-variable synonym for
+{opt by(varlist)}.
 
 {phang}
-{opt check:s(filename)} reads gate specifications from {it:filename}.  This is
+{opt check:s(filename)} reads gate specifications from {it:filename}. This is
 intended for project-level QC specs that should be versioned and reused across
 imports, refreshes, and batch runs.
 
 {phang}
 {opt makes:pec(filename[, replace])} writes a starter checks file from the
-current dataset.  The generated file includes the observed row count, required
+current dataset. The generated file includes the observed row count, required
 variables, observed ranges or allowed values, and the first unique nonmissing
-variable as a candidate {cmd:isid} key when one is found.  Review the proposed
+variable as a candidate {cmd:isid} key when one is found. Review the proposed
 ranges, allowed values, and required variables before treating it as a gate
 contract.
 
 {phang}
 {opt comp:are(filename)} compares the current profiled variables with a saved
-baseline.  The baseline may be a common metadata dataset produced by
+baseline. The baseline may be a common metadata dataset produced by
 {cmd:datamap}, {cmd:datadict}, or {cmd:datacheck}, a legacy {cmd:datacheck}
 profile containing {cmd:varname}/{cmd:vartype}/{cmd:dc_class}, or a raw Stata
-dataset.  Added, dropped, storage-type, class, and observation-count changes
-are reported as a {cmd:compare} violation.  With {opt warn}, the same drift is
+dataset. Added, dropped, storage-type, class, and observation-count changes
+are reported as a {cmd:compare} violation. With {opt warn}, the same drift is
 reported but execution continues and the comparison counts are returned in
 {cmd:r()}.
 
 {phang}
 {opt warn} downgrades every gate from a halt to a warning: violations are
-reported and the stored results are still set, but execution continues.  Use
+reported and the stored results are still set, but execution continues. Use
 this to run the gates diagnostically while building a do-file.
 
 {dlgtab:Output}
 
 {phang}
-{opt sav:ing(name[, replace])} saves the per-variable profile (the shared
-common metadata schema plus legacy aliases {cmd:varname} and {cmd:dc_class}).
-If {it:name} ends in {opt .dta} or contains a path separator the profile is
-written to that file; otherwise it is copied into a frame of that name.  A bad
-path is reported and skipped without aborting the report.
+{opt sav:ing(name[, replace])} saves the per-variable profile (the shared common
+metadata schema plus legacy aliases {cmd:varname} and {cmd:dc_class}). If {it:name} ends in
+{opt .dta} or contains a path separator the profile is written to that
+file; otherwise it is copied into a frame of that name. A bad path is reported
+and skipped without aborting the report.
 
 {phang}
 {opt only:flagged} filters console output to variables, groups, or gates with a
-warning or violation.  It is equivalent to {cmd:show(flagged)}.
+warning or violation. It is equivalent to {cmd:show(flagged)}.
 
 {phang}
-{opt show(flagged)} requests the flagged-only display.  Future display values
+{opt show(flagged)} requests the flagged-only display. Future display values
 may expand this option; {cmd:flagged} is the privacy- and batch-oriented filter.
 
 {phang}
-{opt viol:ations(name[, replace])} saves one row per warning or violation.  If
+{opt viol:ations(name[, replace])} saves one row per warning or violation. If
 {it:name} ends in {opt .dta} or contains a path separator the violation table is
 written to that file; otherwise it is copied into a frame of that name.
 
 {pstd}
 Privacy-oriented logs should combine {opt show(flagged)} with {opt maskrare}
-and {opt mincell()}.  Excluded variables are named but their contents are not
+and {opt mincell()}. Excluded variables are named but their contents are not
 displayed, and low-frequency cells are suppressed when rare-cell masking is
 enabled.
 
@@ -315,27 +315,27 @@ enabled.
 {title:Gate mode}
 
 {pstd}
-Any gate option turns on gate mode.  {cmd:datacheck} does not stop at the first
+Any gate option turns on gate mode. {cmd:datacheck} does not stop at the first
 failure: it evaluates every gate, accumulates all violations, and prints them as
-a single block so one run tells you everything that is wrong.  For example:
+a single block so one run tells you everything that is wrong. For example:
 
 {pmore}{cmd:. datacheck, expectn(282252) isid(lopnr) inrange(age 18 110)}{p_end}
 
 {pmore}{err:EXPECTATION VIOLATIONS (3)}{p_end}
-{pmore}{err:  expectn: expected N = 282252, observed 311920}{p_end}
-{pmore}{err:  isid(lopnr): not unique — 311920 rows, 282252 distinct}{p_end}
-{pmore}{err:  inrange(age): 14 obs outside [18, 110]  (min 0, max 119)}{p_end}
+{pmore}{err: expectn: expected N = 282252, observed 311920}{p_end}
+{pmore}{err: isid(lopnr): not unique — 311920 rows, 282252 distinct}{p_end}
+{pmore}{err: inrange(age): 14 obs outside [18, 110]  (min 0, max 119)}{p_end}
 
 {pstd}
-On any violation {cmd:datacheck} exits with return code {bf:9}.  With {opt warn}
+On any violation {cmd:datacheck} exits with return code {bf:9}. With {opt warn}
 the same block prints under a {bf:WARNINGS} heading, the stored results are set,
-and execution continues.  Because Stata batch ({cmd:-b}) mode does not propagate
+and execution continues. Because Stata batch ({cmd:-b}) mode does not propagate
 the return code to the shell exit status, automated harnesses detect a gate
 failure by scanning the log for {cmd:r(9)}, not by the process exit code.
 
 {pstd}
 For production pipelines, put the gate contract in a checks file and call
-{cmd:datacheck} with {opt gatesonly}.  Save the violation table when downstream
+{cmd:datacheck} with {opt gatesonly}. Save the violation table when downstream
 steps need structured diagnostics rather than console text.
 
 
@@ -441,7 +441,7 @@ steps need structured diagnostics rather than console text.
 
 {pstd}
 The stored results let a wrapper script branch on {cmd:r(n_violations)} without
-parsing console text.  Use {opt warn} when you need execution to continue after
+parsing console text. Use {opt warn} when you need execution to continue after
 violations so subsequent Stata code can inspect the results programmatically.
 
 

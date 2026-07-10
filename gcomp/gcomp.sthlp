@@ -160,10 +160,10 @@ When a time-varying exposure affects an outcome, but time-varying confounders
 also change in response to prior exposure, standard regression adjusts away
 part of the effect you want to estimate. G-computation avoids this by
 simulating what would have happened to the entire population under each
-hypothetical intervention, using parametric models fit to the observed data.
-The method produces potential-outcome estimates under each user-specified
-treatment regime and can optionally fit a marginal structural model (MSM) to
-summarize the causal contrast.
+hypothetical intervention, using parametric models fit to the observed
+data. The method produces potential-outcome estimates under each
+user-specified treatment regime and can optionally fit a marginal structural
+model (MSM) to summarize the causal contrast.
 
 {phang}
 {bf:2. Causal mediation.}{break}
@@ -175,10 +175,11 @@ indirect effect (NIE), and the proportion mediated (PM). A controlled direct
 effect (CDE) is available when you specify {opt control()}.
 
 {pstd}
-In both modes, inference is obtained by bootstrapping: the entire simulation is
-repeated {opt samples()} times on resampled data, and confidence intervals
-are constructed from the bootstrap distribution. Four CI types are available:
-normal, percentile, bias-corrected, and bias-corrected and accelerated (BCa).
+In both modes, inference is obtained by bootstrapping: the entire simulation
+is repeated {opt samples()} times on resampled data, and confidence intervals are
+constructed from the bootstrap distribution. Four CI types are
+available: normal, percentile, bias-corrected, and bias-corrected and
+accelerated (BCa).
 
 {pstd}
 Supported model types for the parametric models are {helpb logit} (binary),
@@ -224,9 +225,9 @@ construct confidence intervals.
 
 {pstd}
 {bf:Data layout.}{break}
-Mediation analyses use {bf:cross-sectional} (wide) data: one row per subject.
-Time-varying analyses use {bf:panel} (long) data: one row per subject per time
-point, identified by {opt i:dvar()} and {opt t:var()}.
+Mediation analyses use {bf:cross-sectional} (wide) data: one row per
+subject. Time-varying analyses use {bf:panel} (long) data: one row per subject per
+time point, identified by {opt i:dvar()} and {opt t:var()}.
 
 
 {marker options}{...}
@@ -240,9 +241,8 @@ the final outcome (e.g. disease status). For time-varying analyses, this is the
 outcome measured at each visit (or at end of follow-up with {opt eofu}).
 
 {phang}
-{opt commands(string)} specifies the model type used to simulate each variable.
-Use the colon-separated syntax {it:var1}{cmd:: }{it:cmd1}{cmd:, }{it:var2}{cmd:: }{it:cmd2}.
-Supported model types:{break}
+{opt commands(string)} specifies the model type used to simulate each variable. Use
+the colon-separated syntax {it:var1}{cmd:: }{it:cmd1}{cmd:, }{it:var2}{cmd:: }{it:cmd2}. Supported model types:{break}
 {cmd:logit} {hline 2} logistic regression (binary outcomes){break}
 {cmd:regress} {hline 2} linear regression (continuous outcomes){break}
 {cmd:mlogit} {hline 2} multinomial logit (unordered categorical outcomes){break}
@@ -270,18 +270,18 @@ should be consecutive integers starting from 1 (or any common integer
 sequence).
 
 {phang}
-{opt varyingcovariates(varlist)} specifies the time-varying confounders that
-are both affected by prior exposure and predictive of future outcomes. These
-are the variables that make standard regression adjustment biased: they lie
-on the causal pathway between past exposure and future outcome, but they are
-also confounders of the current exposure-outcome relationship.
-{cmd:gcomp} fits separate models for these variables and re-simulates them
-at each time point under the hypothetical intervention.
+{opt varyingcovariates(varlist)} specifies the time-varying confounders that are
+both affected by prior exposure and predictive of future outcomes. These are
+the variables that make standard regression adjustment biased: they lie on the
+causal pathway between past exposure and future outcome, but they are also
+confounders of the current exposure-outcome relationship. {cmd:gcomp} fits separate
+models for these variables and re-simulates them at each time point under the
+hypothetical intervention.
 
 {phang}
-{opt intvars(varlist)} specifies which variables receive the interventions.
-Typically this is the time-varying exposure. The values assigned under each
-intervention are defined in {opt interventions()}.
+{opt intvars(varlist)} specifies which variables receive the
+interventions. Typically this is the time-varying exposure. The values
+assigned under each intervention are defined in {opt interventions()}.
 
 {phang}
 {opt interventions(string)} defines the hypothetical treatment regimes. For
@@ -306,9 +306,9 @@ variable. For categorical analyses ({opt oce}) or multiple exposures, list the
 relevant variables.
 
 {phang}
-{opt mediator(varlist)} specifies one or more mediator variables. Mediators
-are the variables that lie on the causal pathway between exposure and outcome.
-The indirect effect captures the part of the exposure's effect that operates
+{opt mediator(varlist)} specifies one or more mediator variables. Mediators are the
+variables that lie on the causal pathway between exposure and outcome. The
+indirect effect captures the part of the exposure's effect that operates
 through the mediator(s).
 
 {phang}
@@ -332,11 +332,11 @@ distribution of the exposure as the baseline. This produces the standard TCE,
 NDE, NIE, and PM decomposition.
 
 {phang}
-{opt oce} ({bf:o}bserved {bf:c}onditional {bf:e}xposure) is for {bf:categorical}
-exposure variables with more than two levels. The effect is estimated for each
-non-baseline level versus the baseline. If {opt baseline()} is not specified,
-the lowest observed exposure level is used as the reference category.
-{it:Note: {helpb gcomptab} does not support formatting {opt oce} results.}
+{opt oce} ({bf:o}bserved {bf:c}onditional {bf:e}xposure) is for {bf:categorical} exposure variables with
+more than two levels. The effect is estimated for each non-baseline level
+versus the baseline. If {opt baseline()} is not specified, the lowest observed
+exposure level is used as the reference
+category. {it:Note: {helpb gcomptab} does not support formatting {opt oce} results.}
 
 {phang}
 {opt linexp} specifies a linear exposure effect model, appropriate when you
@@ -363,12 +363,12 @@ counterfactual "treated" scenario.
 {dlgtab:Time-varying options}
 
 {phang}
-{opt eofu} ({bf:e}nd {bf:o}f {bf:f}ollow-{bf:u}p) specifies that the outcome is
-measured only on the final row for each subject, rather than at every time
-point. With this option, {cmd:gcomp} uses only the last-period outcome value;
-any earlier nonmissing outcome values are ignored with a warning. This is
-appropriate when the outcome is assessed once at the end of the study (e.g. a
-cumulative disease diagnosis) rather than at each visit.
+{opt eofu} ({bf:e}nd {bf:o}f {bf:f}ollow-{bf:u}p) specifies that the outcome is measured only on the
+final row for each subject, rather than at every time point. With this option,
+{cmd:gcomp} uses only the last-period outcome value; any earlier nonmissing outcome
+values are ignored with a warning. This is appropriate when the outcome is
+assessed once at the end of the study (e.g. a cumulative disease diagnosis)
+rather than at each visit.
 
 {phang}
 {opt pooled} fits a single logistic regression pooled across all visits
@@ -387,10 +387,10 @@ at each time point depends on the subject's covariate history up to that point
 (e.g. "treat if blood pressure exceeds 140 at the current visit").
 
 {phang}
-{opt death(varname)} specifies a competing event (death or censoring) variable.
-Subjects who experience this event are removed from the risk set in subsequent
-time periods. The variable must be binary (0/1) and the model for it must be
-specified as {cmd:logit} in {opt commands()}.
+{opt death(varname)} specifies a competing event (death or censoring)
+variable. Subjects who experience this event are removed from the risk set in
+subsequent time periods. The variable must be binary (0/1) and the model for
+it must be specified as {cmd:logit} in {opt commands()}.
 
 {phang}
 {opt msm(string)} specifies a marginal structural model to summarize the
@@ -400,10 +400,10 @@ intervention levels and want a parsimonious summary.
 
 {phang}
 {opt fixedcovariates(varlist)} specifies covariates that are time-invariant
-(constant across all visits for a given subject), such as sex or baseline age.
-These are included in the parametric models but are {it:not} re-simulated
-during the Monte Carlo procedure. They must be listed in the {varlist} but
-appear only on the right-hand side of equations.
+(constant across all visits for a given subject), such as sex or baseline
+age. These are included in the parametric models but are {it:not} re-simulated
+during the Monte Carlo procedure. They must be listed in the {varlist} but appear only
+on the right-hand side of equations.
 
 {phang}
 {opt laggedvars(varlist)} specifies variables whose lagged values are used
@@ -411,10 +411,10 @@ as predictors. {cmd:gcomp} automatically computes within-subject lags by
 time for these variables.
 
 {phang}
-{opt lagrules(string)} specifies the lag structure for {opt laggedvars()}.
-Syntax: {cmd:lagrules(}{it:lagvar}{cmd:: }{it:sourcevar} {it:lagorder}{cmd:, ...)}. For
-example, {cmd:lagrules(Alag: A 1, Llag: L 1)} means {cmd:Alag} is the 1-period
-lag of {cmd:A}, and {cmd:Llag} is the 1-period lag of {cmd:L}.
+{opt lagrules(string)} specifies the lag structure for
+{opt laggedvars()}. Syntax: {cmd:lagrules(}{it:lagvar}{cmd:: }{it:sourcevar} {it:lagorder}{cmd:, ...)}. For example,
+{cmd:lagrules(Alag: A 1, Llag: L 1)} means {cmd:Alag} is the 1-period lag of {cmd:A}, and {cmd:Llag}
+is the 1-period lag of {cmd:L}.
 
 {phang}
 {opt derived(varlist)} specifies variables that are deterministic functions
@@ -461,16 +461,16 @@ of the default risk difference (RD) scale.
 {dlgtab:Imputation}
 
 {phang}
-{opt impute(varlist)} specifies variables with missing values to be imputed
-before the g-computation using single stochastic imputation. This handles
-missing data under a missing-at-random (MAR) assumption.
-{it:Note:} the {varlist} of required variables ({opt i:dvar()}, {opt t:var()})
-cannot be imputed; only covariates and mediators are eligible.
+{opt impute(varlist)} specifies variables with missing values to be imputed before
+the g-computation using single stochastic imputation. This handles missing
+data under a missing-at-random (MAR) assumption. {it:Note:} the {varlist} of required
+variables ({opt i:dvar()}, {opt t:var()}) cannot be imputed; only covariates and mediators
+are eligible.
 
 {phang}
-{opt imp_eq(string)} specifies the prediction equations for the imputation
-models, using the same {it:var}{cmd::} {it:rhs} syntax as {opt equations()}.
-Each variable in {opt impute()} should appear here.
+{opt imp_eq(string)} specifies the prediction equations for the imputation models,
+using the same {it:var}{cmd::} {it:rhs} syntax as {opt equations()}. Each variable in {opt impute()}
+should appear here.
 
 {phang}
 {opt imp_cmd(string)} specifies the model commands for imputation, using the
@@ -498,9 +498,9 @@ exploratory analyses, 200-500 is often sufficient; for publication, 1000 or
 more is recommended.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility. Setting the
-seed ensures that the same data and options always produce the same results.
-Always set a seed when reporting results.
+{opt seed(#)} sets the random number seed for reproducibility. Setting the seed
+ensures that the same data and options always produce the same results. Always
+set a seed when reporting results.
 
 {phang}
 {opt minsim} uses expected values (predicted probabilities) instead of random
@@ -549,17 +549,15 @@ replication data.
 {dlgtab:Component models}
 
 {phang}
-{opt savemodels} refits each parametric component model
-({cmd:commands()}/{cmd:equations()}) once on the analytic sample after
-estimation, outside the bootstrap loop, and stores them as
-{cmd:_gcomp_m_1}, {cmd:_gcomp_m_2}, ... For mediation analyses the refit
+{opt savemodels} refits each parametric component model ({cmd:commands()}/{cmd:equations()})
+once on the analytic sample after estimation, outside the bootstrap loop, and
+stores them as {cmd:_gcomp_m_1}, {cmd:_gcomp_m_2}, ... For mediation analyses the refit
 reproduces the simulation's fit exactly (same command, equation, and observed
-sample); for non-pooled time-varying runs the captured models are pooled across
-visits. A manifest is posted to {cmd:e(model_names)}, {cmd:e(model_cmds)},
-{cmd:e(model_depvars)}, {cmd:e(N_models)}, and {cmd:e(model_eq_}{it:k}{cmd:)}.
-The stored estimates persist in memory and can be exported with
-{helpb gcomptab:gcomptab, models}. This option is a no-op by default; it adds no
-behavioural change to the estimates.
+sample); for non-pooled time-varying runs the captured models are pooled
+across visits. A manifest is posted to {cmd:e(model_names)}, {cmd:e(model_cmds)},
+{cmd:e(model_depvars)}, {cmd:e(N_models)}, and {cmd:e(model_eq_}{it:k}{cmd:)}. The stored estimates persist
+in memory and can be exported with {helpb gcomptab:gcomptab, models}. This option is a no-op by
+default; it adds no behavioural change to the estimates.
 
 {phang}
 {opt showmodels} implies {opt savemodels} and additionally displays the fitted
@@ -567,11 +565,10 @@ component models in the Results window, after the parametric-model specification
 summary and before the bootstrap progress.
 
 {phang}
-{opt modelstyle(style)} sets how {opt showmodels} renders the models:
-{cmd:compact} (default) prints a gcomp-styled coefficient table per model with
-the scale applied automatically (odds ratios for {cmd:logit}/{cmd:ologit},
-relative risk ratios for {cmd:mlogit}, coefficients for {cmd:regress});
-{cmd:native} replays each model with Stata's own output.
+{opt modelstyle(style)} sets how {opt showmodels} renders the models: {cmd:compact} (default)
+prints a gcomp-styled coefficient table per model with the scale applied
+automatically (odds ratios for {cmd:logit}/{cmd:ologit}, relative risk ratios for {cmd:mlogit},
+coefficients for {cmd:regress}); {cmd:native} replays each model with Stata's own output.
 
 
 {marker remarks}{...}
@@ -596,9 +593,9 @@ variables before estimation.
 {bf:Choosing simulation and bootstrap counts}
 
 {pstd}
-{opt simulations()} controls Monte Carlo noise in the point estimate;
-{opt samples()} controls the precision of confidence intervals. As a rough
-guide:{break}
+{opt simulations()} controls Monte Carlo noise in the point
+estimate; {opt samples()} controls the precision of confidence intervals. As
+a rough guide:{break}
 {hline 40}{break}
 Exploratory work: {cmd:sim(500) samples(200)}{break}
 Moderate precision: {cmd:sim(5000) samples(500)}{break}
@@ -621,14 +618,14 @@ dropped. For intermittent missingness on covariates or mediators, use the
 {bf:Relationship to SSC gformula}
 
 {pstd}
-{cmd:gcomp} is a maintained fork of SSC {cmd:gformula} v1.16 beta by Rhian Daniel.
-Key changes include: bug fixes for {opt idvar()} handling and {opt baseline()}
-auto-detection with {opt oce}; removal of SSC dependencies ({cmd:ice}); modernized
-RNG calls ({cmd:runiform()}/{cmd:rnormal()}); double-precision variable generation;
-{cmd:version 16.0} and {cmd:set varabbrev off} for safety; refactored internal
-structure; input validation and model-fit diagnostics; bundled Excel export via
-{helpb gcomptab}. The command syntax is backward-compatible with {cmd:gformula}
-— existing scripts can usually be updated by changing the command name.
+{cmd:gcomp} is a maintained fork of SSC {cmd:gformula} v1.16 beta by Rhian Daniel. Key
+changes include: bug fixes for {opt idvar()} handling and {opt baseline()} auto-detection
+with {opt oce}; removal of SSC dependencies ({cmd:ice}); modernized RNG calls
+({cmd:runiform()}/{cmd:rnormal()}); double-precision variable generation; {cmd:version 16.0} and
+{cmd:set varabbrev off} for safety; refactored internal structure; input validation
+and model-fit diagnostics; bundled Excel export via {helpb gcomptab}. The command
+syntax is backward-compatible with {cmd:gformula} — existing scripts can usually be
+updated by changing the command name.
 
 
 {marker examples}{...}
@@ -705,8 +702,8 @@ values 0, 1, and 2:
 {phang2}{cmd:      base_confs(c) sim(500) samples(200) seed(42)}{p_end}
 
 {pstd}
-Each non-baseline exposure level produces its own set of mediation contrasts.
-Convenience scalars are stored as {cmd:e(tce_1)}, {cmd:e(nde_1)}, etc.
+Each non-baseline exposure level produces its own set of mediation
+contrasts. Convenience scalars are stored as {cmd:e(tce_1)}, {cmd:e(nde_1)}, etc.
 
     {hline}
 {pstd}

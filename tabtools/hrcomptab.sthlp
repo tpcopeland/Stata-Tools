@@ -13,7 +13,8 @@
 {title:Title}
 
 {phang}
-{bf:hrcomptab} {hline 2} Compose a Table 2-style rate + hazard-ratio table from {cmd:stratetab} and {cmd:regtab} frames
+{bf:hrcomptab} {hline 2} Compose a Table 2-style rate + hazard-ratio table from {cmd:stratetab}
+and {cmd:regtab} frames
 
 
 {marker syntax}{...}
@@ -118,9 +119,9 @@ are both supported, but all model frames in one call must share the same layout.
 
 {pstd}
 For forest plots, create each model table with both {opt frame()} and
-{opt eplotframe()}. {cmd:hrcomptab, eplotframe()} maps those selected model
-effects onto the rate scaffold and records section/reference rows for plotting.
-{cmd:hrcomptab, forest} then calls {helpb eplot} and leaves the active graph
+{opt eplotframe()}. {cmd:hrcomptab, eplotframe()} maps those selected model effects onto
+the rate scaffold and records section/reference rows for
+plotting. {cmd:hrcomptab, forest} then calls {helpb eplot} and leaves the active graph
 scheme in effect unless you pass {opt scheme()} through {opt eplotoptions()}.
 
 
@@ -160,12 +161,12 @@ share common digits or prefixes.
 {dlgtab:Content}
 
 {phang}
-{opt effect(string)} controls the header text for the injected effect column.
-Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
+{opt effect(string)} controls the header text for the injected effect
+column. Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
 
 {phang}
-{opt reflabel(string)} controls the text shown in inferred reference rows.
-Default is {cmd:Reference}.
+{opt reflabel(string)} controls the text shown in inferred reference rows. Default
+is {cmd:Reference}.
 
 
 {marker examples}{...}

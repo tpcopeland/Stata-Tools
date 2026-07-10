@@ -80,17 +80,19 @@ time-varying datasets (created by {helpb tvexpose} and {helpb tvmerge}) to
 integrate outcomes and competing risks.
 
 {pstd}
-{bf:Data structure:}
-{break}{cmd:Master (in memory):} Event data containing {cmd:id()}, {cmd:date()}, and optionally {cmd:compete()} variables.
-{break}{cmd:Using file:} Interval data from {helpb tvexpose} or {helpb tvmerge} containing id, start, and stop variables.
+{bf:Data structure:} {break}{cmd:Master (in memory):} Event data containing {cmd:id()}, {cmd:date()}, and
+optionally {cmd:compete()} variables. {break}{cmd:Using file:} Interval data from {helpb tvexpose} or
+{helpb tvmerge} containing id, start, and stop variables.
 
 {pstd}
-The using file must contain variables for interval boundaries. By default, these are named {cmd:start} and {cmd:stop}
-(as created by {helpb tvexpose} and {helpb tvmerge}). Use {cmd:startvar()} and {cmd:stopvar()} to specify different names.
+The using file must contain variables for interval boundaries. By default,
+these are named {cmd:start} and {cmd:stop} (as created by {helpb tvexpose} and {helpb tvmerge}). Use
+{cmd:startvar()} and {cmd:stopvar()} to specify different names.
 
 {pstd}
-By default, {cmd:tvevent} keeps all variables from the master dataset (the event data in memory before
-{cmd:tvevent} is run). Variables are merged back based on id and event date.
+By default, {cmd:tvevent} keeps all variables from the master dataset (the event
+data in memory before {cmd:tvevent} is run). Variables are merged back based on id
+and event date.
 
 {pstd}
 It performs the following key tasks:
@@ -107,8 +109,7 @@ into two parts: pre-event and post-event.
 cumulative variables (like total dose) are proportionally reduced for split rows
 based on the new interval duration.
 
-{phang2}4. {bf:Flagging:} Creates a status variable (default {cmd:_failure}) coded as:
-{p_end}
+{phang2}4. {bf:Flagging:} Creates a status variable (default {cmd:_failure}) coded as: {p_end}
 {phang2}* 0 = Censored (No event){p_end}
 {phang2}* 1 = Primary Event (from {cmd:date()}){p_end}
 {phang2}* 2+ = Competing Events (corresponding to the order in {cmd:compete()}){p_end}
@@ -123,9 +124,8 @@ event is dropped, making the data ready for standard survival analysis
 {title:Options}
 
 {phang}
-{opt id(varname)} names the person identifier present in both the event data
-and the interval data. Numeric and {cmd:str#} identifiers are accepted;
-{cmd:strL} is not.
+{opt id(varname)} names the person identifier present in both the event data and the
+interval data. Numeric and {cmd:str#} identifiers are accepted; {cmd:strL} is not.
 
 {phang}
 {opt date(name)} names the event-date variable for {cmd:type(single)} or the
@@ -151,10 +151,12 @@ are multiplied by the ratio of (new duration / old duration), preserving the
 correct rate and total sum.
 
 {phang}
-{opt eventlabel(string)} specifies custom value labels for the outcome variable categories. 
-{break}Use standard Stata syntax: {it:value "Label" value "Label"}.
-{break}Example: {cmd:eventlabel(0 "Alive" 1 "Heart Failure" 2 "Death")}
-{break}If not specified, labels default to "Censored" (0) and the variable labels of the date variables from the using dataset.
+{opt eventlabel(string)} specifies custom value labels for the outcome variable
+categories. {break}
+Use standard Stata syntax: {it:value "Label" value "Label"}. {break}
+Example: {cmd:eventlabel(0 "Alive" 1 "Heart Failure" 2 "Death")} {break}
+If not specified, labels default to "Censored" (0) and the variable labels of
+the date variables from the using dataset.
 
 {phang}
 {opt timegen(newvar)} creates a new variable containing the cumulative time
@@ -168,15 +170,16 @@ survival models.
 {bf:days} (default), {bf:months} (days/30.4375), or {bf:years} (days/365.25).
 
 {phang}
-{opt type(string)} specifies the event logic.
-{break}{bf:single} (default): Treats the first event as terminal. Drops all follow-up time after the first event.
-{break}{bf:recurring}: Allows multiple events per person. Splits intervals as needed but retains all follow-up time.
-{break}
-{break}{bf:Important:} For {cmd:type(recurring)}, event dates must be in {bf:wide format} with the variable name
-specified in {cmd:date()} serving as a stubname. For example, if you specify {cmd:date(hosp)}, the command
-expects variables {cmd:hosp1}, {cmd:hosp2}, {cmd:hosp3}, etc. in the event dataset. This avoids many-to-many
-merge issues when your interval data already has multiple rows per person. The {cmd:compete()} option is
-not supported with recurring events.
+{opt type(string)} specifies the event logic. {break}{bf:single} (default): Treats the first
+event as terminal. Drops all follow-up time after the first
+event. {break}{bf:recurring}: Allows multiple events per person. Splits intervals as
+needed but retains all follow-up time. {break}
+{break}{bf:Important:} For {cmd:type(recurring)}, event dates must be in {bf:wide format} with the
+variable name specified in {cmd:date()} serving as a stubname. For example, if you
+specify {cmd:date(hosp)}, the command expects variables {cmd:hosp1}, {cmd:hosp2}, {cmd:hosp3}, etc. in
+the event dataset. This avoids many-to-many merge issues when your interval
+data already has multiple rows per person. The {cmd:compete()} option is not
+supported with recurring events.
 
 {phang}
 {opt enum(name)} (requires {cmd:type(recurring)}) adds an event-sequence
@@ -185,13 +188,14 @@ stratifier for Prentice-Williams-Peterson (PWP) recurrent-event models. The
 default name is {cmd:_enum}.
 
 {phang}
-{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock that resets
-to 0 at the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()}
-(defaults {cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model.{...}
-The three standard recurrent-event analyses are then:
-{break}{bf:Andersen-Gill}: {cmd:stset stop, enter(start) failure(`generate') id(id)} (no stratum).
-{break}{bf:PWP total time}: as Andersen-Gill but {cmd:strata(`enum')}.
-{break}{bf:PWP gap time}: {cmd:stset _t, enter(_t0) failure(`generate') id(id)} with {cmd:strata(`enum')}.
+{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock that resets to 0 at
+the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
+{cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model. The three standard
+recurrent-event analyses are
+then: {break}{bf:Andersen-Gill}: {cmd:stset stop, enter(start) failure(`generate') id(id)} (no
+stratum). {break}{bf:PWP total time}: as Andersen-Gill but
+{cmd:strata(`enum')}. {break}{bf:PWP gap time}: {cmd:stset _t, enter(_t0) failure(`generate') id(id)}
+with {cmd:strata(`enum')}.
 
 {phang}
 {opt gapstart(name)} and {opt gapstop(name)} name the two gap-time clock
@@ -211,22 +215,21 @@ ID so all rows for each person receive the same values. Note that all variables
 from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 {phang}
-{opt start(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.{...}
-(Legacy synonym: {opt startvar()}.)
+{opt start(varname)} specifies the name of the start date variable in the using
+(interval) dataset. Default is {cmd:start}. (Legacy synonym: {opt startvar()}.)
 
 {phang}
-{opt stop(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.{...}
-(Legacy synonym: {opt stopvar()}.)
+{opt stop(varname)} specifies the name of the stop date variable in the using
+(interval) dataset. Default is {cmd:stop}. (Legacy synonym: {opt stopvar()}.)
 
 {phang}
-{opt validate} displays validation diagnostics before processing. This option checks for:
-{break}1. {bf:Events outside interval boundaries}: Events that occur before the
+{opt validate} displays validation diagnostics before processing. This option checks
+for: {break}1. {bf:Events outside interval boundaries}: Events that occur before the
 earliest start or after the latest stop for each person (these will not be
-flagged in output).
-{break}2. {bf:Multiple events per person}: When using {cmd:type(single)}, persons with multiple non-missing event dates.
-{break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified,
-cases where the primary event and a competing event occur on the same date.
-{break}
+flagged in output). {break}2. {bf:Multiple events per person}: When using {cmd:type(single)},
+persons with multiple non-missing event
+dates. {break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases
+where the primary event and a competing event occur on the same date. {break}
 {break}Validation results are also stored in {cmd:r(v_outside_bounds)},
 {cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
 
@@ -238,10 +241,12 @@ records, {cmd:dropped} can be negative because intervals split at events. It is 
 pure side channel and does not change the output.
 
 {pmore}
-{bf:Note on interval boundaries:} The command uses closed intervals [start, stop] for event detection.{...}
-An event is flagged when it falls anywhere within an interval, including on the start or stop date.{...}
-Interval splitting occurs when start <= event < stop (the event falls at or after the start but before the stop).{...}
-An event exactly on the stop date is flagged but does not trigger splitting (it ends that interval naturally).
+{bf:Note on interval boundaries:} The command uses closed intervals [start, stop]
+for event detection. An event is flagged when it falls anywhere within an
+interval, including on the start or stop date. Interval splitting occurs when
+start <= event < stop (the event falls at or after the start but before the
+stop). An event exactly on the stop date is flagged but does not trigger
+splitting (it ends that interval naturally).
 
 
 {marker examples}{...}
@@ -252,10 +257,10 @@ The examples below use synthetic datasets from {bf:_data/} modeling an SSRI vs S
 antidepressant study.
 
 {pstd}
-The standard workflow is: (1) create time-varying datasets using {cmd:tvexpose},
-(2) optionally merge using {cmd:tvmerge}, then (3) integrate events using {cmd:tvevent}.
-{bf:Important}: The master dataset in memory should be the event data; the using file
-is the TV interval data from tvexpose.
+The standard workflow is: (1) create time-varying datasets using {cmd:tvexpose}, (2)
+optionally merge using {cmd:tvmerge}, then (3) integrate events using
+{cmd:tvevent}. {bf:Important}: The master dataset in memory should be the event data; the
+using file is the TV interval data from tvexpose.
 
 
 {pstd}
@@ -331,16 +336,17 @@ proportionally reduced if an event splits the interval:
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
 {pstd}
-If a CV event occurs mid-interval, the continuous variable is adjusted by the ratio
-(new duration / original duration).
+If a CV event occurs mid-interval, the continuous variable is adjusted by the
+ratio (new duration / original duration).
 
 
 {pstd}
 {bf:Example 4: Recurring events (wide format)}
 
 {pstd}
-For events that can occur multiple times (e.g., hospitalizations), use {cmd:type(recurring)}.{...}
-The event dataset must have dates in {bf:wide format} with numbered suffixes (hosp1, hosp2, etc.):
+For events that can occur multiple times (e.g., hospitalizations), use
+{cmd:type(recurring)}. The event dataset must have dates in {bf:wide format} with
+numbered suffixes (hosp1, hosp2, etc.):
 
 {phang2}{cmd:. * Event dataset structure (one row per person, multiple date columns):}{p_end}
 {phang2}{cmd:. * id  hosp1       hosp2       hosp3}{p_end}
@@ -363,9 +369,9 @@ The event dataset must have dates in {bf:wide format} with numbered suffixes (ho
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
 {pstd}
-The command automatically detects hosp1, hosp2, hosp3, etc. and processes all events.{...}
-Unlike {cmd:type(single)}, recurring events do not truncate follow-up after the first event.{...}
-Note that {cmd:compete()} is not supported with recurring events.
+The command automatically detects hosp1, hosp2, hosp3, etc. and processes all
+events. Unlike {cmd:type(single)}, recurring events do not truncate follow-up after
+the first event. Note that {cmd:compete()} is not supported with recurring events.
 
 
 {pstd}
@@ -388,8 +394,9 @@ Create a variable for interval duration, useful for Poisson regression offsets:
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
 {pstd}
-The timegen() option creates a variable showing cumulative time from study entry to each
-interval's stop date, in the specified unit (days, months, or years).
+The timegen() option creates a variable showing cumulative time from study
+entry to each interval's stop date, in the specified unit (days, months, or
+years).
 
 
 {pstd}
@@ -478,7 +485,7 @@ When {cmd:validate} is specified, additional scalars are stored:
 {title:Also see}
 
 {psee}
-Online:  {helpb tvexpose}, {helpb tvmerge}
+Online: {helpb tvexpose}, {helpb tvmerge}
 {p_end}
 
 {hline}

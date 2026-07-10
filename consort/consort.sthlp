@@ -88,16 +88,16 @@
 {pstd}
 {cmd:consort} generates CONSORT-style (Consolidated Standards of Reporting Trials)
 exclusion flowcharts for observational research. These diagrams visualize the
-sequential exclusion of observations from a dataset, showing how many observations
-were removed at each step and why.
+sequential exclusion of observations from a dataset, showing how many
+observations were removed at each step and why.
 
 {pstd}
 The workflow involves three steps:
 
 {phang2}1. {bf:Initialize} the diagram with your starting population using {cmd:consort init}
 
-{phang2}2. {bf:Apply exclusions} using {cmd:consort exclude} with {it:if} conditions.
-Each call drops matching observations and records the exclusion.
+{phang2}2. {bf:Apply exclusions} using {cmd:consort exclude} with {it:if} conditions. Each call drops
+matching observations and records the exclusion.
 
 {phang2}3. {bf:Generate} the diagram image using {cmd:consort save}
 
@@ -128,17 +128,17 @@ matching the {it:if} condition are dropped and the exclusion is recorded in the
 CSV file.
 
 {pstd}
-The command requires an {it:if} condition specifying which observations to exclude.
-If zero observations match, a note is displayed and no action is taken: no
-observations are dropped, no CSV entry is written, and the step counter is not
-incremented. The returned {cmd:r(n_excluded)} is 0 and {cmd:r(n_remaining)}
+The command requires an {it:if} condition specifying which observations to
+exclude. If zero observations match, a note is displayed and no action is
+taken: no observations are dropped, no CSV entry is written, and the step
+counter is not incremented. The returned {cmd:r(n_excluded)} is 0 and {cmd:r(n_remaining)}
 equals the current observation count.
 
 {dlgtab:save}
 
 {pstd}
-{cmd:consort save} generates the flowchart image using Python and matplotlib.
-The diagram shows the initial population at the top, with exclusion boxes
+{cmd:consort save} generates the flowchart image using Python and matplotlib. The
+diagram shows the initial population at the top, with exclusion boxes
 branching to the right and remaining population boxes continuing downward.
 
 {pstd}
@@ -152,8 +152,8 @@ After successful generation, the diagram state is automatically cleared.
 {dlgtab:clear}
 
 {pstd}
-{cmd:consort clear} removes the current diagram state without generating output.
-Use this to abandon an incomplete diagram and start fresh.
+{cmd:consort clear} removes the current diagram state without generating output. Use
+this to abandon an incomplete diagram and start fresh.
 
 
 {marker options}{...}
@@ -162,14 +162,14 @@ Use this to abandon an incomplete diagram and start fresh.
 {dlgtab:init options}
 
 {phang}
-{opt initial(string)} specifies the label for the initial population box at the
-top of the diagram. This typically describes your source population and time period.
-For example: "All patients in database 2015-2023".
+{opt initial(string)} specifies the label for the initial population box at the top
+of the diagram. This typically describes your source population and time
+period. For example: "All patients in database 2015-2023".
 
 {phang}
-{opt file(filename)} specifies the path where the exclusion data CSV will be stored.
-If not specified, a temporary file is used. Specifying a file allows you to
-inspect or edit the CSV data before generating the diagram.
+{opt file(filename)} specifies the path where the exclusion data CSV will be
+stored. If not specified, a temporary file is used. Specifying a file allows
+you to inspect or edit the CSV data before generating the diagram.
 
 {dlgtab:exclude options}
 
@@ -187,8 +187,9 @@ count. Use this to mark important milestones like "Eligible patients" or
 {dlgtab:save options}
 
 {phang}
-{opt output(filename)} specifies the output image path. PNG format is recommended.
-Other formats supported by matplotlib (PDF, SVG, etc.) may also work.
+{opt output(filename)} specifies the output image path. PNG format is
+recommended. Other formats supported by matplotlib (PDF, SVG, etc.) may also
+work.
 
 {phang}
 {opt final(string)} specifies the label for the final cohort box at the bottom
@@ -206,9 +207,9 @@ have white backgrounds.
 system PATH or you need a specific Python installation.
 
 {phang}
-{opt dpi(#)} specifies the image resolution in dots per inch. Default is 150.
-Higher values produce larger, higher-quality images suitable for publication.
-Use 300 for print-quality output.
+{opt dpi(#)} specifies the image resolution in dots per inch. Default is 150. Higher
+values produce larger, higher-quality images suitable for publication. Use 300
+for print-quality output.
 
 {phang}
 {opt csv(filename)} additionally writes the diagram data to a CSV file. This is
@@ -240,9 +241,9 @@ dataset. If you need to preserve the original data, use {cmd:preserve} before
 starting the CONSORT workflow or work on a copy of your data.
 
 {pstd}
-The order of exclusions matters both for the diagram layout and for the counts.
-Exclusions are applied sequentially, so later exclusions only operate on
-observations that passed earlier criteria.
+The order of exclusions matters both for the diagram layout and for the
+counts. Exclusions are applied sequentially, so later exclusions only operate
+on observations that passed earlier criteria.
 
 {pstd}
 Do not manually drop or modify observations between {cmd:consort exclude}
@@ -263,9 +264,9 @@ The exclusion data is stored in a simple CSV format:
         Lost to follow-up,156,Final Cohort
 
 {pstd}
-The first row after the header is the initial population (n = total count).
-Subsequent rows are exclusions (n = number excluded). The "remaining" column
-specifies custom labels for boxes after exclusions.
+The first row after the header is the initial population (n = total
+count). Subsequent rows are exclusions (n = number excluded). The "remaining"
+column specifies custom labels for boxes after exclusions.
 
 {marker dataexport}{...}
 {pstd}

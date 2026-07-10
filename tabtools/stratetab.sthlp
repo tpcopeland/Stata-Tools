@@ -37,10 +37,11 @@
 {title:Description}
 
 {pstd}
-{cmd:stratetab} combines pre-computed {helpb strate} output files and formats
-them with outcomes as column groups and exposure variables as rows. The
-completed table is displayed in the Results window and can also be exported to
-Excel, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
+{cmd:stratetab} combines pre-computed {helpb strate} output files and formats them with
+outcomes as column groups and exposure variables as rows. The completed table
+is displayed in the Results window and can also be exported to Excel, saved as
+CSV, or stored in a Stata frame. Each outcome spans three columns: Events,
+Person-Years, and Rate (95% CI).
 
 {pstd}
 The command reads multiple .dta files produced by {helpb strate}, organized by
@@ -50,7 +51,8 @@ exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}
 
 {pstd}
 No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
-{helpb strate} output files directly and restores the caller's data, including an empty workspace, on exit.
+{helpb strate} output files directly and restores the caller's data, including an
+empty workspace, on exit.
 
 {pstd}
 {cmd:stratetab} cannot be combined with {cmd:by:}.
@@ -67,7 +69,8 @@ names should be space-separated without the .dta extension. Files must be
 ordered: all outcomes for exposure 1, all outcomes for exposure 2, etc.
 
 {phang}
-{opt outcomes(integer)} specifies the number of distinct outcomes. The total number of files must be divisible by this number.
+{opt outcomes(integer)} specifies the number of distinct outcomes. The total number
+of files must be divisible by this number.
 
 {dlgtab:Optional}
 
@@ -90,32 +93,38 @@ outcomes are labeled as "Outcome 1", "Outcome 2", etc.
 {phang}
 {opt explabels(string)} specifies exposure group labels separated by backslash
 ({bf:\}). The number of labels must match the number of exposure groups (total
-files / outcomes). If not specified, exposures are labeled as "Exposure 1", "Exposure 2", etc.
+files / outcomes). If not specified, exposures are labeled as "Exposure 1",
+"Exposure 2", etc.
 
 {phang}
 {opt digits(integer 1)} specifies the number of decimal places for rates and
 confidence intervals. Must be between 0 and 10. Default is 1.
 
 {phang}
-{opt eventdigits(integer 0)} specifies the number of decimal places for event counts. Must be between 0 and 10. Default is 0.
+{opt eventdigits(integer 0)} specifies the number of decimal places for event
+counts. Must be between 0 and 10. Default is 0.
 
 {phang}
-{opt pydigits(integer 0)} specifies the number of decimal places for person-years. Must be between 0 and 10. Default is 0.
+{opt pydigits(integer 0)} specifies the number of decimal places for
+person-years. Must be between 0 and 10. Default is 0.
 
 {phang}
-{opt unitlabel(string)} specifies the unit label for the rate column
-header. Default is "1,000", producing "Per 1,000 PY (95% CI)". Keep
-{opt unitlabel()} synchronized with {opt ratescale()} so the displayed label matches the scaled rate values.
+{opt unitlabel(string)} specifies the unit label for the rate column header. Default
+is "1,000", producing "Per 1,000 PY (95% CI)". Keep {opt unitlabel()} synchronized
+with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
-{opt pyscale(real 1)} divides person-years values by the specified factor. Default is 1 (no scaling).
+{opt pyscale(real 1)} divides person-years values by the specified factor. Default
+is 1 (no scaling).
 
 {phang}
 {opt ratescale(real 1000)} multiplies rate and confidence interval values by the
-specified factor. Default is 1000, displaying rates per 1000 person-years. Use when strate was run with {cmd:per(1)}.
+specified factor. Default is 1000, displaying rates per 1000 person-years. Use
+when strate was run with {cmd:per(1)}.
 
-{phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per
-outcome. Reference group is the first exposure group (displays "Ref."). 95% CI computed via log-normal method.{p_end}
+{phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per outcome. Reference
+group is the first exposure group (displays "Ref."). 95% CI computed via
+log-normal method.{p_end}
 
 {phang2}{opt ratio:digits(#)} decimal places for rate ratios (default 2).{p_end}
 
@@ -139,8 +148,9 @@ theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
 supported Stata color name or RGB triplet (e.g., "200 220 240"). It is applied
 when header shading is active via {opt headershade} or the selected theme.{p_end}
 
-{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a
-supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
+{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a supported Stata
+color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is
+active.{p_end}
 
 {phang2}{opt csv(string)} exports the table data as CSV. It may be used with
 or without {opt xlsx()}.{p_end}
@@ -168,7 +178,8 @@ current working directory. For a runnable public-data workflow, see
 {bf:Example 1: Two outcomes by antidepressant class}
 
 {pstd}
-Combine strate output for cardiovascular events and self-harm by SSRI/SNRI exposure:
+Combine strate output for cardiovascular events and self-harm by SSRI/SNRI
+exposure:
 
 {phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
@@ -213,21 +224,25 @@ Display rates per 100 person-years with person-years in 1000s:
 {bf:File ordering}
 
 {pstd}
-Files must be listed with all outcomes for exposure 1 first, then all outcomes for exposure 2, etc. 
-The order of outcomes within each exposure group determines the column order in the output.
+Files must be listed with all outcomes for exposure 1 first, then all outcomes
+for exposure 2, etc. The order of outcomes within each exposure group
+determines the column order in the output.
 
 {pstd}
-Within each exposure group, all outcome files must have the same category labels. {cmd:stratetab}
-aligns later outcomes to the category labels from the first outcome file for that exposure and
-rejects files with missing, duplicated, or unmatched category labels.
+Within each exposure group, all outcome files must have the same category
+labels. {cmd:stratetab} aligns later outcomes to the category labels from the first
+outcome file for that exposure and rejects files with missing, duplicated, or
+unmatched category labels.
 
 {pstd}
-When {opt rateratio} is specified, categories in exposures 2, 3, ... are matched to exposure 1
-by category label before IRRs are computed. If the category sets do not match uniquely, the
-command exits with an error rather than comparing rows by position.
+When {opt rateratio} is specified, categories in exposures 2, 3, ... are matched to
+exposure 1 by category label before IRRs are computed. If the category sets do
+not match uniquely, the command exits with an error rather than comparing rows
+by position.
 
 {pstd}
-For example, with 3 outcomes (O1, O2, O3) and 2 exposures (E1, E2), list files as:
+For example, with 3 outcomes (O1, O2, O3) and 2 exposures (E1, E2), list files
+as:
 
 {phang2}O1_E1 O2_E1 O3_E1 O1_E2 O2_E2 O3_E2{p_end}
 
@@ -235,9 +250,9 @@ For example, with 3 outcomes (O1, O2, O3) and 2 exposures (E1, E2), list files a
 {bf:Label validation}
 
 {pstd}
-If {opt outlabels()} is specified, the number of labels must exactly match {opt outcomes()}.
-If {opt explabels()} is specified, the number of labels must match the number of exposure groups
-(total files / outcomes).
+If {opt outlabels()} is specified, the number of labels must exactly match
+{opt outcomes()}. If {opt explabels()} is specified, the number of labels must match the
+number of exposure groups (total files / outcomes).
 
 
 {marker stored}{...}

@@ -62,7 +62,7 @@ pooled logistic MSM from {helpb msm_fit}.
 {pstd}
 The command computes cumulative incidence (risk) or survival at each requested
 time point for each strategy, averaging over the reference population at
-baseline.  Confidence intervals are computed via Monte Carlo simulation from
+baseline. Confidence intervals are computed via Monte Carlo simulation from
 the estimated coefficient distribution using Cholesky decomposition.
 
 {pstd}
@@ -72,40 +72,39 @@ time point.
 
 {pstd}
 {cmd:msm_predict} requires a prior {helpb msm_fit} run with
-{cmd:model(logistic)}.  It is additionally unavailable when that fit used
+{cmd:model(logistic)}. It is additionally unavailable when that fit used
 {cmd:msm_fit}'s {opt exp:osure()} or {opt tvc:ov()} options, because
 counterfactual standardization is not defined for a continuous or time-varying
-exposure model.  Use {cmd:msm, status} to confirm that prediction is available
+exposure model. Use {cmd:msm, status} to confirm that prediction is available
 before calling this command.
 
 
 {marker how}{...}
 {title:How prediction works}
 
-{phang2}1. {bf:Reference population.}  The command identifies all individuals
-at the first observed period who are in the estimation sample.  These serve
+{phang2}1. {bf:Reference population.} The command identifies all individuals
+at the first observed period who are in the estimation sample. These serve
 as the reference population over which predictions are standardized.{p_end}
 
-{phang2}2. {bf:Counterfactual trajectories.}  For each individual in the
-reference population and each strategy (always-treated or never-treated),
-the command computes period-specific event probabilities from the fitted
-model by setting treatment to the strategy value (1 or 0) at every period.
-{p_end}
+{phang2}2. {bf:Counterfactual trajectories.} For each individual in the reference
+population and each strategy (always-treated or never-treated), the command
+computes period-specific event probabilities from the fitted model by setting
+treatment to the strategy value (1 or 0) at every period. {p_end}
 
-{phang2}3. {bf:Cumulative survival.}  The product of (1 - period hazard) across
-periods gives cumulative survival.  Cumulative incidence = 1 - survival.{p_end}
+{phang2}3. {bf:Cumulative survival.} The product of (1 - period hazard) across
+periods gives cumulative survival. Cumulative incidence = 1 - survival.{p_end}
 
-{phang2}4. {bf:Population average.}  The individual-level predictions are
+{phang2}4. {bf:Population average.} The individual-level predictions are
 averaged across the reference population to produce the marginal
 estimate.{p_end}
 
-{phang2}5. {bf:Monte Carlo CIs.}  Steps 2-4 are repeated for each MC draw
-from the coefficient distribution.  Percentile-based CIs are constructed from
+{phang2}5. {bf:Monte Carlo CIs.} Steps 2-4 are repeated for each MC draw
+from the coefficient distribution. Percentile-based CIs are constructed from
 the resulting empirical distribution.{p_end}
 
 {pstd}
 Any {cmd:outcome_cov()} variables from {helpb msm_fit} are held at each
-individual's actual baseline values during prediction.  They must therefore be
+individual's actual baseline values during prediction. They must therefore be
 time-fixed within person.
 
 
@@ -114,45 +113,45 @@ time-fixed within person.
 
 {phang}
 {opth times(numlist)} specifies the time periods at which to predict
-counterfactual outcomes.  Required.  Values must be non-negative integers
-corresponding to period values in the data.  By default they must also lie
+counterfactual outcomes. Required. Values must be non-negative integers
+corresponding to period values in the data. By default they must also lie
 within the observed follow-up range; use {opt extrapolate} to override.
 
 {phang}
-{opt stra:tegy(string)} specifies which treatment strategy to predict.
-{cmd:always} computes predictions under always-treated, {cmd:never} under
-never-treated, and {cmd:both} (the default) computes both.
+{opt stra:tegy(string)} specifies which treatment strategy to predict. {cmd:always}
+computes predictions under always-treated, {cmd:never} under never-treated, and {cmd:both}
+(the default) computes both.
 
 {phang}
 {opt diff:erence} computes risk differences (always-treated minus
-never-treated) at each time point with MC confidence intervals.  It is intended
-for {cmd:strategy(both)}.  With {cmd:strategy(always)} or
+never-treated) at each time point with MC confidence intervals. It is intended
+for {cmd:strategy(both)}. With {cmd:strategy(always)} or
 {cmd:strategy(never)}, no risk difference can be computed; the prediction
 matrix may include empty difference columns and no {cmd:r(rd_#)} scalars are
 returned.
 
 {phang}
-{opt type(string)} specifies the output scale.  {cmd:cum_inc} (default)
-reports cumulative incidence (risk).  {cmd:survival} reports one minus
+{opt type(string)} specifies the output scale. {cmd:cum_inc} (default)
+reports cumulative incidence (risk). {cmd:survival} reports one minus
 cumulative incidence.
 
 {phang}
 {opt samp:les(#)} specifies the number of Monte Carlo draws from the
-coefficient distribution for CI estimation.  Default is 100.  More draws
-produce smoother CIs but take longer.  Must be at least 10.
+coefficient distribution for CI estimation. Default is 100. More draws
+produce smoother CIs but take longer. Must be at least 10.
 
 {phang}
 {opt seed(#)} sets the random number seed before the MC simulation for
-reproducibility.  If omitted, the command uses the current session RNG state
+reproducibility. If omitted, the command uses the current session RNG state
 and returns the starting state so you can reproduce the results later.
 
 {phang}
-{opt level(#)} specifies the confidence level.  Default is 95.
+{opt level(#)} specifies the confidence level. Default is 95.
 
 {phang}
 {opt extra:polate} allows prediction at time points beyond the maximum
-observed period.  By default, out-of-range values in {opt times()} produce an
-error.  Use this only when extrapolation beyond the observed data support is
+observed period. By default, out-of-range values in {opt times()} produce an
+error. Use this only when extrapolation beyond the observed data support is
 intentional.
 
 
@@ -160,25 +159,25 @@ intentional.
 {title:Current limits}
 
 {phang}
-{bf:Requires pooled logistic MSMs.}  {cmd:msm_predict} stops with an error
-unless the most recent {helpb msm_fit} used {cmd:model(logistic)}.  Linear
+{bf:Requires pooled logistic MSMs.} {cmd:msm_predict} stops with an error
+unless the most recent {helpb msm_fit} used {cmd:model(logistic)}. Linear
 and Cox models can be estimated but do not feed into this prediction
 workflow.{p_end}
 
 {phang}
-{bf:Static strategies only.}  Supported strategies are always-treated,
-never-treated, and both.  Dynamic or stochastic treatment regimes are out
+{bf:Static strategies only.} Supported strategies are always-treated,
+never-treated, and both. Dynamic or stochastic treatment regimes are out
 of scope.{p_end}
 
 {phang}
-{bf:Outcome-model covariates must be time-fixed.}  Any {cmd:outcome_cov()}
+{bf:Outcome-model covariates must be time-fixed.} Any {cmd:outcome_cov()}
 from {helpb msm_fit} are standardized at baseline values, so they must not
-vary within person.  Current {cmd:msm_fit} versions reject time-varying
+vary within person. Current {cmd:msm_fit} versions reject time-varying
 {cmd:outcome_cov()} variables; this command also checks the contract for
 datasets fitted by older versions.{p_end}
 
 {phang}
-{bf:Prediction horizon defaults to observed data.}  Out-of-range
+{bf:Prediction horizon defaults to observed data.} Out-of-range
 {opt times()} values require {opt extrapolate}.{p_end}
 
 
@@ -186,7 +185,7 @@ datasets fitted by older versions.{p_end}
 {title:Examples}
 
 {pstd}
-{bf:Setup.}  Run the pipeline through {cmd:msm_fit} first:{p_end}
+{bf:Setup.} Run the pipeline through {cmd:msm_fit} first:{p_end}
 
 {phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
 {phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
@@ -216,7 +215,7 @@ datasets fitted by older versions.{p_end}
 {phang2}{cmd:. msm_predict, times(1 3 5 7 9) strategy(always) seed(12345)}{p_end}
 
 {pstd}
-{bf:Visualizing predictions.}  Follow up with a survival plot:{p_end}
+{bf:Visualizing predictions.} Follow up with a survival plot:{p_end}
 
 {phang2}{cmd:. msm_plot, type(survival) times(1 3 5 7 9) seed(12345)}{p_end}
 

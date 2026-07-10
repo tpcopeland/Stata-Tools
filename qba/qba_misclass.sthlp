@@ -117,8 +117,8 @@ observed 2x2 table. All values must be non-negative.
 {opt seca(#)} and {opt spca(#)} specify the sensitivity and specificity of the
 classification. For nondifferential misclassification, these apply to all
 strata. For differential misclassification, these apply to the first stratum
-(cases for exposure misclassification; exposed for outcome misclassification).
-Each value must be in (0, 1] and their sum must exceed 1.
+(cases for exposure misclassification; exposed for outcome
+misclassification). Each value must be in (0, 1] and their sum must exceed 1.
 
 {dlgtab:Misclassification type}
 
@@ -169,8 +169,8 @@ misclassification. These require differential mode (i.e., {opt secb()} or
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval.
-Default is {cmd:95}.
+{opt level(#)} specifies the confidence level for the percentile interval. Default
+is {cmd:95}.
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata
@@ -183,11 +183,11 @@ for visualization.
 {title:Remarks}
 
 {pstd}
-{bf:Identifiability constraint.} The correction requires Se + Sp > 1. When
-Se + Sp <= 1, the classification performs no better than chance, and the
-corrected table is unidentifiable. This constraint is enforced for both
-the fixed parameters and (in probabilistic mode) for each draw;
-replicates violating it are excluded.
+{bf:Identifiability constraint.} The correction requires Se + Sp > 1. When Se + Sp
+<= 1, the classification performs no better than chance, and the corrected
+table is unidentifiable. This constraint is enforced for both the fixed
+parameters and (in probabilistic mode) for each draw; replicates violating it
+are excluded.
 
 {pstd}
 {bf:Nondifferential vs. differential.} Nondifferential misclassification
@@ -198,8 +198,8 @@ estimate in either direction.
 
 {pstd}
 {bf:Choosing distributions.} Lash, Fox, and Fink (2021) recommend trapezoidal
-distributions for encoding expert opinion about likely ranges of Se and Sp.
-When validation study data or prior information are available, a Beta
+distributions for encoding expert opinion about likely ranges of Se and
+Sp. When validation study data or prior information are available, a Beta
 distribution is appropriate. Beta shape parameters represent the strength of
 prior information; they need not be literal validation counts.
 
@@ -235,8 +235,8 @@ Se and Sp differ between cases ({opt seca}, {opt spca}) and non-cases
 {pstd}
 {bf:Example 4: Probabilistic analysis with trapezoidal distributions}
 
-{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///
-{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///
+{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
 {phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0") seed(12345)}{p_end}
 
 {pstd}
@@ -246,8 +246,8 @@ Se and Sp differ between cases ({opt seca}, {opt spca}) and non-cases
 When Se and Sp are estimated from validation data or prior information, Beta
 distributions are natural:
 
-{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///
-{phang3}{cmd:reps(10000) dist_se("beta 17 3") dist_sp("beta 19 1")} ///
+{phang2}{cmd:. qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_se("beta 17 3") dist_sp("beta 19 1")} ///{p_end}
 {phang3}{cmd:seed(12345) saving(mc_results, replace)}{p_end}
 
 {pstd}
@@ -305,9 +305,9 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapters 5-6.
 
 {phang}
-Fox MP, Lash TL, Greenland S. A method to automate probabilistic
-sensitivity analyses of misclassified binary variables.
-{it:Int J Epidemiol}. 2005;34(6):1370-1376.
+Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity
+analyses of misclassified binary
+variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376.
 
 
 {title:Author}

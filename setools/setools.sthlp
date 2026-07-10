@@ -40,15 +40,15 @@
 {title:Description}
 
 {pstd}
-{cmd:setools} is a toolkit for Swedish register-based epidemiological research.
-It provides practical building blocks for cohort definition, comorbidity scoring,
+{cmd:setools} is a toolkit for Swedish register-based epidemiological research. It
+provides practical building blocks for cohort definition, comorbidity scoring,
 migration-based exclusions, and disability-progression endpoints built from
 repeated EDSS measurements.
 
 {pstd}
-Running {cmd:setools} by itself displays a grouped overview of all commands.  Use
+Running {cmd:setools} by itself displays a grouped overview of all commands. Use
 {opt list} for a compact command list, {opt detail} for longer descriptions, and
-{opt category()} to restrict the display to one command group.  {opt list} and
+{opt category()} to restrict the display to one command group. {opt list} and
 {opt detail} are mutually exclusive.
 
 {pstd}

@@ -100,13 +100,13 @@ window before first use, after moving projects between computers, or when
 {cmd:logdoc} reports that Python cannot be found.
 
 {pstd}
-{cmd:logdoc} calls a bundled Python renderer, {cmd:logdoc_render.py}, through
-the Python executable configured for Stata whenever possible. This keeps the
-ordinary setup path aligned with {cmd:python query} and {cmd:set python_exec}.
-It can still fall back to a project setting or a system-path Python when
-Stata's {cmd:python:} integration is unavailable. {cmd:logdoc} does not
-currently require any third-party Python packages; the required Python modules
-are from the Python standard library.
+{cmd:logdoc} calls a bundled Python renderer, {cmd:logdoc_render.py}, through the Python
+executable configured for Stata whenever possible. This keeps the ordinary
+setup path aligned with {cmd:python query} and {cmd:set python_exec}. It can still fall
+back to a project setting or a system-path Python when Stata's
+{cmd:python:} integration is unavailable. {cmd:logdoc} does not currently require any
+third-party Python packages; the required Python modules are from the Python
+standard library.
 
 {pstd}
 The purpose of {cmd:logdoc_py} is therefore to:
@@ -139,11 +139,10 @@ only. It is useful when testing a virtual environment or a non-default Python
 without writing project configuration.
 
 {phang}
-{opt save} performs the same checks as {opt check}, then writes
-{cmd:python=}{it:path} to {cmd:.logdocrc} in the current working directory.
-If {cmd:.logdocrc} already contains a {cmd:python=} entry, {opt replace} is
-required to update it. Other configuration lines are preserved. If the file
-contains duplicate {cmd:python=} entries, {opt save} with {opt replace}
+{opt save} performs the same checks as {opt check}, then writes {cmd:python=}{it:path} to {cmd:.logdocrc}
+in the current working directory. If {cmd:.logdocrc} already contains a {cmd:python=}
+entry, {opt replace} is required to update it. Other configuration lines are
+preserved. If the file contains duplicate {cmd:python=} entries, {opt save} with {opt replace}
 consolidates them into a single entry.
 
 {phang}
@@ -195,10 +194,9 @@ are mutually exclusive.
 {title:Detection order}
 
 {pstd}
-{cmd:logdoc_py} selects the first candidate that passes the Python
-version and renderer checks. When {opt python(path)} is supplied,
-only that candidate is tried and all others are skipped.
-The default search order (without {opt python()}) is:
+{cmd:logdoc_py} selects the first candidate that passes the Python version and
+renderer checks. When {opt python(path)} is supplied, only that candidate is tried
+and all others are skipped. The default search order (without {opt python()}) is:
 
 {phang2}{cmd:1.} Stata's configured {cmd:python:} executable, when available.{p_end}
 {phang2}{cmd:2.} {cmd:$LOGDOC_PYTHON}, if set by {cmd:logdoc_py, set}.{p_end}
@@ -251,8 +249,8 @@ configuration file.
 {phang}
 {bf:Stata-bridge profile.} The package runs Python through Stata's
 {cmd:python:} integration. Examples include learners that use the Stata-Python
-bridge. The setup command should validate {cmd:python:}, report
-{cmd:sys.executable}, and install packages through
+bridge. The setup command should validate {cmd:python:}, report {cmd:sys.executable}, and
+install packages through
 {cmd:python: import subprocess, sys; subprocess.check_call([sys.executable, "-m", "pip", "install", ...])}.
 
 {pstd}
@@ -332,11 +330,10 @@ Show the pip command that would be used for a custom package install:
 {p2colreset}{...}
 
 {pstd}
-{cmd:logdoc} currently has no third-party Python package dependencies.
-{cmd:r(required)}, {cmd:r(optional)}, and {cmd:r(missing)} are therefore always
-empty. They are present for portable-contract compliance so that other packages
-adopting this setup pattern can populate them without changing the return
-interface.
+{cmd:logdoc} currently has no third-party Python package dependencies. {cmd:r(required)},
+{cmd:r(optional)}, and {cmd:r(missing)} are therefore always empty. They are present for
+portable-contract compliance so that other packages adopting this setup
+pattern can populate them without changing the return interface.
 
 
 {marker troubleshooting}{...}

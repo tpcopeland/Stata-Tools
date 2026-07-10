@@ -46,10 +46,10 @@ systematic error:
 {phang2}3. {bf:Unmeasured confounding} with E-value computation{p_end}
 
 {pstd}
-{cmd:qba_misclass}, {cmd:qba_selection}, and {cmd:qba_confound} support both
-{bf:simple} fixed-parameter and {bf:probabilistic} Monte Carlo modes.
-{cmd:qba_multi} chains corrections in a single Monte Carlo simulation
-framework and has no simple mode.
+{cmd:qba_misclass}, {cmd:qba_selection}, and {cmd:qba_confound} support both {bf:simple}
+fixed-parameter and {bf:probabilistic} Monte Carlo modes. {cmd:qba_multi} chains
+corrections in a single Monte Carlo simulation framework and has no simple
+mode.
 
 {pstd}
 Methods are based on {it:Applying Quantitative Bias Analysis to Epidemiologic}
@@ -88,8 +88,8 @@ in isolation:
 Add uncertainty by specifying distributions for bias parameters. Save the
 results for visualization:
 
-{phang2}{cmd:. qba_misclass, a(100) b(200) c(50) d(300) seca(.85) spca(.95)} ///
-{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///
+{phang2}{cmd:. qba_misclass, a(100) b(200) c(50) d(300) seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
 {phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0") seed(12345) saving(mc_misclass, replace)}{p_end}
 
 {pstd}
@@ -99,9 +99,9 @@ results for visualization:
 Combine all three biases in one simulation to propagate uncertainty
 through the full correction chain:
 
-{phang2}{cmd:. qba_multi, a(100) b(200) c(50) d(300) reps(10000)} ///
-{phang3}{cmd:seca(.85) spca(.95) dist_se("trapezoidal .75 .82 .88 .95")} ///
-{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///
+{phang2}{cmd:. qba_multi, a(100) b(200) c(50) d(300) reps(10000)} ///{p_end}
+{phang3}{cmd:seca(.85) spca(.95) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
+{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
 {phang3}{cmd:p1(.4) p0(.2) rrcd(2.0) seed(12345)}{p_end}
 
 {pstd}
@@ -141,12 +141,11 @@ at each Monte Carlo replicate. The following distributions are available:
 {p2col:{cmd:constant} {it:value}}fixed value (no uncertainty){p_end}
 
 {pstd}
-Distributions are specified as strings in the {opt dist_*()} options.
-For example, {cmd:dist_se("trapezoidal .75 .82 .88 .95")} draws sensitivity
-values from a trapezoidal distribution with minimum 0.75, modes 0.82 and
-0.88, and maximum 0.95. When {opt reps()} is specified but a {opt dist_*()}
-option is omitted, the corresponding fixed parameter value is used as a
-constant.
+Distributions are specified as strings in the {opt dist_*()} options. For example,
+{cmd:dist_se("trapezoidal .75 .82 .88 .95")} draws sensitivity values from a
+trapezoidal distribution with minimum 0.75, modes 0.82 and 0.88, and maximum
+0.95. When {opt reps()} is specified but a {opt dist_*()} option is omitted, the
+corresponding fixed parameter value is used as a constant.
 
 
 {marker examples}{...}
@@ -160,8 +159,8 @@ constant.
 {pstd}
 {bf:Probabilistic misclassification with trapezoidal distributions}
 
-{phang2}{cmd:. qba_misclass, a(100) b(200) c(50) d(300) seca(.85) spca(.95)} ///
-{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///
+{phang2}{cmd:. qba_misclass, a(100) b(200) c(50) d(300) seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
 {phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0") seed(12345) saving(mc_results, replace)}{p_end}
 
 {pstd}
@@ -190,20 +189,20 @@ only reads that contract; it does not install or provide those commands.
 {pstd}
 {bf:Multi-bias analysis (all three biases)}
 
-{phang2}{cmd:. qba_multi, a(100) b(200) c(50) d(300) reps(10000)} ///
-{phang3}{cmd:seca(.85) spca(.95) sela(.9) selb(.85) selc(.7) seld(.8)} ///
+{phang2}{cmd:. qba_multi, a(100) b(200) c(50) d(300) reps(10000)} ///{p_end}
+{phang3}{cmd:seca(.85) spca(.95) sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
 {phang3}{cmd:p1(.4) p0(.2) rrcd(2.0) seed(12345)}{p_end}
 
 {pstd}
 {bf:Tornado plot}
 
-{phang2}{cmd:. qba_plot, tornado a(100) b(200) c(50) d(300)} ///
+{phang2}{cmd:. qba_plot, tornado a(100) b(200) c(50) d(300)} ///{p_end}
 {phang3}{cmd:param1(se) range1(.7 1) param2(sp) range2(.8 1)}{p_end}
 
 {pstd}
 {bf:Tipping point plot for confounding parameters}
 
-{phang2}{cmd:. qba_plot, tipping a(100) b(200) c(50) d(300)} ///
+{phang2}{cmd:. qba_plot, tipping a(100) b(200) c(50) d(300)} ///{p_end}
 {phang3}{cmd:param1(p1) range1(0 .6) param2(rrcd) range2(1 4)}{p_end}
 
 {pstd}
@@ -232,22 +231,22 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021.
 
 {phang}
-VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
-introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
+VanderWeele TJ, Ding P. Sensitivity analysis in observational
+research: introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
 
 {phang}
 Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured
-confounders in epidemiologic database studies of therapeutics.
-{it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303.
+confounders in epidemiologic database studies of
+therapeutics. {it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303.
 
 {phang}
-Fox MP, Lash TL, Greenland S. A method to automate probabilistic
-sensitivity analyses of misclassified binary variables.
-{it:Int J Epidemiol}. 2005;34(6):1370-1376.
+Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity
+analyses of misclassified binary
+variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376.
 
 {phang}
-Greenland S. Basic methods for sensitivity analysis of biases.
-{it:Int J Epidemiol}. 1996;25(6):1107-1116.
+Greenland S. Basic methods for sensitivity analysis of
+biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
 
 
 {marker author}{...}

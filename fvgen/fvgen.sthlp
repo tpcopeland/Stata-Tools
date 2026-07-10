@@ -53,18 +53,18 @@ syntax for {helpb margins}:
 {synopthdr}
 {synoptline}
 {syntab:Main}
-{synopt:{opt all:levels}}materialize every categorical level, including the base level{p_end}
+{synopt:{opt all:levels}}materialize every level, base included{p_end}
 {synopt:{opt center}}mean-center continuous terms before forming products{p_end}
-{synopt:{opt ref(spec)}}set the reference (base) level per factor, e.g. {cmd:ref(sex 2, race 3)}{p_end}
-{synopt:{opt simp:le(varname)}}report per-group slopes within each level of {it:varname} (combine main + interaction){p_end}
-{synopt:{opt vsr:ef(string)}}append the reference (base) level to main-effect labels, e.g. {cmd:vsref("(vs. @)")}{p_end}
+{synopt:{opt ref(spec)}}set the reference (base) level per factor{p_end}
+{synopt:{opt simp:le(varname)}}per-group slopes within levels of {it:varname}{p_end}
+{synopt:{opt vsr:ef(string)}}append the reference level to main-effect labels{p_end}
 {synopt:{opt pre:fix(name)}}prefix for generated variable names; default is {cmd:_}{p_end}
 {synopt:{opt replace}}overwrite generated variables that already exist{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
 {synopt:{opt drop}}drop every fvgen-generated variable in the dataset{p_end}
 {syntab:Postestimation}
-{synopt:{opt margins}}rerun the active flattened estimator with native factor-variable syntax for {cmd:margins}{p_end}
-{synopt:{opt stor:e(name)}}with {opt margins}, store a margins-ready clone under {it:name} and restore the active flattened result{p_end}
+{synopt:{opt margins}}refit with native factor syntax for {cmd:margins}{p_end}
+{synopt:{opt stor:e(name)}}with {opt margins}, store the clone as {it:name}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -146,16 +146,15 @@ the model fit unchanged, so the exact-reparameterization guarantee holds for any
 centering constant.
 
 {phang}
-{opt ref(spec)} sets the reference (base) level for one or more factor
-variables, given as variable/level pairs with optional commas:
-{cmd:ref(sex 2, race 3)} makes {cmd:sex==2} and {cmd:race==3} the base levels,
-so those levels are dropped and every other level (and its interactions) is
-expressed relative to them. A level may be given as an integer code or as a
-{it:value-label string} in quotes, so {cmd:ref(foreign "Domestic")} and
-{cmd:ref(foreign 0)} are equivalent when {cmd:0} is labeled {cmd:"Domestic"}.
-Each named variable must appear as a factor in the specification, and each level
-must be observed in the {cmd:if}/{cmd:in} sample. This is equivalent to writing
-{cmd:ibN.} operators in the varlist ({cmd:ib2.sex##ib3.race}); the option is a
+{opt ref(spec)} sets the reference (base) level for one or more factor variables,
+given as variable/level pairs with optional commas: {cmd:ref(sex 2, race 3)} makes
+{cmd:sex==2} and {cmd:race==3} the base levels, so those levels are dropped and every
+other level (and its interactions) is expressed relative to them. A level may
+be given as an integer code or as a {it:value-label string} in quotes, so
+{cmd:ref(foreign "Domestic")} and {cmd:ref(foreign 0)} are equivalent when {cmd:0} is labeled
+{cmd:"Domestic"}. Each named variable must appear as a factor in the specification,
+and each level must be observed in the {cmd:if}/{cmd:in} sample. This is equivalent to
+writing {cmd:ibN.} operators in the varlist ({cmd:ib2.sex##ib3.race}); the option is a
 convenience for setting bases without rewriting the specification, and it does
 not alter any {help fvset:fvset} settings on your data.
 
@@ -204,13 +203,12 @@ continuous self-interaction ({cmd:c.age##c.age}) is always labeled with a
 superscript two ({cmd:Age²}) regardless of {opt xsymbol()}.
 
 {phang}
-{opt drop} removes every variable a previous {cmd:fvgen} run generated. It is
-used alone — {cmd:fvgen, drop} — and takes no {it:fvvarlist}. Generated
-variables are recognized by their {cmd:fvgen_role} characteristic (see
-{it:Remarks}), so pass-through originals are left untouched. The number and names
-of the dropped variables are returned in {cmd:r(k_dropped)} and {cmd:r(dropped)}.
-This completes the create-use-drop loop: run {cmd:fvgen}, estimate, export,
-then {cmd:fvgen, drop} before the next model.
+{opt drop} removes every variable a previous {cmd:fvgen} run generated. It is used alone —
+{cmd:fvgen, drop} — and takes no {it:fvvarlist}. Generated variables are recognized by
+their {cmd:fvgen_role} characteristic (see {it:Remarks}), so pass-through originals are
+left untouched. The number and names of the dropped variables are returned in
+{cmd:r(k_dropped)} and {cmd:r(dropped)}. This completes the create-use-drop loop: run
+{cmd:fvgen}, estimate, export, then {cmd:fvgen, drop} before the next model.
 
 {phang}
 {opt margins} is a post-estimation bridge used after estimating a flattened
@@ -270,12 +268,11 @@ up to two-way interactions are supported (see {help fvgen##syntax:Syntax}).
 
 {pstd}
 {bf:Provenance characteristics.} Every generated variable carries two
-characteristics so downstream tools can recognize and group it:
-{cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or
-{cmd:centered}, and {cmd:char }{it:var}{cmd:[fvgen_term]} records the
-factor-variable term it came from (for example {cmd:1.foreign#c.mpg}).
-{cmd:fvgen, drop} uses {cmd:fvgen_role} to identify exactly the variables it
-created.
+characteristics so downstream tools can recognize and group
+it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {cmd:centered}, and
+{cmd:char }{it:var}{cmd:[fvgen_term]} records the factor-variable term it came from (for
+example {cmd:1.foreign#c.mpg}). {cmd:fvgen, drop} uses {cmd:fvgen_role} to identify exactly the
+variables it created.
 
 {pstd}
 {bf:No-base factors.} A no-base specification ({cmd:ibn.}{it:var}) materializes
@@ -356,8 +353,8 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {synopt:{cmd:r(k_int)}}number of interaction variables{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(spec)}}the factor-variable specification expanded, reflecting any {opt ref()} bases{p_end}
-{synopt:{cmd:r(allvars)}}all model variables, ordered, ready for an estimation command{p_end}
+{synopt:{cmd:r(spec)}}expanded factor-variable specification, with {opt ref()} bases{p_end}
+{synopt:{cmd:r(allvars)}}all model variables, ordered for estimation{p_end}
 {synopt:{cmd:r(mainvars)}}main-effect variables only{p_end}
 {synopt:{cmd:r(intvars)}}interaction variables only{p_end}
 {synopt:{cmd:r(genvars)}}newly created variables (excludes pass-through originals){p_end}
@@ -377,7 +374,7 @@ With {opt margins}, {cmd:fvgen} stores:
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(margins)}}{cmd:active} when active estimates were rebuilt, or {cmd:stored} when {opt store()} was used{p_end}
+{synopt:{cmd:r(margins)}}{cmd:active} if estimates were rebuilt, else {cmd:stored}{p_end}
 {synopt:{cmd:r(stored)}}stored estimate name, when {opt store()} was used{p_end}
 
 {pstd}
@@ -395,9 +392,9 @@ The margins-ready estimation result is also marked internally as an
 {title:Also see}
 
 {psee}
-Manual:  {manlink R fvvarlist}, {manlink R regress}, {manlink D label}
+Manual: {manlink R fvvarlist}, {manlink R regress}, {manlink D label}
 
 {psee}
-Online:  {helpb fvvarlist}, {helpb regress}, {helpb label}
+Online: {helpb fvvarlist}, {helpb regress}, {helpb label}
 
 {hline}

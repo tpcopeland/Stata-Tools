@@ -55,7 +55,7 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopthdr}
 {synoptline}
 {syntab:Variables}
-{synopt:{opt overlap(ulow uhigh)}}match where the master interval overlaps the using [{it:ulow}, {it:uhigh}] interval (interval-overlap mode){p_end}
+{synopt:{opt overlap(ulow uhigh)}}overlap mode: master overlaps [{it:ulow}, {it:uhigh}]{p_end}
 {synopt:{opt by(varlist)}}restrict matches to groups with identical values{p_end}
 {synopt:{opt keepu:sing(varlist)}}variables to carry from using dataset{p_end}
 
@@ -67,21 +67,21 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {syntab:Matching}
 {synopt:{opt unmatch:ed(master|none|using|both)}}handling of unmatched rows{p_end}
 {synopt:{opt gen:erate(name)}}create match indicator variable{p_end}
-{synopt:{opt dist:ance(name)}}create signed using-key minus master-key distance variable{p_end}
+{synopt:{opt dist:ance(name)}}signed using-key minus master-key distance{p_end}
 {synopt:{opt masterid(name)}}create original master row-number variable{p_end}
 {synopt:{opt usingid(name)}}create original using row-number variable{p_end}
 {synopt:{opt maxp:airs(#)}}abort if output rows exceed {it:#}; 0 = no guard{p_end}
 {synopt:{opt closed(both|left|right|none)}}interval endpoint closure{p_end}
-{synopt:{opt tol:erance(#)}}boundary-comparison tolerance for floating-point keys{p_end}
-{synopt:{opt miss:ing(wildcard|drop|error)}}policy for master and using rows with missing bounds or key{p_end}
+{synopt:{opt tol:erance(#)}}boundary tolerance for floating-point keys{p_end}
+{synopt:{opt miss:ing(wildcard|drop|error)}}policy for rows with missing bounds or key{p_end}
 {synopt:{opt near:est(before|after|both)}}keep nearest match(es) within the interval{p_end}
 {synopt:{opt ties(all|first|last|random)}}tie handling for {opt nearest()}{p_end}
 {synopt:{opt seed(#)}}RNG seed for {opt ties(random)}, for reproducibility{p_end}
-{synopt:{opt as:sert(match|using)}}abort when required master or using matches are absent{p_end}
+{synopt:{opt as:sert(match|using)}}abort when required matches are absent{p_end}
 
 {syntab:Output}
-{synopt:{opt frame(name)}}write output to named frame and leave current data unchanged{p_end}
-{synopt:{opt replace}}replace existing target frame; allowed only with {opt frame()}{p_end}
+{synopt:{opt frame(name)}}write output to a named frame{p_end}
+{synopt:{opt replace}}replace existing target frame{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save output to a dataset on disk{p_end}
 {synopt:{opt stats}}display match-density diagnostics{p_end}
 {synopt:{opt nosort}}leave output in backend materialization order{p_end}
@@ -108,8 +108,8 @@ In the standard variable-bound form,
 using.{it:keyvar} is compared with [master.{it:low}, master.{it:high}]
 
 {pstd}
-where {it:low} and {it:high} are numeric variables in the master dataset.
-The using dataset or frame must contain numeric {it:keyvar}.
+where {it:low} and {it:high} are numeric variables in the master dataset. The using
+dataset or frame must contain numeric {it:keyvar}.
 
 {pstd}
 In the scalar-offset form, {it:low} and {it:high} may instead be numeric
@@ -148,20 +148,19 @@ themselves.
 {dlgtab:Match mode}
 
 {phang}
-{opt overlap(ulow uhigh)} switches {cmd:rangematch} from point-in-interval
-matching to {bf:interval-overlap} matching. {it:ulow} and {it:uhigh} name the
-two numeric interval-bound variables in the using dataset or frame. In this mode
-no point {it:keyvar} is given: the positional arguments are the master interval
-{it:low} and {it:high}, and a master observation matches a using observation when
-their intervals overlap. With {opt closed(both)} (the default) the overlap test
-is master.{it:low} <= using.{it:uhigh} {bf:&} using.{it:ulow} <=
-master.{it:high} (touching endpoints count); with {opt closed(none)} the
-comparisons are strict (touching endpoints do not count). Under the default
-{opt miss:ing(wildcard)} a missing master or using bound is treated as
-open-ended on that side, so a fully missing interval matches everything in its
-{opt by()} group; {opt miss:ing(drop)} and {opt miss:ing(error)} instead drop or
-reject rows with a missing bound on either side (see {opt miss:ing()} below).
-{opt tolerance()} shifts the comparison boundaries exactly as in point mode.
+{opt overlap(ulow uhigh)} switches {cmd:rangematch} from point-in-interval matching to
+{bf:interval-overlap} matching. {it:ulow} and {it:uhigh} name the two numeric interval-bound
+variables in the using dataset or frame. In this mode no point {it:keyvar} is
+given: the positional arguments are the master interval {it:low} and {it:high}, and a
+master observation matches a using observation when their intervals
+overlap. With {opt closed(both)} (the default) the overlap test is master.{it:low} <=
+using.{it:uhigh} {bf:&} using.{it:ulow} <= master.{it:high} (touching endpoints count); with
+{opt closed(none)} the comparisons are strict (touching endpoints do not
+count). Under the default {opt miss:ing(wildcard)} a missing master or using bound is
+treated as open-ended on that side, so a fully missing interval matches
+everything in its {opt by()} group; {opt miss:ing(drop)} and {opt miss:ing(error)} instead drop or
+reject rows with a missing bound on either side (see {opt miss:ing()}
+below). {opt tolerance()} shifts the comparison boundaries exactly as in point mode.
 
 {pmore}
 Each interval is assumed well-formed, with {it:low} <= {it:high} (and
@@ -175,16 +174,14 @@ non-fatal warning so they are not silently trusted. Validate using-side interval
 order upstream if it is not already guaranteed.
 
 {pmore}
-Interval-overlap mode emits matched pairs directly through the same Mata backend,
-so the full within-{opt by()} Cartesian product is never materialized -- a large
-memory win over {helpb joinby} followed by a {cmd:keep if} overlap filter on
-registry-scale interval data. {opt closed()} accepts only {bf:both} or {bf:none}
-in this mode, and the point-only options {opt nearest()}, {opt ties()},
-{opt distance()}, and scalar offset bounds are not allowed. All other options
-({opt by()}, {opt unmatched()}, {opt keepusing()}, {opt frame()}, {opt saving()},
-{opt stats}, {opt generate()}, {opt masterid()}, {opt usingid()},
-{opt maxpairs()}, {opt missing()}, and {opt nosort}) behave as documented below.
-{cmd:r(backend)} reports {cmd:overlap}.
+Interval-overlap mode emits matched pairs directly through the same Mata
+backend, so the full within-{opt by()} Cartesian product is never materialized -- a
+large memory win over {helpb joinby} followed by a {cmd:keep if} overlap filter on
+registry-scale interval data. {opt closed()} accepts only {bf:both} or {bf:none} in this mode,
+and the point-only options {opt nearest()}, {opt ties()}, {opt distance()}, and scalar offset
+bounds are not allowed. All other options ({opt by()}, {opt unmatched()}, {opt keepusing()},
+{opt frame()}, {opt saving()}, {opt stats}, {opt generate()}, {opt masterid()}, {opt usingid()}, {opt maxpairs()},
+{opt missing()}, and {opt nosort}) behave as documented below. {cmd:r(backend)} reports {cmd:overlap}.
 
 {dlgtab:Variables}
 
@@ -219,13 +216,12 @@ appear once.
 {dlgtab:Matching}
 
 {phang}
-{opt unmatch:ed(master|none|using|both)} controls handling of observations with
-no matches. {opt unmatch:ed(master)} retains unmatched master observations in
-the output with missing values for using variables. {opt unmatch:ed(using)}
-retains unmatched using observations with missing values for master variables.
-{opt unmatch:ed(both)} retains unmatched rows from both sides.
-{opt unmatch:ed(none)} drops unmatched observations. The default is
-{opt unmatch:ed(master)}.
+{opt unmatch:ed(master|none|using|both)} controls handling of observations with no
+matches. {opt unmatch:ed(master)} retains unmatched master observations in the output
+with missing values for using variables. {opt unmatch:ed(using)} retains unmatched
+using observations with missing values for master variables. {opt unmatch:ed(both)}
+retains unmatched rows from both sides. {opt unmatch:ed(none)} drops unmatched
+observations. The default is {opt unmatch:ed(master)}.
 
 {phang}
 {opt gen:erate(name)} creates a byte variable indicating match status. Values
@@ -247,15 +243,14 @@ observation number for each output row. It is missing for using-only rows.
 observation number for each output row. It is missing for master-only rows.
 
 {phang}
-{opt maxp:airs(#)} specifies a safety limit. If the number of output rows
-would exceed {it:#}, the command aborts before materializing output.
-{cmd:maxpairs(0)} imposes no limit.
+{opt maxp:airs(#)} specifies a safety limit. If the number of output rows would
+exceed {it:#}, the command aborts before materializing output. {cmd:maxpairs(0)} imposes
+no limit.
 
 {phang}
 {opt closed(both|left|right|none)} controls whether interval endpoints are
-included. {opt closed(both)} uses [lo,hi]; {opt closed(left)} uses [lo,hi);
-{opt closed(right)} uses (lo,hi]; and {opt closed(none)} uses (lo,hi).
-The default is {opt closed(both)}.
+included. {opt closed(both)} uses [lo,hi]; {opt closed(left)} uses [lo,hi); {opt closed(right)}
+uses (lo,hi]; and {opt closed(none)} uses (lo,hi). The default is {opt closed(both)}.
 
 {phang}
 {opt tol:erance(#)} applies a nonnegative boundary-comparison tolerance to
@@ -292,12 +287,12 @@ never matches (and surfaces only as an unmatched-using row under
 {opt unmatch:ed(using)} or {opt unmatch:ed(both)}).
 
 {pmore}
-{opt miss:ing(drop)} drops the offending rows before matching, on whichever side
-they occur, equivalent to {cmd:drop if missing(...)} upstream of the call;
-dropped rows never appear in the output regardless of {opt unmatch:ed()}.
-{opt miss:ing(error)} aborts with a clear message and the count of offending
-rows. The option applies only to {it:variables}; a literal {cmd:.} positional
-bound is the user's explicit open-ended token and is unaffected.
+{opt miss:ing(drop)} drops the offending rows before matching, on whichever side they
+occur, equivalent to {cmd:drop if missing(...)} upstream of the call; dropped rows
+never appear in the output regardless of {opt unmatch:ed()}. {opt miss:ing(error)} aborts
+with a clear message and the count of offending rows. The option applies only
+to {it:variables}; a literal {cmd:.} positional bound is the user's explicit open-ended
+token and is unaffected.
 
 {pmore}
 If {opt miss:ing(drop)} empties an entire {opt by()} group from one side, the
@@ -311,21 +306,21 @@ the corresponding missing count recovers the post-{cmd:if}/{cmd:in}, pre-drop
 total for that side.
 
 {phang}
-{opt near:est(before|after|both)} keeps only nearest using observations within
-the interval. {opt near:est(before)} keeps the nearest using key at or before
-the master key, {opt near:est(after)} keeps the nearest using key at or after
-the master key, and {opt near:est(both)} keeps nearest matches on both sides.
-The master dataset must contain numeric {it:keyvar}.
+{opt near:est(before|after|both)} keeps only nearest using observations within the
+interval. {opt near:est(before)} keeps the nearest using key at or before the master
+key, {opt near:est(after)} keeps the nearest using key at or after the master key,
+and {opt near:est(both)} keeps nearest matches on both sides. The master dataset must
+contain numeric {it:keyvar}.
 
 {phang}
-{opt ties(all|first|last|random)} controls tie handling with {opt nearest()}
-when two or more using rows are equally near the key. {opt ties(all)} keeps
-every equally nearest row; {opt ties(first)} keeps the single tied row with the
-lowest original using observation number; {opt ties(last)} keeps the one with
-the highest; {opt ties(random)} keeps one tied row chosen uniformly at random.
-("First" and "last" therefore refer to original using row order, not to key
-value or distance, which are equal among ties.) The default is {opt ties(all)}.
-{opt ties()} is only allowed with {opt nearest()}.
+{opt ties(all|first|last|random)} controls tie handling with {opt nearest()} when two or
+more using rows are equally near the key. {opt ties(all)} keeps every equally
+nearest row; {opt ties(first)} keeps the single tied row with the lowest original
+using observation number; {opt ties(last)} keeps the one with the
+highest; {opt ties(random)} keeps one tied row chosen uniformly at random. ("First"
+and "last" therefore refer to original using row order, not to key value or
+distance, which are equal among ties.) The default is {opt ties(all)}. {opt ties()} is
+only allowed with {opt nearest()}.
 
 {pmore}
 In a matched design, breaking ties by original row order ({opt ties(first)} or
@@ -343,11 +338,11 @@ draws in the session. Without {opt seed()}, {opt ties(random)} draws from the
 current random-number stream and advances it as usual.
 
 {phang}
-{opt as:sert(match|using)} aborts when required matches are absent.
-{opt as:sert(match)} requires every master observation under consideration to
-match at least one using observation. {opt as:sert(using)} requires every using
-observation to match at least one master observation. You may specify both
-tokens, for example {cmd:assert(match using)}.
+{opt as:sert(match|using)} aborts when required matches are absent. {opt as:sert(match)}
+requires every master observation under consideration to match at least one
+using observation. {opt as:sert(using)} requires every using observation to match at
+least one master observation. You may specify both tokens, for example
+{cmd:assert(match using)}.
 
 {dlgtab:Output}
 
@@ -431,15 +426,15 @@ is possible for that master observation. It is retained only when
 {bf:Frames}
 
 {pstd}
-Without {opt frame()}, successful output replaces the current data in memory.
-With {opt frame(name)}, output is written to the named frame and the caller's
-current data are left unchanged. Existing target frames are protected unless
-{opt replace} is specified.
+Without {opt frame()}, successful output replaces the current data in memory. With
+{opt frame(name)}, output is written to the named frame and the caller's current
+data are left unchanged. Existing target frames are protected unless {opt replace}
+is specified.
 
 {pstd}
-Names beginning with {cmd:__rm_} are reserved for temporary workspace frames.
-If a same-named frame already exists, {cmd:rangematch} aborts without changing
-or dropping it.
+Names beginning with {cmd:__rm_} are reserved for temporary workspace frames. If a
+same-named frame already exists, {cmd:rangematch} aborts without changing or
+dropping it.
 
 {pstd}
 The token after {cmd:using} may name an existing frame. If a frame with that
@@ -465,12 +460,11 @@ becomes
 {cmd:rangematch key lo hi using file}
 
 {pstd}
-{cmd:rangematch} adds frame-safe output through {opt frame()}, scalar-offset
-bounds such as {cmd:-30 30}, explicit unmatched-row control through
-{opt unmatch:ed()}, nearest-match selection through {opt near:est()}, signed
-distances through {opt dist:ance()}, and output saving through {opt sav:ing()}.
-It also accepts an existing frame after {cmd:using}, avoiding temporary files in
-frame-based workflows.
+{cmd:rangematch} adds frame-safe output through {opt frame()}, scalar-offset bounds such
+as {cmd:-30 30}, explicit unmatched-row control through {opt unmatch:ed()}, nearest-match
+selection through {opt near:est()}, signed distances through {opt dist:ance()}, and output
+saving through {opt sav:ing()}. It also accepts an existing frame after {cmd:using},
+avoiding temporary files in frame-based workflows.
 
 {pstd}
 {bf:Migrating from joinby}
@@ -501,21 +495,20 @@ typical "narrow registry rows to a wide cohort" pipeline, put the cohort
 (with bounds) in memory and the registry on the using side.
 
 {phang}
-o {bf:{opt unmatch:ed()} defaults differ.} {cmd:joinby} drops unmatched rows;
-{cmd:rangematch} defaults to {opt unmatch:ed(master)}. Specify
-{opt unmatch:ed(none)} to reproduce {cmd:joinby} semantics.
+o {bf:{opt unmatch:ed()} defaults differ.} {cmd:joinby} drops unmatched rows; {cmd:rangematch}
+defaults to {opt unmatch:ed(master)}. Specify {opt unmatch:ed(none)} to reproduce {cmd:joinby}
+semantics.
 
 {phang}
-o {bf:Missing variable bounds are handled differently.} When a {cmd:joinby}
-is followed by {cmd:keep if inrange(date, lo, hi)}, rows with missing
-{cmd:lo} or {cmd:hi} are silently dropped because every comparison against
-missing returns false. {cmd:rangematch} treats a missing bound as open-ended
-on that side, consistent with the literal {cmd:.} positional bound, so those
-rows wildcard-match every using row in the same {opt by()} group. If your
-bound variables can be missing, either drop missing-bound rows upstream or
-specify {opt miss:ing(drop)}; otherwise output may contain spurious matches.
-{opt miss:ing(error)} makes {cmd:rangematch} refuse to run when missing-bound
-rows are present.
+o {bf:Missing variable bounds are handled differently.} When a {cmd:joinby} is followed
+by {cmd:keep if inrange(date, lo, hi)}, rows with missing {cmd:lo} or {cmd:hi} are silently
+dropped because every comparison against missing returns false. {cmd:rangematch}
+treats a missing bound as open-ended on that side, consistent with the literal
+{cmd:.} positional bound, so those rows wildcard-match every using row in the same
+{opt by()} group. If your bound variables can be missing, either drop missing-bound
+rows upstream or specify {opt miss:ing(drop)}; otherwise output may contain spurious
+matches. {opt miss:ing(error)} makes {cmd:rangematch} refuse to run when missing-bound rows
+are present.
 
 {pstd}
 {cmd:rangematch} also avoids the Cartesian blow-up of {cmd:joinby}+{cmd:keep if},
@@ -536,9 +529,9 @@ for (lo,hi] intervals, and {opt closed(none)} for open (lo,hi) intervals.
 {bf:Output order}
 
 {pstd}
-By default, output is sorted by original master row and then original using row;
-master-only rows sort after matched rows for the same master observation, and
-using-only rows sort after all master rows. Specify {opt nosort} to skip this
+By default, output is sorted by original master row and then original using
+row; master-only rows sort after matched rows for the same master observation,
+and using-only rows sort after all master rows. Specify {opt nosort} to skip this
 final sort when output order is not important.
 
 {pstd}
@@ -588,19 +581,19 @@ of each master event date:
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input str1 site int id double event_date}{p_end}
-{phang2}{cmd:  "A" 1 21915}{p_end}
-{phang2}{cmd:  "B" 2 21946}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: "A" 1 21915}{p_end}
+{phang2}{cmd: "B" 2 21946}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. format event_date %td}{p_end}
 {phang2}{cmd:. tempfile master events}{p_end}
 {phang2}{cmd:. save `master'}{p_end}
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input str1 site int eid double event_date}{p_end}
-{phang2}{cmd:  "A" 101 21890}{p_end}
-{phang2}{cmd:  "A" 102 21920}{p_end}
-{phang2}{cmd:  "B" 103 21950}{p_end}
-{phang2}{cmd:  "B" 104 21990}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: "A" 101 21890}{p_end}
+{phang2}{cmd: "A" 102 21920}{p_end}
+{phang2}{cmd: "B" 103 21950}{p_end}
+{phang2}{cmd: "B" 104 21990}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. format event_date %td}{p_end}
 {phang2}{cmd:. save `events'}{p_end}
 {phang2}{cmd:. use `master', clear}{p_end}
@@ -636,10 +629,10 @@ Match adverse events to patient-specific drug exposure windows:
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input int patient_id str10 start_string byte exposure_days}{p_end}
-{phang2}{cmd:  101 "2020-01-15" 30}{p_end}
-{phang2}{cmd:  101 "2020-03-01" 14}{p_end}
-{phang2}{cmd:  102 "2020-02-10" 21}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: 101 "2020-01-15" 30}{p_end}
+{phang2}{cmd: 101 "2020-03-01" 14}{p_end}
+{phang2}{cmd: 102 "2020-02-10" 21}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. generate double exposure_start = daily(start_string, "YMD")}{p_end}
 {phang2}{cmd:. generate double exposure_end = exposure_start + exposure_days}{p_end}
 {phang2}{cmd:. format exposure_start exposure_end %td}{p_end}
@@ -648,12 +641,12 @@ Match adverse events to patient-specific drug exposure windows:
 {phang2}{cmd:. save `exposures'}{p_end}
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input int patient_id str10 event_string str18 event_type}{p_end}
-{phang2}{cmd:  101 "2020-01-20" "rash"}{p_end}
-{phang2}{cmd:  101 "2020-02-20" "headache"}{p_end}
-{phang2}{cmd:  101 "2020-03-10" "nausea"}{p_end}
-{phang2}{cmd:  102 "2020-02-15" "dizziness"}{p_end}
-{phang2}{cmd:  102 "2020-03-20" "fatigue"}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: 101 "2020-01-20" "rash"}{p_end}
+{phang2}{cmd: 101 "2020-02-20" "headache"}{p_end}
+{phang2}{cmd: 101 "2020-03-10" "nausea"}{p_end}
+{phang2}{cmd: 102 "2020-02-15" "dizziness"}{p_end}
+{phang2}{cmd: 102 "2020-03-20" "fatigue"}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. generate double event_date = daily(event_string, "YMD")}{p_end}
 {phang2}{cmd:. format event_date %td}{p_end}
 {phang2}{cmd:. drop event_string}{p_end}
@@ -671,9 +664,9 @@ writing the joined rows to a frame:
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input int id str10 entry_s str10 exit_s}{p_end}
-{phang2}{cmd:  1 "2020-01-01" "2020-06-30"}{p_end}
-{phang2}{cmd:  2 "2020-02-01" "2020-08-31"}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: 1 "2020-01-01" "2020-06-30"}{p_end}
+{phang2}{cmd: 2 "2020-02-01" "2020-08-31"}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. generate double entry = daily(entry_s, "YMD")}{p_end}
 {phang2}{cmd:. generate double exit  = daily(exit_s, "YMD")}{p_end}
 {phang2}{cmd:. format entry exit %td}{p_end}
@@ -682,10 +675,10 @@ writing the joined rows to a frame:
 {phang2}{cmd:. save `cohort'}{p_end}
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input int id str10 start_s str10 stop_s str10 drug}{p_end}
-{phang2}{cmd:  1 "2019-12-15" "2020-01-20" "drugA"}{p_end}
-{phang2}{cmd:  1 "2020-03-01" "2020-03-31" "drugB"}{p_end}
-{phang2}{cmd:  2 "2020-09-15" "2020-10-15" "drugA"}{p_end}
-{phang2}{cmd:  end}{p_end}
+{phang2}{cmd: 1 "2019-12-15" "2020-01-20" "drugA"}{p_end}
+{phang2}{cmd: 1 "2020-03-01" "2020-03-31" "drugB"}{p_end}
+{phang2}{cmd: 2 "2020-09-15" "2020-10-15" "drugA"}{p_end}
+{phang2}{cmd: end}{p_end}
 {phang2}{cmd:. generate double rx_start = daily(start_s, "YMD")}{p_end}
 {phang2}{cmd:. generate double rx_stop  = daily(stop_s, "YMD")}{p_end}
 {phang2}{cmd:. format rx_start rx_stop %td}{p_end}
@@ -700,10 +693,9 @@ writing the joined rows to a frame:
 {title:Stored results}
 
 {pstd}
-{cmd:rangematch} stores core count results in {cmd:r()} after successful
-runs, including {opt dryrun}, {opt count}, and runs without {opt stats}.
-Match-density results are computed and posted only when {opt stats} is
-specified.
+{cmd:rangematch} stores core count results in {cmd:r()} after successful runs, including
+{opt dryrun}, {opt count}, and runs without {opt stats}. Match-density results are computed and
+posted only when {opt stats} is specified.
 
 {synoptset 22 tabbed}{...}
 {p2col 5 22 26 2: Core scalars}{p_end}
@@ -714,7 +706,7 @@ specified.
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
 {synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
 {synopt:{cmd:r(N_using_missing)}}using rows with a missing point key or interval bound{p_end}
-{synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode; 0 otherwise){p_end}
+{synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode){p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
 {p2col 5 22 26 2: Match-density scalars, only with {opt stats}}{p_end}
@@ -765,7 +757,7 @@ specified.
 {synopt:{cmd:r(dryrun)}}{opt dryr:un}, when specified{p_end}
 {synopt:{cmd:r(count)}}{opt count}, when specified{p_end}
 {synopt:{cmd:r(verbose)}}{opt verbose}, when specified{p_end}
-{synopt:{cmd:r(backend)}}pair-generation backend selected: {cmd:sweep}, {cmd:binary}, or {cmd:overlap}{p_end}
+{synopt:{cmd:r(backend)}}backend selected: {cmd:sweep}, {cmd:binary}, or {cmd:overlap}{p_end}
 {p2colreset}{...}
 
 {marker author}{...}
@@ -778,6 +770,6 @@ specified.
 {title:Also see}
 
 {psee}
-Online:  {helpb merge}, {helpb joinby}, {helpb frames}, {helpb rangestat}, {helpb rangejoin}
+Online: {helpb merge}, {helpb joinby}, {helpb frames}, {helpb rangestat}, {helpb rangejoin}
 
 {hline}

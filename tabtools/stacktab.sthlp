@@ -23,10 +23,10 @@ Help for {hi:stacktab}{right:(tabtools)}
 {title:Package}
 
 {p 4 4 2}
-{cmd:stacktab} is part of the {helpb tabtools} suite. It is the assembly end of
-the styled-export pipeline: emit one styled block per sheet with {helpb puttab}
-(from a dataset, frame, or matrix), then stack or place those sheets side by side
-into one composite sheet with {cmd:stacktab}.
+{cmd:stacktab} is part of the {helpb tabtools} suite. It is the assembly end of the
+styled-export pipeline: emit one styled block per sheet with {helpb puttab} (from a
+dataset, frame, or matrix), then stack or place those sheets side by side into
+one composite sheet with {cmd:stacktab}.
 
 {marker syntax}{...}
 {title:Syntax}
@@ -120,9 +120,9 @@ Example:
 
 {p 4 4 2}
 {opt columnmerge()} concatenates pairs of columns separated by {it:+} with a header
-label. Columns can be Excel letters, such as {cmd:B+C}, or internal names, such
-as {cmd:_xcol2+_xcol3}. Merge rules are separated by {it:\}.
-Malformed merge rules exit with an error instead of silently passing through.
+label. Columns can be Excel letters, such as {cmd:B+C}, or internal names, such as
+{cmd:_xcol2+_xcol3}. Merge rules are separated by {it:\}. Malformed merge rules exit with
+an error instead of silently passing through.
 
 {p 8 8 2}Example:{p_end}
 {p 12 16 2}
@@ -140,20 +140,17 @@ sheet from row 1.
 {title:Style specification}
 
 {p 4 4 2}
-{opt style()} accepts any combination of:
-{it:titlerowheight(#)}, {it:noterowheight(#)}, and
-{it:colwidth(letter # \ ...)}. Column letters in {opt colwidth()} are relative
-to the composed table, so {cmd:colwidth(A 24)} changes Excel column {cmd:B}.
-The border specification currently supports {cmd:outer(all)},
-{cmd:top(row 1)}, and {cmd:bottom(last)}.
+{opt style()} accepts any combination of: {it:titlerowheight(#)}, {it:noterowheight(#)}, and
+{it:colwidth(letter # \ ...)}. Column letters in {opt colwidth()} are relative to the
+composed table, so {cmd:colwidth(A 24)} changes Excel column {cmd:B}. The border
+specification currently supports {cmd:outer(all)}, {cmd:top(row 1)}, and {cmd:bottom(last)}.
 
 {title:Frame and CSV output}
 
 {p 4 4 2}
-{opt frame()} stores the composed table before Excel and Markdown export. Title and note
-cells are Excel-only formatting elements and are not added to the frame or CSV.
-Specify
-{cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
+{opt frame()} stores the composed table before Excel and Markdown export. Title and
+note cells are Excel-only formatting elements and are not added to the frame
+or CSV. Specify {cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
 writes the same composed table to a delimited file and requires a {cmd:.csv}
 extension.
 

@@ -164,9 +164,9 @@ correction. See {helpb qba_confound} for details on the two RR
 parameterizations.
 
 {phang}
-{opt dist_p1(distribution)}, {opt dist_p0(distribution)}, and
-{opt dist_rr(distribution)} specify distributions for confounding parameters.
-If omitted, constants at the fixed values are used.
+{opt dist_p1(distribution)}, {opt dist_p0(distribution)}, and {opt dist_rr(distribution)}
+specify distributions for confounding parameters. If omitted, constants at the
+fixed values are used.
 
 {dlgtab:Control}
 
@@ -185,8 +185,8 @@ level. All active cell-level biases must appear. Default order is
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval.
-Default is {cmd:95}.
+{opt level(#)} specifies the confidence level for the percentile interval. Default
+is {cmd:95}.
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset containing
@@ -223,32 +223,32 @@ replicates are invalid, suggesting the distributions may be too wide.
 {pstd}
 {bf:Example 1: All three biases with fixed parameters}
 
-{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///
-{phang3}{cmd:seca(.85) spca(.95)} ///
-{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///
+{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///{p_end}
+{phang3}{cmd:seca(.85) spca(.95)} ///{p_end}
+{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
 {phang3}{cmd:p1(.4) p0(.2) rrcd(2.0) seed(12345)}{p_end}
 
 {pstd}
 {bf:Example 2: Misclassification + confounding with distributions}
 
-{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(20000)} ///
-{phang3}{cmd:seca(.85) spca(.95) dist_se("trapezoidal .75 .82 .88 .95")} ///
-{phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0")} ///
-{phang3}{cmd:p1(.4) p0(.2) rrcd(2.0) dist_rr("uniform 1.5 3.0")} ///
+{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(20000)} ///{p_end}
+{phang3}{cmd:seca(.85) spca(.95) dist_se("trapezoidal .75 .82 .88 .95")} ///{p_end}
+{phang3}{cmd:dist_sp("trapezoidal .90 .93 .97 1.0")} ///{p_end}
+{phang3}{cmd:p1(.4) p0(.2) rrcd(2.0) dist_rr("uniform 1.5 3.0")} ///{p_end}
 {phang3}{cmd:seed(54321) saving(multi_results, replace)}{p_end}
 
 {pstd}
 {bf:Example 3: Selection + confounding only}
 
-{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///
-{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///
+{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///{p_end}
+{phang3}{cmd:sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
 {phang3}{cmd:p1(.3) p0(.1) rrud(2.0) seed(12345)}{p_end}
 
 {pstd}
 {bf:Example 4: Reverse correction order}
 
-{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///
-{phang3}{cmd:seca(.85) spca(.95) sela(.9) selb(.85) selc(.7) seld(.8)} ///
+{phang2}{cmd:. qba_multi, a(136) b(297) c(1432) d(6738) reps(10000)} ///{p_end}
+{phang3}{cmd:seca(.85) spca(.95) sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
 {phang3}{cmd:order(selection misclass) measure(RR) seed(12345)}{p_end}
 
 

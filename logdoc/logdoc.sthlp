@@ -187,11 +187,11 @@ Markdown format.
 {dlgtab:logdoc start / logdoc stop}
 
 {pstd}
-Wraps an interactive session. {cmd:logdoc start} opens a background SMCL log;
-{cmd:logdoc stop} closes the log and converts it. This eliminates the
-two-step "log then convert" workflow. If the conversion fails,
-{cmd:logdoc stop} keeps the captured SMCL log and prints its path so the
-session transcript can be converted manually.
+Wraps an interactive session. {cmd:logdoc start} opens a background SMCL
+log; {cmd:logdoc stop} closes the log and converts it. This eliminates the two-step
+"log then convert" workflow. If the conversion fails, {cmd:logdoc stop} keeps the
+captured SMCL log and prints its path so the session transcript can be
+converted manually.
 
 {phang2}{cmd:. logdoc start, output("session.html") theme(dark)}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
@@ -240,12 +240,11 @@ batch mode (with the same {opt stataexe()} setting) before converting.
 {dlgtab:Format & theme}
 
 {phang}
-{opt format(string)} selects the output format. {bf:html} (default) produces
-a self-contained HTML document. {bf:md} produces Markdown with YAML front
-matter. {bf:both} generates both formats from the same input.
-{bf:docx} generates Word via {cmd:html2docx} (Stata 17+).
-{bf:tex} generates LaTeX. {bf:pdf} generates PDF via {cmd:xhtml2pdf}
-(preferred) or {cmd:wkhtmltopdf}.
+{opt format(string)} selects the output format. {bf:html} (default) produces a
+self-contained HTML document. {bf:md} produces Markdown with YAML front
+matter. {bf:both} generates both formats from the same input. {bf:docx} generates Word
+via {cmd:html2docx} (Stata 17+). {bf:tex} generates LaTeX. {bf:pdf} generates PDF via
+{cmd:xhtml2pdf} (preferred) or {cmd:wkhtmltopdf}.
 
 {phang}
 {opt theme(string)} selects the CSS theme for HTML output. {bf:light}
@@ -274,9 +273,8 @@ for example {cmd:accent("#005ea8")}. If {opt css()} is also specified,
 {opt footer(string)} sets custom footer text. No footer appears by default.
 
 {phang}
-{opt generated} adds a "Generated YYYY-MM-DD HH:MM" timestamp footer.
-If both {opt footer()} and {opt generated} are specified, {opt footer()}
-takes precedence.
+{opt generated} adds a "Generated YYYY-MM-DD HH:MM" timestamp footer. If both
+{opt footer()} and {opt generated} are specified, {opt footer()} takes precedence.
 
 {phang}
 {opt stamp} adds a metadata line to the header showing the Stata version,
@@ -285,12 +283,12 @@ edition, date/time, and current data filename.
 {dlgtab:Display & layout}
 
 {phang}
-{opt run} executes the input .do file in batch mode before converting.
-Automatically sets {opt replace} for the output file. The child session is
-launched with the batch Stata executable matching the running flavor and
-operating system: {bf:stata-mp}/{bf:stata-se}/{bf:stata} on Unix and macOS,
-{bf:StataMP-64}/{bf:StataSE-64}/{bf:Stata-64} on Windows. The chosen binary
-must be on the system {cmd:PATH}.
+{opt run} executes the input .do file in batch mode before converting. Automatically
+sets {opt replace} for the output file. The child session is launched with the batch
+Stata executable matching the running flavor and operating
+system: {bf:stata-mp}/{bf:stata-se}/{bf:stata} on Unix and macOS,
+{bf:StataMP-64}/{bf:StataSE-64}/{bf:Stata-64} on Windows. The chosen binary must be on the
+system {cmd:PATH}.
 
 {phang}
 {opt stataexe(string)} overrides the auto-detected batch executable used by
@@ -319,8 +317,8 @@ sections and adds expand/collapse controls.
 blocks. The default uses only Stata's SMCL input/result/error coloring.
 
 {phang}
-{opt tables} parses supported Stata tables into HTML {cmd:<table>} elements.
-If parsing fails, logdoc falls back to monospace output.
+{opt tables} parses supported Stata tables into HTML {cmd:<table>} elements. If parsing
+fails, logdoc falls back to monospace output.
 
 {phang}
 {opt copy} adds copy-to-clipboard buttons to command blocks.
@@ -330,17 +328,16 @@ If parsing fails, logdoc falls back to monospace output.
 as a .do file.
 
 {phang}
-{opt legacy} enables all HTML enhancements in one switch:
-{opt highlight}, {opt tables}, {opt fold}, {opt copy}, and {opt download}.
-Use {opt preformatted} or {opt nofold} with {opt legacy} to suppress table
+{opt legacy} enables all HTML enhancements in one switch: {opt highlight}, {opt tables}, {opt fold},
+{opt copy}, and {opt download}. Use {opt preformatted} or {opt nofold} with {opt legacy} to suppress table
 parsing or folding.
 
 {phang}
 {opt linenumbers} adds line numbers to command blocks.
 
 {phang}
-{opt toc} generates a table of contents from section markers in comments.
-Use {cmd:* # Section Title} in your .do file to create sections.
+{opt toc} generates a table of contents from section markers in comments. Use
+{cmd:* # Section Title} in your .do file to create sections.
 
 {phang}
 {opt notebook} renders output in Jupyter-style cells with In/Out labels.
@@ -364,8 +361,8 @@ and their output. For example, {cmd:keep("regress")} shows only regression
 commands.
 
 {phang}
-{opt drop(string)} removes commands matching the pattern and their output.
-For example, {cmd:drop("set *")} hides setup commands.
+{opt drop(string)} removes commands matching the pattern and their output. For
+example, {cmd:drop("set *")} hides setup commands.
 
 {dlgtab:Other}
 
@@ -385,10 +382,10 @@ to embed alongside commands. Format: {cmd:@block N: text} or
 {cmd:@command "pattern": text}.
 
 {phang}
-{opt python(string)} specifies an explicit path to the Python 3 executable.
-If omitted, {cmd:logdoc} first uses Stata's configured Python executable
-from {cmd:python query}; project and system-path fallbacks are used only when
-Stata's Python is unavailable.
+{opt python(string)} specifies an explicit path to the Python 3 executable. If
+omitted, {cmd:logdoc} first uses Stata's configured Python executable from
+{cmd:python query}; project and system-path fallbacks are used only when Stata's
+Python is unavailable.
 
 {phang}
 {opt quiet} suppresses all status messages.
@@ -409,7 +406,8 @@ Stata's Python is unavailable.
 {phang}
 1. Run your analysis and produce a log file ({cmd:.smcl} or {cmd:.log}).{p_end}
 {phang}
-2. Convert the log to a document: {cmd:logdoc using "analysis.smcl", output("analysis.html") replace}{p_end}
+2. Convert the log to a
+document: {cmd:logdoc using "analysis.smcl", output("analysis.html") replace}{p_end}
 {phang}
 3. Share the self-contained HTML file by email, upload, or print to PDF.{p_end}
 
@@ -605,13 +603,11 @@ For graph quality, set dimensions before export:{break}
 {cmd:graph export "plot.png", width(800) replace}
 
 {phang}
-A global {cmd:~/.logdocrc} file can set defaults across projects, and a
-project {cmd:.logdocrc} file in the working directory overrides those
-defaults. Command-line options override both files. Format: one
-{it:key}{cmd:=}{it:value} per line (e.g., {cmd:theme=dark} or
-{cmd:accent=#005ea8}).
-For Python setup diagnostics, run {helpb logdoc_py}; it follows the same
-Stata-first Python convention as {cmd:logdoc}.
+A global {cmd:~/.logdocrc} file can set defaults across projects, and a project
+{cmd:.logdocrc} file in the working directory overrides those defaults. Command-line
+options override both files. Format: one {it:key}{cmd:=}{it:value} per line (e.g., {cmd:theme=dark}
+or {cmd:accent=#005ea8}). For Python setup diagnostics, run {helpb logdoc_py}; it follows
+the same Stata-first Python convention as {cmd:logdoc}.
 
 
 {marker troubleshooting}{...}
@@ -652,8 +648,8 @@ then launches the renderer with that same executable. No external Python
 packages are required -- {cmd:logdoc} uses only the standard library.
 
 {pstd}
-Stata 16.0 or later. {opt format(docx)} requires Stata 17+.
-{opt format(pdf)} requires {cmd:xhtml2pdf} or {cmd:wkhtmltopdf}.
+Stata 16.0 or later. {opt format(docx)} requires Stata 17+. {opt format(pdf)} requires
+{cmd:xhtml2pdf} or {cmd:wkhtmltopdf}.
 
 
 {marker setup}{...}

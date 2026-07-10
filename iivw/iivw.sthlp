@@ -34,7 +34,7 @@
 {cmd:iivw}
 
 {pstd}
-Typing {cmd:iivw} without arguments displays a package overview.  The
+Typing {cmd:iivw} without arguments displays a package overview. The
 working commands are {helpb iivw_weight}, {helpb iivw_balance},
 {helpb iivw_fit}, {helpb iivw_exogtest}, and {helpb iivw_diagnose}.
 
@@ -43,11 +43,11 @@ working commands are {helpb iivw_weight}, {helpb iivw_balance},
 {title:Description}
 
 {pstd}
-{cmd:iivw} is a package for correcting informative visit processes in
-longitudinal observational studies with irregular visit times.  It implements
-inverse intensity weighting (IIW; Buzkova & Lumley 2007), inverse probability
-of treatment weighting (IPTW), and their multiplicative combination (FIPTIW;
-Tompkins et al. 2025).
+{cmd:iivw} is a package for correcting informative visit processes in longitudinal
+observational studies with irregular visit times. It implements inverse
+intensity weighting (IIW; Buzkova & Lumley 2007), inverse probability of
+treatment weighting (IPTW), and their multiplicative combination
+(FIPTIW; Tompkins et al. 2025).
 
 {pstd}
 The package provides five main commands:
@@ -59,16 +59,15 @@ The package provides five main commands:
 {phang2}{helpb iivw_diagnose} decomposes marginal/reference-slope movement across models{p_end}
 
 {pstd}
-{bf:Plain-language summary.}  In many clinical datasets, the unit recorded
-in the data is a visit, but the scientific target is a patient population.
-If patients with worse disease visit more often, they appear more often in
-the data and can dominate an ordinary regression.  {cmd:iivw_weight}
-estimates how expected each visit was and creates weights so that frequent
-visitors do not automatically receive more influence just because they have
-more rows.  {cmd:iivw_balance} checks whether those weights have enough
-leverage to make a null weighting movement informative.  {cmd:iivw_fit} then
-fits comparable unweighted and weighted outcome models.  {cmd:iivw_exogtest}
-and {cmd:iivw_diagnose} support a
+{bf:Plain-language summary.} In many clinical datasets, the unit recorded in the
+data is a visit, but the scientific target is a patient population. If
+patients with worse disease visit more often, they appear more often in the
+data and can dominate an ordinary regression. {cmd:iivw_weight} estimates how
+expected each visit was and creates weights so that frequent visitors do not
+automatically receive more influence just because they have more
+rows. {cmd:iivw_balance} checks whether those weights have enough leverage to make a
+null weighting movement informative. {cmd:iivw_fit} then fits comparable unweighted
+and weighted outcome models. {cmd:iivw_exogtest} and {cmd:iivw_diagnose} support a
 diagnostic workflow for separating sampling bias from residual measurement
 artifact.
 
@@ -77,17 +76,17 @@ artifact.
 {title:When do I need this?}
 
 {pstd}
-{bf:The core problem.}  In clinic-based longitudinal studies, patients are
-not observed on a fixed schedule.  Sicker patients often visit the clinic
-more frequently, so they contribute more rows to the analysis dataset.
-A naive regression on this data over-represents sick patients at each time
-point, which biases estimates of treatment effects, disease trajectories,
-and covariate associations.
+{bf:The core problem.} In clinic-based longitudinal studies, patients are not
+observed on a fixed schedule. Sicker patients often visit the clinic more
+frequently, so they contribute more rows to the analysis dataset. A naive
+regression on this data over-represents sick patients at each time point,
+which biases estimates of treatment effects, disease trajectories, and
+covariate associations.
 
 {pstd}
-{bf:What IIW does.}  Inverse intensity weighting down-weights observations
+{bf:What IIW does.} Inverse intensity weighting down-weights observations
 from patients who visit frequently (relative to what the model predicts)
-and up-weights observations from patients who visit rarely.  After
+and up-weights observations from patients who visit rarely. After
 reweighting, the analysis is less dominated by differential visit
 frequency and, under the visit model assumptions, targets the patient
 population rather than the visit process.
@@ -114,7 +113,7 @@ informative visit timing.{p_end}
 schedule (all patients observed at the same planned time points).{p_end}
 
 {phang2}(b) Missing visits are the main concern rather than differential
-visit frequency.  For missing data due to dropout, consider inverse
+visit frequency. For missing data due to dropout, consider inverse
 probability of censoring weighting (IPCW) instead.{p_end}
 
 
@@ -133,27 +132,27 @@ probability of censoring weighting (IPCW) instead.{p_end}
 {title:Choosing a weight type}
 
 {pstd}
-{cmd:iivw_weight} supports three types of weights.  Which one you need
+{cmd:iivw_weight} supports three types of weights. Which one you need
 depends on the sources of bias in your study:
 
 {p2colset 5 18 60 2}{...}
 {p2col:{bf:Weight type}}{bf:When to use}{p_end}
 {p2col:{cmd:iivw}}Visit timing is informative (sicker patients visit more
-often), but treatment assignment is either randomized or not a concern.
-This is the most common case for registry data without a treatment
+often), but treatment assignment is either randomized or not a
+concern. This is the most common case for registry data without a treatment
 comparison.{p_end}
 {p2col:{cmd:iptw}}Treatment assignment is non-random (confounding by
 indication), but visit timing is either protocol-driven or not
-informative.  This is standard propensity-score weighting.{p_end}
+informative. This is standard propensity-score weighting.{p_end}
 {p2col:{cmd:fiptiw}}Both problems are present: visit timing is informative
-{it:and} treatment assignment is confounded.  The weight is the product
-IIW x IPTW.  This is the most common case when comparing treatments in
+{it:and} treatment assignment is confounded. The weight is the product
+IIW x IPTW. This is the most common case when comparing treatments in
 registry data.{p_end}
 {p2colreset}{...}
 
 {pstd}
 By default, {cmd:iivw_weight} auto-detects the weight type: if you specify
-{cmd:treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
+{cmd:treat()}, it computes FIPTIW; otherwise it computes IIW. You can
 override this with {cmd:wtype()}.
 
 
@@ -168,14 +167,14 @@ regression wrapper.
 {p2col:{bf:Study question}}{bf:Suggested starting point}{p_end}
 {p2col:Descriptive disease trajectory in registry data}
 Use {cmd:iivw_weight} with baseline predictors and lagged disease activity,
-then fit a marginal GEE model with {cmd:iivw_fit}.  Compare
+then fit a marginal GEE model with {cmd:iivw_fit}. Compare
 {cmd:timespec(linear)} with {cmd:timespec(ns(3))}.{p_end}
 {p2col:Binary treatment comparison with informative visits}
 Use FIPTIW: specify both {cmd:visit_cov()} and
-{cmd:treat()} plus {cmd:treat_cov()}.  Inspect both the final weight and the
+{cmd:treat()} plus {cmd:treat_cov()}. Inspect both the final weight and the
 treatment-weight component.{p_end}
 {p2col:Treatment effect changes over time}
-Use {cmd:iivw_fit, interaction(treatment)} after weighting.  Interpret the
+Use {cmd:iivw_fit, interaction(treatment)} after weighting. Interpret the
 interaction on the chosen time scale and use Stata post-estimation commands
 for contrasts at clinically meaningful times.{p_end}
 {p2col:Sampling bias versus repeated-measurement artifact}
@@ -187,17 +186,17 @@ marginal/reference time slope with {cmd:iivw_diagnose}.{p_end}
 {pstd}
 For graduate-student projects, the safest reporting structure is to show the
 unweighted result, the weighted result, the weight diagnostics, and at least
-one sensitivity analysis using truncation or an alternate time specification.
-For expert applications, add design justification for the visit model, the
-treatment model, and any direct measurement-process adjustment.
+one sensitivity analysis using truncation or an alternate time
+specification. For expert applications, add design justification for the visit
+model, the treatment model, and any direct measurement-process adjustment.
 
 
 {marker assumptions}{...}
 {title:Assumptions and limits}
 
 {pstd}
-Weights correct specific measured sources of bias.  They do not, by
-themselves, make a weak study design causal.  Before interpreting a weighted
+Weights correct specific measured sources of bias. They do not, by
+themselves, make a weak study design causal. Before interpreting a weighted
 model, check the following assumptions:
 
 {phang2}(a) The visit model includes the measured variables that drive visit
@@ -207,18 +206,17 @@ timing and are related to the outcome.{p_end}
 variables that drive treatment assignment; unmeasured confounding remains a
 study-design limitation.{p_end}
 
-{phang2}(c) Treatment is binary and time-invariant within subject.  This
+{phang2}(c) Treatment is binary and time-invariant within subject. This
 package is not a time-varying treatment MSM implementation.{p_end}
 
-{phang2}(d) Positivity/overlap is plausible.  Near-certain visits or
+{phang2}(d) Positivity/overlap is plausible. Near-certain visits or
 near-certain treatment assignments create extreme weights and unstable
 estimates.{p_end}
 
-{phang2}(e) Built-in standard errors treat the weights as fixed.  A plain
-{cmd:bootstrap()} in {help iivw_fit:iivw_fit} also holds the weights fixed;
-add {opt refitweights} there to re-estimate the {cmd:iivw_weight} models
-inside every replicate so the reported interval also propagates
-weight-estimation uncertainty.{p_end}
+{phang2}(e) Built-in standard errors treat the weights as fixed. A plain {cmd:bootstrap()}
+in {help iivw_fit:iivw_fit} also holds the weights fixed; add {opt refitweights} there to
+re-estimate the {cmd:iivw_weight} models inside every replicate so the reported
+interval also propagates weight-estimation uncertainty.{p_end}
 
 {pstd}
 Use IPCW methods for censoring/dropout problems, and use a time-varying
@@ -231,20 +229,18 @@ treatment method when treatment changes over follow-up.
 {pstd}
 A typical analysis proceeds in three steps:
 
-{phang2}1. {bf:Compute weights} with {cmd:iivw_weight}, specifying the visit
-intensity covariates and (optionally) treatment and treatment covariates.
-The command creates the final weight variable (default {cmd:_iivw_weight}),
-component weights when applicable, and dataset metadata used by
-{cmd:iivw_fit}.{p_end}
+{phang2}1. {bf:Compute weights} with {cmd:iivw_weight}, specifying the visit intensity covariates
+and (optionally) treatment and treatment covariates. The command creates the
+final weight variable (default {cmd:_iivw_weight}), component weights when
+applicable, and dataset metadata used by {cmd:iivw_fit}.{p_end}
 
-{phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}.
-Look for extreme values (very large max or very small min).  If the weight
-distribution has heavy tails, re-run {cmd:iivw_weight} with
-{cmd:truncate(1 99)} to stabilize the weights.  A mean near 1.0 is expected
-for well-specified models.{p_end}
+{phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}. Look for extreme
+values (very large max or very small min). If the weight distribution has
+heavy tails, re-run {cmd:iivw_weight} with {cmd:truncate(1 99)} to stabilize the
+weights. A mean near 1.0 is expected for well-specified models.{p_end}
 
 {phang2}3. {bf:Fit the outcome model} with {cmd:iivw_fit}, which reads the
-weights from the dataset automatically.  The default is a GEE-style model
+weights from the dataset automatically. The default is a GEE-style model
 (GLM with clustered robust standard errors), equivalent to independence
 working correlation GEE.{p_end}
 
@@ -253,9 +249,9 @@ working correlation GEE.{p_end}
 {title:Diagnostic workflow}
 
 {pstd}
-{cmd:iivw_weight} corrects bias from the observation process.  It does not
+{cmd:iivw_weight} corrects bias from the observation process. It does not
 remove bias that lives inside the measurement itself, such as practice
-effects from repeated cognitive testing.  The diagnostic workflow compares
+effects from repeated cognitive testing. The diagnostic workflow compares
 how much a marginal/reference-arm time slope moves after weighting and how
 much it moves after direct adjustment for the measurement process.
 
@@ -275,10 +271,10 @@ measurement-artifact gap, and artifact share for the marginal/reference time
 slope.{p_end}
 
 {pstd}
-The decomposition is descriptive.  It is intended for the marginal or
-reference-arm time slope, not for a treatment x time contrast.  Treatment
+The decomposition is descriptive. It is intended for the marginal or
+reference-arm time slope, not for a treatment x time contrast. Treatment
 contrasts may be useful sensitivity estimates, but they can be structurally
-insensitive to weighting even when the marginal trajectory is biased.  If
+insensitive to weighting even when the marginal trajectory is biased. If
 {cmd:iivw_exogtest} suggests outcome-dependent testing, interpret the
 measurement-adjusted estimate as a bound or sensitivity result rather than a
 clean correction.
@@ -291,10 +287,10 @@ clean correction.
 {bf:Setup: create example longitudinal data}
 
 {pstd}
-These examples use a synthetic panel dataset that mimics a clinical registry:
-80 patients, each with 4 visits at irregular intervals, with a continuous
-outcome (EDSS disability score), a binary treatment, and a binary event
-(relapse) that also predicts future visit timing.
+These examples use a synthetic panel dataset that mimics a clinical
+registry: 80 patients, each with 4 visits at irregular intervals, with a
+continuous outcome (EDSS disability score), a binary treatment, and a binary
+event (relapse) that also predicts future visit timing.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. set seed 20260417}{p_end}
@@ -350,7 +346,7 @@ simultaneously:
 {pstd}
 When repeated testing may itself change the outcome, fit three comparable
 models: unweighted, weighted, and weighted plus a measurement-process variable
-such as log cumulative test number.  The decomposition target should be the
+such as log cumulative test number. The decomposition target should be the
 marginal or reference-arm time slope, here {cmd:days}.
 
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, unweighted id(id) time(days) timespec(none) nolog}{p_end}
@@ -368,7 +364,7 @@ marginal or reference-arm time slope, here {cmd:days}.
 {pstd}
 If {cmd:iivw_exogtest} finds that lagged outcomes predict future visits,
 treat the adjusted estimate as a sensitivity bound rather than as a clean
-artifact correction.  The GitHub repository includes a runnable demo at
+artifact correction. The GitHub repository includes a runnable demo at
 {browse "https://github.com/tpcopeland/Stata-Tools/tree/main/iivw/demo":iivw/demo}
 with synthetic SDMT-like data.
 
@@ -377,37 +373,31 @@ with synthetic SDMT-like data.
 {title:References}
 
 {phang}
-Buzkova P, Lumley T. 2007.
-Longitudinal data analysis for generalized linear models with follow-up
-dependent on outcome-related variables.
-{it:Canadian Journal of Statistics} 35(4): 485-500.
-doi:10.1002/cjs.5550350402.
+Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
+models with follow-up dependent on outcome-related
+variables. {it:Canadian Journal of Statistics}
+35(4): 485-500. doi:10.1002/cjs.5550350402.
 
 {phang}
-Lin H, Scharfstein DO, Rosenheck RA. 2004.
-Analysis of longitudinal data with irregular, outcome-dependent follow-up.
-{it:Journal of the Royal Statistical Society: Series B (Statistical Methodology)}
-66(3): 791-813.
-doi:10.1111/j.1467-9868.2004.b5543.x.
+Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with
+irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
+{it:Society: Series B (Statistical Methodology)}
+66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
-Tompkins G, Dubin JA, Wallace M. 2025.
-On flexible inverse probability of treatment and intensity weighting:
-Informative censoring, variable selection, and weight trimming.
-{it:Statistical Methods in Medical Research} 34(5): 915-937.
-doi:10.1177/09622802241313289.
+Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of
+treatment and intensity weighting: Informative censoring, variable selection,
+and weight trimming. {it:Statistical Methods in Medical Research}
+34(5): 915-937. doi:10.1177/09622802241313289.
 
 {phang}
-Pullenayegum EM. 2016.
-Multiple outputation for the analysis of longitudinal data subject to
-irregular observation.
-{it:Statistics in Medicine} 35(11): 1800-1818.
-doi:10.1002/sim.6829.
+Pullenayegum EM. 2016. Multiple outputation for the analysis of longitudinal
+data subject to irregular observation. {it:Statistics in Medicine}
+35(11): 1800-1818. doi:10.1002/sim.6829.
 
 {phang}
-Pullenayegum EM. 2026.
-IrregLong: Analysis of longitudinal data with irregular observation times.
-R package version 0.4.1. CRAN.
+Pullenayegum EM. 2026. IrregLong: Analysis of longitudinal data with irregular
+observation times. R package version 0.4.1. CRAN.
 
 
 {marker results}{...}
@@ -435,7 +425,7 @@ R package version 0.4.1. CRAN.
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw_weight}, {helpb iivw_balance}, {helpb iivw_fit},
+Online: {helpb iivw_weight}, {helpb iivw_balance}, {helpb iivw_fit},
 {helpb iivw_exogtest}, {helpb iivw_diagnose}, {helpb xtgee}, {helpb stcox}
 
 {hline}

@@ -140,8 +140,8 @@ uses Stata's optimal bandwidth selector.
 {cmd:epanechnikov}. Any kernel accepted by {helpb kdensity} is valid.
 
 {phang}
-{opt n(#)} specifies the number of points at which the density is evaluated.
-Default is 200.
+{opt n(#)} specifies the number of points at which the density is evaluated. Default
+is 200.
 
 {phang}
 {opt opacity(#)} sets the fill opacity of the cloud from 0 (transparent) to
@@ -165,8 +165,8 @@ to 1 (maximum). Default is 0.4.
 {opt seed(#)} sets the random number seed for reproducible jitter positioning.
 
 {phang}
-{opt pointsize(string)} controls the marker size. Default is {cmd:vsmall}.
-Any Stata marker size is valid.
+{opt pointsize(string)} controls the marker size. Default is {cmd:vsmall}. Any Stata
+marker size is valid.
 
 {phang}
 {opt pointopts(string)} passes options directly to the underlying {cmd:scatter}
@@ -199,9 +199,8 @@ is on the x-axis and groups are on the y-axis.
 y-axis and groups are on the x-axis.
 
 {phang}
-{opt over(varname)} stratifies the plot by groups defined by {it:varname}.
-Both numeric and string variables are accepted. Value labels are used when
-available.
+{opt over(varname)} stratifies the plot by groups defined by {it:varname}. Both numeric
+and string variables are accepted. Value labels are used when available.
 
 {phang}
 {opt gap(#)} controls the spacing between groups in axis units. Groups are
@@ -220,9 +219,9 @@ violin and rain points are automatically jittered around the center. The total
 visual width of each cloud is {cmd:2 * cloudwidth()}.
 
 {phang}
-{opt colors(string)} specifies a custom color palette as a space-separated
-list of Stata color names. Colors cycle if fewer colors are given than groups.
-Default palette is {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}.
+{opt colors(string)} specifies a custom color palette as a space-separated list of
+Stata color names. Colors cycle if fewer colors are given than groups. Default
+palette is {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}.
 
 
 {marker remarks}{...}
@@ -315,17 +314,16 @@ points, or reduce {opt n()} to speed density estimation.
 {synopt:{cmd:r(over)}}grouping variable (if specified){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(stats)}}(n_groups x 8) matrix with n, mean, sd, median, q25, q75, iqr, bandwidth{p_end}
+{synopt:{cmd:r(stats)}}n, mean, sd, median, q25, q75, iqr, bandwidth by group{p_end}
 
 
 {marker references}{...}
 {title:References}
 
 {phang}
-Allen M, Poggiali D, Whitaker K, Marshall TR, Kievit RA. 2019.
-Raincloud plots: a multi-platform tool for robust data visualization.
-{it:Wellcome Open Research} 4:63.
-{browse "https://doi.org/10.12688/wellcomeopenres.15191.1"}
+Allen M, Poggiali D, Whitaker K, Marshall TR, Kievit RA. 2019. Raincloud
+plots: a multi-platform tool for robust data visualization. {it:Wellcome Open}
+{it:Research} 4:63. {browse "https://doi.org/10.12688/wellcomeopenres.15191.1"}
 
 
 {marker author}{...}
@@ -340,6 +338,6 @@ Raincloud plots: a multi-platform tool for robust data visualization.
 {title:Also see}
 
 {psee}
-Online:  {helpb kdensity}, {helpb twoway rarea}, {helpb graph box}
+Online: {helpb kdensity}, {helpb twoway rarea}, {helpb graph box}
 
 {hline}

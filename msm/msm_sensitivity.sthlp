@@ -41,16 +41,16 @@
 {title:Description}
 
 {pstd}
-{cmd:msm_sensitivity} addresses the question every MSM analysis must face:
-"How sensitive is this result to confounders I did not measure?"  It provides
-two complementary tools:
+{cmd:msm_sensitivity} addresses the question every MSM analysis must face: "How
+sensitive is this result to confounders I did not measure?" It provides two
+complementary tools:
 
-{phang2}{bf:E-value:}  The minimum strength of association (on the risk ratio
+{phang2}{bf:E-value:} The minimum strength of association (on the risk ratio
 scale) that an unmeasured confounder would need with {it:both} the treatment
-and the outcome to fully explain away the observed effect.  Larger E-values
+and the outcome to fully explain away the observed effect. Larger E-values
 mean the result is more robust to unmeasured confounding.{p_end}
 
-{phang2}{bf:Confounding strength bounds:}  Given specific hypothetical
+{phang2}{bf:Confounding strength bounds:} Given specific hypothetical
 confounder-treatment and confounder-outcome associations (RR_UD and RR_UY),
 computes the bias factor and what the corrected effect would be after
 accounting for that confounder.{p_end}
@@ -67,11 +67,11 @@ coefficient and variance matrices.
 The E-value answers: "How strong would an unmeasured confounder need to be to
 explain away this result?"  Two values are reported:
 
-{phang2}{bf:E-value (point estimate):}  How strong a confounder would need to
+{phang2}{bf:E-value (point estimate):} How strong a confounder would need to
 be to reduce the point estimate to the null (1 on the RR scale).{p_end}
 
-{phang2}{bf:E-value (CI limit):}  How strong a confounder would need to be to
-shift the confidence interval to include the null.  This is always smaller than
+{phang2}{bf:E-value (CI limit):} How strong a confounder would need to be to
+shift the confidence interval to include the null. This is always smaller than
 or equal to the point estimate E-value.{p_end}
 
 {pstd}
@@ -91,24 +91,24 @@ specified confidence level.
 {title:Remarks}
 
 {pstd}
-E-values and bias-factor corrections are defined on the risk ratio scale.
-For {cmd:msm_fit, model(logistic)}, {cmd:msm_sensitivity} therefore treats the
-odds ratio as a {it:rare-outcome approximation}, not an exact risk ratio.
+E-values and bias-factor corrections are defined on the risk ratio scale. For
+{cmd:msm_fit, model(logistic)}, {cmd:msm_sensitivity} therefore treats the odds ratio as a
+{it:rare-outcome approximation}, not an exact risk ratio.
 
 {pstd}
 By default, the logistic branch is only used when the weighted outcome
 prevalence in the MSM estimation sample is at most {cmd:rarethreshold()}
-(default 0.10).  The prevalence is computed on the same at-risk sample used
+(default 0.10). The prevalence is computed on the same at-risk sample used
 by {helpb msm_fit}.
 
 {pstd}
 If the weighted outcome prevalence exceeds {cmd:rarethreshold()}, the command
 stops with an error rather than silently reporting sensitivity quantities from
-a common-outcome odds ratio.  Use {opt orapprox} only when you deliberately
+a common-outcome odds ratio. Use {opt orapprox} only when you deliberately
 accept the OR approximation despite the prevalence screen.
 
 {pstd}
-For {cmd:model(cox)}, the hazard ratio is used directly on the RR scale.  For
+For {cmd:model(cox)}, the hazard ratio is used directly on the RR scale. For
 {cmd:model(linear)}, E-values are not applicable because the coefficient is
 not on a ratio scale; use {opt confounding_strength()} for bound
 explorations.
@@ -118,32 +118,32 @@ explorations.
 {title:Options}
 
 {phang}
-{opt eva:lue} computes the E-value for the point estimate and the CI limit
-closest to the null.  This is the default if no other option is specified.
-Not available for linear models.
+{opt eva:lue} computes the E-value for the point estimate and the CI limit closest to
+the null. This is the default if no other option is specified. Not available
+for linear models.
 
 {phang}
 {opt conf:ounding_strength(# #)} specifies hypothetical association strengths
-for a specific unmeasured confounder.  The first number is RR(U,D), the
+for a specific unmeasured confounder. The first number is RR(U,D), the
 confounder-treatment association; the second is RR(U,Y), the
-confounder-outcome association.  Both values must be >= 1 (invert
-protective associations).  The command computes the bias factor
+confounder-outcome association. Both values must be >= 1 (invert
+protective associations). The command computes the bias factor
 = (RR_UD x RR_UY) / (RR_UD + RR_UY - 1) and reports the corrected effect,
 shifted toward the null: the observed effect is divided by the bias factor
 when it exceeds 1 and multiplied by it when it is below 1.
 
 {phang}
-{opt level(#)} specifies the confidence level.  Default is 95.
+{opt level(#)} specifies the confidence level. Default is 95.
 
 {phang}
 {opt rarethr:eshold(#)} specifies the maximum weighted outcome prevalence
 that will be treated as consistent with the rare-outcome approximation for
-logistic fits.  Default is 0.10.  Must be strictly between 0 and 1.
+logistic fits. Default is 0.10. Must be strictly between 0 and 1.
 
 {phang}
 {opt orapprox} forces the logistic branch to use the odds ratio as a
 rare-outcome approximation even when the weighted outcome prevalence exceeds
-{cmd:rarethreshold()}.  The result is labeled as an approximation.  Use this
+{cmd:rarethreshold()}. The result is labeled as an approximation. Use this
 only when you are willing to defend the approximation substantively.
 
 
@@ -156,7 +156,7 @@ only when you are willing to defend the approximation substantively.
 {phang2}{cmd:. msm_sensitivity, evalue}{p_end}
 
 {pstd}
-{bf:Hypothetical confounder analysis.}  What if an unmeasured confounder had
+{bf:Hypothetical confounder analysis.} What if an unmeasured confounder had
 RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 
 {phang2}{cmd:. msm_sensitivity, confounding_strength(1.5 2.0)}{p_end}
@@ -207,8 +207,9 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {title:References}
 
 {phang}
-VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
-introducing the E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
+VanderWeele TJ, Ding P. Sensitivity analysis in observational
+research: introducing the
+E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
 
 
 {marker author}{...}

@@ -1,6 +1,6 @@
 # pkgtransfer - Transfer installed Stata packages between machines
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.0** | 2026-07-10
 
 `pkgtransfer` reads the package-tracking information in your PLUS directory and generates the files needed to recreate that package set on another Stata installation. It supports both online migration, where the new machine reinstalls packages from their original sources, and offline migration, where you carry a ZIP bundle of package files.
 

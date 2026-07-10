@@ -88,13 +88,15 @@ The command:
 2. Calculates IPTW weights: 1/P(A=a|X) where A is treatment and X are covariates
 
 {phang2}
-3. Optionally stabilizes weights by multiplying by marginal treatment probability
+3. Optionally stabilizes weights by multiplying by marginal treatment
+probability
 
 {phang2}
 4. Optionally truncates extreme weights at specified percentiles
 
 {phang2}
-5. Provides diagnostic output including weight distribution and effective sample size
+5. Provides diagnostic output including weight distribution and effective
+sample size
 
 {pstd}
 {cmd:tvweight} is designed to work with time-varying exposure datasets created by
@@ -114,21 +116,22 @@ with more than 2 levels, multinomial logistic regression is used automatically.
 
 {phang}
 {opt covariates(varlist)} specifies the covariates to include in the propensity
-score model. These should be confounders that predict both treatment and outcome.
+score model. These should be confounders that predict both treatment and
+outcome.
 
 {dlgtab:Weight Options}
 
 {phang}
-{opt generate(name)} specifies the name for the generated weight variable.{...}
-The default is {cmd:iptw}.
+{opt generate(name)} specifies the name for the generated weight variable. The
+default is {cmd:iptw}.
 
 {phang}
-{opt wtype(type)} selects the weight estimand. {cmd:iptw} (the default) gives
-inverse probability of treatment weights. {cmd:ato} gives overlap (ATO) weights,
-which target the population with the most overlap and are robust to extreme
-propensity scores; with a logistic propensity model they balance covariate means
-exactly. {cmd:matching} gives matching weights, which mimic a 1:1 matched sample.
-{cmd:ato} and {cmd:matching} are alternatives to {opt truncate()} under poor
+{opt wtype(type)} selects the weight estimand. {cmd:iptw} (the default) gives inverse
+probability of treatment weights. {cmd:ato} gives overlap (ATO) weights, which
+target the population with the most overlap and are robust to extreme
+propensity scores; with a logistic propensity model they balance covariate
+means exactly. {cmd:matching} gives matching weights, which mimic a 1:1 matched
+sample. {cmd:ato} and {cmd:matching} are alternatives to {opt truncate()} under poor
 overlap. {opt stabilized} applies only to {cmd:iptw}.
 
 {phang}
@@ -166,20 +169,20 @@ weights within person, which {opt cumulative} provides. See
 {dlgtab:Censoring weights (IPCW)}
 
 {phang}
-{opt ipcw(varname)} supplies a per-interval censoring indicator (1 if the person
-is censored at the end of this interval, 0 if they remain under observation) and
-turns on inverse-probability-of-censoring weighting. A pooled logistic censoring
-model is fit; the cumulative censoring weight is the inverse cumulative
-probability of remaining uncensored, and a combined weight equal to the
-cumulative IPTW times the cumulative IPCW is produced. This completes the
-canonical marginal structural model, which weights for both confounded treatment
-and informative censoring (Hernan & Robins). Requires {opt id()} and {opt time()}.{...}
-With {opt stabilized}, both weights use stabilized numerators. With
+{opt ipcw(varname)} supplies a per-interval censoring indicator (1 if the person is
+censored at the end of this interval, 0 if they remain under observation) and
+turns on inverse-probability-of-censoring weighting. A pooled logistic
+censoring model is fit; the cumulative censoring weight is the inverse
+cumulative probability of remaining uncensored, and a combined weight equal to
+the cumulative IPTW times the cumulative IPCW is produced. This completes the
+canonical marginal structural model, which weights for both confounded
+treatment and informative censoring (Hernan & Robins). Requires {opt id()} and
+{opt time()}. With {opt stabilized}, both weights use stabilized numerators. With
 {opt truncate()}, truncation is applied to the final combined weight.
 
 {phang}
-{opt censorcovariates(varlist)} lists the covariates for the censoring model.{...}
-Defaults to the treatment-model covariates ({opt covariates()} plus any
+{opt censorcovariates(varlist)} lists the covariates for the censoring
+model. Defaults to the treatment-model covariates ({opt covariates()} plus any
 {opt tvcovariates()}).
 
 {phang}
@@ -212,10 +215,9 @@ with {opt time()}, enables panel-aware weighting: time fixed effects
 cluster-robust standard errors are computed by {it:id}.
 
 {phang}
-{opt time(varname)} specifies the time variable. When specified with
-{opt id()}, time fixed effects are added to the propensity score model.{...}
-This is the standard approach for marginal structural models with
-time-varying treatments.
+{opt time(varname)} specifies the time variable. When specified with {opt id()}, time
+fixed effects are added to the propensity score model. This is the standard
+approach for marginal structural models with time-varying treatments.
 
 {phang}
 {opt estname(name)} stores the fitted propensity model under {it:name} via
@@ -235,8 +237,9 @@ categorical exposures the maximum absolute SMD across non-reference levels is
 reported per covariate.
 
 {phang}
-{opt loveplot} produces a love plot of the SMDs (unweighted vs weighted).{...}
-Covariate-balance plotting is delegated to the dedicated propensity-score
+{opt loveplot} produces a love plot of the SMDs (unweighted vs
+weighted). Covariate-balance plotting is delegated to the dedicated
+propensity-score
 dashboard package {helpb psdash}: tvweight calls {cmd:psdash balance} with the
 exposure, the generated weight variable and the balance covariates. Requires
 {opt balance}. If {cmd:psdash} is not installed, tvweight prints installation
@@ -559,8 +562,8 @@ Medicine. 2015;34(28):3661-3679.
 
 {pstd}
 Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score
-weighting. Journal of the American Statistical Association.{...}
-2018;113(521):390-400.
+weighting. Journal of the American Statistical
+Association. 2018;113(521):390-400.
 
 {pstd}
 Li L, Greene T. A weighting analogue to pair matching in propensity score

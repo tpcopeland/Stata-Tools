@@ -100,7 +100,7 @@ Data must be {cmd:stset} before using {cmd:kmplot}.
 
 {pstd}
 {cmd:kmplot} produces publication-quality Kaplan-Meier survival curves
-or cumulative failure plots with one command.  It replaces the tedious
+or cumulative failure plots with one command. It replaces the tedious
 customization workflow typically needed with {cmd:sts graph} by providing
 sensible defaults for confidence bands, number-at-risk tables, median
 survival lines, censoring marks, log-rank p-values, and colorblind-safe
@@ -132,34 +132,32 @@ and the curve starts at 0 instead of 1.{p_end}
 {phang}{opt level(#)} sets the confidence level for {opt ci}. The default is
 {bf:95}; values must be greater than 0 and less than 100.{p_end}
 
-{phang}{opt cistyle(string)} sets the CI display style.
-{bf:band} (default) shows shaded bands; {bf:line} shows dashed lines.{p_end}
+{phang}{opt cistyle(string)} sets the CI display style. {bf:band} (default) shows shaded
+bands; {bf:line} shows dashed lines.{p_end}
 
-{phang}{opt ciopacity(#)} sets shaded band opacity (0-100); default 12.
-Only applies when {opt cistyle(band)}.{p_end}
+{phang}{opt ciopacity(#)} sets shaded band opacity (0-100); default 12. Only applies when
+{opt cistyle(band)}.{p_end}
 
-{phang}{opt citransform(string)} sets the CI transformation.
-{bf:loglog} (default) uses the log-log transform (Stata's default for KM).
-{bf:log} uses the log transform. {bf:plain} uses untransformed (Wald) intervals.{p_end}
+{phang}{opt citransform(string)} sets the CI transformation. {bf:loglog} (default) uses the
+log-log transform (Stata's default for KM). {bf:log} uses the log transform. {bf:plain}
+uses untransformed (Wald) intervals.{p_end}
 
 {dlgtab:Median}
 
-{phang}{opt median} draws dashed reference lines at the median survival
-time for each group (horizontal at y=0.5, vertical at x=median).
-If the median is not reached, no line is drawn.{p_end}
+{phang}{opt median} draws dashed reference lines at the median survival time for each group
+(horizontal at y=0.5, vertical at x=median). If the median is not reached, no
+line is drawn.{p_end}
 
-{phang}{opt medianannotate} adds median values to the graph note.
-Requires {opt median}.{p_end}
+{phang}{opt medianannotate} adds median values to the graph note. Requires {opt median}.{p_end}
 
 {dlgtab:Risk table}
 
-{phang}{opt risktable} adds a number-at-risk table below the main plot.
-The table shows the number of subjects still under observation at each
-timepoint.{p_end}
+{phang}{opt risktable} adds a number-at-risk table below the main plot. The table shows the
+number of subjects still under observation at each timepoint.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
-in compact {it:N (events)} format (e.g., {cmd:14 (3)}).  This is the
-NEJM/Lancet convention.  Equivalent to {opt riskcompact}.{p_end}
+in compact {it:N (events)} format (e.g., {cmd:14 (3)}). This is the
+NEJM/Lancet convention. Equivalent to {opt riskcompact}.{p_end}
 
 {phang}{opt riskcompact} synonym for {opt riskevents}.{p_end}
 
@@ -186,33 +184,32 @@ numeric positions are also used for the risk-table columns when
 
 {dlgtab:Fixed-time summaries}
 
-{phang}{opt landmark(numlist)} returns estimates at fixed analysis times.
-In survival mode, the returned estimate is S(t). With {opt failure}, it is
-1 - S(t). If {opt ci} is specified, lower and upper bounds are included in
-{cmd:r(landmarks)}.{p_end}
+{phang}{opt landmark(numlist)} returns estimates at fixed analysis times. In survival mode,
+the returned estimate is S(t). With {opt failure}, it is 1 - S(t). If {opt ci} is
+specified, lower and upper bounds are included in {cmd:r(landmarks)}.{p_end}
 
 {dlgtab:Censoring}
 
 {phang}{opt censor} displays tick marks at censoring times on the
 KM curve.{p_end}
 
-{phang}{opt censorthin(#)} shows every Nth censor mark to reduce clutter.
-Default 1 (show all). Use {cmd:censorthin(5)} to show every 5th mark.{p_end}
+{phang}{opt censorthin(#)} shows every Nth censor mark to reduce clutter. Default 1 (show
+all). Use {cmd:censorthin(5)} to show every 5th mark.{p_end}
 
 {dlgtab:P-value}
 
 {phang}{opt pvalue} computes and displays the log-rank test p-value on
 the plot. Requires {opt by()}.{p_end}
 
-{phang}{opt pvaluepos(string)} positions the p-value text:
-{bf:bottomright} (default), {bf:topright}, {bf:topleft}, {bf:bottomleft}.{p_end}
+{phang}{opt pvaluepos(string)} positions the p-value text: {bf:bottomright} (default), {bf:topright},
+{bf:topleft}, {bf:bottomleft}.{p_end}
 
 {phang}{opt pvalueformat(string)} sets the numeric display format used in
 the p-value annotation, for example {cmd:pvalueformat(%6.4f)}.{p_end}
 
-{phang}{opt pvaluetext(string)} changes the label printed before the p-value.
-For example, {cmd:pvaluetext("Stratified log-rank P")} displays that label
-with the formatted p-value.{p_end}
+{phang}{opt pvaluetext(string)} changes the label printed before the p-value. For example,
+{cmd:pvaluetext("Stratified log-rank P")} displays that label with the formatted
+p-value.{p_end}
 
 {phang}{opt pvalueat(y x)} places the p-value annotation at explicit graph
 coordinates. The first number is the y coordinate and the second is the x
@@ -220,12 +217,10 @@ coordinate.{p_end}
 
 {dlgtab:Output}
 
-{phang}{opt export(string)} exports the graph to a file.  The format is
-auto-detected from the extension (.pdf, .png, .eps, .svg).  Sub-options
-(e.g., {it:replace}, {it:width(#)}) are passed to {cmd:graph export}.
-Example: {cmd:export(figure1.pdf, replace)}.{p_end}
-Quoted paths with spaces are supported, for example
-{cmd:export("figure 1.pdf", replace)}.{p_end}
+{phang}{opt export(string)} exports the graph to a file. The format is auto-detected from
+the extension (.pdf, .png, .eps, .svg). Sub-options (e.g., {it:replace}, {it:width(#)})
+are passed to {cmd:graph export}. Example: {cmd:export(figure1.pdf, replace)}. Quoted
+paths with spaces are supported, for example {cmd:export("figure 1.pdf", replace)}.{p_end}
 
 {phang}{opt saving(filename[, replace])} saves the curve data used for the
 graph. The saved dataset contains {cmd:group}, {cmd:group_label},
@@ -249,11 +244,10 @@ underlying {cmd:twoway} call.{p_end}
 {title:Method notes}
 
 {pstd}
-{cmd:kmplot} uses Stata's survival-time machinery after {cmd:stset}.
-Kaplan-Meier estimates and Greenwood standard errors are generated with
-{cmd:sts generate}. Confidence intervals use the requested {opt level()}
-and the selected transformation: log-log by default, log, or plain Wald
-intervals.{p_end}
+{cmd:kmplot} uses Stata's survival-time machinery after {cmd:stset}. Kaplan-Meier
+estimates and Greenwood standard errors are generated with
+{cmd:sts generate}. Confidence intervals use the requested {opt level()} and the selected
+transformation: log-log by default, log, or plain Wald intervals.{p_end}
 
 {pstd}
 The {opt failure} option plots cumulative failure, {bf:1 - S(t)}, from the

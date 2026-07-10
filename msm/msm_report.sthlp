@@ -51,23 +51,23 @@
 {pstd}
 {cmd:msm_report} produces a compact analysis summary that combines three
 sections: a data summary, IP weight diagnostics, and outcome model
-coefficients.  It is designed for quick reporting and manuscript drafting.
+coefficients. It is designed for quick reporting and manuscript drafting.
 
 {pstd}
-By default, the report is displayed in the Results window ({cmd:format(display)}).
-Use {cmd:format(csv)} or {cmd:format(excel)} to export the report to a file.
-The Excel format produces a professional workbook with formatted headers,
-borders, and optional zebra striping and footnotes.
+By default, the report is displayed in the Results window
+({cmd:format(display)}). Use {cmd:format(csv)} or {cmd:format(excel)} to export the report to a
+file. The Excel format produces a professional workbook with formatted
+headers, borders, and optional zebra striping and footnotes.
 
 {pstd}
-{cmd:msm_report} focuses on a single compact table.  For multi-sheet Excel
+{cmd:msm_report} focuses on a single compact table. For multi-sheet Excel
 export of the full pipeline (coefficients, predictions, balance, weights,
 sensitivity), use {helpb msm_table} instead.
 
 {pstd}
 The command reads the persisted coefficient and variance matrices
 ({cmd:_msm_fit_b}, {cmd:_msm_fit_V}) rather than requiring {cmd:e()} to still
-hold the {helpb msm_fit} results.  This means you can run other estimation
+hold the {helpb msm_fit} results. This means you can run other estimation
 commands between {cmd:msm_fit} and {cmd:msm_report} without losing the MSM
 results.
 
@@ -78,20 +78,20 @@ results.
 {dlgtab:Output}
 
 {phang}
-{opt exp:ort(string)} specifies the output file path.  Required when
-{cmd:format()} is {cmd:csv} or {cmd:excel}.  For Excel, the file must have
+{opt exp:ort(string)} specifies the output file path. Required when
+{cmd:format()} is {cmd:csv} or {cmd:excel}. For Excel, the file must have
 a {cmd:.xlsx} extension.
 
 {phang}
-{opt for:mat(string)} specifies the output format.  {cmd:display} (default)
-prints to the Stata Results window.  {cmd:csv} writes a comma-separated file.
-{cmd:excel} writes a formatted Excel workbook.
+{opt for:mat(string)} specifies the output format. {cmd:display} (default) prints to the
+Stata Results window. {cmd:csv} writes a comma-separated file. {cmd:excel} writes a
+formatted Excel workbook.
 
 {phang}
-{opt dec:imals(#)} specifies decimal places for numeric values.  Default is 4.
+{opt dec:imals(#)} specifies decimal places for numeric values. Default is 4.
 
 {phang}
-{opt eform} displays exponentiated coefficients.  For logistic models this
+{opt eform} displays exponentiated coefficients. For logistic models this
 gives odds ratios with confidence intervals; for Cox models it gives hazard
 ratios.
 
@@ -106,14 +106,14 @@ file.
 The following options apply only with {cmd:format(excel)}:
 
 {phang}
-{opt tit:le(string)} sets the title in cell A1.  Default is "MSM Analysis
+{opt tit:le(string)} sets the title in cell A1. Default is "MSM Analysis
 Summary".
 
 {phang}
-{opt f:ont(name)} sets the font.  Default is {cmd:Arial}.
+{opt f:ont(name)} sets the font. Default is {cmd:Arial}.
 
 {phang}
-{opt fonts:ize(#)} sets the font size in points.  Default is 10.
+{opt fonts:ize(#)} sets the font size in points. Default is 10.
 
 {phang}
 {opt border:style(style)} sets the border weight: {cmd:thin} (default),

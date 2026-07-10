@@ -64,30 +64,30 @@
 
 {pstd}
 {cmd:msm_table} exports results from the entire MSM pipeline to a formatted
-Excel workbook.  Each table type goes on its own sheet, producing a single
+Excel workbook. Each table type goes on its own sheet, producing a single
 file that contains all the publication-ready tables from an analysis.
 
 {pstd}
 Sheets include title rows, formatted headers with background shading, full
-border frames, and configurable font and size.  Numeric values are stored as
-proper Excel numbers (not text) so they can be sorted and used in formulas.
-Column widths are calculated automatically from content.
+border frames, and configurable font and size. Numeric values are stored as
+proper Excel numbers (not text) so they can be sorted and used in
+formulas. Column widths are calculated automatically from content.
 
 {pstd}
-By default (or with {opt all}), all available tables are exported.  Tables are
-silently skipped if the corresponding pipeline step has not been run yet.
-When specific tables are requested explicitly, missing prerequisites produce
-an error.  If no requested or auto-detected table is available, the command
-exits with an error rather than creating an empty workbook.
+By default (or with {opt all}), all available tables are exported. Tables are
+silently skipped if the corresponding pipeline step has not been run yet. When
+specific tables are requested explicitly, missing prerequisites produce an
+error. If no requested or auto-detected table is available, the command exits
+with an error rather than creating an empty workbook.
 
 {pstd}
 {cmd:msm_table} is the multi-sheet companion to {helpb msm_report}, which
-produces a single compact summary.  Use {cmd:msm_table} when you want the
+produces a single compact summary. Use {cmd:msm_table} when you want the
 full set of pipeline outputs in one workbook; use {cmd:msm_report} for a
 quick overview.
 
 {pstd}
-{cmd:msm_table} is an export command.  Its durable output is the Excel
+{cmd:msm_table} is an export command. Its durable output is the Excel
 workbook; it does not leave returned scalars, macros, matrices, or estimation
 results behind for later commands.
 
@@ -98,26 +98,25 @@ results behind for later commands.
 {dlgtab:Required}
 
 {phang}
-{opt xlsx(filename)} specifies the output Excel file.  Must have a
+{opt xlsx(filename)} specifies the output Excel file. Must have a
 {cmd:.xlsx} extension.
 
 {dlgtab:Table selection}
 
 {phang}
-{opt coef:ficients} exports model coefficients from {helpb msm_fit}.  Columns
-include the point estimate, 95% CI, and p-value.  The column header adapts
+{opt coef:ficients} exports model coefficients from {helpb msm_fit}. Columns
+include the point estimate, 95% CI, and p-value. The column header adapts
 to model type: OR (logistic), HR (Cox), or Coef. (linear).
 
 {phang}
-{opt pred:ictions} exports counterfactual predictions from {helpb msm_predict}.
-For {cmd:strategy(both)}, includes Never-Treat and Always-Treat estimates with
-two-level merged headers.  Includes Risk Difference columns if {opt difference}
-was specified during prediction.
+{opt pred:ictions} exports counterfactual predictions from {helpb msm_predict}. For
+{cmd:strategy(both)}, includes Never-Treat and Always-Treat estimates with two-level
+merged headers. Includes Risk Difference columns if {opt difference} was specified
+during prediction.
 
 {phang}
-{opt bal:ance} exports the covariate balance table from {helpb msm_diagnose}.
-Shows raw SMD, weighted SMD, percentage change, and a balanced/imbalanced
-indicator.
+{opt bal:ance} exports the covariate balance table from {helpb msm_diagnose}. Shows raw SMD,
+weighted SMD, percentage change, and a balanced/imbalanced indicator.
 
 {phang}
 {opt weight:s} exports weight distribution summary statistics from
@@ -128,27 +127,27 @@ indicator.
 {helpb msm_sensitivity}: treatment effect, CI, and E-values if computed.
 
 {phang}
-{opt all} exports all available tables.  Tables whose prerequisites have not
-been run are silently skipped.  This is the default behavior when no specific
+{opt all} exports all available tables. Tables whose prerequisites have not
+been run are silently skipped. This is the default behavior when no specific
 table is requested.
 
 {dlgtab:Formatting}
 
 {phang}
-{opt ef:orm} exponentiates coefficients on the Coefficients sheet.  Displays
+{opt ef:orm} exponentiates coefficients on the Coefficients sheet. Displays
 odds ratios (logistic), hazard ratios (Cox), or exp(b) (linear).
 
 {phang}
-{opt dec:imals(#)} sets decimal places for numeric values.  Default is 3.
-P-values use a tiered convention: {cmd:<0.001} for very small values,
-3 decimal places for p < 0.05, 2 decimal places for p >= 0.05.
+{opt dec:imals(#)} sets decimal places for numeric values. Default is 3. P-values use
+a tiered convention: {cmd:<0.001} for very small values, 3 decimal places for p <
+0.05, 2 decimal places for p >= 0.05.
 
 {phang}
-{opt sep(string)} sets the CI delimiter string.  Default is {cmd:", "}.
-For example, {cmd:sep(" to ")} formats CIs as "(0.58 to 0.85)".
+{opt sep(string)} sets the CI delimiter string. Default is {cmd:", "}. For example,
+{cmd:sep(" to ")} formats CIs as "(0.58 to 0.85)".
 
 {phang}
-{opt tit:le(string)} sets the title text in cell A1 of each sheet.  If
+{opt tit:le(string)} sets the title text in cell A1 of each sheet. If
 omitted, each sheet gets a descriptive default title.
 
 {phang}
@@ -156,15 +155,15 @@ omitted, each sheet gets a descriptive default title.
 without deleting unrelated sheets.
 
 {phang}
-{opt f:ont(name)} sets the font.  Default is {cmd:Arial}.
+{opt f:ont(name)} sets the font. Default is {cmd:Arial}.
 
 {phang}
-{opt fonts:ize(#)} sets the font size in points.  Default is 10.  Must be
+{opt fonts:ize(#)} sets the font size in points. Default is 10. Must be
 between 6 and 72.
 
 {phang}
-{opt border:style(style)} sets the border weight.  {cmd:thin} (default) adds
-a full grid.  {cmd:medium} uses heavier lines.  {cmd:academic} uses medium
+{opt border:style(style)} sets the border weight. {cmd:thin} (default) adds
+a full grid. {cmd:medium} uses heavier lines. {cmd:academic} uses medium
 horizontal borders only (top/bottom of header and bottom of table), which
 mirrors the style of journal tables.
 

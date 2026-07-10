@@ -25,9 +25,9 @@ help for {cmd:table1_tc}
 {p 8 18 2}
 {opt table1_tc} [{it:varlist}] {ifin} {weight} [{cmd:,} {opt by(varname)} {it:options}]
 
-{pstd}When a {it:varlist} is provided without {opt vars()}, each variable's type is automatically
-detected using the command's built-in type-classification heuristics. This is the simplest way to
-use {cmd:table1_tc}.{p_end}
+{pstd}When a {it:varlist} is provided without {opt vars()}, each variable's type is
+automatically detected using the command's built-in type-classification
+heuristics. This is the simplest way to use {cmd:table1_tc}.{p_end}
 
 {pstd}{bf:Advanced (explicit types):}{p_end}
 
@@ -124,10 +124,10 @@ use {cmd:table1_tc}.{p_end}
 {title:Description}
 
 {pstd}
-{opt table1_tc} generates a "Table 1" of characteristics for a manuscript. Such a table generally
-includes a collection of baseline characteristics which may be either continuous or categorical. The
-observations are often grouped, with a "p-value" column on the right comparing the characteristics
-between groups.{p_end}
+{opt table1_tc} generates a "Table 1" of characteristics for a manuscript. Such a
+table generally includes a collection of baseline characteristics which may be
+either continuous or categorical. The observations are often grouped, with a
+"p-value" column on the right comparing the characteristics between groups.{p_end}
 
 {pstd}{bf:Auto-type detection:} When you provide a varlist without {opt vars()}, or use the {cmd:auto}
 type keyword, each variable's type is automatically classified:{p_end}
@@ -140,9 +140,9 @@ via the shared helper:{p_end}
 {p 12 12 2}p ≥ 0.05 → {cmd:contn} (normal){p_end}
 {p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
 
-{pstd}This command is a fork of {cmd:table1_mc} version 3.5 by Mark Chatfield, with enhancements
-including Excel and Markdown export, journal themes, auto-type detection, IPTW weighting, SMD, and a methods
-paragraph generator.{p_end}
+{pstd}This command is a fork of {cmd:table1_mc} version 3.5 by Mark Chatfield, with
+enhancements including Excel and Markdown export, journal themes, auto-type
+detection, IPTW weighting, SMD, and a methods paragraph generator.{p_end}
 
 {pstd}{bf:Themes:} The {opt theme()} option applies journal-inspired formatting presets that
 match the current {cmd:tabtools} theme defaults:{p_end}
@@ -155,8 +155,8 @@ match the current {cmd:tabtools} theme defaults:{p_end}
 {p 8 8 2}{cmd:nature} - Arial 7pt, academic borders, no header shading{p_end}
 {p 8 8 2}{cmd:cell} - Arial 10pt, academic borders, no header shading{p_end}
 {p 8 8 2}{cmd:annals} - Arial 10pt, academic borders, zebra striping{p_end}
-{pstd}Publishers may restyle accepted tables during production, so treat these as built-in
-Excel presets rather than exact house templates.{p_end}
+{pstd}Publishers may restyle accepted tables during production, so treat these as
+built-in Excel presets rather than exact house templates.{p_end}
 
 {pstd}{bf:Frame output:} The {opt frame()} option stores the results table in a Stata frame
 for programmatic access without replacing data in memory.{p_end}
@@ -248,23 +248,23 @@ variables and weight.{p_end}
 {pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
 deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
 
-{pstd}{bf:Weight type.} {opt wt()} is intended for probability / inverse-probability
-weights (IPTW, survey, or sampling weights), {it:not} frequency weights -- pass true
+{pstd}{bf:Weight type.} {opt wt()} is intended for probability / inverse-probability weights
+(IPTW, survey, or sampling weights), {it:not} frequency weights -- pass true
 frequency counts as an {opt fweight} instead. The weight is applied analytically
 (like an {opt aweight}) for point estimates: weighted means and proportions equal
 {it:(sum of w*x) / (sum of w)}, which is identical whether the weight is regarded
-as a probability or an analytic weight. The two differ only in variance / standard-error
-estimation -- which is exactly why p-values are suppressed under {opt wt()}: correct
-inference would require survey ({helpb svy:}) or robust treatment that this descriptive
-command does not attempt.{p_end}
+as a probability or an analytic weight. The two differ only in variance /
+standard-error estimation -- which is exactly why p-values are suppressed
+under {opt wt()}: correct inference would require survey ({helpb svy:}) or robust treatment that
+this descriptive command does not attempt.{p_end}
 
 {pstd}{bf:Weighted display.} Under {opt wt()}, weighted statistics are reported on the
-{it:unweighted}-N scale (the header N and ESS count real observations). Weighted columns
-show {it:percentages only} by default: once weighted, the cell count is just
-{it:(weighted %) x N}, so {it:n (%)} would print the same number twice and dress a
-synthetic quantity up as a real frequency. The percentage -- together with the {opt smd}
-balance column -- is what carries meaning. To display the weighted {it:effective} count
-anyway, add {opt wtn} (shows {it:n (%)}) or {opt percent_n} (shows {it:% (n)}); the
+{it:unweighted}-N scale (the header N and ESS count real observations). Weighted
+columns show {it:percentages only} by default: once weighted, the cell count is
+just {it:(weighted %) x N}, so {it:n (%)} would print the same number twice and dress a
+synthetic quantity up as a real frequency. The percentage -- together with the
+{opt smd} balance column -- is what carries meaning. To display the weighted
+{it:effective} count anyway, add {opt wtn} (shows {it:n (%)}) or {opt percent_n} (shows {it:% (n)}); the
 effective count is {it:(weighted %) x N}, a normalized pseudo-count on the
 real-observation scale, not the sum of weights.{p_end}
 
@@ -272,30 +272,33 @@ real-observation scale, not the sum of weights.{p_end}
 the weighted columns follow the same rule: percent-only by default, {opt wtn} or
 {opt percent_n} to add the weighted effective count.{p_end}
 
-{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel and Markdown output.
-Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}
+{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel
+and Markdown output. Specify {cmd:smdthreshold(-1)} to disable this formatting. The
+0.1 convention follows Austin (2009).{p_end}
 
-{pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups only.
-A note is displayed identifying which groups are compared.{p_end}
+{pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups
+only. A note is displayed identifying which groups are compared.{p_end}
 
-{pstd}{bf:Auto-type detection:} Variables with more than 7 unique values are classified by the
-shared helper using normality/distributional heuristics; large-N paths may use a fallback heuristic
-instead of direct Shapiro-Wilk testing. Users should verify classifications for publishable tables.{p_end}
+{pstd}{bf:Auto-type detection:} Variables with more than 7 unique values are classified
+by the shared helper using normality/distributional heuristics; large-N paths
+may use a fallback heuristic instead of direct Shapiro-Wilk testing. Users
+should verify classifications for publishable tables.{p_end}
 
-{pstd}{bf:Reserved by() variable names:} The internal reshape pipeline produces wide columns
-named {cmd:N_<level>}, {cmd:m_<level>}, {cmd:_columna_<level>}, and {cmd:_columnb_<level>}.
-A {opt by()} variable whose own name starts with {cmd:N_}, {cmd:m_}, or {cmd:_column*} would
-alias those reshape outputs and silently corrupt the resulting table, so {cmd:table1_tc} rejects
-such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd:_c},
-{cmd:_co}, {cmd:_col}, {cmd:_colu}, {cmd:_colum}, {cmd:_column}, {cmd:_columna}, {cmd:_columnb};
-reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the variable
-(for example, {cmd:rename N_age age_n}) before calling {cmd:table1_tc}.{p_end}
+{pstd}{bf:Reserved by() variable names:} The internal reshape pipeline produces wide
+columns named {cmd:N_<level>}, {cmd:m_<level>}, {cmd:_columna_<level>}, and {cmd:_columnb_<level>}. A
+{opt by()} variable whose own name starts with {cmd:N_}, {cmd:m_}, or {cmd:_column*} would alias those
+reshape outputs and silently corrupt the resulting table, so {cmd:table1_tc} rejects
+such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd:_c}, {cmd:_co}, {cmd:_col},
+{cmd:_colu}, {cmd:_colum}, {cmd:_column}, {cmd:_columna}, {cmd:_columnb}; reserved prefixes are {cmd:N_} and
+{cmd:m_}. If you hit this error, rename the variable (for example,
+{cmd:rename N_age age_n}) before calling {cmd:table1_tc}.{p_end}
 
 
 {title:References}
 
 {phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
-covariates between treatment groups in propensity-score matched samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
+covariates between treatment groups in propensity-score matched
+samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
 {phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics
 1979; 35: 908-909.{p_end}
 {phang}table1_mc - Mark Chatfield, The University of Queensland, Australia.{p_end}
@@ -309,7 +312,7 @@ covariates between treatment groups in propensity-score matched samples. Statist
 {title:Also see}
 
 {psee}
-{space 2}Help:  {helpb tabtools}, {helpb regtab}, {helpb effecttab},
+{space 2}Help: {helpb tabtools}, {helpb regtab}, {helpb effecttab},
 {helpb stratetab}, {helpb comptab}
 {p_end}
 

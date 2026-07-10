@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.4.1** | 2026-07-03
+**Version 1.4.1** | 2026-07-10
 
 `setools` provides practical Stata commands for working with Swedish health registries. Instead of writing one-off data-management code for each new project, you get tested, documented building blocks for the steps that recur across register-based cohort studies: comorbidity scoring, migration-based exclusions, and MS disability-progression endpoints.
 

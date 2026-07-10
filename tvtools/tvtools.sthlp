@@ -29,10 +29,9 @@
 {title:Description}
 
 {pstd}
-{cmd:tvtools} provides a set of commands for constructing,
-diagnosing, and analyzing time-varying exposure data in survival analysis.{...}
-The package supports the workflow from data preparation through
-weighting and estimation.
+{cmd:tvtools} provides a set of commands for constructing, diagnosing, and analyzing
+time-varying exposure data in survival analysis. The package supports the
+workflow from data preparation through weighting and estimation.
 
 
 {marker syntax}{...}
@@ -92,7 +91,8 @@ weighting and estimation.
 {pstd}
 A typical time-varying exposure analysis follows these steps:
 
-{p 4 8 2}1. {bf:Create exposure data}: Use {helpb tvexpose} to transform exposure records into time-varying format{p_end}
+{p 4 8 2}1. {bf:Create exposure data}: Use {helpb tvexpose} to transform exposure records into
+time-varying format{p_end}
 {p 4 8 2}2. {bf:Merge exposures}: Use {helpb tvmerge} to combine multiple exposure sources{p_end}
 {p 4 8 2}3. {bf:Add events}: Use {helpb tvevent} to integrate outcomes and competing risks{p_end}
 {p 4 8 2}4. {bf:Diagnose}: Use {helpb tvdiagnose} to verify data structure{p_end}
@@ -106,7 +106,7 @@ A typical time-varying exposure analysis follows these steps:
 {pstd}
 {bf:Create time-varying exposure from prescription data}
 
-{phang2}{cmd:. tvexpose using rx_episodes.dta, id(id) start(rx_start) stop(rx_stop)} ///
+{phang2}{cmd:. tvexpose using rx_episodes.dta, id(id) start(rx_start) stop(rx_stop)} ///{p_end}
 {phang3}{cmd:exposure(drug) reference(0) entry(study_entry) exit(study_exit)}{p_end}
 
 {pstd}
@@ -146,8 +146,8 @@ data quality problems.
 {bf:Data assumptions}
 
 {pstd}
-All date variables must be Stata daily dates (integer days since 01jan1960).{...}
-Datetime variables ({cmd:%tc}/{cmd:%tC}) are not supported and will be
+All date variables must be Stata daily dates (integer days since
+01jan1960). Datetime variables ({cmd:%tc}/{cmd:%tC}) are not supported and will be
 rejected with a clear error message. Convert datetimes first with
 {cmd:gen daily = dofc(datetime_var)}.
 
@@ -162,7 +162,8 @@ inclusive. A period [2020-01-01, 2020-01-31] covers 31 days.
 {helpb tvexpose} supports several exposure definitions for different
 research questions:
 
-{p 8 12 2}{cmd:[default]} — Categorical time-varying exposure (e.g., which drug a patient is currently on){p_end}
+{p 8 12 2}{cmd:[default]} — Categorical time-varying exposure (e.g., which drug a patient is
+currently on){p_end}
 {p 8 12 2}{cmd:evertreated} — Binary ever/never, for immortal-time-bias correction{p_end}
 {p 8 12 2}{cmd:currentformer} — Three-level never/current/former{p_end}
 {p 8 12 2}{cmd:duration()} — Cumulative duration categories{p_end}

@@ -90,21 +90,21 @@ omitted.
 
 {pstd}
 {cmd:datamap} writes a structured description of one or more Stata datasets in
-plain text or JSON.  Text output is designed to be pasted into an LLM prompt
-window.  JSON output is designed for automated pipelines and programmatic
+plain text or JSON. Text output is designed to be pasted into an LLM prompt
+window. JSON output is designed for automated pipelines and programmatic
 metadata checks.
 
 {pstd}
-The command automatically classifies every variable as categorical, continuous,
-date, string, or excluded, and then writes the section that fits: frequency
-tables for categorical variables, summary statistics for continuous variables,
-date ranges for date variables, and a length/uniqueness note for strings.
-Variables listed in {opt exclude()} appear in the output with their type and
-missingness but no values or statistics.
+The command automatically classifies every variable as categorical,
+continuous, date, string, or excluded, and then writes the section that
+fits: frequency tables for categorical variables, summary statistics for
+continuous variables, date ranges for date variables, and a length/uniqueness
+note for strings. Variables listed in {opt exclude()} appear in the output with
+their type and missingness but no values or statistics.
 
 {pstd}
-Default output is aggregate-level.  Frequency cells smaller than {opt mincell()}
-are suppressed by default.  No cross-variable combinations or individual
+Default output is aggregate-level. Frequency cells smaller than {opt mincell()}
+are suppressed by default. No cross-variable combinations or individual
 observations are exported unless you explicitly request sample rows with
 {opt samples()}.
 
@@ -124,157 +124,157 @@ GitHub, documentation sites, or conversion to PDF/Word via Pandoc, see
 
 {pstd}
 If no input option is specified, {cmd:datamap} documents the data currently in
-memory.  This is the simplest way to use the command: load or prepare your data,
+memory. This is the simplest way to use the command: load or prepare your data,
 then type {cmd:datamap}.
 
 {phang}
-{opt single(filename)} documents one Stata dataset file.  If the file is not in
+{opt single(filename)} documents one Stata dataset file. If the file is not in
 the current directory, include the full or relative path.
 
 {phang}
 {opt dir:ectory(path)} scans a directory for every {opt .dta} file and documents
-all of them.  Only the specified directory is scanned unless {opt recursive} is
+all of them. Only the specified directory is scanned unless {opt recursive} is
 also specified.
 
 {phang}
 {opt file:list(names)} documents a specific set of datasets given as a
-space-separated list.  For example, {cmd:filelist(patients hrt dmt)} documents
+space-separated list. For example, {cmd:filelist(patients hrt dmt)} documents
 {it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}.
 
 {phang}
-{opt rec:ursive} makes {opt directory()} also descend into subdirectories.
-Hidden directories (names beginning with {cmd:.}) and {cmd:__pycache__} are
-always skipped.
+{opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
+directories (names beginning with {cmd:.}) and {cmd:__pycache__} are always skipped.
 
 {pstd}
 Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
-specified.  Specifying more than one is an error.
+specified. Specifying more than one is an error.
 
 {dlgtab:Output}
 
 {phang}
-{opt o:utput(filename)} names the output file.  The default is {bf:datamap.txt}
+{opt o:utput(filename)} names the output file. The default is {bf:datamap.txt}
 for text output and {bf:datamap.json} for JSON output.
 
 {phang}
-{opt f:ormat(string)} selects the output format.  Valid values are {bf:text}
-and {bf:json}.  JSON output includes dataset metadata, privacy settings, class
+{opt f:ormat(string)} selects the output format. Valid values are {bf:text}
+and {bf:json}. JSON output includes dataset metadata, privacy settings, class
 counts, per-variable metadata, continuous summaries, and suppressed frequency
-arrays.  For Markdown output, use {help datadict} instead.
+arrays. For Markdown output, use {help datadict} instead.
 
 {phang}
 {opt sep:arate} writes a separate output file for each dataset instead of
-combining them into one file.  Output files are named
+combining them into one file. Output files are named
 {it:datasetname}{cmd:_map.txt}.
 
 {phang}
-{opt app:end} appends to an existing output file rather than replacing it.
-Useful for incrementally building documentation.  Note that no header is added
-when appending.  {opt append} is not allowed with {cmd:format(json)}.
+{opt app:end} appends to an existing output file rather than replacing it. Useful for
+incrementally building documentation. Note that no header is added when
+appending. {opt append} is not allowed with {cmd:format(json)}.
 
 {phang}
 {opt sav:ing(filename[, replace])} writes a common Stata metadata dataset with
-one row per source variable.  The schema is shared with {help datadict} and
+one row per source variable. The schema is shared with {help datadict} and
 {help datacheck}: it includes source command, source path, output path, dataset
 name and label, variable name, storage type, display format, value label, class,
 N, source variable count, missing count and percent, unique count, labels,
 notes, characteristics, numeric summaries, and Stata datasignature when
-available.  Specify {cmd:replace} to overwrite an existing file.
+available. Specify {cmd:replace} to overwrite an existing file.
 
 {phang}
 {opt conf:ig(filename)} reads reusable defaults from a text file containing
-{cmd:key = value} or {cmd:key: value} lines.  Supported keys include
+{cmd:key = value} or {cmd:key: value} lines. Supported keys include
 {cmd:output}, {cmd:format}, {cmd:exclude}, {cmd:continuous}, {cmd:categorical},
 {cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:mincell}, {cmd:datesafe},
 {cmd:compact}, {cmd:detect}, {cmd:panelid}, {cmd:survivalvars},
-{cmd:dateformat}, {cmd:samples}, and {cmd:missing}.  Command-line options
+{cmd:dateformat}, {cmd:samples}, and {cmd:missing}. Command-line options
 override config-file defaults.
 
 {dlgtab:Content control}
 
 {phang}
 {opt nost:ats} suppresses summary statistics (mean, SD, median, IQR, range) for
-continuous variables.  The variables still appear with their basic properties.
+continuous variables. The variables still appear with their basic properties.
 
 {phang}
-{opt nofr:eq} suppresses frequency tables for categorical variables.  Variables
+{opt nofr:eq} suppresses frequency tables for categorical variables. Variables
 are still listed and classified.
 
 {phang}
 {opt nola:bels} suppresses the "Value Label Definitions" section at the end of
-each dataset.  Value labels attached to individual variables in the frequency
+each dataset. Value labels attached to individual variables in the frequency
 table are unaffected.
 
 {phang}
 {opt maxf:req(#)} sets the maximum number of unique values for which a frequency
-table is printed.  Categorical variables with more unique values than this
-threshold show only the unique count.  Default is {bf:25}.  Must be positive.
+table is printed. Categorical variables with more unique values than this
+threshold show only the unique count. Default is {bf:25}. Must be positive.
 
 {phang}
-{opt maxc:at(#)} sets the cutoff that separates categorical from continuous.
-Numeric variables with value labels or with {it:#} or fewer unique values are
-classified as categorical; the rest are continuous.  Default is {bf:25}.  Must
-be positive.
+{opt maxc:at(#)} sets the cutoff that separates categorical from continuous. Numeric
+variables with value labels or with {it:#} or fewer unique values are classified as
+categorical; the rest are continuous. Default is {bf:25}. Must be positive.
 
 {phang}
 {opt minc:ell(#)} suppresses categorical and binary frequency cells with counts
-smaller than {it:#}.  Suppressed text output shows {bf:suppressed (<#)}; JSON
-sets the count and percent to {bf:null} and marks {bf:suppressed: true}.  The
-default is {bf:5}.  Specify {cmd:mincell(0)} to show all cells.
+smaller than {it:#}. Suppressed text output shows {bf:suppressed (<#)}; JSON
+sets the count and percent to {bf:null} and marks {bf:suppressed: true}. The
+default is {bf:5}. Specify {cmd:mincell(0)} to show all cells.
 
 {phang}
 {opt nog:uidance} removes the ANALYSIS GUIDANCE and privacy-note prose while
 leaving statistics, frequency tables, and metadata in place.
 
 {phang}
-{opt com:pact} writes a shorter text map containing dataset metadata,
-disclosure-risk summary, description, and the quick-reference variable table.
-It implies {opt noguidance}.  JSON output is already structured and ignores this
-text-only shortening.
+{opt com:pact} writes a shorter text map containing dataset metadata, disclosure-risk
+summary, description, and the quick-reference variable table. It implies
+{opt noguidance}. JSON output is already structured and ignores this text-only
+shortening.
 
 {dlgtab:Privacy}
 
 {phang}
 {opt exc:lude(varlist)} lists variables whose values should not appear in the
-output.  They are documented with type and missingness only, classified as
-"excluded".  Use this for personally identifiable information such as names,
-national IDs, and addresses.  Variable names that do not exist in a given
-dataset are silently ignored.  Wildcard expansion is not supported; list each
+output. They are documented with type and missingness only, classified as
+"excluded". Use this for personally identifiable information such as names,
+national IDs, and addresses. Variable names that do not exist in a given
+dataset are silently ignored. Wildcard expansion is not supported; list each
 variable name explicitly.
 
 {phang}
-{opt dates:afe} prevents exact dates from appearing in the output.  Date
+{opt dates:afe} prevents exact dates from appearing in the output. Date
 variables are documented with the number of time units spanned instead of the
-earliest and latest values.  Use this when dates of birth or other potentially
+earliest and latest values. Use this when dates of birth or other potentially
 identifying dates are present.
 
 {phang}
-{opt datef:ormat(string)} sets the Stata date format used to display all dates.
-The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
-({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
-quarterly, and other non-daily types retain their native format regardless of
-this setting.  The format must begin with {cmd:%t} or {cmd:%d}.
+{opt datef:ormat(string)} sets the Stata date format used to display all dates. The
+default is {bf:%tdCCYY/NN/DD} (ISO 8601). For datetime variables ({cmd:%tc}/{cmd:%tC}), the
+prefix is automatically adapted. Weekly, monthly, quarterly, and other
+non-daily types retain their native format regardless of this setting. The
+format must begin with {cmd:%t} or {cmd:%d}.
 
 {dlgtab:Classification overrides}
 
 {phang}
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)}
 force the named variables into the given class after the privacy exclusion list
-is applied.  A variable may appear in only one override list.  Overrides are
+is applied. A variable may appear in only one override list. Overrides are
 useful when a numeric code should be summarized as continuous despite low
 cardinality, or when a string code should be treated as categorical.
 
 {dlgtab:Detection}
 
 {phang}
-{opt det:ect(options)} turns on specific automatic structure detectors.  Specify
+{opt det:ect(options)} turns on specific automatic structure detectors. Specify
 one or more of the following, separated by spaces:
 
 {phang2}{bf:panel} {hline 2} look for repeated observations per unit (longitudinal/panel data).{p_end}
-{phang2}{bf:binary} {hline 2} flag variables with exactly two unique values as potential outcomes or indicators.{p_end}
+{phang2}{bf:binary} {hline 2} flag variables with exactly two unique values as potential outcomes or
+indicators.{p_end}
 {phang2}{bf:survival} {hline 2} search for time-to-event and censoring/event variables.{p_end}
 {phang2}{bf:survey} {hline 2} search for sampling weights, strata, and cluster/PSU variables.{p_end}
-{phang2}{bf:common} {hline 2} identify IDs, dates, demographics, exposures, and outcomes by name patterns.{p_end}
+{phang2}{bf:common} {hline 2} identify IDs, dates, demographics, exposures, and outcomes by name
+patterns.{p_end}
 
 {pmore}
 Example: {cmd:detect(panel survival)} enables panel and survival detection only.
@@ -285,40 +285,41 @@ five keywords in {opt detect()}).
 
 {phang}
 {opt panel:id(varname)} tells the panel detector which variable identifies
-units.  If omitted, the detector searches for variables whose names match common
+units. If omitted, the detector searches for variables whose names match common
 ID patterns ({it:*id}, {it:patient*}, {it:subject*}, etc.).
 
 {phang}
 {opt survival:vars(varlist)} tells the survival detector which variables to
-consider.  If omitted, the detector searches for common time-to-event naming
+consider. If omitted, the detector searches for common time-to-event naming
 patterns ({it:time*}, {it:event*}, {it:death*}, etc.).
 
 {dlgtab:Data quality}
 
 {phang}
-{opt qu:ality} enables basic data quality flags.  The command checks for
-negative ages, negative counts, and percentages outside 0-100.  Flags are
+{opt qu:ality} enables basic data quality flags. The command checks for
+negative ages, negative counts, and percentages outside 0-100. Flags are
 printed in a "Data Quality Flags" section.
 
 {phang}
-{opt qu:ality2(strict)} enables stricter quality checks.  Thresholds are more
+{opt qu:ality2(strict)} enables stricter quality checks. Thresholds are more
 conservative; for example, ages above 100 are flagged (the basic mode flags ages
 above 120).
 
 {phang}
-{opt miss:ing(option)} adds a missing-data summary section.  Valid values are:
+{opt miss:ing(option)} adds a missing-data summary section. Valid values are:
 
-{phang2}{bf:detail} {hline 2} report the number of variables with >50% and >10% missing, plus the number of complete-case observations.{p_end}
+{phang2}{bf:detail} {hline 2} report the number of variables with >50% and >10% missing, plus the
+number of complete-case observations.{p_end}
 {phang2}{bf:pattern} {hline 2} everything in {bf:detail}, plus the same pattern analysis.{p_end}
 
 {dlgtab:Sample data}
 
 {phang}
-{opt sam:ples(#)} appends a table of the first {it:#} observations.  Variables
-in {opt exclude()} are shown as {bf:[MASKED]}.  When {opt datesafe} is also
+{opt sam:ples(#)} appends a table of the first {it:#} observations. Variables
+in {opt exclude()} are shown as {bf:[MASKED]}. When {opt datesafe} is also
 specified, date variables in the sample table are shown as
-{bf:[DATE SUPPRESSED]}.  Use with caution: even aggregate-safe documentation
-becomes identifiable once raw rows are included.  Always combine with
+{bf:[DATE SUPPRESSED]}. Use with caution: even aggregate-safe documentation
+becomes identifiable once raw rows are included. Always combine with
 {opt exclude()} when sample rows are enabled.
 
 
@@ -329,7 +330,8 @@ becomes identifiable once raw rows are included.  Always combine with
 {cmd:datamap} classifies every variable using the following priority order:
 
 {phang2}1. Variables listed in {opt exclude()} are classified as {bf:excluded}.{p_end}
-{phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt date()} are assigned to that class.{p_end}
+{phang2}2. Variables listed in {opt continuous()}, {opt categorical()}, or {opt date()} are assigned to
+that class.{p_end}
 {phang2}3. String variables ({cmd:str}{it:#} or {cmd:strL}) are classified as {bf:string}.{p_end}
 {phang2}4. Variables whose display format starts with {cmd:%t} or {cmd:%d} are classified as {bf:date}.{p_end}
 {phang2}5. Numeric variables with an attached value label, or with
@@ -355,24 +357,28 @@ Each class gets a dedicated output section:
 {bf:When to use datamap vs. datadict}
 
 {pstd}
-Use {cmd:datamap} when you need a plain-text file to paste into an LLM chat
-window, attach to an internal data handoff, or feed into an automated pipeline.
-Use {help datadict} when you need a polished Markdown document for a GitHub
-repository, an appendix, or conversion to PDF/Word via Pandoc.  Both commands
-accept the same input modes and preserve the dataset in memory.
+Use {cmd:datamap} when you need a plain-text file to paste into an LLM chat window,
+attach to an internal data handoff, or feed into an automated pipeline. Use
+{help datadict} when you need a polished Markdown document for a GitHub repository,
+an appendix, or conversion to PDF/Word via Pandoc. Both commands accept the
+same input modes and preserve the dataset in memory.
 
 {pstd}
 {bf:Privacy best practices}
 
-{phang2}{hline 2} Always use {opt exclude()} for direct identifiers: names, national IDs, addresses, phone numbers.{p_end}
-{phang2}{hline 2} Add {opt datesafe} when the dataset contains dates of birth, death dates, or admission dates that could help re-identify individuals.{p_end}
+{phang2}{hline 2} Always use {opt exclude()} for direct identifiers: names, national IDs, addresses,
+phone numbers.{p_end}
+{phang2}{hline 2} Add {opt datesafe} when the dataset contains dates of birth, death dates, or
+admission dates that could help re-identify individuals.{p_end}
 {phang2}{hline 2} Keep the default {cmd:mincell(5)} unless you have reviewed the disclosure risk.{p_end}
-{phang2}{hline 2} Use {opt samples()} sparingly and always combine it with {opt exclude()} and {opt datesafe} when date variables are sensitive.{p_end}
-{phang2}{hline 2} Review the output file before sharing to confirm that no personally identifiable information leaked through.{p_end}
+{phang2}{hline 2} Use {opt samples()} sparingly and always combine it with {opt exclude()} and {opt datesafe}
+when date variables are sensitive.{p_end}
+{phang2}{hline 2} Review the output file before sharing to confirm that no personally
+identifiable information leaked through.{p_end}
 
 {pstd}
 {cmd:datamap} also warns when variable names look like identifiers but are not
-listed in {opt exclude()}.  The same count and suggested list appear in the
+listed in {opt exclude()}. The same count and suggested list appear in the
 disclosure-risk summary and in JSON privacy metadata.
 
 {pstd}
@@ -382,8 +388,10 @@ disclosure-risk summary and in JSON privacy metadata.
 {cmd:datamap} supports four input modes:
 
 {phang2}1. {bf:Data in memory} (default){hline 2} just run {cmd:datamap} after loading your data.{p_end}
-{phang2}2. {bf:Single file}{hline 2} use {opt single(filename)} to document one {opt .dta} file without loading it first.{p_end}
-{phang2}3. {bf:Directory scan}{hline 2} use {opt directory(path)} to document every {opt .dta} file in a folder. Add {opt recursive} to include subdirectories.{p_end}
+{phang2}2. {bf:Single file}{hline 2} use {opt single(filename)} to document one {opt .dta} file without loading
+it first.{p_end}
+{phang2}3. {bf:Directory scan}{hline 2} use {opt directory(path)} to document every {opt .dta} file in a
+folder. Add {opt recursive} to include subdirectories.{p_end}
 {phang2}4. {bf:File list}{hline 2} use {opt filelist(names)} to document a hand-picked set of datasets.{p_end}
 
 
@@ -394,7 +402,7 @@ disclosure-risk summary and in JSON privacy metadata.
 
 {pstd}
 The simplest way to use {cmd:datamap} is to load a dataset and run the command
-with no options.  The output is written to {bf:datamap.txt} in the current
+with no options. The output is written to {bf:datamap.txt} in the current
 directory.{p_end}
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}

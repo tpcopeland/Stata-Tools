@@ -53,15 +53,15 @@
 {title:Description}
 
 {pstd}
-{cmd:msm_weight} is the core of the MSM package.  It calculates the inverse
+{cmd:msm_weight} is the core of the MSM package. It calculates the inverse
 probability weights that create a pseudo-population where treatment is
-independent of measured confounders.  These weights allow a subsequent
+independent of measured confounders. These weights allow a subsequent
 outcome model (fitted by {helpb msm_fit}) to estimate the causal effect of
 treatment free from time-varying confounding.
 
 {pstd}
 The command produces {bf:stabilized} inverse probability of treatment weights
-(IPTW).  When a censoring variable was mapped in {helpb msm_prepare} and you
+(IPTW). When a censoring variable was mapped in {helpb msm_prepare} and you
 specify {cmd:censor_d_cov()}, it also produces inverse probability of
 censoring weights (IPCW) and combines both into a single final weight.
 
@@ -78,7 +78,7 @@ P(A_t = 1 | history) from the denominator model, kept for diagnostics{p_end}
 
 {pstd}
 Well-specified stabilized weights should have a mean close to 1.0 and moderate
-variability.  If the mean deviates substantially from 1 or the max/min ratio
+variability. If the mean deviates substantially from 1 or the max/min ratio
 is extreme, the command prints a diagnostic note suggesting you review the
 treatment model specification.
 
@@ -96,25 +96,25 @@ balance, weight summaries, and effective sample size).
 {pstd}
 For each person-period, {cmd:msm_weight} fits two logistic regression models:
 
-{phang2}{bf:Denominator model:}  P(A_t = 1 | A_{c -(}t-1{c )-}, L_t, V, period){p_end}
+{phang2}{bf:Denominator model:} P(A_t = 1 | A_{c -(}t-1{c )-}, L_t, V, period){p_end}
 {phang2}{space 4}Predicts treatment from the full set of confounders, lagged
-treatment, and period.  This is the "full" model.{p_end}
+treatment, and period. This is the "full" model.{p_end}
 
-{phang2}{bf:Numerator model:}  P(A_t = 1 | A_{c -(}t-1{c )-}, V){p_end}
+{phang2}{bf:Numerator model:} P(A_t = 1 | A_{c -(}t-1{c )-}, V){p_end}
 {phang2}{space 4}Predicts treatment from baseline covariates only (or just
-lagged treatment if no numerator covariates are specified).  This is the
+lagged treatment if no numerator covariates are specified). This is the
 "stabilizing" model that reduces weight variability.{p_end}
 
 {pstd}
 The period-specific stabilized weight for treated observations is
 numerator/denominator; for untreated observations it is
-(1-numerator)/(1-denominator).  Cumulative weights are computed within each
+(1-numerator)/(1-denominator). Cumulative weights are computed within each
 individual using log-sum for numerical stability.
 
 {pstd}
 For non-technical readers, the denominator model asks how likely the observed
-treatment was given the person's history and confounders.  The numerator model
-is a simpler stabilizing model.  Final weights are larger when an observed
+treatment was given the person's history and confounders. The numerator model
+is a simpler stabilizing model. Final weights are larger when an observed
 treatment pattern was unlikely under the denominator model, and smaller when
 the pattern was common.
 
@@ -130,89 +130,89 @@ because there is no treatment history at baseline.
 
 {phang}
 {opth treat_d_cov(varlist)} specifies the covariates for the treatment
-denominator model.  This should include all time-varying confounders and
-baseline covariates that predict treatment.  If omitted, {cmd:msm_weight}
+denominator model. This should include all time-varying confounders and
+baseline covariates that predict treatment. If omitted, {cmd:msm_weight}
 defaults to the {cmd:covariates()} and {cmd:baseline_covariates()} stored by
-{helpb msm_prepare}.  An explicit {cmd:treat_d_cov()} always overrides the
+{helpb msm_prepare}. An explicit {cmd:treat_d_cov()} always overrides the
 prepared default.
 
 {phang}
 {opth treat_n_cov(varlist)} specifies the covariates for the treatment
-numerator model.  This should typically include only baseline covariates
-(e.g., age, sex) that do not change over time.  Including fewer variables than
-the denominator produces stabilized weights with lower variance.  If omitted,
+numerator model. This should typically include only baseline covariates
+(e.g., age, sex) that do not change over time. Including fewer variables than
+the denominator produces stabilized weights with lower variance. If omitted,
 the numerator model uses only lagged treatment and an intercept.
 
 {dlgtab:Censoring weight models}
 
 {phang}
 {opth censor_d_cov(varlist)} specifies the covariates for the censoring
-denominator model.  This enables IPCW.  Requires that a censoring variable was
-mapped in {helpb msm_prepare} via {cmd:censor()}.  Include variables that
+denominator model. This enables IPCW. Requires that a censoring variable was
+mapped in {helpb msm_prepare} via {cmd:censor()}. Include variables that
 predict both censoring and the outcome.
 
 {phang}
 {opth censor_n_cov(varlist)} specifies the covariates for the censoring
-numerator model (stabilization).  If omitted, the censoring numerator model
-uses only current treatment status and an intercept.  Requires
+numerator model (stabilization). If omitted, the censoring numerator model
+uses only current treatment status and an intercept. Requires
 {cmd:censor_d_cov()} to be specified.
 
 {dlgtab:Weight processing}
 
 {phang}
-{opth tru:ncate(numlist)} truncates extreme weights at specified percentiles.
-The most common choice is {cmd:truncate(1 99)}, which caps the bottom 1% and
-top 1% of the weight distribution.  You can also use the symmetric shorthand
-{cmd:truncate(1)}, which is equivalent to {cmd:truncate(1 99)}.  Truncation
-reduces the influence of extreme weights at the cost of a small amount of
-bias.  Values must lie strictly between 0 and 100.
+{opth tru:ncate(numlist)} truncates extreme weights at specified percentiles. The most
+common choice is {cmd:truncate(1 99)}, which caps the bottom 1% and top 1% of the
+weight distribution. You can also use the symmetric shorthand {cmd:truncate(1)},
+which is equivalent to {cmd:truncate(1 99)}. Truncation reduces the influence of
+extreme weights at the cost of a small amount of bias. Values must lie
+strictly between 0 and 100.
 
 {dlgtab:Model behavior}
 
 {phang}
 {opt fitfailure(policy)} controls what happens when a logistic weight model
-fails to estimate or does not converge.  The default {cmd:fitfailure(error)}
+fails to estimate or does not converge. The default {cmd:fitfailure(error)}
 stops immediately, which is safer for production analyses because it forces
 you to address model specification problems (e.g., separation, positivity
-violations).  Use {cmd:fitfailure(marginal)} only if you explicitly want a
-pooled marginal probability substituted for the failed model.  Affected model
+violations). Use {cmd:fitfailure(marginal)} only if you explicitly want a
+pooled marginal probability substituted for the failed model. Affected model
 names are stored in {cmd:r(fitfailure_models)}.
 
 {phang}
-{opt preview} resolves and displays the treatment and censoring model
-specifications (including any {cmd:treat_d_cov()} defaulting and {cmd:truncate()}
-shorthand expansion) without fitting any models or creating weight variables.
-Use this to verify the specification before committing to a potentially
-time-consuming weighting run.
+{opt preview} resolves and displays the treatment and censoring model specifications
+(including any {cmd:treat_d_cov()} defaulting and {cmd:truncate()} shorthand expansion)
+without fitting any models or creating weight variables. Use this to verify
+the specification before committing to a potentially time-consuming weighting
+run.
 
 {phang}
 {opt replace} allows overwriting existing {cmd:_msm_weight},
 {cmd:_msm_tw_weight}, {cmd:_msm_cw_weight}, and {cmd:_msm_ps} variables from a
-previous run.  Without this option, {cmd:msm_weight} refuses to overwrite and
+previous run. Without this option, {cmd:msm_weight} refuses to overwrite and
 exits with an error.
 
 {phang}
-{opt nolog} suppresses the iteration log from the logistic models.
-Recommended for production scripts.
+{opt nolog} suppresses the iteration log from the logistic models. Recommended for
+production scripts.
 
 
 {marker interpreting}{...}
 {title:Interpreting the output}
 
 {pstd}
-After fitting, {cmd:msm_weight} reports a weight summary.  Key diagnostics:
+After fitting, {cmd:msm_weight} reports a weight summary. Key diagnostics:
 
-{phang2}{bf:Mean {c ~} 1.0:}  Stabilized weights should have a mean close to
-1.  A mean far from 1 suggests the numerator or denominator model may be
+{phang2}{bf:Mean {c ~} 1.0:} Stabilized weights should have a mean close to
+1. A mean far from 1 suggests the numerator or denominator model may be
 misspecified.{p_end}
 
-{phang2}{bf:Effective sample size (ESS):}  ESS = (sum w)^2 / (sum w^2).  This
+{phang2}{bf:Effective sample size (ESS):} ESS = (sum w)^2 / (sum w^2). This
 measures how much information the weighted sample retains compared to the
-unweighted sample.  Low ESS (e.g., <50% of N) suggests high weight variability,
-which inflates variance.  Consider truncation or model simplification.{p_end}
+unweighted sample. Low ESS (e.g., <50% of N) suggests high weight variability,
+which inflates variance. Consider truncation or model simplification.{p_end}
 
-{phang2}{bf:Max/min ratio:}  Very large weights indicate near-violations of the
-positivity assumption.  Investigate with {helpb msm_diagnose} and
+{phang2}{bf:Max/min ratio:} Very large weights indicate near-violations of the
+positivity assumption. Investigate with {helpb msm_diagnose} and
 {helpb msm_plot}.{p_end}
 
 
@@ -220,7 +220,7 @@ positivity assumption.  Investigate with {helpb msm_diagnose} and
 {title:Examples}
 
 {pstd}
-{bf:Treatment weights only (IPTW).}  The most common use case.  Denominator
+{bf:Treatment weights only (IPTW).} The most common use case. Denominator
 covariates default to the prepared variables:{p_end}
 
 {phang2}{cmd:. msm_weight, treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
@@ -231,20 +231,20 @@ covariates default to the prepared variables:{p_end}
 {phang2}{cmd:. msm_weight, preview truncate(1)}{p_end}
 
 {pstd}
-{bf:Explicit denominator covariates.}  Override the prepared defaults:{p_end}
+{bf:Explicit denominator covariates.} Override the prepared defaults:{p_end}
 
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
 {phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
 
 {pstd}
-{bf:IPTW + IPCW.}  Combined treatment and censoring weights:{p_end}
+{bf:IPTW + IPCW.} Combined treatment and censoring weights:{p_end}
 
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
 {phang2}{cmd:    treat_n_cov(age sex) censor_d_cov(age sex biomarker)}{p_end}
 {phang2}{cmd:    truncate(1 99) nolog}{p_end}
 
 {pstd}
-{bf:Marginal fallback for unstable models.}  Use only when you have
+{bf:Marginal fallback for unstable models.} Use only when you have
 investigated and are willing to accept a marginal probability substitute:{p_end}
 
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
@@ -261,12 +261,12 @@ investigated and are willing to accept a marginal probability substitute:{p_end}
 {title:Stored results}
 
 {pstd}
-{cmd:msm_weight} stores the following in {cmd:r()}.  In {cmd:preview} mode,
+{cmd:msm_weight} stores the following in {cmd:r()}. In {cmd:preview} mode,
 only the model-specification macros are returned; after fitting, all scalars
 and macros below are returned.
 
 {pstd}
-Scalars are available only after fitting.  They are not returned by
+Scalars are available only after fitting. They are not returned by
 {cmd:preview}.
 
 {synoptset 28 tabbed}{...}

@@ -320,9 +320,9 @@ variables, cluster SEs, and left-truncated data.
 {pstd}
 The {opt strata()} option is cross-validated against
 {cmd:crr(..., cengroup=)}. Coefficients and log pseudo-likelihood agree to
-numerical precision, CIFs agree within 1e-5, and robust SEs agree within 0.1%.
-Each retained competing-event subject is weighted by the censoring survival
-from that subject's own stratum.
+numerical precision, CIFs agree within 1e-5, and robust SEs agree within
+0.1%. Each retained competing-event subject is weighted by the censoring
+survival from that subject's own stratum.
 
 {pstd}
 {bf:Technical note on standard errors:} The only quantity where implementations
@@ -589,8 +589,8 @@ reconstruct each subject's risk window.
 {pstd}
 Constant and exactly collinear covariate columns are not identified by the
 unpenalized Fine-Gray model. {cmd:finegray} rejects such specifications with
-{cmd:r(459)} and names the expanded terms that must be removed or recoded;
-it does not silently impose a ridge penalty.
+{cmd:r(459)} and names the expanded terms that must be removed or
+recoded; it does not silently impose a ridge penalty.
 
 
 {marker author}{...}

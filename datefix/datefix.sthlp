@@ -17,7 +17,8 @@
 
 {p 4 4 2}If {opt newvar()} is used, only one variable can be specified.{p_end}
 
-{p 4 4 2}If the variable is already numeric, {cmd:datefix} applies the date format directly (or copies to {opt newvar()} if specified).{p_end}
+{p 4 4 2}If the variable is already numeric, {cmd:datefix} applies the date format directly
+(or copies to {opt newvar()} if specified).{p_end}
 
 {p 4 4 2}The program does not accommodate datetime values, only dates.{p_end}
 
@@ -25,15 +26,27 @@
 {title:Options}
 {p 4 8 2}{opt newvar(name)} creates a new numeric date variable with the given name. Only one variable can be used. The original variable is preserved unless {opt drop} is also specified.{p_end}
 
-{p 4 8 2}{opt drop} drops the original variable. Only applicable when {opt newvar()} is used; otherwise redundant since the original variable is replaced.{p_end}
+{p 4 8 2}{opt drop} drops the original variable. Only applicable when {opt newvar()} is
+used; otherwise redundant since the original variable is replaced.{p_end}
 
-{p 4 8 2}{opt df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD} (YYYY/MM/DD).{p_end}
+{p 4 8 2}{opt df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD}
+(YYYY/MM/DD).{p_end}
 
-{p 4 8 2}{opt order(string)} specifies the ordering of month, day, and year in the input string (MDY, DMY, or YMD). If omitted, the ordering that produces the fewest missing values is automatically selected.{p_end}
+{p 4 8 2}{opt order(string)} specifies the ordering of month, day, and year in the input
+string (MDY, DMY, or YMD). If omitted, the ordering that produces the fewest
+missing values is automatically selected.{p_end}
 
-{p 4 8 2}{opt topyear(#)} specifies the {it:topyear} argument for the {help date():date()} function. Required if two-digit years are present. See {help date():date()} for details.{p_end}
+{p 4 8 2}{opt topyear(#)} specifies the {it:topyear} argument for the {help date():date()} function. Required if
+two-digit years are present. See {help date():date()} for details.{p_end}
 
-{p 4 8 2}{opt diag:nose} reports the offending values when a conversion fails. If any non-missing string cannot be parsed into a date (for example, a month or day of {bf:00}, an out-of-range component such as {bf:2020/13/40}, or stray non-date text), {cmd:datefix} prints a table of the distinct unconvertible values, their frequencies, and the observation numbers where they occur, then stops with an error so you can locate and fix the source data. Without {opt diagnose}, {cmd:datefix} reports only the count of values that failed. Conversion remains all-or-nothing: no variable is created or replaced when any value fails.{p_end}
+{p 4 8 2}{opt diag:nose} reports the offending values when a conversion fails. If any
+non-missing string cannot be parsed into a date (for example, a month or day
+of {bf:00}, an out-of-range component such as {bf:2020/13/40}, or stray non-date text),
+{cmd:datefix} prints a table of the distinct unconvertible values, their
+frequencies, and the observation numbers where they occur, then stops with an
+error so you can locate and fix the source data. Without {opt diagnose}, {cmd:datefix}
+reports only the count of values that failed. Conversion remains
+all-or-nothing: no variable is created or replaced when any value fails.{p_end}
 
 {marker examples}{...}
 {title:Examples}

@@ -45,11 +45,10 @@ log-rank p-value. Adding {opt median}, {opt riskset}, and {opt difference}
 extends the table to the full set of survival summary measures often
 requested by reviewers.{p_end}
 
-{pstd}Output can be exported to a professionally formatted Excel workbook,
-displayed automatically in the Results window, saved as CSV, or stored in a Stata
-{helpb frames:frame} for programmatic access. All tabtools formatting
-options — themes, borders, zebra striping, bold p-values, and custom
-colors — are supported.{p_end}
+{pstd}Output can be exported to a professionally formatted Excel workbook, displayed
+automatically in the Results window, saved as CSV, or stored in a Stata {helpb frames:frame}
+for programmatic access. All tabtools formatting options — themes, borders,
+zebra striping, bold p-values, and custom colors — are supported.{p_end}
 
 {marker options}{title:Options}
 
@@ -94,9 +93,9 @@ colors — are supported.{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below table body{p_end}
 {synoptline}
 
-{pstd}When {opt rmst()} is used, interpret RMST summaries relative to the
-requested truncation time. The estimate is restricted to the observed follow-up
-window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
+{pstd}When {opt rmst()} is used, interpret RMST summaries relative to the requested
+truncation time. The estimate is restricted to the observed follow-up window
+up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
 
 {pstd}With {opt rmst()}, {opt difference}, and a {opt by()} of exactly two
 groups, the between-group RMST difference is reported with a 95% confidence

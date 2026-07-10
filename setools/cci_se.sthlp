@@ -57,37 +57,38 @@
 
 {pstd}
 {cmd:cci_se} computes the Swedish adaptation of the Charlson Comorbidity Index (CCI)
-from diagnosis-level registry data.  The Charlson index is a widely used summary
-score that captures the burden of chronic disease; higher values predict increased
-mortality.
+from diagnosis-level registry data. The Charlson index is a widely used
+summary score that captures the burden of chronic disease; higher values
+predict increased mortality.
 
 {pstd}
-The command implements the algorithm described in Ludvigsson et al. (2021), which
-maps comorbidity definitions across all four ICD revisions used in Swedish national
-health registries: ICD-7 (before 1969), ICD-8 (1969{c -}1986), ICD-9
-(1987{c -}1997), and ICD-10 (1997+).  The correct ICD version is determined
+The command implements the algorithm described in Ludvigsson et al. (2021),
+which maps comorbidity definitions across all four ICD revisions used in
+Swedish national health registries: ICD-7 (before 1969), ICD-8 (1969{c -}1986),
+ICD-9 (1987{c -}1997), and ICD-10 (1997+). The correct ICD version is determined
 automatically from each row's {opt date()} value, so diagnosis records spanning
 decades of registry data can be processed in a single call.
 
 {pstd}
-{bf:What you need:}  Long-format data with one or more rows per patient, where each
-row represents a diagnosis record.  You supply a patient ID, one or more string
+{bf:What you need:} Long-format data with one or more rows per patient, where each
+row represents a diagnosis record. You supply a patient ID, one or more string
 variables containing ICD codes, and a date variable.
 
 {pstd}
-{bf:What you get:}  A patient-level dataset (one row per unique {opt id()}) with the
-weighted CCI score.  Optionally, binary indicators for each of the 18 comorbidity
-components ({opt components}) and their earliest diagnosis dates ({opt dates}).
+{bf:What you get:} A patient-level dataset (one row per unique {opt id()}) with the
+weighted CCI score. Optionally, binary indicators for each of the 18
+comorbidity components ({opt components}) and their earliest diagnosis dates
+({opt dates}).
 
 {pstd}
 Diagnosis codes may be stored in a single string variable or across multiple
-diagnosis variables listed in {opt icd()}.  All diagnosis variables in {opt icd()}
+diagnosis variables listed in {opt icd()}. All diagnosis variables in {opt icd()}
 are assumed to correspond to the same row-level date.
 
 {pstd}
-{bf:Important:}  This command replaces the data in memory with patient-level results.
-Save the CCI output to a temporary file and merge it into your analysis cohort (see
-Example 5).
+{bf:Important:} This command replaces the data in memory with patient-level
+results. Save the CCI output to a temporary file and merge it into your
+analysis cohort (see Example 5).
 
 
 {marker options}{...}
@@ -97,46 +98,44 @@ Example 5).
 
 {phang}
 {opt id(varname)} specifies the patient identifier variable. Each unique value of
-this variable is treated as one patient. The output dataset will have one row per
-unique nonmissing value. Observations with missing {opt id()} are excluded before
-the patient-level collapse.
+this variable is treated as one patient. The output dataset will have one row
+per unique nonmissing value. Observations with missing {opt id()} are excluded
+before the patient-level collapse.
 
 {phang}
 {opt icd(varlist)} specifies one or more string variables containing ICD diagnosis
-codes. Codes may be stored with or without dots (e.g., both {cmd:"I252"} and
-{cmd:"I25.2"} are recognized). Each variable may also contain multiple
-space-separated codes per cell. When multiple diagnosis variables are supplied,
-all of them contribute to the patient-level score for that row's {opt date()}.
-See {help cci_se##formats:ICD code formats} below.
+codes. Codes may be stored with or without dots (e.g., both {cmd:"I252"} and {cmd:"I25.2"}
+are recognized). Each variable may also contain multiple space-separated codes
+per cell. When multiple diagnosis variables are supplied, all of them
+contribute to the patient-level score for that row's {opt date()}. See
+{help cci_se##formats:ICD code formats} below.
 
 {phang}
 {opt date(varname)} specifies the date variable used to determine which ICD version
 applies. The variable can be numeric (Stata daily date or YYYYMMDD integer) or
-string. Use the {opt dateformat()} option to specify the format if auto-detection
-is insufficient. Numeric YYYYMMDD inputs require {opt dateformat(yyyymmdd)}.
-Incompatible {opt dateformat()} and variable-type combinations are rejected.
-Observations with missing or unparseable dates are excluded. See
+string. Use the {opt dateformat()} option to specify the format if auto-detection is
+insufficient. Numeric YYYYMMDD inputs require
+{opt dateformat(yyyymmdd)}. Incompatible {opt dateformat()} and variable-type combinations
+are rejected. Observations with missing or unparseable dates are excluded. See
 {it:Date formats} below.
 
 {dlgtab:Optional}
 
 {phang}
-{opt generate(name)} specifies the name for the generated Charlson score variable.
-The default is {cmd:charlson}.
+{opt generate(name)} specifies the name for the generated Charlson score
+variable. The default is {cmd:charlson}.
 
 {phang}
-{opt components} requests that binary (0/1) indicator variables be generated for each
-of the 18 comorbidity components in addition to the composite score. Variables are
-named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
-{help cci_se##comorbidities:Comorbidities} for the full list.
+{opt components} requests that binary (0/1) indicator variables be generated for
+each of the 18 comorbidity components in addition to the composite
+score. Variables are named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See {help cci_se##comorbidities:Comorbidities} for the full list.
 
 {phang}
 {opt dates} generates a Stata daily date variable for each comorbidity containing
-the earliest diagnosis date. Variables are named {cmd:{it:prefix}mi_date},
-{cmd:{it:prefix}chf_date}, etc. The date is missing for patients without that
-comorbidity. Hierarchy rules are applied to dates in the same way as indicators:
-when a comorbidity is cleared by a hierarchy rule, its date is also cleared.
-Specifying {opt dates} implies {opt components}.
+the earliest diagnosis date. Variables are named {cmd:{it:prefix}mi_date}, {cmd:{it:prefix}chf_date}, etc. The date is missing
+for patients without that comorbidity. Hierarchy rules are applied to dates in
+the same way as indicators: when a comorbidity is cleared by a hierarchy rule,
+its date is also cleared. Specifying {opt dates} implies {opt components}.
 
 {phang}
 {opt prefix(string)} specifies the prefix for component variable names when
@@ -145,16 +144,16 @@ Specifying {opt dates} implies {opt components}.
 {phang}
 {opt dateformat(string)} specifies the format of the date variable:
 
-{phang2}{cmd:stata} {hline 2} Stata daily date (numeric, days since 01jan1960).
-This is the default for numeric date variables and may only be used with numeric
-{opt date()} variables. Values must be whole-number daily dates; other {cmd:%t*}
-time encodings are rejected.{p_end}
+{phang2}{cmd:stata} {hline 2} Stata daily date (numeric, days since 01jan1960). This is the default
+for numeric date variables and may only be used with numeric {opt date()}
+variables. Values must be whole-number daily dates; other {cmd:%t*} time encodings
+are rejected.{p_end}
 
-{phang2}{cmd:yyyymmdd} {hline 2} YYYYMMDD integer or string (e.g., 20200115 or "20200115").
-This is the default for string date variables and may be used with numeric or
-string {opt date()} variables. Numeric inputs must be whole-number YYYYMMDD
-values. Also handles string dates with dashes or
-slashes (e.g., "2020-01-15", "2020/01/15") by stripping separators first.{p_end}
+{phang2}{cmd:yyyymmdd} {hline 2} YYYYMMDD integer or string (e.g., 20200115 or "20200115"). This is
+the default for string date variables and may be used with numeric or string
+{opt date()} variables. Numeric inputs must be whole-number YYYYMMDD values. Also
+handles string dates with dashes or slashes (e.g., "2020-01-15", "2020/01/15")
+by stripping separators first.{p_end}
 
 {phang2}{cmd:ymd} {hline 2} Exact YYYY-MM-DD string format. May only be used with
 string {opt date()}
@@ -162,18 +161,17 @@ variables.{p_end}
 
 {phang}
 {opt indexdate(varname)} restricts the diagnoses that contribute to each patient's
-score to those occurring on or before the row's index date (cohort entry).  This
+score to those occurring on or before the row's index date (cohort entry). This
 avoids scoring comorbidities recorded after follow-up begins (immortal-time /
-post-index contamination).  It must be a Stata daily date with a {cmd:%td} display
-format and whole-number values; it should be constant within {opt id()}.  Rows with
+post-index contamination). It must be a Stata daily date with a {cmd:%td} display
+format and whole-number values; it should be constant within {opt id()}. Rows with
 a missing index date cannot be windowed and are dropped with a note.
 
 {phang}
 {opt lookback(#)} additionally sets a lower bound, keeping only diagnoses in
-[{it:indexdate} - {it:#}, {it:indexdate}] (a {it:#}-day lookback window, e.g.
-{cmd:lookback(1825)} for 5 years).  It requires {opt indexdate()} and must be a
-positive integer.  Without {opt lookback()}, all history on or before the index
-date is included.
+[{it:indexdate} - {it:#}, {it:indexdate}] (a {it:#}-day lookback window, e.g. {cmd:lookback(1825)} for 5
+years). It requires {opt indexdate()} and must be a positive integer. Without
+{opt lookback()}, all history on or before the index date is included.
 
 {phang}
 {opt noisily} displays a summary table including patient counts, mean CCI, and
@@ -184,7 +182,8 @@ date is included.
 {title:Comorbidities}
 
 {pstd}
-The following 18 comorbidity components are assessed, with Charlson weights in parentheses:
+The following 18 comorbidity components are assessed, with Charlson weights in
+parentheses:
 
 {p2colset 5 30 32 2}{...}
 {p2col:Variable}Description (weight){p_end}
@@ -211,8 +210,9 @@ The following 18 comorbidity components are assessed, with Charlson weights in p
 {p2colreset}{...}
 
 {pstd}
-The maximum possible weighted CCI is 30 (all 18 conditions present with hierarchy
-rules applied). Variable names use the specified {opt prefix()} (default {cmd:cci_}).
+The maximum possible weighted CCI is 30 (all 18 conditions present with
+hierarchy rules applied). Variable names use the specified {opt prefix()} (default
+{cmd:cci_}).
 
 
 {marker hierarchy}{...}
@@ -245,14 +245,15 @@ is cleared (the higher-weighted condition takes precedence).{p_end}
 {phang2}{bf:ICD-7/8 with commas:} {cmd:"420,1"}, {cmd:"250,00"}{p_end}
 
 {pstd}
-Dots are stripped internally before matching, so codes in your data may use either
-format. Commas in ICD-7/8 codes are preserved as they are part of the code
-structure.
+Dots are stripped internally before matching, so codes in your data may use
+either format. Commas in ICD-7/8 codes are preserved as they are part of the
+code structure.
 
 {pstd}
-The ICD variables may contain a single code per cell (most common in long-format
-registry data) or multiple space-separated codes per cell. Both formats are handled
-correctly, and multiple diagnosis variables can be listed together in {opt icd()}.
+The ICD variables may contain a single code per cell (most common in
+long-format registry data) or multiple space-separated codes per cell. Both
+formats are handled correctly, and multiple diagnosis variables can be listed
+together in {opt icd()}.
 
 {pstd}
 All matching is case-insensitive. Leading and trailing whitespace is trimmed
@@ -270,11 +271,11 @@ determine how to parse it. If not specified:
 automatically){p_end}
 
 {pstd}
-Allowed combinations are numeric + {cmd:stata}, numeric or string + {cmd:yyyymmdd},
-and string + {cmd:ymd}. With {cmd:stata}, values must be whole-number daily dates.
-With {cmd:yyyymmdd}, numeric inputs must be whole-number YYYYMMDD integers.
-{cmd:ymd} accepts only exact YYYY-MM-DD strings. Other combinations are rejected
-with an error. Numeric YYYYMMDD values are not auto-detected; specify
+Allowed combinations are numeric + {cmd:stata}, numeric or string + {cmd:yyyymmdd}, and
+string + {cmd:ymd}. With {cmd:stata}, values must be whole-number daily dates. With
+{cmd:yyyymmdd}, numeric inputs must be whole-number YYYYMMDD integers. {cmd:ymd} accepts
+only exact YYYY-MM-DD strings. Other combinations are rejected with an
+error. Numeric YYYYMMDD values are not auto-detected; specify
 {cmd:dateformat(yyyymmdd)} explicitly.
 
 
@@ -338,15 +339,15 @@ with an error. Numeric YYYYMMDD values are not auto-detected; specify
 {title:Diagnostics}
 
 {pstd}
-{bf:Zero-match warning.}  If the input contains ICD diagnosis codes but {ul:no}
-patient matches {ul:any} Charlson component (every patient scores 0), {cmd:cci_se}
-prints a warning.  An all-zero index across a cohort that clearly carries diagnoses
-usually signals a code-format or ICD-era problem rather than a genuinely healthy
-cohort {hline 1} for example codes stored with an unexpected separator, or
+{bf:Zero-match warning.} If the input contains ICD diagnosis codes but {ul:no} patient
+matches {ul:any} Charlson component (every patient scores 0), {cmd:cci_se} prints a
+warning. An all-zero index across a cohort that clearly carries diagnoses
+usually signals a code-format or ICD-era problem rather than a genuinely
+healthy cohort {hline 1} for example codes stored with an unexpected separator, or
 {opt date()} values that place the codes in the wrong ICD version (ICD-7/8/9/10 are
-selected by diagnosis year).  Dot and comma separators are stripped automatically;
-check that {opt date()} spans the era of your codes.  The warning is informational
-and never stops execution.
+selected by diagnosis year). Dot and comma separators are stripped
+automatically; check that {opt date()} spans the era of your codes. The warning is
+informational and never stops execution.
 
 
 {marker results}{...}
@@ -376,22 +377,16 @@ missing {opt date()}, and dates that cannot be parsed under the chosen
 {title:References}
 
 {phang}
-Ludvigsson JF, Appelros P, Askling J, Byberg L, Carrero JJ,
-Ekstr{c o:}m AM, Ekstr{c o:}m M, Smedby KE, Hagstr{c o:}m H,
-James S, J{c a:}rvholm B, Mich{c a:}elsson K, Pedersen NL,
-Sundelin H, Sundquist K, Sundstr{c o:}m J.
-Adaptation of the Charlson comorbidity index for register-based
-research in Sweden.
-{it:Clinical Epidemiology}. 2021;13:21{c -}41.
-doi:10.2147/CLEP.S282475
-{p_end}
+Ludvigsson JF, Appelros P, Askling J, Byberg L, Carrero JJ, Ekstr{c o:}m AM,
+Ekstr{c o:}m M, Smedby KE, Hagstr{c o:}m H, James S, J{c a:}rvholm B, Mich{c a:}elsson K, Pedersen
+NL, Sundelin H, Sundquist K, Sundstr{c o:}m J. Adaptation of the Charlson
+comorbidity index for register-based research in
+Sweden. {it:Clinical Epidemiology}. 2021;13:21{c -}41. doi:10.2147/CLEP.S282475 {p_end}
 
 {phang}
-Charlson ME, Pompei P, Ales KL, MacKenzie CR.
-A new method of classifying prognostic comorbidity in longitudinal
-studies: development and validation.
-{it:Journal of Chronic Diseases}. 1987;40(5):373{c -}383.
-{p_end}
+Charlson ME, Pompei P, Ales KL, MacKenzie CR. A new method of classifying
+prognostic comorbidity in longitudinal studies: development and
+validation. {it:Journal of Chronic Diseases}. 1987;40(5):373{c -}383. {p_end}
 
 
 {marker author}{...}

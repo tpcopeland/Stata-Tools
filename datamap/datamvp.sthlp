@@ -102,9 +102,9 @@ unique combination of missing and nonmissing values across the specified
 variables, it shows the pattern, frequency, and number of missing variables.
 
 {pstd}
-In the pattern display, {cmd:+} denotes a nonmissing value and {cmd:.} denotes
-a missing value. For string variables, empty strings are treated as missing.
-Patterns are sorted by frequency (most common first) by default.
+In the pattern display, {cmd:+} denotes a nonmissing value and {cmd:.} denotes a missing
+value. For string variables, empty strings are treated as missing. Patterns
+are sorted by frequency (most common first) by default.
 
 {pstd}
 This command is a fork of {cmd:mvpatterns} by Jeroen Weesie (STB-61: dm91)
@@ -122,15 +122,16 @@ counts, missing counts, and percentages for each variable.
 
 {phang}
 {opt skip} inserts a space in the pattern string after every 5 variables, and
-separator lines in the variable table, to enhance readability with many variables.
+separator lines in the variable table, to enhance readability with many
+variables.
 
 {phang}
 {opt sort} sorts the variables in the display and pattern by descending
 missingness (most missing first).
 
 {phang}
-{opt nodrop} includes variables that have no missing values in the analysis.
-By default, such variables are excluded and listed separately.
+{opt nodrop} includes variables that have no missing values in the analysis. By
+default, such variables are excluded and listed separately.
 
 {phang}
 {opt w:ide} uses a compact display format suitable for analyses with many
@@ -143,9 +144,9 @@ the output.
 {dlgtab:Pattern filtering}
 
 {phang}
-{opt minfreq(#)} specifies the minimum frequency for a pattern to be displayed.
-Patterns with fewer observations are summarized at the end. Default is 1
-(show all patterns).
+{opt minfreq(#)} specifies the minimum frequency for a pattern to be
+displayed. Patterns with fewer observations are summarized at the end. Default
+is 1 (show all patterns).
 
 {phang}
 {opt minmissing(#)} displays only patterns with at least {it:#} missing
@@ -174,10 +175,10 @@ if {cmd:tetrachoric} is unavailable) among the missingness indicators. This
 helps identify variables whose missingness tends to co-occur.
 
 {phang}
-{opt monotone} tests whether the missing data pattern is monotone. A pattern
-is monotone if, for each observation, once a variable is missing, all
-subsequent variables (in the specified or sorted order) are also missing.
-Monotone patterns are important for multiple imputation methods.
+{opt monotone} tests whether the missing data pattern is monotone. A pattern is
+monotone if, for each observation, once a variable is missing, all subsequent
+variables (in the specified or sorted order) are also missing. Monotone
+patterns are important for multiple imputation methods.
 
 {dlgtab:Output}
 
@@ -205,15 +206,15 @@ is specified). Use {opt vertical} for vertical bars.
 
 {phang2}
 {opt graph(patterns)} produces a horizontal bar chart of the most common missing
-value patterns, showing their frequencies. By default shows the top 20 patterns;
-use {opt top(#)} to adjust.
+value patterns, showing their frequencies. By default shows the top 20
+patterns; use {opt top(#)} to adjust.
 
 {phang2}
-{opt graph(matrix)} produces an observation-by-variable heatmap showing
-missingness across the dataset. Missing values appear in red (customizable with
-{opt misscolor()}), observed values in blue (customizable with {opt obscolor()}).
-For large datasets (>500 observations), a random sample is drawn by default.
-Suboptions:
+{opt graph(matrix)} produces an observation-by-variable heatmap showing missingness
+across the dataset. Missing values appear in red (customizable with
+{opt misscolor()}), observed values in blue (customizable with {opt obscolor()}). For
+large datasets (>500 observations), a random sample is drawn by
+default. Suboptions:
 
 {phang3}
 {opt graph(matrix, sample(#))} specifies the number of observations to sample.
@@ -307,27 +308,27 @@ stronger correlations regardless of sign.
 
 {phang}
 {opt gb:y(varname)} stratifies graphs by a categorical variable, producing separate
-faceted panels for each level of the variable. This allows direct comparison of
-missingness patterns across groups (e.g., treatment vs control, male vs female).
-Works with {opt graph(bar)} and {opt graph(patterns)}.
+faceted panels for each level of the variable. This allows direct comparison
+of missingness patterns across groups (e.g., treatment vs control, male vs
+female). Works with {opt graph(bar)} and {opt graph(patterns)}.
 
 {phang}
-{opt over(varname)} overlays bars for each level of the categorical variable
-within the same graph, showing grouped bars side-by-side for direct comparison.
-Only works with {opt graph(bar)}. Uses value labels if available.
+{opt over(varname)} overlays bars for each level of the categorical variable within
+the same graph, showing grouped bars side-by-side for direct comparison. Only
+works with {opt graph(bar)}. Uses value labels if available.
 
 {phang}
 {opt stacked} displays a stacked bar chart where each variable's missingness
 contribution is shown as a segment. Only works with {opt graph(bar)}.
 
 {phang}
-{opt groupgap(#)} specifies the gap between bar groups when using {opt over()}.
-Default is 0. Larger values increase spacing between groups.
+{opt groupgap(#)} specifies the gap between bar groups when using {opt over()}. Default is
+0. Larger values increase spacing between groups.
 
 {phang}
-{opt legendopts(string)} allows customization of the legend when using {opt over()}.
-The string is passed directly to the legend option of the graph command.
-Example: {cmd:legendopts(rows(2) position(3))}
+{opt legendopts(string)} allows customization of the legend when using {opt over()}. The
+string is passed directly to the legend option of the graph
+command. Example: {cmd:legendopts(rows(2) position(3))}
 
 
 {marker examples}{...}
@@ -502,10 +503,10 @@ Utrecht University
 {title:Technical notes}
 
 {pstd}
-{bf:Variable limit:} The maximum number of variables that can be analyzed is
-244, due to Stata's string length limitations for pattern representation.
-If you need to analyze more than 244 variables, consider splitting your
-analysis into multiple runs.
+{bf:Variable limit:} The maximum number of variables that can be analyzed is 244,
+due to Stata's string length limitations for pattern representation. If you
+need to analyze more than 244 variables, consider splitting your analysis into
+multiple runs.
 
 {pstd}
 {bf:Memory considerations:} The {opt graph(matrix)} option automatically samples
@@ -520,10 +521,10 @@ are truncated to 31 characters to comply with Stata's naming limits.
 {title:Also see}
 
 {psee}
-Manual:  {manlink D codebook}, {manlink D misstable}
+Manual: {manlink D codebook}, {manlink D misstable}
 
 {psee}
-{space 2}Help:  {help codebook}, {help misstable}, {help mi_misstable:mi misstable}
+{space 2}Help: {help codebook}, {help misstable}, {help mi_misstable:mi misstable}
 {p_end}
 
 {hline}

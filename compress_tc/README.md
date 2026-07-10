@@ -1,6 +1,6 @@
 # compress_tc - Two-stage compression for string-heavy Stata data
 
-**Version 1.1.0** | 2026-06-19
+**Version 1.1.0** | 2026-07-10
 
 `compress_tc` aggressively reduces memory use in string-heavy datasets by first converting fixed-width string variables to `strL`, then running Stata's built-in `compress` so short or unique strings can move back to ordinary storage when that is smaller. It is a fork of Luke Stein's `strcompress` with additional reporting, option control, and safer validation.
 

@@ -1,6 +1,6 @@
 # spaghetti - Longitudinal trajectory plots with mean overlays
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.0** | 2026-07-10
 
 `spaghetti` draws individual-level trajectory plots for long-format repeated-measures data and can layer group means and confidence bands on top. It is built for panels that are too dense for one-line-per-person graph code, so it uses broken-line grouping internally to stay practical on large datasets.
 

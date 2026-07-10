@@ -57,10 +57,9 @@
 {title:Description}
 
 {pstd}
-{cmd:tvdiagnose} provides diagnostic tools for time-varying exposure datasets.{...}
-It can be used to assess data quality and identify potential issues in
-time-varying datasets, whether created by {cmd:tvexpose}, {cmd:tvmerge},
-or other methods.
+{cmd:tvdiagnose} provides diagnostic tools for time-varying exposure datasets. It
+can be used to assess data quality and identify potential issues in
+time-varying datasets, whether created by {cmd:tvexpose}, {cmd:tvmerge}, or other methods.
 
 {pstd}
 The command provides four diagnostic reports:
@@ -72,12 +71,12 @@ the union of exposure records for each person, clipped to {opt entry()} and
 incomplete coverage.
 
 {phang2}
-{opt gaps} - Identifies and quantifies gaps between consecutive periods.{...}
-Reports gap durations and flags gaps exceeding the threshold.
+{opt gaps} - Identifies and quantifies gaps between consecutive periods. Reports gap
+durations and flags gaps exceeding the threshold.
 
 {phang2}
-{opt overlaps} - Detects overlapping periods within persons.{...}
-Overlaps may indicate data quality issues or intentional features.
+{opt overlaps} - Detects overlapping periods within persons. Overlaps may indicate
+data quality issues or intentional features.
 
 {phang2}
 {opt summarize} - Provides exposure distribution statistics including
@@ -107,8 +106,8 @@ clipped to the study window and overlapping days are counted once. Requires
 person-constant numeric {opt entry()} and {opt exit()} variables.
 
 {phang}
-{opt gaps} analyzes gaps between consecutive periods within each person.{...}
-Reports gap locations, durations, and summary statistics.
+{opt gaps} analyzes gaps between consecutive periods within each person. Reports gap
+locations, durations, and summary statistics.
 
 {phang}
 {opt overlaps} detects overlapping periods within persons. Overlaps occur
@@ -153,10 +152,9 @@ this threshold are flagged in the output. Default is 30 days.
 are shown and a note is displayed.
 
 {phang}
-{opt verbose} displays individual IDs and dates in diagnostic output.{...}
-Without {cmd:verbose}, only summary counts are shown for coverage, gaps,
-and overlaps. When issues are detected, a hint to use {cmd:verbose} is
-displayed.
+{opt verbose} displays individual IDs and dates in diagnostic output. Without
+{cmd:verbose}, only summary counts are shown for coverage, gaps, and overlaps. When
+issues are detected, a hint to use {cmd:verbose} is displayed.
 
 
 {marker examples}{...}
@@ -181,8 +179,8 @@ Check what fraction of each person's follow-up is covered by exposure records:
 {phang3}{cmd:entry(study_entry) exit(study_exit) coverage}{p_end}
 
 {pstd}
-Reports mean/min/max coverage and the number of persons with gaps.{...}
-Add {cmd:verbose} to list per-person details.
+Reports mean/min/max coverage and the number of persons with gaps. Add {cmd:verbose}
+to list per-person details.
 
 {pstd}
 {bf:Example 2: Run all diagnostics}
@@ -194,8 +192,8 @@ Combine all four reports in a single call:
 {phang3}{cmd:exposure(tv_exposure) entry(study_entry) exit(study_exit) all verbose}{p_end}
 
 {pstd}
-{cmd:all} is equivalent to specifying {cmd:coverage gaps overlaps summarize}.{...}
-The {cmd:verbose} option shows individual IDs and dates for every issue found.
+{cmd:all} is equivalent to specifying {cmd:coverage gaps overlaps summarize}. The {cmd:verbose}
+option shows individual IDs and dates for every issue found.
 
 {pstd}
 {bf:Example 3: Flag large gaps}

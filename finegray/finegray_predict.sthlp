@@ -45,10 +45,12 @@
 {title:Description}
 
 {pstd}
-{cmd:finegray_predict} generates predictions after {helpb finegray}. Three prediction types are available:
+{cmd:finegray_predict} generates predictions after {helpb finegray}. Three
+prediction types are available:
 
 {phang2}
-{bf:xb} (default) computes the linear predictor z'beta from the Fine-Gray model coefficient vector.
+{bf:xb} (default) computes the linear predictor z'beta from the Fine-Gray
+model coefficient vector.
 
 {phang2}
 {bf:cif} computes the cumulative incidence function: CIF(t|z) = 1 -
@@ -58,8 +60,8 @@ subdistribution hazard stored in {cmd:e(basehaz)}.
 {phang2}
 {bf:schoenfeld} computes Schoenfeld residuals at cause-event times. For a
 model with p covariates, this creates p variables: {it:newvar} for the first
-covariate, {it:newvar}{cmd:_2} through {it:newvar}{cmd:_}{it:p} for the rest.
-Residuals are missing for non-cause-event observations.
+covariate, {it:newvar}{cmd:_2} through {it:newvar}{cmd:_}{it:p} for the
+rest. Residuals are missing for non-cause-event observations.
 
 {pstd}
 {bf:What time point does the CIF use?} By default, {opt cif} evaluates the
@@ -85,8 +87,9 @@ rescales the baseline {it:survival} 1 - F0(t), {bf:not} the baseline CIF F0(t)
 itself. The correct adjustment is CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), and
 {bf:not} F0(t)^exp(z'beta). Raising the CIF directly to the exp(z'beta) power is
 a common mistake — it moves the CIF in the wrong direction (toward 0) when
-z'beta > 0. Using {cmd:stcrreg}'s {cmd:basecif} as F0(t), {cmd:finegray_predict,
-cif} matches 1 - (1 - {cmd:basecif})^exp(z'beta) to numerical precision.
+z'beta > 0. Using {cmd:stcrreg}'s {cmd:basecif} as F0(t),
+{cmd:finegray_predict, cif} matches 1 - (1 - {cmd:basecif})^exp(z'beta) to
+numerical precision.
 
 {pstd}
 {cmd:finegray} must have been run before using {cmd:finegray_predict}. For
@@ -98,9 +101,9 @@ informative error.
 {pstd}
 The {opt ci} and {opt schoenfeld} paths verify that the original estimation
 sample and its model variables are unchanged. If those data have been edited,
-the command exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run.
-Point predictions with {opt xb}, and point {opt cif} predictions without
-{opt ci}, remain available on compatible new data.
+the command exits with {cmd:r(459)} and requires {cmd:finegray} to be
+re-run. Point predictions with {opt xb}, and point {opt cif} predictions
+without {opt ci}, remain available on compatible new data.
 
 {pstd}
 {bf:Data requirements by prediction type:} {opt xb} predictions can be
@@ -120,8 +123,8 @@ reproduces {cmd:predict, basecif}; and {cmd:e(basehaz)} equals {cmd:stcrreg}'s
 cumulative-subhazard analogue (H0(t) = -ln(1 - {cmd:basecif})) at each
 distinct event time. The per-observation {opt cif} is the covariate-adjusted
 CIF, which {cmd:stcrreg} exposes only through {cmd:stcurve, cif at()} (not
-{cmd:predict}); {cmd:finegray_predict, cif} matches it to numerical precision.
-{opt schoenfeld} residuals are identical to {cmd:predict, schoenfeld}
+{cmd:predict}); {cmd:finegray_predict, cif} matches it to numerical
+precision. {opt schoenfeld} residuals are identical to {cmd:predict, schoenfeld}
 {bf:at untied cause-event times}. At a {bf:tied} cause-event time the two
 implementations split the residual among the simultaneous events using
 different conventions, so an individual residual at a tied time can differ
@@ -137,7 +140,8 @@ unchanged.
 {title:Options}
 
 {phang}
-{opt xb} computes the linear predictor z'beta. This is the default if neither {opt cif} nor {opt schoenfeld} is specified.
+{opt xb} computes the linear predictor z'beta. This is the default if
+neither {opt cif} nor {opt schoenfeld} is specified.
 
 {phang}
 {opt cif} computes the cumulative incidence function (CIF) at each
@@ -154,10 +158,11 @@ variable.
 {opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For a
 model with {it:p} covariates, {it:p} variables are created: {it:newvar}
 contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
-{it:newvar}{cmd:_}{it:p} contain residuals for the remaining covariates.
-Residuals are set to missing for observations that are not cause-of-interest
-events. {opt timevar()} has no effect when {opt schoenfeld} is specified;
-residuals are always computed at the original event times. The residuals match
+{it:newvar}{cmd:_}{it:p} contain residuals for the remaining
+covariates. Residuals are set to missing for observations that are not
+cause-of-interest events. {opt timevar()} has no effect when {opt schoenfeld}
+is specified; residuals are always computed at the original event times. The
+residuals match
 {helpb stcrreg}'s {cmd:predict, schoenfeld} exactly at untied event times; at a
 tied event time the per-event split follows {cmd:finegray}'s own convention but
 preserves the per-time total (see {it:Relationship to stcrreg predictions}
@@ -260,7 +265,8 @@ the underlying factor term rather than an internal tempvar.
 {title:Stored results}
 
 {pstd}
-{cmd:finegray_predict} creates a new variable but does not store results in {cmd:r()} or {cmd:e()}. The new variable is labeled:
+{cmd:finegray_predict} creates a new variable but does not store results in
+{cmd:r()} or {cmd:e()}. The new variable is labeled:
 
 {phang2}{cmd:xb}: "Linear prediction (xb)"{p_end}
 {phang2}{cmd:cif}: "CIF prediction"{p_end}

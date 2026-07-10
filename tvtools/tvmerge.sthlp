@@ -99,10 +99,11 @@ on raw exposure files. The typical workflow is:
 3. Run {cmd:tvmerge} on the saved {cmd:tvexpose} outputs
 
 {pstd}
-Unlike standard Stata {cmd:merge}, {cmd:tvmerge} performs time-interval matching rather than simple 
-key-based matching. It identifies temporal overlaps between the {cmd:tvexpose} outputs and creates new time intervals 
-representing the intersections of exposure periods. The command creates all possible overlapping 
-combinations between datasets (cartesian product).
+Unlike standard Stata {cmd:merge}, {cmd:tvmerge} performs time-interval matching rather
+than simple key-based matching. It identifies temporal overlaps between the
+{cmd:tvexpose} outputs and creates new time intervals representing the intersections
+of exposure periods. The command creates all possible overlapping combinations
+between datasets (cartesian product).
 
 {pstd}
 {bf:Exposure types}: {cmd:tvmerge} handles two types of exposures:
@@ -117,9 +118,9 @@ a separate period.
 is prorated proportionally when intervals are split during merging.
 
 {pstd}
-{bf:Important}: {cmd:tvmerge} replaces the dataset currently in memory with the merged result. Use 
-{opt saveas()} to save results to a file, or load your original data from a saved file before running 
-if you need to preserve it.
+{bf:Important}: {cmd:tvmerge} replaces the dataset currently in memory with the merged
+result. Use {opt saveas()} to save results to a file, or load your original data
+from a saved file before running if you need to preserve it.
 
 
 {marker options}{...}
@@ -128,9 +129,10 @@ if you need to preserve it.
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier variable that must exist in all datasets with identical 
-names. This variable links records across datasets. It may be numeric or
-{cmd:str#}; {cmd:strL} identifiers are not allowed (recast to {cmd:str#} first).
+{opt id(varname)} specifies the person identifier variable that must exist in all
+datasets with identical names. This variable links records across datasets. It
+may be numeric or {cmd:str#}; {cmd:strL} identifiers are not allowed (recast to {cmd:str#}
+first).
 
 {phang}
 {opt start(namelist)} specifies the start date variables for all datasets,
@@ -148,12 +150,11 @@ listed in the same order as the datasets in the command line.
 {dlgtab:Input}
 
 {phang}
-{opt frames(namelist)} reads the input datasets from named {help frame:frames}
-held in memory instead of from files on disk, in the order listed. This removes
-the save/use round-trip when each {cmd:tvexpose} output is already a frame.{...}
-Supply either the positional file list or {opt frames()}, not both. All other
-options ({opt start()}, {opt stop()}, {opt exposure()}, etc.) apply per input
-exactly as with file paths.
+{opt frames(namelist)} reads the input datasets from named {help frame:frames} held in memory
+instead of from files on disk, in the order listed. This removes the save/use
+round-trip when each {cmd:tvexpose} output is already a frame. Supply either the
+positional file list or {opt frames()}, not both. All other options ({opt start()},
+{opt stop()}, {opt exposure()}, etc.) apply per input exactly as with file paths.
 
 
 {dlgtab:Exposure types}
@@ -168,9 +169,9 @@ are prorated proportionally when intervals are split during merging.
 {dlgtab:Output naming}
 
 {phang}
-{opt generate(namelist)} specifies new names for exposure variables in the output dataset. Provide exactly
-one name per dataset, in the same order as the datasets. This option is mutually exclusive with
-{opt prefix()}.
+{opt generate(namelist)} specifies new names for exposure variables in the output
+dataset. Provide exactly one name per dataset, in the same order as the
+datasets. This option is mutually exclusive with {opt prefix()}.
 
 {pmore}
 When {opt generate()} is {it:not} given and two or more inputs carry the same
@@ -181,20 +182,22 @@ note, instead of erroring. To skip the rename entirely, give each
 {cmd:tvexpose} run a distinct {opt generate()} name up front.
 
 {phang}
-{opt prefix(string)} adds a prefix to all exposure variable names in the output. For example, 
-{cmd:prefix(exp_)} would create variables named exp1, exp2, etc. This option is mutually exclusive with {opt generate()}.
+{opt prefix(string)} adds a prefix to all exposure variable names in the output. For
+example, {cmd:prefix(exp_)} would create variables named exp1, exp2, etc. This
+option is mutually exclusive with {opt generate()}.
 
 {phang}
-{opt startname(string)} specifies the name for the start date variable in the output dataset. Default is 
-"start".
+{opt startname(string)} specifies the name for the start date variable in the output
+dataset. Default is "start".
 
 {phang}
-{opt stopname(string)} specifies the name for the stop date variable in the output dataset. Default is 
-"stop".
+{opt stopname(string)} specifies the name for the stop date variable in the output
+dataset. Default is "stop".
 
 {phang}
-{opt dateformat(fmt)} specifies the Stata date format to apply to the output start and stop date variables.{...}
-Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
+{opt dateformat(fmt)} specifies the Stata date format to apply to the output start
+and stop date variables. Default is %tdCCYY/NN/DD. Any valid Stata date format
+may be used.
 
 
 {dlgtab:Data management}
@@ -216,11 +219,11 @@ in {cmd:r(frameout)}. If the frame already exists, specify {cmd:replace}.
 
 {phang}
 {opt keep(varlist)} specifies additional variables to keep from the source
-datasets. These variables are included in the output dataset with _ds# suffixes
-(where # is the dataset number) to distinguish variables from different sources. For
-example, if you specify {cmd:keep(dose)}, the output will contain dose_ds1,
-dose_ds2, and so on. The ID variable, start and stop date variables, and
-exposure variables are always kept and do not receive suffixes.
+datasets. These variables are included in the output dataset with _ds#
+suffixes (where # is the dataset number) to distinguish variables from
+different sources. For example, if you specify {cmd:keep(dose)}, the output will
+contain dose_ds1, dose_ds2, and so on. The ID variable, start and stop date
+variables, and exposure variables are always kept and do not receive suffixes.
 
 
 {dlgtab:Diagnostics and validation}
@@ -243,8 +246,8 @@ overlaps found are listed showing the ID and the overlapping periods. This can
 indicate data quality issues or unintended merge results.
 
 {phang}
-{opt summarize} displays summary statistics (min, max, mean, percentiles) for the start and stop date
-variables in the merged output dataset.
+{opt summarize} displays summary statistics (min, max, mean, percentiles) for the
+start and stop date variables in the merged output dataset.
 
 {phang}
 {opt flow} reports an attrition table: the number of persons (union of distinct
@@ -265,9 +268,9 @@ counts are shown and a hint to use {cmd:verbose} is displayed.
 {phang}
 {opt force} allows merging datasets where the set of IDs does not match exactly
 across all datasets. By default, {cmd:tvmerge} errors if any IDs appear in some
-datasets but not others, because {cmd:joinby} silently drops non-matching IDs.{...}
-With {opt force}, mismatched IDs are dropped with a warning showing which IDs
-were affected and how many observations were removed. Only IDs present in ALL
+datasets but not others, because {cmd:joinby} silently drops non-matching IDs. With
+{opt force}, mismatched IDs are dropped with a warning showing which IDs were
+affected and how many observations were removed. Only IDs present in ALL
 datasets appear in the output. This is useful when merging exposure data that
 covers a subset of a cohort.
 
@@ -290,37 +293,42 @@ one-time note and is otherwise a no-op.
 {bf:Understanding merge strategies}
 
 {pstd}
-The merge creates all possible combinations of overlapping periods (Cartesian product). For example, 
-if person 1 has two antidepressant periods that overlap with three benzodiazepine periods, the merge will
-produce six output records representing all combinations.
+The merge creates all possible combinations of overlapping periods (Cartesian
+product). For example, if person 1 has two antidepressant periods that overlap
+with three benzodiazepine periods, the merge will produce six output records
+representing all combinations.
 
 {pstd}
 {bf:Time period validity}
 
 {pstd}
-All input datasets must have valid time periods where start <= stop. Records with invalid periods
-(start > stop) are automatically excluded with a warning message. Point-in-time observations (where
-start = stop) are valid; for example, lab measurements or clinic visits that occur on a single day.
+All input datasets must have valid time periods where start <= stop. Records
+with invalid periods (start > stop) are automatically excluded with a warning
+message. Point-in-time observations (where start = stop) are valid; for
+example, lab measurements or clinic visits that occur on a single day.
 
 
 {pstd}
 {bf:Missing values}
 
 {pstd}
-Missing exposure values are retained by default and appear in the output dataset. Missing date values 
-will cause records to be excluded (they cannot define valid time periods).
+Missing exposure values are retained by default and appear in the output
+dataset. Missing date values will cause records to be excluded (they cannot
+define valid time periods).
 
 
 {pstd}
 {bf:Variable naming and suffixes}
 
 {pstd}
-When using {opt keep()}, additional variables from different source datasets receive _ds# suffixes 
-(where # is 1, 2, 3, etc., corresponding to the dataset order). This prevents naming conflicts when 
-the same variable name appears in multiple datasets. The ID variable is not suffixed because it 
-represents the same entity across all datasets. The output start and stop date variables are not 
-suffixed because they represent the merged time intervals, not source-specific values. Exposure 
-variables are renamed according to {opt generate()}, {opt prefix()}, or default names (exp1, exp2, etc.).
+When using {opt keep()}, additional variables from different source datasets receive
+_ds# suffixes (where # is 1, 2, 3, etc., corresponding to the dataset
+order). This prevents naming conflicts when the same variable name appears in
+multiple datasets. The ID variable is not suffixed because it represents the
+same entity across all datasets. The output start and stop date variables are
+not suffixed because they represent the merged time intervals, not
+source-specific values. Exposure variables are renamed according to
+{opt generate()}, {opt prefix()}, or default names (exp1, exp2, etc.).
 
 {pstd}
 {bf:Performance considerations}
@@ -345,18 +353,20 @@ command is run quietly.
 {title:Examples}
 
 {pstd}
-{bf:IMPORTANT}: All examples below assume you have first created time-varying datasets
-using {helpb tvexpose}. The examples use synthetic datasets from {bf:_data/} modeling
-an SSRI vs SNRI antidepressant study.
+{bf:IMPORTANT}: All examples below assume you have first created time-varying
+datasets using {helpb tvexpose}. The examples use synthetic datasets from {bf:_data/}
+modeling an SSRI vs SNRI antidepressant study.
 
 {pstd}
 The standard workflow is:
 
 {phang2}
-Step 1: Create time-varying antidepressant dataset using {cmd:tvexpose}, rename exposure
+Step 1: Create time-varying antidepressant dataset using {cmd:tvexpose}, rename
+exposure
 
 {phang2}
-Step 2: Create time-varying benzodiazepine dataset using {cmd:tvexpose}, rename exposure
+Step 2: Create time-varying benzodiazepine dataset using {cmd:tvexpose}, rename
+exposure
 
 {phang2}
 Step 3: Merge the two time-varying datasets using {cmd:tvmerge}
@@ -399,7 +409,8 @@ Now merge the two time-varying datasets created by tvexpose:
 {phang3}{cmd:exposure(drug_class benzo)}{p_end}
 
 {pstd}
-The output dataset contains one row for each unique combination of overlapping antidepressant and benzodiazepine periods.
+The output dataset contains one row for each unique combination of overlapping
+antidepressant and benzodiazepine periods.
 
 
 {pstd}
@@ -415,14 +426,16 @@ Same workflow as Example 1, but specify custom names for output variables:
 {phang3}{cmd:startname(period_start) stopname(period_end)}{p_end}
 
 {pstd}
-Output variables are named antidep_class, concomitant_benzo, period_start, and period_end instead of the defaults.
+Output variables are named antidep_class, concomitant_benzo, period_start, and
+period_end instead of the defaults.
 
 
 {pstd}
 {bf:Example 3: Keep additional covariates from tvexpose outputs}
 
 {pstd}
-When running tvexpose, use keepvars() to bring covariates into the time-varying datasets:
+When running tvexpose, use keepvars() to bring covariates into the
+time-varying datasets:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
@@ -462,7 +475,8 @@ and benzo.
 {bf:Example 4: Diagnostics and validation}
 
 {pstd}
-Check the merge results for coverage issues (assume tv_antidep.dta and tv_benzo.dta already created):
+Check the merge results for coverage issues (assume tv_antidep.dta and
+tv_benzo.dta already created):
 
 {phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
@@ -470,10 +484,10 @@ Check the merge results for coverage issues (assume tv_antidep.dta and tv_benzo.
 {phang3}{cmd:check validatecoverage validateoverlap summarize}{p_end}
 
 {pstd}
-The {cmd:check} option displays how many persons were merged, average periods
-per person, and maximum periods. {cmd:validatecoverage} identifies any gaps in
-the merged timeline. {cmd:validateoverlap} flags unexpected overlapping periods. {cmd:summarize}
-shows date range statistics.
+The {cmd:check} option displays how many persons were merged, average periods per
+person, and maximum periods. {cmd:validatecoverage} identifies any gaps in the
+merged timeline. {cmd:validateoverlap} flags unexpected overlapping
+periods. {cmd:summarize} shows date range statistics.
 
 
 {pstd}
@@ -517,14 +531,16 @@ Create one tvexpose output with evertreated and another with currentformer:
 {phang3}{cmd:generate(antidep_ever benzo_status)}{p_end}
 
 {pstd}
-This combines an ever-treated antidepressant variable with a current/former benzodiazepine variable in a single dataset.
+This combines an ever-treated antidepressant variable with a current/former
+benzodiazepine variable in a single dataset.
 
 
 {pstd}
 {bf:Example 7: Prefix for systematic naming}
 
 {pstd}
-Use a prefix instead of custom names (assume tv_antidep.dta and tv_benzo.dta already created):
+Use a prefix instead of custom names (assume tv_antidep.dta and tv_benzo.dta
+already created):
 
 {phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo) prefix(exp_)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
@@ -532,14 +548,16 @@ Use a prefix instead of custom names (assume tv_antidep.dta and tv_benzo.dta alr
 {phang3}{cmd:prefix(exp_)}{p_end}
 
 {pstd}
-This creates variables named exp_1 (antidepressant class) and exp_2 (benzodiazepine) in the output.
+This creates variables named exp_1 (antidepressant class) and exp_2
+(benzodiazepine) in the output.
 
 
 {pstd}
 {bf:Example 8: Integration with cohort data}
 
 {pstd}
-After merging tvexpose outputs, merge with the cohort file for additional baseline characteristics:
+After merging tvexpose outputs, merge with the cohort file for additional
+baseline characteristics:
 
 {phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
@@ -548,14 +566,16 @@ After merging tvexpose outputs, merge with the cohort file for additional baseli
 {phang2}{cmd:. merge m:1 id using _data/cohort.dta, keepusing(index_age female education) keep(match) nogen}{p_end}
 
 {pstd}
-This brings baseline demographic variables into the merged exposure dataset for regression analysis.
+This brings baseline demographic variables into the merged exposure dataset
+for regression analysis.
 
 
 {pstd}
 {bf:Example 9: Comprehensive workflow with validation}
 
 {pstd}
-Complete workflow from tvexpose through tvmerge, validation, and survival analysis:
+Complete workflow from tvexpose through tvmerge, validation, and survival
+analysis:
 
 {phang2}{cmd:. * Step 1: Create time-varying antidepressant dataset}{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
@@ -608,7 +628,8 @@ Merge a categorical antidepressant variable with continuous DDD rates:
 {phang3}{cmd:continuous(ddd_rate)}{p_end}
 
 {pstd}
-This creates variables: drug_class (categorical) and ddd_rate (rate per day, prorated to each time slice).
+This creates variables: drug_class (categorical) and ddd_rate (rate per day,
+prorated to each time slice).
 
 
 {pstd}
@@ -673,9 +694,9 @@ ignored.
 {title:Also see}
 
 {psee}
-Manual:  {manlink D merge}
+Manual: {manlink D merge}
 
 {psee}
-Online:  {helpb tvexpose}, {helpb merge}, {helpb joinby}, {helpb append}
+Online: {helpb tvexpose}, {helpb merge}, {helpb joinby}, {helpb append}
 
 {hline}

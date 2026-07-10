@@ -62,16 +62,17 @@ the underlying factor term names in output and {cmd:r(phtest)} rownames.
 the estimation sample and therefore requires the unchanged original {cmd:stset}
 data. It verifies a signature covering {cmd:_t}, {cmd:_t0}, {cmd:_d}, the event
 type, covariates, strata, cluster, and any persisted entry-time variable. If
-those data have changed, it exits with {cmd:r(459)}; re-run {cmd:finegray}.
-Unlike {cmd:finegray_predict, xb}, it cannot be run after loading a new dataset.
+those data have changed, it exits with {cmd:r(459)}; re-run
+{cmd:finegray}. Unlike {cmd:finegray_predict, xb}, it cannot be run after
+loading a new dataset.
 
 
 {marker options}{...}
 {title:Options}
 
 {phang}
-{opt time(function)} specifies the time function used in the correlation test.
-{cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
+{opt time(function)} specifies the time function used in the correlation
+test. {cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
 log(time). {cmd:identity} uses raw event times. The rank transformation is
 robust to outliers and is the standard choice.
 

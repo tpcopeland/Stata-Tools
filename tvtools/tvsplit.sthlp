@@ -78,9 +78,9 @@ For splitting on a single axis (and for {opt saveas()} convenience), see
 {opt id(varname)} specifies the person identifier.
 
 {phang}
-{opt start(varname)} and {opt stop(varname)} specify the intervals to split.{...}
-They are overwritten in place with the split bounds (the number of rows grows).{...}
-Both must be non-missing daily Stata dates.
+{opt start(varname)} and {opt stop(varname)} specify the intervals to split. They are
+overwritten in place with the split bounds (the number of rows grows). Both
+must be non-missing daily Stata dates.
 
 {dlgtab:Axes (specify at least one)}
 
@@ -97,11 +97,10 @@ date-of-birth variable {it:dobvar}. Suboptions: {opt width(#)} (years, default 1
 data), and {opt generate(name)} (band variable, default {cmd:calband}).
 
 {phang}
-{opt elapsed(refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the
-reference-date variable {it:refvar} (for example study entry). Suboptions:
-{opt width(#)} (default 1), {opt unit(day|year)} (default {cmd:day}),
-{opt min(#)}/{opt max(#)}, and {opt generate(name)} (band variable, default
-{cmd:fuband}).
+{opt elapsed(refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date
+variable {it:refvar} (for example study entry). Suboptions: {opt width(#)} (default 1),
+{opt unit(day|year)} (default {cmd:day}), {opt min(#)}/{opt max(#)}, and {opt generate(name)} (band
+variable, default {cmd:fuband}).
 
 {dlgtab:General}
 
@@ -172,7 +171,7 @@ without gaps or overlaps.
 {title:Also see}
 
 {psee}
-{space 2}Help:  {help tvband}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
+{space 2}Help: {help tvband}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
 {p_end}
 
 {hline}

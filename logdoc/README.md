@@ -459,7 +459,7 @@ Version 1.1.2
 
 ### Changelog
 
-- **1.1.2** (2026-07-09) -- Reject shell-control characters in user-supplied
+- **1.1.2** (2026-07-10) -- Reject shell-control characters in user-supplied
   paths, Python executable values, and pip package requests before any external
   shell call; preserve embedded double quotes when batch, session, and replay
   commands rebuild options.

@@ -1,6 +1,6 @@
 # qba -- Quantitative Bias Analysis for Stata
 
-**Version 1.0.1** | 2026-06-19
+**Version 1.0.1** | 2026-07-10
 
 Quantitative bias analysis toolkit for epidemiologic data, implementing the methods in Lash, Fox, and Fink's *Applying Quantitative Bias Analysis to Epidemiologic Data* (2nd ed., Springer 2021). Corrects point estimates and confidence intervals for the three major sources of systematic error that survive conventional multivariable adjustment: exposure or outcome misclassification (`qba_misclass`), selection bias from differential participation (`qba_selection`), and unmeasured confounding (`qba_confound`). A multi-bias chain (`qba_multi`) applies all three corrections inside one Monte Carlo simulation, and `qba_plot` provides tornado, Monte Carlo distribution, and tipping-point visualizations.
 

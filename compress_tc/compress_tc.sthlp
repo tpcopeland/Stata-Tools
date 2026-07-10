@@ -31,7 +31,7 @@
 {syntab:Main}
 {synopt:{opt noc:ompress}}skip the {cmd:compress} step; perform strL conversion only{p_end}
 {synopt:{opt nos:trl}}skip strL conversion; perform standard {cmd:compress} only{p_end}
-{synopt:{opt low:mem}}convert and compress one variable at a time to cap peak memory{p_end}
+{synopt:{opt low:mem}}convert one variable at a time to cap peak memory{p_end}
 {synopt:{opt dry:run}}report projected savings without modifying the data{p_end}
 {synopt:{opt min:length(#)}}only convert {cmd:str}{it:#} variables at least {it:#} bytes wide to strL{p_end}
 
@@ -73,8 +73,8 @@ If {varlist} is not specified, {cmd:compress_tc} operates on all variables.
 conversion. Use this to see the effect of strL conversion alone.
 
 {phang}
-{opt nostrl} skips the strL conversion, performing only standard {cmd:compress}.
-Equivalent to running {cmd:compress} directly but with memory reporting.
+{opt nostrl} skips the strL conversion, performing only standard
+{cmd:compress}. Equivalent to running {cmd:compress} directly but with memory reporting.
 
 {phang}
 {opt lowmem} recasts and compresses one variable at a time instead of recasting
@@ -118,10 +118,10 @@ conversion.
 
 {phang}
 {opt varsavings} displays a per-variable table showing each processed variable's
-type transition and its memory use before and after compression, with the bytes
-saved. Sizes are shown in the most readable unit (B, KB, MB, or GB). For
-variables that end as {cmd:strL}, the per-variable bytes live in a shared heap
-and cannot be attributed to a single variable, so they are shown as a dash unless
+type transition and its memory use before and after compression, with the
+bytes saved. Sizes are shown in the most readable unit (B, KB, MB, or GB). For
+variables that end as {cmd:strL}, the per-variable bytes live in a shared heap and
+cannot be attributed to a single variable, so they are shown as a dash unless
 {opt lowmem} is also specified (which measures each variable's actual delta).
 
 
@@ -205,7 +205,8 @@ separate heap with deduplication and compression. Identical strings are stored
 only once, and long strings are compressed using zlib. This is particularly
 effective for:
 
-{phang2}- Datasets with many repeated string values (e.g., categorical data stored as strings){p_end}
+{phang2}- Datasets with many repeated string values (e.g., categorical data stored as
+strings){p_end}
 {phang2}- Variables with long strings (e.g., addresses, descriptions, notes){p_end}
 {phang2}- Variables with many missing/empty values{p_end}
 

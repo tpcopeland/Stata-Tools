@@ -15,7 +15,8 @@
 {title:Title}
 
 {phang}
-{bf:diagtab} {hline 2} Diagnostic accuracy table with sensitivity, specificity, and predictive values
+{bf:diagtab} {hline 2} Diagnostic accuracy table with sensitivity, specificity, and
+predictive values
 
 {marker package}{title:Package}
 
@@ -37,13 +38,13 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 
 {marker description}{title:Description}
 
-{pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2
-classification table: sensitivity, specificity, PPV, NPV, accuracy,
-likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
-intervals use Wilson score (default) or Clopper-Pearson exact method. If
-{opt cutoff()}, {opt cutoffs()}, and {opt optimal} are all omitted, {it:test_var}
-must already be coded 0/1. The completed table is displayed in the Results
-window and may also be exported to Excel, CSV, or Markdown, or stored in a Stata frame.{p_end}
+{pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2 classification
+table: sensitivity, specificity, PPV, NPV, accuracy, likelihood ratios,
+diagnostic odds ratio, and optionally AUC. Confidence intervals use Wilson
+score (default) or Clopper-Pearson exact method. If {opt cutoff()}, {opt cutoffs()}, and
+{opt optimal} are all omitted, {it:test_var} must already be coded 0/1. The completed
+table is displayed in the Results window and may also be exported to Excel,
+CSV, or Markdown, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
@@ -80,19 +81,19 @@ window and may also be exported to Excel, CSV, or Markdown, or stored in a Stata
 
 {dlgtab:Diagnostic details}
 
-{phang}{opt cut:off(#)} dichotomize a continuous test variable at this threshold.
-Values >= cutoff are classified as test-positive.{p_end}
+{phang}{opt cut:off(#)} dichotomize a continuous test variable at this threshold. Values >=
+cutoff are classified as test-positive.{p_end}
 
 {phang}{opt cutoffs(numlist)} evaluate diagnostic accuracy at multiple cutoff
 values. Produces one section per cutoff in the displayed/exported table and
-returns the combined results in {cmd:r(cutoff_table)} plus the original cutoff
-list in {cmd:r(cutoffs)}. When {opt cutoffs()} is used, the single-cutoff
-scalars such as {cmd:r(sensitivity)} and {cmd:r(specificity)} are not returned.
-Cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}.{p_end}
+returns the combined results in {cmd:r(cutoff_table)} plus the original cutoff list
+in {cmd:r(cutoffs)}. When {opt cutoffs()} is used, the single-cutoff scalars such as
+{cmd:r(sensitivity)} and {cmd:r(specificity)} are not returned. Cannot be combined with
+{opt cutoff()}, {opt auc}, or {opt optimal}.{p_end}
 
-{phang}{opt prevalence(#)} adjust PPV and NPV for a specified prevalence using
-Bayes' theorem. Useful when the study sample prevalence differs from the target population.
-Specify a proportion strictly between 0 and 1.{p_end}
+{phang}{opt prevalence(#)} adjust PPV and NPV for a specified prevalence using Bayes'
+theorem. Useful when the study sample prevalence differs from the target
+population. Specify a proportion strictly between 0 and 1.{p_end}
 
 {phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of
 Wilson score. May not be combined with {opt wilson}.{p_end}
@@ -104,10 +105,10 @@ default). May not be combined with {opt exact}.{p_end}
 with {opt cutoffs()}, and requires both outcome classes to be present in
 {it:gold_var}.{p_end}
 
-{phang}{opt optimal} find the optimal cutoff that maximizes Youden's J index
-(sensitivity + specificity - 1). Requires a continuous test variable. If
-{opt cutoff()} is omitted, the displayed 2x2 table is evaluated at the optimal cutoff.
-Cannot be combined with {opt cutoffs()}.{p_end}
+{phang}{opt optimal} find the optimal cutoff that maximizes Youden's J index (sensitivity +
+specificity - 1). Requires a continuous test variable. If {opt cutoff()} is omitted,
+the displayed 2x2 table is evaluated at the optimal cutoff. Cannot be combined
+with {opt cutoffs()}.{p_end}
 
 {phang}{opt digits(#)} decimal places for diagnostic measures and CIs
 (default 1, range 0-6).{p_end}
@@ -138,11 +139,10 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {phang3}{cmd:xlsx(diag_multi.xlsx) ///}{p_end}
 {phang3}{cmd:title("Diagnostic Accuracy Across Cutoffs")}{p_end}
 
-{pstd}When {opt cutoffs()} is used, the output shows one section per
-cutoff with sensitivity, specificity, PPV, NPV, and accuracy.
-Undefined estimates are displayed as {cmd:--} while stored numeric
-results remain missing.
-The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
+{pstd}When {opt cutoffs()} is used, the output shows one section per cutoff with
+sensitivity, specificity, PPV, NPV, and accuracy. Undefined estimates are
+displayed as {cmd:--} while stored numeric results remain missing. The combined
+results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}{bf:Example 4: Prevalence-adjusted predictive values}{p_end}
 {phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}

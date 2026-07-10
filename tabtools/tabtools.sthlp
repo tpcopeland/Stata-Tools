@@ -36,15 +36,15 @@
 
 {pstd}
 {cmd:tabtools} is a suite of Stata commands for exporting tables to professionally
-formatted Excel and Markdown files. It covers descriptive statistics, regression results,
-treatment effects, survival analysis, diagnostic accuracy, incidence rates,
-and composite manuscript tables.
+formatted Excel and Markdown files. It covers descriptive statistics,
+regression results, treatment effects, survival analysis, diagnostic accuracy,
+incidence rates, and composite manuscript tables.
 
 {pstd}
-All commands apply consistent Excel and Markdown formatting: column widths, borders, fonts,
-merged headers, and professional styling suitable for journal submissions. Use
-{cmd:tabtools set} to configure session-wide formatting defaults that every
-command respects.
+All commands apply consistent Excel and Markdown formatting: column widths,
+borders, fonts, merged headers, and professional styling suitable for journal
+submissions. Use {cmd:tabtools set} to configure session-wide formatting defaults
+that every command respects.
 
 {pstd}
 Most commands require Stata 17. The suite controller {cmd:tabtools},
@@ -181,9 +181,8 @@ Load formatting defaults from a saved tabtools profile
 {cmd:tabtools use} [{cmd:using} {it:filename}]
 
 {pstd}
-{opt list}, {opt detail}, and {opt category()} are display-mode options only.
-They are not accepted with {cmd:tabtools set}, {cmd:tabtools get}, or
-{cmd:tabtools use}.
+{opt list}, {opt detail}, and {opt category()} are display-mode options only. They are not
+accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 
 
 {marker options}{...}
@@ -263,12 +262,11 @@ its own defaults, so you can configure formatting once and have it apply
 everywhere.
 
 {pstd}
-Add {opt permanent} to save the current defaults as a runnable Stata profile.
-By default, {cmd:tabtools set ..., permanent} writes
-{cmd:tabtools_profile.do} in Stata's PERSONAL ado directory. Use
-{cmd:profile(filename)} to save a project-specific house style somewhere else.
-The saved profile contains ordinary {cmd:tabtools set} commands, so it can be
-read, version controlled, and run as a do-file.
+Add {opt permanent} to save the current defaults as a runnable Stata profile. By
+default, {cmd:tabtools set ..., permanent} writes {cmd:tabtools_profile.do} in Stata's
+PERSONAL ado directory. Use {cmd:profile(filename)} to save a project-specific house
+style somewhere else. The saved profile contains ordinary {cmd:tabtools set}
+commands, so it can be read, version controlled, and run as a do-file.
 
 {pstd}
 {cmd:tabtools get} reports the effective values that commands will use. Under a

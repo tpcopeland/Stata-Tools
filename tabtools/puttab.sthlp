@@ -55,16 +55,15 @@ Excel workbook target.{p_end}
 {marker description}{...}
 {title:Description}
 
-{pstd}{cmd:puttab} renders a single, publication-styled table from data already
-in memory: the current dataset, a named {helpb frames:frame}, or a Stata
-{it:matrix} such as {cmd:e(b)}, {cmd:r(table)}, or the result of a
-{helpb collapse} or {helpb tabulate}. With an Excel target, it closes the gap
-between raw in-memory results and a formatted sheet, replacing ad hoc
-{cmd:export excel ..., firstrow()} dumps and hand-built {helpb putexcel} blocks
-with the shared tabtools geometry: a left-justified title in cell A1, a thin
-spacer column A so the table body is always anchored at cell B2, a header rule,
-optional header shading and zebra striping, automatic column widths, borders, and
-an italic footnote.{p_end}
+{pstd}{cmd:puttab} renders a single, publication-styled table from data already in
+memory: the current dataset, a named {helpb frames:frame}, or a Stata {it:matrix} such as {cmd:e(b)},
+{cmd:r(table)}, or the result of a {helpb collapse} or {helpb tabulate}. With an Excel target, it
+closes the gap between raw in-memory results and a formatted sheet, replacing
+ad hoc {cmd:export excel ..., firstrow()} dumps and hand-built {helpb putexcel} blocks with
+the shared tabtools geometry: a left-justified title in cell A1, a thin spacer
+column A so the table body is always anchored at cell B2, a header rule,
+optional header shading and zebra striping, automatic column widths, borders,
+and an italic footnote.{p_end}
 
 {pstd}For a {opt matrix()} source, the matrix row names become the first
 (label) column and the column names become the header row; equation names are
@@ -74,10 +73,10 @@ numeric columns are formatted to {opt digits()} decimals. Integer-valued numeric
 columns are written without decimals, and value labels are honored when
 present.{p_end}
 
-{pstd}When an Excel workbook is written, the named {opt sheet()} is created if
-it does not exist and replaced if it does, so repeated calls to the same
-workbook build up a multi-sheet file that {helpb stacktab} can then assemble.
-The current data, frames, and matrices in memory are left unchanged.{p_end}
+{pstd}When an Excel workbook is written, the named {opt sheet()} is created if it does not
+exist and replaced if it does, so repeated calls to the same workbook build up
+a multi-sheet file that {helpb stacktab} can then assemble. The current data, frames,
+and matrices in memory are left unchanged.{p_end}
 
 {marker options}{...}
 {title:Options}

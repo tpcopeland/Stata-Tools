@@ -62,21 +62,21 @@
 {title:Description}
 
 {pstd}
-{cmd:iivw_diagnose} compares three stored estimates of the same coefficient:
-an unweighted estimate, an IIVW/FIPTIW-weighted estimate, and a weighted
-estimate that also adjusts directly for a measurement-process variable such
-as cumulative test number.
+{cmd:iivw_diagnose} compares three stored estimates of the same coefficient: an
+unweighted estimate, an IIVW/FIPTIW-weighted estimate, and a weighted estimate
+that also adjusts directly for a measurement-process variable such as
+cumulative test number.
 
 {pstd}
-The decomposition is intended for the marginal or reference-arm time slope.
-This is the estimand for which the sampling/artifact split used in the IIVW
-diagnostic framework is meaningful.  Use {cmd:estimand(contrast)} only for a
+The decomposition is intended for the marginal or reference-arm time
+slope. This is the estimand for which the sampling/artifact split used in the
+IIVW diagnostic framework is meaningful. Use {cmd:estimand(contrast)} only for a
 movement summary; the command suppresses sampling and artifact shares for
 treatment contrasts.
 
 {pstd}
 The command reads stored estimation results created with
-{cmd:estimates store}.  The estimates may come from {cmd:iivw_fit} or from
+{cmd:estimates store}. The estimates may come from {cmd:iivw_fit} or from
 ordinary Stata estimation commands such as {cmd:regress} or {cmd:glm}, as long
 as the requested coefficient is present in all three models.
 
@@ -97,51 +97,50 @@ adjusts for the measurement process.
 
 {phang}
 {opt exogeneity(string)} controls interpretation of the measurement-process
-adjustment.  {cmd:exogenous} reports the shares as a point diagnostic under
-additive separability.  {cmd:unknown} reports them as descriptive only.
-{cmd:endogenous} treats the weighted and adjusted estimates as a diagnostic
-range because direct adjustment may over-correct.
+adjustment. {cmd:exogenous} reports the shares as a point diagnostic under additive
+separability. {cmd:unknown} reports them as descriptive only. {cmd:endogenous} treats the
+weighted and adjusted estimates as a diagnostic range because direct
+adjustment may over-correct.
 
 {phang}
-{opt estimand(string)} specifies whether {it:coefficient} is a
-{cmd:marginal} or {cmd:contrast} estimand.  The default is {cmd:marginal}.
-With {cmd:estimand(contrast)}, the command reports model movement only and
-does not compute sampling or artifact shares.
+{opt estimand(string)} specifies whether {it:coefficient} is a {cmd:marginal} or {cmd:contrast}
+estimand. The default is {cmd:marginal}. With {cmd:estimand(contrast)}, the command
+reports model movement only and does not compute sampling or artifact shares.
 
 {phang}
-{opt true(#)} supplies a known true value.  When specified, the command returns
+{opt true(#)} supplies a known true value. When specified, the command returns
 and displays the bias of each estimate versus that value.
 
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
-intervals displayed from each stored model.  {it:#} must be between 10 and
+intervals displayed from each stored model. {it:#} must be between 10 and
 99.99; the default is the current {helpb level:set level} value, usually 95.
 
 {phang}
 {opt xlsx(filename)} writes a diagnostics table to an Excel {cmd:.xlsx}
-workbook.  The exported worksheet uses a tabtools-style layout with a merged
+workbook. The exported worksheet uses a tabtools-style layout with a merged
 title, grouped headers, and estimate rows under {cmd:Estimate}, {cmd:SE}, and
 a confidence-interval column headed with the level in force, for example
-{cmd:95% CI}.  A bold {cmd:Diagnostic values} divider row then introduces the
+{cmd:95% CI}. A bold {cmd:Diagnostic values} divider row then introduces the
 single-value diagnostic and optional bias rows, each of which reports its
-value in the {cmd:Estimate} column merged across the estimate columns.  The
+value in the {cmd:Estimate} column merged across the estimate columns. The
 sheet also carries readable row labels, column widths, borders, and an
 explanatory footnote.
 
 {phang}
-{opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Diagnostics}.  This option requires {opt xlsx()}.
+{opt sheet(sheetname)} sets the Excel worksheet name. The default is
+{cmd:Diagnostics}. This option requires {opt xlsx()}.
 
 {phang}
-{opt replace} overwrites the target worksheet when it already exists.  Excel
+{opt replace} overwrites the target worksheet when it already exists. Excel
 output follows the tabtools workbook convention: only the named sheet is
-cleared and rewritten; other sheets in the workbook are preserved.  Without
+cleared and rewritten; other sheets in the workbook are preserved. Without
 {opt replace}, an existing worksheet of the same name is left untouched, the
 export is skipped with a warning, and the diagnostic results are still
 returned in {cmd:r()}.
 
 {phang}
-{opt open} opens the Excel workbook after writing it.  This option requires
+{opt open} opens the Excel workbook after writing it. This option requires
 {opt xlsx()}.
 
 {phang}
@@ -150,19 +149,18 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used in Excel numeric
-cell formatting.  The allowed range is 0 through 6; the default is 4.
+cell formatting. The allowed range is 0 through 6; the default is 4.
 
 {phang}
-{opt borderstyle(string)} selects the Excel border scheme and requires
-{opt xlsx()}.  {cmd:thin} (the default) draws a full thin grid -- an outer box
-plus interior horizontal and vertical rules -- matching the tabtools house
-style.  {cmd:medium} draws the same framed grid with medium lines.
-{cmd:academic} uses a three-rule (top/header/bottom) layout with no vertical
-rules.  {cmd:default} is an alias for {cmd:thin}.
+{opt borderstyle(string)} selects the Excel border scheme and requires {opt xlsx()}. {cmd:thin}
+(the default) draws a full thin grid -- an outer box plus interior horizontal
+and vertical rules -- matching the tabtools house style. {cmd:medium} draws the same
+framed grid with medium lines. {cmd:academic} uses a three-rule (top/header/bottom)
+layout with no vertical rules. {cmd:default} is an alias for {cmd:thin}.
 
 {phang}
-{opt headershade} shades the header rows.  It is off by default so that output
-matches the unshaded house style.  {opt headercolor(string)} sets the header
+{opt headershade} shades the header rows. It is off by default so that output
+matches the unshaded house style. {opt headercolor(string)} sets the header
 fill as three space-separated 0-255 RGB values, for example
 {cmd:headercolor("219 229 241")}.
 
@@ -171,11 +169,10 @@ fill as three space-separated 0-255 RGB values, for example
 that fill as {cmd:"R G B"} values.
 
 {phang}
-{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm},
-{cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, or
-{cmd:annals}) that sets the font, font size, and border scheme together.
-Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options
-override the matching theme setting.
+{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
+{cmd:nature}, {cmd:cell}, or {cmd:annals}) that sets the font, font size, and border scheme
+together. Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options override the
+matching theme setting.
 
 
 {marker estimand}{...}
@@ -183,8 +180,8 @@ override the matching theme setting.
 
 {pstd}
 The decomposition is for the marginal or reference-arm time slope, such as a
-main time coefficient.  It should not be used to assign sampling or artifact
-shares to a treatment x time contrast.  Contrasts can be useful sensitivity
+main time coefficient. It should not be used to assign sampling or artifact
+shares to a treatment x time contrast. Contrasts can be useful sensitivity
 checks, but the contrast may barely move under weighting even when the
 marginal trajectory is biased.
 
@@ -193,9 +190,9 @@ marginal trajectory is biased.
 {title:Formula}
 
 {pstd}
-Let {it:b0} be the unweighted estimate, {it:bw} the weighted estimate, and
-{it:ba} the weighted estimate after direct measurement-process adjustment.
-These quantities should be marginal/reference-arm time-slope estimates.
+Let {it:b0} be the unweighted estimate, {it:bw} the weighted estimate, and {it:ba} the
+weighted estimate after direct measurement-process adjustment. These
+quantities should be marginal/reference-arm time-slope estimates.
 
 {pstd}
 {cmd:sampling gap}   = {it:b0} - {it:bw}{break}
@@ -206,7 +203,7 @@ These quantities should be marginal/reference-arm time-slope estimates.
 
 {pstd}
 If the total gap is very small, shares are unstable and are returned as
-missing.  If shares fall outside [0, 1], the command displays them but marks
+missing. If shares fall outside [0, 1], the command displays them but marks
 the decomposition as sign-inconsistent.
 
 
@@ -220,12 +217,12 @@ residual measurement artifact under additive separability.
 
 {pstd}
 If the measurement process appears outcome-dependent, use
-{cmd:exogeneity(endogenous)}.  The command then reports the weighted and
+{cmd:exogeneity(endogenous)}. The command then reports the weighted and
 adjusted estimates as a sensitivity range rather than a point decomposition.
 
 {pstd}
 If {cmd:estimand(contrast)} is used, the command displays only movement across
-the three models.  It suppresses the share decomposition because treatment
+the three models. It suppresses the share decomposition because treatment
 contrasts may be structurally insensitive to weighting.
 
 
@@ -233,26 +230,26 @@ contrasts may be structurally insensitive to weighting.
 {title:Reporting guidance}
 
 {pstd}
-Report the three estimates before reporting any decomposition.  The estimate
+Report the three estimates before reporting any decomposition. The estimate
 sequence is often more informative than the share summary because readers can
 see whether movement is large enough to matter clinically.
 
 {p2colset 5 28 62 2}{...}
 {p2col:{bf:Diagnostic quantity}}{bf:How to describe it}{p_end}
 {p2col:Unweighted estimate}
-The baseline analysis before correcting the visit process.  This is the
+The baseline analysis before correcting the visit process. This is the
 quantity most exposed to over-representation of frequent visitors.{p_end}
 {p2col:Weighted estimate}
-The estimate after correcting the modeled visit and/or treatment process.
-Large movement from the unweighted estimate suggests informative sampling or
-treatment-confounding sensitivity.{p_end}
+The estimate after correcting the modeled visit and/or treatment
+process. Large movement from the unweighted estimate suggests informative
+sampling or treatment-confounding sensitivity.{p_end}
 {p2col:Adjusted estimate}
 The weighted estimate after adding a measurement-process adjustment such as
-cumulative test number or log(test number + 1).  Movement from the weighted
+cumulative test number or log(test number + 1). Movement from the weighted
 estimate suggests possible residual measurement artifact.{p_end}
 {p2col:Sampling and artifact shares}
 Use only for a marginal/reference slope when the total gap is not tiny and
-the movement is sign-consistent.  Treat as descriptive unless exogeneity is
+the movement is sign-consistent. Treat as descriptive unless exogeneity is
 well defended.{p_end}
 {p2col:Endogenous range}
 When {cmd:exogeneity(endogenous)} is used, report the weighted and adjusted
@@ -262,7 +259,7 @@ estimates as a plausible diagnostic range, not as a point decomposition.
 
 {pstd}
 For manuscripts, pair this command with the exact {cmd:iivw_exogtest}
-specification.  A concise report should state the coefficient being
+specification. A concise report should state the coefficient being
 decomposed, the three stored models, whether the coefficient is marginal or a
 contrast, the exogeneity setting, and any known true value used in simulation.
 
@@ -352,11 +349,10 @@ When {opt true()} is specified, {cmd:r(bias)} has a {cmd:value} column and rows
 {title:References}
 
 {phang}
-Buzkova P, Lumley T. 2007.
-Longitudinal data analysis for generalized linear models with follow-up
-dependent on outcome-related variables.
-{it:Canadian Journal of Statistics} 35(4): 485-500.
-doi:10.1002/cjs.5550350402.
+Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
+models with follow-up dependent on outcome-related
+variables. {it:Canadian Journal of Statistics}
+35(4): 485-500. doi:10.1002/cjs.5550350402.
 
 
 {marker author}{...}

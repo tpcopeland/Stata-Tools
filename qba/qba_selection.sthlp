@@ -122,17 +122,17 @@ ratio.
 probabilistic mode.
 
 {phang}
-{opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify
-distributions from which each selection probability is drawn at each
-replicate. If omitted, a constant at the corresponding fixed value is used.
-See {helpb qba} for distribution syntax.
+{opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify distributions
+from which each selection probability is drawn at each replicate. If omitted,
+a constant at the corresponding fixed value is used. See {helpb qba} for distribution
+syntax.
 
 {phang}
 {opt seed(#)} sets the random number seed for reproducibility.
 
 {phang}
-{opt level(#)} specifies the confidence level for the percentile interval.
-Default is {cmd:95}.
+{opt level(#)} specifies the confidence level for the percentile interval. Default
+is {cmd:95}.
 
 {phang}
 {opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata
@@ -175,17 +175,17 @@ uncertainty is strongly recommended.
 {pstd}
 {bf:Example 3: Probabilistic with uniform distributions}
 
-{phang2}{cmd:. qba_selection, a(136) b(297) c(1432) d(6738) sela(.9) selb(.85) selc(.7) seld(.8)} ///
-{phang3}{cmd:reps(10000) dist_sela("uniform .8 1.0") dist_selb("uniform .75 .95")} ///
+{phang2}{cmd:. qba_selection, a(136) b(297) c(1432) d(6738) sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_sela("uniform .8 1.0") dist_selb("uniform .75 .95")} ///{p_end}
 {phang3}{cmd:dist_selc("uniform .6 .8") dist_seld("uniform .7 .9") seed(54321)}{p_end}
 
 {pstd}
 {bf:Example 4: Probabilistic with trapezoidal distributions and saving}
 
-{phang2}{cmd:. qba_selection, a(136) b(297) c(1432) d(6738) sela(.9) selb(.85) selc(.7) seld(.8)} ///
-{phang3}{cmd:reps(10000) dist_sela("trapezoidal .8 .85 .95 1.0")} ///
-{phang3}{cmd:dist_selb("trapezoidal .7 .80 .90 .95")} ///
-{phang3}{cmd:dist_selc("trapezoidal .5 .65 .75 .85")} ///
+{phang2}{cmd:. qba_selection, a(136) b(297) c(1432) d(6738) sela(.9) selb(.85) selc(.7) seld(.8)} ///{p_end}
+{phang3}{cmd:reps(10000) dist_sela("trapezoidal .8 .85 .95 1.0")} ///{p_end}
+{phang3}{cmd:dist_selb("trapezoidal .7 .80 .90 .95")} ///{p_end}
+{phang3}{cmd:dist_selc("trapezoidal .5 .65 .75 .85")} ///{p_end}
 {phang3}{cmd:dist_seld("trapezoidal .6 .75 .85 .90") seed(54321) saving(mc_sel, replace)}{p_end}
 
 {pstd}
@@ -241,8 +241,8 @@ Lash TL, Fox MP, Fink AK. {it:Applying Quantitative Bias Analysis to}
 {it:Epidemiologic Data}. 2nd ed. New York: Springer; 2021. Chapter 7.
 
 {phang}
-Greenland S. Basic methods for sensitivity analysis of biases.
-{it:Int J Epidemiol}. 1996;25(6):1107-1116.
+Greenland S. Basic methods for sensitivity analysis of
+biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
 
 
 {title:Author}

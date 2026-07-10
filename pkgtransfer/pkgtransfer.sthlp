@@ -20,7 +20,7 @@
 {synopt:{cmdab:down:load(}{it:string}{cmd:)}}download mode: {bf:local} or {bf:online}{p_end}
 {synopt:{cmdab:lim:ited}({it:pkglist})}restrict to specified packages{p_end}
 {synopt:{opt skip(pkglist)}}exclude specified packages{p_end}
-{synopt:{cmdab:res:tore}}restore online source URLs in stata.trk after local install{p_end}
+{synopt:{cmdab:res:tore}}restore online source URLs in stata.trk{p_end}
 
 {syntab:Advanced}
 {synopt:{opt os(string)}}target OS: {bf:Windows}, {bf:Unix}, or {bf:MacOSX}{p_end}
@@ -33,44 +33,74 @@
 {title:Description}
 
 {p 4 4 2}
-{cmd:pkgtransfer} facilitates transferring installed packages from one Stata installation to another. It can generate a do-file with the necessary {cmd:net install}, {cmd:ssc install}, or {cmd:github install} commands for online installation on a new machine. Alternatively, it can download all the package files and create a local installation script and a ZIP archive for offline installation.
+{cmd:pkgtransfer} facilitates transferring installed packages from one Stata
+installation to another. It can generate a do-file with the necessary
+{cmd:net install}, {cmd:ssc install}, or {cmd:github install} commands for online installation
+on a new machine. Alternatively, it can download all the package files and
+create a local installation script and a ZIP archive for offline installation.
 
 {p 4 4 2}
-The command works by reading the {cmd:stata.trk} file in your current PLUS directory to identify installed packages and their sources. It can handle packages installed from various sources, including SSC, personal websites, and GitHub (using the {browse "https://github.com/haghish/github":github} command).
+The command works by reading the {cmd:stata.trk} file in your current PLUS directory
+to identify installed packages and their sources. It can handle packages
+installed from various sources, including SSC, personal websites, and GitHub
+(using the {browse "https://github.com/haghish/github":github} command).
 
 {p 4 4 2}
-{cmd:NOTE}: It is strongly suggested that when using the {opt download()} option, first {cmd:pkgtransfer} is run without options to save all the original package installation commands for online installation and the resulting {cmd:pkgtransfer.do} is moved to a separate folder.
+{cmd:NOTE}: It is strongly suggested that when using the {opt download()} option, first
+{cmd:pkgtransfer} is run without options to save all the original package
+installation commands for online installation and the resulting {cmd:pkgtransfer.do}
+is moved to a separate folder.
 
 {title:Options}
 
 {dlgtab:Main}
 
 {phang}
-{opt download(string)} specifies the download mode for creating offline installation packages.
-{opt download(online)} downloads all package files from the internet and creates a ZIP archive and local installation do-file.
-{opt download(local)} copies package files from your local PLUS directory instead of downloading them.
-Note: platform-specific plugin files ({bf:.plugin}) are always downloaded from the internet even with {opt download(local)}, because the local PLUS directory only contains the current platform's version.
-When {opt download()} is not specified, {cmd:pkgtransfer} generates a do-file ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive).
+{opt download(string)} specifies the download mode for creating offline installation
+packages. {opt download(online)} downloads all package files from the internet and
+creates a ZIP archive and local installation do-file. {opt download(local)} copies
+package files from your local PLUS directory instead of downloading
+them. Note: platform-specific plugin files ({bf:.plugin}) are always downloaded
+from the internet even with {opt download(local)}, because the local PLUS directory
+only contains the current platform's version. When {opt download()} is not
+specified, {cmd:pkgtransfer} generates a do-file ({cmd:pkgtransfer.do}) with online
+installation commands only (no ZIP archive).
 
 {phang}
-{opt limited(pkglist)} restricts the operation to a specific set of packages.  {it:pkglist} should be a space-separated list of package names, exactly as they appear in the {cmd:stata.trk} file. For example, {cmd:limited(estout outreg2)}. When {opt limited()} is not specified, {cmd:pkgtransfer} processes all packages listed in the {cmd:stata.trk} file.
+{opt limited(pkglist)} restricts the operation to a specific set of
+packages. {it:pkglist} should be a space-separated list of package names, exactly
+as they appear in the {cmd:stata.trk} file. For example,
+{cmd:limited(estout outreg2)}. When {opt limited()} is not specified, {cmd:pkgtransfer}
+processes all packages listed in the {cmd:stata.trk} file.
 
 {phang}
-{opt skip(pkglist)} excludes the specified packages from the transfer.  {it:pkglist} should be a space-separated list of package names to skip. For example, {cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2.
+{opt skip(pkglist)} excludes the specified packages from the transfer. {it:pkglist}
+should be a space-separated list of package names to skip. For example,
+{cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2.
 
 {phang}
-{opt restore} restores installation pathways in {cmd:stata.trk} to point to original online sources after a local installation. Can be used as a standalone option ({cmd:pkgtransfer, restore}) or combined with {opt download()}. This works only for packages installed from {cmd:pkgtransfer}-generated ZIP archives, which embed the original source URL as backup metadata. A backup of {cmd:stata.trk} is created before modification. If no backup URLs are found, a warning is displayed.
+{opt restore} restores installation pathways in {cmd:stata.trk} to point to original
+online sources after a local installation. Can be used as a standalone option
+({cmd:pkgtransfer, restore}) or combined with {opt download()}. This works only for
+packages installed from {cmd:pkgtransfer}-generated ZIP archives, which embed the
+original source URL as backup metadata. A backup of {cmd:stata.trk} is created
+before modification. If no backup URLs are found, a warning is displayed.
 
 {dlgtab:Advanced}
 
 {phang}
-{opt os(string)} specifies the target operating system for the installation script cleanup commands. Valid options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. By default, uses the current OS.
+{opt os(string)} specifies the target operating system for the installation script
+cleanup commands. Valid options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. By default, uses
+the current OS.
 
 {phang}
-{opt dofile(filename)} specifies a custom name for the generated do-file. The filename must end with {bf:.do}. Default is {cmd:pkgtransfer.do}.
+{opt dofile(filename)} specifies a custom name for the generated do-file. The
+filename must end with {bf:.do}. Default is {cmd:pkgtransfer.do}.
 
 {phang}
-{opt zipfile(filename)} specifies a custom name for the generated ZIP file. The filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with {opt download()}.
+{opt zipfile(filename)} specifies a custom name for the generated ZIP file. The
+filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with
+{opt download()}.
 
 {title:Examples}
 
@@ -128,7 +158,7 @@ Restores online source URLs in {cmd:stata.trk} for packages previously installed
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(package_list)}}list of packages processed{p_end}
-{synopt:{cmd:r(download_mode)}}download mode ("local", "online", "script_only", or "restore"){p_end}
+{synopt:{cmd:r(download_mode)}}download mode: local, online, script_only, or restore{p_end}
 {synopt:{cmd:r(os)}}target operating system{p_end}
 {synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
 {synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode specified){p_end}

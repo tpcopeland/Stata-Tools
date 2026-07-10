@@ -18,15 +18,16 @@
 {title:Title}
 
 {phang}
-{bf:simtab} {hline 2} Render and export a publication-ready Monte Carlo simulation performance table
+{bf:simtab} {hline 2} Render and export a publication-ready Monte Carlo simulation
+performance table
 
 {marker package}{...}
 {title:Package}
 
-{pstd}{cmd:simtab} is part of the {helpb tabtools} suite. It owns the last mile
-of a simulation study: turning replication-level results -- or an already-computed
-summary -- into a styled, exportable, publication-ready performance table with
-merged multi-estimand group headers, scenario row grouping, themes, and one-call
+{pstd}{cmd:simtab} is part of the {helpb tabtools} suite. It owns the last mile of a simulation
+study: turning replication-level results -- or an already-computed summary --
+into a styled, exportable, publication-ready performance table with merged
+multi-estimand group headers, scenario row grouping, themes, and one-call
 Excel / Markdown / CSV / frame output.{p_end}
 
 {pstd}{cmd:simtab} is {bf:not} a Monte Carlo analysis engine. For full performance
@@ -124,9 +125,9 @@ table-grade measures itself from replication-level data.{p_end}
 {marker description}{...}
 {title:Description}
 
-{pstd}{cmd:simtab} starts where a simulation loop has posted one row per
-successful replication (compute mode), or where {cmd:simsum} / {cmd:siman} has
-already summarized them (ingest mode). It does not run simulations or fit models.{p_end}
+{pstd}{cmd:simtab} starts where a simulation loop has posted one row per successful
+replication (compute mode), or where {cmd:simsum} / {cmd:siman} has already summarized
+them (ingest mode). It does not run simulations or fit models.{p_end}
 
 {pstd}In {bf:compute mode}, the input is long: one row = one replication x
 estimator x estimand x scenario. {cmd:simtab} computes the table-grade measures
@@ -141,12 +142,12 @@ without recomputation.{p_end}
 {marker positioning}{...}
 {title:Positioning and prior art}
 
-{pstd}{cmd:simtab} lives in an ecosystem that already solves the statistics:
-{cmd:simsum} and {cmd:siman analyse} produce validated performance measures and
-Monte Carlo errors; {cmd:siman}'s graph suite makes zipper, lollipop, and
-nested-loop plots; {cmd:siman_table} shows a multi-factor table on screen. What
-none of them export is a {bf:styled, publication-ready table} with merged group
-headers and Excel/Markdown/CSV output. That gap is {cmd:simtab}'s job.{p_end}
+{pstd}{cmd:simtab} lives in an ecosystem that already solves the statistics: {cmd:simsum} and
+{cmd:siman analyse} produce validated performance measures and Monte Carlo
+errors; {cmd:siman}'s graph suite makes zipper, lollipop, and nested-loop
+plots; {cmd:siman_table} shows a multi-factor table on screen. What none of them
+export is a {bf:styled, publication-ready table} with merged group headers and
+Excel/Markdown/CSV output. That gap is {cmd:simtab}'s job.{p_end}
 
 {pstd}{cmd:simtab} installs and runs with neither {cmd:simsum} nor {cmd:siman}
 present -- compute mode is fully self-contained. The dependency is purposeful
@@ -174,16 +175,16 @@ true value, n the usable replications in a cell):{p_end}
 {p2col:{cmd:nonconv}}nsim - n (requires {opt nsim()}){p_end}
 {p2colreset}{...}
 
-{pstd}{bf:Coverage source priority}: {opt coverage()} -> {opt lci()}/{opt uci()}
--> Wald interval from {opt estimate()} + {opt se()} at {opt level()}.
-{bf:Power source priority}: {opt reject()} -> {opt pvalue()} < {opt alpha()}.{p_end}
+{pstd}{bf:Coverage source priority}: {opt coverage()} -> {opt lci()}/{opt uci()} -> Wald interval from
+{opt estimate()} + {opt se()} at {opt level()}. {bf:Power source priority}: {opt reject()} -> {opt pvalue()} <
+{opt alpha()}.{p_end}
 
-{pstd}{bf:Monte Carlo SEs} (stored in {opt plotframe()}, used to flag coverage):
-mcse_mean = mcse_bias = empse/sqrt(n); mcse_empse = empse/sqrt(2*(n-1));
-mcse_coverage = sqrt(cover*(1-cover)/n); mcse_power = sqrt(power*(1-power)/n);
-mcse_mse = sd((theta-hat - theta)^2)/sqrt(n); mcse_rmse = mcse_mse/(2*rmse).
-When a cell's coverage deviates from the nominal level by more than
-2*mcse_coverage, the cell is marked with an asterisk and a note names it.{p_end}
+{pstd}{bf:Monte Carlo SEs} (stored in {opt plotframe()}, used to flag coverage): mcse_mean =
+mcse_bias = empse/sqrt(n); mcse_empse = empse/sqrt(2*(n-1)); mcse_coverage =
+sqrt(cover*(1-cover)/n); mcse_power = sqrt(power*(1-power)/n); mcse_mse =
+sd((theta-hat - theta)^2)/sqrt(n); mcse_rmse = mcse_mse/(2*rmse). When a
+cell's coverage deviates from the nominal level by more than 2*mcse_coverage,
+the cell is marked with an asterisk and a note names it.{p_end}
 
 {pstd}{bf:Scale note}: all measures are computed on the scale supplied. For
 ratio estimands (HR, OR, RR), pass estimates on the scale you want summarized
@@ -224,9 +225,9 @@ row per by x estimator x estimand, with raw measures, Monte Carlo SEs,
 {cmd:nfail}/{cmd:pctfail}, and provenance characteristics -- the intended source
 for figures.{p_end}
 
-{pstd}{bf:Limitation}: {opt plotframe()} is cell-level and therefore cannot drive
-a zipper plot or per-replication bias plot, which need replication-level CIs. Use
-{cmd:siman}'s {cmd:siman_zipplot}/{cmd:siman_lollyplot} for those.{p_end}
+{pstd}{bf:Limitation}: {opt plotframe()} is cell-level and therefore cannot drive a zipper plot
+or per-replication bias plot, which need replication-level CIs. Use {cmd:siman}'s
+{cmd:siman_zipplot}/{cmd:siman_lollyplot} for those.{p_end}
 
 {marker examples}{...}
 {title:Examples}

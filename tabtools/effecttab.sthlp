@@ -26,13 +26,14 @@
 {opt csv(string)} {opt markdown(filename)} {opt mdappend}
 {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
-{pstd}Required: either an active {helpb collect} containing results from
-{helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
+{pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or
+{helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and
+p-values.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:effecttab} formats treatment effects and margins output for
-publication-ready Excel tables. It is designed for causal inference workflows including:{p_end}
+{pstd}{cmd:effecttab} formats treatment effects and margins output for publication-ready
+Excel tables. It is designed for causal inference workflows including:{p_end}
 
 {p 8 12 2}- Inverse probability weighting ({cmd:teffects ipw}){p_end}
 {p 8 12 2}- Regression adjustment / G-computation ({cmd:teffects ra}, {cmd:margins}){p_end}
@@ -40,9 +41,10 @@ publication-ready Excel tables. It is designed for causal inference workflows in
 {p 8 12 2}- Propensity score matching ({cmd:teffects psmatch}){p_end}
 {p 8 12 2}- Marginal effects and predicted probabilities ({cmd:margins}){p_end}
 
-{pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named
-matrix supplied through {opt from(name)}, then writes an Excel sheet with
-columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
+{pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named matrix supplied
+through {opt from(name)}, then writes an Excel sheet with columns for point
+estimate, 95% CI, and p-value. It applies the same professional formatting as
+{helpb regtab}.{p_end}
 
 {pstd}When reading from {cmd:collect}, {cmd:effecttab} requires the active
 collection to come from {cmd:teffects} or {cmd:margins}. Other collected
@@ -97,8 +99,9 @@ collection must remain unchanged.{p_end}
 {p 4 8 2}Use {cmd:regtab} for standard regression output (logit, regress, stcox,
 etc.) where you want to display coefficients/odds ratios for each covariate.{p_end}
 
-{p 4 8 2}Use {cmd:effecttab} for causal inference results where you want to
-display treatment effects (ATE, ATET), potential outcome means, marginal effects, or predicted probabilities.{p_end}
+{p 4 8 2}Use {cmd:effecttab} for causal inference results where you want to display treatment
+effects (ATE, ATET), potential outcome means, marginal effects, or predicted
+probabilities.{p_end}
 
 {pstd}{bf:Working with teffects}{p_end}
 
@@ -128,8 +131,8 @@ are currently unsupported and are rejected by {cmd:effecttab}.{p_end}
 {cmd:r1vs0.treatment}. The {cmd:clean} option reformats these using value labels
 from the treatment variable when available:{p_end}
 
-{p 8 12 2}- If {cmd:treatment} has value labels (0="SSRI", 1="SNRI"), the ATE
-row becomes {cmd:"SNRI vs SSRI"} and PO Mean rows become {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.{p_end}
+{p 8 12 2}- If {cmd:treatment} has value labels (0="SSRI", 1="SNRI"), the ATE row becomes
+{cmd:"SNRI vs SSRI"} and PO Mean rows become {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.{p_end}
 {p 8 12 2}- If no value labels exist, falls back to basic cleanup: {cmd:"Treatment (1 vs 0)"}.{p_end}
 
 {p 4 8 2}Use {cmd:tlabels()} to explicitly specify treatment level labels when value labels
@@ -140,13 +143,13 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one
 collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()},
 {cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
-{p 4 8 2}- {opt from()}: read results from a named matrix instead of
-{cmd:collect}; the matrix must hold estimate, lower CI, upper CI, and p-value
-columns in that order. This path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
-{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for
-{helpb eplot} containing {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul},
-{cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
-metadata. When {opt frame()} is also set, the display frame records the companion in {cmd:_dta[tabtools_eplotframe]}.{p_end}
+{p 4 8 2}- {opt from()}: read results from a named matrix instead of {cmd:collect}; the matrix must
+hold estimate, lower CI, upper CI, and p-value columns in that order. This
+path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
+{p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing
+{cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
+metadata. When {opt frame()} is also set, the display frame records the companion in
+{cmd:_dta[tabtools_eplotframe]}.{p_end}
 
 
 {marker examples}{title:Examples}

@@ -69,20 +69,20 @@ or {opt exit()}.
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier variable.{...}
-(Legacy synonym: {opt idvar()}.)
+{opt id(varname)} specifies the person identifier variable. (Legacy
+synonym: {opt idvar()}.)
 
 {phang}
-{opt dob(varname)} specifies the date of birth variable (Stata date format).{...}
-(Legacy synonym: {opt dobvar()}.)
+{opt dob(varname)} specifies the date of birth variable (Stata date format). (Legacy
+synonym: {opt dobvar()}.)
 
 {phang}
-{opt entry(varname)} specifies the study entry date variable (Stata date format).{...}
-(Legacy synonym: {opt entryvar()}.)
+{opt entry(varname)} specifies the study entry date variable (Stata date
+format). (Legacy synonym: {opt entryvar()}.)
 
 {phang}
-{opt exit(varname)} specifies the study exit date variable (Stata date format).{...}
-(Legacy synonym: {opt exitvar()}.)
+{opt exit(varname)} specifies the study exit date variable (Stata date
+format). (Legacy synonym: {opt exitvar()}.)
 
 {pstd}
 The {opt idvar()}, {opt dobvar()}, {opt entryvar()}, and {opt exitvar()}
@@ -92,21 +92,21 @@ spelling per option.
 {dlgtab:Optional}
 
 {phang}
-{opt generate(name)} specifies the name for the generated age variable.{...}
-Default is {cmd:age_tv}.
+{opt generate(name)} specifies the name for the generated age variable. Default is
+{cmd:age_tv}.
 
 {phang}
-{opt startgen(name)} specifies the name for the interval start date variable.{...}
-Default is {cmd:age_start}.
+{opt startgen(name)} specifies the name for the interval start date
+variable. Default is {cmd:age_start}.
 
 {phang}
-{opt stopgen(name)} specifies the name for the interval stop date variable.{...}
-Default is {cmd:age_stop}.
+{opt stopgen(name)} specifies the name for the interval stop date variable. Default
+is {cmd:age_stop}.
 
 {phang}
 {opt groupwidth(#)} specifies the width of age groups in years. For example,
-{cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.).{...}
-Default is 1 (single-year continuous ages with no labels).
+{cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.). Default is 1
+(single-year continuous ages with no labels).
 
 {phang}
 {opt minage(#)} specifies the minimum age to include. Ages below this are set
@@ -160,10 +160,9 @@ Stata dates for compatibility with interval-based survival analysis.
 {bf:Input requirements}
 
 {pstd}
-{cmd:tvage} requires exactly one observation per person. All date variables
-({opt dob()}, {opt entry()}, {opt exit()}) must be non-missing Stata
-daily dates. Datetime formats ({cmd:%tc}/{cmd:%tC}) are not supported;{...}
-convert with {cmd:gen daily = dofc(datetime)}.
+{cmd:tvage} requires exactly one observation per person. All date variables ({opt dob()},
+{opt entry()}, {opt exit()}) must be non-missing Stata daily dates. Datetime formats
+({cmd:%tc}/{cmd:%tC}) are not supported; convert with {cmd:gen daily = dofc(datetime)}.
 
 
 {marker examples}{...}
@@ -199,8 +198,8 @@ Create one row per person-year of age with no grouping labels:
 {phang3}{cmd:groupwidth(1) noisily}{p_end}
 
 {pstd}
-With {cmd:groupwidth(1)} (the default), {cmd:age_tv} contains each integer age
-traversed during follow-up. Suitable for continuous age adjustment in Cox models.
+With {cmd:groupwidth(1)} (the default), {cmd:age_tv} contains each integer age traversed
+during follow-up. Suitable for continuous age adjustment in Cox models.
 
 
 {pstd}
@@ -277,7 +276,7 @@ band are constant, ready for age-stratified or age-adjusted analysis.
 {title:Also see}
 
 {psee}
-{space 2}Help:  {help tvexpose}, {help tvmerge}, {help stset}
+{space 2}Help: {help tvexpose}, {help tvmerge}, {help stset}
 {p_end}
 
 {hline}

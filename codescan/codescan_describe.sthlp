@@ -43,15 +43,15 @@
 {title:Description}
 
 {pstd}
-{cmd:codescan_describe} is the exploratory companion to {helpb codescan}.  It
-answers a basic but important question before you write any scan rules:
-{it:What codes are actually present in these variables?}
+{cmd:codescan_describe} is the exploratory companion to {helpb codescan}. It answers a basic
+but important question before you write any scan
+rules: {it:What codes are actually present in these variables?}
 
 {pstd}
 The command pools nonempty values across all specified wide-format code
 variables (for example {cmd:dx1} through {cmd:dx30}), counts how often each
 unique code appears, and then summarizes the inventory by the first character
-of each code.  The output has two panels:
+of each code. The output has two panels:
 
 {phang2}1. A {bf:top-code table} showing the most common codes ranked by
 frequency, with percent and cumulative percent columns.{p_end}
@@ -75,7 +75,7 @@ reshaping very wide code data to long form just for reconnaissance.
 {title:Variable lists}
 
 {pstd}
-The {varlist} after {cmd:codescan_describe} is a normal Stata varlist.  Use
+The {varlist} after {cmd:codescan_describe} is a normal Stata varlist. Use
 explicit names for a short list, a hyphen range when the variables are adjacent
 in the dataset order, or a wildcard when the variable prefix is consistent.
 
@@ -85,7 +85,7 @@ in the dataset order, or a wildcard when the variable prefix is consistent.
 {phang2}{cmd:. codescan_describe dx1-dx30 proc1-proc20}{p_end}
 
 {pstd}
-The output pools nonempty code values across all listed variables.  That is the
+The output pools nonempty code values across all listed variables. That is the
 right behavior when you are asking "what codes exist anywhere in these slots?"
 If you later need to see which variable contributed matches to a scan rule, run
 {helpb codescan} with the {cmd:detail} option.
@@ -95,71 +95,69 @@ If you later need to see which variable contributed matches to a scan rule, run
 {title:Options}
 
 {phang}
-{opt t:op(#)} specifies how many codes to display in the ranked table.  The
-value must be a positive integer.  The default is {cmd:top(20)}.  Use a large
+{opt t:op(#)} specifies how many codes to display in the ranked table. The
+value must be a positive integer. The default is {cmd:top(20)}. Use a large
 value such as {cmd:top(100)} if you want to inspect rare codes as well.
 
 {phang}
-{opt nodots} strips periods from each code value before tabulating.  This is
+{opt nodots} strips periods from each code value before tabulating. This is
 useful when dotted and undotted forms should be treated as the same code — for
-example, {cmd:E11.0} and {cmd:E110} would be counted together.  The original
+example, {cmd:E11.0} and {cmd:E110} would be counted together. The original
 data are never modified.
 
 {phang}
 {opt tostring} converts numeric variables in {varlist} to string before
-tabulating.  Use this when code variables were inadvertently imported as
-numeric rather than text.  The original numeric variables are restored
-afterward.  Variables must be fixed-width strings ({cmd:str#}); {cmd:strL}
+tabulating. Use this when code variables were inadvertently imported as
+numeric rather than text. The original numeric variables are restored
+afterward. Variables must be fixed-width strings ({cmd:str#}); {cmd:strL}
 variables are rejected — convert them first with {helpb compress} or
 {helpb recast}.
 
 {phang}
-{opt save(filename)} writes a draft CSV codefile based on the chapter summary.
-The file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and
-{cmd:label}.  Each row is a first-character chapter such as {cmd:chapter_E}.
-Punctuation chapter characters are converted to valid, unique Stata names,
-which you can open in a spreadsheet and refine into real scan rules before
-using with {helpb codescan:codescan, codefile()}.  The filename must end in
-{cmd:.csv}; quotes, shell metacharacters, and control characters inside the
-filename are rejected.
+{opt save(filename)} writes a draft CSV codefile based on the chapter summary. The
+file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. Each row is a
+first-character chapter such as {cmd:chapter_E}. Punctuation chapter characters are
+converted to valid, unique Stata names, which you can open in a spreadsheet
+and refine into real scan rules before using with {helpb codescan:codescan, codefile()}. The
+filename must end in {cmd:.csv}; quotes, shell metacharacters, and control
+characters inside the filename are rejected.
 
 
 {marker remarks}{...}
 {title:Remarks}
 
 {pstd}
-{bf:When to use this command.}  Run {cmd:codescan_describe} as the very
-first step in a comorbidity or code-scanning workflow.  It tells you which
+{bf:When to use this command.} Run {cmd:codescan_describe} as the very
+first step in a comorbidity or code-scanning workflow. It tells you which
 code families dominate, how many unique codes exist, and how the entry volume
 is distributed across chapters — all without requiring any rule definitions.
 
 {pstd}
-{bf:Interpreting the output.}  The top-code table shows the most common
-individual codes, so a single code appearing in many rows will rank high.
-The chapter summary shows volume by first character, which is useful for
-deciding which character-level groups to target in {cmd:define()} or
-{cmd:codefile()} rules.
+{bf:Interpreting the output.} The top-code table shows the most common individual
+codes, so a single code appearing in many rows will rank high. The chapter
+summary shows volume by first character, which is useful for deciding which
+character-level groups to target in {cmd:define()} or {cmd:codefile()} rules.
 
 {pstd}
-{bf:Building a starter codefile.}  The {cmd:save()} option creates a draft
-codefile with one row per chapter (first character).  This is a starting
+{bf:Building a starter codefile.} The {cmd:save()} option creates a draft
+codefile with one row per chapter (first character). This is a starting
 point, not a finished definition file: open it in a spreadsheet, rename the
 conditions, refine the patterns, and add exclusion patterns as needed before
 passing it to {helpb codescan:codescan, codefile()}.
 
 {pstd}
-{bf:Programmatic use.}  The same information printed to the Results window is
-also returned in matrices.  {cmd:r(top_codes)} uses code values as row names and
-has columns {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}.  {cmd:r(chapters)}
+{bf:Programmatic use.} The same information printed to the Results window is
+also returned in matrices. {cmd:r(top_codes)} uses code values as row names and
+has columns {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}. {cmd:r(chapters)}
 uses first characters as row names and has columns {cmd:codes} and
-{cmd:entries}.  This makes it possible to audit a new dataset automatically
+{cmd:entries}. This makes it possible to audit a new dataset automatically
 before deciding whether an existing code dictionary is still appropriate.
 
 {pstd}
-{bf:Edge cases.}  If {cmd:if} or {cmd:in} removes every observation, the
-command exits with error {cmd:r(2000)}.  If observations remain but every
+{bf:Edge cases.} If {cmd:if} or {cmd:in} removes every observation, the
+command exits with error {cmd:r(2000)}. If observations remain but every
 scanned code slot is empty, the command succeeds and reports zero unique
-codes.  In that case {cmd:r(top_codes)} and {cmd:r(chapters)} are still
+codes. In that case {cmd:r(top_codes)} and {cmd:r(chapters)} are still
 returned as single-row zero-filled matrices, so downstream code does not need
 special-case handling.
 
@@ -193,8 +191,8 @@ and cumulative percent) and a second table grouping all codes by their first
 character.
 
 {pstd}
-Technical users can inspect the returned matrix directly:
-{cmd:. matrix list r(top_codes)}.  The table is stored in
+Technical users can inspect the returned matrix
+directly: {cmd:. matrix list r(top_codes)}. The table is stored in
 {cmd:r(top_codes)}.
 
 {pstd}

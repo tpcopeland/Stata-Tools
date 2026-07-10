@@ -85,10 +85,10 @@ the underlying {cmd:twoway} call.
 {title:Description}
 
 {pstd}
-{cmd:spaghetti} creates trajectory plots for longitudinal/panel data.
-Each individual's observations are connected as a thin line, producing
-the characteristic "spaghetti" pattern. Optional group mean overlays
-with confidence bands provide visual anchors.
+{cmd:spaghetti} creates trajectory plots for longitudinal/panel data. Each
+individual's observations are connected as a thin line, producing the
+characteristic "spaghetti" pattern. Optional group mean overlays with
+confidence bands provide visual anchors.
 
 {pstd}
 The command handles arbitrarily large panels efficiently by drawing all
@@ -106,8 +106,8 @@ Data must be in long format with one row per individual-timepoint.
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the variable identifying individuals.
-Can be numeric or string.
+{opt id(varname)} specifies the variable identifying individuals. Can be numeric or
+string.
 
 {phang}
 {opt time(varname)} specifies the numeric time variable for the x-axis.
@@ -115,17 +115,16 @@ Can be numeric or string.
 {dlgtab:Grouping}
 
 {phang}
-{opt by(varname)} specifies a grouping variable. Trajectories are
-colored by group, and separate mean overlays are computed per group.
-Maximum 8 levels. Cannot be combined with {opt colorby()}.
+{opt by(varname)} specifies a grouping variable. Trajectories are colored by group,
+and separate mean overlays are computed per group. Maximum 8 levels. Cannot be
+combined with {opt colorby()}.
 
 {phang}
-{opt colorby(varname [, categorical])} colors individual trajectories
-by a variable. By default, the variable is treated as continuous and
-split into quintiles. Specify {cmd:categorical} to use distinct levels
-directly. Cannot be combined with {opt by()} or {opt highlight()}.
-When combined with {opt mean()}, the mean overlay reflects the overall
-population mean (not per color group).
+{opt colorby(varname [, categorical])} colors individual trajectories by a
+variable. By default, the variable is treated as continuous and split into
+quintiles. Specify {cmd:categorical} to use distinct levels directly. Cannot be
+combined with {opt by()} or {opt highlight()}. When combined with {opt mean()}, the mean overlay
+reflects the overall population mean (not per color group).
 
 {dlgtab:Mean overlay}
 
@@ -139,27 +138,25 @@ population mean (not per color group).
 {cmd:ci} adds a 95% confidence band around the mean.
 
 {phang2}
-{cmd:smooth(lowess|linear)} smooths the mean trajectory.
-{cmd:lowess} applies local polynomial smoothing;
-{cmd:linear} fits a linear regression.
-When combined with {cmd:ci}, the confidence band reflects the
-raw (unsmoothed) means; the smoothed line may extend beyond the band.
+{cmd:smooth(lowess|linear)} smooths the mean trajectory. {cmd:lowess} applies local
+polynomial smoothing; {cmd:linear} fits a linear regression. When combined with {cmd:ci},
+the confidence band reflects the raw (unsmoothed) means; the smoothed line may
+extend beyond the band.
 
 {dlgtab:Subsetting}
 
 {phang}
-{opt sample(#)} randomly selects {it:#} individuals to display.
-Useful for decluttering large panels. Use with {opt seed()} for
-reproducibility.
+{opt sample(#)} randomly selects {it:#} individuals to display. Useful for decluttering
+large panels. Use with {opt seed()} for reproducibility.
 
 {phang}
 {opt seed(#)} sets the random number seed for {opt sample()}.
 
 {phang}
-{opt highlight(conditions [bgopacity(#)])} emphasizes specific individuals
-with bold colored lines while fading all others to the background.
-Non-highlighted individuals use the {opt individual()} styling settings.
-Conditions can be standard Stata expressions:
+{opt highlight(conditions [bgopacity(#)])} emphasizes specific individuals with bold
+colored lines while fading all others to the background. Non-highlighted
+individuals use the {opt individual()} styling settings. Conditions can be standard
+Stata expressions:
 
 {phang3}{cmd:highlight(patid==142 | patid==307)}{p_end}
 {phang3}{cmd:highlight(baseline_score < 30)}{p_end}
@@ -188,19 +185,17 @@ pattern (default: {cmd:dash}).
 {dlgtab:Styling}
 
 {phang}
-{opt colors(colorlist)} overrides the default color palette.
-Default: {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}.
+{opt colors(colorlist)} overrides the default color palette. Default: {cmd:navy}
+{cmd:cranberry forest_green dkorange purple teal maroon olive_teal}.
 
 {phang}
-{opt individual(options)} controls individual trajectory styling.
-Sub-options: {cmd:color(colorname)}, {cmd:opacity(#)},
-{cmd:lwidth(lwstyle)}. Defaults: {cmd:color(gs12)}, {cmd:opacity(25)},
-{cmd:lwidth(vthin)}. These settings also control the background
-appearance when {opt highlight()} is used.
+{opt individual(options)} controls individual trajectory
+styling. Sub-options: {cmd:color(colorname)}, {cmd:opacity(#)},
+{cmd:lwidth(lwstyle)}. Defaults: {cmd:color(gs12)}, {cmd:opacity(25)}, {cmd:lwidth(vthin)}. These
+settings also control the background appearance when {opt highlight()} is used.
 
 {phang}
-{opt sch:eme(schemename)} sets the graph scheme.
-Default: current Stata scheme.
+{opt sch:eme(schemename)} sets the graph scheme. Default: current Stata scheme.
 
 
 {marker remarks}{...}
@@ -210,12 +205,11 @@ Default: current Stata scheme.
 {bf:How it works}
 
 {pstd}
-Rather than creating one {cmd:(line ...)} element per individual (which
-hits Stata's plot element limit around 300-400), {cmd:spaghetti} uses
-a line-break technique: all trajectories within a group are drawn as a
-single {cmd:line} element, with missing values inserted between
-individuals and {cmd:cmissing(n)} to break the line at boundaries.
-This handles 10,000+ individuals with just 1-8 plot elements.
+Rather than creating one {cmd:(line ...)} element per individual (which hits Stata's
+plot element limit around 300-400), {cmd:spaghetti} uses a line-break technique: all
+trajectories within a group are drawn as a single {cmd:line} element, with missing
+values inserted between individuals and {cmd:cmissing(n)} to break the line at
+boundaries. This handles 10,000+ individuals with just 1-8 plot elements.
 
 {pstd}
 {bf:Performance}
@@ -229,11 +223,10 @@ computed on the full sample before any random sampling is applied.
 {bf:Note on mean computation}
 
 {pstd}
-The mean overlay is computed on the full sample (before any random
-sampling via {opt sample()}) by collapsing data to time-specific
-means (within by-groups if specified). Standard errors are computed
-as SD/sqrt(N). Confidence intervals use a normal approximation:
-mean +/- invnormal(0.975) * SE.
+The mean overlay is computed on the full sample (before any random sampling
+via {opt sample()}) by collapsing data to time-specific means (within by-groups if
+specified). Standard errors are computed as SD/sqrt(N). Confidence intervals
+use a normal approximation: mean +/- invnormal(0.975) * SE.
 
 
 {marker examples}{...}
@@ -308,9 +301,9 @@ mean +/- invnormal(0.975) * SE.
 {title:Also see}
 
 {psee}
-Manual:  {manlink G-2 graph twoway line}
+Manual: {manlink G-2 graph twoway line}
 
 {psee}
-Online:  {helpb twoway line}, {helpb lowess}, {helpb xtline}
+Online: {helpb twoway line}, {helpb lowess}, {helpb xtline}
 
 {hline}

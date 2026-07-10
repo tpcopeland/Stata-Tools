@@ -19,43 +19,43 @@
 {title:Description}
 
 {pstd}
-{cmd:massdesas} recursively converts all SAS dataset files (.sas7bdat) to Stata format (.dta) within
-a specified directory and all its subdirectories. This command is designed to streamline the process
-of converting large collections of SAS files to Stata format, which would otherwise require
-manual conversion of each file.
-{p_end}
+{cmd:massdesas} recursively converts all SAS dataset files (.sas7bdat) to Stata
+format (.dta) within a specified directory and all its subdirectories. This
+command is designed to streamline the process of converting large collections
+of SAS files to Stata format, which would otherwise require manual conversion
+of each file. {p_end}
 
 {pstd}
-The command scans the specified directory tree, identifies all .sas7bdat files, and converts each
-one to a .dta file in the same location with the same filename (but .dta extension). This preserves
-the original directory structure while making all datasets accessible in Stata.
-{p_end}
+The command scans the specified directory tree, identifies all .sas7bdat
+files, and converts each one to a .dta file in the same location with the same
+filename (but .dta extension). This preserves the original directory structure
+while making all datasets accessible in Stata. {p_end}
 
 {pstd}
-{bf:Warning:} When using the {opt erase} option, the original .sas7bdat files will be permanently
-deleted after successful conversion. Ensure you have backups before using this option.
-{p_end}
+{bf:Warning:} When using the {opt erase} option, the original .sas7bdat files will be
+permanently deleted after successful conversion. Ensure you have backups
+before using this option. {p_end}
 
 {title:Options}
 
 {phang}
-{opt directory(directory_name)} specifies the root directory containing the .sas7bdat files. The
-command will search this directory and all its subdirectories for SAS dataset files to convert.
-If not specified, the command uses the current working directory.
-{p_end}
+{opt directory(directory_name)} specifies the root directory containing the
+.sas7bdat files. The command will search this directory and all its
+subdirectories for SAS dataset files to convert. If not specified, the command
+uses the current working directory. {p_end}
 
 {phang}
-{opt erase} specifies that the original .sas7bdat files should be deleted after successful conversion
-to .dta format. Use this option with caution as the deletion is permanent. It is recommended to
-test the conversion on a small sample first and verify the .dta files are readable before using
-this option on your full dataset collection.
-{p_end}
+{opt erase} specifies that the original .sas7bdat files should be deleted after
+successful conversion to .dta format. Use this option with caution as the
+deletion is permanent. It is recommended to test the conversion on a small
+sample first and verify the .dta files are readable before using this option
+on your full dataset collection. {p_end}
 
 {phang}
-{opt lower} specifies that all variable names in the converted .dta files should be converted to
-lowercase. This is useful for ensuring consistency in variable naming conventions, as SAS variable
-names can be case-sensitive while Stata variable names are typically lowercase by convention.
-{p_end}
+{opt lower} specifies that all variable names in the converted .dta files should be
+converted to lowercase. This is useful for ensuring consistency in variable
+naming conventions, as SAS variable names can be case-sensitive while Stata
+variable names are typically lowercase by convention. {p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -100,26 +100,23 @@ names can be case-sensitive while Stata variable names are typically lowercase b
 
 {pstd}
 {cmd:massdesas} requires the {cmd:filelist} and {cmd:fs} commands from SSC, plus Stata's
-built-in {cmd:import sas} (available in Stata 14+). Install dependencies with:
-{cmd:ssc install filelist} and {cmd:ssc install fs}.
-{p_end}
+built-in {cmd:import sas} (available in Stata 14+). Install dependencies
+with: {cmd:ssc install filelist} and {cmd:ssc install fs}. {p_end}
 
 {pstd}
-The command processes files sequentially, so conversion of large directory trees with many
-SAS files may take considerable time. Progress is displayed as each file is converted.
-{p_end}
+The command processes files sequentially, so conversion of large directory
+trees with many SAS files may take considerable time. Progress is displayed as
+each file is converted. {p_end}
 
 {pstd}
-If a conversion fails for any file, {cmd:massdesas} will display an error message for that
-file and continue processing remaining files. When using the {opt erase} option, files are
-only deleted if conversion was successful.
-{p_end}
+If a conversion fails for any file, {cmd:massdesas} will display an error message
+for that file and continue processing remaining files. When using the {opt erase}
+option, files are only deleted if conversion was successful. {p_end}
 
 {pstd}
-File pattern matching ({cmd:*.sas7bdat}) is case-sensitive on Linux/macOS.
-Files with uppercase extensions (e.g., {cmd:.SAS7BDAT}) will not be found.
-Filenames containing spaces are not supported.
-{p_end}
+File pattern matching ({cmd:*.sas7bdat}) is case-sensitive on Linux/macOS. Files
+with uppercase extensions (e.g., {cmd:.SAS7BDAT}) will not be found. Filenames
+containing spaces are not supported. {p_end}
 
 {marker results}{...}
 {title:Stored results}

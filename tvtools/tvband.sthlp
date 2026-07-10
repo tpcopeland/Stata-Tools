@@ -90,8 +90,8 @@ the output merges with {helpb tvexpose}/{helpb tvmerge} output and feeds
 {opt id(varname)} specifies the person identifier.
 
 {phang}
-{opt start(varname)} and {opt stop(varname)} specify the interval to split.{...}
-Both must be non-missing daily Stata dates with {cmd:stop >= start}.
+{opt start(varname)} and {opt stop(varname)} specify the interval to split. Both must be
+non-missing daily Stata dates with {cmd:stop >= start}.
 
 {phang}
 {opt type(axis)} selects the splitting axis: {cmd:age}, {cmd:calendar}, or
@@ -105,11 +105,10 @@ Both must be non-missing daily Stata dates with {cmd:stop >= start}.
 allowed for {cmd:type(calendar)}.
 
 {phang}
-{opt width(#)} sets the band width. For {cmd:age} and {cmd:calendar} the unit is
-years (for example {cmd:width(10)} gives 10-year bands); for {cmd:elapsed} the
-unit is set by {opt unit()}. Calendar widths must be positive whole years;{...}
-fractional widths are allowed for age and elapsed-year bands. Default is
-{cmd:width(1)}.
+{opt width(#)} sets the band width. For {cmd:age} and {cmd:calendar} the unit is years (for
+example {cmd:width(10)} gives 10-year bands); for {cmd:elapsed} the unit is set by
+{opt unit()}. Calendar widths must be positive whole years; fractional widths are
+allowed for age and elapsed-year bands. Default is {cmd:width(1)}.
 
 {phang}
 {opt unit(day|year)} sets the elapsed-time unit. Default is {cmd:day}. Used only
@@ -117,9 +116,8 @@ with {cmd:type(elapsed)}; specifying it for another axis is an error.
 
 {phang}
 {opt anchor(#)} fixes the first calendar year of the band grid (relevant when
-{cmd:width()} exceeds 1). Default is the earliest year in the data. Used only
-with {cmd:type(calendar)}.{...}
-Specifying {opt anchor()} for another axis is an error.
+{cmd:width()} exceeds 1). Default is the earliest year in the data. Used only with
+{cmd:type(calendar)}. Specifying {opt anchor()} for another axis is an error.
 
 {phang}
 {opt min(#)} and {opt max(#)} drop bands whose lower-edge value falls below
@@ -129,13 +127,12 @@ Specifying {opt anchor()} for another axis is an error.
 {dlgtab:Output}
 
 {phang}
-{opt generate(name)} names the band variable. Default depends on the axis:
-{cmd:ageband}, {cmd:calband}, or {cmd:fuband}.
+{opt generate(name)} names the band variable. Default depends on the axis: {cmd:ageband},
+{cmd:calband}, or {cmd:fuband}.
 
 {phang}
-{opt startgen(name)} and {opt stopgen(name)} rename the split interval bounds.{...}
-By default the input {opt start()}/{opt stop()} variables are overwritten in
-place.
+{opt startgen(name)} and {opt stopgen(name)} rename the split interval bounds. By default
+the input {opt start()}/{opt stop()} variables are overwritten in place.
 
 {phang}
 {opt saveas(filename)} saves the split dataset to a file and restores the
@@ -212,7 +209,7 @@ is split independently.
 {title:Also see}
 
 {psee}
-{space 2}Help:  {help tvsplit}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
+{space 2}Help: {help tvsplit}, {help tvage}, {help tvexpose}, {help tvmerge}, {help stsplit}
 {p_end}
 
 {hline}

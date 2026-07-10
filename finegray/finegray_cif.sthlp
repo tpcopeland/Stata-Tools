@@ -26,18 +26,14 @@ cumulative incidence after {help finegray}
 {synoptset 24 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt :{opt at(var=# ...)}}covariate profile for the curve; default is the
-estimation-sample means{p_end}
-{synopt :{opt att:ime(numlist)}}report a table of the CIF at the listed time
-horizons instead of plotting a curve{p_end}
-{synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times instead of
-the event-time grid{p_end}
+{synopt :{opt at(var=# ...)}}covariate profile for the curve{p_end}
+{synopt :{opt att:ime(numlist)}}table of the CIF at the listed horizons{p_end}
+{synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times{p_end}
 {synopt :{opt ci}}add pointwise confidence limits (influence-function SE){p_end}
 {synopt :{opt boot:strap(#)}}compute a subject- or cluster-bootstrap confidence band{p_end}
 {synopt :{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
 {synopt :{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
-{synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates
-({cmd:time cif se lci uci}) to a dataset{p_end}
+{synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates{p_end}
 {synopt :{opt nograph}}suppress the graph{p_end}
 {synopt :{it:twoway_options}}any options documented in {help twoway_options}{p_end}
 {synoptline}
@@ -80,12 +76,12 @@ functions. Re-run {cmd:finegray} after changing those data.
 {phang}
 {opt at(var=# ...)} sets the covariate profile at which the CIF is evaluated, for
 example {cmd:at(age=60 male=1)}. Variables not listed are held at their
-estimation-sample mean. The default profile is the estimation-sample means of all
-model covariates. Factor variables may be named directly by their level, for
-example {cmd:at(pelnode=1)} after {cmd:finegray i.pelnode ...}; the requested
-level is mapped onto the internal indicator variables (the reference level sets
-every indicator to 0). A factor variable that enters an interaction term must be
-set through its internal {cmd:_fg_*} indicator names instead (see
+estimation-sample mean. The default profile is the estimation-sample means of
+all model covariates. Factor variables may be named directly by their level,
+for example {cmd:at(pelnode=1)} after {cmd:finegray i.pelnode ...}; the
+requested level is mapped onto the internal indicator variables (the reference
+level sets every indicator to 0). A factor variable that enters an interaction
+term must be set through its internal {cmd:_fg_*} indicator names instead (see
 {cmd:e(covariates)}).
 
 {phang}
@@ -113,9 +109,9 @@ therefore follows the fitted variance structure and includes uncertainty from
 estimating the censoring weights. Nonconverged refits, and refits whose resample
 loses a factor level (so the coefficient vector no longer matches the stored
 covariate profile), are skipped and counted in {cmd:r(bootstrap_failed)}; at
-least two successful replications are required. Point estimates are unchanged;
-only the standard error and limits differ. The original estimation results and
-{cmd:e(sample)} are preserved.
+least two successful replications are required. Point estimates are
+unchanged; only the standard error and limits differ. The original estimation
+results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
@@ -138,9 +134,9 @@ are rejected in {it:filename}.
 {phang}
 {it:twoway_options} are any of the options documented in {help twoway_options},
 for example {cmd:title()}, {cmd:xtitle()}, or {cmd:scheme()}. These pass through
-to the CIF plot and override the defaults. The legend defaults to a single row;
-because repeated {cmd:legend()} options merge, you can adjust or suppress it from
-here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
+to the CIF plot and override the defaults. The legend defaults to a single
+row; because repeated {cmd:legend()} options merge, you can adjust or suppress
+it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 {cmd:legend(rows(2))}.
 
 

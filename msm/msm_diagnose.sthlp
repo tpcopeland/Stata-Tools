@@ -43,21 +43,21 @@
 
 {pstd}
 {cmd:msm_diagnose} is the diagnostic step that should follow every
-{helpb msm_weight} run.  It answers two key questions:
+{helpb msm_weight} run. It answers two key questions:
 
-{phang2}1. {bf:Are the weights well-behaved?}  It reports the full weight
+{phang2}1. {bf:Are the weights well-behaved?} It reports the full weight
 distribution (mean, SD, percentiles, min, max), the effective sample size
 (ESS), and per-treatment-group summaries.{p_end}
 
-{phang2}2. {bf:Did weighting achieve covariate balance?}  When covariates are
+{phang2}2. {bf:Did weighting achieve covariate balance?} When covariates are
 specified, it computes the standardized mean difference (SMD) between treated
 and untreated groups both before and after weighting, and reports how much
 each covariate improved.{p_end}
 
 {pstd}
-This command does not change observations or create/drop data variables.  It
+This command does not change observations or create/drop data variables. It
 reads the {cmd:_msm_weight} variable created by {helpb msm_weight} and the
-variable mapping stored by {helpb msm_prepare}.  It does store diagnostic state
+variable mapping stored by {helpb msm_prepare}. It does store diagnostic state
 in dataset characteristics so downstream commands can report or export the
 latest diagnostics.
 
@@ -78,26 +78,26 @@ export them to Excel.
 {pstd}
 {bf:Weight distribution:}
 
-{phang2}{bf:Mean {c ~} 1.0:}  Stabilized weights should have a mean near 1.
-A mean far from 1 suggests model misspecification.{p_end}
+{phang2}{bf:Mean {c ~} 1.0:} Stabilized weights should have a mean near 1. A mean far from 1 suggests
+model misspecification.{p_end}
 
-{phang2}{bf:Effective sample size (ESS):}  Measures the effective information
-retained after weighting.  ESS = (sum w)^2 / (sum w^2).  If ESS is well below
+{phang2}{bf:Effective sample size (ESS):} Measures the effective information
+retained after weighting. ESS = (sum w)^2 / (sum w^2). If ESS is well below
 50% of N, weight variability is high and the analysis will have wide confidence
-intervals.  Consider stronger truncation or a simpler weight model.{p_end}
+intervals. Consider stronger truncation or a simpler weight model.{p_end}
 
-{phang2}{bf:Extreme weights:}  Large maximum weights indicate near-positivity
-violations.  Use {cmd:by_period} to identify which periods are affected, and
+{phang2}{bf:Extreme weights:} Large maximum weights indicate near-positivity
+violations. Use {cmd:by_period} to identify which periods are affected, and
 consider period-specific investigation or truncation.{p_end}
 
 {pstd}
 {bf:Covariate balance:}
 
-{phang2}{bf:SMD < 0.1:}  The standard threshold for acceptable balance.  SMDs
+{phang2}{bf:SMD < 0.1:} The standard threshold for acceptable balance. SMDs
 above 0.1 after weighting suggest residual confounding for that variable.{p_end}
 
-{phang2}{bf:% Change:}  A large negative change means weighting improved
-balance.  A positive change means weighting made balance worse for that
+{phang2}{bf:% Change:} A large negative change means weighting improved
+balance. A positive change means weighting made balance worse for that
 covariate, which warrants investigation.{p_end}
 
 {phang2}Covariates exceeding the threshold are marked with {cmd:*} in the
@@ -109,35 +109,34 @@ output.{p_end}
 
 {phang}
 {opth balance_covariates(varlist)} specifies which covariates to assess for
-balance.  The command computes SMDs between treated and untreated groups both
-without weights (raw) and with the IP weights.  If omitted, all covariates
+balance. The command computes SMDs between treated and untreated groups both
+without weights (raw) and with the IP weights. If omitted, all covariates
 from {helpb msm_prepare} (both {cmd:covariates()} and
 {cmd:baseline_covariates()}) are used.
 
 {phang}
 {opt by_:period} displays weight distribution statistics (N, mean, SD, min,
-max) separately for each time period.  This is useful for identifying periods
+max) separately for each time period. This is useful for identifying periods
 where weights become extreme or where the weight model breaks down.
 
 {phang}
-{opt threshold(#)} sets the SMD threshold for declaring acceptable balance.
-The default is {cmd:0.1}, following common epidemiological practice.
-Covariates with a weighted absolute SMD exceeding this threshold are flagged
-in the output.  The balance summary reports how many covariates are balanced
-versus imbalanced.
+{opt threshold(#)} sets the SMD threshold for declaring acceptable balance. The
+default is {cmd:0.1}, following common epidemiological practice. Covariates with a
+weighted absolute SMD exceeding this threshold are flagged in the output. The
+balance summary reports how many covariates are balanced versus imbalanced.
 
 {phang}
 {opt accumulate(name)} appends one summary row for the current weighted panel
 to the named {help frames:frame}, creating the frame with a fixed schema on
-first use.  This is intended for loops over many pairwise contrasts, where each
+first use. This is intended for loops over many pairwise contrasts, where each
 contrast is fit on its own weighted person-period panel: accumulate the
 per-contrast diagnostics into one frame, then export the whole frame as a
-single styled sheet with {helpb msm_diagtab}.  Everything {cmd:msm_diagnose}
+single styled sheet with {helpb msm_diagtab}. Everything {cmd:msm_diagnose}
 otherwise does (console display, {cmd:r()} results, and dataset
-characteristics) is unchanged when {cmd:accumulate()} is given.  The frame holds
+characteristics) is unchanged when {cmd:accumulate()} is given. The frame holds
 the columns {cmd:contrast}, {cmd:outcome}, {cmd:n_obs} (person-periods),
 {cmd:ess}, {cmd:ess_pct}, {cmd:max_weight}, {cmd:p99_weight}, {cmd:n_extreme},
-{cmd:n_imbalanced}, and {cmd:max_abs_smd}.  The two balance columns
+{cmd:n_imbalanced}, and {cmd:max_abs_smd}. The two balance columns
 ({cmd:n_imbalanced} and {cmd:max_abs_smd}) are populated whenever balance is
 assessed -- which includes the default case where {cmd:balance_covariates()} is
 omitted but covariates were registered with {helpb msm_prepare} -- and are left
@@ -145,19 +144,19 @@ missing only when there are no covariates to assess.
 
 {phang}
 {opt contrast(string)} supplies the contrast label written to the
-{cmd:contrast} column of the accumulate row.  It is {bf:required} whenever
+{cmd:contrast} column of the accumulate row. It is {bf:required} whenever
 {cmd:accumulate()} is given.
 
 {phang}
 {opt outcome(string)} supplies an optional outcome label written to the
-{cmd:outcome} column of the accumulate row.  It is left empty if not given.
+{cmd:outcome} column of the accumulate row. It is left empty if not given.
 
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}
-{bf:Basic diagnostics with default covariates.}  Uses all covariates from
+{bf:Basic diagnostics with default covariates.} Uses all covariates from
 {cmd:msm_prepare}:{p_end}
 
 {phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
@@ -183,14 +182,14 @@ missing only when there are no covariates to assess.
 {phang2}{cmd:. matrix list r(balance)}{p_end}
 
 {pstd}
-{bf:Visualizing the diagnostics.}  Follow up with {helpb msm_plot} for weight
+{bf:Visualizing the diagnostics.} Follow up with {helpb msm_plot} for weight
 density and Love plots:{p_end}
 
 {phang2}{cmd:. msm_plot, type(weights)}{p_end}
 {phang2}{cmd:. msm_plot, type(balance)}{p_end}
 
 {pstd}
-{bf:Cross-contrast summary.}  Loop over several pairwise contrasts, each on its
+{bf:Cross-contrast summary.} Loop over several pairwise contrasts, each on its
 own weighted panel, accumulate one diagnostic row per contrast, then export the
 accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 
@@ -226,9 +225,9 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {synopt:{cmd:r(balance)}}covariate balance matrix (columns: raw_smd, weighted_smd, pct_change){p_end}
 
 {pstd}
-When {opt accumulate(name)} is specified, {cmd:msm_diagnose} also appends one
-summary row to the named frame (see the {help msm_diagnose##options:Options});
-this is a side effect and is not part of {cmd:r()}.
+When {opt accumulate(name)} is specified, {cmd:msm_diagnose} also appends one summary row
+to the named frame (see the {help msm_diagnose##options:Options}); this is a side effect and is not part of
+{cmd:r()}.
 
 
 {marker author}{...}

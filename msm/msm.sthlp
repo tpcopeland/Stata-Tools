@@ -55,14 +55,14 @@ With no options, {cmd:msm} displays the command overview and workflow guide.
 {pstd}
 {cmd:msm} is a comprehensive suite for estimating marginal structural models
 using inverse probability of treatment weighting (IPTW) in longitudinal
-person-period data.  It is designed for the common setting where treatment and
+person-period data. It is designed for the common setting where treatment and
 confounders both vary over time and where confounders are simultaneously
 affected by past treatment and predictive of future treatment {hline 1} the
 classic "treatment-confounder feedback" problem.
 
 {pstd}
 Standard regression adjustment (including fixed-effects and random-effects
-models) cannot handle this structure without introducing bias.  IPTW solves
+models) cannot handle this structure without introducing bias. IPTW solves
 the problem by creating a pseudo-population where treatment is independent of
 measured confounders, allowing a simple weighted outcome model to estimate the
 causal effect.
@@ -93,9 +93,9 @@ individual over time.{p_end}
 {phang2}{bf:Time-varying confounders} that are affected by past treatment and
 predictive of future treatment (treatment-confounder feedback).{p_end}
 
-{phang2}{bf:Binary treatment and outcome indicators} (0/1).  Linear models use
+{phang2}{bf:Binary treatment and outcome indicators} (0/1). Linear models use
 the prepared binary outcome on the identity scale, and Cox models estimate
-weighted hazard ratios.  The full prediction workflow currently requires a
+weighted hazard ratios. The full prediction workflow currently requires a
 binary outcome with a pooled logistic model.{p_end}
 
 {pstd}
@@ -109,7 +109,7 @@ consider Stata's built-in {helpb teffects ipw} instead.
 {dlgtab:Data Preparation}
 
 {phang}
-{helpb msm_prepare} {hline 2} Map variables and store metadata.  Entry point
+{helpb msm_prepare} {hline 2} Map variables and store metadata. Entry point
 for the pipeline.
 
 {phang}
@@ -177,7 +177,7 @@ Run {cmd:msm, status} at any point to see where the current dataset sits in
 the pipeline, what outputs are available, and what the recommended next step is.
 
 {pstd}
-{bf:Plain-language command map.}  If you are new to MSMs, think of the
+{bf:Plain-language command map.} If you are new to MSMs, think of the
 commands as a sequence of practical checks and outputs:
 
 {phang2}{cmd:msm_prepare} tells the package what each column means.{p_end}
@@ -204,9 +204,9 @@ console, CSV, or Excel tables for reporting.{p_end}
 {title:Pipeline status}
 
 {pstd}
-{cmd:msm, status} is a lightweight introspection command.  It reads the stored
+{cmd:msm, status} is a lightweight introspection command. It reads the stored
 {cmd:_dta[_msm_*]} characteristics and saved artifacts already attached to the
-dataset.  It does not fit models, recalculate anything, or modify the data.
+dataset. It does not fit models, recalculate anything, or modify the data.
 
 {pstd}
 The status report shows:
@@ -228,28 +228,28 @@ whenever you are unsure what has been run.
 {title:Current scope and limits}
 
 {phang}
-{bf:Static strategies only.}  The prediction workflow supports always-treated,
-never-treated, or both.  Dynamic or stochastic treatment regimes are not
+{bf:Static strategies only.} The prediction workflow supports always-treated,
+never-treated, or both. Dynamic or stochastic treatment regimes are not
 implemented.
 
 {phang}
-{bf:Prediction requires pooled logistic MSMs.}  Run
-{cmd:msm_fit, model(logistic)} before {helpb msm_predict}.  Linear and Cox
+{bf:Prediction requires pooled logistic MSMs.} Run
+{cmd:msm_fit, model(logistic)} before {helpb msm_predict}. Linear and Cox
 models can be estimated, diagnosed, and reported, but prediction is not
 available for them.
 
 {phang}
-{bf:Outcome-model covariates must be time-fixed.}  Any {cmd:outcome_cov()} in
-{helpb msm_fit} must be constant within person.  Time-varying confounders
+{bf:Outcome-model covariates must be time-fixed.} Any {cmd:outcome_cov()} in
+{helpb msm_fit} must be constant within person. Time-varying confounders
 belong in the treatment and censoring weight models.
 
 {phang}
-{bf:Common baseline required.}  {helpb msm_weight} assumes all individuals
-enter at the same baseline period.  Delayed entry / left truncation is not
+{bf:Common baseline required.} {helpb msm_weight} assumes all individuals
+enter at the same baseline period. Delayed entry / left truncation is not
 supported.
 
 {phang}
-{bf:Observed follow-up is the default horizon.}  {helpb msm_predict} rejects
+{bf:Observed follow-up is the default horizon.} {helpb msm_predict} rejects
 out-of-range {cmd:times()} unless {cmd:extrapolate} is specified.
 
 
@@ -257,7 +257,7 @@ out-of-range {cmd:times()} unless {cmd:extrapolate} is specified.
 {title:Examples}
 
 {pstd}
-{bf:Prediction-ready end-to-end workflow.}  This is the complete pipeline using
+{bf:Prediction-ready end-to-end workflow.} This is the complete pipeline using
 the bundled example dataset:{p_end}
 
 {phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
@@ -286,7 +286,7 @@ the bundled example dataset:{p_end}
 {phang2}{cmd:. msm, status}{p_end}
 
 {pstd}
-{bf:Estimation-only workflow.}  Use a Cox or linear model when prediction is
+{bf:Estimation-only workflow.} Use a Cox or linear model when prediction is
 not needed:{p_end}
 
 {phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
@@ -314,17 +314,18 @@ Robins JM, Hernan MA, Brumback B. Marginal structural models and causal
 inference in epidemiology. {it:Epidemiology}. 2000;11(5):550-560.
 
 {phang}
-Hernan MA, Brumback B, Robins JM. Marginal structural models to estimate
-the causal effect of zidovudine on the survival of HIV-positive men.
-{it:Epidemiology}. 2000;11(5):561-570.
+Hernan MA, Brumback B, Robins JM. Marginal structural models to estimate the
+causal effect of zidovudine on the survival of HIV-positive
+men. {it:Epidemiology}. 2000;11(5):561-570.
 
 {phang}
 Cole SR, Hernan MA. Constructing inverse probability weights for marginal
 structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
 
 {phang}
-VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
-introducing the E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
+VanderWeele TJ, Ding P. Sensitivity analysis in observational
+research: introducing the
+E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
 
 {phang}
 Hernan MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman &

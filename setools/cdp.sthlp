@@ -48,12 +48,11 @@
 {p2colreset}{...}
 
 {p 8 16 2}
-{it:idvar} identifies patients (numeric or string).
-{it:edssvar} is the numeric EDSS score.
-{it:datevar} and {opt dxdate()} must both be Stata daily dates stored as
-whole-number values with {cmd:%td} display formats.  Other numeric time encodings
-such as {cmd:%tm}, {cmd:%tq}, and {cmd:%tc} are rejected because the command uses
-day arithmetic.{p_end}
+{it:idvar} identifies patients (numeric or string). {it:edssvar} is the numeric EDSS
+score. {it:datevar} and {opt dxdate()} must both be Stata daily dates stored as
+whole-number values with {cmd:%td} display formats. Other numeric time encodings
+such as {cmd:%tm}, {cmd:%tq}, and {cmd:%tc} are rejected because the command uses day
+arithmetic.{p_end}
 
 
 {marker description}{...}
@@ -61,19 +60,19 @@ day arithmetic.{p_end}
 
 {pstd}
 {cmd:cdp} computes confirmed disability progression (CDP) dates from longitudinal
-EDSS (Expanded Disability Status Scale) measurements.  CDP is a standard primary
+EDSS (Expanded Disability Status Scale) measurements. CDP is a standard primary
 outcome in multiple sclerosis clinical trials and observational studies.
 
 {pstd}
 {bf:What the command does:}
 
-{phang2}1. {bf:Determines baseline EDSS.}  The first EDSS measurement within
-{opt baselinewindow()} days of the diagnosis date is used.  If no measurement
+{phang2}1. {bf:Determines baseline EDSS.} The first EDSS measurement within
+{opt baselinewindow()} days of the diagnosis date is used. If no measurement
 falls within this window, the patient's earliest available EDSS is used
 instead.{p_end}
 
-{phang2}2. {bf:Calculates the progression threshold} based on baseline EDSS.
-By default a {bf:two-tier} rule is used:{p_end}
+{phang2}2. {bf:Calculates the progression threshold} based on baseline
+EDSS. By default a {bf:two-tier} rule is used:{p_end}
 {phang3}{hline 2} Baseline EDSS {ul:<}= 5.5: requires {ul:>}= 1.0 point increase{p_end}
 {phang3}{hline 2} Baseline EDSS > 5.5: requires {ul:>}= 0.5 point increase{p_end}
 {phang2}With {opt threetier}, the canonical Lublin (2014) / Kappos three-tier rule
@@ -83,21 +82,20 @@ is used instead: {ul:>}= 1.5 if baseline is 0, {ul:>}= 1.0 if baseline is 1.0-5.
 {phang2}3. {bf:Identifies progression events} where EDSS increases by at least the
 threshold from baseline (after the baseline date).{p_end}
 
-{phang2}4. {bf:Confirms progression}.  With the default {cmd:confirmtype(sustained)},
-a {bf:sustained-throughout} definition is used: the {it:minimum} EDSS across all
+{phang2}4. {bf:Confirms progression}. With the default {cmd:confirmtype(sustained)}, a
+{bf:sustained-throughout} definition is used: the {it:minimum} EDSS across all
 measurements at or after {opt confirmdays()} days must still meet the progression
-threshold, so any later EDSS that falls below baseline + threshold invalidates the
-event.  With {cmd:confirmtype(visit)}, the looser {bf:next-confirmed-visit}
-definition is used: only the EDSS at the first visit occurring at least
-{opt confirmdays()} days after the candidate must meet the threshold (later dips are
-ignored).{p_end}
+threshold, so any later EDSS that falls below baseline + threshold invalidates
+the event. With {cmd:confirmtype(visit)}, the looser {bf:next-confirmed-visit} definition
+is used: only the EDSS at the first visit occurring at least {opt confirmdays()}
+days after the candidate must meet the threshold (later dips are ignored).{p_end}
 
 {pstd}
-{bf:Confirmation requirement:}  At least one EDSS measurement must exist at or
-after {opt confirmdays()} days from the candidate progression date.  Patients whose
-last measurement falls before this point do not receive confirmed CDP, even if no
-regression was observed.  This differs from {helpb sustainedss}, which treats
-events as sustained when no disconfirming evidence exists within its confirmation
+{bf:Confirmation requirement:} At least one EDSS measurement must exist at or after
+{opt confirmdays()} days from the candidate progression date. Patients whose last
+measurement falls before this point do not receive confirmed CDP, even if no
+regression was observed. This differs from {helpb sustainedss}, which treats events as
+sustained when no disconfirming evidence exists within its confirmation
 window.
 
 
@@ -107,74 +105,74 @@ window.
 {dlgtab:Required}
 
 {phang}
-{opt dxdate(varname)} specifies the variable containing the MS diagnosis date.
-This date anchors the baseline window.  It must be a Stata daily date with a
-{cmd:%td} display format and whole-number daily values.
+{opt dxdate(varname)} specifies the variable containing the MS diagnosis date. This
+date anchors the baseline window. It must be a Stata daily date with a {cmd:%td}
+display format and whole-number daily values.
 
 {dlgtab:Optional}
 
 {phang}
-{opt generate(name)} specifies the name for the generated CDP date variable.
-The default is {cmd:cdp_date}.  The variable must not already exist.
+{opt generate(name)} specifies the name for the generated CDP date variable. The
+default is {cmd:cdp_date}. The variable must not already exist.
 
 {phang}
 {opt confirmdays(#)} specifies the minimum number of days between the progression
-event and the confirming measurement.  The default is {cmd:180} (approximately
-6 months), which is standard in MS clinical trials.  Use {cmd:confirmdays(90)} for
+event and the confirming measurement. The default is {cmd:180} (approximately
+6 months), which is standard in MS clinical trials. Use {cmd:confirmdays(90)} for
 a 3-month confirmation rule.
 
 {phang}
-{opt confirmtype(type)} selects the confirmation rule.  {cmd:sustained} (the
+{opt confirmtype(type)} selects the confirmation rule. {cmd:sustained} (the
 default) requires the minimum EDSS across all measurements at or after
-{opt confirmdays()} days to meet the threshold.  {cmd:visit} requires only the EDSS
+{opt confirmdays()} days to meet the threshold. {cmd:visit} requires only the EDSS
 at the first visit at least {opt confirmdays()} days after the candidate to meet the
-threshold (the "N-week confirmed" definition common in clinical trials).  The
+threshold (the "N-week confirmed" definition common in clinical trials). The
 default preserves the behavior of earlier versions.
 
 {phang}
 {opt baselinewindow(#)} specifies the maximum number of days after diagnosis within
-which to search for the baseline EDSS measurement.  The default is {cmd:730}
-(2 years).  If no EDSS measurement exists within this window, the earliest
+which to search for the baseline EDSS measurement. The default is {cmd:730}
+(2 years). If no EDSS measurement exists within this window, the earliest
 available measurement is used.
 
 {phang}
 {opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
 progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
-{ul:>}= 0.5 if > 5.5).  Without it, the two-tier rule ({ul:>}= 1.0 if {ul:<}= 5.5,
-{ul:>}= 0.5 if > 5.5) is used.  The default is two-tier for backward compatibility;
-choose {opt threetier} to match modern phase-3 MS trial protocols.
+{ul:>}= 0.5 if > 5.5). Without it, the two-tier rule ({ul:>}= 1.0 if {ul:<}= 5.5,
+{ul:>}= 0.5 if > 5.5) is used. The default is two-tier for backward
+compatibility; choose {opt threetier} to match modern phase-3 MS trial protocols.
 
 {phang}
 {opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a confirmed
 CDP date and 0 otherwise (within the estimation sample), ready for
-{helpb stset}.  It is most useful together with {opt keepall}.  The name must be new
+{helpb stset}. It is most useful together with {opt keepall}. The name must be new
 and differ from {opt generate()}.
 
 {phang}
 {opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
-with a {cmd:%td} format).  When the confirmed CDP date falls strictly after a
+with a {cmd:%td} format). When the confirmed CDP date falls strictly after a
 person's exit date, the date is set to missing and {opt eventvar()} (if requested)
 is set to 0 {hline 1} the event is censored as occurring outside the observation
-window.  This replaces the hand-written post-exit clipping that follows most
-{cmd:cdp} calls.  Persons with a missing exit date are left unchanged; observations
-are retained.  Under {opt allevents}, censoring is applied per event.
+window. This replaces the hand-written post-exit clipping that follows most
+{cmd:cdp} calls. Persons with a missing exit date are left unchanged; observations
+are retained. Under {opt allevents}, censoring is applied per event.
 
 {phang}
 {opt roving} specifies that the baseline should be reset after each confirmed
-progression event.  The new baseline becomes the confirmed EDSS level, and the
-algorithm looks for the next progression from that level.  Without this option,
+progression event. The new baseline becomes the confirmed EDSS level, and the
+algorithm looks for the next progression from that level. Without this option,
 all progression is measured against the initial baseline.
 
 {phang}
 {opt allevents} specifies that all CDP events should be tracked, not just the
-first.  This option requires {opt roving}.  When used, additional variables
-{cmd:event_num} (CDP event number, starting at 1) and
-{cmd:baseline_edss_at_event} (the baseline EDSS used for each event) are created.
-The output becomes event-level: one row per CDP event per person.
+first. This option requires {opt roving}. When used, additional variables {cmd:event_num}
+(CDP event number, starting at 1) and {cmd:baseline_edss_at_event} (the baseline
+EDSS used for each event) are created. The output becomes event-level: one row
+per CDP event per person.
 
 {phang}
-{opt keepall} retains all observations from the original dataset.  By default,
-only observations for patients who experience CDP are kept.  With {opt keepall},
+{opt keepall} retains all observations from the original dataset. By default,
+only observations for patients who experience CDP are kept. With {opt keepall},
 patients without CDP have missing values in the CDP date variable.
 
 {phang}
@@ -206,15 +204,15 @@ neurodegeneration or by a relapse?"  Classifies each CDP event as PIRA or RAW.{p
 
 {pstd}
 {cmd:cdp} expects repeated EDSS measurements in long format: one row per EDSS
-visit per patient.  Each patient must have at least one EDSS measurement and a
+visit per patient. Each patient must have at least one EDSS measurement and a
 nonmissing diagnosis date.
 
 {pstd}
 {bf:Effect of keepall on output rows}
 
 {pstd}
-By default, {cmd:cdp} drops all rows for patients without confirmed CDP.  With
-{opt keepall}, every original row is preserved.  This is useful when you want to
+By default, {cmd:cdp} drops all rows for patients without confirmed CDP. With
+{opt keepall}, every original row is preserved. This is useful when you want to
 create a binary "had CDP" indicator (see Example 4 below).
 
 {pstd}
@@ -222,8 +220,8 @@ create a binary "had CDP" indicator (see Example 4 below).
 
 {pstd}
 With {opt roving allevents}, the command can detect multiple stepwise progression
-events per patient.  Each event uses the previously confirmed EDSS as its baseline.
-The output is reshaped to event level, with one row per CDP event.
+events per patient. Each event uses the previously confirmed EDSS as its
+baseline. The output is reshaped to event level, with one row per CDP event.
 
 
 {marker examples}{...}
@@ -252,7 +250,7 @@ Some protocols use a shorter 3-month confirmation rule.{p_end}
 {bf:Example 3: Multiple progression events with roving baseline}
 
 {pstd}
-Track all stepwise CDP events per patient.  After each confirmed event, the
+Track all stepwise CDP events per patient. After each confirmed event, the
 baseline resets to the new EDSS level.{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use "https://.../relapses.dta", clear}{p_end}
@@ -299,22 +297,20 @@ analysis or logistic regression.{p_end}
 {title:References}
 
 {pstd}
-Lublin FD, Reingold SC, Cohen JA, et al. 2014.
-Defining the clinical course of multiple sclerosis: the 2013 revisions.
-{it:Neurology} 83: 278-286.
+Lublin FD, Reingold SC, Cohen JA, et al. 2014. Defining the clinical course of
+multiple sclerosis: the 2013 revisions. {it:Neurology} 83: 278-286.
 
 {pstd}
-Kappos L, Butzkueven H, Wiendl H, et al. 2018.
-Greater sensitivity to multiple sclerosis disability worsening and progression
-events using a roving versus a fixed reference value in a prospective cohort study.
-{it:Multiple Sclerosis Journal} 24: 963-973.
+Kappos L, Butzkueven H, Wiendl H, et al. 2018. Greater sensitivity to multiple
+sclerosis disability worsening and progression events using a roving versus a
+fixed reference value in a prospective cohort
+study. {it:Multiple Sclerosis Journal} 24: 963-973.
 
 {pstd}
-Kappos L, Wolinsky JS, Giovannoni G, et al. 2020.
-Contribution of relapse-independent progression vs relapse-associated worsening to
-overall confirmed disability accumulation in typical relapsing multiple sclerosis in
-a pooled analysis of 2 randomized clinical trials.
-{it:JAMA Neurology} 77: 1132-1140.
+Kappos L, Wolinsky JS, Giovannoni G, et al. 2020. Contribution of
+relapse-independent progression vs relapse-associated worsening to overall
+confirmed disability accumulation in typical relapsing multiple sclerosis in a
+pooled analysis of 2 randomized clinical trials. {it:JAMA Neurology} 77: 1132-1140.
 
 
 {marker author}{...}

@@ -44,10 +44,15 @@ intervals. The default is {cmd:level(95)} or as set by {helpb set level}.
 {title:Description}
 
 {pstd}
-{cmd:cstat_surv} calculates Harrell's C-statistic (concordance statistic) for survival models after fitting a Cox proportional hazards model. The C-statistic measures the model's ability to discriminate between subjects who experience the event and those who do not.
+{cmd:cstat_surv} calculates Harrell's C-statistic (concordance statistic) for
+survival models after fitting a Cox proportional hazards model. The
+C-statistic measures the model's ability to discriminate between subjects who
+experience the event and those who do not.
 
 {pstd}
-The command must be run immediately after fitting a Cox model with {helpb stcox}. It calculates the C-statistic directly by comparing all comparable pairs of observations, accounting for censoring in survival data.
+The command must be run immediately after fitting a Cox model with {helpb stcox}. It
+calculates the C-statistic directly by comparing all comparable pairs of
+observations, accounting for censoring in survival data.
 
 {pstd}
 The C-statistic ranges from 0 to 1:
@@ -71,22 +76,35 @@ The command works by:
 
 {phang2}1. Predicting hazard ratios from the fitted Cox model{p_end}
 {phang2}2. Comparing all comparable pairs of observations{p_end}
-{phang2}3. Calculating concordance (pairs where higher predicted risk corresponds to earlier event){p_end}
+{phang2}3. Calculating concordance (pairs where higher predicted risk corresponds to
+earlier event){p_end}
 {phang2}4. Computing standard errors via infinitesimal jackknife{p_end}
 
 {pstd}
-A pair of observations is comparable if the observation with the shorter survival time experienced the event. For tied survival times where both subjects experienced events, each possible ordering is counted as half concordant and half discordant.
+A pair of observations is comparable if the observation with the shorter
+survival time experienced the event. For tied survival times where both
+subjects experienced events, each possible ordering is counted as half
+concordant and half discordant.
 
 {pstd}
-The C-statistic is equivalent to the area under the ROC curve (AUC) for binary outcomes and represents the probability that, for a randomly selected comparable pair, the model assigns a higher risk to the subject who experienced the event earlier.
+The C-statistic is equivalent to the area under the ROC curve (AUC) for binary
+outcomes and represents the probability that, for a randomly selected
+comparable pair, the model assigns a higher risk to the subject who
+experienced the event earlier.
 
 {pstd}
 {ul:Limitations}
 
-{phang2}1. The C-statistic is computed on unweighted pairs regardless of any weights used in the {cmd:stcox} model. A note is displayed when weights are detected.{p_end}
-{phang2}2. Delayed entry (left truncation via {cmd:_t0}) is not accounted for in pair comparisons. Use single-record survival data without late entries for correct results.{p_end}
-{phang2}3. Multi-record (counting process) data is not supported. The command assumes one record per subject.{p_end}
-{phang2}4. The algorithm compares all pairs of observations (O(n{c 178}) complexity). For datasets with more than 10,000 observations, computation may take several seconds.{p_end}
+{phang2}1. The C-statistic is computed on unweighted pairs regardless of any weights
+used in the {cmd:stcox} model. A note is displayed when weights are detected.{p_end}
+{phang2}2. Delayed entry (left truncation via {cmd:_t0}) is not accounted for in pair
+comparisons. Use single-record survival data without late entries for correct
+results.{p_end}
+{phang2}3. Multi-record (counting process) data is not supported. The command assumes
+one record per subject.{p_end}
+{phang2}4. The algorithm compares all pairs of observations (O(n{c 178}) complexity). For
+datasets with more than 10,000 observations, computation may take several
+seconds.{p_end}
 
 
 {marker examples}{...}
@@ -102,7 +120,8 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) for binary o
 {pstd}Calculate the C-statistic{p_end}
 {phang2}{stata "cstat_surv":. cstat_surv}{p_end}
 
-{pstd}The output displays the C-statistic with standard error and 95% confidence interval, along with pair comparison statistics.
+{pstd}The output displays the C-statistic with standard error and 95% confidence
+interval, along with pair comparison statistics.
 
 {pstd}More complex example with SSRI/SNRI cohort{p_end}
 
@@ -135,8 +154,8 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) for binary o
 {synopt:{cmd:e(somers_d)}}Somers' D statistic (= 2C - 1){p_end}
 {synopt:{cmd:e(N)}}Number of observations{p_end}
 {synopt:{cmd:e(N_comparable)}}Number of comparable pairs{p_end}
-{synopt:{cmd:e(N_concordant)}}Number of concordant pairs (may be fractional with tied times){p_end}
-{synopt:{cmd:e(N_discordant)}}Number of discordant pairs (may be fractional with tied times){p_end}
+{synopt:{cmd:e(N_concordant)}}Number of concordant pairs (fractional with ties){p_end}
+{synopt:{cmd:e(N_discordant)}}Number of discordant pairs (fractional with ties){p_end}
 {synopt:{cmd:e(N_tied)}}Number of tied pairs{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 

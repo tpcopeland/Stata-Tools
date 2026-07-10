@@ -1,6 +1,6 @@
 # tc_schemes - Consolidated graph schemes for Stata
 
-**Version 1.1.0** | 2026-06-28
+**Version 1.1.0** | 2026-07-10
 
 `tc_schemes` bundles publication-oriented graph schemes from Daniel Bischof's `blindschemes`, Mead Over's compatibility fixes, Asjad Naqvi's `schemepack`, Trenton Mize's `cleanplots`, and Michael Droste's `scheme-modern` into one installable package, plus original red-blue diverging (`rdbu`) and Karolinska Institutet (`ki`, `ki_black`) schemes. The wrapper command gives you a real Stata entry point, so `which tc_schemes` succeeds and project headers can check one package instead of juggling multiple upstream installs.
 

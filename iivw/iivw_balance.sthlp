@@ -66,7 +66,7 @@
 
 {pstd}
 {cmd:iivw_balance} is a post-weighting diagnostic for data weighted by
-{helpb iivw_weight}.  It asks two practical questions before an unchanged
+{helpb iivw_weight}. It asks two practical questions before an unchanged
 weighted outcome estimate is interpreted as evidence of measurement artifact:
 
 {phang2}1. Did the weights have enough leverage to move an estimate?{p_end}
@@ -75,12 +75,12 @@ weighted outcome estimate is interpreted as evidence of measurement artifact:
 {pstd}
 The command recovers the panel ID, visit time, weight variable, weight type,
 and visit-model covariate list from dataset characteristics written by
-{cmd:iivw_weight}.  It applies only to {cmd:iivw} and {cmd:fiptiw} weights,
+{cmd:iivw_weight}. It applies only to {cmd:iivw} and {cmd:fiptiw} weights,
 because IPTW-only weights do not contain a visit-intensity component.
 
 {pstd}
 The optional {it:varlist} adds extra numeric covariates to the displayed
-balance table.  The stored visit-model covariates always appear first and are
+balance table. The stored visit-model covariates always appear first and are
 the covariates used for {cmd:r(balance_flag)}.
 
 
@@ -91,28 +91,28 @@ the covariates used for {cmd:r(balance_flag)}.
 
 {phang}
 {opt cvcut(#)} specifies the weight coefficient-of-variation threshold below
-which leverage is classified as {cmd:low}.  The default is {cmd:0.10}.
+which leverage is classified as {cmd:low}. The default is {cmd:0.10}.
 
 {phang}
-{opt essratiocut(#)} specifies the effective-sample-size ratio threshold
-above which leverage is classified as {cmd:low}.  The default is {cmd:0.95}.
-High ESS/N means the weights are nearly constant and therefore have little
-ability to move an estimate.
+{opt essratiocut(#)} specifies the effective-sample-size ratio threshold above which
+leverage is classified as {cmd:low}. The default is {cmd:0.95}. High ESS/N means the
+weights are nearly constant and therefore have little ability to move an
+estimate.
 
 {phang}
 {opt smdcut(#)} specifies the absolute standardized-difference threshold used
-for {cmd:r(balance_flag)}.  The default is {cmd:0.10}.  The statistic is the
+for {cmd:r(balance_flag)}. The default is {cmd:0.10}. The statistic is the
 weighted mean minus the unweighted mean, divided by the unweighted standard
-deviation.  This is a heuristic composition check, not a formal test.
+deviation. This is a heuristic composition check, not a formal test.
 
 {dlgtab:Supplementary AG refit}
 
 {phang}
 {opt agr:efit} refits one Andersen-Gill style Cox model per stored visit-model
-covariate, once without weights and once with the stored IIVW/FIPTIW weights.
-It returns hazard-ratio matrices as a supplementary model-matched view.
-Covariates that have no usable variation or fail to fit are skipped with a
-note and a nonzero row-specific return code.
+covariate, once without weights and once with the stored IIVW/FIPTIW
+weights. It returns hazard-ratio matrices as a supplementary model-matched
+view. Covariates that have no usable variation or fail to fit are skipped with
+a note and a nonzero row-specific return code.
 
 {phang}
 {opt efr:on} uses Efron's method for tied event times in the supplementary Cox
@@ -129,25 +129,25 @@ intervals.
 
 {phang}
 {opt xlsx(filename)} writes the balance table to an Excel {cmd:.xlsx}
-workbook.  The exported worksheet uses a tabtools-style layout with a merged
+workbook. The exported worksheet uses a tabtools-style layout with a merged
 title, grouped headers, readable statistic labels, variable-label row headers
-when available, column widths, borders, and an explanatory footnote.  The
+when available, column widths, borders, and an explanatory footnote. The
 numeric values are rendered from {cmd:r(balance)} for presentation.
 
 {phang}
-{opt sheet(sheetname)} sets the Excel worksheet name.  The default is
-{cmd:Balance}.  This option requires {opt xlsx()}.
+{opt sheet(sheetname)} sets the Excel worksheet name. The default is
+{cmd:Balance}. This option requires {opt xlsx()}.
 
 {phang}
-{opt replace} overwrites the target worksheet when it already exists.  Excel
+{opt replace} overwrites the target worksheet when it already exists. Excel
 output follows the tabtools workbook convention: only the named sheet is
-cleared and rewritten; other sheets in the workbook are preserved.  Without
+cleared and rewritten; other sheets in the workbook are preserved. Without
 {opt replace}, an existing worksheet of the same name is left untouched, the
 export is skipped with a warning, and the diagnostic results are still
 returned in {cmd:r()}.
 
 {phang}
-{opt open} opens the Excel workbook after writing it.  This option requires
+{opt open} opens the Excel workbook after writing it. This option requires
 {opt xlsx()}.
 
 {phang}
@@ -156,19 +156,18 @@ rows to Excel output.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places used in Excel numeric
-cell formatting.  The allowed range is 0 through 6; the default is 4.
+cell formatting. The allowed range is 0 through 6; the default is 4.
 
 {phang}
-{opt borderstyle(string)} selects the Excel border scheme and requires
-{opt xlsx()}.  {cmd:thin} (the default) draws a full thin grid -- an outer box
-plus interior horizontal and vertical rules -- matching the tabtools house
-style.  {cmd:medium} draws the same framed grid with medium lines.
-{cmd:academic} uses a three-rule (top/header/bottom) layout with no vertical
-rules.  {cmd:default} is an alias for {cmd:thin}.
+{opt borderstyle(string)} selects the Excel border scheme and requires {opt xlsx()}. {cmd:thin}
+(the default) draws a full thin grid -- an outer box plus interior horizontal
+and vertical rules -- matching the tabtools house style. {cmd:medium} draws the same
+framed grid with medium lines. {cmd:academic} uses a three-rule (top/header/bottom)
+layout with no vertical rules. {cmd:default} is an alias for {cmd:thin}.
 
 {phang}
-{opt headershade} shades the header rows.  It is off by default so that output
-matches the unshaded house style.  {opt headercolor(string)} sets the header
+{opt headershade} shades the header rows. It is off by default so that output
+matches the unshaded house style. {opt headercolor(string)} sets the header
 fill as three space-separated 0-255 RGB values, for example
 {cmd:headercolor("219 229 241")}.
 
@@ -177,45 +176,43 @@ fill as three space-separated 0-255 RGB values, for example
 that fill as {cmd:"R G B"} values.
 
 {phang}
-{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm},
-{cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, or
-{cmd:annals}) that sets the font, font size, and border scheme together.
-Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options
-override the matching theme setting.
+{opt theme(string)} applies a journal preset ({cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
+{cmd:nature}, {cmd:cell}, or {cmd:annals}) that sets the font, font size, and border scheme
+together. Explicit {opt borderstyle()}, {opt headershade}, or {opt zebra} options override the
+matching theme setting.
 
 
 {marker remarks}{...}
 {title:Remarks}
 
 {pstd}
-Leverage is classified as follows.  It is {cmd:low} if weight CV is below
-{opt cvcut()} or ESS/N is above {opt essratiocut()}.  Among non-low cases it
+Leverage is classified as follows. It is {cmd:low} if weight CV is below
+{opt cvcut()} or ESS/N is above {opt essratiocut()}. Among non-low cases it
 is {cmd:adequate} when CV is at least {cmd:0.25} and ESS/N is at most
-{cmd:0.80}; otherwise it is {cmd:moderate}.  These are conventions and can be
+{cmd:0.80}; otherwise it is {cmd:moderate}. These are conventions and can be
 changed for the low-leverage gate with {opt cvcut()} and {opt essratiocut()}.
 
 {pstd}
 The balance table reports weighted and unweighted means for each modeled
-visit covariate and any extra covariates supplied by the user.  The
+visit covariate and any extra covariates supplied by the user. The
 standardized difference is scale-free:
 
 {p 12 12 2}
 {it:SMD} = (weighted mean - unweighted mean) / unweighted SD.
 
 {pstd}
-The returned {cmd:r(informative)} flag is {cmd:1} only when leverage is
-{cmd:moderate} or {cmd:adequate} and {cmd:r(balance_flag)} is {cmd:good}.
-Use it as a simulation or workflow guard.  Do not treat it as proof that the
-visit model is correct.
+The returned {cmd:r(informative)} flag is {cmd:1} only when leverage is {cmd:moderate} or
+{cmd:adequate} and {cmd:r(balance_flag)} is {cmd:good}. Use it as a simulation or workflow
+guard. Do not treat it as proof that the visit model is correct.
 
 
 {marker interpreting}{...}
 {title:Interpreting results}
 
 {pstd}
-Read {cmd:iivw_balance} as a diagnostic stress test.  A {cmd:low} leverage
+Read {cmd:iivw_balance} as a diagnostic stress test. A {cmd:low} leverage
 verdict means a null weighting movement is not informative, because nearly
-constant weights cannot move estimates much.  A {cmd:poor} balance flag means
+constant weights cannot move estimates much. A {cmd:poor} balance flag means
 the modeled covariate composition changed beyond the documented convention
 and the result needs more scrutiny.
 
@@ -224,11 +221,11 @@ The AG refit reconstructs the counting-process intervals using the stored
 weighting contract: when the weights were built with {opt entry()}, the same
 entry times define the first interval's start, and when they were built with
 {opt nobaseevent}, each subject's baseline visit is again excluded from the
-modeled events.  This keeps the refit's risk sets aligned with the
+modeled events. This keeps the refit's risk sets aligned with the
 weight-generating model.
 
 {pstd}
-The supplementary {opt agrefit} output is deliberately secondary.  Cox
+The supplementary {opt agrefit} output is deliberately secondary. Cox
 partial-likelihood weighting does not guarantee hazard ratios shrink to one,
 so these matrices are best used to understand direction and scale rather than
 as pass/fail criteria.

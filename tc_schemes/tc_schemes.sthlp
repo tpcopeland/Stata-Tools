@@ -29,7 +29,7 @@
 {synoptset 20 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt so:urce(string)}}filter schemes by source package; {it:all} (default), {it:blindschemes}, {it:schemepack}, {it:cleanplots}, {it:modern}, or {it:tc}{p_end}
+{synopt:{opt so:urce(string)}}filter schemes by source package; default is {it:all}{p_end}
 {synopt:{opt li:st}}display schemes as a simple list{p_end}
 {synopt:{opt de:tail}}show detailed information with descriptions{p_end}
 {synoptline}
@@ -74,11 +74,11 @@ available schemes. Use {opt detail} for complete descriptions.
 {title:Options}
 
 {phang}
-{opt source(string)} filters the displayed schemes by their original package.
-Specify {it:blindschemes} to show only Bischof's schemes, {it:schemepack} for
-Naqvi's schemes, {it:cleanplots} for Mize's scheme, {it:modern} for Droste's
-schemes, {it:tc} for the original schemes authored for this package
-(rdbu, ki, ki_black), or {it:all} (the default) for everything.
+{opt source(string)} filters the displayed schemes by their original
+package. Specify {it:blindschemes} to show only Bischof's schemes, {it:schemepack} for
+Naqvi's schemes, {it:cleanplots} for Mize's scheme, {it:modern} for Droste's schemes, {it:tc}
+for the original schemes authored for this package (rdbu, ki, ki_black), or
+{it:all} (the default) for everything.
 
 {phang}
 {opt list} displays all scheme names as a simple list, suitable for programmatic
@@ -86,16 +86,18 @@ use or quick reference. May not be combined with {opt detail}.
 
 {phang}
 {opt detail} shows comprehensive information about each scheme, including
-descriptions, author information, and usage notes. May not be combined with {opt list}.
+descriptions, author information, and usage notes. May not be combined with
+{opt list}.
 
 
 {marker blindschemes}{...}
 {title:Blindschemes (Daniel Bischof)}
 
 {pstd}
-The blindschemes package provides four publication-quality schemes with excellent
-colorblind accessibility. This consolidation includes fixes from Mead Over's
-{it:blindschemes_fix} that resolve compatibility issues with recent Stata versions.
+The blindschemes package provides four publication-quality schemes with
+excellent colorblind accessibility. This consolidation includes fixes from
+Mead Over's {it:blindschemes_fix} that resolve compatibility issues with recent
+Stata versions.
 
 {p2colset 5 22 24 2}{...}
 {p2col:{bf:Scheme}}{bf:Description}{p_end}
@@ -105,15 +107,15 @@ and clean typography. Ideal for journal submissions requiring simple,
 uncluttered figures.{p_end}
 
 {p2col:{cmd:plotplainblind}}Same clean aesthetic as {cmd:plotplain} but with a
-color palette specifically designed for readers with color vision deficiency.
-Uses vermillion, sky, turquoise, and other distinguishable hues.{p_end}
+color palette specifically designed for readers with color vision
+deficiency. Uses vermillion, sky, turquoise, and other distinguishable hues.{p_end}
 
 {p2col:{cmd:plottig}}Inspired by R's ggplot2 default theme. Features a light
 gray background with white gridlines, providing clear visual separation of
 data from background while maintaining readability.{p_end}
 
-{p2col:{cmd:plottigblind}}ggplot2-style with colorblind-friendly palette.
-Combines the familiar ggplot2 aesthetic with accessible colors.{p_end}
+{p2col:{cmd:plottigblind}}ggplot2-style with colorblind-friendly
+palette. Combines the familiar ggplot2 aesthetic with accessible colors.{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -221,8 +223,8 @@ accents.{p_end}
 {p2col:{bf:Scheme}}{bf:Description}{p_end}
 {p2line}
 {p2col:{cmd:rdbu}}Red-blue diverging palette based on ColorBrewer RdBu. Warm and
-cool colors alternate so a two-group comparison reads red versus blue at a glance.
-Good for signed contrasts and treated-versus-control plots.{p_end}
+cool colors alternate so a two-group comparison reads red versus blue at a
+glance. Good for signed contrasts and treated-versus-control plots.{p_end}
 {p2col:{cmd:ki}}Karolinska Institutet branded palette led by KI plum (RGB 135 0 82)
 on a white background.{p_end}
 {p2col:{cmd:ki_black}}KI brand palette on a dark-plum background, intended for
@@ -289,26 +291,29 @@ slides and presentations.{p_end}
 {title:Acknowledgments}
 
 {pstd}
-This package consolidates work from three generous contributors to the Stata community:
+This package consolidates work from three generous contributors to the Stata
+community:
 
 {pstd}
 {bf:Daniel Bischof} (University of Zurich) created the original {it:blindschemes}
-package with its clean aesthetic and commitment to accessibility. His 2016 Stata
-Conference presentation "Blindschemes: Stata Graph Schemes Sensitive to Color
-Vision Deficiency" established best practices for accessible visualization in Stata.
+package with its clean aesthetic and commitment to accessibility. His 2016
+Stata Conference presentation "Blindschemes: Stata Graph Schemes Sensitive to
+Color Vision Deficiency" established best practices for accessible
+visualization in Stata.
 
 {pmore}
-Reference: Bischof, D. 2015. "Figure Schemes for Decent Stata Figures: plotplain & plottig."
+Reference: Bischof, D. 2015. "Figure Schemes for Decent Stata
+Figures: plotplain & plottig."
 
 {pstd}
-{bf:Mead Over} (Center for Global Development) provided {it:blindschemes_fix},
-which resolved compatibility issues between blindschemes and recent Stata versions.
+{bf:Mead Over} (Center for Global Development) provided {it:blindschemes_fix}, which
+resolved compatibility issues between blindschemes and recent Stata versions.
 
 {pstd}
-{bf:Asjad Naqvi} (Vienna University of Economics and Business) created
-{it:schemepack}, an impressive collection of 35+ schemes that bring modern color
-science and design principles to Stata graphics. His "Stata Guide" blog on Medium
-provides extensive documentation and visualization tutorials.
+{bf:Asjad Naqvi} (Vienna University of Economics and Business) created {it:schemepack},
+an impressive collection of 35+ schemes that bring modern color science and
+design principles to Stata graphics. His "Stata Guide" blog on Medium provides
+extensive documentation and visualization tutorials.
 
 {pstd}
 {bf:Trenton D. Mize} (Purdue University) created {it:cleanplots}, a publication
@@ -321,8 +326,9 @@ better default Stata plots. The {cmd:modern} and {cmd:modern_dark} files are
 bundled here unmodified with attribution.
 
 {pstd}
-The {cmd:rdbu} colors are based on ColorBrewer (Cynthia Brewer, colorbrewer2.org).
-The {cmd:ki}/{cmd:ki_black} schemes use Karolinska Institutet brand colors.
+The {cmd:rdbu} colors are based on ColorBrewer (Cynthia Brewer,
+colorbrewer2.org). The {cmd:ki}/{cmd:ki_black} schemes use Karolinska Institutet brand
+colors.
 
 {pstd}
 All original licenses and attributions are preserved. This consolidation is

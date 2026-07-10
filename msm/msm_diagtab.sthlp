@@ -52,7 +52,7 @@
 
 {pstd}
 {cmd:msm_diagtab} writes a frame of accumulated weight diagnostics -- one row
-per contrast -- to a single styled Excel sheet.  It is the cross-contrast
+per contrast -- to a single styled Excel sheet. It is the cross-contrast
 companion to {helpb msm_diagnose}: where {cmd:msm_diagnose, accumulate()}
 appends a one-row summary per weighted panel to a frame, {cmd:msm_diagtab}
 exports that whole frame at once.
@@ -60,13 +60,13 @@ exports that whole frame at once.
 {pstd}
 This fills the gap that {helpb msm_table} does not: {cmd:msm_table} writes one
 panel's detailed balance and weight tables to fixed sheets, so calling it inside
-a contrast loop overwrites the previous panel.  {cmd:msm_diagtab} instead
+a contrast loop overwrites the previous panel. {cmd:msm_diagtab} instead
 renders an already-accumulated, multi-row summary frame as a single table, with
 one line per contrast.
 
 {pstd}
 The command reads the frame; it does not require any pipeline state and does not
-alter the data in memory.  It errors cleanly if the named frame does not exist
+alter the data in memory. It errors cleanly if the named frame does not exist
 or has no rows.
 
 
@@ -74,41 +74,40 @@ or has no rows.
 {title:Options}
 
 {phang}
-{opt frame(name)} specifies the frame to export.  This is normally a frame built
-by repeated calls to {cmd:msm_diagnose, accumulate(}{it:name}{cmd:)}.  The frame
+{opt frame(name)} specifies the frame to export. This is normally a frame built
+by repeated calls to {cmd:msm_diagnose, accumulate(}{it:name}{cmd:)}. The frame
 must already exist and contain at least one row.
 
 {phang}
-{opt xlsx(filename)} specifies the Excel output file.  The file name must end in
+{opt xlsx(filename)} specifies the Excel output file. The file name must end in
 {cmd:.xlsx}.
 
 {phang}
-{opt sheet(string)} sets the worksheet name.  The default is
+{opt sheet(string)} sets the worksheet name. The default is
 {cmd:Weight Diagnostics}.
 
 {phang}
 {opt title(string)} sets the title written to cell A1 and merged across the
-table width.  The default describes the table contents.
+table width. The default describes the table contents.
 
 {phang}
 {opt footnote(string)} writes a merged, italicized footnote in the row below the
-table.  If omitted, a default footnote defines ESS% and the imbalance count and
+table. If omitted, a default footnote defines ESS% and the imbalance count and
 states the {cmd:threshold()}.
 
 {phang}
 {opt decimals(#)} sets the number of decimal places for the weight columns and
-{cmd:max_abs_smd}.  ESS and the count columns are always shown as integers and
-ESS% as a single decimal with a percent sign.  The default is {cmd:3}.
+{cmd:max_abs_smd}. ESS and the count columns are always shown as integers and
+ESS% as a single decimal with a percent sign. The default is {cmd:3}.
 
 {phang}
-{opt threshold(#)} is the imbalance threshold reported in the default footnote.
-It does not recompute anything -- {cmd:n_imbalanced} was already computed by
-{cmd:msm_diagnose} -- it only documents the threshold used.  The default is
-{cmd:0.1}.
+{opt threshold(#)} is the imbalance threshold reported in the default footnote. It
+does not recompute anything -- {cmd:n_imbalanced} was already computed by
+{cmd:msm_diagnose} -- it only documents the threshold used. The default is {cmd:0.1}.
 
 {phang}
 {opt font(string)}, {opt fontsize(#)}, and {opt border:style(string)} control
-table appearance, matching {helpb msm_table}.  {cmd:borderstyle()} must be
+table appearance, matching {helpb msm_table}. {cmd:borderstyle()} must be
 {cmd:thin}, {cmd:medium}, or {cmd:academic}.
 
 {phang}
@@ -119,7 +118,7 @@ table appearance, matching {helpb msm_table}.  {cmd:borderstyle()} must be
 
 {phang}
 {opt replace} replaces the target sheet in an existing workbook, preserving
-unrelated sheets.  Without {cmd:replace}, an existing file is an error.
+unrelated sheets. Without {cmd:replace}, an existing file is an error.
 
 
 {marker schema}{...}

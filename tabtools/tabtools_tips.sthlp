@@ -37,18 +37,16 @@
 {title:Description}
 
 {pstd}
-{cmd:tabtools_tips} is the quick-reference and worked-recipe guide for the
-{helpb tabtools} suite. Type {cmd:tabtools_tips} for a compact index, or
-{cmd:tabtools_tips, open} to open this help file from the command line.
-{p_end}
+{cmd:tabtools_tips} is the quick-reference and worked-recipe guide for the {helpb tabtools}
+suite. Type {cmd:tabtools_tips} for a compact index, or {cmd:tabtools_tips, open} to open
+this help file from the command line. {p_end}
 
 {marker quick}{...}
 {hline}
 {title:Quick reference}
 
 {pstd}
-Common option combinations for each command.
-{p_end}
+Common option combinations for each command. {p_end}
 
 {marker choose}{...}
 {title:Choosing commands}
@@ -69,7 +67,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {title:table1_tc}
 
 {phang2}{cmd:table1_tc, by(group) vars(age contn \ sex bin \ race cat) xlsx(t1.xlsx) sheet("Table 1") title("Baseline")}{p_end}
-{phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") smd} {it:// add SMD column}{p_end}
+{phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") smd}
+{it:// add SMD column}{p_end}
 {phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") boldp(0.05) highlight(0.05)}
 {it:// bold + highlight significant rows}{p_end}
 {phang2}{cmd:table1_tc, by(group) vars(...) wt(iptw) xlsx(t1.xlsx) sheet("Weighted") title("IPTW-Weighted")}
@@ -89,7 +88,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:collect: logit outcome i.treatment age sex}{p_end}
 {phang2}{cmd:regtab, xlsx(models.xlsx) sheet("Logistic") coef("OR") noint}{p_end}
 {phang2}{cmd:regtab, xlsx(models.xlsx) sheet("Logistic") coef("OR") digits(3) footnote("OR = odds ratio") zebra}{p_end}
-{phang2}{cmd:regtab, xlsx(models.xlsx) sheet("CDISC") cdisc} {it:// CDISC formatting: 4dp, Estimate, includes N}{p_end}
+{phang2}{cmd:regtab, xlsx(models.xlsx) sheet("CDISC") cdisc}
+{it:// CDISC formatting: 4dp, Estimate, includes N}{p_end}
 
 {hline}
 {title:effecttab}
@@ -125,7 +125,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:survtab, times(1 3 5) by(treatment) xlsx(surv.xlsx) title("Table 2. Survival")}{p_end}
 {phang2}{cmd:survtab, times(1 3 5) by(treatment) median riskset difference}
 {it:// add median, n-at-risk, between-group difference}{p_end}
-{phang2}{cmd:survtab, times(1 3 5) by(treatment) rmst(5) reverse} {it:// RMST + cumulative incidence}{p_end}
+{phang2}{cmd:survtab, times(1 3 5) by(treatment) rmst(5) reverse}
+{it:// RMST + cumulative incidence}{p_end}
 
 {hline}
 {title:crosstab}
@@ -139,7 +140,8 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 
 {phang2}{cmd:diagtab test_pos gold_std, xlsx(diag.xlsx) title("Diagnostic Accuracy")}{p_end}
 {phang2}{cmd:diagtab score gold_std, cutoff(0.5) auc optimal} {it:// continuous score with ROC}{p_end}
-{phang2}{cmd:diagtab test gold, exact prevalence(0.05)} {it:// exact CIs, prevalence-adjusted PPV/NPV}{p_end}
+{phang2}{cmd:diagtab test gold, exact prevalence(0.05)}
+{it:// exact CIs, prevalence-adjusted PPV/NPV}{p_end}
 
 {hline}
 {title:corrtab}
@@ -153,16 +155,19 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S1") frame(f1)}{p_end}
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S2") frame(f2)}{p_end}
-{phang2}{cmd:comptab f1 f2, rows(1 \ 1) xlsx(comp.xlsx) sheet("Combined")} {it:// combine rows from regtab frames}{p_end}
+{phang2}{cmd:comptab f1 f2, rows(1 \ 1) xlsx(comp.xlsx) sheet("Combined")}
+{it:// combine rows from regtab frames}{p_end}
 
 {hline}
 {title:puttab}
 
 {phang2}{cmd:collapse (mean) price mpg (count) n=price, by(foreign)}{p_end}
-{phang2}{cmd:puttab foreign price mpg n using parts.xlsx, sheet("ByOrigin") varlabels digits(1) zebra} {it:// data source}{p_end}
+{phang2}{cmd:puttab foreign price mpg n using parts.xlsx, sheet("ByOrigin") varlabels digits(1) zebra}
+{it:// data source}{p_end}
 {phang2}{cmd:regress price mpg weight}{p_end}
 {phang2}{cmd:matrix T = r(table)'}{p_end}
-{phang2}{cmd:puttab using parts.xlsx, sheet("Coefs") matrix(T) title("OLS") digits(3)} {it:// matrix source}{p_end}
+{phang2}{cmd:puttab using parts.xlsx, sheet("Coefs") matrix(T) title("OLS") digits(3)}
+{it:// matrix source}{p_end}
 {phang2}{cmd:puttab using parts.xlsx, sheet("Top10") frame(top) headershade} {it:// frame source}{p_end}
 
 {hline}
@@ -186,8 +191,10 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {cmd:metrics(mean bias empse meanse coverage n nonconv)}
 {cmd:xlsx("t2.xlsx") sheet("Table 2")}
 {it:// non-convergence + Excel}{p_end}
-{phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear} {it:// analysis by simsum ...}{p_end}
-{phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display} {it:// ... table by simtab}{p_end}
+{phang2}{cmd:simsum b, true(theta) se(se) methodvar(estimator) id(rep) mcse clear}
+{it:// analysis by simsum ...}{p_end}
+{phang2}{cmd:simtab, from(simsum) xlsx("t2.xlsx") sheet("Table 2") display}
+{it:// ... table by simtab}{p_end}
 
 {hline}
 {title:tabtools set/get}
@@ -205,12 +212,11 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {title:Examples and Recipes}
 
 {pstd}
-These worked recipes are intentionally compact here:
-the individual command help files carry full option tables and stored-result
-contracts. Recipes that open with {cmd:sysuse}/{cmd:webuse} are runnable as shown;
-others are workflow sketches that use illustrative research variable and dataset
-names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
-{p_end}
+These worked recipes are intentionally compact here: the individual command
+help files carry full option tables and stored-result contracts. Recipes that
+open with {cmd:sysuse}/{cmd:webuse} are runnable as shown; others are workflow sketches
+that use illustrative research variable and dataset names ({cmd:edss4_tv},
+{cmd:sim_results_long.dta}, ...) for you to substitute. {p_end}
 
 {title:1. Basic Table 1 with SMD}
 {phang2}{cmd:sysuse auto, clear}{p_end}

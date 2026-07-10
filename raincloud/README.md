@@ -1,6 +1,6 @@
 # raincloud - Raincloud plots combining density, points, and box summaries
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.0** | 2026-07-10
 
 `raincloud` draws raincloud plots: a half-violin density, jittered raw points, and a box-and-whisker summary in one figure. The command is built for distributional comparisons where you want the overall shape and the observed values on the same graph.
 

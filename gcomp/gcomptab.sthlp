@@ -111,9 +111,9 @@ options ({opt labels()}, {opt boldp()}, {opt highlight()}) are ignored.
 {title:Description}
 
 {pstd}
-{cmd:gcomptab} is a post-estimation command that reads the {cmd:e()} results
-left behind by {helpb gcomp} and writes them into a formatted Excel workbook.
-It supports two layouts.
+{cmd:gcomptab} is a post-estimation command that reads the {cmd:e()} results left behind
+by {helpb gcomp} and writes them into a formatted Excel workbook. It supports two
+layouts.
 
 {pstd}
 {bf:Mediation mode (default)} formats a causal-mediation run. The exported
@@ -123,12 +123,13 @@ table includes one row for each mediation effect:
 {p 8 12 2}{hline 3} Natural Direct Effect (NDE){p_end}
 {p 8 12 2}{hline 3} Natural Indirect Effect (NIE){p_end}
 {p 8 12 2}{hline 3} Proportion Mediated (PM){p_end}
-{p 8 12 2}{hline 3} Controlled Direct Effect (CDE) — only when the fitted {cmd:gcomp} model included {opt control()}{p_end}
+{p 8 12 2}{hline 3} Controlled Direct Effect (CDE) — only when the fitted {cmd:gcomp} model included
+{opt control()}{p_end}
 
 {pstd}
-Each row shows the point estimate, 95% confidence interval, and standard error.
-The table uses professional formatting: adjustable fonts, border styles,
-optional zebra striping, footnotes, and conditional emphasis (bold or
+Each row shows the point estimate, 95% confidence interval, and standard
+error. The table uses professional formatting: adjustable fonts, border
+styles, optional zebra striping, footnotes, and conditional emphasis (bold or
 highlight) for statistically significant effects.
 
 {pstd}
@@ -196,9 +197,9 @@ The corresponding CI matrix (e.g. {cmd:e(ci_percentile)}) must exist in the
 types.
 
 {phang}
-{opt effect(string)} sets the column header for the effect estimate column.
-Default is {cmd:"Estimate"}. Use this to label the column with the scale of
-your analysis, for example {cmd:effect("Risk Difference")} or {cmd:effect("logOR")}.
+{opt effect(string)} sets the column header for the effect estimate column. Default
+is {cmd:"Estimate"}. Use this to label the column with the scale of your analysis,
+for example {cmd:effect("Risk Difference")} or {cmd:effect("logOR")}.
 
 {phang}
 {opt title(string)} places a title in cell A1 of the sheet, merged across
@@ -207,8 +208,8 @@ will appear in the Excel output, such as
 {cmd:title("Table 2. Causal Mediation Analysis")}.
 
 {phang}
-{opt labels(string)} overrides the default row labels for the five effects.
-Separate labels with backslashes. The default is:{break}
+{opt labels(string)} overrides the default row labels for the five effects. Separate
+labels with backslashes. The default is:{break}
 {cmd:"Total Causal Effect (TCE) \ Natural Direct Effect (NDE) \}{break}
 {cmd: Natural Indirect Effect (NIE) \ Proportion Mediated (PM) \}{break}
 {cmd: Controlled Direct Effect (CDE)"}{break}
@@ -223,10 +224,9 @@ confidence limits, and standard errors. Default is {cmd:3}. Range is 1 to 6.
 {dlgtab:Formatting}
 
 {phang}
-{opt f:ont(string)} sets the font family for all text in the workbook.
-Default is {cmd:"Arial"}. Any font installed on your system can be used.
-Font names containing shell metacharacters are rejected before workbook
-creation.
+{opt f:ont(string)} sets the font family for all text in the workbook. Default is
+{cmd:"Arial"}. Any font installed on your system can be used. Font names containing
+shell metacharacters are rejected before workbook creation.
 
 {phang}
 {opt fontsize(#)} sets the body text font size in points. The title row
@@ -260,11 +260,10 @@ for model notes, data sources, or abbreviation definitions.
 {dlgtab:Emphasis}
 
 {phang}
-{opt boldp(#)} applies bold formatting to the numeric cells (Estimate, CI, SE)
-in any data row whose two-sided Wald p-value falls below the specified cutoff.
-The p-value is computed as {cmd:2 * normal(-abs(estimate / se))}. Default is
-{cmd:0}, which disables bolding. Specify a value between 0 and 1 (e.g.
-{cmd:boldp(0.05)}).
+{opt boldp(#)} applies bold formatting to the numeric cells (Estimate, CI, SE) in
+any data row whose two-sided Wald p-value falls below the specified
+cutoff. The p-value is computed as {cmd:2 * normal(-abs(estimate / se))}. Default is
+{cmd:0}, which disables bolding. Specify a value between 0 and 1 (e.g. {cmd:boldp(0.05)}).
 
 {phang}
 {opt highlight(#)} applies yellow background shading to the entire data row
@@ -281,9 +280,9 @@ you select it explicitly and produces a clear error if the active {cmd:e()} is
 not a time-varying {cmd:gcomp} result.
 
 {phang}
-{opt strategylabels(string)} supplies the strategy labels shown in the first
-data column, separated by backslashes, in the order of the {cmd:PO#} columns.
-Any column you do not label is shown as {cmd:PO#}. For example,
+{opt strategylabels(string)} supplies the strategy labels shown in the first data
+column, separated by backslashes, in the order of the {cmd:PO#} columns. Any column
+you do not label is shown as {cmd:PO#}. For example,
 {cmd:strategylabels("Never HE \ Always HE \ Observed regime")}.
 
 {phang}
@@ -318,17 +317,16 @@ mutually exclusive with {opt doseresponse} and with the mediation-only options
 is {cmd:e(model_names)}.
 
 {phang}
-{opt modellabels(string)} sets the column header per model (backslash-separated);
-default is the dependent variable. {opt termlabels(string)} overrides the row
-(term) labels (backslash-separated).
+{opt modellabels(string)} sets the column header per model
+(backslash-separated); default is the dependent variable. {opt termlabels(string)}
+overrides the row (term) labels (backslash-separated).
 
 {phang}
-{opt eform}, {opt noeform}, {opt raw}, and {opt coef(string)} control the scale.
-By default the scale is auto-detected per command ({cmd:logit}{c 174}OR,
-{cmd:mlogit}{c 174}RRR, {cmd:ologit}{c 174}OR, {cmd:regress}{c 174}Coef.).
-{opt eform} forces exponentiation, {opt noeform}/{opt raw} suppress it, and
-{opt coef()} overrides the scale label. When models mix scales,
-{cmd:r(coef_label)} is {cmd:mixed}.
+{opt eform}, {opt noeform}, {opt raw}, and {opt coef(string)} control the scale. By default the scale
+is auto-detected per command ({cmd:logit}{c 174}OR, {cmd:mlogit}{c 174}RRR, {cmd:ologit}{c 174}OR,
+{cmd:regress}{c 174}Coef.). {opt eform} forces exponentiation, {opt noeform}/{opt raw} suppress it, and
+{opt coef()} overrides the scale label. When models mix scales, {cmd:r(coef_label)} is
+{cmd:mixed}.
 
 {phang}
 {opt se} shows standard errors instead of the 95% CI. {opt nopvalue} drops the
@@ -342,8 +340,8 @@ keeps them (the default). {opt keep(string)} and {opt drop(string)} filter rows
 by term name.
 
 {phang}
-{opt digits(#)} (or {opt decimal(#)}) sets numeric precision (default 3).
-{opt stats(string)} adds a per-model footer; {cmd:n} (sample size) is supported.
+{opt digits(#)} (or {opt decimal(#)}) sets numeric precision (default 3). {opt stats(string)}
+adds a per-model footer; {cmd:n} (sample size) is supported.
 
 {phang}
 {opt markdown(filename)} and {opt csv(filename)} (shared with the mediation and
@@ -410,8 +408,8 @@ built-in commands ({helpb teffects}, {helpb margins}).
 {title:Examples}
 
 {pstd}
-All examples below assume you have already run a {cmd:gcomp} mediation model.
-See {helpb gcomp} for complete data-generation and model-fitting examples.
+All examples below assume you have already run a {cmd:gcomp} mediation model. See
+{helpb gcomp} for complete data-generation and model-fitting examples.
 
     {hline}
 {pstd}
@@ -483,10 +481,11 @@ Combine title, footnote, zebra, bold, and yellow highlighting:
 {bf:Example 7: Time-varying dose-response table}
 
 {pstd}
-Fit a time-varying g-formula with sustained-exposure interventions, then format
-the per-strategy risks into a dose-response table. With {cmd:interventions(A=1, A=0)}
-there are three {cmd:PO#} columns (the two interventions plus the simulated
-observed regime), so three strategy labels and three exposure-years are supplied:
+Fit a time-varying g-formula with sustained-exposure interventions, then
+format the per-strategy risks into a dose-response table. With
+{cmd:interventions(A=1, A=0)} there are three {cmd:PO#} columns (the two interventions
+plus the simulated observed regime), so three strategy labels and three
+exposure-years are supplied:
 
 {phang2}{cmd:. gcomp Y ... , outcome(Y) idvar(id) tvar(time) intvars(A) eofu ///}{p_end}
 {phang2}{cmd:      interventions(A=1, A=0) sim(500) samples(200) seed(12345)}{p_end}
@@ -520,7 +519,8 @@ The Excel table has the following structure:
 centered, and optionally shaded with {opt headershade}.{p_end}
 {p 8 12 2}{bf:Rows 3-6}: Data rows for TCE, NDE, NIE, and PM.{p_end}
 {p 8 12 2}{bf:Row 7}: CDE data row (only when the fitted model included {opt control()}).{p_end}
-{p 8 12 2}{bf:Next row}: Footnote (if specified), merged across the table width, italic, smaller font.{p_end}
+{p 8 12 2}{bf:Next row}: Footnote (if specified), merged across the table width, italic,
+smaller font.{p_end}
 
 {pstd}
 In {bf:dose-response} mode the columns are instead Strategy | Mean exposure-years
@@ -530,10 +530,13 @@ In {bf:dose-response} mode the columns are instead Strategy | Mean exposure-year
 {pstd}
 Formatting details:
 
-{p 8 12 2}{hline 3} Numeric cells are stored as Excel numbers, not text, so they can be used in formulas.{p_end}
+{p 8 12 2}{hline 3} Numeric cells are stored as Excel numbers, not text, so they can be used in
+formulas.{p_end}
 {p 8 12 2}{hline 3} Column widths are adjusted to content.{p_end}
-{p 8 12 2}{hline 3} The default thin border style draws a boxed table; {cmd:academic} uses horizontal rules only above and below the header row and below the last data row.{p_end}
-{p 8 12 2}{hline 3} Zebra striping, bold, and highlighting are applied conditionally as described in {it:Options}.{p_end}
+{p 8 12 2}{hline 3} The default thin border style draws a boxed table; {cmd:academic} uses horizontal
+rules only above and below the header row and below the last data row.{p_end}
+{p 8 12 2}{hline 3} Zebra striping, bold, and highlighting are applied conditionally as described
+in {it:Options}.{p_end}
 
 
 {marker stored}{...}

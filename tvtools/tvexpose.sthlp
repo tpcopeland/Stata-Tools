@@ -115,23 +115,26 @@
 {title:Description}
 
 {pstd}
-{cmd:tvexpose} creates time-varying exposure variables suitable for survival analysis
-from a dataset containing exposure periods. The command merges exposure data with a
-master cohort dataset, creating periods of time where exposure status changes.
+{cmd:tvexpose} creates time-varying exposure variables suitable for survival
+analysis from a dataset containing exposure periods. The command merges
+exposure data with a master cohort dataset, creating periods of time where
+exposure status changes.
 
 {pstd}
 The typical workflow involves:
 
-{phang2}1. A master dataset in memory containing person-level data with study entry and exit dates
+{phang2}1. A master dataset in memory containing person-level data with study entry
+and exit dates
 
-{phang2}2. An exposure dataset (specified via {cmd:using}) containing periods when exposures occurred
+{phang2}2. An exposure dataset (specified via {cmd:using}) containing periods when exposures
+occurred
 
 {phang2}3. {cmd:tvexpose} merges these datasets and creates time-varying periods
 
 {pstd}
-The output is a long-format dataset with one row per person-time period, where the
-exposure variable indicates exposure status during that period. This format is
-compatible with {helpb stset} and {helpb stcox} for survival analysis.
+The output is a long-format dataset with one row per person-time period, where
+the exposure variable indicates exposure status during that period. This
+format is compatible with {helpb stset} and {helpb stcox} for survival analysis.
 
 {pstd}
 {bf:Important}: {cmd:tvexpose} modifies the data in memory and changes the sort order
@@ -167,12 +170,13 @@ types except {cmd:dose}, where it defaults to 0 (the inherent reference).
 
 {phang}
 {opt entry(varname)} specifies the variable in the master dataset containing each
-person's study entry date. Exposure periods are only counted from this date forward.
+person's study entry date. Exposure periods are only counted from this date
+forward.
 
 {phang}
 {opt exit(varname)} specifies the variable in the master dataset containing each
-person's study exit date (e.g., end of follow-up, death, outcome occurrence).{...}
-Exposure periods are truncated at this date.
+person's study exit date (e.g., end of follow-up, death, outcome
+occurrence). Exposure periods are truncated at this date.
 
 
 {marker exposure_options}{...}
@@ -194,16 +198,16 @@ at the first exposure and remains 1 for all subsequent follow-up. Used for
 immortal time bias correction in ever-treated analyses.
 
 {phang}
-{opt currentformer} creates a trichotomous time-varying exposure with values:{...}
-0 = never exposed, 1 = currently exposed, 2 = formerly exposed. Returns to 1
-if re-exposed after a gap.
+{opt currentformer} creates a trichotomous time-varying exposure with values: 0 =
+never exposed, 1 = currently exposed, 2 = formerly exposed. Returns to 1 if
+re-exposed after a gap.
 
 {phang}
 {opt duration(numlist)} creates categorical time-varying exposure based on
-cumulative duration. The numlist specifies category boundaries in the unit defined
-by {cmd:continuousunit()} (defaults to years if not specified). For
-example, {cmd:duration(1 5)} with default settings creates categories: 0=unexposed, 1=<1 year,
-2=1 to <5 years, 3=≥5 years.
+cumulative duration. The numlist specifies category boundaries in the unit
+defined by {cmd:continuousunit()} (defaults to years if not specified). For example,
+{cmd:duration(1 5)} with default settings creates categories: 0=unexposed, 1=<1
+year, 2=1 to <5 years, 3=≥5 years.
 
 {phang}
 {opt continuousunit(unit)} creates a continuous time-varying variable tracking
@@ -221,30 +225,31 @@ instead of a single variable. Variable names append 1, 2, etc. for each
 type. Useful when different exposure types have independent effects.
 
 {phang}
-{opt recency(numlist)} creates categories based on time since last exposure.{...}
-The numlist specifies category boundaries in years. For example,
-{cmd:recency(1 5)} creates: current exposure, <1 year since last,
-1 to <5 years since last, ≥5 years since last.
+{opt recency(numlist)} creates categories based on time since last exposure. The
+numlist specifies category boundaries in years. For example, {cmd:recency(1 5)}
+creates: current exposure, <1 year since last, 1 to <5 years since last, ≥5
+years since last.
 
 {phang}
-{opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable
-contains the dose amount per period (e.g., grams of medication) rather than
-a categorical exposure type. When periods overlap, dose is allocated proportionally
-based on daily dose rates. For example, if two 30-day prescriptions of 1 gram each
-have a 10-day overlap, the overlap period receives ((10/30)*1) + ((10/30)*1) = 0.667 grams.{...}
-The {cmd:reference()} option defaults to 0 for {cmd:dose} mode (the inherent reference
-category) and can be omitted. The {cmd:bytype} option is not supported with dose.
+{opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable contains
+the dose amount per period (e.g., grams of medication) rather than a
+categorical exposure type. When periods overlap, dose is allocated
+proportionally based on daily dose rates. For example, if two 30-day
+prescriptions of 1 gram each have a 10-day overlap, the overlap period
+receives ((10/30)*1) + ((10/30)*1) = 0.667 grams. The {cmd:reference()} option
+defaults to 0 for {cmd:dose} mode (the inherent reference category) and can be
+omitted. The {cmd:bytype} option is not supported with dose.
 
 {pmore}
 {bf:Important:} The {cmd:dose} option is a modifier, not a container. The dose variable
-is specified via {cmd:exposure()}, not {cmd:dose()}. Correct syntax is:
-{cmd:exposure(myDoseVar) dose}, not {cmd:dose(myDoseVar)}.
+is specified via {cmd:exposure()}, not {cmd:dose()}. Correct syntax
+is: {cmd:exposure(myDoseVar) dose}, not {cmd:dose(myDoseVar)}.
 
 {phang}
-{opt dosecuts(numlist)} creates categorical dose output instead of continuous.{...}
-The numlist specifies ascending cutpoints for categorization. For example,
-{cmd:dose dosecuts(5 10 20)} creates: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+.{...}
-Requires the {cmd:dose} option.
+{opt dosecuts(numlist)} creates categorical dose output instead of continuous. The
+numlist specifies ascending cutpoints for categorization. For example,
+{cmd:dose dosecuts(5 10 20)} creates: 0=no dose, 1=<5, 2=5-<10, 3=10-<20,
+4=20+. Requires the {cmd:dose} option.
 
 
 {marker data_handling}{...}
@@ -260,8 +265,8 @@ exposure categories. Format: {cmd:grace(1=30 2=60)} applies 30-day grace to
 exposure type 1 and 60-day grace to type 2.
 
 {phang}
-{opt merge(#)} merges consecutive periods of the same exposure type if they
-occur within # days of each other. Default is 0 (no merging). Useful for treating
+{opt merge(#)} merges consecutive periods of the same exposure type if they occur
+within # days of each other. Default is 0 (no merging). Useful for treating
 closely-spaced identical exposures as continuous.
 
 {phang}
@@ -277,9 +282,9 @@ up to # days. Used when exposure is likely to persist beyond recorded periods.
 {title:Competing exposures options}
 
 {phang}
-{opt layer} handles overlapping exposures by giving precedence to
-later exposures, with earlier exposures resuming after the later one ends.{...}
-This is the default behavior.
+{opt layer} handles overlapping exposures by giving precedence to later exposures,
+with earlier exposures resuming after the later one ends. This is the default
+behavior.
 
 {phang}
 {opt priority(numlist)} specifies priority order when exposures overlap. The
@@ -301,14 +306,14 @@ exposure to multiple types.
 {title:Lag and washout options}
 
 {phang}
-{opt lag(#)} specifies a lag period in days before exposure becomes active.{...}
-Exposure status changes # days after the start date rather than immediately.{...}
-Used to model delayed biological effects.
+{opt lag(#)} specifies a lag period in days before exposure becomes active. Exposure
+status changes # days after the start date rather than immediately. Used to
+model delayed biological effects.
 
 {phang}
-{opt washout(#)} specifies that exposure effects persist for # days after the
-stop date. Exposure status remains active until # days past the recorded end.{...}
-Used to model residual effects.
+{opt washout(#)} specifies that exposure effects persist for # days after the stop
+date. Exposure status remains active until # days past the recorded end. Used
+to model residual effects.
 
 {phang}
 {opt window(# #)} specifies minimum and maximum days for an acute exposure
@@ -353,14 +358,15 @@ the output variable. Default is "Unexposed".
 {phang}
 {opt label(text)} specifies a custom variable label for the output exposure
 variable. When specified, overrides the default behavior of using the original
-exposure variable's label. For bytype variables, the label is applied with
-the value label from the original exposure variable appended in parentheses
-to distinguish each type (e.g., "(Estrogen only)"). For currentformer without bytype,
-if not specified, the default label is "Never/current/former exposure".
+exposure variable's label. For bytype variables, the label is applied with the
+value label from the original exposure variable appended in parentheses to
+distinguish each type (e.g., "(Estrogen only)"). For currentformer without
+bytype, if not specified, the default label is "Never/current/former
+exposure".
 
 {phang}
-{opt saveas(filename)} saves the time-varying dataset to the specified file.{...}
-Include .dta extension. Use with {cmd:replace} to overwrite existing files.
+{opt saveas(filename)} saves the time-varying dataset to the specified file. Include
+.dta extension. Use with {cmd:replace} to overwrite existing files.
 
 {phang}
 {opt frameout(name)} places the time-varying result into a new frame named
@@ -403,11 +409,10 @@ multiple exposures occur simultaneously.
 distribution, including frequencies of each category and person-time totals.
 
 {phang}
-{opt validate} creates a separate validation dataset ({cmd:tv_validation.dta})
-containing coverage metrics for each person, useful for quality control.
-{opt validate} is not available together with {opt bytype} (the metrics require
-the single output exposure variable); a note is displayed and no validation
-dataset is created.
+{opt validate} creates a separate validation dataset ({cmd:tv_validation.dta}) containing
+coverage metrics for each person, useful for quality control. {opt validate} is not
+available together with {opt bytype} (the metrics require the single output exposure
+variable); a note is displayed and no validation dataset is created.
 
 {phang}
 {opt flow} reports an attrition table of persons and records entering versus
@@ -494,10 +499,12 @@ The examples below use synthetic datasets from {bf:_data/} modeling an SSRI vs S
 antidepressant study in Swedish registries, 2006-2023.
 
 {phang2}
-{bf:cohort.dta}: 10,000 persons with study entry/exit dates, demographics, and outcomes
+{bf:cohort.dta}: 10,000 persons with study entry/exit dates, demographics, and
+outcomes
 
 {phang2}
-{bf:tv_antidep_episodes.dta}: Antidepressant exposure episodes (rx_start, rx_stop, drug_class, ddd)
+{bf:tv_antidep_episodes.dta}: Antidepressant exposure episodes (rx_start, rx_stop,
+drug_class, ddd)
 
 
 {pstd}
@@ -521,7 +528,8 @@ each time period. The output has one row per person-time period.
 {bf:Example 2: Ever-treated analysis}
 
 {pstd}
-Create binary indicator that switches permanently at first antidepressant dispensing:
+Create binary indicator that switches permanently at first antidepressant
+dispensing:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
@@ -531,8 +539,8 @@ Create binary indicator that switches permanently at first antidepressant dispen
 {phang3}{cmd:evertreated generate(ever_antidep)}{p_end}
 
 {pstd}
-Variable ever_antidep = 0 before first exposure, = 1 from first exposure onward. Useful
-for correcting immortal time bias in ever-vs-never analyses.
+Variable ever_antidep = 0 before first exposure, = 1 from first exposure
+onward. Useful for correcting immortal time bias in ever-vs-never analyses.
 
 
 {pstd}
@@ -594,7 +602,8 @@ at each time point. Use in regression models as a continuous predictor.
 {bf:Example 6: Continuous exposure with row expansion}
 
 {pstd}
-Split person-time into calendar months with cumulative antidepressant exposure in years:
+Split person-time into calendar months with cumulative antidepressant exposure
+in years:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
@@ -678,14 +687,16 @@ Apply different grace periods to different antidepressant classes:
 {phang3}{cmd:grace(1=30 2=60)}{p_end}
 
 {pstd}
-SSRIs (type 1) get 30-day grace, SNRIs (type 2) get 60 days. Useful when different drug classes have different refill patterns.
+SSRIs (type 1) get 30-day grace, SNRIs (type 2) get 60 days. Useful when
+different drug classes have different refill patterns.
 
 
 {pstd}
 {bf:Example 11: Lag and washout periods}
 
 {pstd}
-Model 30-day lag before antidepressant becomes active and 90-day washout after stopping:
+Model 30-day lag before antidepressant becomes active and 90-day washout after
+stopping:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
@@ -695,8 +706,8 @@ Model 30-day lag before antidepressant becomes active and 90-day washout after s
 {phang3}{cmd:lag(30) washout(90)}{p_end}
 
 {pstd}
-Exposure begins 30 days after start date and continues 90 days after stop date. Models
-biological delay in onset and persistence of effects.
+Exposure begins 30 days after start date and continues 90 days after stop
+date. Models biological delay in onset and persistence of effects.
 
 
 {pstd}
@@ -750,7 +761,8 @@ Bring demographic and clinical variables into the time-varying dataset:
 {phang3}{cmd:keepvars(index_age female education)}{p_end}
 
 {pstd}
-Baseline covariates are included in every row of the output. Ready for regression analysis without additional merging.
+Baseline covariates are included in every row of the output. Ready for
+regression analysis without additional merging.
 
 
 {pstd}
@@ -787,7 +799,8 @@ Create time-varying dataset and save for repeated analyses:
 {phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
 
 {pstd}
-Output saved to _data/tv_antidep.dta. Subsequently load this file for different analyses without re-running tvexpose.
+Output saved to _data/tv_antidep.dta. Subsequently load this file for
+different analyses without re-running tvexpose.
 
 
 {pstd}
@@ -859,9 +872,9 @@ Track cumulative defined daily doses for dose-response analysis:
 {phang3}{cmd:dose generate(cumul_ddd)}{p_end}
 
 {pstd}
-Creates cumul_ddd showing cumulative defined daily doses at each time point. When
-prescriptions overlap, dose is allocated proportionally based on daily dose
-rates.
+Creates cumul_ddd showing cumulative defined daily doses at each time
+point. When prescriptions overlap, dose is allocated proportionally based on
+daily dose rates.
 
 
 {pstd}
@@ -907,8 +920,8 @@ dose-response.
 {synopt:{cmd:r(flow)}}persons/records attrition table{p_end}
 
 {pstd}
-{cmd:r(overlap_ids)} is stored only when overlaps are detected and no overlap-handling option was specified:
-{cmd:priority()}, {cmd:split}, {cmd:layer}, or {cmd:combine()}.{p_end}
+{cmd:r(overlap_ids)} is stored only when overlaps are detected and no
+overlap-handling option was specified: {cmd:priority()}, {cmd:split}, {cmd:layer}, or {cmd:combine()}.{p_end}
 
 {marker author}{...}
 {title:Author}
@@ -919,9 +932,9 @@ dose-response.
 {title:Also see}
 
 {psee}
-Manual:  {manlink ST stset}, {manlink ST stsplit}, {manlink ST stcox}
+Manual: {manlink ST stset}, {manlink ST stsplit}, {manlink ST stcox}
 
 {psee}
-Online:  {helpb tvmerge}, {helpb stset}, {helpb stsplit}, {helpb stcox}, {helpb sts}
+Online: {helpb tvmerge}, {helpb stset}, {helpb stsplit}, {helpb stcox}, {helpb sts}
 
 {hline}

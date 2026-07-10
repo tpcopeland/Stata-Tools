@@ -44,26 +44,23 @@ where {it:subcommand} is one of:
 {synopt:{opt detect}}Report auto-detection results without running diagnostics{p_end}
 
 {pstd}
-After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
-After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates,
-and the estimand are read from the tmle contract state.
-After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period
-diagnostics; pooled subcommands require explicit variables.
-After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity
-{cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm
-contract for the same longitudinal diagnostic.
-After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved
-switch/treatment propensity, IP weight, and trial/period structure from the tte
-contract.
-After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
+After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected
+from {cmd:e()}. After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the
+estimand are read from the tmle contract state. After {cmd:ltmle}, use
+{cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled
+subcommands require explicit variables. After {cmd:msm_weight}, {cmd:psdash combined}
+reads the treatment propensity {cmd:_msm_ps}, the treatment weight, and the
+id/period structure from the msm contract for the same longitudinal
+diagnostic. After {cmd:tte_weight} with {opt save_ps}, {cmd:psdash combined} reads the saved
+switch/treatment propensity, IP weight, and trial/period structure from the
+tte contract. After {cmd:iivw_weight} with {opt treat()} and {opt treat_cov()}, treatment,
 propensity-score, treatment-covariate, and treatment-weight variables are read
-from the iivw dataset contract.
-After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.
-In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
-are both valid; the one-argument form treats the argument as the propensity
-score variable and uses the treatment from {cmd:e(depvar)}.
-After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K predicted probabilities
-(one per treatment level, ordered by level value).
+from the iivw dataset contract. After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected
+but {it:psvar} must be supplied explicitly. In that setting, {cmd:psdash overlap ps} and
+{cmd:psdash overlap treatment ps} are both valid; the one-argument form treats the
+argument as the propensity score variable and uses the treatment from
+{cmd:e(depvar)}. After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K
+predicted probabilities (one per treatment level, ordered by level value).
 
 
 {marker subcommands}{...}
@@ -134,11 +131,11 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {title:Description}
 
 {pstd}
-{cmd:psdash} provides a unified interface for propensity score diagnostics.
-After estimating propensity scores (via {cmd:teffects}, {cmd:logit} + {cmd:predict},
-cross-sectional {cmd:tmle}, or manually), users need to assess overlap, balance,
-common support, and weight distribution. {cmd:psdash} consolidates these
-diagnostics under a single command with consistent syntax.
+{cmd:psdash} provides a unified interface for propensity score diagnostics. After
+estimating propensity scores (via {cmd:teffects}, {cmd:logit} + {cmd:predict}, cross-sectional
+{cmd:tmle}, or manually), users need to assess overlap, balance, common support, and
+weight distribution. {cmd:psdash} consolidates these diagnostics under a single
+command with consistent syntax.
 
 {pstd}
 {cmd:psdash} auto-detects the treatment variable, propensity score, covariates,
@@ -147,9 +144,9 @@ always override by providing explicit arguments.
 
 {pstd}
 For most analyses, start with {cmd:psdash combined}. It runs overlap, balance,
-weight, and support diagnostics together. Then rerun the individual panel named
-in any warning message when you need a graph, export, or modified weights.
-After {cmd:ltmle}, {cmd:msm_weight}, or {cmd:tte_weight} (with {opt save_ps}),
+weight, and support diagnostics together. Then rerun the individual panel
+named in any warning message when you need a graph, export, or modified
+weights. After {cmd:ltmle}, {cmd:msm_weight}, or {cmd:tte_weight} (with {opt save_ps}),
 {cmd:psdash combined} switches to longitudinal diagnostics: per-period PS overlap
 plus contract-weight summaries.
 
@@ -176,30 +173,31 @@ that use weights. If omitted and a propensity score is available, weights are
 auto-generated based on the {opt estimand()} option.
 
 {phang}
-{opt estimand(string)} specifies the target estimand for auto-generated weights.
-{opt ate} (default) generates standard IPTW weights: {cmd:1/ps} for treated and
-{cmd:1/(1-ps)} for control. {opt att} generates ATT weights: {cmd:1} for treated
-and {cmd:ps/(1-ps)} for control. {opt atc} generates ATC weights:
-{cmd:(1-ps)/ps} for treated and {cmd:1} for control. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)}
-when not specified by the user; if {opt estimand()} is given explicitly, it is
-always respected regardless of {cmd:e(stat)}.
+{opt estimand(string)} specifies the target estimand for auto-generated weights. {opt ate}
+(default) generates standard IPTW weights: {cmd:1/ps} for treated and {cmd:1/(1-ps)} for
+control. {opt att} generates ATT weights: {cmd:1} for treated and {cmd:ps/(1-ps)} for
+control. {opt atc} generates ATC weights: {cmd:(1-ps)/ps} for treated and {cmd:1} for
+control. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
+specified by the user; if {opt estimand()} is given explicitly, it is always
+respected regardless of {cmd:e(stat)}.
 
 {pstd}
-Auto-generated propensity scores and weights are temporary working variables.
-They are not left behind in the user's dataset. Stored-result macros report
-{cmd:auto-generated} when no persistent user variable exists.
+Auto-generated propensity scores and weights are temporary working
+variables. They are not left behind in the user's dataset. Stored-result
+macros report {cmd:auto-generated} when no persistent user variable exists.
 
 {dlgtab:Multi-group options}
 
 {phang}
-{opt psvars(varlist)} specifies the generalized propensity score (GPS) variables
-for multi-group treatments (K > 2, or K = 2 with non-0/1 treatment levels).
-Provide one variable per treatment level, ordered by level value (ascending).
-Each variable should contain P(A=a|X), the predicted probability of that
-treatment level. Required for manual multi-group mode except the special
-K = 2 non-0/1 case, where a single positional {it:psvar} is also accepted.
-Auto-generated after {cmd:teffects} with a multi-valued treatment. For binary
-0/1 treatment, the standard single {it:psvar} positional argument is sufficient.
+{opt psvars(varlist)} specifies the generalized propensity score (GPS) variables for
+multi-group treatments (K > 2, or K = 2 with non-0/1 treatment
+levels). Provide one variable per treatment level, ordered by level value
+(ascending). Each variable should contain P(A=a|X), the predicted probability
+of that treatment level. Required for manual multi-group mode except the
+special K = 2 non-0/1 case, where a single positional {it:psvar} is also
+accepted. Auto-generated after {cmd:teffects} with a multi-valued treatment. For
+binary 0/1 treatment, the standard single {it:psvar} positional argument is
+sufficient.
 
 {pstd}
 Multi-group treatment values must be nonnegative integers because per-group
@@ -208,30 +206,29 @@ stored results use the observed level values in result names, such as
 multi-group diagnostics.
 
 {phang}
-{opt reference(#)} specifies the reference treatment level for pairwise
-comparisons (balance, weights). Default is the smallest treatment level.
-Must be one of the observed treatment values. For {cmd:balance}, SMD is
-computed for each non-reference group vs the reference.
+{opt reference(#)} specifies the reference treatment level for pairwise comparisons
+(balance, weights). Default is the smallest treatment level. Must be one of
+the observed treatment values. For {cmd:balance}, SMD is computed for each
+non-reference group vs the reference.
 
 {dlgtab:Graph options}
 
 {pstd}
-Subcommands differ in whether a graph is drawn by default. {cmd:overlap} and
-{cmd:support} draw a graph automatically; suppress it with {opt nograph}.
-{cmd:balance} and {cmd:weights} draw none by default; request one with
-{opt loveplot} and {opt graph} respectively. {cmd:combined} always assembles the
-dashboard. The options below apply wherever a graph is produced.
+Subcommands differ in whether a graph is drawn by default. {cmd:overlap} and {cmd:support}
+draw a graph automatically; suppress it with {opt nograph}. {cmd:balance} and {cmd:weights} draw
+none by default; request one with {opt loveplot} and {opt graph} respectively. {cmd:combined}
+always assembles the dashboard. The options below apply wherever a graph is
+produced.
 
 {phang}
 {opt scheme(schemename)} specifies the graph scheme.
 
 {phang}
-{opt saving(filename)} exports the graph to an image file. The format is
-determined by the filename extension ({cmd:.png}, {cmd:.pdf}, {cmd:.eps}, etc.);
-use Stata's {helpb graph save} for a {cmd:.gph} file. {cmd:psdash} always
-overwrites an existing file, so a {cmd:replace} suboption is unnecessary; if you
-write {cmd:saving(f.png, replace)} out of {cmd:twoway} habit, the redundant
-{cmd:replace} is ignored with a note.
+{opt saving(filename)} exports the graph to an image file. The format is determined
+by the filename extension ({cmd:.png}, {cmd:.pdf}, {cmd:.eps}, etc.); use Stata's {helpb graph save} for
+a {cmd:.gph} file. {cmd:psdash} always overwrites an existing file, so a {cmd:replace} suboption
+is unnecessary; if you write {cmd:saving(f.png, replace)} out of {cmd:twoway} habit, the
+redundant {cmd:replace} is ignored with a note.
 
 {phang}
 {opt title(string)} specifies a custom title for the output header and/or graph.
@@ -255,8 +252,8 @@ unnecessary; a redundant {cmd:name(g, replace)} is accepted and the trailing
 {opt bins(#)} sets the number of histogram bins and must be positive. Default is 30.
 
 {phang}
-{opt bwidth(#)} sets the bandwidth for kernel density estimation.
-If not specified, Stata's default bandwidth is used.
+{opt bwidth(#)} sets the bandwidth for kernel density estimation. If not specified,
+Stata's default bandwidth is used.
 
 {phang}
 {opt nograph} suppresses the graph and shows only the summary table.
@@ -271,8 +268,8 @@ If not specified, Stata's default bandwidth is used.
 {dlgtab:balance options}
 
 {phang}
-{opt matched} indicates the data has been matched rather than weighted.
-Mutually exclusive with {opt wvar()}.
+{opt matched} indicates the data has been matched rather than weighted. Mutually
+exclusive with {opt wvar()}.
 
 {phang}
 {opt threshold(#)} sets the SMD threshold for imbalance. Default is 0.1.
@@ -285,8 +282,8 @@ two-level covariate the variance ratio is a deterministic function of the SMD
 and carries no additional information; such covariates are listed in a footnote.
 
 {phang}
-{opt nowvar} suppresses automatic weight generation from the propensity score.
-{opt noweights} is an alias for {opt nowvar}.
+{opt nowvar} suppresses automatic weight generation from the propensity
+score. {opt noweights} is an alias for {opt nowvar}.
 
 {phang}
 {opt loveplot} generates a Love plot showing SMDs for each covariate.
@@ -309,10 +306,10 @@ alone can miss.
 {phang}
 {opt smdmatrix(name)} saves a covariate-by-SMD matrix to the named matrix in the
 caller, with one column for the unadjusted SMD and (when weighted) one for the
-adjusted SMD; for multi-group treatment, one column per contrast. The same matrix
-is returned in {cmd:r(smd)}. The matrix is keyed by covariate name so it can be
-passed to {helpb puttab} or appended as a balance column in a {help table1_tc}
-manuscript table.
+adjusted SMD; for multi-group treatment, one column per contrast. The same
+matrix is returned in {cmd:r(smd)}. The matrix is keyed by covariate name so it can
+be passed to {helpb puttab} or appended as a balance column in a {help table1_tc} manuscript
+table.
 
 {phang}
 {opt ks} displays Kolmogorov-Smirnov statistics in the balance table. KS
@@ -332,15 +329,14 @@ are returned in {cmd:r(max_ks_raw)} and {cmd:r(max_ks_adj)}.
 {opt format(string)} sets the numeric display format for SMD values. Default is {cmd:%6.3f}.
 
 {pstd}
-{bf:Interpretation:} An SMD below 0.1 in absolute value indicates adequate
-balance (Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable
-(adjust with {opt vrbounds()}); values outside this range indicate scale
-imbalances that SMD alone can miss. The variance ratio is reported but not
-flagged for two-level covariates, where it adds nothing beyond the SMD.
-KS statistics above 0.1 suggest meaningful distributional differences beyond
-what means capture. SMDs are standardized by the {it:unweighted} pooled
-standard deviation so that raw and adjusted columns are directly comparable
-(Austin and Stuart 2015).
+{bf:Interpretation:} An SMD below 0.1 in absolute value indicates adequate balance
+(Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable (adjust with
+{opt vrbounds()}); values outside this range indicate scale imbalances that SMD
+alone can miss. The variance ratio is reported but not flagged for two-level
+covariates, where it adds nothing beyond the SMD. KS statistics above 0.1
+suggest meaningful distributional differences beyond what means capture. SMDs
+are standardized by the {it:unweighted} pooled standard deviation so that raw and
+adjusted columns are directly comparable (Austin and Stuart 2015).
 
 {dlgtab:weights options}
 
@@ -366,8 +362,8 @@ larger, so raise the cutoffs accordingly. The scale-free maximum-to-mean weight
 ratio is always reported and returned in {cmd:r(max_ratio)}.
 
 {phang}
-{opt generate(name)} specifies the variable name for modified weights.
-Required with {opt trim()}, {opt truncate()}, or {opt stabilize}.
+{opt generate(name)} specifies the variable name for modified weights. Required with
+{opt trim()}, {opt truncate()}, or {opt stabilize}.
 
 {phang}
 {opt replace} allows overwriting an existing variable.
@@ -377,18 +373,18 @@ Required with {opt trim()}, {opt truncate()}, or {opt stabilize}.
 
 {phang}
 {opt iivwcomponent(string)} selects which iivw weight variable to summarize
-after {cmd:iivw_weight}.  Allowed values are {cmd:treatment} (the default
+after {cmd:iivw_weight}. Allowed values are {cmd:treatment} (the default
 IPTW component, e.g. {cmd:_iivw_tw}), {cmd:final} (the final analysis weight,
 e.g. {cmd:_iivw_weight}), and {cmd:visit} (the visit-intensity component,
-e.g. {cmd:_iivw_iw}).  The visit component is descriptive only; overlap and
+e.g. {cmd:_iivw_iw}). The visit component is descriptive only; overlap and
 support diagnostics remain treatment-propensity diagnostics.
 
 {phang}
 {opt graph} displays a weight distribution histogram.
 
 {phang}
-{opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram.
-It is ignored unless {opt graph} is also specified.
+{opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram. It is
+ignored unless {opt graph} is also specified.
 
 {phang}
 {opt xlsx(filename)} exports the weight summary statistics to an Excel file
@@ -398,13 +394,13 @@ It is ignored unless {opt graph} is also specified.
 {opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Weights"}.
 
 {pstd}
-{bf:Interpretation:} An ESS above 50% of the original sample size is typical.
-A coefficient of variation (CV) greater than 1 indicates substantial weight
-variability that may inflate variance of treatment effect estimates. The default
-extreme-weight cutoffs (10, 20) are calibrated for stabilized weights; for
-unstabilized weights judge instead by the CV and the maximum-to-mean ratio, or
-raise the cutoffs with {opt extreme()}. Consider trimming or truncating extreme
-weights.
+{bf:Interpretation:} An ESS above 50% of the original sample size is typical. A
+coefficient of variation (CV) greater than 1 indicates substantial weight
+variability that may inflate variance of treatment effect estimates. The
+default extreme-weight cutoffs (10, 20) are calibrated for stabilized
+weights; for unstabilized weights judge instead by the CV and the
+maximum-to-mean ratio, or raise the cutoffs with {opt extreme()}. Consider trimming
+or truncating extreme weights.
 
 {dlgtab:support options}
 
@@ -416,18 +412,17 @@ minimum, so the reported alpha is not pinned to a 1% step. Restricted to binary
 treatment; for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
-{opt threshold(#)} specifies a manual PS trimming threshold. Observations
-with PS < threshold or PS > 1-threshold are considered outside support.
-Must be strictly between 0 and 0.5.
+{opt threshold(#)} specifies a manual PS trimming threshold. Observations with PS <
+threshold or PS > 1-threshold are considered outside support. Must be strictly
+between 0 and 0.5.
 
 {phang}
-{opt qtrim(#)} bases the reported common-support region on within-group
-percentiles ({it:#} and 100-{it:#}) of the propensity score rather than the
-default min-max overlap. The min-max region is optimistic: a single
-observation with an extreme PS can stretch the reported interval and hide
-interior sparsity. A small value such as {cmd:qtrim(1)} or {cmd:qtrim(2.5)}
-gives a more robust boundary. {it:#} must be strictly between 0 and 50.
-Binary treatment only.
+{opt qtrim(#)} bases the reported common-support region on within-group percentiles
+({it:#} and 100-{it:#}) of the propensity score rather than the default min-max
+overlap. The min-max region is optimistic: a single observation with an
+extreme PS can stretch the reported interval and hide interior sparsity. A
+small value such as {cmd:qtrim(1)} or {cmd:qtrim(2.5)} gives a more robust boundary. {it:#}
+must be strictly between 0 and 50. Binary treatment only.
 
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
@@ -440,12 +435,12 @@ support interval.
 {opt generate()}.
 
 {phang}
-{opt compare} reports a pre/post-trimming comparison of key diagnostics:
-observations retained, percentage outside common support, effective sample size
-(ESS) as a percentage of N, and maximum |SMD| (when covariates are available).
-Requires trimming ({opt crump} or {opt threshold()}); binary treatment only.
-This closes the "did trimming help?" loop. The pre/post values are returned in
-{cmd:r(*_pre)} and {cmd:r(*_post)}.
+{opt compare} reports a pre/post-trimming comparison of key
+diagnostics: observations retained, percentage outside common support,
+effective sample size (ESS) as a percentage of N, and maximum |SMD| (when
+covariates are available). Requires trimming ({opt crump} or {opt threshold()}); binary
+treatment only. This closes the "did trimming help?" loop. The pre/post values
+are returned in {cmd:r(*_pre)} and {cmd:r(*_post)}.
 
 {phang}
 {opt nograph} suppresses the PS density graph.
@@ -458,11 +453,11 @@ This closes the "did trimming help?" loop. The pre/post values are returned in
 {opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Support"}.
 
 {pstd}
-{bf:Interpretation:} Observations outside common support lack counterparts
-in the other treatment group, violating the positivity assumption. More than
-10% outside support warrants attention. Crump et al. (2009) optimal trimming
-identifies the subsample where treatment effect estimation is most efficient;
-the optimal alpha is typically between 0.05 and 0.15.
+{bf:Interpretation:} Observations outside common support lack counterparts in the
+other treatment group, violating the positivity assumption. More than 10%
+outside support warrants attention. Crump et al. (2009) optimal trimming
+identifies the subsample where treatment effect estimation is most
+efficient; the optimal alpha is typically between 0.05 and 0.15.
 
 {dlgtab:combined options}
 
@@ -493,8 +488,8 @@ weights, estimand, source, longitudinal flag) and exits without running any
 panel. Equivalent to {cmd:psdash detect}.
 
 {phang}
-{opt report(filename)} writes a multi-sheet Excel workbook ({cmd:.xlsx}) bundling
-each panel's table (Overlap, Balance, Weights, Support) plus a Summary sheet with
+{opt report(filename)} writes a multi-sheet Excel workbook ({cmd:.xlsx}) bundling each
+panel's table (Overlap, Balance, Weights, Support) plus a Summary sheet with
 the overall verdict and thresholds. The path is returned in {cmd:r(report)}.
 
 {phang}
@@ -505,12 +500,11 @@ etc.). Use {helpb graph save} for a {cmd:.gph} file.
 {dlgtab:detect options}
 
 {phang}
-{cmd:psdash detect} accepts the common detection options
-({opt covariates()}, {opt wvar()}, {opt estimand()}, {opt psvars()},
-{opt reference()}) and runs only the auto-detection layer, printing what it
-resolved and returning it in {cmd:r()}. It runs no diagnostics and creates no
-graphs, so it is a safe way to inspect the 9-mode detector before committing to a
-full run. See {help psdash##detection:Detection sources} below.
+{cmd:psdash detect} accepts the common detection options ({opt covariates()}, {opt wvar()},
+{opt estimand()}, {opt psvars()}, {opt reference()}) and runs only the auto-detection layer,
+printing what it resolved and returning it in {cmd:r()}. It runs no diagnostics and
+creates no graphs, so it is a safe way to inspect the 9-mode detector before
+committing to a full run. See {help psdash##detection:Detection sources} below.
 
 
 {marker remarks}{...}
@@ -547,10 +541,10 @@ tte dataset metadata. Run {cmd:psdash combined}. The {opt save_ps} option is
 required so the propensity score survives in the dataset.
 
 {phang2}
-6. {bf:After iivw_weight}: treatment, {cmd:_iivw_ps}, treatment-model
-covariates, and {cmd:_iivw_tw} are auto-detected from iivw dataset metadata.
-Run {cmd:psdash combined}. Use {cmd:psdash weights, iivwcomponent(final)}
-when you want the final FIPTIW/IPTW analysis-weight distribution.
+6. {bf:After iivw_weight}: treatment, {cmd:_iivw_ps}, treatment-model covariates, and
+{cmd:_iivw_tw} are auto-detected from iivw dataset metadata. Run
+{cmd:psdash combined}. Use {cmd:psdash weights, iivwcomponent(final)} when you want the
+final FIPTIW/IPTW analysis-weight distribution.
 
 {phang2}
 7. {bf:After logit/probit}: treatment and covariates are auto-detected from
@@ -586,12 +580,11 @@ what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
 {p2colreset}{...}
 
 {pstd}
-{bf:Default behavior of {cmd:balance}:} When a PS variable is available,
-{cmd:psdash balance} auto-generates IPTW weights for the requested {opt estimand()}
-and displays {it:adjusted} columns (SMD Adj, VR Adj) alongside the raw columns.
-Pass {opt nowvar} to show raw balance only, or {opt wvar()} to supply a
-pre-computed weight variable. The {opt estimand()} option (default {opt ate}) controls
-which IPTW formula is used; after {cmd:teffects} it is auto-detected from
+{bf:Default behavior of {cmd:balance}:} When a PS variable is available, {cmd:psdash balance} auto-generates IPTW weights
+for the requested {opt estimand()} and displays {it:adjusted} columns (SMD Adj, VR Adj)
+alongside the raw columns. Pass {opt nowvar} to show raw balance only, or {opt wvar()} to
+supply a pre-computed weight variable. The {opt estimand()} option (default {opt ate})
+controls which IPTW formula is used; after {cmd:teffects} it is auto-detected from
 {cmd:e(stat)} when not specified explicitly.
 
 {pstd}
@@ -612,14 +605,13 @@ unaffected and use the standard ATC weights ({cmd:(1-e)/e} for treated,
 {cmd:1} for control).
 
 {pstd}
-{bf:Diagnostic workflow:} A typical PS analysis proceeds as follows:
-(1) estimate propensity scores; (2) check PS overlap and AUC;
-(3) trim if necessary using {cmd:psdash support, crump} for binary treatments
-or {cmd:threshold()} for multi-group treatments; (4) check covariate
-balance using SMD, variance ratios, and optionally KS statistics; (5) assess
-weight distribution, ESS, and extreme weights; (6) proceed to outcome analysis
-only when diagnostics are satisfactory. {cmd:psdash combined} runs steps 2-5
-in a single command.
+{bf:Diagnostic workflow:} A typical PS analysis proceeds as follows: (1) estimate
+propensity scores; (2) check PS overlap and AUC; (3) trim if necessary using
+{cmd:psdash support, crump} for binary treatments or {cmd:threshold()} for multi-group
+treatments; (4) check covariate balance using SMD, variance ratios, and
+optionally KS statistics; (5) assess weight distribution, ESS, and extreme
+weights; (6) proceed to outcome analysis only when diagnostics are
+satisfactory. {cmd:psdash combined} runs steps 2-5 in a single command.
 
 {pstd}
 {bf:Reading the status lines:} {cmd:PASS} or {cmd:Adequate} means no diagnostic
@@ -642,12 +634,11 @@ show a more realistic treatment-effects workflow. They are intended to
 illustrate syntax and diagnostics, not to endorse a final causal specification.
 
 {pstd}
-{bf:1. Manual propensity-score workflow with sysuse auto.}
-Estimate the propensity score with {cmd:logit}, save the fitted probabilities
-in {cmd:ps}, then run each diagnostic explicitly. Because this is a manual
-workflow, {cmd:balance} is told which covariates to assess.
+{bf:1. Manual propensity-score workflow with sysuse auto.} Estimate the propensity
+score with {cmd:logit}, save the fitted probabilities in {cmd:ps}, then run each
+diagnostic explicitly. Because this is a manual workflow, {cmd:balance} is told
+which covariates to assess.
 
-{pstd}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
@@ -657,11 +648,11 @@ workflow, {cmd:balance} is told which covariates to assess.
 {phang2}{cmd:. psdash support foreign ps, crump generate(in_support)}{p_end}
 
 {pstd}
-{bf:2. Fully automatic workflow after teffects with webuse cattaneo2.}
-Here {cmd:teffects ipw} estimates the propensity score internally. After that,
-{cmd:psdash} reads the treatment ({cmd:mbsmoke}), the estimated PS, the
-covariates, and the implied weighting scheme from {cmd:e()}, so the subcommands
-can be called without retyping variable names.
+{bf:2. Fully automatic workflow after teffects with webuse cattaneo2.} Here
+{cmd:teffects ipw} estimates the propensity score internally. After that, {cmd:psdash}
+reads the treatment ({cmd:mbsmoke}), the estimated PS, the covariates, and the
+implied weighting scheme from {cmd:e()}, so the subcommands can be called without
+retyping variable names.
 
 {phang2}{cmd:. webuse cattaneo2, clear}{p_end}
 {phang2}{cmd:. teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby)}{p_end}
@@ -669,9 +660,9 @@ can be called without retyping variable names.
 {phang2}{cmd:. psdash balance}{p_end}
 
 {pstd}
-{bf:3. Using pre-computed weights with sysuse auto.}
-If weights were created outside {cmd:psdash}, pass them through {opt wvar()}
-so that the weight and balance diagnostics use the same variable.
+{bf:3. Using pre-computed weights with sysuse auto.} If weights were created
+outside {cmd:psdash}, pass them through {opt wvar()} so that the weight and balance
+diagnostics use the same variable.
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
@@ -681,20 +672,18 @@ so that the weight and balance diagnostics use the same variable.
 {phang2}{cmd:. psdash balance foreign ps, covariates(mpg weight length) wvar(ipw)}{p_end}
 
 {pstd}
-{bf:4. Using psdash after iivw_weight.}
-After {cmd:iivw_weight} with a treatment model, {cmd:psdash combined}
-auto-detects the iivw treatment propensity-score contract. The final weight
-can be summarized explicitly with {opt iivwcomponent(final)}.
+{bf:4. Using psdash after iivw_weight.} After {cmd:iivw_weight} with a treatment model,
+{cmd:psdash combined} auto-detects the iivw treatment propensity-score contract. The
+final weight can be summarized explicitly with {opt iivwcomponent(final)}.
 
 {phang2}{cmd:. iivw_weight, id(id) time(months) visit_cov(age sex bl_edss bl_sdmt) treat(treated) treat_cov(age sex bl_edss bl_sdmt) replace nolog}{p_end}
 {phang2}{cmd:. psdash combined}{p_end}
 {phang2}{cmd:. psdash weights, iivwcomponent(final) detail graph}{p_end}
 
 {pstd}
-{bf:5. ATT workflow after teffects, atet.}
-When {cmd:teffects} is fit with {cmd:, atet}, {cmd:psdash} maps Stata's
-ATET result to {cmd:estimand(att)} internally. That lets the balance and
-weight diagnostics use ATT weights automatically.
+{bf:5. ATT workflow after teffects, atet.} When {cmd:teffects} is fit with {cmd:, atet}, {cmd:psdash}
+maps Stata's ATET result to {cmd:estimand(att)} internally. That lets the balance
+and weight diagnostics use ATT weights automatically.
 
 {phang2}{cmd:. webuse cattaneo2, clear}{p_end}
 {phang2}{cmd:. teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), atet}{p_end}
@@ -702,10 +691,10 @@ weight diagnostics use ATT weights automatically.
 {phang2}{cmd:. psdash weights, detail}{p_end}
 
 {pstd}
-{bf:6. Focused option examples on sysuse auto.}
-These examples show a few common follow-up diagnostics once {cmd:ps} already
-exists: add KS statistics to the balance table, create trimmed or stabilized
-weights, and mark observations inside common support.
+{bf:6. Focused option examples on sysuse auto.} These examples show a few common
+follow-up diagnostics once {cmd:ps} already exists: add KS statistics to the balance
+table, create trimmed or stabilized weights, and mark observations inside
+common support.
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
@@ -716,11 +705,11 @@ weights, and mark observations inside common support.
 {phang2}{cmd:. psdash support foreign ps, crump generate(in_support)}{p_end}
 
 {pstd}
-{bf:7. Multi-group treatment (3 arms) with mlogit.}
-When the treatment has more than two levels, estimate the generalized propensity
-score with {cmd:mlogit} and pass the K predicted probabilities via
-{opt psvars()}. The generated example below creates a stable three-arm treatment
-so the multinomial model converges in a small demonstration dataset.
+{bf:7. Multi-group treatment (3 arms) with mlogit.} When the treatment has more
+than two levels, estimate the generalized propensity score with {cmd:mlogit} and
+pass the K predicted probabilities via {opt psvars()}. The generated example below
+creates a stable three-arm treatment so the multinomial model converges in a
+small demonstration dataset.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. set obs 300}{p_end}
@@ -743,9 +732,8 @@ so the multinomial model converges in a small demonstration dataset.
 {phang2}{cmd:. psdash support arm , psvars(ps0 ps1 ps2) threshold(0.1)}{p_end}
 
 {pstd}
-{bf:8. Multi-group with explicit reference group.}
-Specify {opt reference()} to change the comparator group for pairwise
-SMD calculations.
+{bf:8. Multi-group with explicit reference group.} Specify {opt reference()} to change
+the comparator group for pairwise SMD calculations.
 
 {phang2}{cmd:. psdash balance arm , psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)}{p_end}
 
@@ -757,13 +745,11 @@ SMD calculations.
 Each subcommand stores results in {cmd:r()}.
 
 {pstd}
-{bf:Multi-group note:} For binary (0/1) treatment, stored results use
-binary group names such as {cmd:r(N_treated)} and {cmd:r(N_control)}.
-For multi-group treatment runs, per-group results use the naming convention
-{cmd:r(N_group_{it:<level>})},
-{cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)} returns the number
-of groups, {cmd:r(levels)} lists the treatment values, and {cmd:r(reference)}
-identifies the reference group.
+{bf:Multi-group note:} For binary (0/1) treatment, stored results use binary group
+names such as {cmd:r(N_treated)} and {cmd:r(N_control)}. For multi-group treatment runs,
+per-group results use the naming convention {cmd:r(N_group_{it:<level>})}, {cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)}
+returns the number of groups, {cmd:r(levels)} lists the treatment values, and
+{cmd:r(reference)} identifies the reference group.
 
 {dlgtab:overlap}
 
@@ -1004,20 +990,20 @@ of baseline covariates between treatment groups in propensity-score matched
 samples. {it:Statistics in Medicine}, 28(25), 3083-3107.
 
 {phang}
-Austin, P. C. (2011). An introduction to propensity score methods for
-reducing the effects of confounding in observational studies.
-{it:Multivariate Behavioral Research}, 46(3), 399-424.
+Austin, P. C. (2011). An introduction to propensity score methods for reducing
+the effects of confounding in observational
+studies. {it:Multivariate Behavioral Research}, 46(3), 399-424.
 
 {phang}
-Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009).
-Dealing with limited overlap in estimation of average treatment effects.
-{it:Biometrika}, 96(1), 187-199.
+Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009). Dealing with
+limited overlap in estimation of average treatment effects. {it:Biometrika}, 96(1),
+187-199.
 
 
 {title:Also see}
 
 {psee}
-{space 2}Help:  {manhelp teffects TE}, {manhelp logit R}, {manhelp mlogit R},
+{space 2}Help: {manhelp teffects TE}, {manhelp logit R}, {manhelp mlogit R},
 {manhelp tebalance TE}, {help tebalance##summarize:tebalance summarize}, {manhelp teoverlap TE}
 {p_end}
 

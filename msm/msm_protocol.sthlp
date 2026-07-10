@@ -54,48 +54,48 @@
 {pstd}
 {cmd:msm_protocol} documents the study protocol for an MSM analysis using a
 7-component framework adapted from the target trial emulation approach of
-Hernan, Robins, and colleagues.  The idea is to make the causal question
+Hernan, Robins, and colleagues. The idea is to make the causal question
 explicit {it:before} running any statistical code, just as a clinical trial
 protocol is written before enrollment begins.
 
 {pstd}
-All 7 components are required.  The command displays the protocol in the
+All 7 components are required. The command displays the protocol in the
 Results window by default, or exports it to CSV, Excel, or LaTeX for
 inclusion in manuscripts, supplementary materials, or study documentation.
 
 {pstd}
-{cmd:msm_protocol} does not modify the dataset or affect downstream commands.
-It is purely a documentation tool.  We recommend running it as the first step
-in every analysis script.
+{cmd:msm_protocol} does not modify the dataset or affect downstream commands. It is
+purely a documentation tool. We recommend running it as the first step in
+every analysis script.
 
 
 {marker components}{...}
 {title:The 7 components}
 
-{phang2}1. {bf:Population} {hline 2} Who is in the study?  Specify inclusion
+{phang2}1. {bf:Population} {hline 2} Who is in the study? Specify inclusion
 and exclusion criteria (e.g., "Adults aged 18-65 with condition X").{p_end}
 
 {phang2}2. {bf:Treatment strategies} {hline 2} What treatment regimes are being
-compared?  The {cmd:msm} package currently supports static strategies such as
+compared? The {cmd:msm} package currently supports static strategies such as
 "always treated vs. never treated".{p_end}
 
 {phang2}3. {bf:Confounders} {hline 2} Which time-varying and baseline
-confounders are measured?  Mark time-varying confounders with "(TV)" (e.g.,
+confounders are measured? Mark time-varying confounders with "(TV)" (e.g.,
 "Biomarker (TV), comorbidity (TV), age, sex").{p_end}
 
-{phang2}4. {bf:Outcome} {hline 2} What is the outcome of interest?  Be
+{phang2}4. {bf:Outcome} {hline 2} What is the outcome of interest? Be
 specific about the definition and coding (e.g., "All-cause mortality within
 follow-up").{p_end}
 
-{phang2}5. {bf:Causal contrast} {hline 2} What parameter is being estimated?
-(e.g., "Average treatment effect: always treated vs. never treated").{p_end}
+{phang2}5. {bf:Causal contrast} {hline 2} What parameter is being estimated? (e.g., "Average
+treatment effect: always treated vs. never treated").{p_end}
 
 {phang2}6. {bf:Weight specification} {hline 2} How are the inverse probability
-weights constructed?  Document stabilization, truncation, and any censoring
+weights constructed? Document stabilization, truncation, and any censoring
 weights (e.g., "Stabilized IPTW, truncated at 1st/99th percentile").{p_end}
 
 {phang2}7. {bf:Statistical analysis} {hline 2} What outcome model and estimation
-approach?  (e.g., "Pooled logistic regression with robust SE clustered by
+approach? (e.g., "Pooled logistic regression with robust SE clustered by
 ID").{p_end}
 
 
@@ -131,10 +131,9 @@ ID").{p_end}
 {opt exp:ort(string)} specifies the file path for export.
 
 {phang}
-{opt for:mat(string)} specifies the output format.  {cmd:display} (default)
-prints to the Results window.  {cmd:csv} writes a comma-separated file.
-{cmd:excel} writes an Excel workbook.  {cmd:latex} writes a LaTeX table
-using {cmd:booktabs} formatting.
+{opt for:mat(string)} specifies the output format. {cmd:display} (default) prints to the
+Results window. {cmd:csv} writes a comma-separated file. {cmd:excel} writes an Excel
+workbook. {cmd:latex} writes a LaTeX table using {cmd:booktabs} formatting.
 
 {phang}
 {opt replace} replaces the Protocol sheet in an existing Excel workbook

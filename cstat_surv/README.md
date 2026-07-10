@@ -1,6 +1,6 @@
 # cstat_surv - Harrell's C-statistic after `stcox`
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.0** | 2026-07-10
 
 `cstat_surv` calculates Harrell's C-statistic for Cox proportional hazards models and reports an infinitesimal-jackknife standard error with a confidence interval. It is meant for post-estimation discrimination checks when you want a survival-model analogue of AUC.
 

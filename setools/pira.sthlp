@@ -62,17 +62,17 @@
 {p2colreset}{...}
 
 {p 8 16 2}
-{it:idvar} identifies patients. {it:edssvar} is the numeric EDSS score.
-{it:datevar}, {opt dxdate()}, and the relapse date variable must all be Stata
-daily dates with {cmd:%td} display formats and whole-number daily values.{p_end}
+{it:idvar} identifies patients. {it:edssvar} is the numeric EDSS score. {it:datevar},
+{opt dxdate()}, and the relapse date variable must all be Stata daily dates with {cmd:%td}
+display formats and whole-number daily values.{p_end}
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:pira} identifies {bf:Progression Independent of Relapse Activity} (PIRA), a
-key outcome in multiple sclerosis (MS) research.  MS disability can worsen in two
+{cmd:pira} identifies {bf:Progression Independent of Relapse Activity} (PIRA), a key
+outcome in multiple sclerosis (MS) research. MS disability can worsen in two
 distinct ways:
 
 {phang2}{bf:PIRA} {hline 2} disability accumulation driven by underlying
@@ -95,8 +95,8 @@ threshold rule, and require sustained-throughout confirmation at
 {opt confirmdays()} days.{p_end}
 
 {phang2}2. {bf:Classify each CDP event} by checking whether it falls within a window
-around any relapse.  The window extends from {opt windowbefore()} days before a
-relapse to {opt windowafter()} days after.  CDP events outside every relapse
+around any relapse. The window extends from {opt windowbefore()} days before a
+relapse to {opt windowafter()} days after. CDP events outside every relapse
 window are classified as PIRA; those inside any window are classified as RAW.{p_end}
 
 {pstd}
@@ -105,7 +105,7 @@ outcomes independently (e.g., competing-risks or cause-specific Cox models).
 
 {pstd}
 {bf:Data requirements:} The command reads EDSS measurements from memory and relapse
-dates from a separate file on disk ({opt relapses()}).  The relapse file must
+dates from a separate file on disk ({opt relapses()}). The relapse file must
 contain one row per relapse per person, with an ID variable and a relapse date
 variable.
 
@@ -117,42 +117,42 @@ variable.
 
 {phang}
 {opt dxdate(varname)} specifies the variable containing the MS diagnosis date for
-each patient.  This anchors the baseline window.  It must be a Stata daily date
+each patient. This anchors the baseline window. It must be a Stata daily date
 with a {cmd:%td} display format.
 
 {phang}
-{opt relapses(filename)} specifies the path to a dataset containing relapse events.
-The file must contain an ID variable (see {opt relapseidvar()}) and a relapse date
-variable (see {opt relapsedatevar()}).  {cmd:pira} loads the file from disk; it
-does not use relapse information already in memory.
+{opt relapses(filename)} specifies the path to a dataset containing relapse
+events. The file must contain an ID variable (see {opt relapseidvar()}) and a
+relapse date variable (see {opt relapsedatevar()}). {cmd:pira} loads the file from
+disk; it does not use relapse information already in memory.
 
 {dlgtab:Relapse file}
 
 {phang}
 {opt relapseidvar(varname)} specifies the name of the ID variable in the relapse
-file.  Default is the same name as {it:idvar} in the master data.  The type
+file. Default is the same name as {it:idvar} in the master data. The type
 (string vs. numeric) must match.
 
 {phang}
 {opt relapsedatevar(varname)} specifies the name of the relapse date variable in
-the relapse file.  Default is {cmd:relapse_date}.  The variable must be a Stata
-daily date with a {cmd:%td} display format.  Rows with missing relapse dates or
+the relapse file. Default is {cmd:relapse_date}. The variable must be a Stata
+daily date with a {cmd:%td} display format. Rows with missing relapse dates or
 missing/blank IDs are silently dropped.
 
 {dlgtab:Relapse window}
 
 {phang}
 {opt windowbefore(#)} specifies how many days before a relapse onset a CDP event is
-considered relapse-associated.  Default is {cmd:90}.
+considered relapse-associated. Default is {cmd:90}.
 
 {phang}
 {opt windowafter(#)} specifies how many days after a relapse onset a CDP event is
-considered relapse-associated.  Default is {cmd:30}.
+considered relapse-associated. Default is {cmd:30}.
 
 {pstd}
-The combined window [{opt windowbefore()} days before, {opt windowafter()} days
-after] forms the exclusion zone around each relapse.  CDP events that fall outside
-{it:all} relapse windows are classified as PIRA.  Common configurations:
+The combined window [{opt windowbefore()} days before, {opt windowafter()} days after]
+forms the exclusion zone around each relapse. CDP events that fall outside {it:all}
+relapse windows are classified as PIRA. Common configurations:
 
 {phang2}Lublin 2014: {cmd:windowbefore(0) windowafter(30)}{p_end}
 {phang2}EXPAND trial (default): {cmd:windowbefore(90) windowafter(30)}{p_end}
@@ -160,64 +160,65 @@ after] forms the exclusion zone around each relapse.  CDP events that fall outsi
 {dlgtab:CDP parameters}
 
 {phang}
-{opt generate(name)} specifies the name for the PIRA date variable.  Default is
-{cmd:pira_date}.  Must differ from {opt rawgenerate()}.
+{opt generate(name)} specifies the name for the PIRA date variable. Default is
+{cmd:pira_date}. Must differ from {opt rawgenerate()}.
 
 {phang}
-{opt rawgenerate(name)} specifies the name for the RAW date variable.  Default is
+{opt rawgenerate(name)} specifies the name for the RAW date variable. Default is
 {cmd:raw_date}.
 
 {phang}
 {opt confirmdays(#)} specifies the minimum number of days between the progression
-event and the confirming measurement.  Default is {cmd:180} (6 months).
+event and the confirming measurement. Default is {cmd:180} (6 months).
 
 {phang}
 {opt confirmtype(type)} selects the CDP confirmation rule, exactly as in
-{helpb cdp}.  {cmd:sustained} (the default) requires the minimum EDSS across all
-measurements at or after {opt confirmdays()} to meet the threshold.  {cmd:visit}
+{helpb cdp}. {cmd:sustained} (the default) requires the minimum EDSS across all
+measurements at or after {opt confirmdays()} to meet the threshold. {cmd:visit}
 requires only the EDSS at the first visit at least {opt confirmdays()} days after the
 candidate to meet the threshold.
 
 {phang}
 {opt baselinewindow(#)} specifies how many days after diagnosis to look for the
-baseline EDSS measurement.  Default is {cmd:730} (2 years).  If no measurement
+baseline EDSS measurement. Default is {cmd:730} (2 years). If no measurement
 exists within this window, the earliest available EDSS is used.
 
 {phang}
 {opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
 progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
-{ul:>}= 0.5 if > 5.5), exactly as in {helpb cdp}.  The default two-tier rule is
+{ul:>}= 0.5 if > 5.5), exactly as in {helpb cdp}. The default two-tier rule is
 preserved for backward compatibility.
 
 {dlgtab:Baseline}
 
 {phang}
-{opt rebaselinerelapse} specifies that the baseline EDSS should be reset after
-each relapse.  Specifically, after a relapse occurring after the current baseline,
-the first EDSS measurement at least 30 days later becomes the new reference point
-for subsequent progression detection.  This prevents relapse-induced EDSS
-fluctuations from inflating or suppressing the change-from-baseline calculation.
+{opt rebaselinerelapse} specifies that the baseline EDSS should be reset after each
+relapse. Specifically, after a relapse occurring after the current baseline,
+the first EDSS measurement at least 30 days later becomes the new reference
+point for subsequent progression detection. This prevents relapse-induced EDSS
+fluctuations from inflating or suppressing the change-from-baseline
+calculation.
 
 {dlgtab:Output}
 
 {phang}
 {opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a PIRA date
 (matching {opt generate()}) and 0 otherwise, within the estimation sample, ready for
-{helpb stset}.  RAW-only progressors are coded 0.  Most useful with {opt keepall}.
-The name must be new and differ from {opt generate()} and {opt rawgenerate()}.
+{helpb stset}. RAW-only progressors are coded 0. Most useful with {opt keepall}. The name
+must be new and differ from {opt generate()} and {opt rawgenerate()}.
 
 {phang}
 {opt exit(varname)} names a per-person study-exit date (a numeric Stata daily date
-with a {cmd:%td} format).  Both the PIRA date and the RAW date are set to missing
+with a {cmd:%td} format). Both the PIRA date and the RAW date are set to missing
 when they fall strictly after a person's exit date, and {opt eventvar()} (if
-requested) is recomputed from the censored PIRA date.  This replaces the
-hand-written post-exit clipping that follows most {cmd:pira} calls.  Persons with a
+requested) is recomputed from the censored PIRA date. This replaces the
+hand-written post-exit clipping that follows most {cmd:pira} calls. Persons with a
 missing exit date are left unchanged; observations are retained.
 
 {phang}
 {opt keepall} specifies that all observations should be retained in the output,
-including patients without any CDP.  By default, {cmd:pira} drops all rows for
-patients who do not experience CDP (either PIRA or RAW).  Patients without
+including patients without any CDP. By default, {cmd:pira} drops all rows for
+patients who do not experience CDP (either PIRA or RAW). Patients without
 progression will have missing values in the PIRA and RAW date variables.
 
 {phang}
@@ -232,8 +233,8 @@ progression will have missing values in the PIRA and RAW date variables.
 
 {pstd}
 {cmd:pira} internally runs the same CDP algorithm as {helpb cdp}, so you do not
-need to run {cmd:cdp} separately before running {cmd:pira}.  If you only need CDP
-dates without the PIRA/RAW classification, use {helpb cdp} directly.  If you only
+need to run {cmd:cdp} separately before running {cmd:pira}. If you only need CDP
+dates without the PIRA/RAW classification, use {helpb cdp} directly. If you only
 need a sustained threshold crossing without a baseline-referenced change, use
 {helpb sustainedss}.
 
@@ -241,18 +242,19 @@ need a sustained threshold crossing without a baseline-referenced change, use
 {bf:Preparing the relapse file}
 
 {pstd}
-If relapse dates are stored as a variable in the same dataset as EDSS visits, you
-need to save a separate relapse-only file first.  See Example 1 below.
+If relapse dates are stored as a variable in the same dataset as EDSS visits,
+you need to save a separate relapse-only file first. See Example 1 below.
 
 {pstd}
 {bf:Choosing a relapse window}
 
 {pstd}
 The default window ({cmd:windowbefore(90) windowafter(30)}) is used in several
-recent pooled analyses (e.g., Kappos et al. 2020).  A narrower post-relapse-only
-window ({cmd:windowbefore(0) windowafter(30)}) follows Lublin 2014 definitions.
-Sensitivity analysis with different windows is straightforward: re-run
-{cmd:pira} with the same data and different window parameters.
+recent pooled analyses (e.g., Kappos et al. 2020). A narrower
+post-relapse-only window ({cmd:windowbefore(0) windowafter(30)}) follows Lublin 2014
+definitions. Sensitivity analysis with different windows is
+straightforward: re-run {cmd:pira} with the same data and different window
+parameters.
 
 
 {marker examples}{...}
@@ -275,8 +277,8 @@ before running {cmd:pira}.{p_end}
 {bf:Example 2: Basic PIRA analysis with example data}
 
 {pstd}
-Download the EDSS visits and relapse files from the package data repository, then
-run {cmd:pira} with default parameters (90-day before / 30-day after window,
+Download the EDSS visits and relapse files from the package data repository,
+then run {cmd:pira} with default parameters (90-day before / 30-day after window,
 180-day confirmation, 730-day baseline window).{p_end}
 
 {phang2}{stata `"copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta" "relapses_example.dta", replace"':. copy "https://.../relapses.dta" "relapses_example.dta", replace}{p_end}
@@ -357,8 +359,8 @@ revisions. {it:Neurology}. 2014;83(3):278{c -}286.
 
 {phang}
 University of California San Francisco MS-EPIC Team, et al. Silent progression
-in disease activity-free relapsing multiple sclerosis.
-{it:Annals of Neurology}. 2019;85(5):653{c -}666.
+in disease activity-free relapsing multiple
+sclerosis. {it:Annals of Neurology}. 2019;85(5):653{c -}666.
 
 
 {marker author}{...}

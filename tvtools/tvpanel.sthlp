@@ -16,7 +16,8 @@
 {title:Title}
 
 {phang}
-{bf:tvpanel} {hline 2} Fixed-width, entry-anchored person-period panel for marginal structural models
+{bf:tvpanel} {hline 2} Fixed-width, entry-anchored person-period panel for marginal
+structural models
 
 
 {marker syntax}{...}
@@ -72,29 +73,30 @@ data may instead be supplied as a named frame via {opt frame()}.
 {title:Description}
 
 {pstd}
-{cmd:tvpanel} expands each person's follow-up into {bf:fixed-width intervals anchored at
-study entry}: interval {it:k} runs from {cmd:entry + width*k} to
-{cmd:entry + width*(k+1) - 1}, clipped at {opt exit()}. Every interval is emitted for
-all person-time, exposed and unexposed, with a 0-based integer {opt period()} index
-suitable for {helpb msm_prepare}'s {cmd:period()}. For each interval it reports the
-{bf:active exposure class at the interval start} and, optionally, the {bf:per-class
-cumulative exposure accrued as of the interval start}.
+{cmd:tvpanel} expands each person's follow-up into
+{bf:fixed-width intervals anchored at study entry}: interval {it:k} runs from
+{cmd:entry + width*k} to {cmd:entry + width*(k+1) - 1}, clipped at {opt exit()}. Every interval
+is emitted for all person-time, exposed and unexposed, with a 0-based integer
+{opt period()} index suitable for {helpb msm_prepare}'s {cmd:period()}. For each interval it
+reports the {bf:active exposure class at the interval start} and, optionally, the
+{bf:per-class cumulative exposure accrued as of the interval start}.
 
 {pstd}
-This is the grid that marginal structural models need: weights and the weighted outcome
-model key off the integer period, and the exact uniform spacing keeps any lagged
-cumulative-exposure derivation aligned to the day. {cmd:tvpanel} is the entry point for
-building that grid before {helpb msm_prepare}/{helpb msm_weight}.
+This is the grid that marginal structural models need: weights and the
+weighted outcome model key off the integer period, and the exact uniform
+spacing keeps any lagged cumulative-exposure derivation aligned to the
+day. {cmd:tvpanel} is the entry point for building that grid before
+{helpb msm_prepare}/{helpb msm_weight}.
 
 
 {marker options}{...}
 {title:Options}
 
 {phang}
-{opth id(varname)}, {opth entry(varname)}, {opth exit(varname)} identify the person and
-the study window in the master data (one row per person). {opt id()} must be
-numeric; encode a string identifier first (e.g. {cmd:egen long id2 = group(id)}).
-{opt entry()} anchors the grid.
+{opth id(varname)}, {opth entry(varname)}, {opth exit(varname)} identify the person and the study
+window in the master data (one row per person). {opt id()} must be numeric; encode a
+string identifier first (e.g. {cmd:egen long id2 = group(id)}). {opt entry()} anchors the
+grid.
 
 {phang}
 {opt frame(name)} reads the episode data from a named {help frame:frame} held in
@@ -102,22 +104,23 @@ memory instead of from a {cmd:using} file. Supply either {cmd:using} or
 {opt frame()}, not both.
 
 {phang}
-{opth exposure(name)} is the integer exposure-class variable in the episode file. Values
-must be integers (they become the suffix of the cumulative variables and the values of the
-active-class variable); {opt cumulative()} additionally requires non-negative codes, since
-class values become variable-name suffixes. Any value label on this variable is carried onto
-{opt generate()}. Episode {opt start()}/{opt stop()} must be daily {bf:%td} dates, not
-datetime ({bf:%tc}); interval arithmetic is in whole days.
+{opth exposure(name)} is the integer exposure-class variable in the episode
+file. Values must be integers (they become the suffix of the cumulative
+variables and the values of the active-class variable); {opt cumulative()}
+additionally requires non-negative codes, since class values become
+variable-name suffixes. Any value label on this variable is carried onto
+{opt generate()}. Episode {opt start()}/{opt stop()} must be daily {bf:%td} dates, not datetime
+({bf:%tc}); interval arithmetic is in whole days.
 
 {phang}
 {opt width(#)} sets the interval width in days. {cmd:width(91)} (the default) gives the
-quarterly grid used by most MSM pipelines. Unlike a calendar quarter, this is exactly 91
-days, so interval starts never drift from {cmd:entry + width*k}.
+quarterly grid used by most MSM pipelines. Unlike a calendar quarter, this is
+exactly 91 days, so interval starts never drift from {cmd:entry + width*k}.
 
 {phang}
 {opt reference(#)} is the value assigned to {opt generate()} on intervals with no covering
-episode (unexposed person-time). Episodes whose class equals {opt reference()} are ignored
-for cumulative exposure.
+episode (unexposed person-time). Episodes whose class equals {opt reference()} are
+ignored for cumulative exposure.
 
 {phang}
 {opt start(name)} and {opt stop(name)} name the episode start/stop dates in the using file
@@ -138,8 +141,8 @@ strictly before the interval start. See {help tvpanel##semantics:below}.
 {opth keepvars(varlist)} carries master-data variables onto every panel row.
 
 {phang}
-{opt saveas(filename)} writes the panel to disk and restores the master data.
-{opt replace} permits an existing file to be overwritten.
+{opt saveas(filename)} writes the panel to disk and restores the master
+data. {opt replace} permits an existing file to be overwritten.
 
 {phang}
 {opt noisily} displays a compact build summary.
@@ -149,22 +152,24 @@ strictly before the interval start. See {help tvpanel##semantics:below}.
 {title:Active class and cumulative exposure}
 
 {pstd}
-{bf:Active class.} At each interval start, the active class is the episode with the latest
-start date that covers the interval start (ties broken by the larger class value). Bake
-carryover into the episode stop so a drug remains "active" through its carryover window.
+{bf:Active class.} At each interval start, the active class is the episode with the
+latest start date that covers the interval start (ties broken by the larger
+class value). Bake carryover into the episode stop so a drug remains "active"
+through its carryover window.
 
 {pstd}
-{bf:Cumulative exposure} is evaluated {bf:as of the interval start} (non-anticipating): for
-each class it sums exposure-days in {cmd:[episode start, interval start - 1]} and converts
-to the requested unit. The current interval's own exposure is not yet counted, so the value
-entering period {it:k} reflects only history before {it:k}.
+{bf:Cumulative exposure} is evaluated {bf:as of the interval start}
+(non-anticipating): for each class it sums exposure-days in
+{cmd:[episode start, interval start - 1]} and converts to the requested unit. The
+current interval's own exposure is not yet counted, so the value entering
+period {it:k} reflects only history before {it:k}.
 
 {pstd}
-{bf:Lagged cumulative exposure} (e.g. cumulative as of {cmd:interval start - 730 days}) is a
-thin downstream step, not produced here: subtract the trailing-window exposure from the
-running total, or difference the cumulative series. {cmd:tvexpose}'s {opt lag()} is an
-induction/washout lag (front of episode), not an evaluation lag, and must not be used for
-this.
+{bf:Lagged cumulative exposure} (e.g. cumulative as of {cmd:interval start - 730 days})
+is a thin downstream step, not produced here: subtract the trailing-window
+exposure from the running total, or difference the cumulative
+series. {cmd:tvexpose}'s {opt lag()} is an induction/washout lag (front of episode), not
+an evaluation lag, and must not be used for this.
 
 
 {marker compare}{...}
@@ -173,14 +178,14 @@ this.
 {pstd}
 {helpb tvexpose} splits person-time at {bf:exposure-change boundaries} and, with
 {opt expandunit()}, expands using {bf:calendar-average} widths anchored at each episode
-(a "quarter" is ~91.31 days). That is right for episode-centric dose-response work but
-drifts off a fixed grid and omits a uniform integer period.
+(a "quarter" is ~91.31 days). That is right for episode-centric dose-response
+work but drifts off a fixed grid and omits a uniform integer period.
 
 {pstd}
-{cmd:tvpanel} lays down a {bf:uniform grid anchored at study entry} with an exact width and
-an integer period, over all person-time, with no exposure-change splits. Use {cmd:tvpanel}
-when the downstream model is an MSM keyed by period; use {helpb tvexpose} when you want one
-row per exposure episode or per calendar bin.
+{cmd:tvpanel} lays down a {bf:uniform grid anchored at study entry} with an exact width
+and an integer period, over all person-time, with no exposure-change
+splits. Use {cmd:tvpanel} when the downstream model is an MSM keyed by period; use
+{helpb tvexpose} when you want one row per exposure episode or per calendar bin.
 
 
 {marker stored}{...}

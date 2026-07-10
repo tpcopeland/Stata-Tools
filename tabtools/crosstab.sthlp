@@ -13,7 +13,8 @@
 {title:Title}
 
 {phang}
-{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel and Markdown export
+{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel and
+Markdown export
 
 {marker syntax}{title:Syntax}
 
@@ -89,17 +90,16 @@ exits with an error instead of silently omitting the measure.{p_end}
 
 {marker trendnote}{title:Trend tests}
 
-{pstd}{cmd:crosstab} offers two trend tests, and they answer different
-questions. {opt trend} runs a {bf:Spearman rank-correlation} test — a general
-ordinal-by-ordinal association across the ordered column levels — and is the
-right default when both variables are ordinal. {opt cochran} runs the classic
-{bf:Cochran-Armitage} test for a {bf:linear trend in a binary outcome across an
-ordered exposure}: {it:rowvar} must be binary (the outcome), and the ordered
-{it:colvar} supplies the column scores. Column scores are the numeric
-{it:colvar} values, so recoding {it:colvar} (for example, to dose levels)
-changes the assumed spacing. The two options are mutually exclusive; both store
-their p-value in {cmd:r(p_trend)} and label the trend row accordingly.
-{it:fweight}s are honored by both.{p_end}
+{pstd}{cmd:crosstab} offers two trend tests, and they answer different questions. {opt trend}
+runs a {bf:Spearman rank-correlation} test — a general ordinal-by-ordinal
+association across the ordered column levels — and is the right default when
+both variables are ordinal. {opt cochran} runs the classic {bf:Cochran-Armitage} test for
+a {bf:linear trend in a binary outcome across an ordered exposure}: {it:rowvar} must be
+binary (the outcome), and the ordered {it:colvar} supplies the column
+scores. Column scores are the numeric {it:colvar} values, so recoding {it:colvar} (for
+example, to dose levels) changes the assumed spacing. The two options are
+mutually exclusive; both store their p-value in {cmd:r(p_trend)} and label the trend
+row accordingly. {it:fweight}s are honored by both.{p_end}
 
 {marker examples}{title:Examples}
 
