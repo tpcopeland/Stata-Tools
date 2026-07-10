@@ -1,4 +1,4 @@
-*! datamap Version 1.5.3  2026/07/10
+*! datamap Version 1.5.4  2026/07/10
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -100,30 +100,18 @@ program define datamap, rclass
 		local _restore_needed = 0
 		local _metadata_post_open = 0
 		capture noisily {
-			local _raw0 `"`0'"'
-			syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
+				syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
 			          RECursive ///
 			          Output(string) Format(string) SEParate APPend SAVing(string) ///
 			          CONFig(string) ///
 			          NOSTats NOFReq NOLAbels ///
-			          MAXFreq(integer -1) MAXCat(integer -1) ///
-			          MINCell(integer -1) NOGuidance COMpact ///
+				          MAXFreq(integer -999999999) MAXCat(integer -999999999) ///
+				          MINCell(integer -999999999) NOGuidance COMpact ///
 			          EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
 			          DATESafe DATEFormat(string) ///
 			          DETect(string) AUTODETect PANELid(string) ///
 			          SURVIVALvars(string) QUality QUality2(string) ///
-		          SAMples(integer -1) MISSing(string)]
-			// Detect whether the user actually typed each numeric option (at any
-			// legal abbreviation), so an explicit negative errors instead of
-			// being silently reset to the default.  regexm covers every prefix
-			// from the minimum abbreviation through the full name; a bare
-			// strpos on one or two forms missed the intermediate abbreviations
-			// (e.g. maxfr(), mince()).
-			local _raw_lower = lower(`"`macval(_raw0)'"')
-			local _user_maxfreq = regexm(`"`_raw_lower'"', "maxf(r(e(q)?)?)?\(")
-			local _user_maxcat  = regexm(`"`_raw_lower'"', "maxc(a(t)?)?\(")
-			local _user_mincell = regexm(`"`_raw_lower'"', "minc(e(l(l)?)?)?\(")
-			local _user_samples = regexm(`"`_raw_lower'"', "sam(p(l(e(s)?)?)?)?\(")
+		          SAMples(integer -999999999) MISSing(string)]
 
 			if `"`config'"' != "" {
 				_datamap_validate_path "`config'", option("config()")
@@ -136,33 +124,33 @@ program define datamap, rclass
 					}
 				}
 				if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
-				foreach opt in maxfreq maxcat mincell samples {
-					if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+					foreach opt in maxfreq maxcat mincell samples {
+						if ``opt'' == -999999999 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
 				}
 				foreach opt in nostats nofreq nolabels datesafe compact noguidance autodetect {
 					if "``opt''" == "" & "`r(`opt')'" != "" local `opt' "`opt'"
+					}
 				}
-			}
-			if `_user_maxfreq' & `maxfreq' <= 0 {
-				noisily di as error "maxfreq must be positive"
-				exit 198
-			}
-			if `_user_maxcat' & `maxcat' <= 0 {
-				noisily di as error "maxcat must be positive"
-				exit 198
-			}
-			if `_user_mincell' & `mincell' < 0 {
-				noisily di as error "mincell must be non-negative"
-				exit 198
-			}
-			if `_user_samples' & `samples' < 0 {
-				noisily di as error "samples must be non-negative"
-				exit 198
-			}
-			if `maxfreq' < 0 local maxfreq = 25
-			if `maxcat' < 0 local maxcat = 25
-			if `mincell' < 0 local mincell = 5
-			if `samples' < 0 local samples = 0
+				if `maxfreq' == -999999999 local maxfreq = 25
+				if `maxcat' == -999999999 local maxcat = 25
+				if `mincell' == -999999999 local mincell = 5
+				if `samples' == -999999999 local samples = 0
+				if `maxfreq' <= 0 | missing(`maxfreq') {
+					noisily di as error "maxfreq must be positive"
+					exit 198
+				}
+				if `maxcat' <= 0 | missing(`maxcat') {
+					noisily di as error "maxcat must be positive"
+					exit 198
+				}
+				if `mincell' < 0 | missing(`mincell') {
+					noisily di as error "mincell must be non-negative"
+					exit 198
+				}
+				if `samples' < 0 | missing(`samples') {
+					noisily di as error "samples must be non-negative"
+					exit 198
+				}
 
 			// Set default date format (ISO 8601: YYYY/MM/DD)
 			if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"

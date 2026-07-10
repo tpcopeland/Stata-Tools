@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.9.5  2026/07/10
+*! _iivw_export_table Version 1.9.6  2026/07/10
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -312,9 +312,13 @@ program define _iivw_export_table, rclass
         local __iivw_return_sheet `"`sheet'"'
 
         if "`open'" != "" {
-            capture noisily shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
+            * `shell' does not propagate the child's exit status: a missing or
+            * failing xdg-open still leaves _rc == 0, so the open itself cannot
+            * be verified here. Only Stata refusing to start a shell surfaces in
+            * _rc. Either way the workbook is written, so never fail the export.
+            capture shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
             if _rc {
-                display as text "note: Excel file was written but could not be opened automatically"
+                display as text "note: Excel file was written but Stata could not start a shell to open it"
             }
         }
     }
@@ -417,9 +421,10 @@ program define _iivw_export_table, rclass
     local __iivw_return_sheet `"`sheet'"'
 
     if "`open'" != "" {
-        capture noisily shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
+        * See the tabtools branch above: `shell' cannot report a failed open.
+        capture shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
         if _rc {
-            display as text "note: Excel file was written but could not be opened automatically"
+            display as text "note: Excel file was written but Stata could not start a shell to open it"
         }
     }
     }

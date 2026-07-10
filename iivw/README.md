@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.5** | 2026-07-09
+**Version 1.9.6** | 2026-07-10
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -547,6 +547,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Changelog
+
+### v1.9.6 (2026-07-10)
+
+- **Fixed `iivw_diagnose` ignoring `set level`.** The option was declared `level(real 95)` rather than `level(cilevel)`, so the command silently produced 95% coefficient intervals -- in the console table, in `r(estimates)`, and in the Excel export -- regardless of the session's `set level` value, while `iivw_fit`, `iivw_balance`, and `iivw_exogtest` all honoured it. A user who ran `set level 90` and then compared `iivw_fit` output against `iivw_diagnose` output was silently comparing a 90% interval with a 95% one. Passing `level(#)` explicitly always worked and is unaffected. `level()` now defaults to `c(level)` and takes Stata's standard `cilevel` semantics, so `iivw_diagnose` accepts exactly what `iivw_fit`, `iivw_balance`, and `iivw_exogtest` accept. Two edges of the accepted set moved to match: `level(99.99)` is now valid (it previously errored), and `level(#)` now allows at most two decimal places (Stata's own rule), so a level such as `68.268949` -- the exact one-standard-error coverage -- must be given as `68.27`
+- Removed an unreachable "could not be opened automatically" branch from the Excel export helper: Stata's `shell` never propagates the child's exit status, so `_rc` is always 0 there and the note could never fire
+- Documented that `iivw_exogtest`'s `r(n_ids)` is summed over fitted models, so a `by()` variable that varies within subject counts a subject once per group; `r(N)` is unaffected because every row belongs to exactly one group
 
 ### v1.9.5 (2026-07-10)
 

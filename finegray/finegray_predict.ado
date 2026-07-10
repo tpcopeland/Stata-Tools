@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.1.3  2026/07/10
+*! finegray_predict Version 1.1.4  2026/07/10
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -30,6 +30,7 @@ program define finegray_predict, rclass sortpreserve
     set varabbrev off
     local _held = 0
     local _bframe = 0
+    local _created_vars ""
 
     capture noisily {
 
@@ -224,6 +225,7 @@ program define finegray_predict, rclass sortpreserve
         matrix `b' = e(b)
         matrix colnames `b' = `_score_varlist'
         matrix score `typlist' `varlist' = `b' if `touse'
+        local _created_vars "`varlist'"
         label variable `varlist' "Linear prediction (xb)"
     }
     else if "`cif'" != "" {
@@ -288,6 +290,7 @@ program define finegray_predict, rclass sortpreserve
 
         quietly gen `typlist' `varlist' = ///
             1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
+        local _created_vars "`varlist'"
         label variable `varlist' "CIF prediction"
 
         * Confidence interval via influence-function SE of the CIF
@@ -307,6 +310,7 @@ program define finegray_predict, rclass sortpreserve
                 local _fgid `"`_dta[st_id]'"'
                 local _fgcmd `"`e(cmdline)'"'
                 local _fgclust `"`e(clustvar)'"'
+                local _fgcovs `"`e(covariates)'"'
                 * A string id() cannot store _n; when it is non-numeric, give
                 * each resampled row a fresh unique numeric id instead.
                 capture confirm numeric variable `_fgid'
@@ -351,6 +355,11 @@ program define finegray_predict, rclass sortpreserve
                         capture `_fgcmd'
                         local _reprc = _rc
                         if !`_reprc' & e(converged) != 1 local _reprc = 498
+                        * A resample can lose a factor level, so the refit
+                        * posts a shorter e(b) that no longer conforms with
+                        * the stored design; skip the replication.
+                        if !`_reprc' & `"`e(covariates)'"' != `"`_fgcovs'"' ///
+                            local _reprc = 459
                     }
                     if `_reprc' continue
                     quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
@@ -365,6 +374,9 @@ program define finegray_predict, rclass sortpreserve
                 if `_bok' < 2 {
                     display as error "bootstrap failed: too few successful replications (`_bok')"
                     exit 498
+                }
+                if `_bok' < `bootstrap' {
+                    display as text "(note: `=`bootstrap'-`_bok'' of `bootstrap' bootstrap replications failed and were skipped)"
                 }
                 quietly replace `se_cif' = ///
                     sqrt((`_bss' - `_bsum'^2/`_bok')/(`_bok'-1)) if `touse'
@@ -399,6 +411,7 @@ program define finegray_predict, rclass sortpreserve
                 1 - exp(-exp(`gpt' - `z' * `segp')) if `touse'
             quietly gen double `uci' = ///
                 1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
+            local _created_vars "`_created_vars' `lci' `uci'"
             * Degenerate CIF (0 or 1): interval collapses to the point
             quietly replace `lci' = `varlist' if `touse' & `lci' >= .
             quietly replace `uci' = `varlist' if `touse' & `uci' >= .
@@ -474,6 +487,7 @@ program define finegray_predict, rclass sortpreserve
         * Create stub variables for all covariates
         if "`typlist'" == "" local typlist "double"
         quietly gen `typlist' `varlist' = .
+        local _created_vars "`varlist'"
 
         local cov_1 : word 1 of `covariates'
         label variable `varlist' "Schoenfeld residual: `cov_1'"
@@ -484,6 +498,7 @@ program define finegray_predict, rclass sortpreserve
             forvalues v = 2/`p' {
                 local vname "`stub'_`v'"
                 quietly gen `typlist' `vname' = .
+                local _created_vars "`_created_vars' `vname'"
                 local cov_v : word `v' of `covariates'
                 label variable `vname' "Schoenfeld residual: `cov_v'"
                 local _sch_varnames "`_sch_varnames' `vname'"
@@ -528,6 +543,14 @@ program define finegray_predict, rclass sortpreserve
     local rc = _rc
     if `_bframe' capture frame drop `_bf'
     if `_held' capture _estimates unhold `_esth'
+    * All-or-nothing output: drop any permanent variables this call created
+    * when it exits with an error, so a failed ci/bootstrap/schoenfeld path
+    * does not leave a partial prediction behind.
+    if `rc' & "`_created_vars'" != "" {
+        foreach _cv of local _created_vars {
+            capture drop `_cv'
+        }
+    }
     set varabbrev `_orig_varabbrev'
     * Isolate helper r() results; this command intentionally returns nothing.
     return clear

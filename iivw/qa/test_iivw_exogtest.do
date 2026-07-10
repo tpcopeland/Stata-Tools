@@ -105,6 +105,8 @@ if `run_only' == 0 | `run_only' == 1 {
         assert r(N) == 480
         assert r(alpha) == 0.01
         assert "`r(lagvars)'" == "_iivw_exog_y_lag1 _iivw_exog_marker_lag1"
+        assert "`r(conclusion)'" == ///
+            "no evidence in this diagnostic that prior outcomes predict visit timing"
         matrix R = r(results)
         assert rowsof(R) == 2
         assert colsof(R) == 11
@@ -135,6 +137,8 @@ if `run_only' == 0 | `run_only' == 2 {
         assert r(joint_min_p) < 0.10
         assert r(n_models) == 1
         assert r(N) == 480
+        assert "`r(conclusion)'" == ///
+            "evidence that lagged predictors are associated with visit timing"
         assert "`r(adjust)'" == "age female"
         matrix R = r(results)
         assert rowsof(R) == 1

@@ -1,4 +1,4 @@
-*! datadict Version 1.5.1  2026/07/08
+*! datadict Version 1.5.4  2026/07/10
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -18,7 +18,8 @@ program define datadict, rclass
 		          NOTEs(string asis) CHANGElog(string asis) ///
 		          MISSing STats DETail SAVing(string) ///
 		          COLumns(string asis) CONFig(string) DATASIGnature ///
-		          MAXCat(integer -1) MAXFreq(integer -1) MINCell(integer -1) ///
+		          MAXCat(integer -999999999) MAXFreq(integer -999999999) ///
+		          MINCell(integer -999999999) ///
 		          EXClude(string) CONTinuous(string) CATegorical(string) ///
 		          DATEVars(string) DATEFormat(string)]
 
@@ -41,16 +42,30 @@ program define datadict, rclass
 				}
 			}
 			foreach opt in maxcat maxfreq mincell {
-				if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+				if ``opt'' == -999999999 & `"`r(`opt')'"' != "" {
+					local `opt' = real(`"`r(`opt')'"')
+				}
 			}
 			if "`missing'" == "" & "`r(missing)'" != "" local missing "missing"
 			if "`stats'" == "" & "`r(stats)'" != "" local stats "stats"
 			if "`detail'" == "" & "`r(detail)'" != "" local detail "detail"
 			if "`datasignature'" == "" & "`r(datasignature)'" != "" local datasignature "datasignature"
 		}
-		if `maxcat' < 0 local maxcat = 25
-		if `maxfreq' < 0 local maxfreq = 25
-		if `mincell' < 0 local mincell = 0
+		if `maxcat' == -999999999 local maxcat = 25
+		if `maxfreq' == -999999999 local maxfreq = 25
+		if `mincell' == -999999999 local mincell = 5
+		if `maxcat' <= 0 | missing(`maxcat') {
+			noisily di as error "maxcat() must be positive"
+			exit 198
+		}
+		if `maxfreq' <= 0 | missing(`maxfreq') {
+			noisily di as error "maxfreq() must be positive"
+			exit 198
+		}
+		if `mincell' < 0 | missing(`mincell') {
+			noisily di as error "mincell() must be non-negative"
+			exit 198
+		}
 
 		// Set default date format (ISO 8601: YYYY/MM/DD)
 	if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"

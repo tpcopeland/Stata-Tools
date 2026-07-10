@@ -128,6 +128,9 @@ capture noisily {
         csv("`st_csv'") markdown("`st_md'")
     confirm file "`st_csv'"
     confirm file "`st_md'"
+    assert "`r(sheet)'" == "CSVMD"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
 
     tempname _csv_fh
     file open `_csv_fh' using "`st_csv'", read text

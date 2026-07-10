@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.9.4  2026/07/03
+*! _tabtools_common Version 1.9.7  2026/07/10
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -72,14 +72,17 @@ program _tabtools_validate_path
     args filepath option_name
 
     * Check for shell metacharacters and command injection vectors
-    * Reject: ; & | > < $ ` "
+    * Reject: ; & | > < $ ` " '
     * Note: the regex character class below matches literal $ and backtick via
     * \$/\`. Double-quote (") is checked separately via char(34) to avoid
-    * quoting headaches in the pattern itself. Apostrophes are valid path
-    * characters.
+    * quoting headaches in the pattern itself. Both quote characters are
+    * rejected because callers interpolate validated paths into commands.
     local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
     if !`_has_bad' {
         local _has_bad = strpos(`"`filepath'"', char(34)) > 0
+    }
+    if !`_has_bad' {
+        local _has_bad = strpos(`"`filepath'"', char(39)) > 0
     }
     if `_has_bad' {
         noisily display as error "`option_name' contains invalid characters"
@@ -325,8 +328,9 @@ end
 * =============================================================================
 * _tabtools_validate_sheet: Validate Excel sheet name
 * =============================================================================
-* Checks that sheet name does not exceed 31 characters and does not contain
-* characters forbidden by Excel (\ / ? * [ ] :).
+* Checks Excel's worksheet-name contract: nonblank, at most 31 characters,
+* no forbidden characters (\ / ? * [ ] :), no leading/trailing apostrophe,
+* and not the reserved name History.
 *
 * Usage: _tabtools_validate_sheet "`sheet'" "sheet()"
 
@@ -334,12 +338,25 @@ capture program drop _tabtools_validate_sheet
 program _tabtools_validate_sheet
     version 16.0
     args sheet option_name
+    if ustrlen(`"`sheet'"') == 0 {
+        display as error "`option_name': sheet name may not be blank"
+        exit 198
+    }
     if ustrlen(`"`sheet'"') > 31 {
         display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
         exit 198
     }
-    if regexm("`sheet'", "[][/\\?*:]" ) {
+    if regexm(`"`sheet'"', "[][/\\?*:]" ) {
         display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ] :)"
+        exit 198
+    }
+    if substr(`"`sheet'"', 1, 1) == char(39) | ///
+            substr(`"`sheet'"', -1, 1) == char(39) {
+        display as error "`option_name': sheet name may not begin or end with an apostrophe"
+        exit 198
+    }
+    if lower(`"`sheet'"') == "history" {
+        display as error "`option_name': History is reserved by Excel and cannot be used as a sheet name"
         exit 198
     }
 end

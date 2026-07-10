@@ -1,4 +1,4 @@
-*! puttab Version 1.9.4  2026/07/03
+*! puttab Version 1.9.7  2026/07/10
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,6 +32,17 @@ program define puttab, rclass
     set varabbrev off
     local _restore_needed = 0
     local _book_open = 0
+    local _return_ready = 0
+    local _ret_rows .
+    local _ret_cols .
+    local _ret_data .
+    local _ret_sheet ""
+    local _ret_file ""
+    local _ret_source ""
+    local _ret_csv ""
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
     capture noisily {
 
         capture putexcel close
@@ -246,6 +257,14 @@ program define puttab, rclass
         }
         local _total_rows = _N
 
+        * The analytical payload is complete before optional file side effects.
+        * Stash it now so a failed CSV/Markdown/Excel write cannot erase it.
+        local _ret_rows    = `_total_rows'
+        local _ret_cols    = `K'
+        local _ret_data    = `_ndatarows'
+        local _ret_source  "`_src'"
+        local _return_ready = 1
+
         * ----- optional CSV mirror of the assembled table -----
         if `"`csv'"' != "" {
             _tabtools_csv_write using `"`csv'"'
@@ -254,11 +273,9 @@ program define puttab, rclass
                 noisily display as error "CSV export completed but file was not created"
                 exit 601
             }
+            local _ret_csv `"`csv'"'
         }
 
-        local _ret_markdown ""
-        local _ret_markdown_rows .
-        local _ret_markdown_cols .
         if `_has_markdown' {
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
@@ -423,16 +440,9 @@ program define puttab, rclass
                 noisily display as error "export command succeeded but file `using' was not found"
                 exit 601
             }
+            local _ret_sheet `"`sheet'"'
+            local _ret_file  `"`using'"'
         }
-
-        * Stash results to post after cleanup
-        local _ret_rows    = `_total_rows'
-        local _ret_cols    = `K'
-        local _ret_data    = `_ndatarows'
-        local _ret_sheet   `"`sheet'"'
-        local _ret_file    `"`using'"'
-        local _ret_source  "`_src'"
-        local _ret_csv     `"`csv'"'
 
         if `_has_using' {
             noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
@@ -448,26 +458,27 @@ program define puttab, rclass
     capture mata: mata drop b
     if `_restore_needed' capture restore
     set varabbrev `_orig_varabbrev'
+    if `_return_ready' {
+        return scalar n_rows    = `_ret_rows'
+        return scalar n_cols    = `_ret_cols'
+        return scalar n_datarows = `_ret_data'
+        return local  source    "`_ret_source'"
+        if `"`_ret_file'"' != "" {
+            return local  sheet     `"`_ret_sheet'"'
+            return local  file      `"`_ret_file'"'
+        }
+        if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
+        if `"`_ret_markdown'"' != "" {
+            return local markdown `"`_ret_markdown'"'
+            return scalar markdown_rows = `_ret_markdown_rows'
+            return scalar markdown_cols = `_ret_markdown_cols'
+        }
+    }
     if `rc' {
         if `rc' == 603 | `rc' == 608 | `rc' == 610 {
             noisily display as error "Hint: ensure the xlsx file is not open in another application"
         }
         exit `rc'
-    }
-
-    return scalar n_rows    = `_ret_rows'
-    return scalar n_cols    = `_ret_cols'
-    return scalar n_datarows = `_ret_data'
-    return local  source    "`_ret_source'"
-    if `"`_ret_file'"' != "" {
-        return local  sheet     `"`_ret_sheet'"'
-        return local  file      `"`_ret_file'"'
-    }
-    if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
-    if `"`_ret_markdown'"' != "" {
-        return local markdown `"`_ret_markdown'"'
-        return scalar markdown_rows = `_ret_markdown_rows'
-        return scalar markdown_cols = `_ret_markdown_cols'
     }
 
     if "`open'" != "" & `"`_ret_file'"' != "" _tabtools_open_file `"`_ret_file'"'

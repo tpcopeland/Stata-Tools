@@ -1199,6 +1199,9 @@ capture noisily {
     local mdq "`outdir'/desctab_titleq.md"
     capture erase "`mdq'"
     desctab, markdown("`mdq'") title(`"Q "x" Z"') footnote(`"F "y" G"')
+    assert "`r(markdown)'" == "`mdq'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
     * read the title (### line) and footnote (*...* line)
     tempname fh
     local _title_line ""

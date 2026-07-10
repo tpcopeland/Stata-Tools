@@ -64,6 +64,7 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 - `test_iivw_v192_regressions.do`
 - `test_iivw_v193_regressions.do`
 - `test_iivw_v194_regressions.do`
+- `test_iivw_v196_regressions.do`
 - `test_iivw_weight_adversarial.do`
 - `test_iivw_weight_validation_guards.do`
 

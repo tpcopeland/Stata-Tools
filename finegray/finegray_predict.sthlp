@@ -185,7 +185,8 @@ see {helpb finegray_cif}.
 {opt bootstrap(#)} (with {opt ci}) computes the confidence limits by a subject
 bootstrap with {it:#} replications instead of the analytic influence-function
 SE. Each replication resamples subjects with replacement and refits;
-nonconverged refits are skipped and at least two successful replications are
+nonconverged refits, and refits whose resample loses a factor level, are
+skipped (a note reports how many), and at least two successful replications are
 required. The interval includes uncertainty from estimation of the censoring
 weights. Point predictions are unchanged, and the original {cmd:e()} results
 and {cmd:e(sample)} are preserved.

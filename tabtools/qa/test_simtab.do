@@ -139,7 +139,11 @@ capture noisily {
     assert r(level) == 95
     assert abs(r(alpha) - 0.05) < 1e-12
     assert "`r(xlsx)'" == "`x3'"
+    assert "`r(sheet)'" == "Tab"
     assert "`r(markdown)'" == "`m3'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+    assert "`r(methods)'" != ""
     * Excel: title row, group header row, metric header row
     import excel using "`x3'", sheet("Tab") cellrange(A1:J3) clear allstring
     assert A[1] == "Multi"

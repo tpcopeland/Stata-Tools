@@ -73,7 +73,13 @@ end
 local ++test_count
 capture noisily {
     _diag_known_triplet
-    local level_1se = 100 * (2 * normal(1) - 1)
+    * The exact 1-SE level is 100*(2*normal(1)-1) = 68.2689..., which v1.9.6's
+    * level(cilevel) rejects: Stata allows at most two decimal places. 68.27 is
+    * the nearest legal value, so z = 1.00003 and the limits still land on
+    * b -/+ se to within 1e-4. The limits are additionally verified by inverting
+    * them back to a coverage probability with normal(), which does not reuse
+    * the command's own invnormal() call.
+    local level_1se 68.27
     iivw_diagnose x, unweighted(D_unweighted) weighted(D_weighted) ///
         adjusted(D_adjusted) exogeneity(exogenous) true(5) ///
         level(`level_1se')
@@ -112,16 +118,28 @@ capture noisily {
     assert colsof(E) == 4
     assert abs(E[1,1] - 10) < 1e-12
     assert abs(E[1,2] - 2) < 1e-12
-    assert abs(E[1,3] - 8) < 1e-12
-    assert abs(E[1,4] - 12) < 1e-12
     assert abs(E[2,1] - 7) < 1e-12
     assert abs(E[2,2] - 1) < 1e-12
-    assert abs(E[2,3] - 6) < 1e-12
-    assert abs(E[2,4] - 8) < 1e-12
     assert abs(E[3,1] - 4) < 1e-12
     assert abs(E[3,2] - 0.5) < 1e-12
-    assert abs(E[3,3] - 3.5) < 1e-12
-    assert abs(E[3,4] - 4.5) < 1e-12
+
+    * At level(68.27) the limits are b -/+ se to within 1e-4 (z = 1.00003).
+    assert abs(E[1,3] - 8) < 1e-4
+    assert abs(E[1,4] - 12) < 1e-4
+    assert abs(E[2,3] - 6) < 1e-4
+    assert abs(E[2,4] - 8) < 1e-4
+    assert abs(E[3,3] - 3.5) < 1e-4
+    assert abs(E[3,4] - 4.5) < 1e-4
+
+    * Exact check: each interval is symmetric about b, and inverting its
+    * half-width through normal() recovers the requested coverage exactly.
+    forvalues i = 1/3 {
+        local b_i  = E[`i', 1]
+        local se_i = E[`i', 2]
+        assert abs((`b_i' - E[`i',3]) - (E[`i',4] - `b_i')) < 1e-12
+        local halfwidth = E[`i',4] - `b_i'
+        assert abs((2 * normal(`halfwidth' / `se_i') - 1) - `level_1se'/100) < 1e-9
+    }
 }
 if _rc == 0 {
     display as result "  PASS: D1 - iivw_diagnose exact gaps, shares, CIs, matrix"

@@ -980,12 +980,12 @@ else {
     local ++fail_count
 }
 
-* S23: survtab with RMST (2 groups only for rmst_diff)
+* S23: survtab with RMST (2 groups only for rmst_diff; common support is 23)
 capture noisily {
     sysuse cancer, clear
     gen byte drug2 = (drug >= 2)
     stset studytime, failure(died)
-    survtab, times(10 20 30) by(drug2) rmst(30) median difference ///
+    survtab, times(10 20) by(drug2) rmst(20) median difference ///
         xlsx("`output_dir'/_stress_surv_rmst.xlsx") sheet("rmst")
     assert !missing(r(rmst_diff))
 }
@@ -1387,6 +1387,61 @@ else {
 }
 capture frame drop ef_rates
 capture frame drop ef_model
+
+**## puttab returns source dimensions after xlsx() failure
+capture noisily {
+    sysuse auto, clear
+    return clear
+    capture noisily puttab make mpg in 1/2 using "`bad_root'/puttab.xlsx"
+    local rc = _rc
+    assert `rc' != 0
+    assert r(n_rows) == 3
+    assert r(n_cols) == 2
+    assert r(n_datarows) == 2
+    assert "`r(source)'" == "data"
+    assert `"`r(file)'"' == ""
+}
+if _rc == 0 {
+    display as result "  PASS: puttab preserves r() after export failure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: puttab export-failure returns (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## simtab returns analytical metadata after xlsx() failure
+capture noisily {
+    clear
+    set obs 8
+    gen long sim = mod(_n - 1, 4) + 1
+    gen byte estimator = floor((_n - 1) / 4) + 1
+    gen double estimate = cond(estimator == 1, .1, .2) + ///
+        (_n - 4 * floor((_n - 1) / 4) - 2.5) / 100
+    gen double se = .05
+    return clear
+    capture noisily simtab estimator, estimate(estimate) se(se) true(0) ///
+        sim(sim) xlsx("`bad_root'/simtab.xlsx")
+    local rc = _rc
+    assert `rc' != 0
+    assert "`r(mode)'" == "compute"
+    assert "`r(source)'" == "compute"
+    assert r(n_estimands) == 1
+    assert r(n_estimators) == 2
+    assert r(n_by) == 1
+    assert r(N_cells) == 2
+    assert r(n_reps_min) == 4
+    assert r(n_reps_max) == 4
+    assert `"`r(xlsx)'"' == ""
+}
+if _rc == 0 {
+    display as result "  PASS: simtab preserves r() after export failure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: simtab export-failure returns (rc=`=_rc')"
+    local ++fail_count
+}
 
 
 **# Summary

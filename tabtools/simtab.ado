@@ -1,4 +1,4 @@
-*! simtab Version 1.9.4  2026/07/03
+*! simtab Version 1.9.7  2026/07/10
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,6 +30,28 @@ program define simtab, rclass
     set varabbrev off
     local _restore_needed = 0
     local _book_open = 0
+    local _return_ready = 0
+    local _ret_mode ""
+    local _ret_source ""
+    local _ret_methods ""
+    local _ret_metrics ""
+    local _ret_ncells .
+    local _ret_nby .
+    local _ret_nest .
+    local _ret_nemd .
+    local _ret_level .
+    local _ret_alpha .
+    local _ret_nmin .
+    local _ret_nmax .
+    local _ret_nfailmax .
+    local _ret_frame ""
+    local _ret_pframe ""
+    local _ret_csv ""
+    local _ret_md ""
+    local _ret_md_rows .
+    local _ret_md_cols .
+    local _ret_xlsx ""
+    local _ret_sheet ""
     capture noisily {
 
         capture putexcel close
@@ -695,6 +717,27 @@ program define simtab, rclass
         tempfile _summ
         quietly save `"`_summ'"', replace
 
+        * Analysis is complete before optional rendering/file side effects.
+        * Stash the core payload now so failed exports still leave useful r().
+        local _ret_mode    = cond(`_ingest', "ingest", "compute")
+        local _ret_source  "`_source'"
+        local _ret_ncells  = `_Nby'*`_Nest'*`_Nemd'
+        local _ret_nby     = `_Nby'
+        local _ret_nest    = `_Nest'
+        local _ret_nemd    = `_Nemd'
+        local _ret_metrics "`disp_metrics'"
+        local _ret_level   = `level'
+        local _ret_alpha   = `alpha'
+        local _ret_pframe  "`_pframe_name'"
+        local _ret_sheet   `"`sheet'"'
+        if !`_ingest' {
+            local _ret_nmin = `_nmin'
+            local _ret_nmax = `_nmax'
+        }
+        if !`_ingest' & `nsim' >= 0 local _ret_nfailmax = `nsim' - `_nmin'
+        local _ret_methods "simtab `_ret_mode' mode (source: `_source'); metrics: `disp_metrics'; coverage level `level'%."
+        local _return_ready = 1
+
         * ----- pass layout parameters to Mata via locals -----
         local _leadhdr_by  `"`_bylab_hdr'"'
         local _leadhdr_est `"`_estlab_hdr'"'
@@ -732,6 +775,7 @@ program define simtab, rclass
                     display as error "CSV export completed but file was not created"
                     exit 601
                 }
+                local _ret_csv `"`csv'"'
             }
             * ----- frame (full table, incl. footnote row) -----
             if `_has_frame' {
@@ -740,6 +784,7 @@ program define simtab, rclass
                 frame `_frame_out': char _dta[tabtools_source] "simtab"
                 frame `_frame_out': char _dta[tabtools_kind] "rendered_table"
                 frame `_frame_out': char _dta[tabtools_metrics] "`disp_metrics'"
+                local _ret_frame "`_frame_out'"
             }
             * ----- console display -----
             * drop the footnote row first: in `list, table' a long footnote in
@@ -774,7 +819,6 @@ program define simtab, rclass
         * =====================================================================
         * EXCEL output (merged group headers)
         * =====================================================================
-        local _ret_xlsx ""
         if `_has_xlsx' {
             use `"`_summ'"', clear
             mata: _simtab_build(2, `_lead', `_Nby', `_Nest', `_Nemd', `_D', ///
@@ -912,28 +956,6 @@ program define simtab, rclass
                 as text " data rows x " as result "`_Kcols'" as text " cols to sheet " ///
                 as result `"`sheet'"' as text " in " as result `"`xlsx'"'
         }
-
-        * ----- stash returns to post after cleanup -----
-        local _ret_mode    = cond(`_ingest', "ingest", "compute")
-        local _ret_source  "`_source'"
-        local _ret_ncells  = `_Nby'*`_Nest'*`_Nemd'
-        local _ret_nby     = `_Nby'
-        local _ret_nest    = `_Nest'
-        local _ret_nemd    = `_Nemd'
-        local _ret_metrics "`disp_metrics'"
-        local _ret_level   = `level'
-        local _ret_alpha   = `alpha'
-        local _ret_frame   "`_frame_out'"
-        local _ret_pframe  "`_pframe_name'"
-        local _ret_csv     `"`csv'"'
-        local _ret_sheet   `"`sheet'"'
-        if !`_ingest' {
-            local _ret_nmin = `_nmin'
-            local _ret_nmax = `_nmax'
-        }
-        local _ret_nfailmax .
-        if !`_ingest' & `nsim' >= 0 local _ret_nfailmax = `nsim' - `_nmin'
-        local _ret_methods "simtab `_ret_mode' mode (source: `_source'); metrics: `disp_metrics'; coverage level `level'%."
     }
     local rc = _rc
     if `_book_open' {
@@ -942,42 +964,44 @@ program define simtab, rclass
     capture mata: mata drop b
     if `_restore_needed' capture restore
     set varabbrev `_orig_varabbrev'
+
+    * =====================================================================
+    * Post returns
+    * =====================================================================
+    if `_return_ready' {
+        return local mode    "`_ret_mode'"
+        return local source  "`_ret_source'"
+        return local methods "`_ret_methods'"
+        return local metrics "`_ret_metrics'"
+        return scalar n_estimands = `_ret_nemd'
+        return scalar n_estimators = `_ret_nest'
+        return scalar n_by = `_ret_nby'
+        return scalar N_cells = `_ret_ncells'
+        return scalar level = `_ret_level'
+        return scalar alpha = `_ret_alpha'
+        if "`_ret_mode'" == "compute" {
+            return scalar n_reps_min = `_ret_nmin'
+            return scalar n_reps_max = `_ret_nmax'
+            if `_ret_nfailmax' < . return scalar n_fail_max = `_ret_nfailmax'
+        }
+        if `"`_ret_frame'"' != ""  return local frame "`_ret_frame'"
+        if `"`_ret_pframe'"' != "" return local plotframe "`_ret_pframe'"
+        if `"`_ret_xlsx'"' != "" {
+            return local xlsx `"`_ret_xlsx'"'
+            return local sheet `"`_ret_sheet'"'
+        }
+        if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
+        if `"`_ret_md'"' != "" {
+            return local markdown `"`_ret_md'"'
+            return scalar markdown_rows = `_ret_md_rows'
+            return scalar markdown_cols = `_ret_md_cols'
+        }
+    }
     if `rc' {
         if `rc' == 603 | `rc' == 608 | `rc' == 610 {
             noisily display as error "Hint: ensure the xlsx file is not open in another application"
         }
         exit `rc'
-    }
-
-    * =====================================================================
-    * Post returns
-    * =====================================================================
-    return local mode    "`_ret_mode'"
-    return local source  "`_ret_source'"
-    return local methods "`_ret_methods'"
-    return local metrics "`_ret_metrics'"
-    return scalar n_estimands = `_ret_nemd'
-    return scalar n_estimators = `_ret_nest'
-    return scalar n_by = `_ret_nby'
-    return scalar N_cells = `_ret_ncells'
-    return scalar level = `_ret_level'
-    return scalar alpha = `_ret_alpha'
-    if "`_ret_mode'" == "compute" {
-        return scalar n_reps_min = `_ret_nmin'
-        return scalar n_reps_max = `_ret_nmax'
-        if `_ret_nfailmax' < . return scalar n_fail_max = `_ret_nfailmax'
-    }
-    if `"`_ret_frame'"' != ""  return local frame "`_ret_frame'"
-    if `"`_ret_pframe'"' != "" return local plotframe "`_ret_pframe'"
-    if `"`_ret_xlsx'"' != "" {
-        return local xlsx `"`_ret_xlsx'"'
-        return local sheet `"`_ret_sheet'"'
-    }
-    if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
-    if `"`_ret_md'"' != "" {
-        return local markdown `"`_ret_md'"'
-        return scalar markdown_rows = `_ret_md_rows'
-        return scalar markdown_cols = `_ret_md_cols'
     }
 
     if "`open'" != "" & `"`_ret_xlsx'"' != "" _tabtools_open_file `"`_ret_xlsx'"'

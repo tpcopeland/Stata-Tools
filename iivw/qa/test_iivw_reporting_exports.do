@@ -397,9 +397,20 @@ capture noisily {
     iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
         level(90) xlsx("`lvlxlsx'") replace
     assert "`r(sheet)'" == "Diagnostics"
+    assert r(decimals) == 4
 
     import excel using "`lvlxlsx'", sheet("Diagnostics") clear allstring
     assert E[3] == "90% CI"
+
+    * r(decimals) reports the formatting actually applied to the sheet.
+    _reporting_diag_known
+    iivw_diagnose x, unweighted(M_unw) weighted(M_wgt) adjusted(M_adj) ///
+        level(90) decimals(2) xlsx("`lvlxlsx'") sheet(Dec2) replace
+    assert r(decimals) == 2
+
+    import excel using "`lvlxlsx'", sheet("Dec2") clear allstring
+    assert strpos(C[4], ".") > 0
+    assert strlen(substr(C[4], strpos(C[4], ".") + 1, .)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: T6 - iivw_diagnose export honors level()"

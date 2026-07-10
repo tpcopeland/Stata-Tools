@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.1.3  2026/07/10
+*! finegray_cif Version 1.1.4  2026/07/10
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -90,11 +90,16 @@ program define finegray_cif, rclass sortpreserve
         gettoken savefile _svrest : saving, parse(",") bind
         local savefile = strtrim(`"`savefile'"')
         local _svrest = lower(strtrim(`"`_svrest'"'))
-        if `"`savefile'"' == "" | !inlist(`"`_svrest'"', "", ", replace") {
+        * Accept ",replace" and ", replace" alike: strip the leading comma,
+        * then compare the bare suboption.
+        if substr(`"`_svrest'"', 1, 1) == "," {
+            local _svrest = strtrim(substr(`"`_svrest'"', 2, .))
+        }
+        if `"`savefile'"' == "" | !inlist(`"`_svrest'"', "", "replace") {
             display as error "saving() must be filename[, replace]"
             exit 198
         }
-        if `"`_svrest'"' == ", replace" local savereplace "replace"
+        if `"`_svrest'"' == "replace" local savereplace "replace"
         if strpos(`"`savefile'"', ";") | strpos(`"`savefile'"', "|") | ///
            strpos(`"`savefile'"', "&") | strpos(`"`savefile'"', "<") | ///
            strpos(`"`savefile'"', ">") | strpos(`"`savefile'"', "$") | ///
@@ -343,6 +348,10 @@ program define finegray_cif, rclass sortpreserve
                 capture `_fgcmd'
                 if _rc continue
                 if e(converged) != 1 continue
+                * A resample can lose a factor level, so the refit posts a
+                * shorter e(b) whose columns no longer align with the stored
+                * profile; using it would silently mispair coefficients.
+                if `"`e(covariates)'"' != `"`covs'"' continue
                 mata: _finegray_boot_cif("`zrow'", "`Gmat'", "`bcif'")
                 forvalues r = 1/`ngrid' {
                     matrix `BSUM'[`r',1] = `BSUM'[`r',1] + `bcif'[`r',1]

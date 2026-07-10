@@ -332,7 +332,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2:Scalars}{p_end}
 {synopt:{cmd:r(N)}}total usable intervals across fitted models{p_end}
-{synopt:{cmd:r(n_ids)}}total subjects across fitted models{p_end}
+{synopt:{cmd:r(n_ids)}}subjects summed over fitted models (see note){p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
 {synopt:{cmd:r(min_p)}}minimum individual Wald p-value for lagged predictors{p_end}
@@ -360,6 +360,15 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(results)}}numeric results matrix with columns {cmd:group_index term_index b se z p hr lb ub N n_ids}{p_end}
 {p2colreset}{...}
+
+{phang}
+Note on {cmd:r(N)} and {cmd:r(n_ids)}: both are summed over the fitted models,
+and skipped groups contribute nothing. Every row belongs to exactly one
+{opt by()} group, so {cmd:r(N)} is also the distinct number of usable
+intervals. Subjects are not partitioned that way: if {opt by()} varies within
+subject, a subject that contributes usable intervals to two groups is counted
+once per group, so {cmd:r(n_ids)} exceeds the number of distinct subjects.
+With a subject-constant {opt by()} variable, the usual case, the two coincide.
 
 
 {marker references}{...}

@@ -40,7 +40,7 @@
 {synopt:{opt ex:ogeneity(string)}}{cmd:exogenous}, {cmd:endogenous}, or {cmd:unknown}; default is {cmd:unknown}{p_end}
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
-{synopt:{opt l:evel(#)}}confidence level for coefficient intervals; must be greater than 10 and less than 99.99; default is {cmd:95}{p_end}
+{synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default {cmd:c(level)}{p_end}
 {synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
 {synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
@@ -114,13 +114,14 @@ and displays the bias of each estimate versus that value.
 
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
-intervals displayed from each stored model.  It must be greater than 10 and
-less than 99.99; the default is 95.
+intervals displayed from each stored model.  {it:#} must be between 10 and
+99.99; the default is the current {helpb level:set level} value, usually 95.
 
 {phang}
 {opt xlsx(filename)} writes a diagnostics table to an Excel {cmd:.xlsx}
 workbook.  The exported worksheet uses a tabtools-style layout with a merged
 title, grouped headers, and estimate rows under {cmd:Estimate}, {cmd:SE}, and
+a confidence-interval column headed with the level in force, for example
 {cmd:95% CI}.  A bold {cmd:Diagnostic values} divider row then introduces the
 single-value diagnostic and optional bias rows, each of which reports its
 value in the {cmd:Estimate} column merged across the estimate columns.  The

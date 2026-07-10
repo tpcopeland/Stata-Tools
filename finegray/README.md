@@ -1,6 +1,6 @@
 # finegray - Fast Fine-Gray competing risks regression
 
-**Version 1.1.3** | 2026-07-10
+**Version 1.1.4** | 2026-07-10
 
 `finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
 
@@ -195,6 +195,11 @@ Standard errors are robust (sandwich) by default in both commands and agree to r
 - Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*. 2021;30(3):685-693.
 
 ## Version History
+
+- **1.1.4** (2026-07-10; Pending SSC release): Bootstrap and parsing robustness fixes.
+  - Bootstrap refits (`finegray_cif, bootstrap()` and `finegray_predict, ci bootstrap()`) now skip any replication whose resample loses a factor level. Previously such a replication posted a shorter coefficient vector: `finegray_cif` silently mispaired coefficients against the stored covariate profile (wrong bootstrap SE with `rc=0`), and `finegray_predict` aborted with a Mata conformability error `r(3200)`. Skipped replications are counted in `r(bootstrap_failed)` and reported in the skipped-replications note, which `finegray_predict` now also displays.
+  - `finegray_cif, saving()` accepts `saving(filename,replace)` without a space after the comma; previously only `saving(filename, replace)` was accepted and the unspaced form was rejected with `r(198)`.
+  - `finegray_predict` no longer leaves a partial prediction variable behind when it exits with an error (for example, a failed bootstrap or a confidence-limit name collision); any variables created by the failed call are dropped.
 
 - **1.1.3** (2026-07-10; Pending SSC release): Regression fixes for the 1.1.2 estimator refresh.
   - Fixed the Newton-Raphson early-exit added in 1.1.2, which declared convergence on a small step without applying it. Coefficients could be left up to `sqrt(tolerance())` from the optimum; `predict, xb` is again bit-exact against `stcrreg`.

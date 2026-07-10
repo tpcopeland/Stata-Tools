@@ -109,8 +109,10 @@ bootstrap-based band that includes censoring-weight uncertainty.
 replications instead of the analytic influence-function SE. Each replication
 resamples subjects with replacement and refits the model, so the simulated band
 accounts for estimation of the censoring weights (useful under heavy
-censoring or for publication-grade intervals). Nonconverged refits are skipped;
-at least two successful replications are required. The point estimates are
+censoring or for publication-grade intervals). Nonconverged refits, and refits
+whose resample loses a factor level (so the coefficient vector no longer matches
+the stored covariate profile), are skipped and counted in
+{cmd:r(bootstrap_failed)}; at least two successful replications are required. The point estimates are
 unchanged; only the standard error and limits differ. The original estimation
 results and {cmd:e(sample)} are preserved.
 

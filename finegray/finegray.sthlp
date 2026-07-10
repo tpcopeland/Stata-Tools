@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.3  10jul2026}{...}
+{* *! version 1.1.4  10jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -582,7 +582,7 @@ it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.3, 2026-07-10{p_end}
+{pstd}Version 1.1.4, 2026-07-10{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

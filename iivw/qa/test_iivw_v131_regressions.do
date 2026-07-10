@@ -9,8 +9,13 @@ set varabbrev off
 *   T2  iivw_fit, collect + bootstrap() errors (rc 198) instead of silent no-op
 *   T3  iivw_fit, collect + model(gee) (no bootstrap) still succeeds
 *   T4  iivw_diagnose, level() below 10 errors (rc 198)
-*   T5  iivw_diagnose, level() at/above 99.99 errors (rc 198)
+*   T5  iivw_diagnose, level() above 99.99 errors (rc 198)
 *   T6  iivw_diagnose, level(90) (in range) succeeds
+*
+* Note: T5 originally asserted that level(99.99) errors. v1.9.6 moved
+* iivw_diagnose from level(real 95) to level(cilevel), which honours
+* `set level' and accepts Stata's standard 10-99.99 range, so 99.99 is now
+* legal (see test_iivw_v196_regressions.do) and level(100) is the boundary.
 *
 * Usage:
 *   cd iivw/qa
@@ -135,7 +140,7 @@ else {
     local failed_tests "`failed_tests' T4"
 }
 
-**# T5: iivw_diagnose level() at/above 99.99 errors (rc 198)
+**# T5: iivw_diagnose level() above 99.99 errors (rc 198)
 
 local ++test_count
 capture noisily {
@@ -146,11 +151,11 @@ capture noisily {
     estimates store m_w
     regress price mpg weight foreign
     estimates store m_a
-    capture iivw_diagnose mpg, unweighted(m_u) weighted(m_w) adjusted(m_a) level(99.99)
+    capture iivw_diagnose mpg, unweighted(m_u) weighted(m_w) adjusted(m_a) level(100)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: T5 - level() >= 99.99 errors (rc 198)"
+    display as result "  PASS: T5 - level() above 99.99 errors (rc 198)"
     local ++pass_count
 }
 else {

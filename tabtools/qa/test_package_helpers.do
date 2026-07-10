@@ -141,12 +141,13 @@ else {
     local ++fail_count
 }
 
-* Test: _tabtools_validate_path accepts apostrophes
+* Test: _tabtools_validate_path rejects apostrophes
 capture noisily {
-    _tabtools_validate_path "output/O'Brien.xlsx" "test"
+    capture _tabtools_validate_path "output/O'Brien.xlsx" "test"
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: _tabtools_validate_path - apostrophe path accepted"
+    display as result "  PASS: _tabtools_validate_path - apostrophe path rejected"
     local ++pass_count
 }
 else {
@@ -388,7 +389,7 @@ else {
 
 **# Migrated: validate_path quotes + RNG preservation
 
-**# FIX 2: _tabtools_validate_path rejects double quotes but allows apostrophes
+**# FIX 2: _tabtools_validate_path rejects both quote characters
 * ============================================================
 
 * --- 2.1 Double quote rejected ---
@@ -408,16 +409,18 @@ else {
     local failed_tests "`failed_tests' 2.1"
 }
 
-* --- 2.2 Single quote accepted ---
+* --- 2.2 Single quote rejected ---
 capture noisily {
-    _tabtools_validate_path "good'file.xlsx" "xlsx()"
+    capture noisily _tabtools_validate_path "good'file.xlsx" "xlsx()"
+    local _vrc = _rc
+    assert `_vrc' == 198
 }
 if _rc == 0 {
-    display as result "  PASS: 2.2 validate_path accepts single quote"
+    display as result "  PASS: 2.2 validate_path rejects single quote"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.2 validate_path accepts single quote (rc=`=_rc')"
+    display as error "  FAIL: 2.2 validate_path rejects single quote (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 2.2"
 }
@@ -753,6 +756,50 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Apostrophes should be allowed in sheet names (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Excel rejects apostrophes at either boundary even though interior
+* apostrophes are valid. Reject before the Mata writer emits rc 16114.
+capture noisily {
+    capture _tabtools_validate_sheet "'Leading" "sheet()"
+    assert _rc == 198
+    capture _tabtools_validate_sheet "Trailing'" "sheet()"
+    assert _rc == 198
+
+    sysuse auto, clear
+    local _bad_apostrophe "`output_dir'/test_sheet_boundary_apostrophe.xlsx"
+    capture erase "`_bad_apostrophe'"
+    capture noisily corrtab price mpg weight, ///
+        xlsx("`_bad_apostrophe'") sheet("'Leading")
+    assert _rc == 198
+    capture confirm file "`_bad_apostrophe'"
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: Boundary apostrophes rejected before workbook creation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Boundary apostrophe validation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Complete the Excel worksheet-name contract at the shared helper boundary.
+capture noisily {
+    capture _tabtools_validate_sheet "" "sheet()"
+    assert _rc == 198
+    capture _tabtools_validate_sheet "History" "sheet()"
+    assert _rc == 198
+    capture _tabtools_validate_sheet "history" "sheet()"
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: Blank and reserved History sheet names rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Blank/reserved sheet-name validation (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -3307,6 +3354,8 @@ capture noisily {
     crosstab rep78 foreign, label xlsx("`xlsx_cross'") markdown("`md_cross'") title("Repairs")
     confirm file "`xlsx_cross'"
     assert "`r(markdown)'" == "`md_cross'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
     _md_assert_contains using "`md_cross'", text("Repairs")
 }
 if _rc == 0 {
@@ -3322,6 +3371,9 @@ else {
 capture noisily {
     sysuse auto, clear
     corrtab price mpg weight, spearman pvalues markdown("`md_cross'") mdappend title("Correlations")
+    assert "`r(markdown)'" == "`md_cross'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
     _md_assert_contains using "`md_cross'", text("Correlations")
     _md_assert_tables using "`md_cross'", minimum(2)
 }
@@ -3342,6 +3394,7 @@ capture noisily {
     puttab make mpg price in 1/5, markdown("`md_put'") title("Auto sample")
     assert "`r(markdown)'" == "`md_put'"
     assert r(markdown_rows) == 5
+    assert r(markdown_cols) == 3
     _md_assert_contains using "`md_put'", text("Auto sample")
 }
 if _rc == 0 {
@@ -3370,6 +3423,7 @@ capture noisily {
     comptab _md_rt1 _md_rt2, rows(1 2 \ 1 2) markdown("`md_comp'") title("Composite")
     assert "`r(markdown)'" == "`md_comp'"
     assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
     _md_assert_contains using "`md_comp'", text("Composite")
 }
 if _rc == 0 {
@@ -3386,7 +3440,9 @@ capture frame drop _md_rt2
 **# hrcomptab Markdown export
 * Same v1.5.1 regression guard for hrcomptab's post-forest return block.
 local md_hr "`output_dir'/markdown_hrcomptab.md"
+local csv_hr "`output_dir'/markdown_hrcomptab.csv"
 capture erase "`md_hr'"
+capture erase "`csv_hr'"
 capture noisily {
     tempfile _md_rate
     clear
@@ -3412,8 +3468,11 @@ capture noisily {
     collect: regress y treated
     regtab, frame(_md_hrmod, replace) noint coef("aHR")
     hrcomptab _md_rates, modelframes(_md_hrmod) rows(1) effect("aHR") ///
-        markdown("`md_hr'") title("Survival")
+        markdown("`md_hr'") csv("`csv_hr'") title("Survival")
     assert "`r(markdown)'" == "`md_hr'"
+    assert "`r(csv)'" == "`csv_hr'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
     _md_assert_contains using "`md_hr'", text("Survival")
 }
 if _rc == 0 {
@@ -3426,6 +3485,77 @@ else {
 }
 capture frame drop _md_rates
 capture frame drop _md_hrmod
+
+**# Remaining command Markdown return contracts
+capture noisily {
+    local md_diag "`output_dir'/markdown_diagtab.md"
+    capture erase "`md_diag'"
+    sysuse auto, clear
+    gen byte expensive = price > 6000
+    gen byte heavy = weight > 3000
+    diagtab heavy expensive, markdown("`md_diag'")
+    assert "`r(markdown)'" == "`md_diag'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+
+    local md_reg "`output_dir'/markdown_regtab.md"
+    capture erase "`md_reg'"
+    collect clear
+    collect: regress price mpg weight
+    regtab, markdown("`md_reg'")
+    assert "`r(markdown)'" == "`md_reg'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+
+    local md_eff "`output_dir'/markdown_effecttab.md"
+    capture erase "`md_eff'"
+    matrix _md_eff = (1, .5, 1.5, .04)
+    matrix rownames _md_eff = exposure
+    effecttab, from(_md_eff) markdown("`md_eff'")
+    assert "`r(markdown)'" == "`md_eff'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+
+    local md_surv "`output_dir'/markdown_survtab.md"
+    local csv_surv "`output_dir'/markdown_survtab.csv"
+    capture erase "`md_surv'"
+    capture erase "`csv_surv'"
+    webuse drugtr, clear
+    stset studytime, failure(died)
+    survtab, times(10 20) by(drug) markdown("`md_surv'") csv("`csv_surv'")
+    assert "`r(markdown)'" == "`md_surv'"
+    assert "`r(csv)'" == "`csv_surv'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+
+    local md_rate "`output_dir'/markdown_stratetab.md"
+    capture erase "`md_rate'"
+    tempfile _md_rate_only
+    clear
+    set obs 2
+    gen exposure = _n - 1
+    gen double _D = cond(_n == 1, 10, 20)
+    gen double _Y = cond(_n == 1, 1000, 1100)
+    gen double _Rate = _D / _Y
+    gen double _Lower = _Rate * .8
+    gen double _Upper = _Rate * 1.2
+    label define _md_exp 0 "None" 1 "Current", replace
+    label values exposure _md_exp
+    save "`_md_rate_only'.dta", replace
+    clear
+    stratetab, using("`_md_rate_only'") outcomes(1) markdown("`md_rate'")
+    assert "`r(markdown)'" == "`md_rate'"
+    assert r(markdown_rows) > 0
+    assert r(markdown_cols) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: remaining command Markdown return contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: remaining command Markdown return contracts (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Error paths
 capture noisily {

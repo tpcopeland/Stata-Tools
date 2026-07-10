@@ -111,7 +111,6 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
 {synopt:{opt dots}}show progress dots while processing variables{p_end}
 {synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
-{synopt:{opt noi:sily}}display detailed processing output{p_end}
 {synopt:{opt wtc:ompare}}show unweighted statistics alongside weighted (requires {opt wt()}){p_end}
 {synopt:{opt wtn}}show weighted (effective) counts as {it:n (%)} in weighted columns (requires {opt wt()}){p_end}
 {synoptline}

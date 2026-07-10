@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.9.5** | 2026-07-09
+**Version 1.9.7** | 2026-07-10
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
 
@@ -114,6 +114,23 @@ tabtools get
 ```
 
 Without `profile()`, `tabtools set ..., permanent` writes `tabtools_profile.do` in Stata's PERSONAL ado directory, and `tabtools use` reads that default profile.
+
+### Controller options
+
+| Option | Applies to | Meaning |
+|--------|------------|---------|
+| `list` | display mode | Show command names as a compact list |
+| `detail` | display mode | Show commands with descriptions |
+| `category(name)` | display mode | Filter the command inventory by category |
+| `font()`, `fontsize()` | `tabtools set theme custom` | Set the custom-theme font and point size |
+| `headercolor()`, `zebracolor()` | `tabtools set theme custom` | Set custom header and alternating-row colors |
+| `borderstyle()` | `tabtools set theme custom` | Set `default`, `thin`, `medium`, or `academic` borders |
+| `permanent` | `tabtools set` | Save the resulting defaults to a profile |
+| `profile(filename)` | `tabtools set ..., permanent` | Choose an alternate profile file |
+
+### Controller stored results
+
+Depending on the action, `tabtools` returns `r(action)`, `r(font)`, `r(fontsize)`, `r(borderstyle)`, `r(theme)`, `r(digits)`, `r(boldp)`, `r(permanent)`, `r(profile)`, `r(headercolor)`, and `r(zebracolor)`. Inventory display also returns `r(commands)`, `r(n_commands)`, `r(version)`, and `r(categories)`.
 
 ## Repository Checkout Demo
 
@@ -383,6 +400,8 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 ## Version History
 
+- **1.9.7** (2026-07-10): Completes Excel worksheet-name validation before workbook creation. Blank names, the reserved name `History`, and names beginning or ending with an apostrophe now fail with an actionable `r(198)` instead of reaching the Mata writer (which emitted undocumented `r(16114)` for boundary apostrophes); valid interior apostrophes such as `O'Brien` remain supported.
+- **1.9.6** (2026-07-10): Preserves `puttab` dimensions/source and `simtab` analytical metadata when an optional export fails, while omitting artifact returns for files that were not created. Hardens output-path validation against both quote characters, removes the retired `table1_tc, noisily` help entry, and extends adversarial QA for export-failure contracts and valid RMST support. The Stata Dev CLI now scopes stored-result coverage to the command that produced it, recognizes command-named ado version headers and released helper-version drift, ignores historical QA filenames in package changelogs, and parses `cmdab` options plus dynamic stored-result families in help files.
 - **1.9.5** (2026-07-09): Corrected RMST support validation, quote round-tripping in descriptive-table titles/footnotes, and case-insensitive worksheet styling. Improved Monte Carlo power precision checks and QA/release metadata.
 - **1.9.3** (2026-07-03): `desctab` bug fix: a `title()` or `footnote()` containing a double quote was silently dropped entirely from every output sink (Excel, CSV, Markdown, console), and one containing an apostrophe was corrupted (e.g. `It's here` printed as `s here'`). Root cause was the `asis` modifier on the `title`/`footnote` options interacting with the internal quote-stripping step. Titles and footnotes now round-trip correctly: embedded double quotes are stripped and all other characters (apostrophes included) are preserved. Also includes an internal defensive reorder in `stacktab` (the `hstack` row key is now generated after the block columns are renamed) with no user-visible behavior change. No changes to any other command's behavior.
 - **1.9.2** (2026-07-03): `stratetab` bug fix: two category-mismatch error messages (outcome-file label mismatch and `rateratio` reference-category lookup) contained malformed compound quoting and printed the literal text `_target_cat'` instead of the offending category label. The messages now show the actual category value. Error detection and exit codes are unchanged.

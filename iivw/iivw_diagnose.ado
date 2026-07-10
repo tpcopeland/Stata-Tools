@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 1.9.5  2026/07/10
+*! iivw_diagnose Version 1.9.6  2026/07/10
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -23,15 +23,14 @@ program define iivw_diagnose, rclass
         syntax anything(name=coefficient id="coefficient") , ///
             UNWeighted(name) WEighted(name) ADjusted(name) ///
             [EXogeneity(string) ESTimand(string) TRue(string) ///
-             Level(real 95) XLSX(string asis) ///
+             Level(cilevel) XLSX(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
              DECimals(string) REPLACE OPEN ///
              BORDERstyle(string) HEADERShade THEme(string) ///
              HEADERColor(string) ZEBRAColor(string) ZEBra]
-        if `level' <= 10 | `level' >= 99.99 {
-            display as error "level() must be between 10 and 99.99"
-            error 198
-        }
+        * cilevel (not real 95): it defaults to c(level) and enforces the
+        * standard 10-99.99 range, so `set level' reaches the displayed and
+        * exported intervals here exactly as it does in the rest of the suite.
         if "`true'" != "" {
             capture confirm number `true'
             if _rc {

@@ -1,4 +1,4 @@
-*! datamvp Version 1.5.1  2026/07/08
+*! datamvp Version 1.5.4  2026/07/10
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -18,8 +18,8 @@ program define datamvp, rclass byable(recall) sortpreserve
         Percent                 /// show percentages
         CUmulative              /// show cumulative freq/pct
         Ascending               /// sort patterns ascending
-        MINMissing(integer -1)  /// min # missing vars in pattern
-        MAXMissing(integer -1)  /// max # missing vars in pattern
+        MINMissing(integer -999999999)  /// min # missing vars in pattern
+        MAXMissing(integer -999999999)  /// max # missing vars in pattern
         GENerate(string)        /// generate missingness indicators
         SAVE(string)            /// save patterns to file
         CORrelate               /// show tetrachoric correlations
@@ -39,7 +39,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         HORizontal              /// horizontal bars (default for bar)
         VERtical                /// vertical bars
         /// Pattern chart options
-        TOP(integer 20)         /// number of top patterns to show
+        TOP(integer -999999999) /// number of top patterns to show
         /// Matrix heatmap options
         MISSColor(string)       /// color for missing values
         OBSColor(string)        /// color for observed values
@@ -50,10 +50,33 @@ program define datamvp, rclass byable(recall) sortpreserve
         GBy(varname)            /// stratify graphs by categorical variable
         OVER(varname)           /// overlay comparison by categorical variable
         STacked                 /// show stacked bar chart
-        GRoupgap(real 0)        /// gap between bar groups
+        GRoupgap(real -999999999) /// gap between bar groups
         LEGendopts(string asis) /// pass-through legend options
         GRAPHOPTions(string asis) /// additional twoway options
     ]
+
+    local _user_minmissing = (`minmissing' != -999999999)
+    local _user_maxmissing = (`maxmissing' != -999999999)
+    local _user_top = (`top' != -999999999)
+    local _user_groupgap = (`groupgap' != -999999999)
+    local _user_legendopts = (`"`legendopts'"' != "")
+
+    if `minfreq' < 1 {
+        di as err "minfreq() must be at least 1"
+        exit 198
+    }
+    if `_user_minmissing' & `minmissing' < 0 {
+        di as err "minmissing() must be non-negative"
+        exit 198
+    }
+    if `_user_maxmissing' & `maxmissing' < 0 {
+        di as err "maxmissing() must be non-negative"
+        exit 198
+    }
+    if !`_user_minmissing' local minmissing = -1
+    if !`_user_maxmissing' local maxmissing = -1
+    if !`_user_top' local top = 20
+    if !`_user_groupgap' local groupgap = 0
 
     * Validate graph-related options require graph()
     if "`graph'" == "" {
@@ -71,6 +94,10 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
         if `"`graphoptions'"' != "" {
             di as err "option {bf:graphoptions()} requires {bf:graph()} option"
+            exit 198
+        }
+        if `_user_top' | `_user_groupgap' | `_user_legendopts' {
+            di as err "options {bf:top()}, {bf:groupgap()}, and {bf:legendopts()} require {bf:graph()} option"
             exit 198
         }
     }
@@ -222,6 +249,15 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as err "option {bf:gby()} requires graph(bar) or graph(patterns)"
             exit 198
         }
+    }
+    if `_user_top' & "`graphtype'" != "patterns" {
+        di as err "option {bf:top()} requires graph(patterns)"
+        exit 198
+    }
+    if (`_user_groupgap' | `_user_legendopts') & ///
+        ("`graphtype'" != "bar" | "`over'" == "") {
+        di as err "options {bf:groupgap()} and {bf:legendopts()} require graph(bar) with over()"
+        exit 198
     }
 
     * Scratch variables and names

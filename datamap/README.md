@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.5.3** | 2026-07-10
+**Version 1.5.4** | 2026-07-10
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -238,7 +238,7 @@ Date-safe sample rows:
 
 ```json
 {
-  "datamap_version": "1.5.3",
+  "datamap_version": "1.5.4",
   "format": "json",
   "datasets": [
     {
@@ -573,7 +573,7 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 15 QA files: 13 functional test
+The suite covers all four public commands with 16 QA files: 14 functional test
 files, 2 validation files, and no cross-validation suite (the package is a
 deterministic documentation and QC tool, so known-answer validations are the
 appropriate oracle).
@@ -584,6 +584,13 @@ appropriate oracle).
 - `qa/README.md` has the complete file index, coverage map, and lane contract.
 
 ## Changelog
+
+### 1.5.4 (2026-07-10)
+
+- Restore `datadict`'s documented privacy default: categorical cells with counts below 5 are suppressed unless `mincell(0)` is requested explicitly.
+- Reject explicit or configured negative thresholds in `datadict` and `datacheck` instead of silently treating them as omitted options.
+- Reject invalid `datamvp` pattern-frequency bounds and graph-only options that previously succeeded as silent no-ops.
+- Stop option-like text inside quoted titles and output paths from being misread as numeric options.
 
 ### 1.5.3 (2026-07-10)
 

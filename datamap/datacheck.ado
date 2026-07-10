@@ -1,4 +1,4 @@
-*! datacheck Version 1.5.1  2026/07/08
+*! datacheck Version 1.5.4  2026/07/10
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,18 +22,19 @@ program define datacheck, rclass
 
         syntax [anything(name=varlistspec)] [if] [in] , [ ///
             SINGle(string) ///
-	            MAXCat(integer -1) EXClude(string) ///
+	            MAXCat(integer -999999999) EXClude(string) ///
 	            CONTinuous(string) CATegorical(string) date(string) ///
 	            ID(string) ///
-	            Detail MAXFreq(integer -1) RARE(integer -1) OUTliers(real -1) ///
-	            GATESonly ONLYflagged SHOW(string) MINcell(integer -1) MASKrare ///
+	            Detail MAXFreq(integer -999999999) RARE(integer -999999999) ///
+                OUTliers(real -999999999) ///
+	            GATESonly ONLYflagged SHOW(string) MINcell(integer -999999999) MASKrare ///
 	            NOMISSing PATTERNS ///
 	            EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
 	            REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
 	            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
 	            BY(varlist) OVER(varname) ///
 	            CHECKs(string) MAKESpec(string) VIOLations(string) ///
-	            SAVing(string) CONFig(string) COMPare(string) ]
+            SAVing(string) CONFig(string) COMPare(string) ]
 
 	        if `"`config'"' != "" {
 	            _datacheck_pathok `"`config'"'
@@ -48,34 +49,40 @@ program define datacheck, rclass
 	            if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
 	            if `"`date'"' == "" & `"`r(date)'"' != "" local date `"`r(date)'"'
 	            foreach opt in maxcat maxfreq rare mincell outliers {
-	                if ``opt'' < 0 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+	                if ``opt'' == -999999999 & `"`r(`opt')'"' != "" {
+                        local `opt' = real(`"`r(`opt')'"')
+                    }
 	            }
 	            foreach opt in maskrare nomissing patterns gatesonly onlyflagged {
 	                if "``opt''" == "" & "`r(`opt')'" != "" local `opt' "`opt'"
 	            }
 	        }
-	        if `maxcat' < 0 local maxcat = 25
-	        if `maxfreq' < 0 local maxfreq = 20
-	        if `rare' < 0 local rare = 0
-	        if `outliers' < 0 local outliers = 0
-	        if `mincell' < 0 local mincell = 0
+	        if `maxcat' == -999999999 local maxcat = 25
+	        if `maxfreq' == -999999999 local maxfreq = 20
+	        if `rare' == -999999999 local rare = 0
+	        if `outliers' == -999999999 local outliers = 0
+	        if `mincell' == -999999999 local mincell = 0
+	        if `maxcat' <= 0 | missing(`maxcat') {
+                display as error "maxcat() must be positive"
+                exit 198
+            }
+	        if `maxfreq' <= 0 | missing(`maxfreq') {
+                display as error "maxfreq() must be positive"
+                exit 198
+            }
+	        if `rare' < 0 | missing(`rare') {
+                display as error "rare() must be non-negative"
+                exit 198
+            }
+	        if `outliers' < 0 | missing(`outliers') {
+                display as error "outliers() must be non-negative"
+                exit 198
+            }
+	        if `mincell' < 0 | missing(`mincell') {
+                display as error "mincell() must be non-negative"
+                exit 198
+            }
 
-	        if `maxcat' <= 0 {
-            display as error "maxcat() must be positive"
-            exit 198
-        }
-        if `maxfreq' <= 0 {
-            display as error "maxfreq() must be positive"
-            exit 198
-        }
-        if `outliers' < 0 {
-            display as error "outliers() must be non-negative"
-            exit 198
-        }
-        if `mincell' < 0 {
-            display as error "mincell() must be non-negative"
-            exit 198
-        }
         local _maskcell = `mincell'
         if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = `rare'
         if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = 5

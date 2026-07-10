@@ -142,9 +142,30 @@ capture noisily {
     assert inlist("`r(balance_flag)'", "good", "poor")
     assert inlist(r(informative), 0, 1)
     assert "`r(visit_covars)'" == "age female severity"
+
+    * Panel metadata is echoed back from the stored weighting contract.
+    assert "`r(id)'" == "id"
+    assert "`r(time)'" == "months"
+    assert "`r(weight_var)'" == "_iivw_weight"
+    assert "`r(result_columns)'" == ///
+        "unweighted_mean weighted_mean sd smd abs_smd N n_missing modeled"
+
+    * r(ess) is Kish's effective sample size, and r(ess_ratio) is r(ess)/r(N).
+    quietly summarize _iivw_weight
+    local sw = r(sum)
+    tempvar w2
+    quietly gen double `w2' = _iivw_weight^2
+    quietly summarize `w2'
+    local sw2 = r(sum)
+    drop `w2'
+    quietly iivw_balance, smdcut(10) nolog
+    assert reldif(r(ess), (`sw'^2) / `sw2') < 1e-8
+    assert reldif(r(ess_ratio), r(ess) / r(N)) < 1e-8
+
     matrix B = r(balance)
     assert rowsof(B) == 3
     assert colsof(B) == 8
+    assert colsof(B) == wordcount("`r(result_columns)'")
 }
 if _rc == 0 {
     display as result "  PASS: T1 - iivw_weight metadata drives iivw_balance"

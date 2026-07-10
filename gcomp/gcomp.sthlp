@@ -919,7 +919,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.3, 2026-07-04{p_end}
+{pstd}Version 1.4.4, 2026-07-10{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,
