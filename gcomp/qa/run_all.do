@@ -48,6 +48,10 @@ foreach f in ///
     test_gcomptab_text_export ///
     test_models ///
     test_adversarial_gcomptab ///
+    test_refactor_bootstrap_dispatch ///
+    test_refactor_display_golden ///
+    test_refactor_gcomptab_geometry ///
+    test_refactor_msm_omitted ///
     test_install_smoke ///
     test_errors ///
     test_doc_examples ///
@@ -58,12 +62,15 @@ foreach f in ///
     validation_gcomp_recovery ///
     validation_gcomp_recovery_extended ///
     validation_gcomp_recovery_surface ///
+    validation_peripartum_readiness ///
     crossval_gcomp ///
     crossval_external_replication ///
     crossval_mediation_se ///
     crossval_timevarying_se ///
     crossval_intervention_imputation ///
-    crossval_timevarying {
+    crossval_timevarying ///
+    crossval_longitudinal_extended ///
+    crossval_mediation_extended {
     display _n as text "=============================================="
     display as text "Running: `f'.do"
     display as text "=============================================="

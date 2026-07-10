@@ -272,6 +272,46 @@ capture erase "`testdir'/helperless_gcomptab_reg/gcomptab.ado"
 capture rmdir "`testdir'/helperless_gcomptab_reg"
 
 * ============================================================
+* R6: optional workbook opening must not strand analytical returns
+* ============================================================
+
+local ++test_count
+capture erase "`testdir'/_gcomptab_open_failure.xlsx"
+capture noisily {
+    * Restore the installed command after R5 deliberately loaded a broken copy.
+    capture program drop gcomptab
+    quietly run "`pkg_dir'/gcomptab.ado"
+
+    * Load the Excel helper bundle, then replace only the OS-open action with
+    * a deterministic failure.  The completed table's r() contract must stay.
+    mock_gcomp_nocde
+    gcomptab, xlsx("`testdir'/_gcomptab_open_failure.xlsx") sheet("OpenFail")
+    capture program drop _gcomp_xl_open
+    program define _gcomp_xl_open
+        version 16.0
+        exit 693
+    end
+
+    mock_gcomp_nocde
+    capture gcomptab, xlsx("`testdir'/_gcomptab_open_failure.xlsx") sheet("OpenFail") open
+    assert _rc == 693
+    assert r(N_effects) == 4
+    assert abs(r(tce) - 0.15) < 1e-12
+    assert `"`r(xlsx)'"' == "`testdir'/_gcomptab_open_failure.xlsx"
+    assert `"`r(sheet)'"' == "OpenFail"
+    capture program drop _gcomp_xl_open
+}
+if _rc == 0 {
+    display as result "  PASS: R6 optional open failure preserves r()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R6 optional open return contract (error `=_rc')"
+    local ++fail_count
+}
+capture erase "`testdir'/_gcomptab_open_failure.xlsx"
+
+* ============================================================
 * Cleanup
 * ============================================================
 

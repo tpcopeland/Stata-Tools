@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.4** | 2026-07-09
+**Version 1.9.5** | 2026-07-09
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -548,7 +548,12 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 
 ## Changelog
 
-### v1.9.4 (2026-07-09)
+### v1.9.5 (2026-07-10)
+
+- **Documented the limits of artifact-adjustment covariates in `iivw_fit`.** A cumulative test count or visit index is usually near-collinear with follow-up time, so a model that adjusts for it attributes the time trend to the test count and the marginal time slope can attenuate sharply or reverse sign. When the artifact is *outcome-dependent*, additive separability fails and no adjustment of this form recovers the truth. `iivw_fit.sthlp` now documents both cases and points to `iivw_diagnose`'s `exogeneity(endogenous)` sensitivity range. No command behavior changed
+- Replaced the simulation gates' single blanket bias bound (`|bias| > 3`, against a true effect of 0.5) with per-estimator, per-scenario assertions: the unweighted GEE must miss the truth, FIPTIW must remove more than 60% of that bias and beat the naive estimator's coverage, and the confirmed residual must stay inside a documented envelope. Tolerances are derived from recorded runs rather than guessed
+- Simulation gates now emit the standard `RESULT: <name> tests=N pass=N fail=N` sentinel and exit nonzero on failure, so `qa parse` and `run_all.do` can see them; previously they could not fail
+- Removed `set varabbrev off, perm` from the three simulation scripts, which permanently changed the user's Stata preference
 
 - Hardened direct Excel exports against unsafe shell metacharacters in `xlsx()` paths before the optional `open` action
 - Preserved embedded double quotes in report titles and footnotes across the public-command/helper boundary instead of silently deleting them

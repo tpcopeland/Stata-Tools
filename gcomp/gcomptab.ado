@@ -1,4 +1,4 @@
-*! gcomptab Version 1.4.3  2026/07/04
+*! gcomptab Version 1.4.4  2026/07/10
 *! Format gcomp mediation or time-varying dose-response results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -285,14 +285,16 @@ quietly {
     }
     if `_gt_rc' exit `_gt_rc'
 
-    if "`open'" != "" {
-        _gcomp_xl_open "`xlsx'"
-    }
-
     _gcomptab_post_returns, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         hascde(`has_cde') neffects(`N_effects') tce(`tce') nde(`nde') ///
         nie(`nie') pm(`pm') cde(`cde') markdown(`"`markdown'"') csv(`"`csv'"')
     return add
+
+    * The workbook is already complete and the analytical result contract is
+    * established.  An optional OS open failure must not strand r().
+    if "`open'" != "" {
+        _gcomp_xl_open "`xlsx'"
+    }
 }
     }
     } /* end: else (non-models modes) */
@@ -963,10 +965,6 @@ program define _gcomptab_doseresponse, rclass
     if `_pres' capture restore
     if `_dr_rc' exit `_dr_rc'
 
-    if "`open'" != "" {
-        _gcomp_xl_open "`xlsx'"
-    }
-
     return scalar k = `k'
     return scalar reference = `reference'
     return local xlsx "`xlsx'"
@@ -976,6 +974,11 @@ program define _gcomptab_doseresponse, rclass
     if `"`markdown'"' != "" return local markdown `"`markdown'"'
     if `"`csv'"' != "" return local csv `"`csv'"'
     return matrix table = `_drtab'
+
+    * Preserve the completed analytical payload if the optional OS open fails.
+    if "`open'" != "" {
+        _gcomp_xl_open "`xlsx'"
+    }
 end
 
 capture program drop _gcomptab_dr_validate

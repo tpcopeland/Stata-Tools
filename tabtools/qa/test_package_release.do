@@ -1169,7 +1169,7 @@ else {
             file close `widthfh'
             assert substr("`width_line'", 1, 4) == "PASS"
         }
-        assert `actual_sheets' == 72
+        assert `actual_sheets' == 74
         tempfile readme_hit
         shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
         tempname readmefh

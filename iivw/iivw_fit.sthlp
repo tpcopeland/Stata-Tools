@@ -375,6 +375,39 @@ and {opt time()} if no stored metadata are available.  Running
 weight variable or weight metadata, so it can be used in the same dataset as
 weighted comparisons.
 
+{pstd}
+{bf:Artifact-adjustment covariates and the time slope}
+
+{pstd}
+A common adjustment for a measurement artifact is to include a cumulative
+measurement covariate -- a test count or visit index -- among the outcome
+model's predictors.  Such a covariate is usually close to collinear with
+follow-up time, because a subject's k-th measurement occurs at roughly the
+k-th time point.  When it is, the fitted model attributes the time trend to
+the test count, and the estimated marginal time slope is no longer the time
+slope of the underlying outcome process: it can attenuate substantially or
+reverse sign.  Check the correlation between the test count and the time
+variable before adding it, and do not read a marginal time slope out of a
+model that adjusts for a time-collinear measurement covariate.
+
+{pstd}
+The adjustment is also not a general remedy for artifact bias in the treatment
+effect.  In the package's simulation gates ({cmd:sim_scenarios_abc.do},
+{cmd:sim_scenario_d.do}), adding a cumulative test count to a FIPTIW-weighted
+fit changed the treatment-coefficient bias only marginally, and never improved
+on the FIPTIW fit without it.
+
+{pstd}
+When the artifact is {it:outcome-dependent} -- its magnitude depends on the
+level of the outcome, not just on the number of prior measurements -- additive
+separability fails, and no covariate adjustment of this form recovers the
+truth.  In {cmd:sim_scenario_e.do}, which simulates exactly this case, no
+estimator recovers the marginal slope and the test-count-adjusted fit returns
+a marginal slope of the wrong sign.  Treat that configuration as a sensitivity
+range rather than a point estimate, and see {helpb iivw_diagnose}'s
+{cmd:exogeneity(endogenous)} option, which reports the weighted and adjusted
+estimates as a range instead of a point decomposition.
+
 
 {marker recipes}{...}
 {title:Analysis recipes}

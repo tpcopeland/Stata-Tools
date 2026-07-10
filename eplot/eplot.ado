@@ -332,10 +332,16 @@ program define _eplot_frame, rclass
     }
     local rc = _rc
 
+    local _cleanup_rc = 0
     capture frame change `_orig_frame'
+    local _frame_change_rc = _rc
+    if `_frame_change_rc' local _cleanup_rc = `_frame_change_rc'
     if `_frame_created' {
         capture frame drop `_workframe'
+        local _frame_drop_rc = _rc
+        if `_frame_drop_rc' & `_cleanup_rc' == 0 local _cleanup_rc = `_frame_drop_rc'
     }
+    if `rc' == 0 & `_cleanup_rc' != 0 local rc = `_cleanup_rc'
 
     if `rc' == 0 {
         return scalar N = `_r_N'
@@ -1400,6 +1406,11 @@ program define _eplot_estimates, rclass
     if `dot_idx' > 0 & `n_models' > 1 {
         if "`__est_save'" != "" {
             capture _est unhold `__est_save'
+            local _unhold_rc = _rc
+            if `_unhold_rc' {
+                display as error "could not restore the active estimation results"
+                exit `_unhold_rc'
+            }
             _est hold `__est_save', copy
         }
     }
@@ -1442,6 +1453,7 @@ program define _eplot_estimates, rclass
                 restore
                 if "`__est_save'" != "" {
                     capture _est unhold `__est_save'
+                    local _unhold_rc = _rc
                 }
                 display as error `"estimation results '`est_name'' not found"'
                 exit 111
@@ -1475,6 +1487,11 @@ program define _eplot_estimates, rclass
     // Restore original estimation state
     if "`__est_save'" != "" {
         capture _est unhold `__est_save'
+        local _unhold_rc = _rc
+        if `_unhold_rc' {
+            display as error "could not restore the active estimation results"
+            exit `_unhold_rc'
+        }
     }
 
     // ====== Transform data ======
@@ -2510,7 +2527,7 @@ program define _eplot_matrix, rclass
                 local ++_pi
                 matrix `_rpvals'[`_pi', 1] = _pval[`i']
                 local _pnm = coef_name[`i']
-                local _pnames `"`_pnames' `"`_pnm'"'"
+                local _pnames `"`_pnames' `"`_pnm'"'"'
             }
             matrix rownames `_rpvals' = `_pnames'
             return matrix pvalues = `_rpvals'

@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.4.3** | 2026-07-04
+**Version 1.4.4** | 2026-07-10
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -135,12 +135,23 @@ The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Compo
 | `varyingcovariates(varlist)` | List time-varying confounders affected by prior exposure |
 | `intvars(varlist)` / `interventions(string)` | Define the variables and rules for hypothetical interventions |
 | `eofu` | Outcome is measured only on the last row per subject |
+| `pooled` / `monotreat` / `dynamic` | Use pooled fits, impose monotone treatment, or declare a history-dependent intervention rule |
+| `death(varname)` / `msm(string)` | Model a competing event or summarize simulated contrasts with an MSM |
+| `fixedcovariates(varlist)` / `laggedvars(varlist)` / `lagrules(string)` | Declare fixed covariates and generated within-subject lags |
+| `derived(varlist)` / `derrules(string)` | Declare deterministically derived variables and their rules |
+| `impute(varlist)` / `imp_eq(string)` / `imp_cmd(string)` / `imp_cycles(#)` | Configure iterative missing-data imputation |
+| `baseline(string)` / `alternative(string)` | Exposure contrasts for mediation analyses |
+| `post_confs(varlist)` / `obe` / `oce` / `specific` / `boceam` / `linexp` | Select the mediation estimand and post-exposure-confounder handling |
+| `logor` / `logrr` | Report mediation effects on log-odds-ratio or log-risk-ratio scales |
 | `simulations(#)` / `samples(#)` | Set Monte Carlo sample size and bootstrap replications (`samples()` must be at least 2) |
+| `minsim` / `moremc` | Use expected draws or allow a Monte Carlo sample larger than the observed cohort |
 | `diagnostics` | Display model-fit statistics during initial estimation |
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
+| `graph` / `saving(filename)` / `replace` | Graph potential outcomes or save the simulated data, optionally overwriting the target |
 | `seed(#)` | Set random number seed for reproducibility |
 | `savemodels` | Refit each component model once on the analytic sample and store them (`_gcomp_m_*`) for later inspection/export with `gcomptab, models` |
 | `showmodels` | Implies `savemodels`; also displays the fitted component models in-window during the run (`modelstyle(compact)` default, or `modelstyle(native)`) |
+| `modelstyle(compact\|native)` | How `showmodels` renders the models: `compact` (default) prints a gcomp-styled coefficient table per model with the scale applied automatically; `native` replays each model with Stata's own output |
 
 ### gcomptab
 
@@ -199,7 +210,7 @@ All results are stored in `e()`:
 
 **Macros:** `e(cmd)` (`"gcomp"`), `e(analysis_type)` (`"mediation"` or `"time_varying"`), `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(msm)`.
 
-**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (stored-estimate names `_gcomp_m_*`), `e(model_cmds)`, `e(model_depvars)`, and `e(model_eq_k)` (prediction equation per model).
+**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (stored-estimate names `_gcomp_m_*`), `e(model_cmds)`, `e(model_depvars)`, and `e(model_eq_)` with the model index appended (prediction equation per model).
 
 **Convenience scalars (mediation, non-oce):** `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, `e(cde)`, and their SEs (`e(se_tce)`, etc.).
 
@@ -222,6 +233,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.4.4** (2026-07-10): **Reporting and QA hardening.** `gcomptab` now posts its completed analytical `r()` payload before honoring the optional `open` request, so an OS-level workbook-open failure returns its original error code without losing table statistics or output-path returns. The canonical full QA lane now explicitly includes every functional, validation, and external-reference suite; `qa/README.md` documents that inventory and lane contract. Added a deterministic regression test for the failed-`open` return contract.
 - **1.4.3** (2026-07-04): **Bug fix: continuous end-of-follow-up outcome with time-varying confounding.** In `eofu` mode the outcome is only observed at the final visit, so its intermediate-visit values are legitimately missing. The missing-data screen incorrectly required the outcome at every non-first visit and dropped those intermediate rows, severing any lagged-confounder cascade. With a continuous (`regress`) outcome this silently flattened the estimated effect toward zero (a binary/`logit` outcome coded 0 at intermediate visits happened to dodge it). The screen now requires the `eofu` outcome only at the last visit; non-`eofu` behavior is unchanged. Added a known-truth recovery scenario for the continuous time-varying lagged-confounder cascade.
 - **1.4.2** (2026-07-04): **Performance and robustness.** (1) The per-subject baseline-covariate lookup used to seed the Monte-Carlo sample was rebuilt with a single O(N) pass (Mata) instead of an O(N²) `summarize`-per-subject loop; results are byte-for-byte identical but a time-varying/point-treatment run at N=20,000 now takes ~1s instead of minutes. (2) A malformed `control()` value (e.g. `control(m=0)` instead of the documented `control(0)`) was silently swallowed, collapsing the controlled direct effect to the total effect with no error — it is now rejected up front (`r(198)`) with a message pointing to the correct syntax. Added `qa/validation_gcomp_recovery_extended.do`: 13 known-truth parameter-recovery scenarios (point-treatment binary/continuous ATE, null effect, effect modification, strong confounding, multi-level dose-response, linear- and binary-model mediation NDE/NIE/TCE decomposition, controlled-direct-effect recovery, and a continuous time-varying static-regime contrast), each with an analytic g-formula oracle.
 - **1.4.1** (2026-07-02): **Bug fixes: `all`+`death()` display crash, mediation MSM-with-options crash, extended-missing screening.**

@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.3  2026/07/04
+*! gcomp Version 1.4.4  2026/07/10
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal

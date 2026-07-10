@@ -117,7 +117,7 @@ Without `profile()`, `tabtools set ..., permanent` writes `tabtools_profile.do` 
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates a sequential Markdown report and 14 Excel workbooks (72 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates a sequential Markdown report and 15 Excel workbooks (74 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 
@@ -306,7 +306,7 @@ The same pipeline writes the formatted workbook (`title` to `A1`, table from `B2
 
 ### Excel workbooks
 
-The demo generates 14 workbooks (72 sheets) covering every command and option combination:
+The demo generates 15 workbooks (74 sheets) covering every command and option combination:
 
 | Workbook | Sheets | Contents |
 |----------|--------|----------|
@@ -324,6 +324,7 @@ The demo generates 14 workbooks (72 sheets) covering every command and option co
 | `demo_hrcomptab.xlsx` | 1 | hrcomptab: Table 2-style composite (rates + hazard ratios) |
 | `demo_puttab.xlsx` | 3 | puttab: matrix source (`r(table)`), frame source, collapse/data source with themes and zebra |
 | `demo_stacktab.xlsx` | 4 | stacktab: puttab-styled source blocks, vstack composite with column merge and section labels, hstack side-by-side |
+| `demo_simtab.xlsx` | 2 | simtab: simulation scenario summary and multi-estimand report from replication-level results |
 
 ## Integration with eplot: tables to forest plots
 
