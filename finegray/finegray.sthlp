@@ -39,15 +39,15 @@
 
 {syntab:Model}
 {synopt:{opt cens:value(#)}}censoring value in {it:compete()}; default is {cmd:0}{p_end}
-{synopt:{opth str:ata(varlist)}}stratify censoring distribution by groups (numeric only){p_end}
+{synopt:{opth str:ata(varlist)}}stratify censoring distribution (numeric){p_end}
 
 {syntab:SE/Robust}
 {synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation (numeric only){p_end}
-{synopt:{opt norob:ust}}report model-based SEs instead of default sandwich estimator{p_end}
+{synopt:{opt norob:ust}}report model-based SEs, not sandwich{p_end}
 
 {syntab:Reporting}
-{synopt:{opt noshr}}report coefficients instead of subdistribution hazard ratios{p_end}
-{synopt:{opt l:evel(#)}}set confidence level; default is {cmd:level(95)}{p_end}
+{synopt:{opt noshr}}report coefficients, not hazard ratios{p_end}
+{synopt:{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 
 {syntab:Optimization}
@@ -72,9 +72,18 @@ risk-set unit. Left-truncated (delayed entry) data are supported.
 
 {p 8 17 2}
 {cmd:finegray_predict}
+{dtype}
 {newvar}
 {ifin}{cmd:,}
-[{opt xb} {opt cif} {opt sch:oenfeld} {opt time:var(varname)}]
+[{opt xb} {opt cif} {opt sch:oenfeld} {opt time:var(varname)} {opt ci}
+{opt l:evel(#)} {opt boot:strap(#)} {opt seed(#)}]
+
+{p 8 17 2}
+{cmd:finegray_cif}
+[{cmd:,} {opt at(var=# ...)} {opt att:ime(numlist)}
+{opt ti:mepoints(numlist)} {opt ci} {opt l:evel(#)}
+{opt sav:ing(filename[, replace])} {opt boot:strap(#)} {opt seed(#)}
+{opt nograph} {it:twoway_options}]
 
 {p 8 17 2}
 {cmd:finegray_phtest}
@@ -149,7 +158,7 @@ exponentiated coefficients (subdistribution hazard ratios).
 
 {phang}
 {opt level(#)} specifies the confidence level for confidence intervals. Default
-is {cmd:level(95)}.
+is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 
 {phang}
 {opt nolog} suppresses the iteration log.
@@ -460,6 +469,12 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {phang2}{cmd:. finegray_predict cif_hat, cif}{p_end}
 
 {pstd}
+{bf:Cumulative-incidence curve and fixed-horizon table}
+
+{phang2}{cmd:. finegray_cif, ci}{p_end}
+{phang2}{cmd:. finegray_cif, attime(1 5 8) ci}{p_end}
+
+{pstd}
 {bf:Factor variables (automatic indicator expansion)}
 
 {phang2}{cmd:. finegray i.pelnode ifp, compete(status) cause(1)}{p_end}
@@ -526,14 +541,14 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(depvar)}}competing events variable name{p_end}
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}
 {synopt:{cmd:e(covariates)}}covariate variable names{p_end}
-{synopt:{cmd:e(fvvarlist)}}original factor-variable specification; if factor variables used{p_end}
-{synopt:{cmd:e(strata)}}censoring stratification variables; if {cmd:strata()} specified{p_end}
+{synopt:{cmd:e(fvvarlist)}}original factor-variable specification{p_end}
+{synopt:{cmd:e(strata)}}censoring stratification variables{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
 {synopt:{cmd:e(marginsok)}}{cmd:xb} (empty for factor-variable models){p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}
-{synopt:{cmd:e(datasignature)}}signature of the estimation data used by data-dependent post-estimation{p_end}
+{synopt:{cmd:e(datasignature)}}signature of the estimation data{p_end}
 {synopt:{cmd:e(datasignaturevars)}}variables covered by {cmd:e(datasignature)}{p_end}
 {synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
 
@@ -541,7 +556,7 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
-{synopt:{cmd:e(basehaz)}}baseline cumulative subdistribution hazard (time, cumhazard){p_end}
+{synopt:{cmd:e(basehaz)}}baseline cumulative subdistribution hazard{p_end}
 
 {pstd}
 {cmd:e(basehaz)} holds the baseline cumulative subdistribution hazard H0(t) as a

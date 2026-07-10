@@ -1,4 +1,4 @@
-*! tvpanel Version 1.6.8  2026/07/03
+*! tvpanel Version 1.6.9  2026/07/10
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -59,6 +59,20 @@ program define tvpanel, rclass
     if "`stopgen'"  == "" local stopgen  "stop"
     if "`generate'" == "" local generate "tv_class"
 
+    local output_names "`id' `period' `startgen' `stopgen' `generate'"
+    local output_dups : list dups output_names
+    if "`output_dups'" != "" {
+        display as error "id/period/start/stop/generate output names must be distinct; duplicate(s): `output_dups'"
+        exit 198
+    }
+    foreach v of local keepvars {
+        local output_conflict : list v in output_names
+        if `output_conflict' {
+            display as error "keepvars() variable '`v'' conflicts with a panel output name"
+            exit 198
+        }
+    }
+
     * Validate width
     if `width' < 1 {
         display as error "width() must be a positive number of days"
@@ -117,6 +131,9 @@ program define tvpanel, rclass
         exit 416
     }
 
+    label dir
+    local _tp_master_labels "`r(names)'"
+
     preserve
 
     * --- Stash the master (in memory), then stage the episode (using) file ---
@@ -168,6 +185,11 @@ program define tvpanel, rclass
         * cycle and can be reattached to generate() at assembly.
         local explbl : value label `exposure'
         if "`explbl'" != "" {
+            local _tp_lbl_base = substr("_tvp_`generate'_lbl", 1, 32)
+            _tvtools_new_vallabel, base(`_tp_lbl_base') exclude(`"`_tp_master_labels'"')
+            local _tp_explbl "`r(name)'"
+            label copy `explbl' `_tp_explbl'
+            local explbl "`_tp_explbl'"
             tempfile lblfile
             capture quietly label save `explbl' using "`lblfile'", replace
             if _rc local explbl ""
@@ -312,8 +334,6 @@ program define tvpanel, rclass
         replace `tp_active' = `reference' if missing(`tp_active')
         rename `tp_active' `generate'
         if "`explbl'" != "" {
-            capture label drop `explbl'
-            local _lbl_drop_rc = _rc
             capture quietly do "`lblfile'"
             if _rc local explbl ""
             else label values `generate' `explbl'

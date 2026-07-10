@@ -44,36 +44,36 @@
 {syntab:Required}
 {synopt:{opt id(varname)}}person identifier linking to master dataset{p_end}
 {synopt:{opt start(varname)}}start date of exposure period in using dataset{p_end}
-{synopt:{opt exposure(varname)}}exposure variable: categorical status OR dose amount (with {cmd:dose}){p_end}
-{synopt:{opt reference(#)}}value indicating unexposed/reference status; required except with {cmd:dose}{p_end}
+{synopt:{opt exposure(varname)}}categorical exposure or dose variable{p_end}
+{synopt:{opt reference(#)}}unexposed/reference value{p_end}
 {synopt:{opt entry(varname)}}study entry date from master dataset{p_end}
 {synopt:{opt exit(varname)}}study exit date from master dataset{p_end}
 
 {syntab:Core options}
-{synopt:{opt stop(varname)}}end date of exposure period; required unless {cmd:pointtime} specified{p_end}
+{synopt:{opt stop(varname)}}exposure-period end date{p_end}
 {synopt:{opt pointtime}}data are point-in-time (start only, no stop date){p_end}
 
 {syntab:Exposure definition}
 {synopt:[none specified]}basic time-varying implementation of exposures{p_end}
-{synopt:{opt ever:treated}}binary ever/never exposed (switches at first exposure){p_end}
-{synopt:{opt cur:rentformer}}trichotomous never/current/former exposed (0=never, 1=current, 2=former){p_end}
-{synopt:{opt duration(numlist)}}cumulative duration categories (uses continuousunit if specified, defaults to years){p_end}
-{synopt:{opt continuousunit(unit)}}cumulative exposure reporting unit (days, weeks, months, quarters, years){p_end}
-{synopt:{opt expandunit(unit)}}row expansion granularity for continuous exposure (days, weeks, months, quarters, years){p_end}
+{synopt:{opt ever:treated}}binary ever/never exposure{p_end}
+{synopt:{opt cur:rentformer}}never/current/former exposure{p_end}
+{synopt:{opt duration(numlist)}}cumulative-duration categories{p_end}
+{synopt:{opt continuousunit(unit)}}cumulative-exposure unit{p_end}
+{synopt:{opt expandunit(unit)}}continuous-exposure row granularity{p_end}
 {synopt:{opt bytype}}create separate variables for each exposure type{p_end}
 {synopt:{opt recency(numlist)}}time since last exposure categories{p_end}
-{synopt:{opt dose}}cumulative dose tracking (exposure contains dose amounts){p_end}
+{synopt:{opt dose}}track cumulative dose{p_end}
 {synopt:{opt dosecuts(numlist)}}cutpoints for dose categorization (use with {cmd:dose}){p_end}
 
 {syntab:Data handling}
 {synopt:{opt grace(#)}}days grace period to merge gaps (default: 0){p_end}
 {synopt:{opt grace(exp=# exp=# ...)}}different grace periods by exposure category{p_end}
-{synopt:{opt merge(#)}}days within which to merge same-type periods (default: 0){p_end}
+{synopt:{opt merge(#)}}merge nearby same-type periods{p_end}
 {synopt:{opt fillgaps(#)}}assume exposure continues # days beyond last record{p_end}
 {synopt:{opt carryforward(#)}}carry forward last exposure # days through gaps{p_end}
 
 {syntab:Competing exposures}
-{synopt:{opt layer}}later exposures take precedence; earlier resume after (default){p_end}
+{synopt:{opt layer}}later exposures take precedence{p_end}
 {synopt:{opt priority(numlist)}}priority order when periods overlap{p_end}
 {synopt:{opt split}}split overlapping periods at all boundaries{p_end}
 {synopt:{opt combine(newvar)}}create combined exposure variable for overlaps{p_end}
@@ -89,7 +89,7 @@
 {synopt:{opt statetime}}create cumulative time in current exposure state{p_end}
 
 {syntab:Output}
-{synopt:{opt generate(newvar)}}name for output exposure variable (default: {cmd:tv_}{it:exposure}){p_end}
+{synopt:{opt generate(newvar)}}output exposure variable name{p_end}
 {synopt:{opt referencelabel(text)}}label for reference category (default: "Unexposed"){p_end}
 {synopt:{opt label(text)}}custom variable label for output exposure variable{p_end}
 {synopt:{opt saveas(filename)}}save time-varying dataset to file{p_end}
@@ -105,7 +105,7 @@
 {synopt:{opt summarize}}display exposure distribution summary{p_end}
 {synopt:{opt validate}}create validation dataset with coverage metrics{p_end}
 {synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
-{synopt:{opt verbose}}display individual IDs and dates in diagnostic output{p_end}
+{synopt:{opt verbose}}show diagnostic IDs and dates{p_end}
 
 {synoptline}
 {p2colreset}{...}
@@ -171,7 +171,7 @@ person's study entry date. Exposure periods are only counted from this date forw
 
 {phang}
 {opt exit(varname)} specifies the variable in the master dataset containing each
-person's study exit date (e.g., end of follow-up, death, outcome occurrence).
+person's study exit date (e.g., end of follow-up, death, outcome occurrence).{...}
 Exposure periods are truncated at this date.
 
 
@@ -194,7 +194,7 @@ at the first exposure and remains 1 for all subsequent follow-up. Used for
 immortal time bias correction in ever-treated analyses.
 
 {phang}
-{opt currentformer} creates a trichotomous time-varying exposure with values:
+{opt currentformer} creates a trichotomous time-varying exposure with values:{...}
 0 = never exposed, 1 = currently exposed, 2 = formerly exposed. Returns to 1
 if re-exposed after a gap.
 
@@ -221,7 +221,7 @@ instead of a single variable. Variable names append 1, 2, etc. for each
 type. Useful when different exposure types have independent effects.
 
 {phang}
-{opt recency(numlist)} creates categories based on time since last exposure.
+{opt recency(numlist)} creates categories based on time since last exposure.{...}
 The numlist specifies category boundaries in years. For example,
 {cmd:recency(1 5)} creates: current exposure, <1 year since last,
 1 to <5 years since last, ≥5 years since last.
@@ -231,7 +231,7 @@ The numlist specifies category boundaries in years. For example,
 contains the dose amount per period (e.g., grams of medication) rather than
 a categorical exposure type. When periods overlap, dose is allocated proportionally
 based on daily dose rates. For example, if two 30-day prescriptions of 1 gram each
-have a 10-day overlap, the overlap period receives ((10/30)*1) + ((10/30)*1) = 0.667 grams.
+have a 10-day overlap, the overlap period receives ((10/30)*1) + ((10/30)*1) = 0.667 grams.{...}
 The {cmd:reference()} option defaults to 0 for {cmd:dose} mode (the inherent reference
 category) and can be omitted. The {cmd:bytype} option is not supported with dose.
 
@@ -241,9 +241,9 @@ is specified via {cmd:exposure()}, not {cmd:dose()}. Correct syntax is:
 {cmd:exposure(myDoseVar) dose}, not {cmd:dose(myDoseVar)}.
 
 {phang}
-{opt dosecuts(numlist)} creates categorical dose output instead of continuous.
+{opt dosecuts(numlist)} creates categorical dose output instead of continuous.{...}
 The numlist specifies ascending cutpoints for categorization. For example,
-{cmd:dose dosecuts(5 10 20)} creates: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+.
+{cmd:dose dosecuts(5 10 20)} creates: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+.{...}
 Requires the {cmd:dose} option.
 
 
@@ -278,7 +278,7 @@ up to # days. Used when exposure is likely to persist beyond recorded periods.
 
 {phang}
 {opt layer} handles overlapping exposures by giving precedence to
-later exposures, with earlier exposures resuming after the later one ends.
+later exposures, with earlier exposures resuming after the later one ends.{...}
 This is the default behavior.
 
 {phang}
@@ -301,13 +301,13 @@ exposure to multiple types.
 {title:Lag and washout options}
 
 {phang}
-{opt lag(#)} specifies a lag period in days before exposure becomes active.
-Exposure status changes # days after the start date rather than immediately.
+{opt lag(#)} specifies a lag period in days before exposure becomes active.{...}
+Exposure status changes # days after the start date rather than immediately.{...}
 Used to model delayed biological effects.
 
 {phang}
 {opt washout(#)} specifies that exposure effects persist for # days after the
-stop date. Exposure status remains active until # days past the recorded end.
+stop date. Exposure status remains active until # days past the recorded end.{...}
 Used to model residual effects.
 
 {phang}
@@ -359,7 +359,7 @@ to distinguish each type (e.g., "(Estrogen only)"). For currentformer without by
 if not specified, the default label is "Never/current/former exposure".
 
 {phang}
-{opt saveas(filename)} saves the time-varying dataset to the specified file.
+{opt saveas(filename)} saves the time-varying dataset to the specified file.{...}
 Include .dta extension. Use with {cmd:replace} to overwrite existing files.
 
 {phang}
@@ -899,12 +899,12 @@ dose-response.
 {synopt:{cmd:r(pct_exposed)}}percentage of time exposed{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(genvar)}}name of the generated exposure variable (the {opt bytype} stub when {opt bytype} is used){p_end}
+{synopt:{cmd:r(genvar)}}generated exposure variable or stub{p_end}
 {synopt:{cmd:r(frameout)}}name of the output frame (if {opt frameout()} used){p_end}
 {synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
+{synopt:{cmd:r(flow)}}persons/records attrition table{p_end}
 
 {pstd}
 {cmd:r(overlap_ids)} is stored only when overlaps are detected and no overlap-handling option was specified:

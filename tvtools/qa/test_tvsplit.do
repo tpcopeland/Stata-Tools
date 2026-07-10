@@ -37,6 +37,9 @@ capture {
         calendar(, width(1)) elapsed(entry, width(1) unit(year))
     assert r(n_axes)==3
     assert r(n_persons)==3
+    assert r(n_observations)==_N
+    assert "`r(startvar)'"=="entry"
+    assert "`r(stopvar)'"=="exitd"
     confirm variable trt
     confirm variable ageband
     confirm variable calband

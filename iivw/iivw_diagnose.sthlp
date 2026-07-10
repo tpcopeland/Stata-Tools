@@ -37,7 +37,7 @@
 {synopt:{opt unw:eighted(estname)}}stored unweighted outcome model{p_end}
 {synopt:{opt we:ighted(estname)}}stored IIVW/FIPTIW-weighted outcome model{p_end}
 {synopt:{opt ad:justed(estname)}}stored weighted model with measurement-process adjustment{p_end}
-{synopt:{opt ex:ogeneity(string)}}{cmd:exogenous}, {cmd:endogenous}, or {cmd:unknown}; default is {cmd:unknown}{p_end}
+{synopt:{opt ex:ogeneity(string)}}exogeneity status; default {cmd:unknown}{p_end}
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
 {synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default {cmd:c(level)}{p_end}
@@ -48,7 +48,7 @@
 {synopt:{opt t:itle(string)}}optional Excel title row{p_end}
 {synopt:{opt f:ootnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
-{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (framed grid with column-group separators; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
+{synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
@@ -327,11 +327,25 @@ Example 4: export formatted diagnostics to a workbook sheet.
 
 {synopthdr:Matrices}
 {synoptline}
-{synopt:{cmd:r(estimates)}}rows {cmd:unweighted}, {cmd:weighted}, {cmd:adjusted}; columns {cmd:b}, {cmd:se}, {cmd:ll}, {cmd:ul}{p_end}
-{synopt:{cmd:r(decomp)}}column {cmd:value}; rows {cmd:sampling_gap}, {cmd:artifact_gap}, {cmd:total_gap}, {cmd:sampling_share}, {cmd:artifact_share}, {cmd:bounds_lower}, {cmd:bounds_upper} (shares are missing for contrasts or tiny total gaps){p_end}
-{synopt:{cmd:r(bias)}}only with {opt true()}; column {cmd:value}; rows {cmd:true}, {cmd:bias_unweighted}, {cmd:bias_weighted}, {cmd:bias_adjusted}{p_end}
+{synopt:{cmd:r(estimates)}}model estimates and confidence limits{p_end}
+{synopt:{cmd:r(decomp)}}diagnostic decomposition quantities{p_end}
+{synopt:{cmd:r(bias)}}true-value bias quantities; only with {opt true()}{p_end}
 {synoptline}
 {p2colreset}{...}
+
+{pstd}
+{cmd:r(estimates)} has rows {cmd:unweighted}, {cmd:weighted}, and
+{cmd:adjusted}, with columns {cmd:b}, {cmd:se}, {cmd:ll}, and
+{cmd:ul}. {cmd:r(decomp)} has a {cmd:value} column and rows
+{cmd:sampling_gap},
+{cmd:artifact_gap}, {cmd:total_gap}, {cmd:sampling_share},
+{cmd:artifact_share}, {cmd:bounds_lower}, and {cmd:bounds_upper}. Shares are
+missing for contrast estimands or when the total gap is too small.
+
+{pstd}
+When {opt true()} is specified, {cmd:r(bias)} has a {cmd:value} column and rows
+{cmd:true}, {cmd:bias_unweighted}, {cmd:bias_weighted}, and
+{cmd:bias_adjusted}.
 
 
 {marker references}{...}

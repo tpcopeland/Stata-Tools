@@ -1,10 +1,6 @@
 /*  demo_tvtools.do - Generate documentation output for tvtools
 
     Produces:
-      1. Console output (frames-first pipeline)   -> .log -> .md via logdoc
-      2. Console output (MSM weighting: IPCW)      -> .log -> .md via logdoc
-      3. Console output (recurrent events PWP/AG)  -> .log -> .md via logdoc
-      4. Console output (multi-group + age bands)  -> .log -> .md via logdoc
       5. Covariate-balance love plot               -> .png
       6. Exposure swimlane                         -> .png
 
@@ -135,7 +131,6 @@ save "`pkg_dir'/_panel.dta", replace
 
 **# Frames-first pipeline (no save/use round-trips)
 capture log close _all
-log using "`pkg_dir'/console_pipeline.log", replace text name(pipe) nomsg
 
 * # tvtools: Frames-First Time-Varying Pipeline
 
@@ -180,10 +175,8 @@ noisily tvevent, frame(f_merged) id(id) ///
 noisily display "event indicator: " as result "`r(generate)'" ///
     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 
-log close pipe
 
 **# Marginal structural model weighting with IPCW
-log using "`pkg_dir'/console_msm.log", replace text name(msm) nomsg
 
 * # MSM Weighting: IPTW x IPCW + Positivity
 
@@ -198,10 +191,8 @@ noisily tvweight treat, covariates(age female biomarker) ///
 noisily display "combined-weight ESS: " as result %6.1f r(ess_combined) ///
     "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
 
-log close msm
 
 **# Recurrent-event PWP / AG formatting
-log using "`pkg_dir'/console_recurrent.log", replace text name(rec) nomsg
 
 * # Recurrent Events: PWP / Andersen-Gill Formatting
 
@@ -228,10 +219,8 @@ noisily display "stratum var: " as result "`r(enum)'" ///
 noisily list id win_start win_stop hosp_ev stratum t0 t in 1/12, ///
     sepby(id) noobs abbreviate(12)
 
-log close rec
 
 **# Multi-group weighting + age bands
-log using "`pkg_dir'/console_multigroup.log", replace text name(mg) nomsg
 
 * # Multi-Group Weighting and Age Bands
 
@@ -250,7 +239,6 @@ use "`pkg_dir'/_cohort.dta", clear
 noisily tvage, id(id) dob(dob) entry(study_entry) exit(study_exit) ///
     groupwidth(5) minage(40) maxage(80)
 
-log close mg
 
 **# Graphs
 * Covariate-balance love plot from the MSM weighting step
@@ -272,15 +260,6 @@ quietly tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
 graph export "`pkg_dir'/swimlane_plot.png", replace width(1400)
 capture graph close _all
 
-**# Convert console logs to markdown with logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`c(pwd)'/logdoc") replace
-
-foreach lg in console_pipeline console_msm console_recurrent console_multigroup {
-    logdoc using "`pkg_dir'/`lg'.log", ///
-        output("`pkg_dir'/`lg'.md") ///
-        nodots toc replace
-}
 
 * --- Cleanup temp data ---
 foreach f in _cohort _episodes_antidep _episodes_benzo _events _recur _panel {

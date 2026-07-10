@@ -1,4 +1,4 @@
-*! tvweight Version 1.6.8  2026/07/03
+*! tvweight Version 1.6.9  2026/07/10
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -41,12 +41,18 @@ Examples:
 See help tvweight for complete documentation
 */
 
-program define tvweight, rclass
+program define tvweight, rclass sortpreserve
     version 16.0
     local orig_varabbrev = c(varabbrev)
     local orig_more = c(more)
     set varabbrev off
     set more off
+    local _outputs_touched = 0
+    local _bak_generate_needed = 0
+    local _bak_denominator_needed = 0
+    local _bak_cumgenerate_needed = 0
+    local _bak_censgenerate_needed = 0
+    local _bak_combgenerate_needed = 0
 
     capture noisily {
 
@@ -124,21 +130,37 @@ program define tvweight, rclass
         if "`censorcovariates'" == "" local censorcovariates "`covariates' `tvcovariates'"
         if "`censgenerate'" == "" local censgenerate "ipcw"
         if "`combgenerate'" == "" local combgenerate "`generate'_ipcw"
-        * Resolve and check the censoring/combined weight variable names
-        foreach _v in censgenerate combgenerate {
-            capture confirm variable ``_v''
-            if _rc == 0 {
-                if "`replace'" == "" {
-                    display as error "variable ``_v'' already exists; use replace option"
-                    exit 110
-                }
-                else quietly drop ``_v''
-            }
-        }
+        * Resolve the censoring/combined weight variable names. Collision and
+        * replace handling is centralized below so failures are transactional.
     }
     else if "`censorcovariates'`censgenerate'`combgenerate'" != "" {
         display as error "censorcovariates()/censgenerate()/combgenerate() require the ipcw() option"
         exit 198
+    }
+
+    if "`cumulative'" != "" & "`cumgenerate'" == "" {
+        local cumgenerate "`generate'_cum"
+    }
+
+    * All outputs must be distinct and must not overwrite model inputs. Without
+    * this screen, duplicate names fail only after the first output is created,
+    * and replace could drop the exposure/covariate used by the model itself.
+    local output_names "`generate'"
+    if "`denominator'" != "" local output_names "`output_names' `denominator'"
+    if "`cumulative'" != "" local output_names "`output_names' `cumgenerate'"
+    if `do_ipcw' local output_names "`output_names' `censgenerate' `combgenerate'"
+    local output_dups : list dups output_names
+    if "`output_dups'" != "" {
+        display as error "output variable names must be distinct; duplicate(s): `output_dups'"
+        exit 198
+    }
+    local protected_names "`exposure' `covariates' `tvcovariates' `id' `time' `ipcw' `censorcovariates'"
+    foreach out of local output_names {
+        local protected : list out in protected_names
+        if `protected' {
+            display as error "output variable '`out'' conflicts with an input/model variable"
+            exit 198
+        }
     }
 
     * Validate truncation percentiles
@@ -169,6 +191,8 @@ program define tvweight, rclass
         }
     }
 
+    * Back up replaced outputs before dropping them. On any later error the
+    * cleanup gate restores these exact variables and removes partial outputs.
     * Check if generate variable already exists
     capture confirm variable `generate'
     if _rc == 0 {
@@ -177,6 +201,10 @@ program define tvweight, rclass
             exit 110
         }
         else {
+            tempvar _bak_generate
+            quietly clonevar `_bak_generate' = `generate'
+            local _bak_generate_needed = 1
+            local _outputs_touched = 1
             quietly drop `generate'
         }
     }
@@ -190,6 +218,10 @@ program define tvweight, rclass
                 exit 110
             }
             else {
+                tempvar _bak_denominator
+                quietly clonevar `_bak_denominator' = `denominator'
+                local _bak_denominator_needed = 1
+                local _outputs_touched = 1
                 quietly drop `denominator'
             }
         }
@@ -197,7 +229,6 @@ program define tvweight, rclass
 
     * Resolve and check the cumulative-weight variable name
     if "`cumulative'" != "" {
-        if "`cumgenerate'" == "" local cumgenerate "`generate'_cum"
         capture confirm variable `cumgenerate'
         if _rc == 0 {
             if "`replace'" == "" {
@@ -205,10 +236,42 @@ program define tvweight, rclass
                 exit 110
             }
             else {
+                tempvar _bak_cumgenerate
+                quietly clonevar `_bak_cumgenerate' = `cumgenerate'
+                local _bak_cumgenerate_needed = 1
+                local _outputs_touched = 1
                 quietly drop `cumgenerate'
             }
         }
     }
+
+    if `do_ipcw' {
+        capture confirm variable `censgenerate'
+        if _rc == 0 {
+            if "`replace'" == "" {
+                display as error "variable `censgenerate' already exists; use replace option"
+                exit 110
+            }
+            tempvar _bak_censgenerate
+            quietly clonevar `_bak_censgenerate' = `censgenerate'
+            local _bak_censgenerate_needed = 1
+            local _outputs_touched = 1
+            quietly drop `censgenerate'
+        }
+        capture confirm variable `combgenerate'
+        if _rc == 0 {
+            if "`replace'" == "" {
+                display as error "variable `combgenerate' already exists; use replace option"
+                exit 110
+            }
+            tempvar _bak_combgenerate
+            quietly clonevar `_bak_combgenerate' = `combgenerate'
+            local _bak_combgenerate_needed = 1
+            local _outputs_touched = 1
+            quietly drop `combgenerate'
+        }
+    }
+    local _outputs_touched = 1
 
     * Mark estimation sample BEFORE level checks
     marksample touse
@@ -287,10 +350,8 @@ program define tvweight, rclass
 
         * Report panel structure
         tempvar _nobs_per_id _id_tag
-        quietly bysort `id': gen long `_nobs_per_id' = sum(`touse') if `touse'
-        quietly bysort `id': replace `_nobs_per_id' = `_nobs_per_id'[_N] if `touse'
-        quietly gen byte `_id_tag' = 0
-        quietly bysort `id': replace `_id_tag' = 1 if _n == 1 & `touse'
+        quietly egen long `_nobs_per_id' = total(`touse'), by(`id')
+        quietly egen byte `_id_tag' = tag(`id') if `touse'
         quietly count if `_id_tag' == 1
         local n_clusters = r(N)
         quietly summarize `_nobs_per_id' if `_id_tag' == 1, meanonly
@@ -987,7 +1048,15 @@ program define tvweight, rclass
                 covariates(`bal_covars') wvar(`generate') loveplot ///
                 title("Covariate balance") name(tvw_loveplot)
             local _lprc = _rc
-            if `_eheld' capture _estimates unhold `_tvw_ehold'
+            local _unholdrc = 0
+            if `_eheld' {
+                capture _estimates unhold `_tvw_ehold'
+                local _unholdrc = _rc
+            }
+            if `_unholdrc' {
+                display as error "could not restore the active estimation results after loveplot (rc=`_unholdrc')"
+                exit `_unholdrc'
+            }
             if `_lprc' ///
                 display as text "Note: love plot could not be produced via psdash (rc=`_lprc')"
         }
@@ -1094,6 +1163,20 @@ program define tvweight, rclass
     * (capture swallows "nothing to restore") when no preserve is pending.
     if `rc' {
         capture restore
+    }
+
+    * Roll back every output on failure. Existing variables saved under tempvar
+    * names are restored byte-for-byte; outputs that did not previously exist
+    * are removed so rc!=0 never leaves a half-completed analysis surface.
+    if `rc' & `_outputs_touched' {
+        foreach out in `generate' `denominator' `cumgenerate' `censgenerate' `combgenerate' {
+            if "`out'" != "" capture drop `out'
+        }
+        if `_bak_generate_needed' capture rename `_bak_generate' `generate'
+        if `_bak_denominator_needed' capture rename `_bak_denominator' `denominator'
+        if `_bak_cumgenerate_needed' capture rename `_bak_cumgenerate' `cumgenerate'
+        if `_bak_censgenerate_needed' capture rename `_bak_censgenerate' `censgenerate'
+        if `_bak_combgenerate_needed' capture rename `_bak_combgenerate' `combgenerate'
     }
 
     set varabbrev `orig_varabbrev'

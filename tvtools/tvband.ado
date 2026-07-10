@@ -1,4 +1,4 @@
-*! tvband Version 1.6.8  2026/07/03
+*! tvband Version 1.6.9  2026/07/10
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -38,6 +38,25 @@ program define tvband, rclass
     }
     if "`type'" == "calendar" & "`origin'" != "" {
         display as error "type(calendar) does not take origin()"
+        exit 198
+    }
+    if "`type'" != "elapsed" & "`unit'" != "" {
+        display as error "unit() is allowed only with type(elapsed)"
+        exit 198
+    }
+    if "`type'" != "calendar" & "`anchor'" != "" {
+        display as error "anchor() is allowed only with type(calendar)"
+        exit 198
+    }
+    if "`type'" == "calendar" & `width' != int(`width') {
+        display as error "type(calendar) requires an integer width() in years"
+        exit 198
+    }
+
+    local input_names "`id' `start' `stop'"
+    local input_dups : list dups input_names
+    if "`input_dups'" != "" {
+        display as error "id(), start(), and stop() must name distinct variables"
         exit 198
     }
 
@@ -80,6 +99,17 @@ program define tvband, rclass
         if "`type'" == "elapsed"  local generate "fuband"
     }
 
+    local startout "`start'"
+    if "`startgen'" != "" local startout "`startgen'"
+    local stopout "`stop'"
+    if "`stopgen'" != "" local stopout "`stopgen'"
+    local output_names "`id' `generate' `startout' `stopout'"
+    local output_dups : list dups output_names
+    if "`output_dups'" != "" {
+        display as error "id(), generate(), startgen(), and stopgen() must resolve to distinct output names"
+        exit 198
+    }
+
     * --- Guard saveas() path for shell metacharacters --------------------
     if "`saveas'" != "" {
         if regexm("`saveas'", "[;&|><$`]") | strpos("`saveas'", char(34)) {
@@ -103,14 +133,10 @@ program define tvband, rclass
     * --- Rename interval vars if requested -------------------------------
     if "`startgen'" != "" & "`startgen'" != "`start'" {
         rename `start' `startgen'
-        local startout "`startgen'"
     }
-    else local startout "`start'"
     if "`stopgen'" != "" & "`stopgen'" != "`stop'" {
         rename `stop' `stopgen'
-        local stopout "`stopgen'"
     }
-    else local stopout "`stop'"
 
     sort `id' `startout'
 

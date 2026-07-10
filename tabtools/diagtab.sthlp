@@ -97,7 +97,8 @@ Specify a proportion strictly between 0 and 1.{p_end}
 {phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of
 Wilson score. May not be combined with {opt wilson}.{p_end}
 
-{phang}{opt wilson} use Wilson score confidence intervals (this is the default). May not be combined with {opt exact}.{p_end}
+{phang}{opt wilson} use Wilson score confidence intervals (this is the
+default). May not be combined with {opt exact}.{p_end}
 
 {phang}{opt auc} report area under the ROC curve with 95% CI. Cannot be combined
 with {opt cutoffs()}, and requires both outcome classes to be present in
@@ -212,6 +213,5 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {hline}

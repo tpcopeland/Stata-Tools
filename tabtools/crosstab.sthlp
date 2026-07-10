@@ -164,6 +164,5 @@ their p-value in {cmd:r(p_trend)} and label the trend row accordingly.
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {hline}

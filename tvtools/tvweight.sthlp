@@ -45,9 +45,9 @@
 {synopt:{opt cumg:enerate(name)}}name for the cumulative weight variable{p_end}
 
 {syntab:Censoring weights (IPCW)}
-{synopt:{opt ipcw(varname)}}censoring indicator (1=censored at end of interval); adds IPCW and the combined IPTW{c -(}IPCW weight{p_end}
-{synopt:{opt censorc:ovariates(varlist)}}covariates for the censoring model (default: treatment-model covariates){p_end}
-{synopt:{opt censg:enerate(name)}}name for the cumulative censoring weight (default: {cmd:ipcw}){p_end}
+{synopt:{opt ipcw(varname)}}interval censoring indicator{p_end}
+{synopt:{opt censorc:ovariates(varlist)}}censoring-model covariates{p_end}
+{synopt:{opt censg:enerate(name)}}cumulative censoring weight name{p_end}
 {synopt:{opt combg:enerate(name)}}name for the combined weight (default: {it:weight}{cmd:_ipcw}){p_end}
 
 {syntab:Model Options}
@@ -58,8 +58,8 @@
 {synopt:{opt est:name(name)}}store the propensity model under this name{p_end}
 
 {syntab:Diagnostics}
-{synopt:{opt bal:ance}}report standardized mean differences before/after weighting{p_end}
-{synopt:{opt love:plot}}love plot of SMDs, delegated to {helpb psdash} (requires {opt balance}){p_end}
+{synopt:{opt bal:ance}}report standardized mean differences{p_end}
+{synopt:{opt love:plot}}draw SMD love plot via {helpb psdash}{p_end}
 {synopt:{opt hist:ogram}}histogram of the weight distribution{p_end}
 
 {syntab:Output Options}
@@ -119,7 +119,7 @@ score model. These should be confounders that predict both treatment and outcome
 {dlgtab:Weight Options}
 
 {phang}
-{opt generate(name)} specifies the name for the generated weight variable.
+{opt generate(name)} specifies the name for the generated weight variable.{...}
 The default is {cmd:iptw}.
 
 {phang}
@@ -173,12 +173,12 @@ model is fit; the cumulative censoring weight is the inverse cumulative
 probability of remaining uncensored, and a combined weight equal to the
 cumulative IPTW times the cumulative IPCW is produced. This completes the
 canonical marginal structural model, which weights for both confounded treatment
-and informative censoring (Hernan & Robins). Requires {opt id()} and {opt time()}.
+and informative censoring (Hernan & Robins). Requires {opt id()} and {opt time()}.{...}
 With {opt stabilized}, both weights use stabilized numerators. With
 {opt truncate()}, truncation is applied to the final combined weight.
 
 {phang}
-{opt censorcovariates(varlist)} lists the covariates for the censoring model.
+{opt censorcovariates(varlist)} lists the covariates for the censoring model.{...}
 Defaults to the treatment-model covariates ({opt covariates()} plus any
 {opt tvcovariates()}).
 
@@ -213,7 +213,7 @@ cluster-robust standard errors are computed by {it:id}.
 
 {phang}
 {opt time(varname)} specifies the time variable. When specified with
-{opt id()}, time fixed effects are added to the propensity score model.
+{opt id()}, time fixed effects are added to the propensity score model.{...}
 This is the standard approach for marginal structural models with
 time-varying treatments.
 
@@ -235,7 +235,7 @@ categorical exposures the maximum absolute SMD across non-reference levels is
 reported per covariate.
 
 {phang}
-{opt loveplot} produces a love plot of the SMDs (unweighted vs weighted).
+{opt loveplot} produces a love plot of the SMDs (unweighted vs weighted).{...}
 Covariate-balance plotting is delegated to the dedicated propensity-score
 dashboard package {helpb psdash}: tvweight calls {cmd:psdash balance} with the
 exposure, the generated weight variable and the balance covariates. Requires
@@ -432,7 +432,7 @@ alternative to truncation and balance covariate means exactly:
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(balance)}}covariate-by-{cmd:smd_unweighted}/{cmd:smd_weighted} SMD matrix (if balance){p_end}
+{synopt:{cmd:r(balance)}}unweighted/weighted SMD matrix{p_end}
 {p2colreset}{...}
 
 
@@ -559,7 +559,7 @@ Medicine. 2015;34(28):3661-3679.
 
 {pstd}
 Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score
-weighting. Journal of the American Statistical Association.
+weighting. Journal of the American Statistical Association.{...}
 2018;113(521):390-400.
 
 {pstd}

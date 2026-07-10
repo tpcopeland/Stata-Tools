@@ -1,5 +1,6 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
+{vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -33,10 +34,10 @@
 {synopt:{opt cif}}cumulative incidence function{p_end}
 {synopt:{opt sch:oenfeld}}Schoenfeld residuals at cause-event times{p_end}
 {synopt:{opth time:var(varname)}}use {it:varname} instead of {cmd:_t} for time{p_end}
-{synopt:{opt ci}}also generate CIF confidence limits ({it:newvar}{cmd:_lci}, {it:newvar}{cmd:_uci}){p_end}
+{synopt:{opt ci}}also generate CIF confidence limits{p_end}
 {synopt:{opt boot:strap(#)}}compute bootstrap-based {opt ci} limits with {it:#} subject resamples{p_end}
 {synopt:{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
-{synopt:{opt l:evel(#)}}confidence level for {opt ci}; default {cmd:level(95)}{p_end}
+{synopt:{opt l:evel(#)}}confidence level for {opt ci}; default {cmd:c(level)}{p_end}
 {synoptline}
 
 
@@ -182,20 +183,21 @@ bands over a grid of times, or a fixed-horizon table for a covariate profile,
 see {helpb finegray_cif}.
 
 {phang}
-{opt bootstrap(#)} (with {opt ci}) computes the confidence limits by a subject
-bootstrap with {it:#} replications instead of the analytic influence-function
-SE. Each replication resamples subjects with replacement and refits;
-nonconverged refits, and refits whose resample loses a factor level, are
-skipped (a note reports how many), and at least two successful replications are
-required. The interval includes uncertainty from estimation of the censoring
-weights. Point predictions are unchanged, and the original {cmd:e()} results
-and {cmd:e(sample)} are preserved.
+{opt bootstrap(#)} (with {opt ci}) computes the confidence limits by resampling
+subjects with replacement and refitting instead of using the analytic
+influence-function SE. If the original fit specified {opt cluster()}, whole
+clusters are resampled instead. Nonconverged refits, and refits whose resample
+loses a factor level, are skipped (a note reports how many), and at least two
+successful replications are required. The interval includes uncertainty from
+estimating the censoring weights. Point predictions are unchanged, and the
+original {cmd:e()} results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()}.
 
 {phang}
-{opt level(#)} sets the confidence level for {opt ci}; the default is {cmd:level(95)} or as set by {helpb set level}.
+{opt level(#)} sets the confidence level for {opt ci}; the default is
+{cmd:c(level)}, which is initially 95 and can be changed by {helpb set level}.
 
 {pstd}
 {bf:Note:} Factor-variable predictions are reconstructed on demand via
@@ -220,7 +222,7 @@ the underlying factor term rather than an internal tempvar.
 {pstd}
 {bf:Linear predictor (default)}
 
-{phang2}{cmd:. finegray_predict xb_hat}{p_end}
+{phang2}{cmd:. finegray_predict xb_hat,}{p_end}
 
 {pstd}
 {bf:Cumulative incidence function}
@@ -243,6 +245,9 @@ the underlying factor term rather than an internal tempvar.
 {phang2}{cmd:. gen double mytime = 5}{p_end}
 {phang2}{cmd:. finegray_predict cif5, cif timevar(mytime) ci}{p_end}
 {phang2}{cmd:. list cif5 cif5_lci cif5_uci in 1/5}{p_end}
+
+{pstd}5-year CIF with bootstrap confidence limits{p_end}
+{phang2}{cmd:. finegray_predict cif5_bs, cif timevar(mytime) ci bootstrap(200) seed(12345)}{p_end}
 
 {pstd}
 {bf:Schoenfeld residuals}
@@ -274,6 +279,7 @@ the underlying factor term rather than an internal tempvar.
 {title:Also see}
 
 {psee}
-Online: {helpb finegray}, {helpb finegray_phtest}, {helpb stcrreg}, {helpb stcox}, {helpb stset}
+Online: {helpb finegray}, {helpb finegray_cif}, {helpb finegray_phtest},
+{helpb stcrreg}, {helpb stcox}, {helpb stset}
 
 {hline}

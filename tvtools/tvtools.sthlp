@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.8  03jul2026}{...}
+{* *! version 1.6.9  10jul2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -30,7 +30,7 @@
 
 {pstd}
 {cmd:tvtools} provides a set of commands for constructing,
-diagnosing, and analyzing time-varying exposure data in survival analysis.
+diagnosing, and analyzing time-varying exposure data in survival analysis.{...}
 The package supports the workflow from data preparation through
 weighting and estimation.
 
@@ -46,6 +46,19 @@ weighting and estimation.
 {synopt:{opt detail}}show detailed information with descriptions{p_end}
 {synopt:{opt cat:egory(string)}}filter by category: {cmd:prep}, {cmd:diag}, {cmd:weight}, {cmd:all}{p_end}
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt list} displays only the selected command names.
+
+{phang}
+{opt detail} displays command descriptions.
+
+{phang}
+{opt category(string)} filters the index to {cmd:prep}, {cmd:diag},
+{cmd:weight}, or {cmd:all} (the default).
+
 
 {marker commands}{...}
 {title:Commands}
@@ -58,7 +71,7 @@ weighting and estimation.
 {synopt:{helpb tvmerge}}Merge multiple time-varying exposure datasets{p_end}
 {synopt:{helpb tvevent}}Integrate events and competing risks into time-varying datasets{p_end}
 {synopt:{helpb tvage}}Add time-varying age to stset data{p_end}
-{synopt:{helpb tvband}}Split intervals along one date-derived axis (age/calendar/elapsed){p_end}
+{synopt:{helpb tvband}}Split intervals along one date-derived axis{p_end}
 {synopt:{helpb tvsplit}}Multi-timescale (Lexis) splitting on several axes at once{p_end}
 {synopt:{helpb tvpanel}}Build a fixed-width, entry-anchored person-period panel for MSMs{p_end}
 
@@ -133,7 +146,7 @@ data quality problems.
 {bf:Data assumptions}
 
 {pstd}
-All date variables must be Stata daily dates (integer days since 01jan1960).
+All date variables must be Stata daily dates (integer days since 01jan1960).{...}
 Datetime variables ({cmd:%tc}/{cmd:%tC}) are not supported and will be
 rejected with a clear error message. Convert datetimes first with
 {cmd:gen daily = dofc(datetime_var)}.

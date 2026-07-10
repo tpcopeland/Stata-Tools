@@ -59,7 +59,7 @@
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}Excel decimal places (0-6, default 3){p_end}
 {synopt:{opt open}}open the workbook after writing{p_end}
-{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (framed grid with column-group separators; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
+{synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
@@ -316,7 +316,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 
 {pstd}Export the by-arm diagnostic to an Excel worksheet.{p_end}
 
-{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) efron nolog xlsx(iivw_results.xlsx) sheet("Move 2 Exogeneity")}{p_end}
+{phang2}{cmd:. iivw_exogtest sdmt recent_relapse, id(id) time(months) adjust(age female) by(treatment) replace efron nolog xlsx(iivw_results.xlsx) sheet("Move 2 Exogeneity")}{p_end}
 
 {pstd}Use a shorter generated-variable prefix.{p_end}
 
@@ -358,8 +358,13 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
-{synopt:{cmd:r(results)}}numeric results matrix with columns {cmd:group_index term_index b se z p hr lb ub N n_ids}{p_end}
+{synopt:{cmd:r(results)}}numeric model-by-term results matrix{p_end}
 {p2colreset}{...}
+
+{pstd}
+{cmd:r(results)} has columns {cmd:group_index}, {cmd:term_index}, {cmd:b},
+{cmd:se}, {cmd:z}, {cmd:p}, {cmd:hr}, {cmd:lb}, {cmd:ub}, {cmd:N}, and
+{cmd:n_ids}.
 
 {phang}
 Note on {cmd:r(N)} and {cmd:r(n_ids)}: both are summed over the fitted models,

@@ -121,11 +121,13 @@ outcome. Reference group is the first exposure group (displays "Ref."). 95% CI c
 
 {phang2}{opt foot:note(string)} adds a footnote row below the table in smaller italic font.{p_end}
 
-{phang2}{opt open} opens the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
+{phang2}{opt open} opens the Excel file in the default application after
+export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 
 {phang2}{opt zebra} applies alternating light gray row shading for readability.{p_end}
 
-{phang2}{opt border:style(string)} specifies the border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
+{phang2}{opt border:style(string)} specifies the border style: {cmd:default},
+{cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 
 {phang2}{opt the:me(string)} applies a journal-style formatting
 theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos},
@@ -140,12 +142,14 @@ when header shading is active via {opt headershade} or the selected theme.{p_end
 {phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a
 supported Stata color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
-{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
+{phang2}{opt csv(string)} exports the table data as CSV. It may be used with
+or without {opt xlsx()}.{p_end}
 
 {phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored
 Markdown. It may be used with or without {opt xlsx()}.{p_end}
 
-{phang2}{opt mdappend} appends the Markdown table to an existing file; requires {opt markdown()}.{p_end}
+{phang2}{opt mdappend} appends the Markdown table to an existing file; requires
+{opt markdown()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify
 {cmd:frame(name, replace)} to replace an existing frame.{p_end}
@@ -265,7 +269,6 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {marker alsosee}{...}
 {title:Also see}

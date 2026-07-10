@@ -40,15 +40,15 @@
 {synopt:{opt type(axis)}}axis to split on: {cmd:age}, {cmd:calendar}, or {cmd:elapsed}{p_end}
 
 {syntab:Axis}
-{synopt:{opt origin(varname)}}origin date; required for {cmd:age} (date of birth) and {cmd:elapsed} (reference date); not allowed for {cmd:calendar}{p_end}
-{synopt:{opt width(#)}}band width (years for {cmd:age}/{cmd:calendar}; {cmd:unit()}s for {cmd:elapsed}); default {cmd:width(1)}{p_end}
-{synopt:{opt unit(day|year)}}elapsed-time unit; default {cmd:day}; used only with {cmd:type(elapsed)}{p_end}
-{synopt:{opt anchor(#)}}first calendar year of the band grid; default = earliest year in the data; used only with {cmd:type(calendar)}{p_end}
+{synopt:{opt origin(varname)}}origin date for age or elapsed time{p_end}
+{synopt:{opt width(#)}}band width; default {cmd:1}{p_end}
+{synopt:{opt unit(day|year)}}elapsed-time unit; default {cmd:day}{p_end}
+{synopt:{opt anchor(#)}}first calendar year of the band grid{p_end}
 {synopt:{opt min(#)}}drop bands whose lower edge is below {it:#}{p_end}
 {synopt:{opt max(#)}}drop bands whose lower edge is above {it:#}{p_end}
 
 {syntab:Output}
-{synopt:{opt gen:erate(name)}}band variable name; default {cmd:ageband}/{cmd:calband}/{cmd:fuband} by axis{p_end}
+{synopt:{opt gen:erate(name)}}name the generated band variable{p_end}
 {synopt:{opt startg:en(name)}}name for the split interval start; default keeps {opt start()}{p_end}
 {synopt:{opt stopg:en(name)}}name for the split interval stop; default keeps {opt stop()}{p_end}
 {synopt:{opt save:as(filename)}}save the result to a file and restore the data in memory{p_end}
@@ -90,7 +90,7 @@ the output merges with {helpb tvexpose}/{helpb tvmerge} output and feeds
 {opt id(varname)} specifies the person identifier.
 
 {phang}
-{opt start(varname)} and {opt stop(varname)} specify the interval to split.
+{opt start(varname)} and {opt stop(varname)} specify the interval to split.{...}
 Both must be non-missing daily Stata dates with {cmd:stop >= start}.
 
 {phang}
@@ -107,16 +107,19 @@ allowed for {cmd:type(calendar)}.
 {phang}
 {opt width(#)} sets the band width. For {cmd:age} and {cmd:calendar} the unit is
 years (for example {cmd:width(10)} gives 10-year bands); for {cmd:elapsed} the
-unit is set by {opt unit()}. Default is {cmd:width(1)}.
+unit is set by {opt unit()}. Calendar widths must be positive whole years;{...}
+fractional widths are allowed for age and elapsed-year bands. Default is
+{cmd:width(1)}.
 
 {phang}
 {opt unit(day|year)} sets the elapsed-time unit. Default is {cmd:day}. Used only
-with {cmd:type(elapsed)}.
+with {cmd:type(elapsed)}; specifying it for another axis is an error.
 
 {phang}
 {opt anchor(#)} fixes the first calendar year of the band grid (relevant when
 {cmd:width()} exceeds 1). Default is the earliest year in the data. Used only
-with {cmd:type(calendar)}.
+with {cmd:type(calendar)}.{...}
+Specifying {opt anchor()} for another axis is an error.
 
 {phang}
 {opt min(#)} and {opt max(#)} drop bands whose lower-edge value falls below
@@ -130,7 +133,7 @@ with {cmd:type(calendar)}.
 {cmd:ageband}, {cmd:calband}, or {cmd:fuband}.
 
 {phang}
-{opt startgen(name)} and {opt stopgen(name)} rename the split interval bounds.
+{opt startgen(name)} and {opt stopgen(name)} rename the split interval bounds.{...}
 By default the input {opt start()}/{opt stop()} variables are overwritten in
 place.
 

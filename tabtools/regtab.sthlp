@@ -63,48 +63,48 @@ alignment, fonts, and column widths. Title text can be written to cell {cmd:A1};
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym.{p_end}
-{synopt:{opt sheet(string)}}Target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}.{p_end}
-{synopt:{opt sep(string asis)}}CI-endpoint delimiter for {cmd:collect}. Default {cmd:", "}.{p_end}
-{synopt:{opt models(string)}}Labels merged above each model's columns, backslash-separated; auto-generated if omitted.{p_end}
-{synopt:{opt coef(string)}}Header for the estimate column; auto-detected per model scale if omitted (see Remarks).{p_end}
-{synopt:{opt title(string)}}Title written to {cmd:A1}, merged across the table; blank if omitted.{p_end}
-{synopt:{opt noint:ercept}}Drop intercept, cutpoint, and ancillary rows; auto-enabled for all-ratio-scale models.{p_end}
-{synopt:{opt keepi:ntercept}}Force display of the intercept row even for exponentiated models.{p_end}
-{synopt:{opt nore:effects}}Drop all random-effects rows (variances, covariances, SDs).{p_end}
-{synopt:{opt stats(string)}}Model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (see Remarks).{p_end}
-{synopt:{opt digits(#)}}Decimal places for coefficients and CIs (default 2, range 0-6).{p_end}
-{synopt:{opt labelw:idth(#)}}Maximum width of the label column in characters (default 45); longer labels wrap.{p_end}
-{synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
-{synopt:{opt open}}Open the Excel file after export; requires {opt xlsx()} or {opt excel()}.{p_end}
-{synopt:{opt zebra}}Apply alternating light gray row shading.{p_end}
-{synopt:{opt high:light(#)}}Yellow fill for rows where p-value < #.{p_end}
-{synopt:{opt bold:p(#)}}Bold p-value cells below #.{p_end}
-{synopt:{opt headers:hade}}Apply background fill to the header row.{p_end}
-{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic} (default {cmd:thin}).{p_end}
-{synopt:{opt cdisc}}CDISC mode: digits 4, coef label "Estimate", forces {cmd:stats(n)}.{p_end}
-{synopt:{opt relab:el}}Relabel random effects using variable labels and parameter types (see Remarks).{p_end}
-{synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
-{synopt:{opt starsl:evels(numlist)}}Custom p-value thresholds for stars; exactly 3 values (default 0.05 0.01 0.001).{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color (Stata color name or RGB triplet; default {cmd:"219 229 241"}).{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color (Stata color name or RGB triplet; default {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv(filename)}}Also export the table as a CSV file.{p_end}
-{synopt:{opt markdown(filename)}}Export the table as GitHub-Flavored Markdown.{p_end}
-{synopt:{opt mdappend}}Append the Markdown table to an existing file; requires {opt markdown()}.{p_end}
-{synopt:{opt fra:me(name)}}Store output in a named frame; {cmd:frame(name, replace)} replaces an existing frame.{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot} (see Remarks).{p_end}
-{synopt:{opt keep(varlist)}}Show only rows matching these variable names; not with {opt drop()}.{p_end}
-{synopt:{opt drop(varlist)}}Drop rows matching these variable names; not with {opt keep()}.{p_end}
-{synopt:{opt dimnon:sig}}Gray out non-significant rows (see Remarks).{p_end}
-{synopt:{opt factorl:abel}}Replace factor-variable prefixes (e.g., {it:3.rep78}) with value labels.{p_end}
-{synopt:{opt ref:cat(string)}}Label for reference-category rows. Default {cmd:"Reference"}.{p_end}
-{synopt:{opt cutl:abels(string)}}Custom labels for ordered-model cutpoint rows, backslash-separated.{p_end}
-{synopt:{opt comp:act}}Merge estimate and CI into one column per model.{p_end}
-{synopt:{opt nop:value}}Suppress p-value columns; stars and highlighting still use p-values internally.{p_end}
-{synopt:{opt addr:ow(string asis)}}Append custom label/value rows below the table (see Remarks for syntax).{p_end}
-{synopt:{opt pdp(#)}}Max decimal places for small p-values (p < 0.10); default 3.{p_end}
-{synopt:{opt highpdp(#)}}Max decimal places for large p-values (p >= 0.10); default 2.{p_end}
+{synopt:{opt xlsx(string)}}output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
+{synopt:{opt sheet(string)}}target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}{p_end}
+{synopt:{opt sep(string asis)}}CI-endpoint delimiter for {cmd:collect}; default {cmd:", "}{p_end}
+{synopt:{opt models(string)}}labels merged above each model's columns, backslash-separated; auto-generated if omitted{p_end}
+{synopt:{opt coef(string)}}header for the estimate column; auto-detected per model scale if omitted (see Remarks){p_end}
+{synopt:{opt title(string)}}title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
+{synopt:{opt noint:ercept}}drop intercept, cutpoint, and ancillary rows; auto-enabled for all-ratio-scale models{p_end}
+{synopt:{opt keepi:ntercept}}force display of the intercept row even for exponentiated models{p_end}
+{synopt:{opt nore:effects}}drop all random-effects rows (variances, covariances, SDs){p_end}
+{synopt:{opt stats(string)}}model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (see Remarks){p_end}
+{synopt:{opt digits(#)}}decimal places for coefficients and CIs (default 2, range 0-6){p_end}
+{synopt:{opt labelw:idth(#)}}maximum width of the label column in characters (default 45); longer labels wrap{p_end}
+{synopt:{opt foot:note(string)}}add a footnote row below the table in smaller italic font{p_end}
+{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt zebra}}apply alternating light gray row shading{p_end}
+{synopt:{opt high:light(#)}}yellow fill for rows where p-value < #{p_end}
+{synopt:{opt bold:p(#)}}bold p-value cells below #{p_end}
+{synopt:{opt headers:hade}}apply background fill to the header row{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic} (default {cmd:thin}){p_end}
+{synopt:{opt cdisc}}CDISC mode: digits 4, coef label "Estimate", forces {cmd:stats(n)}{p_end}
+{synopt:{opt relab:el}}relabel random effects using variable labels and parameter types (see Remarks){p_end}
+{synopt:{opt stars}}add significance stars to coefficients (*, **, ***){p_end}
+{synopt:{opt starsl:evels(numlist)}}custom p-value thresholds for stars; exactly 3 values (default 0.05 0.01 0.001){p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color (Stata color name or RGB triplet; default {cmd:"219 229 241"}){p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra color (Stata color name or RGB triplet; default {cmd:"237 242 249"}){p_end}
+{synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
+{synopt:{opt markdown(filename)}}export the table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+{synopt:{opt fra:me(name)}}store output in a named frame; {cmd:frame(name, replace)} replaces an existing frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}store a graph-ready companion frame for {helpb eplot} (see Remarks){p_end}
+{synopt:{opt keep(varlist)}}show only rows matching these variable names; not with {opt drop()}{p_end}
+{synopt:{opt drop(varlist)}}drop rows matching these variable names; not with {opt keep()}{p_end}
+{synopt:{opt dimnon:sig}}gray out non-significant rows (see Remarks){p_end}
+{synopt:{opt factorl:abel}}replace factor-variable prefixes (e.g., {it:3.rep78}) with value labels{p_end}
+{synopt:{opt ref:cat(string)}}label for reference-category rows. Default {cmd:"Reference"}{p_end}
+{synopt:{opt cutl:abels(string)}}custom labels for ordered-model cutpoint rows, backslash-separated{p_end}
+{synopt:{opt comp:act}}merge estimate and CI into one column per model{p_end}
+{synopt:{opt nop:value}}suppress p-value columns; stars and highlighting still use p-values internally{p_end}
+{synopt:{opt addr:ow(string asis)}}append custom label/value rows below the table (see Remarks for syntax){p_end}
+{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10); default 3{p_end}
+{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10); default 2{p_end}
 {synoptline}
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
@@ -133,7 +133,8 @@ cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd
 intentionally updates collect labels, styles, and layout before export. If you
 need the original collection layout unchanged for later commands, save or
 rebuild that collection before running {cmd:regtab}.{p_end}
-{p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
+{p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example
+alternative: {cmd:sep("; ")}.{p_end}
 {p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display
 scale per collected model from the collected command metadata and fills the
 estimate header automatically. When models use different scales, estimate
@@ -358,6 +359,5 @@ incomparable per-observation or deviance scale.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {hline}

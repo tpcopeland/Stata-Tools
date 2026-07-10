@@ -1,10 +1,26 @@
-# finegray Performance Benchmarks
+# finegray demonstrations and benchmarks
 
-`finegray` uses a Mata-native forward-backward scan algorithm (Kawaguchi et al. 2021) as its default estimator. This avoids the data expansion step required by Stata's built-in `stcrreg`, delivering identical point estimates in a fraction of the time.
+Run the comprehensive demo from the Stata-Tools repository root:
 
-## Benchmark Results
+```bash
+stata-mp -b do finegray/demo/demo_finegray.do
+```
 
-Simulated competing risks data with 3 covariates. Formal benchmarks (median of 3 replications, 1 core) from the Stata Journal manuscript:
+The demo installs the local package and demonstrates the complete public workflow:
+
+- Core estimation, factor variables, `censvalue()`, reporting controls, stratified censoring, cluster-robust inference, and model-based inference
+- Default `xb`, CIF, fixed-horizon CIF confidence intervals, cluster-bootstrap intervals, compatible-new-data scoring, and Schoenfeld residuals
+- Rank, log-time, and identity-time proportional subdistribution hazards diagnostics
+- CIF profiles, fixed horizons, custom time grids, analytic and bootstrap intervals, graph options, and verified `saving()` output
+- Multiple-record (`stsplit`) data, delayed entry, and bootstrap inference with string subject identifiers
+
+The generated documentation artifact is `finegray_cif.png`. The temporary CIF dataset is checked for row count, bounds, interval ordering, and summary content, then removed.
+
+## Performance benchmarks
+
+`finegray` uses a Mata-native forward-backward scan algorithm (Kawaguchi et al. 2021) that avoids the data expansion required by Stata's built-in `stcrreg`.
+
+Formal benchmarks from the Stata Journal manuscript used simulated competing-risks data with three covariates (median of three replications, one core):
 
 | N | finegray | stcrreg | Speedup |
 |------:|----------:|--------:|--------:|
@@ -14,29 +30,13 @@ Simulated competing risks data with 3 covariates. Formal benchmarks (median of 3
 | 5,000 | 0.27s | 96.8s | **357x** |
 | 10,000 | 0.58s | 378.7s | **651x** |
 
-At N=5,000, `finegray` finishes in under a third of a second while `stcrreg` takes over 90 seconds. The gap widens with sample size because `stcrreg` expands the dataset, while the Mata engine operates on the original data.
+The validation suite cross-checks coefficients, log pseudo-likelihoods, model-based standard errors, robust standard errors, CIFs, baseline hazards, and post-estimation predictions against `stcrreg`, `cmprsk`, and `riskRegression`; see [`../qa/README.md`](../qa/README.md).
 
-## Why the Mata engine is faster
+Run the reproducible timing scripts from the repository root:
 
-`stcrreg` and the `stcrprep` + `stcox` workflow must expand the dataset so that each subject who experiences a competing event gets replicated across all later risk sets with time-dependent weights. This expansion is O(n * number of unique event times), creating datasets 10-100x larger than the original. The Mata engine computes the same weighted partial likelihood directly using a forward-backward scan over the sorted event times, avoiding expansion entirely.
-
-## Numerical accuracy
-
-The Mata engine matches `stcrreg` to machine precision. From the validation suite:
-
-- Coefficients agree to 6+ decimal places
-- Log pseudo-likelihoods match exactly
-- Model-based SEs (`norobust`) match exactly
-- Default robust SEs differ by roughly 0.5% because `stcrreg` computes its
-  sandwich on an expanded dataset while `finegray` works on subject-level data
-
-See `../qa/validation_finegray.do` for the full cross-validation against `stcrreg`.
-
-## Running the benchmarks
-
-```stata
-do benchmark_finegray.do   // hypoxia dataset (small, real data)
-do benchmark_large.do      // simulated data, N = 500 to 5,000
+```bash
+stata-mp -b do finegray/demo/benchmark_finegray.do
+stata-mp -b do finegray/demo/benchmark_large.do
 ```
 
-Both scripts install `finegray` from the local package directory and log results to `.log` files.
+The first uses Stata's `hypoxia` data. The second generates fixed-seed samples from N=500 through N=5,000. Runtime varies by machine, Stata version, and current load; the manuscript table above is retained as the fixed reference rather than overwritten by a single local run.

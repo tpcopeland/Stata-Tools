@@ -69,19 +69,19 @@ or {opt exit()}.
 {dlgtab:Required}
 
 {phang}
-{opt id(varname)} specifies the person identifier variable.
+{opt id(varname)} specifies the person identifier variable.{...}
 (Legacy synonym: {opt idvar()}.)
 
 {phang}
-{opt dob(varname)} specifies the date of birth variable (Stata date format).
+{opt dob(varname)} specifies the date of birth variable (Stata date format).{...}
 (Legacy synonym: {opt dobvar()}.)
 
 {phang}
-{opt entry(varname)} specifies the study entry date variable (Stata date format).
+{opt entry(varname)} specifies the study entry date variable (Stata date format).{...}
 (Legacy synonym: {opt entryvar()}.)
 
 {phang}
-{opt exit(varname)} specifies the study exit date variable (Stata date format).
+{opt exit(varname)} specifies the study exit date variable (Stata date format).{...}
 (Legacy synonym: {opt exitvar()}.)
 
 {pstd}
@@ -92,20 +92,20 @@ spelling per option.
 {dlgtab:Optional}
 
 {phang}
-{opt generate(name)} specifies the name for the generated age variable.
+{opt generate(name)} specifies the name for the generated age variable.{...}
 Default is {cmd:age_tv}.
 
 {phang}
-{opt startgen(name)} specifies the name for the interval start date variable.
+{opt startgen(name)} specifies the name for the interval start date variable.{...}
 Default is {cmd:age_start}.
 
 {phang}
-{opt stopgen(name)} specifies the name for the interval stop date variable.
+{opt stopgen(name)} specifies the name for the interval stop date variable.{...}
 Default is {cmd:age_stop}.
 
 {phang}
 {opt groupwidth(#)} specifies the width of age groups in years. For example,
-{cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.).
+{cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.).{...}
 Default is 1 (single-year continuous ages with no labels).
 
 {phang}
@@ -162,7 +162,7 @@ Stata dates for compatibility with interval-based survival analysis.
 {pstd}
 {cmd:tvage} requires exactly one observation per person. All date variables
 ({opt dob()}, {opt entry()}, {opt exit()}) must be non-missing Stata
-daily dates. Datetime formats ({cmd:%tc}/{cmd:%tC}) are not supported;
+daily dates. Datetime formats ({cmd:%tc}/{cmd:%tC}) are not supported;{...}
 convert with {cmd:gen daily = dofc(datetime)}.
 
 

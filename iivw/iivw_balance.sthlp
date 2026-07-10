@@ -51,7 +51,7 @@
 {synopt:{opt title(string)}}optional Excel title row{p_end}
 {synopt:{opt footnote(string)}}optional Excel footnote row{p_end}
 {synopt:{opt dec:imals(#)}}number of Excel decimal places; default {cmd:4}{p_end}
-{synopt:{opt border:style(string)}}Excel border scheme: {cmd:thin} (framed grid with column-group separators; default), {cmd:medium}, {cmd:academic}, or {cmd:default}{p_end}
+{synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
 {synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
@@ -300,10 +300,14 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
-{synopt:{cmd:r(balance)}}unweighted mean, weighted mean, SD, SMD, abs(SMD), N, missing count, modeled flag{p_end}
+{synopt:{cmd:r(balance)}}covariate-balance statistics and flags{p_end}
 {synopt:{cmd:r(hr_unweighted)}}unweighted AG-refit HRs; only with {opt agrefit}{p_end}
 {synopt:{cmd:r(hr_weighted)}}weighted AG-refit HRs; only with {opt agrefit}{p_end}
 {p2colreset}{...}
+
+{pstd}
+{cmd:r(balance)} contains the unweighted mean, weighted mean, unweighted SD,
+SMD, absolute SMD, N, missing count, and modeled-covariate flag.
 
 
 {marker author}{...}

@@ -2589,6 +2589,77 @@ else {
     local ++fail_count
 }
 
+* T127: Doc-contract — default xb example includes the required comma
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray_predict xb_default,
+    quietly count if e(sample) & missing(xb_default)
+    assert r(N) == 0
+    local xb_label : variable label xb_default
+    assert "`xb_label'" == "Linear prediction (xb)"
+}
+if _rc == 0 {
+    display as result "  PASS: T127 default xb help example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T127 default xb help example (rc=`=_rc')"
+    local ++fail_count
+}
+
+* T128: Doc-contract — omitted level() follows c(level)
+local ++test_count
+capture noisily {
+    set level 90
+    _setup_hypoxia
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(level) == 90
+}
+local _t128_rc = _rc
+set level 95
+if `_t128_rc' == 0 {
+    display as result "  PASS: T128 default level follows c(level)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T128 default level contract (rc=`_t128_rc')"
+    local ++fail_count
+}
+
+* T129: Doc-contract — factor-profile, custom-grid, and saving() CIF examples
+local ++test_count
+capture noisily {
+    _setup_hypoxia
+    finegray i.pelnode ifp tumsize, compete(status) cause(1) nolog
+    finegray_cif, at(pelnode=1 ifp=20 tumsize=5) attime(1 5 8) ci
+    matrix _T129 = r(table)
+    assert rowsof(_T129) == 3
+    assert colsof(_T129) == 5
+    assert _T129[1, 2] >= 0 & _T129[1, 2] <= 1
+
+    tempfile cifsave
+    finegray_cif, timepoints(1 2 3 4 5 6 7 8) ci nograph ///
+        saving("`cifsave'",replace)
+    confirm file "`cifsave'"
+    preserve
+    use "`cifsave'", clear
+    assert _N == 8
+    confirm numeric variable time cif se lci uci
+    assert inrange(cif, 0, 1)
+    assert lci <= cif & cif <= uci
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: T129 finegray_cif help workflow"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T129 finegray_cif help workflow (rc=`=_rc')"
+    local ++fail_count
+}
+
 * {smcl}
 * {* SUMMARY}{...}
 display ""

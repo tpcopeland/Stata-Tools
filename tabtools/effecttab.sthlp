@@ -57,37 +57,37 @@ collection must remain unchanged.{p_end}
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym.{p_end}
-{synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}.{p_end}
-{synopt:{opt type(string)}}Collected results type: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default; see Remarks).{p_end}
-{synopt:{opt effect(string)}}Header for the effect column (e.g., {cmd:ATE}, {cmd:RD}, {cmd:RR}, {cmd:AME}); default "Effect"/"Estimate".{p_end}
-{synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
-{synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
-{synopt:{opt title(string)}}Text written into cell {cmd:A1} and merged across the table width.{p_end}
+{synopt:{opt xlsx(string)}}output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
+{synopt:{opt sheet(string)}}target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}{p_end}
+{synopt:{opt type(string)}}collected results type: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default; see Remarks){p_end}
+{synopt:{opt effect(string)}}header for the effect column (e.g., {cmd:ATE}, {cmd:RD}, {cmd:RR}, {cmd:AME}); default "Effect"/"Estimate"{p_end}
+{synopt:{opt sep(string asis)}}delimiter between CI endpoints. Default is {cmd:", "}{p_end}
+{synopt:{opt models(string)}}labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}{p_end}
+{synopt:{opt title(string)}}text written into cell {cmd:A1} and merged across the table width{p_end}
 {synopt:{opt clean}}clean up teffects row labels; uses value labels when available (e.g., {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
-{synopt:{opt tlab:els(string asis)}}Explicit treatment-level label pairs; implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")}.{p_end}
-{synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
-{synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
-{synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
-{synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold.{p_end}
-{synopt:{opt bold:p(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
-{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
-{synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
-{synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
-{synopt:{opt labelw:idth(#)}}Maximum width of the label column in characters (default 45); longer labels wrap.{p_end}
-{synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}Store a graph-ready companion frame for {helpb eplot} (see Remarks).{p_end}
-{synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
-{synopt:{opt from(name)}}Read results from a named matrix instead of {cmd:collect} (see Remarks).{p_end}
+{synopt:{opt tlab:els(string asis)}}explicit treatment-level label pairs; implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")}{p_end}
+{synopt:{opt foot:note(string)}}add a footnote row below the table in smaller italic font{p_end}
+{synopt:{opt open}}open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt zebra}}apply alternating light gray row shading for readability{p_end}
+{synopt:{opt high:light(#)}}apply yellow fill to rows where p-value < threshold{p_end}
+{synopt:{opt bold:p(#)}}bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}){p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt full}}show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean){p_end}
+{synopt:{opt digits(#)}}number of decimal places for effects and CIs (default 2, range 0-6){p_end}
+{synopt:{opt labelw:idth(#)}}maximum width of the label column in characters (default 45); longer labels wrap{p_end}
+{synopt:{opt fra:me(name)}}store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}store a graph-ready companion frame for {helpb eplot} (see Remarks){p_end}
+{synopt:{opt the:me(string)}}formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}{p_end}
+{synopt:{opt from(name)}}read results from a named matrix instead of {cmd:collect} (see Remarks){p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt headerc:olor(string)}}Custom header background color as a supported Stata color name or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
-{synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
-{synopt:{opt csv(filename)}}Also export the table as a CSV file.{p_end}
+{synopt:{opt headerc:olor(string)}}custom header background color as a supported Stata color name or RGB triplet (e.g., {cmd:"219 229 241"}){p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra stripe color as a supported Stata color name or RGB triplet (e.g., {cmd:"237 242 249"}){p_end}
+{synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt addr:ow(string asis)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows.{p_end}
-{synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
-{synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
+{synopt:{opt addr:ow(string asis)}}append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows{p_end}
+{synopt:{opt pdp(#)}}maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10{p_end}
+{synopt:{opt highpdp(#)}}maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10{p_end}
 {synoptline}
 
 {marker remarks}{title:Remarks}
@@ -235,6 +235,5 @@ metadata. When {opt frame()} is also set, the display frame records the companio
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {hline}

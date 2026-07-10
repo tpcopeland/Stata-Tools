@@ -6,6 +6,18 @@
 
 The package also includes post-estimation tools for prediction, cumulative incidence curves, and proportional subdistribution hazards diagnostics. The intended workflow is `finegray` for estimation, `finegray_predict` for `xb`, CIF, or Schoenfeld residuals, `finegray_cif` for cumulative incidence curves and fixed-horizon CIF with confidence intervals, and `finegray_phtest` for the proportional hazards check.
 
+## Quick Start
+
+```stata
+webuse hypoxia, clear
+gen byte status = failtype
+stset dftime, failure(dfcens==1) id(stnum)
+
+finegray ifp tumsize pelnode, compete(status) cause(1)
+finegray_cif, attime(1 5 8) ci
+finegray_phtest
+```
+
 ## Requirements
 
 - Stata 16 or later
@@ -27,6 +39,65 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `finegray_predict` | Generate `xb`, CIF (with optional CI), or Schoenfeld residuals after `finegray` |
 | `finegray_cif` | Plot cumulative incidence curves with confidence bands; report fixed-horizon CIF with CI |
 | `finegray_phtest` | Test the proportional subdistribution hazards assumption |
+
+## Options
+
+| Option | Command | Purpose and default |
+|--------|---------|---------------------|
+| `compete()` | `finegray` | Required event-type variable |
+| `cause()` | `finegray` | Required cause-of-interest value |
+| `censvalue()` | `finegray` | Censoring value; default `0` |
+| `strata()` | `finegray` | Stratify the censoring distribution |
+| `cluster()` | `finegray` | Cluster-robust inference |
+| `robust` / `norobust` | `finegray` | Sandwich variance is the default; `norobust` selects observed-information variance |
+| `shr` / `noshr` | `finegray` | SHRs are the default; `noshr` reports log-SHR coefficients |
+| `level()` | `finegray` | Confidence level; default `c(level)` |
+| `log` / `nolog` | `finegray` | Iteration logging is the default; `nolog` suppresses it |
+| `iterate()` | `finegray` | Maximum Newton-Raphson iterations; default `200` |
+| `tolerance()` | `finegray` | Convergence tolerance; default `1e-8` |
+| `xb`, `cif`, `schoenfeld` | `finegray_predict` | Select the prediction type; default `xb` |
+| `timevar()` | `finegray_predict` | Evaluate CIF predictions at a supplied time variable |
+| `ci`, `level()` | `finegray_predict` | Add CIF confidence limits at the requested level |
+| `bootstrap()`, `seed()` | `finegray_predict` | Use reproducible subject- or cluster-bootstrap CIF limits |
+| `at()` | `finegray_cif` | Set the covariate profile; unspecified terms use estimation-sample means |
+| `attime()` | `finegray_cif` | Report fixed-horizon CIF estimates |
+| `timepoints()` | `finegray_cif` | Evaluate the curve on a custom time grid |
+| `ci`, `level()` | `finegray_cif` | Add a pointwise confidence band at the requested level |
+| `saving()` | `finegray_cif` | Save `time`, `cif`, `se`, `lci`, and `uci` |
+| `bootstrap()`, `seed()` | `finegray_cif` | Use a reproducible subject or cluster bootstrap |
+| `nograph` | `finegray_cif` | Suppress graph creation |
+| `time()` | `finegray_phtest` | Select `rank`, `log`, or `identity`; default `rank` |
+| `detail` | `finegray_phtest` | Display the first 20 scaled-Schoenfeld rows |
+
+## Stored Results
+
+`finegray` is an e-class estimation command. Its package-specific contract is:
+
+Core estimation quantities include `e(N)`, `e(N_fail)`, `e(N_compete)`, `e(N_cens)`, `e(b)`, and `e(V)`.
+
+| Result | Contents |
+|--------|----------|
+| `e(N)` | Number of subjects |
+| `e(N_fail)` | Number of cause-of-interest events |
+| `e(N_compete)` | Number of competing events |
+| `e(N_cens)` | Number censored |
+| `e(ll)`, `e(ll_0)` | Fitted and constant-only log pseudo-likelihoods |
+| `e(chi2)`, `e(p)`, `e(df_m)` | Wald model test |
+| `e(converged)` | Convergence indicator |
+| `e(level)` | Confidence level |
+| `e(cause)`, `e(censvalue)` | Event coding used by the fit |
+| `e(iterate)`, `e(tolerance)` | Optimization controls |
+| `e(cmd)`, `e(cmdline)`, `e(predict)` | Command metadata |
+| `e(depvar)`, `e(compete)` | Event-type variable |
+| `e(covariates)`, `e(fvvarlist)` | Expanded covariates and original factor-variable specification |
+| `e(strata)`, `e(clustvar)`, `e(vce)` | Variance and censoring-strata metadata |
+| `e(title)`, `e(marginsok)`, `e(properties)` | Estimation-command metadata |
+| `e(datasignature)`, `e(datasignaturevars)` | Original-data signature used by data-dependent post-estimation |
+| `e(sample)` | Estimation-sample indicator |
+| `e(b)`, `e(V)` | Coefficient vector and variance-covariance matrix |
+| `e(basehaz)` | Baseline cumulative subdistribution hazard by event time |
+
+`finegray_cif` stores `r(table)`, `r(at)`, `r(level)`, `r(cause)`, and `r(profile_vars)`. With `bootstrap()`, it also stores `r(bootstrap_requested)`, `r(bootstrap_success)`, and `r(bootstrap_failed)`. `finegray_phtest` stores `r(chi2)`, `r(df)`, `r(p)`, `r(N_fail)`, `r(time)`, and `r(phtest)`. `finegray_predict` creates variables and intentionally clears `r()`.
 
 ## How It Works
 
@@ -138,16 +209,13 @@ finegray_predict cif5, cif timevar(t5) ci          // per-subject 5-year CIF + c
 
 ## Demonstration
 
-`finegray_cif` produces a cumulative incidence curve with a pointwise confidence band (the `stcurve, cif` analogue that can also plot the interval). The figure below is generated by `demo/demo_finegray.do`:
+The comprehensive demo script (`finegray/demo/demo_finegray.do`) installs the local package, exercises every public command and all 1.1.x workflows, verifies exported CIF data, and refreshes the graph below. Run it from the Stata-Tools repository root with `stata-mp -b do finegray/demo/demo_finegray.do`.
 
-```stata
-finegray ifp tumsize pelnode, compete(status) cause(1)
-finegray_cif, ci
-```
+### Cumulative-incidence graph
+
+The graph uses the package default profile, an analytic 95% pointwise confidence band, the `plotplainblind` scheme, and the required bottom legend position.
 
 ![Fine-Gray cumulative incidence with 95% band](demo/finegray_cif.png)
-
-The same demo also prints the fixed-horizon CIF table (`finegray_cif, attime(1 3 5 8) ci`), per-subject CIF limits (`finegray_predict, cif ci`), and confirms that multiple-record (`stsplit`) data reproduce the single-record fit exactly.
 
 ## Features
 
@@ -165,22 +233,7 @@ The same demo also prints the fixed-horizon CIF table (`finegray_cif, attime(1 3
 
 The package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression (`cmprsk`, `riskRegression`). The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior.
 
-The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, and `full` lanes) and documented in `qa/README.md`. The `qa/` directory contains 14 QA files: 4 functional/regression files, 6 validation files, and 4 cross-validation files covering all four public commands.
-
-- `test_finegray.do` - 127 tests
-- `test_finegray_v110.do` - 24 tests
-- `test_finegray_v111.do` - 13 tests
-- `test_finegray_v112.do` - 10 tests
-- `validation_finegray.do` - 45 tests
-- `validation_finegray_recovery.do` - 4 tests
-- `validation_finegray_recovery_paths.do` - 15 tests
-- `validation_finegray_cif_recovery.do` - 5 tests
-- `validation_finegray_cif_se.do` - 3 tests
-- `validation_finegray_lt_se.do` - 3 tests
-- `crossval_predict_stcrreg.do` - 15 tests
-- `crossval_cif.do` - 2 tests
-- `crossval_predict_phtest.do` - 14 tests
-- `crossval_finegray.do` - 55 tests
+The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, and `full` lanes) and documented in `qa/README.md`. The `qa/` directory contains 15 package QA files: 5 functional/regression files, 6 validation files, and 4 cross-validation files covering all four public commands. The current static inventory contains 619 checks across those suites, including the dedicated `test_finegray_v114.do` bootstrap/parsing regression file.
 
 `qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
 
@@ -201,19 +254,19 @@ Standard errors are robust (sandwich) by default in both commands and agree to r
   - `finegray_cif, saving()` accepts `saving(filename,replace)` without a space after the comma; previously only `saving(filename, replace)` was accepted and the unspaced form was rejected with `r(198)`.
   - `finegray_predict` no longer leaves a partial prediction variable behind when it exits with an error (for example, a failed bootstrap or a confidence-limit name collision); any variables created by the failed call are dropped.
 
-- **1.1.3** (2026-07-10; Pending SSC release): Regression fixes for the 1.1.2 estimator refresh.
+- **1.1.3** (2026-07-10; Not released to SSC): Regression fixes for the 1.1.2 estimator refresh.
   - Fixed the Newton-Raphson early-exit added in 1.1.2, which declared convergence on a small step without applying it. Coefficients could be left up to `sqrt(tolerance())` from the optimum; `predict, xb` is again bit-exact against `stcrreg`.
   - Fixed `finegray_predict, bootstrap()`, which aborted with `r(111)` on every replication because a local macro was referenced without quotes.
   - Fixed cumulative-incidence standard errors under multi-stratum censoring (`strata()` spanning more than one group), which exited `r(3201)` because a matrix was passed to Mata's vector-only `runningsum()`.
 
-- **1.1.2** (2026-07-09; Pending SSC release): Deep correctness and state-safety review.
+- **1.1.2** (2026-07-09; Not released to SSC): Deep correctness and state-safety review.
   - Fixed stratified censoring IPCW throughout the estimator, robust variance, baseline hazard, Schoenfeld residuals, and CIF influence functions. Each retained competing-event subject now uses the censoring survival from its own stratum; coefficients and log pseudo-likelihood now match `cmprsk::crr(..., cengroup=)` to numerical precision.
   - Added estimation-data signatures. `finegray_cif`, `finegray_phtest`, and the data-dependent `finegray_predict` paths reject stale or edited estimation data, while point `xb`/CIF scoring remains available on compatible new data.
   - Hardened post-estimation state and return gates: failed refits cannot expose stale success, graph/save failures preserve the complete analytical `r()` payload, `saving()` is strictly parsed, and `at()` rejects nonfinite values.
   - Bootstrap inference skips nonconverged refits, reports requested/successful/failed counts from `finegray_cif`, requires at least two successful replications, and preserves the original estimates and `e(sample)`.
   - Exact collinearity and constant covariates now produce an explicit `r(459)` diagnostic instead of undocumented ridge-dependent estimates; optimizer convergence at a numerical optimum is recognized without requiring a strictly increasing final step.
 
-- **1.1.1** (2026-07-07; Pending SSC release): Correctness fixes for left truncation and multi-record fits.
+- **1.1.1** (2026-07-07; Not released to SSC): Correctness fixes for left truncation and multi-record fits.
   - Performance: the CIF influence-function variance (`finegray_cif` and `finegray_predict, cif ci`) was rewritten from an O(_n_&sup2;) per-evaluation-point loop over the cause events to an O(_n_&nbsp;log&nbsp;_n_) prefix-sum computation. Standard errors are numerically identical (max abs difference 1e-16); a `finegray_cif` call at _n_&nbsp;=&nbsp;120,000 dropped from ~91s to ~7s. This makes CIF standard errors practical at epidemiological sample sizes.
   - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, PH tests, and bootstrap refits after `stsplit`-style data.
   - Robust/cluster SEs and CIF influence-function SEs under delayed entry (left truncation) fixed: the per-subject score residuals now restrict the at-risk contribution to each subject's actual risk window `[t0, t]`. Validated against a delete-one jackknife oracle; results with no delayed entry are unchanged.

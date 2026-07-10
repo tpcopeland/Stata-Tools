@@ -40,16 +40,16 @@ data may instead be supplied as a named frame via {opt frame()}.
 {synopthdr}
 {synoptline}
 {syntab:Main}
-{synopt:{opth id(varname)}}person identifier, present in master and episode file{p_end}
+{synopt:{opth id(varname)}}person identifier in both datasets{p_end}
 {synopt:{opth entry(varname)}}study entry date in the master (anchors the grid){p_end}
 {synopt:{opth exit(varname)}}study exit date in the master{p_end}
-{synopt:{opth exposure(name)}}integer exposure-class variable in the episode file{p_end}
-{synopt:{opt fr:ame(name)}}read the episode data from a named frame instead of a file{p_end}
+{synopt:{opth exposure(name)}}integer exposure-class variable{p_end}
+{synopt:{opt fr:ame(name)}}read episodes from a named frame{p_end}
 
 {syntab:Grid}
 {synopt:{opt width(#)}}interval width in days; default {cmd:width(91)}{p_end}
-{synopt:{opt ref:erence(#)}}value marking unexposed/reference; default {cmd:reference(0)}{p_end}
-{synopt:{opt start(name)}}episode start date in the using file; default {cmd:start}{p_end}
+{synopt:{opt ref:erence(#)}}reference class; default {cmd:0}{p_end}
+{synopt:{opt start(name)}}episode-start variable; default {cmd:start}{p_end}
 {synopt:{opt stop(name)}}episode stop date in the using file; default {cmd:stop}{p_end}
 
 {syntab:Output names}
@@ -57,12 +57,12 @@ data may instead be supplied as a named frame via {opt frame()}.
 {synopt:{opt startgen(name)}}interval start-date variable; default {cmd:start}{p_end}
 {synopt:{opt stopgen(name)}}interval stop-date variable; default {cmd:stop}{p_end}
 {synopt:{opt gen:erate(name)}}active exposure-class variable; default {cmd:tv_class}{p_end}
-{synopt:{opt cum:ulative(unit)}}emit per-class cumulative exposure as of interval start, in {cmd:days}, {cmd:weeks}, {cmd:months}, {cmd:quarters}, or {cmd:years}{p_end}
-{synopt:{opt pre:fix(string)}}prefix for the cumulative variable names (default none, giving {cmd:cum_}{it:class}){p_end}
+{synopt:{opt cum:ulative(unit)}}per-class cumulative exposure{p_end}
+{synopt:{opt pre:fix(string)}}prefix cumulative-variable names{p_end}
 
 {syntab:Other}
 {synopt:{opth keepvars(varlist)}}master variables carried onto every period row{p_end}
-{synopt:{opt saveas(filename)}}save the panel to disk instead of loading it into memory{p_end}
+{synopt:{opt saveas(filename)}}save the panel to disk{p_end}
 {synopt:{opt replace}}allow {opt saveas()} to overwrite{p_end}
 {synopt:{opt noi:sily}}display a build summary{p_end}
 {synoptline}
@@ -128,6 +128,21 @@ carryover or washout into the episode stop before calling {cmd:tvpanel}.
 {opt cumulative(unit)} adds one variable per non-reference class, {cmd:cum_}{it:class}
 (or {opt prefix()}{cmd:cum_}{it:class}), holding cumulative exposure in {it:unit} accrued
 strictly before the interval start. See {help tvpanel##semantics:below}.
+
+{phang}
+{opt period(name)} names the 0-based period index. {opt startgen(name)} and
+{opt stopgen(name)} name the generated panel bounds; their defaults are
+{cmd:period}, {cmd:start}, and {cmd:stop}.
+
+{phang}
+{opth keepvars(varlist)} carries master-data variables onto every panel row.
+
+{phang}
+{opt saveas(filename)} writes the panel to disk and restores the master data.
+{opt replace} permits an existing file to be overwritten.
+
+{phang}
+{opt noisily} displays a compact build summary.
 
 
 {marker semantics}{...}

@@ -4,6 +4,7 @@
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
+{viewerjumpto "Options" "tabtools##options"}{...}
 {viewerjumpto "Persistent defaults" "tabtools##defaults"}{...}
 {viewerjumpto "Examples" "tabtools##examples"}{...}
 {viewerjumpto "Stored results" "tabtools##stored"}{...}
@@ -184,6 +185,9 @@ Load formatting defaults from a saved tabtools profile
 They are not accepted with {cmd:tabtools set}, {cmd:tabtools get}, or
 {cmd:tabtools use}.
 
+
+{marker options}{...}
+{title:Options}
 
 {dlgtab:Display options}
 
@@ -404,7 +408,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 {pstd}{bf:Version} 1.9.7{p_end}
 
 {hline}

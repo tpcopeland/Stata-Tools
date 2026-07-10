@@ -3,6 +3,7 @@
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
+{vieweralsosee "psdash" "help psdash"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {viewerjumpto "Syntax" "iivw_weight##syntax"}{...}
@@ -651,6 +652,12 @@ as predictors of when patients visit the clinic.
 Correct for both informative visits and treatment confounding.
 {opt truncate(1 99)} caps extreme weights at the 1st and 99th percentiles.
 
+{pstd}
+The two {cmd:psdash} commands below are optional.  Install {cmd:psdash} before
+running them if needed:
+
+{phang2}{cmd:. net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace}{p_end}
+
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. psdash combined}{p_end}
 {phang2}{cmd:. psdash weights, iivwcomponent(final) detail graph}{p_end}
@@ -723,7 +730,7 @@ than the default Breslow method.
 {synopt:{cmd:r(nobaseevent)}}1 if {opt nobaseevent} was specified, 0 otherwise{p_end}
 {synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(ps_max)}}maximum treatment propensity score (IPTW/FIPTIW){p_end}
-{synopt:{cmd:r(n_ps_extreme)}}observations with propensity scores below 0.01 or above 0.99 (IPTW/FIPTIW){p_end}
+{synopt:{cmd:r(n_ps_extreme)}}extreme propensity-score observations{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}

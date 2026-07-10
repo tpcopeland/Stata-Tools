@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.6.8  2026/07/03
+*! tvdiagnose Version 1.6.9  2026/07/10
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -72,11 +72,50 @@ program define tvdiagnose, rclass
         display as error "maxids() must be a positive integer"
         exit 198
     }
+    if `threshold' < 0 {
+        display as error "threshold() must be nonnegative"
+        exit 198
+    }
+
+    foreach v in `start' `stop' {
+        capture confirm numeric variable `v'
+        if _rc {
+            display as error "`v' must be a numeric interval variable"
+            exit 109
+        }
+    }
+    quietly count if missing(`id') | missing(`start') | missing(`stop')
+    if r(N) > 0 {
+        display as error "`r(N)' observation(s) have missing id/start/stop values"
+        exit 416
+    }
+    quietly count if `stop' < `start'
+    if r(N) > 0 {
+        display as error "`r(N)' observation(s) have stop < start"
+        exit 459
+    }
 
     if "`coverage'" != "" {
         if "`entry'" == "" | "`exit'" == "" {
             display as error "coverage requires entry() and exit() options"
             exit 198
+        }
+        foreach v in `entry' `exit' {
+            capture confirm numeric variable `v'
+            if _rc {
+                display as error "coverage requires numeric `v'() dates"
+                exit 109
+            }
+        }
+        quietly count if missing(`entry') | missing(`exit')
+        if r(N) > 0 {
+            display as error "`r(N)' observation(s) have missing entry/exit dates"
+            exit 416
+        }
+        quietly count if `exit' < `entry'
+        if r(N) > 0 {
+            display as error "`r(N)' observation(s) have exit < entry"
+            exit 459
         }
     }
 
@@ -124,10 +163,33 @@ program define tvdiagnose, rclass
         preserve
         sort `id' `start' `stop'
 
-        * Calculate coverage metrics per person using user's variable names
-        tempvar _prd _tcov _expd _pctcov _nper _gind _ngap
-        quietly generate double `_prd' = `stop' - `start' + 1
-        quietly by `id': egen double `_tcov' = total(`_prd')
+        * Entry/exit must be person-level constants. A changing window makes a
+        * person-level coverage percentage undefined.
+        tempvar _window_change
+        quietly by `id': gen byte `_window_change' = ///
+            (`entry' != `entry'[1] | `exit' != `exit'[1])
+        quietly count if `_window_change'
+        if r(N) > 0 {
+            display as error "entry()/exit() must be constant within id()"
+            exit 459
+        }
+
+        * Coverage is the UNION of intervals clipped to the study window. Raw
+        * summation double-counts overlaps and can hide a genuine uncovered tail.
+        tempvar _clip_start _clip_stop _running_stop _covered _tcov _expd ///
+            _pctcov _nper _gind _ngap
+        quietly gen double `_clip_start' = max(`start', `entry'[1])
+        quietly gen double `_clip_stop' = min(`stop', `exit'[1])
+        quietly bysort `id' (`_clip_start' `_clip_stop'): gen double `_running_stop' = ///
+            `_clip_stop' if _n == 1
+        quietly by `id' (`_clip_start' `_clip_stop'): replace `_running_stop' = ///
+            max(`_running_stop'[_n-1], `_clip_stop') if _n > 1
+        quietly by `id' (`_clip_start' `_clip_stop'): gen double `_covered' = ///
+            max(0, `_clip_stop' - `_clip_start' + 1) if _n == 1
+        quietly by `id' (`_clip_start' `_clip_stop'): replace `_covered' = ///
+            max(0, `_clip_stop' - max(`_clip_start', `_running_stop'[_n-1] + 1) + 1) ///
+            if _n > 1
+        quietly by `id': egen double `_tcov' = total(`_covered')
         quietly by `id': generate double `_expd' = `exit'[1] - `entry'[1] + 1
         quietly generate double `_pctcov' = 100 * `_tcov' / `_expd'
 
@@ -136,7 +198,7 @@ program define tvdiagnose, rclass
         * Calculate number of gaps using a running max of stop so nested
         * intervals are not miscounted (same logic as the gap-analysis report)
         tempvar _rmax
-        quietly by `id' (`start'): gen double `_rmax' = `stop' if _n == 1
+        quietly bysort `id' (`start' `stop'): gen double `_rmax' = `stop' if _n == 1
         quietly by `id' (`start'): replace `_rmax' = max(`_rmax'[_n-1], `stop') if _n > 1
         quietly by `id' (`start'): gen double `_gind' = (`start' > `_rmax'[_n-1] + 1) if _n > 1
         quietly by `id': egen double `_ngap' = total(`_gind')

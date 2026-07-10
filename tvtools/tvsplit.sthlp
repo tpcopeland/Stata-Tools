@@ -78,8 +78,8 @@ For splitting on a single axis (and for {opt saveas()} convenience), see
 {opt id(varname)} specifies the person identifier.
 
 {phang}
-{opt start(varname)} and {opt stop(varname)} specify the intervals to split.
-They are overwritten in place with the split bounds (the number of rows grows).
+{opt start(varname)} and {opt stop(varname)} specify the intervals to split.{...}
+They are overwritten in place with the split bounds (the number of rows grows).{...}
 Both must be non-missing daily Stata dates.
 
 {dlgtab:Axes (specify at least one)}

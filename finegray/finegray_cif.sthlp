@@ -8,6 +8,7 @@
 {viewerjumpto "Remarks" "finegray_cif##remarks"}{...}
 {viewerjumpto "Examples" "finegray_cif##examples"}{...}
 {viewerjumpto "Stored results" "finegray_cif##results"}{...}
+{viewerjumpto "Author" "finegray_cif##author"}{...}
 {title:Title}
 
 {phang}
@@ -32,9 +33,9 @@ horizons instead of plotting a curve{p_end}
 {synopt :{opt ti:mepoints(numlist)}}evaluate the curve at these times instead of
 the event-time grid{p_end}
 {synopt :{opt ci}}add pointwise confidence limits (influence-function SE){p_end}
-{synopt :{opt boot:strap(#)}}compute a subject-bootstrap confidence band with {it:#} replications; includes censoring-weight uncertainty{p_end}
+{synopt :{opt boot:strap(#)}}compute a subject- or cluster-bootstrap confidence band{p_end}
 {synopt :{opt seed(#)}}random-number seed for {opt bootstrap()}{p_end}
-{synopt :{opt l:evel(#)}}set confidence level; default is {cmd:level(95)}{p_end}
+{synopt :{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates
 ({cmd:time cif se lci uci}) to a dataset{p_end}
 {synopt :{opt nograph}}suppress the graph{p_end}
@@ -105,24 +106,24 @@ censoring it is mildly anti-conservative, in which case {opt bootstrap()} gives 
 bootstrap-based band that includes censoring-weight uncertainty.
 
 {phang}
-{opt bootstrap(#)} computes the confidence band by a subject bootstrap with {it:#}
-replications instead of the analytic influence-function SE. Each replication
-resamples subjects with replacement and refits the model, so the simulated band
-accounts for estimation of the censoring weights (useful under heavy
-censoring or for publication-grade intervals). Nonconverged refits, and refits
-whose resample loses a factor level (so the coefficient vector no longer matches
-the stored covariate profile), are skipped and counted in
-{cmd:r(bootstrap_failed)}; at least two successful replications are required. The point estimates are
-unchanged; only the standard error and limits differ. The original estimation
-results and {cmd:e(sample)} are preserved.
+{opt bootstrap(#)} computes the confidence band by resampling subjects with
+replacement and refitting the model. If the original fit specified
+{opt cluster()}, whole clusters are resampled instead. The simulated band
+therefore follows the fitted variance structure and includes uncertainty from
+estimating the censoring weights. Nonconverged refits, and refits whose resample
+loses a factor level (so the coefficient vector no longer matches the stored
+covariate profile), are skipped and counted in {cmd:r(bootstrap_failed)}; at
+least two successful replications are required. Point estimates are unchanged;
+only the standard error and limits differ. The original estimation results and
+{cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
 reproducibility.
 
 {phang}
-{opt level(#)} sets the confidence level; the default is {cmd:level(95)} or as
-set by {helpb set level}.
+{opt level(#)} sets the confidence level; the default is {cmd:c(level)}, which
+is initially 95 and can be changed by {helpb set level}.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
@@ -154,9 +155,10 @@ per-observation CIF limits at each observation's own time or at a supplied
 
 {pstd}
 The confidence band is computed from the per-subject influence functions of the
-CIF, propagating the uncertainty in both the coefficient vector {cmd:e(b)} and the
-baseline cumulative subdistribution hazard. With {opt cluster()} in the original
-{helpb finegray} fit, the band uses the corresponding cluster-robust variance.
+CIF, propagating the uncertainty in both the coefficient vector {cmd:e(b)} and
+the baseline cumulative subdistribution hazard. With {opt cluster()} in the
+original {helpb finegray} fit, the analytic band uses the corresponding
+cluster-robust variance and {opt bootstrap()} resamples whole clusters.
 
 
 {marker examples}{...}
@@ -166,19 +168,22 @@ baseline cumulative subdistribution hazard. With {opt cluster()} in the original
 {phang2}{cmd:. webuse hypoxia, clear}{p_end}
 {phang2}{cmd:. gen byte status = failtype}{p_end}
 {phang2}{cmd:. stset dftime, failure(dfcens==1) id(stnum)}{p_end}
-{phang2}{cmd:. finegray ifp tumsize pelnode, compete(status) cause(1)}{p_end}
+{phang2}{cmd:. finegray i.pelnode ifp tumsize, compete(status) cause(1)}{p_end}
 
 {pstd}Plot the CIF curve at the covariate means, with a 95% band{p_end}
 {phang2}{cmd:. finegray_cif, ci}{p_end}
 
 {pstd}Curve for a specified covariate profile{p_end}
-{phang2}{cmd:. finegray_cif, at(pelnode=1 ifp=20) ci}{p_end}
+{phang2}{cmd:. finegray_cif, at(pelnode=1 ifp=20 tumsize=5) ci}{p_end}
 
 {pstd}Fixed-horizon table: CIF at 1, 5, and 8 years with confidence limits{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci}{p_end}
 
+{pstd}Curve evaluated on a custom time grid{p_end}
+{phang2}{cmd:. finegray_cif, timepoints(1 2 3 4 5 6 7 8) ci}{p_end}
+
 {pstd}Save the numeric estimates behind the curve{p_end}
-{phang2}{cmd:. finegray_cif, ci nograph saving(cifcurve.dta, replace)}{p_end}
+{phang2}{cmd:. finegray_cif, ci nograph saving(cifcurve.dta,replace)}{p_end}
 
 {pstd}Band by subject bootstrap{p_end}
 {phang2}{cmd:. finegray_cif, attime(1 5 8) ci bootstrap(500) seed(12345)}{p_end}
@@ -196,16 +201,19 @@ baseline cumulative subdistribution hazard. With {opt cluster()} in the original
 {synopt:{cmd:r(cause)}}cause of interest{p_end}
 {synopt:{cmd:r(bootstrap_requested)}}requested replications; with {cmd:bootstrap()}{p_end}
 {synopt:{cmd:r(bootstrap_success)}}converged replications used; with {cmd:bootstrap()}{p_end}
-{synopt:{cmd:r(bootstrap_failed)}}failed or nonconverged replications skipped; with {cmd:bootstrap()}{p_end}
+{synopt:{cmd:r(bootstrap_failed)}}skipped replications; with {cmd:bootstrap()}{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(profile_vars)}}model covariates, in column order of {cmd:r(at)}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}one row per evaluated time; columns {cmd:time}, {cmd:cif}, {cmd:se}, {cmd:lci}, {cmd:uci}{p_end}
+{synopt:{cmd:r(table)}}one row per evaluated time{p_end}
 {synopt:{cmd:r(at)}}covariate profile used for the curve{p_end}
 
+{pstd}
+The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se}, {cmd:lci}, and {cmd:uci}.
 
+{marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}

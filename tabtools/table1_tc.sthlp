@@ -1,5 +1,6 @@
 {smcl}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
+{viewerjumpto "Options" "table1_tc##options"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
 {viewerjumpto "Stored results" "table1_tc##stored"}{...}
@@ -48,6 +49,9 @@ use {cmd:table1_tc}.{p_end}
 
 {phang}{opt fweight}s are allowed; see {help weight}
 
+
+{marker options}{...}
+{title:Options}
 
 {synoptset 26 tabbed}{...}
 {synopthdr}
@@ -131,7 +135,8 @@ type keyword, each variable's type is automatically classified:{p_end}
 {p 8 8 2}1. String variables or variables with value labels (>2 levels) → {cmd:cat}{p_end}
 {p 8 8 2}2. Variables with exactly 2 unique values → {cmd:bin}{p_end}
 {p 8 8 2}3. Variables with ≤7 unique values → {cmd:cat}{p_end}
-{p 8 8 2}4. Variables with >7 unique values → distributional classification via the shared helper:{p_end}
+{p 8 8 2}4. Variables with >7 unique values → distributional classification
+via the shared helper:{p_end}
 {p 12 12 2}p ≥ 0.05 → {cmd:contn} (normal){p_end}
 {p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
 
@@ -188,7 +193,8 @@ in memory carrying an IPTW weight ({cmd:iptw}) and the covariates {cmd:age},
 {cmd:female}, {cmd:education}, and {cmd:bmi}. Substitute your own analysis
 variables and weight.{p_end}
 
-{pstd}{bf:IPTW-weighted Table 1:} (weighted columns show % + SMD; add {opt wtn} for weighted counts){p_end}
+{pstd}{bf:IPTW-weighted Table 1:} (weighted columns show % + SMD; add
+{opt wtn} for weighted counts){p_end}
 
 {phang2}{cmd:. table1_tc, by(treated) wt(iptw) smd ///}{p_end}
 {phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
@@ -290,7 +296,8 @@ reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the v
 
 {phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
 covariates between treatment groups in propensity-score matched samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
-{phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics 1979; 35: 908-909.{p_end}
+{phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics
+1979; 35: 908-909.{p_end}
 {phang}table1_mc - Mark Chatfield, The University of Queensland, Australia.{p_end}
 
 
@@ -298,7 +305,6 @@ covariates between treatment groups in propensity-score matched samples. Statist
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {title:Also see}
 

@@ -1,7 +1,6 @@
 /*  demo_gcomp.do - Demo output for gcomp
 
     Produces:
-      1. Console output (mediation + time-varying) -> .log -> .md via logdoc
       2. Excel table (gcomptab export)              -> .xlsx
 
     Covers:
@@ -32,7 +31,6 @@ discard
 **# Console output
 
 capture log close _all
-log using "`demo_dir'/console_output.log", replace text name(demo) nomsg
 
 * # Binary-exposure mediation (OBE)
 
@@ -119,7 +117,6 @@ noisily gcomp outcome L0 A L Alag Llag id time, outcome(outcome) ///
     intvars(A) interventions(A=1, A=0) ///
     sim(120) samples(5) seed(20260421) eofu
 
-log close demo
 
 **# Excel export (gcomptab)
 
@@ -162,14 +159,6 @@ gcomptab, models xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Component models")
     modellabels("Mediator (m) \ Outcome (y)") stats(n) stars ///
     title("Table 3. Fitted component models (odds ratios)")
 
-**# Convert console log to markdown via logdoc
-
-capture ado uninstall logdoc
-quietly net install logdoc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc") replace
-
-logdoc using "`demo_dir'/console_output.log", ///
-    output("`demo_dir'/console_output.md") ///
-    format(md) replace quiet
 
 * --- Cleanup ---
 clear

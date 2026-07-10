@@ -1,4 +1,4 @@
-*! tvage Version 1.6.8  2026/07/03
+*! tvage Version 1.6.9  2026/07/10
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -99,6 +99,22 @@ program define tvage, rclass
     if "`generate'" == "" local generate "age_tv"
     if "`startgen'" == "" local startgen "age_start"
     if "`stopgen'" == "" local stopgen "age_stop"
+
+    local output_names "`idvar' `generate' `startgen' `stopgen'"
+    local output_dups : list dups output_names
+    if "`output_dups'" != "" {
+        display as error "id(), generate(), startgen(), and stopgen() must resolve to distinct output names"
+        exit 198
+    }
+    foreach out in `generate' `startgen' `stopgen' {
+        local input_conflict : list out in dobvar
+        if !`input_conflict' local input_conflict : list out in entryvar
+        if !`input_conflict' local input_conflict : list out in exitvar
+        if `input_conflict' {
+            display as error "output variable '`out'' conflicts with an input date variable"
+            exit 198
+        }
+    }
 
     * Validate group width
     if `groupwidth' < 1 | `groupwidth' > 50 {
@@ -269,8 +285,8 @@ program define tvage, rclass
                 local lbl_name "`generate'_lbl"
             }
 
-            capture label drop `lbl_name'
-            local _label_drop_rc = _rc
+            _tvtools_new_vallabel, base(`lbl_name')
+            local lbl_name "`r(name)'"
             forvalues age = `min_label'(`groupwidth')`max_label' {
                 local upper = `age' + `groupwidth' - 1
                 label define `lbl_name' `age' "`age'-`upper'", add

@@ -102,6 +102,7 @@ install.packages(c("cmprsk", "riskRegression"))
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
 | `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), and `finegray_cif, at()` factor-variable natural names |
 | `test_finegray_v112.do` | Regression tests for v1.1.2: estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, and helper `r()` isolation |
+| `test_finegray_v114.do` | Regression tests for v1.1.4: factor-level bootstrap skips/counts, unspaced `saving(filename,replace)` parsing, and all-or-nothing prediction-variable cleanup |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
 | `validation_finegray_recovery_paths.do` | Known-truth log-SHR recovery across 15 option/coding/estimand code paths (null/strong effects, binary/factor/interaction covariates, non-default `cause()`/`censvalue()`, cluster/norobust VCE, heavy censoring, high/low incidence, `level()`, multi-record reduction) |
@@ -121,7 +122,7 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do`, `test_finegray_v114.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
 | `full` | `core` + `python` |

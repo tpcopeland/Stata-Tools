@@ -1,7 +1,6 @@
 /*  demo_iivw.do - Demo output for iivw
 
     Produces:
-      1. Console output (FIPTIW diagnostic workflow) -> .log -> .md via logdoc
       2. psdash treatment-propensity and final-weight diagnostic graphs -> .png
       3. Excel tables (unweighted/FIPTIW/artifact-adjusted models) -> .xlsx
       4. Excel table (categorical visit-wave interaction labels) -> .xlsx
@@ -38,10 +37,6 @@ local export_xlsx "`pkg_dir'/iivw_reporting_exports.xlsx"
 local psdash_dashboard "`pkg_dir'/iivw_psdash_dashboard.png"
 local psdash_final_weights "`pkg_dir'/iivw_psdash_final_weights.png"
 capture mkdir "`pkg_dir'"
-capture erase "`pkg_dir'/console_output.log"
-capture erase "`pkg_dir'/console_output.md"
-capture erase "`pkg_dir'/console_output.html"
-capture erase "`pkg_dir'/console_output.png"
 capture erase "`psdash_dashboard'"
 capture erase "`psdash_final_weights'"
 capture erase "`xlsx'"
@@ -114,7 +109,6 @@ label variable practice "Synthetic practice effect"
 
 **# Console output
 capture log close _all
-log using "`pkg_dir'/console_output.log", replace text name(demo) nomsg
 
 * # Package overview
 iivw
@@ -231,7 +225,6 @@ foreach v of local cat_ix {
 }
 restore
 
-log close demo
 
 **# Graph export verification
 confirm file "`psdash_dashboard'"
@@ -343,13 +336,6 @@ foreach v of varlist `r(varlist)' {
 assert `found_wave_label' == 1
 restore
 
-**# Convert console log to markdown via logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`repo_dir'/logdoc") replace
-logdoc using "`pkg_dir'/console_output.log", ///
-    output("`pkg_dir'/console_output.md") ///
-    format(md) replace quiet
-confirm file "`pkg_dir'/console_output.md"
 
 **# Cleanup
 capture log close _all

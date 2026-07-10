@@ -1,5 +1,6 @@
 {smcl}
 {viewerjumpto "Syntax" "tabtools_tips##syntax"}{...}
+{viewerjumpto "Options" "tabtools_tips##options"}{...}
 {viewerjumpto "Description" "tabtools_tips##description"}{...}
 {viewerjumpto "Quick reference" "tabtools_tips##quick"}{...}
 {viewerjumpto "Choosing commands" "tabtools_tips##choose"}{...}
@@ -24,6 +25,9 @@
 
 {p 8 16 2}
 {cmd:tabtools_tips} [{cmd:,} {opt open}]
+
+{marker options}{...}
+{title:Options}
 
 {synoptset 18 tabbed}{...}
 {synopt:{opt open}}open the tips help file directly instead of printing the compact command-line index{p_end}
@@ -383,6 +387,5 @@ names ({cmd:edss4_tv}, {cmd:sim_results_long.dta}, ...) for you to substitute.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
 
 {hline}

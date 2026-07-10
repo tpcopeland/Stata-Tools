@@ -1,5 +1,6 @@
 {smcl}
 {vieweralsosee "finegray" "help finegray"}{...}
+{vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -139,6 +140,7 @@ robust to outliers and is the standard choice.
 {title:Also see}
 
 {psee}
-Online: {helpb finegray}, {helpb finegray_predict}, {helpb stcrreg}, {helpb stcox}, {helpb stset}
+Online: {helpb finegray}, {helpb finegray_predict}, {helpb finegray_cif},
+{helpb stcrreg}, {helpb stcox}, {helpb stset}
 
 {hline}

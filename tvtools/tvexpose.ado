@@ -1,4 +1,4 @@
-*! tvexpose Version 1.6.8  2026/07/03
+*! tvexpose Version 1.6.9  2026/07/10
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -116,6 +116,7 @@ program define tvexpose, rclass
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _frameout_snap_taken = 0    // init before block for error-path restore
+    local _caller_snapshot_ready = 0
 
     capture noisily {
 
@@ -211,15 +212,16 @@ program define tvexpose, rclass
             noisily display as error "frame `frameout' already exists; use replace option"
             exit 110
         }
-        * Only snapshot when the caller actually has data in memory; `save'
-        * errors on a dataset with no variables, masking the real problem
-        * (tvexpose needs master data) with "no variables defined".
-        if c(k) > 0 {
-            tempfile _tvx_caller_snap
-            quietly save "`_tvx_caller_snap'", replace
-            local _frameout_snap_taken = 1
-        }
     }
+
+    * Success may replace the caller's master data with the constructed output;
+    * a failed run must never do so, regardless of frameout().
+    if c(k) > 0 {
+        tempfile _tvx_caller_snap
+        quietly save "`_tvx_caller_snap'", replace
+        local _frameout_snap_taken = 1
+    }
+    local _caller_snapshot_ready = 1
 
     * Handle reference() option
     * - For dose mode: reference defaults to 0 (the only valid value)
@@ -4778,6 +4780,7 @@ program define tvexpose, rclass
     * reload the caller's data so their working frame is untouched.
     if "`frameout'" != "" {
         capture frame drop `frameout'
+        local _frame_drop_rc = _rc
         frame copy `c(frame)' `frameout'
         if `_frameout_snap_taken' quietly use "`_tvx_caller_snap'", clear
         else quietly clear
@@ -4827,12 +4830,13 @@ program define tvexpose, rclass
     } // end capture noisily
     local rc = _rc
 
-    * On error in frameout mode, restore the caller's data so a failed run
-    * leaves their working frame as it was (the snapshot precedes any mutation;
-    * an empty caller frame has no snapshot and is restored with clear).
-    if `rc' & `_frameout_snap_taken' capture quietly use "`_tvx_caller_snap'", clear
-    else if `rc' & "`frameout'" != "" capture quietly clear
-    local _tvx_drc = _rc    // best-effort restore; do not mask `rc'
+    * Unwind any interrupted inner preserve, then restore the caller snapshot.
+    if `rc' & `_caller_snapshot_ready' {
+        capture restore
+        if `_frameout_snap_taken' capture quietly use "`_tvx_caller_snap'", clear
+        else capture quietly clear
+        local _tvx_drc = _rc    // best-effort restore; do not mask `rc'
+    }
 
     set varabbrev `orig_varabbrev'
 

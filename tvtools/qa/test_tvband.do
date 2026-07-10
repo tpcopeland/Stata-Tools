@@ -37,6 +37,7 @@ capture {
     tvband, id(id) start(entry) stop(exitd) type(calendar) width(1) generate(cal)
     assert "`r(varname)'" == "cal"
     assert r(n_persons) == 3
+    assert r(n_observations) == _N
     confirm variable sex
     assert year(entry) == cal
 }

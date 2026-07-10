@@ -58,7 +58,18 @@ program define _tvtools_qa_bootstrap, rclass
         cd "`qa_dir'"
     }
 
-    global DATA_DIR "`qa_dir'/data"
+    * Tests create and replace many fixture datasets. Work from a private copy
+    * so a QA run never rewrites tracked data/ files merely because Stata embeds
+    * a new save timestamp in each .dta.
+    global TVTOOLS_QA_DATA "$TVTOOLS_QA_PLUS-data"
+    capture mkdir "$TVTOOLS_QA_DATA"
+    local fixture_files : dir "`qa_dir'/data" files "*"
+    foreach fixture of local fixture_files {
+        capture copy "`qa_dir'/data/`fixture'" ///
+            "$TVTOOLS_QA_DATA/`fixture'", replace
+    }
+
+    global DATA_DIR "$TVTOOLS_QA_DATA"
 
     return local qa_dir  "`qa_dir'"
     return local pkg_dir "`pkg_dir'"

@@ -46,11 +46,11 @@
 {synopt:{opt mod:el(string)}}estimation method: {cmd:gee} (default) or {cmd:mixed}{p_end}
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
-{synopt:{opt times:pec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:categorical}, {cmd:none}{p_end}
+{synopt:{opt times:pec(string)}}time specification; default {cmd:linear}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
 {synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
 {synopt:{opt base:cat(#)}}reference category for {opt categorical()} (default: lowest value){p_end}
-{synopt:{opt timebase:cat(#)}}reference time category for {cmd:timespec(categorical)} (default: lowest value){p_end}
+{synopt:{opt timebase:cat(#)}}reference category for categorical time{p_end}
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
@@ -58,7 +58,7 @@
 {synopt:{opt refit:weights}}re-estimate the IIW/IPTW/FIPTIW weights inside each bootstrap replicate{p_end}
 
 {syntab:Reporting}
-{synopt:{opt l:evel(#)}}confidence level (default: 95){p_end}
+{synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synopt:{opt replace}}overwrite existing time/categorical/interaction variables{p_end}
 {synopt:{opt col:lect}}enable Stata's {cmd:collect} framework for table building{p_end}
@@ -317,8 +317,8 @@ for every fit, including bootstrap fits.  The full bootstrap results, including
 {dlgtab:Reporting}
 
 {phang}
-{opt level(#)} specifies the confidence level for confidence intervals.
-Default is 95.
+{opt level(#)} specifies the confidence level for confidence
+intervals. The default is {cmd:c(level)}.
 
 {phang}
 {opt nolog} suppresses the iteration log from the underlying {cmd:glm} or
@@ -753,6 +753,12 @@ odds ratios.
 Use the {opt collect} option with non-bootstrap {cmd:model(gee)} fits to
 accumulate results, then export with {cmd:regtab}.
 
+{pstd}
+{cmd:regtab} is provided by the optional {cmd:tabtools} package.  Install it
+before running the export examples if needed:
+
+{phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace}{p_end}
+
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)}{p_end}
@@ -823,7 +829,8 @@ Use categorical time when visits occur at planned waves.  Give the time
 variable value labels before fitting so exported tables show readable row
 labels.
 
-{phang2}{cmd:. label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12", replace}{p_end}
+{phang2}{cmd:. gen byte visit_wave = visit}{p_end}
+{phang2}{cmd:. label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12" 4 "Month 18", replace}{p_end}
 {phang2}{cmd:. label values visit_wave wave}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(categorical) categorical(treatment) interaction(treatment) replace collect}{p_end}
@@ -863,7 +870,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
-{synopt:{cmd:e(iivw_refitweights)}}1 if a {opt refitweights} bootstrap re-estimated the weights, 0 otherwise{p_end}
+{synopt:{cmd:e(iivw_refitweights)}}1 if bootstrap weights were refit; otherwise 0{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}

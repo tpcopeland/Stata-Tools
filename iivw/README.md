@@ -2,22 +2,34 @@
 
 **Version 1.9.6** | 2026-07-10
 
-`iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
+`iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
-Three weighting strategies are available:
+## Quick Start
 
-- **IIW** (inverse intensity weighting) — corrects for outcome-dependent visit frequency
-- **IPTW** (inverse probability of treatment weighting) — corrects for confounding by treatment indication
-- **FIPTIW** (IIW × IPTW) — corrects for both simultaneously
+```stata
+clear
+set seed 20260710
+set obs 240
+gen long id = ceil(_n/4)
+bysort id: gen byte visit = _n
+gen double months = 3 * (visit - 1) + runiform() / 10
+gen double baseline_risk = rnormal()
+bysort id: replace baseline_risk = baseline_risk[1]
+gen double outcome = 10 + .4 * months + baseline_risk + rnormal()
 
-Outcome models are fit via GEE-style estimation (GLM with clustered robust SEs) or mixed effects, either unweighted or with IIW/IPTW/FIPTIW weights.
+iivw_weight, id(id) time(months) visit_cov(baseline_risk) nobaseevent nolog
+iivw_balance
+iivw_fit outcome baseline_risk, timespec(linear) nolog
+```
+
+This creates visit-intensity weights, checks whether they have useful leverage, and fits the weighted longitudinal outcome model.
 
 ## Requirements
 
 - Stata 16 or later
 - Stata 17 or later for `iivw_fit, model(mixed)`
-- Optional: `tabtools` for the `regtab` model-table Excel examples
-- Optional: `psdash` for treatment-propensity diagnostics (`psdash combined`, `psdash weights`) in IPTW/FIPTIW workflows
+- Optional: [`tabtools`](../tabtools) for the `regtab` model-table Excel examples
+- Optional: [`psdash`](../psdash) for treatment-propensity diagnostics (`psdash combined`, `psdash weights`) in IPTW/FIPTIW workflows
 
 ## Installation
 
@@ -39,9 +51,7 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 
 ## Stored Results
 
-Running `iivw` stores the installed package version in `r(version)`, the
-space-separated public-command list in `r(commands)`, and its length in
-`r(n_commands)`.
+Running `iivw` stores the installed package version in `r(version)`, the space-separated public-command list in `r(commands)`, and its length in `r(n_commands)`.
 
 | Result | Description |
 |---|---|
@@ -359,7 +369,8 @@ iivw_fit edss treatment edss_bl, ///
 `timespec(categorical)` expands the stored time variable into labeled non-reference time indicators.  Use value labels on the time variable so `collect` and `regtab` get readable rows.
 
 ```stata
-label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12", replace
+gen byte visit_wave = visit
+label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12" 4 "Month 18", replace
 label values visit_wave wave
 
 iivw_weight, id(id) time(visit_wave) ///
@@ -546,7 +557,7 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Rabe-Hesketh S, Skrondal A. Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society: Series A (Statistics in Society)*. 2006;169(4):805-827. doi:10.1111/j.1467-985X.2006.00426.x.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
-## Changelog
+## Version History
 
 ### v1.9.6 (2026-07-10)
 
@@ -752,3 +763,7 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT

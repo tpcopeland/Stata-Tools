@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.6.8  2026/07/03
+*! _tvband_split Version 1.6.9  2026/07/10
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -41,6 +41,10 @@ program define _tvband_split, rclass
     }
     if `width' <= 0 {
         display as error "_tvband_split: width() must be positive"
+        exit 198
+    }
+    if "`type'" == "calendar" & `width' != int(`width') {
+        display as error "_tvband_split: calendar width() must be an integer number of years"
         exit 198
     }
     if inlist("`type'", "age", "elapsed") & "`origin'" == "" {
@@ -160,9 +164,10 @@ program define _tvband_split, rclass
 
     * --- Optional value labels (integer width only) ----------------------
     if "`label'" != "" & `width' == int(`width') {
-        local lblname "`generate'_lbl"
-        if length("`lblname'") > 32 local lblname = substr("`generate'", 1, 28) + "_lbl"
-        capture label drop `lblname'
+        local lblbase "`generate'_lbl"
+        if length("`lblbase'") > 32 local lblbase = substr("`generate'", 1, 28) + "_lbl"
+        _tvtools_new_vallabel, base(`lblbase')
+        local lblname "`r(name)'"
         levelsof `generate', local(_levs)
         foreach lo of local _levs {
             local hi = `lo' + `width' - 1

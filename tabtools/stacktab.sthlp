@@ -1,6 +1,7 @@
 {smcl}
 {viewerjumpto "Package overview" "stacktab##package"}{...}
 {viewerjumpto "Syntax" "stacktab##syntax"}{...}
+{viewerjumpto "Options" "stacktab##options"}{...}
 {viewerjumpto "Description" "stacktab##description"}{...}
 {viewerjumpto "Examples" "stacktab##examples"}{...}
 {viewerjumpto "Stored results" "stacktab##stored"}{...}
@@ -35,6 +36,9 @@ into one composite sheet with {cmd:stacktab}.
   {opt bl:ocks(blockspec)}
   {opt sh:eet(sheetname)}
   [{it:options}]
+
+{marker options}{...}
+{title:Options}
 
 {synoptset 22 tabbed}{...}
 {synopthdr}
@@ -201,9 +205,7 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {marker author}{...}
 {title:Author}
 
-{p 4 4 2}
-Timothy P Copeland, Karolinska Institutet{break}
-{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 
 {hline}

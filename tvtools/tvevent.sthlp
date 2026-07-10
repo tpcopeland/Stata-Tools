@@ -35,21 +35,21 @@ via {opt frame()}; supply one or the other.
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt id(varname)}}person identifier matching the master dataset (numeric or {cmd:str#}; {cmd:strL} not allowed){p_end}
-{synopt:{opt fr:ame(name)}}read the interval data from a named frame instead of a file{p_end}
-{synopt:{opt date(name)}}variable name or stubname for event date(s); for {cmd:type(recurring)}, specifies the stub for {it:stub}1, {it:stub}2, etc.{p_end}
+{synopt:{opt id(varname)}}person identifier in both datasets{p_end}
+{synopt:{opt fr:ame(name)}}read interval data from a named frame{p_end}
+{synopt:{opt date(name)}}event-date variable or recurring-event stub{p_end}
 
 {syntab:Competing Risks}
-{synopt:{opt com:pete(varlist)}}list of date variables in the master (event) dataset representing competing risks{p_end}
+{synopt:{opt com:pete(varlist)}}competing-event date variables{p_end}
 
 {syntab:Event definition}
 {synopt:{opt type(string)}}event type: {bf:single} (default) or {bf:recurring}{p_end}
-{synopt:{opt gen:erate(newvar)}}name for event indicator variable (default: _failure){p_end}
-{synopt:{opt con:tinuous(varlist)}}cumulative exposure variables to adjust proportionally when splitting intervals{p_end}
+{synopt:{opt gen:erate(newvar)}}event indicator; default {cmd:_failure}{p_end}
+{synopt:{opt con:tinuous(varlist)}}variables prorated across split intervals{p_end}
 {synopt:{opt eventl:abel(string)}}custom value labels for the generated event variable{p_end}
 
 {syntab:Time generation}
-{synopt:{opt timeg:en(newvar)}}create a variable representing cumulative time since each person's first interval start{p_end}
+{synopt:{opt timeg:en(newvar)}}time since the first interval start{p_end}
 {synopt:{opt timeu:nit(string)}}unit for timegen: {bf:days} (default), {bf:months}, or {bf:years}{p_end}
 
 {syntab:Recurrent-event formatting (PWP/AG; requires type(recurring))}
@@ -61,11 +61,11 @@ via {opt frame()}; supply one or the other.
 {syntab:Data handling}
 {synopt:{opt keep:vars(varlist)}}additional variables to keep from event dataset{p_end}
 {synopt:{opt replace}}replace output variables if they already exist{p_end}
-{synopt:{opt start(varname)}}name of start date variable in using file (default: start){p_end}
-{synopt:{opt stop(varname)}}name of stop date variable in using file (default: stop){p_end}
+{synopt:{opt start(varname)}}interval-start variable; default {cmd:start}{p_end}
+{synopt:{opt stop(varname)}}interval-stop variable; default {cmd:stop}{p_end}
 
 {syntab:Diagnostics}
-{synopt:{opt val:idate}}display validation diagnostics for event data quality{p_end}
+{synopt:{opt val:idate}}display event-data validation diagnostics{p_end}
 {synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -123,6 +123,15 @@ event is dropped, making the data ready for standard survival analysis
 {title:Options}
 
 {phang}
+{opt id(varname)} names the person identifier present in both the event data
+and the interval data. Numeric and {cmd:str#} identifiers are accepted;
+{cmd:strL} is not.
+
+{phang}
+{opt date(name)} names the event-date variable for {cmd:type(single)} or the
+wide recurring-event stub for {cmd:type(recurring)}.
+
+{phang}
 {opt frame(name)} reads the interval data from a named {help frame:frame} held
 in memory instead of from a {cmd:using} file. Supply either {cmd:using} or
 {opt frame()}, not both. This removes the save/use round-trip when the interval
@@ -178,11 +187,19 @@ default name is {cmd:_enum}.
 {phang}
 {opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock that resets
 to 0 at the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()}
-(defaults {cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model.
+(defaults {cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model.{...}
 The three standard recurrent-event analyses are then:
 {break}{bf:Andersen-Gill}: {cmd:stset stop, enter(start) failure(`generate') id(id)} (no stratum).
 {break}{bf:PWP total time}: as Andersen-Gill but {cmd:strata(`enum')}.
 {break}{bf:PWP gap time}: {cmd:stset _t, enter(_t0) failure(`generate') id(id)} with {cmd:strata(`enum')}.
+
+{phang}
+{opt gapstart(name)} and {opt gapstop(name)} name the two gap-time clock
+variables. Defaults are {cmd:_t0} and {cmd:_t}.
+
+{phang}
+{opt replace} permits output variables already present in the interval data to
+be replaced.
 
 {phang}
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
@@ -194,11 +211,11 @@ ID so all rows for each person receive the same values. Note that all variables
 from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 {phang}
-{opt start(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
+{opt start(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.{...}
 (Legacy synonym: {opt startvar()}.)
 
 {phang}
-{opt stop(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.
+{opt stop(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.{...}
 (Legacy synonym: {opt stopvar()}.)
 
 {phang}
@@ -221,9 +238,9 @@ records, {cmd:dropped} can be negative because intervals split at events. It is 
 pure side channel and does not change the output.
 
 {pmore}
-{bf:Note on interval boundaries:} The command uses closed intervals [start, stop] for event detection.
-An event is flagged when it falls anywhere within an interval, including on the start or stop date.
-Interval splitting occurs when start <= event < stop (the event falls at or after the start but before the stop).
+{bf:Note on interval boundaries:} The command uses closed intervals [start, stop] for event detection.{...}
+An event is flagged when it falls anywhere within an interval, including on the start or stop date.{...}
+Interval splitting occurs when start <= event < stop (the event falls at or after the start but before the stop).{...}
 An event exactly on the stop date is flagged but does not trigger splitting (it ends that interval naturally).
 
 
@@ -322,7 +339,7 @@ If a CV event occurs mid-interval, the continuous variable is adjusted by the ra
 {bf:Example 4: Recurring events (wide format)}
 
 {pstd}
-For events that can occur multiple times (e.g., hospitalizations), use {cmd:type(recurring)}.
+For events that can occur multiple times (e.g., hospitalizations), use {cmd:type(recurring)}.{...}
 The event dataset must have dates in {bf:wide format} with numbered suffixes (hosp1, hosp2, etc.):
 
 {phang2}{cmd:. * Event dataset structure (one row per person, multiple date columns):}{p_end}
@@ -346,8 +363,8 @@ The event dataset must have dates in {bf:wide format} with numbered suffixes (ho
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
 {pstd}
-The command automatically detects hosp1, hosp2, hosp3, etc. and processes all events.
-Unlike {cmd:type(single)}, recurring events do not truncate follow-up after the first event.
+The command automatically detects hosp1, hosp2, hosp3, etc. and processes all events.{...}
+Unlike {cmd:type(single)}, recurring events do not truncate follow-up after the first event.{...}
 Note that {cmd:compete()} is not supported with recurring events.
 
 
@@ -437,7 +454,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 When {cmd:validate} is specified, additional scalars are stored:
 
 {synopt:{cmd:r(v_outside_bounds)}}Number of events outside interval boundaries{p_end}
-{synopt:{cmd:r(v_multiple_events)}}Number of persons with multiple events (type(single) only){p_end}
+{synopt:{cmd:r(v_multiple_events)}}persons with multiple terminal events{p_end}
 {synopt:{cmd:r(v_same_date_compete)}}Number of competing events on same date as primary{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
@@ -445,12 +462,12 @@ When {cmd:validate} is specified, additional scalars are stored:
 {synopt:{cmd:r(startvar)}}name of the interval start variable{p_end}
 {synopt:{cmd:r(stopvar)}}name of the interval stop variable{p_end}
 {synopt:{cmd:r(timegen)}}name of the elapsed-time variable (if {cmd:timegen()} used){p_end}
-{synopt:{cmd:r(enum)}}name of the event-sequence stratum (if {cmd:enum()}/{cmd:gaptime} used){p_end}
+{synopt:{cmd:r(enum)}}event-sequence stratum name{p_end}
 {synopt:{cmd:r(gapstart)}}name of the gap-time start variable (if {cmd:gaptime} used){p_end}
 {synopt:{cmd:r(gapstop)}}name of the gap-time stop variable (if {cmd:gaptime} used){p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
-{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
+{synopt:{cmd:r(flow)}}persons/records attrition table{p_end}
 
 
 {marker author}{...}

@@ -1,4 +1,4 @@
-*! tvevent Version 1.6.8  2026/07/03
+*! tvevent Version 1.6.9  2026/07/10
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -42,6 +42,8 @@ program define tvevent, rclass
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _te_master_frame _te_using_frame _te_output_frame
+    local _caller_snap_taken = 0
+    local _caller_snapshot_ready = 0
 
     capture noisily {
 
@@ -105,6 +107,15 @@ program define tvevent, rclass
         exit 198
     }
 
+    * Success replaces the event data in memory with interval output. Failure
+    * must not: snapshot the caller before the first use/clear mutation.
+    if c(k) > 0 {
+        tempfile _tve_caller_snap
+        quietly save "`_tve_caller_snap'", replace
+        local _caller_snap_taken = 1
+    }
+    local _caller_snapshot_ready = 1
+
     * Flow accounting: capture input persons/records from the interval (using)
     * data. Opt-in via flow; the master events stay in memory (preserved).
     if "`flow'" != "" {
@@ -161,9 +172,10 @@ program define tvevent, rclass
         exit 198
     }
 
-    * Create truncated label name to stay within 32-char limit
+    * Create a truncated base for the output value label. The collision-safe
+    * concrete name is chosen after the interval dataset is loaded.
     local _short_gen = substr("`generate'", 1, 28)
-    local _ev_lbl_name "`_short_gen'_lbl"
+    local _ev_lbl_base "`_short_gen'_lbl"
 
     if "`type'" == "" local type "single"
     local type = lower("`type'")
@@ -190,6 +202,16 @@ program define tvevent, rclass
         else local do_gaptime = 0
     }
     else local do_gaptime = 0
+
+    local output_names "`id' `startvar' `stopvar' `generate' `date'"
+    if "`timegen'" != "" local output_names "`output_names' `timegen'"
+    if `do_recur_fmt' local output_names "`output_names' `enum'"
+    if `do_gaptime' local output_names "`output_names' `gapstart' `gapstop'"
+    local output_dups : list dups output_names
+    if "`output_dups'" != "" {
+        display as error "id/date/time/output variable names must be distinct; duplicate(s): `output_dups'"
+        exit 198
+    }
 
     * For recurring events, detect wide-format event variables (date1, date2, ...)
     local eventvars ""
@@ -696,6 +718,9 @@ program define tvevent, rclass
             if "`timegen'" != "" capture drop `timegen'
         }
 
+        _tvtools_new_vallabel, base(`_ev_lbl_base')
+        local _ev_lbl_name "`r(name)'"
+
         * Warn if interval data has variables matching the date stub pattern
         local stub_collisions = 0
         forvalues i = 1/20 {
@@ -1004,7 +1029,6 @@ program define tvevent, rclass
         * Drop any same-named label loaded from the using file (e.g. when the
         * intervals are a prior tvevent output); label define has no replace-
         * from-scratch form and errors r(110) on an existing name.
-        capture label drop `_ev_lbl_name'
         label define `_ev_lbl_name' 0 "Censored"
         label define `_ev_lbl_name' 1 "`lab_1'", add
         
@@ -1199,6 +1223,13 @@ program define tvevent, rclass
     capture frame drop `_te_output_frame'
     local _te_cleanup_rc = _rc
 
+    if `rc' & `_caller_snapshot_ready' {
+        capture restore
+        if `_caller_snap_taken' capture quietly use "`_tve_caller_snap'", clear
+        else capture quietly clear
+        local _te_cleanup_rc = _rc
+    }
+
     set varabbrev `orig_varabbrev'
 
     if `rc' {
@@ -1212,8 +1243,11 @@ end
 cap program drop _tvevent_empty_output
 program define _tvevent_empty_output, rclass
     version 16.0
-    syntax , using(string) id(name) STARTvar(name) STOPvar(name) ///
-        GENerate(name) TIMEUnit(string) [TIMEGen(name) REPlace]
+    local orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , using(string) id(name) STARTvar(name) STOPvar(name) ///
+            GENerate(name) TIMEUnit(string) [TIMEGen(name) REPlace]
 
     use "`using'", clear
 
@@ -1239,9 +1273,9 @@ program define _tvevent_empty_output, rclass
     gen byte `generate' = 0
     label var `generate' "Event outcome"
     local _short_gen = substr("`generate'", 1, 28)
-    local _ev_lbl_name "`_short_gen'_lbl"
-    * The using file may already carry this label (re-run over prior output)
-    capture label drop `_ev_lbl_name'
+    local _ev_lbl_base "`_short_gen'_lbl"
+    _tvtools_new_vallabel, base(`_ev_lbl_base')
+    local _ev_lbl_name "`r(name)'"
     label define `_ev_lbl_name' 0 "Censored"
     label values `generate' `_ev_lbl_name'
 
@@ -1287,4 +1321,8 @@ program define _tvevent_empty_output, rclass
         di as txt "    0 = Censored"
         di as txt "{hline 50}"
     }
+    }
+    local rc = _rc
+    set varabbrev `orig_varabbrev'
+    if `rc' exit `rc'
 end

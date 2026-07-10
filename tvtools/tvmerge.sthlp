@@ -43,34 +43,34 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopt:{opt fr:ames(namelist)}}read inputs from named frames instead of files{p_end}
 
 {syntab:Exposure types}
-{synopt:{opt con:tinuous(namelist)}}specify which exposures are continuous (rates per day){p_end}
+{synopt:{opt con:tinuous(namelist)}}continuous exposure variables{p_end}
 
 {syntab:Output naming}
 {synopt:{opt gen:erate(namelist)}}new names for exposure variables (one per dataset){p_end}
 {synopt:{opt pre:fix(string)}}prefix for all exposure variable names{p_end}
 {synopt:{opt startname(string)}}name for output start date variable (default: start){p_end}
 {synopt:{opt stopname(string)}}name for output stop date variable (default: stop){p_end}
-{synopt:{opt dateformat(fmt)}}Stata date format for output (default: %tdCCYY/NN/DD){p_end}
+{synopt:{opt dateformat(fmt)}}output date format{p_end}
 
 {syntab:Data management}
 {synopt:{opt saveas(filename)}}save merged dataset to file{p_end}
 {synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
 {synopt:{opt replace}}overwrite existing file or frame{p_end}
-{synopt:{opt keep(varlist)}}additional variables to keep from source datasets (suffixed with _ds#){p_end}
+{synopt:{opt keep(varlist)}}additional source variables to retain{p_end}
 
 {syntab:Diagnostics and validation}
 {synopt:{opt check}}display coverage diagnostics{p_end}
-{synopt:{opt validatecoverage}}verify all person-time accounted for (check for gaps){p_end}
+{synopt:{opt validatecoverage}}check for person-time gaps{p_end}
 {synopt:{opt validateoverlap}}verify overlapping periods make sense{p_end}
 {synopt:{opt sum:marize}}display summary statistics of start/stop dates{p_end}
 {synopt:{opt flow}}report persons/records in vs out and return {cmd:r(flow)}{p_end}
-{synopt:{opt verbose}}display individual IDs and dates in validation output{p_end}
+{synopt:{opt verbose}}show validation IDs and dates{p_end}
 
 {syntab:ID matching}
-{synopt:{opt force}}allow merging datasets with non-matching IDs (issues warning){p_end}
+{synopt:{opt force}}allow nonmatching IDs{p_end}
 
 {syntab:Performance}
-{synopt:{opt batch(#)}}deprecated and ignored (no-op; the Mata merge engine no longer batches){p_end}
+{synopt:{opt batch(#)}}deprecated; ignored{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -150,7 +150,7 @@ listed in the same order as the datasets in the command line.
 {phang}
 {opt frames(namelist)} reads the input datasets from named {help frame:frames}
 held in memory instead of from files on disk, in the order listed. This removes
-the save/use round-trip when each {cmd:tvexpose} output is already a frame.
+the save/use round-trip when each {cmd:tvexpose} output is already a frame.{...}
 Supply either the positional file list or {opt frames()}, not both. All other
 options ({opt start()}, {opt stop()}, {opt exposure()}, etc.) apply per input
 exactly as with file paths.
@@ -193,7 +193,7 @@ note, instead of erroring. To skip the rename entirely, give each
 "stop".
 
 {phang}
-{opt dateformat(fmt)} specifies the Stata date format to apply to the output start and stop date variables. 
+{opt dateformat(fmt)} specifies the Stata date format to apply to the output start and stop date variables.{...}
 Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
 
 
@@ -265,7 +265,7 @@ counts are shown and a hint to use {cmd:verbose} is displayed.
 {phang}
 {opt force} allows merging datasets where the set of IDs does not match exactly
 across all datasets. By default, {cmd:tvmerge} errors if any IDs appear in some
-datasets but not others, because {cmd:joinby} silently drops non-matching IDs.
+datasets but not others, because {cmd:joinby} silently drops non-matching IDs.{...}
 With {opt force}, mismatched IDs are dropped with a warning showing which IDs
 were affected and how many observations were removed. Only IDs present in ALL
 datasets appear in the output. This is useful when merging exposure data that
@@ -649,7 +649,7 @@ ignored.
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(datasets)}}list of datasets merged{p_end}
 {synopt:{cmd:r(exposure_vars)}}names of exposure variables in output{p_end}
-{synopt:{cmd:r(continuous_vars)}}names of continuous exposure variables (if continuous() used){p_end}
+{synopt:{cmd:r(continuous_vars)}}continuous exposure variable names{p_end}
 {synopt:{cmd:r(categorical_vars)}}names of categorical exposure variables{p_end}
 {synopt:{cmd:r(startname)}}name of start date variable in output{p_end}
 {synopt:{cmd:r(stopname)}}name of stop date variable in output{p_end}
@@ -661,7 +661,7 @@ ignored.
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Matrices}{p_end}
-{synopt:{cmd:r(flow)}}persons/records in/out/dropped attrition table (if flow used){p_end}
+{synopt:{cmd:r(flow)}}persons/records attrition table{p_end}
 
 
 {marker author}{...}

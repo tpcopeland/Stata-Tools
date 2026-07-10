@@ -4127,6 +4127,387 @@ else {
     local failed_tests "`failed_tests' 20.8"
 }
 
+* --- 20.9 tvdiagnose: overlapping intervals contribute their union, not
+*     their summed durations, to coverage
+display as text "TEST 20.9: tvdiagnose overlap-safe coverage union"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop entry exitd)
+        1 1 5 1 10
+        1 3 7 1 10
+        end
+    }
+    tvdiagnose, id(pid) start(start) stop(stop) entry(entry) exit(exitd) coverage
+    assert abs(r(mean_coverage) - 70) < 1e-10
+    assert r(n_with_gaps) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: overlapping days counted once"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: overlap-safe coverage union (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.9"
+}
+
+* --- 20.10 tvage: its generated value label must not redefine a caller label
+*     that happens to use the historical deterministic name age_tv_lbl
+display as text "TEST 20.10: tvage value-label namespace isolation"
+capture {
+    quietly {
+        clear
+        input long pid double(dob entry exitd) byte sex
+        1 3653 21915 22280 1
+        2 5479 21915 22280 0
+        end
+        format dob entry exitd %td
+        label define age_tv_lbl 0 "Original male" 1 "Original female"
+        label values sex age_tv_lbl
+    }
+    tvage, id(pid) dob(dob) entry(entry) exit(exitd) groupwidth(5)
+    local _old_text : label age_tv_lbl 1
+    local _age_label : value label age_tv
+    assert `"`_old_text'"' == "Original female"
+    assert `"`_age_label'"' != "age_tv_lbl"
+}
+if _rc == 0 {
+    display as result "  PASS: caller age_tv_lbl definition preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage label isolation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.10"
+}
+
+* --- 20.11 tvband: generated calendar-band labels must not redefine cb_lbl
+display as text "TEST 20.11: tvband value-label namespace isolation"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop) byte sex
+        1 14610 15340 1
+        2 14610 15340 0
+        end
+        format start stop %td
+        label define cb_lbl 0 "Original male" 1 "Original female"
+        label values sex cb_lbl
+    }
+    tvband, id(pid) start(start) stop(stop) type(calendar) width(1) generate(cb)
+    local _old_text : label cb_lbl 1
+    local _band_label : value label cb
+    assert `"`_old_text'"' == "Original female"
+    assert `"`_band_label'"' != "cb_lbl"
+}
+if _rc == 0 {
+    display as result "  PASS: caller cb_lbl definition preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvband label isolation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.11"
+}
+
+* --- 20.12 tvevent: _failure's label must not redefine an unrelated label
+*     imported with the interval data
+display as text "TEST 20.12: tvevent value-label namespace isolation"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop) byte sex
+        1 1 10 1
+        2 1 10 0
+        end
+        label define _failure_lbl 0 "Original male" 1 "Original female"
+        label values sex _failure_lbl
+        tempfile _s20_event_intervals
+        save "`_s20_event_intervals'"
+        clear
+        input long pid double evdate
+        1 5
+        end
+    }
+    tvevent using "`_s20_event_intervals'", id(pid) date(evdate)
+    local _old_text : label _failure_lbl 1
+    local _failure_label : value label _failure
+    assert `"`_old_text'"' == "Original female"
+    assert `"`_failure_label'"' != "_failure_lbl"
+}
+if _rc == 0 {
+    display as result "  PASS: caller _failure_lbl definition preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent label isolation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.12"
+}
+
+* --- 20.13 tvpanel: an episode label with the same name as a master label
+*     must be copied to a collision-free label before frame linking
+display as text "TEST 20.13: tvpanel cross-dataset value-label isolation"
+capture {
+    quietly {
+        clear
+        input long pid double(es ee) byte drug
+        1 1 10 1
+        2 1 10 0
+        end
+        label define druglbl 0 "No drug" 1 "Drug"
+        label values drug druglbl
+        tempfile _s20_panel_episodes
+        save "`_s20_panel_episodes'"
+        clear
+        input long pid double(entry exitd) byte sex
+        1 1 10 1
+        2 1 10 0
+        end
+        label define druglbl 0 "Original male" 1 "Original female", replace
+        label values sex druglbl
+    }
+    tvpanel using "`_s20_panel_episodes'", id(pid) entry(entry) exit(exitd) ///
+        exposure(drug) start(es) stop(ee) width(5) keepvars(sex)
+    local _old_text : label druglbl 1
+    local _panel_label : value label tv_class
+    local _panel_text : label `_panel_label' 1
+    assert `"`_old_text'"' == "Original female"
+    assert `"`_panel_label'"' != "druglbl"
+    assert `"`_panel_text'"' == "Drug"
+}
+if _rc == 0 {
+    display as result "  PASS: master and episode label definitions remain distinct"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvpanel label isolation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.13"
+}
+
+* --- 20.14 tvweight: duplicate output names are rejected before any output
+*     variable is created
+display as text "TEST 20.14: tvweight duplicate output preflight"
+capture {
+    quietly {
+        clear
+        set obs 100
+        set seed 20260710
+        generate double x = rnormal()
+        generate byte treatment = runiform() < invlogit(.2*x)
+    }
+    capture noisily tvweight treatment, covariates(x) generate(w) denominator(w) nolog
+    local _weight_rc = _rc
+    assert `_weight_rc' == 198
+    capture confirm variable w
+    assert _rc == 111
+}
+if _rc == 0 {
+    display as result "  PASS: duplicate outputs rejected transactionally"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight duplicate output preflight (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.14"
+}
+
+* --- 20.15 tvweight: replace is transactional when a later validation or
+*     estimation-stage error occurs
+display as text "TEST 20.15: tvweight replace rollback"
+capture {
+    quietly {
+        clear
+        set obs 20
+        generate byte treatment = 1
+        generate double x = _n
+        generate double w = 42
+    }
+    capture noisily tvweight treatment, covariates(x) generate(w) replace nolog
+    local _weight_rc = _rc
+    assert `_weight_rc' != 0
+    confirm variable w
+    assert w == 42
+}
+if _rc == 0 {
+    display as result "  PASS: existing output restored after failure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight replace rollback (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.15"
+}
+
+* --- 20.16 tvweight: diagnostics and panel checks must preserve caller order
+display as text "TEST 20.16: tvweight caller sort order preservation"
+capture {
+    quietly {
+        clear
+        set obs 300
+        set seed 16072026
+        generate long pid = ceil(_n/3)
+        bysort pid: generate byte period = _n
+        generate double x = rnormal()
+        generate byte treatment = runiform() < invlogit(.15*x + .05*period)
+        generate double shuffle = runiform()
+        sort shuffle
+        generate long caller_order = _n
+    }
+    tvweight treatment, covariates(x) id(pid) time(period) generate(w) nolog
+    assert caller_order == _n
+}
+if _rc == 0 {
+    display as result "  PASS: caller observation order preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight sort preservation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.16"
+}
+
+* --- 20.17 tvband: fractional calendar widths are rejected explicitly and
+*     without mutating the caller dataset
+display as text "TEST 20.17: tvband fractional calendar-width guard"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop) int sentinel
+        1 14610 14975 77
+        end
+        format start stop %td
+    }
+    capture noisily tvband, id(pid) start(start) stop(stop) ///
+        type(calendar) width(.5) generate(cb)
+    local _band_rc = _rc
+    assert `_band_rc' == 198
+    assert _N == 1
+    assert sentinel == 77
+    capture confirm variable cb
+    assert _rc == 111
+}
+if _rc == 0 {
+    display as result "  PASS: fractional calendar width rejected cleanly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvband fractional-width guard (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.17"
+}
+
+* --- 20.18 tvexpose: a late using-data validation error restores the caller
+display as text "TEST 20.18: tvexpose caller-data rollback"
+capture {
+    quietly {
+        clear
+        input long pid double(rx_start rx_stop) byte drug
+        1 0 86400000 1
+        end
+        format rx_start %tc
+        format rx_stop %tc
+        tempfile _s20_bad_exposure
+        save "`_s20_bad_exposure'"
+        clear
+        input long pid double(entry exitd) int sentinel
+        1 1 10 314
+        end
+    }
+    capture noisily tvexpose using "`_s20_bad_exposure'", id(pid) ///
+        start(rx_start) stop(rx_stop) exposure(drug) reference(0) ///
+        entry(entry) exit(exitd)
+    local _expose_rc = _rc
+    assert `_expose_rc' != 0
+    assert _N == 1
+    assert pid == 1 & entry == 1 & exitd == 10 & sentinel == 314
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose restores caller after late error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose caller rollback (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.18"
+}
+
+* --- 20.19 tvevent: a late interval-data validation error restores events
+display as text "TEST 20.19: tvevent caller-data rollback"
+capture {
+    quietly {
+        clear
+        input long pid double(start stop)
+        1 0 86400000
+        end
+        format start %tc
+        format stop %tc
+        tempfile _s20_bad_intervals
+        save "`_s20_bad_intervals'"
+        clear
+        input long pid double evdate int sentinel
+        1 5 271
+        end
+    }
+    capture noisily tvevent using "`_s20_bad_intervals'", id(pid) date(evdate)
+    local _event_rc = _rc
+    assert `_event_rc' != 0
+    assert _N == 1
+    assert pid == 1 & evdate == 5 & sentinel == 271
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent restores caller after late error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent caller rollback (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.19"
+}
+
+* --- 20.20 tvmerge: a late source-data validation error restores whatever
+*     dataset was in memory before the merge attempt
+display as text "TEST 20.20: tvmerge caller-data rollback"
+capture {
+    quietly {
+        clear
+        input long pid double(s1 e1) byte x1
+        1 1 10 1
+        end
+        tempfile _s20_merge_good
+        save "`_s20_merge_good'"
+        clear
+        input long pid double(s2 e2) byte x2
+        1 0 86400000 1
+        end
+        format s2 %tc
+        format e2 %tc
+        tempfile _s20_merge_bad
+        save "`_s20_merge_bad'"
+        clear
+        input int sentinel str8 note
+        628 "original"
+        end
+    }
+    capture noisily tvmerge "`_s20_merge_good'" "`_s20_merge_bad'", id(pid) ///
+        start(s1 s2) stop(e1 e2) exposure(x1 x2)
+    local _merge_rc = _rc
+    assert `_merge_rc' != 0
+    assert _N == 1
+    assert sentinel == 628 & note == "original"
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge restores caller after late error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge caller rollback (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20.20"
+}
+
 * TEST RESULTS
 
 * ===== Summary =====
