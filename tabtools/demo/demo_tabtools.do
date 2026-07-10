@@ -1521,7 +1521,7 @@ stratetab, using(`rate11' `rate12' `rate13' `rate21' `rate22' `rate23') ///
 * Binary HRT model frame: one non-reference row
 clear
 set seed 20260417
-set obs 360
+set obs 500
 gen int id = _n
 gen byte hrt = runiform() < 0.38
 gen double age = rnormal(57, 8)
@@ -1543,7 +1543,7 @@ regtab, frame(_demo_hr_bin, replace) noint coef("HR")
 
 * Dose category model frame: three non-reference rows after header + reference
 clear
-set obs 420
+set obs 500
 gen int id = _n
 gen byte dosecat = floor(runiform() * 4)
 gen double age = rnormal(57, 8)
