@@ -2254,18 +2254,25 @@ else {
     local ++fail_count
 }
 
-* T112: Convergence failure with iterate(1)
+* T112: Convergence failure with iterate(1) is a HARD failure
+* Contract change (FG-H07): through v1.1.4 this returned rc 0 with full results
+* posted and e(converged)=0. finegray now refuses to post a model that did not
+* converge. This deliberately diverges from stcrreg (which posts with rc 0)
+* because finegray's own bootstrap refits call finegray quietly, where a
+* warning is invisible -- see test_finegray_optimizer.do.
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
-    * With only 1 iteration, should typically not converge
-    * but should still return results without error
+    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    assert _rc == 430
+
+    * and the converged fit on the same data still succeeds
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     assert e(N) > 0
-    assert e(converged) == 0 | e(converged) == 1
+    assert e(converged) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: T112 iterate(1) returns results"
+    display as result "  PASS: T112 iterate(1) errors r(430); converged fit succeeds"
     local ++pass_count
 }
 else {

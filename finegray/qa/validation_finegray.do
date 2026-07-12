@@ -948,17 +948,24 @@ else {
 * {smcl}
 * {* SECTION 13: Convergence stress tests}{...}
 
-* V37: iterate(1) forces non-convergence
+* V37: iterate(1) forces non-convergence, which is now a HARD failure
+* Contract change (FG-H07): through v1.1.4 a nonconverged fit posted e(b)/e(V)
+* with rc 0 and e(converged)=0. finegray now refuses to post results for a model
+* that did not converge, so nothing is left behind for a caller to consume.
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
-    assert e(converged) == 0
+    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    assert _rc == 430
+
+    * the converged fit on the same data still posts a full result surface
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
     confirm matrix e(b)
     confirm matrix e(V)
 }
 if _rc == 0 {
-    display as result "  PASS: V37 iterate(1) non-convergence"
+    display as result "  PASS: V37 iterate(1) non-convergence errors r(430)"
     local ++pass_count
 }
 else {

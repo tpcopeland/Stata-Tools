@@ -167,11 +167,27 @@ is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 
 {phang}
 {opt iterate(#)} specifies the maximum number of Newton-Raphson
-iterations. Default is {cmd:iterate(200)}.
+iterations. Default is {cmd:iterate(200)}. If the model has not converged
+within {it:#} iterations, {cmd:finegray} exits with an error; it does not
+report results for a model that did not converge.
 
 {phang}
 {opt tolerance(#)} specifies the convergence tolerance. Default is
-{cmd:tolerance(1e-8)}.
+{cmd:tolerance(1e-8)}. {it:#} must be a positive number. Convergence is
+declared when the Newton decrement, {cmd:score' * inv(I) * score}, falls
+below {it:#}; near the optimum this is approximately twice the remaining gain
+in the log pseudo-likelihood. The decrement is used rather than the size of
+the coefficient step because it is invariant to rescaling a covariate, so
+{cmd:x} and {cmd:1e6*x} converge to the same fit.
+
+{phang}
+{cmd:finegray} requires the model to be identified. Because the
+subdistribution likelihood is evaluated only over cause-event risk sets, a
+covariate can be of full rank in the data as a whole and still contribute no
+information to the fit (for example, if it is nonzero only for subjects
+censored before the first cause event). Such a coefficient is not estimable,
+and {cmd:finegray} exits with an error naming the offending term rather than
+reporting an arbitrary value for it.
 
 
 {marker remarks}{...}
@@ -526,7 +542,7 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(chi2)}}Wald chi-squared{p_end}
 {synopt:{cmd:e(p)}}p-value for model chi-squared{p_end}
 {synopt:{cmd:e(df_m)}}model degrees of freedom{p_end}
-{synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
+{synopt:{cmd:e(converged)}}always 1; nonconvergence is an error{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(cause)}}cause of interest value{p_end}
 {synopt:{cmd:e(censvalue)}}censoring value{p_end}

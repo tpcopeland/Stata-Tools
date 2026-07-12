@@ -197,18 +197,43 @@ else {
     local ++fail_count
 }
 
-**# 8. Bootstrap skips nonconverged refits
+**# 8. A nonconverged fit can never reach the bootstrap at all
+* Contract change (FG-H07). This test used to manufacture a nonconverged fit
+* (iterate(1) tolerance(1e-20)), confirm e(converged)==0, and then check that
+* finegray_cif's bootstrap skipped every refit and errored 498.
+*
+* That premise is now UNREACHABLE by construction: finegray refuses to post a
+* nonconverged model, so no such e() can exist to bootstrap from. The hazard the
+* test guarded (a nonconverged refit silently entering the CI band) is closed at
+* the source rather than caught downstream -- and refits that fail inside the
+* bootstrap loop are still skipped, since finegray_cif captures the refit rc
+* (finegray_cif.ado:348-349) before it ever inspects e(converged).
+*
+* So we assert the new contract, plus the two invariants that used to depend on
+* it: the too-few-successes floor still fires, and no replication goes
+* unaccounted for.
 local ++test_count
 capture noisily {
     _mk_hypoxia_112
-    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
+
+    * (a) a nonconverged fit cannot be posted
+    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
         iterate(1) tolerance(1e-20)
-    assert e(converged) == 0
-    capture finegray_cif, attime(5) ci bootstrap(3) seed(112)
+    assert _rc == 430
+
+    * (b) the too-few-successful-replications floor still errors
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    capture finegray_cif, attime(5) ci bootstrap(1) seed(112)
     assert _rc == 498
+
+    * (c) every requested replication is accounted for as success or failure
+    quietly finegray_cif, attime(5) ci bootstrap(10) seed(112)
+    assert r(bootstrap_requested) == 10
+    assert r(bootstrap_success) + r(bootstrap_failed) == r(bootstrap_requested)
 }
 if _rc == 0 {
-    display as result "  PASS: nonconverged bootstrap refits are skipped"
+    display as result "  PASS: nonconverged fits cannot be bootstrapped; replications all accounted"
     local ++pass_count
 }
 else {

@@ -41,6 +41,24 @@ program define finegray_cif, rclass sortpreserve
         display as error "bootstrap() must be a non-negative integer"
         exit 198
     }
+    * A bootstrap SE is the sample SD of the replicate estimates; with a handful
+    * of replicates that SD is itself almost pure noise.  The floor of 25 is
+    * Efron and Tibshirani's (1993, sec. 6.4) minimum for estimating a standard
+    * error.  The previous floor was 2 -- an interval could be, and was, built
+    * from two replications.
+    local _minboot 25
+    if `bootstrap' > 0 & `bootstrap' < `_minboot' {
+        display as error "bootstrap() must be at least `_minboot'"
+        display as error "a standard error estimated from fewer replications is not usable"
+        exit 198
+    }
+    * seed() only means something when there is resampling to seed.  Silently
+    * ignoring it invites a user to believe a non-bootstrap run is reproducible
+    * because they asked for it to be.
+    if `"`seed'"' != "" & `bootstrap' == 0 {
+        display as error "seed() requires bootstrap()"
+        exit 198
+    }
 
     * =====================================================================
     * VALIDATE STATE
@@ -292,7 +310,11 @@ program define finegray_cif, rclass sortpreserve
     * =====================================================================
     if `bootstrap' > 0 {
         local _fgid `"`_dta[st_id]'"'
-        local _fgcmd `"`e(cmdline)'"'
+        * e(refitcmd), not e(cmdline): the refit runs on data already restricted
+        * to e(sample) and then resampled, so the user's `if'/`in' qualifier is
+        * meaningless there.  Replaying `in 101/200' against a 100-row resample
+        * selected no rows and failed every replication (rc 498, 0/B).
+        local _fgcmd `"`e(refitcmd)'"'
         local _fgclust `"`e(clustvar)'"'
         * A string id() cannot store _n; when it is non-numeric, give each
         * resampled row a fresh unique numeric id instead.
@@ -365,8 +387,9 @@ program define finegray_cif, rclass sortpreserve
         _estimates unhold `_esth'
         local _held = 0
 
-        if `_bok' < 2 {
-            display as error "bootstrap failed: too few successful replications (`_bok')"
+        if `_bok' < `_minboot' {
+            display as error "bootstrap failed: only `_bok' of `bootstrap' replications succeeded"
+            display as error "at least `_minboot' are required to estimate a standard error"
             exit 498
         }
         if `_bok' < `bootstrap' {

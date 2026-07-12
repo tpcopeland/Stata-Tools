@@ -47,8 +47,18 @@ program define finegray, eclass sortpreserve
         COMPete(varname numeric) CAUse(integer) ///
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) CLuster(varname numeric) noROBust ///
-         noLOG ///
+         noADJust noLOG ///
          ITERate(integer 200) TOLerance(real 1e-8)]
+
+    * noadjust suppresses the finite-sample correction applied to the sandwich
+    * variance; the model-based (norobust) variance has no such correction, so
+    * the combination is a contradiction rather than a no-op.
+    if "`adjust'" == "noadjust" & "`robust'" == "norobust" {
+        display as error "noadjust is not allowed with norobust"
+        display as error "the finite-sample adjustment applies to the robust " ///
+            "(sandwich) variance only"
+        exit 198
+    }
 
     * =========================================================================
     * VALIDATE STSET (must come before marksample references _st)
@@ -141,6 +151,7 @@ program define finegray, eclass sortpreserve
 
     local _fg_reduced = 0
     local _fg_entryvar ""
+    local _fg_entry_pending = 0
     if `_fg_maxrec' > 1 {
         * --- covariate constancy check (raw vars, strata, cluster) ---
         local _fg_checkvars ""
@@ -196,27 +207,24 @@ program define finegray, eclass sortpreserve
             exit 198
         }
 
-        * --- persist each subject's earliest entry for post-estimation ---
+        * --- claim the entry-time name, but do not write it yet ---
         * Post-estimation (finegray_cif, finegray_predict ci/schoenfeld,
         * finegray_phtest, bootstrap refits) recomputes risk sets from the
         * data; the kept record's own _t0 is its last interval start, so the
         * true entry must survive outside this program's preserve block.
+        * Creating _fg_entry here would mutate the dataset BEFORE the input
+        * validation below: a validation failure then drops the column in the
+        * cleanup zone while a prior fit's e() still refers to it.  Check the
+        * name is available now (a pure error path), and materialise the
+        * column only once validation has passed.
         capture confirm variable _fg_entry
-        if !_rc {
-            if `"`_dta[_finegray_entryvar]'"' == "_fg_entry" {
-                display as text "(note: replacing existing variable _fg_entry)"
-                quietly drop _fg_entry
-            }
-            else {
-                display as error "variable _fg_entry already exists"
-                display as error "finegray uses this name to record subject entry times"
-                display as error "for multiple-record data; rename or drop it before running finegray"
-                exit 198
-            }
+        if !_rc & `"`_dta[_finegray_entryvar]'"' != "_fg_entry" {
+            display as error "variable _fg_entry already exists"
+            display as error "finegray uses this name to record subject entry times"
+            display as error "for multiple-record data; rename or drop it before running finegray"
+            exit 198
         }
-        quietly gen double _fg_entry = `_fg_mint0'
-        label variable _fg_entry "finegray: earliest subject entry time (multi-record reduction)"
-        local _fg_entryvar "_fg_entry"
+        local _fg_entry_pending = 1
 
         * --- reduce: keep the record at max(_t) per subject ---
         tempvar _fg_obs _fg_seen _fg_surv
@@ -244,8 +252,13 @@ program define finegray, eclass sortpreserve
         display as error "iterate() must be a positive integer"
         exit 198
     }
-    if `tolerance' <= 0 {
-        display as error "tolerance() must be positive"
+    * syntax's real type ACCEPTS a missing value, and `. <= 0' is false in
+    * Stata (missing sorts above any number), so a bare `<= 0' test lets
+    * tolerance(.) through -- and every convergence comparison against a
+    * missing tolerance is then vacuously true.  iterate(.) is already rejected
+    * by syntax's integer type; mirror that here.
+    if missing(`tolerance') | `tolerance' <= 0 {
+        display as error "tolerance() must be a positive number"
         exit 198
     }
 
@@ -291,6 +304,24 @@ program define finegray, eclass sortpreserve
     }
 
     if "`level'" == "" local level = c(level)
+
+    * =========================================================================
+    * MATERIALISE THE ENTRY-TIME COLUMN (multi-record fits only)
+    * =========================================================================
+    * Deferred from the reduction step above: every check that can reject this
+    * fit has now run, so writing the package-owned column here cannot strand a
+    * prior fit's e() behind a dropped variable.
+    if `_fg_entry_pending' {
+        capture confirm variable _fg_entry
+        if !_rc {
+            display as text "(note: replacing existing variable _fg_entry)"
+            quietly drop _fg_entry
+        }
+        quietly gen double _fg_entry = `_fg_mint0'
+        label variable _fg_entry ///
+            "finegray: earliest subject entry time (multi-record reduction)"
+        local _fg_entryvar "_fg_entry"
+    }
 
     * =========================================================================
     * EXPAND FACTOR VARIABLES (fvrevar-based: supports i., ib#., ##, #, c.)
@@ -589,7 +620,8 @@ program define finegray, eclass sortpreserve
         mata: _finegray_engine( ///
             "`varlist'", "`compete'", `cause', `censvalue', ///
             "`_byg_mata'", "`vce_type'", "`cluster'", ///
-            `iterate', `tolerance', ("`log'" != "nolog"))
+            `iterate', `tolerance', ("`log'" != "nolog"), ///
+            ("`adjust'" != "noadjust"))
     }
 
     local _rc_fit = _rc
@@ -621,6 +653,9 @@ program define finegray, eclass sortpreserve
     local _fg_chi2     = _finegray_chi2[1,1]
     local _fg_df_m     = _finegray_df_m[1,1]
     local _fg_conv     = _finegray_conv[1,1]
+    local _fg_rank     = _finegray_rank[1,1]
+    local _fg_nclust   = .
+    capture local _fg_nclust = _finegray_nclust[1,1]
 
     * Compute p-value from chi2
     if `_fg_chi2' != . & `_fg_df_m' > 0 {
@@ -642,6 +677,8 @@ program define finegray, eclass sortpreserve
     ereturn scalar chi2 = `_fg_chi2'
     ereturn scalar p = `_fg_p'
     ereturn scalar df_m = `_fg_df_m'
+    ereturn scalar rank = `_fg_rank'
+    if "`cluster'" != "" ereturn scalar N_clust = `_fg_nclust'
     ereturn scalar converged = `_fg_conv'
     ereturn scalar level = `level'
     ereturn scalar cause = `cause'
@@ -651,6 +688,22 @@ program define finegray, eclass sortpreserve
 
     ereturn local cmd "finegray"
     ereturn local cmdline `"`_cmdline'"'
+
+    * Refit command line for the bootstrap paths in finegray_cif /
+    * finegray_predict.  e(cmdline) is the user's command AS TYPED and must stay
+    * that way, but a refit runs on data already restricted to e(sample) and
+    * then resampled, so replaying an `if'/`in' qualifier there is at best
+    * redundant and, for `in' (or any _n-dependent `if'), plainly wrong: after
+    * `finegray x in 101/200' the resampled dataset has 100 rows, `in 101/200'
+    * selects nothing, and every replication fails with rc 498.  Rebuild the
+    * line from the parsed options with no sample qualifier.
+    local _refitcmd `"finegray `_orig_varlist', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
+    if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
+    if "`cluster'" != ""         local _refitcmd `"`_refitcmd' cluster(`cluster')"'
+    if "`robust'" == "norobust"  local _refitcmd `"`_refitcmd' norobust"'
+    if "`adjust'" == "noadjust"  local _refitcmd `"`_refitcmd' noadjust"'
+    ereturn local refitcmd `"`_refitcmd'"'
+
     ereturn local predict "finegray_predict"
     ereturn local depvar "`compete'"
     ereturn local compete "`compete'"
@@ -720,6 +773,10 @@ program define finegray, eclass sortpreserve
     display as text "No. of cause events" _col(24) "= " as result %10.0fc `N_fail'
     display as text "No. of competing" _col(24) "= " as result %10.0fc `N_compete'
     display as text "No. censored" _col(24) "= " as result %10.0fc `N_cens'
+    if "`cluster'" != "" {
+        display as text "No. of clusters" _col(24) "= " ///
+            as result %10.0fc `_fg_nclust'
+    }
     display as text ""
 
     if `_fg_ll' != . {
@@ -744,6 +801,22 @@ program define finegray, eclass sortpreserve
         display as error "convergence not achieved"
     }
 
+    * The Fine-Gray objective is a PSEUDO-likelihood: the IPCW risk sets make
+    * subjects' contributions dependent, so the inverse information is not the
+    * sampling variance of beta-hat.  norobust is a diagnostic, not an
+    * inference option -- say so every time it is used.
+    if "`robust'" == "norobust" {
+        display as text ""
+        display as error "Warning: norobust reports model-based (inverse-information) standard errors."
+        display as error "The Fine-Gray subdistribution likelihood is a pseudo-likelihood -- the"
+        display as error "inverse-probability-of-censoring weights make subjects' contributions"
+        display as error "dependent -- so the information matrix does not estimate the sampling"
+        display as error "variance of the coefficients.  These standard errors are generally too"
+        display as error "small and their confidence intervals do not have nominal coverage."
+        display as error "Use the default robust (sandwich) variance for inference; norobust is"
+        display as error "provided for comparison with the naive likelihood only."
+    }
+
     if `_fv_nrefs' > 0 {
         display as text ""
         forvalues _i = 1/`_fv_nrefs' {
@@ -758,7 +831,7 @@ program define finegray, eclass sortpreserve
     * Clean up temporary matrices (runs on both success and error paths)
     foreach m in _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
         _finegray_chi2 _finegray_df_m _finegray_conv ///
-        _finegray_basehaz {
+        _finegray_rank _finegray_nclust _finegray_basehaz {
         capture matrix drop `m'
     }
 

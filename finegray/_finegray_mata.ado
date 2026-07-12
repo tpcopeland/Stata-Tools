@@ -43,7 +43,12 @@ end
 mata:
 mata set matastrict on
 
-/* Single-stratum KM of censoring distribution (with left truncation) */
+/* Single-stratum KM of censoring distribution (with left truncation).
+   Returns the POST-JUMP survivor at each observation time, i.e. the ordinary
+   right-continuous KM step values.  Consumers that need the IPCW weight take
+   the left limit G(t-) via _finegray_G_at_times/_finegray_G_minus; keeping the
+   raw step values here is what lets that lookup be exact at, between, and
+   beyond observation times. */
 real colvector _finegray_km_censor_single(
     real colvector t,
     real colvector delta,
@@ -64,20 +69,19 @@ real colvector _finegray_km_censor_single(
     n_risk_at_t = 0
 
     /* For LT-KM we need to count the risk set dynamically.
-       Risk set at time t = subjects with t0 <= t AND _t >= t.
+       Stata survival intervals are (t0, t], so the risk set at time t is the
+       subjects with t0 < t AND _t >= t: a subject entering at exactly t is not
+       yet at risk for an event at t.
        Process entry events (sorted by t0) and exit events (sorted by _t)
-       simultaneously. */
-
-    /* Precompute: how many subjects have entered by each event time */
-    /* Use two-pointer merge: advance entry pointer as we scan event times */
+       simultaneously via a two-pointer merge. */
 
     i = 1
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries: subjects with t0 <= cur_time */
+        /* Add entries: subjects with t0 < cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             /* Only count if subject is still alive (t >= cur_time) */
             if (t[entry_ord[ep]] >= cur_time) {
                 n_risk_at_t++
@@ -170,11 +174,20 @@ real colvector _finegray_group_index(
     return(gidx)
 }
 
-/* Evaluate every stratum-specific censoring KM at arbitrary target times.
-   Column g is G_g(target_t), carried forward as a right-continuous step
-   function. Fine-Gray IPCW weights for a retained competing-event subject
-   use the numerator from THAT SUBJECT'S censoring stratum, not the stratum of
-   the cause event currently being processed. */
+/* Evaluate every stratum-specific censoring KM at arbitrary target times, as
+   the LEFT LIMIT G_g(target_t-).  G carries the post-jump survivor at each
+   observation time, so accumulating only the jumps at times strictly BELOW the
+   target yields the left limit -- for a target that is itself an observation
+   time as well as for one between (or beyond) observation times.
+
+   The left limit is the convention both reference implementations use:
+   cmprsk::crr evaluates the censoring KM at ftime*(1 - 100*eps) and stcrreg
+   does the same.  A subject whose time coincides with a censoring event must
+   NOT absorb that time's KM jump.
+
+   Fine-Gray IPCW weights for a retained competing-event subject use the
+   numerator from THAT SUBJECT'S censoring stratum, not the stratum of the
+   cause event currently being processed. */
 real matrix _finegray_G_at_times(
     real colvector t,
     real colvector G,
@@ -196,7 +209,7 @@ real matrix _finegray_G_at_times(
         lastg = 1
         for (i = 1; i <= rows(tord); i++) {
             while (p <= rows(gord)) {
-                if (t[gord[p]] <= target_t[tord[i]]) {
+                if (t[gord[p]] < target_t[tord[i]]) {
                     lastg = G[gord[p]]
                     p++
                 }
@@ -205,6 +218,22 @@ real matrix _finegray_G_at_times(
             out[tord[i], g] = lastg
         }
     }
+    return(out)
+}
+
+/* Left-limit censoring survivor G(T_i-) for each observation, read from that
+   observation's OWN censoring stratum.  This is the IPCW denominator used to
+   weight a competing-event subject back into the subdistribution risk set. */
+real colvector _finegray_G_minus(
+    real colvector gidx,
+    real matrix Gt)
+{
+    real scalar i, n
+    real colvector out
+
+    n = rows(gidx)
+    out = J(n, 1, 1)
+    for (i = 1; i <= n; i++) out[i] = Gt[i, gidx[i]]
     return(out)
 }
 
@@ -225,7 +254,7 @@ real scalar _finegray_loglik(
     real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
     real scalar risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx
+    real colvector levels, gidx, Gminus
     real rowvector raw_bwd
     real matrix Gt
 
@@ -243,6 +272,7 @@ real scalar _finegray_loglik(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     /* Incremental risk-set tracking */
     risk_S0 = 0
@@ -254,9 +284,9 @@ real scalar _finegray_loglik(
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries: subjects with t0 <= cur_time AND t >= cur_time */
+        /* Add entries: subjects with t0 < cur_time AND t >= cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             if (t[entry_ord[ep]] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[entry_ord[ep]]
             }
@@ -283,7 +313,7 @@ real scalar _finegray_loglik(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                raw_bwd[g] = raw_bwd[g] + expeta[idx] / G[idx]
+                raw_bwd[g] = raw_bwd[g] + expeta[idx] / Gminus[idx]
             }
         }
 
@@ -317,7 +347,7 @@ void _finegray_score_info(
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx
+    real colvector levels, gidx, Gminus
     real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
@@ -335,6 +365,7 @@ void _finegray_score_info(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     /* Incremental risk-set sums */
     risk_S0 = 0
@@ -352,9 +383,9 @@ void _finegray_score_info(
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries */
+        /* Add entries: (t0, t] means t0 < cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             idx = entry_ord[ep]
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
@@ -394,11 +425,11 @@ void _finegray_score_info(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
                 bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / G[idx] * Z[idx, .]
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
                 bwd_s2_raw[g, .] = bwd_s2_raw[g, .] +
-                    vec(expeta[idx] / G[idx] *
+                    vec(expeta[idx] / Gminus[idx] *
                     (Z[idx, .]' * Z[idx, .]))'
             }
         }
@@ -441,7 +472,7 @@ real matrix _finegray_score_residuals(
     real scalar n, p, i, j, k, idx, running_invS0
     real scalar S0_t, cur_time, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx
+    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx, Gminus
     real matrix scores, cum_zbars, cum_gzbars, entry_zbars, Gt
     real matrix bwd_s1_raw, running_gzbars
     real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
@@ -461,6 +492,7 @@ real matrix _finegray_score_residuals(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
@@ -486,14 +518,15 @@ real matrix _finegray_score_residuals(
         cur_time = t[ord[i]]
 
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             idx = entry_ord[ep]
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
                 risk_S1 = risk_S1 + expeta[idx] * Z[idx, .]
-                /* cumulative sums over cause-event times before t0[idx]:
-                   no event time lies in (t0[idx], cur_time), so the running
-                   sums at admission equal the sums over T_m < t0[idx] */
+                /* cur_time is the first observation time strictly after
+                   t0[idx], so the running sums at admission are exactly the
+                   sums over cause-event times T_m <= t0[idx] -- the events the
+                   subject's (t0, t] window must EXCLUDE. */
                 entry_invS0[idx] = running_invS0
                 entry_zbars[idx, .] = running_zbar_sum
             }
@@ -538,9 +571,9 @@ real matrix _finegray_score_residuals(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
                 bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / G[idx] * Z[idx, .]
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
             }
         }
 
@@ -554,7 +587,7 @@ real matrix _finegray_score_residuals(
     }
 
     /* Subtract the at-risk contribution for all subjects, restricted to each
-       subject's own risk window [t0_i, T_i] (entry-to-exit difference) */
+       subject's own risk window (t0_i, T_i] (entry-to-exit difference) */
     for (i = 1; i <= n; i++) {
         scores[i, .] = scores[i, .] - expeta[i] *
             (Z[i, .] * (cum_invS0[i] - entry_invS0[i]) -
@@ -568,7 +601,7 @@ real matrix _finegray_score_residuals(
             g = gidx[i]
             total_gzbars = running_gzbars[g, .]
             scores[i, .] = scores[i, .] -
-                (expeta[i] / G[i]) *
+                (expeta[i] / Gminus[i]) *
                 (Z[i, .] * (total_ginvS0[g] - cum_ginvS0[i]) -
                  (total_gzbars - cum_gzbars[i, .]))
         }
@@ -636,7 +669,7 @@ real matrix _finegray_basehazard(
     real scalar n, p, i, j, k, idx, cum_bh, g, ng
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx
+    real colvector levels, gidx, Gminus
     real rowvector bwd_s0_raw
     real matrix result, Gt
 
@@ -654,6 +687,7 @@ real matrix _finegray_basehazard(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
     ep = 1
@@ -669,9 +703,9 @@ real matrix _finegray_basehazard(
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries */
+        /* Add entries: (t0, t] means t0 < cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             idx = entry_ord[ep]
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
@@ -702,7 +736,7 @@ real matrix _finegray_basehazard(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
             }
         }
 
@@ -736,7 +770,7 @@ real matrix _finegray_schoenfeld(
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar ev_idx, n_events, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord, score_vec
-    real colvector row_id, levels, gidx
+    real colvector row_id, levels, gidx, Gminus
     real matrix result, info_mat, risk_S1_mat, bwd_s1_raw, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
@@ -760,6 +794,7 @@ real matrix _finegray_schoenfeld(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
     risk_S1 = J(1, p, 0)
@@ -776,9 +811,9 @@ real matrix _finegray_schoenfeld(
     while (i <= n) {
         cur_time = t[ord[i]]
 
-        /* Add entries */
+        /* Add entries: (t0, t] means t0 < cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             idx = entry_ord[ep]
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
@@ -810,9 +845,9 @@ real matrix _finegray_schoenfeld(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
                 bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / G[idx] * Z[idx, .]
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
             }
         }
 
@@ -886,6 +921,51 @@ void _finegray_schoenfeld_compute(
     st_matrix("_finegray_schoenfeld", sch)
 }
 
+/* Abort on a rank-deficient information matrix, naming the offending terms.
+
+   invsym() returns a GENERALIZED inverse for a rank-deficient matrix, with no
+   missing values anywhere -- invsym((1,1\1,1))[1,1] is not missing.  So a
+   missing() test cannot detect rank deficiency, and without this guard the
+   optimizer chases floating-point noise along a flat direction and fabricates
+   a coefficient (with SE 0 and converged=1) for a parameter the subdistribution
+   likelihood cannot identify at all.
+
+   _rmcoll in finegray.ado already rejects columns that are collinear in the
+   FULL sample.  This catches the weaker condition that actually matters: a
+   column can be globally full rank yet enter no cause-event risk set (e.g. it
+   is nonzero only for subjects censored before the first cause event), leaving
+   its direction flat in the likelihood. */
+void _finegray_rank_fail(
+    real matrix info_mat,
+    string rowvector vars,
+    real scalar p)
+{
+    real scalar k, dmax
+    real colvector d
+    string scalar bad
+
+    d = diagonal(info_mat)
+    dmax = colmax(d)
+    bad = ""
+    for (k = 1; k <= p; k++) {
+        if (dmax <= 0 | d[k] <= 1e-9 * dmax) bad = bad + " " + vars[k]
+    }
+
+    errprintf("finegray: the information matrix is not full rank\n")
+    if (bad != "") {
+        errprintf("term(s) contributing no information at any cause-event ")
+        errprintf("risk set:%s\n", bad)
+        errprintf("their coefficients are not identified by the ")
+        errprintf("subdistribution likelihood\n")
+    }
+    else {
+        errprintf("the covariates are collinear within the cause-event ")
+        errprintf("risk sets\n")
+    }
+    errprintf("remove or recode the offending term(s) and fit the model again\n")
+    exit(error(459))
+}
+
 /* Main engine: Newton-Raphson with step halving */
 void _finegray_engine(
     string scalar varlist_str,
@@ -897,7 +977,8 @@ void _finegray_engine(
     string scalar clust_str,
     real scalar max_iter,
     real scalar tol,
-    real scalar show_log)
+    real scalar show_log,
+    real scalar adjust)
 {
     real colvector t, delta, event_type, G, byg_id, t0
     real matrix Z, V, bh
@@ -905,6 +986,7 @@ void _finegray_engine(
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
     real scalar step_scale, halving, max_halvings, chi2, df_m
+    real scalar decrement, accepted, n_clust, rank_V
     string rowvector vars
 
     /* Read data */
@@ -932,9 +1014,15 @@ void _finegray_engine(
     /* Starting values: zeros */
     beta = J(p, 1, 0)
 
-    /* Null log-likelihood */
+    /* Null log-likelihood (beta = 0).  The Fine-Gray partial likelihood has no
+       identifiable intercept, so this is the beta=0 null, not a constant-only
+       fit. */
     ll_0 = _finegray_loglik(t, delta, cause, censval, event_type, Z,
         J(p, 1, 0), G, byg_id, t0)
+    if (ll_0 >= .) {
+        errprintf("finegray: the null log pseudo-likelihood is not finite\n")
+        exit(error(430))
+    }
     ll = ll_0
 
     if (show_log) {
@@ -949,55 +1037,66 @@ void _finegray_engine(
         _finegray_score_info(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0)
 
-        /* Newton-Raphson step */
+        if (hasmissing(info_mat) | hasmissing(score_vec)) {
+            errprintf("finegray: the score or information matrix is not ")
+            errprintf("finite at iteration %g\n", iter)
+            exit(error(430))
+        }
+        if (rank(info_mat) < p) _finegray_rank_fail(info_mat, vars, p)
+
         info_inv = invsym(info_mat)
         if (missing(info_inv[1,1])) {
-            info_inv = invsym(info_mat + 0.001 * I(p))
-            if (missing(info_inv[1,1])) {
-                errprintf("information matrix is singular\n")
-                exit(error(498))
-            }
+            errprintf("finegray: the information matrix is singular\n")
+            exit(error(498))
         }
 
         step = info_inv * score_vec
 
-        /* At a numerical optimum the Newton step can be effectively zero, so
-           the trial likelihood is identical to ll. Treat that as convergence
-           before demanding a strictly improving step -- but TAKE the step
-           first.  Newton converges quadratically, so a step of size s leaves
-           an error of O(s^2): discarding a step as large as sqrt(tol) would
-           strand beta about sqrt(tol) from the optimum, while applying it
-           lands within O(tol). */
-        if (max(abs(step)) < sqrt(tol)) {
+        /* Convergence on the NEWTON DECREMENT, score' inv(I) score.  This is
+           invariant under any linear reparameterization of Z -- in particular
+           under rescaling a covariate -- so x and 1e6*x converge at the same
+           point and to the same likelihood.  A raw step-size test (|step| <
+           sqrt(tol)) is NOT scale free: it is stated on the coefficient scale,
+           so rescaling x by 1e6 shrinks beta by 1e6 and the test fires
+           immediately, stranding the fit at a worse optimum while still
+           reporting converged=1.
+
+           Near the optimum the decrement is ~2*(ll_max - ll), so `decrement <
+           tol` means the likelihood is within tol/2 of its maximum. */
+        decrement = score_vec' * step
+        if (decrement < 0) decrement = 0    /* info is PSD; absorb fp noise */
+
+        if (decrement < tol) {
             beta = beta + step
             converged = 1
             break
         }
 
-        /* Step halving */
+        /* Step halving.  `accepted' records whether the loop exited with an
+           improving beta_new, so the step actually taken is always the one the
+           likelihood was evaluated at (testing step_scale after the loop reads
+           the NEXT halving, not the accepted one). */
         step_scale = 1
-        ll_new = .
+        accepted = 0
         for (halving = 1; halving <= max_halvings; halving++) {
             beta_new = beta + step_scale * step
             ll_new = _finegray_loglik(t, delta, cause, censval,
                 event_type, Z, beta_new, G, byg_id, t0)
 
-            if (ll_new > ll) break
+            /* Mata returns exp(overflow) as missing, and (. > x) is TRUE, so a
+               bare `ll_new > ll' would accept a missing likelihood as an
+               improvement.  Require finiteness explicitly. */
+            if (ll_new < . & ll_new > ll) {
+                accepted = 1
+                break
+            }
             step_scale = step_scale / 2
         }
 
-        /* If no improving step found, flag nonconvergence and stop */
-        if (ll_new <= ll) {
-            if (abs(ll_new - ll) < tol &
-                max(abs(step_scale * step)) < sqrt(tol)) {
-                /* Likelihood is numerically flat, so halving can never find a
-                   strictly improving step.  Accept the trial coefficients:
-                   they are the ones the flat likelihood was evaluated at. */
-                beta = beta_new
-                ll = ll_new
-                converged = 1
-                break
-            }
+        if (!accepted) {
+            /* No improving step at any scale down to 2^-max_halvings, while the
+               decrement still predicts an improvement of decrement/2 >= tol/2.
+               The line search is stuck; this is not convergence. */
             if (show_log) {
                 printf("{txt}Iteration %g: step halving failed;" +
                     " no improving step found\n", iter)
@@ -1005,48 +1104,85 @@ void _finegray_engine(
             break
         }
 
-        if (show_log) {
-            printf("{txt}Iteration %g: log pseudo-likelihood = {res}%12.6f\n",
-                iter, ll_new)
-        }
-
-        /* Check convergence */
-        if (abs(ll_new - ll) < tol & max(abs(beta_new - beta)) < sqrt(tol)) {
-            converged = 1
-            beta = beta_new
-            ll = ll_new
-            break
-        }
-
         beta = beta_new
         ll = ll_new
+
+        if (show_log) {
+            printf("{txt}Iteration %g: log pseudo-likelihood = {res}%12.6f\n",
+                iter, ll)
+        }
     }
 
-    if (!converged & show_log) {
-        printf("{err}Warning: did not converge in %g iterations\n", max_iter)
+    if (!converged) {
+        errprintf("finegray: convergence not achieved in %g iterations\n",
+            max_iter)
+        errprintf("results are not reported for a model that did not ")
+        errprintf("converge; raise iterate() or check the specification\n")
+        exit(error(430))
+    }
+
+    /* Recompute the log-likelihood at the ACCEPTED beta.  Every break path
+       above must leave e(ll) paired with e(b): the decrement path takes a final
+       step after its last likelihood evaluation, so reporting the pre-step ll
+       there would post a stale value (with tolerance(1) it posted e(ll) ==
+       e(ll_0) exactly while beta was nonzero). */
+    ll = _finegray_loglik(t, delta, cause, censval, event_type, Z, beta, G,
+        byg_id, t0)
+    if (ll >= .) {
+        errprintf("finegray: the log pseudo-likelihood is not finite at the ")
+        errprintf("solution\n")
+        exit(error(430))
     }
 
     /* Final information for variance */
     _finegray_score_info(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, score_vec, info_mat, t0)
+    if (hasmissing(info_mat)) {
+        errprintf("finegray: the information matrix is not finite at the ")
+        errprintf("solution\n")
+        exit(error(430))
+    }
+    if (rank(info_mat) < p) _finegray_rank_fail(info_mat, vars, p)
     info_inv = invsym(info_mat)
     if (missing(info_inv[1,1])) {
-        errprintf("Warning: information matrix is singular at solution; " +
-            "standard errors may be unreliable\n")
-        info_inv = invsym(info_mat + 1e-6 * I(p))
+        errprintf("finegray: the information matrix is singular at the ")
+        errprintf("solution\n")
+        exit(error(498))
     }
 
     /* Variance estimation */
+    n_clust = .
     if (vce_type == "robust" | vce_type == "cluster") {
         if (vce_type == "cluster") {
             clust_id = st_data(., clust_str)
-            real scalar n_clust
             n_clust = rows(uniqrows(clust_id))
-            if (n_clust < p + 1) {
-                printf("{err}Warning: number of clusters (%g) < " +
-                    "number of parameters + 1 (%g);" +
-                    " clustered SEs may be unreliable\n",
-                    n_clust, p + 1)
+
+            /* The cluster-robust meat is a sum of g outer products of cluster
+               score totals which themselves sum to (approximately) zero at the
+               solution, so its rank is at most g-1.  With g <= p the sandwich
+               is singular in at least p-g+1 directions and any SE printed for
+               those directions is an artefact of invsym()'s g-inverse, not an
+               estimate: g=1 previously reported SE = 1.4e-11, and g=2 with p=3
+               reported three SEs from a rank-1 variance.  The finite-sample
+               factor g/(g-1) is undefined at g=1 as well.  Refuse rather than
+               post fabricated precision. */
+            if (n_clust < 2) {
+                errprintf("finegray: cluster(%s) identifies %g cluster in the ",
+                    clust_str, n_clust)
+                errprintf("estimation sample\n")
+                errprintf("clustered standard errors require at least 2 ")
+                errprintf("clusters\n")
+                exit(error(459))
+            }
+            if (n_clust <= p) {
+                errprintf("finegray: cluster(%s) identifies %g clusters for ",
+                    clust_str, n_clust)
+                errprintf("%g coefficients\n", p)
+                errprintf("the clustered variance matrix has rank at most %g, ",
+                    n_clust - 1)
+                errprintf("so it cannot support %g standard errors\n", p)
+                errprintf("use more clusters, or fit fewer covariates\n")
+                exit(error(459))
             }
         }
         else {
@@ -1054,6 +1190,15 @@ void _finegray_engine(
         }
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0)
+
+        /* Finite-sample adjustment, on by default and suppressed by noadjust.
+           This is StataCorp's stcrreg contract exactly: g/(g-1) when clustered,
+           N/(N-1) otherwise.  Without it finegray reproduced stcrreg's
+           `noadjust' variance while presenting it as the default. */
+        if (adjust) {
+            if (vce_type == "cluster") V = V * (n_clust / (n_clust - 1))
+            else                       V = V * (n / (n - 1))
+        }
     }
     else {
         V = info_inv
@@ -1063,18 +1208,20 @@ void _finegray_engine(
     bh = _finegray_basehazard(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, t0)
 
-    /* Model chi2: df_m = rank of V (excludes omitted/collinear terms) */
-    real scalar k, rank
-    rank = 0
-    for (k = 1; k <= p; k++) {
-        if (V[k, k] > 0) rank++
-    }
-    df_m = rank
+    /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
+       not the rank: a cluster-robust V can have p positive variances and still
+       be singular (2 clusters / 3 coefficients gave df_m = 3 against a rank-1
+       V, so the Wald test was referred to a chi2(3) it does not follow).  Use
+       the numerical rank, and report it as e(rank) -- the stcrreg contract. */
+    rank_V = rank(V)
+    df_m = rank_V
     chi2 = beta' * invsym(V) * beta
 
     /* Post results to Stata matrices */
     st_matrix("_finegray_b", beta')
     st_matrix("_finegray_V", V)
+    st_matrix("_finegray_rank", rank_V)
+    if (n_clust < .) st_matrix("_finegray_nclust", n_clust)
     st_matrix("_finegray_basehaz", bh)
     st_matrixcolstripe("_finegray_basehaz", (J(2,1,""), ("time" \ "cumhazard")))
     st_matrix("_finegray_ll", ll)
@@ -1129,7 +1276,7 @@ real matrix _finegray_cif_core(
 {
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector clev, sel, levels, gidx
+    real colvector clev, sel, levels, gidx, Gminus
     real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
     real matrix bwd_s1_raw, Bcs, GmInvS0sq
@@ -1146,6 +1293,7 @@ real matrix _finegray_cif_core(
     ng = rows(levels)
     gidx = _finegray_group_index(byg_id, levels)
     Gt = _finegray_G_at_times(t, G, byg_id, t)
+    Gminus = _finegray_G_minus(gidx, Gt)
 
     _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
         byg_id, score_vec, info_mat, t0)
@@ -1171,8 +1319,9 @@ real matrix _finegray_cif_core(
     bwd_s0_raw = J(1, ng, 0); bwd_s1_raw = J(ng, p, 0); ev = 0; i = 1
     while (i <= n) {
         cur_time = t[ord[i]]
+        /* Add entries: (t0, t] means t0 < cur_time */
         while (ep <= n) {
-            if (t0[entry_ord[ep]] > cur_time) break
+            if (t0[entry_ord[ep]] >= cur_time) break
             idx = entry_ord[ep]
             if (t[idx] >= cur_time) {
                 risk_S0 = risk_S0 + expeta[idx]
@@ -1200,9 +1349,9 @@ real matrix _finegray_cif_core(
             idx = ord[k]
             if (is_compete[idx]) {
                 g = gidx[idx]
-                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / G[idx]
+                bwd_s0_raw[g] = bwd_s0_raw[g] + expeta[idx] / Gminus[idx]
                 bwd_s1_raw[g, .] = bwd_s1_raw[g, .] +
-                    expeta[idx] / G[idx] * Z[idx, .]
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
             }
         }
         for (k = i; k < j; k++) {
@@ -1217,7 +1366,7 @@ real matrix _finegray_cif_core(
     /* --- Prefix-sum scaffolding for the influence-function `sub' term ------
        The original per-eval-point loop over the cause events accumulated, for
        each observation i,
-         sub_i = sum_{m<=mstar} [ 1{t0_i<=Tm[m]<=t_i}                       (at-risk)
+         sub_i = sum_{m<=mstar} [ 1{t0_i<Tm[m]<=t_i}                        (at-risk)
                                   + is_compete_i * 1{t_i<Tm[m]} * Gm[m]/G_i ] (fictitious)
                                  / S0m[m]^2,
        an O(M*n) inner loop per point. The two indicator families are step
@@ -1225,7 +1374,9 @@ real matrix _finegray_cif_core(
        sums over m collapse each observation's contribution to O(1):
          at-risk term    = A[hi_i] - A[lo_i],       A[k] = sum_{m<=k} 1/S0m^2
          fictitious term = (B[mstar]-B[hi_i])/G_i,  B[k] = sum_{m<=k} Gm/S0m^2
-       with hi_i = #{m<=mstar : Tm[m]<=t_i}  and  lo_i = #{m<=mstar : Tm[m]<t0_i}.
+       with hi_i = #{m<=mstar : Tm[m]<=t_i}  and  lo_i = #{m<=mstar : Tm[m]<=t0_i}.
+       The risk window is (t0_i, T_i] -- half-open at entry -- so lo_i counts
+       events AT t0_i as excluded, matching the engine's (t0, t] risk sets.
        cle/clt0 (counts of cause events at/below each observation's exit/entry)
        are eval-point independent, so they are built once via two-pointer merges
        over the ascending Tm array. This makes the whole variance O(n log n). */
@@ -1242,7 +1393,7 @@ real matrix _finegray_cif_core(
     }
 
     cle  = J(n, 1, 0)                       /* #{cause events with Tm <= t_i}  */
-    clt0 = J(n, 1, 0)                       /* #{cause events with Tm <  t0_i} */
+    clt0 = J(n, 1, 0)                       /* #{cause events with Tm <= t0_i} */
     mp = 0
     for (ii = 1; ii <= n; ii++) {
         idx = ord[ii]
@@ -1257,7 +1408,7 @@ real matrix _finegray_cif_core(
     for (ii = 1; ii <= n; ii++) {
         idx = entry_ord[ii]
         while (mp < M) {
-            if (Tm[mp + 1] < t0[idx]) mp++
+            if (Tm[mp + 1] <= t0[idx]) mp++
             else break
         }
         clt0[idx] = mp
@@ -1282,7 +1433,7 @@ real matrix _finegray_cif_core(
         own = J(n, 1, 0)
         for (m = 1; m <= mstar; m++) own[obsm[m]] = invS0[m]
 
-        /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<t0_i} */
+        /* hi_i = #{m<=mstar : Tm[m]<=t_i}; lo_i = #{m<=mstar : Tm[m]<=t0_i} */
         hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
         lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
         Bmstar = Bcs[mstar + 1, .]
@@ -1291,7 +1442,7 @@ real matrix _finegray_cif_core(
             if (is_compete[i]) {
                 g = gidx[i]
                 sub[i] = sub[i] +
-                    (Bmstar[g] - Bcs[hi[i] + 1, g]) / G[i]
+                    (Bmstar[g] - Bcs[hi[i] + 1, g]) / Gminus[i]
             }
         }
         q = own - expeta :* sub

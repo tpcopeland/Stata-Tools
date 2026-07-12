@@ -22,34 +22,46 @@ authority:
 
 ## Headline results
 
-Every executable test passes. The only skips are an *optional* secondary R
-reference (`fastcmprsk`, archived on CRAN) — the authoritative references
-(`stcrreg`, `cmprsk`, `riskRegression`) all run and all agree.
+Every executable test passes, with no skips.
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
-| `test_finegray.do` | functional / regression | 127 | 127 | 0 | 0 |
+| `test_finegray.do` | functional / regression | 130 | 130 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
-| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 13 | 13 | 0 | 0 |
-| `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap convergence, safe saving) | 10 | 10 | 0 | 0 |
+| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 14 | 14 | 0 | 0 |
+| `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, safe saving) | 10 | 10 | 0 | 0 |
+| `test_finegray_v114.do` | regression (v1.1.4 fixes: factor-level bootstrap skips, unspaced `saving()`, prediction-variable cleanup) | 4 | 4 | 0 | 0 |
+| `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary) | 6 | 6 | 0 | 0 |
+| `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
 | `validation_finegray_cif_recovery.do` | analytic CIF known-answer recovery | 5 | 5 | 0 | 0 |
-| `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 3 | 3 | 0 | 0 |
+| `validation_finegray_cif_se.do` | closed-form CIF-SE oracle (jackknife) | 7 | 7 | 0 | 0 |
 | `validation_finegray_lt_se.do` | left-truncation SE oracles (score identity + jackknife) | 3 | 3 | 0 | 0 |
-| `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 49 | 0 | 6 |
+| `crossval_finegray.do` | crossval vs `stcrreg` / `cmprsk` | 55 | 55 | 0 | 0 |
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| **Total** | | **335** | **329** | **0** | **6** |
+| **Total** | | **363** | **363** | **0** | **0** |
 
-*The 6 skips are `fastcmprsk` cross-checks (C45–C50), a redundant secondary
-oracle. `cmprsk::crr` is the authoritative Fine-Gray reference and runs in full;
-`fastcmprsk` only confirms it a second time. Skipping it loses no coverage.*
+Last full run: 2026-07-12 via `stata-mp -b do run_all.do full`, R with `cmprsk`
+and `riskRegression` present.
 
-Last full run: 2026-07-09 via `stata-mp -b do run_all.do full`, R with
-`cmprsk` and `riskRegression` present.
+### Why the tie and optimizer suites exist
+
+A green suite is only evidence if it *can* go red. Through v1.1.4 this one could
+not: the flagship cross-validation fixture (`webuse hypoxia`) has **zero**
+cause-event times shared with a censored observation, so a left-limit `G(t-)`
+implementation and a post-jump `G(t)` implementation agree on it *exactly*. The
+suite was 347/347 green while the estimator disagreed with both `cmprsk` and
+`stcrreg` on any tied dataset.
+
+`test_finegray_ties.do` and `test_finegray_optimizer.do` were written against
+that blind spot. Both are verified to **fail against v1.1.4** and pass after the
+fix — that differential is the point of them, and `test_finegray_ties.do` test 1
+asserts the hypoxia tie structure directly, so the reason the old suite could be
+green is now an executable fact rather than a footnote.
 
 ## How to run
 
@@ -97,12 +109,14 @@ install.packages(c("cmprsk", "riskRegression"))
 | File | Role |
 |------|------|
 | `run_all.do` | Curated lane runner (`quick`, `core`, `python`, `full`) |
-| `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner |
+| `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner, plus the seeded fixture builders (`_finegray_qa_tied_data`, `_finegray_qa_entry_data`, `_finegray_qa_unident_data`) that the tie and optimizer suites are built on |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
 | `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), and `finegray_cif, at()` factor-variable natural names |
 | `test_finegray_v112.do` | Regression tests for v1.1.2: estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, and helper `r()` isolation |
 | `test_finegray_v114.do` | Regression tests for v1.1.4: factor-level bootstrap skips/counts, unspaced `saving(filename,replace)` parsing, and all-or-nothing prediction-variable cleanup |
+| `test_finegray_ties.do` | Estimator core numerics: censoring ties use the left limit `G(t-)` (matching `cmprsk`'s `xout = ftime*(1-100*eps)` and `stcrreg`), and the risk-set entry boundary is `(t0, t]` so a subject entering at exactly `t` is not at risk at `t`. Asserts tied-data parity with `stcrreg`, exact entry-boundary invariance, and — as an executable fact — that `webuse hypoxia` has zero censor/event time collisions and is therefore blind to the tie convention |
+| `test_finegray_optimizer.do` | Optimizer safety: rank-deficient information is a hard error rather than a fabricated coefficient; nonconvergence, `tolerance(.)`/`(0)`/`(-1)` and `iterate(.)` are hard errors; `e(ll)` is recomputed at the accepted β; the convergence test is scale invariant (Newton decrement, not coefficient-scale step size); nonfinite trial likelihoods are never accepted as improvements |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
 | `validation_finegray_recovery.do` | Known-truth log-SHR recovery from a Fine-Gray DGP |
 | `validation_finegray_recovery_paths.do` | Known-truth log-SHR recovery across 15 option/coding/estimand code paths (null/strong effects, binary/factor/interaction covariates, non-default `cause()`/`censvalue()`, cluster/norobust VCE, heavy censoring, high/low incidence, `level()`, multi-record reduction) |
@@ -122,7 +136,7 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do`, `test_finegray_v114.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do`, `test_finegray_v114.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do` |
 | `full` | `core` + `python` |
