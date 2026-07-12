@@ -42,15 +42,21 @@ end
 * Pre-1.1.4 these replications "succeeded" while silently pairing the shorter
 * refit e(b) against the full covariate profile; the skip is the regression
 * signal: at least one replication must now be counted as failed.
+*
+* 40 replications, not 20: level 3 holds two subjects, so roughly a fifth of
+* the resamples lose it and are skipped.  Since 1.2.0 the bootstrap requires 25
+* SUCCESSFUL replications (FG-M07), so the request has to leave headroom for the
+* skips this test exists to produce.  That makes this the "some fail, enough
+* survive" path -- the one a real user with a rare level actually lands on.
 local ++test_count
 capture noisily {
     _mk_rarelvl_114
     quietly finegray i.grp x, compete(ev) cause(1) nolog
-    finegray_cif, attime(1) ci bootstrap(20) seed(7) nograph
-    assert r(bootstrap_requested) == 20
+    finegray_cif, attime(1) ci bootstrap(40) seed(7) nograph
+    assert r(bootstrap_requested) == 40
     assert r(bootstrap_failed) > 0
-    assert r(bootstrap_success) >= 2
-    assert r(bootstrap_success) + r(bootstrap_failed) == 20
+    assert r(bootstrap_success) >= 25
+    assert r(bootstrap_success) + r(bootstrap_failed) == 40
     matrix _T114 = r(table)
     assert _T114[1, 3] > 0 & _T114[1, 3] < .
     matrix drop _T114
@@ -71,7 +77,7 @@ capture noisily {
     _mk_rarelvl_114
     quietly finegray i.grp x, compete(ev) cause(1) nolog
     gen double t1 = 1
-    finegray_predict cb, cif timevar(t1) ci bootstrap(20) seed(7)
+    finegray_predict cb, cif timevar(t1) ci bootstrap(40) seed(7)
     confirm variable cb
     confirm variable cb_lci
     confirm variable cb_uci

@@ -709,6 +709,12 @@ program define finegray, eclass sortpreserve
     ereturn local compete "`compete'"
     ereturn local covariates "`varlist'"
     if `_has_fv' ereturn local fvvarlist "`_orig_varlist'"
+    * The fit-time factor expansion, INCLUDING base terms (1b.grp).  This is the
+    * semantic record of which level each coefficient belongs to.  Post-estimation
+    * must align factor terms against this by LEVEL VALUE; re-expanding the
+    * current data and matching positionally silently applies the fitted
+    * coefficients to whatever levels happen to be present now.
+    if `_has_fv' ereturn local fvsemantic "`_fv_semantic'"
     if "`strata'" != "" ereturn local strata "`strata'"
     if "`cluster'" != "" ereturn local clustvar "`cluster'"
     * VCE type: cluster > robust (default) > oim (norobust)
@@ -734,6 +740,13 @@ program define finegray, eclass sortpreserve
         local _sig_entry_seen : list posof "`_fg_entryvar'" in _fg_sigvars
         if `_sig_entry_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_fg_entryvar'"
     }
+    * Package-owned _fg_* design columns are deliberately NOT in this signature.
+    * They are derived from the raw factor variables, and post-estimation is
+    * allowed to rebuild them when they have been dropped -- putting them here
+    * would turn a supported `drop _fg_*' into a hard error.  A _fg_ column that
+    * is PRESENT but no longer matches what the fit-time expansion implies is a
+    * different matter, and _finegray_check_data verifies that separately
+    * (flipping _fg_grp_2 moved the CIF from 0.18367237 to 0.18251435 at rc 0).
     quietly _datasignature `_fg_sigvars' if e(sample), nodefault nonames
     ereturn local datasignature `"`r(datasignature)'"'
     ereturn local datasignaturevars "`_fg_sigvars'"
@@ -790,15 +803,21 @@ program define finegray, eclass sortpreserve
     }
     display as text ""
 
+    * Warn BEFORE the table, as stcrreg does. Printed after the coefficients it
+    * discredits, this is trivially scrolled past -- and the coefficients are
+    * the thing the reader takes away.
+    if `_fg_conv' == 0 {
+        display as error "convergence not achieved"
+        display as text "(the coefficients below are the last iterate, not a " ///
+            "solution; post-estimation commands will refuse them)"
+        display as text ""
+    }
+
     if "`shr'" == "noshr" {
         ereturn display, level(`level')
     }
     else {
         ereturn display, eform(SHR) level(`level')
-    }
-
-    if `_fg_conv' == 0 {
-        display as error "convergence not achieved"
     }
 
     * The Fine-Gray objective is a PSEUDO-likelihood: the IPCW risk sets make

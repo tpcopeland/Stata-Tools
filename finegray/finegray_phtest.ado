@@ -34,6 +34,15 @@ program define finegray_phtest, rclass
         display as error "you must run {bf:finegray} before using finegray_phtest"
         exit 301
     }
+    * Schoenfeld residuals are defined against the fitted beta. A last iterate
+    * that is not a solution makes the PH test meaningless -- and it would
+    * otherwise return rc 0 with a chi2 and a p-value.
+    if e(converged) != 1 {
+        display as error "last estimates did not converge"
+        display as error "finegray_phtest requires a converged fit; refit finegray"
+        display as error "with a larger iterate() or a different specification"
+        exit 430
+    }
     _finegray_check_data
 
     * Default time function
@@ -207,6 +216,22 @@ program define finegray_phtest, rclass
         exit 198
     }
 
+    * The test correlates each Schoenfeld residual with a function of the event
+    * TIME, so it is undefined unless the event times actually vary.  With every
+    * cause event at a single time the time function is constant, correlate()
+    * returns a missing rho, and chi2 = n*rho^2 and its p-value are missing --
+    * which v1.1.4 reported at rc 0, as a completed test with blank statistics.
+    tempname _uniqt
+    mata: st_numscalar("`_uniqt'", ///
+        rows(uniqrows(st_matrix("`sch_mat'")[., 1])))
+    if scalar(`_uniqt') < 2 {
+        display as error "all `n_fail' cause events occur at a single time"
+        display as error "the proportional-hazards test correlates the Schoenfeld"
+        display as error "residuals against a function of event time, which is"
+        display as error "undefined when event time does not vary"
+        exit 459
+    }
+
     * Compute time function
     tempname times test_mat
     matrix `times' = `sch_mat'[1..`n_fail', 1]
@@ -249,6 +274,17 @@ program define finegray_phtest, rclass
                 "missing values after `time' transform for `vname'"
         }
 
+        * A missing rho means the residual or the time function had no variation,
+        * so this variable's test does not exist.  It must not be reported as a
+        * blank row, and above all it must not be summed into the global
+        * statistic, where a single missing term silently makes the WHOLE test
+        * missing while still returning rc 0.
+        if missing(`rho') {
+            local vname : word `v' of `covlabels'
+            local _undef "`_undef' `vname'"
+            continue
+        }
+
         local chi2_v = `n_corr' * (`rho')^2
         local p_v = chi2tail(1, `chi2_v')
 
@@ -259,6 +295,13 @@ program define finegray_phtest, rclass
         local global_chi2 = `global_chi2' + `chi2_v'
     }
     restore
+
+    if "`_undef'" != "" {
+        display as error "proportional-hazards test is undefined for:`_undef'"
+        display as error "the Schoenfeld residuals for these terms do not vary"
+        display as error "across cause-event times, so no correlation exists"
+        exit 459
+    }
 
     local global_df = `p'
     local global_p = chi2tail(`global_df', `global_chi2')

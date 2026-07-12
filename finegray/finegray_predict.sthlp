@@ -99,11 +99,32 @@ level has been dropped (e.g., by {cmd:drop if}), prediction will fail with an
 informative error.
 
 {pstd}
+{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
+rather than erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} exists but
+holds the last iterate rather than a solution. Every prediction type reads
+{cmd:e(b)}, so all of them would otherwise be computed from a non-solution and
+returned with {cmd:rc 0}. {cmd:finegray_predict} therefore exits with
+{cmd:r(430)} when {cmd:e(converged)} is not 1 — this applies to {opt xb} just as
+it does to {opt cif} and {opt schoenfeld}. Refit with a larger {opt iterate()}
+or a different specification. (Refits inside {opt bootstrap()} that fail to
+converge are a separate matter: they are skipped and counted, not fatal.)
+
+{pstd}
 The {opt ci} and {opt schoenfeld} paths verify that the original estimation
 sample and its model variables are unchanged. If those data have been edited,
-the command exits with {cmd:r(459)} and requires {cmd:finegray} to be
-re-run. Point predictions with {opt xb}, and point {opt cif} predictions
-without {opt ci}, remain available on compatible new data.
+the command exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run.
+That check also covers the package-owned {cmd:_fg_*} design columns: dropping
+them is supported (they are rebuilt on demand), but altering one in place is
+not, because {helpb finegray_cif} and {helpb finegray_phtest} read those columns
+directly.
+
+{pstd}
+Point predictions with {opt xb}, and point {opt cif} predictions without
+{opt ci}, remain available on compatible new data. {opt xb} is a pure linear
+score, so it does not depend on {cmd:_t}, {cmd:_d} or {opt compete()}, and it is
+unaffected by changes to them. What it does depend on is each coefficient being
+paired with the right column, which is guaranteed by the level-value alignment
+described below.
 
 {pstd}
 {bf:Data requirements by prediction type:} {opt xb} predictions can be
@@ -192,25 +213,38 @@ see {helpb finegray_cif}.
 subjects with replacement and refitting instead of using the analytic
 influence-function SE. If the original fit specified {opt cluster()}, whole
 clusters are resampled instead. Nonconverged refits, and refits whose resample
-loses a factor level, are skipped (a note reports how many), and at least two
-successful replications are required. The interval includes uncertainty from
-estimating the censoring weights. Point predictions are unchanged, and the
-original {cmd:e()} results and {cmd:e(sample)} are preserved.
+loses a factor level, are skipped (a note reports how many). At least 25
+replications must be requested, and at least 25 must succeed, or
+{cmd:finegray_predict} exits with an error: a standard error is the sample
+standard deviation of the replicate estimates, and below about 25 replications
+that standard deviation is itself mostly noise. The refit is run on the
+estimation sample, so any {cmd:if} or {cmd:in} qualifier used at fit time does
+not apply to the replications. The interval includes uncertainty from estimating
+the censoring weights. Point predictions are unchanged, and the original
+{cmd:e()} results and {cmd:e(sample)} are preserved.
 
 {phang}
-{opt seed(#)} sets the random-number seed used by {opt bootstrap()}.
+{opt seed(#)} sets the random-number seed used by {opt bootstrap()}. It requires
+{opt bootstrap()}.
 
 {phang}
 {opt level(#)} sets the confidence level for {opt ci}; the default is
 {cmd:c(level)}, which is initially 95 and can be changed by {helpb set level}.
 
 {pstd}
-{bf:Note:} Factor-variable predictions are reconstructed on demand via
-{cmd:fvrevar}. The current data must contain the same factor levels as the
-estimation sample. Prediction on new data that lack a level present at
-estimation will exit with an informative error. If the persisted {cmd:_fg_*}
-design columns were dropped, {opt schoenfeld} residual labels still refer to
-the underlying factor term rather than an internal tempvar.
+{bf:Note on factor variables:} Factor-variable predictions are rebuilt from the
+expansion recorded at estimation ({cmd:e(fvsemantic)}) and are aligned to the
+current data {bf:by level value}, not by position. An observation whose factor
+level was not present when the model was fitted has no coefficient, so it cannot
+be scored: {cmd:finegray_predict} exits with {cmd:r(459)} and names the
+offending variable and the levels that were fitted. It does not silently
+collapse such an observation onto the base category.
+
+{pstd}
+This matters whenever the level support changes. Fitting on {cmd:i.grp} over
+levels 1/2/3 and then shifting the data to levels 2/3/4 leaves three factor
+terms in both cases; matching them positionally would apply the coefficient for
+level 2 to level 3, and so on, with no error. Matching by value cannot.
 
 
 {marker examples}{...}

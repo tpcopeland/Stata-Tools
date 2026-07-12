@@ -48,8 +48,9 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `cause()` | `finegray` | Required cause-of-interest value |
 | `censvalue()` | `finegray` | Censoring value; default `0` |
 | `strata()` | `finegray` | Stratify the censoring distribution |
-| `cluster()` | `finegray` | Cluster-robust inference |
-| `robust` / `norobust` | `finegray` | Sandwich variance is the default; `norobust` selects observed-information variance |
+| `cluster()` | `finegray` | Cluster-robust inference; requires more clusters than coefficients |
+| `robust` / `norobust` | `finegray` | Sandwich variance is the default; `norobust` selects the observed-information variance, which is **not valid for inference** under a pseudo-likelihood |
+| `adjust` / `noadjust` | `finegray` | The finite-sample adjustment to the sandwich (`N/(N-1)`, or `g/(g-1)` with `cluster()`) is the default, matching `stcrreg`; `noadjust` omits it |
 | `shr` / `noshr` | `finegray` | SHRs are the default; `noshr` reports log-SHR coefficients |
 | `level()` | `finegray` | Confidence level; default `c(level)` |
 | `log` / `nolog` | `finegray` | Iteration logging is the default; `nolog` suppresses it |
@@ -82,12 +83,15 @@ Core estimation quantities include `e(N)`, `e(N_fail)`, `e(N_compete)`, `e(N_cen
 | `e(N_compete)` | Number of competing events |
 | `e(N_cens)` | Number censored |
 | `e(ll)`, `e(ll_0)` | Fitted and constant-only log pseudo-likelihoods |
-| `e(chi2)`, `e(p)`, `e(df_m)` | Wald model test |
-| `e(converged)` | Convergence indicator |
+| `e(chi2)`, `e(p)`, `e(df_m)` | Wald model test; `e(df_m)` is the numerical rank of `e(V)` |
+| `e(rank)` | Rank of `e(V)` |
+| `e(N_clust)` | Number of clusters (only with `cluster()`) |
+| `e(converged)` | 1 if converged, 0 otherwise. A nonconverged fit is reported rather than refused (matching `stcrreg`), so `e(b)` holds the last iterate, not a solution — `finegray_predict`, `finegray_cif`, and `finegray_phtest` all exit `r(430)` rather than consume it |
 | `e(level)` | Confidence level |
 | `e(cause)`, `e(censvalue)` | Event coding used by the fit |
 | `e(iterate)`, `e(tolerance)` | Optimization controls |
 | `e(cmd)`, `e(cmdline)`, `e(predict)` | Command metadata |
+| `e(refitcmd)` | Estimation command without `if`/`in`, replayed by the `bootstrap()` refits |
 | `e(depvar)`, `e(compete)` | Event-type variable |
 | `e(covariates)`, `e(fvvarlist)` | Expanded covariates and original factor-variable specification |
 | `e(strata)`, `e(clustvar)`, `e(vce)` | Variance and censoring-strata metadata |
@@ -186,7 +190,11 @@ finegray ifp tumsize pelnode, compete(status) cause(1) norobust
 finegray ifp tumsize pelnode, compete(status) cause(1) noshr
 ```
 
-`norobust` switches from the default sandwich variance to the observed-information variance. `noshr` reports log-SHR coefficients instead of exponentiated SHRs.
+`noshr` reports log-SHR coefficients instead of exponentiated SHRs.
+
+`norobust` switches from the default sandwich variance to the observed-information variance. **These standard errors are not valid for inference.** The Fine-Gray objective is a pseudo-likelihood — the inverse-probability-of-censoring weights make subjects' contributions dependent — so the inverse information matrix does not estimate the sampling variance of the coefficients. They are generally too small, and their confidence intervals do not have nominal coverage. `norobust` exists so the naive likelihood variance can be inspected and compared against the sandwich; `finegray` prints a warning whenever it is used.
+
+The default sandwich treats the estimated censoring weights as fixed: it does not propagate the uncertainty in the estimated censoring distribution G(t). This is the same variance `stcrreg` reports. Against `cmprsk::crr`, which does include that nuisance term, `finegray`'s standard errors are smaller by roughly 0.2% in relative terms; coefficients are unaffected. Where that matters, `bootstrap()` in `finegray_cif` and `finegray_predict` re-estimates G(t) in every replication and so captures the censoring-weight uncertainty exactly.
 
 ### 5. Cumulative incidence curves and fixed-horizon CIF
 
@@ -239,7 +247,7 @@ The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, and `full` la
 
 - **Schoenfeld residuals at tied event times.** At an event time shared by two or more cause events, `finegray` and `stcrreg` partition the residual among the simultaneous events using different conventions, so an individual residual at a tied time can differ. The QA suite asserts that (a) residuals match `stcrreg` exactly at untied event times and (b) the sum of the residuals within each event time — and hence the overall score, which is zero at the estimate — is identical. Only the per-observation values at tied times differ; untied times, per-time totals, and every event-time aggregate are unaffected.
 
-Standard errors are robust (sandwich) by default in both commands and agree to roughly 0.5% relative; this small gap reflects `stcrreg` computing its sandwich on an expanded dataset, as described in `help finegray`.
+Standard errors are robust (sandwich) by default in both commands and agree to within 1e-3 relative. `finegray` applies the same finite-sample adjustment as `stcrreg` (`N/(N-1)`, or `g/(g-1)` under `cluster()`); versions through 1.1.4 omitted it, which is what produced the ~0.5% gap previously reported here and misattributed to `stcrreg`'s expanded dataset. `noadjust` reproduces the earlier numbers exactly.
 
 ## References
 

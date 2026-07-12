@@ -10,7 +10,13 @@
 *           `if (missing(info_inv[1,1]))' could never fire. A direction the
 *           likelihood is exactly flat in was handed a FABRICATED coefficient
 *           (beta = -8.10, SE = 0, converged = 1, rc 0).
-*   FG-H07  iterate(1) -> rc 0 with results posted and e(converged)=0.
+*   FG-H07  iterate(1) -> rc 0 with results posted and e(converged)=0 -- and,
+*           the part that actually bites, NOTHING downstream checked. All three
+*           post-estimation commands read e(b) without ever asking whether it
+*           converged, so a CIF, a prediction and a PH test were computed from a
+*           last iterate that is not a solution. The fit still posts (stcrreg
+*           does too, and a partial fit is worth inspecting); the gate is now in
+*           the consumers, where the hazard was.
 *   FG-H08  early convergence left e(ll) stale: tolerance(1) gave a nonzero beta
 *           while e(ll) == e(ll_0) EXACTLY.
 *   FG-H09  tolerance(.) accepted (rc 0, converged=1). syntax's `real' type
@@ -25,11 +31,12 @@
 *           (c) Mata exp(overflow) is missing, and (. > -500) is TRUE, so a
 *               missing trial likelihood was accepted as an improvement.
 *
-* Note on FG-H07: this deliberately diverges from stcrreg, which posts results
-* with rc 0 and e(converged)=0. finegray's own bootstrap refits (finegray_cif,
-* finegray_predict) call finegray QUIETLY, where a warning is invisible -- a
-* nonconverged replication would silently enter the confidence band. A nonzero
-* rc is the only signal that path can act on.
+* Note on FG-H07: the fit-time contract matches stcrreg exactly (post, rc 0,
+* e(converged)=0, warning printed ABOVE the coefficient table). The bootstrap
+* refit loops were never the exposure -- finegray_cif.ado:350 and
+* finegray_predict.ado:357 already skipped nonconverged refits. The exposure was
+* the MAIN fit feeding post-estimation unchecked, and that is what the new gate
+* closes.
 
 clear all
 set varabbrev off
@@ -105,21 +112,38 @@ local ++test_count
 capture noisily {
     _finegray_qa_tied_data
     quietly stset t, failure(etype) id(id)
-    capture finegray x, compete(etype) cause(1) norobust nolog iterate(1)
-    local rc_noconv = _rc
-    display as text "  iterate(1) rc = `rc_noconv' (v1.1.4: 0, converged=0, results posted)"
-    assert `rc_noconv' == 430
+
+    * The FIT posts, as stcrreg does: rc 0, e(converged)=0, coefficients
+    * available for inspection. The warning is printed above the table.
+    capture noisily finegray x, compete(etype) cause(1) norobust nolog iterate(1)
+    assert _rc == 0
+    assert e(converged) == 0
+    assert !missing(_b[x])
+
+    * ...but NOTHING may consume it. This is the actual FG-H07 hazard: every
+    * post-estimation command reads e(b) and none of them asked whether it
+    * converged, so through v1.1.4 a CIF, a prediction, and a PH test were all
+    * happily computed from a last iterate that is not a solution -- rc 0, no
+    * warning, silently wrong.
+    capture finegray_cif, attime(3) ci
+    assert _rc == 430
+    capture finegray_predict nc_xb, xb
+    assert _rc == 430
+    capture finegray_predict nc_cif, cif
+    assert _rc == 430
+    capture finegray_phtest
+    assert _rc == 430
 }
 if _rc == 0 {
-    display as result "  PASS: FG-H07 nonconvergence errors r(430)"
+    display as result "  PASS: FG-H07 nonconverged fit posts but no post-estimation will consume it"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: FG-H07 nonconvergence (rc=`=_rc')"
+    display as error "  FAIL: FG-H07 nonconvergence gate (rc=`=_rc')"
     local ++fail_count
 }
 
-**# 4. FG-H07: a converged fit posts converged=1 (the guard is not blanket)
+**# 4. FG-H07: the gate is not blanket -- a converged fit feeds post-estimation
 local ++test_count
 capture noisily {
     _finegray_qa_tied_data
@@ -127,9 +151,13 @@ capture noisily {
     capture noisily finegray x, compete(etype) cause(1) norobust nolog iterate(200)
     assert _rc == 0
     assert e(converged) == 1
+
+    finegray_cif, attime(3) nograph
+    finegray_predict ok_xb, xb
+    finegray_phtest
 }
 if _rc == 0 {
-    display as result "  PASS: FG-H07 converged fit still succeeds"
+    display as result "  PASS: FG-H07 converged fit still feeds every post-estimation command"
     local ++pass_count
 }
 else {

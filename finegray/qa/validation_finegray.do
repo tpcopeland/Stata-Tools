@@ -948,14 +948,24 @@ else {
 * {smcl}
 * {* SECTION 13: Convergence stress tests}{...}
 
-* V37: iterate(1) forces non-convergence, which is now a HARD failure
-* Contract change (FG-H07): through v1.1.4 a nonconverged fit posted e(b)/e(V)
-* with rc 0 and e(converged)=0. finegray now refuses to post results for a model
-* that did not converge, so nothing is left behind for a caller to consume.
+* V37: iterate(1) forces non-convergence
+* Contract (FG-H07): the fit posts, as stcrreg's does -- rc 0, e(converged)=0,
+* e(b)/e(V) available for inspection -- with the warning printed above the
+* coefficient table. What changed is that the post-estimation commands now
+* refuse to consume it; through v1.1.4 they read e(b) without checking.
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    capture noisily finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    assert _rc == 0
+    assert e(converged) == 0
+    confirm matrix e(b)
+    confirm matrix e(V)
+
+    * but the result surface is quarantined from every consumer
+    capture finegray_cif, attime(5)
+    assert _rc == 430
+    capture finegray_phtest
     assert _rc == 430
 
     * the converged fit on the same data still posts a full result surface
@@ -965,7 +975,7 @@ capture noisily {
     confirm matrix e(V)
 }
 if _rc == 0 {
-    display as result "  PASS: V37 iterate(1) non-convergence errors r(430)"
+    display as result "  PASS: V37 nonconverged fit posts but is quarantined from post-estimation"
     local ++pass_count
 }
 else {

@@ -68,6 +68,15 @@ program define finegray_cif, rclass sortpreserve
         display as error "you must run {bf:finegray} before using finegray_cif"
         exit 301
     }
+    * A nonconverged fit posts e(b), and e(b) is all this command reads. Without
+    * this gate a CIF and its confidence band are built from a last iterate that
+    * is not a solution -- rc 0, no warning, silently wrong.
+    if e(converged) != 1 {
+        display as error "last estimates did not converge"
+        display as error "finegray_cif requires a converged fit; refit finegray"
+        display as error "with a larger iterate() or a different specification"
+        exit 430
+    }
     _finegray_check_data
     capture confirm matrix e(basehaz)
     if _rc {
@@ -250,8 +259,19 @@ program define finegray_cif, rclass sortpreserve
         local mode "curve"
         local step = ceil(`nbh' / 400)
         local grid ""
+        local _lastr = 0
         forvalues r = 1(`step')`nbh' {
             local grid "`grid' `=`bh'[`r',1]'"
+            local _lastr = `r'
+        }
+        * A stride > 1 steps OVER the final row whenever nbh is not congruent to
+        * 1 mod step: with nbh = 402 and step = 2 the last grid point is row 401
+        * and the terminal event time is silently dropped -- while nbh = 481
+        * happens to land on it. The CIF's terminal value is its plateau, i.e.
+        * the number most readers take off the curve, so it must never depend on
+        * the parity of the event count. Always close the grid on the last row.
+        if `_lastr' < `nbh' {
+            local grid "`grid' `=`bh'[`nbh',1]'"
         }
     }
     local ngrid : word count `grid'
@@ -416,15 +436,19 @@ program define finegray_cif, rclass sortpreserve
         matrix `R'[`r', 1] = `tt'
         matrix `R'[`r', 2] = `cifv'
         matrix `R'[`r', 3] = `sev'
-        if "`ci'" != "" & `cifv' > 0 & `cifv' < 1 & `sev' < . {
+        * Confidence limits, or NOTHING.  `R' is initialised to missing, and a
+        * limit we cannot compute must stay missing.  Writing the point estimate
+        * into lci/uci instead -- which is what this did through v1.1.4 --
+        * manufactures a zero-width interval and presents it as a real one: an
+        * interior CIF whose SE came back nonfinite was reported as an exact,
+        * uncertainty-free estimate. It also meant r(table) carried
+        * lci = uci = cif whenever ci was NOT requested, so a caller reading
+        * those columns got a fabricated interval it never asked for.
+        if "`ci'" != "" & `cifv' > 0 & `cifv' < 1 & `sev' < . & `sev' > 0 {
             local g = ln(-ln(1 - `cifv'))
             local seg = `sev' / ((1 - `cifv') * (-ln(1 - `cifv')))
             matrix `R'[`r', 4] = 1 - exp(-exp(`g' - `z' * `seg'))
             matrix `R'[`r', 5] = 1 - exp(-exp(`g' + `z' * `seg'))
-        }
-        else {
-            matrix `R'[`r', 4] = `cifv'
-            matrix `R'[`r', 5] = `cifv'
         }
     }
     matrix colnames `R' = time cif se lci uci

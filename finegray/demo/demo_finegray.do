@@ -58,7 +58,7 @@ noisily finegray_predict double cif_hat, cif
 gen double horizon5 = 5
 noisily finegray_predict double cif5, cif timevar(horizon5) ci level(90)
 noisily finegray_predict double cif5_bs, cif timevar(horizon5) ///
-    ci level(90) bootstrap(20) seed(12345)
+    ci level(90) bootstrap(25) seed(12345)
 noisily summarize xb_hat cif_hat cif5 cif5_lci cif5_uci ///
     cif5_bs cif5_bs_lci cif5_bs_uci
 
@@ -90,7 +90,7 @@ noisily finegray_cif, at(pelnode=1 ifp=20 tumsize=5) ///
     attime(1 3 5 8) ci level(90)
 
 * # Cluster bootstrap with replication diagnostics
-noisily finegray_cif, attime(1 5 8) ci bootstrap(20) seed(24680)
+noisily finegray_cif, attime(1 5 8) ci bootstrap(25) seed(24680)
 noisily display as text "Bootstrap replications requested: " ///
     as result r(bootstrap_requested)
 noisily display as text "Bootstrap replications used:      " ///
@@ -141,7 +141,7 @@ gen byte status = failtype
 tostring stnum, gen(subject_id)
 stset dftime, failure(dfcens==1) id(subject_id)
 quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-noisily finegray_cif, attime(1 5 8) ci bootstrap(10) seed(13579)
+noisily finegray_cif, attime(1 5 8) ci bootstrap(25) seed(13579)
 
 **# Graph output
 webuse hypoxia, clear

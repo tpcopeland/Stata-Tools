@@ -1083,7 +1083,15 @@ capture noisily {
 
     * Export stratified dataset for R (hypoxia with pelnode as strata)
     * Re-fit with strata to get estimation sample
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
+    *
+    * noadjust is required for a LIKE-FOR-LIKE SE comparison against cmprsk.
+    * finegray applies a finite-sample adjustment to the sandwich by default
+    * (N/(N-1), matching stcrreg); cmprsk::crr applies none. On hypoxia
+    * (N = 109) that factor is sqrt(109/108) = 1.0046, i.e. a 0.46% inflation --
+    * which is exactly the discrepancy C52 saw against its 0.1% tolerance. That
+    * is a difference in the reported estimand, not in the estimator, so the
+    * oracle must be compared against the same quantity it computes.
+    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode) noadjust
     matrix b_strata_stata = e(b)
     matrix V_strata_stata = e(V)
     local ll_strata_stata = e(ll)

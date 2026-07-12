@@ -198,38 +198,42 @@ else {
 }
 
 **# 8. A nonconverged fit can never reach the bootstrap at all
-* Contract change (FG-H07). This test used to manufacture a nonconverged fit
+* Contract (FG-H07). This test used to manufacture a nonconverged fit
 * (iterate(1) tolerance(1e-20)), confirm e(converged)==0, and then check that
 * finegray_cif's bootstrap skipped every refit and errored 498.
 *
-* That premise is now UNREACHABLE by construction: finegray refuses to post a
-* nonconverged model, so no such e() can exist to bootstrap from. The hazard the
-* test guarded (a nonconverged refit silently entering the CI band) is closed at
-* the source rather than caught downstream -- and refits that fail inside the
-* bootstrap loop are still skipped, since finegray_cif captures the refit rc
-* (finegray_cif.ado:348-349) before it ever inspects e(converged).
+* The fit still posts (rc 0, e(converged)=0 -- stcrreg's contract), but it can no
+* longer REACH the bootstrap: finegray_cif refuses a nonconverged fit outright.
+* So the old scenario is unreachable one step earlier than it used to be.
 *
-* So we assert the new contract, plus the two invariants that used to depend on
-* it: the too-few-successes floor still fires, and no replication goes
-* unaccounted for.
+* Note the refit loop was never the exposure: finegray_cif.ado already skips a
+* nonconverged refit (`if e(converged) != 1 continue') and finegray_predict.ado
+* already turns one into rc 498. The hole was the MAIN fit feeding
+* post-estimation unchecked, which is what the gate below asserts.
+*
+* We also keep the two invariants this test used to carry: the below-floor
+* replication count is rejected, and no replication goes unaccounted for.
 local ++test_count
 capture noisily {
     _mk_hypoxia_112
 
-    * (a) a nonconverged fit cannot be posted
-    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
+    * (a) a nonconverged fit posts, but no post-estimation command will take it
+    capture noisily finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
         iterate(1) tolerance(1e-20)
+    assert _rc == 0
+    assert e(converged) == 0
+    capture finegray_cif, attime(5) ci bootstrap(25) seed(112)
     assert _rc == 430
 
-    * (b) the too-few-successful-replications floor still errors
+    * (b) a below-floor replication count is rejected up front (min 25)
     quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     assert e(converged) == 1
     capture finegray_cif, attime(5) ci bootstrap(1) seed(112)
-    assert _rc == 498
+    assert _rc == 198
 
     * (c) every requested replication is accounted for as success or failure
-    quietly finegray_cif, attime(5) ci bootstrap(10) seed(112)
-    assert r(bootstrap_requested) == 10
+    quietly finegray_cif, attime(5) ci bootstrap(25) seed(112)
+    assert r(bootstrap_requested) == 25
     assert r(bootstrap_success) + r(bootstrap_failed) == r(bootstrap_requested)
 }
 if _rc == 0 {
@@ -254,14 +258,21 @@ capture noisily {
     quietly count if `partial_sample'
     local partial_N = r(N)
 
-    quietly finegray_cif, attime(5) ci bootstrap(20) seed(911)
+    * Request comfortably ABOVE the replication floor (25). The point of this
+    * test is that some refits fail and are skipped while the band is still built
+    * from the survivors -- so the request must leave enough headroom for those
+    * failures to occur without dropping the success count under the floor.
+    * Requesting exactly 25 made any single failure a hard 498.
+    quietly finegray_cif, attime(5) ci bootstrap(60) seed(911)
     local partial_requested = r(bootstrap_requested)
     local partial_success = r(bootstrap_success)
     local partial_failed = r(bootstrap_failed)
     matrix partial_table = r(table)
 
-    assert `partial_requested' == 20
-    assert `partial_success' >= 2 & `partial_success' < `partial_requested'
+    display as text "  bootstrap: `partial_success' succeeded, `partial_failed' skipped of `partial_requested'"
+    assert `partial_requested' == 60
+    assert `partial_success' >= 25                       // floor honoured
+    assert `partial_success' < `partial_requested'       // some genuinely failed
     assert `partial_failed' == `partial_requested' - `partial_success'
     assert partial_table[1,3] < . & partial_table[1,4] < . & partial_table[1,5] < .
     assert "`e(cmd)'" == "finegray"

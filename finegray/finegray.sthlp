@@ -43,6 +43,7 @@
 
 {syntab:SE/Robust}
 {synopt:{opth cl:uster(varname:numvar)}}adjust SEs for intragroup correlation (numeric only){p_end}
+{synopt:{opt noadj:ust}}omit finite-sample adjustment to the sandwich{p_end}
 {synopt:{opt norob:ust}}report model-based SEs, not sandwich{p_end}
 
 {syntab:Reporting}
@@ -139,16 +140,19 @@ mechanism differs across groups (e.g., treatment arms or study sites).
 {dlgtab:SE/Robust}
 
 {phang}
-{opth cluster(varname)} adjusts standard errors for intragroup correlation.
+{opth cluster(varname)} adjusts standard errors for intragroup correlation, treating whole clusters as the resampling unit. The clustered variance matrix is a sum of {it:g} cluster-score outer products whose totals sum to zero at the solution, so its rank is at most {it:g}-1. {cmd:finegray} therefore requires more clusters than coefficients and errors out otherwise, rather than reporting standard errors that the g-inverse invented for directions the variance matrix cannot see. The number of clusters is reported in the header and stored in {cmd:e(N_clust)}.
 
 {phang}
-{opt norobust} reports model-based standard errors from the observed information
-matrix instead of the default Huber/White/sandwich estimator.
+{opt noadjust} suppresses the finite-sample adjustment applied to the robust (sandwich) variance. By default {cmd:finegray} multiplies the sandwich by {it:N}/({it:N}-1), or by {it:g}/({it:g}-1) when {opt cluster()} is specified, matching {helpb stcrreg}. {opt noadjust} is not allowed with {opt norobust}, which has no such adjustment.
+
+{phang}
+{opt norobust} reports model-based standard errors from the observed information matrix instead of the default Huber/White/sandwich estimator.
 
 {pmore}
-The sandwich estimator is the default because the Fine-Gray model uses a
-pseudo-likelihood, making robust SEs appropriate regardless of model
-specification.
+{bf:These standard errors are not valid for inference.} The Fine-Gray objective is a pseudo-likelihood: the inverse-probability-of-censoring weights make subjects' contributions dependent, so the inverse information matrix does not estimate the sampling variance of the coefficients. Model-based standard errors are generally too small, and their confidence intervals do not have nominal coverage. {opt norobust} exists so that the naive likelihood variance can be inspected and compared; use the default sandwich variance to report results. {cmd:finegray} prints a warning whenever {opt norobust} is used.
+
+{pmore}
+{bf:Scope of the sandwich estimator.} The default sandwich treats the estimated inverse-probability-of-censoring weights as {it:fixed}; it does not propagate the uncertainty in the estimated censoring distribution G(t). This is the same variance {helpb stcrreg} reports, and coefficients are unaffected — only the standard errors are. Against {cmd:cmprsk::crr}, whose variance includes the censoring-weight nuisance term, {cmd:finegray}'s standard errors differ by roughly 0.2% in relative terms on tie-free data. Where that difference matters, {opt bootstrap()} in {helpb finegray_cif} and {helpb finegray_predict} resamples subjects and re-estimates G(t) in every replication, so it captures the censoring-weight uncertainty exactly.
 
 {dlgtab:Reporting}
 
@@ -168,8 +172,11 @@ is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 {phang}
 {opt iterate(#)} specifies the maximum number of Newton-Raphson
 iterations. Default is {cmd:iterate(200)}. If the model has not converged
-within {it:#} iterations, {cmd:finegray} exits with an error; it does not
-report results for a model that did not converge.
+within {it:#} iterations, {cmd:finegray} reports the last iterate with
+{cmd:e(converged)} set to 0 and prints a warning above the coefficient
+table. Those coefficients are not a solution: {helpb finegray_predict},
+{helpb finegray_cif} and {helpb finegray_phtest} all refuse to run on a
+nonconverged fit.
 
 {phang}
 {opt tolerance(#)} specifies the convergence tolerance. Default is
@@ -341,30 +348,20 @@ numerical precision, CIFs agree within 1e-5, and robust SEs agree within
 survival from that subject's own stratum.
 
 {pstd}
-{bf:Technical note on standard errors:} The only quantity where implementations
-diverge is standard errors, and this reflects differences in variance estimation
-approach rather than errors.
+{bf:Technical note on standard errors:} Coefficients agree closely across implementations; standard errors are where they diverge, because the implementations do not all estimate the same variance.
 
 {pstd}
-{cmd:finegray} (default) and {cmd:cmprsk::crr} both compute IPCW sandwich SEs on
-the original (unexpanded) data, producing agreement to 3+ decimal places.
+{cmd:finegray}'s default sandwich treats the estimated censoring weights as fixed and applies the same finite-sample adjustment as {helpb stcrreg} ({it:N}/({it:N}-1), or {it:g}/({it:g}-1) under {opt cluster()}). Standard errors agree with {cmd:stcrreg} to within 1e-3 in relative terms. Versions through 1.1.4 omitted the finite-sample adjustment, so they reproduced {cmd:stcrreg}'s {cmd:noadjust} variance while presenting it as the default; {opt noadjust} now reproduces those earlier numbers exactly.
 
 {pstd}
-{cmd:stcrreg} computes sandwich SEs on an expanded dataset; both are valid
-sandwich estimators but the different computational path produces ~0.5% relative
-SE differences.
+{cmd:cmprsk::crr} computes a sandwich that additionally propagates the uncertainty in the estimated censoring distribution G(t). Coefficients match {cmd:finegray} to 8 decimal places, but its standard errors are larger by roughly 0.2% in relative terms because {cmd:finegray} omits that nuisance term. To capture censoring-weight uncertainty exactly, use {opt bootstrap()} in {helpb finegray_cif} or {helpb finegray_predict}, which re-estimates G(t) in every replication.
 
 {pstd}
-{cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse
-observed information matrix, matching to 6 decimal places.
+{cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed information matrix, matching to 6 decimal places. Neither is valid for inference, and neither is a like-for-like replacement for the sandwich standard errors {cmd:stcrreg} reports.
 
 {pstd}
 {cmd:fastcmprsk::fastCrr} uses bootstrap SEs (B=200), a fundamentally different
 variance estimator; wider divergence (up to ~50%) is expected.
-
-{pstd}
-The observed-information SEs reported under {opt norobust} are not a
-like-for-like replacement for {cmd:stcrreg}'s reported (sandwich) SEs.
 
 {pstd}
 {bf:Post-estimation predictions vs {help stcrreg}:} The {helpb finegray_predict}
@@ -541,8 +538,10 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(ll_0)}}log pseudo-likelihood, constant-only model{p_end}
 {synopt:{cmd:e(chi2)}}Wald chi-squared{p_end}
 {synopt:{cmd:e(p)}}p-value for model chi-squared{p_end}
-{synopt:{cmd:e(df_m)}}model degrees of freedom{p_end}
-{synopt:{cmd:e(converged)}}always 1; nonconvergence is an error{p_end}
+{synopt:{cmd:e(df_m)}}model degrees of freedom (numerical rank of {cmd:e(V)}){p_end}
+{synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
+{synopt:{cmd:e(N_clust)}}number of clusters (only with {opt cluster()}){p_end}
+{synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(cause)}}cause of interest value{p_end}
 {synopt:{cmd:e(censvalue)}}censoring value{p_end}
@@ -553,6 +552,7 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:e(cmd)}}{cmd:finegray}{p_end}
 {synopt:{cmd:e(cmdline)}}full estimation command as typed{p_end}
+{synopt:{cmd:e(refitcmd)}}estimation command without {cmd:if}/{cmd:in}, used by the {opt bootstrap()} refits{p_end}
 {synopt:{cmd:e(predict)}}{cmd:finegray_predict}{p_end}
 {synopt:{cmd:e(depvar)}}competing events variable name{p_end}
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}

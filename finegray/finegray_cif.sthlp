@@ -69,6 +69,17 @@ memory. It verifies a signature of the estimation sample and the variables used
 by the fit before reading {cmd:e(basehaz)} or reconstructing influence
 functions. Re-run {cmd:finegray} after changing those data.
 
+{pstd}
+{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
+rather than erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} and
+{cmd:e(basehaz)} exist but hold the last iterate rather than a solution. Because
+that is all this command reads, it would otherwise build a cumulative-incidence
+curve and confidence band from a non-solution and return {cmd:rc 0}.
+{cmd:finegray_cif} therefore exits with {cmd:r(430)} when
+{cmd:e(converged)} is not 1; refit with a larger {opt iterate()} or a different
+specification. (Refits inside {opt bootstrap()} that fail to converge are a
+separate matter: they are skipped and counted, not fatal.)
+
 
 {marker options}{...}
 {title:Options}
@@ -108,14 +119,18 @@ replacement and refitting the model. If the original fit specified
 therefore follows the fitted variance structure and includes uncertainty from
 estimating the censoring weights. Nonconverged refits, and refits whose resample
 loses a factor level (so the coefficient vector no longer matches the stored
-covariate profile), are skipped and counted in {cmd:r(bootstrap_failed)}; at
-least two successful replications are required. Point estimates are
-unchanged; only the standard error and limits differ. The original estimation
-results and {cmd:e(sample)} are preserved.
+covariate profile), are skipped and counted in {cmd:r(bootstrap_failed)}. At
+least 25 replications must be requested, and at least 25 must succeed, or
+{cmd:finegray_cif} exits with an error: a standard error is the sample standard
+deviation of the replicate estimates, and below about 25 replications that
+standard deviation is itself mostly noise. The refit is run on the estimation
+sample, so any {cmd:if} or {cmd:in} qualifier used at fit time does not apply to
+the replications. Point estimates are unchanged; only the standard error and
+limits differ. The original estimation results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()} for
-reproducibility.
+reproducibility. It requires {opt bootstrap()}.
 
 {phang}
 {opt level(#)} sets the confidence level; the default is {cmd:c(level)}, which

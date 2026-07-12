@@ -46,16 +46,43 @@ uncorrelated with time. A significant test indicates that the effect of the
 corresponding covariate changes over time, violating the PSH assumption.
 
 {pstd}
+{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
+rather than erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} exists but
+holds the last iterate rather than a solution. Schoenfeld residuals taken at a
+non-solution do not have mean zero and the test built on them is meaningless, so
+{cmd:finegray_phtest} exits with {cmd:r(430)} when {cmd:e(converged)} is not 1.
+Refit with a larger {opt iterate()} or a different specification.
+
+{pstd}
 The per-variable tests use scaled Schoenfeld residuals correlated with a time
 function, similar in spirit to {cmd:estat phtest} after {cmd:stcox}. However,
 the implementation differs in two ways: (1) scaling uses only the diagonal of
 the inverse information matrix rather than the full matrix, and (2) the global
-test is the sum of the per-variable chi-squared statistics, which ignores
-cross-covariate covariance. This makes the global test an approximate PH
-diagnostic rather than a joint test. Results are most reliable when covariates
-are approximately orthogonal. When finegray-created {cmd:_fg_*} factor-variable
-columns have been dropped, the command reconstructs them on demand and retains
-the underlying factor term names in output and {cmd:r(phtest)} rownames.
+test is the sum of the per-variable chi-squared statistics.
+
+{pstd}
+{bf:The global test is not a joint test.} Summing the per-variable
+chi-squared statistics and taking {it:df} = {it:p} ignores the covariance
+{it:between} covariates, so the global statistic is an approximate PH diagnostic
+only. It is most trustworthy when the covariates are close to orthogonal, and it
+should not be read as a formal joint test of proportionality. The per-variable
+tests are unaffected.
+
+{pstd}
+The test is only defined where it can be computed. If every cause event occurs
+at a single time, the time function is constant and no correlation exists:
+{cmd:finegray_phtest} exits with {cmd:r(459)} rather than reporting a blank
+chi-squared. The same applies to any individual term whose scaled residuals do
+not vary across cause-event times.
+
+{pstd}
+{cmd:finegray_phtest} reads the package-owned {cmd:_fg_*} factor-variable columns
+by name. If they have been {it:dropped}, they are rebuilt on demand and the test
+proceeds as normal. If one is still present but has been {it:altered}, the test
+would silently be computed against a design the model was never fitted to, so
+{cmd:finegray_phtest} exits with {cmd:r(459)} and {cmd:finegray} must be re-run.
+Output and {cmd:r(phtest)} rownames use the underlying factor term names, not the
+internal {cmd:_fg_*} names.
 
 {pstd}
 {bf:Data requirement:} {cmd:finegray_phtest} computes Schoenfeld residuals on

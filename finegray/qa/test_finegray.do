@@ -61,6 +61,13 @@ end
 program define _setup_hypoxia
     _finegray_use_hypoxia
     gen byte status = failtype
+    * A usable clustering variable. pelnode is BINARY, so clustering on it gives
+    * g = 2: the cluster-robust variance is a sum of g cluster-score totals that
+    * sum to zero at the solution, so its rank is at most g-1 = 1 and it cannot
+    * support 2+ coefficients. finegray now refuses that (FG-H04) instead of
+    * printing standard errors invented by a g-inverse, so the cluster tests need
+    * a variable with enough clusters to be meaningful.
+    gen int clus = mod(_n, 20) + 1
     stset dftime, failure(dfcens==1) id(stnum)
 end
 
@@ -250,9 +257,9 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize, compete(status) cause(1) nolog cluster(pelnode)
+    finegray ifp tumsize, compete(status) cause(1) nolog cluster(clus)
     assert "`e(vce)'" == "cluster"
-    assert "`e(clustvar)'" == "pelnode"
+    assert "`e(clustvar)'" == "clus"
 }
 if _rc == 0 {
     display as result "  PASS: T12 cluster option"
@@ -382,9 +389,9 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize, compete(status) cause(1) nolog ///
-        strata(pelnode) cluster(pelnode)
+        strata(pelnode) cluster(clus)
     assert "`e(strata)'" == "pelnode"
-    assert "`e(clustvar)'" == "pelnode"
+    assert "`e(clustvar)'" == "clus"
     assert "`e(vce)'" == "cluster"
 }
 if _rc == 0 {
@@ -644,7 +651,10 @@ capture noisily {
     assert colsof(e(b)) == 3
     assert colsof(e(V)) == 3
     assert rowsof(e(V)) == 3
-    assert rowsof(e(basehaz)) == e(N_fail)
+    * FG-M01: one row per unique cause-event TIME, so <= N_fail (equal only when
+    * no two cause events share a time)
+    assert rowsof(e(basehaz)) <= e(N_fail)
+    assert rowsof(e(basehaz)) >= 1
     assert colsof(e(basehaz)) == 2
 }
 if _rc == 0 {
@@ -723,9 +733,9 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog norobust
     assert "`e(vce)'" == "oim"
     * cluster: vce is cluster
-    finegray ifp tumsize, compete(status) cause(1) nolog cluster(pelnode)
+    finegray ifp tumsize, compete(status) cause(1) nolog cluster(clus)
     assert "`e(vce)'" == "cluster"
-    assert "`e(clustvar)'" == "pelnode"
+    assert "`e(clustvar)'" == "clus"
 }
 if _rc == 0 {
     display as result "  PASS: T37 conditional e(vce)/e(clustvar)"
@@ -1016,13 +1026,29 @@ else {
     local ++fail_count
 }
 
-* T51: Basehaz rows = N_fail
+* T51: Basehaz rows = distinct cause-event TIMES (not events)
+* Contract change (FG-M01): the cumulative subhazard is a step function of time,
+* so e(basehaz) carries one row per unique cause-event time. Through v1.1.4 it
+* emitted one row per cause EVENT, leaving it multi-valued at ties (50 tied
+* events -> 50 rows, 1 unique time). rows == e(N_fail) only held because no
+* fixture had tied cause events.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     matrix bh = e(basehaz)
-    assert rowsof(bh) == e(N_fail)
+
+    quietly levelsof _t if status == 1 & e(sample), local(_evt)
+    local n_evtimes : word count `_evt'
+    assert rowsof(bh) == `n_evtimes'
+    assert rowsof(bh) <= e(N_fail)
+
+    * times are strictly increasing and unique
+    local prev = -1
+    forvalues r = 1/`=rowsof(bh)' {
+        assert bh[`r',1] > `prev'
+        local prev = bh[`r',1]
+    }
 }
 if _rc == 0 {
     display as result "  PASS: T51 basehaz rows = N_fail"
@@ -1943,10 +1969,10 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray i.pelnode##c.ifp, compete(status) cause(1) nolog ///
-        strata(pelnode) cluster(pelnode)
+        strata(pelnode) cluster(clus)
     assert e(converged) == 1
     assert "`e(strata)'" == "pelnode"
-    assert "`e(clustvar)'" == "pelnode"
+    assert "`e(clustvar)'" == "clus"
     cap drop _fg_*
 }
 if _rc == 0 {
@@ -2254,25 +2280,33 @@ else {
     local ++fail_count
 }
 
-* T112: Convergence failure with iterate(1) is a HARD failure
-* Contract change (FG-H07): through v1.1.4 this returned rc 0 with full results
-* posted and e(converged)=0. finegray now refuses to post a model that did not
-* converge. This deliberately diverges from stcrreg (which posts with rc 0)
-* because finegray's own bootstrap refits call finegray quietly, where a
-* warning is invisible -- see test_finegray_optimizer.do.
+* T112: iterate(1) posts a nonconverged fit, but nothing may consume it
+* The fit-time contract matches stcrreg: rc 0, e(converged)=0, results posted,
+* warning above the table. The gate is in the post-estimation commands, which
+* through v1.1.4 read e(b) without ever checking that it converged (FG-H07).
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    capture finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    capture noisily finegray ifp tumsize pelnode, compete(status) cause(1) nolog iterate(1)
+    assert _rc == 0
+    assert e(N) > 0
+    assert e(converged) == 0
+
+    capture finegray_cif, attime(5)
+    assert _rc == 430
+    capture finegray_predict t112_xb, xb
+    assert _rc == 430
+    capture finegray_phtest
     assert _rc == 430
 
-    * and the converged fit on the same data still succeeds
+    * the converged fit on the same data still works end to end
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-    assert e(N) > 0
     assert e(converged) == 1
+    finegray_predict t112_ok, xb
+    confirm variable t112_ok
 }
 if _rc == 0 {
-    display as result "  PASS: T112 iterate(1) errors r(430); converged fit succeeds"
+    display as result "  PASS: T112 nonconverged fit posts but post-estimation refuses it"
     local ++pass_count
 }
 else {

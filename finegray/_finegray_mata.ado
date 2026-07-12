@@ -667,7 +667,7 @@ real matrix _finegray_basehazard(
     real colvector t0)
 {
     real scalar n, p, i, j, k, idx, cum_bh, g, ng
-    real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep
+    real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep, has_cause
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector levels, gidx, Gminus
     real rowvector bwd_s0_raw
@@ -719,16 +719,27 @@ real matrix _finegray_basehazard(
             j++
         }
 
-        /* Process cause events - accumulate baseline hazard */
+        /* Process cause events - accumulate baseline hazard.
+           The cumulative subhazard is a step function of TIME, so it must have
+           one row per unique cause-event time, not one per event.  Tied events
+           all see the same risk set and hence the same S0, so Breslow adds
+           d/S0(t) once for the d events at t -- but emitting a row per event
+           left e(basehaz) multi-valued at t (50 tied events -> 50 rows, 1
+           unique time), which every step-function lookup downstream then had to
+           tolerate. Accumulate across the tie group, then emit a single row. */
+        has_cause = 0
         for (k = i; k < j; k++) {
             idx = ord[k]
             if (is_cause[idx]) {
                 S0_t = risk_S0 + Gt[idx, .] * bwd_s0_raw'
                 cum_bh = cum_bh + 1 / S0_t
-                ev_idx++
-                result[ev_idx, 1] = t[idx]
-                result[ev_idx, 2] = cum_bh
+                has_cause = 1
             }
+        }
+        if (has_cause) {
+            ev_idx++
+            result[ev_idx, 1] = cur_time
+            result[ev_idx, 2] = cum_bh
         }
 
         /* Add competing events to backward */
@@ -747,6 +758,12 @@ real matrix _finegray_basehazard(
 
         i = j
     }
+
+    /* result was sized for the worst case (every cause event at its own time);
+       with ties it holds fewer rows.  Trim, or the trailing rows stay missing
+       and every consumer sees a step function with a missing tail. */
+    if (ev_idx < 1) return(J(0, 2, .))
+    if (ev_idx < rows(result)) result = result[(1..ev_idx), .]
 
     return(result)
 }
@@ -1113,13 +1130,13 @@ void _finegray_engine(
         }
     }
 
-    if (!converged) {
-        errprintf("finegray: convergence not achieved in %g iterations\n",
-            max_iter)
-        errprintf("results are not reported for a model that did not ")
-        errprintf("converge; raise iterate() or check the specification\n")
-        exit(error(430))
-    }
+    /* Nonconvergence is NOT an error here: results are posted with
+       converged = 0, matching stcrreg, so a partial fit can still be inspected.
+       finegray.ado prints the warning ABOVE the coefficient table (where it
+       cannot be scrolled past), and every post-estimation command refuses to
+       consume a fit with e(converged) != 1 -- which is where the real hazard
+       lived, since finegray_cif/finegray_predict/finegray_phtest read e(b)
+       without ever asking whether it converged. */
 
     /* Recompute the log-likelihood at the ACCEPTED beta.  Every break path
        above must leave e(ll) paired with e(b): the decrement path takes a final

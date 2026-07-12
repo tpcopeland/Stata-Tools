@@ -71,6 +71,15 @@ program define finegray_predict, rclass sortpreserve
         display as error "you must run {bf:finegray} before using finegray_predict"
         exit 301
     }
+    * A nonconverged fit posts e(b), and every prediction path reads it. Without
+    * this gate xb/cif/schoenfeld are computed from a last iterate that is not a
+    * solution -- rc 0, no warning, silently wrong.
+    if e(converged) != 1 {
+        display as error "last estimates did not converge"
+        display as error "finegray_predict requires a converged fit; refit finegray"
+        display as error "with a larger iterate() or a different specification"
+        exit 430
+    }
 
     * Default to xb
     local n_types = ("`cif'" != "") + ("`xb'" != "") + ("`schoenfeld'" != "")
@@ -87,6 +96,15 @@ program define finegray_predict, rclass sortpreserve
     if "`level'" == "" local level = c(level)
 
     marksample touse, novarlist
+
+    * NOTE on why plain xb/cif do NOT call _finegray_check_data.
+    * xb is a pure linear score, X*b: it does not read _t, _d, compete(), the
+    * strata or the cluster variable, so a change in any of those cannot make it
+    * wrong, and demanding an intact estimation sample would break the documented
+    * ability to score new data.  What xb DOES depend on is that each coefficient
+    * is paired with the right column -- which is exactly what FG-H02 broke.  That
+    * is enforced below, structurally, by aligning factor terms to the fit-time
+    * expansion by LEVEL VALUE and refusing any level the fit never saw.
 
     * CI uses influence functions that require the original estimation data
     if "`ci'" != "" {
@@ -164,49 +182,98 @@ program define finegray_predict, rclass sortpreserve
     local _score_varlist "`e(covariates)'"
     local _score_labels "`e(covariates)'"
     if `"`e(fvvarlist)'"' != "" {
-        capture noisily fvexpand `e(fvvarlist)' if `_fvbasis'
-        if _rc {
-            display as error "unable to expand factor-variable terms for prediction"
-            exit _rc
-        }
-        local _fv_semantic `r(varlist)'
-
-        capture noisily fvrevar `e(fvvarlist)' if `_fvbasis'
-        if _rc {
-            display as error "unable to reconstruct factor-variable design for prediction"
-            exit _rc
-        }
-        local _fv_actual `r(varlist)'
-
-        local _n_sem : word count `_fv_semantic'
-        local _n_act : word count `_fv_actual'
-        if `_n_sem' != `_n_act' {
-            display as error "internal error: fvexpand/fvrevar mismatch during prediction"
-            exit 198
+        * Rebuild the design from the FIT-TIME expansion, e(fvsemantic), evaluating
+        * every factor term against the current data BY LEVEL VALUE.
+        *
+        * The previous implementation re-ran fvexpand/fvrevar on the current data
+        * and paired the resulting columns with e(b) POSITIONALLY.  That is only
+        * correct while the level support is unchanged: fit on i.grp over {1,2,3},
+        * shift the data to {2,3,4}, and fvexpand yields three terms again -- so
+        * the coefficient for level 2 was applied to level 3, and so on, at rc 0.
+        * Aligning by value cannot make that mistake.
+        local _fv_semantic `"`e(fvsemantic)'"'
+        if `"`_fv_semantic'"' == "" {
+            display as error "estimation results predate this version of finegray"
+            display as error "re-run {bf:finegray} before using finegray_predict"
+            exit 301
         }
 
+        * --- the fitted level support, per factor variable (base levels included) ---
+        local _fv_facvars ""
+        foreach _term of local _fv_semantic {
+            local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
+            foreach _tp of local _tparts {
+                if regexm("`_tp'", "^([0-9]+)b?\.(.+)$") {
+                    local _flev = regexs(1)
+                    local _fvar = regexs(2)
+                    local _seen : list posof "`_fvar'" in _fv_facvars
+                    if `_seen' == 0 {
+                        local _fv_facvars "`_fv_facvars' `_fvar'"
+                        local _fvlevels_`_fvar' ""
+                    }
+                    local _lseen : list posof "`_flev'" in _fvlevels_`_fvar'
+                    if `_lseen' == 0 {
+                        local _fvlevels_`_fvar' "`_fvlevels_`_fvar'' `_flev'"
+                    }
+                }
+            }
+        }
+
+        * A level the fit never saw has no coefficient.  Scoring it would silently
+        * collapse the observation onto the base category (all its dummies zero),
+        * which is a fabricated prediction, not an extrapolation.
+        foreach _fvar of local _fv_facvars {
+            capture confirm numeric variable `_fvar'
+            if _rc {
+                display as error "required factor variable `_fvar' not found"
+                display as error "predict requires the variables used when finegray was estimated"
+                exit 111
+            }
+            tempvar _lvbad
+            quietly gen byte `_lvbad' = 0 if `_fvbasis'
+            foreach _flev of local _fvlevels_`_fvar' {
+                quietly replace `_lvbad' = `_lvbad' + (`_fvar' == `_flev') if `_fvbasis'
+            }
+            quietly count if `_lvbad' == 0 & `_fvbasis' & !missing(`_fvar')
+            if r(N) > 0 {
+                display as error "`_fvar' contains `r(N)' observation(s) at levels not present when finegray was estimated"
+                display as error "the model has no coefficient for those levels; fitted levels are:`_fvlevels_`_fvar''"
+                exit 459
+            }
+            drop `_lvbad'
+        }
+
+        * --- build one column per non-base term, keyed to the level VALUE ---
         local _rebuild_varlist ""
         local _rebuild_labels ""
-        forvalues _i = 1/`_n_sem' {
-            local _term : word `_i' of `_fv_semantic'
-            local _var : word `_i' of `_fv_actual'
+        local _term_i = 0
+        foreach _term of local _fv_semantic {
+            local ++_term_i
+            * base terms (e.g. 1b.grp) carry no coefficient
+            if regexm("`_term'", "[0-9]+b\.") continue
+
             local _label_term = subinstr("`_term'", "c.", "", .)
+            local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
 
-            if regexm("`_term'", "[0-9]+b\.") {
-                continue
+            tempvar _fgcol
+            quietly gen double `_fgcol' = 1 if `_fvbasis'
+            foreach _tp of local _tparts {
+                if regexm("`_tp'", "^([0-9]+)\.(.+)$") {
+                    quietly replace `_fgcol' = `_fgcol' * ///
+                        (`=regexs(2)' == `=regexs(1)') if `_fvbasis'
+                }
+                else {
+                    local _cvar = subinstr("`_tp'", "c.", "", .)
+                    capture confirm numeric variable `_cvar'
+                    if _rc {
+                        display as error "required covariate `_cvar' not found"
+                        display as error "predict requires the variables used when finegray was estimated"
+                        exit 111
+                    }
+                    quietly replace `_fgcol' = `_fgcol' * `_cvar' if `_fvbasis'
+                }
             }
-
-            if substr("`_var'", 1, 2) != "__" {
-                local _rebuild_varlist "`_rebuild_varlist' `_var'"
-                local _rebuild_labels "`_rebuild_labels' `_label_term'"
-                continue
-            }
-
-            local _tvname "_fg_pred_`_i'"
-            tempvar `_tvname'
-            local _tv ``_tvname''
-            quietly gen double `_tv' = `_var'
-            local _rebuild_varlist "`_rebuild_varlist' `_tv'"
+            local _rebuild_varlist "`_rebuild_varlist' `_fgcol'"
             local _rebuild_labels "`_rebuild_labels' `_label_term'"
         }
 
@@ -436,9 +503,11 @@ program define finegray_predict, rclass sortpreserve
             quietly gen double `uci' = ///
                 1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
             local _created_vars "`_created_vars' `lci' `uci'"
-            * Degenerate CIF (0 or 1): interval collapses to the point
-            quietly replace `lci' = `varlist' if `touse' & `lci' >= .
-            quietly replace `uci' = `varlist' if `touse' & `uci' >= .
+            * A limit that could not be computed stays MISSING.  Through v1.1.4
+            * these two lines collapsed it onto the point estimate, which turns
+            * "we cannot quantify the uncertainty here" into "there is none":
+            * a degenerate CIF, or an interior CIF whose SE came back nonfinite,
+            * was shipped as a zero-width confidence interval.
             label variable `lci' "CIF lower `level'% limit"
             label variable `uci' "CIF upper `level'% limit"
         }
