@@ -12,7 +12,8 @@
 *!          weight row-for-row. R glm MLE + R cumulation vs Stata logit + Stata
 *!          by-product = genuine cross-software check of the weight math.
 *!
-*!  Skip-safe: PART B logs SKIP (not FAIL) if Rscript is unavailable.
+*!  PART B skips only when Rscript is absent. Once R is available, R execution
+*!  or output failure is a failed oracle, never a skip.
 clear all
 set more off
 set varabbrev off
@@ -32,13 +33,12 @@ local failed_tests ""
 
 display as result "tvtools crossval: tvweight IPCW -- $S_DATE $S_TIME"
 
-* =======================================================================
+**# Part A: single-period known-truth recovery
 * PART A: known-truth recovery
 *   L ~ Bernoulli(0.5); population E[Y] = 0.2 + 0.4*E[L] = 0.40 (TRUTH).
 *   Censoring depends on L: P(cens|L) = 0.2 + 0.4*L  (more loss where Y is high)
 *   => complete-case mean(Y) biased low; IPCW-weighted mean recovers 0.40.
 *   Single period => cumulative IPCW = 1/P(uncensored|L).
-* =======================================================================
 local ++test_count
 capture noisily {
     clear
@@ -88,19 +88,14 @@ else {
     local failed_tests "`failed_tests' A"
 }
 
-* =======================================================================
+**# Part B: R parity
 * PART B: R parity (ipw / glm)
 *   Multi-period panel; tvweight fits  logit cens L1 L2 i.t  (panel mode adds
 *   time FE) and cumulates 1/P(uncensored) within person. R reproduces it with
 *   glm(cens ~ L1 + L2 + factor(t), binomial) and cumprod.
-* =======================================================================
 local ++test_count
-capture confirm file "/usr/bin/Rscript"
-local has_rscript = (_rc == 0)
-if !`has_rscript' {
-    capture which Rscript
-    local has_rscript = (_rc == 0)
-}
+_tvtools_qa_probe_rscript
+local has_rscript = r(available)
 
 if `has_rscript' {
     capture noisily {
@@ -125,7 +120,11 @@ if `has_rscript' {
 
         preserve
         keep id t L1 L2 cens cw
-        export delimited id t L1 L2 cens cw using "_xv_ipcw.csv", replace
+        local _input "$TVTOOLS_QA_RUN_DIR/_xv_ipcw.csv"
+        local _script "$TVTOOLS_QA_RUN_DIR/_xv_ipcw.R"
+        local _output "$TVTOOLS_QA_RUN_DIR/_xv_ipcw_r.csv"
+        local _rlog "$TVTOOLS_QA_RUN_DIR/_xv_ipcw_r.log"
+        export delimited id t L1 L2 cens cw using "`_input'", replace
         restore
     }
     local _setup_rc = _rc
@@ -134,23 +133,24 @@ if `has_rscript' {
         * --- write the R oracle ---
         capture file close _rf
         tempname _rf
-        file open _rf using "_xv_ipcw.R", write replace
-        file write _rf "d <- read.csv('_xv_ipcw.csv')" _n
+        file open _rf using "`_script'", write replace
+        file write _rf "args <- commandArgs(trailingOnly=TRUE)" _n
+        file write _rf "d <- read.csv(args[1])" _n
         file write _rf "d <- d[order(d\$id, d\$t), ]" _n
         file write _rf "m <- glm(cens ~ L1 + L2 + factor(t), family=binomial, data=d)" _n
         file write _rf "pc <- predict(m, type='response')" _n
         file write _rf "punc <- pmin(pmax(1-pc, 0.001), 0.999)" _n
         file write _rf "w <- 1/punc" _n
         file write _rf "d\$cw_r <- ave(w, d\$id, FUN=cumprod)" _n
-        file write _rf "write.csv(d[, c('id','t','cw_r')], '_xv_ipcw_r.csv', row.names=FALSE)" _n
+        file write _rf "write.csv(d[, c('id','t','cw_r')], args[2], row.names=FALSE)" _n
         file close _rf
 
-        shell Rscript _xv_ipcw.R > _xv_ipcw_r.log 2>&1
-        capture confirm file "_xv_ipcw_r.csv"
+        shell Rscript "`_script'" "`_input'" "`_output'" > "`_rlog'" 2>&1
+        capture confirm file "`_output'"
         if _rc == 0 {
             capture noisily {
                 preserve
-                import delimited using "_xv_ipcw_r.csv", clear varnames(1)
+                import delimited using "`_output'", clear varnames(1)
                 tempfile rcw
                 save `rcw'
                 restore
@@ -172,8 +172,9 @@ if `has_rscript' {
             }
         }
         else {
-            display as text "  SKIP [B]: R produced no output (see _xv_ipcw_r.log)"
-            local ++skip_count
+            display as error "  FAIL [B]: R produced no output (see `_rlog')"
+            local ++fail_count
+            local failed_tests "`failed_tests' B-R"
         }
     }
     else {
@@ -181,17 +182,17 @@ if `has_rscript' {
         local ++fail_count
         local failed_tests "`failed_tests' B-setup"
     }
-    capture erase "_xv_ipcw.csv"
-    capture erase "_xv_ipcw.R"
-    capture erase "_xv_ipcw_r.csv"
-    capture erase "_xv_ipcw_r.log"
+    capture erase "`_input'"
+    capture erase "`_script'"
+    capture erase "`_output'"
+    capture erase "`_rlog'"
 }
 else {
     display as text "  SKIP [B]: Rscript not found (install R to enable IPCW parity)"
     local ++skip_count
 }
 
-* =======================================================================
+**# Part C: multi-period known-truth recovery
 * PART C: multi-period known-truth recovery (always runs, in-Stata)
 *   PART A recovers a mean under SINGLE-period censoring (cumulative IPCW
 *   collapses to 1/P(uncensored|L)). This part proves the CUMULATIVE product
@@ -205,7 +206,6 @@ else {
 *   per-period weights are cumulated correctly, so it exercises the product path,
 *   not just one interval. TOL=0.02 from a multi-seed mini-MC (recovery clustered
 *   in 0.393-0.403 across seeds at N=2e5; naive ~0.23, a >0.15 miss).
-* =======================================================================
 local ++test_count
 capture noisily {
     clear
@@ -267,14 +267,14 @@ else {
     local failed_tests "`failed_tests' C"
 }
 
-* ===== Summary =====
+**# Summary
 local test_count = `pass_count' + `fail_count' + `skip_count'
 display as result _newline "tvweight IPCW crossval Results -- $S_DATE $S_TIME"
 display as text "Checks: `test_count'"
 display as text "Passed: `pass_count'"
 display as text "Failed: `fail_count'"
 display as text "Skipped: `skip_count'"
-display "RESULT: crossval_tvweight_ipcw pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+display "RESULT: crossval_tvweight_ipcw tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
 if `fail_count' > 0 {
     display as error "CROSSVAL FAILED: `failed_tests'"
     exit 1

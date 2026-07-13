@@ -19,6 +19,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -648,4 +649,3 @@ if `fail_count' > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_effecttab tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _valeff
-

@@ -2941,7 +2941,7 @@ clear
 set obs 1
 gen id = 1
 gen event_date = .    // no event
-save "/tmp/tve4a_event.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4a_event.dta", replace
 
 clear
 set obs 1
@@ -2956,10 +2956,10 @@ local interval_days = mdy(7,18,2020) - mdy(1,1,2020)
 display "  INFO: Raw interval length (stop-start): `interval_days' days"
 
 gen tv_exp = 1    // exposure value
-save "/tmp/tve4a_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4a_intervals.dta", replace
 
-use "/tmp/tve4a_event.dta", clear
-capture noisily tvevent using "/tmp/tve4a_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4a_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4a_intervals.dta", ///
     id(id) date(event_date) ///
     timegen(t_days) timeunit(days)
 
@@ -2983,8 +2983,8 @@ else {
 }
 
 * Test with months
-use "/tmp/tve4a_event.dta", clear
-capture noisily tvevent using "/tmp/tve4a_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4a_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4a_intervals.dta", ///
     id(id) date(event_date) ///
     timegen(t_months) timeunit(months)
 
@@ -3008,8 +3008,8 @@ else {
 }
 
 * Test with years
-use "/tmp/tve4a_event.dta", clear
-capture noisily tvevent using "/tmp/tve4a_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4a_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4a_intervals.dta", ///
     id(id) date(event_date) ///
     timegen(t_years) timeunit(years)
 
@@ -3061,7 +3061,7 @@ gen id = 1
 gen primary_event = mdy(1,1,2020) + 200    // day 200
 gen death         = mdy(1,1,2020) + 100    // day 100 - EARLIEST
 gen emigration    = mdy(1,1,2020) + 150    // day 150
-save "/tmp/tve4b_event.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4b_event.dta", replace
 
 * Person-time intervals: 5 yearly intervals
 clear
@@ -3071,10 +3071,10 @@ gen start = mdy(1,1,2020) + (_n-1)*73    // ~ every 73 days
 gen stop  = start + 72
 replace stop = mdy(12,31,2020) if _n == 5
 gen tv_exp = 1
-save "/tmp/tve4b_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4b_intervals.dta", replace
 
-use "/tmp/tve4b_event.dta", clear
-capture noisily tvevent using "/tmp/tve4b_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4b_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4b_intervals.dta", ///
     id(id) date(primary_event) ///
     compete(death emigration) ///
     type(single) generate(fail_status)
@@ -3156,7 +3156,7 @@ gen start = mdy(1,1,2020)
 gen stop  = mdy(4,10,2020)
 gen tv_exp = 1
 gen cumul_dose = 100          // 100 dose units in this period
-save "/tmp/tve4c_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4c_intervals.dta", replace
 
 local total_days = mdy(4,10,2020) - mdy(1,1,2020)
 local event_day = mdy(1,1,2020) + 50    // 50 days in
@@ -3171,10 +3171,10 @@ clear
 set obs 1
 gen id = 1
 gen event_date1 = mdy(1,1,2020) + 50    // day 50 (wide format for type(recurring))
-save "/tmp/tve4c_event.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4c_event.dta", replace
 
-use "/tmp/tve4c_event.dta", clear
-capture noisily tvevent using "/tmp/tve4c_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4c_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4c_intervals.dta", ///
     id(id) date(event_date) ///
     continuous(cumul_dose) ///
     type(recurring) generate(fail_status)
@@ -3262,7 +3262,7 @@ gen start = mdy(1,1,2020) + (_n-1)*73
 gen stop  = start + 72
 replace stop = mdy(12,31,2021) if _n == 5
 gen tv_exp = 1
-save "/tmp/tve4d_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4d_intervals.dta", replace
 
 * Event occurs in interval 3 (day 146-218)
 local event_date = mdy(1,1,2020) + 160    // day 160, in interval 3
@@ -3271,10 +3271,10 @@ clear
 set obs 1
 gen id = 1
 gen event_date = mdy(1,1,2020) + 160
-save "/tmp/tve4d_event.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4d_event.dta", replace
 
-use "/tmp/tve4d_event.dta", clear
-capture noisily tvevent using "/tmp/tve4d_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4d_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4d_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_status)
 
@@ -3351,16 +3351,16 @@ gen id = 1
 gen start = mdy(1,1,2020)
 gen stop  = mdy(12,31,2020)
 gen tv_exp = 1
-save "/tmp/tve4e_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4e_intervals.dta", replace
 
 clear
 set obs 1
 gen id = 1
 gen event_date = mdy(12,31,2020)    // event at EXACTLY the stop boundary
-save "/tmp/tve4e_event.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4e_event.dta", replace
 
-use "/tmp/tve4e_event.dta", clear
-capture noisily tvevent using "/tmp/tve4e_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4e_event.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4e_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_status)
 
@@ -3418,7 +3418,7 @@ replace stop = mdy(12,31,2020) if seq == 4
 gen byte tv_exp = mod(seq, 2)
 format start stop %td
 drop seq
-save "/tmp/tve1_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve1_intervals.dta", replace
 
 * Event data: person 1 = 0 relapses, person 2 = 1 relapse, person 3 = 5 relapses
 * tvevent type(recurring) expects wide-format: relapse_date1, relapse_date2, etc.
@@ -3444,10 +3444,10 @@ replace relapse_date4 = mdy(8,25,2020)  in 3
 replace relapse_date5 = mdy(10,30,2020) in 3
 
 format relapse_date* %td
-save "/tmp/tve1_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve1_events.dta", replace
 
-use "/tmp/tve1_events.dta", clear
-capture noisily tvevent using "/tmp/tve1_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve1_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve1_intervals.dta", ///
     id(id) date(relapse_date) ///
     type(recurring) generate(relapse_flag)
 
@@ -3526,7 +3526,7 @@ gen double stop = mdy(6,30,2020) in 1
 replace stop = mdy(12,31,2020) in 2
 gen byte tv_exp = 1
 format start stop %td
-save "/tmp/tve2_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve2_intervals.dta", replace
 
 * Event exactly at start of first interval
 clear
@@ -3534,10 +3534,10 @@ set obs 1
 gen long id = 1
 gen double event_date = mdy(1,1,2020)
 format event_date %td
-save "/tmp/tve2_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve2_events.dta", replace
 
-use "/tmp/tve2_events.dta", clear
-capture noisily tvevent using "/tmp/tve2_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve2_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve2_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 
@@ -3584,10 +3584,10 @@ set obs 1
 gen long id = 1
 gen double event_date = mdy(12,31,2020)
 format event_date %td
-save "/tmp/tve3_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve3_events.dta", replace
 
-use "/tmp/tve3_events.dta", clear
-capture noisily tvevent using "/tmp/tve2_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve3_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve2_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 
@@ -3637,7 +3637,7 @@ gen double stop = mdy(3,31,2020) in 1
 replace stop = mdy(12,31,2020) in 2
 gen byte tv_exp = 1
 format start stop %td
-save "/tmp/tve4_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4_intervals.dta", replace
 
 * Event in the gap (April 15)
 clear
@@ -3645,10 +3645,10 @@ set obs 1
 gen long id = 1
 gen double event_date = mdy(4,15,2020)
 format event_date %td
-save "/tmp/tve4_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve4_events.dta", replace
 
-use "/tmp/tve4_events.dta", clear
-capture noisily tvevent using "/tmp/tve4_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve4_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve4_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 
@@ -3695,7 +3695,7 @@ gen double stop  = start + 90
 replace stop = mdy(12,31,2020) if _n == 4
 gen byte tv_exp = 1
 format start stop %td
-save "/tmp/tve5_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve5_intervals.dta", replace
 
 * Primary event: Oct 15 (day 289). Compete (death): May 20 (day 141)
 * Death should win because it's earlier
@@ -3705,10 +3705,10 @@ gen long id = 1
 gen double primary_date = mdy(10,15,2020)
 gen double death_date   = mdy(5,20,2020)
 format primary_date death_date %td
-save "/tmp/tve5_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve5_events.dta", replace
 
-use "/tmp/tve5_events.dta", clear
-capture noisily tvevent using "/tmp/tve5_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve5_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve5_intervals.dta", ///
     id(id) date(primary_date) ///
     compete(death_date) ///
     type(single) generate(fail_status)
@@ -3772,10 +3772,10 @@ gen long id = 1
 gen double primary_date = mdy(3,15,2020)
 gen double death_date   = mdy(11,20,2020)
 format primary_date death_date %td
-save "/tmp/tve6_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve6_events.dta", replace
 
-use "/tmp/tve6_events.dta", clear
-capture noisily tvevent using "/tmp/tve5_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve6_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve5_intervals.dta", ///
     id(id) date(primary_date) ///
     compete(death_date) ///
     type(single) generate(fail_status)
@@ -3837,10 +3837,10 @@ gen long id = 1
 gen double primary_date = mdy(6,15,2020)
 gen double death_date   = mdy(6,15,2020)
 format primary_date death_date %td
-save "/tmp/tve7_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve7_events.dta", replace
 
-use "/tmp/tve7_events.dta", clear
-capture noisily tvevent using "/tmp/tve5_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve7_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve5_intervals.dta", ///
     id(id) date(primary_date) ///
     compete(death_date) ///
     type(single) generate(fail_status)
@@ -3896,7 +3896,7 @@ gen double stop = mdy(6,30,2020) if mod(_n,2) == 1
 replace stop = mdy(12,31,2020) if mod(_n,2) == 0
 gen byte tv_exp = 1
 format start stop %td
-save "/tmp/tve8_intervals.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve8_intervals.dta", replace
 
 * All event dates missing
 clear
@@ -3904,10 +3904,10 @@ set obs 3
 gen long id = _n
 gen double event_date = .
 format event_date %td
-save "/tmp/tve8_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve8_events.dta", replace
 
-use "/tmp/tve8_events.dta", clear
-capture noisily tvevent using "/tmp/tve8_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve8_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve8_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 
@@ -3971,10 +3971,10 @@ set obs 1
 gen long id = 1
 gen double event_date = mdy(1,5,2020)
 format event_date %td
-save "/tmp/tve9_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve9_events.dta", replace
 
-use "/tmp/tve9_events.dta", clear
-capture noisily tvevent using "/tmp/tve2_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve9_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve2_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 
@@ -4030,10 +4030,10 @@ set obs 1
 gen long id = 1
 gen double event_date = mdy(12,15,2020)
 format event_date %td
-save "/tmp/tve10_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve10_events.dta", replace
 
-use "/tmp/tve10_events.dta", clear
-capture noisily tvevent using "/tmp/tve2_intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve10_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/tve2_intervals.dta", ///
     id(id) date(event_date) ///
     type(single) generate(fail_flag)
 

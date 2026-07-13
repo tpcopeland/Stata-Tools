@@ -137,6 +137,96 @@ program define _tabtools_collect_render, rclass
             `"`coldim'"', `"`sep'"', `_row_n', `_col_n', `_res_n', `_dropempty', ///
             `_factorparents')
 
+        * desctab must filter totals and missing categories by raw collect
+        * identity, never by rendered labels such as "Total" or "Missing".
+        * Attach row flags as hidden variables and column flags as variable
+        * characteristics while the raw dimension locals are still available.
+        if "`type'" == "desctab" {
+            quietly generate strL _tt_row_key = ""
+            quietly generate byte _tt_row_total = 0
+            quietly generate byte _tt_row_missing = 0
+            local _header_n = cond(`"`coldim'"' == "", 2, 4)
+            local _raw_next = 1
+            if _N > `_header_n' {
+                forvalues _obs = `=`_header_n'+1'/`=_N' {
+                    local _display `"`=A[`_obs']'"'
+                    local _matched = 0
+                    if `_raw_next' <= `_row_n' {
+                        forvalues _ri = `_raw_next'/`_row_n' {
+                            local _q = `_ri' - 1
+                            forvalues _d = `_row_dim_n'(-1)1 {
+                                local _dn = `_tt_row_dim_`_d'_n'
+                                local _pi = mod(`_q', `_dn') + 1
+                                local _q = floor(`_q' / `_dn')
+                                local _ri_lev_`_d' `"`_tt_row_dim_`_d'_level_`_pi''"'
+                                local _ri_lab_`_d' `"`_tt_row_dim_`_d'_label_`_pi''"'
+                            }
+                            local _raw_key ""
+                            local _raw_label ""
+                            local _raw_total = 0
+                            local _raw_missing = 0
+                            forvalues _d = 1/`_row_dim_n' {
+                                local _dim `"`_tt_row_dim_`_d''"'
+                                local _lev `"`_ri_lev_`_d''"'
+                                local _lab `"`_ri_lab_`_d''"'
+                                if `_d' == 1 {
+                                    local _raw_key `"`_dim'[`_lev']"'
+                                    local _raw_label `"`_lab'"'
+                                }
+                                else {
+                                    local _raw_key `"`_raw_key'#`_dim'[`_lev']"'
+                                    local _raw_label `"`_raw_label' > `_lab'"'
+                                }
+                                if `"`_lev'"' == ".m" local _raw_total = 1
+                            }
+                            forvalues _d = 1/`_row_dim_n' {
+                                local _lev `"`_ri_lev_`_d''"'
+                                if `"`_lev'"' != ".m" & regexm(`"`_lev'"', "^[.][a-z]?$") local _raw_missing = 1
+                            }
+                            if !`_matched' & `"`_display'"' == `"`_raw_label'"' {
+                                quietly replace _tt_row_key = `"`_raw_key'"' in `_obs'
+                                quietly replace _tt_row_total = `_raw_total' in `_obs'
+                                quietly replace _tt_row_missing = `_raw_missing' in `_obs'
+                                local _raw_next = `_ri' + 1
+                                local _matched = 1
+                            }
+                        }
+                    }
+                }
+            }
+
+            quietly ds A _tt_row_key _tt_row_total _tt_row_missing, not
+            local _data_vars `r(varlist)'
+            local _data_pos = 0
+            foreach _v of local _data_vars {
+                local ++_data_pos
+                local _group = ceil(`_data_pos' / `_res_n')
+                local _col_key ""
+                local _col_total = 0
+                local _col_missing = 0
+                if `"`coldim'"' != "" {
+                    local _q = `_group' - 1
+                    forvalues _d = `_col_dim_n'(-1)1 {
+                        local _dn = `_tt_col_dim_`_d'_n'
+                        local _pi = mod(`_q', `_dn') + 1
+                        local _q = floor(`_q' / `_dn')
+                        local _ci_lev_`_d' `"`_tt_col_dim_`_d'_level_`_pi''"'
+                    }
+                    forvalues _d = 1/`_col_dim_n' {
+                        local _dim `"`_tt_col_dim_`_d''"'
+                        local _lev `"`_ci_lev_`_d''"'
+                        if `_d' == 1 local _col_key `"`_dim'[`_lev']"'
+                        else local _col_key `"`_col_key'#`_dim'[`_lev']"'
+                        if `"`_lev'"' == ".m" local _col_total = 1
+                        if `"`_lev'"' != ".m" & regexm(`"`_lev'"', "^[.][a-z]?$") local _col_missing = 1
+                    }
+                }
+                char `_v'[_tabtools_col_key] `"`_col_key'"'
+                char `_v'[_tabtools_col_total] "`_col_total'"
+                char `_v'[_tabtools_col_missing] "`_col_missing'"
+            }
+        }
+
         quietly ds
         local _vars `r(varlist)'
         return scalar N = _N

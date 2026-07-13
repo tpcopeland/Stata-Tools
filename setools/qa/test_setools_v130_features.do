@@ -1,7 +1,7 @@
 clear all
 version 16.0
 capture log close _all
-log using "test_setools_v130_features.log", replace nomsg
+log using "`c(tmpdir)'/test_setools_v130_features_`c(processid)'.log", replace nomsg
 set varabbrev off
 
 * test_setools_v130_features.do
@@ -17,8 +17,7 @@ set varabbrev off
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -351,3 +350,5 @@ display as result "ALL TESTS PASSED"
 scalar drop gs_ntest gs_npass gs_nfail
 global gs_failures
 log close _all
+
+do "`qa_dir'/_setools_qa_common.do" teardown

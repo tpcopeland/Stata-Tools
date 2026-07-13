@@ -229,8 +229,8 @@ program define comptab, rclass
         exit 198
     }
 
-    forvalues f = 1/`n_frames' {
-        local _fname : word `f' of `framelist'
+	        forvalues f = 1/`n_frames' {
+	            local _fname : word `f' of `framelist'
         capture frame `_fname': qui count
         if _rc {
             noisily display as error "Frame '`_fname'' not found"
@@ -238,6 +238,128 @@ program define comptab, rclass
             exit 111
         }
     }
+
+    * Resolve the display-frame destination without changing it, then reject
+    * every destructive source/current/output alias before any frame is
+    * dropped or rebuilt.
+	    local _displayframe_name ""
+	    local _displayframe_replace 0
+	    if `"`frame'"' != "" {
+        local _fr_spec = subinstr(strtrim(`"`frame'"'), `""""', "", .)
+        gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
+	        local _displayframe_name = strtrim(`"`_displayframe_name'"')
+	        local _fr_rest : subinstr local _fr_rest "," "", all
+	        local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
+        capture confirm name `_displayframe_name'
+        if _rc {
+            noisily display as error "frame() must start with a valid Stata frame name"
+	            exit 198
+	        }
+	        if `"`_fr_rest'"' != "" {
+	            if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+	            else {
+	                noisily display as error "frame() only allows the replace suboption"
+	                exit 198
+	            }
+	        }
+    }
+    if `"`_displayframe_name'"' != "" & ///
+        `"`_eplotframe_name'"' != "" & ///
+        lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+        noisily display as error "frame() and eplotframe() must name different frames"
+        exit 198
+    }
+    foreach _dest in _displayframe_name _eplotframe_name {
+        if `"``_dest''"' != "" & ///
+            lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+            noisily display as error "output frames cannot replace the current frame"
+            exit 198
+        }
+    }
+    forvalues f = 1/`n_frames' {
+        local _fname : word `f' of `framelist'
+        foreach _dest in _displayframe_name _eplotframe_name {
+            if `"``_dest''"' != "" & ///
+                lower(`"``_dest''"') == lower(`"`_fname'"') {
+                noisily display as error "output frame ``_dest'' aliases source frame `_fname'"
+                exit 198
+            }
+        }
+	        local _source_ep_original_`f' ""
+	        capture frame `_fname': local _source_ep_original_`f' : char _dta[tabtools_eplotframe]
+	        if _rc local _source_ep_original_`f' ""
+	        if `"`_source_ep_original_`f''"' != "" {
+	            foreach _dest in _displayframe_name _eplotframe_name {
+	                if `"``_dest''"' != "" & ///
+	                    lower(`"``_dest''"') == lower(`"`_source_ep_original_`f''"') {
+	                    noisily display as error "output frame ``_dest'' aliases source companion frame `_source_ep_original_`f''"
+	                    exit 198
+	                }
+	            }
+	        }
+	    }
+	    if `"`_displayframe_name'"' != "" {
+	        capture confirm frame `_displayframe_name'
+	        if !_rc & !`_displayframe_replace' {
+	            noisily display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
+	            exit 110
+	        }
+	    }
+	    if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+	        capture confirm frame `_eplotframe_name'
+	        if !_rc & !`_eplotframe_replace' {
+	            noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+	            exit 110
+	        }
+	    }
+
+    * Snapshot every source before any preserve/clear operation. This makes a
+    * source that happens to be current behave exactly like any other source.
+    local _original_framelist `"`framelist'"'
+    local framelist ""
+    forvalues f = 1/`n_frames' {
+        local _source_original_`f' : word `f' of `_original_framelist'
+	        tempname _source_snapshot_`f'
+	        frame copy `_source_original_`f'' `_source_snapshot_`f''
+	        if `"`_eplotframe_name'"' != "" & `"`_source_ep_original_`f''"' == "" {
+	            noisily display as error "eplotframe()/forest requires every source to have a numeric companion frame"
+	            exit 459
+	        }
+	        if `"`_source_ep_original_`f''"' != "" {
+	            capture confirm frame `_source_ep_original_`f''
+	            if _rc {
+	                noisily display as error "source companion frame `_source_ep_original_`f'' not found"
+	                exit 111
+	            }
+	            tempname _source_ep_snapshot_`f'
+	            frame copy `_source_ep_original_`f'' `_source_ep_snapshot_`f''
+	            frame `_source_snapshot_`f'': char _dta[tabtools_eplotframe] "`_source_ep_snapshot_`f''"
+	        }
+	        local framelist `"`framelist' `_source_snapshot_`f''"'
+	    }
+	    local framelist : list clean framelist
+
+	    local _displayframe_target "`_displayframe_name'"
+	    local _eplotframe_target ""
+	    local _displayframe_build ""
+	    local _eplotframe_build ""
+	    if `"`_displayframe_target'"' != "" {
+	        tempname _displayframe_tmp
+	        local _displayframe_build "`_displayframe_tmp'"
+	        local frame "`_displayframe_build', replace"
+	    }
+	    if `"`_eplotframe_name'"' != "" {
+	        if `_eplotframe_temporary' {
+	            local _eplotframe_build "`_eplotframe_name'"
+	        }
+	        else {
+	            local _eplotframe_target "`_eplotframe_name'"
+	            tempname _eplotframe_tmp
+	            local _eplotframe_build "`_eplotframe_tmp'"
+	            local _eplotframe_name "`_eplotframe_build'"
+	            local _eplotframe_replace 1
+	        }
+	    }
 
     * =====================================================================
     * PARSE ROWS() OR ROWNAMES() — BACKSLASH-SEPARATED SPECIFICATIONS
@@ -469,6 +591,154 @@ program define comptab, rclass
             exit 198
         }
     }
+
+	    * Align model blocks by persisted analytical outcome IDs when they are
+	    * unique, then by persisted explicit model labels, and finally by model
+	    * command IDs. This permits different predictor rows under the same
+	    * outcome while still rejecting ambiguous model attribution.
+    local _source_cols_per_model = cond("`source_layout'" == "compact", 2, 3)
+    frame `fname1': local _meta_n_ref : char _dta[tabtools_n_models]
+    frame `fname1': local _ci_level_ref : char _dta[tabtools_ci_level]
+    frame `fname1': local _stat_ids_ref : char _dta[tabtools_statistic_ids]
+    if real("`_meta_n_ref'") != `n_models' | `"`_ci_level_ref'"' == "" | ///
+        `"`_stat_ids_ref'"' == "" {
+        noisily display as error "source frame lacks required tabtools model/CI/statistic provenance"
+        exit 459
+    }
+	    local _can_align_outcome 1
+	    local _can_align_label 1
+	    local _can_align_model 1
+	    forvalues _m = 1/`n_models' {
+	        frame `fname1': local _model_id_ref_`_m' : char _dta[tabtools_model_id_`_m']
+	        frame `fname1': local _outcome_id_ref_`_m' : char _dta[tabtools_outcome_id_`_m']
+	        frame `fname1': local _model_label_ref_`_m' : char _dta[tabtools_model_label_`_m']
+	        frame `fname1': local _effect_scale_ref_`_m' : char _dta[tabtools_effect_scale_`_m']
+	        local _model_id_ref_`_m' = lower(strtrim(`"`_model_id_ref_`_m''"'))
+	        local _outcome_id_ref_`_m' = lower(strtrim(`"`_outcome_id_ref_`_m''"'))
+	        local _model_label_ref_`_m' = lower(strtrim(`"`_model_label_ref_`_m''"'))
+	        if `"`_model_id_ref_`_m''"' == "" {
+	            noisily display as error "source frame has a blank machine-readable model identity"
+	            exit 459
+	        }
+	        if `"`_outcome_id_ref_`_m''"' == "" local _can_align_outcome 0
+	        if `"`_model_label_ref_`_m''"' == "" local _can_align_label 0
+	        if `_m' > 1 {
+	            forvalues _j = 1/`=`_m'-1' {
+	                if `"`_outcome_id_ref_`_m''"' == `"`_outcome_id_ref_`_j''"' local _can_align_outcome 0
+	                if `"`_model_label_ref_`_m''"' == `"`_model_label_ref_`_j''"' local _can_align_label 0
+	                if `"`_model_id_ref_`_m''"' == `"`_model_id_ref_`_j''"' local _can_align_model 0
+	            }
+	        }
+	    }
+	    if `_can_align_outcome' local _alignment_kind "outcome"
+	    else if `_can_align_label' local _alignment_kind "label"
+	    else if `_can_align_model' local _alignment_kind "model"
+	    else {
+	        noisily display as error "source frame has no unique model/outcome identity for alignment"
+	        exit 198
+	    }
+	    forvalues _m = 1/`n_models' {
+	        if "`_alignment_kind'" == "outcome" local _align_id_ref_`_m' `"`_outcome_id_ref_`_m''"'
+	        else if "`_alignment_kind'" == "label" local _align_id_ref_`_m' `"`_model_label_ref_`_m''"'
+	        else local _align_id_ref_`_m' `"`_model_id_ref_`_m''"'
+	    }
+
+    forvalues f = 2/`n_frames' {
+        local _fname : word `f' of `framelist'
+        frame `_fname': local _meta_n_src : char _dta[tabtools_n_models]
+        frame `_fname': local _ci_level_src : char _dta[tabtools_ci_level]
+        frame `_fname': local _stat_ids_src : char _dta[tabtools_statistic_ids]
+        if real("`_meta_n_src'") != `n_models' | `"`_ci_level_src'"' == "" | ///
+            `"`_stat_ids_src'"' == "" {
+            noisily display as error "source frame lacks required tabtools model/CI/statistic provenance"
+            exit 459
+        }
+        if abs(real("`_ci_level_src'") - real("`_ci_level_ref'")) > 1e-8 {
+            noisily display as error "source frames contain mixed confidence levels"
+            exit 198
+        }
+        if `"`_stat_ids_src'"' != `"`_stat_ids_ref'"' {
+            noisily display as error "source frames contain different ordered statistic identities"
+            exit 198
+        }
+	        forvalues _m = 1/`n_models' {
+	            frame `_fname': local _model_id_src_`_m' : char _dta[tabtools_model_id_`_m']
+	            frame `_fname': local _outcome_id_src_`_m' : char _dta[tabtools_outcome_id_`_m']
+	            frame `_fname': local _model_label_src_`_m' : char _dta[tabtools_model_label_`_m']
+	            frame `_fname': local _effect_scale_src_`_m' : char _dta[tabtools_effect_scale_`_m']
+	            local _model_id_src_`_m' = lower(strtrim(`"`_model_id_src_`_m''"'))
+	            local _outcome_id_src_`_m' = lower(strtrim(`"`_outcome_id_src_`_m''"'))
+	            local _model_label_src_`_m' = lower(strtrim(`"`_model_label_src_`_m''"'))
+	            if `"`_model_id_src_`_m''"' == "" {
+	                noisily display as error "source frame has a blank machine-readable model identity"
+	                exit 459
+	            }
+	            if "`_alignment_kind'" == "outcome" local _align_id_src_`_m' `"`_outcome_id_src_`_m''"'
+	            else if "`_alignment_kind'" == "label" local _align_id_src_`_m' `"`_model_label_src_`_m''"'
+	            else local _align_id_src_`_m' `"`_model_id_src_`_m''"'
+	            if `"`_align_id_src_`_m''"' == "" {
+	                noisily display as error "source frame lacks the selected alignment identity"
+	                exit 459
+	            }
+	            if `_m' > 1 {
+	                forvalues _j = 1/`=`_m'-1' {
+	                    if `"`_align_id_src_`_m''"' == `"`_align_id_src_`_j''"' {
+	                        noisily display as error `"duplicate `_alignment_kind' identity "`_align_id_src_`_m''" cannot be aligned"'
+	                        exit 198
+	                    }
+                }
+            }
+        }
+
+        forvalues _target_m = 1/`n_models' {
+            local _source_m = 0
+            forvalues _candidate_m = 1/`n_models' {
+	                if `"`_align_id_ref_`_target_m''"' == ///
+	                    `"`_align_id_src_`_candidate_m''"' {
+                    local _source_m = `_candidate_m'
+                }
+            }
+            if `_source_m' == 0 {
+	                noisily display as error `"`_alignment_kind' identity "`_align_id_ref_`_target_m''" is missing from a source frame"'
+                exit 198
+            }
+            local _model_map_`_target_m' = `_source_m'
+            if `"`_outcome_id_ref_`_target_m''"' != ///
+                `"`_outcome_id_src_`_source_m''"' {
+                noisily display as error "source frames disagree on model outcome identity"
+                exit 198
+            }
+            if lower(`"`_effect_scale_ref_`_target_m''"') != ///
+                lower(`"`_effect_scale_src_`_source_m''"') {
+                noisily display as error "source frames disagree on model effect scale"
+                exit 198
+            }
+        }
+
+        forvalues _c = 1/`ncols' {
+            tempvar _source_copy_`f'_`_c'
+            frame `_fname': clonevar `_source_copy_`f'_`_c'' = c`_c'
+        }
+        forvalues _target_m = 1/`n_models' {
+            local _source_m = `_model_map_`_target_m''
+            forvalues _stat = 1/`_source_cols_per_model' {
+                local _target_c = (`_target_m' - 1) * `_source_cols_per_model' + `_stat'
+                local _source_c = (`_source_m' - 1) * `_source_cols_per_model' + `_stat'
+                frame `_fname': replace c`_target_c' = ///
+                    `_source_copy_`f'_`_source_c''
+            }
+        }
+        frame `_fname': drop `_source_copy_`f'_1'-`_source_copy_`f'_`ncols''
+
+        forvalues _c = 1/`ncols' {
+            frame `fname1': local _stat_ref = lower(strtrim(c`_c'[3]))
+            frame `_fname': local _stat_src = lower(strtrim(c`_c'[3]))
+            if `"`_stat_ref'"' != `"`_stat_src'"' {
+                noisily display as error "source frames disagree on effect scale, confidence level, or statistic order"
+                exit 198
+            }
+        }
+    }
     local _source_compact = ("`source_layout'" == "compact")
     local _compact_output = (`_source_compact' | "`compact'" != "")
 
@@ -533,9 +803,10 @@ program define comptab, rclass
         frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
             double pvalue int model str244 model_label str24 rowtype str244 section ///
             long source_row str32 source_frame
-        forvalues f = 1/`n_frames' {
-            local _fname : word `f' of `framelist'
-            local _sec_label ""
+	        forvalues f = 1/`n_frames' {
+	            local _fname : word `f' of `framelist'
+	            local _source_label `"`_source_original_`f''"'
+	            local _sec_label ""
             if `has_sections' local _sec_label `"`seclabel`f''"'
 
             * Resolve the source companion frame for this display frame.
@@ -563,7 +834,7 @@ program define comptab, rclass
             local _fold = (`has_sections' & `_n_eff_f' == 1)
             if `has_sections' & !`_fold' {
                 frame post `_eplotframe_name' (`"`_sec_label'"') (.) (.) (.) (.) ///
-                    (.) ("") ("section") (`"`_sec_label'"') (.) (`"`_fname'"')
+	                    (.) ("") ("section") (`"`_sec_label'"') (.) (`"`_source_label'"')
             }
 
             if `_src_ep_ok' {
@@ -584,7 +855,7 @@ program define comptab, rclass
                                 if `_fold' local _post_label `"`_sec_label'"'
                                 frame post `_eplotframe_name' (`"`_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
                                     (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
-                                    (`"`_sec_label'"') (`r') (`"`_fname'"')
+	                                    (`"`_sec_label'"') (`r') (`"`_source_label'"')
                             }
                         }
                     }
@@ -592,6 +863,9 @@ program define comptab, rclass
             }
         }
         frame `_eplotframe_name': char _dta[tabtools_source] "comptab"
+        frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level_ref'"
+        frame `_eplotframe_name': char _dta[tabtools_n_models] "`n_models'"
+        frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "`_stat_ids_ref'"
     }
 
     * Extract header rows (model labels + column headers) from first frame
@@ -865,12 +1139,25 @@ program define comptab, rclass
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
-        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
-            frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+	        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+	            frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
         }
-        return local frame "`frame'"
-    }
-    if `"`_ret_markdown'"' != "" {
+        frame `frame': char _dta[tabtools_source] "comptab"
+        frame `frame': char _dta[tabtools_ci_level] "`_ci_level_ref'"
+        frame `frame': char _dta[tabtools_n_models] "`n_models'"
+        frame `frame': char _dta[tabtools_statistic_ids] "`_stat_ids_ref'"
+        forvalues _meta_m = 1/`n_models' {
+            frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_model_id_ref_`_meta_m''"'
+            frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_outcome_id_ref_`_meta_m''"'
+            frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`_effect_scale_ref_`_meta_m''"'
+        }
+	        return local frame "`frame'"
+	    }
+	    if `"$TABTOOLS_QA_COMP_STAGE_FAIL"' == "1" {
+	        restore
+	        error 459
+	    }
+	    if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
@@ -888,6 +1175,7 @@ program define comptab, rclass
     return scalar N_cols = `num_cols'
     return scalar N_models = `n_models'
     return scalar N_frames = `n_frames'
+    return scalar ci_level = real("`_ci_level_ref'")
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
 
     if `_has_xlsx' {
@@ -1136,11 +1424,25 @@ program define comptab, rclass
         if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
     }
 
-    * Open file if requested
-    if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
+	    * Open file if requested
+	    if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 
-    return clear
-    if `"`frame'"' != "" return local frame "`frame'"
+	    * Commit staged caller-visible frames only after forest/file outputs pass.
+	    if `"`_eplotframe_build'"' != "" & !`_eplotframe_temporary' {
+	        capture confirm frame `_eplotframe_target'
+	        if !_rc frame drop `_eplotframe_target'
+	        frame rename `_eplotframe_build' `_eplotframe_target'
+	        local _eplotframe_build ""
+	    }
+	    if `"`_displayframe_build'"' != "" {
+	        capture confirm frame `_displayframe_target'
+	        if !_rc frame drop `_displayframe_target'
+	        frame rename `_displayframe_build' `_displayframe_target'
+	        local _displayframe_build ""
+	    }
+
+	    return clear
+	    if `"`_displayframe_target'"' != "" return local frame "`_displayframe_target'"
     if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
@@ -1150,7 +1452,8 @@ program define comptab, rclass
     return scalar N_cols = `num_cols'
     return scalar N_models = `n_models'
     return scalar N_frames = `n_frames'
-    if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
+    return scalar ci_level = real("`_ci_level_ref'")
+	    if `"`_eplotframe_target'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_target'"
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
@@ -1159,8 +1462,12 @@ program define comptab, rclass
 
     } // end quietly
 
-    } // end capture noisily
-    local _rc = _rc
+	    } // end capture noisily
+	    local _rc = _rc
+	    if `_rc' {
+	        if `"`_displayframe_build'"' != "" capture frame drop `_displayframe_build'
+	        if `"`_eplotframe_build'"' != "" capture frame drop `_eplotframe_build'
+	    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end

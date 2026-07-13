@@ -51,6 +51,7 @@ capture noisily {
         [xlsx(string) excel(string) sheet(string) ///
         COLpct ROWpct TOTALpct EXact FIsher ///
         OR RR RD TRend COCHran LABel MISsing ///
+        Level(cilevel) ///
         DIGits(integer -1) ///
         title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
@@ -169,6 +170,11 @@ capture noisily {
     qui levelsof `colvar', local(col_levels) `missing'
     local n_rows : word count `row_levels'
     local n_cols : word count `col_levels'
+    if ("`trend'" != "" | "`cochran'" != "") & (`n_rows' < 2 | `n_cols' < 2) {
+        noisily display as error "the requested trend test requires at least two analyzable row and column levels"
+        restore
+        exit 498
+    }
     if "`cochran'" != "" & `n_rows' != 2 {
         noisily display as error "cochran requires a binary row (outcome) variable; `rowvar' has `n_rows' levels"
         restore
@@ -276,7 +282,7 @@ capture noisily {
             qui replace `_assoc_col01' = 1 if `colvar' == `_assoc_col1'
         }
         if "`or'" != "" {
-            qui cc `_assoc_row01' `_assoc_col01' [`weight'`exp']
+            qui cc `_assoc_row01' `_assoc_col01' [`weight'`exp'], level(`level')
             local _or = r(or)
             if missing(`_or') {
                 noisily display as error "odds ratio is undefined for this 2x2 table"
@@ -288,7 +294,7 @@ capture noisily {
             return scalar or = `_or'
         }
         if "`rr'" != "" | "`rd'" != "" {
-            qui cs `_assoc_row01' `_assoc_col01' [`weight'`exp']
+            qui cs `_assoc_row01' `_assoc_col01' [`weight'`exp'], level(`level')
             if "`rr'" != "" {
                 local _rr = r(rr)
                 if missing(`_rr') {
@@ -329,8 +335,12 @@ capture noisily {
 	            qui expand `_fwexp'
 	        }
 	        capture qui spearman `rowvar' `_trend_score'
-	        if !_rc {
-	            local _p_trend = r(p)
+	        local _trend_rc = _rc
+	        if !`_trend_rc' local _p_trend = r(p)
+	        if `_trend_rc' | missing(`_p_trend') {
+	            noisily display as error "Spearman trend test could not be computed; check outcome/exposure variation and weights"
+	            restore
+	            exit 498
 	        }
 	        qui use `_trend_snap', clear
 	        return scalar p_trend = `_p_trend'
@@ -359,7 +369,7 @@ capture noisily {
 	        local _ca_N = r(N)
 	        qui summarize `_ca_ev' if !missing(`_ca_ev'), meanonly
 	        local _ca_R = r(sum)
-	        local _ca_pbar = `_ca_R' / `_ca_N'
+	        local _ca_pbar = cond(`_ca_N' > 0, `_ca_R' / `_ca_N', .)
 	        qui summarize `colvar' if !missing(`_ca_ev'), meanonly
 	        local _ca_sbar = r(mean)
 	        qui gen double `_ca_evs' = `_ca_ev' * `colvar' if !missing(`_ca_ev')
@@ -374,6 +384,11 @@ capture noisily {
 	            local _p_trend = chi2tail(1, `_ca_chi2')
 	            return scalar chi2_trend = `_ca_chi2'
 	            return scalar z_trend = `_ca_z'
+	        }
+	        if missing(`_p_trend') {
+	            noisily display as error "Cochran-Armitage trend test could not be computed; the outcome and ordered exposure must both vary"
+	            restore
+	            exit 498
 	        }
 	        qui use `_ca_snap', clear
 	        return scalar p_trend = `_p_trend'
@@ -416,19 +431,19 @@ capture noisily {
             local _cell_str = string(`_freq_val', "%11.0fc")
             if "`colpct'" != "" {
                 if `_col_total' > 0 {
-                    local _pct = string(`_freq_val' / `_col_total' * 100, "%5.`digits'f")
+                    local _pct = strtrim(string(`_freq_val' / `_col_total' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
             else if "`rowpct'" != "" {
                 if `_row_total' > 0 {
-                    local _pct = string(`_freq_val' / `_row_total' * 100, "%5.`digits'f")
+                    local _pct = strtrim(string(`_freq_val' / `_row_total' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
             else if "`totalpct'" != "" {
                 if `_total_n' > 0 {
-                    local _pct = string(`_freq_val' / `_total_n' * 100, "%5.`digits'f")
+                    local _pct = strtrim(string(`_freq_val' / `_total_n' * 100, "%21.`digits'f"))
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
@@ -468,17 +483,17 @@ capture noisily {
     if !missing(`_or') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "OR = " + string(`_or', "%5.`digits'f") + " (95% CI: " + string(`_or_lo', "%5.`digits'f") + ", " + string(`_or_hi', "%5.`digits'f") + ")" in `row'
+        qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rr') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "RR = " + string(`_rr', "%5.`digits'f") + " (95% CI: " + string(`_rr_lo', "%5.`digits'f") + ", " + string(`_rr_hi', "%5.`digits'f") + ")" in `row'
+        qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rd') {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "RD = " + string(`_rd', "%5.`=`digits'+2'f") + " (95% CI: " + string(`_rd_lo', "%5.`=`digits'+2'f") + ", " + string(`_rd_hi', "%5.`=`digits'+2'f") + ")" in `row'
+        qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`level'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
     }
     if !missing(`_p_trend') {
         local row = `row' + 1
@@ -537,6 +552,8 @@ capture noisily {
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
+        frame `frame': char _dta[tabtools_ci_level] "`level'"
+        frame `frame': char _dta[tabtools_source] "crosstab"
     }
 
 **# Return Results
@@ -552,9 +569,9 @@ capture noisily {
     * Methods paragraph
     local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
     local _methods "`_methods' Statistical significance was assessed using `_test_name'."
-    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
     if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
     else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
@@ -690,6 +707,7 @@ capture noisily {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
+    return scalar ci_level = `level'
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily

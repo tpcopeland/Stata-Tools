@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.6** | 2026-07-10
+**Version 1.9.7** | 2026-07-13
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -558,6 +558,17 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Version History
+
+### v1.9.7 (2026-07-13)
+
+Documentation only; no command behaviour changed. Every citation the package carried was fetched and checked against the code for the first time (Phase 7 reference backfill). No citation was fabricated — all four DOIs resolve to the intended papers — but three of them were being used to support claims their papers do not make:
+
+- **FIPTIW is credited to the wrong paper.** The combined inverse-probability-of-treatment-and-intensity weight was attributed to Tompkins et al. (2025), which states twice, explicitly, that the method was *proposed by Coulombe et al.* and that Coulombe et al. derived its asymptotic variance. **Coulombe, Moodie & Platt (2021, Biometrics 77(1):162–174)** — the actual source of the estimator this package implements — was cited nowhere. It is now cited in `iivw`, `iivw_weight`, and `iivw_fit`; Tompkins is retained as the sensitivity/guidance paper it is
+- **The default standard errors were justified by a paper that says the opposite.** `iivw_fit` described its fixed-weight sandwich as "the common approach in the IIW literature (Buzkova & Lumley 2007)". Bůžková & Lumley's §3.3 exists precisely to *correct* for having estimated the weights ("we account for estimation of γ₀ by including the second term"), and Coulombe et al. build the FIPTIW variance as a two-step Newey–McFadden sandwich for the same reason. Neither licenses treating estimated weights as known. The help now says plainly that the default understates uncertainty and points at `bootstrap(#) refitweights`
+- **`stabcov()` carried an unstated constraint.** The estimator is unbiased only when the stabilization numerator is built from the *outcome-model* covariates (Bůžková & Lumley 2007; restated by Tompkins et al. 2025). Nothing in the code or the help said so, and the help further claimed the FIPTIW numerator "typically includes only the treatment variable", which Tompkins does not say. The constraint is now documented on the option
+- **`truncate()` ignored the guidance in the paper it cites.** Tompkins et al. (§4.4) recommend the 95th percentile and report that trimming helps for treatment-model extremes but *not* for visit-model extremes — where an extreme weight means the visit model needs respecifying, not capping. The help offered `truncate(1 99)` with no source. Both findings are now documented
+- **`iivw_balance` had no References section at all**, despite shipping thresholds and an effective-sample-size statistic. It now states what is sourced (the weights; Kish's ESS) and what is not (the leverage/balance verdicts and the 0.10 cut, which is borrowed from two-group propensity-score diagnostics and applied to a within-sample composition shift — a different quantity, so a rule of thumb rather than a validated threshold)
+- **`iivw_diagnose`'s sampling/artifact shares are original to this package** and no cited reference vouches for them. The References section now says so instead of implying provenance from Bůžková & Lumley
 
 ### v1.9.6 (2026-07-10)
 

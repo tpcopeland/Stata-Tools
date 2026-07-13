@@ -60,7 +60,7 @@ gen event_date = study_entry + int(runiform() * (study_exit - study_entry)) if r
 gen death_date = study_entry + int(runiform() * (study_exit - study_entry)) if runiform() < 0.1
 gen emigration_date = study_entry + int(runiform() * (study_exit - study_entry)) if runiform() < 0.05
 format study_entry study_exit event_date death_date emigration_date %tdCCYY-NN-DD
-save "/tmp/test_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", replace
 
 * Create exposure data with overlaps, gaps, and various patterns
 clear
@@ -75,7 +75,7 @@ gen dose = runiform() * 100
 label define drug_lbl 0 "Unexposed" 1 "Drug_A" 2 "Drug_B" 3 "Drug_C"
 label values drug drug_lbl
 format rx_start rx_stop %tdCCYY-NN-DD
-save "/tmp/test_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", replace
 
 * Create second exposure dataset for tvmerge testing
 clear
@@ -88,7 +88,7 @@ gen stop2 = start2 + 20 + int(runiform() * 80)
 gen treatment = ceil(runiform() * 2)
 gen intensity = runiform() * 50
 format start2 stop2 %tdCCYY-NN-DD
-save "/tmp/test_exposure2.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/test_exposure2.dta", replace
 
 * Create point-in-time data (no stop dates)
 clear
@@ -98,7 +98,7 @@ gen id = ceil(_n / 1.5)
 gen measure_date = mdy(1, 1, 2020) + int(runiform() * 500)
 gen value = ceil(runiform() * 3)
 format measure_date %tdCCYY-NN-DD
-save "/tmp/test_pointtime.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/test_pointtime.dta", replace
 
 * Create recurring events data (wide format)
 clear
@@ -109,7 +109,7 @@ forvalues i = 1/5 {
     gen hosp`i' = mdy(1, 1, 2020) + int(runiform() * 600) if runiform() < 0.4
     format hosp`i' %tdCCYY-NN-DD
 }
-save "/tmp/test_recurring.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/test_recurring.dta", replace
 
 display as result "Test data created successfully"
 
@@ -119,8 +119,8 @@ display as result "Test data created successfully"
 
 *--- Test 1.1: Basic time-varying (default) ---
 run_test "tvexpose_basic_timevarying"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -140,8 +140,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.2: evertreated ---
 run_test "tvexpose_evertreated"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -169,8 +169,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.3: currentformer ---
 run_test "tvexpose_currentformer"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -191,8 +191,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.4: duration with continuousunit ---
 run_test "tvexpose_duration_years"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -208,8 +208,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.5: duration with months ---
 run_test "tvexpose_duration_months"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -221,8 +221,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.6: continuousunit alone (continuous cumulative) ---
 run_test "tvexpose_continuous_cumulative"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -239,12 +239,12 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.7: recency ---
 run_test "tvexpose_recency"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    recency(30 90 180) generate(recency_cat)
+    recency(30 90 180) recencyunit(days) generate(recency_cat)
 if _rc == 0 {
     test_pass
 }
@@ -252,8 +252,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.8: dose ---
 run_test "tvexpose_dose"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(dose) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -272,8 +272,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 1.9: dose with dosecuts ---
 run_test "tvexpose_dose_dosecuts"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(dose) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -291,8 +291,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 2.1: layer (default) ---
 run_test "tvexpose_layer_default"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -304,8 +304,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 2.2: priority ---
 run_test "tvexpose_priority"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -317,8 +317,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 2.3: split ---
 run_test "tvexpose_split"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -331,9 +331,9 @@ else test_fail "Command failed with rc=`=_rc'"
 *--- Test 2.4: combine ---
 run_test "tvexpose_combine"
 * combine() supports 2-way overlaps only (tvexpose.ado validates and rejects
-* 3+ overlapping types). The shared /tmp/test_exposure.dta carries 3 drug types,
+* 3+ overlapping types). The shared $TVTOOLS_QA_RUN_DIR/test_exposure.dta carries 3 drug types,
 * so build a dedicated 2-type overlapping exposure for this test.
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 preserve
 clear
 input id double(rx_start rx_stop) byte drug
@@ -368,8 +368,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.1: grace (single value) ---
 run_test "tvexpose_grace_single"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -381,8 +381,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.2: grace (category-specific) ---
 run_test "tvexpose_grace_category"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -394,8 +394,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.3: merge ---
 run_test "tvexpose_merge"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -407,8 +407,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.4: lag ---
 run_test "tvexpose_lag"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -420,8 +420,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.5: washout ---
 run_test "tvexpose_washout"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -433,8 +433,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.6: lag + washout combined ---
 run_test "tvexpose_lag_washout_combined"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -446,8 +446,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.7: fillgaps ---
 run_test "tvexpose_fillgaps"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -459,8 +459,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.8: carryforward ---
 run_test "tvexpose_carryforward"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -472,8 +472,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.9: pointtime ---
 run_test "tvexpose_pointtime"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_pointtime.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_pointtime.dta", ///
     id(id) start(measure_date) ///
     exposure(value) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -485,8 +485,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 3.10: window ---
 run_test "tvexpose_window"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -502,8 +502,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 4.1: evertreated + bytype ---
 run_test "tvexpose_evertreated_bytype"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -520,8 +520,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 4.2: currentformer + bytype ---
 run_test "tvexpose_currentformer_bytype"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -533,8 +533,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 4.3: continuousunit + bytype ---
 run_test "tvexpose_continuous_bytype"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -546,8 +546,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 4.4: duration + bytype ---
 run_test "tvexpose_duration_bytype"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -563,8 +563,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 5.1: switching ---
 run_test "tvexpose_switching"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -580,8 +580,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 5.2: switchingdetail ---
 run_test "tvexpose_switchingdetail"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -593,8 +593,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 5.3: statetime ---
 run_test "tvexpose_statetime"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -614,9 +614,9 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 6.1: expandunit weeks ---
 run_test "tvexpose_expandunit_weeks"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 qui keep in 1/10
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -628,9 +628,9 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 6.2: expandunit months ---
 run_test "tvexpose_expandunit_months"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 qui keep in 1/10
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -646,10 +646,10 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 7.1: keepvars ---
 run_test "tvexpose_keepvars"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 gen age = 50 + int(runiform() * 30)
 gen female = runiform() < 0.5
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -665,8 +665,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 7.2: keepdates ---
 run_test "tvexpose_keepdates"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -682,15 +682,15 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 7.3: saveas + replace ---
 run_test "tvexpose_saveas_replace"
-use "/tmp/test_cohort.dta", clear
-capture erase "/tmp/test_output.dta"
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture erase "$TVTOOLS_QA_RUN_DIR/test_output.dta"
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    saveas("/tmp/test_output.dta") replace
+    saveas("$TVTOOLS_QA_RUN_DIR/test_output.dta") replace
 if _rc == 0 {
-    capture confirm file "/tmp/test_output.dta"
+    capture confirm file "$TVTOOLS_QA_RUN_DIR/test_output.dta"
     if _rc == 0 {
         test_pass
     }
@@ -700,8 +700,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 7.4: referencelabel ---
 run_test "tvexpose_referencelabel"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -717,8 +717,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 8.1: check ---
 run_test "tvexpose_check"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -730,8 +730,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 8.2: gaps ---
 run_test "tvexpose_gaps"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -743,8 +743,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 8.3: overlaps ---
 run_test "tvexpose_overlaps"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -756,8 +756,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 8.4: summarize ---
 run_test "tvexpose_summarize"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -770,8 +770,8 @@ else test_fail "Command failed with rc=`=_rc'"
 *--- Test 8.5: validate ---
 run_test "tvexpose_validate"
 capture erase tv_validation.dta
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -787,8 +787,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 9.1: currentformer + grace + lag + washout ---
 run_test "tvexpose_complex_1"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -800,9 +800,9 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 9.2: evertreated + bytype + switching + keepvars ---
 run_test "tvexpose_complex_2"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 gen age = 50
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -814,8 +814,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 9.3: duration + priority + statetime ---
 run_test "tvexpose_complex_3"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -830,25 +830,25 @@ else test_fail "Command failed with rc=`=_rc'"
 ********************************************************************************
 
 * First create tvexpose outputs with different exposure variable names
-use "/tmp/test_cohort.dta", clear
-qui tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+qui tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(drug_exp)
-qui save "/tmp/tv1.dta", replace
+qui save "$TVTOOLS_QA_RUN_DIR/tv1.dta", replace
 
-use "/tmp/test_cohort.dta", clear
-qui tvexpose using "/tmp/test_exposure2.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+qui tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure2.dta", ///
     id(id) start(start2) stop(stop2) ///
     exposure(treatment) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(treat_exp)
-qui save "/tmp/tv2.dta", replace
+qui save "$TVTOOLS_QA_RUN_DIR/tv2.dta", replace
 
 *--- Test 10.1: Basic 2-dataset merge ---
 run_test "tvmerge_basic"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) force
 if _rc == 0 {
@@ -858,7 +858,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.2: generate option ---
 run_test "tvmerge_generate"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     generate(merged_drug merged_treat) force
@@ -873,7 +873,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.3: prefix option ---
 run_test "tvmerge_prefix"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     prefix(m_) force
@@ -884,7 +884,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.4: startname/stopname ---
 run_test "tvmerge_custom_names"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     startname(period_start) stopname(period_end) force
@@ -899,7 +899,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.5: dateformat ---
 run_test "tvmerge_dateformat"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     dateformat(%tdNN/DD/CCYY) force
@@ -910,7 +910,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.6: batch ---
 run_test "tvmerge_batch"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     batch(50) force
@@ -921,7 +921,7 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.7: check + validatecoverage + validateoverlap + summarize ---
 run_test "tvmerge_diagnostics"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
     check validatecoverage validateoverlap summarize force
@@ -932,13 +932,13 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 10.8: saveas ---
 run_test "tvmerge_saveas"
-capture erase "/tmp/merged_output.dta"
-capture noisily tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture erase "$TVTOOLS_QA_RUN_DIR/merged_output.dta"
+capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(drug_exp treat_exp) ///
-    saveas("/tmp/merged_output.dta") replace force
+    saveas("$TVTOOLS_QA_RUN_DIR/merged_output.dta") replace force
 if _rc == 0 {
-    capture confirm file "/tmp/merged_output.dta"
+    capture confirm file "$TVTOOLS_QA_RUN_DIR/merged_output.dta"
     if _rc == 0 {
         test_pass
     }
@@ -951,19 +951,19 @@ else test_fail "Command failed with rc=`=_rc'"
 ********************************************************************************
 
 * Create interval dataset
-use "/tmp/test_cohort.dta", clear
-qui tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+qui tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
 rename rx_start start
 rename rx_stop stop
-qui save "/tmp/intervals.dta", replace
+qui save "$TVTOOLS_QA_RUN_DIR/intervals.dta", replace
 
 *--- Test 11.1: Basic single event ---
 run_test "tvevent_basic_single"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) generate(outcome)
 if _rc == 0 {
     capture confirm variable outcome
@@ -976,8 +976,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.2: Competing risks ---
 run_test "tvevent_compete"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) compete(death_date emigration_date) ///
     type(single) generate(status)
 if _rc == 0 {
@@ -989,8 +989,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.3: timegen with days ---
 run_test "tvevent_timegen_days"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) ///
     timegen(time_days) timeunit(days)
 if _rc == 0 {
@@ -1004,8 +1004,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.4: timegen with months ---
 run_test "tvevent_timegen_months"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) ///
     timegen(time_months) timeunit(months)
 if _rc == 0 {
@@ -1015,8 +1015,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.5: timegen with years ---
 run_test "tvevent_timegen_years"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) ///
     timegen(time_years) timeunit(years)
 if _rc == 0 {
@@ -1026,8 +1026,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.6: eventlabel ---
 run_test "tvevent_eventlabel"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) compete(death_date) type(single) ///
     eventlabel(0 "Censored" 1 "Primary Event" 2 "Death")
 if _rc == 0 {
@@ -1037,9 +1037,9 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.7: keepvars ---
 run_test "tvevent_keepvars"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 gen age = 50 + int(runiform() * 30)
-capture noisily tvevent using "/tmp/intervals.dta", ///
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) keepvars(age)
 if _rc == 0 {
     capture confirm variable age
@@ -1052,13 +1052,13 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.8: startvar/stopvar ---
 run_test "tvevent_startvar_stopvar"
-use "/tmp/intervals.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/intervals.dta", clear
 rename start interval_start
 rename stop interval_end
-save "/tmp/intervals_renamed.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/intervals_renamed.dta", replace
 
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals_renamed.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals_renamed.dta", ///
     id(id) date(event_date) type(single) ///
     startvar(interval_start) stopvar(interval_end)
 if _rc == 0 {
@@ -1068,8 +1068,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.9: recurring events ---
 run_test "tvevent_recurring"
-use "/tmp/test_recurring.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_recurring.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(hosp) type(recurring) generate(hospitalized)
 if _rc == 0 {
     test_pass
@@ -1078,8 +1078,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 11.10: validate ---
 run_test "tvevent_validate"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) validate
 if _rc == 0 {
     test_pass
@@ -1089,12 +1089,12 @@ else test_fail "Command failed with rc=`=_rc'"
 *--- Test 11.11: replace ---
 run_test "tvevent_replace"
 * Test: replace option allows command to run when variable already exists
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 * First create a dummy "outcome" variable
 gen outcome = 99
 * Without replace, tvevent should fail because outcome already exists
 * With replace, it should succeed
-capture noisily tvevent using "/tmp/intervals.dta", ///
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single) generate(outcome) replace
 if _rc == 0 {
     * Command completed - replace option worked
@@ -1110,13 +1110,13 @@ display as text "PERSON-TIME CONSERVATION"
 
 *--- Test 12.1: tvexpose preserves person-time ---
 run_test "persontime_tvexpose"
-use "/tmp/test_cohort.dta", clear
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
 * Calculate expected person-time
 gen expected_pt = study_exit - study_entry + 1
 qui sum expected_pt
 local expected = r(sum)
 
-qui tvexpose using "/tmp/test_exposure.dta", ///
+qui tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1132,8 +1132,8 @@ else test_fail "Person-time not conserved: expected `expected', got `actual'"
 
 *--- Test 12.2: Person-time by exposure type sums correctly ---
 run_test "persontime_exposure_sum"
-use "/tmp/test_cohort.dta", clear
-qui tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+qui tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1162,8 +1162,8 @@ display as text "ERROR HANDLING"
 
 *--- Test 13.1: Mutually exclusive exposure types ---
 run_test "error_mutual_exclusion_exptype"
-use "/tmp/test_cohort.dta", clear
-capture tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1175,8 +1175,8 @@ else test_fail "Should error on mutually exclusive options"
 
 *--- Test 13.2: Mutually exclusive overlap strategies ---
 run_test "error_mutual_exclusion_overlap"
-use "/tmp/test_cohort.dta", clear
-capture tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1188,8 +1188,8 @@ else test_fail "Should error on mutually exclusive options"
 
 *--- Test 13.3: dosecuts without dose ---
 run_test "error_dosecuts_without_dose"
-use "/tmp/test_cohort.dta", clear
-capture tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1201,8 +1201,8 @@ else test_fail "Should error on dosecuts without dose"
 
 *--- Test 13.4: Missing required options ---
 run_test "error_missing_required"
-use "/tmp/test_cohort.dta", clear
-capture tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) ///
     entry(study_entry) exit(study_exit)
@@ -1214,8 +1214,8 @@ else test_fail "Should error on missing reference()"
 
 *--- Test 13.5: Invalid window (min >= max) ---
 run_test "error_invalid_window"
-use "/tmp/test_cohort.dta", clear
-capture tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1227,7 +1227,7 @@ else test_fail "Should error on invalid window"
 
 *--- Test 13.6: tvmerge generate vs prefix conflict ---
 run_test "error_tvmerge_generate_prefix"
-capture tvmerge "/tmp/tv1.dta" "/tmp/tv2.dta", ///
+capture tvmerge "$TVTOOLS_QA_RUN_DIR/tv1.dta" "$TVTOOLS_QA_RUN_DIR/tv2.dta", ///
     id(id) start(rx_start start2) stop(rx_stop stop2) ///
     exposure(tv_exposure tv_exposure) ///
     generate(a b) prefix(test_) force
@@ -1238,8 +1238,8 @@ else test_fail "Should error on generate + prefix"
 
 *--- Test 13.7: tvevent invalid type ---
 run_test "error_tvevent_invalid_type"
-use "/tmp/test_cohort.dta", clear
-capture tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(invalid)
 if _rc != 0 {
     test_pass
@@ -1260,7 +1260,7 @@ gen id = 1
 gen study_entry = mdy(1, 1, 2020)
 gen study_exit = mdy(12, 31, 2020)
 format study_entry study_exit %tdCCYY-NN-DD
-save "/tmp/single_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/single_cohort.dta", replace
 
 clear
 set obs 1
@@ -1269,10 +1269,10 @@ gen rx_start = mdy(3, 1, 2020)
 gen rx_stop = mdy(6, 30, 2020)
 gen drug = 1
 format rx_start rx_stop %tdCCYY-NN-DD
-save "/tmp/single_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/single_exposure.dta", replace
 
-use "/tmp/single_cohort.dta", clear
-capture noisily tvexpose using "/tmp/single_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/single_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/single_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1293,10 +1293,10 @@ gen id = _n + 1000
 gen study_entry = mdy(1, 1, 2020)
 gen study_exit = mdy(12, 31, 2020)
 format study_entry study_exit %tdCCYY-NN-DD
-save "/tmp/nomatch_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/nomatch_cohort.dta", replace
 
-use "/tmp/nomatch_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/nomatch_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1318,10 +1318,10 @@ gen id = _n
 gen study_entry = mdy(6, 15, 2020)
 gen study_exit = mdy(6, 15, 2020)
 format study_entry study_exit %tdCCYY-NN-DD
-save "/tmp/zero_followup.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/zero_followup.dta", replace
 
-use "/tmp/zero_followup.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/zero_followup.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1341,10 +1341,10 @@ set obs 10
 gen id = _n
 gen event_date = .
 format event_date %tdCCYY-NN-DD
-save "/tmp/no_events.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/no_events.dta", replace
 
-use "/tmp/no_events.dta", clear
-capture noisily tvevent using "/tmp/intervals.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/no_events.dta", clear
+capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/intervals.dta", ///
     id(id) date(event_date) type(single)
 if _rc == 0 {
     * All should be censored
@@ -1366,7 +1366,7 @@ gen id = _n
 gen study_entry = mdy(6, 1, 2020)
 gen study_exit = mdy(12, 31, 2020)
 format study_entry study_exit %tdCCYY-NN-DD
-save "/tmp/late_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/late_cohort.dta", replace
 
 clear
 set obs 5
@@ -1375,10 +1375,10 @@ gen rx_start = mdy(1, 1, 2020)
 gen rx_stop = mdy(3, 31, 2020)
 gen drug = 1
 format rx_start rx_stop %tdCCYY-NN-DD
-save "/tmp/early_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/early_exposure.dta", replace
 
-use "/tmp/late_cohort.dta", clear
-capture noisily tvexpose using "/tmp/early_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/late_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/early_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1407,7 +1407,7 @@ gen id = _n
 gen study_entry = mdy(1, 1, 2015) + int(runiform() * 365)
 gen study_exit = study_entry + 365 * 5 + int(runiform() * 365)
 format study_entry study_exit %td
-save "/tmp/large_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/large_cohort.dta", replace
 
 clear
 set obs 2000
@@ -1416,10 +1416,10 @@ gen rx_start = mdy(1, 1, 2015) + int(runiform() * 1500)
 gen rx_stop = rx_start + 30 + int(runiform() * 180)
 gen drug = ceil(runiform() * 5)
 format rx_start rx_stop %td
-save "/tmp/large_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/large_exposure.dta", replace
 
-use "/tmp/large_cohort.dta", clear
-capture noisily tvexpose using "/tmp/large_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/large_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/large_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit)
@@ -1434,8 +1434,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.2: Extreme grace period (365 days) ---
 run_test "stress_large_grace"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1447,8 +1447,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.3: Very short intervals (1 day grace) ---
 run_test "stress_minimal_grace"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1460,8 +1460,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.4: Large lag period ---
 run_test "stress_large_lag"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1473,8 +1473,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.5: Large washout period ---
 run_test "stress_large_washout"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1486,8 +1486,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.6: All major options combined ---
 run_test "stress_all_options"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1501,8 +1501,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.7: Duration with small unit ---
 run_test "stress_duration_small_unit"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1514,8 +1514,8 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.8: Dose with multiple categories ---
 run_test "stress_dose_categories"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1527,12 +1527,12 @@ else test_fail "Command failed with rc=`=_rc'"
 
 *--- Test 16.9: Recency with small windows ---
 run_test "stress_recency_small_windows"
-use "/tmp/test_cohort.dta", clear
-capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    recency(7 14 21 30 60)
+    recency(7 14 21 30 60) recencyunit(days)
 if _rc == 0 {
     test_pass
 }
@@ -1547,7 +1547,7 @@ gen id = _n
 gen study_entry = mdy(1, 1, 2020)
 gen study_exit = mdy(12, 31, 2022)
 format study_entry study_exit %td
-save "/tmp/overlap_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/overlap_cohort.dta", replace
 
 clear
 set obs 100
@@ -1556,10 +1556,10 @@ gen rx_start = mdy(1, 1, 2020) + int(runiform() * 200)
 gen rx_stop = rx_start + 100 + int(runiform() * 200)
 gen drug = ceil(runiform() * 3)
 format rx_start rx_stop %td
-save "/tmp/overlap_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/overlap_exposure.dta", replace
 
-use "/tmp/overlap_cohort.dta", clear
-capture noisily tvexpose using "/tmp/overlap_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/overlap_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/overlap_exposure.dta", ///
     id(id) start(rx_start) stop(rx_stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -1570,10 +1570,10 @@ if _rc == 0 {
 else test_fail "Command failed with rc=`=_rc'"
 
 * Cleanup stress test files
-capture erase "/tmp/large_cohort.dta"
-capture erase "/tmp/large_exposure.dta"
-capture erase "/tmp/overlap_cohort.dta"
-capture erase "/tmp/overlap_exposure.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/large_cohort.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/large_exposure.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/overlap_cohort.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/overlap_exposure.dta"
 
 ********************************************************************************
 ********************************************************************************
@@ -1596,4 +1596,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

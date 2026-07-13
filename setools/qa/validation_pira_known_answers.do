@@ -5,8 +5,7 @@ capture log close _all
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar wc_tests = 0
 scalar wc_pass = 0
@@ -205,3 +204,5 @@ if wc_fail > 0 {
 
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_pira_known_answers tests=" wc_tests " pass=" wc_pass " fail=" wc_fail
+
+do "`qa_dir'/_setools_qa_common.do" teardown

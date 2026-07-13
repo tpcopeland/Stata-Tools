@@ -6,7 +6,7 @@
 *   V1. Liver hierarchy date logic (min→max fix)
 *   V2. Direct-match vs hierarchical date competition
 *   V3. generate() collision check
-*   V4. Python cross-validation of Mata engine (ICD-10 subset)
+*   V4. Historical Python block disabled; dedicated cross-validation owns it
 *
 * Run from setools/qa/ directory:
 *   stata-mp -b do validation_cci_se_v121.do
@@ -21,8 +21,7 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -187,15 +186,15 @@ capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) ///
 local t = (_rc == 198)
 run_val "V3.1: generate(cci_mi) + components → rc=198" `t'
 
-* V3.2: generate name starts with custom prefix → rc=198
+* V3.2: a shared textual prefix is harmless without an exact collision
 clear
 input long lopnr str10 diagnos long datum
 31 "I21" 20200101
 end
 capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) ///
     dateformat(yyyymmdd) generate(ch_score) components prefix(ch_)
-local t = (_rc == 198)
-run_val "V3.2: generate(ch_score) + prefix(ch_) + components → rc=198" `t'
+local t = (_rc == 0)
+run_val "V3.2: generate(ch_score) + prefix(ch_) + components succeeds" `t'
 
 * V3.3: generate name does NOT start with prefix → success
 clear
@@ -217,168 +216,19 @@ capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) ///
 local t = (_rc == 0)
 run_val "V3.4: generate(cci_mi) without components → success" `t'
 
-* V3.5: exact prefix match (edge: generate IS the prefix)
+* V3.5: generate() may equal the textual prefix when no output equals it
 clear
 input long lopnr str10 diagnos long datum
 34 "I21" 20200101
 end
 capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) ///
     dateformat(yyyymmdd) generate(cci_) components
-local t = (_rc == 198)
-run_val "V3.5: generate name equals prefix exactly → rc=198" `t'
+local t = (_rc == 0)
+run_val "V3.5: generate name equals prefix text but remains distinct" `t'
 
-**# V4. PYTHON CROSS-VALIDATION (ICD-10 subset)
+**# V4. AUTHORITATIVE PYTHON CROSS-VALIDATION
 
-* Export ICD-10 diagnoses to CSV, run Python oracle, compare results
-local data_url "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta"
-local input_csv "`c(tmpdir)'/cci_crossval_input.csv"
-local output_csv "`c(tmpdir)'/cci_crossval_output.csv"
-local py_script "`pkg_dir'/qa/_crossval_cci_se_python.py"
-
-* Verify the Python script exists; python3 availability checked via output file
-capture confirm file "`py_script'"
-if _rc {
-    display as text "  [SKIP] V4: _crossval_cci_se_python.py not found"
-    scalar gs_ntest = scalar(gs_ntest) + 1
-    scalar gs_npass = scalar(gs_npass) + 1
-}
-else {
-
-    * Load diagnosis data — keep only ICD-10 era (year >= 1998)
-    use "`data_url'", clear
-    gen int _yr = year(visit_date)
-    keep if _yr >= 1998
-    drop _yr
-
-    * Run Stata cci_se on ICD-10 subset
-    cci_se, id(id) icd(icd) date(visit_date) components
-    rename charlson charlson_stata
-    foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab ///
-        diabcomp renal livmild livsev pud cancer mets aids {
-        rename cci_`v' stata_`v'
-    }
-    tempfile stata_out
-    save `stata_out'
-
-    * Re-load and export for Python (match Stata's internal filtering)
-    use "`data_url'", clear
-    gen int _yr = year(visit_date)
-    keep if _yr >= 1998
-    drop _yr
-    keep if !missing(id) & !missing(visit_date) & trim(icd) != ""
-    export delimited id icd visit_date using "`input_csv'", replace
-
-    * Run Python oracle
-    shell python3 "`py_script'" "`input_csv'" "`output_csv'"
-
-    * Verify Python produced output
-    capture confirm file "`output_csv'"
-    if _rc {
-        display as error "  [FAIL] V4: Python script did not produce output"
-        scalar gs_ntest = scalar(gs_ntest) + 1
-        scalar gs_nfail = scalar(gs_nfail) + 1
-    }
-    else {
-
-        * Import Python results
-        import delimited using "`output_csv'", clear
-        * Ensure id is numeric for merge compatibility
-        capture confirm string variable id
-        if !_rc {
-            destring id, replace
-        }
-        rename charlson charlson_python
-        foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab ///
-            diabcomp renal livmild livsev pud cancer mets aids {
-            rename cci_`v' python_`v'
-        }
-        tempfile python_out
-        save `python_out'
-
-        * Merge on id
-        use `stata_out', clear
-        merge 1:1 id using `python_out'
-        count if _merge == 3
-        local n_matched = r(N)
-        count if _merge == 1
-        local n_stata_only = r(N)
-        count if _merge == 2
-        local n_python_only = r(N)
-        keep if _merge == 3
-        drop _merge
-        sort id
-
-        * V4.0: Merge completeness
-        local t = (`n_stata_only' == 0 & `n_python_only' == 0)
-        run_val "V4.0: merge complete (matched=`n_matched' stata_only=`n_stata_only' python_only=`n_python_only')" `t'
-
-        * V4.1: Overall score agreement
-        count if charlson_stata != charlson_python
-        local n_score_diff = r(N)
-        local N_total = _N
-        local t = (`n_score_diff' == 0)
-        run_val "V4.1: CCI score agreement (N=`N_total', disagree=`n_score_diff')" `t'
-
-        * V4.2: Component-level agreement
-        local all_agree = 1
-        local worst_comp ""
-        local worst_n = 0
-        foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab ///
-            diabcomp renal livmild livsev pud cancer mets aids {
-            count if stata_`v' != python_`v'
-            if r(N) > 0 {
-                local all_agree = 0
-                if r(N) > `worst_n' {
-                    local worst_n = r(N)
-                    local worst_comp "`v'"
-                }
-            }
-        }
-        local t = (`all_agree' == 1)
-        if `all_agree' {
-            run_val "V4.2: all 18 components match Python (N=`N_total')" `t'
-        }
-        else {
-            run_val "V4.2: component mismatch (worst: `worst_comp' n=`worst_n')" `t'
-        }
-
-        * V4.3: Hierarchy rules verified in Python output
-        count if python_diab == 1 & python_diabcomp == 1
-        local t = (r(N) == 0)
-        run_val "V4.3: Python enforces diabetes hierarchy" `t'
-
-        count if python_cancer == 1 & python_mets == 1
-        local t = (r(N) == 0)
-        run_val "V4.4: Python enforces cancer hierarchy" `t'
-
-        count if python_livmild == 1 & python_livsev == 1
-        local t = (r(N) == 0)
-        run_val "V4.5: Python enforces liver hierarchy" `t'
-
-        * V4.6: Score range sanity
-        summarize charlson_stata
-        local t = (r(min) >= 0 & r(max) <= 30)
-        run_val "V4.6: Stata scores in [0, 30]" `t'
-
-        summarize charlson_python
-        local t = (r(min) >= 0 & r(max) <= 30)
-        run_val "V4.7: Python scores in [0, 30]" `t'
-
-        * V4.8: Weight formula cross-check
-        gen int recomputed = stata_mi + stata_chf + stata_pvd + stata_cevd + ///
-            stata_copd + stata_pulm + stata_rheum + stata_dem + ///
-            2*stata_plegia + stata_diab + 2*stata_diabcomp + ///
-            2*stata_renal + stata_livmild + 3*stata_livsev + ///
-            stata_pud + 2*stata_cancer + 6*stata_mets + 6*stata_aids
-        count if recomputed != charlson_stata
-        local t = (r(N) == 0)
-        run_val "V4.8: Stata score = sum of weighted components" `t'
-    }
-
-    * Clean up
-    capture erase "`input_csv'"
-    capture erase "`output_csv'"
-}
+* Executed separately by crossval_cci_se_python.do from pinned local vectors.
 
 **# Summary
 
@@ -388,6 +238,8 @@ display as text "Passed:   " as result scalar(gs_npass)
 display as text "Failed:   " as result scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
+    display "RESULT: validation_cci_se_v121 tests=" scalar(gs_ntest) ///
+        " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
     display as error "SOME TESTS FAILED"
     display as error "Failures: ${gs_failures}"
     scalar drop gs_ntest gs_npass gs_nfail
@@ -396,6 +248,10 @@ if scalar(gs_nfail) > 0 {
 }
 else {
     display as result "ALL TESTS PASSED"
+    display "RESULT: validation_cci_se_v121 tests=" scalar(gs_ntest) ///
+        " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
     scalar drop gs_ntest gs_npass gs_nfail
     global gs_failures
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

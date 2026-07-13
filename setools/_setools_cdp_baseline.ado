@@ -1,4 +1,4 @@
-*! _setools_cdp_baseline Version 1.4.1  2026/07/03
+*! _setools_cdp_baseline Version 1.5.0  2026/07/13
 *! setools internal: per-person baseline EDSS and baseline date columns
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -14,8 +14,7 @@
 *
 * Rule: first EDSS within baselinewindow of diagnosis; if none, earliest
 * available measurement. Lower EDSS is used on same-day ties because sort order
-* alone is not a contract. Uses fixed _setools_* working columns (not tempvars)
-* and drops them, so it is safe to call after dataset switching in the caller.
+* alone is not a contract. All working columns are true tempvars.
 
 program define _setools_cdp_baseline, nclass
     version 16.0
@@ -29,23 +28,22 @@ program define _setools_cdp_baseline, nclass
 
     qui gen double `edssout' = .
     qui gen long `dateout' = .
+    tempvar inwin winhit winedss anyhit anyedss
 
     * First EDSS within baseline window of diagnosis
-    qui gen byte _setools_bl_inwin = ///
+    qui gen byte `inwin' = ///
         (`datevar' >= `dxdate' & `datevar' <= `dxdate' + `baselinewindow')
-    qui egen double _setools_bl_winhit = ///
-        min(cond(_setools_bl_inwin, `datevar', .)), by(`idvar')
-    qui egen double _setools_bl_winedss = ///
-        min(cond(`datevar' == _setools_bl_winhit, `edssvar', .)), by(`idvar')
-    qui replace `edssout' = _setools_bl_winedss if !missing(_setools_bl_winedss)
-    qui replace `dateout' = _setools_bl_winhit if !missing(_setools_bl_winhit)
-    qui drop _setools_bl_inwin _setools_bl_winhit _setools_bl_winedss
+    qui egen double `winhit' = ///
+        min(cond(`inwin', `datevar', .)), by(`idvar')
+    qui egen double `winedss' = ///
+        min(cond(`datevar' == `winhit', `edssvar', .)), by(`idvar')
+    qui replace `edssout' = `winedss' if !missing(`winedss')
+    qui replace `dateout' = `winhit' if !missing(`winhit')
 
     * Otherwise earliest available measurement
-    qui egen double _setools_bl_anyhit = min(`datevar'), by(`idvar')
-    qui egen double _setools_bl_anyedss = ///
-        min(cond(`datevar' == _setools_bl_anyhit, `edssvar', .)), by(`idvar')
-    qui replace `edssout' = _setools_bl_anyedss if missing(`edssout')
-    qui replace `dateout' = _setools_bl_anyhit if missing(`dateout')
-    qui drop _setools_bl_anyhit _setools_bl_anyedss
+    qui egen double `anyhit' = min(`datevar'), by(`idvar')
+    qui egen double `anyedss' = ///
+        min(cond(`datevar' == `anyhit', `edssvar', .)), by(`idvar')
+    qui replace `edssout' = `anyedss' if missing(`edssout')
+    qui replace `dateout' = `anyhit' if missing(`dateout')
 end

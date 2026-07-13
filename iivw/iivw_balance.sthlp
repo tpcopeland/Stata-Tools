@@ -12,6 +12,7 @@
 {viewerjumpto "Interpreting results" "iivw_balance##interpreting"}{...}
 {viewerjumpto "Examples" "iivw_balance##examples"}{...}
 {viewerjumpto "Stored results" "iivw_balance##results"}{...}
+{viewerjumpto "References" "iivw_balance##references"}{...}
 {viewerjumpto "Author" "iivw_balance##author"}{...}
 {title:Title}
 
@@ -305,6 +306,33 @@ AG-refit view.{p_end}
 {pstd}
 {cmd:r(balance)} contains the unweighted mean, weighted mean, unweighted SD,
 SMD, absolute SMD, N, missing count, and modeled-covariate flag.
+
+
+{marker references}{...}
+{title:References}
+
+{pstd}
+{bf:What is and is not sourced.} The weights being diagnosed come from
+Buzkova & Lumley (2007) (see {helpb iivw_weight}). The effective sample size is
+Kish's, {it:ESS} = (sum of weights)^2 / (sum of squared weights). The
+{it:leverage} and {it:balance} verdicts, and the thresholds behind them, are
+conventions adopted by this package and are not taken from a published
+diagnostic: in particular the {cmd:0.10} cut on the standardized difference is
+borrowed from the propensity-score balance literature, where the statistic
+compares {it:two treatment groups}. The statistic computed here compares the
+weighted and unweighted composition of the {it:same} sample, which is a
+different quantity, so the conventional cut is a rule of thumb rather than a
+validated threshold. Treat {cmd:r(leverage)}, {cmd:r(balance_flag)} and
+{cmd:r(informative)} as descriptive summaries, not as tests.
+
+{phang}
+Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
+models with follow-up dependent on outcome-related
+variables. {it:Canadian Journal of Statistics}
+35(4): 485-500. doi:10.1002/cjs.5550350402.
+
+{phang}
+Kish L. 1965. {it:Survey Sampling}. New York: Wiley.
 
 
 {marker author}{...}

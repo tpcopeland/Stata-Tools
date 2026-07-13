@@ -1,19 +1,19 @@
-*! _gcomp_refit_models Version 1.4.4  2026/07/10
-*! Refit gcomp component models once on the analytic sample and est store them
+*! _gcomp_refit_models Version 1.4.5  2026/07/13
+*! Refit gcomp component specifications on the analytic sample and store them
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
 DESCRIPTION:
-    Faithful one-time refit of the per-variable parametric component models that
-    gcomp simulates from. Called by gcomp (savemodels/showmodels) AFTER the
+    Explicitly labelled one-time approximation to the per-variable component
+    models that gcomp simulates from. Called by gcomp (savemodels/showmodels) AFTER the
     analytic sample is finalized in memory but BEFORE the rename/reshape, so the
     fits use the same command/equation/sample gcomp used in simulation.
 
-    For mediation, gcomp fits each model on the observed rows (if int_no==0),
-    which equals the full in-memory analytic sample here, so coefficients match
-    exactly. For time-varying, this refit is pooled across visits; faithful
-    per-visit columns are deferred.
+    For time-varying analyses this refit is pooled across visits and therefore
+    is not the exact nonpooled simulation fit.  Loop-created lagged/derived
+    predictors may also be unavailable.  The public result labels this capture
+    type as analytic_sample_refit_approximation.
 
     Models whose predictors are not available at fit time (e.g. lagged/derived
     variables built only inside the simulation loop) are skipped gracefully and
@@ -35,12 +35,8 @@ program define _gcomp_refit_models, rclass
     set varabbrev off
     capture noisily {
         syntax , VARS(string) COMmands(string) EQuations(string) STUB(name) ///
-            [ANALYSIS(string) Pooled]
-
-        * Clear any prior stored estimates from this stub family
-        forvalues _i = 1/50 {
-            capture estimates drop `stub'_`_i'
-        }
+            [ANALYSIS(string) Pooled IDVAR(varname) TVAR(varname) ///
+            INTVARS(varlist) MONOTREAT]
 
         local nvar : word count `vars'
         if `nvar' == 0 {
@@ -52,15 +48,11 @@ program define _gcomp_refit_models, rclass
         * Detangle commands/equations against the simulation variable list
         _gcomp_detangle "`commands'" command "`vars'"
         forvalues i = 1/`nvar' {
-            local command`i' "${S_`i'}"
+            local command`i' `"`r(value`i')'"'
         }
         _gcomp_detangle "`equations'" equation "`vars'"
         forvalues i = 1/`nvar' {
-            local equation`i' "${S_`i'}"
-        }
-        * Clean up the detangle globals we touched
-        forvalues i = 1/`nvar' {
-            global S_`i'
+            local equation`i' `"`r(value`i')'"'
         }
 
         local _kept 0
@@ -68,6 +60,8 @@ program define _gcomp_refit_models, rclass
         local _cmds ""
         local _depvars ""
         local _skipped ""
+		tempvar _gc_refit_order
+		quietly gen long `_gc_refit_order' = _n
 
         forvalues i = 1/`nvar' {
             local _v   : word `i' of `vars'
@@ -90,23 +84,42 @@ program define _gcomp_refit_models, rclass
                 if "`_base'" != "" local _opts ", baseoutcome(`_base')"
             }
 
+			* A monotone-treatment initiation model is identified only in rows
+			* whose subject has not initiated before the current visit.  Apply
+			* the exact observed-data risk set here as well as in the simulator,
+			* making the stored approximation auditable against a manual fit.
+			local _gc_refit_if ""
+			local _gc_is_int : list posof "`_v'" in intvars
+			if "`monotreat'" != "" & `_gc_is_int' & "`idvar'" != "" & "`tvar'" != "" {
+				tempvar _gc_refit_prior
+				quietly sort `idvar' `tvar'
+				quietly by `idvar': gen long `_gc_refit_prior' = ///
+					sum(`_v' == 1) - (`_v' == 1)
+				local _gc_refit_if "if `_gc_refit_prior' == 0"
+			}
+
             * Refit on the analytic sample; skip gracefully if predictors are
             * unavailable at this stage (lagged/derived vars built in the loop).
-            capture quietly `_cmd' `_v' `_eq' `_opts'
+            capture quietly `_cmd' `_v' `_eq' `_gc_refit_if' `_opts'
             if _rc {
                 local _skipped "`_skipped' `_v'"
                 continue
             }
 
             local ++_kept
-            capture estimates drop `stub'_`_kept'
             estimates store `stub'_`_kept', title("`_v' (`_cmd')")
+			* estimates store materializes e(sample) as a literal _est_* data
+			* variable.  The coefficients remain restorable after that helper
+			* variable is removed, and leaving it behind breaks the later panel
+			* reshape because it varies within subject.
+			capture drop _est_`stub'_`_kept'
 
             local _names   "`_names' `stub'_`_kept'"
             local _cmds    "`_cmds' `_cmd'"
             local _depvars "`_depvars' `_v'"
             return local model_eq_`_kept' "`_eq'"
         }
+		quietly sort `_gc_refit_order'
 
         return scalar n_models = `_kept'
         return local model_names   "`=strtrim("`_names'")'"

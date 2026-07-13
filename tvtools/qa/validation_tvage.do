@@ -616,14 +616,14 @@ capture {
     gen double entry = mdy(1,1,2020)
     gen double exit_ = mdy(12,31,2022)
     format %td dob entry exit_
-    capture erase "/tmp/_tvage_saveas_test.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvage_saveas_test.dta"
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) ///
-        saveas("/tmp/_tvage_saveas_test")
-    use "/tmp/_tvage_saveas_test.dta", clear
+        saveas("$TVTOOLS_QA_RUN_DIR/_tvage_saveas_test")
+    use "$TVTOOLS_QA_RUN_DIR/_tvage_saveas_test.dta", clear
     confirm variable age_tv
     confirm variable age_start
     confirm variable age_stop
-    capture erase "/tmp/_tvage_saveas_test.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvage_saveas_test.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvage saveas() loadable"

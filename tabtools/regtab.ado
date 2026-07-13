@@ -73,9 +73,9 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
-		FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
+	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
-	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0)]
+	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -100,7 +100,7 @@ if `highpdp' == -1 local highpdp = 2
 
 	local _eplotframe_name ""
 	local _eplotframe_replace 0
-	if `"`eplotframe'"' != "" {
+		if `"`eplotframe'"' != "" {
 	    local _ep_spec = strtrim(`"`eplotframe'"')
 	    gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
 	    local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
@@ -123,10 +123,76 @@ if `highpdp' == -1 local highpdp = 2
 	            noisily display as error "eplotframe() only allows the replace suboption"
 	            exit 198
 	        }
-	    }
-	}
+		    }
+		}
+		local _displayframe_name ""
+		local _displayframe_replace 0
+		if `"`frame'"' != "" {
+			local _fr_spec = subinstr(strtrim(`"`frame'"'), `""""', "", .)
+			gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
+			local _displayframe_name = strtrim(`"`_displayframe_name'"')
+			local _fr_rest : subinstr local _fr_rest "," "", all
+			local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
+			capture confirm name `_displayframe_name'
+			if _rc {
+				noisily display as error "frame() must start with a valid Stata frame name"
+				exit 198
+			}
+			if `"`_fr_rest'"' != "" {
+				if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+				else {
+					noisily display as error "frame() only allows the replace suboption"
+					exit 198
+				}
+			}
+		}
+		if `"`_displayframe_name'"' != "" & ///
+			`"`_eplotframe_name'"' != "" & ///
+			lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+			noisily display as error "frame() and eplotframe() must name different frames"
+			exit 198
+		}
+		foreach _dest in _displayframe_name _eplotframe_name {
+			if `"``_dest''"' != "" & ///
+				lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+				noisily display as error "output frames cannot replace the current frame"
+				exit 198
+			}
+		}
+		if `"`_displayframe_name'"' != "" {
+			capture confirm frame `_displayframe_name'
+			if !_rc & !`_displayframe_replace' {
+				noisily display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
+				exit 110
+			}
+		}
+		if `"`_eplotframe_name'"' != "" {
+			capture confirm frame `_eplotframe_name'
+			if !_rc & !`_eplotframe_replace' {
+				noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+				exit 110
+			}
+		}
 
-* Label-column width cap. 0 (default) resolves to 45 chars: wide enough for
+		* Stage both frame sinks under temporary names. Caller-visible targets are
+		* swapped only after every requested file export has succeeded.
+		local _displayframe_target "`_displayframe_name'"
+		local _eplotframe_target "`_eplotframe_name'"
+		local _displayframe_build ""
+		local _eplotframe_build ""
+		if `"`_displayframe_target'"' != "" {
+			tempname _displayframe_tmp
+			local _displayframe_build "`_displayframe_tmp'"
+			local frame "`_displayframe_build', replace"
+		}
+		if `"`_eplotframe_target'"' != "" {
+			tempname _eplotframe_tmp
+			local _eplotframe_build "`_eplotframe_tmp'"
+			local _eplotframe_name "`_eplotframe_build'"
+			local _eplotframe_replace 1
+		}
+
+	* Label-column width cap. 0 (default) resolves to 45 chars: wide enough for
 * ordinary predictor labels, narrow enough that a lone verbose random-effects
 * row wraps instead of stretching the whole column.
 local _label_width_cap = `labelwidth'
@@ -150,6 +216,10 @@ if `pdp' < 1 | `pdp' > 10 {
 }
 if `highpdp' < 1 | `highpdp' > 10 {
 	noisily display as error "highpdp() must be between 1 and 10"
+	exit 198
+}
+if `level' != -1 & (`level' <= 0 | `level' >= 100) {
+	noisily display as error "level() must be between 0 and 100"
 	exit 198
 }
 if "`mdappend'" != "" & `"`markdown'"' == "" {
@@ -197,14 +267,13 @@ if "`coef'" == "" {
 	}
 	* Refine glm auto-detection based on family
 	if "`coef'" == "IRR" & "`_ecmd'" == "glm" {
-		local _efam "`e(varfunct)'"
-		if strpos("`_efam'", "Gaussian") | strpos("`_efam'", "Gamma") ///
-			| strpos("`_efam'", "Inv. Gaussian") {
-			local coef "Coef."
-		}
-		else if strpos("`_efam'", "Bernoulli") | strpos("`_efam'", "Binomial") {
-			local coef "OR"
-		}
+		local _efam = lower("`e(varfunct)'")
+		local _elink = lower("`e(linkt)'")
+		if (strpos("`_efam'", "bernoulli") | strpos("`_efam'", "binomial")) & ///
+			strpos("`_elink'", "logit") local coef "OR"
+		else if strpos("`_efam'", "poisson") & ///
+			strpos("`_elink'", "log") local coef "IRR"
+		else local coef "Coef."
 	}
 }
 
@@ -239,7 +308,7 @@ if "`starslevels'" != "" {
 }
 
 * Build format strings from digits (F3)
-local coef_fmt "%9.`digits'f"
+local coef_fmt "%21.`digits'f"
 local ci_fmt "%`=`digits'+3'.`digits'fc"
 local coef_round = 10^(-`digits')
 
@@ -271,6 +340,16 @@ quietly{
         noisily display as error "Hint: {bf:collect clear} then {bf:collect: regress y x1 x2}"
         exit 119
     }
+	_tabtools_collect_ci_level
+	local _stored_ci_level = r(level)
+	local _ci_level = `_stored_ci_level'
+	if `level' != -1 {
+		if abs(`level' - `_stored_ci_level') > 1e-8 {
+			noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
+			exit 198
+		}
+		local _ci_level = `level'
+	}
 
     * Validation: Check xlsx if specified
     if `_has_xlsx' {
@@ -306,22 +385,24 @@ quietly{
     local _coef_label_return "`coef'"
     local _has_multieq_estimator = 0
     capture {
-        collect layout (cmdset) (result[cmd cmdline])
+        collect layout (cmdset) (result[cmd cmdline depvar])
     }
     if _rc == 0 {
         preserve
         capture {
             _tabtools_collect_render, type(meta) rowdim(cmdset) ///
-                results(cmd cmdline) dropempty
+                results(cmd cmdline depvar) dropempty
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
+            local meta_col_depvar ""
             ds
             local meta_allvars `r(varlist)'
             foreach v of local meta_allvars {
                 local hdr = strlower(strtrim(`v'[1]))
                 if "`hdr'" == "command" local meta_col_cmd "`v'"
                 if "`hdr'" == "command line as typed" local meta_col_cmdline "`v'"
+                if "`hdr'" == "dependent variable" local meta_col_depvar "`v'"
             }
 
             local _meta_models = _N - 1
@@ -329,6 +410,10 @@ quietly{
                 local r = `m' + 1
                 local model_cmd_`m' = lower(strtrim(`meta_col_cmd'[`r']))
                 local model_cmdline_`m' = lower(strtrim(`meta_col_cmdline'[`r']))
+                if "`meta_col_depvar'" != "" {
+                    local model_depvar_`m' = lower(strtrim(`meta_col_depvar'[`r']))
+                }
+                else local model_depvar_`m' ""
             }
         }
         if _rc local _meta_models = 0
@@ -352,6 +437,7 @@ quietly{
             local _has_irr = regexm(`"`_cmdline_lc'"', "(^|[, ])irr([ ,]|$)")
             local _has_or = regexm(`"`_cmdline_lc'"', "(^|[, ])or([ ,]|$)")
             local _has_rrr = regexm(`"`_cmdline_lc'"', "(^|[, ])rrr([ ,]|$)")
+            local _has_eform = regexm(`"`_cmdline_lc'"', "(^|[, ])eform([ ,]|$)")
             local _optstr ""
             local _comma_pos = strpos(`"`_cmdline_lc'"', ",")
             if `_comma_pos' > 0 {
@@ -434,17 +520,25 @@ quietly{
             }
             else if "`_cmdword'" == "glm" {
                 local _glm_family ""
+                local _glm_link ""
                 if regexm(`"`_optstr'"', "family\(([a-z0-9_]+)") {
                     local _glm_family = lower(regexs(1))
                 }
-                if inlist("`_glm_family'", "bernoulli", "binomial") {
+                if regexm(`"`_optstr'"', "link\(([a-z0-9_]+)") {
+                    local _glm_link = lower(regexs(1))
+                }
+                if inlist("`_glm_family'", "bernoulli", "binomial") & ///
+                    inlist("`_glm_link'", "", "logit") {
                     local model_coef_`m' "OR"
                     local model_null_`m' 1
+                    local model_eform_`m' = !`_has_eform'
                     local model_auto_noint_`m' 1
                 }
-                else if "`_glm_family'" == "poisson" {
+                else if "`_glm_family'" == "poisson" & ///
+                    inlist("`_glm_link'", "", "log") {
                     local model_coef_`m' "IRR"
                     local model_null_`m' 1
+                    local model_eform_`m' = !`_has_eform'
                     local model_auto_noint_`m' 1
                 }
                 else {
@@ -1210,7 +1304,7 @@ quietly{
     }
 
 collect label levels result _r_b "`coef'", modify
-collect label levels result _r_ci "`=c(level)'% CI", modify
+collect label levels result _r_ci "`_ci_level'% CI", modify
 collect label levels result _r_p "p-value", modify
 collect style cell result[_r_b], warn nformat(%4.2fc) halign(center) valign(center)
 collect style cell result[_r_ci], warn nformat(%12.8f) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
@@ -1830,6 +1924,9 @@ if "`dimnonsig'" != "" {
     gen byte _ci_seen = 0
 }
 local _model_ix = 0
+gen byte _is_base_level = regexm(strlower(strtrim(_raw_A)), ///
+	"(^|#)[-0-9]+(b|bn)?\.") if _n >= 3
+replace _is_base_level = 0 if missing(_is_base_level)
 forvalues i = 1(3)`last'{
 local _model_ix = `_model_ix' + 1
 local _needs_eform = 0
@@ -1838,10 +1935,9 @@ if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
 * destring can parse coefficients >= 1000 instead of returning missing.
 replace c`i' = subinstr(c`i', ",", "", .) if _n >= 3
 destring c`i', gen(double c`i'z) force
-* Reference-category detection: original collect output shows refcat as 0
-* (linear scale) or 1 (exponentiated scale) with empty CI. Match against the
-* numeric value so non-default nformat (e.g., "0.00", "1.000") still labels.
-replace c`i' = "`refcat'" if (c`i'z == 0 | c`i'z == 1) & c`=`i'+1' == "" & _n >= 3
+* Reference categories are identified from collect's factor-level key, not
+* from a numerical 0/1 value that may be a legitimate coefficient.
+replace c`i' = "`refcat'" if _is_base_level & c`=`i'+1' == "" & _n >= 3
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -1869,6 +1965,7 @@ if _rc == 0 replace c`=`i'+1' = "" if _n == 1
 capture confirm variable c`=`i'+2'
 if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
+drop _is_base_level
 * Reformat CI columns with appropriate precision
 local sep_len = strlen(`"`sep'"')
 local _model_ix = 0
@@ -1996,7 +2093,7 @@ local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
 replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z < `_pmin' & !missing(c`i'z)
 replace c`i'_fmt = string(c`i'z, "`_pfmt_lo'") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
 replace c`i'_fmt = string(c`i'z, "`_pfmt_hi'") if c`i'z >= 0.10 & !missing(c`i'z)
-replace c`i'_fmt = string(`_pmax', "`_pfmt_hi'") if c`i'z >= `_pmax' & c`i'z < 1 & !missing(c`i'z)
+replace c`i'_fmt = ">" + string(`_pmax', "`_pfmt_hi'") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
 replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z == 0 & !missing(c`i'z)
 * Add leading zero if missing (e.g., .123 -> 0.123)
 replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
@@ -2054,6 +2151,21 @@ if "`stars'" != "" {
 	        }
 	    }
 	    frame `_eplotframe_name': char _dta[tabtools_source] "regtab"
+	    frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level'"
+	    frame `_eplotframe_name': char _dta[tabtools_n_models] "`n_models'"
+	    frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
+	    forvalues _meta_m = 1/`n_models' {
+	        local _meta_cmdline `"`model_cmdline_`_meta_m''"'
+	        local _meta_depvar `"`model_depvar_`_meta_m''"'
+	        local _meta_scale `"`model_coef_`_meta_m''"'
+	        if `"`_meta_scale'"' == "" local _meta_scale `"`coef'"'
+	        local _meta_label_col = (`_meta_m' - 1) * 3 + 1
+	        local _meta_label = c`_meta_label_col'[1]
+	        frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_cmdline'"'
+	        frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] `"`_meta_depvar'"'
+	        frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`_meta_scale'"'
+	        frame `_eplotframe_name': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
+	    }
 	}
 	capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
 
@@ -2069,7 +2181,7 @@ if `n_models' > 0 {
                 local _coefval = _coefnum`_ci'[`_obs']
                 local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
                 if `_coefval' < . {
-                    if !(`_coefval' == 0 & "`_cicell'" == "") {
+                    if strtrim(c`_ci'[`_obs']) != "`refcat'" {
                         local _row_has_data = 1
                     }
                 }
@@ -2095,7 +2207,7 @@ if `_mat_nrows' > 0 {
                 local _coefval = _coefnum`_ci'[`_obs']
                 local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
                 if `_coefval' < . {
-                    if !(`_coefval' == 0 & "`_cicell'" == "") {
+                    if strtrim(c`_ci'[`_obs']) != "`refcat'" {
                         matrix `_rtable'[`_mr', `_mc'] = `_coefval'
                     }
                 }
@@ -2352,8 +2464,9 @@ if `"`addrow'"' != "" {
 
         * Parse the chunk: first token is the label (quoted OK), rest are values
         gettoken _ar_label _ar_vals : _ar_chunk
-        * Remove surrounding quotes from label if present
-        local _ar_label : subinstr local _ar_label `"""' "", all
+        * Remove one balanced outer quote layer; embedded quotation marks are data.
+        _tabtools_strip_outer_quotes, text(`"`_ar_label'"')
+        local _ar_label `"`r(text)'"'
 
         local curr_n = _N
         set obs `=`curr_n'+1'
@@ -2488,7 +2601,7 @@ local _xlsx_ok 0
 local _methods_coef ""
 local _methods_model ""
 if `_model_headers_mixed' {
-    local _methods "Collected regression estimates with 95% confidence intervals across `n_models' models."
+    local _methods "Collected regression estimates with `_ci_level'% confidence intervals across `n_models' models."
 }
 else if "`coef'" == "OR" {
     local _methods_coef "Odds ratios"
@@ -2516,7 +2629,7 @@ else {
 }
 if `n_models' > 1 local _methods_multi " across `n_models' models"
 else local _methods_multi ""
-if "`_methods'" == "" local _methods "`_methods_coef' with 95% confidence intervals from multivariable `_methods_model'`_methods_multi'."
+if "`_methods'" == "" local _methods "`_methods_coef' with `_ci_level'% confidence intervals from multivariable `_methods_model'`_methods_multi'."
 if "`stars'" != "" local _methods "`_methods' Statistical significance denoted as * p<`_sl1', ** p<`_sl2', *** p<`_sl3'."
 local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
@@ -2527,6 +2640,7 @@ if `_mat_nrows' > 0 {
 return scalar N_rows = `num_rows'
 return scalar N_cols = `num_cols'
 	return scalar N_models = `n_models'
+	return scalar ci_level = `_ci_level'
 	return local coef_label "`_coef_label_return'"
 	return local stars "`stars'"
 	return local methods "`_methods'"
@@ -2682,12 +2796,35 @@ if `"`markdown'"' != "" {
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
 		local frame "`_frame_name'"
-		if `"`_eplotframe_name'"' != "" {
-		    frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+		frame `frame': char _dta[tabtools_source] "regtab"
+		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
+		frame `frame': char _dta[tabtools_n_models] "`n_models'"
+		local _frame_stat_ids "estimate ci pvalue"
+		if "`compact'" != "" local _frame_stat_ids "estimate_ci pvalue"
+		if "`nopvalue'" != "" local _frame_stat_ids : subinstr local _frame_stat_ids " pvalue" "", all
+		frame `frame': char _dta[tabtools_statistic_ids] "`_frame_stat_ids'"
+		forvalues _meta_m = 1/`n_models' {
+			local _meta_cmdline `"`model_cmdline_`_meta_m''"'
+			local _meta_depvar `"`model_depvar_`_meta_m''"'
+			local _meta_scale `"`model_coef_`_meta_m''"'
+			if `"`_meta_scale'"' == "" local _meta_scale `"`coef'"'
+			local _meta_label_col = (`_meta_m' - 1) * `_cols_per_model' + 1
+			local _meta_label = c`_meta_label_col'[2]
+			frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_cmdline'"'
+			frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_meta_depvar'"'
+			frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`_meta_scale'"'
+			frame `frame': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
 		}
-		return local frame "`frame'"
+			if `"`_eplotframe_name'"' != "" {
+			    frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
+			}
+			return local frame "`frame'"
+		}
+	if `"$TABTOOLS_QA_REG_STAGE_FAIL"' == "1" {
+		restore
+		error 459
 	}
-if `"`_ret_markdown'"' != "" {
+	if `"`_ret_markdown'"' != "" {
 	return local markdown `"`_ret_markdown'"'
 	return scalar markdown_rows = `_ret_markdown_rows'
 	return scalar markdown_cols = `_ret_markdown_cols'
@@ -2922,11 +3059,32 @@ if `_xlsx_ok' {
 
 * Open file if requested (W3)
 if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
+
+* Commit staged frame sinks only after all other requested outputs succeeded.
+if `"`_eplotframe_build'"' != "" {
+	capture confirm frame `_eplotframe_target'
+	if !_rc frame drop `_eplotframe_target'
+	frame rename `_eplotframe_build' `_eplotframe_target'
+	local _eplotframe_build ""
+	return local eplotframe "`_eplotframe_target'"
+}
+if `"`_displayframe_build'"' != "" {
+	capture confirm frame `_displayframe_target'
+	if !_rc frame drop `_displayframe_target'
+	frame rename `_displayframe_build' `_displayframe_target'
+	local _displayframe_build ""
+	local frame "`_displayframe_target'"
+	return local frame "`_displayframe_target'"
+}
 }
 
-    } // end capture noisily
-    local _rc = _rc
-    set varabbrev `_orig_varabbrev'
+	    } // end capture noisily
+	    local _rc = _rc
+	    if `_rc' {
+	        if `"`_displayframe_build'"' != "" capture frame drop `_displayframe_build'
+	        if `"`_eplotframe_build'"' != "" capture frame drop `_eplotframe_build'
+	    }
+	    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
 *

@@ -29,6 +29,8 @@ capture mata: mata drop tv_detect_overlaps_priority()
 capture mata: mata drop tv_resolve_overlaps_priority()
 capture mata: mata drop tv_process_priority_overlaps()
 capture mata: mata drop tv_count_overlaps()
+capture mata: mata drop tv_count_conflicts()
+capture mata: mata drop tv_resolve_layer()
 capture mata: mata drop tv_expand_units()
 
 mata:
@@ -339,6 +341,213 @@ void tv_count_overlaps(string scalar varnames)
     st_numscalar("r(n_overlaps)", n_overlaps)
 }
 
+// Count rows that overlap any earlier row for the same ID with a different
+// exposure value. Data must be sorted by ID and start. This is a final
+// correctness guard after the selected resolution algorithm has run.
+void tv_count_conflicts(string scalar varnames)
+{
+    string rowvector vars
+    real matrix data
+    real scalar n, i, conflicts, current_id, current_value, current_stop
+    real scalar max1_stop, max2_stop, max1_value, max2_value, swap_stop, swap_value
+
+    vars = tokens(varnames)
+    if (cols(vars) != 4) {
+        errprintf("tv_count_conflicts requires id start stop exposure\n")
+        exit(198)
+    }
+
+    data = st_data(., vars)
+    n = rows(data)
+    conflicts = 0
+    current_id = .
+    max1_stop = -1e300
+    max2_stop = -1e300
+    max1_value = .
+    max2_value = .
+
+    for (i = 1; i <= n; i++) {
+        if (i == 1 || data[i, 1] != current_id) {
+            current_id = data[i, 1]
+            max1_stop = -1e300
+            max2_stop = -1e300
+            max1_value = .
+            max2_value = .
+        }
+
+        current_value = data[i, 4]
+        current_stop = data[i, 3]
+        if ((max1_value != current_value && max1_stop >= data[i, 2]) ||
+            (max1_value == current_value && max2_stop >= data[i, 2])) {
+            conflicts++
+        }
+
+        if (max1_value == current_value) {
+            max1_stop = max((max1_stop, current_stop))
+        }
+        else if (max2_value == current_value) {
+            max2_stop = max((max2_stop, current_stop))
+            if (max2_stop > max1_stop) {
+                swap_stop = max1_stop
+                swap_value = max1_value
+                max1_stop = max2_stop
+                max1_value = max2_value
+                max2_stop = swap_stop
+                max2_value = swap_value
+            }
+        }
+        else if (current_stop > max1_stop) {
+            max2_stop = max1_stop
+            max2_value = max1_value
+            max1_stop = current_stop
+            max1_value = current_value
+        }
+        else if (current_stop > max2_stop) {
+            max2_stop = current_stop
+            max2_value = current_value
+        }
+    }
+    st_numscalar("r(n_conflicts)", conflicts)
+}
+
+// Resolve layer precedence by an exact boundary sweep. At every elementary
+// interval, the active source row with the latest start wins; ties use the
+// later source-order value. Earlier rows resume when a later row ends.
+//
+// Input/output columns: numeric ID group, start, stop, exposure, source order.
+// The caller sorts by group/start/source and keeps the first r(n_layer) rows.
+void tv_resolve_layer(string scalar varnames)
+{
+    string rowvector vars
+    real matrix data, result
+    real colvector gstart, gstop, gvalue, gsource, bounds, heap
+    real scalar n, i, j, ng, p, k, b, segstop, winner, outn
+    real scalar h, parent, left, right, best, swap, group_value, extend
+
+    vars = tokens(varnames)
+    if (cols(vars) != 5) {
+        errprintf("tv_resolve_layer requires group start stop exposure source\n")
+        exit(198)
+    }
+
+    data = st_data(., vars)
+    n = rows(data)
+    if (n == 0) {
+        st_numscalar("r(n_layer)", 0)
+        return
+    }
+
+    result = J(2 * n, 5, .)
+    outn = 0
+    i = 1
+
+    while (i <= n) {
+        j = i
+        // Mata's logical operators do not short-circuit. Keep every boundary
+        // guard outside the expression that performs the guarded subscript.
+        while (j < n) {
+            if (data[j + 1, 1] == data[i, 1]) j++
+            else break
+        }
+
+        group_value = data[i, 1]
+        gstart = data[|i, 2 \ j, 2|]
+        gstop = data[|i, 3 \ j, 3|]
+        gvalue = data[|i, 4 \ j, 4|]
+        gsource = data[|i, 5 \ j, 5|]
+        ng = rows(gstart)
+        bounds = uniqrows(sort((gstart \ (gstop :+ 1)), 1))
+        heap = J(0, 1, .)
+        p = 1
+
+        for (k = 1; k < rows(bounds); k++) {
+            b = bounds[k]
+            segstop = bounds[k + 1] - 1
+
+            // Add every interval that has started. The max-heap key is
+            // (start, source), which implements latest-record precedence.
+            while (p <= ng) {
+                if (gstart[p] > b) break
+                heap = heap \ p
+                h = rows(heap)
+                while (h > 1) {
+                    parent = floor(h / 2)
+                    if (gstart[heap[h]] > gstart[heap[parent]] ||
+                        (gstart[heap[h]] == gstart[heap[parent]] &&
+                         gsource[heap[h]] > gsource[heap[parent]])) {
+                        swap = heap[parent]
+                        heap[parent] = heap[h]
+                        heap[h] = swap
+                        h = parent
+                    }
+                    else break
+                }
+                p++
+            }
+
+            // Lazy deletion: expired lower-priority rows may remain below the
+            // root, but they cannot win and are removed if they reach it.
+            while (rows(heap) > 0) {
+                if (gstop[heap[1]] >= b) break
+                if (rows(heap) == 1) heap = J(0, 1, .)
+                else {
+                    heap[1] = heap[rows(heap)]
+                    heap = heap[|1 \ rows(heap) - 1|]
+                    h = 1
+                    while (1) {
+                        left = 2 * h
+                        right = left + 1
+                        best = h
+                        if (left <= rows(heap)) {
+                            if (gstart[heap[left]] > gstart[heap[best]] ||
+                                (gstart[heap[left]] == gstart[heap[best]] &&
+                                 gsource[heap[left]] > gsource[heap[best]])) {
+                                best = left
+                            }
+                        }
+                        if (right <= rows(heap)) {
+                            if (gstart[heap[right]] > gstart[heap[best]] ||
+                                (gstart[heap[right]] == gstart[heap[best]] &&
+                                 gsource[heap[right]] > gsource[heap[best]])) {
+                                best = right
+                            }
+                        }
+                        if (best == h) break
+                        swap = heap[h]
+                        heap[h] = heap[best]
+                        heap[best] = swap
+                        h = best
+                    }
+                }
+            }
+
+            if (rows(heap) > 0) {
+                if (b > segstop) continue
+                winner = heap[1]
+                extend = 0
+                if (outn > 0) {
+                    if (result[outn, 1] == group_value &&
+                        result[outn, 4] == gvalue[winner] &&
+                        result[outn, 3] + 1 == b) extend = 1
+                }
+                if (extend) {
+                    result[outn, 3] = segstop
+                }
+                else {
+                    outn++
+                    result[outn, .] = (group_value, b, segstop,
+                        gvalue[winner], gsource[winner])
+                }
+            }
+        }
+        i = j + 1
+    }
+
+    if (outn > st_nobs()) st_addobs(outn - st_nobs())
+    st_store((1::outn), vars, result[|1, 1 \ outn, 5|])
+    st_numscalar("r(n_layer)", outn)
+}
+
 // ============================================================================
 // tv_expand_units()
 //
@@ -410,6 +619,22 @@ program define _tvexpose_mata_count, rclass
 
     mata: tv_count_overlaps("`varlist'")
     return scalar n_overlaps = r(n_overlaps)
+end
+
+capture program drop _tvexpose_mata_conflicts
+program define _tvexpose_mata_conflicts, rclass
+    version 16.0
+    syntax varlist(numeric min=4 max=4)
+    mata: tv_count_conflicts("`varlist'")
+    return scalar n_conflicts = r(n_conflicts)
+end
+
+capture program drop _tvexpose_mata_layer
+program define _tvexpose_mata_layer, rclass
+    version 16.0
+    syntax varlist(numeric min=5 max=5)
+    mata: tv_resolve_layer("`varlist'")
+    return scalar n_layer = r(n_layer)
 end
 
 // Program to fill expandunit() per-bin interval boundaries.

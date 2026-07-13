@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.9.6  2026/07/10
+*! iivw_fit Version 1.9.7  2026/07/13
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -37,6 +37,16 @@ program define iivw_fit, eclass
     set varabbrev off
     local __iivw_smcl_lb = char(123)
     local __iivw_smcl_rb = char(125)
+
+    * Name-transaction state. Initialized before the captured block so the
+    * cleanup zone can always roll back, however early an error fires.
+    * __iivw_created_vars: every variable this call generated (dropped on error)
+    * __iivw_bk_names/_temps: prior iivw outputs renamed aside (restored on error)
+    local __iivw_created_vars ""
+    local __iivw_bk_names ""
+    local __iivw_bk_temps ""
+    local __iivw_nonconv = 0
+
     capture noisily {
 
     * =========================================================================
@@ -56,7 +66,7 @@ program define iivw_fit, eclass
          ID(varname) TIME(varname) ///
          BOOTstrap(integer 0) REFITweights ///
          Level(cilevel) noLOG ///
-         REPLACE ///
+         REPLACE ALLOWNONCONVerged ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
 
     * =========================================================================
@@ -248,6 +258,22 @@ program define iivw_fit, eclass
         error 198
     }
 
+    * =========================================================================
+    * PROTECTED INPUTS
+    * =========================================================================
+    * Every variable the user handed us as science, in any role. No generated
+    * time term, dummy, or interaction may take one of these names -- replace
+    * authorizes overwriting a prior iivw output, never destroying an input.
+    * Each creation site below claims its name against this list BEFORE writing,
+    * and renames any prior output aside rather than dropping it, so an error at
+    * any point rolls the whole dataset back.
+
+    local __iivw_protected ///
+        "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var'"
+    local __iivw_protected ///
+        "`__iivw_protected' `categorical' `interaction'"
+    local __iivw_protected : list uniq __iivw_protected
+
     if "`timebasecat'" != "" & "`timespec'" != "categorical" {
         display as error "timebasecat() requires timespec(categorical)"
         error 198
@@ -367,15 +393,12 @@ program define iivw_fit, eclass
     * BUILD TIME SPECIFICATION VARIABLES
     * =========================================================================
 
-    * All inputs validated. Clear prior fit metadata now so that any error
-    * past this point (data mutation or model fit) leaves no stale settings.
-    * Validation-stage failures (above) preserve the user's prior fit state.
-    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
-        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
-        _iivw_time_cat_vars _iivw_time_basecat {
-        char _dta[`ch'] ""
-    }
+    * Prior fit metadata is NOT cleared here. Under the name transaction, every
+    * generated variable is created fresh and every prior output is renamed aside
+    * rather than dropped, so an error below restores the previous fit's variables
+    * exactly -- and the previous contract still describes them truthfully. State
+    * is cleared and rewritten atomically at the commit point, once the outcome
+    * model has actually converged.
 
     local time_vars ""
     local time_vars_created ""
@@ -424,14 +447,16 @@ program define iivw_fit, eclass
                 local ++tcat_index
 
                 local tcat_name "`prefix'tcat_`tcat_index'"
+                _iivw_reserve_names, generated(`tcat_name') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `tcat_name'
                 if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `tcat_name' already exists; use replace option"
-                        error 110
-                    }
-                    drop `tcat_name'
+                    tempvar __iivw_bk
+                    quietly rename `tcat_name' `__iivw_bk'
+                    local __iivw_bk_names "`__iivw_bk_names' `tcat_name'"
+                    local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                 }
+                local __iivw_created_vars "`__iivw_created_vars' `tcat_name'"
 
                 local lev_text : display %9.0g `tlev'
                 local lev_text = strtrim("`lev_text'")
@@ -451,28 +476,32 @@ program define iivw_fit, eclass
             local time_vars "`panel_time'"
 
             if inlist("`timespec'", "quadratic", "cubic") {
+                _iivw_reserve_names, generated(`prefix'time_sq) ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `prefix'time_sq
                 if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `prefix'time_sq already exists; use replace option"
-                        error 110
-                    }
-                    drop `prefix'time_sq
+                    tempvar __iivw_bk
+                    quietly rename `prefix'time_sq `__iivw_bk'
+                    local __iivw_bk_names "`__iivw_bk_names' `prefix'time_sq"
+                    local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                 }
+                local __iivw_created_vars "`__iivw_created_vars' `prefix'time_sq"
                 gen double `prefix'time_sq = `panel_time'^2
                 label variable `prefix'time_sq "Time squared"
                 local time_vars "`time_vars' `prefix'time_sq"
                 local time_vars_created "`time_vars_created' `prefix'time_sq"
             }
             if "`timespec'" == "cubic" {
+                _iivw_reserve_names, generated(`prefix'time_cu) ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `prefix'time_cu
                 if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `prefix'time_cu already exists; use replace option"
-                        error 110
-                    }
-                    drop `prefix'time_cu
+                    tempvar __iivw_bk
+                    quietly rename `prefix'time_cu `__iivw_bk'
+                    local __iivw_bk_names "`__iivw_bk_names' `prefix'time_cu"
+                    local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                 }
+                local __iivw_created_vars "`__iivw_created_vars' `prefix'time_cu"
                 gen double `prefix'time_cu = `panel_time'^3
                 label variable `prefix'time_cu "Time cubed"
                 local time_vars "`time_vars' `prefix'time_cu"
@@ -496,14 +525,16 @@ program define iivw_fit, eclass
                 }
 
                 if `ns_df' == 1 {
+                    _iivw_reserve_names, generated(`prefix'tns1) ///
+                        protected(`__iivw_protected') `replace' context(iivw_fit)
                     capture confirm variable `prefix'tns1
                     if _rc == 0 {
-                        if "`replace'" == "" {
-                            display as error "variable `prefix'tns1 already exists; use replace option"
-                            error 110
-                        }
-                        drop `prefix'tns1
+                        tempvar __iivw_bk
+                        quietly rename `prefix'tns1 `__iivw_bk'
+                        local __iivw_bk_names "`__iivw_bk_names' `prefix'tns1"
+                        local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                     }
+                    local __iivw_created_vars "`__iivw_created_vars' `prefix'tns1"
                     gen double `prefix'tns1 = `panel_time'
                     local time_vars "`prefix'tns1"
                     local time_vars_created "`prefix'tns1"
@@ -534,14 +565,16 @@ program define iivw_fit, eclass
                     }
 
                     * First basis: linear time
+                    _iivw_reserve_names, generated(`prefix'tns1) ///
+                        protected(`__iivw_protected') `replace' context(iivw_fit)
                     capture confirm variable `prefix'tns1
                     if _rc == 0 {
-                        if "`replace'" == "" {
-                            display as error "variable `prefix'tns1 already exists; use replace option"
-                            error 110
-                        }
-                        drop `prefix'tns1
+                        tempvar __iivw_bk
+                        quietly rename `prefix'tns1 `__iivw_bk'
+                        local __iivw_bk_names "`__iivw_bk_names' `prefix'tns1"
+                        local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                     }
+                    local __iivw_created_vars "`__iivw_created_vars' `prefix'tns1"
                     gen double `prefix'tns1 = `panel_time'
                     local time_vars "`prefix'tns1"
                     local time_vars_created "`prefix'tns1"
@@ -554,14 +587,16 @@ program define iivw_fit, eclass
 
                     forvalues j = 0/`jmax' {
                         local jj = `j' + 2
+                        _iivw_reserve_names, generated(`prefix'tns`jj') ///
+                            protected(`__iivw_protected') `replace' context(iivw_fit)
                         capture confirm variable `prefix'tns`jj'
                         if _rc == 0 {
-                            if "`replace'" == "" {
-                                display as error "variable `prefix'tns`jj' already exists; use replace option"
-                                error 110
-                            }
-                            drop `prefix'tns`jj'
+                            tempvar __iivw_bk
+                            quietly rename `prefix'tns`jj' `__iivw_bk'
+                            local __iivw_bk_names "`__iivw_bk_names' `prefix'tns`jj'"
+                            local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                         }
+                        local __iivw_created_vars "`__iivw_created_vars' `prefix'tns`jj'"
                         gen double `prefix'tns`jj' = ///
                             (max(0, `panel_time' - `knot`j'')^3 - ///
                              max(0, `panel_time' - `t_last')^3) / ///
@@ -588,6 +623,12 @@ program define iivw_fit, eclass
     local cat_vars_created ""
     local expanded_interaction "`interaction'"
     local all_cat_names ""
+
+    * Running inventory of every name this call has already committed to, and a
+    * monotone counter for the collision-proof indexed fallback. Seeded with the
+    * time terms so a dummy can never take a time term's name.
+    local all_gen_names "`time_vars_created'"
+    local cat_seq = 0
 
     if "`categorical'" != "" {
 
@@ -723,48 +764,63 @@ program define iivw_fit, eclass
                     }
                 }
 
-                * Truncate if > 32 chars
-                if strlen("`vname'") > 32 {
-                    local vname = substr("`vname'", 1, 32)
-                    display as text "note: categorical variable name truncated to `vname'"
-                    * Check truncated name for collision with existing dummies
-                    foreach prev of local all_cat_names {
-                        if "`vname'" == "`prev'" {
-                            * Fall back to numeric naming
-                            local lev_suffix : display %9.0g `lev'
-                            local lev_suffix = strtrim("`lev_suffix'")
-                            local lev_suffix = subinstr("`lev_suffix'", "-", "m", .)
-                            local lev_suffix = subinstr("`lev_suffix'", "+", "p", .)
-                            local lev_suffix = subinstr("`lev_suffix'", ".", "p", .)
-                            local vname "`prefix'cat_`cvar'_`lev_suffix'"
-                            if strlen("`vname'") > 32 {
-                                local vname = substr("`vname'", 1, 32)
-                            }
-                            display as text "note: truncated name collision; using numeric name `vname'"
-                            continue, break
-                        }
-                    }
+                * ---------------------------------------------------------
+                * Guarantee a unique, legal name for this level.
+                *
+                * The natural name can exceed 32 characters (a long generate()
+                * prefix plus a long variable name plus a wide level value).
+                * Blind truncation is what made two levels collapse onto one
+                * 32-char name, silently pooling a level into the base category
+                * with rc 0. So: if the natural name is too long, or would
+                * duplicate a name already assigned, fall back to a short
+                * deterministic indexed name that cannot collide. Uniqueness is
+                * asserted after the final transformation and before any data is
+                * touched.
+                * ---------------------------------------------------------
+                local ++cat_seq
+                local name_ok = 1
+                if strlen("`vname'") > 32 local name_ok = 0
+                foreach prev of local all_gen_names {
+                    if "`vname'" == "`prev'" local name_ok = 0
+                }
+                if `name_ok' == 0 {
+                    local vname "`prefix'cat_`cat_seq'"
+                    display as text "note: `cvar'=`lev' indicator named `vname'" ///
+                        " (the natural name was too long or not unique)"
                 }
 
-                capture confirm name `vname'
-                if _rc {
-                    display as error "categorical level `lev' for `cvar' creates invalid generated name `vname'"
+                * The indexed fallback is short by construction, but assert the
+                * postconditions rather than trusting that: a duplicate name here
+                * is exactly the silent-wrong-design-matrix defect.
+                if strlen("`vname'") > 32 {
+                    display as error "cannot build a legal 32-character name for `cvar'=`lev'"
+                    display as error "  use a shorter generate() prefix in iivw_weight"
                     error 198
                 }
+                foreach prev of local all_gen_names {
+                    if "`vname'" == "`prev'" {
+                        display as error "generated name `vname' is not unique for `cvar'=`lev'"
+                        display as error "  use a shorter generate() prefix in iivw_weight"
+                        error 198
+                    }
+                }
 
+                _iivw_reserve_names, generated(`vname') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `vname'
                 if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `vname' already exists; use replace option"
-                        error 110
-                    }
-                    drop `vname'
+                    tempvar __iivw_bk
+                    quietly rename `vname' `__iivw_bk'
+                    local __iivw_bk_names "`__iivw_bk_names' `vname'"
+                    local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                 }
+                local __iivw_created_vars "`__iivw_created_vars' `vname'"
                 quietly gen byte `vname' = (`cvar' == `lev') if `touse'
                 label variable `vname' `"`vlabel'"'
                 local dummy_list "`dummy_list' `vname'"
                 local cat_vars_created "`cat_vars_created' `vname'"
                 local all_cat_names "`all_cat_names' `vname'"
+                local all_gen_names "`all_gen_names' `vname'"
             }
 
             * Replace original var in expanded_indepvars with dummies
@@ -866,8 +922,11 @@ program define iivw_fit, eclass
                     display as text "note: interaction variable name truncated to `ix_name'"
                 }
 
+                * Check against every name already committed to, not just other
+                * interactions: a truncated interaction name must not shadow a
+                * time term or a categorical dummy either.
                 local ix_duplicate = 0
-                foreach prev of local ix_vars_created {
+                foreach prev of local all_gen_names {
                     if "`ix_name'" == "`prev'" local ix_duplicate = 1
                 }
                 if `ix_duplicate' {
@@ -875,15 +934,18 @@ program define iivw_fit, eclass
                     display as error "rename long interaction variables or use a shorter generate() prefix"
                     error 198
                 }
+                local all_gen_names "`all_gen_names' `ix_name'"
 
+                _iivw_reserve_names, generated(`ix_name') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `ix_name'
                 if _rc == 0 {
-                    if "`replace'" == "" {
-                        display as error "variable `ix_name' already exists; use replace option"
-                        error 110
-                    }
-                    drop `ix_name'
+                    tempvar __iivw_bk
+                    quietly rename `ix_name' `__iivw_bk'
+                    local __iivw_bk_names "`__iivw_bk_names' `ix_name'"
+                    local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
                 }
+                local __iivw_created_vars "`__iivw_created_vars' `ix_name'"
                 gen double `ix_name' = `ivar' * `tvar'
 
                 local ix_time_part "`suffix'"
@@ -985,8 +1047,9 @@ program define iivw_fit, eclass
         }
 
         if `bootstrap' == 0 & e(converged) == 0 {
-            display as error "warning: GEE outcome model did not converge"
-            display as text  "  results may be unreliable; check model specification"
+            _iivw_require_converged, model(GEE outcome) ///
+                `allownonconverged'
+            local __iivw_nonconv = 1
         }
     }
     else if "`model'" == "mixed" {
@@ -1047,8 +1110,9 @@ program define iivw_fit, eclass
         }
 
         if `bootstrap' == 0 & e(converged) == 0 {
-            display as error "warning: mixed outcome model did not converge"
-            display as text  "  results may be unreliable; check model specification"
+            _iivw_require_converged, model(mixed outcome) ///
+                `allownonconverged'
+            local __iivw_nonconv = 1
         }
     }
 
@@ -1074,10 +1138,25 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
-    * STORE METADATA
+    * COMMIT: STORE METADATA
     * =========================================================================
+    * The outcome model converged (or the user explicitly accepted a
+    * nonconverged one) and every generated variable exists. Only now is the
+    * prior fit contract cleared and rewritten.
+
+    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat _iivw_nonconverged {
+        char _dta[`ch'] ""
+    }
 
     char _dta[_iivw_fitted] "1"
+    * Stamp a deliberately-accepted nonconverged fit so the downstream
+    * diagnostics can refuse it rather than treating it as a clean fit.
+    if `__iivw_nonconv' {
+        char _dta[_iivw_nonconverged] "1"
+    }
     char _dta[_iivw_model] "`model'"
     char _dta[_iivw_timespec] "`timespec'"
     char _dta[_iivw_cluster] "`cluster'"
@@ -1209,19 +1288,21 @@ program define iivw_fit, eclass
 
     }
     local rc = _rc
-    * Clean up created variables on error
+    * Roll the name transaction back: drop every variable this call created,
+    * then rename the backups of the user's prior outputs into place. The fit
+    * contract is written only at the commit point, so it was never touched and
+    * still describes the restored variables.
     if `rc' != 0 {
-        foreach v of local time_vars_created {
+        foreach v of local __iivw_created_vars {
             capture drop `v'
             local __iivw_drop_rc = _rc
         }
-        foreach v of local cat_vars_created {
-            capture drop `v'
-            local __iivw_drop_rc = _rc
-        }
-        foreach v of local ix_vars_created {
-            capture drop `v'
-            local __iivw_drop_rc = _rc
+        local __iivw_bi = 0
+        foreach g of local __iivw_bk_names {
+            local ++__iivw_bi
+            local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
+            capture drop `g'
+            capture rename `__iivw_bt' `g'
         }
     }
     set varabbrev `__iivw_old_varabbrev'

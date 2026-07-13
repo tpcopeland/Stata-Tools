@@ -119,6 +119,9 @@ program define simtab, rclass
             if `"`uci'"'       != "" local _conflict "`_conflict' uci()"
             if `"`pvalue'"'    != "" local _conflict "`_conflict' pvalue()"
             if `"`reject'"'    != "" local _conflict "`_conflict' reject()"
+            if `"`by'"'        != "" local _conflict "`_conflict' by()"
+            if `"`estimand'"'  != "" local _conflict "`_conflict' estimand()"
+            if `"`sim'"'       != "" local _conflict "`_conflict' sim()"
             if `"`_conflict'"' != "" {
                 display as error "compute-mode options ignored in ingest mode (from()):`_conflict'"
                 display as error "drop these options, or remove from() to use compute mode"
@@ -276,7 +279,7 @@ program define simtab, rclass
             }
             _tabtools_simtab_ingest, source("`_from'") byvar(`byvar') ///
                 estimatorvar(`estimatorvar') estimandvar(`estimandvar') ///
-                measures(`measures')
+                measures(`measures') order(`order')
             local _source   "`r(source)'"
             local _has_by   = `r(has_by)'
             local _has_emd  = `r(has_emd)'
@@ -368,11 +371,6 @@ program define simtab, rclass
             if `_true_isvar' markout `touse' `_truevar'
             if `_has_by'  markout `touse' `by'
             if `_has_emd' markout `touse' `estimand'
-            if `_need_cov' & `"`coverage'"' != "" markout `touse' `coverage'
-            if `_need_cov' & `"`coverage'"' == "" & `"`lci'"' != "" & `"`uci'"' != "" {
-                markout `touse' `lci' `uci'
-            }
-
             quietly count if `touse'
             if r(N) == 0 {
                 display as error "no usable observations after applying if/in and dropping missing required values"
@@ -597,6 +595,8 @@ program define simtab, rclass
         local _Nest = r(max)
         quietly summarize emdord, meanonly
         local _Nemd = r(max)
+        quietly count
+        local _Ncells_actual = r(N)
         local _D : word count `disp_metrics'
         local _lead = cond(`_has_by', 2, 1)
         local _Kcols = `_lead' + `_D'*`_Nemd'
@@ -721,7 +721,7 @@ program define simtab, rclass
         * Stash the core payload now so failed exports still leave useful r().
         local _ret_mode    = cond(`_ingest', "ingest", "compute")
         local _ret_source  "`_source'"
-        local _ret_ncells  = `_Nby'*`_Nest'*`_Nemd'
+        local _ret_ncells  = `_Ncells_actual'
         local _ret_nby     = `_Nby'
         local _ret_nest    = `_Nest'
         local _ret_nemd    = `_Nemd'
@@ -1047,12 +1047,24 @@ program _simtab_levels
         }
     }
     else {
-        * first-occurrence order: rank labels by min original sequence
+        * first-occurrence order is based on raw identity, never its label.
         tempvar _gmin
-        quietly egen long `_gmin' = min(`seq'), by(`labvar')
+        quietly egen long `_gmin' = min(`seq'), by(`var')
         quietly egen long `ordvar' = group(`_gmin')
         quietly drop `_gmin'
     }
+
+    * Distinct raw identities may legitimately share a value label. Preserve
+    * both cells and disambiguate only the displayed label.
+    tempvar _lmin _lmax _rawtext
+    quietly egen long `_lmin' = min(`ordvar'), by(`labvar')
+    quietly egen long `_lmax' = max(`ordvar'), by(`labvar')
+    capture confirm string variable `var'
+    if !_rc quietly gen str244 `_rawtext' = `var'
+    else quietly gen str244 `_rawtext' = strtrim(string(`var', "%21x"))
+    quietly replace `labvar' = substr(`labvar' + " [" + `_rawtext' + "]", 1, 244) ///
+        if `_lmin' != `_lmax'
+    quietly drop `_lmin' `_lmax' `_rawtext'
 end
 
 

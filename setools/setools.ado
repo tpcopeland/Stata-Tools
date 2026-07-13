@@ -1,4 +1,4 @@
-*! setools Version 1.4.1  2026/07/03
+*! setools Version 1.5.0  2026/07/13
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -126,7 +126,7 @@ program define setools, rclass
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
     // VERSION-SYNC: keep this literal in step with the *! header on every bump
-    return local version "1.4.1"
+    return local version "1.5.0"
     return local categories "all codes migration ms"
     return local category "`category'"
     return local display "`display'"

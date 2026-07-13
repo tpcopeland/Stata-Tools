@@ -21,8 +21,7 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -330,6 +329,8 @@ display _newline "=== LONG/WIDE EQUIVALENCE SUMMARY ==="
 display "Passed: " scalar(gs_npass)
 display "Failed: " scalar(gs_nfail)
 display "Total:  " scalar(gs_ntest)
+display "RESULT: validation_migrations_longwide_equivalence tests=" ///
+    scalar(gs_ntest) " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
     display as error _newline "FAILED: " scalar(gs_nfail) " test(s) failed"
@@ -338,3 +339,5 @@ if scalar(gs_nfail) > 0 {
 else {
     display as result _newline "ALL TESTS PASSED"
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

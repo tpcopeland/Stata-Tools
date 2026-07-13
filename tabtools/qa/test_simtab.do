@@ -17,6 +17,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -636,7 +637,11 @@ else {
 * =====================================================================
 capture which simsum
 if _rc {
-    display as text "  SKIP T3: simsum not installed"
+    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+        display as error "  FAIL T3: required simsum oracle is not installed"
+        local ++fail_count
+    }
+    else display as text "  SKIP T3: simsum not installed"
 }
 else {
     capture noisily {
@@ -683,7 +688,11 @@ foreach _dep in siman sencode labelsof {
     if _rc local _siman_ok = 0
 }
 if !`_siman_ok' {
-    display as text "  SKIP T4: siman (or sencode/labelsof) not installed"
+    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+        display as error "  FAIL T4: required siman/sencode/labelsof oracle is not installed"
+        local ++fail_count
+    }
+    else display as text "  SKIP T4: siman (or sencode/labelsof) not installed"
 }
 else {
     capture noisily {
@@ -741,6 +750,57 @@ else {
     }
     else {
         display as error "  FAIL T4 (rc=`=_rc')"
+        local ++fail_count
+    }
+
+    capture noisily {
+        clear
+        set seed 20260713
+        set obs 800
+        gen long rep = mod(_n - 1, 100) + 1
+        gen byte estimator = mod(floor((_n - 1) / 100), 2) + 1
+        gen byte dgm_cell = floor((_n - 1) / 200) + 1
+        gen byte scen = cond(inlist(dgm_cell, 1, 3), 2, 1)
+        gen int ssize = cond(inlist(dgm_cell, 1, 4), 200, 100)
+        label define _multi_est 1 "A" 2 "B", replace
+        label values estimator _multi_est
+        label define _multi_sc 1 "S1" 2 "S2", replace
+        label values scen _multi_sc
+        label define _multi_n 100 "N100" 200 "N200", replace
+        label values ssize _multi_n
+        gen double estimate = 0.5 + 0.01 * scen + 0.0001 * ssize + ///
+            0.02 * (estimator == 2) + rnormal(0, 0.1)
+        gen double se = 0.1
+        drop dgm_cell
+
+        siman setup, rep(rep) estimate(estimate) se(se) method(estimator) ///
+            dgm(scen ssize) true(0.5)
+        siman analyse
+        local _first_scen = scen[1]
+        local _first_ssize = ssize[1]
+        local _first_scen_label : label _multi_sc `_first_scen'
+        local _first_ssize_label : label _multi_n `_first_ssize'
+        local _first_dgm "scen=`_first_scen_label'; ssize=`_first_ssize_label'"
+        capture frame drop spf_multi
+        simtab, from(siman) order(data) plotframe(spf_multi, replace) display
+        assert r(n_by) == 4
+        assert r(N_cells) == 8
+        frame spf_multi {
+            egen byte _bytag = tag(by_label)
+            count if _bytag
+            assert r(N) == 4
+            assert strpos(by_label, "scen=") > 0
+            assert strpos(by_label, "ssize=") > 0
+            assert by_label[1] == "`_first_dgm'"
+            drop _bytag
+        }
+    }
+    if _rc == 0 {
+        display as result "  PASS T4b: from(siman) composes every DGM identity in data order"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL T4b: multi-DGM identity (rc=`=_rc')"
         local ++fail_count
     }
 }

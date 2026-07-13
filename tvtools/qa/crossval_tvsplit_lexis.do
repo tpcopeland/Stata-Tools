@@ -10,7 +10,8 @@
 *!   PART C  An independent in-Stata re-derivation (explicit cut enumeration, a
 *!           different code path from the engine) -- exact, always runs offline.
 *!
-*! Skip-safe: PART B logs SKIP (not FAIL) if Rscript / Epi is unavailable.
+*! PART B skips only when Rscript is absent. Once R is available, a missing Epi
+*! package, failed R process, or missing oracle output is a test failure.
 clear all
 set more off
 set varabbrev off
@@ -30,12 +31,11 @@ local failed_tests ""
 
 display as result "tvtools crossval: tvsplit Lexis parity -- $S_DATE $S_TIME"
 
-* =======================================================================
+**# Independent cut-enumeration oracle
 * PART C: independent cut-enumeration oracle (single person, exact)
 *   entry=01jan2019, exit=entry+700; calendar(1) + elapsed(entry,day,200)
 *   interior cuts (offsets): elapsed 200,400,600 ; calendar Jan1-2020 = 365
 *   -> starts offsets {0,200,365,400,600}; stops {199,364,399,599,700}
-* =======================================================================
 local ++test_count
 capture {
     clear
@@ -66,11 +66,10 @@ else {
     local failed_tests "`failed_tests' C.indep"
 }
 
-* =======================================================================
+**# Stata stsplit parity on the age axis
 * PART A: Stata stsplit parity on the age axis
 *   tvband age width(1) must produce the same number of records and the same
 *   set of integer ages per person as stsplit on an age-scaled stset.
-* =======================================================================
 local ++test_count
 capture {
     clear
@@ -121,16 +120,11 @@ else {
     local failed_tests "`failed_tests' A.stsplit"
 }
 
-* =======================================================================
+**# R Epi parity for calendar and elapsed axes
 * PART B: R Epi::splitMulti parity (calendar + elapsed, day-exact)
-* =======================================================================
 local ++test_count
-capture confirm file "/usr/bin/Rscript"
-local has_r = (_rc==0)
-if !`has_r' {
-    capture which Rscript
-    local has_r = (_rc==0)
-}
+_tvtools_qa_probe_rscript
+local has_r = r(available)
 
 if `has_r' {
     capture {
@@ -158,14 +152,18 @@ if `has_r' {
         gen long e0 = entry
         gen long e1 = exitd
         keep id e0 e1
-        export delimited id e0 e1 using "_xv_cohort.csv", replace
+        local _cohort "$TVTOOLS_QA_RUN_DIR/_xv_cohort.csv"
+        local _rscript "$TVTOOLS_QA_RUN_DIR/_xv_lexis.R"
+        local _rout "$TVTOOLS_QA_RUN_DIR/_xv_rsplit.csv"
+        local _rlog "$TVTOOLS_QA_RUN_DIR/_xv_r.log"
+        export delimited id e0 e1 using "`_cohort'", replace
 
         * R script: Lexis in day units, split on calendar Jan-1 and elapsed W
         tempname rf
-        file open `rf' using "_xv_lexis.R", write replace
+        file open `rf' using "`_rscript'", write replace
+        file write `rf' "args <- commandArgs(trailingOnly=TRUE)" _n
         file write `rf' "suppressMessages(library(Epi))" _n
-        file write `rf' "d <- read.csv('_xv_cohort.csv')" _n
-        file write `rf' "ok <- requireNamespace('Epi', quietly=TRUE)" _n
+        file write `rf' "d <- read.csv(args[1])" _n
         * tvtools intervals are inclusive [start,stop]; Epi Lexis is half-open
         * [entry,exit). Passing exit = e1 + 1 makes Epi's [e0, e1+1) match the
         * inclusive convention day-for-day (stop_inclusive = per + lex.dur - 1).
@@ -180,18 +178,18 @@ if `has_r' {
         file write `rf' "sx <- splitLexis(sx, breaks=tcuts, time.scale='tfe')" _n
         file write `rf' "out <- data.frame(id=sx\$lex.id, rstart=sx\$per, rstop=sx\$per+sx\$lex.dur-1)" _n
         file write `rf' "out <- out[order(out\$id, out\$rstart),]" _n
-        file write `rf' "write.csv(out, '_xv_rsplit.csv', row.names=FALSE)" _n
+        file write `rf' "write.csv(out, args[2], row.names=FALSE)" _n
         file close `rf'
 
-        shell Rscript _xv_lexis.R > _xv_r.log 2>&1
+        shell Rscript "`_rscript'" "`_cohort'" "`_rout'" > "`_rlog'" 2>&1
 
-        capture confirm file "_xv_rsplit.csv"
+        capture confirm file "`_rout'"
         if _rc {
-            * R failed (e.g. Epi missing) -> treat as skip via sentinel rc
-            error 9999
+            display as error "R oracle failed; see `_rlog'"
+            error 499
         }
 
-        import delimited using "_xv_rsplit.csv", clear varnames(1)
+        import delimited using "`_rout'", clear varnames(1)
         rename rstart tstart
         rename rstop  tstop
         gen long idl = id
@@ -206,17 +204,13 @@ if `has_r' {
         cf _all using "`rsp'"
     }
     local xrc = _rc
-    capture erase "_xv_cohort.csv"
-    capture erase "_xv_lexis.R"
-    capture erase "_xv_rsplit.csv"
-    capture erase "_xv_r.log"
+    capture erase "`_cohort'"
+    capture erase "`_rscript'"
+    capture erase "`_rout'"
+    capture erase "`_rlog'"
     if `xrc'==0 {
         display as result "  PASS [B.Epi]: day-exact calendar+elapsed parity vs Epi::splitMulti"
         local ++pass_count
-    }
-    else if `xrc'==9999 {
-        display as text "  SKIP [B.Epi]: Epi::splitMulti unavailable (install Epi to enable)"
-        local ++skip_count
     }
     else {
         display as error "  FAIL [B.Epi] (rc=`xrc')"
@@ -229,8 +223,8 @@ else {
     local ++skip_count
 }
 
-* ===== Summary =====
-local test_count = `pass_count' + `fail_count'
+**# Summary
+local test_count = `pass_count' + `fail_count' + `skip_count'
 display as result _newline "tvtools crossval tvsplit Lexis Results -- $S_DATE $S_TIME"
 display as text "Tests run:  `test_count'"
 display as text "Passed:     `pass_count'"

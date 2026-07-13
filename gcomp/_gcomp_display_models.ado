@@ -1,4 +1,4 @@
-*! _gcomp_display_models Version 1.4.4  2026/07/10
+*! _gcomp_display_models Version 1.4.5  2026/07/13
 *! In-window display of captured gcomp component models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

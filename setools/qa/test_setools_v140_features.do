@@ -1,7 +1,7 @@
 clear all
 version 16.0
 capture log close _all
-log using "test_setools_v140_features.log", replace nomsg
+log using "`c(tmpdir)'/test_setools_v140_features_`c(processid)'.log", replace nomsg
 set varabbrev off
 
 * test_setools_v140_features.do
@@ -17,8 +17,7 @@ set varabbrev off
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -204,8 +203,10 @@ local nr = rowsof(F)
 local cstart = F[1,1]
 local exctot = r(N_excluded_total)
 local nfinal = r(N_final)
-local ok = (`nr' == 7)
-run_val "migrations r(flow) has 7 rows (no minres/keepimm)" `ok'
+local flow_rows : rownames F
+local expected_rows "Cohort_start Excl_emigrated Excl_inmigration Excl_abroad Excluded_total With_censoring_date Analytic_cohort Returned_rows"
+local ok = (`nr' == 8 & "`flow_rows'" == "`expected_rows'")
+run_val "migrations r(flow) has exact analytic/returned rows" `ok'
 local ok = (`cstart' == 5)
 run_val "migrations r(flow) Cohort_start == 5" `ok'
 local ok = (`nfinal' == 5 - `exctot')
@@ -326,3 +327,5 @@ display as result "ALL TESTS PASSED"
 scalar drop gs_ntest gs_npass gs_nfail
 global gs_failures
 log close _all
+
+do "`qa_dir'/_setools_qa_common.do" teardown

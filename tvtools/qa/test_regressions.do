@@ -44,7 +44,7 @@ capture {
     gen entry = mdy(1,1,2020)
     gen exit_d = mdy(12,31,2020)
     format dob entry exit_d %td
-    save "/tmp/_gap_tvage.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", replace
 
     * Datetime (%tc) test data for tvexpose
     clear
@@ -57,7 +57,7 @@ capture {
     gen entry_ok = mdy(1,1,2020)
     gen exit_ok = mdy(12,31,2020)
     format entry_ok exit_ok %td
-    save "/tmp/_gap_tc_cohort.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_tc_cohort.dta", replace
 
     * Exposure with datetime start
     clear
@@ -68,7 +68,7 @@ capture {
     gen drug = 1
     format start_tc %tc
     format stop %td
-    save "/tmp/_gap_tc_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_tc_exp.dta", replace
 
     * Empty exposure dataset
     clear
@@ -78,7 +78,7 @@ capture {
     gen rx_stop = .
     gen drug = .
     format rx_start rx_stop %td
-    save "/tmp/_gap_empty_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_empty_exp.dta", replace
 
     * Exposure with string (non-numeric) drug
     clear
@@ -88,7 +88,7 @@ capture {
     gen rx_stop = mdy(6,1,2020)
     gen str10 drug = "Aspirin"
     format rx_start rx_stop %td
-    save "/tmp/_gap_str_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_str_exp.dta", replace
 
     * Exposure without required vars
     clear
@@ -98,7 +98,7 @@ capture {
     gen finish = mdy(6,1,2020)
     gen med = 1
     format begin finish %td
-    save "/tmp/_gap_wrongvars_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_wrongvars_exp.dta", replace
 
     * Reversed dates cohort (study_exit < study_entry)
     clear
@@ -107,7 +107,7 @@ capture {
     gen study_entry = mdy(12,31,2020)
     gen study_exit = mdy(1,1,2020)
     format study_entry study_exit %td
-    save "/tmp/_gap_reversed.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_reversed.dta", replace
 
     * Standard cohort and exposure fixtures used by tvexpose error-path tests
     clear
@@ -116,7 +116,7 @@ capture {
     gen study_entry = mdy(1,1,2020)
     gen study_exit = mdy(12,31,2020)
     format study_entry study_exit %td
-    save "/tmp/test_cohort.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", replace
 
     clear
     set obs 3
@@ -125,7 +125,7 @@ capture {
     gen rx_stop = mdy(6,1,2020)
     gen drug = 1
     format rx_start rx_stop %td
-    save "/tmp/test_exposure.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", replace
 
     * Interval data for tvevent tests
     clear
@@ -135,7 +135,7 @@ capture {
     gen stop = mdy(6,30,2020)
     gen event_date = mdy(3,15,2020) if _n <= 2
     format start stop event_date %td
-    save "/tmp/_gap_intervals.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", replace
 
     * Two simple tvexpose outputs for tvmerge testing
     clear
@@ -145,7 +145,7 @@ capture {
     gen stop1 = start1 + 29
     gen exp1 = mod(_n,3)
     format start1 stop1 %td
-    save "/tmp/_gap_merge1.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta", replace
 
     clear
     set obs 10
@@ -154,7 +154,7 @@ capture {
     gen stop2 = start2 + 24
     gen exp2 = mod(_n,2)
     format start2 stop2 %td
-    save "/tmp/_gap_merge2.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", replace
 }
 
 * 17A: TVAGE - Error Handling (6 paths) + Return Values (4) + Options (2)
@@ -162,7 +162,7 @@ capture {
 * E.age.1: Variable not found (exit 111)
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     capture noisily tvage, idvar(id) dobvar(NONEXISTENT) entryvar(entry) exitvar(exit_d)
     assert _rc == 111
 }
@@ -200,7 +200,7 @@ else {
 * E.age.3: groupwidth out of range (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) groupwidth(0)
     assert _rc == 198
 }
@@ -216,7 +216,7 @@ else {
 * E.age.4: minage > maxage (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) minage(80) maxage(20)
     assert _rc == 198
 }
@@ -232,7 +232,7 @@ else {
 * E.age.5: Missing dates (exit 416)
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     replace dob = . in 1
     capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d)
     assert _rc == 416
@@ -271,7 +271,7 @@ else {
 * R.age.1-4: Return values r(groupwidth), r(varname), r(startvar), r(stopvar)
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) groupwidth(5)
     assert r(groupwidth) == 5
     assert "`r(varname)'" == "age_tv"
@@ -290,11 +290,11 @@ else {
 * O.age.1: saveas() and replace options
 local ++test_count
 capture {
-    use "/tmp/_gap_tvage.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage.dta", clear
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) ///
-        saveas("/tmp/_gap_tvage_out.dta") replace
-    confirm file "/tmp/_gap_tvage_out.dta"
-    capture erase "/tmp/_gap_tvage_out.dta"
+        saveas("$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta") replace
+    confirm file "$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvage saveas() and replace options"
@@ -387,8 +387,8 @@ else {
 * E.evt.1: Variable name too long (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_intervals.dta", clear
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", clear
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date) ///
         generate(this_variable_name_is_way_too_long_for_stata)
     assert _rc == 198
@@ -410,7 +410,7 @@ capture {
     gen id = _n
     gen event_date = mdy(3,15,2020) if _n <= 2
     format event_date %td
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date) type(recurring)
     assert _rc == 111
 }
@@ -426,8 +426,8 @@ else {
 * E.evt.3: Invalid timeunit (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_intervals.dta", clear
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", clear
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date) timeunit(centuries)
     assert _rc == 198
 }
@@ -448,7 +448,7 @@ capture {
     gen person = _n
     gen event_date = mdy(3,15,2020) if _n <= 2
     format event_date %td
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(NOID) date(event_date)
     assert _rc == 111
 }
@@ -468,7 +468,7 @@ capture {
     set obs 5
     gen id = _n
     gen some_var = 1
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(NODATE)
     assert _rc == 111
 }
@@ -484,8 +484,8 @@ else {
 * E.evt.6: Competing event variable not found (exit 111)
 local ++test_count
 capture {
-    use "/tmp/_gap_intervals.dta", clear
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", clear
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date) compete(NONEXISTENT)
     assert _rc == 111
 }
@@ -501,9 +501,9 @@ else {
 * E.evt.7: generate variable already exists (exit 110)
 local ++test_count
 capture {
-    use "/tmp/_gap_intervals.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", clear
     gen _failure = 0
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date)
     assert _rc == 110
 }
@@ -519,9 +519,9 @@ else {
 * E.evt.8: timegen variable already exists (exit 110)
 local ++test_count
 capture {
-    use "/tmp/_gap_intervals.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", clear
     gen _time = 0
-    capture noisily tvevent using "/tmp/_gap_intervals.dta", ///
+    capture noisily tvevent using "$TVTOOLS_QA_RUN_DIR/_gap_intervals.dta", ///
         id(id) date(event_date) timegen(_time)
     assert _rc == 110
 }
@@ -539,8 +539,8 @@ else {
 * E.exp.1: stop() required unless pointtime (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -558,8 +558,8 @@ else {
 * E.exp.2: reference() must be 0 with dose (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(dose) reference(5) dose ///
         entry(study_entry) exit(study_exit)
@@ -577,8 +577,8 @@ else {
 * E.exp.3: bytype with default exposure type (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) bytype
@@ -596,8 +596,8 @@ else {
 * E.exp.4: bytype with dose (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(dose) dose ///
         entry(study_entry) exit(study_exit) bytype
@@ -615,8 +615,8 @@ else {
 * E.exp.5: Invalid continuousunit (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -635,8 +635,8 @@ else {
 * E.exp.6: Invalid expandunit (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -655,8 +655,8 @@ else {
 * E.exp.7: grace() non-numeric value (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -675,8 +675,8 @@ else {
 * E.exp.8: grace() category format error (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -695,8 +695,8 @@ else {
 * E.exp.9: Cannot open using dataset (exit 601)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/NONEXISTENT_FILE.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/NONEXISTENT_FILE.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -714,8 +714,8 @@ else {
 * E.exp.10: Required variables not found in using (exit 111)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/_gap_wrongvars_exp.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_gap_wrongvars_exp.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -733,8 +733,8 @@ else {
 * E.exp.11: Entry variable is datetime %tc (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_tc_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tc_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(entry_tc) exit(exit_ok)
@@ -752,8 +752,8 @@ else {
 * E.exp.12: Exit variable is datetime %tc (exit 198)
 local ++test_count
 capture {
-    use "/tmp/_gap_tc_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tc_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(entry_ok) exit(exit_tc)
@@ -771,8 +771,8 @@ else {
 * E.exp.13: study_exit < study_entry (exit 498)
 local ++test_count
 capture {
-    use "/tmp/_gap_reversed.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/_gap_reversed.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -790,8 +790,8 @@ else {
 * E.exp.14: Start variable is datetime %tc in using (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/_gap_tc_exp.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_gap_tc_exp.dta", ///
         id(id) start(start_tc) stop(stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -809,8 +809,8 @@ else {
 * E.exp.15: Empty exposure dataset (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/_gap_empty_exp.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_gap_empty_exp.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -828,8 +828,8 @@ else {
 * E.exp.16: Non-numeric exposure variable (exit 109)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/_gap_str_exp.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_gap_str_exp.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
@@ -847,8 +847,8 @@ else {
 * E.exp.17: Variable name too long (exit 198)
 local ++test_count
 capture {
-    use "/tmp/test_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/test_exposure.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/test_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/test_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -869,7 +869,7 @@ else {
 * E.mrg.1: Requires at least 2 datasets (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta", ///
         id(id) start(start1) stop(stop1) exposure(exp1)
     assert _rc == 198
 }
@@ -885,7 +885,7 @@ else {
 * E.mrg.2: Dataset file not found (exit 601)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/NONEXISTENT.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/NONEXISTENT.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2)
     assert _rc == 601
@@ -902,7 +902,7 @@ else {
 * E.mrg.3: prefix() invalid characters (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) prefix(123bad!)
     assert _rc == 198
@@ -919,7 +919,7 @@ else {
 * E.mrg.4: generate() wrong number of names (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) generate(only_one)
     assert _rc == 198
@@ -936,7 +936,7 @@ else {
 * E.mrg.5: startname() == stopname() (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) startname(mydate) stopname(mydate)
     assert _rc == 198
@@ -955,7 +955,7 @@ else {
 * -- including the formerly-illegal batch(0) -- is now silently accepted.
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) batch(0)
     assert _rc == 0
@@ -972,7 +972,7 @@ else {
 * E.mrg.7: start() vars != number of datasets (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1) stop(stop1 stop2) ///
         exposure(exp1 exp2)
     assert _rc == 198
@@ -989,7 +989,7 @@ else {
 * E.mrg.8: stop() vars != number of datasets (exit 198)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1) ///
         exposure(exp1 exp2)
     assert _rc == 198
@@ -1043,7 +1043,7 @@ else {
 * E.mrg.10: Variable not found in first dataset (exit 111)
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(NOID) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2)
     assert _rc == 111
@@ -1060,7 +1060,7 @@ else {
 * R.mrg.1-12: Untested tvmerge return values
 local ++test_count
 capture {
-    quietly tvmerge "/tmp/_gap_merge1.dta" "/tmp/_gap_merge2.dta", ///
+    quietly tvmerge "$TVTOOLS_QA_RUN_DIR/_gap_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_gap_merge2.dta", ///
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) prefix(gap_) continuous(exp1) force
     * Previously untested scalars
@@ -1230,7 +1230,7 @@ capture noisily {
     gen double baseline_age = 50 + _n*3
     gen byte sex = mod(_n, 2)
     format %td entry exit_
-    save "/tmp/_s18_cohort.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", replace
 
     * Exposure for tvexpose tests
     clear
@@ -1244,7 +1244,7 @@ capture noisily {
     gen double rx_stop  = date(s_stop, "YMD")
     format %td rx_start rx_stop
     drop s_start s_stop
-    save "/tmp/_s18_exposure.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", replace
 
     * Overlapping exposure data
     clear
@@ -1257,7 +1257,7 @@ capture noisily {
     gen double rx_stop  = date(s_stop, "YMD")
     format %td rx_start rx_stop
     drop s_start s_stop
-    save "/tmp/_s18_overlap_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_overlap_exp.dta", replace
 
     * Two interval datasets for tvmerge tests
     clear
@@ -1270,7 +1270,7 @@ capture noisily {
     gen double stopA  = date(s_stop, "YMD")
     format %td startA stopA
     drop s_*
-    save "/tmp/_s18_merge1.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta", replace
 
     clear
     input long(id) str10(s_start s_stop) byte(expB)
@@ -1283,7 +1283,7 @@ capture noisily {
     gen double stopB  = date(s_stop, "YMD")
     format %td startB stopB
     drop s_*
-    save "/tmp/_s18_merge2.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", replace
 
     * Interval + event data for tvevent validate tests
     clear
@@ -1298,7 +1298,7 @@ capture noisily {
     gen double stop  = date(s_stop, "YMD")
     format %td start stop
     drop s_*
-    save "/tmp/_s18_intervals.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_intervals.dta", replace
 
     clear
     input long(id) str10(s_event)
@@ -1310,7 +1310,7 @@ capture noisily {
     drop s_event
     set obs 3
     replace id = 3 in 3
-    save "/tmp/_s18_events.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_s18_events.dta", replace
 }
 
 * 18A: TVEXPOSE OPTIONS (6 tests)
@@ -1318,8 +1318,8 @@ capture noisily {
 * 18.1: dosecuts() creates dose categories
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
-    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_) ///
         dose dosecuts(90 180) generate(tv_dose) reference(0) replace
     confirm variable tv_dose
@@ -1338,8 +1338,8 @@ else {
 * 18.2: referencelabel() sets label text
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
-    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_) ///
         reference(0) generate(tv_exp) referencelabel("None") replace
     local explbl : value label tv_exp
@@ -1359,8 +1359,8 @@ else {
 * 18.3: keepdates preserves entry/exit vars (as study_entry/study_exit)
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
-    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_) ///
         reference(0) generate(tv_exp) keepdates replace
     confirm variable study_entry
@@ -1378,8 +1378,8 @@ else {
 * 18.4: label() applies to generated variable
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
-    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_) ///
         reference(0) generate(tv_exp) label("Drug exposure") replace
     local varlbl : variable label tv_exp
@@ -1397,8 +1397,8 @@ else {
 * 18.5: overlapping data detected and handled
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
-    tvexpose using "/tmp/_s18_overlap_exp.dta", id(id) start(rx_start) stop(rx_stop) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
+    tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_overlap_exp.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_) ///
         reference(0) generate(tv_exp) check replace
     * Command should complete (overlaps resolved) and return person count
@@ -1416,9 +1416,9 @@ else {
 * 18.6: exit 190 (by: not allowed)
 local ++test_count
 capture {
-    use "/tmp/_s18_cohort.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/_s18_cohort.dta", clear
     sort sex
-    capture noisily by sex: tvexpose using "/tmp/_s18_exposure.dta", ///
+    capture noisily by sex: tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) entry(entry) exit(exit_)
     assert _rc == 190
@@ -1437,7 +1437,7 @@ else {
 * 18.7: startname()/stopname() rename date vars
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         startname(begin) stopname(finish)
     confirm variable begin
@@ -1455,7 +1455,7 @@ else {
 * 18.8: dateformat() changes output format
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         dateformat(%tdNN/DD/CCYY)
     local fmt : format start
@@ -1473,12 +1473,12 @@ else {
 * 18.9: saveas()/replace creates file
 local ++test_count
 capture {
-    capture erase "/tmp/_s18_merged.dta"
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    capture erase "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta"
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
-        saveas("/tmp/_s18_merged") replace
-    confirm file "/tmp/_s18_merged.dta"
-    capture erase "/tmp/_s18_merged.dta"
+        saveas("$TVTOOLS_QA_RUN_DIR/_s18_merged") replace
+    confirm file "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge saveas() creates file"
@@ -1492,7 +1492,7 @@ else {
 * 18.10: keep() retains additional vars (suffixed with _ds#)
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         keep(valA)
     confirm variable valA_ds1
@@ -1509,7 +1509,7 @@ else {
 * 18.11: continuous() treats as rate per day
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         continuous(expA)
     assert r(n_continuous) >= 1
@@ -1526,7 +1526,7 @@ else {
 * 18.12: force merges with non-matching IDs
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         force
     assert _N > 0
@@ -1543,7 +1543,7 @@ else {
 * 18.13: r(generated_names) populated with generate()
 local ++test_count
 capture {
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         generate(drugA drugB)
     assert "`r(generated_names)'" != ""
@@ -1560,12 +1560,12 @@ else {
 * 18.14: r(output_file) with saveas()
 local ++test_count
 capture {
-    capture erase "/tmp/_s18_merged2.dta"
-    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+    capture erase "$TVTOOLS_QA_RUN_DIR/_s18_merged2.dta"
+    tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_s18_merge2.dta", ///
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
-        saveas("/tmp/_s18_merged2") replace
+        saveas("$TVTOOLS_QA_RUN_DIR/_s18_merged2") replace
     assert "`r(output_file)'" != ""
-    capture erase "/tmp/_s18_merged2.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_s18_merged2.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge r(output_file)"
@@ -1801,8 +1801,8 @@ else {
 * 18.27: r(v_outside_bounds) with validate
 local ++test_count
 capture {
-    use "/tmp/_s18_events.dta", clear
-    tvevent using "/tmp/_s18_intervals.dta", id(id) date(event_date) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_events.dta", clear
+    tvevent using "$TVTOOLS_QA_RUN_DIR/_s18_intervals.dta", id(id) date(event_date) ///
         type(single) generate(fail_flag) validate replace
     assert !missing(r(v_outside_bounds))
 }
@@ -1818,8 +1818,8 @@ else {
 * 18.28: r(v_multiple_events), r(v_same_date_compete)
 local ++test_count
 capture {
-    use "/tmp/_s18_events.dta", clear
-    tvevent using "/tmp/_s18_intervals.dta", id(id) date(event_date) ///
+    use "$TVTOOLS_QA_RUN_DIR/_s18_events.dta", clear
+    tvevent using "$TVTOOLS_QA_RUN_DIR/_s18_intervals.dta", id(id) date(event_date) ///
         type(single) generate(fail_flag) validate replace
     assert !missing(r(v_multiple_events))
 }
@@ -1843,12 +1843,12 @@ capture {
     gen double entry = mdy(12,31,2020)
     gen double exit_ = mdy(1,1,2020)
     format %td entry exit_
-    save "/tmp/_s18_bad_cohort.dta", replace
-    capture noisily tvexpose using "/tmp/_s18_exposure.dta", id(id) ///
+    save "$TVTOOLS_QA_RUN_DIR/_s18_bad_cohort.dta", replace
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) ///
         start(rx_start) stop(rx_stop) exposure(drug) ///
         entry(entry) exit(exit_)
     assert _rc != 0
-    capture erase "/tmp/_s18_bad_cohort.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_s18_bad_cohort.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose error with invalid data"
@@ -1862,7 +1862,7 @@ else {
 * 18.32: tvmerge exit 459 or error with conflict
 local ++test_count
 capture {
-    capture noisily tvmerge "/tmp/_s18_merge1.dta" "NONEXISTENT_FILE.dta", ///
+    capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "NONEXISTENT_FILE.dta", ///
         id(id) start(startA startX) stop(stopA stopX) exposure(expA expX)
     assert _rc != 0
 }
@@ -2617,7 +2617,7 @@ capture noisily {
     1 21950 22015 0
     end
     format start1 stop1 %td
-    save "/tmp/_tvmerge_test_ds1.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds1.dta", replace
 
     clear
     input long id double start2 double stop2 byte exp2
@@ -2625,13 +2625,13 @@ capture noisily {
     1 21935 22015 0
     end
     format start2 stop2 %td
-    save "/tmp/_tvmerge_test_ds2.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds2.dta", replace
 
-    tvmerge /tmp/_tvmerge_test_ds1.dta /tmp/_tvmerge_test_ds2.dta, id(id) ///
+    tvmerge $TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds1.dta $TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds2.dta, id(id) ///
         start(start1 start2) stop(stop1 stop2) exposure(exp1 exp2)
     assert _N > 0
-    capture erase "/tmp/_tvmerge_test_ds1.dta"
-    capture erase "/tmp/_tvmerge_test_ds2.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds1.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds2.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge still works with .dta paths"
@@ -2641,8 +2641,8 @@ else {
     display as error "  FAIL: tvmerge still works with .dta paths (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 7.5"
-    capture erase "/tmp/_tvmerge_test_ds1.dta"
-    capture erase "/tmp/_tvmerge_test_ds2.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds1.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvmerge_test_ds2.dta"
 }
 
 **## tvexpose bytype name length validation
@@ -2666,7 +2666,7 @@ capture noisily {
     5 21915 22015 1
     end
     format start stop %td
-    save "/tmp/_tvexp_bytype_exp.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp.dta", replace
 
     clear
     set obs 5
@@ -2675,12 +2675,12 @@ capture noisily {
     gen double exit_dt = mdy(12, 31, 2021)
     format entry exit_dt %td
 
-    capture tvexpose using "/tmp/_tvexp_bytype_exp.dta", ///
+    capture tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp.dta", ///
         id(id) start(start) stop(stop) exposure(exposure) ///
         entry(entry) exit(exit_dt) reference(0) evertreated bytype ///
         generate(abcdefghijklmnopqrstuvwxy)
     assert _rc == 198
-    capture erase "/tmp/_tvexp_bytype_exp.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose rejects long stub (>24 chars) with bytype"
@@ -2690,7 +2690,7 @@ else {
     display as error "  FAIL: tvexpose rejects long stub with bytype (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 7.6"
-    capture erase "/tmp/_tvexp_bytype_exp.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp.dta"
 }
 
 * TEST 7.7: tvexpose accepts short generate() stub with bytype (control)
@@ -2705,7 +2705,7 @@ capture noisily {
     5 21915 22015 1
     end
     format start stop %td
-    save "/tmp/_tvexp_bytype_exp2.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp2.dta", replace
 
     clear
     set obs 5
@@ -2714,12 +2714,12 @@ capture noisily {
     gen double exit_dt = mdy(12, 31, 2021)
     format entry exit_dt %td
 
-    capture tvexpose using "/tmp/_tvexp_bytype_exp2.dta", ///
+    capture tvexpose using "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp2.dta", ///
         id(id) start(start) stop(stop) exposure(exposure) ///
         entry(entry) exit(exit_dt) reference(0) evertreated bytype ///
         generate(ev)
     assert _rc == 0
-    capture erase "/tmp/_tvexp_bytype_exp2.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp2.dta"
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose accepts short stub with bytype (control)"
@@ -2729,7 +2729,7 @@ else {
     display as error "  FAIL: tvexpose accepts short stub with bytype (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 7.7"
-    capture erase "/tmp/_tvexp_bytype_exp2.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp2.dta"
 }
 
 
@@ -2750,10 +2750,10 @@ gen stop2 = mdy(12,31,2020)
 gen drug1 = 1
 gen drug2 = 0
 format start1 stop1 start2 stop2 %td
-save /tmp/_bugfix_ds1.dta, replace
-save /tmp/_bugfix_ds2.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_ds1.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_ds2.dta, replace
 
-capture noisily tvmerge /tmp/_bugfix_ds1.dta /tmp/_bugfix_ds2.dta, ///
+capture noisily tvmerge $TVTOOLS_QA_RUN_DIR/_bugfix_ds1.dta $TVTOOLS_QA_RUN_DIR/_bugfix_ds2.dta, ///
     id(id) start(start1 start2) stop(stop1 stop2) exposure(drug1 drug2) ///
     generate(start_k dose2)
 if _rc == 198 {
@@ -2767,7 +2767,7 @@ else {
 }
 
 * TEST 22.2: tvmerge rejects reserved name "_orig_start_merged" in generate()
-capture noisily tvmerge /tmp/_bugfix_ds1.dta /tmp/_bugfix_ds2.dta, ///
+capture noisily tvmerge $TVTOOLS_QA_RUN_DIR/_bugfix_ds1.dta $TVTOOLS_QA_RUN_DIR/_bugfix_ds2.dta, ///
     id(id) start(start1 start2) stop(stop1 stop2) exposure(drug1 drug2) ///
     generate(_orig_start_merged dose2)
 if _rc == 198 {
@@ -2790,7 +2790,7 @@ gen int sex = mod(_n, 2)
 label define tv_labels 0 "Male" 1 "Female"
 label values sex tv_labels
 format entry exit_dt %td
-save /tmp/_bugfix_master.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_master.dta, replace
 
 clear
 set obs 5
@@ -2799,11 +2799,11 @@ gen start = mdy(3,1,2020)
 gen stop = mdy(6,30,2020)
 gen exposure = 1
 format start stop %td
-save /tmp/_bugfix_exp.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_exp.dta, replace
 
-use /tmp/_bugfix_master.dta, clear
+use $TVTOOLS_QA_RUN_DIR/_bugfix_master.dta, clear
 capture noisily {
-    tvexpose using /tmp/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
+    tvexpose using $TVTOOLS_QA_RUN_DIR/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
         exposure(exposure) reference(0) entry(entry) exit(exit_dt) ///
         keepvars(sex) generate(tv_exposure)
     * Check that tv_exposure label 0 says "Unexposed" not "Male"
@@ -2821,9 +2821,9 @@ else {
 }
 
 * TEST 22.4: tvexpose accepts 32-character variable name in generate()
-use /tmp/_bugfix_master.dta, clear
+use $TVTOOLS_QA_RUN_DIR/_bugfix_master.dta, clear
 capture noisily {
-    tvexpose using /tmp/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
+    tvexpose using $TVTOOLS_QA_RUN_DIR/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
         exposure(exposure) reference(0) entry(entry) exit(exit_dt) ///
         generate(abcdefghijklmnopqrstuvwxyzabcdef)
     capture confirm variable abcdefghijklmnopqrstuvwxyzabcdef
@@ -2845,7 +2845,7 @@ set obs 5
 gen long id = _n
 gen edate = mdy(4,15,2020)
 format edate %td
-save /tmp/_bugfix_events.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_events.dta, replace
 
 clear
 set obs 5
@@ -2854,11 +2854,11 @@ gen start = mdy(1,1,2020)
 gen stop = mdy(12,31,2020)
 gen x = 0
 format start stop %td
-save /tmp/_bugfix_intervals.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_intervals.dta, replace
 
-use /tmp/_bugfix_events.dta, clear
+use $TVTOOLS_QA_RUN_DIR/_bugfix_events.dta, clear
 capture noisily {
-    tvevent using /tmp/_bugfix_intervals.dta, id(id) date(edate) ///
+    tvevent using $TVTOOLS_QA_RUN_DIR/_bugfix_intervals.dta, id(id) date(edate) ///
         generate(abcdefghijklmnopqrstuvwxyzabcdef) replace
     capture confirm variable abcdefghijklmnopqrstuvwxyzabcdef
     assert _rc == 0
@@ -2874,8 +2874,8 @@ else {
 }
 
 * TEST 22.6: tvexpose rejects generate(start) — collision with output name
-use /tmp/_bugfix_master.dta, clear
-capture noisily tvexpose using /tmp/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
+use $TVTOOLS_QA_RUN_DIR/_bugfix_master.dta, clear
+capture noisily tvexpose using $TVTOOLS_QA_RUN_DIR/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
     exposure(exposure) reference(0) entry(entry) exit(exit_dt) generate(start)
 if _rc == 198 {
     display as result "  PASS: tvexpose rejects generate(start)"
@@ -2888,8 +2888,8 @@ else {
 }
 
 * TEST 22.7: tvexpose rejects generate(stop) — collision with output name
-use /tmp/_bugfix_master.dta, clear
-capture noisily tvexpose using /tmp/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
+use $TVTOOLS_QA_RUN_DIR/_bugfix_master.dta, clear
+capture noisily tvexpose using $TVTOOLS_QA_RUN_DIR/_bugfix_exp.dta, id(id) start(start) stop(stop) ///
     exposure(exposure) reference(0) entry(entry) exit(exit_dt) generate(stop)
 if _rc == 198 {
     display as result "  PASS: tvexpose rejects generate(stop)"
@@ -2902,8 +2902,8 @@ else {
 }
 
 * TEST 22.8: tvevent rejects generate(start) when startvar defaults to "start"
-use /tmp/_bugfix_events.dta, clear
-capture noisily tvevent using /tmp/_bugfix_intervals.dta, id(id) date(edate) ///
+use $TVTOOLS_QA_RUN_DIR/_bugfix_events.dta, clear
+capture noisily tvevent using $TVTOOLS_QA_RUN_DIR/_bugfix_intervals.dta, id(id) date(edate) ///
     generate(start) replace
 if _rc == 198 {
     display as result "  PASS: tvevent rejects generate(start) when startvar=start"
@@ -2921,7 +2921,7 @@ set obs 1
 gen long id = 1
 gen edate = mdy(1,1,2020)
 format edate %td
-save /tmp/_bugfix_boundary_ev.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_boundary_ev.dta, replace
 
 clear
 set obs 1
@@ -2930,11 +2930,11 @@ gen start = mdy(1,1,2020)
 gen stop = mdy(12,31,2020)
 gen x = 0
 format start stop %td
-save /tmp/_bugfix_boundary_iv.dta, replace
+save $TVTOOLS_QA_RUN_DIR/_bugfix_boundary_iv.dta, replace
 
-use /tmp/_bugfix_boundary_ev.dta, clear
+use $TVTOOLS_QA_RUN_DIR/_bugfix_boundary_ev.dta, clear
 capture noisily {
-    tvevent using /tmp/_bugfix_boundary_iv.dta, id(id) date(edate) replace
+    tvevent using $TVTOOLS_QA_RUN_DIR/_bugfix_boundary_iv.dta, id(id) date(edate) replace
     * Under [start, stop] convention, event at start date should be flagged
     assert _failure[1] == 1 | _failure[2] == 1
 }
@@ -2951,7 +2951,7 @@ else {
 * Cleanup temporary bugfix files
 foreach f in _bugfix_ds1 _bugfix_ds2 _bugfix_master _bugfix_exp ///
     _bugfix_events _bugfix_intervals _bugfix_boundary_ev _bugfix_boundary_iv {
-    capture erase "/tmp/`f'.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/`f'.dta"
 }
 
 
@@ -3597,7 +3597,7 @@ foreach f in _gap_tvage _gap_tc_cohort _gap_tc_exp _gap_empty_exp ///
     _s18_cohort _s18_exposure _s18_overlap_exp ///
     _s18_merge1 _s18_merge2 _s18_intervals _s18_events ///
     _s18_bad_cohort _s18_merged _s18_merged2 {
-    capture erase "/tmp/`f'.dta"
+    capture erase "$TVTOOLS_QA_RUN_DIR/`f'.dta"
 }
 
 **# ===== SECTION 19 (v1.6.7): strL id() guards =====

@@ -1,4 +1,4 @@
-*! sustainedss Version 1.4.1  2026/07/03
+*! sustainedss Version 1.5.0  2026/07/13
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -6,6 +6,7 @@
 program define sustainedss, rclass
     version 16.0
     local _varabbrev `c(varabbrev)'
+    local _ss_preserved = 0
     set varabbrev off
 
     capture noisily {
@@ -15,14 +16,13 @@ program define sustainedss, rclass
         [ ///
         GENerate(name) ///
         CONFirmwindow(integer 182) ///
+        CONFirmvisit(string) ///
         BASElinethreshold(real -1) ///
         EVENTvar(name) ///
         EXIT(varname) ///
         KEEPall ///
         Quietly ///
         ]
-    
-    // Parse varlist: id edss edss_dt
     tokenize `varlist'
     local idvar `1'
     local edssvar `2'
@@ -51,13 +51,11 @@ program define sustainedss, rclass
         exit 198
     }
 
-    // Check confirmwindow value
     if `confirmwindow' <= 0 {
         di as error "confirmwindow() must be positive"
         exit 198
     }
 
-    // Default baselinethreshold to threshold if not specified
     if `baselinethreshold' == -1 {
         local baselinethreshold = `threshold'
     }
@@ -66,45 +64,61 @@ program define sustainedss, rclass
         exit 198
     }
 
-    // Default generate name
+    local confirmvisit = lower(strtrim("`confirmvisit'"))
+    if "`confirmvisit'" != "" & ///
+        !inlist("`confirmvisit'", "window", "unlimited") {
+        di as error "confirmvisit() must be window or unlimited"
+        exit 198
+    }
+
     if "`generate'" == "" {
-        if `threshold' == int(`threshold') {
-            local generate "sustained`=int(`threshold')'_dt"
-        }
-        else {
-            local generate "sustained`=subinstr(strtrim(strofreal(`threshold', "%9.1f")),".","_",.)'_dt"
-        }
-    }
-
-    // Check if generate variable already exists
-    capture confirm variable `generate'
-    if _rc == 0 {
-        di as error "variable `generate' already exists"
-        exit 110
-    }
-
-    // Check eventvar name (must be new and distinct from generate)
-    if "`eventvar'" != "" {
-        if "`eventvar'" == "`generate'" {
-            di as error "eventvar() and generate() must specify different names"
+        local _ss_threshold_name = ///
+            strtrim(strofreal(`threshold', "%21.15g"))
+        local _ss_threshold_name = ///
+            subinstr("`_ss_threshold_name'", ".", "_", .)
+        local _ss_threshold_name = ///
+            subinstr("`_ss_threshold_name'", "-", "m", .)
+        local _ss_threshold_name = ///
+            subinstr("`_ss_threshold_name'", "+", "p", .)
+        local generate "sustained`_ss_threshold_name'_dt"
+        capture confirm name `generate'
+        if _rc {
+            di as error "threshold() cannot be encoded in a valid default name; specify generate()"
             exit 198
         }
-        capture confirm variable `eventvar'
-        if _rc == 0 {
-            di as error "variable `eventvar' already exists"
+    }
+
+    local _ss_outputs "`generate' `eventvar'"
+    local _ss_seen ""
+    foreach _ss_out of local _ss_outputs {
+        local _ss_out_lc = lower("`_ss_out'")
+        if strpos(" `_ss_seen' ", " `_ss_out_lc' ") {
+            di as error "prospective output variable names must be distinct: `_ss_out'"
+            exit 198
+        }
+        local _ss_seen "`_ss_seen' `_ss_out_lc'"
+        capture confirm new variable `_ss_out'
+        if _rc {
+            di as error "variable `_ss_out' already exists"
             exit 110
         }
     }
 
-    // Mark sample (strok: allow string ID variables)
     marksample touse, strok
+    capture confirm string variable `idvar'
+    local id_is_str = (_rc == 0)
+    if `id_is_str' {
+        quietly replace `touse' = 0 if trim(`idvar') == "" & `touse'
+    }
+    else {
+        markout `touse' `idvar'
+    }
     qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
     if r(N) > 0 {
         di as error "`datevar' must contain whole-number Stata daily dates"
         exit 109
     }
 
-    // Validate exit() study-exit date (used to censor post-exit events)
     local n_censored_exit = 0
     if "`exit'" != "" {
         capture confirm numeric variable `exit'
@@ -124,7 +138,6 @@ program define sustainedss, rclass
         }
     }
 
-    // Check for valid observations BEFORE preserve
     qui count if `touse'
     if r(N) == 0 {
         di as error "no valid observations"
@@ -132,177 +145,164 @@ program define sustainedss, rclass
     }
     qui count
     local n_original = r(N)
+    tempvar sortorder exit_min exit_max candidate eligible minfollow minall ///
+        nextdate nextedss accepted personorder
+    tempfile original_full analytic persons results
 
-    // Declare temporary variables
-    tempvar edss_work obs_id first_dt lowest_after lastdt_window last_window not_sustained sustained_dt sortorder neg_dt
-
-    // Save original sort order
-    qui gen long `sortorder' = _n
-
-    // Preserve original data
     preserve
-
-    // Keep only relevant observations
+    local _ss_preserved = 1
+    qui gen long `sortorder' = _n
+    qui save `original_full', replace
     qui keep if `touse'
-    qui keep `idvar' `edssvar' `datevar'
-
-    // Drop missing values
+    local _ss_workvars "`idvar' `edssvar' `datevar' `exit' `sortorder'"
+    local _ss_workvars : list uniq _ss_workvars
+    qui keep `_ss_workvars'
     qui drop if missing(`edssvar') | missing(`datevar')
-
-    // Check for valid observations (redundant but safe)
     qui count
     if r(N) == 0 {
         di as error "no valid observations after dropping missing values"
-        restore
         exit 2000
     }
 
-    // Create working edss variable (will be modified)
-    qui gen double `edss_work' = `edssvar'
+    if "`exit'" != "" {
+        qui egen double `exit_min' = min(`exit'), by(`idvar')
+        qui egen double `exit_max' = max(`exit'), by(`idvar')
+        qui count if !missing(`exit_min') & `exit_min' != `exit_max'
+        if r(N) > 0 {
+            di as error "exit() must have at most one distinct nonmissing value per person"
+            exit 459
+        }
+        qui replace `exit' = `exit_min'
+    }
 
-    // Sort data
-    qui sort `idvar' `datevar' `edssvar'
+    qui bysort `idvar' (`sortorder'): gen long `personorder' = `sortorder'[1]
+    qui save `analytic', replace
+    local _ss_personvars "`idvar' `exit' `personorder'"
+    local _ss_personvars : list uniq _ss_personvars
+    qui keep `_ss_personvars'
+    qui duplicates drop `idvar', force
+    qui save `persons', replace
 
-    // Generate observation ID for merging
-    qui gen long `obs_id' = _n
-    
-    // Save working dataset
-    tempfile working
-    qui save `working', replace
-    
-    // Iterative algorithm
-    local keep_going = 1
+    * Same-date duplicates are reduced conservatively to the lowest EDSS.
+    qui use `analytic', clear
+    qui collapse (min) `edssvar', by(`idvar' `datevar')
+    qui sort `idvar' `datevar'
+    qui gen byte `eligible' = (`edssvar' >= `threshold')
+    qui gen byte `accepted' = 0
+
+    qui count
+    local max_iterations = r(N) + 1
     local iteration = 1
-    local converged = 1
-
-    local max_iterations = 1000
-    while `keep_going' == 1 {
+    local finished = 0
+    while !`finished' {
         if `iteration' > `max_iterations' {
-            di as error "Warning: sustainedss reached `max_iterations' iterations without converging"
-            local converged = 0
-            local iteration = `iteration' - 1
-            local keep_going = 0
+            di as error "sustainedss failed to converge"
+            exit 430
+        }
+        foreach _ss_work in `candidate' `minfollow' `minall' `nextdate' ///
+            `nextedss' `accepted' {
+            capture drop `_ss_work'
+        }
+        qui egen long `candidate' = ///
+            min(cond(`eligible', `datevar', .)), by(`idvar')
+        qui count if !missing(`candidate')
+        if r(N) == 0 {
+            qui gen byte `accepted' = 0
+            local finished = 1
             continue
         }
-        qui use `working', clear
 
-        // Find first date when EDSS >= threshold for each person
-        // Note: avoid egen here — Stata's internal tempvar counter can be
-        // corrupted by prior dataset switching (use/clear), causing egen to fail.
-        qui gen long `first_dt' = `datevar' if `edss_work' >= `threshold'
-        qui bysort `idvar' (`first_dt'): replace `first_dt' = `first_dt'[1]
+        qui egen double `minfollow' = min(cond( ///
+            `datevar' > `candidate' & ///
+            `datevar' <= `candidate' + `confirmwindow', `edssvar', .)), ///
+            by(`idvar')
+        qui egen double `minall' = min(cond( ///
+            `datevar' > `candidate', `edssvar', .)), by(`idvar')
 
-        // Find lowest EDSS in confirmation window (1 to `confirmwindow' days after first date)
-        qui gen double `lowest_after' = `edss_work' if inrange(`datevar', `first_dt' + 1, `first_dt' + `confirmwindow')
-        qui bysort `idvar' (`lowest_after'): replace `lowest_after' = `lowest_after'[1]
-
-        // Find last date in confirmation window (max via negated sort key)
-        qui gen long `lastdt_window' = `datevar' if inrange(`datevar', `first_dt' + 1, `first_dt' + `confirmwindow')
-        qui gen long `neg_dt' = -`lastdt_window'
-        qui bysort `idvar' (`neg_dt'): replace `lastdt_window' = `lastdt_window'[1]
-        qui drop `neg_dt'
-
-        // Find EDSS at last date in window (min: conservative with same-date duplicates)
-        qui gen double `last_window' = `edss_work' if `datevar' == `lastdt_window'
-        qui bysort `idvar' (`last_window'): replace `last_window' = `last_window'[1]
-
-        // Identify not sustained: lowest < baseline threshold AND last in window < threshold
-        qui gen byte `not_sustained' = (`lowest_after' < `baselinethreshold' & ///
-            !missing(`lowest_after') & ///
-            `last_window' < `threshold' & ///
-            !missing(`last_window'))
-
-        // Keep only the records at the first threshold date that are not sustained
-        tempfile notsustained
-        qui keep if `datevar' == `first_dt' & `not_sustained' == 1
-        
-        qui count
-        local n_rejected = r(N)
-        
-        if `n_rejected' == 0 {
-            local keep_going = 0
+        if "`confirmvisit'" == "unlimited" {
+            qui egen long `nextdate' = min(cond( ///
+                `datevar' > `candidate', `datevar', .)), by(`idvar')
         }
         else {
-            if "`quietly'" == "" {
-                di as text "Iteration `iteration': `n_rejected' events not confirmed as sustained"
-            }
+            qui egen long `nextdate' = min(cond( ///
+                `datevar' > `candidate' & ///
+                `datevar' <= `candidate' + `confirmwindow', `datevar', .)), ///
+                by(`idvar')
+        }
+        qui egen double `nextedss' = min(cond( ///
+            `datevar' == `nextdate', `edssvar', .)), by(`idvar')
 
-            // Save the records to update
-            qui keep `obs_id' `last_window'
-            qui save `notsustained', replace
+        if "`confirmvisit'" == "" {
+            * Package convention: no follow-up implies sustainment; observed
+            * values anywhere in available follow-up must not fall below the
+            * chosen floor.
+            qui gen byte `accepted' = missing(`minall') | ///
+                `minall' >= `baselinethreshold'
+        }
+        else if "`confirmvisit'" == "window" {
+            qui gen byte `accepted' = !missing(`nextdate') & ///
+                `nextedss' >= `threshold' & ///
+                `minfollow' >= `baselinethreshold'
+        }
+        else {
+            * Unlimited mode uses the first later assessment and therefore
+            * cannot skip an intervening reversal to find a later high value.
+            * All later observed values must also remain above the floor.
+            qui gen byte `accepted' = !missing(`nextdate') & ///
+                `nextedss' >= `threshold' & ///
+                `minall' >= `baselinethreshold'
+        }
 
-            // Merge back and update working EDSS
-            qui use `working', clear
-            qui merge 1:1 `obs_id' using `notsustained', nogen keep(1 3)
-            qui replace `edss_work' = `last_window' if !missing(`last_window')
-            qui drop `last_window'
-
-            qui save `working', replace
+        qui count if !`accepted' & !missing(`candidate') & ///
+            `datevar' == `candidate'
+        local n_rejected = r(N)
+        if `n_rejected' == 0 {
+            local finished = 1
+        }
+        else {
+            qui replace `eligible' = 0 if !`accepted' & ///
+                `datevar' == `candidate'
             local iteration = `iteration' + 1
         }
     }
 
-    // Final computation of sustained date
-    qui use `working', clear
-    qui gen long `sustained_dt' = `datevar' if `edss_work' >= `threshold'
-    qui bysort `idvar' (`sustained_dt'): replace `sustained_dt' = `sustained_dt'[1]
-    qui format `sustained_dt' %tdCCYY/NN/DD
-
-    // Keep one record per person with sustained date
-    qui keep `idvar' `sustained_dt'
+    qui gen long `generate' = `candidate' if `accepted'
+    qui keep `idvar' `generate'
     qui duplicates drop `idvar', force
-    qui drop if missing(`sustained_dt')
-    qui rename `sustained_dt' `generate'
-    
-    // Count results
-    qui count
-    local n_events = r(N)
-    
-    tempfile results
+    qui drop if missing(`generate')
+    format `generate' %tdCCYY/NN/DD
     qui save `results', replace
-    
-    restore
-    
-    // Merge results back
+
+    qui merge 1:1 `idvar' using `persons', nogen keep(3)
+    if "`exit'" != "" {
+        qui count if !missing(`generate') & !missing(`exit') & ///
+            `generate' > `exit'
+        local n_censored_exit = r(N)
+        qui replace `generate' = . if !missing(`generate') & ///
+            !missing(`exit') & `generate' > `exit'
+    }
+    qui count if !missing(`generate')
+    local n_events = r(N)
+    qui keep `idvar' `generate'
+    qui save `results', replace
+
+    qui use `original_full', clear
     if "`keepall'" == "" {
-        // Default: keep only patients with sustained events
         qui merge m:1 `idvar' using `results', nogen keep(3)
     }
     else {
-        // keepall: retain all original observations
         qui merge m:1 `idvar' using `results', nogen
     }
-    
-    // exit() censoring: drop the event date when it falls after a person's
-    // study-exit date (replaces the hand-written post-exit clipping every
-    // study writes). The observation is retained; eventvar() (computed below)
-    // and the n_events count reflect the censored status. Done before the
-    // sort-order restore so the by-person tag does not disturb output order.
-    if "`exit'" != "" {
-        tempvar _ss_exit_tag
-        qui bysort `idvar': gen byte `_ss_exit_tag' = (_n == 1)
-        qui count if `_ss_exit_tag' & !missing(`generate') & !missing(`exit') & `generate' > `exit'
-        local n_censored_exit = r(N)
-        qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
-        qui count if `_ss_exit_tag' & !missing(`generate')
-        local n_events = r(N)
-        qui drop `_ss_exit_tag'
-    }
-
-    // Restore original sort order
-    sort `sortorder'
+    qui sort `sortorder'
     qui drop `sortorder'
-
-    // Label variable
     label var `generate' "Sustained EDSS >= `threshold' date"
+    format `generate' %tdCCYY/NN/DD
 
-    // stset-ready event indicator (0/1 within the analytic sample)
     if "`eventvar'" != "" {
         qui gen byte `eventvar' = !missing(`generate') if `touse'
         label var `eventvar' "Sustained EDSS event (1 = threshold reached)"
     }
 
-    // Count retained observations
     qui count
     local n_retained = r(N)
 
@@ -310,17 +310,14 @@ program define sustainedss, rclass
     if "`quietly'" == "" {
         di as text _n "Sustained EDSS >= `threshold' computation complete"
         di as text "  Confirmation window: `confirmwindow' days"
+        di as text "  Confirmation visit: " ///
+            cond("`confirmvisit'" == "", "not required", "`confirmvisit'")
         di as text "  Baseline threshold: `baselinethreshold'"
         di as text "  Events identified: `n_events'"
         if "`exit'" != "" {
             di as text "  Events censored after study exit: `n_censored_exit'"
         }
-        if `converged' {
-            di as text "  Iterations required: `iteration'"
-        }
-        else {
-            di as text "  Iterations required: `iteration' (limit reached, results may be approximate)"
-        }
+        di as text "  Iterations required: `iteration'"
         di as text "  Variable created: `generate'"
         if "`keepall'" == "" & `n_retained' < `n_original' {
             di as text "  Observations: `n_retained' of `n_original' retained" ///
@@ -328,13 +325,16 @@ program define sustainedss, rclass
         }
     }
     
-    // Return values
+    restore, not
+    local _ss_preserved = 0
+
     return scalar N_events = `n_events'
     return scalar iterations = `iteration'
-    return scalar converged = `converged'
+    return scalar converged = 1
     return scalar threshold = `threshold'
     return scalar confirmwindow = `confirmwindow'
     return local varname "`generate'"
+    return local confirmvisit "`confirmvisit'"
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
     }
@@ -345,6 +345,9 @@ program define sustainedss, rclass
 
     }
     local _rc = _rc
+    if `_rc' & `_ss_preserved' {
+        capture restore
+    }
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end

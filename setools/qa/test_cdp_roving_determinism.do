@@ -1,9 +1,7 @@
 * test_cdp_roving_determinism.do
 * Regression tests for v1.4.1 cdp determinism fixes:
-*   1. allevents+roving output: the retained covariate row per person is
-*      deterministically the FIRST row of the original data (the person-level
-*      reduction before the 1:m merge is keyed on original order, not left to
-*      Stata's non-stable sort).
+*   1. allevents+roving output: event rows do not inherit arbitrary
+*      measurement-level payload from a baseline or excluded visit.
 *   2. Roving re-baseline: when the first visit after a confirmed event has
 *      same-day duplicate EDSS measurements, the LOWER EDSS becomes the new
 *      baseline (package-wide tie convention), so the second event's threshold
@@ -19,8 +17,7 @@ capture log close _all
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 local nfail = 0
 
@@ -78,9 +75,10 @@ if _rc {
 }
 else display as result "  [PASS] roving same-day re-baseline: second baseline is the lower same-day EDSS"
 
-**# Test 2: allevents+roving retains each person's FIRST original row's covariates
-* Rows are entered in REVERSE chronological order, so original-order row 1 per
-* person is the LAST visit. The retained covariate value must be that row's.
+**# Test 2: allevents+roving returns event data, not an arbitrary visit row
+* Rows are deliberately entered in different orders with varying visit tags.
+* The event-level result may carry validated person-level fields such as dx,
+* but it must not attach a visit tag, visit date, or visit EDSS to event rows.
 clear
 set obs 8
 gen long id = .
@@ -127,18 +125,26 @@ format dx visit_dt %td
 cdp id edss visit_dt, dxdate(dx) roving allevents quietly
 
 capture {
-    assert tag == "p1_last" if id == 1
-    assert tag == "p2_base" if id == 2
+    confirm variable id dx cdp_date event_num baseline_edss_at_event
+    confirm new variable tag
+    confirm new variable visit_dt
+    confirm new variable edss
+    assert dx == td(01jan2020)
+    assert cdp_date == td(01mar2020)
 }
 if _rc {
-    display as error "  [FAIL] allevents covariate row: must be each person's first original row"
+    display as error "  [FAIL] allevents output inherited visit-level payload or lost event data"
     local ++nfail
 }
-else display as result "  [PASS] allevents covariate row is deterministically the first original row"
+else display as result "  [PASS] allevents output contains event data without visit-level payload"
 
 **# Summary
+display "RESULT: test_cdp_roving_determinism tests=2 pass=" `=2-`nfail'' ///
+    " fail=`nfail'"
 if `nfail' > 0 {
     display as error "test_cdp_roving_determinism: `nfail' test group(s) FAILED"
     exit 9
 }
 display as result "test_cdp_roving_determinism: ALL TESTS PASSED"
+
+do "`qa_dir'/_setools_qa_common.do" teardown

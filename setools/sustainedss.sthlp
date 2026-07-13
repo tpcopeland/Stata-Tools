@@ -36,12 +36,13 @@
 {synopt:{opt th:reshold(#)}}EDSS threshold for progression (e.g., 4 or 6){p_end}
 
 {syntab:Optional}
-{synopt:{opt gen:erate(name)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
-{synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {cmd:182}{p_end}
-{synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default equals {opt threshold()}{p_end}
-{synopt:{opt event:var(name)}}create a 0/1 stset-ready sustained-event indicator{p_end}
-{synopt:{opt exit(varname)}}censor events that fall after a per-person study-exit date{p_end}
-{synopt:{opt keep:all}}retain all observations; default keeps only patients with events{p_end}
+{synopt:{opt gen:erate(name)}}generated date variable name{p_end}
+{synopt:{opt conf:irmwindow(#)}}bounded period; default 182 days{p_end}
+{synopt:{opt conf:irmvisit(mode)}}require an observed confirming visit{p_end}
+{synopt:{opt base:linethreshold(#)}}EDSS reversal floor{p_end}
+{synopt:{opt event:var(name)}}0/1 sustained-event indicator{p_end}
+{synopt:{opt exit(varname)}}per-person study-exit date{p_end}
+{synopt:{opt keep:all}}retain observations without events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -49,8 +50,8 @@
 {p 8 17 2}
 {it:idvar} identifies patients (numeric or string). {it:edssvar} is the numeric EDSS
 score. {it:datevar} must be a Stata daily date stored as a whole-number value with
-a {cmd:%td} display format. Other time encodings ({cmd:%tm}, {cmd:%tq}, {cmd:%tc}) are rejected
-because {opt confirmwindow()} is interpreted in days.{p_end}
+a {cmd:%td} display format. Other time encodings ({cmd:%tm}, {cmd:%tq},
+{cmd:%tc}) are rejected because {opt confirmwindow()} is interpreted in days.{p_end}
 
 
 {marker description}{...}
@@ -58,9 +59,10 @@ because {opt confirmwindow()} is interpreted in days.{p_end}
 
 {pstd}
 {cmd:sustainedss} finds the first date each patient's EDSS (Expanded Disability
-Status Scale) reaches or exceeds a user-specified threshold and stays
-there. "Stays there" means the EDSS is not disconfirmed within the
-{opt confirmwindow()}.
+Status Scale) reaches or exceeds a user-specified threshold without a later
+observed EDSS below the reversal floor. By default, no later visit is required,
+so an event with no subsequent assessment is sustained by implication. Use
+{opt confirmvisit()} when the analysis requires an observed confirming visit.
 
 {pstd}
 This is a {it:threshold crossing} measure: "When did the patient first reach EDSS
@@ -73,16 +75,17 @@ compute a change score. For a {it:change-from-baseline} progression measure, see
 
 {phang2}1. Find the first date EDSS {ul:>}= {opt threshold()} for each patient.{p_end}
 
-{phang2}2. Within the next {opt confirmwindow()} days, check whether the lowest
-observed EDSS falls below {opt baselinethreshold()} {it:and} the last EDSS in the
-window falls below {opt threshold()}. If both conditions are true, the event is
-rejected as not sustained.{p_end}
+{phang2}2. Apply the selected confirmation mode. The default accepts the
+candidate if no later observed EDSS is below {opt baselinethreshold()}, including
+when there is no later visit. {cmd:confirmvisit(window)} requires the first later
+visit within {opt confirmwindow()} to meet {opt threshold()} and no value through
+the window to fall below the reversal floor. {cmd:confirmvisit(unlimited)}
+requires the first later visit, however late, to meet {opt threshold()} and no
+later value to fall below the floor.{p_end}
 
-{phang2}3. For rejected events, replace the candidate EDSS with the last value
-observed in the window and repeat from step 1.{p_end}
-
-{phang2}4. Continue until all remaining threshold-crossing events are confirmed as
-sustained (or no candidates remain).{p_end}
+{phang2}3. Remove a rejected candidate and test that patient's next threshold
+crossing. Continue until each patient has an accepted event or no candidate
+remains.{p_end}
 
 {pstd}
 The input data must be in long format: one row per EDSS measurement per patient,
@@ -108,16 +111,26 @@ replaced by underscores, so {cmd:threshold(3.5)} produces {cmd:sustained3_5_dt})
 
 {phang}
 {opt confirmwindow(#)} specifies the number of days after the initial
-threshold-crossing within which EDSS must be sustained. The default is {cmd:182}
-(approximately 6 months), standard in MS research.
+threshold crossing used by {cmd:confirmvisit(window)}. The default is {cmd:182}
+(approximately 6 months). It does not limit follow-up in the default or
+{cmd:confirmvisit(unlimited)} modes.
 
 {phang}
-{opt baselinethreshold(#)} specifies the EDSS level used to check for reversal. If
-the lowest EDSS in the confirmation window falls below this value AND the last
-EDSS in the window falls below {opt threshold()}, the event is rejected. The default
-equals {opt threshold()}. Setting this to a lower value (e.g., {cmd:baselinethreshold(3)}
-with {cmd:threshold(4)}) makes the algorithm more tolerant of temporary dips: only a
-drop all the way below 3 would disqualify the event.
+{opt confirmvisit(mode)} requires an observed later assessment. Specify
+{cmd:window} to require the first later assessment on or before the candidate
+date plus {opt confirmwindow()}. Specify {cmd:unlimited} to use the first later
+assessment with no maximum delay. In either mode the first later assessment
+must meet {opt threshold()}, so the command cannot skip a lower intervening
+assessment to find a later high value. The default is no {opt confirmvisit()},
+so no later assessment is required.
+
+{phang}
+{opt baselinethreshold(#)} specifies the EDSS reversal floor. The default equals
+{opt threshold()}. Any observed later EDSS below the floor rejects a candidate
+across all available follow-up in the default and unlimited modes, or through
+the bounded period in window mode. A lower value explicitly permits that amount
+of tolerance; for example, with {cmd:threshold(4) baselinethreshold(3)}, only a
+later value below 3 reverses the candidate.
 
 {phang}
 {opt eventvar(name)} creates a 0/1 indicator equal to 1 for persons with a sustained
@@ -164,18 +177,20 @@ needed.{p_end}
 points from baseline, confirmed at 6 months?"  Change from a patient-specific
 baseline. Requires diagnosis date.{p_end}
 
-{phang2}{helpb pira} {hline 2} "Was that confirmed progression driven by
-neurodegeneration or by a relapse?"  Classifies each CDP event. Requires
-both a diagnosis date and a relapse file.{p_end}
+{phang2}{helpb pira} {hline 2} "Was the first confirmed progression associated
+with a relapse?" Requires both a diagnosis date and a relapse file.{p_end}
 
 {pstd}
-{bf:Edge case: no measurements in the confirmation window}
+{bf:Default package convention and observed confirmation}
 
 {pstd}
-If a patient reaches the threshold but has no subsequent EDSS measurements
-within {opt confirmwindow()} days, the event is treated as sustained (absence of
-evidence is not evidence of reversal). This differs from {helpb cdp}, which requires
-at least one confirming measurement after its {cmd:confirmdays()} window.
+The default deliberately treats a threshold crossing with no later assessment
+as sustained by implication. This is a package convention chosen for this
+command, not a claim that an unobserved confirmation satisfies stricter
+published endpoint definitions. Use {cmd:confirmvisit(window)} for bounded
+observed confirmation or {cmd:confirmvisit(unlimited)} when a later confirming
+visit is required but may occur at any subsequent time. {helpb cdp} always
+requires an observed confirming assessment.
 
 {pstd}
 {bf:Duplicate EDSS on the same date}
@@ -203,8 +218,8 @@ patients should be excluded from your analysis, filter them before running
 {bf:Example 1: Sustained EDSS {ul:>}= 4}
 
 {pstd}
-Find the first date each patient reached and sustained EDSS 4 or above, using
-the default 182-day confirmation window.{p_end}
+Find the first date each patient reached EDSS 4 or above with no later observed
+EDSS below 4. No confirming visit is required by default.{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use "https://.../relapses.dta", clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4)":. sustainedss id edss edss_date, threshold(4)}{p_end}
@@ -217,16 +232,23 @@ the default 182-day confirmation window.{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(6) generate(edss6_sustained)":. sustainedss id edss edss_date, threshold(6) generate(edss6_sustained)}{p_end}
 
 {pstd}
-{bf:Example 3: Three-month confirmation window}
+{bf:Example 3: Require confirmation within three months}
 
 {pstd}
-Some study protocols use a 90-day confirmation rule.{p_end}
+Require a later assessment within 90 days and no reversal through day 90.{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use "https://.../relapses.dta", clear}{p_end}
-{phang2}{stata "sustainedss id edss edss_date, threshold(4) confirmwindow(90)":. sustainedss id edss edss_date, threshold(4) confirmwindow(90)}{p_end}
+{phang2}{stata "sustainedss id edss edss_date, threshold(4) confirmvisit(window) confirmwindow(90)":. sustainedss id edss edss_date, threshold(4) ///}{p_end}
+{phang3}{cmd:confirmvisit(window) confirmwindow(90)}{p_end}
 
 {pstd}
-{bf:Example 4: Keep all patients and create a binary indicator}
+{bf:Example 4: Require a later visit with unlimited follow-up}
+
+{phang2}{stata "sustainedss id edss edss_date, threshold(4) confirmvisit(unlimited)":. sustainedss id edss edss_date, threshold(4) ///}{p_end}
+{phang3}{cmd:confirmvisit(unlimited)}{p_end}
+
+{pstd}
+{bf:Example 5: Keep all patients and create a binary indicator}
 
 {pstd}
 Retain the full dataset, then create a 0/1 flag for downstream analysis.{p_end}
@@ -237,7 +259,7 @@ Retain the full dataset, then create a 0/1 flag for downstream analysis.{p_end}
 {phang2}{stata "tab reached_edss4":. tab reached_edss4}{p_end}
 
 {pstd}
-{bf:Example 5: Use sustained date in survival analysis}
+{bf:Example 6: Use sustained date in survival analysis}
 
 {pstd}
 After computing the sustained date, feed it into {cmd:stset} as the failure
@@ -262,15 +284,16 @@ date.{p_end}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(N_events)}}number of patients with a sustained event{p_end}
 {synopt:{cmd:r(iterations)}}number of iterations required by the algorithm{p_end}
-{synopt:{cmd:r(converged)}}{cmd:1} if algorithm converged; {cmd:0} if iteration limit reached{p_end}
+{synopt:{cmd:r(converged)}}whether the algorithm converged{p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
-{synopt:{cmd:r(N_censored_exit)}}events censored after study exit (if {opt exit()} specified){p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated date variable{p_end}
-{synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
-{synopt:{cmd:r(exit)}}name of the study-exit date variable (if {opt exit()} specified){p_end}
+{synopt:{cmd:r(confirmvisit)}}confirmation mode; blank, {cmd:window}, or {cmd:unlimited}{p_end}
+{synopt:{cmd:r(eventvar)}}event-indicator name, if requested{p_end}
+{synopt:{cmd:r(exit)}}study-exit variable name, if requested{p_end}
 
 
 {marker references}{...}

@@ -43,8 +43,14 @@ program define desctab, rclass
         FRAme(string) HIGHlight(real -1) HLStat(string)]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    local nformats : subinstr local nformats `"""' "", all
-    local statlabels : subinstr local statlabels `"""' "", all
+    if `"`nformats'"' != "" {
+        _tabtools_strip_outer_quotes, text(`"`nformats'"')
+        local nformats `"`r(text)'"'
+    }
+    if `"`statlabels'"' != "" {
+        _tabtools_strip_outer_quotes, text(`"`statlabels'"')
+        local statlabels `"`r(text)'"'
+    }
     local _has_xlsx = "`xlsx'" != ""
     if "`sheet'" == "" local sheet "Descriptive"
 
@@ -252,7 +258,7 @@ program define desctab, rclass
         local fmt_`_stat' "`r(fmt)'"
         local class_`_stat' "`r(class)'"
         if inlist("`_stat'", "sum", "sum_w", "total") & !`_sum_integer' {
-            local fmt_`_stat' "%5.`digits'f"
+            local fmt_`_stat' "%21.`digits'f"
             local class_`_stat' "continuous"
         }
     }
@@ -337,7 +343,9 @@ program define desctab, rclass
     unab _allvars : _all
     local data_vars ""
     foreach _v of local _allvars {
-        if "`_v'" != "A" local data_vars "`data_vars' `_v'"
+        if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
+            local data_vars "`data_vars' `_v'"
+        }
     }
     local data_vars = strtrim("`data_vars'")
     if "`data_vars'" == "" {
@@ -361,14 +369,17 @@ program define desctab, rclass
 
     if `drop_col_totals' & "`coldim'" != "" {
         foreach _v of local data_vars {
-            if strtrim(`_v'[`raw_col_row']) == "Total" {
+            local _is_col_total : char `_v'[_tabtools_col_total]
+            if "`_is_col_total'" == "1" {
                 drop `_v'
             }
         }
         unab _allvars : _all
         local data_vars ""
         foreach _v of local _allvars {
-            if "`_v'" != "A" local data_vars "`data_vars' `_v'"
+            if !inlist("`_v'", "A", "_tt_row_key", "_tt_row_total", "_tt_row_missing") {
+                local data_vars "`data_vars' `_v'"
+            }
         }
         local data_vars = strtrim("`data_vars'")
     }
@@ -377,11 +388,11 @@ program define desctab, rclass
     quietly gen byte `_desctab_drop' = 0
     if `drop_row_totals' {
         quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & lower(strtrim(A)) == "total"
+            & _tt_row_total == 1
     }
     if "`nomissing'" != "" {
         quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
-            & inlist(lower(strtrim(A)), "missing", ".", ".m")
+            & _tt_row_missing == 1
     }
     if `"`keep'"' != "" {
         quietly replace `_desctab_drop' = 1 if _n >= `raw_data_start' ///
@@ -393,6 +404,7 @@ program define desctab, rclass
     }
     quietly drop if `_desctab_drop'
     drop `_desctab_drop'
+    drop _tt_row_key _tt_row_total _tt_row_missing
 
     local n_data_vars : word count `data_vars'
     if `n_data_vars' == 0 {
@@ -422,11 +434,11 @@ program define desctab, rclass
             local _add_pctsign = inlist("`_class'", "percent", "proportion")
             if "`_class'" == "proportion" & "`pctscale'" == "0to100" {
                 local _scale = 100
-                local _fmt "%5.`pctdigits'f"
+                local _fmt "%21.`pctdigits'f"
             }
             else if "`_stat'" == "mean" & "`pctscale'" == "0to100" & `_mean_binary' {
                 local _scale = 100
-                local _fmt "%5.`pctdigits'f"
+                local _fmt "%21.`pctdigits'f"
                 local _add_pctsign = 1
             }
             quietly replace `_v' = strtrim(string(real(subinstr(`_v', ",", "", .)) * `_scale', "`_fmt'")) ///
@@ -553,7 +565,7 @@ program define desctab, rclass
                     if inlist("`_stat'", "mean", "prop", "propc", "propr", "percent", "fvpercent") {
                         if inlist("`_stat'", "mean", "prop", "propc", "propr") & "`pctscale'" == "0to100" {
                             local _scale = 100
-                            local _fmt "%5.`pctdigits'f"
+                            local _fmt "%21.`pctdigits'f"
                         }
                         if "`pctsign'" != "" & inlist("`_stat'", "mean", "prop", "propc", "propr", "percent", "fvpercent") {
                             local _sign "pctsign"
@@ -589,25 +601,62 @@ program define desctab, rclass
                 }
 
                 if "`compose_resolved'" == "events_n_pct" {
-                    local _cell `"`_f_sum' / `_f_count' (`_f_mean')"'
+                    local _cell ""
+                    if `"`_f_sum'"' != "" & `"`_f_count'"' != "" {
+                        local _cell `"`_f_sum' / `_f_count'"'
+                    }
+                    else if `"`_f_sum'"' != "" local _cell `"`_f_sum'"'
+                    else if `"`_f_count'"' != "" local _cell `"`_f_count'"'
+                    if `"`_f_mean'"' != "" {
+                        if `"`_cell'"' == "" local _cell `"`_f_mean'"'
+                        else local _cell `"`_cell' (`_f_mean')"'
+                    }
                 }
                 else if "`compose_resolved'" == "events_n" {
-                    local _cell `"`_f_sum' / `_f_count'"'
+                    if `"`_f_sum'"' != "" & `"`_f_count'"' != "" {
+                        local _cell `"`_f_sum' / `_f_count'"'
+                    }
+                    else if `"`_f_sum'"' != "" local _cell `"`_f_sum'"'
+                    else local _cell `"`_f_count'"'
                 }
                 else if "`compose_resolved'" == "n_pct" {
-                    local _cell `"`_f_count' (`_f_percent')"'
+                    if `"`_f_count'"' != "" & `"`_f_percent'"' != "" {
+                        local _cell `"`_f_count' (`_f_percent')"'
+                    }
+                    else if `"`_f_count'"' != "" local _cell `"`_f_count'"'
+                    else local _cell `"`_f_percent'"'
                 }
                 else if "`compose_resolved'" == "mean_sd" {
-                    local _cell `"`_f_mean' (`_f_sd')"'
+                    if `"`_f_mean'"' != "" & `"`_f_sd'"' != "" {
+                        local _cell `"`_f_mean' (`_f_sd')"'
+                    }
+                    else if `"`_f_mean'"' != "" local _cell `"`_f_mean'"'
+                    else local _cell `"`_f_sd'"'
                 }
                 else if "`compose_resolved'" == "mean_semean" {
-                    local _cell `"`_f_mean' (`_f_semean')"'
+                    if `"`_f_mean'"' != "" & `"`_f_semean'"' != "" {
+                        local _cell `"`_f_mean' (`_f_semean')"'
+                    }
+                    else if `"`_f_mean'"' != "" local _cell `"`_f_mean'"'
+                    else local _cell `"`_f_semean'"'
                 }
                 else if "`compose_resolved'" == "median_iqr" {
-                    local _cell `"`_f_p50' (`_f_p25'-`_f_p75')"'
+                    local _spread ""
+                    if `"`_f_p25'"' != "" & `"`_f_p75'"' != "" local _spread `"`_f_p25'-`_f_p75'"'
+                    else if `"`_f_p25'"' != "" local _spread `"`_f_p25'"'
+                    else local _spread `"`_f_p75'"'
+                    if `"`_f_p50'"' != "" & `"`_spread'"' != "" local _cell `"`_f_p50' (`_spread')"'
+                    else if `"`_f_p50'"' != "" local _cell `"`_f_p50'"'
+                    else local _cell `"`_spread'"'
                 }
                 else if "`compose_resolved'" == "median_range" {
-                    local _cell `"`_f_p50' (`_f_min'-`_f_max')"'
+                    local _spread ""
+                    if `"`_f_min'"' != "" & `"`_f_max'"' != "" local _spread `"`_f_min'-`_f_max'"'
+                    else if `"`_f_min'"' != "" local _spread `"`_f_min'"'
+                    else local _spread `"`_f_max'"'
+                    if `"`_f_p50'"' != "" & `"`_spread'"' != "" local _cell `"`_f_p50' (`_spread')"'
+                    else if `"`_f_p50'"' != "" local _cell `"`_f_p50'"'
+                    else local _cell `"`_spread'"'
                 }
                 else if "`compose_resolved'" == "mean_ci" {
                     local _mean = real(subinstr(`"`_raw_mean'"', ",", "", .))
@@ -1115,7 +1164,10 @@ program define _desctab_parse_statlabels, rclass
     version 17.0
     syntax , [SPEC(string asis) STATS(string)]
     local rest `"`spec'"'
-    local rest : subinstr local rest `"""' "", all
+    if `"`rest'"' != "" {
+        _tabtools_strip_outer_quotes, text(`"`rest'"')
+        local rest `"`r(text)'"'
+    }
     while `"`rest'"' != "" {
         local _slash = strpos(`"`rest'"', "\")
         if `_slash' {
@@ -1136,8 +1188,10 @@ program define _desctab_parse_statlabels, rclass
             gettoken _stat _label : piece
             local _label = strtrim(`"`_label'"')
         }
-        local _stat : subinstr local _stat `"""' "", all
-        local _label : subinstr local _label `"""' "", all
+        _tabtools_strip_outer_quotes, text(`"`_stat'"')
+        local _stat `"`r(text)'"'
+        _tabtools_strip_outer_quotes, text(`"`_label'"')
+        local _label `"`r(text)'"'
         _desctab_has_stat "`_stat'" "`stats'"
         if `r(found)' return local label_`_stat' `"`_label'"'
         else display as text "statlabels: statistic '`_stat'' not in collect, ignoring"

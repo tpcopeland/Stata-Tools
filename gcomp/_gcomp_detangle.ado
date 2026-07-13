@@ -1,10 +1,10 @@
-*! _gcomp_detangle Version 1.4.4  2026/07/10
+*! _gcomp_detangle Version 1.4.5  2026/07/13
 *! Parsing helper for gcomp option groups
 *! Author: Timothy P Copeland, Karolinska Institutet
-*! Program class: nclass
+*! Program class: rclass
 
 capture program drop _gcomp_detangle
-program define _gcomp_detangle
+program define _gcomp_detangle, rclass
 version 16.0
 local _orig_varabbrev = c(varabbrev)
 set varabbrev off
@@ -49,26 +49,29 @@ forvalues i=1/`ncl' {
 			local 1 `1' `n`j''
 		}
 	}
-	local arg3 `3'
-	unab arg1:`1'
-	tokenize `arg1'
-	while "`1'"!="" {
+		local arg3 `3'
+		unab arg1:`1'
+		tokenize `arg1'
+		while "`1'"!="" {
 		* Inlined chkin logic
 		local _gc_k: list posof "`1'" in rhs
 		if `_gc_k' == 0 {
 			noi di as err "`1' is not a valid covariate"
 			exit 198
 		}
-		local v`_gc_k' `arg3'
-		mac shift
+			if "`v`_gc_k''" != "" {
+				noi di as err "duplicate `tname'() specification for `1'"
+				exit 198
+			}
+			local v`_gc_k' `arg3'
+			mac shift
+		}
 	}
-}
-forvalues j=1/`nx' {
-	if "`v`j''"!="" {
-		global S_`j' `v`j''
+	forvalues j=1/`nx' {
+		return local value`j' `"`v`j''"'
 	}
-	else global S_`j'
-}
+	return scalar n_values = `nx'
+	return scalar n_clauses = `ncl'
 }
 local rc = _rc
 set varabbrev `_orig_varabbrev'

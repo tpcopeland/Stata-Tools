@@ -140,8 +140,9 @@ process is at risk from time 0, so visits at negative times are rejected
 rather than silently excluded from the Cox model. Shift or rescale a centered
 time variable before weighting. A first visit at exactly time 0 is allowed; it
 spans no risk time, so it is excluded from the visit-intensity model and keeps
-the conventional baseline weight of 1, and a note reports how many subjects
-are affected.
+the conventional raw baseline weight of 1 (rescaled with the rest, as described
+under {it:Mean-1 normalization}), and a note reports how many subjects are
+affected.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
@@ -203,10 +204,16 @@ volatile. With stabilization, a second (simpler) Cox model is fit using only
 allowed only for IIW or FIPTIW weights.
 
 {pmore}
-In the FIPTIW setting (Tompkins et al. 2025), the numerator model typically
-includes only the treatment variable, not the time-varying confounders
-that appear in the full visit model. This stabilizes the weights while
-preserving the treatment effect estimand.
+{bf:Constraint: name only covariates that will appear in the outcome model.}
+The estimator is unbiased for the outcome-model parameters only when the
+stabilization numerator is a function of the {it:outcome model}
+covariates (Buzkova & Lumley 2007, who prove the weighted estimating equation
+has zero mean for any numerator {it:h(X)} built from the outcome-model
+covariates X; Tompkins et al. 2025 restate the same restriction). A numerator
+built from a visit-model covariate that is {it:not} in the outcome model is
+outside that result, and {cmd:iivw_weight} cannot detect it, because the outcome
+model is not specified until {helpb iivw_fit}. Choose {opt stabcov()} as a
+subset of the covariates you will pass to {cmd:iivw_fit}.
 
 {pmore}
 {bf:Recommendation.} Stabilization leaves the target estimand unchanged but
@@ -295,9 +302,17 @@ strictly between 0 and 100.
 
 {pmore}
 Truncation does not drop observations; it caps the influence of extreme
-weights. A common starting point is {cmd:truncate(1 99)}. If you still
-see extreme weights after truncation, check whether the visit model is
-well-specified or whether certain subjects have unusual visit patterns.
+weights. For FIPTIW weights, Tompkins et al. (2025) recommend trimming at the
+95th percentile ({cmd:truncate(5 95)}) when extreme weights are present, and
+report two findings worth knowing before you reach for this option: trimming
+reduces bias when the extreme weights arise from the {it:treatment} model
+(near-violations of positivity), but it does {bf:not} improve estimation when
+they arise from the {it:visit} model -- there, an extreme weight is a signal to
+respecify the visit model, not to cap it. Whether the IIW and IPTW components
+are trimmed before or after multiplication makes a negligible difference.
+{cmd:iivw_weight} truncates the final weight. If you still see extreme weights
+after truncation, check whether the visit model is well-specified or whether
+certain subjects have unusual visit patterns.
 
 {phang}
 {opt generate(name)} specifies a prefix for generated weight variables. Default is
@@ -339,9 +354,15 @@ under-represented).
 
 {pstd}
 Formally, the IIW weight for each observation is exp(-xb), where xb is the
-linear predictor from the Cox model. First observations per subject always
-receive weight 1 because there is no prior inter-visit interval from which
-to estimate intensity.
+linear predictor from the Cox model. The first observation per subject is
+assigned a raw weight of 1, because there is no prior inter-visit interval from
+which to estimate an intensity; the baseline visit is a recruitment visit,
+observed with probability 1. (This is the convention used by the reference R
+implementation, {cmd:IrregLong}, under its {cmd:first=TRUE} argument.) Note that
+the raw weights are then rescaled to mean 1, so the {it:reported} first-visit
+weight is 1/mean(exp(-xb)), not 1 -- see {it:Mean-1 normalization} below. It is
+the same for every subject and carries no covariate information, which is what
+the convention is for.
 
 {pstd}
 {bf:IPTW (inverse probability of treatment weighting)}
@@ -358,7 +379,10 @@ IPTW weights are always stabilized using the marginal treatment prevalence as
 the numerator: P(treatment)/P(treatment | covariates) for treated subjects and
 (1-P(treatment))/(1-P(treatment | covariates)) for untreated
 subjects. Stabilization reduces weight variability without changing the
-estimand.
+estimand. This is the stabilized weight of Robins, Hernan & Brumback (2000);
+note that the FIPTIW papers below write the treatment weight in its
+{it:unstabilized} form (1/e and 1/(1-e)), so the weight {cmd:iivw_weight} reports
+is proportional to theirs within each treatment arm, not identical to it.
 
 {pstd}
 The propensity model is fit on a cross-sectional dataset (one row per subject)
@@ -767,6 +791,17 @@ Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with
 irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 {it:Society: Series B (Statistical Methodology)}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
+
+{phang}
+Coulombe J, Moodie EEM, Platt RW. 2021. Weighted regression analysis to correct
+for informative monitoring times and confounders in longitudinal
+studies. {it:Biometrics}
+77(1): 162-174. doi:10.1111/biom.13285.
+
+{phang}
+Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal
+inference in epidemiology. {it:Epidemiology}
+11(5): 550-560. doi:10.1097/00001648-200009000-00011.
 
 {phang}
 Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of

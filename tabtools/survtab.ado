@@ -61,6 +61,7 @@ capture noisily {
 **# Syntax and Validation
     syntax, times(numlist >0) [by(varname) RMST(real -1) MEDian RISKset ///
         TIMEUnit(string) REVerse DIFFerence EVents ///
+        Level(cilevel) ///
         xlsx(string) excel(string) sheet(string) title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
@@ -150,8 +151,8 @@ capture noisily {
         }
     }
 
-    * Auto-enable median when by() is specified
-    if "`by'" != "" & "`median'" == "" local median "median"
+    local _ci_alpha = (100 - `level') / 200
+    local _ci_z = invnormal(1 - `_ci_alpha')
 
     * Validate boldp
     local has_boldp = `boldp' != -1
@@ -324,7 +325,7 @@ capture noisily {
     if "`median'" != "" {
         forvalues g = 1/`n_groups' {
             local _glv : word `g' of `group_levels'
-            capture qui stci if `groupvar' == `_glv'
+            capture qui stci if `groupvar' == `_glv', level(`level')
             if !_rc {
                 local med_g`g' = r(p50)
                 local med_lo_g`g' = r(lb)
@@ -433,8 +434,8 @@ capture noisily {
                 }
             }
             local rmst_se_g`g' = sqrt(`_rmst_var')
-            local rmst_lb_g`g' = `rmst_g`g'' - invnormal(0.975) * `rmst_se_g`g''
-            local rmst_ub_g`g' = `rmst_g`g'' + invnormal(0.975) * `rmst_se_g`g''
+            local rmst_lb_g`g' = `rmst_g`g'' - `_ci_z' * `rmst_se_g`g''
+            local rmst_ub_g`g' = `rmst_g`g'' + `_ci_z' * `rmst_se_g`g''
 
             restore
         }
@@ -445,12 +446,12 @@ capture noisily {
             local rmst_diff_ub = .
             local rmst_diff_p  = .
             * Between-group RMST difference: independent-group variance
-            * (groups are disjoint), Wald 95% CI and two-sided p-value.
+            * (groups are disjoint), Wald CI and two-sided p-value.
             if !missing(`rmst_se_g1') & !missing(`rmst_se_g2') {
                 local rmst_diff_se = sqrt(`rmst_se_g1'^2 + `rmst_se_g2'^2)
                 if `rmst_diff_se' > 0 & !missing(`rmst_diff_se') {
-                    local rmst_diff_lb = `rmst_diff' - invnormal(0.975) * `rmst_diff_se'
-                    local rmst_diff_ub = `rmst_diff' + invnormal(0.975) * `rmst_diff_se'
+                    local rmst_diff_lb = `rmst_diff' - `_ci_z' * `rmst_diff_se'
+                    local rmst_diff_ub = `rmst_diff' + `_ci_z' * `rmst_diff_se'
                     local rmst_diff_p  = 2 * normal(-abs(`rmst_diff' / `rmst_diff_se'))
                 }
             }
@@ -507,7 +508,7 @@ capture noisily {
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`med_g`g'') {
-                qui replace c`col' = string(`med_g`g'', "%5.`digits'f") in `row'
+                qui replace c`col' = strtrim(string(`med_g`g'', "%21.`digits'f")) in `row'
             }
             else {
                 qui replace c`col' = "NR" in `row'
@@ -517,18 +518,18 @@ capture noisily {
         if "`difference'" != "" & `n_groups' == 2 {
             if !missing(`med_g1') & !missing(`med_g2') {
                 local _md = `med_g1' - `med_g2'
-                qui replace c`_diff_col' = string(`_md', "%5.`digits'f") in `row'
+                qui replace c`_diff_col' = strtrim(string(`_md', "%21.`digits'f")) in `row'
             }
         }
 
         * CI row for median
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "  (95% CI)" in `row'
+        qui replace c1 = "  (`level'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`med_lo_g`g'') & !missing(`med_hi_g`g'') {
-                qui replace c`col' = "(" + string(`med_lo_g`g'', "%5.`digits'f") + ", " + string(`med_hi_g`g'', "%5.`digits'f") + ")" in `row'
+                qui replace c`col' = "(" + strtrim(string(`med_lo_g`g'', "%21.`digits'f")) + ", " + strtrim(string(`med_hi_g`g'', "%21.`digits'f")) + ")" in `row'
             }
         }
     }
@@ -568,7 +569,7 @@ capture noisily {
             local _s = `surv_g`g'_t`t''
             if !missing(`_s') {
                 if "`reverse'" != "" local _s = 1 - `_s'
-                qui replace c`col' = string(`_s' * 100, "%5.`digits'f") + "%" in `row'
+                qui replace c`col' = strtrim(string(`_s' * 100, "%21.`digits'f")) + "%" in `row'
             }
         }
 
@@ -589,12 +590,12 @@ capture noisily {
                 * SE of difference (independent groups)
                 if !missing(`_se1') & !missing(`_se2') {
                     local _se_d = sqrt(`_se1'^2 + `_se2'^2) * 100
-                    local _lo = `_d_pct' - invnormal(0.975) * `_se_d'
-                    local _hi = `_d_pct' + invnormal(0.975) * `_se_d'
-                    qui replace c`_diff_col' = string(`_d_pct', "%5.`digits'f") + " (" + string(`_lo', "%5.`digits'f") + ", " + string(`_hi', "%5.`digits'f") + ")" in `row'
+                    local _lo = `_d_pct' - `_ci_z' * `_se_d'
+                    local _hi = `_d_pct' + `_ci_z' * `_se_d'
+                    qui replace c`_diff_col' = strtrim(string(`_d_pct', "%21.`digits'f")) + " (" + strtrim(string(`_lo', "%21.`digits'f")) + ", " + strtrim(string(`_hi', "%21.`digits'f")) + ")" in `row'
                 }
                 else {
-                    qui replace c`_diff_col' = string(`_d_pct', "%5.`digits'f") in `row'
+                    qui replace c`_diff_col' = strtrim(string(`_d_pct', "%21.`digits'f")) in `row'
                 }
             }
         }
@@ -605,28 +606,28 @@ capture noisily {
         local row = `row' + 1
         qui set obs `row'
         local _rmst_str = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (95% CI)" in `row'
+        qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (`level'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`rmst_g`g'') {
                 if !missing(`rmst_lb_g`g'') & !missing(`rmst_ub_g`g'') {
-                    qui replace c`col' = string(`rmst_g`g'', "%5.`=`digits'+1'f") + ///
-                        " (" + string(`rmst_lb_g`g'', "%5.`=`digits'+1'f") + ///
-                        ", " + string(`rmst_ub_g`g'', "%5.`=`digits'+1'f") + ")" in `row'
+                    qui replace c`col' = strtrim(string(`rmst_g`g'', "%21.`=`digits'+1'f")) + ///
+                        " (" + strtrim(string(`rmst_lb_g`g'', "%21.`=`digits'+1'f")) + ///
+                        ", " + strtrim(string(`rmst_ub_g`g'', "%21.`=`digits'+1'f")) + ")" in `row'
                 }
                 else {
-                    qui replace c`col' = string(`rmst_g`g'', "%5.`=`digits'+1'f") in `row'
+                    qui replace c`col' = strtrim(string(`rmst_g`g'', "%21.`=`digits'+1'f")) in `row'
                 }
             }
         }
         if "`difference'" != "" & `n_groups' == 2 & !missing(`rmst_diff') {
             if !missing(`rmst_diff_lb') & !missing(`rmst_diff_ub') {
-                qui replace c`_diff_col' = string(`rmst_diff', "%5.`=`digits'+1'f") + ///
-                    " (" + string(`rmst_diff_lb', "%5.`=`digits'+1'f") + ///
-                    ", " + string(`rmst_diff_ub', "%5.`=`digits'+1'f") + ")" in `row'
+                qui replace c`_diff_col' = strtrim(string(`rmst_diff', "%21.`=`digits'+1'f")) + ///
+                    " (" + strtrim(string(`rmst_diff_lb', "%21.`=`digits'+1'f")) + ///
+                    ", " + strtrim(string(`rmst_diff_ub', "%21.`=`digits'+1'f")) + ")" in `row'
             }
             else {
-                qui replace c`_diff_col' = string(`rmst_diff', "%5.`=`digits'+1'f") in `row'
+                qui replace c`_diff_col' = strtrim(string(`rmst_diff', "%21.`=`digits'+1'f")) in `row'
             }
         }
     }
@@ -792,6 +793,8 @@ capture noisily {
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
+        frame `frame': char _dta[tabtools_ci_level] "`level'"
+        frame `frame': char _dta[tabtools_source] "survtab"
     }
 
 **# Return Results
@@ -840,13 +843,13 @@ capture noisily {
         local _methods "`_methods' Groups were compared using the log-rank test."
     }
     if "`median'" != "" {
-        local _methods "`_methods' Median survival time with 95% confidence intervals is reported."
+        local _methods "`_methods' Median survival time with `level'% confidence intervals is reported."
     }
     if `has_rmst' {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with 95% confidence intervals based on the Greenwood variance formula."
+        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `level'% confidence intervals based on the Greenwood variance formula."
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
-            local _methods "`_methods' The between-group RMST difference is reported with a 95% confidence interval and two-sided Wald p-value based on the independent-group variance."
+            local _methods "`_methods' The between-group RMST difference is reported with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
@@ -974,6 +977,7 @@ capture noisily {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
+    return scalar ci_level = `level'
     if "`csv'" != "" {
         return local csv "`csv'"
     }

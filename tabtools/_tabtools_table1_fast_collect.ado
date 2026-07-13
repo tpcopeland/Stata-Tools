@@ -53,6 +53,7 @@ program define _tabtools_table1_fast_collect, rclass
                 display as error "wt() variable must be non-negative"
                 exit 498
             }
+            quietly replace `touse' = 0 if `touse' & `wt' <= 0
         }
 
         quietly count if `touse'
@@ -110,7 +111,18 @@ program define _tabtools_table1_fast_collect, rclass
             exit 198
         }
         local fwvar ""
-        if `has_fw' local fwvar = substr("`exp'", 2, .)
+        if `has_fw' {
+            local fwexpr = substr("`exp'", 2, .)
+            tempvar _fw_materialized
+            quietly generate double `_fw_materialized' = `fwexpr' if `touse'
+            capture quietly summarize `by' [fw=`_fw_materialized'] if `touse'
+            if _rc {
+                local _fw_rc = _rc
+                exit `_fw_rc'
+            }
+            markout `touse' `_fw_materialized'
+            local fwvar "`_fw_materialized'"
+        }
         local include_missing = "`missing'" == "missing"
         local suppress_p = `has_wt' | "`nopvalue'" == "nopvalue"
 
@@ -171,7 +183,7 @@ program define _tabtools_table1_fast_collect, rclass
                 confirm variable `varname'
 
                 if "`vartype'" == "" | "`vartype'" == "auto" {
-                    _tabtools_detect_vartype `varname'
+                    _tabtools_detect_vartype `varname' if `touse'
                     local vartype "`result'"
                 }
                 if !inlist("`vartype'", "contn", "contln", "conts", "cat", "cate", "bin", "bine") {
@@ -1069,7 +1081,7 @@ void _t1tcfc_collect_mata(
         xcol = X[, j]
         if (types[j] == "conts") {
             for (g = 1; g <= ngout; g++) {
-                mask = (gid :< .) :& (xcol :< .)
+                mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
                 if (g <= ng) mask = mask :& (gid :== g)
                 if (sum(mask) > 0) {
                     xvals = select(xcol, mask)
@@ -1084,7 +1096,7 @@ void _t1tcfc_collect_mata(
         }
 
         for (g = 1; g <= ngout; g++) {
-            mask = (gid :< .) :& (xcol :< .)
+            mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
             if (types[j] == "contln") mask = mask :& (xcol :> 0)
             if (g <= ng) mask = mask :& (gid :== g)
             nobsg = sum(mask)
@@ -1129,13 +1141,13 @@ void _t1tcfc_collect_mata(
         }
         else {
             xcol = X[, j]
-            mask = (gid :< .) :& (xcol :< .)
+            mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
             if (sum(mask) > 0) rawlevels = select(X[, j], mask)
             else rawlevels = J(0, 1, .)
             if (rows(rawlevels) > 0) levels = uniqrows(sort(rawlevels, 1))
             else levels = J(0, 1, .)
             if (include_missing) {
-                mask = (gid :< .) :& (xcol :>= .)
+                mask = (gid :< .) :& (xcol :>= .) :& (stat_source :> 0)
                 if (sum(mask) > 0) levels = levels \ .
             }
         }
@@ -1148,13 +1160,13 @@ void _t1tcfc_collect_mata(
         group_w = J(1, ngout, 0)
 
         if (types[j] == "bin" | types[j] == "bine") {
-            base_mask = (gid :< .) :& (xcol :< .)
+            base_mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
         }
         else if (include_missing) {
-            base_mask = (gid :< .)
+            base_mask = (gid :< .) :& (stat_source :> 0)
         }
         else {
-            base_mask = (gid :< .) :& (xcol :< .)
+            base_mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
         }
 
         for (g = 1; g <= ngout; g++) {

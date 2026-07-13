@@ -22,6 +22,9 @@ PROGRAMS INCLUDED:
     _tabtools_resolve_colors    - Resolve header/zebra colors from options and globals
     _tabtools_classify_stat      - Classify collect table statistics for formatting
     _tabtools_resolve_stat_format - Resolve per-statistic display formats
+    _tabtools_collect_ci_level  - Read the CI level stored in an active collection
+    _tabtools_strip_outer_quotes - Remove one balanced outer quote layer
+    _tabtools_format_p          - Apply the package p-value display policy
     _tabtools_frame_put         - Store output in a named frame with optional replace
     _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
     _tabtools_require_helpers   - Exit with package reinstall message if helpers are incomplete
@@ -204,22 +207,25 @@ end
 * Logic:
 *   1. String variable -> cat
 *   2. Has value labels -> cat
-*   3. Numeric, exactly 2 unique non-missing values -> bin
+*   3. Numeric, exactly the values 0 and 1 -> bin
 *   4. Numeric, <= 7 unique non-missing values -> cat
 *   5. Numeric, > 7 unique values -> Shapiro-Wilk normality test:
 *      - p >= 0.05 -> contn (normally distributed)
 *      - p < 0.05  -> conts (skewed)
 *
-* Usage: _tabtools_detect_vartype myvar
+* Usage: _tabtools_detect_vartype myvar [if] [in]
 *        local type "`result'"
 
 capture program drop _tabtools_detect_vartype
 program _tabtools_detect_vartype
     version 16.0
-    args varname
+    syntax varlist(min=1 max=1) [if] [in]
+    local varname "`varlist'"
+
+    marksample touse, novarlist
 
     tempvar _uniqtag
-    quietly egen byte `_uniqtag' = tag(`varname') if !missing(`varname')
+    quietly egen byte `_uniqtag' = tag(`varname') if `touse' & !missing(`varname')
     quietly count if `_uniqtag'
     local _nuniq = r(N)
 
@@ -238,9 +244,12 @@ program _tabtools_detect_vartype
         exit
     }
 
-    * Exactly 2 unique values -> bin (regardless of value labels)
+    * Only literal 0/1 coding is binary. Other two-level codings remain
+    * categorical so the collector does not later reject its own auto choice.
     if `_nuniq' == 2 {
-        c_local result "bin"
+        quietly summarize `varname' if `touse', meanonly
+        if r(min) == 0 & r(max) == 1 c_local result "bin"
+        else c_local result "cat"
         c_local result_nuniq "`_nuniq'"
         exit
     }
@@ -261,7 +270,7 @@ program _tabtools_detect_vartype
     }
 
     * > 7 unique values: test normality
-    quietly count if !missing(`varname')
+    quietly count if `touse' & !missing(`varname')
     local _nobs = r(N)
 
     if `_nobs' < 4 {
@@ -274,7 +283,7 @@ program _tabtools_detect_vartype
     * For large N (>5000), use skewness/kurtosis heuristic instead of Shapiro-Wilk
     * Shapiro-Wilk rejects normality for essentially all large samples
     if `_nobs' > 5000 {
-        quietly summarize `varname', detail
+        quietly summarize `varname' if `touse', detail
         local _skew = abs(r(skewness))
         local _kurt = r(kurtosis)
         if `_skew' > 1 | abs(`_kurt' - 3) > 2 {
@@ -294,14 +303,15 @@ program _tabtools_detect_vartype
     if `_nobs' > 2000 {
         local _rng_state = c(rngstate)
         set seed 12345
-        quietly gen `_sw_use' = runiform() if !missing(`varname')
+        quietly keep if `touse' & !missing(`varname')
+        quietly gen `_sw_use' = runiform()
         set rngstate `_rng_state'
         quietly gen `_sw_tie' = _n
         quietly sort `_sw_use' `_sw_tie'
         capture quietly swilk `varname' in 1/2000
     }
     else {
-        capture quietly swilk `varname'
+        capture quietly swilk `varname' if `touse'
     }
     local _sw_rc = _rc
     local _sw_p = .
@@ -604,16 +614,94 @@ program _tabtools_resolve_stat_format, rclass
         local fmt "`nintegerfmt'"
     }
     else if "`class'" == "percent" {
-        local fmt "%5.`pctdigits'f"
+        local fmt "%21.`pctdigits'f"
     }
     else if "`class'" == "proportion" {
-        local fmt "%4.3f"
+        local fmt "%21.3f"
     }
     else {
-        local fmt "%5.`digits'f"
+        local fmt "%21.`digits'f"
     }
     return local class "`class'"
     return local fmt "`fmt'"
+end
+
+* =============================================================================
+* _tabtools_collect_ci_level: Read CI provenance from collect's saved JSON
+* =============================================================================
+
+capture program drop _tabtools_collect_ci_level
+program _tabtools_collect_ci_level, rclass
+    version 17.0
+    tempfile _collect_level
+    local _json "`_collect_level'.stjson"
+    tempname _fh
+    local _fh_open = 0
+    local _level = .
+
+    capture noisily {
+        quietly collect save "`_json'", replace
+        file open `_fh' using "`_json'", read text
+        local _fh_open = 1
+        file read `_fh' _line
+        while r(eof) == 0 {
+            local _needle `""ci-level""'
+            local _pos = strpos(`"`_line'"', `"`_needle'"')
+            if `_pos' > 0 {
+                local _colon = strpos(substr(`"`_line'"', `_pos', .), ":")
+                if `_colon' > 0 {
+                    local _tail = substr(`"`_line'"', `_pos' + `_colon', .)
+                    local _tail : subinstr local _tail "," "", all
+                    local _tail : subinstr local _tail "}" "", all
+                    local _level = real(strtrim(`"`_tail'"'))
+                }
+            }
+            file read `_fh' _line
+        }
+        file close `_fh'
+        local _fh_open = 0
+        if missing(`_level') | `_level' <= 0 | `_level' >= 100 {
+            noisily display as error "the active collection does not contain usable confidence-level provenance"
+            exit 459
+        }
+        return scalar level = `_level'
+    }
+    local rc = _rc
+    if `_fh_open' capture file close `_fh'
+    capture erase "`_json'"
+    if `rc' exit `rc'
+end
+
+* =============================================================================
+* _tabtools_strip_outer_quotes: Remove one balanced outer quoting layer only
+* =============================================================================
+
+capture program drop _tabtools_strip_outer_quotes
+program _tabtools_strip_outer_quotes, rclass
+    version 16.0
+    syntax , TEXT(string asis)
+    mata: st_local("_out", _tt_strip_outer_quotes(st_local("text")))
+    return local text `"`_out'"'
+end
+
+* =============================================================================
+* _tabtools_format_p: Shared p-value rendering without downward truncation
+* =============================================================================
+
+capture program drop _tabtools_format_p
+program _tabtools_format_p, rclass
+    version 16.0
+    syntax , PVALUE(real) [PDP(integer 3) HIGHPDP(integer 2)]
+    if `pdp' < 1 | `highpdp' < 1 exit 198
+    local _out ""
+    if !missing(`pvalue') {
+        if `pvalue' < 10^(-`pdp') local _out "<`=string(10^(-`pdp'), "%21.`pdp'f")'"
+        else if `pvalue' < 1 & `pvalue' > 1 - 10^(-`highpdp') {
+            local _out ">`=string(1 - 10^(-`highpdp'), "%21.`highpdp'f")'"
+        }
+        else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
+    }
+    return local value `"`_out'"'
 end
 
 * =============================================================================
@@ -688,7 +776,7 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_console_display _tabtools_frame_put _tabtools_require_helpers"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_require_helpers"
     }
 
     foreach _prog of local required {
@@ -772,6 +860,33 @@ program _tabtools_frame_put
     frame put *, into(`_fr_name')
 
     c_local _frame_name "`_fr_name'"
+end
+
+version 16.0
+capture mata: mata drop _tt_strip_outer_quotes()
+mata:
+mata set matastrict on
+
+string scalar _tt_strip_outer_quotes(string scalar x)
+{
+    real scalar n
+    string scalar compound_open, compound_close
+
+    compound_open = char(96) + char(34)
+    compound_close = char(34) + char(39)
+    n = strlen(x)
+    if (n >= 4 & substr(x, 1, 2) == compound_open &
+        substr(x, n - 1, 2) == compound_close) {
+        x = substr(x, 3, n - 4)
+        n = strlen(x)
+    }
+    if (n >= 2 & substr(x, 1, 1) == char(34) &
+        substr(x, n, 1) == char(34)) {
+        x = substr(x, 2, n - 2)
+    }
+    return(x)
+}
+
 end
 
 * End of file

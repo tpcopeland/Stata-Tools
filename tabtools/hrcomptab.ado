@@ -42,7 +42,7 @@ program define hrcomptab, rclass
             [rows(string asis) ROWNames(string asis) ///
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) ///
-            EFFect(string) REFLabel(string) ///
+	            EFFect(string) REFLabel(string) OUTCOMEMap(string asis) ///
             BORDERstyle(string) THEme(string) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
@@ -223,13 +223,13 @@ program define hrcomptab, rclass
         }
 
         * Validate model frames
-        local n_frames : word count `modelframes'
+	        local n_frames : word count `modelframes'
         if `n_frames' == 0 {
             display as error "modelframes() requires at least one frame"
             exit 198
         }
 
-        forvalues _f = 1/`n_frames' {
+	        forvalues _f = 1/`n_frames' {
             local _fname : word `_f' of `modelframes'
             capture frame `_fname': quietly count
             if _rc {
@@ -242,8 +242,120 @@ program define hrcomptab, rclass
                 display as error "Model frame '`_fname'' is missing variable A"
                 display as error "Hint: source frames must come from regtab"
                 exit 111
-            }
-        }
+	            }
+	        }
+
+	        * Resolve the complete frame-name graph before any frame can be
+	        * cleared, dropped, or rebuilt.
+	        local _displayframe_name ""
+	        local _displayframe_replace 0
+	        if `"`frame'"' != "" {
+	            local _fr_spec = subinstr(strtrim(`"`frame'"'), `""""', "", .)
+	            gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
+	            local _displayframe_name = strtrim(`"`_displayframe_name'"')
+	            local _fr_rest : subinstr local _fr_rest "," "", all
+	            local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
+	            capture confirm name `_displayframe_name'
+	            if _rc {
+	                display as error "frame() must start with a valid Stata frame name"
+	                exit 198
+	            }
+	            if `"`_fr_rest'"' != "" {
+	                if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+	                else {
+	                    display as error "frame() only allows the replace suboption"
+	                    exit 198
+	                }
+	            }
+	        }
+	        if `"`_displayframe_name'"' != "" & `"`_eplotframe_name'"' != "" & ///
+	            lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+	            display as error "frame() and eplotframe() must name different frames"
+	            exit 198
+	        }
+	        foreach _dest in _displayframe_name _eplotframe_name {
+	            if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+	                display as error "output frames cannot replace the current frame"
+	                exit 198
+	            }
+	        }
+	        local _rateframe_original `"`rateframe'"'
+	        local _modelframes_original `"`modelframes'"'
+	        foreach _dest in _displayframe_name _eplotframe_name {
+	            if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_rateframe_original'"') {
+	                display as error "output frame ``_dest'' aliases rate source frame `_rateframe_original'"
+	                exit 198
+	            }
+	        }
+	        forvalues _f = 1/`n_frames' {
+	            local _source_original_`_f' : word `_f' of `_modelframes_original'
+	            if `_f' > 1 {
+	                forvalues _j = 1/`=`_f'-1' {
+	                    if lower(`"`_source_original_`_f''"') == lower(`"`_source_original_`_j''"') {
+	                        display as error "modelframes() contains a duplicate source frame"
+	                        exit 198
+	                    }
+	                }
+	            }
+	            foreach _dest in _displayframe_name _eplotframe_name {
+	                if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_source_original_`_f''"') {
+	                    display as error "output frame ``_dest'' aliases model source frame `_source_original_`_f''"
+	                    exit 198
+	                }
+	            }
+	            local _source_ep_original_`_f' ""
+	            capture frame `_source_original_`_f'': local _source_ep_original_`_f' : char _dta[tabtools_eplotframe]
+	            if _rc local _source_ep_original_`_f' ""
+	            if `"`_eplotframe_name'"' != "" & `"`_source_ep_original_`_f''"' == "" {
+	                display as error "eplotframe()/forest requires every model source to have a numeric companion frame"
+	                exit 459
+	            }
+	            if `"`_source_ep_original_`_f''"' != "" {
+	                foreach _dest in _displayframe_name _eplotframe_name {
+	                    if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_source_ep_original_`_f''"') {
+	                        display as error "output frame ``_dest'' aliases model companion frame `_source_ep_original_`_f''"
+	                        exit 198
+	                    }
+	                }
+	            }
+	        }
+	        if `"`_displayframe_name'"' != "" {
+	            capture confirm frame `_displayframe_name'
+	            if !_rc & !`_displayframe_replace' {
+	                display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
+	                exit 110
+	            }
+	        }
+	        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+	            capture confirm frame `_eplotframe_name'
+	            if !_rc & !`_eplotframe_replace' {
+	                display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+	                exit 110
+	            }
+	        }
+
+	        * Snapshot every analytical source and every numeric companion before
+	        * touching the current frame. All subsequent reads use only snapshots.
+	        tempname _rate_snapshot
+	        frame copy `_rateframe_original' `_rate_snapshot'
+	        local rateframe "`_rate_snapshot'"
+	        local modelframes ""
+	        forvalues _f = 1/`n_frames' {
+	            tempname _model_snapshot_`_f'
+	            frame copy `_source_original_`_f'' `_model_snapshot_`_f''
+	            if `"`_source_ep_original_`_f''"' != "" {
+	                capture confirm frame `_source_ep_original_`_f''
+	                if _rc {
+	                    display as error "model companion frame `_source_ep_original_`_f'' not found"
+	                    exit 111
+	                }
+	                tempname _ep_snapshot_`_f'
+	                frame copy `_source_ep_original_`_f'' `_ep_snapshot_`_f''
+	                frame `_model_snapshot_`_f'': char _dta[tabtools_eplotframe] "`_ep_snapshot_`_f''"
+	            }
+	            local modelframes `"`modelframes' `_model_snapshot_`_f''"'
+	        }
+	        local modelframes : list clean modelframes
 
         local _fname1 : word 1 of `modelframes'
         frame `_fname1' {
@@ -306,7 +418,7 @@ program define hrcomptab, rclass
             exit 198
         }
 
-        forvalues _f = 2/`n_frames' {
+	        forvalues _f = 2/`n_frames' {
             local _fname : word `_f' of `modelframes'
             frame `_fname' {
                 quietly ds c*
@@ -368,10 +480,152 @@ program define hrcomptab, rclass
             if `n_models_f' != `outcomes' {
                 display as error "Model frame '`_fname'' contributes `n_models_f' model(s), but rate frame requires `outcomes' outcome(s)"
                 exit 198
-            }
-        }
+	            }
+	        }
 
-        * Parse rows() or rownames() for model frames
+	        * Validate rate provenance and establish stable outcome identities.
+	        frame `rateframe': local _rate_source : char _dta[tabtools_source]
+	        frame `rateframe': local _rate_ci_char : char _dta[tabtools_ci_level]
+	        frame `rateframe': local _rate_n_outcomes : char _dta[tabtools_n_outcomes]
+	        frame `rateframe': local _rate_stat_ids : char _dta[tabtools_statistic_ids]
+	        if lower(strtrim(`"`_rate_source'"')) != "stratetab" | ///
+	            real(`"`_rate_n_outcomes'"') != `outcomes' | ///
+	            `"`_rate_stat_ids'"' != "events person_years rate_ci" {
+	            display as error "rate frame lacks required stratetab outcome/statistic provenance"
+	            exit 459
+	        }
+	        local _ci_level = real(`"`_rate_ci_char'"')
+	        if missing(`_ci_level') | `_ci_level' <= 0 | `_ci_level' >= 100 {
+	            display as error "rate frame has unknown confidence-level provenance"
+	            exit 459
+	        }
+	        local _ci_level_label : display %9.0g `_ci_level'
+	        local _ci_level_label = strtrim("`_ci_level_label'")
+	        forvalues _o = 1/`outcomes' {
+	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
+	            local _rate_header_col = 2 + (`_o' - 1) * 3
+	            frame `rateframe': local _rate_display_label_`_o' = c`_rate_header_col'[2]
+	            local _rate_outcome_id_`_o' = lower(strtrim(`"`_rate_outcome_id_`_o''"'))
+	            if `"`_rate_outcome_id_`_o''"' == "" {
+	                display as error "rate frame contains a blank outcome identity"
+	                exit 459
+	            }
+	            if `_o' > 1 {
+	                forvalues _j = 1/`=`_o'-1' {
+	                    if `"`_rate_outcome_id_`_o''"' == `"`_rate_outcome_id_`_j''"' {
+	                        display as error "rate frame contains duplicate outcome identities"
+	                        exit 198
+	                    }
+	                }
+	            }
+	        }
+
+	        * outcomeMap() explicitly names, in rate-outcome order, a model ID,
+	        * model outcome ID, or persisted model label. Without it, matching is
+	        * allowed only by the analytical outcome ID.
+	        local _explicit_outcome_map = (`"`outcomemap'"' != "")
+	        if `_explicit_outcome_map' {
+	            local outcomemap : subinstr local outcomemap " \ " "\", all
+	            local outcomemap : subinstr local outcomemap "\  " "\", all
+	            local outcomemap : subinstr local outcomemap "  \" "\", all
+	            tokenize `"`outcomemap'"', parse("\")
+	            local _map_n = 0
+	            forvalues _i = 1/100 {
+	                local _j = (`_i' - 1) * 2 + 1
+	                if `"``_j''"' == "" continue, break
+	                local ++_map_n
+	                local _map_key_`_map_n' = lower(strtrim(`"``_j''"'))
+	            }
+	            if `_map_n' != `outcomes' {
+	                display as error "outcomemap() requires `outcomes' identities separated by \"
+	                exit 198
+	            }
+	        }
+	        else {
+	            forvalues _o = 1/`outcomes' {
+	                local _map_key_`_o' `"`_rate_outcome_id_`_o''"'
+	            }
+	        }
+
+	        local _effect_norm = lower(strtrim(`"`effect'"'))
+	        foreach _punct in " " "-" "_" "." "/" {
+	            local _effect_norm : subinstr local _effect_norm `"`_punct'"' "", all
+	        }
+	        if !inlist(`"`_effect_norm'"', "hr", "ahr", "hazardratio", "adjustedhazardratio") {
+	            display as error "effect() must truthfully describe a hazard-ratio scale"
+	            exit 198
+	        }
+
+	        local _expected_model_stats = cond("`model_mode'" == "standard", ///
+	            "estimate ci pvalue", "estimate_ci pvalue")
+	        forvalues _f = 1/`n_frames' {
+	            local _fname : word `_f' of `modelframes'
+	            frame `_fname': local _meta_n : char _dta[tabtools_n_models]
+	            frame `_fname': local _meta_ci : char _dta[tabtools_ci_level]
+	            frame `_fname': local _meta_stats : char _dta[tabtools_statistic_ids]
+	            if real(`"`_meta_n'"') != `n_models' | `"`_meta_stats'"' != `"`_expected_model_stats'"' {
+	                display as error "model frame lacks required model/statistic provenance"
+	                exit 459
+	            }
+	            if missing(real(`"`_meta_ci'"')) | abs(real(`"`_meta_ci'"') - `_ci_level') > 1e-8 {
+	                display as error "rate and model frames contain mixed or unknown confidence levels"
+	                exit 198
+	            }
+	            forvalues _m = 1/`n_models' {
+	                frame `_fname': local _mid_`_m' : char _dta[tabtools_model_id_`_m']
+	                frame `_fname': local _oid_`_m' : char _dta[tabtools_outcome_id_`_m']
+	                frame `_fname': local _mlabel_`_m' : char _dta[tabtools_model_label_`_m']
+	                frame `_fname': local _scale_`_m' : char _dta[tabtools_effect_scale_`_m']
+	                local _mid_`_m' = lower(strtrim(`"`_mid_`_m''"'))
+	                local _oid_`_m' = lower(strtrim(`"`_oid_`_m''"'))
+	                local _mlabel_`_m' = lower(strtrim(`"`_mlabel_`_m''"'))
+	                local _scale_norm = lower(strtrim(`"`_scale_`_m''"'))
+	                foreach _punct in " " "-" "_" "." "/" {
+	                    local _scale_norm : subinstr local _scale_norm `"`_punct'"' "", all
+	                }
+	                if !inlist(`"`_scale_norm'"', "hr", "ahr", "hazardratio", "adjustedhazardratio") {
+	                    display as error "model frame contains a non-hazard-ratio effect scale"
+	                    exit 198
+	                }
+	            }
+
+	            local _used_model_indices ""
+	            forvalues _o = 1/`outcomes' {
+	                local _key `"`_map_key_`_o''"'
+	                local _matched_index = 0
+	                local _matched_count = 0
+	                forvalues _m = 1/`n_models' {
+	                    local _matches = 0
+	                    if `_explicit_outcome_map' {
+	                        if `"`_key'"' == `"`_mid_`_m''"' | ///
+	                            `"`_key'"' == `"`_oid_`_m''"' | ///
+	                            `"`_key'"' == `"`_mlabel_`_m''"' local _matches = 1
+	                    }
+	                    else if `"`_key'"' == `"`_oid_`_m''"' local _matches = 1
+	                    if `_matches' {
+	                        local ++_matched_count
+	                        local _matched_index = `_m'
+	                    }
+	                }
+	                if `_matched_count' != 1 {
+	                    if `_explicit_outcome_map' display as error `"outcomemap identity "`_key'" matched `_matched_count' model blocks"'
+	                    else display as error `"rate outcome "`_key'" could not be matched uniquely; specify outcomemap()"'
+	                    exit 198
+	                }
+	                if strpos(" `_used_model_indices' ", " `_matched_index' ") {
+	                    display as error "outcomemap() maps more than one rate outcome to the same model block"
+	                    exit 198
+	                }
+	                local _used_model_indices "`_used_model_indices' `_matched_index'"
+	                local _model_map_`_f'_`_o' = `_matched_index'
+	                if `_f' == 1 {
+	                    local _output_model_id_`_o' `"`_mid_`_matched_index''"'
+	                    local _output_model_label_`_o' `"`_mlabel_`_matched_index''"'
+	                }
+	            }
+	        }
+
+	        * Parse rows() or rownames() for model frames
         if `_use_rownames' {
             local rownames : subinstr local rownames " \ " "\", all
             local rownames : subinstr local rownames "\  " "\", all
@@ -485,10 +739,12 @@ program define hrcomptab, rclass
             local _fname : word `_f' of `modelframes'
             local _spec_rows `"`expanded`_f''"'
             foreach _rr of local _spec_rows {
-                local ++_selected_total
-                local ++_map_i
-                local _map_frame`_map_i' "`_fname'"
-                local _map_row`_map_i' = `_rr' + 3
+	                local ++_selected_total
+	                local ++_map_i
+	                local _map_frame`_map_i' "`_fname'"
+	                local _map_f`_map_i' = `_f'
+	                local _map_source`_map_i' "`_source_original_`_f''"
+	                local _map_row`_map_i' = `_rr' + 3
             }
         }
 
@@ -498,20 +754,13 @@ program define hrcomptab, rclass
             exit 198
         }
 
-        if `"`_eplotframe_name'"' != "" {
-            capture frame `_eplotframe_name': quietly count
-            if _rc == 0 {
-                if `_eplotframe_replace' {
-                    frame drop `_eplotframe_name'
-                }
-                else {
-                    display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
-                    exit 110
-                }
-            }
-            frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
-                double pvalue int model str244 model_label str24 rowtype str244 section ///
-                long source_row str32 source_frame
+	        local _eplot_build_name ""
+	        if `"`_eplotframe_name'"' != "" {
+	            tempname _eplot_build
+	            local _eplot_build_name "`_eplot_build'"
+	            frame create `_eplot_build_name' str244 label double estimate double ll double ul ///
+	                double pvalue int model str244 model_label str24 rowtype str244 section ///
+	                long source_row str32 source_frame
 
             local _section_rows_sp " `section_rows' "
             local _ref_rows_sp " `ref_rows' "
@@ -551,8 +800,8 @@ program define hrcomptab, rclass
                     }
                     else {
                         local _pending_fold_label ""
-                        frame post `_eplotframe_name' (`"`_current_section'"') (.) (.) (.) (.) ///
-                            (.) ("") ("section") (`"`_current_section'"') (.) (`"`rateframe'"')
+	                        frame post `_eplot_build_name' (`"`_current_section'"') (.) (.) (.) (.) ///
+	                            (.) ("") ("section") (`"`_current_section'"') (.) (`"`_rateframe_original'"')
                     }
                     continue
                 }
@@ -562,14 +811,16 @@ program define hrcomptab, rclass
                         local _ref_post_label `"`_pending_fold_label'"'
                         local _pending_fold_label ""
                     }
-                    frame post `_eplotframe_name' (`"`_ref_post_label'"') (.) (.) (.) (.) ///
-                        (.) ("") ("reference") (`"`_current_section'"') (.) (`"`rateframe'"')
+	                    frame post `_eplot_build_name' (`"`_ref_post_label'"') (.) (.) (.) (.) ///
+	                        (.) ("") ("reference") (`"`_current_section'"') (.) (`"`_rateframe_original'"')
                     continue
                 }
 
-                local ++_next_model_ep
-                local _mfname_ep "`_map_frame`_next_model_ep''"
-                local _src_row_ep = `_map_row`_next_model_ep'' - 3
+	                local ++_next_model_ep
+	                local _mfname_ep "`_map_frame`_next_model_ep''"
+	                local _mfindex_ep = `_map_f`_next_model_ep''
+	                local _mfsource_ep "`_map_source`_next_model_ep''"
+	                local _src_row_ep = `_map_row`_next_model_ep'' - 3
                 local _src_ep ""
                 capture frame `_mfname_ep': local _src_ep : char _dta[tabtools_eplotframe]
                 local _src_ep_rc = _rc
@@ -577,34 +828,51 @@ program define hrcomptab, rclass
                     capture frame `_src_ep': quietly count
                     local _src_ep_rc = _rc
                     if `_src_ep_rc' == 0 {
-                        frame `_src_ep' {
-                            local _ep_N = _N
-                            forvalues _ep_i = 1/`_ep_N' {
-                                if source_row[`_ep_i'] == `_src_row_ep' {
-                                    local _ep_label = label[`_ep_i']
-                                    local _ep_est = estimate[`_ep_i']
+	                        forvalues _o = 1/`outcomes' {
+	                            local _source_model_ep = `_model_map_`_mfindex_ep'_`_o''
+	                            local _found_ep = 0
+	                            frame `_src_ep' {
+	                                local _ep_N = _N
+	                                forvalues _ep_i = 1/`_ep_N' {
+	                                    if source_row[`_ep_i'] == `_src_row_ep' & model[`_ep_i'] == `_source_model_ep' {
+	                                        local ++_found_ep
+	                                    local _ep_label = label[`_ep_i']
+	                                    local _ep_est = estimate[`_ep_i']
                                     local _ep_ll = ll[`_ep_i']
                                     local _ep_ul = ul[`_ep_i']
                                     local _ep_p = pvalue[`_ep_i']
-                                    local _ep_model = model[`_ep_i']
-                                    local _ep_model_label = model_label[`_ep_i']
+	                                    local _ep_model = `_o'
+	                                    local _ep_model_label `"`_rate_display_label_`_o''"'
                                     local _ep_rowtype = rowtype[`_ep_i']
                                     local _ep_post_label `"`_ep_label'"'
                                     if `"`_pending_fold_label'"' != "" {
                                         local _ep_post_label `"`_pending_fold_label'"'
                                         local _pending_fold_label ""
                                     }
-                                    frame post `_eplotframe_name' (`"`_ep_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
-                                        (`"`_current_section'"') (`_src_row_ep') (`"`_mfname_ep'"')
-                                }
-                            }
-                        }
+	                                    frame post `_eplot_build_name' (`"`_ep_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+	                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
+	                                        (`"`_current_section'"') (`_src_row_ep') (`"`_mfsource_ep'"')
+	                                    }
+	                                }
+	                            }
+	                            if `_found_ep' != 1 {
+	                                display as error "model companion frame does not uniquely identify the selected row/outcome"
+	                                exit 459
+	                            }
+	                        }
                     }
                 }
             }
-            frame `_eplotframe_name': char _dta[tabtools_source] "hrcomptab"
-        }
+	            frame `_eplot_build_name': char _dta[tabtools_source] "hrcomptab"
+	            frame `_eplot_build_name': char _dta[tabtools_ci_level] "`_ci_level'"
+	            frame `_eplot_build_name': char _dta[tabtools_n_models] "`outcomes'"
+	            frame `_eplot_build_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
+	            forvalues _o = 1/`outcomes' {
+	                frame `_eplot_build_name': char _dta[tabtools_model_id_`_o'] `"`_output_model_id_`_o''"'
+	                frame `_eplot_build_name': char _dta[tabtools_outcome_id_`_o'] `"`_rate_outcome_id_`_o''"'
+	                frame `_eplot_build_name': char _dta[tabtools_effect_scale_`_o'] "HR"
+	            }
+	        }
 
         * Build output table
         local ncols = 1 + 5 * `outcomes'
@@ -646,7 +914,7 @@ program define hrcomptab, rclass
             quietly replace c`_out_s' = `"`_hdr_events'"' in 3
             quietly replace c`_out_s2' = `"`_hdr_py'"' in 3
             quietly replace c`_out_s3' = `"`_hdr_rate'"' in 3
-            quietly replace c`_out_s4' = `"`effect' (95% CI)"' in 3
+	            quietly replace c`_out_s4' = `"`effect' (`_ci_level_label'% CI)"' in 3
             quietly replace c`=`_out_s4'+1' = "p-value" in 3
         }
 
@@ -695,16 +963,18 @@ program define hrcomptab, rclass
                 continue
             }
 
-            local ++_next_model
-            local _mfname "`_map_frame`_next_model''"
-            local _mrow = `_map_row`_next_model''
+	            local ++_next_model
+	            local _mfname "`_map_frame`_next_model''"
+	            local _mfindex = `_map_f`_next_model''
+	            local _mrow = `_map_row`_next_model''
 
-            forvalues _o = 1/`outcomes' {
-                local _out_s = 2 + (`_o' - 1) * 5
-                local _out_s4 = `_out_s' + 3
+	            forvalues _o = 1/`outcomes' {
+	                local _out_s = 2 + (`_o' - 1) * 5
+	                local _out_s4 = `_out_s' + 3
+	                local _source_model = `_model_map_`_mfindex'_`_o''
 
-                if "`model_mode'" == "standard" {
-                    local _model_s = 1 + (`_o' - 1) * 3
+	                if "`model_mode'" == "standard" {
+	                    local _model_s = 1 + (`_source_model' - 1) * 3
                     frame `_mfname' {
                         local _eff_main = c`_model_s'[`_mrow']
                         local _eff_ci = c`=`_model_s'+1'[`_mrow']
@@ -721,9 +991,9 @@ program define hrcomptab, rclass
                     else {
                         local _eff_text `"`_eff_main' `_eff_ci'"'
                     }
-                }
-                else {
-                    local _model_s = 1 + (`_o' - 1) * 2
+	                }
+	                else {
+	                    local _model_s = 1 + (`_source_model' - 1) * 2
                     frame `_mfname' {
                         local _eff_text = c`_model_s'[`_mrow']
                         local _eff_p = c`=`_model_s'+1'[`_mrow']
@@ -779,23 +1049,37 @@ program define hrcomptab, rclass
             display as text "Markdown exported to `markdown'"
         }
 
-        * Frame output
-        if `"`frame'"' != "" {
-            _tabtools_frame_put `"`frame'"'
-            local frame "`_frame_name'"
-            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
-                frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
-            }
-            return local frame "`frame'"
-        }
+	        * Stage display-frame output. The caller-visible destination is not
+	        * changed until every requested export and forest plot has succeeded.
+	        local _display_build_name ""
+	        if `"`_displayframe_name'"' != "" {
+	            tempname _display_build
+	            local _display_build_name "`_display_build'"
+	            frame put *, into(`_display_build_name')
+	            frame `_display_build_name': char _dta[tabtools_source] "hrcomptab"
+	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level'"
+	            frame `_display_build_name': char _dta[tabtools_n_outcomes] "`outcomes'"
+	            frame `_display_build_name': char _dta[tabtools_statistic_ids] "events person_years rate_ci estimate_ci pvalue"
+	            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
+	                frame `_display_build_name': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+	            }
+	            forvalues _o = 1/`outcomes' {
+	                frame `_display_build_name': char _dta[tabtools_model_id_`_o'] `"`_output_model_id_`_o''"'
+	                frame `_display_build_name': char _dta[tabtools_outcome_id_`_o'] `"`_rate_outcome_id_`_o''"'
+	                frame `_display_build_name': char _dta[tabtools_effect_scale_`_o'] "HR"
+	            }
+	            local frame "`_displayframe_name'"
+	        }
+	        if `"$TABTOOLS_QA_HRC_STAGE_FAIL"' == "1" error 459
 
-        return scalar N_rows = `lastrow'
+	        return scalar N_rows = `lastrow'
         return scalar N_outcomes = `outcomes'
         return scalar N_sections = `n_sections'
         return scalar N_modelrows = `_selected_total'
         return scalar N_modelframes = `n_frames'
-        return local rateframe "`rateframe'"
-        return local modelframes "`modelframes'"
+	        return scalar ci_level = `_ci_level'
+	        return local rateframe "`_rateframe_original'"
+	        return local modelframes "`_modelframes_original'"
         return local effect "`effect'"
         if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
         if "`csv'" != "" return local csv "`csv'"
@@ -963,9 +1247,11 @@ program define hrcomptab, rclass
         if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
     }
 
-    local _rc = _rc
-    if `_rc' {
-        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
+	    local _rc = _rc
+	    if `_rc' {
+	        if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
+	        if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
+	        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
         set varabbrev `_orig_varabbrev'
         exit `_rc'
     }
@@ -977,43 +1263,75 @@ program define hrcomptab, rclass
         if `_which_eplot_rc' {
             display as error "forest requires eplot"
             display as error `"Install with: net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace"'
-            if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
-            local _forest_rc_hold 111
+	            local _forest_rc_hold 111
         }
         else {
             local _eplotoptions_clean = strtrim(`"`eplotoptions'"')
             if substr(`"`_eplotoptions_clean'"', 1, 1) == "," {
                 local _eplotoptions_clean = strtrim(substr(`"`_eplotoptions_clean'"', 2, .))
             }
-            frame `_eplotframe_name': quietly count if rowtype == "effect"
+	            frame `_eplot_build_name': quietly count if rowtype == "effect"
             if r(N) == 0 {
                 display as error "forest requires an eplotframe with effect rows"
-                if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
-                local _forest_rc_hold 2000
+	                local _forest_rc_hold 2000
             }
             else {
-                capture noisily eplot, frame(`_eplotframe_name') labels(label) rowtype(rowtype) ///
+	                capture noisily eplot, frame(`_eplot_build_name') labels(label) rowtype(rowtype) ///
                     style(forest) effect("`effect'") values `_eplotoptions_clean'
                 local _eplot_rc = _rc
                 if `_eplot_rc' local _forest_rc_hold = `_eplot_rc'
             }
         }
-        if `_eplotframe_temporary' capture frame drop `_eplotframe_name'
-    }
+	    }
 
-    if `_forest_rc_hold' != 0 local _rc = `_forest_rc_hold'
-    quietly use "`_userdata_path'", clear
-    set varabbrev `_orig_varabbrev'
-    if `_rc' exit `_rc'
-    return clear
-    if `"`frame'"' != "" return local frame "`frame'"
+	    if `_forest_rc_hold' != 0 local _rc = `_forest_rc_hold'
+	    if `_rc' {
+	        if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
+	        if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
+	        quietly use "`_userdata_path'", clear
+	        set varabbrev `_orig_varabbrev'
+	        exit `_rc'
+	    }
+
+	    * Final frame commit: validate both staged schemas, then replace caller
+	    * destinations only after every preceding operation has succeeded.
+	    if `"`_display_build_name'"' != "" {
+	        frame `_display_build_name': confirm variable title
+	        frame `_display_build_name': confirm variable c1
+	    }
+	    if `"`_eplot_build_name'"' != "" {
+	        foreach _v in label estimate ll ul pvalue model model_label rowtype source_row source_frame {
+	            frame `_eplot_build_name': confirm variable `_v'
+	        }
+	    }
+	    if `"`_eplot_build_name'"' != "" & !`_eplotframe_temporary' {
+	        capture confirm frame `_eplotframe_name'
+	        if !_rc frame drop `_eplotframe_name'
+	        frame rename `_eplot_build_name' `_eplotframe_name'
+	        local _eplot_build_name ""
+	    }
+	    if `"`_display_build_name'"' != "" {
+	        capture confirm frame `_displayframe_name'
+	        if !_rc frame drop `_displayframe_name'
+	        frame rename `_display_build_name' `_displayframe_name'
+	        local _display_build_name ""
+	    }
+	    if `_eplotframe_temporary' & `"`_eplot_build_name'"' != "" {
+	        capture frame drop `_eplot_build_name'
+	        local _eplot_build_name ""
+	    }
+	    quietly use "`_userdata_path'", clear
+	    set varabbrev `_orig_varabbrev'
+	    return clear
+	    if `"`_displayframe_name'"' != "" return local frame "`_displayframe_name'"
     return scalar N_rows = `lastrow'
     return scalar N_outcomes = `outcomes'
     return scalar N_sections = `n_sections'
     return scalar N_modelrows = `_selected_total'
     return scalar N_modelframes = `n_frames'
-    return local rateframe "`rateframe'"
-    return local modelframes "`modelframes'"
+	    return scalar ci_level = `_ci_level'
+	    return local rateframe "`_rateframe_original'"
+	    return local modelframes "`_modelframes_original'"
     return local effect "`effect'"
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
     if "`csv'" != "" return local csv "`csv'"

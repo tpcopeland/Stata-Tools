@@ -4,8 +4,14 @@
 *.smcl
 *.gph
 *.png
+*.svg
+*.pdf
 *.xlsx
-# Transient datasets some suites build in qa/ root or under /tmp
+*.csv
+*.Rout
+*.rds
+*.txt
+# Transient datasets some suites build in qa/ root or in the isolated run area
 tv_validation.dta
 __*.dta
 # Runtime-built helper datasets written into data/ by the suites

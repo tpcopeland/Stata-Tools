@@ -52,6 +52,7 @@ capture noisily {
         CUToff(real -999) CUTOffs(numlist sort) ///
         PREValence(real -1) EXact WILson ///
         AUC OPTimal ///
+        Level(cilevel) ///
         DIGits(integer -1) ///
         title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
@@ -230,27 +231,27 @@ capture noisily {
             local Acc_lo = .
             local Acc_hi = .
             if `TP' + `FN' > 0 {
-                qui cii proportions `=`TP'+`FN'' `TP', `_ci_method'
+                qui cii proportions `=`TP'+`FN'' `TP', `_ci_method' level(`level')
                 local Se_lo = r(lb)
                 local Se_hi = r(ub)
             }
             if `TN' + `FP' > 0 {
-                qui cii proportions `=`TN'+`FP'' `TN', `_ci_method'
+                qui cii proportions `=`TN'+`FP'' `TN', `_ci_method' level(`level')
                 local Sp_lo = r(lb)
                 local Sp_hi = r(ub)
             }
             if `TP' + `FP' > 0 {
-                qui cii proportions `=`TP'+`FP'' `TP', `_ci_method'
+                qui cii proportions `=`TP'+`FP'' `TP', `_ci_method' level(`level')
                 local PPV_lo = r(lb)
                 local PPV_hi = r(ub)
             }
             if `TN' + `FN' > 0 {
-                qui cii proportions `=`TN'+`FN'' `TN', `_ci_method'
+                qui cii proportions `=`TN'+`FN'' `TN', `_ci_method' level(`level')
                 local NPV_lo = r(lb)
                 local NPV_hi = r(ub)
             }
             if `_total' > 0 {
-                qui cii proportions `_total' `=`TP'+`TN'', `_ci_method'
+                qui cii proportions `_total' `=`TP'+`TN'', `_ci_method' level(`level')
                 local Acc_lo = r(lb)
                 local Acc_hi = r(ub)
             }
@@ -345,7 +346,7 @@ capture noisily {
         qui set obs `row'
         qui replace c1 = "Cutoff" in `row'
         qui replace c2 = "Estimate" in `row'
-        qui replace c3 = "(95% CI)" in `row'
+        qui replace c3 = "(`level'% CI)" in `row'
         local _header_row = `row'
 
         * Build output rows from stored locals
@@ -372,7 +373,7 @@ capture noisily {
                 else if "`_m'" == "NPV" qui replace c1 = "  NPV" in `row'
                 else if "`_m'" == "Acc" qui replace c1 = "  Accuracy" in `row'
                 if !missing(`_cut`_cuti'_`_m'') {
-                    qui replace c2 = string(`_cut`_cuti'_`_m'' * 100, "%5.`digits'f") + "%" in `row'
+                    qui replace c2 = strtrim(string(`_cut`_cuti'_`_m'' * 100, "%21.`digits'f")) + "%" in `row'
                 }
                 else {
                     local _has_undefined 1
@@ -380,7 +381,7 @@ capture noisily {
                     qui replace c3 = "" in `row'
                 }
                 if !missing(`_cut`_cuti'_`_m'_lo') & !missing(`_cut`_cuti'_`_m'_hi') {
-                    qui replace c3 = "(" + string(`_cut`_cuti'_`_m'_lo' * 100, "%5.`digits'f") + ", " + string(`_cut`_cuti'_`_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
+                    qui replace c3 = "(" + strtrim(string(`_cut`_cuti'_`_m'_lo' * 100, "%21.`digits'f")) + ", " + strtrim(string(`_cut`_cuti'_`_m'_hi' * 100, "%21.`digits'f")) + ")" in `row'
                 }
             }
         }
@@ -474,27 +475,27 @@ capture noisily {
     local Acc_lo = .
     local Acc_hi = .
     if `TP' + `FN' > 0 {
-        qui cii proportions `=`TP'+`FN'' `TP', `_ci_method'
+        qui cii proportions `=`TP'+`FN'' `TP', `_ci_method' level(`level')
         local Se_lo = r(lb)
         local Se_hi = r(ub)
     }
     if `TN' + `FP' > 0 {
-        qui cii proportions `=`TN'+`FP'' `TN', `_ci_method'
+        qui cii proportions `=`TN'+`FP'' `TN', `_ci_method' level(`level')
         local Sp_lo = r(lb)
         local Sp_hi = r(ub)
     }
     if `TP' + `FP' > 0 {
-        qui cii proportions `=`TP'+`FP'' `TP', `_ci_method'
+        qui cii proportions `=`TP'+`FP'' `TP', `_ci_method' level(`level')
         local PPV_lo = r(lb)
         local PPV_hi = r(ub)
     }
     if `TN' + `FN' > 0 {
-        qui cii proportions `=`TN'+`FN'' `TN', `_ci_method'
+        qui cii proportions `=`TN'+`FN'' `TN', `_ci_method' level(`level')
         local NPV_lo = r(lb)
         local NPV_hi = r(ub)
     }
     if `_total' > 0 {
-        qui cii proportions `_total' `=`TP'+`TN'', `_ci_method'
+        qui cii proportions `_total' `=`TP'+`TN'', `_ci_method' level(`level')
         local Acc_lo = r(lb)
         local Acc_hi = r(ub)
     }
@@ -524,7 +525,7 @@ capture noisily {
     local _auc_lo = .
     local _auc_hi = .
     if "`auc'" != "" {
-        capture qui roctab `goldvar' `testvar' if `touse'
+        capture qui roctab `goldvar' `testvar' if `touse', level(`level')
         if !_rc {
             local _auc = r(area)
             local _auc_lo = r(lb)
@@ -645,7 +646,7 @@ capture noisily {
     qui set obs `row'
     qui replace c1 = "Measure" in `row'
     qui replace c2 = "Estimate" in `row'
-    qui replace c3 = "(95% CI)" in `row'
+    qui replace c3 = "(`level'% CI)" in `row'
     local _measures_row = `row'
 
     * Helper to add a measure row
@@ -658,8 +659,8 @@ capture noisily {
         else if "`_m'" == "NPV" qui replace c1 = "NPV" in `row'
         else if "`_m'" == "Acc" qui replace c1 = "Accuracy" in `row'
         if !missing(``_m'') {
-            qui replace c2 = string(``_m'' * 100, "%5.`digits'f") + "%" in `row'
-            qui replace c3 = "(" + string(``_m'_lo' * 100, "%5.`digits'f") + ", " + string(``_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
+            qui replace c2 = strtrim(string(``_m'' * 100, "%21.`digits'f")) + "%" in `row'
+            qui replace c3 = "(" + strtrim(string(``_m'_lo' * 100, "%21.`digits'f")) + ", " + strtrim(string(``_m'_hi' * 100, "%21.`digits'f")) + ")" in `row'
         }
         else {
             local _has_undefined 1
@@ -673,9 +674,9 @@ capture noisily {
     qui set obs `row'
     qui replace c1 = "LR+" in `row'
     if !missing(`LRp') {
-        qui replace c2 = string(`LRp', "%5.`digits'f") in `row'
+        qui replace c2 = strtrim(string(`LRp', "%21.`digits'f")) in `row'
         if !missing(`LRp_lo') & !missing(`LRp_hi') {
-            qui replace c3 = "(" + string(`LRp_lo', "%5.`digits'f") + ", " + string(`LRp_hi', "%5.`digits'f") + ")" in `row'
+            qui replace c3 = "(" + strtrim(string(`LRp_lo', "%21.`digits'f")) + ", " + strtrim(string(`LRp_hi', "%21.`digits'f")) + ")" in `row'
         }
         else {
             qui replace c3 = "" in `row'
@@ -691,9 +692,9 @@ capture noisily {
     qui set obs `row'
     qui replace c1 = "LR-" in `row'
     if !missing(`LRn') {
-        qui replace c2 = string(`LRn', "%5.`=`digits'+1'f") in `row'
+        qui replace c2 = strtrim(string(`LRn', "%21.`=`digits'+1'f")) in `row'
         if !missing(`LRn_lo') & !missing(`LRn_hi') {
-            qui replace c3 = "(" + string(`LRn_lo', "%5.`=`digits'+1'f") + ", " + string(`LRn_hi', "%5.`=`digits'+1'f") + ")" in `row'
+            qui replace c3 = "(" + strtrim(string(`LRn_lo', "%21.`=`digits'+1'f")) + ", " + strtrim(string(`LRn_hi', "%21.`=`digits'+1'f")) + ")" in `row'
         }
         else {
             qui replace c3 = "" in `row'
@@ -709,9 +710,9 @@ capture noisily {
     qui set obs `row'
     qui replace c1 = "DOR" in `row'
     if !missing(`DOR') {
-        qui replace c2 = string(`DOR', "%5.`digits'f") in `row'
+        qui replace c2 = strtrim(string(`DOR', "%21.`digits'f")) in `row'
         if !missing(`DOR_lo') & !missing(`DOR_hi') {
-            qui replace c3 = "(" + string(`DOR_lo', "%5.`digits'f") + ", " + string(`DOR_hi', "%5.`digits'f") + ")" in `row'
+            qui replace c3 = "(" + strtrim(string(`DOR_lo', "%21.`digits'f")) + ", " + strtrim(string(`DOR_hi', "%21.`digits'f")) + ")" in `row'
         }
         else {
             qui replace c3 = "" in `row'
@@ -728,9 +729,9 @@ capture noisily {
         local row = `row' + 1
         qui set obs `row'
         qui replace c1 = "AUC" in `row'
-        qui replace c2 = string(`_auc', "%6.`=`digits'+2'f") in `row'
+        qui replace c2 = strtrim(string(`_auc', "%21.`=`digits'+2'f")) in `row'
         if !missing(`_auc_lo') {
-            qui replace c3 = "(" + string(`_auc_lo', "%6.`=`digits'+2'f") + ", " + string(`_auc_hi', "%6.`=`digits'+2'f") + ")" in `row'
+            qui replace c3 = "(" + strtrim(string(`_auc_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_auc_hi', "%21.`=`digits'+2'f")) + ")" in `row'
         }
     }
 
@@ -738,7 +739,7 @@ capture noisily {
     local row = `row' + 1
     qui set obs `row'
     qui replace c1 = "Youden's index" in `row'
-    qui replace c2 = string(`J', "%6.`=`digits'+2'f") in `row'
+    qui replace c2 = strtrim(string(`J', "%21.`=`digits'+2'f")) in `row'
 
     * Optimal cutoff
     if !missing(`_opt_cutoff') {
@@ -787,6 +788,8 @@ capture noisily {
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
+        frame `frame': char _dta[tabtools_ci_level] "`level'"
+        frame `frame': char _dta[tabtools_source] "diagtab"
     }
 
     if "`frame'" != "" return local frame "`frame'"
@@ -798,7 +801,7 @@ capture noisily {
 
     local _ci_method = cond("`exact'" != "", "Clopper-Pearson exact", "Wilson score")
     local _methods "Diagnostic accuracy was assessed against the gold standard (`goldvar')."
-    local _methods "`_methods' `_ci_method' 95% confidence intervals are reported."
+    local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported."
     local _footnote_display `"`footnote'"'
     if `_has_undefined' {
         local _undefined_note "Undefined estimates are shown as --."
@@ -935,6 +938,7 @@ capture noisily {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
+    return scalar ci_level = `level'
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily

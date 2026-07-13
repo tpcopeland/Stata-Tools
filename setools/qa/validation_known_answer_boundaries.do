@@ -19,8 +19,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 set varabbrev off
 
@@ -133,7 +132,7 @@ run_val "K2.4: cdp uses the lowest same-day baseline EDSS on ties" `t'
 
 **# K3. SUSTAINEDSS WINDOW BOUNDARIES
 
-* K3.1: confirmwindow() includes the exact upper bound day
+* K3.1: confirmvisit(window) includes the exact upper bound day
 clear
 input long id double edss long edss_dt
 1 5.0 20900
@@ -141,13 +140,14 @@ input long id double edss long edss_dt
 1 6.0 21182
 end
 format edss_dt %td
-sustainedss id edss edss_dt, threshold(6) keepall generate(sust_k31)
+sustainedss id edss edss_dt, threshold(6) confirmvisit(window) ///
+    keepall generate(sust_k31)
 quietly summarize sust_k31 if id == 1, meanonly
 local t = (r(mean) == 21000 & r(N) == 3)
 run_val "K3.1: sustainedss includes the exact confirmwindow upper bound" `t'
 
-* K3.2: a dip below baselinethreshold is still sustained if the last window value
-*       returns exactly to threshold
+* K3.2: any dip below baselinethreshold disqualifies bounded confirmation,
+*       even when the last window value returns exactly to threshold
 clear
 input long id double edss long edss_dt
 1 6.0 21000
@@ -155,10 +155,10 @@ input long id double edss long edss_dt
 1 6.0 21182
 end
 format edss_dt %td
-sustainedss id edss edss_dt, threshold(6) keepall generate(sust_k32)
-quietly summarize sust_k32 if id == 1, meanonly
-local t = (r(mean) == 21000 & r(N) == 3)
-run_val "K3.2: sustainedss keeps events when the last window value equals threshold" `t'
+sustainedss id edss edss_dt, threshold(6) confirmvisit(window) ///
+    keepall generate(sust_k32)
+local t = (r(N_events) == 0)
+run_val "K3.2: sustainedss rejects a temporary dip in bounded mode" `t'
 
 * K3.3: same-day duplicates at the last window date use the minimum EDSS value,
 *       and a later sub-threshold visit blocks any fallback event
@@ -171,7 +171,8 @@ input long id double edss long edss_dt
 1 5.5 21200
 end
 format edss_dt %td
-sustainedss id edss edss_dt, threshold(6) confirmwindow(150) keepall generate(sust_k33)
+sustainedss id edss edss_dt, threshold(6) confirmvisit(window) ///
+    confirmwindow(150) keepall generate(sust_k33)
 local t = (r(N_events) == 0)
 run_val "K3.3: sustainedss uses the conservative minimum on same-day duplicates" `t'
 
@@ -446,6 +447,8 @@ if scalar(gs_nfail) > 0 {
 else {
     display as text "Failed:       " scalar(gs_nfail)
 }
+display "RESULT: validation_known_answer_boundaries tests=" scalar(gs_ntest) ///
+    " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"
@@ -458,3 +461,5 @@ else {
     scalar drop gs_ntest gs_npass gs_nfail
     global gs_failures
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

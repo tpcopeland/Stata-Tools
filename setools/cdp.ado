@@ -1,4 +1,4 @@
-*! cdp Version 1.4.1  2026/07/03
+*! cdp Version 1.5.0  2026/07/13
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -38,6 +38,7 @@ See help cdp for complete documentation
 program define cdp, rclass
     version 16.0
     local _varabbrev `c(varabbrev)'
+    local _cdp_preserved = 0
     set varabbrev off
 
     capture noisily {
@@ -51,6 +52,8 @@ program define cdp, rclass
         THREEtier ///
         CONFIRMType(string) ///
         EVENTvar(name) ///
+        EVENTNUMvar(name) ///
+        BASEEDSSvar(name) ///
         EXIT(varname) ///
         ROVING ///
         ALLevents ///
@@ -58,11 +61,6 @@ program define cdp, rclass
         Quietly ///
         ]
 
-    // =========================================================================
-    // PARSE AND VALIDATE
-    // =========================================================================
-
-    // Parse varlist: id edss date
     tokenize `varlist'
     local idvar `1'
     local edssvar `2'
@@ -95,7 +93,6 @@ program define cdp, rclass
         exit 109
     }
 
-    // Validate options
     if `confirmdays' <= 0 {
         di as error "confirmdays() must be positive"
         exit 198
@@ -105,9 +102,14 @@ program define cdp, rclass
         exit 198
     }
 
-    // Warn if allevents without roving (has no effect)
     if "`allevents'" != "" & "`roving'" == "" {
-        di as text "Note: allevents has no effect without roving"
+        di as error "allevents requires roving"
+        exit 198
+    }
+    if ("`eventnumvar'" != "" | "`baseedssvar'" != "") & ///
+        !("`roving'" != "" & "`allevents'" != "") {
+        di as error "eventnumvar() and baseedssvar() require roving allevents"
+        exit 198
     }
 
     // Confirmation type
@@ -120,34 +122,40 @@ program define cdp, rclass
         exit 198
     }
 
-    // Default generate name
     if "`generate'" == "" {
         local generate "cdp_date"
     }
-
-    // Check if generate variable already exists
-    capture confirm variable `generate'
-    if _rc == 0 {
-        di as error "variable `generate' already exists"
-        exit 110
+    if "`roving'" != "" & "`allevents'" != "" {
+        if "`eventnumvar'" == "" local eventnumvar "event_num"
+        if "`baseedssvar'" == "" local baseedssvar "baseline_edss_at_event"
     }
 
-    // Check eventvar name (must be new and distinct from generate)
-    if "`eventvar'" != "" {
-        if "`eventvar'" == "`generate'" {
-            di as error "eventvar() and generate() must specify different names"
+    * Preflight the complete public output set before any mutation.
+    local _cdp_outputs "`generate' `eventvar' `eventnumvar' `baseedssvar'"
+    local _cdp_seen ""
+    foreach _cdp_out of local _cdp_outputs {
+        local _cdp_out_lc = lower("`_cdp_out'")
+        if strpos(" `_cdp_seen' ", " `_cdp_out_lc' ") {
+            di as error "prospective output variable names must be distinct: `_cdp_out'"
             exit 198
         }
-        capture confirm variable `eventvar'
-        if _rc == 0 {
-            di as error "variable `eventvar' already exists"
+        local _cdp_seen "`_cdp_seen' `_cdp_out_lc'"
+        capture confirm new variable `_cdp_out'
+        if _rc {
+            di as error "variable `_cdp_out' already exists"
             exit 110
         }
     }
 
-    // Mark sample (strok: allow string ID variables)
     marksample touse, strok
-    markout `touse' `dxdate'
+    capture confirm string variable `idvar'
+    local id_is_str = (_rc == 0)
+    if `id_is_str' {
+        quietly replace `touse' = 0 if trim(`idvar') == "" & `touse'
+    }
+    else {
+        markout `touse' `idvar'
+    }
     qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
     if r(N) > 0 {
         di as error "`datevar' must contain whole-number Stata daily dates"
@@ -159,7 +167,6 @@ program define cdp, rclass
         exit 109
     }
 
-    // Validate exit() study-exit date (used to censor post-exit events)
     local n_censored_exit = 0
     if "`exit'" != "" {
         capture confirm numeric variable `exit'
@@ -179,318 +186,232 @@ program define cdp, rclass
         }
     }
 
-    // Check for valid observations
     qui count if `touse'
     if r(N) == 0 {
         di as error "no valid observations"
         exit 2000
     }
 
-    // =========================================================================
-    // MAIN ALGORITHM
-    // NOTE: Baseline determination, progression threshold, and confirmation
-    // are factored into shared helpers (_setools_cdp_baseline,
-    // _setools_cdp_thresh, _setools_cdp_confirm, _setools_cdp_core) so cdp and
-    // pira share one engine and cannot silently desync. The non-roving path
-    // calls _setools_cdp_core; the roving path below reuses the thresh/confirm
-    // helpers inline.
-    // =========================================================================
+    tempvar baseline_edss baseline_date sortorder personorder ///
+        dx_min dx_max exit_min exit_max eventnum_internal ///
+        baseevent_internal core_base core_confdate core_confedss idtag
+    tempfile original_full analytic persons working results results_all
 
-    // Temporary variables
-    tempvar baseline_edss baseline_date prog_thresh edss_change ///
-            is_prog first_prog_dt confirm_edss confirmed obs_id ///
-            current_baseline current_base_dt event_num ///
-            in_window first_win_dt first_win_edss first_any_dt ///
-            first_any_edss min_confirm sortorder
-
-    // Preserve original data
-    qui gen long `sortorder' = _n
+    * The preserved caller dataset remains available until the final result is
+    * fully assembled.  Any later error restores it byte-for-byte.
     preserve
+    local _cdp_preserved = 1
+    qui gen long `sortorder' = _n
+    qui save `original_full', replace
 
-    // Keep only relevant observations
     qui keep if `touse'
-    qui keep `idvar' `edssvar' `datevar' `dxdate'
-
-    // Drop missing EDSS or date values
+    local _cdp_workvars "`idvar' `edssvar' `datevar' `dxdate' `exit' `sortorder'"
+    local _cdp_workvars : list uniq _cdp_workvars
+    qui keep `_cdp_workvars'
     qui drop if missing(`edssvar') | missing(`datevar')
-
-    // Check for valid observations
     qui count
     if r(N) == 0 {
         di as error "no valid observations after dropping missing values"
-        restore
         exit 2000
     }
 
-    // Sort data
+    * dxdate() is person-level. Mixed missing/nonmissing rows are accepted and
+    * normalized to the unique nonmissing value; conflicting values are not.
+    qui egen double `dx_min' = min(`dxdate'), by(`idvar')
+    qui egen double `dx_max' = max(`dxdate'), by(`idvar')
+    qui count if !missing(`dx_min') & `dx_min' != `dx_max'
+    if r(N) > 0 {
+        di as error "dxdate() must have at most one distinct nonmissing value per person"
+        exit 459
+    }
+    qui replace `dxdate' = `dx_min'
+    qui drop if missing(`dxdate')
+    qui count
+    if r(N) == 0 {
+        di as error "no valid observations with a person-level diagnosis date"
+        exit 2000
+    }
+
+    if "`exit'" != "" {
+        qui egen double `exit_min' = min(`exit'), by(`idvar')
+        qui egen double `exit_max' = max(`exit'), by(`idvar')
+        qui count if !missing(`exit_min') & `exit_min' != `exit_max'
+        if r(N) > 0 {
+            di as error "exit() must have at most one distinct nonmissing value per person"
+            exit 459
+        }
+        qui replace `exit' = `exit_min'
+    }
+
+    qui bysort `idvar' (`sortorder'): gen long `personorder' = `sortorder'[1]
+    qui save `analytic', replace
+    local _cdp_personvars "`idvar' `dxdate' `exit' `personorder'"
+    local _cdp_personvars : list uniq _cdp_personvars
+    qui keep `_cdp_personvars'
+    qui duplicates drop `idvar', force
+    qui save `persons', replace
+
+    qui use `analytic', clear
     qui sort `idvar' `datevar' `edssvar'
-
-    // Generate observation ID for tracking
-    qui gen long `obs_id' = _n
-
-    // -------------------------------------------------------------------------
-    // Step 1: Determine baseline EDSS for each person
-    // (shared helper: _setools_cdp_baseline)
-    // -------------------------------------------------------------------------
     _setools_cdp_baseline `idvar' `edssvar' `datevar', dxdate(`dxdate') ///
         baselinewindow(`baselinewindow') edssout(`baseline_edss') dateout(`baseline_date')
 
-    // -------------------------------------------------------------------------
-    // Step 2: Identify progression events
-    // -------------------------------------------------------------------------
-
-    if "`roving'" == "" {
-        // Standard CDP: shared engine (threshold -> iterative confirmation),
-        // factored into _setools_cdp_core so cdp and pira cannot silently
-        // desync. Reduces data to one row per person carrying the CDP date.
+    if !("`roving'" != "" & "`allevents'" != "") {
+        * Roving without allevents is deliberately the identical first-event
+        * estimand and therefore uses the same retry engine.
         _setools_cdp_core `idvar' `edssvar' `datevar', ///
             baseedss(`baseline_edss') basedate(`baseline_date') ///
             confirmdays(`confirmdays') genname(`generate') ///
             `threetier' confirmtype("`confirmtype'")
         local cdp_converged  = r(converged)
         local cdp_iterations = r(iterations)
-
-        // Event number (always 1 for non-roving)
-        qui gen byte `event_num' = 1
+        qui save `results', replace
     }
     else {
-        // Roving baseline: reset baseline after each confirmed progression
-        // This is more complex - implement iterative approach
-
-        tempfile working results_all
         qui save `working', replace
-
-        // Detect ID variable type before clearing data
-        local id_is_str = 0
-        capture confirm string variable `idvar'
-        if !_rc local id_is_str = 1
-
-        // Initialize results file
+        local _cdp_id_type : type `idvar'
         clear
         if `id_is_str' {
-            qui gen `idvar' = ""
+            qui gen `_cdp_id_type' `idvar' = ""
         }
         else {
-            qui gen long `idvar' = .
+            qui gen `_cdp_id_type' `idvar' = .
         }
         qui gen long `generate' = .
-        qui gen byte `event_num' = .
-        qui gen double baseline_edss_at_event = .
+        qui gen long `eventnum_internal' = .
+        qui gen double `baseevent_internal' = .
         qui save `results_all', replace emptyok
 
+        qui use `working', clear
+        qui count
+        local max_roving_iter = r(N) + 1
         local event_counter = 1
+        local cdp_iterations = 0
         local keep_going = 1
-        local max_roving_iter = 100
-        local roving_converged = 1
-
-        while `keep_going' == 1 {
+        while `keep_going' {
             if `event_counter' > `max_roving_iter' {
-                di as error "Warning: roving baseline exceeded `max_roving_iter' iterations"
-                local roving_converged = 0
+                di as error "roving CDP failed to converge"
+                exit 430
+            }
+            qui use `working', clear
+            _setools_cdp_core `idvar' `edssvar' `datevar', ///
+                baseedss(`baseline_edss') basedate(`baseline_date') ///
+                confirmdays(`confirmdays') genname(`generate') ///
+                baseout(`core_base') confdate(`core_confdate') ///
+                confedss(`core_confedss') `threetier' ///
+                confirmtype("`confirmtype'")
+            local cdp_iterations = `cdp_iterations' + r(iterations)
+            qui count
+            local n_new = r(N)
+            if `n_new' == 0 {
                 local keep_going = 0
                 continue
             }
+
+            tempfile new_events append_events
+            qui gen long `eventnum_internal' = `event_counter'
+            qui save `new_events', replace
+
+            qui keep `idvar' `generate' `eventnum_internal' `core_base'
+            qui rename `core_base' `baseevent_internal'
+            qui save `append_events', replace
+            qui use `results_all', clear
+            qui append using `append_events'
+            qui save `results_all', replace
+
+            * Only IDs that just confirmed can have a new roving baseline.
+            * Reset at the actual confirming assessment and discard all visits
+            * through that date, including intervening dips and same-day ties.
             qui use `working', clear
-
-            // Recalculate progression threshold based on current baseline
-            // (shared helper: two- or three-tier)
-            _setools_cdp_thresh `baseline_edss', generate(`prog_thresh') `threetier'
-
-            // Calculate change from current baseline
-            qui gen double `edss_change' = `edssvar' - `baseline_edss'
-
-            // Flag measurements that meet progression threshold (after baseline)
-            qui gen byte `is_prog' = (`edss_change' >= `prog_thresh') & ///
-                (`datevar' > `baseline_date')
-
-            // Find first potential progression date per person
-            qui egen long `first_prog_dt' = min(cond(`is_prog' == 1, `datevar', .)), by(`idvar')
-
-            // Check for confirmation (sustained or visit; shared helper)
-            _setools_cdp_confirm `idvar' `edssvar' `datevar', ///
-                canddate(`first_prog_dt') confirmdays(`confirmdays') ///
-                generate(`min_confirm') confirmtype("`confirmtype'")
-
-            // Confirmed if confirmation EDSS still meets threshold
-            qui gen byte `confirmed' = (`min_confirm' >= `baseline_edss' + `prog_thresh') & ///
-                !missing(`min_confirm')
-            qui drop `min_confirm'
-
-            // Count confirmed events
-            qui count if `confirmed' == 1 & `datevar' == `first_prog_dt'
-            local n_new = r(N)
-
-            if `n_new' == 0 {
+            qui merge m:1 `idvar' using `new_events', nogen keep(3)
+            qui drop if `datevar' <= `core_confdate'
+            qui replace `baseline_edss' = `core_confedss'
+            qui replace `baseline_date' = `core_confdate'
+            qui drop `generate' `eventnum_internal' `core_base' ///
+                `core_confdate' `core_confedss'
+            qui count
+            if r(N) == 0 {
                 local keep_going = 0
             }
             else {
-                // Save confirmed events
-                tempfile new_events
-                qui keep if `confirmed' == 1 & `datevar' == `first_prog_dt'
-                qui keep `idvar' `first_prog_dt' `baseline_edss'
-                qui duplicates drop `idvar', force
-                qui gen byte `event_num' = `event_counter'
-                qui rename `first_prog_dt' `generate'
-                qui rename `baseline_edss' baseline_edss_at_event
-                qui save `new_events', replace
-
-                // Append to results
-                qui use `results_all', clear
-                qui append using `new_events'
-                qui save `results_all', replace
-
-                // Update working dataset: remove events, update baseline
-                qui use `working', clear
-                qui merge m:1 `idvar' using `new_events', nogen keep(1 3)
-
-                // For those with events, drop observations up to and including event
-                // and reset baseline
-                qui drop if !missing(`generate') & `datevar' <= `generate'
-
-                // Update baseline for next iteration (first obs after event).
-                // `edssvar' is a secondary sort key so same-day duplicate visits
-                // deterministically re-baseline on the lower EDSS (the package-wide
-                // tie convention; an unkeyed tie would be sort-order dependent).
-                qui bysort `idvar' (`datevar' `edssvar'): replace `baseline_edss' = `edssvar'[1] ///
-                    if !missing(`generate')
-                qui bysort `idvar' (`datevar' `edssvar'): replace `baseline_date' = `datevar'[1] ///
-                    if !missing(`generate')
-
-                qui drop `generate' baseline_edss_at_event `event_num'
                 qui save `working', replace
-
                 local event_counter = `event_counter' + 1
-
-                if "`allevents'" == "" {
-                    // Only tracking first event, stop after first round
-                    local keep_going = 0
-                }
             }
         }
-
-        local cdp_converged  = `roving_converged'
-        local cdp_iterations = `event_counter'
-
-        // Load results
+        local cdp_converged = 1
         qui use `results_all', clear
+        qui save `results', replace
+    }
 
-        if "`allevents'" == "" {
-            // Keep only first event per person
-            qui bysort `idvar' (`event_num'): keep if _n == 1
-            qui drop `event_num' baseline_edss_at_event
+    * Apply person-level exit censoring before attaching results to any
+    * measurement rows.
+    if !("`roving'" != "" & "`allevents'" != "") {
+        qui use `results', clear
+        qui merge 1:1 `idvar' using `persons', nogen keep(3)
+        if "`exit'" != "" {
+            qui count if !missing(`generate') & !missing(`exit') & ///
+                `generate' > `exit'
+            local n_censored_exit = r(N)
+            qui replace `generate' = . if !missing(`generate') & ///
+                !missing(`exit') & `generate' > `exit'
+        }
+        qui count if !missing(`generate')
+        local n_events = r(N)
+        local n_persons = `n_events'
+        qui keep `idvar' `generate'
+        qui save `results', replace
+
+        qui use `original_full', clear
+        if "`keepall'" == "" {
+            qui merge m:1 `idvar' using `results', nogen keep(3)
+        }
+        else {
+            qui merge m:1 `idvar' using `results', nogen
+        }
+        qui sort `sortorder'
+        qui drop `sortorder'
+        label var `generate' "Confirmed disability progression date"
+        format `generate' %tdCCYY/NN/DD
+        if "`eventvar'" != "" {
+            qui gen byte `eventvar' = !missing(`generate') if `touse'
+            label var `eventvar' "CDP event (1 = confirmed progression)"
         }
     }
-
-    // Format date
-    format `generate' %tdCCYY/NN/DD
-
-    // Count results
-    qui count
-    local n_events = r(N)
-
-    if "`allevents'" != "" & "`roving'" != "" {
-        qui duplicates report `idvar'
-        local n_persons = r(unique_value)
-    }
     else {
-        local n_persons = `n_events'
-    }
-
-    // Save results
-    tempfile results
-    qui save `results', replace
-
-    restore
-
-    // =========================================================================
-    // MERGE RESULTS BACK
-    // =========================================================================
-
-    if "`allevents'" != "" & "`roving'" != "" {
-        // Event-level output: one row per CDP event per person
-        // Reduce master to unique persons for 1:m merge (preserve all variables)
         if "`quietly'" == "" {
             di as text "Note: allevents reshapes data to event-level (one row per CDP event)"
         }
-        // Keyed on `sortorder' so the retained covariate row per person is
-        // deterministically the first row of the original data, not whichever
-        // row Stata's non-stable sort happens to leave first.
-        qui bysort `idvar' (`sortorder'): keep if _n == 1
+        qui use `persons', clear
         if "`keepall'" == "" {
             qui merge 1:m `idvar' using `results', nogen keep(3)
         }
         else {
             qui merge 1:m `idvar' using `results', nogen
         }
-    }
-    else {
-        if "`keepall'" == "" {
-            // Default: keep only patients with CDP
-            qui merge m:1 `idvar' using `results', nogen keep(3)
-        }
-        else {
-            // keepall: retain all original observations
-            qui merge m:1 `idvar' using `results', nogen
-        }
-    }
-    // exit() censoring: drop the CDP date when it falls after a person's
-    // study-exit date (replaces hand-written post-exit clipping). Observations
-    // are retained; eventvar() and the person/event counts reflect censoring.
-    // Done before the sort-order restore so the by-person tag does not disturb
-    // output order. In the default (one-row-per-person) layout `generate' is
-    // constant within person; in allevents+roving it is event-level.
-    if "`exit'" != "" {
-        if "`allevents'" != "" & "`roving'" != "" {
+        if "`exit'" != "" {
             qui count if !missing(`generate') & !missing(`exit') & `generate' > `exit'
             local n_censored_exit = r(N)
             qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
-            qui count if !missing(`generate')
-            local n_events = r(N)
-            tempvar _cdp_exit_tag
-            qui bysort `idvar' (`generate'): gen byte `_cdp_exit_tag' = (_n == 1) & !missing(`generate')
-            qui count if `_cdp_exit_tag'
-            local n_persons = r(N)
-            qui drop `_cdp_exit_tag'
         }
-        else {
-            tempvar _cdp_exit_tag
-            qui bysort `idvar': gen byte `_cdp_exit_tag' = (_n == 1)
-            qui count if `_cdp_exit_tag' & !missing(`generate') & !missing(`exit') & `generate' > `exit'
-            local n_censored_exit = r(N)
-            qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
-            qui count if `_cdp_exit_tag' & !missing(`generate')
-            local n_persons = r(N)
-            local n_events = `n_persons'
-            qui drop `_cdp_exit_tag'
+        qui count if !missing(`generate')
+        local n_events = r(N)
+        qui egen byte `idtag' = tag(`idvar') if !missing(`generate')
+        qui count if `idtag'
+        local n_persons = r(N)
+        qui drop `idtag'
+        qui sort `personorder' `eventnum_internal'
+        qui drop `personorder'
+        qui rename `eventnum_internal' `eventnumvar'
+        qui rename `baseevent_internal' `baseedssvar'
+        format `generate' %tdCCYY/NN/DD
+        label var `generate' "Confirmed disability progression date"
+        label var `eventnumvar' "CDP event number"
+        label var `baseedssvar' "Baseline EDSS at CDP event"
+        if "`eventvar'" != "" {
+            qui gen byte `eventvar' = !missing(`generate')
+            label var `eventvar' "CDP event (1 = confirmed progression)"
         }
     }
-
-    qui sort `sortorder'
-    qui drop `sortorder'
-
-    // Label variable
-    label var `generate' "Confirmed disability progression date"
-
-    if "`allevents'" != "" & "`roving'" != "" {
-        // Rename tempvar to user-visible name
-        capture confirm variable `event_num'
-        if !_rc {
-            rename `event_num' event_num
-            label var event_num "CDP event number"
-        }
-        capture confirm variable baseline_edss_at_event
-        if !_rc label var baseline_edss_at_event "Baseline EDSS at CDP event"
-    }
-
-    // stset-ready event indicator (0/1 within the analytic sample)
-    if "`eventvar'" != "" {
-        qui gen byte `eventvar' = !missing(`generate') if `touse'
-        label var `eventvar' "CDP event (1 = confirmed progression)"
-    }
-
-    // =========================================================================
-    // OUTPUT AND RETURN
-    // =========================================================================
 
     if "`quietly'" == "" {
         di as text _n "Confirmed Disability Progression (CDP) complete"
@@ -515,7 +436,9 @@ program define cdp, rclass
         }
     }
 
-    // Return values
+    restore, not
+    local _cdp_preserved = 0
+
     return scalar N_persons = `n_persons'
     return scalar N_events = `n_events'
     return scalar confirmdays = `confirmdays'
@@ -528,6 +451,12 @@ program define cdp, rclass
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
     }
+    if "`eventnumvar'" != "" {
+        return local eventnumvar "`eventnumvar'"
+    }
+    if "`baseedssvar'" != "" {
+        return local baseedssvar "`baseedssvar'"
+    }
     if "`exit'" != "" {
         return local exit "`exit'"
         return scalar N_censored_exit = `n_censored_exit'
@@ -535,7 +464,9 @@ program define cdp, rclass
 
     }
     local _rc = _rc
-    capture drop `sortorder'
+    if `_rc' & `_cdp_preserved' {
+        capture restore
+    }
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end

@@ -883,7 +883,7 @@ capture {
     use "${DATA_DIR}/cohort_single.dta", clear
     tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
-        recency(0.5 1) generate(recency_cat)
+        recency(0.5 1) recencyunit(years) generate(recency_cat)
 
     * Verify variable created with expected categories
     quietly tab recency_cat
@@ -2428,7 +2428,7 @@ capture {
     * Note: currentformer and recency() are mutually exclusive exposure type options
     capture tvexpose using "${DATA_DIR}/exposure_single.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
-        currentformer recency(30 90) generate(tv_exp)
+        currentformer recency(30 90) recencyunit(days) generate(tv_exp)
     assert _rc != 0
 }
 if _rc == 0 {
@@ -5550,7 +5550,7 @@ gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tve_test3a_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3a_cohort.dta", replace
 
 clear
 set obs 1
@@ -5558,10 +5558,10 @@ gen id = 1
 gen start = mdy(3,1,2020)    // Mar 1, 2020 — use 'start' so tvexpose output keeps name 'start'
 gen stop  = mdy(6,30,2020)   // Jun 30, 2020
 gen drug = 1                  // Exposure type 1 (reference=0 means unexposed)
-save "/tmp/tve_test3a_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3a_exp.dta", replace
 
-use "/tmp/tve_test3a_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3a_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3a_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3a_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5674,7 +5674,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3b_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3b_cohort.dta", replace
 
 clear
 set obs 1
@@ -5682,10 +5682,10 @@ gen id = 1
 gen start = mdy(3,1,2020)
 gen stop  = mdy(6,30,2020)
 gen drug = 1
-save "/tmp/tve_test3b_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3b_exp.dta", replace
 
-use "/tmp/tve_test3b_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3b_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3b_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3b_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5758,7 +5758,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3c_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3c_cohort.dta", replace
 
 * Exposure: Jan 1 to Apr 11 = 101 days
 * Jan: 31, Feb: 29 (leap), Mar: 31 = 91 days, then Apr 1-11 = 11 more → total 91+11=102... let me recalculate
@@ -5777,7 +5777,7 @@ gen id = 1
 gen start = mdy(1,1,2020)
 gen stop  = mdy(4,10,2020)    // 101 inclusive days (Jan-Mar=91, Apr1-10=10 → total 101)
 gen drug = 1
-save "/tmp/tve_test3c_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3c_exp.dta", replace
 
 * Verify the exposure length
 local n_days = mdy(4,10,2020) - mdy(1,1,2020) + 1
@@ -5795,8 +5795,8 @@ local exp_months = `expected_days' / 30.4375
 local exp_years  = `expected_days' / 365.25
 
 * 3c.1: Days
-use "/tmp/tve_test3c_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3c_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3c_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3c_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5822,8 +5822,8 @@ else {
 }
 
 * 3c.2: Years
-use "/tmp/tve_test3c_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3c_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3c_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3c_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5847,8 +5847,8 @@ else {
 }
 
 * 3c.3: Months
-use "/tmp/tve_test3c_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3c_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3c_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3c_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5872,8 +5872,8 @@ else {
 }
 
 * 3c.4: Weeks
-use "/tmp/tve_test3c_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3c_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3c_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3c_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -5928,7 +5928,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2021)
 gen study_exit  = mdy(1,2,2023)   // 732 days (>2 years of continuous exposure)
-save "/tmp/tve_test3d_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3d_cohort.dta", replace
 
 clear
 set obs 1
@@ -5936,10 +5936,10 @@ gen id = 1
 gen start = mdy(1,1,2021)
 gen stop  = mdy(1,2,2023)         // continuous exposure covering full study
 gen drug = 1
-save "/tmp/tve_test3d_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3d_exp.dta", replace
 
-use "/tmp/tve_test3d_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3d_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3d_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3d_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6038,7 +6038,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3e_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3e_cohort.dta", replace
 
 clear
 set obs 1
@@ -6046,10 +6046,10 @@ gen id = 1
 gen start = mdy(1,1,2020)
 gen stop  = mdy(6,30,2020)
 gen drug = 1
-save "/tmp/tve_test3e_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3e_exp.dta", replace
 
-use "/tmp/tve_test3e_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3e_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3e_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3e_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6129,7 +6129,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3f_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3f_cohort.dta", replace
 
 clear
 set obs 1
@@ -6137,10 +6137,10 @@ gen id = 1
 gen start = mdy(1,1,2020)
 gen stop  = mdy(3,31,2020)    // Mar 31
 gen drug = 1
-save "/tmp/tve_test3f_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3f_exp.dta", replace
 
-use "/tmp/tve_test3f_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3f_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3f_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3f_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6207,7 +6207,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3g_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3g_cohort.dta", replace
 
 * 3g.1: Gap = 30 days, grace = 30 → should bridge
 clear
@@ -6218,14 +6218,14 @@ replace start = mdy(3,1,2020) in 2      // gap = Mar1 - Jan31 - 1 = 30 days
 gen stop = mdy(1,31,2020) in 1          // Jan 1 to Jan 31
 replace stop = mdy(6,30,2020) in 2
 gen drug = 1
-save "/tmp/tve_test3g_exp1.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3g_exp1.dta", replace
 
 * Verify gap
 local gap_days = mdy(3,1,2020) - mdy(1,31,2020) - 1
 display "  INFO: Gap for 3g.1 = `gap_days' days (expected 30)"
 
-use "/tmp/tve_test3g_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3g_exp1.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3g_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3g_exp1.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6259,13 +6259,13 @@ replace start = mdy(3,3,2020) in 2      // gap = Mar3 - Jan31 - 1 = 31 days
 gen stop = mdy(1,31,2020) in 1
 replace stop = mdy(6,30,2020) in 2
 gen drug = 1
-save "/tmp/tve_test3g_exp2.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3g_exp2.dta", replace
 
 local gap_days2 = mdy(3,3,2020) - mdy(1,31,2020) - 1
 display "  INFO: Gap for 3g.2 = `gap_days2' days (expected 31)"
 
-use "/tmp/tve_test3g_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3g_exp2.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3g_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3g_exp2.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6324,7 +6324,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3h_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3h_cohort.dta", replace
 
 clear
 set obs 2
@@ -6335,14 +6335,14 @@ gen stop = mdy(1,30,2020) in 1
 replace stop = mdy(2,19,2020) in 2    // Feb 19 (B is 30 days: Jan21-Feb19)
 gen dose_amt = 90 in 1                 // Same dose - tests that merge bug is fixed
 replace dose_amt = 90 in 2
-save "/tmp/tve_test3h_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3h_exp.dta", replace
 
 * Verify overlap
 local overlap_days = mdy(1,30,2020) - mdy(1,21,2020) + 1
 display "  INFO: Overlap days = `overlap_days' (expected 10)"
 
-use "/tmp/tve_test3h_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3h_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3h_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3h_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(dose_amt) ///
     entry(study_entry) exit(study_exit) ///
@@ -6412,7 +6412,7 @@ set obs 1
 gen id = 1
 gen study_entry = mdy(1,1,2020)
 gen study_exit  = mdy(12,31,2020)
-save "/tmp/tve_test3i_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3i_cohort.dta", replace
 
 clear
 set obs 2
@@ -6427,10 +6427,10 @@ replace stop = mdy(5,28,2020) in 2   // Drug B ends May 28 (100 days from Feb19 
 * Feb: 19->29 = 11 days, Mar=31, Apr=30, May 1-28=28 → 11+31+30+28 = 100 ✓
 gen drug_type = 1 in 1
 replace drug_type = 2 in 2
-save "/tmp/tve_test3i_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3i_exp.dta", replace
 
-use "/tmp/tve_test3i_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3i_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3i_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3i_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug_type) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6528,10 +6528,10 @@ gen study_entry = mdy(1,1,2020) + (id-1) * 30
 gen study_exit  = study_entry + 180 + (id-1) * 20
 * Pre-compute expected person-time per person (before tvexpose drops these vars)
 quietly gen expected_pt = study_exit - study_entry + 1
-save "/tmp/tve_test3j_cohort.dta", replace
-save "/tmp/tve_test3j_expected.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3j_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3j_expected.dta", replace
 keep id expected_pt
-save "/tmp/tve_test3j_expected.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3j_expected.dta", replace
 
 * Create various exposures for these 5 persons
 clear
@@ -6540,10 +6540,10 @@ gen id = ceil(_n / 2)    // ids 1-5, 2 exposures each
 gen start = mdy(1,15,2020) + (id-1)*30 + mod(_n,2)*60
 gen stop  = start + 45
 gen drug = 1 + mod(_n, 2)   // drug types 1 and 2
-save "/tmp/tve_test3j_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tve_test3j_exp.dta", replace
 
-use "/tmp/tve_test3j_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tve_test3j_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tve_test3j_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tve_test3j_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6560,7 +6560,7 @@ else {
     quietly collapse (sum) actual_pt = person_days, by(id)
 
     * Merge back expected person-time from pre-computed cohort file
-    quietly merge 1:1 id using "/tmp/tve_test3j_expected.dta", keep(match) nogen keepusing(expected_pt)
+    quietly merge 1:1 id using "$TVTOOLS_QA_RUN_DIR/tve_test3j_expected.dta", keep(match) nogen keepusing(expected_pt)
 
     quietly gen diff_pt = abs(actual_pt - expected_pt)
     quietly sum diff_pt
@@ -6603,7 +6603,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvo_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvo_cohort.dta", replace
 
 * TEST 1: MERGE() GAP-MERGING WITH MAX DAYS
 display "TEST 1: merge() gap-merging (119-day gap bridged, 121-day not)"
@@ -6629,11 +6629,11 @@ replace stop = mdy(9,30,2020)      in 2
 replace stop = mdy(12,31,2020)     in 3
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvo1_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvo1_exp.dta", replace
 
 * Test with merge(120) - should bridge 119-day gap
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo1_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvo_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvo1_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6656,8 +6656,8 @@ else {
 }
 
 * Test with merge(100) - should NOT bridge the 119-day gap
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo1_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvo_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvo1_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6711,10 +6711,10 @@ gen double start = mdy(1,1,2020)
 gen double stop  = mdy(12,31,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvo2_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvo2_exp.dta", replace
 
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo2_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvo_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvo2_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6743,7 +6743,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr1_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr1_cohort.dta", replace
 
 clear
 set obs 2
@@ -6754,10 +6754,10 @@ gen double stop = mdy(1,30,2020)  in 1
 replace stop = mdy(2,19,2020)     in 2
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr1_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr1_exp.dta", replace
 
-use "/tmp/tvr1_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr1_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr1_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr1_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6855,7 +6855,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr2_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr2_cohort.dta", replace
 
 clear
 set obs 2
@@ -6867,10 +6867,10 @@ replace stop = mdy(4,30,2020)     in 2
 gen byte drug = 1 in 1
 replace drug = 2 in 2
 format start stop %td
-save "/tmp/tvr2_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr2_exp.dta", replace
 
-use "/tmp/tvr2_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr2_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr2_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr2_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -6953,7 +6953,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr3_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr3_cohort.dta", replace
 
 clear
 set obs 2
@@ -6964,10 +6964,10 @@ replace stop = mdy(3,15,2020)     in 2
 gen byte drug = 1 in 1
 replace drug = 2 in 2
 format start stop %td
-save "/tmp/tvr3_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr3_exp.dta", replace
 
-use "/tmp/tvr3_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr3_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr3_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr3_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7042,7 +7042,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2028)
 format study_entry study_exit %td
-save "/tmp/tvr4_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr4_cohort.dta", replace
 
 clear
 set obs 2
@@ -7053,10 +7053,10 @@ gen double stop = mdy(1,15,2020)  in 1
 replace stop = mdy(3,1,2020) + 2999 in 2
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr4_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr4_exp.dta", replace
 
-use "/tmp/tvr4_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr4_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr4_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr4_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7143,7 +7143,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2024)
 format study_entry study_exit %td
-save "/tmp/tvr5_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr5_cohort.dta", replace
 
 clear
 set obs 1
@@ -7152,10 +7152,10 @@ gen double start = mdy(6,1,2020)
 gen double stop  = start + 2921
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr5_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr5_exp.dta", replace
 
-use "/tmp/tvr5_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr5_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr5_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr5_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7205,12 +7205,12 @@ else {
     display as error "TEST 5: FAILED"
 }
 
-* TEST 6: FRACTIONAL DAYS_SUPPLY
-display "TEST 6: Fractional days_supply (42.5 days)"
+* TEST 6: FRACTIONAL DAILY DATES ARE REJECTED
+display "TEST 6: Fractional daily stop is rejected transactionally"
 
 * days_supply = 42.5 from multiplier computation
 * start = Jan1/2020, stop = start + 42.5 = Feb12.5/2020
-* tvexpose should handle non-integer stop dates
+* tvexpose requires closed whole-day dates and must not round silently.
 
 local test6_pass = 1
 
@@ -7220,7 +7220,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr6_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr6_cohort.dta", replace
 
 clear
 set obs 1
@@ -7229,44 +7229,30 @@ gen double start = mdy(1,1,2020)
 gen double stop  = start + 42.5
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr6_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr6_exp.dta", replace
 
-use "/tmp/tvr6_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr6_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr6_cohort.dta", clear
+datasignature set
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr6_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(tv_exp)
+local cmdrc = _rc
 
-if _rc != 0 {
-    display as error "  FAIL [6.run]: tvexpose returned error `=_rc'"
-    local test6_pass = 0
+if `cmdrc' == 498 {
+    capture noisily datasignature confirm
+    if _rc == 0 {
+        display as result "  PASS [6.strict]: fractional daily stop rejected without mutation"
+    }
+    else {
+        display as error "  FAIL [6.transaction]: caller data changed after rc 498"
+        local test6_pass = 0
+    }
 }
 else {
-    sort id start
-    list id start stop tv_exp, noobs
-
-    * Should produce output without error
-    quietly count
-    if r(N) > 0 {
-        display as result "  PASS [6.output]: output has `=r(N)' rows"
-    }
-    else {
-        display as error "  FAIL [6.output]: no output"
-        local test6_pass = 0
-    }
-
-    * Verify exposed period captures the ~42 day exposure
-    gen double dur = stop - start + 1 if tv_exp == 1
-    quietly summarize dur
-    local exp_dur = r(sum)
-    if `exp_dur' >= 42 & `exp_dur' <= 44 {
-        display as result "  PASS [6.duration]: exposed duration = `exp_dur' (~42.5)"
-    }
-    else {
-        display as error "  FAIL [6.duration]: exposed duration = `exp_dur' (expected ~42-44)"
-        local test6_pass = 0
-    }
+    display as error "  FAIL [6.strict]: expected rc 498, got `cmdrc'"
+    local test6_pass = 0
 }
 
 if `test6_pass' == 1 {
@@ -7292,7 +7278,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr7_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr7_cohort.dta", replace
 
 clear
 set obs 1
@@ -7301,10 +7287,10 @@ gen double start = mdy(6,15,2020)
 gen double stop  = mdy(6,15,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr7_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr7_exp.dta", replace
 
-use "/tmp/tvr7_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr7_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr7_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr7_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7362,7 +7348,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr8_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr8_cohort.dta", replace
 
 clear
 set obs 1
@@ -7371,10 +7357,10 @@ gen double start = mdy(6,15,2020)
 gen double stop  = mdy(6,1,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr8_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr8_exp.dta", replace
 
-use "/tmp/tvr8_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr8_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr8_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr8_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7429,7 +7415,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr9_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr9_cohort.dta", replace
 
 clear
 set obs 2
@@ -7440,10 +7426,10 @@ gen double stop = mdy(6,30,2019) in 1
 replace stop = mdy(9,30,2021) in 2
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr9_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr9_exp.dta", replace
 
-use "/tmp/tvr9_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr9_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr9_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr9_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7514,7 +7500,7 @@ gen long id = 1
 gen double study_entry = mdy(3,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr10_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr10_cohort.dta", replace
 
 clear
 set obs 1
@@ -7523,10 +7509,10 @@ gen double start = mdy(1,1,2020)
 gen double stop  = mdy(6,30,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr10_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr10_exp.dta", replace
 
-use "/tmp/tvr10_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr10_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr10_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr10_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7601,7 +7587,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(6,30,2020)
 format study_entry study_exit %td
-save "/tmp/tvr11_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr11_cohort.dta", replace
 
 clear
 set obs 1
@@ -7610,10 +7596,10 @@ gen double start = mdy(4,1,2020)
 gen double stop  = mdy(12,31,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr11_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr11_exp.dta", replace
 
-use "/tmp/tvr11_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr11_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr11_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr11_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7677,7 +7663,7 @@ gen long id = 1
 gen double study_entry = mdy(3,1,2020)
 gen double study_exit  = mdy(9,30,2020)
 format study_entry study_exit %td
-save "/tmp/tvr12_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr12_cohort.dta", replace
 
 clear
 set obs 1
@@ -7686,10 +7672,10 @@ gen double start = mdy(1,1,2019)
 gen double stop  = mdy(12,31,2021)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr12_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr12_exp.dta", replace
 
-use "/tmp/tvr12_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr12_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr12_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr12_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7765,7 +7751,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr13_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr13_cohort.dta", replace
 
 clear
 set obs 1
@@ -7774,11 +7760,11 @@ gen double start = mdy(3,1,2020)
 gen double stop  = .
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr13_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr13_exp.dta", replace
 
 * fillgaps should extend exposure beyond last known date
-use "/tmp/tvr13_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr13_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr13_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr13_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7787,8 +7773,8 @@ capture noisily tvexpose using "/tmp/tvr13_exp.dta", ///
 if _rc != 0 {
     * Try without fillgaps - pointtime approach
     display "  INFO: fillgaps with missing stop failed (rc=`=_rc'), trying pointtime"
-    use "/tmp/tvr13_cohort.dta", clear
-    capture noisily tvexpose using "/tmp/tvr13_exp.dta", ///
+    use "$TVTOOLS_QA_RUN_DIR/tvr13_cohort.dta", clear
+    capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr13_exp.dta", ///
         id(id) start(start) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit) ///
@@ -7862,7 +7848,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr14_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr14_cohort.dta", replace
 
 clear
 set obs 1
@@ -7871,10 +7857,10 @@ gen double start = mdy(6,15,2020)
 gen double stop  = mdy(6,15,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr14_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr14_exp.dta", replace
 
-use "/tmp/tvr14_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr14_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr14_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr14_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7923,7 +7909,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr15_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr15_cohort.dta", replace
 
 clear
 set obs 1
@@ -7932,10 +7918,10 @@ gen double start = mdy(3,1,2020)
 gen double stop  = mdy(3,1,2020)
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr15_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr15_exp.dta", replace
 
-use "/tmp/tvr15_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr15_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr15_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr15_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -7991,7 +7977,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr16_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr16_cohort.dta", replace
 
 clear
 set obs 2
@@ -8003,10 +7989,10 @@ replace stop = mdy(6,30,2020)      in 2
 gen byte drug = 1 in 1
 replace drug = 2 in 2
 format start stop %td
-save "/tmp/tvr16_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr16_exp.dta", replace
 
-use "/tmp/tvr16_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr16_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr16_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr16_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -8077,7 +8063,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr17_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr17_cohort.dta", replace
 
 clear
 set obs 2
@@ -8088,11 +8074,11 @@ gen double stop = mdy(3,31,2020) in 1
 replace stop = mdy(6,30,2020)    in 2
 gen byte drug = 1
 format start stop %td
-save "/tmp/tvr17_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr17_exp.dta", replace
 
 * First test with grace(1) - should bridge
-use "/tmp/tvr17_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr17_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr17_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr17_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -8115,8 +8101,8 @@ else {
 }
 
 * Now test without grace - should have gap
-use "/tmp/tvr17_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr17_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr17_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr17_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -8168,7 +8154,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvr18_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr18_cohort.dta", replace
 
 clear
 set obs 5
@@ -8177,10 +8163,10 @@ gen double start = mdy(3,1,2020) + (_n-1)*6
 gen double stop  = start + 5
 gen byte drug = _n
 format start stop %td
-save "/tmp/tvr18_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr18_exp.dta", replace
 
-use "/tmp/tvr18_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr18_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr18_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr18_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -8256,7 +8242,7 @@ gen double study_exit  = mdy(12,31,2020)
 * Person 10: very short window
 replace study_exit = mdy(1,7,2020) in 10
 format study_entry study_exit %td
-save "/tmp/tvr19_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr19_cohort.dta", replace
 
 * Build exposure data
 clear
@@ -8353,10 +8339,10 @@ replace stop = mdy(1,5,2020) in `n'
 replace drug = 1 in `n'
 
 format start stop %td
-save "/tmp/tvr19_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr19_exp.dta", replace
 
-use "/tmp/tvr19_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr19_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr19_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr19_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
@@ -8431,7 +8417,7 @@ else {
     preserve
     gen double dur = stop - start + 1
     collapse (sum) total_days=dur (min) entry=start (max) exit=stop, by(id)
-    merge 1:1 id using "/tmp/tvr19_cohort.dta", keepusing(study_entry study_exit) nogenerate
+    merge 1:1 id using "$TVTOOLS_QA_RUN_DIR/tvr19_cohort.dta", keepusing(study_entry study_exit) nogenerate
     gen double expected_days = study_exit - study_entry + 1
     gen double ptime_diff = abs(total_days - expected_days)
     quietly summarize ptime_diff
@@ -8470,7 +8456,7 @@ gen long id = 1
 gen double study_entry = mdy(1,1,2018)
 gen double study_exit  = mdy(12,31,2024)
 format study_entry study_exit %td
-save "/tmp/tvr20_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr20_cohort.dta", replace
 
 * 60 prescriptions over 7 years (approx one per 6 weeks)
 clear
@@ -8480,10 +8466,10 @@ gen double start = mdy(1,1,2018) + (_n-1)*42
 gen double stop  = start + 30
 gen byte drug = mod(_n-1, 3) + 1
 format start stop %td
-save "/tmp/tvr20_exp.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvr20_exp.dta", replace
 
-use "/tmp/tvr20_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvr20_exp.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/tvr20_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/tvr20_exp.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///

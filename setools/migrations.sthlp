@@ -32,14 +32,14 @@
 
 {syntab:Optional}
 {synopt:{opt id:var(varname)}}ID variable; default is {cmd:id}{p_end}
-{synopt:{opt start:var(varname)}}study start date variable; default is {cmd:study_start}; must be nonmissing{p_end}
-{synopt:{opt min:residence(#)}}minimum days of continuous residence before study start; default is {cmd:0} (disabled){p_end}
+{synopt:{opt start:var(varname)}}study-start date; default {cmd:study_start}{p_end}
+{synopt:{opt min:residence(#)}}minimum pre-entry residence days{p_end}
 {synopt:{opt savee:xclude(filename)}}save excluded observations to a dataset{p_end}
-{synopt:{opt savec:ensor(filename)}}save nonmissing emigration censoring dates to a dataset{p_end}
-{synopt:{opt replace}}allow overwriting files specified in {opt saveexclude()} and {opt savecensor()}{p_end}
+{synopt:{opt savec:ensor(filename)}}save emigration censoring dates{p_end}
+{synopt:{opt replace}}allow replacing output datasets{p_end}
 {synopt:{opt verb:ose}}display processing messages{p_end}
-{synopt:{opt keep:immigrants}}include (do not exclude) post-start immigrants; creates {it:migration_in_dt}{p_end}
-{synopt:{opt flag}}flag excluded individuals in {it:mig_excluded}/{it:mig_exclude_reason} instead of dropping them{p_end}
+{synopt:{opt keep:immigrants}}include post-start immigrants{p_end}
+{synopt:{opt flag}}flag rather than drop exclusions{p_end}
 {synopt:{opt intype(codes)}}long-format {cmd:event_type} values denoting immigration{p_end}
 {synopt:{opt outtype(codes)}}long-format {cmd:event_type} values denoting emigration{p_end}
 {synoptline}
@@ -165,6 +165,13 @@ dates. If no such individuals exist, the file is still created
 {opt replace} allows overwriting existing files specified in {opt saveexclude()}
 and {opt savecensor()}.
 
+{pstd}
+Save targets are normalized to their effective {cmd:.dta} paths before any
+write. A target that aliases {opt migfile()} or the other target (including
+relative, absolute, omitted-extension, or resolvable symbolic-link aliases) is
+rejected. Both exports are staged before replacement; if a later write fails,
+earlier targets are restored.
+
 {phang}
 {opt verbose} displays additional processing messages, including migration file
 format detection and exclusion/censoring progress.
@@ -197,6 +204,11 @@ disjoint. These overrides take precedence over the built-in recognition and
 are the way to support unlabeled numeric codes (e.g. {cmd:intype(1) outtype(2)}) or
 any registry-specific vocabulary. They are ignored for wide-format migration
 files.
+
+{pstd}
+Variable names beginning {cmd:_mig_} or {cmd:_neg_} are reserved for internal
+working state. The command rejects a master dataset that already contains such
+names before changing data.
 
 
 {marker remarks}{...}
@@ -236,9 +248,9 @@ Run {cmd:migrations} early in your cohort-construction pipeline, after defining
 the cohort and study start dates but before survival setup:
 
 {phang2}1. Load cohort data (one row per person){p_end}
-{phang2}2. Run {cmd:migrations} to drop non-residents and create censoring dates{p_end}
-{phang2}3. Compute comorbidities with {helpb cci_se} (optionally using
-{opt minresidence()} to ensure NPR lookback coverage){p_end}
+{phang2}2. Run {cmd:migrations}, optionally with {opt minresidence()}, to drop
+non-residents, enforce pre-entry residence, and create censoring dates{p_end}
+{phang2}3. Compute comorbidities with {helpb cci_se}{p_end}
 {phang2}4. Define exit dates using {cmd:migration_out_dt}, death, and
 administrative end{p_end}
 {phang2}5. Run {helpb stset} for survival analysis{p_end}
@@ -298,6 +310,7 @@ survival analysis.{p_end}
 {phang2}{cmd:. * Construct exit date: earliest of death, emigration, or admin end}{p_end}
 {phang2}{stata "gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))":. gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))}{p_end}
 {phang2}{stata "format end_date %td":. format end_date %td}{p_end}
+{phang2}{stata "gen byte outcome = !missing(death_date) & death_date == end_date":. gen byte outcome = !missing(death_date) & death_date == end_date}{p_end}
 {phang2}{stata "stset end_date, failure(outcome) origin(study_entry)":. stset end_date, failure(outcome) origin(study_entry)}{p_end}
 
 {pstd}
@@ -333,20 +346,23 @@ lookback for comorbidity scoring is complete.{p_end}
 {p2col 5 28 32 2: Scalars}{p_end}
 {synopt:{cmd:r(N_excluded_emigrated)}}Type 1: emigrated before study start, never returned{p_end}
 {synopt:{cmd:r(N_excluded_inmigration)}}Type 2: immigration after study start only{p_end}
-{synopt:{cmd:r(N_excluded_abroad)}}Type 3: abroad at baseline, returned after study start{p_end}
+{synopt:{cmd:r(N_excluded_abroad)}}Type 3: abroad at baseline{p_end}
 {synopt:{cmd:r(N_excluded_minresidence)}}Type 4: insufficient continuous residence{p_end}
 {synopt:{cmd:r(N_excluded_total)}}total number excluded across all types{p_end}
-{synopt:{cmd:r(N_censored)}}number of individuals with emigration censoring dates{p_end}
+{synopt:{cmd:r(N_censored)}}persons with emigration censoring{p_end}
 {synopt:{cmd:r(N_included_inmigration)}}post-start immigrants included (with {opt keepimmigrants}){p_end}
-{synopt:{cmd:r(N_final)}}final sample size after exclusions{p_end}
+{synopt:{cmd:r(N_final)}}analytic sample after exclusions{p_end}
+{synopt:{cmd:r(N_analytic)}}analytic sample after exclusions{p_end}
+{synopt:{cmd:r(N_returned)}}rows returned to memory{p_end}
 
 {p2col 5 28 32 2: Matrices}{p_end}
-{synopt:{cmd:r(flow)}}CONSORT-style exclusion-flow column vector (named rows){p_end}
+{synopt:{cmd:r(flow)}}named exclusion-flow column vector{p_end}
 
 {pstd}
-{cmd:r(flow)} carries one row per flow step {hline 1} starting cohort, each
-exclusion type, total excluded, censored, and final cohort {hline 1} ready to
-tabulate or feed into {cmd:consort_step}.
+{cmd:r(flow)} carries one named row per flow step: starting cohort, each
+exclusion type, total excluded, censored, analytic cohort, and returned rows; under
+{opt flag}, the analytic cohort excludes flagged people while returned
+rows includes them.
 
 
 {marker author}{...}

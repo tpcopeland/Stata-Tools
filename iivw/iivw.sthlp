@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.6  10jul2026}{...}
+{* *! version 1.9.7  13jul2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -47,7 +47,8 @@ working commands are {helpb iivw_weight}, {helpb iivw_balance},
 observational studies with irregular visit times. It implements inverse
 intensity weighting (IIW; Buzkova & Lumley 2007), inverse probability of
 treatment weighting (IPTW), and their multiplicative combination
-(FIPTIW; Tompkins et al. 2025).
+(FIPTIW; Coulombe, Moodie & Platt 2021, whose practical sensitivities are
+studied by Tompkins et al. 2025).
 
 {pstd}
 The package provides five main commands:
@@ -385,6 +386,12 @@ irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
+Coulombe J, Moodie EEM, Platt RW. 2021. Weighted regression analysis to correct
+for informative monitoring times and confounders in longitudinal
+studies. {it:Biometrics}
+77(1): 162-174. doi:10.1111/biom.13285.
+
+{phang}
 Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of
 treatment and intensity weighting: Informative censoring, variable selection,
 and weight trimming. {it:Statistical Methods in Medical Research}
@@ -419,7 +426,7 @@ observation times. R package version 0.4.1. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.9.6, 2026-07-10{p_end}
+{pstd}Version 1.9.7, 2026-07-13{p_end}
 
 
 {title:Also see}

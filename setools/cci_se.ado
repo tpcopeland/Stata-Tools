@@ -1,4 +1,4 @@
-*! cci_se Version 1.4.1  2026/07/03
+*! cci_se Version 1.5.0  2026/07/13
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -20,6 +20,7 @@
 program define cci_se, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _cci_preserved = 0
     set varabbrev off
 
     capture noisily {
@@ -34,6 +35,7 @@ program define cci_se, rclass
     * ---------------------------------------------------------------
     if "`generate'" == "" local generate "charlson"
     if "`prefix'" == "" local prefix "cci_"
+    if "`dates'" != "" local components "components"
 
     * ---------------------------------------------------------------
     * Validate inputs
@@ -144,16 +146,37 @@ program define cci_se, rclass
         }
     }
 
-    if "`generate'" == "`id'" {
-        display as error "generate() name cannot be same as id() variable"
-        exit 198
-    }
-
+    * Validate the complete prospective output set before preserving or
+    * reducing the data.  Exact collisions are errors; sharing a textual
+    * prefix is harmless when the resulting names are distinct.
+    local _cci_component_names ///
+        "mi chf pvd cevd copd pulm rheum dem plegia diab diabcomp renal livmild livsev pud cancer mets aids"
+    local _cci_outputs "`generate'"
     if "`components'" != "" {
-        local _pfxlen = strlen("`prefix'")
-        if substr("`generate'", 1, `_pfxlen') == "`prefix'" {
-            display as error "generate() name conflicts with component variable prefix"
+        foreach _cci_component of local _cci_component_names {
+            local _cci_outputs "`_cci_outputs' `prefix'`_cci_component'"
+            if "`dates'" != "" {
+                local _cci_outputs "`_cci_outputs' `prefix'`_cci_component'_date"
+            }
+        }
+    }
+    local _cci_seen ""
+    foreach _cci_out of local _cci_outputs {
+        capture confirm name `_cci_out'
+        if _rc {
+            display as error "invalid prospective output variable name: `_cci_out'"
             exit 198
+        }
+        local _cci_out_lc = lower("`_cci_out'")
+        if strpos(" `_cci_seen' ", " `_cci_out_lc' ") {
+            display as error "prospective output variable names must be distinct: `_cci_out'"
+            exit 198
+        }
+        local _cci_seen "`_cci_seen' `_cci_out_lc'"
+        capture confirm new variable `_cci_out'
+        if _rc {
+            display as error "variable `_cci_out' already exists"
+            exit 110
         }
     }
 
@@ -161,6 +184,7 @@ program define cci_se, rclass
     * Preserve and prepare data
     * ---------------------------------------------------------------
     preserve
+    local _cci_preserved = 1
 
     quietly keep if `touse'
 
@@ -199,7 +223,6 @@ program define cci_se, rclass
             quietly count if !missing(`date') & `date' != floor(`date')
             if r(N) > 0 {
                 display as error "date() must contain whole-number YYYYMMDD values when dateformat(yyyymmdd) is used"
-                restore
                 exit 109
             }
             * Numeric YYYYMMDD format
@@ -254,7 +277,6 @@ program define cci_se, rclass
     quietly count
     if r(N) == 0 {
         display as error "No valid observations after date parsing"
-        restore
         exit 2000
     }
     local N_input = r(N)
@@ -264,11 +286,6 @@ program define cci_se, rclass
     quietly count if trim(`code') != ""
     local _cci_n_withcodes = r(N)
 
-    * dates implies components
-    if "`dates'" != "" & "`components'" == "" {
-        local components "components"
-    }
-
     * ---------------------------------------------------------------
     * Initialize 19 comorbidity indicators
     * ---------------------------------------------------------------
@@ -277,7 +294,6 @@ program define cci_se, rclass
         if !_rc {
             display as error "Variables named _cci_* already exist in dataset"
             display as error "Drop or rename them before running cci_se"
-            restore
             exit 110
         }
     }
@@ -471,6 +487,7 @@ program define cci_se, rclass
     * Keep modified data (discard preserved copy)
     * ---------------------------------------------------------------
     restore, not
+    local _cci_preserved = 0
 
     * ---------------------------------------------------------------
     * Return results
@@ -487,6 +504,9 @@ program define cci_se, rclass
 
     }
     local rc = _rc
+    if `rc' & `_cci_preserved' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -584,7 +604,7 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     asarray(ht7, "26009", 10)
     _cci_aa_multi(ht8, "250,00 250,07 250,08", 10)
     _cci_aa_multi(ht9, "250A 250B 250C", 10)
-    _cci_aa_multi(ht10, "E100 E101 E106 E109 E110 E111 E119 E120 E121 E129 E130 E131 E139 E140 E141 E149", 10)
+    _cci_aa_multi(ht10, "E100 E101 E106 E108 E109 E110 E111 E118 E119 E120 E121 E129 E130 E131 E139 E140 E141 E149", 10)
 
     // --- 11. Diabetes with complications ---
     _cci_aa_multi(ht7, "260,2 260,21 260,29 260,3 260,4 260,49 260,99", 11)
@@ -622,13 +642,19 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     _cci_aa_multi(ht10, "K25 K26 K27 K28", 16)
 
     // --- 17. Malignancy (non-metastatic) ---
-    // ICD-7: 140-197, 200-204
+    // ICD-7 authoritative set: 140-190, 192-197, 200-204
     _cci_aa_range(ht7, "1", 40, 97, 17)
     _cci_aa_range(ht7, "2", 0, 4, 17)
-    // ICD-8: 140-199, 200-209 (excl 173, 208)
+    asarray_remove(ht7, "191")
+    // ICD-8 authoritative set excludes 173, 175-179, and 208
     _cci_aa_range(ht8, "1", 40, 99, 17)
     _cci_aa_range(ht8, "2", 0, 9, 17)
     asarray_remove(ht8, "173")
+    asarray_remove(ht8, "175")
+    asarray_remove(ht8, "176")
+    asarray_remove(ht8, "177")
+    asarray_remove(ht8, "178")
+    asarray_remove(ht8, "179")
     asarray_remove(ht8, "208")
     // ICD-9: 140-199, 200-208 (excl 173)
     _cci_aa_range(ht9, "1", 40, 99, 17)
@@ -740,7 +766,10 @@ void _cci_aa_range(transmorphic ht, string scalar pfx, real scalar lo,
     }
 }
 
-// Core lookup: try progressively shorter prefixes of a token against hash table.
+// Core lookup: examine every progressively shorter prefix.  A single code can
+// legitimately set more than one raw component in the published algorithm
+// (for example F024 sets both F02 dementia and F024 AIDS); later hierarchy
+// rules resolve only the explicitly subordinate components.
 // When do_dates==1, also writes the visit date to the dates matrix.
 void _cci_lookup_token(transmorphic ht, string scalar tok,
                        real matrix indicators, real scalar row,
@@ -759,7 +788,6 @@ void _cci_lookup_token(transmorphic ht, string scalar tok,
             cci_idx = asarray(ht, pfx)
             indicators[row, cci_idx] = 1
             if (do_dates) dates[row, cci_idx] = dt
-            return
         }
     }
 }

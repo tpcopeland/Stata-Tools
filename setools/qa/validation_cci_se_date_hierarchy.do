@@ -3,7 +3,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_cci_se_date_hierarchy.log", replace nomsg
+log using "`c(tmpdir)'/validation_cci_se_date_hierarchy_`c(processid)'.log", replace nomsg
 
 * validation_cci_se_date_hierarchy.do
 * Known-answer coverage for the cci_se dates() hierarchy PROMOTION arithmetic
@@ -21,8 +21,7 @@ log using "validation_cci_se_date_hierarchy.log", replace nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 capture program drop runval
 program define runval
@@ -116,3 +115,5 @@ if scalar(gs_nfail) > 0 {
 display as result "ALL TESTS PASSED"
 scalar drop gs_ntest gs_npass gs_nfail
 log close _all
+
+do "`qa_dir'/_setools_qa_common.do" teardown

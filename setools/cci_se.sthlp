@@ -36,17 +36,17 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}patient identifier variable{p_end}
-{synopt:{opt icd(varlist)}}one or more string variables containing ICD diagnosis codes{p_end}
-{synopt:{opt date(varname)}}date variable (Stata daily date, YYYYMMDD, or YYYY-MM-DD string){p_end}
+{synopt:{opt icd(varlist)}}string ICD-code variables{p_end}
+{synopt:{opt date(varname)}}diagnosis date variable{p_end}
 
 {syntab:Optional}
-{synopt:{opt gen:erate(name)}}name for Charlson score variable; default is {cmd:charlson}{p_end}
-{synopt:{opt comp:onents}}generate binary indicator variables for each comorbidity{p_end}
-{synopt:{opt date:s}}generate earliest diagnosis date for each comorbidity; implies {opt components}{p_end}
+{synopt:{opt gen:erate(name)}}Charlson score variable name{p_end}
+{synopt:{opt comp:onents}}generate component indicators{p_end}
+{synopt:{opt date:s}}generate earliest component dates{p_end}
 {synopt:{opt prefix(string)}}prefix for component variable names; default is {cmd:cci_}{p_end}
 {synopt:{opt datef:ormat(string)}}date format: {cmd:stata}, {cmd:yyyymmdd}, or {cmd:ymd}{p_end}
 {synopt:{opt indexd:ate(varname)}}restrict diagnoses to on/before this index date{p_end}
-{synopt:{opt look:back(#)}}days before the index date to include; requires {opt indexdate()}{p_end}
+{synopt:{opt look:back(#)}}pre-index window in days{p_end}
 {synopt:{opt noi:sily}}display summary of results{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -128,7 +128,8 @@ variable. The default is {cmd:charlson}.
 {phang}
 {opt components} requests that binary (0/1) indicator variables be generated for
 each of the 18 comorbidity components in addition to the composite
-score. Variables are named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See {help cci_se##comorbidities:Comorbidities} for the full list.
+score. Variables are named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
+{help cci_se##comorbidities:Comorbidities} for the full list.
 
 {phang}
 {opt dates} generates a Stata daily date variable for each comorbidity containing
@@ -245,9 +246,8 @@ is cleared (the higher-weighted condition takes precedence).{p_end}
 {phang2}{bf:ICD-7/8 with commas:} {cmd:"420,1"}, {cmd:"250,00"}{p_end}
 
 {pstd}
-Dots are stripped internally before matching, so codes in your data may use
-either format. Commas in ICD-7/8 codes are preserved as they are part of the
-code structure.
+Dots and commas are stripped internally before matching, so dotted, Swedish
+comma-decimal, and separator-free variants are equivalent.
 
 {pstd}
 The ICD variables may contain a single code per cell (most common in
@@ -358,9 +358,9 @@ informational and never stops execution.
 
 {pstd}
 {cmd:r(N_input)} and the {cmd:Input observations} line shown by {opt noisily}
-count diagnosis-level observations retained after excluding missing {opt id()},
-missing {opt date()}, and dates that cannot be parsed under the chosen
-{opt dateformat()}.
+count diagnosis-level observations actually scored after missing/unparseable
+ID/date exclusions and, when requested, all {opt indexdate()} and
+{opt lookback()} filters.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
@@ -369,7 +369,7 @@ missing {opt date()}, and dates that cannot be parsed under the chosen
 {synopt:{cmd:r(N_any)}}number of patients with CCI > 0{p_end}
 {synopt:{cmd:r(mean_cci)}}mean Charlson score{p_end}
 {synopt:{cmd:r(max_cci)}}maximum Charlson score{p_end}
-{synopt:{cmd:r(N_excluded_window)}}diagnoses dropped by {opt indexdate()}/{opt lookback()} (0 if unused){p_end}
+{synopt:{cmd:r(N_excluded_window)}}diagnoses outside the index window{p_end}
 {synopt:{cmd:r(lookback)}}lookback window in days (only if {opt lookback()} specified){p_end}
 
 

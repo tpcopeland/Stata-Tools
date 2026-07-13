@@ -232,7 +232,7 @@ program define corrtab, rclass
             quietly replace c`_col' = `"`_vlbl_`v''"' in `row'
         }
 
-        local _diag_str = string(1, "%6.`digits'f")
+        local _diag_str = strtrim(string(1, "%21.`digits'f"))
         forvalues i = 1/`nvars' {
             local row = `row' + 1
             quietly set obs `row'
@@ -255,7 +255,7 @@ program define corrtab, rclass
                     else {
                         local _r = `_corr'[`i', `j']
                         local _p = `_pmat'[`i', `j']
-                        local _rstr = string(`_r', "%6.`digits'f")
+                        local _rstr = strtrim(string(`_r', "%21.`digits'f"))
                         if "`pvalues'" != "" {
                             if !missing(`_p') {
                                 local _pstr = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))

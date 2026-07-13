@@ -348,6 +348,16 @@ When {opt true()} is specified, {cmd:r(bias)} has a {cmd:value} column and rows
 {marker references}{...}
 {title:References}
 
+{pstd}
+{bf:The sampling/artifact decomposition is original to this package.} The
+weighted estimate it consumes comes from the inverse-intensity weighting
+literature below, but the three-estimate comparison and the sampling and
+artifact {it:shares} are not taken from any published estimator, and no
+reference below vouches for them. They have no sampling distribution, no
+standard error and no test, and they are sign-inconsistent outside [0, 1]. Read
+them as a descriptive summary of how far the estimate moves, and report the
+three estimates themselves.
+
 {phang}
 Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear
 models with follow-up dependent on outcome-related

@@ -20,6 +20,7 @@ else {
 }
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 
 log using "`output_dir'/benchmark_tabtools_speed.log", replace text name(_bench_speed)

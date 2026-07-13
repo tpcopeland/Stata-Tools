@@ -8,7 +8,7 @@ d plus diagnostics for sampling bias versus measurement artifact.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260710
+d Distribution-Date: 20260713
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -37,3 +37,5 @@ f _iivw_check_weighted.ado
 f _iivw_bs_estimate.ado
 f _iivw_bs_refit.ado
 f _iivw_export_table.ado
+f _iivw_reserve_names.ado
+f _iivw_require_converged.ado

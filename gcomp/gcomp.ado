@@ -1,4 +1,4 @@
-*! gcomp Version 1.4.4  2026/07/10
+*! gcomp Version 1.4.5  2026/07/13
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -9,7 +9,7 @@
 *!   - Refactored gformula_.ado internals into _gcomp_bootstrap_impl
 *!   - Fixed hardcoded `by id:` bug (idvar not honored in survival/death)
 *!   - Fixed broken baseline auto-detect with oce (backtick macro bug)
-*!   - Eliminated global macro pollution (`_gc_maxid', $check_*, `_gc_almost')
+*!   - Eliminated global macro pollution and protected caller matrix state
 *!   - Replaced SSC-era deprecated RNG calls with runiform()/rnormal()
 *!   - Added double precision to gen statements
 *!   - Inlined detangle/formatline/chkin (no more ice/SSC dependency)
@@ -89,13 +89,26 @@ program define gcomp, eclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
 set varabbrev off
+* The legacy engine still uses several literal matrix names internally.  Save
+* any caller matrices under tempnames and restore them on every exit path.
+local _gc_literal_matrices "b V se ci_normal ci_percentile ci_bc ci_bca _matrow matvis _gc_diag_result EPO catvals out_mlogit msm_params matem1 matem2"
+local _gc_matrix_index 0
+foreach _gc_matrix_name of local _gc_literal_matrices {
+	local ++_gc_matrix_index
+	tempname _gc_caller_matrix`_gc_matrix_index'
+	capture confirm matrix `_gc_matrix_name'
+	local _gc_had_matrix`_gc_matrix_index' = (_rc == 0)
+	if `_gc_had_matrix`_gc_matrix_index'' {
+		matrix `_gc_caller_matrix`_gc_matrix_index'' = `_gc_matrix_name'
+	}
+}
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
     Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat dynamic eofu pooled death(varname) ///
     derived(varlist) derrules(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
     mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
-	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace ///
+	    SAMples(int 1000) SEED(string) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace ///
 	SAVEModels SHOWmodels MODELStyle(string)]
 * --- Component-model capture (savemodels/showmodels): normalize options ---
 if "`showmodels'"!="" local savemodels savemodels
@@ -107,23 +120,127 @@ if "`modelstyle'"!="" {
 		exit 198
 	}
 }
+local _gc_cmdline `"gcomp `0'"'
 local _gc_keepvars `varlist'
 foreach _gc_varblock in outcome idvar tvar varyingcovariates intvars death derived fixedcovariates laggedvars exposure mediator base_confs post_confs impute {
 	local _gc_keepvars `"`_gc_keepvars' ``_gc_varblock''"'
 }
 local _gc_keepvars : list uniq _gc_keepvars
 preserve
+tempvar _gc_original_obs _gc_esample
+quietly gen long `_gc_original_obs'=_n
 if "`in'"!="" {
 	qui keep `in'
 }
 if "`if'"!="" {
 	qui keep `if'
 }
-if "`_gc_keepvars'"!="" {
-	qui keep `_gc_keepvars'
-}
+* Keep the selected observation rows, but retain all variables.  Equation and
+* rule dependencies are allowed to be omitted from the positional varlist and
+* are parsed/validated below before the internal reshape.
 local if
 local in
+
+* Mode-shaping options are rejected before any package-side data mutation.
+if "`mediation'"=="" & "`idvar'"=="" {
+	noi di as err "idvar() is required for time-varying analysis"
+	exit 198
+}
+if "`mediation'"=="" & "`tvar'"=="" {
+	noi di as err "tvar() is required for time-varying analysis"
+	exit 198
+}
+if "`mediation'"!="" & "`exposure'"=="" {
+	noi di as err "exposure() is required with mediation"
+	exit 198
+}
+if "`mediation'"!="" & "`mediator'"=="" {
+	noi di as err "mediator() is required with mediation"
+	exit 198
+}
+if "`mediation'"!="" & "`eofu'"!="" {
+	noi di as err "eofu is not defined for mediation analysis"
+	exit 198
+}
+if "`mediation'"!="" & "`graph'"!="" {
+	noi di as err "graph is currently supported only for time-varying survival analyses"
+	exit 198
+}
+if "`mediation'"=="" & "`eofu'"!="" & "`graph'"!="" {
+	noi di as err "graph is not supported with eofu"
+	exit 198
+}
+if "`mediation'"=="" & "`moreMC'"!="" {
+	noi di as err "moreMC is currently supported only for mediation analysis"
+	exit 198
+}
+if "`boceam'"!="" & "`msm'"=="" {
+	noi di as err "boceam requires a supported msm() specification"
+	exit 198
+}
+if "`seed'"!="" {
+	capture confirm integer number `seed'
+	if _rc {
+		noi di as err "seed() must contain one integer"
+		exit 198
+	}
+	if `seed' <= 0 {
+		noi di as err "seed() must be a positive legal Stata seed"
+		exit 198
+	}
+	capture set seed `seed'
+	if _rc {
+		noi di as err "seed(`seed') is outside Stata's legal seed domain"
+		exit 198
+	}
+}
+if `simulations'<1 {
+	noi di as err "number of Monte Carlo simulations must be 1 or more"
+	exit 198
+}
+if `samples'<2 {
+	noi di as err "number of bootstrap samples must be 2 or more"
+	exit 198
+}
+if `imp_cycles'<1 {
+	noi di as err "number of imputation cycles must be 1 or more"
+	exit 198
+}
+if "`mediation'"=="" {
+	capture confirm numeric variable `idvar'
+	if _rc {
+		noi di as err "idvar() must be numeric; string identifiers are not supported"
+		exit 109
+	}
+	capture confirm numeric variable `tvar'
+	if _rc {
+		noi di as err "tvar() must be numeric"
+		exit 109
+	}
+	capture isid `idvar' `tvar'
+	if _rc {
+		noi di as err "idvar() and tvar() must uniquely identify one row per subject and visit"
+		exit 459
+	}
+	quietly levelsof `tvar' if !missing(`tvar'), local(_gc_visit_levels)
+	local _gc_n_visits : word count `_gc_visit_levels'
+	if `_gc_n_visits' < 2 {
+		noi di as err "time-varying analysis requires at least two observed visit values"
+		exit 2000
+	}
+	foreach _gc_fixed of local fixedcovariates {
+		tempvar _gc_fixed_min _gc_fixed_max
+		quietly bysort `idvar': egen double `_gc_fixed_min' = min(`_gc_fixed')
+		quietly bysort `idvar': egen double `_gc_fixed_max' = max(`_gc_fixed')
+		quietly count if `_gc_fixed_min' != `_gc_fixed_max' & !missing(`_gc_fixed_min', `_gc_fixed_max')
+		if r(N) {
+			quietly summarize `idvar' if `_gc_fixed_min' != `_gc_fixed_max', meanonly
+			noi di as err "fixedcovariates(): `_gc_fixed' varies within id `=r(min)'"
+			exit 459
+		}
+	}
+	sort `idvar' `tvar'
+}
 if "`mediation'"=="" {
 	noi di
 	noi di as text "G-computation procedure using Monte Carlo simulation: time-varying confounding"
@@ -194,9 +311,7 @@ if "`mediation'"=="" {
 		local nvar: word count `varlist2'
 		_gcomp_detangle "`commands'" command "`varlist2'"
 		forvalues i=1/`nvar' {
-			if "${S_`i'}"!="" {
-				local command`i' ${S_`i'}
-			}
+			local command`i' `"`r(value`i')'"'
 		}
 		if "`command1'"!="logit" {
 			noi di as err "Error: death must be simulated from a sequence of logistic regressions." 
@@ -279,12 +394,12 @@ if "`mediation'"=="" {
 		local nvar: word count `varlist2'
 		_gcomp_detangle "`commands'" command "`varlist2'"
 		forvalues i=1/`nvar' {
-			if "${S_`i'}"!="" {
-				local command`i' ${S_`i'}
-			}
+			local command`i' `"`r(value`i')'"'
 		}
-		if "`command`nvar''"!="logit" {
-			noi di as err "Error: the monotreat option can only be used with the model for the intervention variable specified as a logistic regression." 
+		local _gc_mono_var : word 1 of `intvars'
+		local _gc_mono_pos : list posof "`_gc_mono_var'" in varlist2
+		if `_gc_mono_pos'==0 | "`command`_gc_mono_pos''"!="logit" {
+			noi di as err "Error: monotreat requires a logistic model for intervention variable `_gc_mono_var'."
 			exit 198
 		}
 	}
@@ -335,22 +450,24 @@ if "`impute'"!="" {
 	local imp_nvar: word count `impute'
 	_gcomp_detangle "`imp_eq'" imp_eq "`impute'"
 	forvalues i=1/`imp_nvar' {
-		if "${S_`i'}"!="" {
-			local imp_eq`i' ${S_`i'}
-		}	
+		local imp_eq`i' `"`r(value`i')'"'
 	}
 	forvalues i=1/`imp_nvar' {
 		qui replace `missing2'=1
 		local imp_var`i': word `i' of `impute'
+		qui count if missing(`imp_var`i'')
+		local _gc_imp_needed_`i' = r(N)
 		foreach var in `imp_eq`i'' {
 			local var=subinstr("`var'","i.","",1)
 			qui replace `missing2'=0 if `var'<.
 		}
-		qui count if `missing2'==1
+		qui count if `missing2'==1 & missing(`imp_var`i'')
+		local _gc_imp_dropped_`i' = r(N)
+		local _gc_imp_eligible_`i' = `_gc_imp_needed_`i'' - `_gc_imp_dropped_`i''
 		if r(N)!=0 {
 			noi di as err "Warning: " as result r(N) as err " observations dropped due to missing data on all variables needed to impute " as text "`imp_var`i''" as err "." 
 		}	
-		qui drop if `missing2'==1
+		qui drop if `missing2'==1 & missing(`imp_var`i'')
 	}
 }
 
@@ -360,6 +477,31 @@ if _N == 0 {
 	noi di as err "Error: no observations remain after dropping missing data."
 	exit 2000
 }
+if "`impute'"!="" {
+	foreach _gc_iv of local impute {
+		quietly count if !missing(`_gc_iv')
+		if r(N)==0 {
+			noi di as err "impute(): `_gc_iv' has no nonmissing donor values"
+			exit 2000
+		}
+		if "`mediation'"=="" {
+			quietly levelsof `tvar', local(_gc_imp_visits)
+			foreach _gc_visit of local _gc_imp_visits {
+				quietly count if missing(`_gc_iv') & `tvar'==`_gc_visit'
+				local _gc_need = r(N)
+				quietly count if !missing(`_gc_iv') & `tvar'==`_gc_visit'
+				if `_gc_need'>0 & r(N)==0 {
+					noi di as err "impute(): `_gc_iv' has no donor at visit `_gc_visit'"
+					exit 2000
+				}
+			}
+		}
+	}
+}
+tempname _gc_sample_frame
+frame put `_gc_original_obs', into(`_gc_sample_frame')
+local _gc_N_rows = _N
+drop `_gc_original_obs'
 
 if "`mediation'"=="" {
 	tempvar _gc_idtag
@@ -417,6 +559,49 @@ if "`mediation'"=="" & "`interventions'"=="" {
 	noi di as err "Error: interventions() must be specified for a time-varying confounding analysis."
 	exit 198
 }
+if "`mediation'"=="" {
+	* Validate every intervention component as executable Stata replace syntax
+	* and require its assignment target to be an intervention variable.
+	tokenize `"`interventions'"', parse(",")
+	local _gc_pre_nint 0
+	while `"`1'"'!="" {
+		if `"`1'"'!="," {
+			local ++_gc_pre_nint
+			local _gc_pre_arm`_gc_pre_nint' `"`1'"'
+		}
+		mac shift
+	}
+	forvalues _gc_ai=1/`_gc_pre_nint' {
+		tokenize `"`_gc_pre_arm`_gc_ai''"', parse("\")
+		local _gc_ci 0
+		while `"`1'"'!="" {
+			if `"`1'"'!="\" {
+				local ++_gc_ci
+				local _gc_rule = strtrim(`"`1'"')
+				local _gc_equal = strpos(`"`_gc_rule'"', "=")
+				if `_gc_equal'<=1 {
+					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is not an assignment: `_gc_rule'"'
+					exit 198
+				}
+				local _gc_lhs = strtrim(substr(`"`_gc_rule'"', 1, `_gc_equal'-1))
+				local _gc_is_intvar : list posof "`_gc_lhs'" in intvars
+				if `_gc_is_intvar'==0 {
+					noi di as err `"interventions(): assignment target `_gc_lhs' is not listed in intvars()"'
+					exit 198
+				}
+				local _gc_rhs = strtrim(substr(`"`_gc_rule'"', `_gc_equal'+1, .))
+				local _gc_ifpos = strpos(lower(`" `_gc_rhs' "'), " if ")
+				if `_gc_ifpos'>0 local _gc_rhs = strtrim(substr(`"`_gc_rhs'"', 1, `_gc_ifpos'-1))
+				if `"`_gc_rhs'"' == "`_gc_lhs'" {
+					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is a no-op self-assignment: `_gc_rule'"'
+					exit 198
+				}
+				_gcomp_apply_rule, rule(`"`_gc_rule'"') condition("if 0") context("interventions() arm `_gc_ai', component `_gc_ci'")
+			}
+			mac shift
+		}
+	}
+}
 if "`mediation'"!="" & "`exposure'"=="" {
 	noi di as err "Error: With the mediation option, exposure() must be specified."
 	exit 198
@@ -430,23 +615,27 @@ if "`mediation'"!="" & "`baseline'"=="" & "`obe'"=="" & "`oce'"=="" & "`linexp'"
 	exit 198
 }
 if "`mediation'"!="" & "`control'"!="" {
-	* control() sets the CDE mediator level(s): numeric only -- "0", "0 1", or
-	* "mediator: 0". Reject a non-numeric value (e.g. the natural but wrong
-	* control(m=0)); otherwise it is silently swallowed downstream and the CDE
-	* collapses to the total effect with no error.
-	local _ctrl_vals "`control'"
-	if strpos("`control'", ":") {
-		local _ctrl_vals = substr("`control'", strpos("`control'", ":")+1, .)
-	}
-	local _ctrl_ok 1
-	foreach _cv of local _ctrl_vals {
-		capture confirm number `_cv'
-		if _rc local _ctrl_ok 0
-	}
-	if !`_ctrl_ok' {
-		noi di as err "Error: control() expects numeric mediator level(s), e.g. control(0)."
-		noi di as err "       Received control(`control'). Use control(0), not control(m=0) or control(mediator=0)."
+	local _gc_n_control : word count `mediator'
+	if `_gc_n_control' > 1 & !strpos(`"`control'"', ":") {
+		noi di as err "control() with multiple mediators must be keyed, e.g. control(m1: 0, m2: 1)"
 		exit 198
+	}
+	capture noisily _gcomp_detangle `"`control'"' control `"`mediator'"'
+	if _rc exit 198
+	forvalues _gc_ci=1/`_gc_n_control' {
+		local _gc_cv `"`r(value`_gc_ci')'"'
+		local _gc_cmed : word `_gc_ci' of `mediator'
+		local _gc_cn : word count `_gc_cv'
+		if `"`_gc_cv'"'=="" | `_gc_cn' != 1 {
+			noi di as err "control(): specify exactly one value for mediator `_gc_cmed'"
+			exit 198
+		}
+		capture confirm number `_gc_cv'
+		if _rc {
+			noi di as err "control(): value for `_gc_cmed' must be numeric"
+			exit 198
+		}
+		local _gc_control_value`_gc_ci' `_gc_cv'
 	}
 }
 if "`boceam'"!="" {
@@ -454,6 +643,10 @@ if "`boceam'"!="" {
 	if `_nmed' > 1 {
 		noi di as err "Error: boceam (BOCE-AM) currently supports a single mediator; mediator() lists `_nmed'."
 		noi di as err "       Specify a single mediator, or combine the mediators into one variable."
+		exit 198
+	}
+	if "`msm'"=="" {
+		noi di as err "Error: boceam requires msm(); ordinary mediation arms cannot be reused safely."
 		exit 198
 	}
 }
@@ -597,6 +790,25 @@ if "`oce'"!="" & "`baseline'"=="" {
 		exit 198
 	}
 }
+if "`mediation'"!="" & "`baseline'"!="" & "`obe'"=="" & "`linexp'"=="" {
+	local _gc_nbase : word count `exposure'
+	capture noisily _gcomp_detangle `"`baseline'"' baseline `"`exposure'"'
+	if _rc exit 198
+	forvalues _gc_bi=1/`_gc_nbase' {
+		local _gc_bvar : word `_gc_bi' of `exposure'
+		local _gc_bval `"`r(value`_gc_bi')'"'
+		capture confirm number `_gc_bval'
+		if _rc {
+			noi di as err "baseline(): value for `_gc_bvar' must be numeric"
+			exit 198
+		}
+		quietly count if `_gc_bvar' == `_gc_bval'
+		if r(N)==0 {
+			noi di as err "baseline(): `_gc_bval' is not observed for exposure `_gc_bvar'"
+			exit 459
+		}
+	}
+}
 if "`idvar'"!="" & "`mediation'"!="" {
 	noi di as err "Warning: Option idvar() not relevant for the mediation analysis. Try dropping it."
 	exit 198
@@ -683,9 +895,7 @@ if _rc {
 	exit 198
 }
 forvalues i=1/`nvar' {
-	if "${S_`i'}"!="" {
-		local command`i' ${S_`i'}
-	}
+	local command`i' `"`r(value`i')'"'
 }
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
@@ -706,9 +916,7 @@ if _rc {
 	exit 198
 }
 forvalues i=1/`nvar' {
-	if "${S_`i'}"!="" {
-		local equation`i' ${S_`i'}
-	}
+	local equation`i' `"`r(value`i')'"'
 }
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
@@ -722,20 +930,40 @@ forvalues i=1/`nvar' {
 forvalues i=1/`nvar' {
 	local simvar`i': word `i' of `varlist2'
 }
-* Equation predictors exist in the dataset
+* Validate full Stata factor-variable syntax, collect all equation dependencies,
+* and enforce the declared simulation order as a topological order.
+unab _gc_dataset_vars : _all
+local _gc_dependency_vars ""
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
-	local _eq "`equation`i''"
-	foreach _pred in `_eq' {
-		local _pred_clean = subinstr("`_pred'", "i.", "", 1)
-		capture confirm variable `_pred_clean'
-		if _rc {
-			noi di as err "equations(): variable `_pred' in the equation for `_v' does not exist in the dataset"
-			noi di as err "  Check spelling. Available variables: `varlist'"
-			exit 111
+	local _eq `"`equation`i''"'
+	capture fvunab _gc_fv_terms : `_eq'
+	if _rc {
+		noi di as err `"equations(): invalid factor-variable equation for `_v': `_eq'"'
+		exit 111
+	}
+	foreach _candidate of local _gc_dataset_vars {
+		if ustrregexm(`" `_eq' "', "(^|[^A-Za-z0-9_])`_candidate'([^A-Za-z0-9_]|$)") {
+			capture confirm numeric variable `_candidate'
+			if _rc {
+				noi di as err "equations(): string predictor `_candidate' is not supported"
+				exit 109
+			}
+			local _gc_dependency_vars "`_gc_dependency_vars' `_candidate'"
+		}
+	}
+	forvalues _j=`i'/`nvar' {
+		local _later : word `_j' of `varlist2'
+		if ustrregexm(`" `_eq' "', "(^|[^A-Za-z0-9_])`_later'([^A-Za-z0-9_]|$)") {
+			if `_j'==`i' noi di as err "equations(): `_v' appears in its own equation"
+			else noi di as err "equations(): `_v' depends on later simulated variable `_later'; reorder the variables"
+			exit 198
 		}
 	}
 }
+local _gc_dependency_vars : list uniq _gc_dependency_vars
+local varlist "`varlist' `_gc_keepvars' `_gc_dependency_vars'"
+local varlist : list uniq varlist
 * Command <-> variable type consistency
 forvalues i=1/`nvar' {
 	local _v: word `i' of `varlist2'
@@ -746,14 +974,18 @@ forvalues i=1/`nvar' {
 		exit 198
 	}
 	if "`_cmd'" == "logit" {
-		* Robust binary check via count of non-0/1 values. (Do NOT use
-		* `tabulate' here: it errors r(134) "too many values" on a continuous
-		* variable with many distinct levels, which crashes gcomp at moderate N.)
-		qui count if `_v' < . & `_v' != 0 & `_v' != 1
-		if r(N) > 0 {
-			qui summ `_v' if `_v' < .
-			noi di as err "Warning: commands() specifies logit for `_v', but it has values outside {0, 1} (min=" r(min) ", max=" r(max) ")."
-			noi di as err "  logit requires a binary (0/1) variable. Consider mlogit or ologit."
+		quietly count if !missing(`_v') & !inlist(`_v', 0, 1)
+		if r(N) {
+			noi di as err "commands(): logit outcome `_v' must be coded exactly 0/1"
+			exit 459
+		}
+		quietly count if `_v'==0
+		local _gc_has0 = r(N)>0
+		quietly count if `_v'==1
+		local _gc_has1 = r(N)>0
+		if !`_gc_has0' | !`_gc_has1' {
+			noi di as err "commands(): logit outcome `_v' must contain both 0 and 1"
+			exit 2000
 		}
 	}
 	if "`_cmd'" == "regress" {
@@ -771,14 +1003,70 @@ forvalues i=1/`nvar' {
 		}
 	}
 }
-* Outcome not in its own equation
-local _out_eq "`equation`nvar''"
-foreach _pred in `_out_eq' {
-	local _pred_clean = subinstr("`_pred'", "i.", "", 1)
-	if "`_pred_clean'" == "`outcome'" {
-		noi di as err "equations(): the outcome `outcome' appears as a predictor in its own equation"
-		noi di as err "  This creates a circular dependency. Remove `outcome' from the RHS."
+if "`obe'"!="" {
+	quietly count if !missing(`exposure') & !inlist(`exposure', 0, 1)
+	if r(N) {
+		noi di as err "obe requires exposure(`exposure') to be coded exactly 0/1"
+		exit 459
+	}
+	quietly count if `exposure'==0
+	local _gc_obe0 = r(N)>0
+	quietly count if `exposure'==1
+	local _gc_obe1 = r(N)>0
+	if !`_gc_obe0' | !`_gc_obe1' {
+		noi di as err "obe requires both exposure levels 0 and 1"
+		exit 2000
+	}
+}
+if "`death'"!="" {
+	quietly count if !missing(`death') & !inlist(`death', 0, 1)
+	if r(N) {
+		noi di as err "death() must be coded exactly 0/1"
+		exit 459
+	}
+	tempvar _gc_prior_death
+	sort `idvar' `tvar'
+	quietly by `idvar': gen long `_gc_prior_death' = sum(`death'==1) - (`death'==1)
+	quietly count if `_gc_prior_death'>0 & !missing(`death')
+	if r(N) {
+		noi di as err "death() contains observations after an earlier death event"
+		exit 459
+	}
+}
+if "`monotreat'"!="" {
+	local _gc_monovar : word 1 of `intvars'
+	local _gc_monopos : list posof "`_gc_monovar'" in varlist2
+	if "`command`_gc_monopos''" != "logit" {
+		noi di as err "monotreat requires a logistic model for intervention variable `_gc_monovar'"
 		exit 198
+	}
+	quietly count if !missing(`_gc_monovar') & !inlist(`_gc_monovar', 0, 1)
+	if r(N) {
+		noi di as err "monotreat intervention `_gc_monovar' must be coded exactly 0/1"
+		exit 459
+	}
+	tempvar _gc_prior_treat
+	sort `idvar' `tvar'
+	quietly by `idvar': gen long `_gc_prior_treat' = sum(`_gc_monovar'==1) - (`_gc_monovar'==1)
+	quietly count if `_gc_prior_treat'>0 & `_gc_monovar'==0
+	if r(N) {
+		noi di as err "monotreat requires histories that remain treated after initiation"
+		exit 459
+	}
+}
+if "`control'"!="" {
+	forvalues _gc_ci=1/`_gc_n_control' {
+		local _gc_cmed : word `_gc_ci' of `mediator'
+		local _gc_cval `_gc_control_value`_gc_ci''
+		local _gc_cpos : list posof "`_gc_cmed'" in varlist2
+		local _gc_ccmd "`command`_gc_cpos''"
+		if inlist("`_gc_ccmd'", "logit", "mlogit", "ologit") {
+			quietly count if `_gc_cmed'==`_gc_cval'
+			if r(N)==0 {
+				noi di as err "control(): value `_gc_cval' is outside observed support for `_gc_cmed'"
+				exit 459
+			}
+		}
 	}
 }
 * Mediation-specific validation
@@ -830,8 +1118,8 @@ if "`mediation'" == "" {
 			exit 198
 		}
 		forvalues _li=1/`_nlag' {
-			if "${S_`_li'}" != "" {
-				tokenize "${S_`_li'}", parse(" ")
+			if `"`r(value`_li')'"' != "" {
+				tokenize `"`r(value`_li')'"', parse(" ")
 				local _lagsrc "`1'"
 				capture confirm variable `_lagsrc'
 				if _rc {
@@ -849,10 +1137,47 @@ if "`mediation'" == "" {
 			noi di as err "  Syntax: derrules(derivedvar1: expression1, derivedvar2: expression2)"
 			exit 198
 		}
+		local _gc_nder : word count `derived'
+		forvalues _di=1/`_gc_nder' {
+			local _gc_dvar : word `_di' of `derived'
+			local _gc_dexpr `"`r(value`_di')'"'
+			if `"`_gc_dexpr'"'=="" {
+				noi di as err "derrules(): no derivation rule specified for `_gc_dvar'"
+				exit 198
+			}
+			* Derived variables are recalculated in the declared order.  A rule
+			* may use an earlier derived value but cannot depend on itself or a
+			* later rule, which would otherwise leave stale/cyclic state.
+			forvalues _dj=`_di'/`_gc_nder' {
+				local _gc_later_dvar : word `_dj' of `derived'
+				if ustrregexm(`" `_gc_dexpr' "', "(^|[^A-Za-z0-9_])`_gc_later_dvar'([^A-Za-z0-9_]|$)") {
+					if `_dj'==`_di' noi di as err "derrules(): `_gc_dvar' cannot depend on itself"
+					else noi di as err "derrules(): `_gc_dvar' depends on later derived variable `_gc_later_dvar'; reorder derived()"
+					exit 198
+				}
+			}
+			_gcomp_apply_rule, rule(`"`_gc_dvar'=`_gc_dexpr'"') condition("if 0") context("derrules() for `_gc_dvar'")
+		}
 	}
 }
 * Imputation-specific validation
 if "`impute'" != "" {
+	local _gc_imp_unique : list uniq impute
+	local _gc_imp_n : word count `impute'
+	local _gc_imp_un : word count `_gc_imp_unique'
+	if `_gc_imp_n' != `_gc_imp_un' {
+		noi di as err "impute() contains duplicate target variables"
+		exit 198
+	}
+	if "`mediation'"=="" local _gc_imp_allowed "`varyingcovariates' `fixedcovariates' `derived' `laggedvars'"
+	else local _gc_imp_allowed "`mediator' `base_confs' `post_confs'"
+	foreach _gc_iv of local impute {
+		local _gc_allowed : list posof "`_gc_iv'" in _gc_imp_allowed
+		if `_gc_allowed'==0 {
+			noi di as err "impute(): `_gc_iv' is not an eligible covariate or mediator target"
+			exit 198
+		}
+	}
 	if "`imp_cmd'" == "" {
 		noi di as err "impute() specified but imp_cmd() is missing"
 		noi di as err "  Specify the model command for each imputed variable."
@@ -870,11 +1195,63 @@ if "`impute'" != "" {
 		exit 198
 	}
 	forvalues _ii=1/`_imp_nvar' {
-		local _imp_c "${S_`_ii'}"
-		if "`_imp_c'" != "" & !inlist("`_imp_c'", "logit", "regress", "mlogit", "ologit") {
+		local _imp_c `"`r(value`_ii')'"'
+		local _gc_imp_command_`_ii' `"`_imp_c'"'
+		if "`_imp_c'"=="" {
+			local _imp_v: word `_ii' of `impute'
+			noi di as err "imp_cmd(): no model specified for `_imp_v'"
+			exit 198
+		}
+		if !inlist("`_imp_c'", "logit", "regress", "mlogit", "ologit") {
 			local _imp_v: word `_ii' of `impute'
 			noi di as err "imp_cmd(): `_imp_c' is not a supported imputation command for `_imp_v'"
 			noi di as err "  Supported: logit, regress, mlogit, ologit"
+			exit 198
+		}
+		local _imp_v: word `_ii' of `impute'
+		if "`_imp_c'"=="logit" {
+			quietly count if !missing(`_imp_v') & !inlist(`_imp_v', 0, 1)
+			if r(N) {
+				noi di as err "imp_cmd(): logit target `_imp_v' must be coded exactly 0/1"
+				exit 459
+			}
+			quietly count if `_imp_v'==0
+			local _gc_imp_has0 = r(N)>0
+			quietly count if `_imp_v'==1
+			local _gc_imp_has1 = r(N)>0
+			if !`_gc_imp_has0' | !`_gc_imp_has1' {
+				noi di as err "imp_cmd(): logit target `_imp_v' needs nonmissing donors at both 0 and 1"
+				exit 2000
+			}
+		}
+		if inlist("`_imp_c'", "mlogit", "ologit") {
+			quietly levelsof `_imp_v' if !missing(`_imp_v'), local(_gc_imp_levels)
+			local _gc_imp_nlevels : word count `_gc_imp_levels'
+			if `_gc_imp_nlevels'<2 {
+				noi di as err "imp_cmd(): `_imp_c' target `_imp_v' needs at least two observed donor levels"
+				exit 2000
+			}
+		}
+	}
+	capture _gcomp_detangle "`imp_eq'" imp_eq "`impute'"
+	if _rc {
+		noi di as err "imp_eq() must specify one equation for each imputation target"
+		exit 198
+	}
+	forvalues _ii=1/`_imp_nvar' {
+		local _imp_v: word `_ii' of `impute'
+		local _imp_e `"`r(value`_ii')'"'
+		if `"`_imp_e'"'=="" {
+			noi di as err "imp_eq(): no equation specified for `_imp_v'"
+			exit 198
+		}
+		capture fvunab _gc_imp_fv : `_imp_e'
+		if _rc {
+			noi di as err `"imp_eq(): invalid equation for `_imp_v': `_imp_e'"'
+			exit 111
+		}
+		if ustrregexm(`" `_imp_e' "', "(^|[^A-Za-z0-9_])`_imp_v'([^A-Za-z0-9_]|$)") {
+			noi di as err "imp_eq(): `_imp_v' cannot predict itself"
 			exit 198
 		}
 	}
@@ -938,16 +1315,46 @@ noi di as text "   {hline 12}{c BT}{hline 9}{c BT}{hline `longstring'}"
 noi di
 noi di
 * === Component-model capture (savemodels/showmodels) ===
-* Refit each simulation model ONCE on the analytic sample (data is still in its
-* original long form here, before rename/reshape), est store as _gcomp_m_*, and
-* record a manifest in gcomp-scope locals for posting to e() after bootstrap.
+* Refit each simulation specification once on the analytic sample (data is
+* still in original long form here).  These are explicitly labelled refit
+* approximations: nonpooled visit-specific fits and loop-created variables
+* cannot be reconstructed faithfully outside the simulation engine.
 local _gc_n_models 0
 if "`savemodels'"!="" {
+	quietly estimates dir
+	local _gc_existing_estimates "`r(names)'"
+	local _gc_model_stub ""
+	forvalues _gc_stub_try = 1/100 {
+		tempname _gc_model_token
+		local _gc_model_suffix = substr("`_gc_model_token'", 3, 8)
+		local _gc_candidate_stub "_gcmp`_gc_model_suffix'"
+		local _gc_stub_collision 0
+		forvalues _gc_stub_i = 1/`nvar' {
+			local _gc_candidate_name "`_gc_candidate_stub'_`_gc_stub_i'"
+			local _gc_hit : list posof "`_gc_candidate_name'" in _gc_existing_estimates
+			if `_gc_hit' local _gc_stub_collision 1
+		}
+		if !`_gc_stub_collision' {
+			local _gc_model_stub "`_gc_candidate_stub'"
+			continue, break
+		}
+	}
+	if "`_gc_model_stub'" == "" {
+		noi di as err "savemodels could not allocate collision-free stored-estimate names"
+		exit 110
+	}
+	local _gc_refit_panelopts ""
+	if "`idvar'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' idvar(`idvar')"
+	if "`tvar'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' tvar(`tvar')"
+	if "`intvars'" != "" local _gc_refit_panelopts "`_gc_refit_panelopts' intvars(`intvars')"
 	capture noisily _gcomp_refit_models, vars(`varlist2') ///
-		commands(`commands') equations(`equations') stub(_gcomp_m) ///
-		analysis(`=cond("`mediation'"!="","mediation","time_varying")') `pooled'
+		commands(`commands') equations(`equations') stub(`_gc_model_stub') ///
+		analysis(`=cond("`mediation'"!="","mediation","time_varying")') `pooled' ///
+		`_gc_refit_panelopts' `monotreat'
 	if _rc {
-		noi di as err "Warning: component-model capture (savemodels) failed; continuing without it."
+		local _gc_model_rc = _rc
+		noi di as err "savemodels failed while constructing explicitly labelled refit approximations"
+		exit `_gc_model_rc'
 	}
 	else {
 		local _gc_n_models     = r(n_models)
@@ -961,9 +1368,7 @@ if "`savemodels'"!="" {
 		if "`_gc_model_skipped'"!="" {
 			noi di as text "   Note: component-model capture skipped (predictors unavailable at fit time): " as result "`_gc_model_skipped'"
 		}
-		if "`mediation'"=="" & "`pooled'"=="" & `_gc_n_models'>0 {
-			noi di as text "   Note: captured component models are pooled across visits (faithful per-visit columns are not yet available)."
-		}
+		noi di as text "   Note: savemodels stores analytic-sample refit approximations, not the exact simulation-loop fits."
 		if "`showmodels'"!="" & `_gc_n_models'>0 {
 			_gcomp_display_models, names(`_gc_model_names') style(`modelstyle') digits(4)
 		}
@@ -975,16 +1380,12 @@ if "`impute'"!="" {
 	* _gcomp_detangle imputation commands
 	_gcomp_detangle "`imp_cmd'" imp_cmd "`impute'"
 	forvalues i=1/`imp_nvar' {
-		if "${S_`i'}"!="" {
-			local imp_cmd`i' ${S_`i'}
-		}
+		local imp_cmd`i' `"`r(value`i')'"'
 	}
 	* _gcomp_detangle imputation equations
 	_gcomp_detangle "`imp_eq'" imp_eq "`impute'"
 	forvalues i=1/`imp_nvar' {
-		if "${S_`i'}"!="" {
-			local imp_eq`i' ${S_`i'}
-		}
+		local imp_eq`i' `"`r(value`i')'"'
 	}
 	forvalues i=1/`imp_nvar' {
 		local imp_var`i': word `i' of `impute'
@@ -1014,115 +1415,87 @@ if "`impute'"!="" {
 	noi di
 }
 
-*************************************************************************************************************************************************
-if "`mediation'"!="" & "`post_confs'"=="" {
-	tempvar junk
-	gen double `junk'=rnormal()
-	local post_confs="`"+"junk"+"'"
-	local varlist2="`post_confs'"+" "+"`mediator'"+" "+"`outcome'"
-	local nvar: word count `varlist2'
-	local commands="`junk': regress, "+"`commands'"
-	local equations="`junk': , "+"`equations'"
-	_gcomp_detangle "`commands'" command "`varlist2'"
-	forvalues i=1/`nvar' {
-		if "${S_`i'}"!="" {
-			local command`i' ${S_`i'}
-		}	
-	}
-	_gcomp_detangle "`equations'" equation "`varlist2'"
-	forvalues i=1/`nvar' {
-		if "${S_`i'}"!="" {
-			local equation`i' ${S_`i'}
-		}
-	}	
-	forvalues i=1/`nvar' {
-		local simvar`i': word `i' of `varlist2'
-	}
-}
-*************************************************************************************************************************************************
-
 local _gc_check_delete = 0
 local _gc_check_print = 0
 local _gc_check_save = 0
 if "`saving'"!="" {
 	local _gc_check_save = 1
 }
+
+* All option/equation dependencies have now been resolved into varlist.
+* Remove unrelated caller variables from the preserved working copy before
+* reshape; they cannot be constant-by-ID by assumption and are restored on
+* every exit.  The original-row marker has already been copied to its frame.
+quietly keep `varlist'
+
 local originallist "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules fixedcovariates laggedvars lagrules msm mediation exposure mediator control baseline alternative base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
 	local original`member' "``member''"
 }
-*first, we rename each varname as varname_ so that when we change from long to wide format,
-*we don't have any problems 
-foreach var in `varlist' {
-	local newname="`var'"+"_"
-	rename `var' `newname'
-}
-*we also need to change the names in all the macros listed in the syntax command
-local listofstrings "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions death derived derrules fixedcovariates laggedvars lagrules msm exposure mediator base_confs post_confs impute imp_eq imp_cmd control baseline alternative"
-foreach currstring of local listofstrings {
-	tokenize "``currstring''"
-	local i=1
-	while "`1'"!="" {
-		local match=0
-		foreach var in `originalvarlist' {
-			if rtrim(ltrim("`1'"))==rtrim(ltrim("`var'")) {
-				local match=1
-				local bit1_`i'="`1'"+"_"
-			}
-			if rtrim(ltrim("`1'"))=="i."+rtrim(ltrim("`var'")) {
-				local match=1
-				local bit1_`i'="`1'"+"_"
+	* Map every working variable to a collision-free tempvar.  The mapping is
+	* independent of user-name length and supports factor/interactions because
+	* expressions are rewritten token by token rather than by suffixing names.
+	local _gc_original_names "`varlist'"
+	local _gc_alias_names ""
+	if "`saving'"!="" {
+		foreach _gc_reserved in _int _id _source_id {
+			local _gc_reserved_hit : list posof "`_gc_reserved'" in _gc_original_names
+			if `_gc_reserved_hit' {
+				noi di as err "saving(): variable name `_gc_reserved' is reserved by the saved-data schema"
+				exit 110
 			}
 		}
-		if `match'==0 {
-			local bit1_`i' "`1'"
+	}
+	foreach _gc_original of local _gc_original_names {
+		tempvar _gc_alias
+		rename `_gc_original' `_gc_alias'
+		local _gc_alias_names "`_gc_alias_names' `_gc_alias'"
+	}
+	local _gc_alias_names : list retokenize _gc_alias_names
+
+	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules fixedcovariates laggedvars lagrules msm exposure mediator base_confs post_confs impute control baseline alternative"
+	foreach currstring of local listofstrings {
+		mata: st_local("`currstring'", _gcomp_alias_expression(st_local("`currstring'"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+	}
+
+	* Rebuild keyed command/equation maps so model-command words are never
+	* mistaken for variable identifiers during alias rewriting.
+	local commands ""
+	local equations ""
+	forvalues i=1/`nvar' {
+		local _gc_old_dep : word `i' of `originalvarlist2'
+		local _gc_new_dep "`_gc_old_dep'"
+		local _gc_new_eq `"`equation`i''"'
+		mata: st_local("_gc_new_dep", _gcomp_alias_expression(st_local("_gc_new_dep"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+		mata: st_local("_gc_new_eq", _gcomp_alias_expression(st_local("_gc_new_eq"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+		if `i'==1 {
+			local commands `"`_gc_new_dep': `command`i''"'
+			local equations `"`_gc_new_dep': `_gc_new_eq'"'
 		}
-		local i=`i'+1
-		local bit1_`i' " "
-		local i=`i'+1
-		mac shift
+		else {
+			local commands `"`commands', `_gc_new_dep': `command`i''"'
+			local equations `"`equations', `_gc_new_dep': `_gc_new_eq'"'
+		}
 	}
-	local k1=`i'-1
-	local m=1
-	local mp=2
-	local listofchars ", \ : = < > & | ! ( ) [ ] * / + - ^"
-	foreach parchar of local listofchars {
-		local k`mp'=0
-		local i=1
-		forvalues j=1(1)`k`m'' {
-			tokenize "`bit`m'_`j''", parse("`parchar'")
-			while "`1'"!="" {
-				local match=0
-				foreach var in `originalvarlist' {
-					if rtrim(ltrim("`1'"))==rtrim(ltrim("`var'")) {
-						local match=1
-						local bit`mp'_`i'="`1'"+"_"
-					}
-					if rtrim(ltrim("`1'"))=="i."+rtrim(ltrim("`var'")) {
-						local match=1
-						local bit`mp'_`i'="`1'"+"_"
-					}	
-				}
-				if `match'==0 {
-					local bit`mp'_`i' "`1'"
-				}
-				local i=`i'+1
-				mac shift
+	if "`impute'"!="" {
+		local imp_cmd ""
+		local imp_eq ""
+		forvalues i=1/`imp_nvar' {
+			local _gc_old_imp : word `i' of `originalimpute'
+			local _gc_new_imp "`_gc_old_imp'"
+			local _gc_new_ieq `"`imp_eq`i''"'
+			mata: st_local("_gc_new_imp", _gcomp_alias_expression(st_local("_gc_new_imp"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+			mata: st_local("_gc_new_ieq", _gcomp_alias_expression(st_local("_gc_new_ieq"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+			if `i'==1 {
+				local imp_cmd `"`_gc_new_imp': `imp_cmd`i''"'
+				local imp_eq `"`_gc_new_imp': `_gc_new_ieq'"'
 			}
-			if "`bit`m'_`j''"==" " {
-				local bit`mp'_`i' " "
-				local i=`i'+1
+			else {
+				local imp_cmd `"`imp_cmd', `_gc_new_imp': `imp_cmd`i''"'
+				local imp_eq `"`imp_eq', `_gc_new_imp': `_gc_new_ieq'"'
 			}
 		}
-		local k`mp'=`i'-1
-		local m=`m'+1
-		local mp=`mp'+1
 	}
-	local `currstring' ""
-	forvalues j=1(1)`k`m'' {
-		local `currstring' "``currstring'' `bit`m'_`j''"
-	}
-}
 if `simulations'<1 {
 	noi di as err "number of Monte Carlo simulations must be 1 or more"
 	exit 198
@@ -1138,7 +1511,11 @@ if `imp_cycles'<1 {
 if "`all'"!="" {
 	local bca="bca"
 }
-if `seed'>0 set seed `seed'
+if "`seed'"!="" set seed `seed'
+local _gc_rngstate_initial `"`c(rngstate)'"'
+tempname _gc_run_token
+local _gc_run_id `"gcomp-`c(current_date)'-`c(current_time)'-`_gc_run_token'"'
+local _gc_graph_name "gcomp`=substr("`_gc_run_token'",3,8)'"
 
 *now, for the time-varying confounding option, we must reshape the dataset into wide format so that the 
 *bootstrapping is done at the subject level, rather than the observation level
@@ -1172,9 +1549,11 @@ _gcomp_bootstrap_impl `varlist' `if' `in', out(`outcome') com(`commands') eq(`eq
 	derived(`derived') derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
 	msm(`msm') `mediation' ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') ///
 	base_confs(`base_confs') post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') ///
-	imp_cycles(`imp_cycles') sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' `graph' saving(`saving') `replace' ///
+	imp_cycles(`imp_cycles') sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' `graph' saving(`"`saving'"') `replace' ///
 	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist') ///
-	gcdiagnostics `_gc_diag_show'
+	_gc_origvars(`"`_gc_original_names'"') _gc_runid(`"`_gc_run_id'"') _gc_rngstate(`"`_gc_rngstate_initial'"') ///
+	_gc_graphname(`_gc_graph_name') gcdiagnostics `_gc_diag_show'
+local _gc_saved_arm_schema `"`r(saved_arm_schema)'"'
 * Display diagnostics summary if requested
 if "`diagnostics'" != "" {
 	capture confirm matrix _gc_diag_result
@@ -1216,18 +1595,10 @@ if "`mediation'"=="" {
 	if "`msm'"!="" {
 		local r1=r(N_msm_params)
 		local colnames "`r(msm_colnames)'"
-		tokenize "`colnames'", parse(" ")
-		local nparams 0 			
-		while "`1'"!="" {
-			if "`1'"!=" " {
-				local nparams=`nparams'+1
-				local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
-                    strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
-			}
-			mac shift
-		}
 		forvalues i=1/`r1' {
-			local _b="`_b'"+" "+"r("+"`colname`i''"+")"
+			local colname`i' : word `i' of `colnames'
+			mata: st_local("colname`i'", _gcomp_alias_expression(st_local("colname`i'"), st_local("_gc_alias_names"), st_local("_gc_original_names")))
+			local _b "`_b' r(msm_`i')"
 		}
 	}
 	local _po=""
@@ -1257,18 +1628,10 @@ else {
 	if "`msm'"!="" {
 		local r1=r(N_msm_params)
 		local colnames "`r(msm_colnames)'"
-		tokenize "`colnames'", parse(" ")
-		local nparams 0 			
-		while "`1'"!="" {
-			if "`1'"!=" " {
-				local nparams=`nparams'+1
-				local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
-                    strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
-			}
-			mac shift
-		}
 		forvalues i=1/`r1' {
-			local _b="`_b'"+" "+"r("+"`colname`i''"+")"
+			local colname`i' : word `i' of `colnames'
+			mata: st_local("colname`i'", _gcomp_alias_expression(st_local("colname`i'"), st_local("_gc_alias_names"), st_local("_gc_original_names")))
+			local _b "`_b' r(msm_`i')"
 		}
 	}	
 	if "`oce'"=="" {
@@ -1302,14 +1665,23 @@ else {
 		}
 	}
 }
-bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable nowarn: _gcomp_bootstrap `varlist' `if' `in', ///
+set rngstate `_gc_rngstate_initial'
+bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable: _gcomp_bootstrap `varlist' `if' `in', ///
 	out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') var(`varyingcovariates') ///
 	intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') derived(`derived') ///
 	derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') msm(`msm') `mediation' ///
 	ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') base_confs(`base_confs') ///
 	post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') imp_cycles(`imp_cycles') ///
-	sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' saving(`saving') `replace' ///
-	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist')
+		sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' saving(`"`saving'"') `replace' ///
+		_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist') ///
+		_gc_origvars(`"`_gc_original_names'"') _gc_runid(`"`_gc_run_id'"') _gc_rngstate(`"`_gc_rngstate_initial'"')
+	local _gc_samples_successful=e(N_reps)
+	local _gc_samples_failed=e(N_misreps)
+	local _gc_samples_attempted=`_gc_samples_successful'+`_gc_samples_failed'
+	if `_gc_samples_failed'>0 | `_gc_samples_successful'<`samples' {
+		noi di as err "bootstrap failed: requested `samples', successful `_gc_samples_successful', failed `_gc_samples_failed'"
+		exit 459
+	}
 mat b=e(b)
 mat V=e(V)
 mat se=e(se)
@@ -1317,6 +1689,22 @@ mat ci_normal=e(ci_normal)
 mat ci_percentile=e(ci_percentile)
 mat ci_bc=e(ci_bc)
 mat ci_bca=e(ci_bca)
+	local _gc_ci_required "ci_normal"
+	if "`all'"!="" local _gc_ci_required "ci_normal ci_percentile ci_bc ci_bca"
+	foreach _gc_ci_name of local _gc_ci_required {
+		if rowsof(`_gc_ci_name')!=2 | colsof(`_gc_ci_name')!=colsof(b) {
+			noi di as err "requested interval matrix `_gc_ci_name' is unavailable or incomplete"
+			exit 459
+		}
+		forvalues _gc_cr=1/2 {
+			forvalues _gc_cc=1/`=colsof(b)' {
+				if missing(`_gc_ci_name'[`_gc_cr',`_gc_cc']) {
+					noi di as err "requested interval matrix `_gc_ci_name' contains missing limits"
+					exit 459
+				}
+			}
+		}
+	}
 local originallist "if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules fixedcovariates laggedvars lagrules msm mediation base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
 	local `member' "`original`member''"
@@ -1407,10 +1795,6 @@ capture matrix `cip_post' = ci_percentile
 capture matrix `cibc_post' = ci_bc
 capture matrix `cibca_post' = ci_bca
 if "`msm'"!="" {
-	forvalues i=1/`r1' {
-		local colname`i'="`colname`i''"+" "
-		local colname`i'=subinstr("`colname`i''","_ ","",.)
-	}
 	noi di as text " "
 	noi di as text "G-computation formula estimates for the parameters of the specified marginal structural model"
 	noi di as text " "
@@ -1881,7 +2265,7 @@ if "`mediation'"=="" {
 		}
 	}
 	if "`graph'"!="" {
-		graph display Graph
+		graph display `_gc_graph_name'
 	}
 }
 else {
@@ -2275,7 +2659,14 @@ else {
 	if "`obe'"=="" & "`linexp'"=="" {
 		noi di as text _col(10) "Baseline value(s): "
 	}
-	tokenize "`exposure'"
+	* Display labels must use the caller's names; working aliases remain active
+	* until the data-restoration block below.
+	local _gc_display_exposure `"`originalexposure'"'
+	local _gc_display_mediator `"`originalmediator'"'
+	local _gc_display_control `"`originalcontrol'"'
+	local _gc_display_baseline `"`originalbaseline'"'
+	local _gc_display_alternative `"`originalalternative'"'
+	tokenize "`_gc_display_exposure'"
 	local nbase 0 			
 	while "`1'"!="" {
 		if "`1'"!="," {
@@ -2284,7 +2675,7 @@ else {
 		}
 		mac shift
 	}
-    tokenize "`mediator'"
+    tokenize "`_gc_display_mediator'"
 	local nmed 0 			
 	while "`1'"!="" {
 		if "`1'"!="," {
@@ -2294,19 +2685,15 @@ else {
 		mac shift
 	}
 	if "`obe'"=="" & "`linexp'"=="" {
-		_gcomp_detangle "`baseline'" baseline "`exposure'"
+		_gcomp_detangle `"`baseline'"' baseline `"`exposure'"'
 		forvalues i=1/`nbase' {
-			if "${S_`i'}"!="" {
-				local baseline`i' ${S_`i'}
-			}
+			local baseline`i' `"`r(value`i')'"'
 		}
 	}
     if "`control'"!="" {
-        _gcomp_detangle "`control'" control "`mediator'"
+        _gcomp_detangle `"`control'"' control `"`mediator'"'
         forvalues i=1/`nmed' {
-        	if "${S_`i'}"!="" {
-        		local control`i' ${S_`i'}
-        	}
+	        	local control`i' `"`r(value`i')'"'
         }
     }
 	if "`obe'"=="" & "`linexp'"=="" {
@@ -2318,7 +2705,7 @@ else {
 	}
 	if "`specific'"!="" {
 		noi di as text _col(10) "Alternative value(s): "
-		tokenize "`exposure'"
+		tokenize "`_gc_display_exposure'"
 		local nbase 0 			
 		while "`1'"!="" {
 			if "`1'"!="," {
@@ -2327,11 +2714,9 @@ else {
 			}
 			mac shift
 		}
-		_gcomp_detangle "`alternative'" alternative "`exposure'"
+		_gcomp_detangle `"`alternative'"' alternative `"`exposure'"'
 		forvalues i=1/`nbase' {
-			if "${S_`i'}"!="" {
-				local alternative`i' ${S_`i'}
-			}
+			local alternative`i' `"`r(value`i')'"'
 		}
 		forvalues i=1/`nbase' {
 			local expos`i'="`expos`i''"+" "
@@ -2699,10 +3084,12 @@ else {
 	* =========================================================================
 	if "`mediation'"=="" {
 		local _N_obs = `maxid'
+		local _N_subjects = `maxid'
 		local _post_po0 = `PO0'
 	}
 	else {
-		local _N_obs = _N
+		local _N_obs = `_gc_N_rows'
+		local _N_subjects = `_gc_N_rows'
 		local _post_po0 = .
 	}
 	local _post_nexplev = 0
@@ -2720,20 +3107,73 @@ else {
 	capture matrix drop ci_bc
 	capture matrix drop ci_bca
 
+	* Restore the caller's data before posting so e(sample) refers to the
+	* original observation rows, including an if/in-restricted analysis.
+	restore
+	tempvar _gc_sample_link
+	quietly gen long `_gc_original_obs' = _n
+	quietly frlink m:1 `_gc_original_obs', frame(`_gc_sample_frame') generate(`_gc_sample_link')
+	quietly gen byte `_gc_esample' = !missing(`_gc_sample_link')
+	drop `_gc_original_obs' `_gc_sample_link'
+
 	_gcomp_post_results, b(`b_post') v(`V_post') se(`se_post') ci(`cin_post') ///
 		cip(`cip_post') cibc(`cibc_post') cibca(`cibca_post') diag(`_gc_diag_saved') ///
 		nobs(`_N_obs') sims(`simulations') samples(`samples') outcome(`"`outcome'"') ///
 		exposure(`"`originalexposure'"') mediator(`"`originalmediator'"') ///
-		po0(`_post_po0') nexplev(`_post_nexplev') ///
+		po0(`_post_po0') nexplev(`_post_nexplev') esample(`_gc_esample') ///
 		`mediation' `oce' `obe' `linexp' `specific' `_post_logor' `_post_logrr'
-	if "`mediation'"=="" & "`msm'"!="" {
-		ereturn local msm "`msm'"
+	ereturn local cmdline `"`_gc_cmdline'"'
+	ereturn local idvar "`originalidvar'"
+	ereturn local tvar "`originaltvar'"
+	ereturn local intvars "`originalintvars'"
+	ereturn local interventions `"`originalinterventions'"'
+	ereturn local rngstate `"`_gc_rngstate_initial'"'
+	ereturn local run_id `"`_gc_run_id'"'
+	if "`graph'"!="" ereturn local graph "`_gc_graph_name'"
+	ereturn scalar N_rows = `_gc_N_rows'
+	ereturn scalar N_subjects = `_N_subjects'
+	ereturn scalar bootstrap_requested = `samples'
+	ereturn scalar bootstrap_attempted = `_gc_samples_attempted'
+	ereturn scalar bootstrap_successful = `_gc_samples_successful'
+	ereturn scalar bootstrap_failed = `_gc_samples_failed'
+	if "`seed'"!="" ereturn scalar seed = `seed'
+	if "`saving'"!="" {
+		ereturn local saving `"`saving'"'
+		ereturn local saved_schema_version "1"
+		ereturn local saved_arm_schema `"`_gc_saved_arm_schema'"'
+	}
+	if "`originalimpute'"!="" {
+		local _gc_post_imp_n : word count `originalimpute'
+		ereturn local impute_targets "`originalimpute'"
+		ereturn scalar N_impute_targets = `_gc_post_imp_n'
+		forvalues _gc_ii=1/`_gc_post_imp_n' {
+			local _gc_imp_name : word `_gc_ii' of `originalimpute'
+			ereturn local impute_target_`_gc_ii' "`_gc_imp_name'"
+			ereturn scalar impute_needed_`_gc_ii' = `_gc_imp_needed_`_gc_ii''
+			ereturn scalar impute_eligible_`_gc_ii' = `_gc_imp_eligible_`_gc_ii''
+			ereturn scalar impute_dropped_`_gc_ii' = `_gc_imp_dropped_`_gc_ii''
+		}
+	}
+	if "`msm'"!="" {
+		ereturn local msm `"`originalmsm'"'
+		tempname _gc_posted_b_names
+		matrix `_gc_posted_b_names' = e(b)
+		local _gc_posted_fullnames : colfullnames `_gc_posted_b_names'
+		local _gc_msm_names ""
+		forvalues _gc_mi=1/`r1' {
+			local _gc_posted_name : word `_gc_mi' of `_gc_posted_fullnames'
+			local _gc_msm_names "`_gc_msm_names' `_gc_posted_name'"
+		}
+		local _gc_msm_names = strtrim("`_gc_msm_names'")
+		ereturn local msm_colnames "`_gc_msm_names'"
 	}
 	* --- Component-model manifest (savemodels): record what was captured ---
 	if "`savemodels'"!="" & `_gc_n_models'>0 {
 		ereturn local model_names   "`_gc_model_names'"
 		ereturn local model_cmds    "`_gc_model_cmds'"
 		ereturn local model_depvars "`_gc_model_depvars'"
+		ereturn local model_skipped "`_gc_model_skipped'"
+		ereturn local model_capture "analytic_sample_refit_approximation"
 		ereturn scalar N_models = `_gc_n_models'
 		forvalues _gck = 1/`_gc_n_models' {
 			ereturn local model_eq_`_gck' "`_gc_model_eq_`_gck''"
@@ -2743,10 +3183,10 @@ else {
 } /* end capture noisily */
 local _gc_rc = _rc
 
-* Clean up _gcomp_detangle globals (runs on both success and error)
-forvalues _gc_i = 1/50 {
-	global S_`_gc_i'
-}
+* Restore is still pending on any error before the successful posting path.
+capture restore
+capture frame drop `_gc_sample_frame'
+if `_gc_rc' & "`_gc_graph_name'" != "" capture graph drop `_gc_graph_name'
 
 * Clean up non-temp matrices (outside capture noisily so they're always cleaned)
 capture matrix drop b
@@ -2759,6 +3199,19 @@ capture matrix drop ci_bca
 capture matrix drop _matrow
 capture matrix drop matvis
 capture matrix drop _gc_diag_result
+
+* Restore every literal matrix name to its entry state.  This runs after the
+* gcomp results have been copied to tempnames and posted to e().
+local _gc_matrix_index 0
+foreach _gc_matrix_name of local _gc_literal_matrices {
+	local ++_gc_matrix_index
+	if `_gc_had_matrix`_gc_matrix_index'' {
+		matrix `_gc_matrix_name' = `_gc_caller_matrix`_gc_matrix_index''
+	}
+	else {
+		capture matrix drop `_gc_matrix_name'
+	}
+}
 
 * Restore settings
 set varabbrev `_gc_varabbrev'
@@ -2778,9 +3231,9 @@ set varabbrev off
 capture noisily {
 		syntax, B(name) V(name) SE(name) CI(name) NOBS(integer) SIMS(integer) SAMples(integer) OUTcome(string) ///
 		[CIP(name) CIBC(name) CIBCA(name) DIAG(name) MEDiation OCE OBE LINEXP SPECIFIC LOGOR LOGRR ///
-		EXposure(string) MEDIator(string) PO0(real 0) NEXPLEV(integer 0)]
+		EXposure(string) MEDIator(string) PO0(real 0) NEXPLEV(integer 0) ESAMPLE(varname)]
 
-	ereturn post `b' `v', obs(`nobs')
+	ereturn post `b' `v', obs(`nobs') esample(`esample')
 	ereturn local cmd "gcomp"
 	if "`mediation'" != "" {
 		ereturn local analysis_type "mediation"
@@ -2890,6 +3343,45 @@ capture noisily {
 local _gc_rc = _rc
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'
+end
+
+capture mata: mata drop _gcomp_alias_expression()
+mata:
+string scalar _gcomp_alias_expression(string scalar s,
+                                      string scalar from_string,
+                                      string scalar to_string)
+{
+    string rowvector from, to
+    string scalar out, ch, tok
+    real rowvector hit
+    real scalar i, j
+
+    from = tokens(from_string)
+    to = tokens(to_string)
+    if (cols(from) != cols(to)) _error(3200)
+
+    out = ""
+    i = 1
+    while (i <= strlen(s)) {
+        ch = substr(s, i, 1)
+        if (regexm(ch, "[A-Za-z_]")) {
+            j = i + 1
+            while (j <= strlen(s) & regexm(substr(s, j, 1), "[A-Za-z0-9_]")) {
+                j++
+            }
+            tok = substr(s, i, j-i)
+            hit = selectindex(from :== tok)
+            if (cols(hit)) tok = to[hit[1]]
+            out = out + tok
+            i = j
+        }
+        else {
+            out = out + ch
+            i++
+        }
+    }
+    return(out)
+}
 end
 
 exit

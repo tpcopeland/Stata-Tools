@@ -30,19 +30,21 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt dx:date(varname)}}diagnosis date variable (Stata daily date with {cmd:%td} format){p_end}
+{synopt:{opt dx:date(varname)}}per-person diagnosis date{p_end}
 
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for CDP date variable; default is {cmd:cdp_date}{p_end}
 {synopt:{opt conf:irmdays(#)}}days required for confirmation; default is {cmd:180}{p_end}
 {synopt:{opt confirmt:ype(type)}}confirmation rule: {cmd:sustained} (default) or {cmd:visit}{p_end}
-{synopt:{opt base:linewindow(#)}}days from diagnosis for baseline EDSS; default is {cmd:730}{p_end}
-{synopt:{opt three:tier}}use the three-tier progression threshold (default two-tier){p_end}
-{synopt:{opt event:var(name)}}create a 0/1 stset-ready CDP event indicator{p_end}
-{synopt:{opt exit(varname)}}censor CDP events that fall after a per-person study-exit date{p_end}
-{synopt:{opt roving}}use roving baseline (reset after each confirmed progression){p_end}
-{synopt:{opt all:events}}track all CDP events, not just the first; requires {opt roving}{p_end}
-{synopt:{opt keep:all}}retain all observations (including patients without CDP){p_end}
+{synopt:{opt base:linewindow(#)}}baseline window; default 730 days{p_end}
+{synopt:{opt three:tier}}use three-tier EDSS thresholds{p_end}
+{synopt:{opt event:var(name)}}0/1 CDP event indicator{p_end}
+{synopt:{opt eventnum:var(name)}}event-number variable name{p_end}
+{synopt:{opt baseedss:var(name)}}event-baseline variable name{p_end}
+{synopt:{opt exit(varname)}}per-person study-exit date{p_end}
+{synopt:{opt roving}}reset baseline after confirmation{p_end}
+{synopt:{opt all:events}}return all roving events{p_end}
+{synopt:{opt keep:all}}retain persons without CDP{p_end}
 {synopt:{opt q:uietly}}suppress output messages{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -94,9 +96,8 @@ days after the candidate must meet the threshold (later dips are ignored).{p_end
 {bf:Confirmation requirement:} At least one EDSS measurement must exist at or after
 {opt confirmdays()} days from the candidate progression date. Patients whose last
 measurement falls before this point do not receive confirmed CDP, even if no
-regression was observed. This differs from {helpb sustainedss}, which treats events as
-sustained when no disconfirming evidence exists within its confirmation
-window.
+regression was observed. This differs from the default {helpb sustainedss}
+package convention, which does not require a later visit.
 
 
 {marker options}{...}
@@ -165,15 +166,26 @@ all progression is measured against the initial baseline.
 
 {phang}
 {opt allevents} specifies that all CDP events should be tracked, not just the
-first. This option requires {opt roving}. When used, additional variables {cmd:event_num}
-(CDP event number, starting at 1) and {cmd:baseline_edss_at_event} (the baseline
-EDSS used for each event) are created. The output becomes event-level: one row
-per CDP event per person.
+first. This option requires {opt roving}. The output becomes event-level: one
+row per CDP event per person. By default, {cmd:event_num} records the event
+number and {cmd:baseline_edss_at_event} records the baseline used for the event.
 
 {phang}
-{opt keepall} retains all observations from the original dataset. By default,
-only observations for patients who experience CDP are kept. With {opt keepall},
-patients without CDP have missing values in the CDP date variable.
+{opt eventnumvar(name)} names the event-number variable created by
+{opt roving allevents}; the default is {cmd:event_num}. It is invalid without
+both options.
+
+{phang}
+{opt baseedssvar(name)} names the event-baseline EDSS variable created by
+{opt roving allevents}; the default is {cmd:baseline_edss_at_event}. It is
+invalid without both options.
+
+{phang}
+{opt keepall} retains all original measurement rows outside
+{opt roving allevents}. With {opt roving allevents}, the output is always
+event-level and contains only validated person-level fields: one row per event,
+plus one missing-event row for each person without CDP when {opt keepall} is
+specified. Measurement-level payload is not carried into event rows.
 
 {phang}
 {opt quietly} suppresses the summary output displayed after computation.
@@ -196,8 +208,8 @@ endpoint.{p_end}
 {phang2}{helpb sustainedss} {hline 2} "When did the patient first reach EDSS {ul:>}= X
 and stay there?"  Threshold crossing, no baseline reference.{p_end}
 
-{phang2}{helpb pira} {hline 2} "Was the confirmed progression (CDP) driven by
-neurodegeneration or by a relapse?"  Classifies each CDP event as PIRA or RAW.{p_end}
+{phang2}{helpb pira} {hline 2} "Was the first confirmed progression associated
+with a relapse?" Classifies one CDP per person as PIRA or RAW.{p_end}
 
 {pstd}
 {bf:Data layout}
@@ -211,17 +223,19 @@ nonmissing diagnosis date.
 {bf:Effect of keepall on output rows}
 
 {pstd}
-By default, {cmd:cdp} drops all rows for patients without confirmed CDP. With
-{opt keepall}, every original row is preserved. This is useful when you want to
-create a binary "had CDP" indicator (see Example 4 below).
+Outside {opt roving allevents}, {cmd:cdp} drops rows for patients without CDP by
+default and preserves every original row with {opt keepall}. Under
+{opt roving allevents}, the event-level contract described above takes
+precedence over visit-row preservation.
 
 {pstd}
 {bf:Roving baseline and allevents}
 
 {pstd}
 With {opt roving allevents}, the command can detect multiple stepwise progression
-events per patient. Each event uses the previously confirmed EDSS as its
-baseline. The output is reshaped to event level, with one row per CDP event.
+events per patient. After an event confirms, the actual EDSS and date of that
+confirming assessment become the reference for the next event; visits through
+that date are not reused. The output is reshaped to event level.
 
 
 {marker examples}{...}
@@ -281,16 +295,18 @@ analysis or logistic regression.{p_end}
 {synopt:{cmd:r(N_events)}}total number of CDP events{p_end}
 {synopt:{cmd:r(confirmdays)}}confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
-{synopt:{cmd:r(converged)}}1 if the confirmation loop converged, 0 otherwise{p_end}
-{synopt:{cmd:r(N_censored_exit)}}CDP events censored after study exit (if {opt exit()} specified){p_end}
+{synopt:{cmd:r(converged)}}whether confirmation converged{p_end}
+{synopt:{cmd:r(N_censored_exit)}}events censored after study exit{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of the generated CDP date variable{p_end}
 {synopt:{cmd:r(confirmtype)}}{cmd:sustained} or {cmd:visit}{p_end}
 {synopt:{cmd:r(threetier)}}{cmd:yes} or {cmd:no}{p_end}
 {synopt:{cmd:r(roving)}}{cmd:yes} or {cmd:no}{p_end}
-{synopt:{cmd:r(eventvar)}}name of the event indicator (if {opt eventvar()} specified){p_end}
-{synopt:{cmd:r(exit)}}name of the study-exit date variable (if {opt exit()} specified){p_end}
+{synopt:{cmd:r(eventvar)}}event-indicator name, if requested{p_end}
+{synopt:{cmd:r(eventnumvar)}}event-number name, if requested{p_end}
+{synopt:{cmd:r(baseedssvar)}}event-baseline name, if requested{p_end}
+{synopt:{cmd:r(exit)}}study-exit variable name, if requested{p_end}
 
 
 {marker references}{...}

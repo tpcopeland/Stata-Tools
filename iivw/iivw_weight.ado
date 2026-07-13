@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.9.6  2026/07/10
+*! iivw_weight Version 1.9.7  2026/07/13
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -44,6 +44,14 @@ program define iivw_weight, rclass sortpreserve
     tempname __iivw_visit_est __iivw_logit_est
     local __iivw_visit_hold_ok = 0
     local __iivw_logit_hold_ok = 0
+
+    * Name-transaction state. Initialized before the captured block so the
+    * cleanup zone can always roll back, however early an error fires.
+    local __iivw_created_vars ""
+    local __iivw_bk_names ""
+    local __iivw_bk_temps ""
+    local __iivw_nonconv = 0
+
     capture noisily {
 
     * No sample marker: IIW requires full panel, no [if] [in] by design
@@ -60,7 +68,8 @@ program define iivw_weight, rclass sortpreserve
          LAGvars(varlist numeric) ///
          ENTry(varname numeric) ///
          TRUNCate(numlist min=2 max=2) ///
-         GENerate(name) REPLACE noLOG EFRon noBASEevent]
+         GENerate(name) REPLACE noLOG EFRon noBASEevent ///
+         ALLOWNONCONVerged]
 
     * =========================================================================
     * SET DEFAULTS
@@ -366,15 +375,58 @@ program define iivw_weight, rclass sortpreserve
         }
     }
 
-    * Check for existing weight variables
-    foreach wvar in `prefix'iw `prefix'tw `prefix'ps `prefix'weight {
-        capture confirm variable `wvar'
+    * =========================================================================
+    * NAME TRANSACTION
+    * =========================================================================
+    * Build the complete inventory of names this call will create, and every
+    * name the user supplied as a scientific input, BEFORE touching the data.
+    * A generated name that collides with an input is rejected outright:
+    * replace authorizes overwriting a prior iivw output, never destroying an
+    * analysis input.
+
+    * The package OWNS all four output names under this prefix, whatever weight
+    * type is being computed now. A rerun must invalidate the previous run's
+    * outputs too: switching FIPTIW -> IIW-only has to clear the stale _ps/_tw
+    * variables, or the data keeps treatment outputs that no contract describes.
+    * So the owned set is the full four -- names not recreated by this wtype are
+    * backed up, never restored on success, and thus cleared atomically.
+    local __iivw_gen_names ///
+        "`prefix'iw `prefix'tw `prefix'ps `prefix'weight"
+
+    local __iivw_lag_names ""
+    foreach v of local lagvars {
+        local lagname "`v'_lag1"
+        if strlen("`lagname'") > 32 {
+            display as error "lagged variable name `lagname' exceeds 32 characters"
+            display as error "rename `v' to a shorter name before using lagvars()"
+            error 198
+        }
+        local __iivw_lag_names "`__iivw_lag_names' `lagname'"
+    }
+    local __iivw_gen_names "`__iivw_gen_names' `__iivw_lag_names'"
+    local __iivw_gen_names = strtrim("`__iivw_gen_names'")
+
+    * Every variable the user handed us as science, in any role.
+    local __iivw_protected ///
+        "`id' `time' `entry' `treat' `visit_cov' `treat_cov' `stabcov' `lagvars'"
+    local __iivw_protected : list uniq __iivw_protected
+
+    _iivw_reserve_names, generated(`__iivw_gen_names') ///
+        protected(`__iivw_protected') `replace' context(iivw_weight)
+
+    * Back up -- do not drop -- any prior iivw output we are about to replace,
+    * so a failure anywhere below restores the user's previous valid weights
+    * exactly. Renaming to a tempvar name means a successful run auto-drops the
+    * backup at program exit; the cleanup zone renames them back on error.
+    local __iivw_bk_names ""
+    local __iivw_bk_temps ""
+    foreach g of local __iivw_gen_names {
+        capture confirm variable `g'
         if _rc == 0 {
-            if "`replace'" == "" {
-                display as error "variable `wvar' already exists; use replace option"
-                error 110
-            }
-            quietly drop `wvar'
+            tempvar __iivw_bk
+            quietly rename `g' `__iivw_bk'
+            local __iivw_bk_names "`__iivw_bk_names' `g'"
+            local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
         }
     }
 
@@ -392,38 +444,21 @@ program define iivw_weight, rclass sortpreserve
     * LAG VARIABLES (if requested)
     * =========================================================================
 
-    * All inputs validated. Invalidate stored weighting/fitting state now so
-    * any error past this point (data mutation, model fit) leaves no stale
-    * metadata. Validation failures above preserve the user's prior weights.
-    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_iw_var _iivw_tw_var ///
-        _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
-        _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
-        _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
-        _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
-        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
-        _iivw_time_cat_vars _iivw_time_basecat {
-        char _dta[`ch'] ""
-    }
+    * Stored weighting/fitting state is NOT invalidated here. Under the name
+    * transaction above nothing the user owns has been mutated yet, and every
+    * prior output is backed up rather than dropped -- so an error below leaves
+    * the previous weights intact, and the previous contract still describes
+    * them truthfully. State is cleared and rewritten atomically at the commit
+    * point, once every model has actually succeeded.
 
     local lag_created ""
     if "`lagvars'" != "" {
+        * Names were validated and any prior copies backed up in the name
+        * transaction; just build the values.
+        local lag_index = 0
         foreach v of local lagvars {
-            local lagname "`v'_lag1"
-            if strlen("`lagname'") > 32 {
-                display as error "lagged variable name `lagname' exceeds 32 characters"
-                display as error "rename `v' to a shorter name before using lagvars()"
-                error 198
-            }
-            capture confirm variable `lagname'
-            if _rc == 0 {
-                if "`replace'" == "" {
-                    display as error "lagged variable `lagname' already exists; use replace option"
-                    error 110
-                }
-                quietly drop `lagname'
-            }
+            local ++lag_index
+            local lagname : word `lag_index' of `__iivw_lag_names'
             quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
             local lag_created "`lag_created' `lagname'"
             local __iivw_created_vars "`__iivw_created_vars' `lagname'"
@@ -631,6 +666,21 @@ program define iivw_weight, rclass sortpreserve
             exit `__iivw_iw_rc'
         }
 
+        * Convergence gate BEFORE the weights are merged into the user's data.
+        * A nonconverged Cox model's xb is not a fitted linear predictor, so
+        * exp(-xb) is not a weight -- it must not reach the dataset, and must
+        * certainly not be stamped as a valid weighting contract.
+        if `__iivw_visit_converged' == 0 {
+            _iivw_require_converged, model(visit-intensity Cox) ///
+                `allownonconverged'
+            local __iivw_nonconv = 1
+        }
+        if "`stabcov'" != "" & `__iivw_stab_converged' == 0 {
+            _iivw_require_converged, model(IIW stabilization Cox) ///
+                `allownonconverged'
+            local __iivw_nonconv = 1
+        }
+
         if `exclude_base' {
             * Baseline rows were dropped before fitting, so they are master-only
             * here; reinstate their IIW weight to 1 (study-entry convention).
@@ -641,14 +691,6 @@ program define iivw_weight, rclass sortpreserve
             merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
         }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
-
-        if `__iivw_visit_converged' == 0 {
-            display as error "warning: visit intensity Cox model did not converge"
-            display as text  "  IIW weights may be unreliable; check model specification"
-        }
-        if "`stabcov'" != "" & `__iivw_stab_converged' == 0 {
-            display as error "warning: stabilization Cox model did not converge"
-        }
 
         * Normalize the IIW component to mean 1 over the estimating sample.
         * exp(-xb) has an arbitrary scale: the Cox model carries no intercept and
@@ -701,10 +743,12 @@ program define iivw_weight, rclass sortpreserve
             display as error "could not preserve active estimation results"
             exit `__iivw_hold_rc'
         }
+        local __iivw_logit_converged = 1
         preserve
         capture noisily {
             quietly keep if `_first_obs'
             logit `treat' `treat_covars', `log_opt'
+            local __iivw_logit_converged = e(converged)
             tempvar _ps_tmp
             predict double `_ps_tmp', pr
             keep `id' `_ps_tmp'
@@ -739,6 +783,15 @@ program define iivw_weight, rclass sortpreserve
                 display as error "treatment model failed; no weights created"
             }
             exit `logit_rc'
+        }
+
+        * The treatment model had no convergence guard at all: a nonconverged
+        * logit yields propensity scores that are not fitted probabilities, and
+        * every IPTW/FIPTIW weight is built by dividing by them.
+        if `__iivw_logit_converged' == 0 {
+            _iivw_require_converged, model(treatment logit) ///
+                `allownonconverged'
+            local __iivw_nonconv = 1
         }
 
         quietly {
@@ -865,10 +918,31 @@ program define iivw_weight, rclass sortpreserve
     local ess = (`sum_w'^2) / `sum_w2'
 
     * =========================================================================
-    * STORE METADATA
+    * COMMIT: STORE METADATA
     * =========================================================================
+    * Every model has succeeded and every output variable exists. Only now is
+    * the prior contract cleared and rewritten. Downstream fit/diagnostic state
+    * is invalidated at the same instant, because new weights make an old fit
+    * meaningless -- a stale _iivw_fitted must never survive a reweight.
+
+    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
+        _iivw_weight_var _iivw_prefix _iivw_iw_var _iivw_tw_var ///
+        _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
+        _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
+        _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
+        _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
+        _iivw_time_cat_vars _iivw_time_basecat _iivw_nonconverged {
+        char _dta[`ch'] ""
+    }
 
     char _dta[_iivw_weighted] "1"
+    * Stamp a deliberately-accepted nonconverged nuisance model so downstream
+    * commands can refuse these weights rather than treat them as clean.
+    if `__iivw_nonconv' {
+        char _dta[_iivw_nonconverged] "1"
+    }
     char _dta[_iivw_id] "`id'"
     char _dta[_iivw_time] "`time'"
     char _dta[_iivw_weighttype] "`wtype'"
@@ -1015,9 +1089,20 @@ program define iivw_weight, rclass sortpreserve
         if `rc' == 0 & `__iivw_unhold_rc' != 0 local rc = `__iivw_unhold_rc'
     }
     if `rc' != 0 {
+        * Roll the name transaction back: drop everything this call created,
+        * then rename the backups of the user's prior outputs into place. The
+        * contract was never touched (it is rewritten only at the commit point),
+        * so the pre-call weighting state is restored exactly.
         foreach v of local __iivw_created_vars {
             capture drop `v'
             local __iivw_drop_rc = _rc
+        }
+        local __iivw_bi = 0
+        foreach g of local __iivw_bk_names {
+            local ++__iivw_bi
+            local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
+            capture drop `g'
+            capture rename `__iivw_bt' `g'
         }
     }
     set varabbrev `__iivw_old_varabbrev'

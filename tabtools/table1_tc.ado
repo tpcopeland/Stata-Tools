@@ -369,6 +369,7 @@ program define table1_tc, rclass
             display as error "wt() variable must be non-negative"
             error 498
         }
+        quietly replace `touse' = 0 if `touse' & `wt' <= 0
     }
 
     /* Validate that observations remain after if/in conditions */
@@ -717,9 +718,10 @@ program define table1_tc, rclass
         qui gen pvalue=string(p, "%`=`highpdp'+2'.`highpdp'f") if !missing(p)  // Standard format for high p-values
         qui replace pvalue=string(p, "%`=`pdp'+2'.`pdp'f") if p<0.10  // More decimal places for low p-values
 
-        // Cap p-values so they never display as 1.00
+        // Preserve direction when rounding would otherwise understate p.
         local pmax = 1 - 10^(-`highpdp')
-        qui replace pvalue=string(`pmax', "%`=`highpdp'+2'.`highpdp'f") if p>`pmax' & !missing(p)
+        qui replace pvalue=">" + string(`pmax', "%`=`highpdp'+2'.`highpdp'f") ///
+            if p>`pmax' & p<1 & !missing(p)
 
         // Handle very small p-values
         local pmin=10^-`pdp'  // Minimum p-value to show numerically
@@ -928,9 +930,8 @@ program define table1_tc, rclass
             local _hpn = 0
             foreach _hcol of local hperc_cols {
                 local ++_hpn
-                local _hp_var "__hp_`_hpn'"
+                tempvar _hp_var
                 replace `_hcol' = subinstr(`_hcol', "N=", "", .)
-                capture drop `_hp_var'
                 gen double `_hp_var' = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
                 local hperc_scratch "`hperc_scratch' `_hp_var'"
                 local hperc_scratch_for_`_hcol' "`_hp_var'"

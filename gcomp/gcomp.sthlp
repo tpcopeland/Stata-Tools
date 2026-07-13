@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.4  10jul2026}{...}
+{* *! version 1.4.5  13jul2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -8,6 +8,7 @@
 {viewerjumpto "Concepts" "gcomp##concepts"}{...}
 {viewerjumpto "Options" "gcomp##options"}{...}
 {viewerjumpto "Remarks" "gcomp##remarks"}{...}
+{viewerjumpto "Assumptions" "gcomp##assumptions"}{...}
 {viewerjumpto "Examples" "gcomp##examples"}{...}
 {viewerjumpto "Stored results" "gcomp##results"}{...}
 {viewerjumpto "References" "gcomp##references"}{...}
@@ -92,7 +93,7 @@ or {opt baseline(string)}.
 
 {syntab:Effect type (mediation)}
 {synopt:{opt obe}}observed baseline exposure (binary exposure){p_end}
-{synopt:{opt oce}}observed conditional exposure (categorical exposure){p_end}
+{synopt:{opt oce}}categorical-exposure contrasts{p_end}
 {synopt:{opt linexp}}linear exposure effect{p_end}
 {synopt:{opt specific}}specific exposure values{p_end}
 {synopt:{opt baseline(string)}}baseline exposure level(s){p_end}
@@ -114,7 +115,7 @@ or {opt baseline(string)}.
 {syntab:Mediation options}
 {synopt:{opt control(string)}}controlled direct effect level(s){p_end}
 {synopt:{opt post_confs(varlist)}}post-treatment confounders{p_end}
-{synopt:{opt boceam}}BOCE-AM estimation for multi-mediator settings{p_end}
+{synopt:{opt boceam}}single-mediator BOCE-AM with {opt msm()}{p_end}
 {synopt:{opt logOR}}report log odds ratio{p_end}
 {synopt:{opt logRR}}report log risk ratio{p_end}
 
@@ -139,9 +140,9 @@ or {opt baseline(string)}.
 {synopt:{opt replace}}overwrite existing saved file{p_end}
 
 {syntab:Component models}
-{synopt:{opt savem:odels}}refit and store component models for inspection/export{p_end}
-{synopt:{opt show:models}}implies {opt savemodels}; also display fitted models in-window{p_end}
-{synopt:{opt models:tyle(string)}}display style with {opt showmodels}: {cmd:compact} (default) or {cmd:native}{p_end}
+{synopt:{opt savem:odels}}store component-model refit approximations{p_end}
+{synopt:{opt show:models}}store and display component-model refits{p_end}
+{synopt:{opt models:tyle(string)}}{cmd:compact} or {cmd:native} display{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -192,11 +193,11 @@ Supported model types for the parametric models are {helpb logit} (binary),
 
 {pstd}
 {bf:What the varlist contains.}{break}
-The {varlist} must list {bf:every variable} that {cmd:gcomp} needs to retain
-for the analysis: the outcome, identifiers, time-varying covariates, exposure,
-mediators, confounders, and any other variables referenced in
-{opt commands()} or {opt equations()}. Variables not listed in {varlist} are
-dropped internally before estimation.
+The {varlist} identifies the main analysis surface. Variables named in options
+or referenced by legal factor-variable terms in {opt equations()} are retained
+automatically, so a predictor need not be duplicated positionally. The command
+uses collision-free internal aliases and restores the caller's data and sort
+order on success and error.
 
 {pstd}
 {bf:The commands() and equations() pair.}{break}
@@ -264,10 +265,9 @@ long (panel) format with one row per subject per time point. Each unique value
 of {opt i:dvar()} identifies a different subject.
 
 {phang}
-{opt t:var(varname)} specifies the time variable. Each row in the panel records
-the subject's values at the time identified by this variable. Time values
-should be consecutive integers starting from 1 (or any common integer
-sequence).
+{opt t:var(varname)} specifies a numeric ordered visit variable. Gaps and
+nonconsecutive values are allowed. Together, {opt idvar()} and {opt tvar()}
+must uniquely identify every analytic row, with at least two visit values.
 
 {phang}
 {opt varyingcovariates(varlist)} specifies the time-varying confounders that are
@@ -428,11 +428,11 @@ stochastically.
 {dlgtab:Mediation options}
 
 {phang}
-{opt control(string)} specifies the mediator level at which to compute the
-controlled direct effect (CDE). When specified, {cmd:gcomp} estimates the
-CDE by fixing the mediator at this value for all subjects and computing the
-exposure effect. For example, {cmd:control(0)} sets the mediator to 0 for
-everyone. The CDE appears as an additional column in {cmd:e(b)}.
+{opt control(string)} specifies mediator values for the controlled direct
+effect (CDE). Use {cmd:control(0)} for one mediator. With multiple mediators,
+use an exact keyed map, for example
+{cmd:control(m1: 0, m2: 1)}; positional lists are rejected. Every requested
+categorical value must occur in observed support.
 
 {phang}
 {opt post_confs(varlist)} specifies post-treatment confounders of the
@@ -443,11 +443,9 @@ simulates the full joint distribution under interventions.
 
 {phang}
 {opt boceam} specifies BOCE-AM (baseline odds conditional on exposure and all
-mediators) estimation. It is combined with a base mediation type ({opt obe},
-{opt oce}, {opt linexp}, or {opt baseline()}). The current implementation
-supports a {bf:single} mediator; specifying {opt boceam} with more than one
-{opt mediator()} exits with an error (joint multi-mediator BOCE-AM is not yet
-implemented).
+mediators) estimation. It requires a supported {opt msm()} and a
+{bf:single} mediator. Calls without {opt msm()} or with multiple mediators are
+rejected before simulation. Adding BOCE-AM does not alter TCE/NDE/NIE arms.
 
 {phang}
 {opt logOR} reports mediation results on the {bf:log odds ratio} scale instead
@@ -461,11 +459,11 @@ of the default risk difference (RD) scale.
 {dlgtab:Imputation}
 
 {phang}
-{opt impute(varlist)} specifies variables with missing values to be imputed before
-the g-computation using single stochastic imputation. This handles missing
-data under a missing-at-random (MAR) assumption. {it:Note:} the {varlist} of required
-variables ({opt i:dvar()}, {opt t:var()}) cannot be imputed; only covariates and mediators
-are eligible.
+{opt impute(varlist)} specifies eligible covariates or mediators for single
+stochastic imputation. Exposures, outcomes, panel keys, intervention variables,
+and death indicators cannot be imputed. Rows are screened for predictor
+availability only when the target is missing; target-specific needed,
+eligible, and dropped counts are returned in {cmd:e()}.
 
 {phang}
 {opt imp_eq(string)} specifies the prediction equations for the imputation models,
@@ -479,7 +477,9 @@ same {it:var}{cmd::} {it:cmd} syntax as {opt commands()}.
 {phang}
 {opt imp_cycles(#)} specifies the number of chained-equation imputation
 cycles. Default is {cmd:10}. More cycles may improve convergence for complex
-missing-data patterns.
+missing-data patterns. Cross-target cycles are valid fully conditional
+specification and are iterated in {opt impute()} order; self-reference is
+rejected. This is single imputation, not Rubin-style multiple imputation.
 
 {dlgtab:Simulation}
 
@@ -487,8 +487,8 @@ missing-data patterns.
 {opt simulations(#)} sets the Monte Carlo sample size — the number of
 simulated observations used to estimate potential outcomes in each bootstrap
 replicate. Default is the observed sample size. Larger values reduce Monte
-Carlo variability but increase computation time. If you specify a value
-larger than the sample size, you must also specify {opt moreMC}.
+Carlo variability but increase computation time. In time-varying mode values
+above the number of subjects are capped; {opt moreMC} is not supported there.
 
 {phang}
 {opt samples(#)} sets the number of bootstrap replications. The value must be
@@ -498,9 +498,8 @@ exploratory analyses, 200-500 is often sufficient; for publication, 1000 or
 more is recommended.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility. Setting the seed
-ensures that the same data and options always produce the same results. Always
-set a seed when reporting results.
+{opt seed(#)} sets a positive legal Stata integer seed. Zero, negative,
+noninteger, and out-of-domain values are rejected.
 
 {phang}
 {opt minsim} uses expected values (predicted probabilities) instead of random
@@ -510,8 +509,8 @@ may introduce bias for nonlinear models.
 
 {phang}
 {opt moreMC} allows the Monte Carlo sample size ({opt simulations()}) to exceed
-the observed sample size. By default, {cmd:gcomp} prevents this to avoid
-misunderstanding; {opt moreMC} overrides the check.
+the observed sample size in mediation mode. Time-varying history replication
+is not implemented, so {opt moreMC} is rejected in that mode.
 
 {dlgtab:Output}
 
@@ -533,15 +532,17 @@ normal CI is reported. The additional CI matrices are stored in {cmd:e()} and
 can be extracted after estimation.
 
 {phang}
-{opt graph} produces graphs of the potential outcome distributions under the
-different intervention or mediation scenarios.
+{opt graph} produces a uniquely named survival graph for non-{opt eofu}
+time-varying analyses. It is rejected in mediation and with {opt eofu}; a
+caller graph named {cmd:Graph} is never replaced. The created name is returned
+in {cmd:e(graph)}.
 
 {phang}
-{opt saving(filename)} saves the simulated dataset from the main (non-bootstrap)
-estimation run to {it:filename}. The saved file contains the intervention
-indicator {cmd:_int} plus the analysis variables. This is useful for custom
-post-estimation summaries or diagnostics. It does not save the bootstrap
-replication data.
+{opt saving(filename)} saves the exact stochastic point-estimate dataset,
+including {cmd:_int}, {cmd:_id}, original analysis names, and time-varying
+{cmd:_source_id}. Dataset characteristics contain the schema version, arm
+mapping, run identifier, RNG state, and analysis type. Bootstrap replicates
+are not saved; extended missing codes remain missing in retained observed rows.
 
 {phang}
 {opt replace} allows {opt saving()} to overwrite an existing file.
@@ -549,15 +550,13 @@ replication data.
 {dlgtab:Component models}
 
 {phang}
-{opt savemodels} refits each parametric component model ({cmd:commands()}/{cmd:equations()})
-once on the analytic sample after estimation, outside the bootstrap loop, and
-stores them as {cmd:_gcomp_m_1}, {cmd:_gcomp_m_2}, ... For mediation analyses the refit
-reproduces the simulation's fit exactly (same command, equation, and observed
-sample); for non-pooled time-varying runs the captured models are pooled
-across visits. A manifest is posted to {cmd:e(model_names)}, {cmd:e(model_cmds)},
-{cmd:e(model_depvars)}, {cmd:e(N_models)}, and {cmd:e(model_eq_}{it:k}{cmd:)}. The stored estimates persist
-in memory and can be exported with {helpb gcomptab:gcomptab, models}. This option is a no-op by
-default; it adds no behavioural change to the estimates.
+{opt savemodels} refits available component specifications once on the
+analytic sample and stores them under collision-free persistent names. These
+are explicitly {bf:refit approximations}, not guaranteed copies of
+simulation-loop fits: nonpooled time-varying models are pooled and loop-only
+predictors may be listed in {cmd:e(model_skipped)}. The manifest includes
+{cmd:e(model_capture)} and indexed equations. Optional refitting does not
+advance the point-estimate simulation RNG stream.
 
 {phang}
 {opt showmodels} implies {opt savemodels} and additionally displays the fitted
@@ -585,9 +584,9 @@ time observation, and the {opt i:dvar()} and {opt t:var()} variables must
 uniquely identify each row.
 
 {pstd}
-Every variable that appears in {opt commands()}, {opt equations()}, or any
-option must also appear in the {varlist}. {cmd:gcomp} drops all other
-variables before estimation.
+Variables named by model/equation options are discovered and retained
+automatically. Keep the main outcome, simulated variables, panel keys, and
+intervention variables visible in the call for a readable specification.
 
 {pstd}
 {bf:Choosing simulation and bootstrap counts}
@@ -613,6 +612,33 @@ results stabilize.
 ({opt i:dvar()}, {opt t:var()}, {opt intvars()}, etc.) and reports how many were
 dropped. For intermittent missingness on covariates or mediators, use the
 {opt impute()} option to apply single stochastic imputation under MAR.
+
+
+{marker assumptions}{...}
+{title:Estimands, assumptions, and diagnostics}
+
+{pstd}
+Causal interpretation requires consistency and well-defined interventions,
+positivity for every modeled strategy and relevant history, sequential
+exchangeability appropriate to the longitudinal or mediation estimand,
+correct specification and temporal ordering of every component model, and no
+relevant interference between subjects.
+
+{pstd}
+Natural mediation effects additionally require the cross-world assumptions
+implied by the selected definition. With multiple ordered mediators, list
+them in causal/simulation order; each later mediator is generated conditional
+on earlier mediator draws from the same intervention arm. Post-treatment
+mediator-outcome confounding requires especially careful scientific
+justification.
+
+{pstd}
+Model diagnostics can identify nonconvergence and selected lack-of-fit
+signals, but they cannot establish exchangeability, positivity, consistency,
+causal order, or absence of interference. Single stochastic imputation does
+not propagate between-imputation uncertainty. Monte Carlo and bootstrap
+approximations also have finite-simulation error; a successful command
+requires every requested replication and requested interval to be usable.
 
 {pstd}
 {bf:Relationship to SSC gformula}
@@ -916,7 +942,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.4, 2026-07-10{p_end}
+{pstd}Version 1.4.5, 2026-07-13{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

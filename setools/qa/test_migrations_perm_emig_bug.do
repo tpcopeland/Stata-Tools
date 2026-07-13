@@ -19,8 +19,7 @@ set more off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall setools
-net install setools, from("`pkg_dir'")
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 local passed = 0
 local failed = 0
@@ -265,6 +264,8 @@ display _newline "=== TEST SUMMARY ==="
 display "Passed: `passed'"
 display "Failed: `failed'"
 display "Total:  " `passed' + `failed'
+display "RESULT: test_migrations_perm_emig_bug tests=" `passed' + `failed' ///
+    " pass=`passed' fail=`failed'"
 
 if `failed' > 0 {
     display as error _newline "FAILED: `failed' test(s) failed"
@@ -273,3 +274,5 @@ if `failed' > 0 {
 else {
     display as result _newline "ALL TESTS PASSED"
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

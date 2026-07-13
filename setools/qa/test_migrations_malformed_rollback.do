@@ -12,8 +12,7 @@ capture log close _all
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -321,7 +320,7 @@ set obs 1
 gen byte sentinel = 91
 save `rollback_excl', replace
 
-local bad_cens "`qa_dir'/data/_missing_rollback_dir/censor.dta"
+local bad_cens "`c(tmpdir)'/setools_missing_rollback_`c(processid)'/censor.dta"
 set varabbrev on
 use `master', clear
 capture noisily migrations, migfile("`valid_wide'") ///
@@ -348,6 +347,8 @@ if scalar(gs_nfail) > 0 {
 else {
     display as text "Failed:       " scalar(gs_nfail)
 }
+display "RESULT: test_migrations_malformed_rollback tests=" scalar(gs_ntest) ///
+    " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"
@@ -360,3 +361,5 @@ else {
     scalar drop gs_ntest gs_npass gs_nfail
     global gs_failures
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

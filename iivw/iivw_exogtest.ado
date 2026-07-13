@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.9.6  2026/07/10
+*! iivw_exogtest Version 1.9.7  2026/07/13
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -36,6 +36,8 @@ program define iivw_exogtest, rclass sortpreserve
 
     tempname __iivw_results __iivw_esthold
     local __iivw_created_vars ""
+    local __iivw_bk_names ""
+    local __iivw_bk_temps ""
     local __iivw_restore_needed = 0
     local __iivw_hold_ok = 0
     local __iivw_return_ok = 0
@@ -160,35 +162,39 @@ program define iivw_exogtest, rclass sortpreserve
         }
     }
 
-    * Validate generated lag names and collisions before mutating data.
+    * =========================================================================
+    * NAME TRANSACTION
+    * =========================================================================
+    * Build the full inventory of generated lag names, then reject any that
+    * would overwrite a scientific input, BEFORE touching the data. This is the
+    * defect that let `iivw_exogtest y xy_lag1, generate(x)' destroy the user's
+    * xy_lag1 -- the generated lag name for `y' IS the second input variable --
+    * and then lag the replacement, silently testing "y (lag 1) (lag 1)".
+
     local generated_lags ""
     foreach v of local varlist {
         local lagname "`prefix'`v'_lag1"
-        if strlen("`lagname'") > 32 {
-            display as error "generated lag variable name `lagname' exceeds 32 characters"
-            display as error "use generate() with a shorter prefix or rename `v'"
-            error 198
-        }
-        capture confirm name `lagname'
-        if _rc {
-            display as error "generate() prefix creates invalid variable name: `lagname'"
-            error 198
-        }
-        capture confirm variable `lagname'
-        if _rc == 0 {
-            if "`replace'" == "" {
-                display as error "generated lag variable `lagname' already exists; use replace option"
-                error 110
-            }
-        }
         local generated_lags "`generated_lags' `lagname'"
     }
     local generated_lags = strtrim("`generated_lags'")
 
+    local __iivw_protected "`varlist' `id' `time' `adjust' `by' `entry'"
+    local __iivw_protected : list uniq __iivw_protected
+
+    _iivw_reserve_names, generated(`generated_lags') ///
+        protected(`__iivw_protected') `replace' context(iivw_exogtest)
+
+    * Back up -- do not drop -- any prior lag variables we are about to replace,
+    * so an error below restores the pre-call dataset exactly.
+    local __iivw_bk_names ""
+    local __iivw_bk_temps ""
     foreach lagname of local generated_lags {
         capture confirm variable `lagname'
         if _rc == 0 {
-            quietly drop `lagname'
+            tempvar __iivw_bk
+            quietly rename `lagname' `__iivw_bk'
+            local __iivw_bk_names "`__iivw_bk_names' `lagname'"
+            local __iivw_bk_temps "`__iivw_bk_temps' `__iivw_bk'"
         }
     }
 
@@ -731,9 +737,18 @@ program define iivw_exogtest, rclass sortpreserve
         if `rc' == 0 & `__iivw_unhold_rc' != 0 local rc = `__iivw_unhold_rc'
     }
     if `rc' != 0 {
+        * Roll the name transaction back: drop the lag variables this call
+        * created, then rename the user's prior copies into place.
         foreach v of local __iivw_created_vars {
             capture drop `v'
             local __iivw_drop_rc = _rc
+        }
+        local __iivw_bi = 0
+        foreach g of local __iivw_bk_names {
+            local ++__iivw_bi
+            local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
+            capture drop `g'
+            capture rename `__iivw_bt' `g'
         }
     }
     set varabbrev `__iivw_old_varabbrev'

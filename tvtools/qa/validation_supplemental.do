@@ -714,7 +714,7 @@ gen long id = _n
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2020)
 format study_entry study_exit %td
-save "/tmp/tvp_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvp_cohort.dta", replace
 
 local ptime_expected = mdy(12,31,2020) - mdy(1,1,2020) + 1
 display "  Expected person-time per person: `ptime_expected' days"
@@ -760,7 +760,7 @@ replace stopA  = mdy(12,31,2020) in `n'
 replace drugA  = 1 in `n'
 
 format startA stopA %td
-save "/tmp/tvp_expA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvp_expA.dta", replace
 
 * ===== EXPOSURE DATASET B (drug B) =====
 clear
@@ -787,7 +787,7 @@ replace stopB  = mdy(12,31,2020) in `n'
 replace drugB  = 1 in `n'
 
 format startB stopB %td
-save "/tmp/tvp_expB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvp_expB.dta", replace
 
 }
 
@@ -1006,7 +1006,7 @@ gen double startA = date(s_start, "YMD")
 gen double stopA  = date(s_stop, "YMD")
 format %td startA stopA
 drop s_*
-save "/tmp/_v16_merge1.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/_v16_merge1.dta", replace
 
 clear
 input int(id) str10(s_start s_stop) byte(expB)
@@ -1019,9 +1019,9 @@ gen double startB = date(s_start, "YMD")
 gen double stopB  = date(s_stop, "YMD")
 format %td startB stopB
 drop s_*
-save "/tmp/_v16_merge2.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/_v16_merge2.dta", replace
 
-tvmerge "/tmp/_v16_merge1.dta" "/tmp/_v16_merge2.dta", ///
+tvmerge "$TVTOOLS_QA_RUN_DIR/_v16_merge1.dta" "$TVTOOLS_QA_RUN_DIR/_v16_merge2.dta", ///
     id(id) start(startA startB) stop(stopA stopB) exposure(expA expB)
 
 * Save r() values before they get overwritten by summarize
@@ -1101,8 +1101,8 @@ else {
     local failed_tests "`failed_tests' 16.8"
 }
 
-capture erase "/tmp/_v16_merge1.dta"
-capture erase "/tmp/_v16_merge2.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/_v16_merge1.dta"
+capture erase "$TVTOOLS_QA_RUN_DIR/_v16_merge2.dta"
 
 }
 

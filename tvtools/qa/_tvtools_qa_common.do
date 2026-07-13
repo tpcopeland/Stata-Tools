@@ -2,29 +2,24 @@
 *! Shared QA scaffold for the tvtools suite.
 *!
 *! Every test_*/validation_*/crossval_* suite sources this file, then calls
-*! _tvtools_qa_bootstrap once. The bootstrap sandboxes PLUS/PERSONAL under
-*! c(tmpdir) (so the real ado tree is never touched), installs tvtools from the
-*! package root, and ensures the data/ fixtures exist. This file also defines the
-*! shared assertion/verification helpers and the test globals used across suites.
+*! _tvtools_qa_bootstrap. The first call sandboxes PLUS/PERSONAL under c(tmpdir),
+*! installs tvtools from the package root, and copies tracked fixtures into a
+*! private run workspace. Later calls are no-ops, so a runner process installs
+*! and copies fixtures exactly once. This file also defines the result-contract
+*! parser and shared assertion helpers.
 *!
 *! Run any suite standalone from qa/:  stata-mp -b do test_tvexpose.do
 *! Run the whole suite:                stata-mp -b do run_all.do [lane]
 
 version 16.0
 
-* ---------------------------------------------------------------------------
-* Test-harness globals (referenced by the shared _run_test helper and bodies)
-* ---------------------------------------------------------------------------
+**# Test-harness globals
 if "$RUN_TEST_NUMBER" == "" global RUN_TEST_NUMBER 0
 if "$RUN_TEST_QUIET"  == "" global RUN_TEST_QUIET 0
-global DATA_DIR "`c(pwd)'/data"
+if "$TVTOOLS_QA_DATA" == "" global DATA_DIR "`c(pwd)'/data"
+else global DATA_DIR "$TVTOOLS_QA_DATA"
 
-* ---------------------------------------------------------------------------
-* Sandboxed install bootstrap
-*   - Sandboxes PLUS/PERSONAL into c(tmpdir) once per Stata session.
-*   - (Re)installs tvtools from the package root (qa/.. ).
-*   - Generates the data/ fixtures if they are missing.
-* ---------------------------------------------------------------------------
+**# Sandboxed install bootstrap
 capture program drop _tvtools_qa_bootstrap
 program define _tvtools_qa_bootstrap, rclass
     version 16.0
@@ -33,14 +28,26 @@ program define _tvtools_qa_bootstrap, rclass
     local _qa_len = strlen("`qa_dir'")
     local pkg_dir = substr("`qa_dir'", 1, `_qa_len' - 3)
 
+    if "$TVTOOLS_QA_BOOTSTRAPPED" == "1" {
+        sysdir set PLUS "$TVTOOLS_QA_PLUS"
+        sysdir set PERSONAL "$TVTOOLS_QA_PERSONAL"
+        global DATA_DIR "$TVTOOLS_QA_DATA"
+        return local qa_dir  "$TVTOOLS_QA_DIR"
+        return local pkg_dir "$TVTOOLS_QA_PKG_DIR"
+        exit
+    }
+
     if "$TVTOOLS_QA_ISOLATED" == "" {
         tempfile _tvtools_qa_base
-        local plus_dir "`_tvtools_qa_base'_plus"
-        local personal_dir "`_tvtools_qa_base'_personal"
+        local run_dir "`_tvtools_qa_base'_run"
+        local plus_dir "`run_dir'/plus"
+        local personal_dir "`run_dir'/personal"
+        capture mkdir "`run_dir'"
         capture mkdir "`plus_dir'"
         capture mkdir "`personal_dir'"
         global TVTOOLS_QA_PLUS "`plus_dir'"
         global TVTOOLS_QA_PERSONAL "`personal_dir'"
+        global TVTOOLS_QA_RUN_DIR "`run_dir'"
         global TVTOOLS_QA_ISOLATED "1"
     }
 
@@ -50,40 +57,203 @@ program define _tvtools_qa_bootstrap, rclass
     capture ado uninstall tvtools
     quietly net install tvtools, from("`pkg_dir'") replace
 
-    * Ensure the tracked data/ fixtures exist (regenerate if absent).
+    * Tracked fixtures are inputs, not build products. Missing source fixtures
+    * are a hard failure; disposable outputs are written only to the run space.
     capture confirm file "`qa_dir'/data/cohort.dta"
     if _rc {
-        cd "`qa_dir'/data"
-        run generate_test_data.do
-        cd "`qa_dir'"
+        display as error "required tracked fixture data/cohort.dta is missing"
+        exit 601
     }
 
-    * Tests create and replace many fixture datasets. Work from a private copy
-    * so a QA run never rewrites tracked data/ files merely because Stata embeds
-    * a new save timestamp in each .dta.
-    global TVTOOLS_QA_DATA "$TVTOOLS_QA_PLUS-data"
+    global TVTOOLS_QA_DATA "$TVTOOLS_QA_RUN_DIR/data"
     capture mkdir "$TVTOOLS_QA_DATA"
     local fixture_files : dir "`qa_dir'/data" files "*"
     foreach fixture of local fixture_files {
-        capture copy "`qa_dir'/data/`fixture'" ///
+        quietly copy "`qa_dir'/data/`fixture'" ///
             "$TVTOOLS_QA_DATA/`fixture'", replace
     }
 
+    global TVTOOLS_QA_DIR "`qa_dir'"
+    global TVTOOLS_QA_PKG_DIR "`pkg_dir'"
+    global TVTOOLS_QA_BOOTSTRAPPED "1"
     global DATA_DIR "$TVTOOLS_QA_DATA"
+    local bootstrap_count = cond("$TVTOOLS_QA_BOOTSTRAP_COUNT" == "", ///
+        0, real("$TVTOOLS_QA_BOOTSTRAP_COUNT")) + 1
+    global TVTOOLS_QA_BOOTSTRAP_COUNT "`bootstrap_count'"
 
     return local qa_dir  "`qa_dir'"
     return local pkg_dir "`pkg_dir'"
 end
 
-* ---------------------------------------------------------------------------
-* Shared assertion / verification helpers
+**# Result-contract and dependency helpers
+
+capture mata: mata drop _tvtools_qa_scan_result()
+mata:
+void _tvtools_qa_scan_result(string scalar logfile)
+{
+    real scalar fh, result_lines, valid_lines, with_skip
+    string scalar line, trimmed, parsed_suite, tests, pass, fail, skip
+
+    fh = fopen(logfile, "r")
+    result_lines = 0
+    valid_lines = 0
+    parsed_suite = ""
+    tests = "."
+    pass = "."
+    fail = "."
+    skip = "0"
+
+    while ((line = fget(fh)) != J(0, 0, "")) {
+        trimmed = strtrim(line)
+        if (substr(trimmed, 1, 7) == "RESULT:") {
+            result_lines++
+            with_skip = regexm(trimmed,
+                "^RESULT: ([A-Za-z0-9_]+) tests=([0-9]+) pass=([0-9]+) fail=([0-9]+) skip=([0-9]+)$")
+            if (with_skip) {
+                valid_lines++
+                parsed_suite = regexs(1)
+                tests = regexs(2)
+                pass = regexs(3)
+                fail = regexs(4)
+                skip = regexs(5)
+            }
+            else if (regexm(trimmed,
+                "^RESULT: ([A-Za-z0-9_]+) tests=([0-9]+) pass=([0-9]+) fail=([0-9]+)$")) {
+                valid_lines++
+                parsed_suite = regexs(1)
+                tests = regexs(2)
+                pass = regexs(3)
+                fail = regexs(4)
+                skip = "0"
+            }
+        }
+    }
+    fclose(fh)
+
+    st_local("result_lines", strofreal(result_lines))
+    st_local("valid_lines", strofreal(valid_lines))
+    st_local("parsed_suite", parsed_suite)
+    st_local("tests", tests)
+    st_local("pass", pass)
+    st_local("fail", fail)
+    st_local("skip", skip)
+}
+end
+
+capture program drop _tvtools_qa_validate_result
+program define _tvtools_qa_validate_result, rclass
+    version 16.0
+    syntax, LOGFile(string) SUITE(string) EXPECTED(integer) [ALLOWSKIP REQUIREZEROSKIP]
+
+    return scalar valid = 0
+    return scalar tests = .
+    return scalar pass = .
+    return scalar fail = .
+    return scalar skip = .
+    return local reason "result log not found"
+
+    capture confirm file `"`logfile'"'
+    if _rc exit
+
+    local result_lines = 0
+    local valid_lines = 0
+    local parsed_suite ""
+    local tests = .
+    local pass = .
+    local fail = .
+    local skip = 0
+
+    mata: _tvtools_qa_scan_result(st_local("logfile"))
+
+    return scalar tests = `tests'
+    return scalar pass = `pass'
+    return scalar fail = `fail'
+    return scalar skip = `skip'
+    return local parsed_suite "`parsed_suite'"
+
+    if `result_lines' != 1 {
+        return local reason "expected one RESULT line; found `result_lines'"
+        exit
+    }
+    if `valid_lines' != 1 {
+        return local reason "RESULT line is malformed"
+        exit
+    }
+    if "`parsed_suite'" != "`suite'" {
+        return local reason "suite name mismatch: `parsed_suite'"
+        exit
+    }
+    if `tests' != `expected' {
+        return local reason "test-count mismatch: got `tests', expected `expected'"
+        exit
+    }
+    if `tests' != `pass' + `fail' + `skip' {
+        return local reason "tests != pass + fail + skip"
+        exit
+    }
+    if `fail' > 0 {
+        return local reason "suite reported `fail' failed checks"
+        exit
+    }
+    if `skip' > 0 & "`allowskip'" == "" {
+        return local reason "suite reported disallowed skips"
+        exit
+    }
+    if `skip' > 0 & "`requirezeroskip'" != "" {
+        return local reason "full/release lane requires zero skips"
+        exit
+    }
+
+    return scalar valid = 1
+    return local reason "ok"
+end
+
+capture program drop _tvtools_qa_probe_rscript
+program define _tvtools_qa_probe_rscript, rclass
+    version 16.0
+    local probe "$TVTOOLS_QA_RUN_DIR/_rscript_version.txt"
+    capture erase "`probe'"
+    quietly shell Rscript --version > "`probe'" 2>&1
+    capture confirm file "`probe'"
+    if _rc {
+        return scalar available = 0
+        exit
+    }
+    local content = lower(fileread("`probe'"))
+    local available = strpos(`"`content'"', "rscript") > 0 & ///
+        strpos(`"`content'"', "version") > 0 & ///
+        strpos(`"`content'"', "not found") == 0 & ///
+        strpos(`"`content'"', "not recognized") == 0
+    return scalar available = `available'
+end
+
+capture program drop _tvtools_qa_rmtree
+program define _tvtools_qa_rmtree
+    version 16.0
+    args path
+    if `"`path'"' == "" exit
+    capture local child_dirs : dir `"`path'"' dirs "*"
+    foreach child of local child_dirs {
+        _tvtools_qa_rmtree `"`path'/`child'"'
+    }
+    capture local files : dir `"`path'"' files "*"
+    foreach file of local files {
+        capture erase `"`path'/`file'"'
+    }
+    capture rmdir `"`path'"'
+end
+
+capture program drop _tvtools_qa_cleanup
+program define _tvtools_qa_cleanup
+    version 16.0
+    if "$TVTOOLS_QA_RUN_DIR" == "" exit
+    _tvtools_qa_rmtree "$TVTOOLS_QA_RUN_DIR"
+end
+
+**# Shared assertion and verification helpers
 *
-* These are also defined inline inside several suites (the consolidated suites
-* preserve their origin bodies verbatim). Defining them here as well is a
-* harmless safety net: every helper drops itself first, so the last definition
-* wins and any suite that references a helper before its inline definition still
-* resolves it.
-* ---------------------------------------------------------------------------
+* These are also defined inline inside several suites. Defining them here is a
+* safety net: every helper drops itself first, so the last definition wins.
 
 * _run_test: print a test banner, honouring the RUN_TEST_* globals.
 capture program drop _run_test

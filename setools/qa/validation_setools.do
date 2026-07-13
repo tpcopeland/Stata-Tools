@@ -24,36 +24,13 @@
 
 version 16.0
 
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
+* === Isolated bootstrap ===
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 set varabbrev off
 
-**# Setup
-
-local pkg_dir "`c(pwd)'"
-capture confirm file "`pkg_dir'/../setools.ado"
-if _rc == 0 {
-    local pkg_dir "`pkg_dir'/.."
-}
-else {
-    capture confirm file "`pkg_dir'/setools.ado"
-    if _rc == 0 {
-        * Already in package dir
-    }
-    else {
-    }
-}
-
-capture program drop _setools_detail
-foreach cmd in setools cci_se cdp migrations pira sustainedss {
-    capture program drop `cmd'
-    run "`pkg_dir'/`cmd'.ado"
-}
-
-local qa_dir "`pkg_dir'/qa"
-local data_dir "`qa_dir'/data"
+local data_dir "`c(tmpdir)'/setools_validation_`c(processid)'"
 capture mkdir "`data_dir'"
 
 scalar gs_ntest = 0
@@ -477,20 +454,23 @@ end
 format datum %td
 preserve
 cci_se, id(lopnr) icd(diagnos) date(datum) components
-keep lopnr charlson cci_*
+rename charlson score_nodates
+foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab diabcomp renal livmild livsev pud cancer mets aids {
+    rename cci_`v' nodates_`v'
+}
+keep lopnr score_nodates nodates_*
 tempfile no_dates
 save `no_dates'
 restore
-cci_se, id(lopnr) icd(diagnos) date(datum) dates generate(charlson2)
-rename charlson2 charlson
+cci_se, id(lopnr) icd(diagnos) date(datum) dates ///
+    generate(score_dates) prefix(dates_)
 merge 1:1 lopnr using `no_dates', nogenerate assert(match)
 sort lopnr
-local score_ok = 1
-forvalues i = 1/3 {
-    if charlson[`i'] != charlson[`i'] local score_ok = 0
-}
+local score_ok = (_N == 3)
+quietly count if score_dates != score_nodates
+if r(N) > 0 local score_ok = 0
 foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab diabcomp renal livmild livsev pud cancer mets aids {
-    quietly count if cci_`v' != cci_`v'
+    quietly count if dates_`v' != nodates_`v'
     if r(N) > 0 local score_ok = 0
 }
 run_val "V1.26: score and indicators unchanged by dates option" `score_ok'
@@ -1345,7 +1325,7 @@ gen first_cross = edss_dt if edss >= 6
 bysort id: egen min_first_cross = min(first_cross)
 gen valid = (sust_inv >= min_first_cross) if !missing(sust_inv) & !missing(min_first_cross)
 sum valid if !missing(valid)
-local t = (r(N) == 0 | r(min) == 1)
+local t = (r(N) > 0 & r(min) == 1)
 run_val "V7.2: sustained date >= first crossing" `t'
 
 * V7.3: cci_se collapse preserves unique patients
@@ -1784,8 +1764,9 @@ input long id double edss double edss_dt double dx_date
 end
 format edss_dt dx_date %td
 gen cdp_v16err = .
-capture noisily cdp id edss edss_dt, dxdate(dx_date)
-local t = ("`c(varabbrev)'" == "on")
+capture noisily cdp id edss edss_dt, dxdate(dx_date) generate(cdp_v16err)
+local cdp_error_rc = _rc
+local t = (`cdp_error_rc' == 110 & "`c(varabbrev)'" == "on")
 run_val "V12.9: cdp varabbrev on error path" `t'
 set varabbrev off
 
@@ -1806,8 +1787,10 @@ local cleanup_files "_val_pira_data.dta _val_pira_rel.dta _val_pira_rel2.dta _va
 foreach f of local cleanup_files {
     capture erase "`data_dir'/`f'"
 }
+shell /bin/rm -rf -- "`data_dir'"
 
 **# FINAL SUMMARY
+do "`qa_dir'/_setools_qa_common.do" teardown
 display as text "Total tests:  " scalar(gs_ntest)
 display as result "Passed:       " scalar(gs_npass)
 if scalar(gs_nfail) > 0 {
@@ -1817,6 +1800,8 @@ if scalar(gs_nfail) > 0 {
 else {
     display as text "Failed:       " scalar(gs_nfail)
 }
+display "RESULT: validation_setools tests=" scalar(gs_ntest) ///
+    " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"

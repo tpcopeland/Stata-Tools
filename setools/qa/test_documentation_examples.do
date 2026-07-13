@@ -1,193 +1,178 @@
-/*
-test_documentation_examples.do
-Installed-user documentation reality checks for setools examples.
-
-The examples use the same commands shown in README.md and .sthlp files. Public
-GitHub data URLs are mapped to the repository's local _data mirror so this test
-does not depend on network availability.
-
-Run from setools/qa/:
-    stata-mp -b do test_documentation_examples.do
-*/
+*! test_documentation_examples.do  2.0.0  2026/07/13
+*! Installed-user documentation examples on self-contained synthetic data
 
 version 16.0
-capture log close _all
+clear all
+set more off
 set varabbrev off
-
-**# Setup
+capture log close _all
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local failed_tests ""
-
 local qa_dir "`c(pwd)'"
-local pkg_dir "`qa_dir'"
-local pkg_dir : subinstr local pkg_dir "/qa" "", all
-local data_dir "`pkg_dir'/../_data"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
-
-**# Help Files
-
+**# Installed help and dispatcher surface
 local ++test_count
 capture noisily {
     foreach cmd in setools cci_se migrations sustainedss cdp pira {
+        which `cmd'
         help `cmd'
     }
-}
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: help files open after local net install"
-}
-else {
-    local ++fail_count
-    local failed_tests "`failed_tests' help_files"
-    display as error "  FAIL: help files open after local net install (error `=_rc')"
-}
-
-**# setools Overview Examples
-
-local ++test_count
-capture noisily {
     setools
     assert "`r(commands)'" == "cci_se migrations sustainedss cdp pira"
     setools, list category(ms)
     assert "`r(commands)'" == "sustainedss cdp pira"
     setools, detail category(codes)
     assert "`r(commands)'" == "cci_se"
-    setools, category(migration)
-    assert "`r(commands)'" == "migrations"
 }
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: setools README/sthlp overview examples run"
-}
+if !_rc local ++pass_count
 else {
     local ++fail_count
-    local failed_tests "`failed_tests' setools_examples"
-    display as error "  FAIL: setools README/sthlp overview examples run (error `=_rc')"
+    local failed_tests "`failed_tests' installed_overview"
 }
 
-**# cci_se README And Help Examples
-
+**# cci_se examples
 local ++test_count
 capture noisily {
-    use "`data_dir'/diagnoses.dta", clear
-    cci_se, id(id) icd(icd) date(visit_date) components noisily
-    confirm variable charlson
-    confirm variable cci_mi
-    summarize charlson
-    assert r(N) > 0
-    assert r(max) >= r(min)
-
-    use "`data_dir'/diagnoses.dta", clear
-    cci_se, id(id) icd(icd) date(visit_date) dates
+    clear
+    input long id str12 icd int year
+    1 "I21" 2000
+    1 "E112" 2001
+    2 "F024" 2002
+    end
+    gen long diagnosis_date = mdy(1, 1, year)
+    format diagnosis_date %td
+    cci_se, id(id) icd(icd) date(diagnosis_date) dates noisily
+    assert charlson == 3 if id == 1
+    assert charlson == 7 if id == 2
     confirm variable cci_mi_date
-    confirm variable cci_chf_date
 }
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: cci_se documentation examples run with shipped data"
-}
+if !_rc local ++pass_count
 else {
     local ++fail_count
     local failed_tests "`failed_tests' cci_examples"
-    display as error "  FAIL: cci_se documentation examples run with shipped data (error `=_rc')"
 }
 
-**# migrations README And Help Examples
-
+**# migrations workflow, including the exact executable stset sequence
 local ++test_count
 capture noisily {
-    use "`data_dir'/cohort.dta", clear
-    migrations, migfile("`data_dir'/migrations_wide.dta") startvar(study_entry) verbose
-    confirm variable migration_out_dt
-    assert r(N_final) > 0
+    tempfile migration_file
+    clear
+    input long id long in_1 long out_1
+    1 . 50
+    2 . .
+    end
+    format in_1 out_1 %td
+    save `migration_file', replace
 
-    use "`data_dir'/cohort.dta", clear
-    migrations, migfile("`data_dir'/migrations_wide.dta") startvar(study_entry) keepimmigrants
-    confirm variable migration_in_dt
-    gen double effective_start = cond(!missing(migration_in_dt), migration_in_dt, study_entry)
-    format effective_start %tdCCYY/NN/DD
+    clear
+    input long id long study_entry long followup_end byte outcome
+    1 0 100 1
+    2 0 100 0
+    end
+    format study_entry followup_end %td
+    migrations, migfile("`migration_file'") startvar(study_entry) verbose
+    gen long analysis_end = cond(missing(migration_out_dt), ///
+        followup_end, min(followup_end, migration_out_dt))
+    format analysis_end %td
+    stset analysis_end, origin(time study_entry) failure(outcome) id(id)
+    assert _t == 50 if id == 1
+    assert _t == 100 if id == 2
 }
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: migrations documentation examples run with shipped data"
-}
+if !_rc local ++pass_count
 else {
     local ++fail_count
-    local failed_tests "`failed_tests' migrations_examples"
-    display as error "  FAIL: migrations documentation examples run with shipped data (error `=_rc')"
+    local failed_tests "`failed_tests' migrations_stset_example"
 }
 
-**# MS Progression README And Help Examples
-
+**# sustainedss and cdp option interactions
 local ++test_count
 capture noisily {
-    use "`data_dir'/relapses.dta", clear
-    sustainedss id edss edss_date, threshold(4) keepall
-    confirm variable sustained4_dt
-    gen byte reached_edss4 = !missing(sustained4_dt)
-    tab reached_edss4
+    tempfile edss_source
+    clear
+    input long id double edss long edss_date long dx_date
+    1 2 0   0
+    1 3 10  0
+    1 3 192 0
+    1 4 400 0
+    1 4 582 0
+    2 6 0   0
+    end
+    format edss_date dx_date %td
+    save `edss_source', replace
 
-    use "`data_dir'/relapses.dta", clear
-    cdp id edss edss_date, dxdate(dx_date) keepall
-    confirm variable cdp_date
-    gen byte had_cdp = !missing(cdp_date)
-    tab had_cdp
+    sustainedss id edss edss_date, threshold(6) keepall
+    assert sustained6_dt == 0 if id == 2
+
+    use `edss_source', clear
+    sustainedss id edss edss_date, threshold(6) ///
+        confirmvisit(window) confirmwindow(182) keepall generate(s6_confirmed)
+    assert missing(s6_confirmed) if id == 2
+
+    use `edss_source', clear
+    cdp id edss edss_date, dxdate(dx_date) roving allevents ///
+        eventvar(cdp_event) eventnumvar(sequence) ///
+        baseedssvar(reference_edss) quietly
+    assert _N == 2
+    assert cdp_event == 1
+    assert sequence == _n
 }
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: sustainedss/cdp documentation examples run with shipped data"
-}
+if !_rc local ++pass_count
 else {
     local ++fail_count
-    local failed_tests "`failed_tests' ms_examples"
-    display as error "  FAIL: sustainedss/cdp documentation examples run with shipped data (error `=_rc')"
+    local failed_tests "`failed_tests' edss_examples"
 }
 
-**# pira README And Help Examples
-
+**# pira preparation, deduplication, first-event contract, and reload-safe rerun
 local ++test_count
 capture noisily {
-    use "`data_dir'/relapses.dta", clear
-    pira id edss edss_date, dxdate(dx_date) relapses("`data_dir'/relapses_only.dta") keepall
-    confirm variable pira_date
-    confirm variable raw_date
+    tempfile relapse_file edss_source
+    clear
+    input long id long relapse_date
+    1 10
+    1 10
+    end
+    format relapse_date %td
+    duplicates drop id relapse_date, force
+    save `relapse_file', replace
 
-    gen str4 prog_type = cond(!missing(pira_date), "PIRA", cond(!missing(raw_date), "RAW", "None"))
-    tab prog_type
+    clear
+    input long id double edss long edss_date long dx_date
+    1 2 0   0
+    1 3 10  0
+    1 3 192 0
+    2 2 0   0
+    2 3 20  0
+    2 3 202 0
+    end
+    format edss_date dx_date %td
+    save `edss_source', replace
+    pira id edss edss_date, dxdate(dx_date) ///
+        relapses("`relapse_file'") keepall quietly
+    assert raw_date == 10 if id == 1
+    assert pira_date == 20 if id == 2
+    assert "`r(event_scope)'" == "first_confirmed_cdp"
 
-    use "`data_dir'/relapses.dta", clear
-    pira id edss edss_date, dxdate(dx_date) relapses("`data_dir'/relapses_only.dta") ///
-        windowbefore(0) windowafter(30)
-
-    use "`data_dir'/relapses.dta", clear
-    pira id edss edss_date, dxdate(dx_date) relapses("`data_dir'/relapses_only.dta") ///
-        rebaselinerelapse keepall
+    use `edss_source', clear
+    pira id edss edss_date, dxdate(dx_date) ///
+        relapses("`relapse_file'") windowbefore(0) windowafter(30) ///
+        generate(pira_sensitivity) rawgenerate(raw_sensitivity) keepall quietly
+    confirm variable pira_sensitivity raw_sensitivity
 }
-if _rc == 0 {
-    local ++pass_count
-    display as result "  PASS: pira documentation examples run with shipped data"
-}
+if !_rc local ++pass_count
 else {
     local ++fail_count
     local failed_tests "`failed_tests' pira_examples"
-    display as error "  FAIL: pira documentation examples run with shipped data (error `=_rc')"
 }
 
-**# Summary
-
-display as text ""
-display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: test_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count'"
-
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"
-    display as error "SOME TESTS FAILED"
-    exit 1
+    exit 9
 }
 
-display as result "ALL TESTS PASSED"
+do "`qa_dir'/_setools_qa_common.do" teardown

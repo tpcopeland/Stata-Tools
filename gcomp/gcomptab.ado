@@ -1,12 +1,12 @@
-*! gcomptab Version 1.4.4  2026/07/10
-*! Format gcomp mediation or time-varying dose-response results for Excel export
+*! gcomptab Version 1.4.5  2026/07/13
+*! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 DESCRIPTION:
-    Formats gcomp (parametric g-formula) results into polished Excel tables.
-    Two modes:
+    Formats gcomp (parametric g-formula) results as Excel, Markdown, CSV, or
+    Results-window tables. Three modes:
 
     MEDIATION (default): formats causal-mediation output - total causal effect
     (TCE), natural direct effect (NDE), natural indirect effect (NIE), proportion
@@ -18,6 +18,8 @@ DESCRIPTION:
     exposure-years column, and a risk-difference-vs-reference column. Selected with
     the doseresponse option, or auto-detected when e(b) has PO# columns and no tce
     column.
+
+    MODELS: formats one or more stored component-model refits.
 
 SYNTAX:
     gcomptab, xlsx(string) sheet(string) [ci(string) effect(string) title(string)
@@ -65,7 +67,7 @@ PREREQUISITES:
 
 EXAMPLES:
     * After running gcomp
-    gcomp ... , ... bootstrap(500)
+    gcomp ... , ... samples(500)
     gcomptab, xlsx("mediation_results.xlsx") sheet("Mediation") ///
         title("Causal Mediation Analysis")
 
@@ -78,6 +80,7 @@ EXAMPLES:
         title("Table 2. Mediation Analysis Results")
 */
 
+capture program drop gcomptab
 program define gcomptab, rclass
     version 16.0
     local _gc_varabbrev = c(varabbrev)
@@ -146,6 +149,37 @@ capture noisily {
     if "`nozebra'" != "" local zebra ""
     if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
+	if "`font'" == "" local font "Arial"
+	if "`borderstyle'" == "" local borderstyle "thin"
+	if `decimal' < 1 | `decimal' > 6 {
+		noisily display as error "decimal()/digits() must be between 1 and 6"
+		exit 198
+	}
+	if `fontsize' < 1 | `fontsize' > 72 {
+		noisily display as error "fontsize() must be between 1 and 72"
+		exit 198
+	}
+	if !inlist("`borderstyle'", "academic", "thin", "medium", "none") {
+		noisily display as error "borderstyle() must be academic, thin, medium, or none"
+		exit 198
+	}
+	if `boldp' != 0 & (`boldp' <= 0 | `boldp' >= 1) {
+		noisily display as error "boldp() must be between 0 and 1"
+		exit 198
+	}
+	if `highlight' != 0 & (`highlight' <= 0 | `highlight' >= 1) {
+		noisily display as error "highlight() must be between 0 and 1"
+		exit 198
+	}
+	if `"`xlsx'"' != "" {
+		if !strmatch(lower(`"`xlsx'"'), "*.xlsx") {
+			noisily display as error "xlsx() must specify a .xlsx file"
+			exit 198
+		}
+		_gcomp_validate_path `"`xlsx'"' "xlsx()"
+		if `"`sheet'"' != "" _gcomp_xl_validate_sheet `"`sheet'"' "sheet()"
+	}
+	_gcomptab_text_paths, markdown(`"`markdown'"') csv(`"`csv'"')
 
     * ----- Models mode (regtab-lite): explicit switch, never auto-detected -----
     if "`models'" != "" {
@@ -166,8 +200,15 @@ capture noisily {
             title(`"`title'"') footnote(`"`footnote'"') font(`"`font'"') ///
             fontsize(`fontsize') borderstyle(`"`borderstyle'"') `zebra' ///
             zebracolor(`"`zebracolor'"') `headershade' headercolor(`"`headercolor'"') ///
-            boldp(`boldp') highlight(`highlight') `open' `display'
+            boldp(`boldp') highlight(`highlight') `display'
+		local _gc_open_path `"`r(xlsx)'"'
         return add
+		if "`open'" != "" & `"`_gc_open_path'"' != "" {
+			capture noisily _gcomp_xl_open `"`_gc_open_path'"'
+			local _gc_open_rc = _rc
+			return scalar open_rc = `_gc_open_rc'
+			if `_gc_open_rc' noisily display as text "Workbook written; optional open request failed (rc=`_gc_open_rc')."
+		}
     }
     else {
     if `"`xlsx'"' == "" | `"`sheet'"' == "" {
@@ -198,9 +239,15 @@ capture noisily {
             font(`"`font'"') fontsize(`fontsize') borderstyle(`"`borderstyle'"') ///
             reference(`reference') `rd' strategylabels(`"`strategylabels'"') ///
             expyears(`expyears') `headershade' headercolor(`"`headercolor'"') ///
-            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') `open' ///
+            `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"') ///
             markdown(`"`markdown'"') csv(`"`csv'"')
         return add
+		if "`open'" != "" {
+			capture noisily _gcomp_xl_open `"`xlsx'"'
+			local _gc_open_rc = _rc
+			return scalar open_rc = `_gc_open_rc'
+			if `_gc_open_rc' noisily display as text "Workbook written; optional open request failed (rc=`_gc_open_rc')."
+		}
     }
     else {
 quietly {
@@ -293,7 +340,10 @@ quietly {
     * The workbook is already complete and the analytical result contract is
     * established.  An optional OS open failure must not strand r().
     if "`open'" != "" {
-        _gcomp_xl_open "`xlsx'"
+		capture noisily _gcomp_xl_open `"`xlsx'"'
+		local _gc_open_rc = _rc
+		return scalar open_rc = `_gc_open_rc'
+		if `_gc_open_rc' noisily display as text "Workbook written; optional open request failed (rc=`_gc_open_rc')."
     }
 }
     }
@@ -342,9 +392,9 @@ program define _gcomptab_validate, rclass
     tempname eb ese
     matrix `eb' = e(b)
     local n_cols = colsof(`eb')
-    if `n_cols' < 4 | `n_cols' > 5 {
+    if `n_cols' < 4 {
         noisily display as error "Unexpected matrix dimensions from gcomp"
-        noisily display as error "Expected 4-5 columns, found `n_cols'"
+        noisily display as error "Expected named mediation effects, found `n_cols' columns"
         exit 198
     }
     foreach _col in tce nde nie pm {
@@ -353,11 +403,6 @@ program define _gcomptab_validate, rclass
             noisily display as error "gcomp results may be from an incompatible version"
             exit 198
         }
-    }
-    if `n_cols' == 5 & colnumb(`eb', "cde") == . {
-        noisily display as error "e(b) matrix missing expected column 'cde'"
-        noisily display as error "gcomp results may be from an incompatible version"
-        exit 198
     }
 
     capture confirm matrix e(se)
@@ -378,18 +423,12 @@ program define _gcomptab_validate, rclass
             exit 198
         }
     }
-    if `n_cols' == 5 & colnumb(`ese', "cde") == . {
-        noisily display as error "e(se) matrix missing expected column 'cde'"
-        noisily display as error "gcomp results may be from an incompatible version"
-        exit 198
-    }
 
     if !strmatch("`xlsx'", "*.xlsx") {
         noisily display as error "Excel filename must have .xlsx extension"
         exit 198
     }
     _gcomp_validate_path "`xlsx'" "xlsx()"
-    _gcomp_validate_path "`sheet'" "sheet()"
     _gcomp_xl_validate_sheet "`sheet'" "sheet()"
 
     if !inlist("`ci'", "normal", "percentile", "bc", "bca") {
@@ -400,13 +439,12 @@ program define _gcomptab_validate, rclass
         noisily display as error "decimal() must be between 1 and 6"
         exit 198
     }
-    _gcomp_validate_path "`font'" "font()"
     if `fontsize' < 1 | `fontsize' > 72 {
         noisily display as error "fontsize() must be between 1 and 72"
         exit 198
     }
-    if !inlist("`borderstyle'", "academic", "thin", "medium") {
-        noisily display as error "borderstyle() must be academic, thin, or medium"
+    if !inlist("`borderstyle'", "academic", "thin", "medium", "none") {
+        noisily display as error "borderstyle() must be academic, thin, medium, or none"
         exit 198
     }
     if `boldp' != 0 & (`boldp' <= 0 | `boldp' >= 1) {
@@ -454,24 +492,19 @@ program define _gcomptab_extract, rclass
             exit 198
         }
     }
-    if `ncols' == 5 & colnumb(`ci_mat', "cde") == . {
-        noisily display as error "CI matrix ci_`ci' missing expected column 'cde'"
-        noisily display as error "gcomp results may be from an incompatible version"
-        exit 198
-    }
 
     local tce = `eb'[1, colnumb(`eb', "tce")]
     local nde = `eb'[1, colnumb(`eb', "nde")]
     local nie = `eb'[1, colnumb(`eb', "nie")]
     local pm = `eb'[1, colnumb(`eb', "pm")]
-    if `ncols' >= 5 local cde = `eb'[1, colnumb(`eb', "cde")]
+    if colnumb(`eb', "cde") != . local cde = `eb'[1, colnumb(`eb', "cde")]
     else local cde = .
 
     local se_tce = `ese'[1, colnumb(`ese', "tce")]
     local se_nde = `ese'[1, colnumb(`ese', "nde")]
     local se_nie = `ese'[1, colnumb(`ese', "nie")]
     local se_pm = `ese'[1, colnumb(`ese', "pm")]
-    if `ncols' >= 5 local se_cde = `ese'[1, colnumb(`ese', "cde")]
+    if colnumb(`ese', "cde") != . local se_cde = `ese'[1, colnumb(`ese', "cde")]
     else local se_cde = .
 
     local ci_tce_lo = `ci_mat'[1, colnumb(`ci_mat', "tce")]
@@ -482,7 +515,7 @@ program define _gcomptab_extract, rclass
     local ci_nie_hi = `ci_mat'[2, colnumb(`ci_mat', "nie")]
     local ci_pm_lo = `ci_mat'[1, colnumb(`ci_mat', "pm")]
     local ci_pm_hi = `ci_mat'[2, colnumb(`ci_mat', "pm")]
-    if `ncols' >= 5 {
+    if colnumb(`ci_mat', "cde") != . {
         local ci_cde_lo = `ci_mat'[1, colnumb(`ci_mat', "cde")]
         local ci_cde_hi = `ci_mat'[2, colnumb(`ci_mat', "cde")]
     }
@@ -491,7 +524,7 @@ program define _gcomptab_extract, rclass
         local ci_cde_hi = .
     }
 
-    local has_cde = (`cde' != .)
+    local has_cde = (colnumb(`eb', "cde") != .)
     local p_tce = 2 * normal(-abs(`tce' / `se_tce'))
     local p_nde = 2 * normal(-abs(`nde' / `se_nde'))
     local p_nie = 2 * normal(-abs(`nie' / `se_nie'))
@@ -544,13 +577,16 @@ program define _gcomptab_build_dataset, rclass
     local labels : subinstr local labels " \ " "\", all
     local labels : subinstr local labels "\  " "\", all
     local labels : subinstr local labels "  \" "\", all
-    tokenize `"`labels'"', parse("\")
-
-    local lab1 "`1'"
-    local lab2 "`3'"
-    local lab3 "`5'"
-    local lab4 "`7'"
-    local lab5 "`9'"
+    * gettoken preserves literal quotes and Unicode inside each user label;
+    * tokenize would treat those quotes as grouping syntax and strip them.
+    local _label_rest `"`labels'"'
+    forvalues _li = 1/5 {
+        gettoken _label_one _label_rest : _label_rest, parse("\")
+        local lab`_li' `"`_label_one'"'
+        if substr(`"`_label_rest'"', 1, 1) == "\" {
+            local _label_rest = substr(`"`_label_rest'"', 2, .)
+        }
+    }
 
     if "`lab1'" == "" local lab1 "Total Causal Effect (TCE)"
     if "`lab2'" == "" local lab2 "Natural Direct Effect (NDE)"
@@ -562,8 +598,8 @@ program define _gcomptab_build_dataset, rclass
     if `hascde' set obs 7
     else set obs 6
 
-    gen str100 title_col = ""
-    gen str60 effect_label = ""
+    gen strL title_col = ""
+    gen strL effect_label = ""
     gen str20 estimate = ""
     gen str30 ci_95 = ""
     gen str20 se = ""
@@ -577,28 +613,28 @@ program define _gcomptab_build_dataset, rclass
 
     local fmt "%9.`decimal'f"
 
-    replace effect_label = "`lab1'" in 3
+    replace effect_label = `"`lab1'"' in 3
     replace estimate = string(`tce', "`fmt'") in 3
     replace ci_95 = "(" + string(`citcelo', "`fmt'") + ", " + string(`citcehi', "`fmt'") + ")" in 3
     replace se = string(`setce', "`fmt'") in 3
 
-    replace effect_label = "`lab2'" in 4
+    replace effect_label = `"`lab2'"' in 4
     replace estimate = string(`nde', "`fmt'") in 4
     replace ci_95 = "(" + string(`cindelo', "`fmt'") + ", " + string(`cindehi', "`fmt'") + ")" in 4
     replace se = string(`sende', "`fmt'") in 4
 
-    replace effect_label = "`lab3'" in 5
+    replace effect_label = `"`lab3'"' in 5
     replace estimate = string(`nie', "`fmt'") in 5
     replace ci_95 = "(" + string(`cinielo', "`fmt'") + ", " + string(`ciniehi', "`fmt'") + ")" in 5
     replace se = string(`senie', "`fmt'") in 5
 
-    replace effect_label = "`lab4'" in 6
+    replace effect_label = `"`lab4'"' in 6
     replace estimate = string(`pm', "`fmt'") in 6
     replace ci_95 = "(" + string(`cipmlo', "`fmt'") + ", " + string(`cipmhi', "`fmt'") + ")" in 6
     replace se = string(`sepm', "`fmt'") in 6
 
     if `hascde' {
-        replace effect_label = "`lab5'" in 7
+        replace effect_label = `"`lab5'"' in 7
         replace estimate = string(`cde', "`fmt'") in 7
         replace ci_95 = "(" + string(`cicdelo', "`fmt'") + ", " + string(`cicdehi', "`fmt'") + ")" in 7
         replace se = string(`secde', "`fmt'") in 7
@@ -662,20 +698,21 @@ program define _gcomptab_style_excel
     else local _pval_6 = real("`pvalpm'")
     if "`pvalcde'" == "" local _pval_7 .
     else local _pval_7 = real("`pvalcde'")
-    if `"`headercolor'"' == "" local headercolor "219 229 241"
+	tempname _gc_xl
+	if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
 
     capture {
-        mata: b = xl()
-        mata: b.load_book("`xlsx'")
-        mata: b.set_sheet("`sheet'")
+        mata: `_gc_xl' = xl()
+        mata: `_gc_xl'.load_book("`xlsx'")
+        mata: `_gc_xl'.set_sheet("`sheet'")
 
-        mata: b.set_row_height(1, 1, 30)
-        mata: b.set_column_width(1, 1, 1)
-        mata: b.set_column_width(2, 2, `=`labelwidth' * 0.9')
-        mata: b.set_column_width(3, 3, 12)
-        mata: b.set_column_width(4, 4, `=`ciwidth' * 0.85')
-        mata: b.set_column_width(5, 5, 10)
+        mata: `_gc_xl'.set_row_height(1, 1, 30)
+        mata: `_gc_xl'.set_column_width(1, 1, 1)
+        mata: `_gc_xl'.set_column_width(2, 2, `=`labelwidth' * 0.9')
+        mata: `_gc_xl'.set_column_width(3, 3, 12)
+        mata: `_gc_xl'.set_column_width(4, 4, `=`ciwidth' * 0.85')
+        mata: `_gc_xl'.set_column_width(5, 5, 10)
 
         local _varlist "title_col effect_label estimate ci_95 se"
         forvalues _r = 3/`rows' {
@@ -690,49 +727,49 @@ program define _gcomptab_style_excel
                 local _cellclean = subinstr(`"`_cellstr'"', ",", "", .)
                 local _cellnum = real("`_cellclean'")
                 if `_cellnum' != . {
-                    mata: b.put_number(`_r', `_c', `_cellnum')
+                    mata: `_gc_xl'.put_number(`_r', `_c', `_cellnum')
                 }
             }
         }
 
-        mata: b.set_font((1,`rows'), (1,`cols'), "`font'", `fontsize')
-        mata: b.set_font((1,1), (1,`cols'), "`font'", `=`fontsize' + 2')
+        mata: `_gc_xl'.set_font((1,`rows'), (1,`cols'), "`font'", `fontsize')
+        mata: `_gc_xl'.set_font((1,1), (1,`cols'), "`font'", `=`fontsize' + 2')
 
-        mata: b.set_sheet_merge("`sheet'", (1,1), (1,`cols'))
-        mata: b.set_text_wrap(1, 1, "on")
-        mata: b.set_horizontal_align(1, 1, "left")
-        mata: b.set_vertical_align(1, 1, "center")
-        mata: b.set_font_bold(1, 1, "on")
+        mata: `_gc_xl'.set_sheet_merge("`sheet'", (1,1), (1,`cols'))
+        mata: `_gc_xl'.set_text_wrap(1, 1, "on")
+        mata: `_gc_xl'.set_horizontal_align(1, 1, "left")
+        mata: `_gc_xl'.set_vertical_align(1, 1, "center")
+        mata: `_gc_xl'.set_font_bold(1, 1, "on")
 
-        mata: b.set_font_bold(2, (2,`cols'), "on")
-        mata: b.set_horizontal_align(2, (2,`cols'), "center")
-        mata: b.set_top_border(2, (2,`cols'), "`hborder'")
-        mata: b.set_bottom_border(2, (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_font_bold(2, (2,`cols'), "on")
+        mata: `_gc_xl'.set_horizontal_align(2, (2,`cols'), "center")
+        mata: `_gc_xl'.set_top_border(2, (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_bottom_border(2, (2,`cols'), "`hborder'")
         if "`headershade'" != "" {
-            mata: b.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
+            mata: `_gc_xl'.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
         }
 
-        mata: b.set_bottom_border(`rows', (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_bottom_border(`rows', (2,`cols'), "`hborder'")
 
         if "`borderstyle'" != "academic" {
-            mata: b.set_left_border((2,`rows'), 2, "`hborder'")
-            mata: b.set_right_border((2,`rows'), `cols', "`hborder'")
+            mata: `_gc_xl'.set_left_border((2,`rows'), 2, "`hborder'")
+            mata: `_gc_xl'.set_right_border((2,`rows'), `cols', "`hborder'")
         }
 
         if `rows' >= 3 & `cols' >= 3 {
-            mata: b.set_horizontal_align((3,`rows'), (3,`cols'), "center")
+            mata: `_gc_xl'.set_horizontal_align((3,`rows'), (3,`cols'), "center")
         }
 
         if "`zebra'" != "" {
             forvalues _zr = 4(2)`rows' {
-                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
+                mata: `_gc_xl'.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
             }
         }
 
         if `boldp' > 0 {
             forvalues _br = 3/`rows' {
                 if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
-                    mata: b.set_font_bold(`_br', (3,`cols'), "on")
+                    mata: `_gc_xl'.set_font_bold(`_br', (3,`cols'), "on")
                 }
             }
         }
@@ -740,7 +777,7 @@ program define _gcomptab_style_excel
         if `highlight' > 0 {
             forvalues _hr = 3/`rows' {
                 if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
-                    mata: b.set_fill_pattern(`_hr', (2,`cols'), "solid", "255 255 204")
+                    mata: `_gc_xl'.set_fill_pattern(`_hr', (2,`cols'), "solid", "255 255 204")
                 }
             }
         }
@@ -748,25 +785,25 @@ program define _gcomptab_style_excel
         if `"`footnote'"' != "" {
             local _fn_row = `rows' + 1
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-            mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`cols'))
-            mata: b.set_horizontal_align(`_fn_row', 2, "left")
-            mata: b.set_vertical_align(`_fn_row', 2, "center")
-            mata: b.set_text_wrap(`_fn_row', 2, "on")
-            mata: b.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
-            mata: b.set_font_italic(`_fn_row', 2, "on")
+            mata: `_gc_xl'.put_string(`_fn_row', 2, `"`footnote'"')
+            mata: `_gc_xl'.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`cols'))
+            mata: `_gc_xl'.set_horizontal_align(`_fn_row', 2, "left")
+            mata: `_gc_xl'.set_vertical_align(`_fn_row', 2, "center")
+            mata: `_gc_xl'.set_text_wrap(`_fn_row', 2, "on")
+            mata: `_gc_xl'.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
+            mata: `_gc_xl'.set_font_italic(`_fn_row', 2, "on")
         }
 
-        mata: b.close_book()
+        mata: `_gc_xl'.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture mata: b.close_book()
-        capture mata: mata drop b
+        capture mata: `_gc_xl'.close_book()
+        capture mata: mata drop `_gc_xl'
         noisily display as error "Excel formatting failed with error `saved_rc'"
         exit `saved_rc'
     }
-    capture mata: mata drop b
+    capture mata: mata drop `_gc_xl'
 end
 
 capture program drop _gcomptab_post_returns
@@ -777,6 +814,7 @@ program define _gcomptab_post_returns, rclass
         [MARKDown(string) CSV(string)]
 
     return scalar N_effects = `neffects'
+    return scalar has_cde = `hascde'
     return scalar tce = `tce'
     return scalar nde = `nde'
     return scalar nie = `nie'
@@ -812,12 +850,20 @@ program define _gcomptab_text_export
     if `"`markdown'"' != "" {
         tempname _fh
         file open `_fh' using `"`markdown'"', write replace text
-        if `"`title'"' != "" file write `_fh' "### `title'" _n _n
+		if `"`title'"' != "" {
+			_gcomptab_md_escape, text(`"`title'"')
+			local _gc_md_title `"### `r(text)'"'
+			file write `_fh' `"`_gc_md_title'"' _n _n
+		}
         local _hdr "|"
         local _sep "|"
         forvalues j = 1/`_nc' {
             local _v : word `j' of `colvars'
             local _cell = `_v'[2]
+			if `"`_cell'"'!="" {
+				_gcomptab_md_escape, text(`"`_cell'"')
+				local _cell `"`r(text)'"'
+			}
             local _hdr `"`_hdr' `_cell' |"'
             local _sep "`_sep' --- |"
         }
@@ -827,6 +873,10 @@ program define _gcomptab_text_export
             forvalues j = 1/`_nc' {
                 local _v : word `j' of `colvars'
                 local _cell = `_v'[`_r']
+				if `"`_cell'"'!="" {
+					_gcomptab_md_escape, text(`"`_cell'"')
+					local _cell `"`r(text)'"'
+				}
                 local _line `"`_line' `_cell' |"'
             }
             file write `_fh' `"`_line'"' _n
@@ -835,28 +885,31 @@ program define _gcomptab_text_export
     }
 
     if `"`csv'"' != "" {
-        tempname _fc
-        file open `_fc' using `"`csv'"', write replace text
-        local _line ""
-        forvalues j = 1/`_nc' {
-            local _v : word `j' of `colvars'
-            local _cell = `_v'[2]
-            if `j' > 1 local _line `"`_line',"'
-            local _line `"`_line'"`_cell'""'
-        }
-        file write `_fc' `"`_line'"' _n
-        forvalues _r = 3/`=_N' {
-            local _line ""
-            forvalues j = 1/`_nc' {
-                local _v : word `j' of `colvars'
-                local _cell = `_v'[`_r']
-                if `j' > 1 local _line `"`_line',"'
-                local _line `"`_line'"`_cell'""'
-            }
-            file write `_fc' `"`_line'"' _n
-        }
-        file close `_fc'
+		tempname _gc_csv_frame
+		frame put `colvars' in 2/L, into(`_gc_csv_frame')
+		capture noisily frame `_gc_csv_frame' {
+			foreach _v of local colvars {
+				quietly replace `_v' = "'" + `_v' if ///
+					inlist(substr(`_v',1,1), "=", "+", "-", "@") & missing(real(`_v'))
+			}
+			export delimited `colvars' using `"`csv'"', novarnames quote replace
+		}
+		local _gc_csv_rc = _rc
+		capture frame drop `_gc_csv_frame'
+		if `_gc_csv_rc' exit `_gc_csv_rc'
     }
+end
+
+capture program drop _gcomptab_md_escape
+program define _gcomptab_md_escape, rclass
+	version 16.0
+	syntax, TEXT(string)
+	local _text `"`text'"'
+	local _text = subinstr(`"`_text'"', "\", "\\", .)
+	local _text = subinstr(`"`_text'"', "|", "\|", .)
+	local _text = subinstr(`"`_text'"', char(13), "<br>", .)
+	local _text = subinstr(`"`_text'"', char(10), "<br>", .)
+	return local text `"`_text'"'
 end
 
 * =============================================================================
@@ -895,7 +948,7 @@ program define _gcomptab_doseresponse, rclass
         FONTSize(integer) [CI(string) EFFECT(string) TITLE(string) Font(string) ///
         BORDERstyle(string) STRATEGYlabels(string) EXPYears(numlist) noRD ///
         HEADERShade HEADERColor(string) ZEBRA ZEBRAColor(string) ///
-        FOOTnote(string) OPEN MARKDown(string) CSV(string)]
+        FOOTnote(string) MARKDown(string) CSV(string)]
 
     _gcomptab_dr_validate, xlsx(`"`xlsx'"') sheet(`"`sheet'"') ci(`"`ci'"') ///
         effect(`"`effect'"') decimal(`decimal') font(`"`font'"') ///
@@ -975,10 +1028,6 @@ program define _gcomptab_doseresponse, rclass
     if `"`csv'"' != "" return local csv `"`csv'"'
     return matrix table = `_drtab'
 
-    * Preserve the completed analytical payload if the optional OS open fails.
-    if "`open'" != "" {
-        _gcomp_xl_open "`xlsx'"
-    }
 end
 
 capture program drop _gcomptab_dr_validate
@@ -1041,19 +1090,17 @@ program define _gcomptab_dr_validate, rclass
         exit 198
     }
     _gcomp_validate_path "`xlsx'" "xlsx()"
-    _gcomp_validate_path "`sheet'" "sheet()"
     _gcomp_xl_validate_sheet "`sheet'" "sheet()"
     if `decimal' < 1 | `decimal' > 6 {
         noisily display as error "decimal() must be between 1 and 6"
         exit 198
     }
-    _gcomp_validate_path "`font'" "font()"
     if `fontsize' < 1 | `fontsize' > 72 {
         noisily display as error "fontsize() must be between 1 and 72"
         exit 198
     }
-    if !inlist("`borderstyle'", "academic", "thin", "medium") {
-        noisily display as error "borderstyle() must be academic, thin, or medium"
+    if !inlist("`borderstyle'", "academic", "thin", "medium", "none") {
+        noisily display as error "borderstyle() must be academic, thin, medium, or none"
         exit 198
     }
 
@@ -1082,10 +1129,13 @@ program define _gcomptab_dr_build, rclass
     local labels : subinstr local strategylabels " \ " "\", all
     local labels : subinstr local labels "\  " "\", all
     local labels : subinstr local labels "  \" "\", all
-    tokenize `"`labels'"', parse("\")
+    local _label_rest `"`labels'"'
     forvalues i = 1/`k' {
-        local _p = 2*`i' - 1
-        local lab`i' `"``_p''"'
+        gettoken _label_one _label_rest : _label_rest, parse("\")
+        local lab`i' `"`_label_one'"'
+        if substr(`"`_label_rest'"', 1, 1) == "\" {
+            local _label_rest = substr(`"`_label_rest'"', 2, .)
+        }
         if `"`lab`i''"' == "" local lab`i' "PO`i'"
     }
 
@@ -1127,8 +1177,8 @@ program define _gcomptab_dr_build, rclass
     local fmt "%9.`decimal'f"
     clear
     set obs `=`k' + 2'
-    gen str244 pad = ""
-    gen str244 strat = ""
+    gen strL pad = ""
+    gen strL strat = ""
     gen str40 expcol = ""
     gen str60 riskcol = ""
     gen str30 rdcol = ""
@@ -1187,7 +1237,8 @@ program define _gcomptab_dr_style
         Font(string) FONTSize(integer) BORDERstyle(string) HBORDER(string) ///
         [HEADERShade HEADERColor(string) ZEBRA ZEBRAColor(string) FOOTnote(string)]
 
-    if `"`headercolor'"' == "" local headercolor "219 229 241"
+	tempname _gc_xl
+	if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
 
     * Column positions (col 1 = thin pad, col 2 = strategy label)
@@ -1208,16 +1259,16 @@ program define _gcomptab_dr_style
     if `hasrd' local _varlist "`_varlist' rdcol"
 
     capture {
-        mata: b = xl()
-        mata: b.load_book("`xlsx'")
-        mata: b.set_sheet("`sheet'")
+        mata: `_gc_xl' = xl()
+        mata: `_gc_xl'.load_book("`xlsx'")
+        mata: `_gc_xl'.set_sheet("`sheet'")
 
-        mata: b.set_row_height(1, 1, 30)
-        mata: b.set_column_width(1, 1, 1)
-        mata: b.set_column_width(`c_strat', `c_strat', `=`stratwidth' * 0.9')
-        if `hasexp' mata: b.set_column_width(`c_exp', `c_exp', 18)
-        mata: b.set_column_width(`c_risk', `c_risk', `=`riskwidth' * 0.95')
-        if `hasrd' mata: b.set_column_width(`c_rd', `c_rd', 12)
+        mata: `_gc_xl'.set_row_height(1, 1, 30)
+        mata: `_gc_xl'.set_column_width(1, 1, 1)
+        mata: `_gc_xl'.set_column_width(`c_strat', `c_strat', `=`stratwidth' * 0.9')
+        if `hasexp' mata: `_gc_xl'.set_column_width(`c_exp', `c_exp', 18)
+        mata: `_gc_xl'.set_column_width(`c_risk', `c_risk', `=`riskwidth' * 0.95')
+        if `hasrd' mata: `_gc_xl'.set_column_width(`c_rd', `c_rd', 12)
 
         forvalues _r = 3/`rows' {
             forvalues _c = 3/`cols' {
@@ -1228,68 +1279,68 @@ program define _gcomptab_dr_style
                 local _cellclean = subinstr(`"`_cellstr'"', ",", "", .)
                 local _cellnum = real("`_cellclean'")
                 if `_cellnum' != . {
-                    mata: b.put_number(`_r', `_c', `_cellnum')
+                    mata: `_gc_xl'.put_number(`_r', `_c', `_cellnum')
                 }
             }
         }
 
-        mata: b.set_font((1,`rows'), (1,`cols'), "`font'", `fontsize')
-        mata: b.set_font((1,1), (1,`cols'), "`font'", `=`fontsize' + 2')
+        mata: `_gc_xl'.set_font((1,`rows'), (1,`cols'), "`font'", `fontsize')
+        mata: `_gc_xl'.set_font((1,1), (1,`cols'), "`font'", `=`fontsize' + 2')
 
-        mata: b.set_sheet_merge("`sheet'", (1,1), (1,`cols'))
-        mata: b.set_text_wrap(1, 1, "on")
-        mata: b.set_horizontal_align(1, 1, "left")
-        mata: b.set_vertical_align(1, 1, "center")
-        mata: b.set_font_bold(1, 1, "on")
+        mata: `_gc_xl'.set_sheet_merge("`sheet'", (1,1), (1,`cols'))
+        mata: `_gc_xl'.set_text_wrap(1, 1, "on")
+        mata: `_gc_xl'.set_horizontal_align(1, 1, "left")
+        mata: `_gc_xl'.set_vertical_align(1, 1, "center")
+        mata: `_gc_xl'.set_font_bold(1, 1, "on")
 
-        mata: b.set_font_bold(2, (2,`cols'), "on")
-        mata: b.set_horizontal_align(2, (2,`cols'), "center")
-        mata: b.set_top_border(2, (2,`cols'), "`hborder'")
-        mata: b.set_bottom_border(2, (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_font_bold(2, (2,`cols'), "on")
+        mata: `_gc_xl'.set_horizontal_align(2, (2,`cols'), "center")
+        mata: `_gc_xl'.set_top_border(2, (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_bottom_border(2, (2,`cols'), "`hborder'")
         if "`headershade'" != "" {
-            mata: b.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
+            mata: `_gc_xl'.set_fill_pattern(2, (2,`cols'), "solid", "`headercolor'")
         }
 
-        mata: b.set_bottom_border(`rows', (2,`cols'), "`hborder'")
+        mata: `_gc_xl'.set_bottom_border(`rows', (2,`cols'), "`hborder'")
 
         if "`borderstyle'" != "academic" {
-            mata: b.set_left_border((2,`rows'), 2, "`hborder'")
-            mata: b.set_right_border((2,`rows'), `cols', "`hborder'")
+            mata: `_gc_xl'.set_left_border((2,`rows'), 2, "`hborder'")
+            mata: `_gc_xl'.set_right_border((2,`rows'), `cols', "`hborder'")
         }
 
         if `rows' >= 3 & `cols' >= 3 {
-            mata: b.set_horizontal_align((3,`rows'), (3,`cols'), "center")
+            mata: `_gc_xl'.set_horizontal_align((3,`rows'), (3,`cols'), "center")
         }
-        mata: b.set_horizontal_align((3,`rows'), `c_strat', "left")
+        mata: `_gc_xl'.set_horizontal_align((3,`rows'), `c_strat', "left")
 
         if "`zebra'" != "" {
             forvalues _zr = 4(2)`rows' {
-                mata: b.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
+                mata: `_gc_xl'.set_fill_pattern(`_zr', (2,`cols'), "solid", "`zebracolor'")
             }
         }
 
         if `"`footnote'"' != "" {
             local _fn_row = `rows' + 1
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-            mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`cols'))
-            mata: b.set_horizontal_align(`_fn_row', 2, "left")
-            mata: b.set_vertical_align(`_fn_row', 2, "center")
-            mata: b.set_text_wrap(`_fn_row', 2, "on")
-            mata: b.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
-            mata: b.set_font_italic(`_fn_row', 2, "on")
+            mata: `_gc_xl'.put_string(`_fn_row', 2, `"`footnote'"')
+            mata: `_gc_xl'.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`cols'))
+            mata: `_gc_xl'.set_horizontal_align(`_fn_row', 2, "left")
+            mata: `_gc_xl'.set_vertical_align(`_fn_row', 2, "center")
+            mata: `_gc_xl'.set_text_wrap(`_fn_row', 2, "on")
+            mata: `_gc_xl'.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
+            mata: `_gc_xl'.set_font_italic(`_fn_row', 2, "on")
         }
 
-        mata: b.close_book()
+        mata: `_gc_xl'.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture mata: b.close_book()
-        capture mata: mata drop b
+        capture mata: `_gc_xl'.close_book()
+        capture mata: mata drop `_gc_xl'
         noisily display as error "Excel formatting failed with error `saved_rc'"
         exit `saved_rc'
     }
-    capture mata: mata drop b
+    capture mata: mata drop `_gc_xl'
 end
 
 * =============================================================================
@@ -1313,10 +1364,38 @@ capture noisily {
         STATs(string) TITLE(string) FOOTnote(string) Font(string) ///
         FONTSize(integer 10) BORDERstyle(string) ZEBRA ZEBRAColor(string) ///
         HEADERShade HEADERColor(string) BOLDp(real 0) HIGHlight(real 0) ///
-        OPEN DISPlay]
+        DISPlay]
 
-    if `decimal' < 0 | `decimal' > 12 local decimal 3
+    if `decimal' < 1 | `decimal' > 6 {
+		noisily display as error "decimal()/digits() must be between 1 and 6"
+		exit 198
+	}
     if "`font'" == "" local font "Arial"
+	if `fontsize' < 1 | `fontsize' > 72 {
+		noisily display as error "fontsize() must be between 1 and 72"
+		exit 198
+	}
+	if "`borderstyle'" == "" local borderstyle "thin"
+	if !inlist("`borderstyle'", "academic", "thin", "medium", "none") {
+		noisily display as error "borderstyle() must be academic, thin, medium, or none"
+		exit 198
+	}
+	if `boldp' != 0 & (`boldp' <= 0 | `boldp' >= 1) {
+		noisily display as error "boldp() must be between 0 and 1"
+		exit 198
+	}
+	if `highlight' != 0 & (`highlight' <= 0 | `highlight' >= 1) {
+		noisily display as error "highlight() must be between 0 and 1"
+		exit 198
+	}
+	if "`eform'"!="" & "`noeform'"!="" {
+		noisily display as error "eform and noeform are mutually exclusive"
+		exit 198
+	}
+	if "`nointercept'"!="" & "`keepintercept'"!="" {
+		noisily display as error "nointercept and keepintercept are mutually exclusive"
+		exit 198
+	}
     if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
     if "`starslevels'" == "" local starslevels "0.05 0.01 0.001"
@@ -1359,7 +1438,8 @@ capture noisily {
     local _M : word count `_names'
 
     * ----- Harvest each model: terms, estimates, scale -----
-    local _keys ""           // ordered union of term keys
+    local _keys ""           // ordered union of lossless indexed term keys
+    local _key_count 0
     local _do_n = (strpos(" `stats' ", " n ") > 0)
     forvalues k = 1/`_M' {
         local _nm : word `k' of `_names'
@@ -1392,24 +1472,33 @@ capture noisily {
         * Column meta
         local _cn : colnames `b`k''
         local _eq : coleq `b`k''
+		local _full : colfullnames `b`k''
+		tempname _omit`k'
+		_ms_omit_info `b`k''
+		matrix `_omit`k'' = r(omit)
         local _nc = colsof(`b`k'')
         local nc`k' = `_nc'
         forvalues j = 1/`_nc' {
             local _vn : word `j' of `_cn'
             local _en : word `j' of `_eq'
-            * skip Stata-omitted/base-level coefficients (e.g. mlogit base outcome)
-            if strpos("`_vn'", "o.") > 0 continue
-            * key for cross-model alignment
+			local _identity : word `j' of `_full'
+			* Skip all Stata-identified omitted/base-level coefficients.
+			if `_omit`k''[1,`j'] continue
+			* Preserve the full coefficient stripe as identity; use only a numeric
+			* token for local-macro storage so distinct legal terms cannot collide.
             local _cut = (strpos("`_vn'", "cut") > 0) | ("`_en'" == "/")
-            if "`cmd`k''" == "mlogit" | "`cmd`k''" == "ologit" {
-                local _key "`_en'::`_vn'"
-                if "`_en'" == "" | "`_en'" == "_" local _key "`_vn'"
-            }
-            else local _key "`_vn'"
-            * sanitize key so it is a legal local-macro-name fragment
-            local _key = subinstr("`_key'", ":", "_", .)
-            local _key = subinstr("`_key'", ".", "_", .)
-            local _key = subinstr("`_key'", "#", "_", .)
+			local _key ""
+			if `_key_count'>0 {
+				forvalues _q=1/`_key_count' {
+					if `"`_identity'"'==`"`identity_k`_q''"' local _key "k`_q'"
+				}
+			}
+			if "`_key'"=="" {
+				local ++_key_count
+				local _key "k`_key_count'"
+				local identity_`_key' `"`_identity'"'
+				local _keys "`_keys' `_key'"
+			}
             * display label
             local _lab "`_vn'"
             if ("`cmd`k''" == "mlogit" | "`cmd`k''" == "ologit") & ///
@@ -1427,9 +1516,6 @@ capture noisily {
             local _bv = regexr("`_bv'", "^[0-9bo]+\.", "")
             local bv_`_key' "`_bv'"
             local has_`_key'_`k' 1
-            * add to ordered union on first sight
-            local _seen : list posof "`_key'" in _keys
-            if `_seen' == 0 local _keys "`_keys' `_key'"
         }
     }
     local _keys : list clean _keys
@@ -1611,6 +1697,30 @@ capture noisily {
     if "`se'" != "" local _unchdr "SE"
     else local _unchdr "95% CI"
 
+	* Content-aware Excel widths, capped to keep very long labels wrapped.
+	local _term_width = ustrlen("Term")
+	forvalues i=1/`_T' {
+		local _term_width = max(`_term_width', ustrlen(`"`tlab`i''"'))
+	}
+	local _term_width = min(max(`_term_width'+2, 12), 40)
+	forvalues k=1/`_M' {
+		local _w_est`k' = max(ustrlen(`"`mlab`k'' `scale`k''"')+2, 12)
+		local _w_unc`k' = max(ustrlen(`"`mlab`k'' `_unchdr'"')+2, 14)
+		local _w_p`k' = max(ustrlen(`"`mlab`k'' p"')+2, 8)
+		local _w_compact`k' = `_w_est`k''
+		forvalues i=1/`_T' {
+			local _w_est`k' = max(`_w_est`k'', ustrlen(`"`est`i'_`k''"')+2)
+			local _w_unc`k' = max(`_w_unc`k'', ustrlen(`"`unc`i'_`k''"')+2)
+			local _w_p`k' = max(`_w_p`k'', ustrlen(`"`p`i'_`k''"')+2)
+			local _w_compact`k' = max(`_w_compact`k'', ///
+				ustrlen(strtrim(`"`est`i'_`k'' `unc`i'_`k''"'))+2)
+		}
+		local _w_est`k' = min(`_w_est`k'', 18)
+		local _w_unc`k' = min(`_w_unc`k'', 28)
+		local _w_p`k' = min(`_w_p`k'', 12)
+		local _w_compact`k' = min(max(`_w_compact`k'',14), 32)
+	}
+
     * ===================== XLSX (putexcel) =====================
     if `"`xlsx'"' != "" {
         _gcomp_xl_require_helpers
@@ -1640,14 +1750,14 @@ capture noisily {
             local _L0 "`result'"
             _gcomp_col_letter `_c1'
             local _L1 "`result'"
-            putexcel `_L0'`_hA' = "`mlab`k''", bold hcenter
+            putexcel `_L0'`_hA' = `"`mlab`k''"', bold hcenter
             if `_percol' > 1 putexcel (`_L0'`_hA':`_L1'`_hA'), merge hcenter
             * content sub-headers
             if "`compact'" != "" {
-                putexcel `_L0'`_hB' = "`scale`k'' [`_unchdr']", bold hcenter
+                putexcel `_L0'`_hB' = `"`scale`k'' [`_unchdr']"', bold hcenter
             }
             else {
-                putexcel `_L0'`_hB' = "`scale`k''", bold hcenter
+                putexcel `_L0'`_hB' = `"`scale`k''"', bold hcenter
                 _gcomp_col_letter `=`_c0'+1'
                 putexcel `result'`_hB' = "`_unchdr'", bold hcenter
                 if "`nopvalue'" == "" {
@@ -1665,7 +1775,7 @@ capture noisily {
         local _br = `_hB' + 1
         forvalues i = 1/`_T' {
             local _row = `_br' + `i' - 1
-            putexcel A`_row' = "`tlab`i''"
+            putexcel A`_row' = `"`tlab`i''"'
             forvalues k = 1/`_M' {
                 local _c0 = 2 + (`k'-1)*`_percol'
                 _gcomp_col_letter `_c0'
@@ -1715,112 +1825,137 @@ capture noisily {
         * borders + font
         _gcomp_col_letter `_ncols'
         local _lastL "`result'"
-        if "`borderstyle'" != "none" {
-            putexcel (A`_hA':`_lastL'`_lastrow'), border(all, thin)
-        }
+		if "`borderstyle'" == "academic" {
+			putexcel (A`_hA':`_lastL'`_hB'), border(top, medium)
+			putexcel (A`_hA':`_lastL'`_hB'), border(bottom, medium)
+			putexcel (A`_lastrow':`_lastL'`_lastrow'), border(bottom, medium)
+		}
+		else if inlist("`borderstyle'", "thin", "medium") {
+			putexcel (A`_hA':`_lastL'`_lastrow'), border(all, `borderstyle')
+		}
         putexcel (A`_hA':`_lastL'`_lastrow'), font("`font'", `fontsize')
         * footnote
         if `"`footnote'"' != "" {
             _gcomp_xl_footnote `"`footnote'"' "`_lastL'" `_lastrow' "`font'" "`fontsize'"
         }
         putexcel close
-        if "`open'" != "" _gcomp_xl_open "`xlsx'"
+
+		* xl() supplies width, wrapping, and row-height controls that putexcel
+		* does not expose consistently across supported Stata releases.
+		tempname _gc_models_xl
+		capture {
+			mata: `_gc_models_xl' = xl()
+			mata: `_gc_models_xl'.load_book("`xlsx'")
+			mata: `_gc_models_xl'.set_sheet("`sheet'")
+			mata: `_gc_models_xl'.set_column_width(1, 1, `_term_width')
+			forvalues k=1/`_M' {
+				local _c0 = 2 + (`k'-1)*`_percol'
+				if "`compact'"!="" {
+					mata: `_gc_models_xl'.set_column_width(`_c0', `_c0', `_w_compact`k'')
+				}
+				else {
+					mata: `_gc_models_xl'.set_column_width(`_c0', `_c0', `_w_est`k'')
+					mata: `_gc_models_xl'.set_column_width(`=`_c0'+1', `=`_c0'+1', `_w_unc`k'')
+					if "`nopvalue'"=="" mata: `_gc_models_xl'.set_column_width(`=`_c0'+2', `=`_c0'+2', `_w_p`k'')
+				}
+			}
+			mata: `_gc_models_xl'.set_text_wrap((`_hA',`_lastrow'), (1,`_ncols'), "on")
+			if `"`title'"'!="" mata: `_gc_models_xl'.set_row_height(1, 1, 30)
+			if `"`footnote'"'!="" mata: `_gc_models_xl'.set_row_height(`=`_lastrow'+1', `=`_lastrow'+1', 30)
+			mata: `_gc_models_xl'.close_book()
+		}
+		if _rc {
+			local _gc_xl_rc = _rc
+			capture mata: `_gc_models_xl'.close_book()
+			capture mata: mata drop `_gc_models_xl'
+			noisily display as error "models: Excel width/style finalization failed (rc=`_gc_xl_rc')"
+			exit `_gc_xl_rc'
+		}
+		capture mata: mata drop `_gc_models_xl'
     }
 
-    * ===================== Markdown =====================
-    if `"`markdown'"' != "" {
-        tempname _fh
-        file open `_fh' using `"`markdown'"', write replace text
-        if `"`title'"' != "" {
-            file write `_fh' "### `title'" _n _n
-        }
-        * header
-        local _hdr "| Term "
-        local _sep "| --- "
-        forvalues k = 1/`_M' {
-            if "`compact'" != "" {
-                local _hdr "`_hdr'| `mlab`k'' (`scale`k'') "
-                local _sep "`_sep'| --- "
-            }
-            else {
-                local _hdr "`_hdr'| `mlab`k'' `scale`k'' | `mlab`k'' `_unchdr' "
-                local _sep "`_sep'| --- | --- "
-                if "`nopvalue'" == "" {
-                    local _hdr "`_hdr'| `mlab`k'' p "
-                    local _sep "`_sep'| --- "
-                }
-            }
-        }
-        file write `_fh' "`_hdr'|" _n "`_sep'|" _n
-        forvalues i = 1/`_T' {
-            local _line "| `tlab`i'' "
-            forvalues k = 1/`_M' {
-                if "`compact'" != "" {
-                    local _line "`_line'| `=strtrim("`est`i'_`k'' `unc`i'_`k''")' "
-                }
-                else {
-                    local _line "`_line'| `est`i'_`k'' | `unc`i'_`k'' "
-                    if "`nopvalue'" == "" local _line "`_line'| `p`i'_`k'' "
-                }
-            }
-            file write `_fh' "`_line'|" _n
-        }
-        if `_do_n' {
-            local _line "| N "
-            forvalues k = 1/`_M' {
-                local _line "`_line'| `N`k'' "
-                if "`compact'" == "" {
-                    local _line "`_line'|  "
-                    if "`nopvalue'" == "" local _line "`_line'|  "
-                }
-            }
-            file write `_fh' "`_line'|" _n
-        }
-        if `"`footnote'"' != "" file write `_fh' _n "_`footnote'_" _n
-        file close `_fh'
-    }
-
-    * ===================== CSV =====================
-    if `"`csv'"' != "" {
-        tempname _fc
-        file open `_fc' using `"`csv'"', write replace text
-        local _hdr `""Term""'
-        forvalues k = 1/`_M' {
-            if "`compact'" != "" {
-                local _hdr `"`_hdr',"`mlab`k'' (`scale`k'')""'
-            }
-            else {
-                local _hdr `"`_hdr',"`mlab`k'' `scale`k''","`mlab`k'' `_unchdr'""'
-                if "`nopvalue'" == "" local _hdr `"`_hdr',"`mlab`k'' p""'
-            }
-        }
-        file write `_fc' `"`_hdr'"' _n
-        forvalues i = 1/`_T' {
-            local _line `""`tlab`i''""'
-            forvalues k = 1/`_M' {
-                if "`compact'" != "" {
-                    local _line `"`_line',"`=strtrim("`est`i'_`k'' `unc`i'_`k''")'""'
-                }
-                else {
-                    local _line `"`_line',"`est`i'_`k''","`unc`i'_`k''""'
-                    if "`nopvalue'" == "" local _line `"`_line',"`p`i'_`k''""'
-                }
-            }
-            file write `_fc' `"`_line'"' _n
-        }
-        if `_do_n' {
-            local _line `""N""'
-            forvalues k = 1/`_M' {
-                local _line `"`_line',"`N`k''""'
-                if "`compact'" == "" {
-                    local _line `"`_line',"""'
-                    if "`nopvalue'" == "" local _line `"`_line',"""'
-                }
-            }
-            file write `_fc' `"`_line'"' _n
-        }
-        file close `_fc'
-    }
+	* ===================== Markdown / CSV =====================
+	* Stage one lossless strL table and route both formats through the shared
+	* escaping/serialization path.
+	if `"`markdown'"' != "" | `"`csv'"' != "" {
+		tempname _gc_text_frame
+		frame create `_gc_text_frame'
+		local _gc_text_rows = `_T' + 2 + `_do_n'
+		frame `_gc_text_frame': set obs `_gc_text_rows'
+		local _gc_text_vars ""
+		forvalues _c=1/`_ncols' {
+			local _gc_cv "c`_c'"
+			local _gc_text_vars "`_gc_text_vars' `_gc_cv'"
+			frame `_gc_text_frame': generate strL `_gc_cv' = ""
+		}
+		frame `_gc_text_frame': replace c1 = "Term" in 2
+		local _gc_c 1
+		forvalues k=1/`_M' {
+			if "`compact'"!="" {
+				local ++_gc_c
+				local _gc_header `"`mlab`k'' (`scale`k'')"'
+				frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_header'"' in 2
+			}
+			else {
+				local ++_gc_c
+				local _gc_header `"`mlab`k'' `scale`k''"'
+				frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_header'"' in 2
+				local ++_gc_c
+				local _gc_header `"`mlab`k'' `_unchdr'"'
+				frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_header'"' in 2
+				if "`nopvalue'"=="" {
+					local ++_gc_c
+					local _gc_header `"`mlab`k'' p"'
+					frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_header'"' in 2
+				}
+			}
+		}
+		forvalues i=1/`_T' {
+			local _gc_r = `i' + 2
+			local _gc_cell `"`tlab`i''"'
+			frame `_gc_text_frame': replace c1 = `"`_gc_cell'"' in `_gc_r'
+			local _gc_c 1
+			forvalues k=1/`_M' {
+				if "`compact'"!="" {
+					local ++_gc_c
+					local _gc_cell = strtrim(`"`est`i'_`k'' `unc`i'_`k''"')
+					frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_cell'"' in `_gc_r'
+				}
+				else {
+					local ++_gc_c
+					local _gc_cell `"`est`i'_`k''"'
+					frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_cell'"' in `_gc_r'
+					local ++_gc_c
+					local _gc_cell `"`unc`i'_`k''"'
+					frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_cell'"' in `_gc_r'
+					if "`nopvalue'"=="" {
+						local ++_gc_c
+						local _gc_cell `"`p`i'_`k''"'
+						frame `_gc_text_frame': replace c`_gc_c' = `"`_gc_cell'"' in `_gc_r'
+					}
+				}
+			}
+		}
+		if `_do_n' {
+			local _gc_r = `_T' + 3
+			frame `_gc_text_frame': replace c1 = "N" in `_gc_r'
+			local _gc_c 1
+			forvalues k=1/`_M' {
+				local ++_gc_c
+				frame `_gc_text_frame': replace c`_gc_c' = "`N`k''" in `_gc_r'
+				if "`compact'"=="" {
+					local ++_gc_c
+					if "`nopvalue'"=="" local ++_gc_c
+				}
+			}
+		}
+		capture noisily frame `_gc_text_frame': _gcomptab_text_export, ///
+			colvars(`_gc_text_vars') title(`"`title'"') ///
+			markdown(`"`markdown'"') csv(`"`csv'"')
+		local _gc_text_rc = _rc
+		capture frame drop `_gc_text_frame'
+		if `_gc_text_rc' exit `_gc_text_rc'
+	}
 
     * ===================== Results window =====================
     if "`display'" != "" {
@@ -1863,6 +1998,12 @@ capture noisily {
     return scalar N_cols   = `_ncols'
     return local coef_label "`_coeflbl'"
     return local methods `"`_methods'"'
+	local _term_names ""
+	foreach _key of local _rows {
+		local _term_names "`_term_names' `identity_`_key''"
+	}
+	local _term_names = strtrim("`_term_names'")
+	return local term_names `"`_term_names'"'
     if `"`xlsx'"' != "" {
         return local xlsx  `"`xlsx'"'
         return local sheet `"`sheet'"'
@@ -1872,6 +2013,7 @@ capture noisily {
     return matrix table = `_rtab'
 }
     local _rc = _rc
+	capture frame drop `_gc_text_frame'
     if `_est_held' {
         capture _estimates unhold `_esthold'
         if `_rc' == 0 & _rc local _rc = _rc

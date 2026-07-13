@@ -1,4 +1,4 @@
-*! migrations Version 1.4.1  2026/07/03
+*! migrations Version 1.5.0  2026/07/13
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -6,6 +6,12 @@
 program define migrations, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _mig_preserved = 0
+    local _saveexclude_attempted = 0
+    local _savecensor_attempted = 0
+    local _saveexclude_had_file = 0
+    local _savecensor_had_file = 0
+    tempfile _mig_saveexclude_backup _mig_savecensor_backup
     set varabbrev off
 
     capture noisily {
@@ -46,14 +52,21 @@ program define migrations, rclass
         }
     }
 
-    * Sanitize file path - prevent injection
-    if regexm("`migfile'", "[;&|><\$\`]") {
-        display as error "migfile() contains invalid characters"
-        exit 198
+    * Canonicalize the effective Stata dataset paths before any read, preserve,
+    * or write. This appends .dta only when the basename has no suffix and
+    * resolves relative, dot-segment, and existing-symlink aliases.
+    _setools_dta_path, path(`"`migfile'"')
+    local migfile `"`r(path)'"'
+    if "`saveexclude'" != "" {
+        _setools_dta_path, path(`"`saveexclude'"')
+        local saveexclude `"`r(path)'"'
+    }
+    if "`savecensor'" != "" {
+        _setools_dta_path, path(`"`savecensor'"')
+        local savecensor `"`r(path)'"'
     }
 
-    * Validate migration file exists
-    capture confirm file "`migfile'"
+    capture confirm file `"`migfile'"'
     if _rc {
         display as error "Migration file not found: `migfile'"
         exit 601
@@ -136,29 +149,19 @@ program define migrations, rclass
     * tempvars across dataset switching), so a user column in that namespace
     * would collide. Fail early with a clear message rather than a cryptic gen.
     capture ds _mig_* _neg_*
-    if "`r(varlist)'" != "" {
+    if !_rc & "`r(varlist)'" != "" {
         display as error "Master data contains reserved internal variable(s): `r(varlist)'"
         display as error "Drop or rename _mig_*/_neg_* columns before running migrations"
         exit 110
     }
 
-    * Sanitize save targets before processing.
+    * Compare canonical paths with platform-appropriate case semantics.
+    local _migfile_cmp `"`migfile'"'
+    if "`c(os)'" == "Windows" local _migfile_cmp = lower(`"`migfile'"')
     if "`saveexclude'" != "" {
-        if regexm("`saveexclude'", "[;&|><\$\`]") {
-            display as error "saveexclude() contains invalid characters"
-            exit 198
-        }
-    }
-    if "`savecensor'" != "" {
-        if regexm("`savecensor'", "[;&|><\$\`]") {
-            display as error "savecensor() contains invalid characters"
-            exit 198
-        }
-    }
-    local _migfile_lc = lower("`migfile'")
-    if "`saveexclude'" != "" {
-        local _saveexclude_lc = lower("`saveexclude'")
-        if "`_saveexclude_lc'" == "`_migfile_lc'" {
+        local _saveexclude_cmp `"`saveexclude'"'
+        if "`c(os)'" == "Windows" local _saveexclude_cmp = lower(`"`saveexclude'"')
+        if `"`_saveexclude_cmp'"' == `"`_migfile_cmp'"' {
             display as error "saveexclude() may not overwrite migfile()"
             exit 198
         }
@@ -172,8 +175,9 @@ program define migrations, rclass
         }
     }
     if "`savecensor'" != "" {
-        local _savecensor_lc = lower("`savecensor'")
-        if "`_savecensor_lc'" == "`_migfile_lc'" {
+        local _savecensor_cmp `"`savecensor'"'
+        if "`c(os)'" == "Windows" local _savecensor_cmp = lower(`"`savecensor'"')
+        if `"`_savecensor_cmp'"' == `"`_migfile_cmp'"' {
             display as error "savecensor() may not overwrite migfile()"
             exit 198
         }
@@ -187,7 +191,7 @@ program define migrations, rclass
         }
     }
     if "`saveexclude'" != "" & "`savecensor'" != "" {
-        if "`_saveexclude_lc'" == "`_savecensor_lc'" {
+        if `"`_saveexclude_cmp'"' == `"`_savecensor_cmp'"' {
             display as error "saveexclude() and savecensor() must specify different files"
             exit 198
         }
@@ -199,8 +203,10 @@ program define migrations, rclass
 
     * Preserve master data
     preserve
+    local _mig_preserved = 1
 
-    tempfile master exclude1 exclude2 exclude3 exclude4 exclude_data censor_data censor_export_data
+    tempfile master exclude1 exclude2 exclude3 exclude4 exclude_data ///
+        censor_data censor_export_data final_data
     qui save `master', replace
     
     * Load migration data
@@ -254,6 +260,7 @@ program define migrations, rclass
                 display as error "Wide-format migration variable '`wide_date_var'' must contain whole-number Stata daily dates"
                 exit 109
             }
+            quietly replace `wide_date_var' = . if missing(`wide_date_var')
         }
 
         tempvar _mig_has_wide_event
@@ -398,7 +405,7 @@ program define migrations, rclass
             qui save `_mig_wide_base', replace
 
             qui use `_mig_long_raw', clear
-            qui keep if in_ != .
+            qui keep if !missing(in_)
             qui count
             local has_long_in = (r(N) > 0)
             if `has_long_in' {
@@ -410,7 +417,7 @@ program define migrations, rclass
             }
 
             qui use `_mig_long_raw', clear
-            qui keep if out_ != .
+            qui keep if !missing(out_)
             qui count
             local has_long_out = (r(N) > 0)
             if `has_long_out' {
@@ -499,7 +506,7 @@ program define migrations, rclass
         * Reshape to long format
         if "`verbose'" != "" display as text "Reshaping migration data..."
         qui reshape long in_ out_, i(`idvar') j(_mig_num)
-        qui drop if out_ == . & in_ == .
+        qui drop if missing(out_) & missing(in_)
         qui duplicates drop `idvar' in_ out_, force
 
         qui count
@@ -639,7 +646,7 @@ program define migrations, rclass
         }
         else {
             * Drop individuals who immigrated before study_start with no emigration record
-            qui drop if _mig_last_in < `startvar' & _mig_last_out == .
+            qui drop if _mig_last_in < `startvar' & missing(_mig_last_out)
 
             * Check if any individuals remain after pre-filtering
             qui count
@@ -746,16 +753,19 @@ program define migrations, rclass
             * Note: use person-level _mig_last_in (latest immigration across all rows),
             * not row-level in_ — the in_/out_ at the same reshape index are independently
             * numbered sequences, not paired emigration-return events.
-            qui gen byte _mig_perm_emig = (out_ != . & out_ > `startvar' & (missing(_mig_last_in) | _mig_last_in <= out_))
+            tempvar _mig_perm_emig _mig_min_out
+            qui gen byte `_mig_perm_emig' = (!missing(out_) & ///
+                out_ > `startvar' & ///
+                (missing(_mig_last_in) | _mig_last_in <= out_))
 
             * Earliest permanent emigration per person
             * Note: avoid egen here — Stata's internal tempvar counter can be
             * corrupted by prior dataset switching (use/clear), causing egen to fail.
-            qui gen long _mig_min_out = out_ if _mig_perm_emig == 1
-            qui bysort `idvar' (_mig_min_out): replace _mig_min_out = _mig_min_out[1]
+            qui gen long `_mig_min_out' = out_ if `_mig_perm_emig' == 1
+            qui bysort `idvar' (`_mig_min_out'): replace `_mig_min_out' = `_mig_min_out'[1]
 
             * Propagate to all rows for each person
-            qui gen long migration_out_dt = _mig_min_out
+            qui gen long migration_out_dt = `_mig_min_out'
             qui format migration_out_dt %tdCCYY/NN/DD
 
             * Collapse to one row per person
@@ -819,7 +829,7 @@ program define migrations, rclass
             }
 
             * Count censoring dates
-            qui count if migration_out_dt != .
+            qui count if !missing(migration_out_dt)
             local n_censor = r(N)
 
             qui save `censor_data', replace
@@ -851,76 +861,7 @@ program define migrations, rclass
         qui duplicates drop `idvar', force
     }
     local n_exclude_total = _N
-
-    local _saveexclude_had_file = 0
-    local _savecensor_had_file = 0
-    tempfile _mig_saveexclude_backup _mig_savecensor_backup
-    if "`saveexclude'" != "" {
-        capture confirm file "`saveexclude'"
-        if !_rc {
-            local _saveexclude_had_file = 1
-            qui copy "`saveexclude'" "`_mig_saveexclude_backup'", replace
-        }
-    }
-    if "`savecensor'" != "" {
-        capture confirm file "`savecensor'"
-        if !_rc {
-            local _savecensor_had_file = 1
-            qui copy "`savecensor'" "`_mig_savecensor_backup'", replace
-        }
-    }
-
-    * Save exclusions
-    if "`saveexclude'" != "" {
-        capture noisily {
-            if "`replace'" != "" {
-                qui save "`saveexclude'", replace
-            }
-            else {
-                qui save "`saveexclude'"
-            }
-        }
-        local _saveexclude_rc = _rc
-        if `_saveexclude_rc' {
-            if `_saveexclude_had_file' {
-                capture copy "`_mig_saveexclude_backup'" "`saveexclude'", replace
-            }
-            restore
-            exit `_saveexclude_rc'
-        }
-        if "`verbose'" != "" display as text "Exclusions saved to `saveexclude'"
-    }
-    
     qui save `exclude_data', replace
-
-    if "`savecensor'" != "" {
-        qui use `censor_export_data', clear
-        capture noisily {
-            if "`replace'" != "" {
-                qui save "`savecensor'", replace
-            }
-            else {
-                qui save "`savecensor'"
-            }
-        }
-        local _savecensor_rc = _rc
-        if `_savecensor_rc' {
-            if "`saveexclude'" != "" {
-                if `_saveexclude_had_file' {
-                    capture copy "`_mig_saveexclude_backup'" "`saveexclude'", replace
-                }
-                else {
-                    capture erase "`saveexclude'"
-                }
-            }
-            if `_savecensor_had_file' {
-                capture copy "`_mig_savecensor_backup'" "`savecensor'", replace
-            }
-            restore
-            exit `_savecensor_rc'
-        }
-        if "`verbose'" != "" display as text "Censoring dates saved to `savecensor'"
-    }
 
     * Restore master and merge results
     qui use `master', clear
@@ -959,13 +900,22 @@ program define migrations, rclass
         qui format migration_in_dt %tdCCYY/NN/DD
         qui label var migration_in_dt "Post-study-start immigration date"
     }
-    
-    * Commit changes (don't restore to original)
-    restore, not
 
-    * CONSORT-style exclusion-flow matrix (O1): one row per flow step, ready to
-    * tabulate or feed into consort_step. Built fresh and returned last (it is
-    * not referenced after the return, so the matrix-MOVES rule is satisfied).
+    local n_returned = _N
+    local n_analytic = `n_cohort_start' - `n_exclude_total'
+    if "`flag'" == "" & `n_returned' != `n_analytic' {
+        di as error "internal flow invariant failed: returned rows do not equal analytic cohort"
+        exit 9
+    }
+    if "`flag'" != "" & `n_returned' != `n_cohort_start' {
+        di as error "internal flow invariant failed: flag mode did not retain the cohort"
+        exit 9
+    }
+    qui save `final_data', replace
+
+    * Build and validate the public flow result before any external file is
+    * touched. This keeps a late matrix-construction error inside the dataset
+    * transaction and makes the two cohort populations explicit.
     tempname _mig_flow
     local _mig_rn "Cohort_start"
     matrix `_mig_flow' = (`n_cohort_start')
@@ -989,24 +939,53 @@ program define migrations, rclass
     local _mig_rn "`_mig_rn' Excluded_total"
     matrix `_mig_flow' = `_mig_flow' \ (`n_censor')
     local _mig_rn "`_mig_rn' With_censoring_date"
-    matrix `_mig_flow' = `_mig_flow' \ (_N)
-    local _mig_rn "`_mig_rn' Final_cohort"
+    matrix `_mig_flow' = `_mig_flow' \ (`n_analytic')
+    local _mig_rn "`_mig_rn' Analytic_cohort"
+    matrix `_mig_flow' = `_mig_flow' \ (`n_returned')
+    local _mig_rn "`_mig_rn' Returned_rows"
     matrix colnames `_mig_flow' = n
     matrix rownames `_mig_flow' = `_mig_rn'
+
+    * Back up canonical targets, then stage both exports only after the full
+    * analytic result exists. The outer error handler rolls back any attempted
+    * write, including a partial second-file failure.
+    if "`saveexclude'" != "" {
+        capture confirm file "`saveexclude'"
+        if !_rc {
+            local _saveexclude_had_file = 1
+            qui copy "`saveexclude'" "`_mig_saveexclude_backup'", replace
+        }
+        local _saveexclude_attempted = 1
+        if "`replace'" != "" {
+            qui copy "`exclude_data'" "`saveexclude'", replace
+        }
+        else {
+            qui copy "`exclude_data'" "`saveexclude'"
+        }
+        if "`verbose'" != "" display as text "Exclusions saved to `saveexclude'"
+    }
+    if "`savecensor'" != "" {
+        capture confirm file "`savecensor'"
+        if !_rc {
+            local _savecensor_had_file = 1
+            qui copy "`savecensor'" "`_mig_savecensor_backup'", replace
+        }
+        local _savecensor_attempted = 1
+        if "`replace'" != "" {
+            qui copy "`censor_export_data'" "`savecensor'", replace
+        }
+        else {
+            qui copy "`censor_export_data'" "`savecensor'"
+        }
+        if "`verbose'" != "" display as text "Censoring dates saved to `savecensor'"
+    }
+    * Commit only after both the dataset and requested files are ready.
+    restore, not
+    local _mig_preserved = 0
 
     if `no_cohort_matches' {
         display as text "Note: No cohort members found in migration file"
         display as text "No exclusions or censoring dates applied"
-        return scalar N_excluded_emigrated = 0
-        return scalar N_excluded_inmigration = 0
-        return scalar N_excluded_abroad = 0
-        return scalar N_excluded_minresidence = 0
-        return scalar N_excluded_total = 0
-        return scalar N_censored = 0
-        return scalar N_included_inmigration = 0
-        return scalar N_final = _N
-        return matrix flow = `_mig_flow'
-        exit
     }
 
     * Display summary
@@ -1026,14 +1005,15 @@ program define migrations, rclass
     display as text "{hline 55}"
     display as text "Total excluded:                                  " as result `n_exclude_total'
     display as text "Individuals with emigration censoring date:      " as result `n_censor'
-    display as text "Final sample size:                               " as result _N
+    display as text "Analytic cohort size:                           " as result `n_analytic'
+    display as text "Rows returned:                                  " as result `n_returned'
     display as text "{hline 55}"
     if "`flag'" != "" {
         display as text "Flag mode: excluded individuals retained and marked in"
         display as text "  mig_excluded (0/1) and mig_exclude_reason"
     }
 
-    if _N == 0 {
+    if `n_analytic' == 0 {
         display as error "Warning: All observations were excluded by migration criteria"
     }
 
@@ -1045,11 +1025,40 @@ program define migrations, rclass
     return scalar N_excluded_total = `n_exclude_total'
     return scalar N_censored = `n_censor'
     return scalar N_included_inmigration = `n_included_inmig'
-    return scalar N_final = _N
+    return scalar N_final = `n_analytic'
+    return scalar N_analytic = `n_analytic'
+    return scalar N_returned = `n_returned'
     return matrix flow = `_mig_flow'
 
     }
     local rc = _rc
+    if `rc' {
+        if `_saveexclude_attempted' & "`saveexclude'" != "" {
+            if `_saveexclude_had_file' {
+                capture copy "`_mig_saveexclude_backup'" "`saveexclude'", replace
+                if _rc {
+                    display as error "rollback failed restoring saveexclude(): `saveexclude'"
+                }
+            }
+            else {
+                capture erase "`saveexclude'"
+            }
+        }
+        if `_savecensor_attempted' & "`savecensor'" != "" {
+            if `_savecensor_had_file' {
+                capture copy "`_mig_savecensor_backup'" "`savecensor'", replace
+                if _rc {
+                    display as error "rollback failed restoring savecensor(): `savecensor'"
+                }
+            }
+            else {
+                capture erase "`savecensor'"
+            }
+        }
+        if `_mig_preserved' {
+            capture restore
+        }
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

@@ -8,7 +8,7 @@ d - MS disability progression: sustained EDSS, CDP, and PIRA
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260710
+d Distribution-Date: 20260713
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -40,3 +40,4 @@ f _setools_cdp_baseline.ado
 f _setools_cdp_thresh.ado
 f _setools_cdp_confirm.ado
 f _setools_cdp_core.ado
+f _setools_dta_path.ado

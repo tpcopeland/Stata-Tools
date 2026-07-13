@@ -62,6 +62,7 @@
 {synopt:{opt expandunit(unit)}}continuous-exposure row granularity{p_end}
 {synopt:{opt bytype}}create separate variables for each exposure type{p_end}
 {synopt:{opt recency(numlist)}}time since last exposure categories{p_end}
+{synopt:{opt recencyunit(unit)}}unit for {cmd:recency()}: days or years{p_end}
 {synopt:{opt dose}}track cumulative dose{p_end}
 {synopt:{opt dosecuts(numlist)}}cutpoints for dose categorization (use with {cmd:dose}){p_end}
 
@@ -71,6 +72,7 @@
 {synopt:{opt merge(#)}}merge nearby same-type periods{p_end}
 {synopt:{opt fillgaps(#)}}assume exposure continues # days beyond last record{p_end}
 {synopt:{opt carryforward(#)}}carry forward last exposure # days through gaps{p_end}
+{synopt:{opt dropinvalid}}drop malformed rows and report exact counts{p_end}
 
 {syntab:Competing exposures}
 {synopt:{opt layer}}later exposures take precedence{p_end}
@@ -137,6 +139,11 @@ the exposure variable indicates exposure status during that period. This
 format is compatible with {helpb stset} and {helpb stcox} for survival analysis.
 
 {pstd}
+Dates are closed, inclusive, whole-day intervals. For the shared date,
+quantity, and survival-time contracts used by the package, see
+{help tvtools##contracts:data contracts}.
+
+{pstd}
 {bf:Important}: {cmd:tvexpose} modifies the data in memory and changes the sort order
 to id-start-stop. Always preserve your data or work with copies.
 
@@ -190,7 +197,10 @@ end date of each exposure period. Required unless {cmd:pointtime} is specified.
 
 {phang}
 {opt pointtime} indicates that exposure data represent point-in-time events rather
-than periods with duration. When specified, {cmd:stop()} is not required.
+than periods with duration. When specified, {cmd:stop()} is not required and
+each record applies on its start date. With {cmd:carryforward(#)}, it persists
+for exactly # inclusive days beginning on that date; the persistence is applied
+once and is not applied again while gaps are constructed.
 
 {phang}
 {opt evertreated} creates a binary time-varying exposure that switches from 0 to 1
@@ -212,12 +222,15 @@ year, 2=1 to <5 years, 3=≥5 years.
 {phang}
 {opt continuousunit(unit)} creates a continuous time-varying variable tracking
 cumulative exposure in the specified unit. Options: days, weeks, months,
-quarters, or years. Can be combined with {cmd:expandunit()} for period splitting.
+quarters, or years. Each row contains history accumulated before that row
+starts, so it does not include exposure accrued during the current row. It can
+be combined with {cmd:expandunit()} for period splitting.
 
 {phang}
 {opt expandunit(unit)} splits person-time into rows at regular calendar
 intervals (days, weeks, months, quarters, or years). Used with
-{cmd:continuousunit()} to create finely-grained time-varying data.
+{cmd:continuousunit()} to create finely-grained time-varying data. If omitted,
+the source exposure boundaries determine row granularity.
 
 {phang}
 {opt bytype} creates separate time-varying variables for each exposure type
@@ -225,20 +238,26 @@ instead of a single variable. Variable names append 1, 2, etc. for each
 type. Useful when different exposure types have independent effects.
 
 {phang}
-{opt recency(numlist)} creates categories based on time since last exposure. The
-numlist specifies category boundaries in years. For example, {cmd:recency(1 5)}
-creates: current exposure, <1 year since last, 1 to <5 years since last, ≥5
-years since last.
+{opt recency(numlist)} creates categories based on time since last exposure. {cmd:recencyunit(days|years)}
+is required. Year cutpoints are converted once
+with {cmd:round(365.25 * cutpoint)}; converted boundaries must be unique and
+increasing whole days. For example, {cmd:recency(1 5) recencyunit(years)}
+creates current exposure, <1 year since last, 1 to <5 years since last, and an
+open-ended 5+ years category. Re-exposure resets recency for that exposure
+type. With {cmd:bytype}, histories are tracked independently by type.
 
 {phang}
-{opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable contains
-the dose amount per period (e.g., grams of medication) rather than a
-categorical exposure type. When periods overlap, dose is allocated
-proportionally based on daily dose rates. For example, if two 30-day
-prescriptions of 1 gram each have a 10-day overlap, the overlap period
-receives ((10/30)*1) + ((10/30)*1) = 0.667 grams. The {cmd:reference()} option
-defaults to 0 for {cmd:dose} mode (the inherent reference category) and can be
-omitted. The {cmd:bytype} option is not supported with dose.
+{opt recencyunit(unit)} specifies whether {cmd:recency()} cutpoints are in
+{cmd:days} or {cmd:years}. It may be specified only with {cmd:recency()}.
+
+{phang}
+{opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable
+contains the total dose for the source period rather than a categorical type. Dose
+is apportioned across split segments at a constant daily rate. Each output
+row contains cumulative dose known before that row starts; the current row's
+dose is not included. The {cmd:reference()} option defaults to 0 for
+{cmd:dose} mode and can be omitted. The {cmd:bytype} option is not supported
+with dose.
 
 {pmore}
 {bf:Important:} The {cmd:dose} option is a modifier, not a container. The dose variable
@@ -257,12 +276,22 @@ numlist specifies ascending cutpoints for categorization. For example,
 
 {phang}
 {opt grace(#)} specifies a grace period in days for merging small gaps between
-exposure periods. Gaps of # or fewer days are filled. Default is 0 (no merging).
+episodes of the same exposure type. Same-type gaps of # or fewer days are
+bridged. A gap between different exposure types is always reference
+person-time, even when it is shorter than the grace period. Default is 0.
 
 {phang}
 {opt grace(exp=# exp=# ...)} specifies different grace periods for different
 exposure categories. Format: {cmd:grace(1=30 2=60)} applies 30-day grace to
 exposure type 1 and 60-day grace to type 2.
+
+{phang}
+{opt dropinvalid} removes malformed master or exposure rows instead of stopping
+with error 498. Missing IDs, missing or non-whole daily dates, reversed bounds,
+and missing exposure values are malformed. Exact reason-specific counts are
+returned in {cmd:r()}, and {cmd:r(flow)} is returned automatically. Without
+{cmd:dropinvalid}, malformed required input is rejected and the caller's data
+remain unchanged.
 
 {phang}
 {opt merge(#)} merges consecutive periods of the same exposure type if they occur
@@ -284,7 +313,8 @@ up to # days. Used when exposure is likely to persist beyond recorded periods.
 {phang}
 {opt layer} handles overlapping exposures by giving precedence to later exposures,
 with earlier exposures resuming after the later one ends. This is the default
-behavior.
+behavior. If records start on the same day, their order in the exposure dataset
+breaks the tie: the later source record takes precedence.
 
 {phang}
 {opt priority(numlist)} specifies priority order when exposures overlap. The
@@ -317,8 +347,10 @@ to model residual effects.
 
 {phang}
 {opt window(# #)} specifies minimum and maximum days for an acute exposure
-window. Only exposure periods lasting between the specified minimum and maximum
-are counted. Used for analyzing acute effects of brief exposures.
+window relative to each episode's original start. {cmd:window(a b)} keeps the
+closed interval from start + a through start + b, clipped to the episode and
+study bounds. It does not select episodes by their duration. The chosen offsets
+are returned in {cmd:r(window_min)} and {cmd:r(window_max)}.
 
 
 {marker pattern_tracking}{...}
@@ -373,8 +405,10 @@ exposure".
 {it:name} and leaves the data in the current frame unchanged. This enables a
 disk-free pipeline ({cmd:tvexpose}{c -(} {cmd:tvmerge}{c -(} {cmd:tvevent}) in
 which intermediate datasets are held in memory as frames rather than saved to
-and reloaded from disk. The frame name is returned in {cmd:r(frameout)}. If the
-frame already exists, specify {cmd:replace}.
+and reloaded from disk. The result is staged before the named frame is replaced; a
+failed run leaves both the current data and any existing target unchanged. The frame
+name is returned in {cmd:r(frameout)}. The target must differ from
+the current frame. If it already exists, specify {cmd:replace}.
 
 {phang}
 {opt replace} allows {cmd:saveas()} to overwrite an existing file, or
@@ -420,7 +454,7 @@ leaving (persons can drop when the study window is invalid), returned in the
 matrix {cmd:r(flow)} (rows {cmd:persons} and {cmd:records}; columns {cmd:in},
 {cmd:out}, {cmd:dropped}). For records, {cmd:dropped} can be negative because
 episodes expand into multiple intervals. It is a pure side channel and does not
-change the output.
+change the output. The table is returned automatically with {cmd:dropinvalid}.
 
 {phang}
 {opt verbose} displays individual IDs and dates in diagnostic output from
@@ -647,7 +681,7 @@ Categorize time since last antidepressant exposure:
 {phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:recency(1 5)}{p_end}
+{phang3}{cmd:recency(1 5) recencyunit(years)}{p_end}
 
 {pstd}
 Creates categories: current exposure, <1 year since last, 1 to <5 years since
@@ -902,26 +936,53 @@ dose-response.
 {pstd}
 {cmd:tvexpose} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Scalars}{p_end}
+{synoptset 28 tabbed}{...}
+{p2col 5 28 32 2: Scalars}{p_end}
 {synopt:{cmd:r(N_persons)}}number of unique persons{p_end}
 {synopt:{cmd:r(N_periods)}}number of time-varying periods{p_end}
 {synopt:{cmd:r(total_time)}}total person-time in days{p_end}
 {synopt:{cmd:r(exposed_time)}}exposed person-time in days{p_end}
 {synopt:{cmd:r(unexposed_time)}}unexposed person-time in days{p_end}
 {synopt:{cmd:r(pct_exposed)}}percentage of time exposed{p_end}
+{synopt:{cmd:r(n_invalid_master)}}malformed master rows{p_end}
+{synopt:{cmd:r(n_invalid_master_id)}}master rows with missing IDs{p_end}
+{synopt:{cmd:r(n_invalid_master_dates)}}master rows with invalid daily dates{p_end}
+{synopt:{cmd:r(n_invalid_master_order)}}master rows with entry after exit{p_end}
+{synopt:{cmd:r(n_invalid_exposure)}}malformed exposure rows{p_end}
+{synopt:{cmd:r(n_invalid_exposure_id)}}exposure rows with missing IDs{p_end}
+{synopt:{cmd:r(n_invalid_exposure_dates)}}exposure rows with invalid daily dates{p_end}
+{synopt:{cmd:r(n_invalid_exposure_order)}}exposure rows with reversed bounds{p_end}
+{synopt:{cmd:r(n_invalid_exposure_value)}}exposure rows with missing values{p_end}
+{synopt:{cmd:r(n_unmatched_exposure)}}exposure rows unmatched to the master{p_end}
+{synopt:{cmd:r(n_outside_window)}}episodes outside study follow-up{p_end}
+{synopt:{cmd:r(n_lag_removed)}}episodes made empty by {cmd:lag()}{p_end}
+{synopt:{cmd:r(n_uncovered_days)}}uncovered study days; zero on success{p_end}
+{synopt:{cmd:r(n_unresolved_overlaps)}}conflicting rows; zero on success{p_end}
+{synopt:{cmd:r(window_min)}}minimum {cmd:window()} offset, if used{p_end}
+{synopt:{cmd:r(window_max)}}maximum {cmd:window()} offset, if used{p_end}
 
-{p2col 5 20 24 2: Macros}{p_end}
+{p2col 5 28 32 2: Macros}{p_end}
 {synopt:{cmd:r(genvar)}}generated exposure variable or stub{p_end}
 {synopt:{cmd:r(frameout)}}name of the output frame (if {opt frameout()} used){p_end}
-{synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}
+{synopt:{cmd:r(overlap_ids)}}IDs with initially detected class conflicts{p_end}
+{synopt:{cmd:r(recency_unit)}}normalized recency unit, if used{p_end}
+{synopt:{cmd:r(recency_cutdays)}}recency cutpoints converted to days{p_end}
 
-{p2col 5 20 24 2: Matrices}{p_end}
+{p2col 5 28 32 2: Matrices}{p_end}
 {synopt:{cmd:r(flow)}}persons/records attrition table{p_end}
 
 {pstd}
-{cmd:r(overlap_ids)} is stored only when overlaps are detected and no
-overlap-handling option was specified: {cmd:priority()}, {cmd:split}, {cmd:layer}, or {cmd:combine()}.{p_end}
+{cmd:r(total_time)} is the union of each person's closed study window and does
+not double-count simultaneous rows produced by {cmd:split}. The exposed and
+unexposed returns are likewise union person-time. For {cmd:continuousunit()}
+and {cmd:dose}, exposed time means time currently covered by a nonreference
+source episode, not later unexposed time carrying a positive cumulative history.{p_end}
+
+{pstd}
+{cmd:r(overlap_ids)} is stored only when class conflicts are initially detected
+and no overlap-handling option was specified. The default layer policy still
+resolves those conflicts; a successful nonsplit result therefore returns
+{cmd:r(n_unresolved_overlaps)} equal to zero.{p_end}
 
 {marker author}{...}
 {title:Author}

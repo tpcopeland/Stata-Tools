@@ -1,10 +1,30 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.4.4** | 2026-07-10
+**Version 1.4.5** | 2026-07-13
 
-`gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
+`gcomp` estimates mediation and longitudinal causal effects with the parametric g-formula, Monte Carlo simulation, and bootstrap inference. `gcomptab` turns mediation, intervention-strategy, or stored component-model results into Excel, Markdown, CSV, or Results-window tables as supported by each mode.
 
-This Stata-Tools release is a maintained fork of SSC `gformula` v1.16 beta (Rhian Daniel, 2021) with bug fixes, modernization, and removal of SSC dependencies. The companion command `gcomptab` formats supported mediation results into publication-ready Excel tables.
+This Stata-Tools release is a maintained fork of SSC `gformula` v1.16 beta (Rhian Daniel, 2021), with correctness fixes, explicit audit metadata, and no external Stata-package dependencies.
+
+## Quick Start
+
+The following block is self-contained and produces a binary-exposure mediation analysis:
+
+```stata
+clear
+set seed 12345
+set obs 1000
+generate double c = rnormal()
+generate byte x = rbinomial(1, invlogit(0.2*c))
+generate byte m = rbinomial(1, invlogit(-0.5 + 0.7*x + 0.2*c))
+generate byte y = rbinomial(1, invlogit(-1 + 0.5*x + 0.7*m + 0.2*c))
+
+gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
+    commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
+    base_confs(c) simulations(500) samples(50) seed(42)
+```
+
+Use larger Monte Carlo and bootstrap counts for final analyses after checking that results are stable.
 
 ## Requirements
 
@@ -23,7 +43,7 @@ net install gcomp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 | Command | Description |
 |---------|-------------|
 | `gcomp` | Estimate mediation effects or longitudinal causal effects via parametric g-computation |
-| `gcomptab` | Export supported `gcomp` mediation results to a formatted Excel table |
+| `gcomptab` | Format mediation, dose-response, or component-model results for Excel, Markdown, CSV, or the Results window |
 
 ## How It Works
 
@@ -60,7 +80,9 @@ equations(m: x c, y: m x c)
 | **Mediation** (binary exposure) | `gcomp ..., outcome() mediation obe exposure() mediator() base_confs()` | TCE, NDE, NIE, PM, and optionally CDE |
 | **Mediation** (categorical exposure) | `gcomp ..., outcome() mediation oce exposure() mediator() base_confs()` | Per-level mediation contrasts |
 | **Time-varying confounding** | `gcomp ..., outcome() idvar() tvar() varyingcovariates() intvars() interventions()` | Potential outcomes under hypothetical interventions |
-| **Excel export** | `gcomptab, xlsx() sheet()` | Publication-ready table from supported mediation results |
+| **Mediation table** | `gcomptab, xlsx() sheet()` | Named TCE/NDE/NIE/PM and optional CDE rows; extra mediation MSM terms are ignored deliberately |
+| **Dose-response table** | `gcomptab, doseresponse xlsx() sheet()` | One row per `PO#` intervention/observed strategy |
+| **Component-model table** | `gcomptab, models ...` | Stored refit approximations in Excel, Markdown, CSV, or Results-window form |
 
 ## Demo
 
@@ -94,9 +116,9 @@ gcomptab, xlsx("demo_gcomptab.xlsx") sheet("Percentile CI") ///
     ci(percentile) title("Table 2. Mediation Results (Percentile CIs)")
 ```
 
-### Inspect the fitted component models
+### Inspect component-model refit approximations
 
-Add `savemodels` to capture the parametric component models gcomp actually fit, then `gcomptab, models` exports them as a multi-model coefficient table. Scales are applied automatically (logit → odds ratios here). This makes the engine behind a gcomp estimate inspectable and reportable.
+Add `savemodels` to refit each available component specification once on the analytic sample, then use `gcomptab, models` to export the stored estimates. These are explicitly labeled approximations: nonpooled time-varying simulation fits are represented by pooled refits, and loop-only predictors can be listed in `e(model_skipped)`. Scales are applied automatically (logit → odds ratios here).
 
 ```stata
 gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
@@ -130,11 +152,11 @@ The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Compo
 | `exposure(varlist)` | Identify the exposure variable(s) for mediation |
 | `mediator(varlist)` | Identify the mediator variable(s) |
 | `base_confs(varlist)` | List baseline confounders for mediation |
-| `control(string)` | Set mediator level for CDE; without this, CDE is not estimated |
+| `control(string)` | Set mediator values for CDE: `control(0)` for one mediator, or keyed syntax such as `control(m1: 0, m2: 1)` for multiple mediators |
 | `idvar(varname)` / `tvar(varname)` | Identify subject and time in long data |
 | `varyingcovariates(varlist)` | List time-varying confounders affected by prior exposure |
 | `intvars(varlist)` / `interventions(string)` | Define the variables and rules for hypothetical interventions |
-| `eofu` | Outcome is measured only on the last row per subject |
+| `eofu` | Outcome is measured only on the last row per subject; invalid in mediation and incompatible with `graph` |
 | `pooled` / `monotreat` / `dynamic` | Use pooled fits, impose monotone treatment, or declare a history-dependent intervention rule |
 | `death(varname)` / `msm(string)` | Model a competing event or summarize simulated contrasts with an MSM |
 | `fixedcovariates(varlist)` / `laggedvars(varlist)` / `lagrules(string)` | Declare fixed covariates and generated within-subject lags |
@@ -144,12 +166,12 @@ The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Compo
 | `post_confs(varlist)` / `obe` / `oce` / `specific` / `boceam` / `linexp` | Select the mediation estimand and post-exposure-confounder handling |
 | `logor` / `logrr` | Report mediation effects on log-odds-ratio or log-risk-ratio scales |
 | `simulations(#)` / `samples(#)` | Set Monte Carlo sample size and bootstrap replications (`samples()` must be at least 2) |
-| `minsim` / `moremc` | Use expected draws or allow a Monte Carlo sample larger than the observed cohort |
+| `minsim` / `moremc` | Use expected draws, or allow a larger Monte Carlo sample in mediation only; time-varying `moremc` is rejected because history replication is not implemented |
 | `diagnostics` | Display model-fit statistics during initial estimation |
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
-| `graph` / `saving(filename)` / `replace` | Graph potential outcomes or save the simulated data, optionally overwriting the target |
-| `seed(#)` | Set random number seed for reproducibility |
-| `savemodels` | Refit each component model once on the analytic sample and store them (`_gcomp_m_*`) for later inspection/export with `gcomptab, models` |
+| `graph` / `saving(filename)` / `replace` | Graph survival potential outcomes (non-`eofu` time-varying mode only), or save the exact point-estimate simulation data and optionally overwrite the target |
+| `seed(#)` | Set a positive legal Stata seed; zero, negative, noninteger, and out-of-domain values are rejected |
+| `savemodels` | Store collision-free, persistent analytic-sample refit approximations for later inspection/export with `gcomptab, models` |
 | `showmodels` | Implies `savemodels`; also displays the fitted component models in-window during the run (`modelstyle(compact)` default, or `modelstyle(native)`) |
 | `modelstyle(compact\|native)` | How `showmodels` renders the models: `compact` (default) prints a gcomp-styled coefficient table per model with the scale applied automatically; `native` replays each model with Stata's own output |
 
@@ -166,11 +188,12 @@ The same table can be written to Excel (`gcomptab, models xlsx(...) sheet("Compo
 | `decimal(#)` | Decimal places for numeric values (default 3, range 1-6) |
 | `font(string)` | Workbook font family; shell metacharacters are rejected |
 | `fontsize(#)` | Body font size (default 10, range 1-72) |
-| `borderstyle(string)` | Table borders: `academic` (default), `thin`, `medium` |
+| `borderstyle(string)` | Table borders: `thin` (default), `medium`, `academic`, or `none`, with the same semantics in all modes |
 | `boldp(#)` | Bold numeric cells when Wald p < cutoff |
 | `highlight(#)` | Highlight row in yellow when Wald p < cutoff |
 | `zebra` | Alternating row shading |
 | `footnote(string)` | Footnote text below the table |
+| `open` | Best-effort request to open an Excel workbook after writing; table returns remain available and `r(open_rc)` reports the request status |
 
 #### `gcomptab, models` (component-model tables)
 
@@ -198,31 +221,60 @@ After a `gcomp ..., savemodels` (or `showmodels`) run, `gcomptab, models` builds
 
 Scale auto-detection: `logit`→OR, `mlogit`→RRR, `ologit`→OR, `regress`→Coef. When models on one table mix scales, `r(coef_label)` is `"mixed"`.
 
+## Estimands, Assumptions, and Diagnostics
+
+Causal interpretation requires more than a successful command. The intervention must be well defined and consistent with observed treatment versions; every modeled treatment/mediator strategy and relevant history must satisfy positivity; the required sequential exchangeability/no-unmeasured-confounding assumptions must hold; component models and their temporal order must be correctly specified; and interference between subjects must be absent or scientifically negligible. Natural mediation effects additionally require the cross-world assumptions implied by the selected definition. With multiple causally ordered mediators, list them in simulation order so each later mediator is generated conditional on earlier same-arm draws.
+
+`diagnostics` reports convergence and selected fit summaries, but those checks cannot establish exchangeability, positivity, consistency, or correct causal ordering. Inspect overlap and model fit outside `gcomp`, compare plausible specifications, and interpret natural effects particularly cautiously with post-treatment mediator-outcome confounding.
+
+`impute()` performs single stochastic chained-equation imputation, not Rubin-style multiple imputation. Cycles across distinct targets are intentional fully conditional specification and are iterated in `impute()` order; self-dependence and incomplete maps are rejected. Imputation uncertainty is not propagated as between-imputation uncertainty. Extended missing codes `.a`–`.z` are treated as missing, just like `.`.
+
+Monte Carlo error and finite-bootstrap error remain sampling approximations. `gcomp` now fails closed if any requested bootstrap replication fails or a requested interval matrix is incomplete; inspect `e(bootstrap_*)`. `savemodels` produces auditable analytic-sample refit approximations, not exact nonpooled simulation-loop fits.
+
+## Saved Point-Estimate Data
+
+With `saving()`, the file comes from the exact stochastic run underlying the posted point estimate; bootstrap replicates are not saved. Dataset characteristics record `gcomp_schema_version`, `gcomp_analysis_type`, `gcomp_arm_schema`, `gcomp_run_id`, `gcomp_rngstate`, and `gcomp_saved_scope`.
+
+| Field | Contract |
+|-------|----------|
+| `_int` | Arm code. `0` is the observed analytic data. In time-varying mode, `1..K` follow `interventions()` order and `K+1` is the simulated observed regime. Mediation mappings are written verbatim in `gcomp_arm_schema`; standard natural-effect arms are cross-world (`1`), baseline (`2`), and alternative/natural (`3`). |
+| `_id` | Simulation identifier; it is not a source-data join key in time-varying mode. |
+| `_source_id` | Original numeric subject identifier in time-varying saved data. |
+| Analysis variables | Original user names, including long/suffix-colliding names. Reserved schema names in the analysis surface are rejected before writing. |
+
+For standard controlled mediation, arms `3` and `4` are alternative- and baseline-exposure controlled-mediator arms, while arm `5` is the alternative/natural arm. OCE and optional MSM/BOCE auxiliary layouts are described in the file characteristic because the number of arms depends on exposure/mediator support.
+
+`e(model_diagnostics)` has columns `N`, `converged`, `ll`, `r2`, and `rmse`. Rows identify the modeled variable and, for visit-specific fits, the visit. Logistic-family cells use convergence/log likelihood/pseudo-R²; linear-model cells use R²/RMSE, with inapplicable cells missing.
+
 ## Returned Results
 
 ### After `gcomp`
 
 All results are stored in `e()`:
 
-**Scalars:** `e(N)` (subjects), `e(MC_sims)` (Monte Carlo sample size), `e(samples)` (bootstrap replications).
+**Sample and resampling scalars:** `e(N)` is analytic rows in mediation and subjects in time-varying mode; `e(N_rows)` and `e(N_subjects)` remove that ambiguity. `e(MC_sims)` is the actual Monte Carlo size. `e(samples)` and `e(bootstrap_requested)` are the requested bootstrap count; `e(bootstrap_attempted)`, `e(bootstrap_successful)`, and `e(bootstrap_failed)` give the observed completion counts. Successful commands require all requested replications. `e(seed)` is present when supplied.
 
-**Matrices:** `e(b)` (point estimates), `e(V)` (variance-covariance), `e(se)` (standard errors), `e(ci_normal)` (normal CIs), and optionally `e(ci_percentile)`, `e(ci_bc)`, `e(ci_bca)` (with `all`). `e(effects)` provides an effecttab-compatible matrix (estimate, ci_lower, ci_upper, pvalue) for non-`oce` mediation. `e(model_diagnostics)` stores model-fit statistics.
+**Matrices:** `e(b)` is the named point-estimate vector and `e(V)` is its full bootstrap covariance matrix. `e(se)` and `e(ci_normal)` match its columns; `e(ci_percentile)`, `e(ci_bc)`, and `e(ci_bca)` are present with `all`. `e(effects)` is an effecttab-compatible matrix for non-OCE mediation. `e(model_diagnostics)` follows the schema above.
 
-**Macros:** `e(cmd)` (`"gcomp"`), `e(analysis_type)` (`"mediation"` or `"time_varying"`), `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(msm)`.
+**Replay and design macros:** `e(cmd)`, `e(cmdline)`, `e(analysis_type)`, `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(idvar)`, `e(tvar)`, `e(intvars)`, `e(interventions)`, `e(msm)`, and `e(msm_colnames)`. `e(sample)` identifies original analytic rows. `e(run_id)` and `e(rngstate)` identify the point-estimate run; `e(graph)` names a generated survival graph.
 
-**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (stored-estimate names `_gcomp_m_*`), `e(model_cmds)`, `e(model_depvars)`, and `e(model_eq_)` with the model index appended (prediction equation per model).
+**Saving and imputation metadata:** with `saving()`, `e(saving)`, `e(saved_schema_version)`, and `e(saved_arm_schema)` describe the output. With `impute()`, `e(impute_targets)` and `e(N_impute_targets)` are accompanied by indexed `e(impute_target_#)`, `e(impute_needed_#)`, `e(impute_eligible_#)`, and `e(impute_dropped_#)`.
+
+**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (collision-free stored-estimate names), `e(model_cmds)`, `e(model_depvars)`, indexed `e(model_eq_#)`, `e(model_skipped)`, and `e(model_capture)`. The capture label is `analytic_sample_refit_approximation`.
 
 **Convenience scalars (mediation, non-oce):** `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, `e(cde)`, and their SEs (`e(se_tce)`, etc.).
 
 **Convenience scalars (mediation, oce):** `e(tce_j)`, `e(nde_j)`, `e(nie_j)`, `e(pm_j)`, `e(cde_j)` for each contrast *j*.
 
-**Time-varying mode:** `e(obs_data)` (observed outcome prevalence).
+**Time-varying mode:** `e(obs_data)` is the observed outcome mean (a prevalence only for a binary outcome). Named `PO#` columns in `e(b)` are the simulated intervention/observed-regime outcomes.
 
 ### After `gcomptab`
 
-Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie)`, `r(pm)`, `r(cde)` (if applicable), `r(xlsx)`, `r(sheet)`, `r(ci)`.
+Mediation mode returns `r(N_effects)`, `r(has_cde)`, `r(tce)`, `r(nde)`, `r(nie)`, `r(pm)`, optional `r(cde)`, and written targets (`r(xlsx)`, `r(sheet)`, `r(markdown)`, `r(csv)`) plus `r(ci)`. Additional mediation MSM parameters are retained in `gcomp` results but deliberately omitted from this named-effect table.
 
-**After `gcomptab, models`:** `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)` (shared scale label or `"mixed"`), `r(table)` (matrix of displayed estimates, rows = terms, cols = models), `r(methods)` (auto methods sentence), and `r(xlsx)`/`r(sheet)`/`r(markdown)`/`r(csv)` for the targets written.
+Dose-response mode returns `r(k)`, `r(reference)`, `r(ref_label)`, `r(table)`, the CI name, and written targets.
+
+**After `gcomptab, models`:** `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)`, `r(term_names)`, `r(table)`, `r(methods)`, and written targets. In every Excel-capable mode, `open` adds `r(open_rc)` without discarding the completed table payload if the desktop opener fails.
 
 ## References
 
@@ -233,6 +285,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.4.5** (2026-07-13): **Comprehensive correctness, auditability, export, documentation, and QA remediation.** Corrected monotreatment risk sets, joint multi-mediator cross-world simulation, BOCE-AM arm isolation, factor-variable MSM posting, missing-donor termination, extended-missing handling, keyed multi-mediator controls, exact point-run saving, bootstrap failure accounting, binary/panel/rule contracts, caller-state isolation, collision-free variable/model names, and replay metadata. `gcomptab` now preserves full term identity and long text, escapes Markdown/CSV, accepts mediation results containing MSM parameters, applies content-aware widths and consistent border semantics, and treats workbook opening as best effort. Saved-data, diagnostic, assumptions, and component-refit contracts are now explicit; QA is split into bounded lanes with package-local release/XLSX checks and adversarial regression coverage.
 - **1.4.4** (2026-07-10): **Reporting and QA hardening.** `gcomptab` now posts its completed analytical `r()` payload before honoring the optional `open` request, so an OS-level workbook-open failure returns its original error code without losing table statistics or output-path returns. The canonical full QA lane now explicitly includes every functional, validation, and external-reference suite; `qa/README.md` documents that inventory and lane contract. Added a deterministic regression test for the failed-`open` return contract.
 - **1.4.3** (2026-07-04): **Bug fix: continuous end-of-follow-up outcome with time-varying confounding.** In `eofu` mode the outcome is only observed at the final visit, so its intermediate-visit values are legitimately missing. The missing-data screen incorrectly required the outcome at every non-first visit and dropped those intermediate rows, severing any lagged-confounder cascade. With a continuous (`regress`) outcome this silently flattened the estimated effect toward zero (a binary/`logit` outcome coded 0 at intermediate visits happened to dodge it). The screen now requires the `eofu` outcome only at the last visit; non-`eofu` behavior is unchanged. Added a known-truth recovery scenario for the continuous time-varying lagged-confounder cascade.
 - **1.4.2** (2026-07-04): **Performance and robustness.** (1) The per-subject baseline-covariate lookup used to seed the Monte-Carlo sample was rebuilt with a single O(N) pass (Mata) instead of an O(N²) `summarize`-per-subject loop; results are byte-for-byte identical but a time-varying/point-treatment run at N=20,000 now takes ~1s instead of minutes. (2) A malformed `control()` value (e.g. `control(m=0)` instead of the documented `control(0)`) was silently swallowed, collapsing the controlled direct effect to the total effect with no error — it is now rejected up front (`r(198)`) with a message pointing to the correct syntax. Added `qa/validation_gcomp_recovery_extended.do`: 13 known-truth parameter-recovery scenarios (point-treatment binary/continuous ATE, null effect, effect modification, strong confounding, multi-level dose-response, linear- and binary-model mediation NDE/NIE/TCE decomposition, controlled-direct-effect recovery, and a continuous time-varying static-regime contrast), each with an analytic g-formula oracle.
@@ -250,7 +303,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
   - **Degenerate intervention guard.** An `interventions()` rule that targets a variable not in `intvars()` could leave an arm with no usable outcome data, which crashed the eofu potential-outcome step with an opaque Mata `r(503)` conformability error. This now fails cleanly with `r(459)` and a message pointing at the `interventions()`/`intvars()` mismatch.
   - **QA.** New `test_gcomp_imputation_mlogit.do` (mlogit/ologit imputation and component models in mediation and time-varying modes, plus a validation that the multinomial sampler reproduces the fitted model's predicted category marginals); `test_stress.do` S6/S11 rewritten to validly exercise `pooled`/`monotreat` and a new S12 covers the degenerate-intervention guard.
 
-- **1.3.0** (2026-06-14): **Component-model display & export.** `gcomp` gains `savemodels` and `showmodels` (with `modelstyle(compact|native)`): after estimation it refits each parametric component model once on the analytic sample (faithful to what was simulated — exact for mediation), stores them as `_gcomp_m_*`, and records a manifest in `e(model_names)`/`e(model_cmds)`/`e(model_depvars)`/`e(model_eq_k)`. `showmodels` also prints the fitted coefficient tables in-window. A new `gcomptab, models` mode reads those stored estimates and writes a multi-model publication table (a self-contained, limited port of `regtab`) to xlsx/markdown/csv/Results-window, with scale auto-detection (logit→OR, mlogit→RRR, ologit→OR, regress→Coef), `eform`/`noeform`/`raw`/`coef()`, `se`, `compact`, `stars`, `nopvalue`, `keep()`/`drop()`, `nointercept`/`keepintercept`, `usemodels()`, `modellabels()`/`termlabels()`, `stats(n)`, and full styling parity. New returns `r(N_models)`, `r(N_rows)`, `r(N_cols)`, `r(coef_label)`, `r(table)`, `r(methods)`. Captured component models for non-pooled time-varying runs are pooled across visits (faithful per-visit columns are a planned follow-up). All earlier modes are unchanged.
+- **1.3.0** (2026-06-14): **Component-model display & export.** `gcomp` added `savemodels` and `showmodels` (with `modelstyle(compact|native)`) and `gcomptab, models` added xlsx/Markdown/CSV/Results-window coefficient tables. These stored models are analytic-sample refit approximations—not guaranteed copies of simulation-loop fits—and their names/manifest contract was hardened and relabeled explicitly in 1.4.5.
 
 - **1.2.0** (2026-05-29): `gcomptab` gains a **time-varying dose-response mode**. After a `gcomp ..., interventions(...)` run it now formats the `PO#` counterfactual-risk columns into a per-strategy Excel table — strategy label, risk and 95% CI, optional implied mean cumulative exposure-years (`expyears()`), and a point risk-difference-versus-reference column (`reference()`, suppressible with `nord`). Strategy names are supplied with `strategylabels()`; the mode is auto-detected when `e(b)` has `PO#` columns and no `tce` column, or forced with `doseresponse`. New `r(table)`, `r(k)`, `r(reference)`, and `r(ref_label)` returns. Mediation mode is unchanged.
 - **1.1.2** (2026-05-06): Restored full bootstrap covariance posting in `e(V)` instead of rebuilding a diagonal-only matrix from `e(se)`, preserving valid covariance-aware postestimation for mediation and time-varying estimates. `samples(1)` is now rejected by package validation before Stata's bootstrap machinery runs.

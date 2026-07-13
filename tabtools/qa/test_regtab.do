@@ -19,6 +19,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -90,12 +91,18 @@ capture program drop _rt_build_zero_count
 program define _rt_build_zero_count
     version 17.0
     clear
+    set seed 20260713
     set obs 1200
     gen double exposure_score = rnormal()
     gen double inflation_score = rnormal()
     gen double mu = exp(0.35 + 0.45 * exposure_score)
+    scalar _rt_alpha = 0.70
+    gen double nb_size = 1 / _rt_alpha
+    gen double nb_prob = nb_size / (nb_size + mu)
+    gen long nb_count = rnbinomial(nb_size, nb_prob)
     gen byte structural_zero = runiform() < invlogit(-0.8 + 0.8 * inflation_score)
-    gen byte event_count = cond(structural_zero, 0, rpoisson(mu))
+    gen long event_count = cond(structural_zero, 0, nb_count)
+    drop nb_size nb_prob nb_count
     label variable event_count "Event count"
     label variable exposure_score "Exposure score"
     label variable inflation_score "Zero-inflation score"
@@ -269,6 +276,7 @@ capture noisily {
     _rt_build_zero_count
     collect clear
     collect: zinb event_count exposure_score, inflate(inflation_score)
+    assert e(converged) == 1
 
     capture frame drop _rt_fam_zinb
     regtab, frame(_rt_fam_zinb, replace) keepintercept
@@ -379,6 +387,7 @@ capture noisily {
     _rt_build_zero_count
     collect clear
     collect: zinb event_count exposure_score, inflate(inflation_score)
+    assert e(converged) == 1
 
     capture frame drop _rt_fam_zinb_default
     regtab, frame(_rt_fam_zinb_default, replace)

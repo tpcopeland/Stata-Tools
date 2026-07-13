@@ -69,12 +69,13 @@ if _rc {
 _tabtools_require_helpers
 
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
-	[sheet(string) title(string) outlabels(string) explabels(string) ///
+	[sheet(string) title(string) outlabels(string) OUTCOMEIDs(string asis) explabels(string) ///
 	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) THEme(string) HEADERShade ///
-	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string)]
+	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
+	Level(real -1)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -128,6 +129,10 @@ if `ratescale' <= 0 {
 
 if `outcomes' < 1 {
 	di as err "outcomes must be at least 1"
+	exit 198
+}
+if `level' != -1 & (`level' <= 0 | `level' >= 100) {
+	di as err "level() must be between 0 and 100"
 	exit 198
 }
 
@@ -186,6 +191,46 @@ else {
 	}
 }
 
+* Machine-readable outcome identities default to the outcome labels, but can
+* be supplied separately when presentation text is not a stable identifier.
+if `"`outcomeids'"' != "" {
+	local outcomeids : subinstr local outcomeids " \ " "\", all
+	local outcomeids : subinstr local outcomeids "\  " "\", all
+	local outcomeids : subinstr local outcomeids "  \" "\", all
+	tokenize `"`outcomeids'"', parse("\")
+	local _n_outcome_ids = 0
+	forvalues i = 1/100 {
+		local j = (`i' - 1) * 2 + 1
+		if `"``j''"' == "" continue, break
+		local ++_n_outcome_ids
+		local outcome_id_`i' = strtrim(`"``j''"')
+	}
+	if `_n_outcome_ids' != `outcomes' {
+		di as err "Number of outcome IDs (`_n_outcome_ids') must match outcomes (`outcomes')"
+		exit 198
+	}
+}
+else {
+	forvalues i = 1/`outcomes' {
+		local outcome_id_`i' `"`outlab`i''"'
+	}
+}
+forvalues i = 1/`outcomes' {
+	local outcome_id_`i' = strtrim(`"`outcome_id_`i''"')
+	if `"`outcome_id_`i''"' == "" {
+		di as err "outcome identities may not be blank"
+		exit 198
+	}
+	if `i' > 1 {
+		forvalues j = 1/`=`i'-1' {
+			if lower(`"`outcome_id_`i''"') == lower(`"`outcome_id_`j''"') {
+				di as err `"duplicate outcome identity "`outcome_id_`i''""'
+				exit 198
+			}
+		}
+	}
+}
+
 * Parse exposure labels
 if "`explabels'" != "" {
 	local explabels = subinstr("`explabels'", " \ ", "\", .)
@@ -220,6 +265,9 @@ if "`unitlabel'" == "" {
 * Process each file and store data
 * Files are organized: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
 local filenum = 0
+local _ci_level = cond(`level' == -1, ., `level')
+local _ci_provenance_seen = 0
+local _ci_unknown_seen = 0
 forvalues e = 1/`n_exposures' {
 	forvalues o = 1/`outcomes' {
 		local filenum = `filenum' + 1
@@ -240,6 +288,43 @@ forvalues e = 1/`n_exposures' {
 			noi di as err "Hint: file must contain _Rate, _Lower, _Upper, _D, and _Y from strate output"
 			restore
 			exit 111
+		}
+
+		* strate saves the confidence level in the _Lower/_Upper variable labels.
+		* Read and compare it before copying any interval values.
+		local _lower_vlabel : variable label _Lower
+		local _upper_vlabel : variable label _Upper
+		local _file_level = .
+		if regexm(lower(`"`_lower_vlabel'"'), "([0-9]+([.][0-9]+)?)%") {
+			local _file_level = real(regexs(1))
+		}
+		local _upper_level = .
+		if regexm(lower(`"`_upper_vlabel'"'), "([0-9]+([.][0-9]+)?)%") {
+			local _upper_level = real(regexs(1))
+		}
+		if !missing(`_file_level') & !missing(`_upper_level') & ///
+			abs(`_file_level' - `_upper_level') > 1e-8 {
+			noi di as err "`file'.dta has conflicting confidence levels in _Lower and _Upper labels"
+			restore
+			exit 459
+		}
+		if missing(`_file_level') local _file_level = `_upper_level'
+		if missing(`_file_level') {
+			local _ci_unknown_seen = 1
+		}
+		else {
+			local _ci_provenance_seen = 1
+			if `level' != -1 & abs(`level' - `_file_level') > 1e-8 {
+				noi di as err "level(`level') conflicts with `file'.dta's `_file_level'% intervals"
+				restore
+				exit 198
+			}
+			if missing(`_ci_level') local _ci_level = `_file_level'
+			else if abs(`_ci_level' - `_file_level') > 1e-8 {
+				noi di as err "strate source files contain mixed confidence levels"
+				restore
+				exit 459
+			}
 		}
 		
 		* Find the categorical variable
@@ -337,8 +422,16 @@ forvalues e = 1/`n_exposures' {
 			}
 			
 			restore
-		}
 	}
+}
+
+if `_ci_provenance_seen' & `_ci_unknown_seen' & `level' == -1 {
+	noi di as err "some strate source files lack confidence-level provenance; specify level() explicitly"
+	exit 459
+}
+if missing(`_ci_level') local _ci_level = 95
+local _ci_alpha = (100 - `_ci_level') / 200
+local _ci_z = invnormal(1 - `_ci_alpha')
 
 * Compute rate ratios if requested (F4)
 if "`rateratio'" != "" & `n_exposures' >= 2 {
@@ -367,8 +460,8 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 					local _irr = `_r_exp' / `_r_ref'
 					local _se_ln = sqrt(1/`_d_exp' + 1/`_d_ref')
 					local IRR_o`o'_e`e'_`i' = `_irr'
-					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - invnormal(0.975) * `_se_ln')
-					local IRRhi_o`o'_e`e'_`i' = exp(ln(`_irr') + invnormal(0.975) * `_se_ln')
+					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - `_ci_z' * `_se_ln')
+					local IRRhi_o`o'_e`e'_`i' = exp(ln(`_irr') + `_ci_z' * `_se_ln')
 				}
 				else {
 					local IRR_o`o'_e`e'_`i' .
@@ -414,10 +507,10 @@ forvalues o = 1/`outcomes' {
 	local col = `col' + 1
 	quietly replace c`col' = "Person-Years (PY)" in `new'
 	local col = `col' + 1
-	quietly replace c`col' = "Per `unitlabel' PY (95% CI)" in `new'
+	quietly replace c`col' = "Per `unitlabel' PY (`_ci_level'% CI)" in `new'
 	local col = `col' + 1
 	if "`rateratio'" != "" {
-		quietly replace c`col' = "IRR (95% CI)" in `new'
+		quietly replace c`col' = "IRR (`_ci_level'% CI)" in `new'
 		local col = `col' + 1
 	}
 }
@@ -532,6 +625,13 @@ noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 if `"`frame'"' != "" {
 	_tabtools_frame_put `"`frame'"'
 	local frame "`_frame_name'"
+	frame `frame': char _dta[tabtools_source] "stratetab"
+	frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
+	frame `frame': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
+	frame `frame': char _dta[tabtools_n_outcomes] "`outcomes'"
+	forvalues _meta_o = 1/`outcomes' {
+		frame `frame': char _dta[tabtools_outcome_id_`_meta_o'] `"`outcome_id_`_meta_o''"'
+	}
 }
 
 * Build r(rates) matrix: rows = exposure categories, columns = outcomes
@@ -653,6 +753,14 @@ if `"`_ret_markdown'"' != "" {
 return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
+return scalar ci_level = `_ci_level'
+local _outcome_ids_return ""
+forvalues _meta_o = 1/`outcomes' {
+	local _outcome_ids_return `"`_outcome_ids_return' \ `outcome_id_`_meta_o''"'
+}
+local _outcome_ids_return = substr(strtrim(`"`_outcome_ids_return'"'), 3, .)
+return local outcome_ids `"`_outcome_ids_return'"'
+return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level'% level; rate-ratio intervals use the same level."
 
 	* Export to Excel
 	if `_has_xlsx' {

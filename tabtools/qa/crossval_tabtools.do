@@ -73,22 +73,52 @@ local note_count = 0
 local failed_tests ""
 
 * ============================================================
-**# Setup: Load R benchmark results
+**# Setup: Fresh R benchmark generation
 * ============================================================
 
-capture confirm file "data/crossval_tabtools_r_results.csv"
+tempname _cv_r_id
+local _cv_r_tag = subinstr("`_cv_r_id'", "__", "", .)
+local _cv_r_root "`c(tmpdir)'/tabtools_crossval_r_`_cv_r_tag'"
+local _cv_r_data "`_cv_r_root'/data"
+local _cv_r_log "`_cv_r_root'/R.log"
+local _cv_r_status "`_cv_r_root'/status.txt"
+capture shell rm -rf "`_cv_r_root'"
+capture mkdir "`_cv_r_root'"
+capture mkdir "`_cv_r_data'"
+capture noisily shell Rscript "`qa_dir'/crossval_tabtools_companion.R" ///
+    "`_cv_r_data'" > "`_cv_r_log'" 2>&1
+capture confirm file "`_cv_r_data'/crossval_tabtools_r_results.csv"
 if _rc != 0 {
-    display as error "R results not found. Run crossval_tabtools_companion.R first."
+    display as error "fresh R cross-validation generation failed; see `_cv_r_log'"
     display "RESULT: crossval_tabtools tests=0 pass=0 fail=0 skipped=prereq_missing"
     log close _crossval
     exit 601
 }
 
+capture noisily shell python3 "`qa_dir'/tools/verify_crossval_generation.py" ///
+    "`qa_dir'/data" "`_cv_r_data'" --status-file "`_cv_r_status'"
+tempname _cv_r_fh
+file open `_cv_r_fh' using "`_cv_r_status'", read text
+file read `_cv_r_fh' _cv_r_line
+file close `_cv_r_fh'
+local ++test_count
+if `"`_cv_r_line'"' == "PASS 4 fixtures" {
+    display as result "  PASS: fresh R generation matches all four tracked fixtures"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fresh R fixture comparison (`_cv_r_line')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R_fixture_generation"
+}
+
+local r_data_dir "`_cv_r_data'"
+
 * Load all R results into local macros: r_<metric_name>
 * Import value as string to preserve full double precision (import delimited
 * defaults to float, losing significant digits)
 preserve
-import delimited "data/crossval_tabtools_r_results.csv", stringcols(2) clear
+import delimited "`r_data_dir'/crossval_tabtools_r_results.csv", stringcols(2) clear
 local n_metrics = _N
 local n_loaded = 0
 forvalues i = 1/`n_metrics' {
@@ -449,7 +479,7 @@ else {
 * CV5a: Unequal-weight pooled SD (Stata unweighted default)
 local ++test_count
 capture noisily {
-    import delimited "data/crossval_smd_data.csv", clear
+    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
 
     * Compute Stata-side
     quietly summarize x if group == 1
@@ -484,7 +514,7 @@ else {
 * CV5b: Equal-weight pooled SD (Stata weighted path)
 local ++test_count
 capture noisily {
-    import delimited "data/crossval_smd_data.csv", clear
+    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
 
     quietly summarize x if group == 1
     local s1 = r(sd)
@@ -518,7 +548,7 @@ else {
 
 local ++test_count
 capture noisily {
-    import delimited "data/crossval_cat_smd_data.csv", clear
+    import delimited "`r_data_dir'/crossval_cat_smd_data.csv", clear
 
     * Compute category-level proportions manually (same logic as table1_tc.ado)
     quietly count if group == 1
@@ -560,7 +590,7 @@ else {
 
 local ++test_count
 capture noisily {
-    import delimited "data/crossval_ess_data.csv", clear
+    import delimited "`r_data_dir'/crossval_ess_data.csv", clear
 
     quietly gen double wt_sq = wt^2
     quietly summarize wt
@@ -1380,7 +1410,7 @@ else {
 **# Cleanup
 * ============================================================
 
-
+capture shell rm -rf "`_cv_r_root'"
 
 * ============================================================
 **# Summary

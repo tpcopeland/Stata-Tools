@@ -48,25 +48,106 @@ else {
 }
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+* Sandbox PLUS/PERSONAL before installing: this suite is also spawned as a
+* nested stata-mp by test_iivw_v200_qagate, and a child process does not inherit
+* the parent's `sysdir set'. Without this, that nested run would net install
+* into the user's real ado tree.
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_bootstrap, pkgdir("`pkg_dir'")
+
+**# R reference generation (fresh, sentinel-gated)
+*
+* Stata's `shell' NEVER propagates the child's exit status: _rc is 0 even when
+* Rscript is missing or halts. The previous version of this file trusted _rc and
+* then merely confirmed that the *tracked* CSVs existed -- which they always do.
+* The retained crossval_iivw_external.log records the consequence: R died at
+* line 99 with "there is no package called 'cobalt'", and the suite still
+* reported "ALL 4 EXTERNAL CROSS-VALIDATION TESTS PASSED" at line 1332, from
+* stale files. The gate certified a package it never tested.
+*
+* The contract now: preflight every R package the generator needs; regenerate
+* every reference into a FRESH temporary directory; require a success sentinel
+* that the shell can only create after Rscript exits 0; require the complete
+* fresh output set; and compare Stata against those fresh files. A stale tracked
+* CSV can no longer stand in for a reference that was never produced.
 
 local rscript "`qa_dir'/crossval_iivw_external_refs.R"
-capture noisily shell Rscript "`rscript'"
-if _rc != 0 {
-    display as error "R reference generation failed"
-    exit _rc
+capture confirm file "`rscript'"
+if _rc {
+    display as error "missing R generator: `rscript'"
+    exit 601
 }
 
-foreach f in bladder bladder_coefs lalonde lalonde_coefs ///
+* Fresh output directory: nothing here predates this run.
+tempfile _tstub
+local ref_dir "`_tstub'_refs"
+capture mkdir "`ref_dir'"
+capture confirm file "`ref_dir'"
+if _rc {
+    display as error "could not create a temporary reference directory: `ref_dir'"
+    exit 603
+}
+
+* --- Preflight: Rscript itself, then every package the generator loads --------
+* The old dependency message named IrregLong/geepack/survival/nlme and omitted
+* ipw and cobalt -- the two that actually broke the lane.
+local rdeps survival ipw cobalt geepack
+local rpre_ok "`ref_dir'/.preflight_ok"
+capture erase "`rpre_ok'"
+local rcheck "if (all(sapply(c('survival','ipw','cobalt','geepack'), requireNamespace, quietly=TRUE))) quit(status=0) else quit(status=1)"
+shell Rscript -e "`rcheck'" > /dev/null 2>&1 && touch "`rpre_ok'"
+capture confirm file "`rpre_ok'"
+if _rc {
+    display as error "R preflight failed"
+    display as error "  crossval_iivw_external requires Rscript on PATH and these R packages:"
+    display as error "    `rdeps'"
+    display as error "  Install them with:"
+    display as error `"    install.packages(c("survival","ipw","cobalt","geepack"))"'
+    display as error "  Refusing to continue: without a live R oracle this lane would be"
+    display as error "  comparing iivw against nothing."
+    exit 198
+}
+capture erase "`rpre_ok'"
+
+* --- Generate: sentinel only exists if Rscript exited 0 -----------------------
+local rok "`ref_dir'/.generated_ok"
+capture erase "`rok'"
+shell Rscript "`rscript'" --outdir="`ref_dir'" && touch "`rok'"
+capture confirm file "`rok'"
+if _rc {
+    display as error "R reference generation did not run to completion"
+    display as error "  Rscript exited nonzero (Stata cannot see the child's status directly,"
+    display as error "  so this is detected via a success sentinel)."
+    display as error "  Refusing to continue rather than validating against stale references."
+    exit 198
+}
+capture erase "`rok'"
+
+* --- Require the COMPLETE fresh output set -----------------------------------
+* Existence alone is not enough: each file must be new and nonempty. Every one
+* of these was written by the run we just gated, in a directory that was empty
+* moments ago, so existence here does mean freshness.
+local ref_files bladder bladder_coefs lalonde lalonde_coefs ///
     dietox dietox_weight_coefs dietox_geeglm dietox_geeglm_pen ///
-    dietox_geeglm_logit {
-    capture confirm file "`qa_dir'/crossval_iivw_external_`f'.csv"
+    dietox_geeglm_logit
+foreach f of local ref_files {
+    capture confirm file "`ref_dir'/crossval_iivw_external_`f'.csv"
     if _rc != 0 {
-        display as error "missing reference file: crossval_iivw_external_`f'.csv"
+        display as error "R ran but did not write reference: crossval_iivw_external_`f'.csv"
+        display as error "  the generator's declared output set is incomplete; not proceeding"
+        exit 601
+    }
+    preserve
+    capture import delimited "`ref_dir'/crossval_iivw_external_`f'.csv", clear varnames(1)
+    local _imp_rc = _rc
+    local _imp_N = _N
+    restore
+    if `_imp_rc' != 0 | `_imp_N' == 0 {
+        display as error "reference crossval_iivw_external_`f'.csv is unreadable or empty"
         exit 601
     }
 }
+display as text "R references regenerated fresh in `ref_dir' (`: word count `ref_files'' files)"
 
 local test_count = 0
 local pass_count = 0
@@ -77,7 +158,7 @@ local fail_count = 0
 local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
-        import delimited "`qa_dir'/crossval_iivw_external_bladder.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_bladder.csv", ///
             clear asdouble
 
         stset time, enter(time time_lag) failure(event_one) ///
@@ -85,7 +166,7 @@ if `run_only' == 0 | `run_only' == 1 {
         stcox rx2 number size, nohr efron nolog
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_bladder_coefs.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_bladder_coefs.csv", ///
             clear asdouble
         local r_rx2 = rx2[1]
         local r_number = number[1]
@@ -136,13 +217,13 @@ if `run_only' == 0 | `run_only' == 1 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
-        import delimited "`qa_dir'/crossval_iivw_external_lalonde.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_lalonde.csv", ///
             clear asdouble
 
         logit treat age educ black hispan married nodegree re74 re75, nolog
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_lalonde_coefs.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_lalonde_coefs.csv", ///
             clear asdouble
         local r_cons = intercept[1]
         local r_age = age[1]
@@ -223,7 +304,7 @@ if `run_only' == 0 | `run_only' == 2 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
-        import delimited "`qa_dir'/crossval_iivw_external_dietox.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox.csv", ///
             clear asdouble
 
         stset time, enter(time time_lag) failure(event_one) ///
@@ -249,7 +330,7 @@ if `run_only' == 0 | `run_only' == 3 {
         restore
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_dietox_weight_coefs.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox_weight_coefs.csv", ///
             clear asdouble
         local r_num_cu_high = num_cu_high[1]
         local r_den_cu_high = den_cu_high[1]
@@ -318,7 +399,7 @@ if `run_only' == 0 | `run_only' == 3 {
         local s_time = _b[time]
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_dietox_geeglm.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox_geeglm.csv", ///
             clear asdouble
         local r_cons = intercept[1]
         local r_cu_high = cu_high[1]
@@ -367,7 +448,7 @@ if `run_only' == 0 | `run_only' == 3 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
-        import delimited "`qa_dir'/crossval_iivw_external_dietox.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox.csv", ///
             clear asdouble
 
         iivw_weight, id(id) time(time) ///
@@ -390,7 +471,7 @@ if `run_only' == 0 | `run_only' == 4 {
         assert "`e(iivw_cluster)'" == "pen"
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_dietox_geeglm_pen.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox_geeglm_pen.csv", ///
             clear asdouble
         local r_cons = intercept[1]
         local r_cu_high = cu_high[1]
@@ -431,7 +512,7 @@ if `run_only' == 0 | `run_only' == 4 {
         local s_se_time = _se[time]
 
         preserve
-        import delimited "`qa_dir'/crossval_iivw_external_dietox_geeglm_logit.csv", ///
+        import delimited "`ref_dir'/crossval_iivw_external_dietox_geeglm_logit.csv", ///
             clear asdouble
         local r_cons = intercept[1]
         local r_cu_high = cu_high[1]

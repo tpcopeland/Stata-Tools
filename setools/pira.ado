@@ -1,4 +1,4 @@
-*! pira Version 1.4.1  2026/07/03
+*! pira Version 1.5.0  2026/07/13
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,10 +10,10 @@ PIRA identifies confirmed disability progression (CDP) events that occur
 OUTSIDE of a window around relapses, indicating progression not attributable
 to acute relapse activity.
 
-1. Runs CDP algorithm to identify confirmed progression events
-2. For each CDP event, checks if it falls within the relapse window
-3. Events outside the relapse window are classified as PIRA
-4. Events within the relapse window are classified as RAW (Relapse-Associated Worsening)
+1. Runs CDP algorithm to identify the first confirmed progression per person
+2. Checks whether that first CDP falls within the relapse window
+3. First CDPs outside the relapse window are classified as PIRA
+4. First CDPs within the relapse window are classified as RAW
 
 Basic syntax:
   pira idvar edssvar datevar, dxdate(varname) relapses(filename) [options]
@@ -44,7 +44,9 @@ See help pira for complete documentation
 program define pira, rclass
     version 16.0
     local _varabbrev `c(varabbrev)'
-    tempvar _pira_sortorder
+    local _pira_preserved = 0
+    tempvar _pira_sortorder _pira_dx_min _pira_dx_max ///
+        _pira_exit_min _pira_exit_max
     set varabbrev off
 
     capture noisily {
@@ -173,6 +175,17 @@ program define pira, rclass
         }
     }
 
+    * The implementation still uses a bounded _pira_* workspace while it
+    * switches datasets. Positional/person-level inputs may not occupy it.
+    foreach _pira_input in `idvar' `edssvar' `datevar' `dxdate' `exit' {
+        if substr(lower("`_pira_input'"), 1, 6) == "_pira_" | ///
+            substr(lower("`_pira_input'"), 1, 9) == "_setools_" | ///
+            lower("`_pira_input'") == "_relapse_dt" {
+            di as error "input variables may not use reserved _pira_*, _setools_*, or _relapse_dt names"
+            exit 198
+        }
+    }
+
     // Check if generate variables already exist
     capture confirm variable `generate'
     if _rc == 0 {
@@ -206,15 +219,12 @@ program define pira, rclass
     else {
         markout `touse' `idvar'
     }
-    markout `touse' `dxdate'
-
     // Check for valid observations
     qui count if `touse'
     if r(N) == 0 {
         di as error "no valid observations"
         exit 2000
     }
-    qui gen long `_pira_sortorder' = _n
     qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
     if r(N) > 0 {
         di as error "`datevar' must contain whole-number Stata daily dates"
@@ -250,13 +260,49 @@ program define pira, rclass
     // LOAD AND PREPARE RELAPSE DATA
     // =========================================================================
 
-    tempfile master_data relapse_data
+    tempfile master_data relapse_data original_full persons results
 
     preserve
+    local _pira_preserved = 1
+    qui gen long `_pira_sortorder' = _n
+    qui save `original_full', replace
 
-    // Save master data
+    // Normalize the person-level diagnosis and exit dates on the analytic
+    // sample before any dataset switching.
     qui keep if `touse'
+    qui egen double `_pira_dx_min' = min(`dxdate'), by(`idvar')
+    qui egen double `_pira_dx_max' = max(`dxdate'), by(`idvar')
+    qui count if !missing(`_pira_dx_min') & ///
+        `_pira_dx_min' != `_pira_dx_max'
+    if r(N) > 0 {
+        di as error "dxdate() must have at most one distinct nonmissing value per person"
+        exit 459
+    }
+    qui replace `dxdate' = `_pira_dx_min'
+    qui drop if missing(`dxdate')
+    qui count
+    if r(N) == 0 {
+        di as error "no valid observations with a person-level diagnosis date"
+        exit 2000
+    }
+    if "`exit'" != "" {
+        qui egen double `_pira_exit_min' = min(`exit'), by(`idvar')
+        qui egen double `_pira_exit_max' = max(`exit'), by(`idvar')
+        qui count if !missing(`_pira_exit_min') & ///
+            `_pira_exit_min' != `_pira_exit_max'
+        if r(N) > 0 {
+            di as error "exit() must have at most one distinct nonmissing value per person"
+            exit 459
+        }
+        qui replace `exit' = `_pira_exit_min'
+    }
     qui save `master_data', replace
+
+    local _pira_personvars "`idvar' `dxdate' `exit'"
+    local _pira_personvars : list uniq _pira_personvars
+    qui keep `_pira_personvars'
+    qui duplicates drop `idvar', force
+    qui save `persons', replace
 
     // Load relapse data
     qui use "`relapses'", clear
@@ -265,25 +311,21 @@ program define pira, rclass
     capture confirm variable `relapseidvar'
     if _rc {
         di as error "relapse file must contain variable `relapseidvar'"
-        restore
         exit 111
     }
     capture confirm variable `relapsedatevar'
     if _rc {
         di as error "relapse file must contain variable `relapsedatevar'"
-        restore
         exit 111
     }
     capture confirm numeric variable `relapsedatevar'
     if _rc {
         di as error "`relapsedatevar' in relapse file must be numeric (Stata date format)"
-        restore
         exit 109
     }
     local _pira_rel_fmt : format `relapsedatevar'
     if lower(substr("`_pira_rel_fmt'", 1, 3)) != "%td" {
         di as error "`relapsedatevar' in relapse file must be a Stata daily date variable with %td format"
-        restore
         exit 109
     }
 
@@ -295,7 +337,6 @@ program define pira, rclass
         di as error "`relapseidvar' type mismatch: " ///
             cond(`id_is_str', "string in master, numeric in relapse file", ///
             "numeric in master, string in relapse file")
-        restore
         exit 109
     }
 
@@ -313,8 +354,10 @@ program define pira, rclass
     qui count if _relapse_dt != floor(_relapse_dt)
     if r(N) > 0 {
         di as error "`relapsedatevar' in relapse file must contain whole-number Stata daily dates"
-        restore
         exit 109
+    }
+    if _N > 0 {
+        qui duplicates drop `idvar' _relapse_dt, force
     }
 
     // Save relapse data (long: one row per relapse per person)
@@ -345,7 +388,6 @@ program define pira, rclass
     qui count
     if r(N) == 0 {
         di as error "no valid observations after dropping missing values"
-        restore
         exit 2000
     }
 
@@ -453,6 +495,7 @@ program define pira, rclass
     // Check if any CDP events exist before attempting relapse classification
     qui count
     local n_cdp = r(N)
+    local n_cdp_preexit = `n_cdp'
 
     if `n_cdp' > 0 {
         // Merge with relapse data to check proximity
@@ -484,7 +527,8 @@ program define pira, rclass
     }
 
     // Clean up internal variables
-    capture qui drop _pira_cdp_dt
+    capture confirm variable _pira_cdp_dt
+    if !_rc qui drop _pira_cdp_dt
 
     // Count results
     qui count if !missing(`generate')
@@ -493,15 +537,30 @@ program define pira, rclass
     local n_raw = r(N)
 
     // Save results
-    tempfile results
     qui save `results', replace
 
-    restore
+    * Apply exit censoring on one normalized person-level row, then recompute
+    * every public count from the post-censor result.
+    qui merge 1:1 `idvar' using `persons', nogen keep(3)
+    if "`exit'" != "" {
+        qui count if !missing(`exit') & ///
+            ((!missing(`generate') & `generate' > `exit') | ///
+             (!missing(`rawgenerate') & `rawgenerate' > `exit'))
+        local n_censored_exit = r(N)
+        qui replace `generate' = . if !missing(`generate') & ///
+            !missing(`exit') & `generate' > `exit'
+        qui replace `rawgenerate' = . if !missing(`rawgenerate') & ///
+            !missing(`exit') & `rawgenerate' > `exit'
+    }
+    qui count if !missing(`generate')
+    local n_pira = r(N)
+    qui count if !missing(`rawgenerate')
+    local n_raw = r(N)
+    local n_cdp = `n_pira' + `n_raw'
+    qui keep `idvar' `generate' `rawgenerate'
+    qui save `results', replace
 
-    // =========================================================================
-    // MERGE RESULTS BACK
-    // =========================================================================
-
+    qui use `original_full', clear
     if "`keepall'" == "" {
         // Default: keep only patients with any CDP (PIRA or RAW)
         qui merge m:1 `idvar' using `results', nogen keep(3)
@@ -510,28 +569,6 @@ program define pira, rclass
         // keepall: retain all original observations
         qui merge m:1 `idvar' using `results', nogen
     }
-    // exit() censoring: drop PIRA and RAW dates that fall after a person's
-    // study-exit date (replaces hand-written post-exit clipping). Observations
-    // are retained; eventvar() and the event counts reflect censoring. Both
-    // dates are person-constant after the m:1 merge, so a by-person tag counts
-    // persons; done before the sort-order restore so the tag does not disturb
-    // output order.
-    if "`exit'" != "" {
-        tempvar _pira_exit_tag
-        qui bysort `idvar': gen byte `_pira_exit_tag' = (_n == 1)
-        qui count if `_pira_exit_tag' & !missing(`exit') & ///
-            ((!missing(`generate') & `generate' > `exit') | ///
-             (!missing(`rawgenerate') & `rawgenerate' > `exit'))
-        local n_censored_exit = r(N)
-        qui replace `generate' = . if !missing(`generate') & !missing(`exit') & `generate' > `exit'
-        qui replace `rawgenerate' = . if !missing(`rawgenerate') & !missing(`exit') & `rawgenerate' > `exit'
-        qui count if `_pira_exit_tag' & !missing(`generate')
-        local n_pira = r(N)
-        qui count if `_pira_exit_tag' & !missing(`rawgenerate')
-        local n_raw = r(N)
-        qui drop `_pira_exit_tag'
-    }
-
     qui sort `_pira_sortorder'
     qui drop `_pira_sortorder'
 
@@ -573,8 +610,12 @@ program define pira, rclass
         }
     }
 
+    restore, not
+    local _pira_preserved = 0
+
     // Return values
     return scalar N_cdp = `n_cdp'
+    return scalar N_cdp_preexit = `n_cdp_preexit'
     return scalar N_pira = `n_pira'
     return scalar N_raw = `n_raw'
     return scalar windowbefore = `windowbefore'
@@ -587,6 +628,7 @@ program define pira, rclass
     return local confirmtype "`confirmtype'"
     return local threetier = cond("`threetier'" != "", "yes", "no")
     return local rebaselinerelapse = cond("`rebaselinerelapse'" != "", "yes", "no")
+    return local event_scope "first_confirmed_cdp"
     if "`eventvar'" != "" {
         return local eventvar "`eventvar'"
     }
@@ -597,7 +639,9 @@ program define pira, rclass
 
     }
     local _rc = _rc
-    capture drop `_pira_sortorder'
+    if `_rc' & `_pira_preserved' {
+        capture restore
+    }
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end

@@ -20,8 +20,9 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
-* Derive the package version from the flagship .ado header (single source of
-* truth) so this literal cannot go stale on a version bump.
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
+* Code version and distribution date are separate contracts. Derive the code
+* version from the flagship header and the release date from setools.pkg.
 tempname _vfh
 file open `_vfh' using "`pkg_dir'/setools.ado", read text
 file read `_vfh' _vline
@@ -30,12 +31,26 @@ local version ""
 local distdate ""
 if regexm(`"`_vline'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)[ ]+([0-9]+)/([0-9]+)/([0-9]+)") {
     local version = regexs(1)
-    local distdate = regexs(2) + regexs(3) + regexs(4)
 }
 assert "`version'" != ""
-assert "`distdate'" != ""
+
+tempname _pfh
+file open `_pfh' using "`pkg_dir'/setools.pkg", read text
+file read `_pfh' _pline
+while r(eof) == 0 {
+    if regexm(`"`_pline'"', "Distribution-Date: ([0-9]+)") {
+        local distdate = regexs(1)
+    }
+    file read `_pfh' _pline
+}
+file close `_pfh'
+assert strlen("`distdate'") == 8
+local release_date = substr("`distdate'", 1, 4) + "-" + ///
+    substr("`distdate'", 5, 2) + "-" + substr("`distdate'", 7, 2)
+local badge_date = subinstr("`release_date'", "-", "--", .)
+local top_readme "`pkg_dir'/../README.md"
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
-local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado"
+local shipped_files "setools.ado setools.sthlp cci_se.ado cci_se.sthlp migrations.ado migrations.sthlp sustainedss.ado sustainedss.sthlp cdp.ado cdp.sthlp pira.ado pira.sthlp _setools_cdp_baseline.ado _setools_cdp_thresh.ado _setools_cdp_confirm.ado _setools_cdp_core.ado _setools_dta_path.ado"
 local metadata_files "README.md setools.pkg stata.toc"
 
 capture program drop _assert_file_contains
@@ -100,8 +115,11 @@ capture noisily {
         _assert_file_not_contains "`pkg_dir'/`cmd'.sthlp", pattern("*! version")
     }
     _assert_file_contains "`pkg_dir'/README.md", pattern("**Version `version'**")
-    capture ado uninstall setools
-    quietly net install setools, from("`pkg_dir'") replace
+    _assert_file_contains "`pkg_dir'/README.md", ///
+        pattern("**Version `version'** | `release_date'")
+    _assert_file_contains "`top_readme'", pattern("version-`version'-blue")
+    _assert_file_contains "`top_readme'", ///
+        pattern("updated-`badge_date'-brightgreen")
     setools
     assert "`r(version)'" == "`version'"
 }
@@ -119,12 +137,30 @@ else {
 
 local ++test_count
 capture noisily {
-    foreach f of local shipped_files {
-        _assert_file_contains "`pkg_dir'/setools.pkg", pattern("f `f'")
+    * Compare the actual root ado/help inventory with every f-line in .pkg in
+    * both directions. No hand-curated omission can pass this check.
+    local actual_ados : dir "`pkg_dir'" files "*.ado"
+    local actual_helps : dir "`pkg_dir'" files "*.sthlp"
+    local actual_files "`actual_ados' `actual_helps'"
+    local actual_files = subinstr(`"`actual_files'"', `"""', "", .)
+    local actual_files : list sort actual_files
+
+    local manifest_files ""
+    tempname _mfh
+    file open `_mfh' using "`pkg_dir'/setools.pkg", read text
+    file read `_mfh' _mline
+    while r(eof) == 0 {
+        local _mtrim = strtrim(`"`_mline'"')
+        if substr(`"`_mtrim'"', 1, 2) == "f " {
+            local _mfile = substr(`"`_mtrim'"', 3, .)
+            local manifest_files "`manifest_files' `_mfile'"
+        }
+        file read `_mfh' _mline
     }
+    file close `_mfh'
+    local manifest_files : list sort manifest_files
+    assert "`actual_files'" == "`manifest_files'"
     _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Author: Timothy P Copeland, Karolinska Institutet")
-    * Distribution-Date must match the flagship .ado header date (derived
-    * above), so this assertion cannot go stale on a version bump.
     _assert_file_contains "`pkg_dir'/setools.pkg", pattern("Distribution-Date: `distdate'")
 }
 if _rc == 0 {
@@ -164,6 +200,7 @@ capture noisily {
     foreach f in setools.ado setools.sthlp setools.pkg stata.toc {
         _assert_file_not_contains "`pkg_dir'/`f'", pattern("procmatch")
     }
+    _assert_file_not_contains "`top_readme'", pattern("procedure-code matching")
 }
 if _rc == 0 {
     local ++pass_count
@@ -228,22 +265,28 @@ else {
     display as error "  FAIL: shipped surface has no dev-only path leaks (error `=_rc')"
 }
 
-**# Demo Assets
+**# Repository Demo And Installed Surface
 
 * Console screenshots/PNG captures were removed from demos and READMEs by
 * design; the demo surface is the runnable script only.
 local ++test_count
 capture noisily {
     confirm file "`pkg_dir'/demo/demo_setools.do"
+    _assert_file_not_contains "`pkg_dir'/setools.pkg", pattern("f demo/demo_setools.do")
+    foreach cmd of local public_cmds {
+        which `cmd'
+    }
+    findfile _setools_dta_path.ado
+    confirm file "`r(fn)'"
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: demo script ships with the package"
+    display as result "  PASS: repository demo is unshipped and installed command/helper surface resolves"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' demo_refs"
-    display as error "  FAIL: README demo image references resolve to shipped files (error `=_rc')"
+    display as error "  FAIL: repository-demo or installed-surface contract (error `=_rc')"
 }
 
 **# Summary
@@ -251,6 +294,8 @@ else {
 display as text ""
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: test_release_integrity tests=`test_count' pass=`pass_count' fail=`fail_count'"
+
+do "`qa_dir'/_setools_qa_common.do" teardown
 
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"

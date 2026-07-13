@@ -20,6 +20,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'"
 local pkg_dir : subinstr local pkg_dir "/qa" "", all
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 local public_cmds "setools cci_se migrations sustainedss cdp pira"
 * Derive the expected version from the flagship .ado header (single source of
 * truth) so this literal cannot go stale on a version bump.
@@ -32,21 +33,27 @@ if regexm(`"`_vline'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)") local expected_versi
 assert "`expected_version'" != ""
 local expected_all "cci_se migrations sustainedss cdp pira"
 
-**# Fresh Local Install
+**# Isolated Local Install
 
 local ++test_count
 capture noisily {
-    capture ado uninstall setools
-    quietly net install setools, from("`pkg_dir'") replace
+    assert "$SETOOLS_QA_ACTIVE" == "1"
+    foreach ado in setools cci_se migrations sustainedss cdp pira ///
+        _setools_cdp_baseline _setools_cdp_thresh ///
+        _setools_cdp_confirm _setools_cdp_core _setools_dta_path {
+        findfile `ado'.ado
+        local resolved `"`r(fn)'"'
+        assert strpos(`"`resolved'"', "$SETOOLS_QA_ISO/plus/") == 1
+    }
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: net install from local package"
+    display as result "  PASS: every command/helper resolves inside isolated PLUS"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' install"
-    display as error "  FAIL: net install from local package (error `=_rc')"
+    display as error "  FAIL: isolated local install (error `=_rc')"
 }
 
 local ++test_count
@@ -243,6 +250,8 @@ else {
 display as text ""
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 display "RESULT: test_setools tests=`test_count' pass=`pass_count' fail=`fail_count'"
+
+do "`qa_dir'/_setools_qa_common.do" teardown
 
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"

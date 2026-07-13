@@ -10,6 +10,7 @@ log using "validation_simtab.log", replace text name(_simtabval)
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 
 capture ado uninstall tabtools
@@ -102,7 +103,11 @@ foreach chk in ///
 * =====================================================================
 capture which simsum
 if _rc {
-    display as text "  SKIP simsum oracle: simsum not installed"
+    if "$TABTOOLS_QA_REQUIRE_ORACLES" == "1" {
+        display as error "  FAIL simsum oracle: required simsum is not installed"
+        local ++fail
+    }
+    else display as text "  SKIP simsum oracle: simsum not installed"
 }
 else {
     clear

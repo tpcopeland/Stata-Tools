@@ -16,13 +16,27 @@ suppressPackageStartupMessages({
 })
 
 args <- commandArgs(trailingOnly = FALSE)
-file_arg <- grep("^--file=", args, value = TRUE)
-if (length(file_arg) > 0) {
-    this_file <- normalizePath(sub("^--file=", "", file_arg[1]),
-        mustWork = TRUE)
-    outdir <- dirname(this_file)
+
+# --outdir=<path> writes the references somewhere other than the script's own
+# directory. The QA gate uses this to generate into a fresh temporary directory,
+# so a failed R run can never leave stale tracked CSVs standing in for a
+# successful one.
+outdir_arg <- grep("^--outdir=", args, value = TRUE)
+if (length(outdir_arg) > 0) {
+    outdir <- sub("^--outdir=", "", outdir_arg[1])
+    if (!dir.exists(outdir)) {
+        dir.create(outdir, recursive = TRUE)
+    }
+    outdir <- normalizePath(outdir, mustWork = TRUE)
 } else {
-    outdir <- getwd()
+    file_arg <- grep("^--file=", args, value = TRUE)
+    if (length(file_arg) > 0) {
+        this_file <- normalizePath(sub("^--file=", "", file_arg[1]),
+            mustWork = TRUE)
+        outdir <- dirname(this_file)
+    } else {
+        outdir <- getwd()
+    }
 }
 
 write_ref <- function(x, filename) {

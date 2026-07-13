@@ -17,36 +17,13 @@
 
 version 16.0
 
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
+* === Isolated bootstrap ===
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 set varabbrev off
 
-**# SETUP
-
-local pkg_dir "`c(pwd)'"
-capture confirm file "`pkg_dir'/../setools.ado"
-if _rc == 0 {
-    local pkg_dir "`pkg_dir'/.."
-}
-else {
-    capture confirm file "`pkg_dir'/setools.ado"
-    if _rc == 0 {
-        * Already in package dir
-    }
-    else {
-    }
-}
-
-capture program drop _setools_detail
-foreach cmd in setools cci_se cdp migrations pira sustainedss {
-    capture program drop `cmd'
-    run "`pkg_dir'/`cmd'.ado"
-}
-
-local qa_dir "`pkg_dir'/qa"
-local data_dir "`qa_dir'/data"
+local data_dir "`c(tmpdir)'/setools_crossval_`c(processid)'"
 capture mkdir "`data_dir'"
 
 scalar gs_ntest = 0
@@ -313,6 +290,9 @@ save "`data_dir'/_cv_c4_rel.dta", replace
 
 use "`data_dir'/_cv_c4_edss.dta", clear
 pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_cv_c4_rel.dta") keepall generate(c4_pira) rawgenerate(c4_raw)
+local c4_N_pira = r(N_pira)
+local c4_N_raw = r(N_raw)
+local c4_N_cdp = r(N_cdp)
 
 * C4.1: PIRA patients have no relapse nearby
 * Patient 1 and 3 should be PIRA (no relapse), patient 2 should be RAW
@@ -330,9 +310,13 @@ quietly count if !missing(c4_pira) & !missing(c4_raw)
 local t = (r(N) == 0)
 run_cv "C4.3: No patient has both PIRA and RAW" `t'
 
-* C4.4: N_pira + N_raw = N_cdp
-local t = (r(N_pira) + r(N_raw) == r(N_cdp))
+* C4.4: N_pira + N_raw = N_cdp (saved before r() is clobbered)
+local t = (`c4_N_pira' + `c4_N_raw' == `c4_N_cdp' & `c4_N_cdp' > 0)
 run_cv "C4.4: N_pira + N_raw = N_cdp invariant" `t'
+
+local deliberately_wrong = `c4_N_pira' + `c4_N_raw' + 1
+local t = (`deliberately_wrong' != `c4_N_cdp')
+run_cv "C4.4b: perturbed PIRA count invariant is rejected" `t'
 
 * C4.5: PIRA dates match CDP dates for non-RAW patients
 * Run CDP separately
@@ -356,8 +340,10 @@ local cleanup_files "_cv_c1_roving.dta _cv_c4_edss.dta _cv_c4_rel.dta"
 foreach f of local cleanup_files {
     capture erase "`data_dir'/`f'"
 }
+shell /bin/rm -rf -- "`data_dir'"
 
 **# FINAL SUMMARY
+do "`qa_dir'/_setools_qa_common.do" teardown
 display as text "Total tests:  " scalar(gs_ntest)
 display as result "Passed:       " scalar(gs_npass)
 if scalar(gs_nfail) > 0 {
@@ -367,6 +353,8 @@ if scalar(gs_nfail) > 0 {
 else {
     display as text "Failed:       " scalar(gs_nfail)
 }
+display "RESULT: crossval_setools tests=" scalar(gs_ntest) ///
+    " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 
 if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"

@@ -283,6 +283,7 @@ program define puttab, rclass
             if "`noheader'" != "" local _md_novarnames "novarnames"
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
+                dataend(`_last_data_row') ///
                 title(`"`title'"') footnote(`"`footnote'"') `_md_novarnames'
             if _rc {
                 local _md_rc = _rc

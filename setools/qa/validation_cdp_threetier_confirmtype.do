@@ -1,7 +1,7 @@
 clear all
 version 16.0
 capture log close _all
-log using "validation_cdp_threetier_confirmtype.log", replace nomsg
+log using "`c(tmpdir)'/validation_cdp_threetier_confirmtype_`c(processid)'.log", replace nomsg
 set varabbrev off
 
 * validation_cdp_threetier_confirmtype.do
@@ -25,8 +25,7 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar gs_ntest = 0
 scalar gs_npass = 0
@@ -257,3 +256,5 @@ if scalar(gs_nfail) > 0 {
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_cdp_threetier_confirmtype tests=" scalar(gs_ntest) " pass=" scalar(gs_npass) " fail=" scalar(gs_nfail)
 log close _all
+
+do "`qa_dir'/_setools_qa_common.do" teardown

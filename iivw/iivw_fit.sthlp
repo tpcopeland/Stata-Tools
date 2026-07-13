@@ -280,9 +280,13 @@ positive, the {cmd:bootstrap} prefix is applied with clustering at
 {pmore}
 By default the bootstrap treats the IIW/IPTW weights as fixed and does not
 re-estimate them in each draw, so standard errors reflect outcome model
-uncertainty only. This is the common approach in the IIW literature
-(Buzkova & Lumley 2007). To instead propagate weight estimation uncertainty,
-add {opt refitweights} (see below).
+uncertainty only. {bf:This understates uncertainty.} Both source papers derive a
+variance that absorbs the weight-estimation term: Buzkova & Lumley (2007) add a
+correction to the sandwich for having estimated the visit-model coefficients,
+and Coulombe, Moodie & Platt (2021) build the FIPTIW variance as a two-step
+(Newey-McFadden) sandwich for the same reason. Neither licenses treating
+estimated weights as known. Use {opt refitweights} (see below) to propagate
+weight estimation uncertainty.
 
 {phang}
 {opt refitweights} re-estimates the IIW/IPTW/FIPTIW weights from scratch inside
@@ -565,11 +569,13 @@ harmful) over time; a negative interaction means it becomes more protective.
 {bf:Standard errors.} By default, standard errors are sandwich (robust)
 standard errors clustered at the subject level. These are consistent even
 under misspecification of the within-subject correlation structure, but they
-do not account for uncertainty in the weight estimation. To obtain standard
-errors that include weight estimation uncertainty, use
-{cmd:bootstrap(#) refitweights}, which re-estimates the weights inside each
-bootstrap replicate (see {opt bootstrap()} and {opt refitweights} in the
-Options section).
+treat the IIW/IPTW weights as if they were known rather than estimated, and so
+omit the weight-estimation term that both Buzkova & Lumley (2007) and Coulombe,
+Moodie & Platt (2021) carry in their sandwich. They therefore understate
+uncertainty. To obtain standard errors that include weight estimation
+uncertainty, use {cmd:bootstrap(#) refitweights}, which re-estimates the weights
+inside each bootstrap replicate (see {opt bootstrap()} and {opt refitweights} in
+the Options section).
 
 
 {marker troubleshooting}{...}

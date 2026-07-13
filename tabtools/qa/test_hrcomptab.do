@@ -6,6 +6,7 @@ log using "test_hrcomptab.log", replace text name(_hrcomptab)
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 
 capture ado uninstall tabtools
@@ -73,32 +74,57 @@ clear
 stratetab, using(`rate11' `rate12' `rate21' `rate22') outcomes(2) ///
     frame(hrc_rates, replace) ///
     outlabels("Outcome 1" \ "Outcome 2") ///
+    outcomeids("t1" \ "t2") ///
     explabels("Binary HRT" \ "Dose Category")
 
 clear
-set obs 30
+set obs 240
 set seed 20260417
 gen byte treated = mod(_n, 2)
-gen double y1 = 10 + 2 * treated + rnormal()
-gen double y2 = 6 + 1.5 * treated + rnormal()
+gen double t1 = 1 + 12 * runiform() * exp(-0.35 * treated)
+gen byte d1 = mod(_n, 4) != 0
+gen double t2 = 1 + 10 * runiform() * exp(-0.20 * treated)
+gen byte d2 = mod(_n, 5) != 0
 collect clear
-collect: regress y1 treated
-collect: regress y2 treated
+stset t1, failure(d1)
+collect: stcox treated, nolog
+stset t2, failure(d2)
+collect: stcox treated, nolog
 capture frame drop hrc_bin
-regtab, frame(hrc_bin) noint
+capture frame drop hrc_bin_plot
+regtab, models("Outcome 1" \ "Outcome 2") frame(hrc_bin) ///
+    eplotframe(hrc_bin_plot, replace) noint
 capture frame drop hrc_bin_comp
-regtab, compact frame(hrc_bin_comp) noint
+capture frame drop hrc_bin_comp_plot
+regtab, models("Outcome 1" \ "Outcome 2") compact frame(hrc_bin_comp) ///
+    eplotframe(hrc_bin_comp_plot, replace) noint
+
+* A semantically identical source with model blocks intentionally reversed.
+collect clear
+stset t2, failure(d2)
+collect: stcox treated, nolog
+stset t1, failure(d1)
+collect: stcox treated, nolog
+capture frame drop hrc_bin_rev
+regtab, models("Outcome 2" \ "Outcome 1") frame(hrc_bin_rev) noint
 
 clear
-set obs 45
+set obs 300
+set seed 20260418
 gen byte dose = mod(_n, 3)
-gen double y1 = 12 + 1.5 * (dose == 1) + 2.5 * (dose == 2) + rnormal()
-gen double y2 = 8 + 0.5 * (dose == 1) + 1.5 * (dose == 2) + rnormal()
+gen double t1 = 1 + 12 * runiform() * exp(-0.20 * (dose == 1) - 0.35 * (dose == 2))
+gen byte d1 = mod(_n, 4) != 0
+gen double t2 = 1 + 10 * runiform() * exp(-0.10 * (dose == 1) - 0.25 * (dose == 2))
+gen byte d2 = mod(_n, 5) != 0
 collect clear
-collect: regress y1 i.dose
-collect: regress y2 i.dose
+stset t1, failure(d1)
+collect: stcox i.dose, nolog
+stset t2, failure(d2)
+collect: stcox i.dose, nolog
 capture frame drop hrc_dose
-regtab, frame(hrc_dose) noint
+capture frame drop hrc_dose_plot
+regtab, models("Outcome 1" \ "Outcome 2") frame(hrc_dose) ///
+    eplotframe(hrc_dose_plot, replace) noint
 
 capture frame drop hrc_cmp3
 frame copy hrc_bin_comp hrc_cmp3
@@ -113,8 +139,9 @@ frame hrc_cmp3 {
 local ++test_count
 capture noisily {
     capture frame drop hrc_final
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) ///
+	        outcomemap("Outcome 1" \ "Outcome 2") ///
         effect("aHR") ///
         frame(hrc_final, replace)
 
@@ -158,8 +185,8 @@ capture frame drop hrc_final
 local ++test_count
 capture noisily {
     capture frame drop hrc_reflab
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) effect("aHR") reflabel("Ref. group") ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") effect("aHR") reflabel("Ref. group") ///
         frame(hrc_reflab, replace)
 
     assert "`r(rateframe)'" == "hrc_rates"
@@ -195,8 +222,8 @@ capture frame drop hrc_reflab
 local ++test_count
 capture noisily {
     capture frame drop hrc_final2
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rownames("treated" \ "1 2") ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rownames("treated" \ "1 2") outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_final2, replace)
     assert r(N_modelrows) == 3
     frame hrc_final2 {
@@ -222,8 +249,8 @@ capture frame drop hrc_final2
 local ++test_count
 capture noisily {
     capture frame drop hrc_final2b
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rown("treated" \ "1 2") ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rown("treated" \ "1 2") outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_final2b, replace)
     assert r(N_modelrows) == 3
     capture frame drop hrc_final2b
@@ -239,7 +266,140 @@ else {
 capture frame drop hrc_final2b
 
 * -------------------------------------------------------------------------
-* 3. Ambiguous mixed layouts are rejected
+* 3. Reversed model blocks align to rate outcomes by explicit identity
+* -------------------------------------------------------------------------
+local ++test_count
+frame hrc_bin: local _want_o1 = strtrim(c1[4] + " " + c2[4])
+frame hrc_bin: local _want_o2 = strtrim(c4[4] + " " + c5[4])
+capture noisily {
+    capture frame drop hrc_reversed
+    hrcomptab hrc_rates, modelframes(hrc_bin_rev hrc_dose) ///
+        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+        frame(hrc_reversed, replace)
+    frame hrc_reversed: assert c5[6] == `"`_want_o1'"'
+    frame hrc_reversed: assert c10[6] == `"`_want_o2'"'
+    frame hrc_reversed: assert c5[3] == "aHR (95% CI)"
+    assert r(ci_level) == 95
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab aligns reversed model blocks and CI provenance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab reversed-model alignment (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_reversed
+
+* -------------------------------------------------------------------------
+* 3b. Ambiguous analytical outcome IDs require mapping; hostile provenance fails
+* -------------------------------------------------------------------------
+local ++test_count
+capture frame drop hrc_by_id
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) frame(hrc_by_id, replace)
+local _hrc_by_id_rc = _rc
+capture frame drop hrc_bad_ci
+capture frame drop hrc_bad_scale
+capture frame drop hrc_bad_stats
+frame copy hrc_bin hrc_bad_ci
+frame copy hrc_bin hrc_bad_scale
+frame copy hrc_bin hrc_bad_stats
+frame hrc_bad_ci: char _dta[tabtools_ci_level] "90"
+frame hrc_bad_scale: char _dta[tabtools_effect_scale_1] "OR"
+frame hrc_bad_stats: char _dta[tabtools_statistic_ids] "ci estimate pvalue"
+frame hrc_bin: quietly datasignature
+local _hrc_bin_sig `"`r(datasignature)'"'
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bad_ci hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2")
+local _hrc_bad_ci_rc = _rc
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bad_scale hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2")
+local _hrc_bad_scale_rc = _rc
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bad_stats hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2")
+local _hrc_bad_stats_rc = _rc
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 1")
+local _hrc_duplicate_map_rc = _rc
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Unknown" \ "Outcome 2")
+local _hrc_unknown_map_rc = _rc
+capture noisily {
+    assert `_hrc_by_id_rc' == 198
+    assert `_hrc_bad_ci_rc' == 198
+    assert `_hrc_bad_scale_rc' == 198
+    assert inlist(`_hrc_bad_stats_rc', 198, 459)
+    assert `_hrc_duplicate_map_rc' == 198
+    assert `_hrc_unknown_map_rc' == 198
+    frame hrc_rates: local _hrc_id1 : char _dta[tabtools_outcome_id_1]
+    frame hrc_rates: local _hrc_id2 : char _dta[tabtools_outcome_id_2]
+    assert "`_hrc_id1'" == "t1"
+    assert "`_hrc_id2'" == "t2"
+    frame hrc_bin: quietly datasignature
+    assert `"`r(datasignature)'"' == `"`_hrc_bin_sig'"'
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab enforces outcome, CI, statistic, and HR-scale provenance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab provenance adversaries (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_by_id
+capture frame drop hrc_bad_ci
+capture frame drop hrc_bad_scale
+capture frame drop hrc_bad_stats
+
+* -------------------------------------------------------------------------
+* 4. Complete frame graph and post-stage rollback preserve every frame
+* -------------------------------------------------------------------------
+local ++test_count
+capture frame drop hrc_tx_display
+capture frame drop hrc_tx_plot
+frame create hrc_tx_display
+frame hrc_tx_display: set obs 1
+frame hrc_tx_display: generate str20 sentinel = "display-old"
+frame create hrc_tx_plot
+frame hrc_tx_plot: set obs 1
+frame hrc_tx_plot: generate str20 sentinel = "plot-old"
+frame hrc_rates: quietly datasignature
+local _hrc_rate_sig `"`r(datasignature)'"'
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+    frame(hrc_rates, replace)
+local _hrc_source_alias_rc = _rc
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+    eplotframe(hrc_bin_plot, replace)
+local _hrc_companion_alias_rc = _rc
+global TABTOOLS_QA_HRC_STAGE_FAIL 1
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+    rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
+    frame(hrc_tx_display, replace) eplotframe(hrc_tx_plot, replace)
+local _hrc_stage_rc = _rc
+global TABTOOLS_QA_HRC_STAGE_FAIL
+capture noisily {
+    assert `_hrc_source_alias_rc' == 198
+    assert `_hrc_companion_alias_rc' == 198
+    assert `_hrc_stage_rc' == 459
+    frame hrc_rates: quietly datasignature
+    assert `"`r(datasignature)'"' == `"`_hrc_rate_sig'"'
+    frame hrc_tx_display: assert sentinel[1] == "display-old"
+    frame hrc_tx_plot: assert sentinel[1] == "plot-old"
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab frame graph and post-stage rollback are non-destructive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab frame transaction (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
+* 5. Ambiguous mixed layouts are rejected
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_cmp3) ///
@@ -263,8 +423,9 @@ capture noisily {
     local styles "`output_dir'/test_hrcomptab_apa_styles.xml"
     capture erase "`xlsx'"
     capture erase "`styles'"
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) ///
+	        outcomemap("Outcome 1" \ "Outcome 2") ///
         xlsx("`xlsx'") sheet("APA") theme(apa)
     confirm file "`xlsx'"
     shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
@@ -295,8 +456,9 @@ capture noisily {
     local styles "`output_dir'/test_hrcomptab_defaults_styles.xml"
     capture erase "`xlsx'"
     capture erase "`styles'"
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) ///
+	        outcomemap("Outcome 1" \ "Outcome 2") ///
         excel("`xlsx'") sheet("Defaults")
     confirm file "`xlsx'"
     shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
@@ -328,8 +490,8 @@ capture noisily {
     capture log close _preview_off
     log using "`preview_log'", replace text name(_preview_off)
     capture frame drop hrc_nodisplay
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_nodisplay, replace)
     log close _preview_off
     local preview_text ""
@@ -365,8 +527,8 @@ capture noisily {
     capture log close _preview_on
     log using "`preview_log'", replace text name(_preview_on)
     capture frame drop hrc_display
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
+	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+	        rows(1 \ 3/4) outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_display, replace)
     log close _preview_on
     local preview_text ""
@@ -417,21 +579,23 @@ capture noisily {
 
     * Build minimal regtab frame
     clear
-    set obs 30
-    set seed 20260427
-    gen byte treated = mod(_n, 2)
-    gen double y = 10 + 2 * treated + rnormal()
-    collect clear
-    collect: regress y treated
-    capture frame drop _hrc_mf
-    regtab, frame(_hrc_mf) noint
+	    set obs 120
+	    set seed 20260427
+	    gen byte treated = mod(_n, 2)
+	    gen double time = 1 + 10 * runiform() * exp(-0.30 * treated)
+	    gen byte failed = mod(_n, 4) != 0
+	    stset time, failure(failed)
+	    collect clear
+	    collect: stcox treated, nolog
+	    capture frame drop _hrc_mf
+	    regtab, models("Event") frame(_hrc_mf) noint
 
     * Run hrcomptab with xlsx and capture output to a file
     clear
     local hrclog_path "`output_dir'/_rev1013_hrc_check"
     capture log close _hrccheck
     log using "`hrclog_path'", replace text name(_hrccheck)
-    hrcomptab _hrc_rf, modelframes(_hrc_mf) rows(1) ///
+	    hrcomptab _hrc_rf, modelframes(_hrc_mf) rows(1) outcomemap(Event) ///
         xlsx("`output_dir'/_rev1013_hrcomptab.xlsx") ///
         sheet("Test")
     log close _hrccheck
@@ -493,12 +657,12 @@ capture noisily {
     collect clear
     collect: stcox i.agecat, nolog
     capture frame drop _reg_test
- regtab, frame(_reg_test) coef(HR)
+ regtab, models("Event") frame(_reg_test) coef(HR)
 
     * hrcomptab with rownames — "55" should match "55-64" in regtab
     capture frame drop _hrc_test
     hrcomptab _str_test, modelframes(_reg_test) ///
- rownames(55) frame(_hrc_test)
+	 rownames(55) outcomemap(Event) frame(_hrc_test)
 
     frame _hrc_test {
         assert _N > 3
@@ -536,10 +700,10 @@ capture noisily {
     collect clear
     collect: stcox i.agecat, nolog
     capture frame drop _reg_test2
- regtab, frame(_reg_test2) coef(HR)
+ regtab, models("Event") frame(_reg_test2) coef(HR)
 
-    capture hrcomptab _str_test2, modelframes(_reg_test2) ///
- rownames(NONEXISTENT_PATTERN)
+	    capture hrcomptab _str_test2, modelframes(_reg_test2) ///
+	 rownames(NONEXISTENT_PATTERN) outcomemap(Event)
     assert _rc == 198
 }
 if _rc == 0 {

@@ -18,6 +18,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local pkg_root "`pkg_dir'"
 local output_dir "`qa_dir'/output"
+if "$TABTOOLS_QA_OUTPUT_DIR" != "" local output_dir "$TABTOOLS_QA_OUTPUT_DIR"
 capture mkdir "`output_dir'"
 local tools_dir "`qa_dir'/tools"
 local checker "`tools_dir'/check_xlsx.py"
@@ -1076,8 +1077,14 @@ version 16.0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local repo_root = subinstr("`pkg_dir'", "/tabtools", "", 1)
-local demo_dir "`pkg_dir'/demo"
+local tracked_demo_dir "`pkg_dir'/demo"
 local old_pwd "`c(pwd)'"
+tempname _demo_stage_id
+local _demo_stage_tag = subinstr("`_demo_stage_id'", "__", "", .)
+local demo_stage_root "`c(tmpdir)'/tabtools_demo_release_`_demo_stage_tag'"
+local demo_stage_pkg "`demo_stage_root'/tabtools"
+local demo_dir "`demo_stage_pkg'/demo"
+local demo_compare "`qa_dir'/tools/compare_demo_tree.py"
 
 local skip_count = 0
 local failed_tests ""
@@ -1088,12 +1095,32 @@ capture confirm file "`repo_root'/tc_schemes/stata.toc"
 local has_scheme = (_rc == 0)
 
 if !`has_data' | !`has_scheme' {
-    display as text "  SKIP: repo-only demo assets not available"
-    local ++skip_count
+    display as error "  FAIL: required repo-only demo assets are not available"
+    local ++fail_count
+    local failed_tests "`failed_tests' demo_prerequisites"
 }
 else {
+    capture noisily {
+        shell rm -rf "`demo_stage_root'"
+        shell mkdir -p "`demo_stage_pkg'"
+        shell rsync -a --exclude 'qa/output/' --exclude '*.log' --exclude '*.smcl' ///
+            "`pkg_dir'/" "`demo_stage_pkg'/"
+        shell ln -s "`repo_root'/_data" "`demo_stage_root'/_data"
+        shell ln -s "`repo_root'/tc_schemes" "`demo_stage_root'/tc_schemes"
+        confirm file "`demo_dir'/demo_tabtools.do"
+        confirm file "`demo_stage_root'/_data/cohort.dta"
+        confirm file "`demo_stage_root'/tc_schemes/stata.toc"
+    }
+    local demo_stage_rc = _rc
+    if `demo_stage_rc' {
+        display as error "  FAIL: demo staging copy could not be created (rc=`demo_stage_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' demo_stage"
+    }
+
     **# Run Demo
     capture noisily {
+        assert `demo_stage_rc' == 0
         cd "`demo_dir'"
         do "demo_tabtools.do"
         cd "`old_pwd'"
@@ -1177,6 +1204,15 @@ else {
         file read `readmefh' readme_line
         assert r(eof) == 0
         file close `readmefh'
+
+        tempfile demo_compare_status
+        shell python3 "`demo_compare'" "`tracked_demo_dir'" "`demo_dir'" ///
+            --status-file "`demo_compare_status'"
+        tempname democmpfh
+        file open `democmpfh' using "`demo_compare_status'", read text
+        file read `democmpfh' demo_compare_line
+        file close `democmpfh'
+        assert strpos(`"`demo_compare_line'"', "PASS 15 workbooks") == 1
     }
     if _rc == 0 {
         display as result "  PASS: demo workbooks are readable, width-fit, and free of release text anomalies"
@@ -1188,6 +1224,8 @@ else {
         local failed_tests "`failed_tests' demo_artifacts"
     }
 }
+capture cd "`old_pwd'"
+capture shell rm -rf "`demo_stage_root'"
 
 
 **# Migrated: golden-output baseline digests

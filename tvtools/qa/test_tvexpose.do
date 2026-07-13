@@ -785,11 +785,8 @@ else {
 * TEST 7: dose + dosecuts category boundaries
 * 1 person Jan1-Dec31. Single Rx Jan1-Apr10 (100 days), dose_val=50.
 * dosecuts(10 25 50): creates categories based on cumulative dose
-* dose assigns a SINGLE cumulative category to the entire exposure period
-* based on the total accumulated dose, not splitting at boundaries.
-* Total dose = 50. With cuts at 10, 25, 50: category is "50+" (the highest).
-* The entire follow-up becomes 1 row with the final cumulative category.
-* Expected: 1 row covering [Jan1,Dec31] with the highest dose category.
+* Cumulative dose is measured at row start. The prescription row therefore
+* has history 0, and the post-prescription row has history 50 (the highest bin).
 
 display "TEST 7: dose + dosecuts category boundaries"
 local test7_pass = 1
@@ -825,6 +822,9 @@ if _rc != 0 {
     local test7_pass = 0
 }
 else {
+    local total_time = r(total_time)
+    local exposed_time = r(exposed_time)
+    local unexposed_time = r(unexposed_time)
     sort id start
 
     * Person-time
@@ -839,33 +839,38 @@ else {
         local test7_pass = 0
     }
 
-    * dose assigns a single category: the highest cumulative dose category
-    * With total dose=50 and dosecuts(10 25 50), category should be the "50+" bin
+    * The source interval and post-source history must remain distinct.
     quietly count
+    if r(N) == 2 {
+        display as result "  PASS [7.rows]: 2 non-anticipating history rows"
+    }
+    else {
+        display as error "  FAIL [7.rows]: `=r(N)' rows, expected 2"
+        local test7_pass = 0
+    }
+
+    quietly count if start == mdy(1,1,2020) & ///
+        stop == mdy(4,10,2020) & dose_cat == 0
     if r(N) == 1 {
-        display as result "  PASS [7.rows]: 1 row (single cumulative category)"
+        display as result "  PASS [7.source]: source row has start-history 0"
     }
     else {
-        display as error "  FAIL [7.rows]: `=r(N)' rows, expected 1"
+        display as error "  FAIL [7.source]: exact source row/history not found"
         local test7_pass = 0
     }
 
-    * The highest dose category should exist (numeric value for "50+")
-    * dose_cat is a labeled variable; check that it's not 0 (unexposed)
-    if dose_cat[1] != 0 {
-        display as result "  PASS [7.cat_nonzero]: dose category is exposed (dose_cat=`=dose_cat[1]')"
+    quietly count if start == mdy(4,11,2020) & ///
+        stop == mdy(12,31,2020) & dose_cat == 4
+    if r(N) == 1 {
+        display as result "  PASS [7.post]: post-source history is in the 50+ bin"
     }
     else {
-        display as error "  FAIL [7.cat_nonzero]: dose_cat=0 (unexposed)"
+        display as error "  FAIL [7.post]: exact post-source history row not found"
         local test7_pass = 0
     }
 
-    * Verify the row covers full study period
-    if start[1] == mdy(1,1,2020) & stop[1] == mdy(12,31,2020) {
-        display as result "  PASS [7.coverage]: covers full study period [Jan1,Dec31]"
-    }
-    else {
-        display as error "  FAIL [7.coverage]: start=`=string(start[1],"%td")', stop=`=string(stop[1],"%td")'"
+    if `total_time' != 366 | `exposed_time' != 101 | `unexposed_time' != 265 {
+        display as error "  FAIL [7.returns]: total=`total_time', exposed=`exposed_time', unexposed=`unexposed_time'"
         local test7_pass = 0
     }
 }
@@ -2015,12 +2020,8 @@ else {
 * TEST 22: Recency boundary cutpoint precision
 * 1 person Jan1-Dec31. Drug 1 Mar1-Mar31 (31 days).
 * recency(30 90): cutpoints in DAYS
-* Actual tvexpose behavior: recency produces 3 categories:
-*   0 = never exposed (pre-exposure)
-*   1 = currently exposed
-*   2 = formerly exposed (all post-exposure time in one category)
-* The cutpoints do not create separate post-exposure sub-categories.
-* Expected: 3 rows [Jan1,Feb29]=0, [Mar1,Mar31]=1, [Apr1,Dec31]=2
+* Expected: pre-exposure, current exposure, <30 days, 30-<90 days,
+* and an open-ended 90+ days category, each split at its exact boundary.
 
 display "TEST 22: Recency boundary cutpoint precision"
 local test22_pass = 1
@@ -2049,7 +2050,7 @@ capture noisily tvexpose using `exp22', ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    recency(30 90) generate(rec_cat)
+    recency(30 90) recencyunit(days) generate(rec_cat)
 
 if _rc != 0 {
     display as error "  FAIL [22.run]: error `=_rc'"
@@ -2090,23 +2091,41 @@ else {
         local test22_pass = 0
     }
 
-    * Post-exposure category 2 (formerly exposed) should exist
-    quietly count if rec_cat == 2
-    if r(N) >= 1 {
-        display as result "  PASS [22.cat2]: recency category 2 (formerly exposed) exists"
+    * Exact post-exposure boundary rows should exist.
+    quietly count if start == mdy(4,1,2020) & stop == mdy(4,29,2020) & rec_cat == 2
+    if r(N) == 1 {
+        display as result "  PASS [22.cat2]: <30-day recency boundary is exact"
     }
     else {
-        display as error "  FAIL [22.cat2]: recency category 2 not found"
+        display as error "  FAIL [22.cat2]: exact <30-day recency row not found"
         local test22_pass = 0
     }
 
-    * Should have exactly 3 rows total
-    quietly count
-    if r(N) == 3 {
-        display as result "  PASS [22.rows]: 3 rows (never, current, former)"
+    quietly count if start == mdy(4,30,2020) & stop == mdy(6,28,2020) & rec_cat == 3
+    if r(N) == 1 {
+        display as result "  PASS [22.cat3]: 30-<90-day recency boundary is exact"
     }
     else {
-        display as error "  FAIL [22.rows]: `=r(N)' rows, expected 3"
+        display as error "  FAIL [22.cat3]: exact 30-<90-day recency row not found"
+        local test22_pass = 0
+    }
+
+    quietly count if start == mdy(6,29,2020) & stop == mdy(12,31,2020) & rec_cat == 4
+    if r(N) == 1 {
+        display as result "  PASS [22.cat4]: open-ended 90+ recency tail exists"
+    }
+    else {
+        display as error "  FAIL [22.cat4]: exact open-ended recency tail not found"
+        local test22_pass = 0
+    }
+
+    * Should have exactly 5 rows total
+    quietly count
+    if r(N) == 5 {
+        display as result "  PASS [22.rows]: 5 exact recency rows"
+    }
+    else {
+        display as error "  FAIL [22.rows]: `=r(N)' rows, expected 5"
         local test22_pass = 0
     }
 }
@@ -2154,7 +2173,7 @@ capture noisily tvexpose using `exp23', ///
     id(id) start(start) stop(stop) ///
     exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    recency(30 90) bytype generate(rec)
+    recency(30 90) recencyunit(days) bytype generate(rec)
 
 if _rc != 0 {
     display as error "  FAIL [23.run]: error `=_rc'"
@@ -3261,4 +3280,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

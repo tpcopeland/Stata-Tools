@@ -19,9 +19,10 @@ set more off
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
+local scratch_dir "`c(tmpdir)'/setools_minres_`c(processid)'"
+capture mkdir "`scratch_dir'"
 
-capture ado uninstall setools
-net install setools, from("`pkg_dir'")
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 global passed = 0
 global failed = 0
@@ -335,12 +336,12 @@ tempfile r9_mig
 save `r9_mig'
 
 use `r9_cohort', clear
-migrations, migfile("`r9_mig'") minresidence(365) saveexclude("`qa_dir'/data/_test_minres_r9_excl.dta") replace
+migrations, migfile("`r9_mig'") minresidence(365) saveexclude("`scratch_dir'/_test_minres_r9_excl.dta") replace
 local r9_minres = r(N_excluded_minresidence)
 qui count if id == 1
 local r9_present = r(N)
 preserve
-use "`qa_dir'/data/_test_minres_r9_excl.dta", clear
+use "`scratch_dir'/_test_minres_r9_excl.dta", clear
 local r9_reason = (_N == 1 & id[1] == 1 & exclude_reason[1] == "Insufficient residence before study start (365 days required)")
 restore
 local t = (`r9_present' == 0 & `r9_minres' == 1 & `r9_reason')
@@ -352,6 +353,8 @@ display _newline "=== MINRESIDENCE TEST SUMMARY ==="
 display "Passed: $passed"
 display "Failed: $failed"
 display "Total:  " $passed + $failed
+display "RESULT: test_migrations_minresidence tests=" $passed + $failed ///
+    " pass=" $passed " fail=" $failed
 
 if $failed > 0 {
     display as error _newline "FAILED: $failed test(s) failed"
@@ -361,4 +364,7 @@ else {
     display as result _newline "ALL TESTS PASSED"
 }
 
-capture erase "`qa_dir'/data/_test_minres_r9_excl.dta"
+capture erase "`scratch_dir'/_test_minres_r9_excl.dta"
+shell /bin/rm -rf -- "`scratch_dir'"
+
+do "`qa_dir'/_setools_qa_common.do" teardown

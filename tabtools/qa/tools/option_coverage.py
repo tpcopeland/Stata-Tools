@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-command OPTION coverage for tabtools.
 
-Self-contained (no external deps, no Stata-Dev CLI): it parses each public
+Self-contained (no external deps, no devkit CLI): it parses each public
 command's `.ado` syntax block to recover the option surface, then scans
 qa/*.do for REAL invocations of each command and checks which of *that
 command's* options appear in the option-portion (after the first comma).

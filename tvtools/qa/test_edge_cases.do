@@ -484,7 +484,7 @@ gen death_date  = study_entry + int(runiform() * (study_exit - study_entry)) if 
 gen age = 40 + int(runiform() * 20)
 gen sex = (runiform() > 0.5)
 format study_entry study_exit event_date death_date %td
-save "/tmp/sec_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/sec_cohort.dta", replace
 
 * Exposure dataset (multiple drugs per person)
 * Use "start"/"stop" as variable names so tvexpose output uses these names too
@@ -497,19 +497,19 @@ gen stop  = start + 30 + int(runiform() * 90)
 gen drug_type = 1 + int(runiform() * 2)  // drug 1 or 2
 gen dose_amt = 100 + int(runiform() * 100)
 format start stop %td
-save "/tmp/sec_exposure.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/sec_exposure.dta", replace
 
 * Create time-varying exposure dataset (using tvexpose)
 * tvexpose renames output time vars to match the start()/stop() option names
 * So using start(start)/stop(stop) preserves "start" and "stop" variable names
-use "/tmp/sec_cohort.dta", clear
-capture noisily tvexpose using "/tmp/sec_exposure.dta", ///
+use "$TVTOOLS_QA_RUN_DIR/sec_cohort.dta", clear
+capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/sec_exposure.dta", ///
     id(id) start(start) stop(stop) ///
     exposure(drug_type) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(tv_exp)
 if _rc == 0 {
-    save "/tmp/sec_tve.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/sec_tve.dta", replace
     display as result "  PASS [setup.tvexpose]: time-varying dataset created (`=_N' rows)"
 }
 

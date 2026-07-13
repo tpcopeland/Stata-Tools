@@ -38,8 +38,7 @@ set more off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall setools
-net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 global passed = 0
 global failed = 0
@@ -66,7 +65,8 @@ end
 * Person 4: emigrated during study → censored
 * Person 5: temp emigration + return, then permanent → censored at permanent
 
-local data_dir "`qa_dir'/data"
+local data_dir "`c(tmpdir)'/setools_keepimm_`c(processid)'"
+capture mkdir "`data_dir'"
 
 * 21185 = td(01jan2018)
 clear
@@ -176,11 +176,11 @@ run_test "K7: final sample +1 with keepimmigrants (4 vs 3)" `t'
 **# K8: Summary displays "Included" (log inspection)
 
 use `master5', clear
-log using "`qa_dir'/_test_keepimm_log.log", text replace
+log using "`data_dir'/_test_keepimm_log.log", text replace
 migrations, migfile("`mig5'") keepimmigrants
 log close
 * Read log for "Included"
-capture file open fh using "`qa_dir'/_test_keepimm_log.log", read text
+capture file open fh using "`data_dir'/_test_keepimm_log.log", read text
 local found_included = 0
 if _rc == 0 {
     file read fh line
@@ -192,7 +192,7 @@ if _rc == 0 {
     }
     file close fh
 }
-capture erase "`qa_dir'/_test_keepimm_log.log"
+capture erase "`data_dir'/_test_keepimm_log.log"
 local t = (`found_included' == 1)
 run_test "K8: summary shows 'Included' line with keepimmigrants" `t'
 
@@ -259,8 +259,8 @@ save `k12_cohort'
 
 use `k12_cohort', clear
 capture noisily migrations, migfile("`mig5'") keepimmigrants ///
-    saveexclude("`qa_dir'/data/_test_keepimm_nomatch_excl.dta") ///
-    savecensor("`qa_dir'/data/_test_keepimm_nomatch_cens.dta") replace
+    saveexclude("`data_dir'/_test_keepimm_nomatch_excl.dta") ///
+    savecensor("`data_dir'/_test_keepimm_nomatch_cens.dta") replace
 local k12_rc = _rc
 * Both date vars should exist
 capture confirm variable migration_out_dt
@@ -268,7 +268,7 @@ local k12_out = (_rc == 0)
 capture confirm variable migration_in_dt
 local k12_in = (_rc == 0)
 preserve
-use "`qa_dir'/data/_test_keepimm_nomatch_excl.dta", clear
+use "`data_dir'/_test_keepimm_nomatch_excl.dta", clear
 capture confirm variable id
 local k12_excl_id = (_rc == 0)
 capture confirm variable exclude_reason
@@ -276,7 +276,7 @@ local k12_excl_reason = (_rc == 0)
 local k12_excl_empty = (_N == 0)
 restore
 preserve
-use "`qa_dir'/data/_test_keepimm_nomatch_cens.dta", clear
+use "`data_dir'/_test_keepimm_nomatch_cens.dta", clear
 capture confirm variable id
 local k12_cens_id = (_rc == 0)
 capture confirm variable migration_out_dt
@@ -293,10 +293,10 @@ run_test "K12: no cohort match creates empty saveexclude/savecensor outputs" `t'
 
 use `master5', clear
 migrations, migfile("`mig5'") keepimmigrants ///
-    saveexclude("`qa_dir'/data/_test_keepimm_excl.dta") replace
+    saveexclude("`data_dir'/_test_keepimm_excl.dta") replace
 * Load exclusion file and check person 3 (Type 2) is NOT there
 preserve
-use "`qa_dir'/data/_test_keepimm_excl.dta", clear
+use "`data_dir'/_test_keepimm_excl.dta", clear
 qui count if id == 3
 local k13_p3 = r(N)
 qui count
@@ -313,9 +313,9 @@ run_test "K13: saveexclude keeps exact Type 1 row only with keepimmigrants" `t'
 
 use `master5', clear
 migrations, migfile("`mig5'") keepimmigrants ///
-    savecensor("`qa_dir'/data/_test_keepimm_cens.dta") replace
+    savecensor("`data_dir'/_test_keepimm_cens.dta") replace
 preserve
-use "`qa_dir'/data/_test_keepimm_cens.dta", clear
+use "`data_dir'/_test_keepimm_cens.dta", clear
 capture confirm variable id
 local k14_id = (_rc == 0)
 capture confirm variable migration_out_dt
@@ -627,10 +627,11 @@ run_test "K27c: only true Type 2 immigrant is included" `t3'
 
 
 * === Cleanup ===
-capture erase "`qa_dir'/data/_test_keepimm_excl.dta"
-capture erase "`qa_dir'/data/_test_keepimm_cens.dta"
-capture erase "`qa_dir'/data/_test_keepimm_nomatch_excl.dta"
-capture erase "`qa_dir'/data/_test_keepimm_nomatch_cens.dta"
+capture erase "`data_dir'/_test_keepimm_excl.dta"
+capture erase "`data_dir'/_test_keepimm_cens.dta"
+capture erase "`data_dir'/_test_keepimm_nomatch_excl.dta"
+capture erase "`data_dir'/_test_keepimm_nomatch_cens.dta"
+shell /bin/rm -rf -- "`data_dir'"
 
 
 * === SUMMARY ===
@@ -638,6 +639,8 @@ display _newline "=== KEEPIMMIGRANTS TEST SUMMARY ==="
 display "Passed: $passed"
 display "Failed: $failed"
 display "Total:  " $passed + $failed
+display "RESULT: test_migrations_keepimmigrants tests=" $passed + $failed ///
+    " pass=" $passed " fail=" $failed
 
 if $failed > 0 {
     display as error _newline "FAILED: $failed test(s) failed"
@@ -646,3 +649,5 @@ if $failed > 0 {
 else {
     display as result _newline "ALL TESTS PASSED"
 }
+
+do "`qa_dir'/_setools_qa_common.do" teardown

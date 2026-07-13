@@ -12,9 +12,11 @@
 *! All three must emit the identical set of (master_obs, using_obs) pairs.
 
 clear all
-set more off
 set varabbrev off
 version 16.0
+
+capture log close _all
+quietly log using "test_tvm_overlap_drift_guard.log", replace nomsg
 
 * --- bootstrap: tvtools into a sandboxed PLUS, plus rangematch (the co-engine) ---
 do "`c(pwd)'/_tvtools_qa_common.do"
@@ -35,7 +37,10 @@ quietly net install rangematch, from("`rm_dir'") replace
 findfile _tvmerge_mata.ado
 run "`r(fn)'"
 
-local FAIL 0
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
+local failed_tests ""
 tempfile MAS USG ORACLE TVMOUT RMOUT
 
 * ---------------------------------------------------------------------------
@@ -125,43 +130,53 @@ save "`RMOUT'", replace
 quietly count
 local n_rm = r(N)
 
-* ---------------------------------------------------------------------------
-* Compare all three pair sets.
-* ---------------------------------------------------------------------------
+**# Compare all three pair sets
 display as text "oracle pairs=`n_oracle'  tvm pairs=`n_tvm'  rm pairs=`n_rm'"
 
-if `n_tvm' != `n_oracle' {
+local ++test_count
+if `n_tvm' == `n_oracle' local ++pass_count
+else {
     display as error "DRIFT: tvm pair count `n_tvm' != oracle `n_oracle'"
-    local ++FAIL
+    local ++fail_count
+    local failed_tests "`failed_tests' tvm_count"
 }
+
+local ++test_count
+use "`TVMOUT'", clear
+capture cf _all using "`ORACLE'"
+if _rc == 0 local ++pass_count
 else {
-    use "`TVMOUT'", clear
-    capture cf _all using "`ORACLE'"
-    if _rc {
-        display as error "DRIFT: tvm pair SET != oracle (cf rc=`=_rc')"
-        local ++FAIL
-    }
+    display as error "DRIFT: tvm pair SET != oracle (cf rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tvm_set"
 }
-if `n_rm' != `n_oracle' {
+
+local ++test_count
+if `n_rm' == `n_oracle' local ++pass_count
+else {
     display as error "DRIFT: rangematch pair count `n_rm' != oracle `n_oracle'"
-    local ++FAIL
+    local ++fail_count
+    local failed_tests "`failed_tests' rm_count"
 }
+
+local ++test_count
+use "`RMOUT'", clear
+capture cf _all using "`ORACLE'"
+if _rc == 0 local ++pass_count
 else {
-    use "`RMOUT'", clear
-    capture cf _all using "`ORACLE'"
-    if _rc {
-        display as error "DRIFT: rangematch pair SET != oracle (cf rc=`=_rc')"
-        local ++FAIL
-    }
+    display as error "DRIFT: rangematch pair SET != oracle (cf rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' rm_set"
 }
 
 capture frame drop _dg_m
 capture frame drop _dg_u
 capture frame drop _dg_out
 
-display as text "{hline 60}"
-if `FAIL' > 0 {
-    display as error "test_tvm_overlap_drift_guard: FAILED (`FAIL')"
-    exit 9
+**# Summary
+display "RESULT: test_tvm_overlap_drift_guard tests=`test_count' pass=`pass_count' fail=`fail_count'"
+capture log close _all
+if `fail_count' > 0 {
+    display as error "drift-guard failures:`failed_tests'"
+    exit 1
 }
-display as result "test_tvm_overlap_drift_guard: PASSED (tvm == rangematch == oracle, `n_oracle' pairs)"

@@ -2529,7 +2529,7 @@ gen id = 1
 gen startA = mdy(1,1,2020)
 gen stopA  = mdy(6,30,2020)
 gen expA   = 1
-save "/tmp/tvm5a_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5a_dsetA.dta", replace
 
 clear
 set obs 1
@@ -2537,10 +2537,10 @@ gen id = 1
 gen startB = mdy(4,1,2020)
 gen stopB  = mdy(9,30,2020)
 gen expB   = 1
-save "/tmp/tvm5a_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5a_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm5a_dsetA.dta" "/tmp/tvm5a_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm5a_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm5a_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
     generate(exp_A exp_B)
 
@@ -2622,7 +2622,7 @@ gen id = 1
 gen startA = mdy(1,1,2020)
 gen stopA  = mdy(12,31,2020)
 gen rate_A = 366.0    // total dose units in period (approximately 1 per day)
-save "/tmp/tvm5b_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5b_dsetA.dta", replace
 
 clear
 set obs 1
@@ -2630,10 +2630,10 @@ gen id = 1
 gen startB = mdy(7,1,2020)
 gen stopB  = mdy(12,31,2020)
 gen expB   = 1
-save "/tmp/tvm5b_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5b_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm5b_dsetA.dta" "/tmp/tvm5b_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm5b_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm5b_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) exposure(rate_A expB) ///
     continuous(rate_A) generate(rate_A_out exp_B_out)
 
@@ -2696,7 +2696,7 @@ gen id = _n
 gen startA = mdy(1,1,2020) + (id-1)*30
 gen stopA  = startA + 180
 gen expA   = id
-save "/tmp/tvm5c_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5c_dsetA.dta", replace
 
 clear
 set obs 5
@@ -2704,10 +2704,10 @@ gen id = _n
 gen startB = mdy(1,1,2020) + (id-1)*20
 gen stopB  = startB + 200
 gen expB   = id * 10
-save "/tmp/tvm5c_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5c_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm5c_dsetA.dta" "/tmp/tvm5c_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm5c_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm5c_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
     generate(out_A out_B)
 
@@ -2780,7 +2780,7 @@ gen long id = _n
 gen double study_entry = mdy(1,1,2020)
 gen double study_exit  = mdy(12,31,2021)
 format study_entry study_exit %td
-save "/tmp/tvm_cohort.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm_cohort.dta", replace
 
 * TEST 1: 3-DATASET MERGE (AGE + DMT + HRT)
 display "TEST 1: 3-dataset merge (age + DMT + HRT)"
@@ -2798,7 +2798,7 @@ replace stopA = mdy(12,31,2021) if mod(_n,2) == 0
 gen byte age_cat = 1 if mod(_n,2) == 1
 replace age_cat = 2 if mod(_n,2) == 0
 format startA stopA %td
-save "/tmp/tvm1_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta", replace
 
 * Dataset B: DMT exposure (all 5 persons, 3 intervals each)
 clear
@@ -2809,7 +2809,7 @@ gen double stopB  = startB + 242
 replace stopB = mdy(12,31,2021) if stopB > mdy(12,31,2021)
 gen byte dmt = mod(_n, 3)
 format startB stopB %td
-save "/tmp/tvm1_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta", replace
 
 * Dataset C: HRT exposure (all 5 persons, 2 intervals each)
 clear
@@ -2821,10 +2821,10 @@ gen double stopC = mdy(6,30,2020) if mod(_n,2) == 1
 replace stopC = mdy(12,31,2021) if mod(_n,2) == 0
 gen byte hrt = mod(_n, 2)
 format startC stopC %td
-save "/tmp/tvm1_dsetC.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm1_dsetC.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm1_dsetA.dta" "/tmp/tvm1_dsetB.dta" "/tmp/tvm1_dsetC.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetC.dta", ///
     id(id) start(startA startB startC) stop(stopA stopB stopC) ///
     exposure(age_cat dmt hrt) generate(age_out dmt_out hrt_out)
 
@@ -2917,7 +2917,7 @@ gen byte vaginal = 0
 replace vaginal = 1 in 2
 replace vaginal = 1 in 4
 format startD stopD %td
-save "/tmp/tvm2_dsetD.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm2_dsetD.dta", replace
 
 * Dataset E: IUD (5 persons, 1 interval each)
 clear
@@ -2929,11 +2929,11 @@ gen byte iud = 0
 replace iud = 1 in 3
 replace iud = 1 in 5
 format startE stopE %td
-save "/tmp/tvm2_dsetE.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm2_dsetE.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm1_dsetA.dta" "/tmp/tvm1_dsetB.dta" "/tmp/tvm1_dsetC.dta" ///
-    "/tmp/tvm2_dsetD.dta" "/tmp/tvm2_dsetE.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetC.dta" ///
+    "$TVTOOLS_QA_RUN_DIR/tvm2_dsetD.dta" "$TVTOOLS_QA_RUN_DIR/tvm2_dsetE.dta", ///
     id(id) start(startA startB startC startD startE) ///
     stop(stopA stopB stopC stopD stopE) ///
     exposure(age_cat dmt hrt vaginal iud) ///
@@ -3011,7 +3011,7 @@ local test3_pass = 1
 
 * Merge with batch(5)
 capture noisily tvmerge ///
-    "/tmp/tvm1_dsetA.dta" "/tmp/tvm1_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(age_cat dmt) generate(age_b5 dmt_b5) batch(5)
 
@@ -3021,12 +3021,12 @@ if _rc != 0 {
 }
 else {
     sort id start
-    save "/tmp/tvm3_batch5.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/tvm3_batch5.dta", replace
 }
 
 * Merge with batch(100)
 capture noisily tvmerge ///
-    "/tmp/tvm1_dsetA.dta" "/tmp/tvm1_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(age_cat dmt) generate(age_b100 dmt_b100) batch(100)
 
@@ -3036,16 +3036,16 @@ if _rc != 0 {
 }
 else {
     sort id start
-    save "/tmp/tvm3_batch100.dta", replace
+    save "$TVTOOLS_QA_RUN_DIR/tvm3_batch100.dta", replace
 }
 
 if `test3_pass' == 1 {
     * Compare the two outputs
-    use "/tmp/tvm3_batch5.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/tvm3_batch5.dta", clear
     quietly count
     local n_b5 = r(N)
 
-    use "/tmp/tvm3_batch100.dta", clear
+    use "$TVTOOLS_QA_RUN_DIR/tvm3_batch100.dta", clear
     quietly count
     local n_b100 = r(N)
 
@@ -3060,21 +3060,21 @@ if `test3_pass' == 1 {
     * Check values match by comparing sorted row-by-row
     if `test3_pass' == 1 {
         * Load batch100 and save key variables
-        use "/tmp/tvm3_batch100.dta", clear
+        use "$TVTOOLS_QA_RUN_DIR/tvm3_batch100.dta", clear
         sort id start stop
         rename age_b100 age_check
         rename dmt_b100 dmt_check
         gen long _rownum = _n
         keep id start stop age_check dmt_check _rownum
-        save "/tmp/tvm3_b100_compare.dta", replace
+        save "$TVTOOLS_QA_RUN_DIR/tvm3_b100_compare.dta", replace
 
         * Load batch5 and compare
-        use "/tmp/tvm3_batch5.dta", clear
+        use "$TVTOOLS_QA_RUN_DIR/tvm3_batch5.dta", clear
         sort id start stop
         gen long _rownum = _n
 
         * Merge on row number (both are sorted identically)
-        merge 1:1 _rownum using "/tmp/tvm3_b100_compare.dta", nogenerate
+        merge 1:1 _rownum using "$TVTOOLS_QA_RUN_DIR/tvm3_b100_compare.dta", nogenerate
         gen byte diff_age = (age_b5 != age_check)
         gen byte diff_dmt = (dmt_b5 != dmt_check)
         quietly count if diff_age == 1 | diff_dmt == 1
@@ -3085,7 +3085,7 @@ if `test3_pass' == 1 {
             display as error "  FAIL [3.values]: `=r(N)' rows differ between batch sizes"
             local test3_pass = 0
         }
-        capture erase "/tmp/tvm3_b100_compare.dta"
+        capture erase "$TVTOOLS_QA_RUN_DIR/tvm3_b100_compare.dta"
     }
 }
 
@@ -3112,7 +3112,7 @@ gen double startA = mdy(1,1,2020)
 gen double stopA  = mdy(12,31,2020)
 gen byte expA = 1
 format startA stopA %td
-save "/tmp/tvm4_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm4_dsetA.dta", replace
 
 * Dataset B: only persons 1-3 (persons 4,5 missing)
 clear
@@ -3122,11 +3122,11 @@ gen double startB = mdy(1,1,2020)
 gen double stopB  = mdy(12,31,2020)
 gen byte expB = 1
 format startB stopB %td
-save "/tmp/tvm4_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm4_dsetB.dta", replace
 
 * Should work with force option
 capture noisily tvmerge ///
-    "/tmp/tvm4_dsetA.dta" "/tmp/tvm4_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm4_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm4_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(expA expB) generate(out_A out_B) force
 
@@ -3194,7 +3194,7 @@ gen double stopA = mdy(12,31,2020) if mod(_n,2) == 1
 replace stopA = mdy(12,31,2021) if mod(_n,2) == 0
 gen byte expA = mod(_n, 2)
 format startA stopA %td
-save "/tmp/tvm5_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5_dsetA.dta", replace
 
 * Dataset B: 24 intervals per person (monthly) for persons 1-3
 clear
@@ -3210,10 +3210,10 @@ drop if startB >= mdy(12,31,2021)
 gen byte expB = mod(month_idx, 3)
 format startB stopB %td
 drop month_idx
-save "/tmp/tvm5_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm5_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm5_dsetA.dta" "/tmp/tvm5_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm5_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm5_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(expA expB) generate(out_A out_B)
 
@@ -3279,7 +3279,7 @@ gen double startA = mdy(1,1,2020)
 gen double stopA  = mdy(12,31,2020)
 gen double rate_A = 366.0
 format startA stopA %td
-save "/tmp/tvm6_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm6_dsetA.dta", replace
 
 * Dataset B: 1 person, 2 half-year intervals (categorical)
 clear
@@ -3292,10 +3292,10 @@ replace stopB = mdy(12,31,2020) in 2
 gen byte expB = 0 in 1
 replace expB = 1 in 2
 format startB stopB %td
-save "/tmp/tvm6_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm6_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm6_dsetA.dta" "/tmp/tvm6_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm6_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm6_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(rate_A expB) continuous(rate_A) generate(rate_out exp_out)
 
@@ -3359,7 +3359,7 @@ gen double stopA  = startA + 121
 replace stopA = mdy(12,31,2020) if _n == 3
 gen byte expA = _n
 format startA stopA %td
-save "/tmp/tvm7_dsetA.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm7_dsetA.dta", replace
 
 clear
 set obs 2
@@ -3371,10 +3371,10 @@ replace stopB = mdy(12,31,2020) in 2
 gen byte expB = 10 in 1
 replace expB = 20 in 2
 format startB stopB %td
-save "/tmp/tvm7_dsetB.dta", replace
+save "$TVTOOLS_QA_RUN_DIR/tvm7_dsetB.dta", replace
 
 capture noisily tvmerge ///
-    "/tmp/tvm7_dsetA.dta" "/tmp/tvm7_dsetB.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm7_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm7_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) ///
     exposure(expA expB) generate(out_A out_B)
 
@@ -3434,7 +3434,7 @@ local test8_pass = 1
 
 * Use the 3-dataset merge from test 1 and verify person-time
 capture noisily tvmerge ///
-    "/tmp/tvm1_dsetA.dta" "/tmp/tvm1_dsetB.dta" "/tmp/tvm1_dsetC.dta", ///
+    "$TVTOOLS_QA_RUN_DIR/tvm1_dsetA.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetB.dta" "$TVTOOLS_QA_RUN_DIR/tvm1_dsetC.dta", ///
     id(id) start(startA startB startC) stop(stopA stopB stopC) ///
     exposure(age_cat dmt hrt) generate(age_t8 dmt_t8 hrt_t8)
 

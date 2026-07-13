@@ -10,7 +10,7 @@ program define _tabtools_markdown_write, rclass
     local _fh_open = 0
     capture noisily {
         syntax using/ , [APPEND LABELVar(name) HEADERStart(integer 2) ///
-            DATAStart(integer 3) TITLE(string) FOOTnote(string) ///
+            DATAStart(integer 3) DATAEnd(integer -1) TITLE(string) FOOTnote(string) ///
             NOVARNAMES STRICTHeaders]
 
         capture _tabtools_helpers_ready
@@ -79,12 +79,12 @@ program define _tabtools_markdown_write, rclass
             if "`novarnames'" == "" & inrange(`headerstart', 1, _N) {
                 mata: st_local("_h`_j'", _tt_md_cell("`_v'", `headerstart'))
             }
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" {
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" {
                 local _vl : variable label `_v'
                 if `"`_vl'"' != "" local _h`_j' `"`_vl'"'
             }
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" local _h`_j' "`_v'"
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" local _h`_j' "Column `_j'"
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" local _h`_j' "`_v'"
+            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" local _h`_j' "Column `_j'"
             mata: st_local("_h`_j'", _tt_md_escape(st_local("_h`_j'")))
         }
 
@@ -117,21 +117,24 @@ program define _tabtools_markdown_write, rclass
 
         local _n_body = 0
         local _N = _N
-        forvalues _i = `datastart'/`_N' {
-            local _row_has_text = 0
-            forvalues _j = 1/`_k' {
-                local _v : word `_j' of `_vars'
-                mata: st_local("_cell`_j'", _tt_md_cell("`_v'", `_i'))
-                if `"`_cell`_j''"' != "" local _row_has_text = 1
-                mata: st_local("_cell`_j'", _tt_md_escape(st_local("_cell`_j'")))
-            }
-            if `_row_has_text' {
-                file write `_fh' "|"
+        local _body_end = cond(`dataend' < 0, `_N', min(`dataend', `_N'))
+        if `_body_end' >= `datastart' {
+            forvalues _i = `datastart'/`_body_end' {
+                local _row_has_text = 0
                 forvalues _j = 1/`_k' {
-                    file write `_fh' `" `_cell`_j'' |"'
+                    local _v : word `_j' of `_vars'
+                    mata: st_local("_cell`_j'", _tt_md_cell("`_v'", `_i'))
+                    if `"`_cell`_j''"' != "" local _row_has_text = 1
+                    mata: st_local("_cell`_j'", _tt_md_escape(st_local("_cell`_j'")))
                 }
-                file write `_fh' _n
-                local ++_n_body
+                if `_row_has_text' {
+                    file write `_fh' "|"
+                    forvalues _j = 1/`_k' {
+                        file write `_fh' `" `_cell`_j'' |"'
+                    }
+                    file write `_fh' _n
+                    local ++_n_body
+                }
             }
         }
 

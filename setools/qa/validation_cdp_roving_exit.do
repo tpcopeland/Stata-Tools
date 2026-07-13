@@ -3,7 +3,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "validation_cdp_roving_exit.log", replace nomsg
+log using "`c(tmpdir)'/validation_cdp_roving_exit_`c(processid)'.log", replace nomsg
 
 * validation_cdp_roving_exit.do
 * Known-answer coverage for the cdp EVENT-LEVEL exit() censoring branch
@@ -23,8 +23,7 @@ log using "validation_cdp_roving_exit.log", replace nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 capture program drop runval
 program define runval
@@ -124,3 +123,5 @@ if scalar(gs_nfail) > 0 {
 display as result "ALL TESTS PASSED"
 scalar drop gs_ntest gs_npass gs_nfail
 log close _all
+
+do "`qa_dir'/_setools_qa_common.do" teardown

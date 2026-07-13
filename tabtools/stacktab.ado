@@ -416,7 +416,8 @@ program define stacktab, rclass
                 }
                 local pair_str = strtrim(substr(`"`cm_piece'"', 1, `as_pos' - 1))
                 local hdr = strtrim(substr(`"`cm_piece'"', `as_pos' + 4, .))
-                local hdr = subinstr(`"`hdr'"', `"""', "", .)
+                _tabtools_strip_outer_quotes, text(`"`hdr'"')
+                local hdr `"`r(text)'"'
                 if `"`hdr'"' == "" {
                     display as error "stacktab: columnmerge() header may not be empty"
                     exit 198
@@ -492,6 +493,35 @@ program define stacktab, rclass
             list, noobs abbreviate(24)
         }
 
+        * Resolve the output worksheet and its full used range before mutating
+        * any optional frame/file sink. Excel worksheet names are
+        * case-insensitive, so retain the workbook's canonical spelling.
+        local existing_rows = 0
+        local export_title_row = 1
+        local export_start_row = 2
+        local export_start_col = 2
+        capture noisily _stacktab_xlsx_sheet_bounds using `"`using'"', ///
+            sheet(`"`sheet'"')
+        local _sheet_bounds_rc = _rc
+        if `_sheet_bounds_rc' == 0 {
+            local sheet `"`r(sheet)'"'
+            local existing_rows = r(rows)
+        }
+        else if `_sheet_bounds_rc' != 601 {
+            exit `_sheet_bounds_rc'
+        }
+
+        if "`append'" == "" & "`sheetreplace'" == "" & ///
+            `_sheet_bounds_rc' == 0 {
+            display as error `"stacktab: sheet "`sheet'" already exists; specify append or sheetreplace"'
+            exit 602
+        }
+        if "`append'" != "" & `_sheet_bounds_rc' == 0 & `existing_rows' > 0 {
+            local export_title_row = `existing_rows' + 1
+            local export_start_row = `existing_rows' + 1
+            if `"`title'"' != "" local export_start_row = `existing_rows' + 2
+        }
+
         * ================================================================
         * OPTIONAL DATASET OUTPUTS
         * ================================================================
@@ -542,46 +572,7 @@ program define stacktab, rclass
         * EXPORT TO SHEET
         * ================================================================
 
-        local existing_rows = 0
-        local export_title_row = 1
-        local export_start_row = 2
-        local export_start_col = 2
-        if "`append'" == "" & "`sheetreplace'" == "" {
-            capture _stacktab_xlsx_sheet_bounds using `"`using'"', ///
-                sheet(`"`sheet'"')
-            if _rc == 0 {
-                display as error `"stacktab: sheet "`sheet'" already exists; specify append or sheetreplace"'
-                exit 602
-            }
-            quietly use `"`finaldata'"', clear
-        }
-        if "`append'" != "" {
-            capture _stacktab_xlsx_sheet_bounds using `"`using'"', ///
-                sheet(`"`sheet'"')
-            if _rc {
-                local existing_rows = 0
-                local export_title_row = 1
-                local export_start_row = 2
-                quietly use `"`finaldata'"', clear
-            }
-            else {
-                local existing_rows = r(rows)
-                if `existing_rows' == 0 {
-                    local export_title_row = 1
-                    local export_start_row = 2
-                }
-                else {
-                    local export_title_row = r(rows) + 1
-                    local export_start_row = r(rows) + 1
-                    if `"`title'"' != "" local export_start_row = r(rows) + 2
-                }
-                quietly use `"`finaldata'"', clear
-            }
-        }
-        if "`append'" == "" {
-            local export_title_row = 1
-            local export_start_row = 2
-        }
+        quietly use `"`finaldata'"', clear
 
         _stacktab_xlsx_write using `"`using'"', sheet(`"`sheet'"') ///
             startrow(`export_start_row') startcol(`export_start_col') ///
@@ -723,32 +714,52 @@ program define _stacktab_xlsx_sheet_bounds, rclass
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax using/ , SHEET(string) [MAXRows(integer 20000) ///
-            MAXCols(integer 702) PROBERows(integer 256) PROBECols(integer 64)]
+        syntax using/ , SHEET(string)
 
-        if `maxrows' < 1 {
-            display as error "maxrows() must be positive"
-            exit 198
+        quietly import excel using `"`using'"', describe
+        local _n_sheets = r(N_worksheet)
+        local _actual_sheet ""
+        local _used_range ""
+        forvalues _s = 1/`_n_sheets' {
+            local _candidate `"`r(worksheet_`_s')'"'
+            if lower(`"`_candidate'"') == lower(`"`sheet'"') {
+                local _actual_sheet `"`_candidate'"'
+                local _used_range `"`r(range_`_s')'"'
+            }
         }
-        if `maxcols' < 1 | `maxcols' > 702 {
-            display as error "maxcols() must be between 1 and 702"
-            exit 198
-        }
-        if `proberows' < 1 {
-            display as error "proberows() must be positive"
-            exit 198
-        }
-        if `probecols' < 1 | `probecols' > 702 {
-            display as error "probecols() must be between 1 and 702"
-            exit 198
+        if `"`_actual_sheet'"' == "" {
+            display as error `"worksheet "`sheet'" not found"'
+            exit 601
         }
 
-        mata: _stacktab_xlsx_bounds_mata(`"`using'"', `"`sheet'"', ///
-            `maxrows', `maxcols', `proberows', `probecols')
+        local _used_range : subinstr local _used_range "$" "", all
+        local _last_cell `"`_used_range'"'
+        local _colon = strrpos(`"`_used_range'"', ":")
+        if `_colon' > 0 {
+            local _last_cell = substr(`"`_used_range'"', `_colon' + 1, .)
+        }
+        if !regexm(upper(`"`_last_cell'"'), "^([A-Z]+)([0-9]+)$") {
+            display as error `"could not parse used range "`_used_range'" for worksheet "`_actual_sheet'""'
+            exit 498
+        }
+        local _last_col_letters = regexs(1)
+        local _last_row = real(regexs(2))
+        local _last_col = 0
+        forvalues _i = 1/`=strlen("`_last_col_letters'")' {
+            local _last_col = `_last_col' * 26 + ///
+                strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZ", ///
+                    substr("`_last_col_letters'", `_i', 1))
+        }
+        if `_last_col' < 1 | `_last_col' > 16384 | ///
+            `_last_row' < 1 | `_last_row' > 1048576 {
+            display as error `"invalid used range "`_used_range'" for worksheet "`_actual_sheet'""'
+            exit 498
+        }
 
-        return scalar rows = r(_stacktab_lastrow)
-        return scalar cols = r(_stacktab_lastcol)
-        return local sheet `"`sheet'"'
+        return scalar rows = `_last_row'
+        return scalar cols = `_last_col'
+        return local range `"`_used_range'"'
+        return local sheet `"`_actual_sheet'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc

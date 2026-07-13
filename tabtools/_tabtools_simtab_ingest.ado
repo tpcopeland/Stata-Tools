@@ -34,19 +34,19 @@ capture program drop _tabtools_simtab_ingest
 program define _tabtools_simtab_ingest, rclass
     version 16.0
     syntax , SOURCE(string) [BYVar(name) ESTIMATORVar(name) ///
-        ESTIMANDVar(name) MEASures(string asis)]
+        ESTIMANDVar(name) MEASures(string asis) ORDER(string)]
 
     local source = strtrim(lower("`source'"))
 
     if "`source'" == "summary" {
         _tabtools_simtab_ingest_summary, byvar(`byvar') estimatorvar(`estimatorvar') ///
-            estimandvar(`estimandvar') measures(`measures')
+            estimandvar(`estimandvar') measures(`measures') order(`order')
     }
     else if "`source'" == "simsum" {
-        _tabtools_simtab_ingest_simsum
+        _tabtools_simtab_ingest_simsum, order(`order')
     }
     else if "`source'" == "siman" {
-        _tabtools_simtab_ingest_siman
+        _tabtools_simtab_ingest_siman, order(`order')
     }
     else {
         display as error "from() must be one of: simsum, siman, summary"
@@ -112,10 +112,52 @@ end
 * ============================================================================
 * Generic per-cell summary (the stable, dependency-free contract)
 * ============================================================================
+capture program drop _tabtools_simtab_ingest_identity
+program _tabtools_simtab_ingest_identity
+    version 16.0
+    args var ordvar labvar seq order
+
+    capture confirm string variable `var'
+    if !_rc quietly replace `labvar' = `var'
+    else {
+        local _vl : value label `var'
+        if "`_vl'" != "" {
+            tempvar _decoded
+            quietly decode `var', generate(`_decoded')
+            quietly replace `labvar' = `_decoded'
+        }
+        else quietly replace `labvar' = strtrim(string(`var', "%21.0g"))
+    }
+
+    if "`order'" == "sort" quietly egen long `ordvar' = group(`var')
+    else {
+        tempvar _first
+        quietly egen long `_first' = min(`seq'), by(`var')
+        quietly egen long `ordvar' = group(`_first')
+    }
+
+    tempvar _lmin _lmax _raw
+    quietly egen long `_lmin' = min(`ordvar'), by(`labvar')
+    quietly egen long `_lmax' = max(`ordvar'), by(`labvar')
+    capture confirm string variable `var'
+    if !_rc quietly gen str244 `_raw' = `var'
+    else quietly gen str244 `_raw' = strtrim(string(`var', "%21x"))
+    quietly replace `labvar' = substr(`labvar' + " [" + `_raw' + "]", 1, 244) ///
+        if `_lmin' != `_lmax'
+end
+
 capture program drop _tabtools_simtab_ingest_summary
 program _tabtools_simtab_ingest_summary, rclass
     version 16.0
-    syntax , ESTIMATORVar(name) [BYVar(name) ESTIMANDVar(name) MEASures(string)]
+    syntax , ESTIMATORVar(name) [BYVar(name) ESTIMANDVar(name) ///
+        MEASures(string) ORDER(string)]
+
+    local order = lower(strtrim("`order'"))
+    if "`order'" == "" local order "data"
+    if !inlist("`order'", "data", "sort") {
+        display as error "order() must be data or sort"
+        exit 198
+    }
 
     confirm variable `estimatorvar'
     local _has_by  = (`"`byvar'"' != "")
@@ -123,61 +165,37 @@ program _tabtools_simtab_ingest_summary, rclass
     if `_has_by'  confirm variable `byvar'
     if `_has_emd' confirm variable `estimandvar'
 
+    tempvar _seq _estlab _estord _bylab _byord _emdlab _emdord
+    quietly gen long `_seq' = _n
+
     * ----- estimator labels/ord -----
-    quietly gen str244 estlab = ""
-    capture confirm string variable `estimatorvar'
-    if !_rc quietly replace estlab = `estimatorvar'
-    else {
-        local _vl : value label `estimatorvar'
-        if "`_vl'" != "" {
-            tempvar _d
-            quietly decode `estimatorvar', generate(`_d')
-            quietly replace estlab = `_d'
-        }
-        else quietly replace estlab = strtrim(string(`estimatorvar', "%14.0g"))
-    }
-    quietly egen long estord = group(`estimatorvar')
+    quietly gen str244 `_estlab' = ""
+    _tabtools_simtab_ingest_identity `estimatorvar' `_estord' `_estlab' `_seq' "`order'"
 
     * ----- by labels/ord -----
     if `_has_by' {
-        quietly gen str244 bylab = ""
-        capture confirm string variable `byvar'
-        if !_rc quietly replace bylab = `byvar'
-        else {
-            local _vl : value label `byvar'
-            if "`_vl'" != "" {
-                tempvar _db
-                quietly decode `byvar', generate(`_db')
-                quietly replace bylab = `_db'
-            }
-            else quietly replace bylab = strtrim(string(`byvar', "%14.0g"))
-        }
-        quietly egen long byord = group(`byvar')
+        quietly gen str244 `_bylab' = ""
+        _tabtools_simtab_ingest_identity `byvar' `_byord' `_bylab' `_seq' "`order'"
     }
     else {
-        quietly gen str1 bylab = ""
-        quietly gen byte byord = 1
+        quietly gen str1 `_bylab' = ""
+        quietly gen byte `_byord' = 1
     }
 
     * ----- estimand labels/ord -----
     if `_has_emd' {
-        quietly gen str244 emdlab = ""
-        capture confirm string variable `estimandvar'
-        if !_rc quietly replace emdlab = `estimandvar'
-        else {
-            local _vl : value label `estimandvar'
-            if "`_vl'" != "" {
-                tempvar _de
-                quietly decode `estimandvar', generate(`_de')
-                quietly replace emdlab = `_de'
-            }
-            else quietly replace emdlab = strtrim(string(`estimandvar', "%14.0g"))
-        }
-        quietly egen long emdord = group(`estimandvar')
+        quietly gen str244 `_emdlab' = ""
+        _tabtools_simtab_ingest_identity `estimandvar' `_emdord' `_emdlab' `_seq' "`order'"
     }
     else {
-        quietly gen str1 emdlab = ""
-        quietly gen byte emdord = 1
+        quietly gen str1 `_emdlab' = ""
+        quietly gen byte `_emdord' = 1
+    }
+
+    capture isid `_byord' `_estord' `_emdord'
+    if _rc {
+        display as error "duplicate summary cells found for by() x estimator x estimand"
+        exit 459
     }
 
     * ----- measure mapping -----
@@ -186,8 +204,14 @@ program _tabtools_simtab_ingest_summary, rclass
         exit 198
     }
     local _valid "mean bias pctbias empse meanse relerr mse rmse coverage power n"
+    local _mapped ""
+    local _measure_keep ""
     foreach _pair of local measures {
         local _eq = strpos("`_pair'", "=")
+        if `_eq' <= 1 {
+            display as error "measures(): bad pair `_pair' (use token=column)"
+            exit 198
+        }
         local _tok = lower(strtrim(substr("`_pair'", 1, `_eq' - 1)))
         local _col = strtrim(substr("`_pair'", `_eq' + 1, .))
         if "`_tok'" == "" | "`_col'" == "" {
@@ -198,13 +222,32 @@ program _tabtools_simtab_ingest_summary, rclass
             display as error "measures(): unknown token `_tok'"
             exit 198
         }
+        if `: list _tok in _mapped' {
+            display as error "measures(): token `_tok' was mapped more than once"
+            exit 198
+        }
         confirm variable `_col'
-        if "`_tok'" == "n" {
-            quietly gen double n = `_col'
-        }
-        else {
-            quietly gen double m_`_tok' = `_col'
-        }
+        tempvar _std
+        quietly gen double `_std' = `_col'
+        local _std_`_tok' "`_std'"
+        local _mapped "`_mapped' `_tok'"
+        local _measure_keep "`_measure_keep' `_std'"
+    }
+
+    keep `_byord' `_bylab' `_estord' `_estlab' `_emdord' `_emdlab' `_measure_keep'
+    rename `_byord' byord
+    rename `_bylab' bylab
+    rename `_estord' estord
+    rename `_estlab' estlab
+    rename `_emdord' emdord
+    rename `_emdlab' emdlab
+    local _rename_queue "`_measure_keep'"
+    foreach _pair of local measures {
+        gettoken _stdvar _rename_queue : _rename_queue
+        local _eq = strpos("`_pair'", "=")
+        local _tok = lower(strtrim(substr("`_pair'", 1, `_eq' - 1)))
+        if "`_tok'" == "n" rename `_stdvar' n
+        else rename `_stdvar' m_`_tok'
     }
 
     local _by_header "`byvar'"
@@ -224,6 +267,14 @@ end
 capture program drop _tabtools_simtab_ingest_simsum
 program _tabtools_simtab_ingest_simsum, rclass
     version 16.0
+    syntax , [ORDER(string)]
+
+    local order = lower(strtrim("`order'"))
+    if "`order'" == "" local order "data"
+    if !inlist("`order'", "data", "sort") {
+        display as error "order() must be data or sort"
+        exit 198
+    }
 
     capture which simsum
     if _rc {
@@ -276,14 +327,14 @@ program _tabtools_simtab_ingest_simsum, rclass
         double(mc_mean mc_bias mc_pctbias mc_empse mc_mse mc_rmse mc_coverage mc_power) ///
         using `"`_out'"'
 
-    quietly gen long _obs = _n
+    tempvar _obs
+    quietly gen long `_obs' = _n
 
     * by levels
     if `_has_by' {
-        capture confirm string variable `_byvar'
-        local _bystr = (_rc == 0)
-        tempvar _bytag
-        quietly egen long `_bytag' = group(`_byvar')
+        tempvar _bytag _bylabtmp
+        quietly gen str244 `_bylabtmp' = ""
+        _tabtools_simtab_ingest_identity `_byvar' `_bytag' `_bylabtmp' `_obs' "`order'"
         quietly summarize `_bytag', meanonly
         local _nbylev = r(max)
     }
@@ -291,11 +342,45 @@ program _tabtools_simtab_ingest_simsum, rclass
         local _nbylev = 1
     }
 
+    * Disambiguate repeated method labels, then honor data/sorted order.
+    local _nval : word count `_valcols'
+    forvalues _vi = 1/`_nval' {
+        local _vc : word `_vi' of `_valcols'
+        local _mlab_`_vc' : variable label `_vc'
+        if `"`_mlab_`_vc''"' == "" local _mlab_`_vc' "`_vc'"
+    }
+    forvalues _vi = 1/`_nval' {
+        local _vc : word `_vi' of `_valcols'
+        local _dup = 0
+        forvalues _vj = 1/`_nval' {
+            local _other : word `_vj' of `_valcols'
+            if `"`_mlab_`_vc''"' == `"`_mlab_`_other''"' local ++_dup
+        }
+        if `_dup' > 1 local _mlab_`_vc' `"`_mlab_`_vc'' [`_vc']"'
+    }
+    local _ordered_valcols "`_valcols'"
+    if "`order'" == "sort" {
+        local _ordered_valcols ""
+        local _remaining "`_valcols'"
+        while `"`_remaining'"' != "" {
+            local _best ""
+            local _best_label ""
+            foreach _vc of local _remaining {
+                local _candidate = lower(`"`_mlab_`_vc''"')
+                if `"`_best'"' == "" | `"`_candidate'"' < `"`_best_label'"' {
+                    local _best "`_vc'"
+                    local _best_label `"`_candidate'"'
+                }
+            }
+            local _ordered_valcols "`_ordered_valcols' `_best'"
+            local _remaining : list _remaining - _best
+        }
+    }
+
     local _estord = 0
-    foreach _vc of local _valcols {
+    foreach _vc of local _ordered_valcols {
         local ++_estord
-        local _mlab : variable label `_vc'
-        if `"`_mlab'"' == "" local _mlab "`_vc'"
+        local _mlab `"`_mlab_`_vc''"'
         local _mc "`_vc'_mcse"
         capture confirm variable `_mc'
         local _has_mc = (_rc == 0)
@@ -304,14 +389,9 @@ program _tabtools_simtab_ingest_simsum, rclass
             local _bylab ""
             local _bycond "1"
             if `_has_by' {
-                quietly summarize _obs if `_bytag' == `_bl', meanonly
+                quietly summarize `_obs' if `_bytag' == `_bl', meanonly
                 local _bidx = r(min)
-                if `_bystr' local _bylab = `_byvar'[`_bidx']
-                else {
-                    local _vl : value label `_byvar'
-                    if "`_vl'" != "" local _bylab : label `_vl' `=`_byvar'[`_bidx']'
-                    else local _bylab = strtrim(string(`_byvar'[`_bidx'], "%14.0g"))
-                }
+                local _bylab = `_bylabtmp'[`_bidx']
                 local _bycond "`_bytag' == `_bl'"
             }
 
@@ -323,7 +403,7 @@ program _tabtools_simtab_ingest_simsum, rclass
             forvalues _k = 1/`_nc' {
                 local _code : word `_k' of `_codes'
                 local _tok  : word `_k' of `_tokens'
-                quietly summarize _obs if perfmeascode == "`_code'" & `_bycond', meanonly
+                quietly summarize `_obs' if perfmeascode == "`_code'" & `_bycond', meanonly
                 if r(N) > 0 {
                     local _ridx = r(min)
                     local _raw = `_vc'[`_ridx']
@@ -369,6 +449,14 @@ end
 capture program drop _tabtools_simtab_ingest_siman
 program _tabtools_simtab_ingest_siman, rclass
     version 16.0
+    syntax , [ORDER(string)]
+
+    local order = lower(strtrim("`order'"))
+    if "`order'" == "" local order "data"
+    if !inlist("`order'", "data", "sort") {
+        display as error "order() must be data or sort"
+        exit 198
+    }
 
     capture which siman
     if _rc {
@@ -396,7 +484,7 @@ program _tabtools_simtab_ingest_siman, rclass
     local _method : char _dta[siman_method]
     local _dgm    : char _dta[siman_dgm]
     local _target : char _dta[siman_target]
-    local _truev  : char _dta[siman_true]
+    local _true_source : char _dta[siman_true]
     if "`_method'" == "" {
         capture confirm variable method
         if !_rc local _method "method"
@@ -405,8 +493,8 @@ program _tabtools_simtab_ingest_siman, rclass
         display as error "siman ingest could not identify the method variable; use from(summary)"
         exit 459
     }
-    * dgm() may be a varlist; use the first variable for the by dimension
     local _dgm1 : word 1 of `_dgm'
+    local _target1 : word 1 of `_target'
 
     * keep performance rows only
     quietly keep if !missing(`_codevar')
@@ -416,113 +504,146 @@ program _tabtools_simtab_ingest_siman, rclass
         exit 459
     }
 
+    tempvar _seq _estlab _estord _bylab _byord _emdlab _emdord _truev
+    quietly gen long `_seq' = _n
+
     * ----- standardized estimator labels/ords -----
-    quietly gen str244 estlab = ""
-    capture confirm string variable `_method'
-    if !_rc quietly replace estlab = `_method'
-    else {
-        local _vl : value label `_method'
-        if "`_vl'" != "" {
-            tempvar _de
-            quietly decode `_method', generate(`_de')
-            quietly replace estlab = `_de'
-        }
-        else quietly replace estlab = strtrim(string(`_method', "%14.0g"))
-    }
-    quietly egen long estord = group(`_method')
+    quietly gen str244 `_estlab' = ""
+    _tabtools_simtab_ingest_identity `_method' `_estord' `_estlab' `_seq' "`order'"
 
     * ----- by (dgm) -----
     local _has_by = 0
     if "`_dgm1'" != "" {
         local _has_by = 1
-        quietly gen str244 bylab = ""
-        capture confirm string variable `_dgm1'
-        if !_rc quietly replace bylab = `_dgm1'
-        else {
-            local _vl : value label `_dgm1'
-            if "`_vl'" != "" {
-                tempvar _db
-                quietly decode `_dgm1', generate(`_db')
-                quietly replace bylab = `_db'
+        quietly gen str244 `_bylab' = ""
+        local _n_dgm : word count `_dgm'
+        local _dgm_i = 0
+        foreach _dv of local _dgm {
+            local ++_dgm_i
+            confirm variable `_dv'
+            tempvar _component _component_ord
+            quietly gen str244 `_component' = ""
+            _tabtools_simtab_ingest_identity `_dv' `_component_ord' `_component' `_seq' "`order'"
+            if `_n_dgm' == 1 {
+                quietly replace `_bylab' = `_component'
             }
-            else quietly replace bylab = strtrim(string(`_dgm1', "%14.0g"))
+            else if `_dgm_i' == 1 {
+                quietly replace `_bylab' = substr("`_dv'=" + `_component', 1, 244)
+            }
+            else {
+                quietly replace `_bylab' = substr(`_bylab' + "; `_dv'=" + `_component', 1, 244)
+            }
         }
-        quietly egen long byord = group(`_dgm')
+        if "`order'" == "sort" quietly egen long `_byord' = group(`_bylab')
+        else {
+            tempvar _byfirst
+            quietly egen long `_byfirst' = min(`_seq'), by(`_dgm')
+            quietly egen long `_byord' = group(`_byfirst')
+        }
     }
     else {
-        quietly gen str1 bylab = ""
-        quietly gen byte byord = 1
+        quietly gen str1 `_bylab' = ""
+        quietly gen byte `_byord' = 1
     }
 
     * ----- estimand (target) -----
     local _has_emd = 0
-    if "`_target'" != "" {
+    if "`_target1'" != "" {
         local _has_emd = 1
-        quietly gen str244 emdlab = ""
-        capture confirm string variable `_target'
-        if !_rc quietly replace emdlab = `_target'
-        else {
-            local _vl : value label `_target'
-            if "`_vl'" != "" {
-                tempvar _det
-                quietly decode `_target', generate(`_det')
-                quietly replace emdlab = `_det'
-            }
-            else quietly replace emdlab = strtrim(string(`_target', "%14.0g"))
-        }
-        quietly egen long emdord = group(`_target')
+        quietly gen str244 `_emdlab' = ""
+        _tabtools_simtab_ingest_identity `_target1' `_emdord' `_emdlab' `_seq' "`order'"
     }
     else {
-        quietly gen str1 emdlab = ""
-        quietly gen byte emdord = 1
+        quietly gen str1 `_emdlab' = ""
+        quietly gen byte `_emdord' = 1
     }
 
     * ----- true value -----
-    quietly gen double truev = .
-    if "`_truev'" != "" {
-        capture confirm variable `_truev'
-        if !_rc quietly replace truev = `_truev'
+    quietly gen double `_truev' = .
+    if "`_true_source'" != "" {
+        capture confirm variable `_true_source'
+        if !_rc quietly replace `_truev' = `_true_source'
+    }
+
+    * The raw cell identity includes every DGM dimension, method, and target.
+    tempvar _cellid
+    local _cellvars `_method'
+    if "`_dgm'" != ""    local _cellvars "`_cellvars' `_dgm'"
+    if "`_target1'" != "" local _cellvars "`_cellvars' `_target1'"
+    quietly egen long `_cellid' = group(`_cellvars')
+    capture isid `_cellid' `_codevar'
+    if _rc {
+        display as error "duplicate siman performance rows found for a simulation cell and measure"
+        exit 459
     }
 
     * ----- pivot siman codes to measure value (estimate) + mcse (se) columns -----
     local _codes  "estreps bias pctbias mean empse modelse relerror cover power mse rmse"
     local _tokens "n       bias pctbias mean empse meanse  relerr   coverage power mse rmse"
     local _nc : word count `_codes'
+    tempvar _n_std
+    quietly gen double `_n_std' = .
+    local _measure_vars ""
+    local _measure_tokens ""
+    local _mc_vars ""
+    local _mc_tokens ""
+    capture confirm variable se
+    local _has_se = (_rc == 0)
     forvalues _k = 1/`_nc' {
         local _code : word `_k' of `_codes'
         local _tok  : word `_k' of `_tokens'
         if "`_tok'" == "n" {
-            quietly gen double n = estimate if `_codevar' == "`_code'"
+            quietly replace `_n_std' = estimate if `_codevar' == "`_code'"
         }
         else {
-            quietly gen double m_`_tok'  = .
-            quietly gen double mc_`_tok' = .
+            tempvar _mv _mcv
+            quietly gen double `_mv' = .
+            quietly gen double `_mcv' = .
             if inlist("`_tok'", "coverage", "power") {
-                quietly replace m_`_tok'  = estimate/100 if `_codevar' == "`_code'"
-                quietly replace mc_`_tok' = se/100       if `_codevar' == "`_code'"
+                quietly replace `_mv' = estimate/100 if `_codevar' == "`_code'"
+                if `_has_se' quietly replace `_mcv' = se/100 if `_codevar' == "`_code'"
             }
             else {
-                quietly replace m_`_tok'  = estimate if `_codevar' == "`_code'"
-                quietly replace mc_`_tok' = se       if `_codevar' == "`_code'"
+                quietly replace `_mv' = estimate if `_codevar' == "`_code'"
+                if `_has_se' quietly replace `_mcv' = se if `_codevar' == "`_code'"
+            }
+            local _measure_vars "`_measure_vars' `_mv'"
+            local _measure_tokens "`_measure_tokens' `_tok'"
+            if !inlist("`_tok'", "meanse", "relerr") {
+                local _mc_vars "`_mc_vars' `_mcv'"
+                local _mc_tokens "`_mc_tokens' `_tok'"
             }
         }
     }
-    * meanse/relerr have no mcse slot in the standardized schema; drop the temps
-    capture drop mc_meanse
-    capture drop mc_relerr
 
     * ----- collapse to one row per cell (each measure non-missing in one row) -----
-    tempvar _cellid
-    local _cellvars `_method'
-    if "`_dgm'" != ""    local _cellvars "`_cellvars' `_dgm'"
-    if "`_target'" != "" local _cellvars "`_cellvars' `_target'"
-    quietly egen long `_cellid' = group(`_cellvars')
-    collapse (firstnm) estlab estord bylab byord emdlab emdord truev ///
-        (max) n m_* mc_*, by(`_cellid')
+    collapse (firstnm) `_estlab' `_estord' `_bylab' `_byord' `_emdlab' `_emdord' `_truev' ///
+        (max) `_n_std' `_measure_vars' `_mc_vars', by(`_cellid')
     quietly drop `_cellid'
 
+    rename `_estlab' estlab
+    rename `_estord' estord
+    rename `_bylab' bylab
+    rename `_byord' byord
+    rename `_emdlab' emdlab
+    rename `_emdord' emdord
+    rename `_truev' truev
+    rename `_n_std' n
+    local _n_measure_vars : word count `_measure_vars'
+    forvalues _k = 1/`_n_measure_vars' {
+        local _mv : word `_k' of `_measure_vars'
+        local _tok : word `_k' of `_measure_tokens'
+        rename `_mv' m_`_tok'
+    }
+    local _n_mc_vars : word count `_mc_vars'
+    forvalues _k = 1/`_n_mc_vars' {
+        local _mcv : word `_k' of `_mc_vars'
+        local _tok : word `_k' of `_mc_tokens'
+        rename `_mcv' mc_`_tok'
+    }
+
     local _by_header "DGM"
-    if "`_dgm1'" != "" local _by_header "`_dgm1'"
+    if "`_dgm'" != "" local _by_header "DGM (`_dgm')"
     local _est_header "`_method'"
     return scalar has_by = `_has_by'
     return scalar has_emd = `_has_emd'

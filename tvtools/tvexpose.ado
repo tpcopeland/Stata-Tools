@@ -162,6 +162,7 @@ program define tvexpose, rclass
         EXPANDunit(string) ///
         BYtype ///
         RECency(numlist ascending) ///
+        RECENCYunit(string) ///
         GRACE(string) ///
         LAG(integer 0) ///
         WASHout(integer 0) ///
@@ -186,6 +187,7 @@ program define tvexpose, rclass
         REFERENCElabel(string) ///
         LABel(string) ///
         FLOW ///
+        DROPinvalid ///
         VERBose]
     
     * Check that stop() is provided OR pointtime is specified
@@ -207,6 +209,10 @@ program define tvexpose, rclass
     * still builds the result in the working frame; we snapshot the caller's
     * data first and reload it after copying the result into the target frame.
     if "`frameout'" != "" {
+        if "`frameout'" == "`c(frame)'" {
+            noisily display as error "frameout() must name a frame other than the current frame"
+            exit 198
+        }
         capture frame `frameout': describe
         if _rc == 0 & "`replace'" == "" {
             noisily display as error "frame `frameout' already exists; use replace option"
@@ -222,6 +228,23 @@ program define tvexpose, rclass
         local _frameout_snap_taken = 1
     }
     local _caller_snapshot_ready = 1
+
+    * Stable attrition and integrity returns are initialized for every path.
+    local n_invalid_master = 0
+    local n_invalid_master_id = 0
+    local n_invalid_master_dates = 0
+    local n_invalid_master_order = 0
+    local n_invalid_exposure = 0
+    local n_invalid_exposure_id = 0
+    local n_invalid_exposure_dates = 0
+    local n_invalid_exposure_order = 0
+    local n_invalid_exposure_value = 0
+    local n_unmatched_exposure = 0
+    local n_outside_window = 0
+    local n_lag_removed = 0
+    local n_uncovered_days = 0
+    local n_unresolved_overlaps = 0
+    local _return_flow = ("`flow'" != "" | "`dropinvalid'" != "")
 
     * Handle reference() option
     * - For dose mode: reference defaults to 0 (the only valid value)
@@ -251,6 +274,54 @@ program define tvexpose, rclass
         noisily display as error "dosecuts() requires the dose option"
         noisily display as error "Example: tvexpose ..., dose dosecuts(5 10 20)"
         exit 198
+    }
+
+    * recency() formerly had contradictory day/year contracts. Version 1.7
+    * requires the unit and converts every cutpoint once to an integer day.
+    if "`recency'" == "" & "`recencyunit'" != "" {
+        noisily display as error "recencyunit() requires recency()"
+        exit 198
+    }
+    if "`recency'" != "" {
+        if "`recencyunit'" == "" {
+            noisily display as error "recency() requires recencyunit(days|years)"
+            noisily display as error "The unit is required because earlier releases documented years but computed days."
+            exit 198
+        }
+        local recency_unit = lower(trim("`recencyunit'"))
+        if !inlist("`recency_unit'", "days", "years") {
+            noisily display as error "recencyunit() must be days or years"
+            exit 198
+        }
+
+        local recency_cutdays ""
+        local recency_previous = 0
+        local recency_i = 0
+        foreach recency_cut of numlist `recency' {
+            local recency_i = `recency_i' + 1
+            if `recency_cut' <= 0 {
+                noisily display as error "recency() cutpoints must be positive"
+                exit 198
+            }
+            if "`recency_unit'" == "days" {
+                if `recency_cut' != floor(`recency_cut') {
+                    noisily display as error "recency() day cutpoints must be whole numbers"
+                    exit 198
+                }
+                local recency_days = `recency_cut'
+            }
+            else {
+                local recency_days = round(365.25 * `recency_cut')
+            }
+            if `recency_days' <= `recency_previous' {
+                noisily display as error "recency() cutpoints must convert to unique increasing whole-day boundaries"
+                exit 198
+            }
+            local recency_cutday`recency_i' = `recency_days'
+            local recency_cutdays "`recency_cutdays' `recency_days'"
+            local recency_previous = `recency_days'
+        }
+        local recency_cutdays = trim("`recency_cutdays'")
     }
     
     * Validate variable name lengths (Stata allows up to 32 characters)
@@ -301,7 +372,7 @@ program define tvexpose, rclass
     }
 
     * Flow accounting: capture input persons/records (egen tag does not reorder)
-    if "`flow'" != "" {
+    if `_return_flow' {
         quietly count if `touse'
         local _flow_rin = r(N)
         tempvar _flow_tag
@@ -450,6 +521,12 @@ program define tvexpose, rclass
     if `carryforward' < 0 {
         noisily display as error "carryforward() cannot be negative"
         exit 198
+    }
+    local gap_carryforward = `carryforward'
+    if "`pointtime'" != "" {
+        * pointtime converts each observation to its effective persistence
+        * interval once; the generic gap filler must not apply it again.
+        local gap_carryforward = 0
     }
     
     * Determine primary exposure type for processing
@@ -646,6 +723,17 @@ program define tvexpose, rclass
     * The master dataset contains study entry/exit dates for each person
     tempfile _master_orig
 
+    capture confirm numeric variable `entry'
+    if _rc {
+        noisily display as error "entry() variable `entry' must be numeric"
+        exit 109
+    }
+    capture confirm numeric variable `exit'
+    if _rc {
+        noisily display as error "exit() variable `exit' must be numeric"
+        exit 109
+    }
+
     * STRICT check for datetime formats (%tc, %tC) - abort if detected
     * Stata datetimes are milliseconds (e.g., 1,600,000,000,000). Stata dates are days (e.g., 22,000).
     * If floor() is applied to a datetime, it keeps the millisecond value. When the code later
@@ -668,8 +756,39 @@ program define tvexpose, rclass
         exit 198
     }
 
-    quietly replace `entry' = floor(`entry')
-    quietly replace `exit' = ceil(`exit')
+    tempvar _tvx_bad_mid _tvx_bad_mdate _tvx_bad_morder _tvx_bad_master
+    quietly generate byte `_tvx_bad_mid' = missing(`id')
+    quietly generate byte `_tvx_bad_mdate' = missing(`entry') | missing(`exit') | ///
+        (!missing(`entry') & `entry' != floor(`entry')) | ///
+        (!missing(`exit') & `exit' != floor(`exit'))
+    quietly generate byte `_tvx_bad_morder' = !missing(`entry', `exit') & `entry' > `exit'
+    quietly generate byte `_tvx_bad_master' = `_tvx_bad_mid' | `_tvx_bad_mdate' | `_tvx_bad_morder'
+
+    quietly count if `_tvx_bad_mid'
+    local n_invalid_master_id = r(N)
+    quietly count if `_tvx_bad_mdate'
+    local n_invalid_master_dates = r(N)
+    quietly count if `_tvx_bad_morder'
+    local n_invalid_master_order = r(N)
+    quietly count if `_tvx_bad_master'
+    local n_invalid_master = r(N)
+
+    if `n_invalid_master' > 0 & "`dropinvalid'" == "" {
+        noisily display as error "Malformed master input: `n_invalid_master' row(s)"
+        noisily display as error "  missing ID: `n_invalid_master_id'; invalid daily dates: `n_invalid_master_dates'; entry after exit: `n_invalid_master_order'"
+        noisily display as error "Correct the data or specify dropinvalid to remove those rows explicitly."
+        exit 498
+    }
+    if `n_invalid_master' > 0 {
+        quietly replace `touse' = 0 if `_tvx_bad_master'
+        noisily display as text "dropinvalid: removed `n_invalid_master' malformed master row(s)"
+    }
+    drop `_tvx_bad_mid' `_tvx_bad_mdate' `_tvx_bad_morder' `_tvx_bad_master'
+    quietly count if `touse'
+    if r(N) == 0 {
+        noisily display as error "No valid master observations remain"
+        exit 2000
+    }
     quietly save `_master_orig'
     
     **# DATA PREPARATION AND CLEANING
@@ -788,6 +907,25 @@ program define tvexpose, rclass
     quietly save `_master_with_dates'
     quietly use "`using'", clear
 
+    * Preserve the exposure file's input order before any validation, merge, or
+    * chronological sort. overlap(layer) uses this stable source order to break
+    * equal-start ties: the later source record takes precedence.
+    tempvar _tvx_source_order
+    quietly generate long `_tvx_source_order' = _n
+
+    capture confirm numeric variable `start'
+    if _rc {
+        noisily display as error "start() variable `start' must be numeric"
+        exit 109
+    }
+    if "`stop'" != "" {
+        capture confirm numeric variable `stop'
+        if _rc {
+            noisily display as error "stop() variable `stop' must be numeric"
+            exit 109
+        }
+    }
+
     * STRICT check for datetime formats on start/stop variables - abort if detected
     local start_fmt : format `start'
     if substr("`start_fmt'", 1, 3) == "%tc" | substr("`start_fmt'", 1, 3) == "%tC" {
@@ -808,11 +946,6 @@ program define tvexpose, rclass
         }
     }
 
-    quietly replace `start' = floor(`start')
-    if "`stop'" != "" {
-        quietly replace `stop' = ceil(`stop')
-    }
-
     quietly count
     if r(N) == 0 {
         noisily display as error "Dataset must contain observations"
@@ -830,13 +963,48 @@ program define tvexpose, rclass
         exit 109
     }
 
-    * Drop records with missing exposure values (would be silently misclassified)
-    quietly count if missing(`exposure')
-    if r(N) > 0 {
-        local n_miss_exp = r(N)
-        noisily display as text "Warning: `n_miss_exp' records with missing exposure values dropped"
-        quietly drop if missing(`exposure')
+    * Required source fields are strict by default. dropinvalid is the only
+    * opt-in path that removes malformed records.
+    tempvar _tvx_bad_eid _tvx_bad_edate _tvx_bad_eorder _tvx_bad_eval _tvx_bad_exposure
+    quietly generate byte `_tvx_bad_eid' = missing(`id')
+    if "`stop'" != "" {
+        quietly generate byte `_tvx_bad_edate' = missing(`start') | missing(`stop') | ///
+            (!missing(`start') & `start' != floor(`start')) | ///
+            (!missing(`stop') & `stop' != floor(`stop'))
+        quietly generate byte `_tvx_bad_eorder' = !missing(`start', `stop') & `start' > `stop'
     }
+    else {
+        quietly generate byte `_tvx_bad_edate' = missing(`start') | ///
+            (!missing(`start') & `start' != floor(`start'))
+        quietly generate byte `_tvx_bad_eorder' = 0
+    }
+    quietly generate byte `_tvx_bad_eval' = missing(`exposure')
+    quietly generate byte `_tvx_bad_exposure' = `_tvx_bad_eid' | `_tvx_bad_edate' | ///
+        `_tvx_bad_eorder' | `_tvx_bad_eval'
+
+    quietly count if `_tvx_bad_eid'
+    local n_invalid_exposure_id = r(N)
+    quietly count if `_tvx_bad_edate'
+    local n_invalid_exposure_dates = r(N)
+    quietly count if `_tvx_bad_eorder'
+    local n_invalid_exposure_order = r(N)
+    quietly count if `_tvx_bad_eval'
+    local n_invalid_exposure_value = r(N)
+    quietly count if `_tvx_bad_exposure'
+    local n_invalid_exposure = r(N)
+
+    if `n_invalid_exposure' > 0 & "`dropinvalid'" == "" {
+        noisily display as error "Malformed exposure input: `n_invalid_exposure' row(s)"
+        noisily display as error "  missing ID: `n_invalid_exposure_id'; invalid daily dates: `n_invalid_exposure_dates'; reversed bounds: `n_invalid_exposure_order'; missing exposure: `n_invalid_exposure_value'"
+        noisily display as error "Correct the data or specify dropinvalid to remove those rows explicitly."
+        exit 498
+    }
+    if `n_invalid_exposure' > 0 {
+        quietly drop if `_tvx_bad_exposure'
+        noisily display as text "dropinvalid: removed `n_invalid_exposure' malformed exposure row(s)"
+    }
+    capture drop `_tvx_bad_eid' `_tvx_bad_edate' `_tvx_bad_eorder' ///
+        `_tvx_bad_eval' `_tvx_bad_exposure'
     
     * Store original exposure variable label for later use
     if "`label'" != "" {
@@ -887,41 +1055,6 @@ program define tvexpose, rclass
         }
     }
     
-* Check for invalid exposure records AFTER all date processing
-    * Drop periods where start > stop (data quality issue)
-    * These cannot be meaningfully processed
-    quietly count if exp_start > exp_stop
-    if r(N) > 0 {
-        local n_invalid = r(N)
-        noisily display as error "Warning: `n_invalid' periods have start > stop; these will be dropped"
-        * Show details of first 10 invalid records for debugging
-        tempfile _invalid_records _temp_data
-        quietly save `_temp_data'
-        quietly keep if exp_start > exp_stop
-        if _N > 0 {
-            quietly save `_invalid_records', replace
-            if "`verbose'" != "" {
-                noisily display as text "First invalid records (id, start, stop):"
-                local show_n = min(_N, 10)
-                forvalues i = 1/`show_n' {
-                    local show_id = id[`i']
-                    local show_start = exp_start[`i']
-                    local show_stop = exp_stop[`i']
-                    noisily display as text "  ID `show_id': start=" as result %tdCCYY/NN/DD `show_start' as text " > stop=" as result %tdCCYY/NN/DD `show_stop'
-                }
-                if _N > 10 {
-                    local more = _N - 10
-                    noisily display as text "  ... and `more' more"
-                }
-            }
-            else {
-                noisily display as text "  (specify verbose to list affected IDs and dates)"
-            }
-        }
-        quietly use `_temp_data', clear
-        quietly drop if exp_start > exp_stop
-    }
-    
     * Apply fillgaps option
     * Extends last exposure period forward by fillgaps days
     * Useful for studies where last exposure recorded but time to event longer
@@ -949,6 +1082,7 @@ program define tvexpose, rclass
     * Count and warn about exposure records with IDs not in master
     quietly count if _merge_check == 1
     local n_exp_only = r(N)
+    local n_unmatched_exposure = `n_exp_only'
     if `n_exp_only' > 0 {
         quietly count if _merge_check == 1
         local n_ids_dropped = r(N)
@@ -965,8 +1099,9 @@ program define tvexpose, rclass
     
     * Remove exposures completely outside study observation window
     * If exposure ended before entry or started after exit, person never truly exposed
-    quietly drop if exp_stop < study_entry
-    quietly drop if exp_start > study_exit
+    quietly count if exp_stop < study_entry | exp_start > study_exit
+    local n_outside_window = r(N)
+    quietly drop if exp_stop < study_entry | exp_start > study_exit
     
     * Apply lag period (delay before exposure becomes active)
     * Lag represents latency period before biological effect begins
@@ -974,6 +1109,8 @@ program define tvexpose, rclass
     if `lag' > 0 {
         quietly replace exp_start = exp_start + `lag'
         * Remove periods that became invalid due to lag
+        quietly count if exp_start > exp_stop | exp_start > study_exit
+        local n_lag_removed = r(N)
         quietly drop if exp_start > exp_stop
         quietly drop if exp_start > study_exit
     }
@@ -1004,12 +1141,15 @@ program define tvexpose, rclass
     
     * Retain only essential variables for processing
     * Drop all other variables to reduce memory usage
-    * Keep only: id, dates, exposure value, and user-specified keepvars
+    * Keep only: id, dates, exposure value, stable source order, and
+    * user-specified keepvars.
     if "`keepvars'" != "" {
-        keep id exp_start exp_stop exp_value study_entry study_exit `keepvars'
+        keep id exp_start exp_stop exp_value study_entry study_exit ///
+            `_tvx_source_order' `keepvars'
     }
     else {
-        keep id exp_start exp_stop exp_value study_entry study_exit
+        keep id exp_start exp_stop exp_value study_entry study_exit ///
+            `_tvx_source_order'
     }
     
     * Sort for sequential processing
@@ -1581,7 +1721,7 @@ program define tvexpose, rclass
         sort id exp_start exp_stop exp_value
 
         local iter = 0
-        local max_iter = 10
+        local max_iter = _N + 1
         local has_overlaps = 1
 
         while `has_overlaps' == 1 & `iter' < `max_iter' {
@@ -1609,8 +1749,8 @@ program define tvexpose, rclass
             local iter = `iter' + 1
         }
 
-        if `iter' >= `max_iter' {
-            noisily display as error "Warning: Simple overlap resolution reached iteration limit; some overlaps may remain"
+        if `has_overlaps' & `iter' >= `max_iter' {
+            noisily display as text "Note: simple overlap resolution reached its safety bound; checking the final invariant"
         }
     }
     
@@ -1632,7 +1772,7 @@ program define tvexpose, rclass
         
         * Iteratively handle overlaps between different priority levels
         local iter = 0
-        local max_iter = 10
+        local max_iter = _N + 1
         local changed = 1
         
         while `changed' == 1 & `iter' < `max_iter' {
@@ -1673,8 +1813,8 @@ program define tvexpose, rclass
             local iter = `iter' + 1
         }
         
-        if `iter' >= `max_iter' {
-            noisily display as error "Warning: Priority resolution reached iteration limit; some overlaps may remain"
+        if `changed' & `iter' >= `max_iter' {
+            noisily display as text "Note: priority resolution reached its safety bound; checking the final invariant"
         }
         
         drop priority_rank
@@ -1705,136 +1845,59 @@ program define tvexpose, rclass
     *   - combine: Merges overlaps into new combined type
     *   - layer: Preserves original types with natural chronological precedence
     *
-    * Iteration is needed because splitting may create new overlaps to resolve
     * ===========================================================================
     **# Layer option: Sequential precedence with resumption
     if "`layer'" != "" {
+        tempvar _tvx_layer_group
+        quietly egen long `_tvx_layer_group' = group(id)
 
-        local changed = 1
-        local iter = 0
-        local max_iter = 10
-        
-        while `changed' == 1 & `iter' < `max_iter' {
-            sort id exp_start exp_stop exp_value
-
-            * Clean up any leftover temp variables from previous iteration
-            capture drop __has_next_overlap __orig_row __next_start __next_stop __pre_stop __extends_beyond __post_start
-
-            * Mark periods that overlap with next period (different exposure)
-            quietly by id: gen double __has_next_overlap = ///
-                (exp_start[_n+1] <= exp_stop & exp_value != exp_value[_n+1]) if _n < _N & id == id[_n+1]
-            
-            quietly count if __has_next_overlap == 1
-            local n_overlaps = r(N)
-            
-            if `n_overlaps' == 0 {
-                local changed = 0
-                quietly drop __has_next_overlap
+        * Study bounds are needed immediately by baseline/post-exposure row
+        * construction, before the later master-data refresh.
+        local layer_payload "id study_entry study_exit"
+        foreach payload_var of local keepvars {
+            if "`payload_var'" != "id" {
+                local layer_payload "`layer_payload' `payload_var'"
             }
-            else {
-                * For overlapping periods, split into: pre-overlap, overlap (handled by next), post-overlap
-                quietly gen double __orig_row = _n
-                quietly gen double __next_start = exp_start[_n+1] if __has_next_overlap == 1 & id == id[_n+1]
-                quietly gen double __next_stop = exp_stop[_n+1] if __has_next_overlap == 1 & id == id[_n+1]
-                
-                * Create pre-overlap segment (current period up to next period start)
-                quietly gen double __pre_stop = __next_start - 1 if __has_next_overlap == 1
-                
-                * Create post-overlap segment (current period after next period ends, if applicable)
-                quietly gen double __extends_beyond = (exp_stop > __next_stop) if __has_next_overlap == 1
-                quietly gen double __post_start = __next_stop + 1 if __extends_beyond == 1
-                
-                * Preserve original data
-                tempfile pre_split
-                quietly save `pre_split', replace
-
-                * Keep non-overlapping periods as-is (includes last rows with missing values)
-                quietly keep if __has_next_overlap != 1
-                tempfile non_overlap
-                quietly save `non_overlap', replace
-                
-                * Create pre-overlap segments
-                quietly use `pre_split', clear
-                quietly keep if __has_next_overlap == 1
-                quietly replace exp_stop = __pre_stop
-                if "`keepvars'" != "" {
-                    quietly keep id exp_start exp_stop exp_value `keepvars'
-                }
-                else {
-                    quietly keep id exp_start exp_stop exp_value
-                }
-                tempfile pre_segments
-                quietly save `pre_segments', replace
-                
-                * Create post-overlap segments (resumption)
-                quietly use `pre_split', clear
-                quietly keep if __extends_beyond == 1
-                quietly replace exp_start = __post_start
-                * Keep original stop date for resumption segment
-                if "`keepvars'" != "" {
-                    quietly keep id exp_start exp_stop exp_value `keepvars'
-                }
-                else {
-                    quietly keep id exp_start exp_stop exp_value
-                }
-                tempfile post_segments
-                quietly save `post_segments', replace
-                
-                * Combine all segments
-                quietly use `non_overlap', clear
-                quietly append using `pre_segments'
-                quietly append using `post_segments'
-                
-                * Remove any invalid periods
-                quietly drop if exp_start > exp_stop | missing(exp_start) | missing(exp_stop)
-                quietly duplicates drop id exp_start exp_stop exp_value, force
-                
-                sort id exp_start exp_stop exp_value
-            }
-            
-            local iter = `iter' + 1
-        }
-        
-        if `iter' >= `max_iter' {
-            noisily display as error "Warning: Layer resolution reached iteration limit; some overlaps may remain"
         }
 
-        * After layer resolution, merge overlapping same-type periods
-        * Layer can create resumption segments that overlap with other same-type periods
-        local merge_iter = 0
-        local merge_max = 10
-        local merge_changes = 1
+        tempfile layer_payload_data
+        preserve
+        quietly keep `_tvx_source_order' `layer_payload'
+        quietly isid `_tvx_source_order'
+        quietly save `layer_payload_data', replace
+        restore
 
-        while `merge_changes' > 0 & `merge_iter' < `merge_max' {
-            sort id exp_start exp_stop exp_value
-            quietly gen double __merge_flag = 0
+        quietly keep `_tvx_layer_group' exp_start exp_stop exp_value ///
+            `_tvx_source_order'
+        sort `_tvx_layer_group' exp_start `_tvx_source_order'
+        quietly _tvexpose_mata_layer `_tvx_layer_group' exp_start exp_stop ///
+            exp_value `_tvx_source_order'
+        local n_layer_rows = r(n_layer)
+        quietly keep in 1/`n_layer_rows'
+        quietly merge m:1 `_tvx_source_order' using `layer_payload_data', ///
+            keep(3) nogen
+        drop `_tvx_layer_group'
+        sort id exp_start exp_stop exp_value
+    }
 
-            * Identify adjacent/overlapping same-type periods
-            quietly by id (exp_start exp_stop): replace __merge_flag = 1 if ///
-                (exp_start[_n+1] - exp_stop <= `merge') & ///
-                !missing(exp_start[_n+1]) & ///
-                (exp_value == exp_value[_n+1]) & ///
-                (_n < _N) & id == id[_n+1]
-
-            * Extend stop date to encompass next period
-            quietly by id: replace exp_stop = max(exp_stop, exp_stop[_n+1]) if __merge_flag == 1 & _n < _N & id == id[_n+1]
-
-            * Mark subsumed periods for deletion
-            quietly gen double __drop_merge = 0
-            quietly by id: replace __drop_merge = 1 if _n > 1 & id == id[_n-1] & __merge_flag[_n-1] == 1 & exp_start >= exp_start[_n-1] & exp_stop <= exp_stop[_n-1]
-
-            quietly count if __drop_merge == 1
-            local merge_changes = r(N)
-
-            if `merge_changes' > 0 {
-                quietly drop if __drop_merge == 1
-            }
-
-            capture drop __merge_flag __drop_merge
-            local merge_iter = `merge_iter' + 1
+    * Never return success with unresolved different-class overlaps. split is
+    * the explicit multi-row representation and therefore exempt.
+    if "`split'" == "" {
+        tempvar _tvx_conflict_id
+        quietly egen long `_tvx_conflict_id' = group(id)
+        sort `_tvx_conflict_id' exp_start exp_stop exp_value
+        quietly _tvexpose_mata_conflicts `_tvx_conflict_id' exp_start exp_stop exp_value
+        local n_unresolved_overlaps = r(n_conflicts)
+        drop `_tvx_conflict_id'
+        if `n_unresolved_overlaps' > 0 {
+            noisily display as error "Overlap resolution left `n_unresolved_overlaps' conflicting row(s)"
+            noisily display as error "No output was committed; choose an explicit overlap policy or inspect the source episodes."
+            exit 498
         }
     }
     } // End of if "`exp_type'" != "dose" block for overlap handling
+
+    capture drop `_tvx_source_order'
 
     * Save cleaned and overlap-adjusted exposures
     sort id exp_start exp_stop exp_value
@@ -1917,10 +1980,11 @@ program define tvexpose, rclass
     quietly replace __gap_days = .
     quietly by id : replace __gap_days = exp_start[_n+1] - exp_stop - 1 if _n < _N & id == id[_n+1]
 
-    * Create gap periods only where gap exceeds grace period
-    quietly generate double __gap_start = exp_stop + 1 if __gap_days > __grace_days & !missing(__gap_days)
+    * Grace bridges only same-class episodes. Every remaining positive gap,
+    * including a sub-grace cross-class gap, is reference person-time.
+    quietly generate double __gap_start = exp_stop + 1 if __gap_days > 0 & !missing(__gap_days)
     quietly generate double __gap_stop = 0
-    quietly by id : replace __gap_stop = exp_start[_n+1] - 1 if __gap_days > __grace_days & ///
+    quietly by id : replace __gap_stop = exp_start[_n+1] - 1 if __gap_days > 0 & ///
         !missing(__gap_days) & _n < _N & id == id[_n+1]
     
     * Extract and save gap periods
@@ -1930,7 +1994,7 @@ program define tvexpose, rclass
     
     * Apply carryforward logic if specified
     * Carryforward fills gaps with the previous exposure value for up to carryforward days
-    if `carryforward' > 0 {
+    if `gap_carryforward' > 0 {
         * Save previous exposure value to carry forward into gap
         quietly generate double __prev_exp_value = exp_value
         
@@ -1939,7 +2003,7 @@ program define tvexpose, rclass
         
         * For gaps <= carryforward days: fill entire gap with previous exposure
         * For gaps > carryforward days: split into carryforward period + reference period
-        quietly generate double __carry_stop = min(__gap_start + `carryforward' - 1, __gap_stop)
+        quietly generate double __carry_stop = min(__gap_start + `gap_carryforward' - 1, __gap_stop)
         quietly generate double __ref_start = __carry_stop + 1
         
         * Create carryforward periods (always created, up to carryforward days)
@@ -1949,7 +2013,7 @@ program define tvexpose, rclass
         quietly save `carryforward_gaps', replace
         
         * Create reference periods for remaining gap (only if gap > carryforward)
-        quietly keep if __actual_gap > `carryforward'
+        quietly keep if __actual_gap > `gap_carryforward'
         quietly drop exp_start
         quietly generate double exp_start = exp_stop + 1
         quietly drop exp_stop
@@ -2185,6 +2249,29 @@ program define tvexpose, rclass
     * Store binary exposed/unexposed status for later summary calculations
     * Needed because exposure value changes with type transformations below
     quietly gen double __orig_exp_binary = (exp_value != `reference')
+
+    * Preserve the union of currently exposed person-time before cumulative
+    * histories replace exp_value. This remains the meaning of exposed_time
+    * for continuous and dose output, including split rows that overlap.
+    local current_exposed_time = 0
+    preserve
+    quietly keep if __orig_exp_binary == 1
+    quietly count
+    if r(N) > 0 {
+        tempvar _tvx_current_run _tvx_current_add
+        sort id exp_start exp_stop
+        quietly by id (exp_start exp_stop): generate double `_tvx_current_run' = exp_stop
+        quietly by id (exp_start exp_stop): replace `_tvx_current_run' = ///
+            max(`_tvx_current_run', `_tvx_current_run'[_n-1]) if _n > 1
+        quietly by id (exp_start exp_stop): generate double `_tvx_current_add' = ///
+            exp_stop - exp_start + 1 if _n == 1
+        quietly by id (exp_start exp_stop): replace `_tvx_current_add' = ///
+            max(exp_stop - max(exp_start - 1, `_tvx_current_run'[_n-1]), 0) ///
+            if _n > 1
+        quietly summarize `_tvx_current_add', meanonly
+        local current_exposed_time = r(sum)
+    }
+    restore
     
     * Save original exposure categories for bytype processing
     * Must be saved before any exposure type transformations that change exp_value
@@ -2658,12 +2745,11 @@ program define tvexpose, rclass
         * Only count exposed time toward cumulative
         quietly replace period_days = 0 if exp_value == `reference'
         
-        * IMPORTANT:
-        * For continuous dose-like measures, report the cumulative total AT THE END
-        * of each interval and carry forward during unexposed intervals.
-        * This avoids repeated zeros across early short intervals and is typically
-        * what users expect for a running cumulative "so far" measure.
+        * A model-row history must contain only information known when that row
+        * starts. Keep the endpoint total internally, then subtract the current
+        * row's contribution to obtain the non-anticipating start history.
         quietly bysort id (exp_start): gen cumul_days_end = sum(period_days)
+        quietly generate double cumul_days_start = cumul_days_end - period_days
         
         **## Generate separate continuous variables by exposure type (bytype option)
         * Create tv_exp_[value] for each non-reference exposure type
@@ -2686,8 +2772,9 @@ program define tvexpose, rclass
                 quietly replace period_days_`suffix' = 0 if missing(period_days_`suffix')
 
                 * Calculate cumulative exposure for this type
-                quietly bysort id (exp_start): gen cumul_days_`suffix' = sum(period_days_`suffix')
-                quietly gen double `stub_name'`suffix' = cumul_days_`suffix' / `unit_divisor'
+                quietly bysort id (exp_start): gen cumul_days_`suffix'_end = sum(period_days_`suffix')
+                quietly gen double `stub_name'`suffix' = ///
+                    (cumul_days_`suffix'_end - period_days_`suffix') / `unit_divisor'
 
                 * Label the variable with value label and units from continuousunit
                 local vallab ""
@@ -2703,7 +2790,7 @@ program define tvexpose, rclass
                 }
 
                 * Clean up intermediate variables
-                quietly drop period_days_`suffix' cumul_days_`suffix'
+                quietly drop period_days_`suffix' cumul_days_`suffix'_end
             }
 
             * For bytype, keep exposure variable as categorical type
@@ -2758,8 +2845,8 @@ program define tvexpose, rclass
         }
         else {
             * Standard continuous: convert main exposure variable to specified units
-            quietly gen exp_value_new = cumul_days_end / `unit_divisor'
-            drop exp_value period_days cumul_days_end
+            quietly gen exp_value_new = cumul_days_start / `unit_divisor'
+            drop exp_value period_days cumul_days_start cumul_days_end
             rename exp_value_new exp_value
         }
     }
@@ -3522,9 +3609,10 @@ program define tvexpose, rclass
 
         sort id exp_start
 
-        * exp_value now contains the per-segment dose from overlap handling
-        * Calculate cumulative dose as running sum
-        quietly by id: gen double __cumul_dose = sum(exp_value)
+        * exp_value contains the amount attributed to the current segment.
+        * Store cumulative dose at row start, not after the current segment.
+        quietly by id: gen double __cumul_dose_end = sum(exp_value)
+        quietly gen double __cumul_dose = __cumul_dose_end - exp_value
 
         if "`dose_cuts'" != "" {
             * Categorized dose output based on cutpoints
@@ -3617,16 +3705,93 @@ program define tvexpose, rclass
         }
 
         * Clean up
-        capture drop __cumul_dose __same_dose __period_start
+        capture drop __cumul_dose __cumul_dose_end __same_dose __period_start
     }
 
     **# Recency (Time Since Last Exposure) Type
     * Research question: Is residual protection/risk dependent on recency?
     * Output: Categorical variable representing time since last exposure
-    * Example: recency(30 90) creates: currently exposed, <30d since, 30-<90d since, 90+d since (up to 10x max)
+    * Example: recency(30 90) creates current, <30d, 30-<90d, and 90+d
     * Time-varying: Person moves through recency categories after exposure ends
-    * After 10x the maximum cutpoint, reverts to reference (effectively "never exposed")
+    * The final category is open ended; formerly exposed time never becomes never
     else if "`exp_type'" == "recency" {
+        local n_cuts : word count `recency_cutdays'
+
+        * Materialize every threshold crossing. This expands by cutpoints, not
+        * by person-days, so long follow-up does not create a daily data blowup.
+        if "`bytype'" != "" {
+            preserve
+            quietly use `all_person_exp_types', clear
+            quietly levelsof __all_exp_types, local(exp_types)
+            restore
+        }
+
+        sort id exp_start exp_stop
+        quietly generate long __rec_row = _n
+        local rec_last_vars ""
+        if "`bytype'" != "" {
+            foreach exp_type_val of local exp_types {
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly generate double __rec_last_`suffix' = exp_stop ///
+                    if __orig_exp_category == `exp_type_val'
+                quietly by id (exp_start exp_stop): replace __rec_last_`suffix' = ///
+                    __rec_last_`suffix'[_n-1] if _n > 1 & missing(__rec_last_`suffix')
+                local rec_last_vars "`rec_last_vars' __rec_last_`suffix'"
+            }
+        }
+        else {
+            quietly generate double __rec_last = exp_stop if __orig_exp_binary == 1
+            quietly by id (exp_start exp_stop): replace __rec_last = ///
+                __rec_last[_n-1] if _n > 1 & missing(__rec_last)
+            local rec_last_vars "__rec_last"
+        }
+
+        tempfile recency_base recency_boundaries
+        quietly save `recency_base', replace
+        preserve
+        quietly keep if 0
+        quietly save `recency_boundaries', replace
+        restore
+
+        forvalues rec_i = 1/`n_cuts' {
+            local rec_days = `recency_cutday`rec_i''
+            if "`bytype'" != "" {
+                foreach exp_type_val of local exp_types {
+                    local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                    local suffix = subinstr("`suffix'", ".", "p", .)
+                    quietly use `recency_base', clear
+                    quietly generate double __rec_boundary = __rec_last_`suffix' + `rec_days'
+                    quietly keep if __orig_exp_category != `exp_type_val' & ///
+                        !missing(__rec_last_`suffix') & ///
+                        __rec_boundary > exp_start & __rec_boundary <= exp_stop
+                    quietly replace exp_start = __rec_boundary
+                    quietly drop __rec_boundary
+                    quietly append using `recency_boundaries'
+                    quietly save `recency_boundaries', replace
+                }
+            }
+            else {
+                quietly use `recency_base', clear
+                quietly generate double __rec_boundary = __rec_last + `rec_days'
+                quietly keep if __orig_exp_binary == 0 & !missing(__rec_last) & ///
+                    __rec_boundary > exp_start & __rec_boundary <= exp_stop
+                quietly replace exp_start = __rec_boundary
+                quietly drop __rec_boundary
+                quietly append using `recency_boundaries'
+                quietly save `recency_boundaries', replace
+            }
+        }
+
+        quietly use `recency_base', clear
+        quietly append using `recency_boundaries'
+        sort __rec_row exp_start
+        quietly duplicates drop __rec_row exp_start, force
+        quietly by __rec_row (exp_start): replace exp_stop = exp_start[_n+1] - 1 ///
+            if _n < _N
+        drop __rec_row `rec_last_vars'
+        sort id exp_start exp_stop
+
         if "`bytype'" != "" {
             * Create separate recency variables for each exposure type
             * FIXED: Use all exposure types saved BEFORE overlap resolution
@@ -3637,11 +3802,9 @@ program define tvexpose, rclass
             quietly levelsof __all_exp_types, local(exp_types)
             restore
             
-            * Parse cutpoints once
-            local n_cuts : word count `recency'
-            tokenize `recency'
+            * Parse the already validated whole-day boundaries once
+            tokenize `recency_cutdays'
             local last_cut = ``n_cuts''
-            local max_recency_window = `last_cut' * 10
             
             foreach exp_type_val of local exp_types {
                 * Sanitize suffix for variable names (handles negative/decimal values)
@@ -3685,7 +3848,7 @@ program define tvexpose, rclass
                     }
 
                     quietly replace `stub_name'`suffix' = `cat' if __days_since_`suffix' >= `last_cut' & ///
-                        __days_since_`suffix' < `max_recency_window' & !__exp_now_`suffix' & !missing(__days_since_`suffix')
+                        !__exp_now_`suffix' & !missing(__days_since_`suffix')
                 }
 
                 * Get label from original exposure variable for this type
@@ -3798,13 +3961,10 @@ program define tvexpose, rclass
             quietly gen double __days_since = exp_start - __last_exp_carried ///
                 if !__exp_now_rec & !missing(__last_exp_carried)
             
-            * Create recency categories based on cutpoints (specified in days)
-            local n_cuts : word count `recency'
-            
-            * Determine maximum recency window (10x the highest cutpoint)
-            tokenize `recency'
+            * Create recency categories from validated whole-day boundaries.
+            local n_cuts : word count `recency_cutdays'
+            tokenize `recency_cutdays'
             local last_cut = ``n_cuts''
-            local max_recency_window = `last_cut' * 10
             
             quietly gen exp_recency = `reference'
             
@@ -3813,7 +3973,7 @@ program define tvexpose, rclass
             
             * Subsequent categories: Time since exposure bands
             if `n_cuts' > 0 {
-                tokenize `recency'
+                tokenize `recency_cutdays'
                 local cat = 2
                 
                 if "`1'" != "" {
@@ -3833,14 +3993,14 @@ program define tvexpose, rclass
                 }
                 
                 quietly replace exp_recency = `cat' if __days_since >= `last_cut' & ///
-                    __days_since < `max_recency_window' & !__exp_now_rec & !missing(__days_since)
+                    !__exp_now_rec & !missing(__days_since)
             }
             
             * Define and apply value labels for recency categories
             label define rec_labels `reference' "Never exposed", replace
             label define rec_labels 1 "Currently exposed", add
             if `n_cuts' > 0 {
-                tokenize `recency'
+                tokenize `recency_cutdays'
                 local cat = 2
                 if "`1'" != "" {
                     label define rec_labels `cat' "<`1' days since exposure", add
@@ -3991,6 +4151,29 @@ program define tvexpose, rclass
         rename (exp_start exp_stop) (start stop)
     }
 
+    * Quantity metadata lets downstream pipeline commands validate the algebra
+    * instead of inferring it from a variable name.
+    if "`exp_type'" == "continuous" {
+        if `skip_main_var' == 0 {
+            char `generate'[tvtools_quantity] "cumulative"
+            char `generate'[tvtools_history_point] "start"
+            char `generate'[tvtools_quantity_unit] "`cont_unit'"
+        }
+        else {
+            quietly ds `stub_name'*
+            foreach quantity_var of varlist `r(varlist)' {
+                char `quantity_var'[tvtools_quantity] "cumulative"
+                char `quantity_var'[tvtools_history_point] "start"
+                char `quantity_var'[tvtools_quantity_unit] "`cont_unit'"
+            }
+        }
+    }
+    if "`exp_type'" == "dose" & "`dose_cuts'" == "" & `skip_main_var' == 0 {
+        char `generate'[tvtools_quantity] "cumulative"
+        char `generate'[tvtools_history_point] "start"
+        char `generate'[tvtools_quantity_unit] "dose"
+    }
+
     * Keep necessary variables for output
     if `skip_main_var' == 0 {
         local keep_list "id start stop `generate' study_entry study_exit"
@@ -4048,29 +4231,66 @@ program define tvexpose, rclass
     
     * Apply keep list
     keep `keep_list'
+
+    * Final union-coverage invariant. It works for ordinary tiled output and
+    * for split output with intentional duplicate time rows.
+    sort id start stop
+    tempvar _tvx_run_stop _tvx_uncovered _tvx_outside
+    quietly by id (start stop): generate double `_tvx_run_stop' = stop
+    quietly by id (start stop): replace `_tvx_run_stop' = ///
+        max(`_tvx_run_stop', `_tvx_run_stop'[_n-1]) if _n > 1
+    quietly by id (start stop): generate double `_tvx_uncovered' = ///
+        max(start - study_entry, 0) if _n == 1
+    quietly by id (start stop): replace `_tvx_uncovered' = ///
+        max(start - `_tvx_run_stop'[_n-1] - 1, 0) if _n > 1
+    quietly by id (start stop): replace `_tvx_uncovered' = ///
+        `_tvx_uncovered' + max(study_exit - `_tvx_run_stop', 0) if _n == _N
+    quietly summarize `_tvx_uncovered', meanonly
+    local n_uncovered_days = r(sum)
+    quietly generate byte `_tvx_outside' = start < study_entry | ///
+        stop > study_exit | start > stop
+    quietly count if `_tvx_outside'
+    local n_bad_output_bounds = r(N)
+    drop `_tvx_run_stop' `_tvx_uncovered' `_tvx_outside'
+    if `n_uncovered_days' > 0 | `n_bad_output_bounds' > 0 {
+        noisily display as error "Internal tiling invariant failed: `n_uncovered_days' uncovered day(s), `n_bad_output_bounds' invalid bound row(s)"
+        noisily display as error "No output was committed."
+        exit 498
+    }
     
     * Calculate summary statistics for output
     quietly count
     local N_periods = r(N)
     
-    * Count unique persons (tempvars: hardcoded names collide with keepvars)
-    tempvar _ptag _ptime
+    * Count unique persons and exact study-window person-time. Summing output
+    * row lengths would double-count intentional split rows and would conceal
+    * accidental same-value overlaps in ordinary output.
+    tempvar _ptag _ptime _expected_time
     quietly egen double `_ptag' = tag(id)
     quietly count if `_ptag'
     local N_persons = r(N)
-    drop `_ptag'
-
-    * Calculate total person-time
-    quietly gen double `_ptime' = stop - start + 1
-    quietly sum `_ptime'
+    quietly generate double `_expected_time' = study_exit - study_entry + 1 ///
+        if `_ptag'
+    quietly summarize `_expected_time', meanonly
     local total_time = r(sum)
     
+    * Ordinary output must be a true tiling. With full union coverage already
+    * established, excess summed row-time is exact evidence of overlap.
+    quietly gen double `_ptime' = stop - start + 1
+    quietly summarize `_ptime', meanonly
+    local row_time = r(sum)
+    if "`split'" == "" & `row_time' != `total_time' {
+        noisily display as error "Internal tiling invariant failed: output row-time is `row_time' days but the study windows contain `total_time' days"
+        noisily display as error "No output was committed."
+        exit 498
+    }
+    drop `_ptag' `_expected_time'
+
     * Calculate exposed person-time
-    * For duration/continuous/recency, use binary exposure logic
+    * Continuous and dose retain the source-period current-exposure meaning.
+    * Other definitions use their final binary/current status.
     * When bytype is used with evertreated, check if ANY ever variable = 1
     * For other bytype cases, use exp_value for this calculation
-
-        * Calculate exposed person-time
 
     * Case 1: main single output variable exists (no bytype)
     if `skip_main_var' == 0 {
@@ -4138,12 +4358,29 @@ program define tvexpose, rclass
         }
     }
 
-    quietly sum `_ptime' if __final_binary
-    if r(N) > 0 {
-        local exposed_time = r(sum)
+    if inlist("`exp_type'", "continuous", "dose") {
+        local exposed_time = `current_exposed_time'
     }
     else {
         local exposed_time = 0
+        preserve
+        quietly keep if __final_binary == 1
+        quietly count
+        if r(N) > 0 {
+            tempvar _tvx_exposed_run _tvx_exposed_add
+            sort id start stop
+            quietly by id (start stop): generate double `_tvx_exposed_run' = stop
+            quietly by id (start stop): replace `_tvx_exposed_run' = ///
+                max(`_tvx_exposed_run', `_tvx_exposed_run'[_n-1]) if _n > 1
+            quietly by id (start stop): generate double `_tvx_exposed_add' = ///
+                stop - start + 1 if _n == 1
+            quietly by id (start stop): replace `_tvx_exposed_add' = ///
+                max(stop - max(start - 1, `_tvx_exposed_run'[_n-1]), 0) ///
+                if _n > 1
+            quietly summarize `_tvx_exposed_add', meanonly
+            local exposed_time = r(sum)
+        }
+        restore
     }
     
     local unexposed_time = `total_time' - `exposed_time'
@@ -4779,9 +5016,7 @@ program define tvexpose, rclass
     * Frames-first output: copy the finished result into the named frame and
     * reload the caller's data so their working frame is untouched.
     if "`frameout'" != "" {
-        capture frame drop `frameout'
-        local _frame_drop_rc = _rc
-        frame copy `c(frame)' `frameout'
+        _tvexpose_frame_commit, target(`frameout') `replace'
         if `_frameout_snap_taken' quietly use "`_tvx_caller_snap'", clear
         else quietly clear
         noisily display as text "Result placed in frame: " as result "`frameout'"
@@ -4795,6 +5030,29 @@ program define tvexpose, rclass
     return scalar exposed_time = `exposed_time'
     return scalar unexposed_time = `unexposed_time'
     return scalar pct_exposed = `pct_exposed'
+    return scalar n_invalid_master = `n_invalid_master'
+    return scalar n_invalid_master_id = `n_invalid_master_id'
+    return scalar n_invalid_master_dates = `n_invalid_master_dates'
+    return scalar n_invalid_master_order = `n_invalid_master_order'
+    return scalar n_invalid_exposure = `n_invalid_exposure'
+    return scalar n_invalid_exposure_id = `n_invalid_exposure_id'
+    return scalar n_invalid_exposure_dates = `n_invalid_exposure_dates'
+    return scalar n_invalid_exposure_order = `n_invalid_exposure_order'
+    return scalar n_invalid_exposure_value = `n_invalid_exposure_value'
+    return scalar n_unmatched_exposure = `n_unmatched_exposure'
+    return scalar n_outside_window = `n_outside_window'
+    return scalar n_lag_removed = `n_lag_removed'
+    return scalar n_uncovered_days = `n_uncovered_days'
+    return scalar n_unresolved_overlaps = `n_unresolved_overlaps'
+
+    if "`window'" != "" {
+        return scalar window_min = `window_min'
+        return scalar window_max = `window_max'
+    }
+    if "`recency'" != "" {
+        return local recency_unit "`recency_unit'"
+        return local recency_cutdays "`recency_cutdays'"
+    }
 
     * Name of the generated exposure variable (or the bytype stub), so callers
     * and downstream tvmerge/tvevent steps can read the chosen output name.
@@ -4804,7 +5062,7 @@ program define tvexpose, rclass
     * Note: overlap_ids already available via return local, no global needed
 
     * Flow accounting report (opt-in via flow option)
-    if "`flow'" != "" {
+    if `_return_flow' {
         tempname _flowmat
         matrix `_flowmat' = J(2, 3, .)
         matrix `_flowmat'[1,1] = `_flow_pin'

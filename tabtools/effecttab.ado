@@ -83,7 +83,7 @@ program define effecttab, rclass
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
 		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
-	        LABELWidth(integer 0)]
+	        LABELWidth(integer 0) Level(real -1)]
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -92,7 +92,7 @@ program define effecttab, rclass
 
 		local _eplotframe_name ""
 		local _eplotframe_replace 0
-		if `"`eplotframe'"' != "" {
+			if `"`eplotframe'"' != "" {
 			local _ep_spec = strtrim(`"`eplotframe'"')
 			gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
 			local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
@@ -115,10 +115,73 @@ program define effecttab, rclass
 					noisily display as error "eplotframe() only allows the replace suboption"
 					exit 198
 				}
+				}
 			}
-		}
+				local _displayframe_name ""
+				local _displayframe_replace 0
+				if `"`frame'"' != "" {
+				local _fr_spec = subinstr(strtrim(`"`frame'"'), `""""', "", .)
+				gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
+					local _displayframe_name = strtrim(`"`_displayframe_name'"')
+					local _fr_rest : subinstr local _fr_rest "," "", all
+					local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
+				capture confirm name `_displayframe_name'
+				if _rc {
+					noisily display as error "frame() must start with a valid Stata frame name"
+						exit 198
+					}
+					if `"`_fr_rest'"' != "" {
+						if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+						else {
+							noisily display as error "frame() only allows the replace suboption"
+							exit 198
+						}
+					}
+			}
+			if `"`_displayframe_name'"' != "" & ///
+				`"`_eplotframe_name'"' != "" & ///
+				lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+				noisily display as error "frame() and eplotframe() must name different frames"
+				exit 198
+			}
+				foreach _dest in _displayframe_name _eplotframe_name {
+					if `"``_dest''"' != "" & ///
+						lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+						noisily display as error "output frames cannot replace the current frame"
+						exit 198
+					}
+				}
+				if `"`_displayframe_name'"' != "" {
+					capture confirm frame `_displayframe_name'
+					if !_rc & !`_displayframe_replace' {
+						noisily display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
+						exit 110
+					}
+				}
+				if `"`_eplotframe_name'"' != "" {
+					capture confirm frame `_eplotframe_name'
+					if !_rc & !`_eplotframe_replace' {
+						noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+						exit 110
+					}
+				}
+				local _displayframe_target "`_displayframe_name'"
+				local _eplotframe_target "`_eplotframe_name'"
+				local _displayframe_build ""
+				local _eplotframe_build ""
+				if `"`_displayframe_target'"' != "" {
+					tempname _displayframe_tmp
+					local _displayframe_build "`_displayframe_tmp'"
+					local frame "`_displayframe_build', replace"
+				}
+				if `"`_eplotframe_target'"' != "" {
+					tempname _eplotframe_tmp
+					local _eplotframe_build "`_eplotframe_tmp'"
+					local _eplotframe_name "`_eplotframe_build'"
+					local _eplotframe_replace 1
+				}
 
-	* Label-column width cap (0 -> default 45): keeps a lone verbose label from
+		* Label-column width cap (0 -> default 45): keeps a lone verbose label from
 	* stretching the whole column; longer labels wrap (text-wrap rule below).
 	local _label_width_cap = `labelwidth'
 	if `_label_width_cap' <= 0 local _label_width_cap = 45
@@ -150,6 +213,25 @@ quietly {
 			noisily display as error "Hint: {bf:collect clear} then {bf:collect: teffects ipw ...}"
 			noisily display as error "Or use from(matrix_name) to pass a matrix directly"
 			exit 119
+		}
+	}
+	if `level' != -1 & (`level' <= 0 | `level' >= 100) {
+		noisily display as error "level() must be between 0 and 100"
+		exit 198
+	}
+	if `_from_matrix' {
+		local _ci_level = cond(`level' == -1, 95, `level')
+	}
+	else {
+		_tabtools_collect_ci_level
+		local _stored_ci_level = r(level)
+		local _ci_level = `_stored_ci_level'
+		if `level' != -1 {
+			if abs(`level' - `_stored_ci_level') > 1e-8 {
+				noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
+				exit 198
+			}
+			local _ci_level = `level'
 		}
 	}
 
@@ -210,7 +292,7 @@ quietly {
 	}
 
 	* Build format strings from digits
-	local coef_fmt "%9.`digits'f"
+	local coef_fmt "%21.`digits'f"
 	local coef_round = 10^(-`digits')
 
 	* Resolve formatting
@@ -413,7 +495,7 @@ quietly {
 
 	* Apply formatting to result items
 	collect label levels result _r_b "`effect'", modify
-	collect label levels result _r_ci "`=c(level)'% CI", modify
+	collect label levels result _r_ci "`_ci_level'% CI", modify
 	collect label levels result _r_p "p-value", modify
 	collect style cell result[_r_b], warn nformat(%`=`digits'+2'.`digits'fc) halign(center) valign(center)
 	collect style cell result[_r_ci], warn nformat(%`=`digits'+3'.`digits'fc) sformat("(%s)") ///
@@ -575,7 +657,7 @@ quietly {
 		* Row 2: headers
 		qui replace A = "" in 2
 		qui replace c1 = "`effect'" in 2
-		qui replace c2 = "(95% CI)" in 2
+		qui replace c2 = "(`_ci_level'% CI)" in 2
 		qui replace c3 = "p" in 2
 		* Data rows
 		local _rnames : rownames `from'
@@ -588,10 +670,10 @@ quietly {
 				local _cilo = `from'[`_fr', 2]
 				local _cihi = `from'[`_fr', 3]
 				local _pv = `from'[`_fr', 4]
-				if !missing(`_est') qui replace c1 = string(`_est', "%9.`digits'f") in `_obs'
+				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "%21.`digits'f")) in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
-				local _cilo_s : display %9.`digits'f `_cilo'
-				local _cihi_s : display %9.`digits'f `_cihi'
+				local _cilo_s : display %21.`digits'f `_cilo'
+				local _cihi_s : display %21.`digits'f `_cihi'
 				local _cilo_s = strtrim("`_cilo_s'")
 				local _cihi_s = strtrim("`_cihi_s'")
 				qui replace c2 = "(`_cilo_s'`sep'`_cihi_s')" in `_obs'
@@ -773,8 +855,8 @@ quietly {
 				local _pcell = strtrim(c`=`_ci'+2'[`_obs'])
 				local _numval = real("`_cell'")
 				local _pnum = real("`_pcell'")
-				if `_numval' < . {
-					if !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+						if `_numval' < . {
+							if `_from_matrix' | !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
 						local _row_has_data = 1
 					}
 				}
@@ -801,7 +883,7 @@ quietly {
 					local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
 					local _numval = real("`_cell'")
 					if `_numval' < . {
-						if !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+						if `_from_matrix' | !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
 							matrix `_rtable'[`_mr', `_mc'] = `_numval'
 						}
 					}
@@ -835,9 +917,12 @@ quietly {
 			replace _eplot_est`_model_ix' = c`i'z ///
 				if _n >= 3 & c`i'z < . & missing(_eplot_est`_model_ix')
 			tostring c`i'z, replace force format(`coef_fmt')
-		* Mark base level as "Reference" when ATE is 0 and CI is empty
-		replace c`i' = "Reference" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
-			& strtrim(c`=`i'+1') == "" & _n >= 3
+			* Matrix input has no structural base-level metadata, so a numeric zero
+			* can never be reinterpreted as a reference category.
+			if !`_from_matrix' {
+				replace c`i' = "Reference" if inlist(strtrim(c`i'), "0", "0.00", ".00") ///
+					& strtrim(c`=`i'+1') == "" & _n >= 3
+			}
 		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "Reference"
 		* Clear CI and p-value for Reference rows
 			replace c`=`i'+1' = "" if c`i' == "Reference" & _n >= 3
@@ -922,7 +1007,7 @@ quietly {
 		replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z < `_pmin' & !missing(c`i'z)
 		replace c`i'_fmt = string(c`i'z, "`_pfmt_lo'") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
 		replace c`i'_fmt = string(c`i'z, "`_pfmt_hi'") if c`i'z >= 0.10 & !missing(c`i'z)
-		replace c`i'_fmt = string(`_pmax', "`_pfmt_hi'") if c`i'z >= `_pmax' & c`i'z < 1 & !missing(c`i'z)
+		replace c`i'_fmt = ">" + string(`_pmax', "`_pfmt_hi'") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
 		replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z == 0 & !missing(c`i'z)
 		* Add leading zero if missing (e.g., .123 -> 0.123)
 		replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
@@ -972,8 +1057,21 @@ quietly {
 					}
 				}
 				}
-				frame `_eplotframe_name': char _dta[tabtools_source] "effecttab"
+			frame `_eplotframe_name': char _dta[tabtools_source] "effecttab"
+			frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level'"
+			frame `_eplotframe_name': char _dta[tabtools_n_models] "`_n_models'"
+			frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
+				forvalues _meta_m = 1/`_n_models' {
+					local _meta_id `"`collect_cmdline_`_meta_m''"'
+					if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
+					local _meta_label_col = (`_meta_m' - 1) * 3 + 1
+					local _meta_label = c`_meta_label_col'[1]
+					frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
+					frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] ""
+					frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
+					frame `_eplotframe_name': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
 			}
+		}
 		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
 
 	* =========================================================================
@@ -995,7 +1093,8 @@ quietly {
 			if `"`_ar_chunk'"' == "" continue
 
 			gettoken _ar_label _ar_vals : _ar_chunk
-			local _ar_label : subinstr local _ar_label `"""' "", all
+			_tabtools_strip_outer_quotes, text(`"`_ar_label'"')
+			local _ar_label `"`r(text)'"'
 
 			local curr_n = _N
 			set obs `=`curr_n'+1'
@@ -1047,10 +1146,10 @@ quietly {
 	* Build methods description (I2)
 	local _methods ""
 	if `_from_matrix' {
-		local _methods "Effect estimates were formatted from the supplied matrix with 95% confidence intervals and p-values."
+		local _methods "Effect estimates were formatted from the supplied matrix with `_ci_level'% confidence intervals and p-values."
 	}
 	else if `_n_models' > 1 {
-		local _methods "Effect estimates from multiple collected models were formatted with 95% confidence intervals."
+		local _methods "Effect estimates from multiple collected models were formatted with `_ci_level'% confidence intervals."
 	}
 	else if "`type'" == "teffects" {
 		if `_n_models' == 1 {
@@ -1070,11 +1169,11 @@ quietly {
 			else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
 			else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
 			else local _methods "Average treatment effects estimated using teffects"
-			local _methods "`_methods' with 95% confidence intervals."
+			local _methods "`_methods' with `_ci_level'% confidence intervals."
 		}
 	}
 	else {
-		local _methods "Marginal effects estimated using the margins command with 95% confidence intervals."
+		local _methods "Marginal effects estimated using the margins command with `_ci_level'% confidence intervals."
 	}
 	local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
@@ -1084,6 +1183,7 @@ quietly {
 	}
 	return scalar N_rows = `num_rows'
 	return scalar N_cols = `num_cols'
+		return scalar ci_level = `_ci_level'
 		return local effect_label "`effect'"
 		return local type "`type'"
 		return local methods "`_methods'"
@@ -1197,12 +1297,30 @@ quietly {
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
 		local frame "`_frame_name'"
-		if `"`_eplotframe_name'"' != "" {
-			frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
+		frame `frame': char _dta[tabtools_source] "effecttab"
+		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
+		frame `frame': char _dta[tabtools_n_models] "`_n_models'"
+		frame `frame': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
+			forvalues _meta_m = 1/`_n_models' {
+				local _meta_id `"`collect_cmdline_`_meta_m''"'
+				if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
+				local _meta_label_col = (`_meta_m' - 1) * 3 + 1
+				local _meta_label = c`_meta_label_col'[2]
+				frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
+				frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] ""
+				frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
+				frame `frame': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
 		}
-		return local frame "`frame'"
-	}
-	if `"`_ret_markdown'"' != "" {
+			if `"`_eplotframe_name'"' != "" {
+				frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
+			}
+			return local frame "`frame'"
+		}
+		if `"$TABTOOLS_QA_EFFECT_STAGE_FAIL"' == "1" {
+			restore
+			error 459
+		}
+		if `"`_ret_markdown'"' != "" {
 		return local markdown `"`_ret_markdown'"'
 		return scalar markdown_rows = `_ret_markdown_rows'
 		return scalar markdown_cols = `_ret_markdown_cols'
@@ -1403,12 +1521,33 @@ quietly {
 		return local sheet "`sheet'"
 	}
 
-	* Open file if requested (W3)
-	if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
-}
+		* Open file if requested (W3)
+		if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 
-	} // end capture noisily
-	local _rc = _rc
+		* Commit staged frames only after all requested file outputs succeeded.
+		if `"`_eplotframe_build'"' != "" {
+			capture confirm frame `_eplotframe_target'
+			if !_rc frame drop `_eplotframe_target'
+			frame rename `_eplotframe_build' `_eplotframe_target'
+			local _eplotframe_build ""
+			return local eplotframe "`_eplotframe_target'"
+		}
+		if `"`_displayframe_build'"' != "" {
+			capture confirm frame `_displayframe_target'
+			if !_rc frame drop `_displayframe_target'
+			frame rename `_displayframe_build' `_displayframe_target'
+			local _displayframe_build ""
+			local frame "`_displayframe_target'"
+			return local frame "`_displayframe_target'"
+		}
+	}
+
+		} // end capture noisily
+		local _rc = _rc
+		if `_rc' {
+			if `"`_displayframe_build'"' != "" capture frame drop `_displayframe_build'
+			if `"`_eplotframe_build'"' != "" capture frame drop `_eplotframe_build'
+		}
 	set varabbrev `_orig_varabbrev'
 	if `_rc' exit `_rc'
 end

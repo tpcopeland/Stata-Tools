@@ -13,6 +13,7 @@
 {viewerjumpto "Syntax" "tvtools##syntax"}{...}
 {viewerjumpto "Commands" "tvtools##commands"}{...}
 {viewerjumpto "Workflow" "tvtools##workflow"}{...}
+{viewerjumpto "Data contracts" "tvtools##contracts"}{...}
 {viewerjumpto "Examples" "tvtools##examples"}{...}
 {viewerjumpto "Remarks" "tvtools##remarks"}{...}
 {viewerjumpto "Stored results" "tvtools##results"}{...}
@@ -98,6 +99,89 @@ time-varying format{p_end}
 {p 4 8 2}4. {bf:Diagnose}: Use {helpb tvdiagnose} to verify data structure{p_end}
 {p 4 8 2}5. {bf:Compute weights}: Use {helpb tvweight} for IPTW estimation{p_end}
 {p 4 8 2}6. {bf:Estimate effects}: Use Cox regression or other models with weighted data{p_end}
+
+
+{marker contracts}{...}
+{title:Data contracts}
+
+{pstd}
+The following contracts apply throughout {cmd:tvtools}. Command-specific help
+may add restrictions but does not change these definitions.
+
+{pstd}
+{bf:Closed daily intervals.} Source rows use inclusive integer Stata daily
+dates {cmd:[start, stop]}. Their duration is {cmd:stop - start + 1}, so
+{cmd:start == stop} is a valid one-day row. Two rows abut when the later start
+equals the running prior maximum stop plus one; a gap begins above that value. An
+overlap begins on or below the running prior maximum stop. Equality at a
+shared date is therefore an overlap, not abutment.
+
+{pstd}
+An event on date {it:d} belongs to the closed row containing {it:d}. When that
+date creates a boundary, the event row ends on {it:d}; any continuing row
+starts on {it:d}+1. Terminal-event output contains no later person-time.
+
+{pstd}
+{bf:Conversion to Stata survival time.} Stata survival records are open on the
+left and closed on the right. Convert every closed source row by subtracting
+one day from its lower bound, then use that row-specific value with
+{cmd:time0()}:
+
+{phang2}{cmd:. generate double start0 = start - 1}{p_end}
+{phang2}{cmd:. stset stop, id(id) failure(event == 1) time0(start0)}{p_end}
+
+{pstd}
+This maps {cmd:[start, stop]} exactly to {cmd:(start-1, stop]} and preserves a
+one-day row as one analysis-time unit. A single {cmd:enter()} value is safe only
+when one entry applies to a guaranteed contiguous history. {cmd:time0()} is the
+authoritative form for row-specific bounds and histories containing gaps.
+
+{pstd}
+{bf:Continuous quantities.} A rate is an amount per day and remains unchanged
+when a row is split. An interval total is the amount attributable to one closed
+source row and is apportioned by inclusive overlap days; pieces must sum to the
+source total. A cumulative history is the amount known at the start of a model
+row. It is non-anticipating and is carried unchanged when that row is split.
+
+{pstd}
+{cmd:tvmerge} and {cmd:tvevent} use {opt rate()}, {opt total()}, and
+{opt cumulative()} for these three algebras. A variable may appear in only one
+list. The legacy {opt continuous()} option is a deprecated alias for
+{opt total()} because proportional allocation was its released behavior; the
+command issues a migration warning. Quantity variables carry the characteristic
+{cmd:[tvtools_quantity]} with value {cmd:rate}, {cmd:total}, or
+{cmd:cumulative}. Cumulative output from {cmd:tvexpose} is measured at row
+start and carries {cmd:[tvtools_history_point] = start}.
+
+{pstd}
+{bf:Recency.} {opt recency()} requires
+{opt recencyunit(days|years)}; version 1.7 does not guess between the formerly
+contradictory code and documentation. Day cutpoints must be positive whole
+days. Year cutpoints are converted once to whole elapsed days as
+{cmd:round(365.25 * cutpoint)}. Converted boundaries must be unique and
+strictly increasing.
+
+{pstd}
+Let {it:s} be the inclusive stop of the most recent exposure and let
+{it:d} be an unexposed date. Recency is {cmd:d-s}. A boundary {it:b} enters the
+new category on the date where {cmd:d-s == b}; bands are left-closed and
+right-open. Every crossing splits the output row. The final category is open
+ended. Only time before a person's first exposure is {it:never exposed}; a
+formerly exposed person never silently returns to that reference category.
+
+{pstd}
+{bf:Malformed required inputs.} IDs must be nonmissing. Required dates and
+interval bounds must be numeric, finite, nonmissing whole daily dates, must not
+have {cmd:%tc}/{cmd:%tC} formats, and must satisfy {cmd:start <= stop}. Required
+exposure values must be nonmissing. Commands reject malformed inputs before
+mutating caller data and report exact counts by reason.
+
+{pstd}
+Where documented, {opt dropinvalid} is the only opt-in escape hatch. It drops
+the offending source rows without repairing or guessing their values, returns
+the reason-specific counts and {cmd:r(flow)}, and errors if no valid analysis
+rows remain. Options such as {opt force} that govern ID-set or overlap policy do
+not authorize malformed-input deletion.
 
 
 {marker examples}{...}

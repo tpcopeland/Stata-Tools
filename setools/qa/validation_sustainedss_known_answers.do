@@ -5,8 +5,7 @@ capture log close _all
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall setools
-quietly net install setools, from("`pkg_dir'") replace
+do "`qa_dir'/_setools_qa_common.do" setup "`pkg_dir'"
 
 scalar wc_tests = 0
 scalar wc_pass = 0
@@ -80,8 +79,8 @@ local ok = (r(N) == 6 & r(min) == 400 & r(max) == 400)
 wc_check "failed candidate is rejected and next valid event is selected" `ok'
 
 quietly summarize sus_wc if id == "C", meanonly
-local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
-wc_check "temporary dip is sustained when last window value returns to threshold" `ok'
+local ok = (r(N) == 3 & r(min) == 300 & r(max) == 300)
+wc_check "temporary dip rejects the earlier candidate across observed follow-up" `ok'
 
 quietly count if id == "D" & missing(sus_wc)
 local ok = (r(N) == 5)
@@ -91,7 +90,7 @@ quietly summarize sus_wc if id == "E", meanonly
 local ok = (r(N) == 4 & r(min) == 300 & r(max) == 300)
 wc_check "missing EDSS and missing dates are ignored without dropping keepall rows" `ok'
 
-local ok = (`cmd_N_events' == 4 & `cmd_iterations' == 3 & ///
+local ok = (`cmd_N_events' == 4 & `cmd_iterations' == 2 & ///
     `cmd_converged' == 1 & `cmd_threshold' == 6 & ///
     `cmd_confirmwindow' == 100 & "`cmd_varname'" == "sus_wc")
 wc_check "stored results match known branch run" `ok'
@@ -140,3 +139,5 @@ if wc_fail > 0 {
 
 display as result "ALL TESTS PASSED"
 display "RESULT: validation_sustainedss_known_answers tests=" wc_tests " pass=" wc_pass " fail=" wc_fail
+
+do "`qa_dir'/_setools_qa_common.do" teardown

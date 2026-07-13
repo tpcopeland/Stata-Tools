@@ -21,6 +21,10 @@
 
 cat("=== tabtools Cross-Validation Companion (R) ===\n\n")
 
+args <- commandArgs(trailingOnly = TRUE)
+output_dir <- if (length(args) >= 1) args[[1]] else "data"
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
 results <- list()
 
 # ============================================================
@@ -233,7 +237,7 @@ smd_data <- data.frame(
     group = c(rep(1, n1), rep(2, n2)),
     x = c(x1, x2)
 )
-write.csv(smd_data, "data/crossval_smd_data.csv", row.names = FALSE)
+write.csv(smd_data, file.path(output_dir, "crossval_smd_data.csv"), row.names = FALSE)
 
 # ============================================================
 # SECTION 5: SMD for categorical variables (Yang & Dalton)
@@ -277,7 +281,7 @@ cat_data <- data.frame(
     group = c(rep(1, n_cat1), rep(2, n_cat2)),
     category = c(cat1, cat2)
 )
-write.csv(cat_data, "data/crossval_cat_smd_data.csv", row.names = FALSE)
+write.csv(cat_data, file.path(output_dir, "crossval_cat_smd_data.csv"), row.names = FALSE)
 cat(sprintf("  From generated data: SMD = %.6f\n", smd_cat_actual))
 
 # ============================================================
@@ -302,7 +306,7 @@ cat(sprintf("  ESS = %.6f\n", ess))
 
 # Save weights for Stata
 ess_data <- data.frame(id = 1:100, wt = weights)
-write.csv(ess_data, "data/crossval_ess_data.csv", row.names = FALSE)
+write.csv(ess_data, file.path(output_dir, "crossval_ess_data.csv"), row.names = FALSE)
 
 # ============================================================
 # SECTION 7: AIC and BIC from log-likelihood
@@ -655,7 +659,7 @@ results_df <- data.frame(
     stringsAsFactors = FALSE
 )
 
-write.csv(results_df, "data/crossval_tabtools_r_results.csv", row.names = FALSE)
+write.csv(results_df, file.path(output_dir, "crossval_tabtools_r_results.csv"), row.names = FALSE)
 
 cat(sprintf("\nDone. %d metrics saved to data/crossval_tabtools_r_results.csv\n",
     nrow(results_df)))

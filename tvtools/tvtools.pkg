@@ -40,6 +40,7 @@ f tvtools.ado
 f tvexpose.ado
 f tvexpose.dlg
 f tvexpose.sthlp
+f _tvexpose_frame_commit.ado
 f _tvexpose_mata.ado
 f _tvexpose_diagnose.ado
 f tvmerge.ado
