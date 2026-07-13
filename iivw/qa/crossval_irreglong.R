@@ -221,8 +221,14 @@ write.csv(
 dc_entry$xb_par <- as.numeric(
     predict(m_entry, newdata = dc_entry, type = "lp", reference = "zero"))
 obs_par <- dc_entry[dc_entry$event == 1, ]
+
+# id = obs_par$id, NOT obs_par$Subject. Subject is a FACTOR: write.csv emits its
+# label, while phenobarb_prepared.csv carries the numeric factor CODE (data$id
+# <- as.numeric(data$Subject)). Keying on Subject makes the two files disagree
+# about who is who, and the Stata-side merge matched 2 rows out of 95.
+stopifnot(!is.null(obs_par$id), !anyNA(obs_par$id))
 write.csv(
-    data.frame(id = obs_par$Subject,
+    data.frame(id = obs_par$id,
                time = obs_par$time,
                r_w = exp(-obs_par$xb_par)),
     file = file.path(outdir, "phenobarb_parity_entry_weights.csv"),

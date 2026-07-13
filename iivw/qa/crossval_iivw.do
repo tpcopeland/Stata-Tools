@@ -432,7 +432,13 @@ if `run_only' == 0 | `run_only' == 45 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 46 {
     capture noisily {
-        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
+        * asdouble on BOTH imports, and it is load-bearing. import delimited
+        * defaults to FLOAT, which carries ~7 significant digits: the R oracle is
+        * written with 15, so reading it as float injects a ~1e-7 relative error
+        * into the comparison and the parity check cannot see anything finer than
+        * that. A measured run went from a 1.4e-07 spread to 4e-15 on this one
+        * word. Any "exact parity" test that omits it is checking float noise.
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear asdouble
         keep id time conc
         sort id time
 
@@ -440,7 +446,7 @@ if `run_only' == 0 | `run_only' == 46 {
 
         preserve
         import delimited "`qa_dir'/phenobarb_parity_entry_weights.csv", ///
-            clear varnames(1)
+            clear varnames(1) asdouble
         tempfile rw
         quietly save "`rw'"
         local r_rows = _N
@@ -464,23 +470,62 @@ if `run_only' == 0 | `run_only' == 46 {
         quietly count if _mrg == 1 & !_isfirst
         assert r(N) == 0
 
-        * Digit-for-digit on the IIW weight.
-        gen double wdiff = abs(_iivw_iw - r_w) if _mrg == 3
-        quietly summarize wdiff, meanonly
-        local maxdiff = r(max)
-        display as text "  matched visits  : `n_match'"
-        display as text "  max |w_iivw - w_R| : " %12.3e `maxdiff'
+        * The two sides are on different scales BY DESIGN: iivw normalizes
+        * _iivw_iw to mean 1 (see "Mean-1 normalization" in iivw_weight.sthlp),
+        * while R's oracle is the raw exp(-xb). So the comparison has two parts,
+        * and doing only the second would be worthless.
+        *
+        * (a) SHAPE. The ratio w_iivw / w_R must be the SAME CONSTANT on every
+        *     row. This is the assertion that actually has teeth: it catches a
+        *     per-row misalignment, a permuted weight column, a wrong sign in the
+        *     exponent, and a centering error -- none of which survive a constant
+        *     ratio, and all of which survive the rescale in (b).
+        gen double ratio = _iivw_iw / r_w if _mrg == 3
+        quietly summarize ratio, meanonly
+        local rmin = r(min)
+        local rmax = r(max)
+        local rmean = r(mean)
+        local spread = (`rmax' - `rmin') / `rmean'
+        display as text "  matched visits    : `n_match'"
+        display as text "  w_iivw / w_R      : " %20.16f `rmean'
+        display as text "  relative spread   : " %12.3e `spread'
+        * A measured run gives ~4e-15, i.e. floating-point noise. 1e-9 is orders
+        * of magnitude looser and still far tighter than any real defect.
+        assert `spread' < 1e-9
 
-        * A measured run gives ~1e-9. 1e-6 is already far looser than the Cox
-        * convergence tolerance either side uses; if this ever needs widening,
-        * the two sides have stopped computing the same quantity and the fix is
-        * upstream, not here.
-        assert `maxdiff' < 1e-6
+        * (b) SCALE. The constant must be exactly the documented normalizer, and
+        *     that normalizer is derivable from the oracle -- so derive it rather
+        *     than rescale both sides and call whatever is left a match.
+        *
+        *     iivw rescales the RAW weights to mean 1 over every row it weights.
+        *     Those rows are the 95 matched visits, PLUS each subject's first
+        *     visit, which takes raw weight 1 by convention (there is no prior
+        *     interval to estimate an intensity from). So
+        *
+        *         mean_raw = (n_first * 1 + sum(w_R)) / (n_first + n_match)
+        *         ratio    = 1 / mean_raw
+        *
+        *     This ties (b) to the first-visit convention in iivw_weight.sthlp.
+        *     If either the normalization set or the first-visit raw value ever
+        *     changes, this fires -- which a bare "rescale both to mean 1" check
+        *     could never do, because that divides out the very quantity under
+        *     test. Measured: predicted 0.6046958039295871, observed ...875.
+        quietly count if _mrg == 1
+        local n_first = r(N)
+        quietly summarize r_w if _mrg == 3, meanonly
+        local sum_rw = r(sum)
+        local mean_raw = (`n_first' + `sum_rw') / (`n_first' + `n_match')
+        local expected = 1 / `mean_raw'
+        display as text "  first visits      : `n_first'"
+        display as text "  predicted ratio   : " %20.16f `expected'
+        assert abs(`rmean' - `expected') / `expected' < 1e-9
 
-        * Guard the guard: a merge that matched nothing would leave wdiff all
-        * missing and summarize would report r(max) == . -- which is NOT < 1e-6,
-        * but only because missing sorts high. Assert the comparison count too.
-        quietly count if !missing(wdiff)
+        * Guard the guard. If the merge had matched nothing, `ratio' would be all
+        * missing, summarize would return r(N)==0, and `spread' would be missing
+        * -- which is NOT < 1e-9, so the assert would fire. But make the count
+        * explicit anyway: a verdict computed over zero comparisons is the single
+        * most common way a parity test passes while proving nothing.
+        quietly count if !missing(ratio)
         assert r(N) == `r_rows'
     }
     if _rc == 0 {
