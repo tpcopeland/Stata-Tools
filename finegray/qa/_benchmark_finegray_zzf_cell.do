@@ -40,6 +40,24 @@ set varabbrev off
 version 16.0
 
 * ---------------------------------------------------------------------------
+* Measure CPU TIME, single-threaded -- not wall clock.
+* ---------------------------------------------------------------------------
+* Wall clock on a shared box measures the SCHEDULER, not the estimator.  An earlier
+* run of this benchmark shared the machine with a Monte Carlo and reported a slope
+* near 1.5; that number was noise and very nearly got written down as a scaling
+* defect.  Waiting for an idle machine is not an option here -- the box is never
+* idle -- so the fix is to measure a quantity contention does not move:
+*
+*   set processors 1   removes MP thread-scheduling variance, so the fit does a
+*                      single deterministic amount of work.
+*   utime + stime      from /proc/self/stat is CPU time actually consumed by THIS
+*                      process.  Another job stealing a core stretches wall time
+*                      but not the work done, so the log-log SLOPE is preserved.
+*
+* Wall time is still recorded, as a diagnostic only.  The gate is on CPU time.
+capture set processors 1
+
+* ---------------------------------------------------------------------------
 * Peak RSS (kB) from /proc/self/status, and the high-water-mark reset.
 * ---------------------------------------------------------------------------
 capture program drop _fg_vmhwm
@@ -63,6 +81,27 @@ program define _fg_vmhwm, rclass
     }
     file close `fh'
     return scalar kb = `kb'
+end
+
+* CPU time (seconds) consumed by this process: utime + stime from /proc/self/stat,
+* fields 14 and 15, in clock ticks (100/s on Linux).  The comm field is
+* "(stata-mp)" -- no embedded spaces -- so plain word() parsing is safe here.
+capture program drop _fg_cpu
+program define _fg_cpu, rclass
+    tempname fh
+    local secs = .
+    capture file open `fh' using "/proc/self/stat", read text
+    if _rc {
+        return scalar secs = .
+        exit
+    }
+    file read `fh' line
+    file close `fh'
+    local clean = subinstr(`"`macval(line)'"', char(9), " ", .)
+    local ut = real(word("`clean'", 14))
+    local st = real(word("`clean'", 15))
+    if !missing(`ut') & !missing(`st') local secs = (`ut' + `st') / 100
+    return scalar secs = `secs'
 end
 
 capture program drop _fg_vmreset
@@ -99,6 +138,8 @@ quietly stset t, failure(anyev == 1) id(id) enter(time t0)
 _fg_vmreset
 _fg_vmhwm
 local kb_pre = r(kb)
+_fg_cpu
+local cpu_pre = r(secs)
 
 timer clear 1
 timer on 1
@@ -110,10 +151,18 @@ else {
 }
 timer off 1
 quietly timer list 1
-local secs = r(t1)
+local wall = r(t1)
 
+_fg_cpu
+local cpu_post = r(secs)
 _fg_vmhwm
 local kb_post = r(kb)
+
+local secs = `cpu_post' - `cpu_pre'
+if missing(`secs') {
+    display as error "could not read CPU time from /proc/self/stat"
+    exit 459
+}
 
 if missing(`kb_pre') | missing(`kb_post') {
     display as error "could not read VmHWM from /proc/self/status; memory is unmeasured"
@@ -133,7 +182,7 @@ local kb_incr = `kb_post' - `kb_pre'
 
 tempname out
 file open `out' using "`csv'", write text append
-file write `out' "`groups',`nn',`run',`secs',`kb_incr',`kb_pre',`kb_post'" _n
+file write `out' "`groups',`nn',`run',`secs',`kb_incr',`wall'" _n
 file close `out'
 
-display as text "cell groups=`groups' n=`nn' run=`run' secs=`secs' kb_incr=`kb_incr' kb_peak=`kb_post'"
+display as text "cell groups=`groups' n=`nn' run=`run' cpu=`secs' wall=`wall' kb_incr=`kb_incr'"

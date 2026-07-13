@@ -34,20 +34,21 @@
 *     be mistaken for the scaling being tested.  The child asserts the fit really
 *     observed the stratum count its lane is labelled with.
 *
-* THIS BENCHMARK IS WORTHLESS ON A LOADED MACHINE.  Runtime slope is a timing
-* measurement; if other jobs are competing for the 16 cores, the numbers describe
-* the scheduler, not the estimator.  The script refuses to run above a load
-* threshold rather than emitting a number that looks like evidence.  (Ask me how I
-* know: an earlier run of this benchmark shared the box with a Monte Carlo and
-* reported a slope near 1.5.  That number was noise, and it very nearly got
-* written down as a scaling defect.)
+* WALL CLOCK WOULD MAKE THIS BENCHMARK WORTHLESS ON A SHARED BOX, so it does not
+* use wall clock.  An earlier version did, shared the machine with a Monte Carlo,
+* and reported a slope near 1.5 -- pure scheduler noise that very nearly got
+* written down as a scaling defect.  Waiting for an idle machine was not viable
+* (this box never is), so each cell instead runs `set processors 1' and measures
+* CPU TIME (utime + stime from /proc/self/stat).  A competing job steals wall time
+* but not work done, so the log-log SLOPE survives contention.  Wall time is still
+* recorded and printed, as a diagnostic only; the GATE is on CPU time.
 *
 * Run from finegray/qa:  stata-mp -b do benchmark_finegray_zzf.do
 * This is a MEASUREMENT suite; it is not part of run_all.do's pass/fail lanes.
 *
 * Cheap plumbing smoke test (does NOT test scaling -- too small, too few runs):
-*   ZZF_BENCH_NS="3000 6000" ZZF_BENCH_RUNS=2 ZZF_BENCH_LANES="1 10" \
-*   ZZF_BENCH_MAXLOAD=999 stata-mp -b do benchmark_finegray_zzf.do
+*   ZZF_BENCH_NS="8000 16000" ZZF_BENCH_RUNS=2 ZZF_BENCH_LANES="1 10" \
+*   stata-mp -b do benchmark_finegray_zzf.do
 
 clear all
 set more off
@@ -78,16 +79,13 @@ net install finegray, from("`pkgroot'") replace
 local NS      : environment ZZF_BENCH_NS
 local RUNS    : environment ZZF_BENCH_RUNS
 local LANES   : environment ZZF_BENCH_LANES
-local MAXLOAD : environment ZZF_BENCH_MAXLOAD
 
 if "`NS'"      == "" local NS      "25000 50000 100000 200000"
 if "`RUNS'"    == "" local RUNS    5
 if "`LANES'"   == "" local LANES   "1 10 50"
-if "`MAXLOAD'" == "" local MAXLOAD 4
 
-* ---------------------------------------------------------------------------
-* Refuse to measure on a busy machine.
-* ---------------------------------------------------------------------------
+* Recorded, not gated on: CPU time is what we measure, and contention does not
+* change the work done.  The load is logged so the raw numbers stay interpretable.
 tempname lf
 local load1 = .
 capture file open `lf' using "/proc/loadavg", read text
@@ -96,13 +94,8 @@ if !_rc {
     file close `lf'
     local load1 = real(word(`"`macval(line)'"', 1))
 }
-display as text _newline "1-minute load average: `load1'   (refusing above `MAXLOAD')"
-if `load1' > `MAXLOAD' {
-    display as error "machine is loaded (load `load1' > `MAXLOAD'); timing here measures the scheduler"
-    display as error "re-run when the box is idle, or set ZZF_BENCH_MAXLOAD to override"
-    log close _bench_zzf
-    exit 9
-}
+display as text _newline "1-minute load average at start: `load1'"
+display as text "measuring CPU time (set processors 1); wall clock is diagnostic only"
 
 * ---------------------------------------------------------------------------
 * Fixture: delayed entry, with a tunable number of truncation strata.
@@ -151,7 +144,7 @@ local csv "`qadir'/benchmark_finegray_zzf_raw.csv"
 capture erase "`csv'"
 tempname hdr
 file open `hdr' using "`csv'", write text replace
-file write `hdr' "groups,nn,run,secs,kb_incr" _n
+file write `hdr' "groups,nn,run,secs,kb_incr,wall" _n
 file close `hdr'
 
 local expected = 0
@@ -203,7 +196,7 @@ if r(N) > 0 {
 * Medians per cell, then the two scaling regressions.
 * ---------------------------------------------------------------------------
 preserve
-collapse (median) secs kb_incr, by(groups nn)
+collapse (median) secs kb_incr wall, by(groups nn)
 tempfile med
 quietly save "`med'"
 restore
@@ -213,8 +206,8 @@ gen double logn = ln(nn)
 gen double logt = ln(secs)
 gen double logm = ln(kb_incr)
 
-display as text _newline "MEDIAN measurements per cell"
-list groups nn secs kb_incr, noobs sepby(groups)
+display as text _newline "MEDIAN measurements per cell (secs = CPU; wall = diagnostic)"
+list groups nn secs wall kb_incr, noobs sepby(groups)
 
 * Every median increment must be positive, or the protocol is too coarse to be
 * measuring anything and the slope is fitted to rounding noise.
@@ -225,10 +218,12 @@ if r(N) > 0 {
     log close _bench_zzf
     exit 9
 }
+* CPU time is read in 10 ms clock ticks, so a fit under ~0.5 s carries >2%
+* quantisation error and the slope would be fitted to rounding.
 quietly summarize secs, meanonly
-if r(min) < 0.05 {
-    display as error _newline "MEASUREMENT TOO COARSE: a median fit took `=r(min)' s (< 0.05 s)"
-    display as error "the runtime slope would be noise dressed as a result"
+if r(min) < 0.5 {
+    display as error _newline "MEASUREMENT TOO COARSE: a median fit used `=r(min)' s CPU (< 0.5 s)"
+    display as error "CPU time is quantised to 10ms ticks; the slope would be noise"
     log close _bench_zzf
     exit 9
 }
@@ -261,10 +256,12 @@ foreach g of local GS {
 }
 
 display as text _newline "raw measurements: `csv'"
-display as text "runtime tool: Stata timer, around the estimation command only"
-display as text "memory tool:  VmHWM (peak RSS) from /proc/self/status, post-fit minus prefit"
+display as text "runtime tool: CPU time (utime+stime, /proc/self/stat), set processors 1,"
+display as text "              around the estimation command only; wall clock diagnostic only"
+display as text "memory tool:  VmHWM (peak RSS) from /proc/self/status, post-fit minus prefit,"
+display as text "              high-water mark reset via /proc/self/clear_refs at the baseline"
 display as text "runs per cell: `RUNS' clean stata-mp processes; statistic: median"
-display as text "1-minute load average at start: `load1'"
+display as text "1-minute load average at start: `load1' (CPU time is insensitive to this)"
 
 if `fail' {
     display as error _newline "BENCHMARK FAILED: the ZZF path does not scale linearly"
