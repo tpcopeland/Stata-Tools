@@ -291,11 +291,28 @@ else {
 
 local ++test_count
 capture noisily {
-    foreach dialog in tvexpose tvmerge tvevent {
-        capture noisily db `dialog'
-        local dialog_rc = _rc
-        assert inlist(`dialog_rc', 0, 8005)
+    tempfile gui_result
+    capture erase "`gui_result'"
+    shell bash "`qa_dir'/run_dialog_gui.sh" "`gui_result'" "$TVTOOLS_QA_PLUS"
+    confirm file "`gui_result'"
+
+    tempname gui_fh
+    file open `gui_fh' using "`gui_result'", read text
+    file read `gui_fh' gui_line
+    assert `"`gui_line'"' == ///
+        "RESULT: dialog_gui tests=17 pass=17 fail=0 skip=0"
+    file read `gui_fh' gui_line
+    assert `"`gui_line'"' == "FAILED:"
+    local gui_cases = 0
+    file read `gui_fh' gui_line
+    while r(eof) == 0 {
+        if substr(`"`gui_line'"', 1, 5) == "CASE " local ++gui_cases
+        file read `gui_fh' gui_line
     }
+    file close `gui_fh'
+    assert `gui_cases' == 17
+    capture erase "`gui_result'"
+
     mata: st_numscalar("__dlg_tvevent_role", ///
         _tvtools_release_file_has(st_local("pkg_dir") + ///
             "/tvevent.dlg", "Interval dataset"))
@@ -323,12 +340,49 @@ capture noisily {
                 "/tvexpose.dlg", st_local("token")))
         assert scalar(__dlg_token) == 1
     }
+    foreach token in "require main.ed_start" "require main.ed_stop" ///
+        "require main.ed_exposure" "option main.ck_pointtime" ///
+        "require exposure.ed_duration" "require exposure.cb_contunit" ///
+        "option exposure.rb_dose" "require advanced.ed_priority" ///
+        "require advanced.ed_combine" "optionarg output.ed_frameout" ///
+        "option output.ck_flow" "option output.ck_verbose" {
+        mata: st_numscalar("__dlg_builder", ///
+            _tvtools_release_file_has(st_local("pkg_dir") + ///
+                "/tvexpose.dlg", st_local("token")))
+        assert scalar(__dlg_builder) == 1
+    }
+    foreach stale in "VARNAME  vn_start" "VARNAME  vn_stop" ///
+        "VARNAME  vn_exposure" {
+        mata: st_numscalar("__dlg_builder_stale", ///
+            _tvtools_release_file_has(st_local("pkg_dir") + ///
+                "/tvexpose.dlg", st_local("stale")))
+        assert scalar(__dlg_builder_stale) == 0
+    }
     foreach token in "option(frames)" "option(frameout)" ///
         "option(force)" "option(flow)" "option(verbose)" {
         mata: st_numscalar("__dlg_token", ///
             _tvtools_release_file_has(st_local("pkg_dir") + ///
                 "/tvmerge.dlg", st_local("token")))
         assert scalar(__dlg_token) == 1
+    }
+    foreach token in "if main.ed_frames" "optionarg main.ed_frames" ///
+        "require options.ed_generate" "require options.ed_prefix" ///
+        "optionarg output.ed_frameout" "option output.ck_force" ///
+        "option output.ck_flow" "option output.ck_verbose" {
+        mata: st_numscalar("__dlg_builder", ///
+            _tvtools_release_file_has(st_local("pkg_dir") + ///
+                "/tvmerge.dlg", st_local("token")))
+        assert scalar(__dlg_builder) == 1
+    }
+    foreach token in "if main.ed_frame" "optionarg main.ed_frame" ///
+        "require main.fi_using" "optionarg main.ed_start" ///
+        "optionarg main.ed_stop" "type(recurring)" ///
+        "optionarg recurring.ed_enum" "option recurring.ck_gaptime" ///
+        "option output.ck_flow" "option output.ck_verbose" {
+        mata: st_numscalar("__dlg_builder", ///
+            _tvtools_release_file_has(st_local("pkg_dir") + ///
+                "/tvevent.dlg", st_local("token")))
+        assert scalar(__dlg_builder) == 1
     }
 }
 if _rc == 0 local ++pass_count
@@ -342,10 +396,18 @@ else {
 local ++test_count
 capture noisily {
     local menu_setup "`pkg_dir'/tvtools_menu_setup.do"
+    global TVTOOLS_MENU_SETUP_DONE ""
     capture program drop tvtools_menu_setup
     do "`menu_setup'"
+    assert "$TVTOOLS_MENU_SETUP_DONE" == "1"
     do "`menu_setup'"
+    assert "$TVTOOLS_MENU_SETUP_DONE" == "1"
+    mata: st_numscalar("__menu_guard", ///
+        _tvtools_release_file_has(st_local("menu_setup"), ///
+            "menu setup already attempted"))
+    assert scalar(__menu_guard) == 1
 }
+global TVTOOLS_MENU_SETUP_DONE ""
 if _rc == 0 local ++pass_count
 else {
     local ++fail_count
@@ -361,13 +423,45 @@ capture noisily {
     local demo_linesize = c(linesize)
     local demo_scheme "`c(scheme)'"
     local demo_frame "`c(frame)'"
+    datasignature set, reset
+
+    * Existing PNGs are not proof that the graph maps SMD to the x-axis.
+    mata: st_numscalar("__demo_axis_ok", ///
+        _tvtools_release_file_has(st_local("pkg_dir") + ///
+            "/demo/demo_tvtools.do", ///
+            "scatter demo_order demo_smd1"))
+    mata: st_numscalar("__demo_axis_reversed", ///
+        _tvtools_release_file_has(st_local("pkg_dir") + ///
+            "/demo/demo_tvtools.do", ///
+            "scatter demo_smd1 demo_order"))
+    assert scalar(__demo_axis_ok) == 1
+    assert scalar(__demo_axis_reversed) == 0
+
+    * A late graph-export failure must still restore the caller transaction.
+    local bad_demo_dir "$TVTOOLS_QA_RUN_DIR/__missing_demo_output"
+    capture rmdir "`bad_demo_dir'"
+    capture noisily do "`pkg_dir'/demo/demo_tvtools.do" "`bad_demo_dir'"
+    local demo_fail_rc = _rc
+    capture log close _all
+    quietly log using "`qa_dir'/test_package_release.log", append nomsg
+    assert `demo_fail_rc' != 0
+    datasignature confirm
+    assert "`c(more)'" == "`demo_more'"
+    assert "`c(varabbrev)'" == "`demo_varabbrev'"
+    assert c(linesize) == `demo_linesize'
+    assert "`c(scheme)'" == "`demo_scheme'"
+    assert "`c(frame)'" == "`demo_frame'"
+
     capture noisily do "`pkg_dir'/demo/demo_tvtools.do"
     local demo_rc1 = _rc
     capture log close _all
     quietly log using "`qa_dir'/test_package_release.log", append nomsg
-    capture noisily do "`pkg_dir'/demo/demo_tvtools.do"
+    capture mkdir "$TVTOOLS_QA_RUN_DIR/demo_outside"
+    cd "$TVTOOLS_QA_RUN_DIR/demo_outside"
+    capture noisily do "`pkg_dir'/demo/demo_tvtools.do" "`pkg_dir'/demo"
     local demo_rc2 = _rc
     capture log close _all
+    cd "`qa_dir'"
     quietly log using "`qa_dir'/test_package_release.log", append nomsg
     assert `demo_rc1' == 0 & `demo_rc2' == 0
     assert "`c(more)'" == "`demo_more'"
@@ -375,6 +469,7 @@ capture noisily {
     assert c(linesize) == `demo_linesize'
     assert "`c(scheme)'" == "`demo_scheme'"
     assert "`c(frame)'" == "`demo_frame'"
+    datasignature confirm
     confirm file "`pkg_dir'/demo/balance_loveplot.png"
     confirm file "`pkg_dir'/demo/swimlane_plot.png"
     capture frame f_antidep: describe

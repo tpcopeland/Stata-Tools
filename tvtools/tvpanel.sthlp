@@ -88,7 +88,7 @@ This is the grid that marginal structural models need: weights and the
 weighted outcome model key off the integer period, and the exact uniform
 spacing keeps any lagged cumulative-exposure derivation aligned to the
 day. {cmd:tvpanel} is the entry point for building that grid before
-{helpb msm_prepare}/{helpb msm_weight}.
+{helpb msm_prepare} and {helpb msm_weight}.
 
 
 {marker options}{...}
@@ -133,7 +133,9 @@ carryover or washout into the episode stop before calling {cmd:tvpanel}.
 {phang}
 {opt cumulative(unit)} adds one variable per non-reference class, {cmd:cum_}{it:class}
 (or {opt prefix()}{cmd:cum_}{it:class}), holding cumulative exposure in {it:unit} accrued
-strictly before the interval start. See {help tvpanel##semantics:below}.
+strictly before the interval start. Allowed units are {cmd:days}, {cmd:weeks},
+{cmd:months}, {cmd:quarters}, and {cmd:years}. See
+{help tvpanel##semantics:below}.
 
 {phang}
 {opt period(name)} names the 0-based period index. {opt startgen(name)} and
@@ -238,16 +240,51 @@ splits. Use {cmd:tvpanel} when the downstream model is an MSM keyed by period; u
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Quarterly MSM grid with per-class cumulative exposure-years:{p_end}
+{pstd}
+Build an inline cohort and episode tempfile:
 
-{phang2}{cmd:. use cohort_master, clear}     {it:(id, index_date, study_exit per person)}{p_end}
-{phang2}{cmd:. tvpanel using dmt_episodes, id(id) entry(index_date) exit(study_exit) ///}{p_end}
-{phang2}{cmd:.     exposure(dmt_class) reference(0) width(91) period(qtr) cumulative(years)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(entry_s exit_s) byte(female outcome)}{p_end}
+{phang3}{cmd:1 "01jan2020" "31dec2020" 1 1}{p_end}
+{phang3}{cmd:2 "01jan2020" "31dec2020" 0 0}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double index_date = date(entry_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double study_exit = date(exit_s, "DMY")}{p_end}
+{phang2}{cmd:. format index_date study_exit %td}{p_end}
+{phang2}{cmd:. drop entry_s exit_s}{p_end}
+{phang2}{cmd:. tempfile episodes panel}{p_end}
+{phang2}{cmd:. preserve}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte dmt_class}{p_end}
+{phang3}{cmd:1 "15jan2020" "30jun2020" 1}{p_end}
+{phang3}{cmd:1 "01jul2020" "31dec2020" 1}{p_end}
+{phang3}{cmd:2 "01mar2020" "31may2020" 1}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. format start stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. save `episodes'}{p_end}
+{phang2}{cmd:. restore}{p_end}
 
-{pstd}Then feed the grid to the MSM pipeline:{p_end}
+{pstd}{bf:Quarterly MSM grid with cumulative exposure-years}{p_end}
+{phang2}{cmd:. tvpanel using `episodes', id(id) entry(index_date) exit(study_exit) ///}{p_end}
+{phang3}{cmd:exposure(dmt_class) reference(0) width(91) period(qtr) ///}{p_end}
+{phang3}{cmd:cumulative(years) keepvars(female outcome) saveas(`panel') replace}{p_end}
+{phang2}{cmd:. use `panel', clear}{p_end}
 
-{phang2}{cmd:. msm_prepare, id(id) period(qtr) treatment(...) outcome(...)}{p_end}
+{pstd}
+{opt cumulative()} also accepts {cmd:days}, {cmd:weeks}, {cmd:months}, and
+{cmd:quarters}. The values are histories accrued strictly before each interval
+start.
 
+{pstd}{bf:Optional msm workflow}{p_end}
+{phang2}{cmd:. net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(qtr) treatment(tv_class) outcome(outcome)}{p_end}
+
+{pstd}
+The {bf:msm} package is optional and is not required to build or inspect the
+panel. Consult {cmd:help msm_prepare} for its outcome and covariate contracts.
 
 {marker author}{...}
 {title:Author}

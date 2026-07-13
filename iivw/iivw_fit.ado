@@ -1205,10 +1205,17 @@ program define iivw_fit, eclass
     * nonconverged one) and every generated variable exists. Only now is the
     * prior fit contract cleared and rewritten.
 
+    * _iivw_nonconverged is the WEIGHT stage's stamp and is deliberately NOT in
+    * this clear-list. It records that a nuisance model (visit-intensity,
+    * stabilization, or treatment) was accepted nonconverged, and that taint
+    * survives any number of later outcome fits -- the weights are still the bad
+    * ones. Clearing it here would have laundered it: a converged iivw_fit after
+    * a nonconverged iivw_weight would erase the only record that the weights
+    * are untrustworthy. The outcome model gets its own stamp instead.
     foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
         _iivw_categorical _iivw_cat_vars _iivw_basecat ///
-        _iivw_time_cat_vars _iivw_time_basecat _iivw_nonconverged {
+        _iivw_time_cat_vars _iivw_time_basecat _iivw_fit_nonconverged {
         char _dta[`ch'] ""
     }
 
@@ -1216,7 +1223,7 @@ program define iivw_fit, eclass
     * Stamp a deliberately-accepted nonconverged fit so the downstream
     * diagnostics can refuse it rather than treating it as a clean fit.
     if `__iivw_nonconv' {
-        char _dta[_iivw_nonconverged] "1"
+        char _dta[_iivw_fit_nonconverged] "1"
     }
     char _dta[_iivw_model] "`model'"
     char _dta[_iivw_timespec] "`timespec'"

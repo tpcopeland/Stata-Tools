@@ -9,6 +9,7 @@ RESET res1
 
 SCRIPT PREINIT
 BEGIN
+	create STRING qa_command
 	program parseMessage
 	script max_setOptionalOn
 END
@@ -29,10 +30,10 @@ BEGIN
   VARNAME  vn_id         @   +20 @    ., label("ID variable") option(id)
 
   TEXT     tx_start      330 -20 280  ., label("Start date variable:")
-  VARNAME  vn_start      @   +20 @    ., label("Start") option(start)
+  EDIT     ed_start      @   +20 @    ., label("Start") option(start)
 
   TEXT     tx_exposure   20  +25 280  ., label("Exposure variable:")
-  VARNAME  vn_exposure   @   +20 @    ., label("Exposure") option(exposure)
+  EDIT     ed_exposure   @   +20 @    ., label("Exposure") option(exposure)
 
   TEXT     tx_reference  330 -20 280  ., label("Reference value:")
   EDIT     ed_reference  @   +20 120  ., label("Reference") numonly option(reference)
@@ -45,14 +46,15 @@ BEGIN
 
   GROUPBOX gb_stopopt    10  225 620  70,  label("Stop date options")
   CHECKBOX ck_pointtime  20  +20 280  ., label("Point-in-time data (no stop date)") ///
+           option(pointtime) ///
            onclickon(script stop_disable) onclickoff(script stop_enable)
   TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
-  VARNAME  vn_stop       @   +20 @    ., label("Stop") option(stop)
+  EDIT     ed_stop       @   +20 @    ., label("Stop") option(stop)
 END
 
 DIALOG exposure, tabtitle("Exposure Definition")
 BEGIN
-  GROUPBOX gb_exptype    10  10  620  200, label("Exposure type (select one)")
+  GROUPBOX gb_exptype    10  10  620  260, label("Exposure type (select one)")
   RADIO    rb_basic      20  +20 590  ., label("Basic time-varying (default)") first ///
            onclickon(script basic_selected)
   RADIO    rb_evertreated @  +20 @    ., label("Ever-treated (binary switch at first exposure)") ///
@@ -66,12 +68,18 @@ BEGIN
   TEXT     tx_durunit    330 @ 280    ., label("(cutpoints use continuousunit below)")
   RADIO    rb_continuous 20  +25 590  ., label("Continuous cumulative exposure") ///
            onclickon(script continuous_selected) onclickoff(script continuous_disable)
-  RADIO    rb_recency    @   +20 @    ., label("Recency categories:") last ///
+  RADIO    rb_recency    @   +20 @    ., label("Recency categories:") ///
            onclickon(script recency_selected) onclickoff(script recency_disable)
-  EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints (years)") ///
+  EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints") ///
            option(recency)
+  COMBOBOX cb_recencyunit 330 @ 180  ., dropdownlist contents(recencyunits) ///
+           option(recencyunit)
+  RADIO    rb_dose       20  +25 590  ., label("Cumulative dose (optional cutpoints):") last ///
+           option(dose) ///
+           onclickon(script dose_selected) onclickoff(script dose_disable)
+  EDIT     ed_dosecuts   40  +20 280  ., label("Dose cutpoints") option(dosecuts)
 
-  GROUPBOX gb_contopt    10  215 620  75, label("Units (for duration and continuous exposure types)")
+  GROUPBOX gb_contopt    10  275 620  75, label("Units (for duration and continuous exposure types)")
   TEXT     tx_contunit   20  +20 220  ., label("Cumulative exposure unit:")
   COMBOBOX cb_contunit   @   +20 180  ., dropdownlist contents(contunits) ///
            option(continuousunit)
@@ -79,7 +87,7 @@ BEGIN
   COMBOBOX cb_expandunit @   +20 180  ., dropdownlist contents(expandunits) ///
            option(expandunit)
 
-  GROUPBOX gb_bytype     10  295 620  55,  label("Output variables")
+  GROUPBOX gb_bytype     10  355 620  55,  label("Output variables")
   CHECKBOX ck_bytype     20  +20 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
            option(bytype)
 END
@@ -93,7 +101,7 @@ BEGIN
 
   TEXT     tx_merge      20  +25 240  ., label("Merge same-type periods within (days):")
   EDIT     ed_merge      @   +20 120  ., label("Merge") numonly option(merge) ///
-           default(120)
+           default(0)
 
   TEXT     tx_fillgaps   20  +25 240  ., label("Fill gaps beyond last record (days):")
   EDIT     ed_fillgaps   @   +20 120  ., label("Fill gaps") numonly option(fillgaps) ///
@@ -139,8 +147,7 @@ DIALOG output, tabtitle("Output")
 BEGIN
   GROUPBOX gb_naming     10  10  620  165, label("Output variable naming")
   TEXT     tx_generate   20  +20 240  ., label("Variable name:")
-  EDIT     ed_generate   @   +20 280  ., label("Generate") option(generate) ///
-           default(tv_exposure)
+  EDIT     ed_generate   @   +20 280  ., label("Generate") option(generate)
 
   TEXT     tx_reflabel   20  +25 240  ., label("Reference category label:")
   EDIT     ed_reflabel   @   +20 370  ., label("Reference label") option(referencelabel) ///
@@ -154,18 +161,23 @@ BEGIN
   VARLIST  vl_keepvars   @   +20 370  ., label("Keep vars") option(keepvars)
   CHECKBOX ck_keepdates  410 @ 200    ., label("Keep entry/exit dates") option(keepdates)
 
-  GROUPBOX gb_save       10  255 620  60,  label("Save output")
+  GROUPBOX gb_save       10  255 620  115, label("Save output or place it in a frame")
   FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
+  TEXT     tx_frameout   20  +25 240  ., label("Output frame (alternative):")
+  EDIT     ed_frameout   @   +20 280  ., label("Output frame") option(frameout)
 
-  GROUPBOX gb_diag       10  320 620  90, label("Diagnostics")
+  GROUPBOX gb_diag       10  380 620  140, label("Diagnostics")
   CHECKBOX ck_check      20  +20 180  ., label("Check coverage") option(check)
   CHECKBOX ck_gaps       @   +20 @    ., label("Show gaps") option(gaps)
   CHECKBOX ck_overlaps   @   +20 @    ., label("Show overlaps") option(overlaps)
   CHECKBOX ck_summarize  220 -40 180  ., label("Summarize") option(summarize)
   CHECKBOX ck_validate   @   +20 @    ., label("Create validation") option(validate)
+  CHECKBOX ck_flow       420 -40 180  ., label("Flow report") option(flow)
+  CHECKBOX ck_dropinvalid @  +20 @    ., label("Drop invalid rows") option(dropinvalid)
+  CHECKBOX ck_verbose    @   +20 @    ., label("Verbose output") option(verbose)
 END
 
 LIST contunits
@@ -186,22 +198,30 @@ BEGIN
 	years
 END
 
+LIST recencyunits
+BEGIN
+	days
+	years
+END
+
 SCRIPT stop_disable
 BEGIN
 	main.tx_stop.disable
-	main.vn_stop.disable
+	main.ed_stop.disable
 END
 
 SCRIPT stop_enable
 BEGIN
 	main.tx_stop.enable
-	main.vn_stop.enable
+	main.ed_stop.enable
 END
 
 SCRIPT basic_selected
 BEGIN
 	exposure.ed_duration.disable
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.disable
 	exposure.cb_expandunit.disable
 	exposure.ck_bytype.disable
@@ -212,6 +232,8 @@ SCRIPT evertreated_selected
 BEGIN
 	exposure.ed_duration.disable
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.disable
 	exposure.cb_expandunit.disable
 	exposure.ck_bytype.enable
@@ -221,6 +243,8 @@ SCRIPT currentformer_selected
 BEGIN
 	exposure.ed_duration.disable
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.disable
 	exposure.cb_expandunit.disable
 	exposure.ck_bytype.enable
@@ -230,8 +254,10 @@ SCRIPT duration_selected
 BEGIN
 	exposure.ed_duration.enable
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.enable
-	exposure.cb_expandunit.enable
+	exposure.cb_expandunit.disable
 	exposure.ck_bytype.enable
 END
 
@@ -244,6 +270,8 @@ SCRIPT continuous_selected
 BEGIN
 	exposure.ed_duration.disable
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.enable
 	exposure.cb_expandunit.enable
 	exposure.ck_bytype.enable
@@ -259,6 +287,8 @@ SCRIPT recency_selected
 BEGIN
 	exposure.ed_duration.disable
 	exposure.ed_recency.enable
+	exposure.cb_recencyunit.enable
+	exposure.ed_dosecuts.disable
 	exposure.cb_contunit.disable
 	exposure.cb_expandunit.disable
 	exposure.ck_bytype.enable
@@ -267,6 +297,24 @@ END
 SCRIPT recency_disable
 BEGIN
 	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+END
+
+SCRIPT dose_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.disable
+	exposure.cb_recencyunit.disable
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+	exposure.ed_dosecuts.enable
+	exposure.ck_bytype.disable
+	exposure.ck_bytype.setoff
+END
+
+SCRIPT dose_disable
+BEGIN
+	exposure.ed_dosecuts.disable
 END
 
 SCRIPT priority_disable
@@ -301,19 +349,26 @@ BEGIN
 	require main.vn_id
 	optionarg main.vn_id
 
-	require main.vn_start
-	optionarg main.vn_start
+	require main.ed_start
+	optionarg main.ed_start
 
 	if ! main.ck_pointtime {
-		require main.vn_stop
-		optionarg main.vn_stop
+		require main.ed_stop
+		optionarg main.ed_stop
 	}
 
-	require main.vn_exposure
-	optionarg main.vn_exposure
+	require main.ed_exposure
+	optionarg main.ed_exposure
 
-	require main.ed_reference
-	optionarg main.ed_reference
+	if exposure.rb_dose {
+		if main.ed_reference {
+			optionarg main.ed_reference
+		}
+	}
+	else {
+		require main.ed_reference
+		optionarg main.ed_reference
+	}
 
 	require main.vn_entry
 	optionarg main.vn_entry
@@ -330,14 +385,26 @@ BEGIN
 		put " currentformer"
 	}
 	if exposure.rb_duration {
+		require exposure.ed_duration
 		optionarg exposure.ed_duration
+		optionarg exposure.cb_contunit
+	}
+	if exposure.rb_continuous {
+		require exposure.cb_contunit
+		optionarg exposure.cb_contunit
+		optionarg exposure.cb_expandunit
 	}
 	if exposure.rb_recency {
+		require exposure.ed_recency
 		optionarg exposure.ed_recency
+		require exposure.cb_recencyunit
+		optionarg exposure.cb_recencyunit
+	}
+	if exposure.rb_dose {
+		option exposure.rb_dose
+		optionarg exposure.ed_dosecuts
 	}
 
-	optionarg exposure.cb_contunit
-	optionarg exposure.cb_expandunit
 	option exposure.ck_bytype
 
 	optionarg datahand.ed_grace
@@ -350,12 +417,14 @@ BEGIN
 	optionarg advanced.ed_window
 
 	if advanced.rb_priority {
+		require advanced.ed_priority
 		optionarg advanced.ed_priority
 	}
 	if advanced.rb_split {
 		put " split"
 	}
 	if advanced.rb_combine {
+		require advanced.ed_combine
 		optionarg advanced.ed_combine
 	}
 
@@ -375,12 +444,16 @@ BEGIN
 		put output.fi_saveas
 		put `"""'
 		put ")"
-		option output.ck_replace
 	}
+	optionarg output.ed_frameout
+	option output.ck_replace
 
 	option output.ck_check
 	option output.ck_gaps
 	option output.ck_overlaps
 	option output.ck_summarize
 	option output.ck_validate
+	option output.ck_flow
+	option output.ck_dropinvalid
+	option output.ck_verbose
 END

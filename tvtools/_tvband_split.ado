@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.6.9  2026/07/10
+*! _tvband_split Version 1.7.0  2026/07/13
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -45,6 +45,11 @@ program define _tvband_split, rclass
     }
     if "`type'" == "calendar" & `width' != int(`width') {
         display as error "_tvband_split: calendar width() must be an integer number of years"
+        exit 198
+    }
+    if ("`type'" == "age" | ("`type'" == "elapsed" & "`unit'" == "year")) ///
+            & `width' != int(`width') {
+        display as error "_tvband_split: year-based width() must be a whole number of years"
         exit 198
     }
     if inlist("`type'", "age", "elapsed") & "`origin'" == "" {
@@ -95,16 +100,23 @@ program define _tvband_split, rclass
 
     * --- Band index at start and stop ------------------------------------
     * Band b covers axis values [b*width, (b+1)*width); boundary date bd(b)
-    * is the first calendar day of band b.  Compute the index by the closed
-    * form, then nudge by at most one band to absorb 365.25 rounding.
+    * is the exact anniversary at origin year + b*width. A 29-Feb origin
+    * advances on 28-Feb in non-leap years and 29-Feb in leap years.
     tempvar b0 b1
     if "`type'" == "age" | ("`type'" == "elapsed" & "`unit'" == "year") {
-        quietly gen double `b0' = floor((`start' - `origin') / (`width' * 365.25))
-        quietly gen double `b1' = floor((`stop'  - `origin') / (`width' * 365.25))
-        quietly replace `b0' = `b0' + 1 if round(`origin' + (`b0' + 1) * `width' * 365.25) <= `start'
-        quietly replace `b1' = `b1' + 1 if round(`origin' + (`b1' + 1) * `width' * 365.25) <= `stop'
-        quietly replace `b0' = `b0' - 1 if round(`origin' + `b0' * `width' * 365.25) > `start'
-        quietly replace `b1' = `b1' - 1 if round(`origin' + `b1' * `width' * 365.25) > `stop'
+        tempvar bd0 bd1
+        quietly gen double `b0' = floor((year(`start') - year(`origin')) / `width')
+        quietly gen double `b1' = floor((year(`stop')  - year(`origin')) / `width')
+        quietly gen double `bd0' = mdy(month(`origin'), day(`origin'), ///
+            year(`origin') + `b0' * `width')
+        quietly gen double `bd1' = mdy(month(`origin'), day(`origin'), ///
+            year(`origin') + `b1' * `width')
+        quietly replace `bd0' = mdy(2, 28, year(`origin') + `b0' * `width') ///
+            if month(`origin') == 2 & day(`origin') == 29 & missing(`bd0')
+        quietly replace `bd1' = mdy(2, 28, year(`origin') + `b1' * `width') ///
+            if month(`origin') == 2 & day(`origin') == 29 & missing(`bd1')
+        quietly replace `b0' = `b0' - 1 if `bd0' > `start'
+        quietly replace `b1' = `b1' - 1 if `bd1' > `stop'
     }
     else if "`type'" == "elapsed" {
         quietly gen double `b0' = floor((`start' - `origin') / `width')
@@ -125,8 +137,16 @@ program define _tvband_split, rclass
     * --- Per-band boundary dates -----------------------------------------
     tempvar bs be
     if "`type'" == "age" | ("`type'" == "elapsed" & "`unit'" == "year") {
-        quietly gen double `bs' = round(`origin' + `bidx' * `width' * 365.25)
-        quietly gen double `be' = round(`origin' + (`bidx' + 1) * `width' * 365.25) - 1
+        quietly gen double `bs' = mdy(month(`origin'), day(`origin'), ///
+            year(`origin') + `bidx' * `width')
+        quietly replace `bs' = mdy(2, 28, year(`origin') + `bidx' * `width') ///
+            if month(`origin') == 2 & day(`origin') == 29 & missing(`bs')
+        quietly gen double `be' = mdy(month(`origin'), day(`origin'), ///
+            year(`origin') + (`bidx' + 1) * `width')
+        quietly replace `be' = mdy(2, 28, ///
+            year(`origin') + (`bidx' + 1) * `width') ///
+            if month(`origin') == 2 & day(`origin') == 29 & missing(`be')
+        quietly replace `be' = `be' - 1
     }
     else if "`type'" == "elapsed" {
         quietly gen double `bs' = `origin' + `bidx' * `width'

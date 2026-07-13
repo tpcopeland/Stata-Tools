@@ -174,10 +174,9 @@ capture noisily {
     gen exit_dt = mdy(12, 31, 2022)
     format dob entry exit_dt %td
 
-    * Manual calculation: age at entry = 60, age at exit = 62
-    * So 3 intervals: 60, 61, 62
-    local age_entry = floor((mdy(1,1,2020) - mdy(1,1,1960)) / 365.25)
-    local age_exit = floor((mdy(12,31,2022) - mdy(1,1,1960)) / 365.25)
+    * Exact birthdays: entry is the 60th; exit follows the 62nd.
+    local age_entry = 60
+    local age_exit = 62
     local expected_n = `age_exit' - `age_entry' + 1
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_dt)

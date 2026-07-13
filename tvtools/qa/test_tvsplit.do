@@ -25,8 +25,9 @@ program define _mkcohort
     gen double dob   = mdy(1,1,1970) + (_n-1)*123
     gen double entry = mdy(7,1,2019)
     gen double exitd = mdy(3,15,2021)
+    gen double fu_origin = entry
     gen byte trt = mod(_n,2)
-    format dob entry exitd %td
+    format dob entry exitd fu_origin %td
 end
 
 * TEST 1: 3-axis split runs, returns, preserves covariate + adds 3 band vars
@@ -34,7 +35,7 @@ local ++test_count
 capture {
     _mkcohort
     tvsplit, id(id) start(entry) stop(exitd) age(dob, width(10)) ///
-        calendar(, width(1)) elapsed(entry, width(1) unit(year))
+        calendar(, width(1)) elapsed(fu_origin, width(1) unit(year))
     assert r(n_axes)==3
     assert r(n_persons)==3
     assert r(n_observations)==_N
@@ -155,7 +156,8 @@ capture {
     _mkcohort
     capture tvsplit, id(id) start(entry) stop(exitd)
     assert _rc==198
-    capture tvsplit, id(id) start(entry) stop(exitd) age(dob, generate(x)) elapsed(entry, generate(x))
+    capture tvsplit, id(id) start(entry) stop(exitd) age(dob, generate(x)) ///
+        elapsed(fu_origin, generate(x))
     assert _rc==198
     capture tvsplit, id(id) start(entry) stop(exitd) age(, width(10))
     assert _rc==198

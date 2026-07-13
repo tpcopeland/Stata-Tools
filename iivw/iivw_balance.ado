@@ -57,12 +57,29 @@ program define iivw_balance, rclass
          BORDERstyle(string) HEADERShade THEme(string) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
 
+    * Missing must be rejected BEFORE any range test. syntax accepts . and the
+    * extended missings .a-.z for a real() option, and every finite number is
+    * less than missing -- so cvcut(.) silently classified a CV of 0.64 as "low"
+    * and balcut(.) called any imbalance "good". A threshold that cannot fail is
+    * worse than no threshold, because it reports a verdict.
+    if missing(`cvcut') {
+        display as error "cvcut() may not be missing"
+        error 198
+    }
     if `cvcut' < 0 {
         display as error "cvcut() must be greater than or equal to 0"
         error 198
     }
+    if missing(`essratiocut') {
+        display as error "essratiocut() may not be missing"
+        error 198
+    }
     if `essratiocut' <= 0 | `essratiocut' > 1 {
         display as error "essratiocut() must be greater than 0 and less than or equal to 1"
+        error 198
+    }
+    if missing(`balcut') {
+        display as error "balcut() may not be missing"
         error 198
     }
     if `balcut' <= 0 {
@@ -101,6 +118,31 @@ program define iivw_balance, rclass
     local __iivw_decimals = 4
     if "`decimals'" != "" local __iivw_decimals = `decimals'
 
+    * Every option below is consumed only by the workbook writer. Without xlsx()
+    * they were parsed, ignored, and rc 0 returned -- so a mistyped or misplaced
+    * export request looked exactly like a successful one. Refuse it instead,
+    * and do so before any analytical work so nothing is computed to be thrown
+    * away.
+    local __iivw_exportonly ""
+    if `"`sheet'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
+    if "`open'"          != "" local __iivw_exportonly "`__iivw_exportonly' open"
+    if "`replace'"       != "" local __iivw_exportonly "`__iivw_exportonly' replace"
+    if `"`title'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
+    if `"`footnote'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
+    if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
+    if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
+    if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
+    if `"`theme'"'       != "" local __iivw_exportonly "`__iivw_exportonly' theme()"
+    if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
+    if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
+    if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
+    if `"`xlsx'"' == "" & `"`__iivw_exportonly'"' != "" {
+        display as error "option(s)`__iivw_exportonly' require xlsx()"
+        display as text "  they affect only the exported workbook; with no xlsx() to write,"
+        display as text "  they would be silently ignored"
+        error 198
+    }
+
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
@@ -128,6 +170,7 @@ program define iivw_balance, rclass
     local rep_cens_mode "`r(censor_mode)'"
     local rep_cens_var  "`r(censor_var)'"
     local rep_maxfu     "`r(maxfu)'"
+    local rep_nonconv   "`r(nonconverged)'"
 
     if !inlist("`weighttype'", "iivw", "fiptiw") {
         display as error "iivw_balance requires weights with an IIW visit-intensity component"
@@ -335,9 +378,11 @@ program define iivw_balance, rclass
     * visits. It cannot say whether they moved them to the RIGHT place, because
     * it has no target. This does.
     *
-    * WHAT THE TARGET IS. Buzkova & Lumley (2007, eq. 8, p.8) weight each
-    * observed visit by exp(-gamma'Z), and the visit intensity is
-    * lambda_0(t)exp(gamma'Z). The weight and the intensity cancel:
+    * WHAT THE TARGET IS. Buzkova & Lumley (2007, eq. 9, p.7) define the
+    * zero-mean process M_i(t) = N_i(t) - integral xi_i(s)exp(gamma'Z_i(s))
+    * dLambda(s), i.e. E[dN_i(t)] = E[xi_i(t)exp(gamma'Z_i(t))] dLambda_0(t).
+    * IIW weights each observed visit by w = exp(-gamma'Z), so the weight and
+    * the intensity cancel inside that expectation:
     *
     *   E[ sum_visits w_ij g(Z_ij) ] = E[ integral xi_i(t) g(Z_i(t)) dLambda_0(t) ]
     *
@@ -686,6 +731,23 @@ program define iivw_balance, rclass
         local __iivw_refit_ok = 0
     }
 
+    * A nuisance model the user accepted nonconverged via allownonconverged does
+    * not solve its estimating equation, so exp(-gamma'Z) is not the IIW weight
+    * and the target-SMD null does not hold for it. Balancing to a target the
+    * weights were never built to hit says nothing, so no verdict is issued --
+    * "good" here would be the most dangerous output the command can produce.
+    if "`rep_nonconv'" == "1" {
+        local __iivw_refit_ok = 0
+        display as error ///
+            "warning: the weights come from a nonconverged nuisance model"
+        display as text ///
+            "  (allownonconverged was specified when they were built). No balance"
+        display as text ///
+            "  verdict is reported: the target-SMD null assumes the visit model"
+        display as text ///
+            "  solves its estimating equation, and this one does not."
+    }
+
     * The verdict. Reported ONLY when the diagnostic that supports it actually
     * ran: a check with no evidence behind it says "unknown", it does not
     * default to "good".
@@ -766,6 +828,25 @@ program define iivw_balance, rclass
         display as text ""
         display as text "  Max |target SMD|:  " as result %9.4f `balance_max_tsmd' ///
             as text "  (poor if > " as result %5.3f `balcut' as text ")"
+
+        * With no terminal at-risk interval the person-time target is built from
+        * the visit intervals alone, so it collapses toward the observed visits
+        * and the null becomes nearly untestable: |target SMD| is then small
+        * almost regardless of the weights. Reporting that as an unqualified
+        * "good" would overstate what was actually checked.
+        if `refit_ncens' == 0 {
+            display as text ""
+            display as text "  note: no terminal at-risk interval was available" ///
+                " (endatlastvisit, or no"
+            display as text "        censor()/maxfu() follow-up beyond the last" ///
+                " visit). The person-time"
+            display as text "        target then rests on the visit intervals" ///
+                " alone, so this check is"
+            display as text "        much weaker than it looks. Supply censor()" ///
+                " or maxfu() for a"
+            display as text "        target the weights can actually be tested" ///
+                " against."
+        }
     }
     else {
         display as text "  target diagnostic unavailable; no verdict"
@@ -792,11 +873,11 @@ program define iivw_balance, rclass
     }
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
+    * xlsx() is now the sole trigger: the guard above has already rejected any
+    * export-only option that arrived without it, so sheet()/open cannot reach
+    * here alone.
     local __iivw_export_requested = 0
-    if `"`xlsx'"' != "" | ///
-        `"`sheet'"' != "" | "`open'" != "" {
-        local __iivw_export_requested = 1
-    }
+    if `"`xlsx'"' != "" local __iivw_export_requested = 1
     if `__iivw_export_requested' {
         frame create `__iivw_export_table' ///
             strL A ///
@@ -988,9 +1069,14 @@ program define iivw_balance, rclass
         capture frame drop `__iivw_export_table'
         local __iivw_drop_rc = _rc
         local __iivw_export_frame_created = 0
-        if `__iivw_export_rc' != 0 & `__iivw_export_rc' != 602 {
-            exit `__iivw_export_rc'
-        }
+
+        * Do NOT exit here. The export is a side effect; every analytical result
+        * is already computed. Exiting inside the captured block put the export
+        * rc into `rc', which tripped the `if `rc'' exit above the return block
+        * and discarded the whole r() surface -- an unwritable path silently
+        * cost the user the balance table they had actually computed. The rc is
+        * carried in __iivw_export_rc and re-raised after the returns are posted
+        * (pending returns survive a nonzero exit).
     }
 
     local __iivw_return_ok = 1
@@ -1055,4 +1141,13 @@ program define iivw_balance, rclass
     * offered beside r(hr_unweighted) as though it could.
     return matrix hr_unweighted = `__iivw_hr_unweighted'
     return matrix balance = `__iivw_balance'
+
+    * Re-raise a failed export now that the analytical payload is posted. The
+    * caller still sees the export's rc, but r() survives it: the diagnostic ran
+    * and its results are real regardless of whether the workbook could be
+    * written. rc 602 (sheet exists, no replace) is already warned about above
+    * and is not an error.
+    if `__iivw_export_rc' != 0 & `__iivw_export_rc' != 602 {
+        exit `__iivw_export_rc'
+    }
 end

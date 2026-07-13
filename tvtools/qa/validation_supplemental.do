@@ -1355,8 +1355,7 @@ display as text "V5: tvage age calculation validation"
 
 * V5.1: Known DOB — exact ages
 * Person born Jan 1, 1970. Entry Jan 1, 2020. Exit Dec 31, 2022.
-* Age at entry: floor((21915 - 3653) / 365.25) = floor(50.00) = 50
-* (Jan 1, 1970 = 3653, Jan 1, 2020 = 21915)
+* The entry date is the exact 50th birthday (01jan2020).
 * Ages should be 50, 51, 52
 local ++test_count
 capture noisily {

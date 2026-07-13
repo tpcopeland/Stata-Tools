@@ -19,6 +19,7 @@ local core_only_suites test_regressions test_tvm_point_engine ///
     validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
     validation_audit_tvweight validation_audit_tvdiagnose ///
+    validation_audit_tvsplit ///
     test_package_fixtures ///
     validation_known_answers validation_dgp_known_answers ///
     validation_dgp_known_answers2 ///
@@ -52,6 +53,7 @@ local manifest_suites test_package_runner_contract ///
     validation_contracts validation_audit_tvexpose validation_audit_tvmerge ///
     validation_audit_tvevent validation_audit_tvpanel ///
     validation_audit_tvweight validation_audit_tvdiagnose ///
+    validation_audit_tvsplit ///
     test_package_fixtures validation_known_answers ///
     validation_dgp_known_answers validation_dgp_known_answers2 ///
     validation_tvage validation_tvband validation_tvsplit ///
@@ -71,7 +73,7 @@ local manifest_counts 11 ///
     87 22 15 22 ///
     7 5 21 ///
     161 4 7 ///
-    15 28 14 15 9 9 7 4 29 ///
+    15 28 14 15 9 9 7 7 4 29 ///
     20 25 ///
     13 4 2 ///
     84 177 2 ///
@@ -88,7 +90,7 @@ local manifest_counts 11 ///
 * when the standalone external lane is requested. Full/release override these
 * flags and require zero skips.
 local manifest_allow_skips ""
-forvalues i = 1/52 {
+forvalues i = 1/53 {
     local manifest_allow_skips "`manifest_allow_skips' 0"
 }
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 0 0 0"

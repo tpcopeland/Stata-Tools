@@ -301,6 +301,19 @@ capture noisily {
     local fallback_command `"`r(command)'"'
     assert strpos(`"`fallback_command'"', "exposure=0") > 0
     assert strpos(`"`fallback_command'"', "exposure=1") > 0
+
+    label define quoted_exposure 0 `"Group "A""' 1 "Group B"
+    label values exposure quoted_exposure
+    tvdiagnose, id(id) start(start) stop(stop) ///
+        exposure(exposure) swimlane
+    assert r(graph_created) == 1 & r(graph_rc) == 0
+    tempfile svgbase
+    local svg "`svgbase'.svg"
+    graph export "`svg'", as(svg) replace
+    local svg_content = fileread("`svg'")
+    local quoted_expected `"Group "A""'
+    assert strpos(`"`svg_content'"', `"`quoted_expected'"') > 0
+    assert strpos(`"`svg_content'"', "Group B") > 0
 }
 if _rc == 0 {
     display as result "  PASS: labeled and missing exposure levels produce scriptable swimlanes"
@@ -317,9 +330,11 @@ local ++test_count
 capture noisily {
     clear
     input byte id double(start stop)
-        1 1 3
-        1 4 6
-        2 1 6
+        50 1 3
+        10 1 3
+        40 1 3
+        20 1 3
+        30 1 3
     end
     twoway scatter stop start, name(tvd_swimlane, replace)
     graph describe tvd_swimlane
@@ -328,18 +343,39 @@ capture noisily {
 
     capture program drop twoway
     program define twoway
+        quietly levelsof id, local(stub_ids)
+        global TVD_STUB_IDS "`stub_ids'"
         exit 777
     end
-    tvdiagnose, id(id) start(start) stop(stop) swimlane
+    tvdiagnose, id(id) start(start) stop(stop) swimlane maxids(2)
     assert r(graph_requested) == 1 & r(graph_created) == 0
     assert r(graph_rc) == 777
-    assert r(graph_ids_total) == 2 & r(graph_ids_plotted) == 2
+    assert r(graph_ids_total) == 5 & r(graph_ids_plotted) == 2
+    assert r(graph_truncated) == 1
+    assert "$TVD_STUB_IDS" == "10 20"
     datasignature confirm
     graph describe tvd_swimlane
     local graph_after `"`r(command)'"'
     assert `"`graph_after'"' == `"`graph_before'"'
     program drop twoway
     discard
+    global TVD_STUB_IDS ""
+
+    clear
+    set obs 68000
+    generate byte id = 1
+    generate double start = _n
+    generate double stop = _n
+    generate str8 exposure_text = string(_n, "%08.0f")
+    datasignature set
+    capture graph drop tvd_swimlane
+    tvdiagnose, id(id) start(start) stop(stop) gaps ///
+        exposure(exposure_text) swimlane maxids(1)
+    assert r(gaps_run) == 1 & r(n_gaps) == 0
+    assert r(graph_requested) == 1 & r(graph_created) == 0
+    assert r(graph_rc) == 134
+    assert r(graph_ids_total) == 1 & r(graph_ids_plotted) == 1
+    datasignature confirm
 }
 if _rc == 0 {
     display as result "  PASS: swimlane failure is explicit and analytically nonfatal"
@@ -369,6 +405,11 @@ capture noisily {
     assert r(n_gaps) == 3 & r(n_gap_ids) == 2
     assert abs(r(mean_gap) - 17/3) < 1e-12
     assert r(median_gap) == 2 & r(max_gap) == 14
+    assert r(n_large_gaps) == 1 & r(n_large_gap_ids) == 1
+
+    rename id gap_days
+    tvdiagnose, id(gap_days) start(start) stop(stop) gaps threshold(5)
+    assert r(n_gaps) == 3 & r(n_gap_ids) == 2
     assert r(n_large_gaps) == 1 & r(n_large_gap_ids) == 1
 
     clear

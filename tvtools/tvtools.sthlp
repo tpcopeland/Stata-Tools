@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.9  10jul2026}{...}
+{* *! version 1.7.0  13jul2026}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
 {vieweralsosee "tvmerge" "help tvmerge"}{...}
 {vieweralsosee "tvevent" "help tvevent"}{...}
@@ -211,7 +211,7 @@ not authorize malformed-input deletion.
 {pstd}
 {bf:Calculate IPTW weights}
 
-{phang2}{cmd:. tvweight tv_exposure, covariates(age sex comorbidity)}{p_end}
+{phang2}{cmd:. tvweight tv_drug, covariates(age sex comorbidity)}{p_end}
 
 {marker remarks}{...}
 {title:Remarks}

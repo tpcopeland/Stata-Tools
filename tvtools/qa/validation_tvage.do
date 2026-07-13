@@ -42,11 +42,9 @@ local test6a_pass = 1
 * Entry = Jan1, 2020 (mdy(1,1,2020))
 * Exit  = Dec31, 2020 (mdy(12,31,2020))
 *
-* Key calculation:
-* mdy(1,1,2020) - mdy(1,1,1980) = 14610 days (40 years, 10 leap years)
-* age_entry = floor(14610 / 365.25) = floor(40.000) = 40
-* age_exit  = floor((mdy(12,31,2020) - mdy(1,1,1980)) / 365.25)
-*           = floor(14975 / 365.25) = floor(40.993) = 40
+* Exact-anniversary calculation:
+* the 40th birthday is 01jan2020 and the 41st is 01jan2021, so both
+* entry and exit occur at attained age 40.
 * n_periods = 40 - 40 + 1 = 1
 *
 * Expected output: 1 row, age_tv=40, age_start=Jan1/2020, age_stop=Dec31/2020
@@ -59,13 +57,13 @@ gen entry = mdy(1,1,2020)
 gen exit_ = mdy(12,31,2020)
 format dob entry exit_ %td
 
-* Verify our math before running tvage
-local entry_dob_diff = mdy(1,1,2020) - mdy(1,1,1980)
-local exit_dob_diff  = mdy(12,31,2020) - mdy(1,1,1980)
-local age_entry = floor(`entry_dob_diff' / 365.25)
-local age_exit  = floor(`exit_dob_diff' / 365.25)
-display "  INFO: entry-dob=`entry_dob_diff' days, age_entry=`age_entry'"
-display "  INFO: exit-dob=`exit_dob_diff' days, age_exit=`age_exit'"
+* Verify the exact anniversary oracle before running tvage.
+local age_entry = 40
+local age_exit = 40
+assert mdy(1,1,1980 + `age_entry') <= mdy(1,1,2020)
+assert mdy(1,1,1980 + `age_entry' + 1) > mdy(1,1,2020)
+assert mdy(1,1,1980 + `age_exit') <= mdy(12,31,2020)
+assert mdy(1,1,1980 + `age_exit' + 1) > mdy(12,31,2020)
 
 capture noisily tvage, ///
     idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
@@ -141,16 +139,8 @@ local test6b_pass = 1
 * Entry = Jan1, 2020
 * Exit  = Jun30, 2021
 *
-* age_entry = floor((mdy(1,1,2020) - mdy(7,1,1980)) / 365.25)
-* From Jul 1 1980 to Jan 1 2020:
-*   40 years = 14610 days from Jul1 1980 to Jul1 2020
-*   Jan 1 to Jul 1 = 182 days in 2020 (Jan31+Feb29+Mar31+Apr30+May31+Jun30 = 182)
-*   So Jul1 1980 to Jan1 2020 = 14610 - 182 = 14428 days
-*   age_entry = floor(14428 / 365.25) = floor(39.502) = 39
-*
-* Birthday boundary: round(mdy(7,1,1980) + 40 * 365.25)
-*   = round(mdy(7,1,1980) + 14610)
-*   = Jul1 1980 + 14610 days = Jul1 2020 (exactly, as confirmed above)
+* The 40th birthday is exactly 01jul2020. Entry is before it, so attained
+* age is 39; exit is one day before the 41st birthday, so attained age is 40.
 *
 * Expected rows:
 *   Row 1: age_tv=39, start=Jan1/2020, stop=Jun30/2020
@@ -164,13 +154,13 @@ gen entry = mdy(1,1,2020)
 gen exit_ = mdy(6,30,2021)
 format dob entry exit_ %td
 
-* Verify math
-local diff_to_entry = mdy(1,1,2020) - mdy(7,1,1980)
-local diff_to_exit  = mdy(6,30,2021) - mdy(7,1,1980)
-local age_entry_calc = floor(`diff_to_entry' / 365.25)
-local age_exit_calc  = floor(`diff_to_exit' / 365.25)
-display "  INFO: entry-dob=`diff_to_entry', age_entry=`age_entry_calc'"
-display "  INFO: exit-dob=`diff_to_exit', age_exit=`age_exit_calc'"
+* Verify the exact anniversary oracle.
+local age_entry_calc = 39
+local age_exit_calc = 40
+assert mdy(7,1,1980 + `age_entry_calc') <= mdy(1,1,2020)
+assert mdy(7,1,1980 + `age_entry_calc' + 1) > mdy(1,1,2020)
+assert mdy(7,1,1980 + `age_exit_calc') <= mdy(6,30,2021)
+assert mdy(7,1,1980 + `age_exit_calc' + 1) > mdy(6,30,2021)
 
 capture noisily tvage, ///
     idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
@@ -220,8 +210,8 @@ else {
 
         * Row 2 should start at Jul1/2020 (birthday boundary by tvage's calculation)
         local start2 = age_start[2]
-        local expected_boundary = round(mdy(7,1,1980) + 40 * 365.25)
-        display "  INFO: Birthday boundary = `expected_boundary' (=`=string(mdy(7,1,1980) + 40 * 365.25, "%td")')"
+        local expected_boundary = mdy(7,1,2020)
+        display "  INFO: Exact birthday boundary = `expected_boundary' (=`=string(`expected_boundary', "%td")')"
         if `start2' == `expected_boundary' {
             display as result "  PASS [6b.boundary]: row 2 starts at expected birthday boundary"
         }
@@ -259,18 +249,20 @@ gen id = _n
 * Person 2: age 47 at entry → should be in category 45
 * Person 3: age 50 at entry → should be in category 50
 gen dob = .
-replace dob = mdy(1,1,2020) - floor(42.5 * 365.25) in 1   // age ~42.5 at Jan1/2020
-replace dob = mdy(1,1,2020) - floor(47.5 * 365.25) in 2   // age ~47.5 at Jan1/2020
-replace dob = mdy(1,1,2020) - floor(50.5 * 365.25) in 3   // age ~50.5 at Jan1/2020
+replace dob = mdy(7,1,1977) in 1   // attained age 42 at Jan1/2020
+replace dob = mdy(7,1,1972) in 2   // attained age 47 at Jan1/2020
+replace dob = mdy(7,1,1969) in 3   // attained age 50 at Jan1/2020
 gen entry = mdy(1,1,2020)
 gen exit_ = mdy(12,31,2020)
 format dob entry exit_ %td
 
-* Verify ages
+* Verify ages against explicit exact-anniversary expectations.
+local expected_ages 42 47 50
 forvalues i = 1/3 {
     local d = dob[`i']
-    local age_calc = floor((mdy(1,1,2020) - `d') / 365.25)
-    display "  INFO: Person `i': dob=`=string(`d', "%td")', age at entry=`age_calc'"
+    local age_calc : word `i' of `expected_ages'
+    assert mdy(month(`d'), day(`d'), year(`d') + `age_calc') <= mdy(1,1,2020)
+    assert mdy(month(`d'), day(`d'), year(`d') + `age_calc' + 1) > mdy(1,1,2020)
 }
 
 capture noisily tvage, ///
@@ -360,14 +352,16 @@ set obs 2
 gen id = _n
 * Person 1: age ~38 at entry → minage=40 clips their early intervals
 gen dob = .
-replace dob = mdy(1,1,2020) - floor(38 * 365.25) in 1
-replace dob = mdy(1,1,2020) - floor(70 * 365.25) in 2
+replace dob = mdy(1,1,1982) in 1
+replace dob = mdy(1,1,1950) in 2
 gen entry = mdy(1,1,2020)
 gen exit_ = mdy(12,31,2025)    // 6-year study
 format dob entry exit_ %td
 
-local age1_at_entry = floor((mdy(1,1,2020) - dob[1]) / 365.25)
-local age2_at_entry = floor((mdy(1,1,2020) - dob[2]) / 365.25)
+local age1_at_entry = 38
+local age2_at_entry = 70
+assert mdy(1,1,1982 + `age1_at_entry') == mdy(1,1,2020)
+assert mdy(1,1,1950 + `age2_at_entry') == mdy(1,1,2020)
 display "  INFO: Person 1 age at entry = `age1_at_entry' (minage=40 should clip)"
 display "  INFO: Person 2 age at entry = `age2_at_entry' (maxage=73 will be used)"
 
@@ -433,8 +427,8 @@ capture noisily {
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) minage(40)
     sort age_start
     assert age_tv[1] == 40
-    assert age_start[1] == round(mdy(1,1,1970) + 40*365.25)
-    quietly count if age_start < round(mdy(1,1,1970) + 40*365.25)
+    assert age_start[1] == mdy(1,1,2010)
+    quietly count if age_start < mdy(1,1,2010)
     assert r(N) == 0
 
     * maxage right-truncation: person exits at age 44, maxage(42)
@@ -448,9 +442,26 @@ capture noisily {
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) maxage(42)
     sort age_start
     assert age_tv[_N] == 42
-    assert age_stop[_N] == round(mdy(1,1,1970) + 43*365.25) - 1
+    assert age_stop[_N] == mdy(1,1,2013) - 1
     quietly count if age_tv > 42
     assert r(N) == 0
+
+    * 29-Feb policy: age advances on 28-Feb in a non-leap year.
+    clear
+    set obs 1
+    gen long id = 1
+    gen double dob = mdy(2,29,2000)
+    gen double entry = mdy(2,27,2001)
+    gen double exit_ = mdy(3,1,2001)
+    format dob entry exit_ %td
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1)
+    sort age_start
+    assert _N == 2
+    assert age_tv[1] == 0 & age_tv[2] == 1
+    assert age_start[1] == mdy(2,27,2001)
+    assert age_stop[1] == mdy(2,27,2001)
+    assert age_start[2] == mdy(2,28,2001)
+    assert age_stop[2] == mdy(3,1,2001)
 }
 if _rc == 0 {
     local pass_count = `pass_count' + 1
@@ -705,4 +716,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

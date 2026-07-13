@@ -36,11 +36,9 @@ local BASE = td(01jan2015)
 **# =========================================================================
 **# S1: tvage continuous -- exact age-band count + person-time conservation
 **# =========================================================================
-* DGP: 1 person, dob 15jun1970, followed 01mar2010 -> 31dec2013 (well away from
-* the birthday so the 365.25 approximation cannot flip a band). Continuous age
-* (groupwidth 1) emits one row per integer age traversed. Analytic band count:
-*   age_entry = floor((entry-dob)/365.25), age_exit = floor((exit-dob)/365.25)
-*   n_rows    = age_exit - age_entry + 1
+* DGP: 1 person, dob 15jun1970, followed 01mar2010 -> 31dec2013. Entry is
+* before the 40th birthday and exit is after the 43rd, so the exact attained
+* ages are 39 and 43 and groupwidth(1) emits five rows.
 * Person-time is conserved exactly and intervals abut (no gaps/overlaps).
 local ++test_count
 local t_pass = 1
@@ -52,8 +50,8 @@ capture noisily {
     gen double entry = td(01mar2010)
     gen double exit  = td(31dec2013)
     format %td dob entry exit
-    local age_e = floor((td(01mar2010) - td(15jun1970)) / 365.25)
-    local age_x = floor((td(31dec2013) - td(15jun1970)) / 365.25)
+    local age_e = 39
+    local age_x = 43
     local exp_rows = `age_x' - `age_e' + 1
     local exp_pt = td(31dec2013) - td(01mar2010) + 1
 
@@ -98,7 +96,7 @@ else {
 **# =========================================================================
 **# S2: tvage groupwidth(5) -- age groups collapse to distinct 5-year bands
 **# =========================================================================
-* DGP: dob 15jun1970, entry 01mar2003 (age ~32), exit 31dec2013 (age ~43).
+* DGP: dob 15jun1970, entry 01mar2003 (age 32), exit 31dec2013 (age 43).
 * With groupwidth 5, continuous ages collapse into 5-year floor bands
 * {30,35,40}. Distinct bands = floor(age_x/5) - floor(age_e/5) + 1. Person-time
 * is still conserved (collapse takes min start / max stop per band).
@@ -112,8 +110,8 @@ capture noisily {
     gen double entry = td(01mar2003)
     gen double exit  = td(31dec2013)
     format %td dob entry exit
-    local age_e = floor((td(01mar2003) - td(15jun1970)) / 365.25)
-    local age_x = floor((td(31dec2013) - td(15jun1970)) / 365.25)
+    local age_e = 32
+    local age_x = 43
     local exp_bands = floor(`age_x'/5) - floor(`age_e'/5) + 1
     local exp_pt = td(31dec2013) - td(01mar2003) + 1
 
@@ -269,11 +267,9 @@ else {
 **# =========================================================================
 **# S5: tvsplit age+calendar Lexis -- invariants (PT, coverage, no overlap)
 **# =========================================================================
-* DGP: 1 person, dob 15jun1975, interval [01mar2015, 01aug2016]. Simultaneous
-* split on age (birthday ~15jun) and calendar (01jan) axes. Because the 365.25
-* age approximation makes the exact cut count fragile, the oracle is the set of
-* Lexis invariants that hold for ANY valid multi-axis split: person-time is
-* conserved, sub-intervals abut with no gaps/overlaps, and n_axes = 2.
+* DGP: 1 person, dob 15jun1975, interval [01mar2015, 01aug2016]. Exact age
+* boundaries are 15jun2015 and 15jun2016; the calendar boundary is 01jan2016.
+* Their union yields exactly four Lexis cells.
 local ++test_count
 local t_pass = 1
 capture noisily {
@@ -311,12 +307,11 @@ capture noisily {
     }
     else di as result "  PASS [S5.cover]: full coverage, no gaps/overlaps"
 
-    * More rows than a single-axis split (both axes actually cut).
-    if _N < 3 {
-        di as error "  FAIL [S5.cuts]: only `=_N' rows, expected multi-axis cuts"
+    if _N != 4 {
+        di as error "  FAIL [S5.cuts]: rows=`=_N', expected 4 exact cells"
         local t_pass = 0
     }
-    else di as result "  PASS [S5.cuts]: `=_N' Lexis cells"
+    else di as result "  PASS [S5.cuts]: 4 exact Lexis cells"
 }
 if _rc & `t_pass' {
     di as error "  FAIL [S5.run]: rc=`=_rc'"
@@ -331,9 +326,8 @@ else {
 **# =========================================================================
 **# S6: tvsplit elapsed(year) -- exact band count + PT conservation
 **# =========================================================================
-* DGP: 1 person, interval [BASE, BASE + round(3.5*365.25)] elapsed from BASE,
-* width 1 year. Elapsed-year bands use round(origin + b*365.25) boundaries:
-* b0=0, b1=floor(1278/365.25)=3 -> 4 bands (years 0,1,2,3). PT conserved.
+* DGP: 1 person, interval [01jan2015, 01jul2018] elapsed from BASE, width 1
+* year. Exact anniversary boundaries at 01jan2016/2017/2018 yield four bands.
 local ++test_count
 local t_pass = 1
 capture noisily {
@@ -341,12 +335,11 @@ capture noisily {
     set obs 1
     gen long id = 1
     gen double start  = `BASE'
-    gen double stop   = `BASE' + round(3.5*365.25)
+    gen double stop   = td(01jul2018)
     gen double origin = `BASE'
     format %td start stop origin
-    local span = round(3.5*365.25)
-    local exp_rows = floor(`span'/365.25) - floor(0/365.25) + 1
-    local exp_pt = `span' + 1
+    local exp_rows = 4
+    local exp_pt = td(01jul2018) - `BASE' + 1
 
     tvsplit, id(id) start(start) stop(stop) elapsed(origin, width(1) unit(year))
 

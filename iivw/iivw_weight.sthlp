@@ -397,6 +397,13 @@ an invalid weighting contract onto the dataset and every downstream command
 would treat it as sound. Use this option only when you intend to inspect the
 failure, never to get past it.
 
+{phang2}
+When the option is used, the resulting weights are marked as coming from a
+nonconverged nuisance model, and that mark survives any later {helpb iivw_fit}.
+{helpb iivw_balance} then reports {cmd:r(balance_flag)} as {cmd:unknown} and
+issues no good/poor verdict: the target-SMD null assumes the visit model solves
+its estimating equation, and a nonconverged one does not.
+
 {phang}
 {opt efron} uses the Efron method for handling tied event times in the Andersen-Gill
 Cox model. The default is Breslow. Efron is more accurate when there are many

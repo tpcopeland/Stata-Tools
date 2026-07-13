@@ -1,4 +1,4 @@
-*! tvage Version 1.6.9  2026/07/10
+*! tvage Version 1.7.0  2026/07/13
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -162,11 +162,23 @@ program define tvage, rclass
         * Keep only essential variables
         keep `idvar' `dobvar' `entryvar' `exitvar'
 
-        * Calculate age at study entry and exit (365.25 approximation;
-        * may differ from exact birthday by ±1 day near birthdays)
-        tempvar age_entry age_exit n_periods period
-        gen int `age_entry' = floor((`entryvar' - `dobvar') / 365.25)
-        gen int `age_exit' = floor((`exitvar' - `dobvar') / 365.25)
+        * Calculate attained age at exact anniversary boundaries. A 29-Feb
+        * birthday advances on 28-Feb in non-leap years and 29-Feb in leap
+        * years, matching the shared tvband/tvsplit policy.
+        tempvar age_entry age_exit entry_bday exit_bday n_periods period
+        gen int `age_entry' = year(`entryvar') - year(`dobvar')
+        gen double `entry_bday' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`entryvar'))
+        replace `entry_bday' = mdy(2, 28, year(`entryvar')) ///
+            if month(`dobvar') == 2 & day(`dobvar') == 29 & missing(`entry_bday')
+        replace `age_entry' = `age_entry' - 1 if `entry_bday' > `entryvar'
+
+        gen int `age_exit' = year(`exitvar') - year(`dobvar')
+        gen double `exit_bday' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`exitvar'))
+        replace `exit_bday' = mdy(2, 28, year(`exitvar')) ///
+            if month(`dobvar') == 2 & day(`dobvar') == 29 & missing(`exit_bday')
+        replace `age_exit' = `age_exit' - 1 if `exit_bday' > `exitvar'
 
         * Record whether minage/maxage actually truncate this person's follow-up
         * (before clamping overwrites the natural ages).
@@ -204,11 +216,20 @@ program define tvage, rclass
         * into the boundary band. When a bound does not bind, the effective date
         * is exactly entryvar/exitvar, so unbounded behavior is unchanged (a
         * boundary-only fix that never perturbs the natural-age boundaries).
-        tempvar entry_eff exit_eff
+        tempvar entry_eff exit_eff entry_bound_date exit_bound_date
         gen double `entry_eff' = `entryvar'
-        replace `entry_eff' = max(`entryvar', round(`dobvar' + `age_entry' * 365.25)) if `min_bound'
+        gen double `entry_bound_date' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`dobvar') + `age_entry')
+        replace `entry_bound_date' = mdy(2, 28, year(`dobvar') + `age_entry') ///
+            if month(`dobvar') == 2 & day(`dobvar') == 29 & missing(`entry_bound_date')
+        replace `entry_eff' = max(`entryvar', `entry_bound_date') if `min_bound'
         gen double `exit_eff' = `exitvar'
-        replace `exit_eff' = min(`exitvar', round(`dobvar' + (`age_exit' + 1) * 365.25) - 1) if `max_bound'
+        gen double `exit_bound_date' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`dobvar') + `age_exit' + 1)
+        replace `exit_bound_date' = mdy(2, 28, ///
+            year(`dobvar') + `age_exit' + 1) ///
+            if month(`dobvar') == 2 & day(`dobvar') == 29 & missing(`exit_bound_date')
+        replace `exit_eff' = min(`exitvar', `exit_bound_date' - 1) if `max_bound'
 
         * Calculate number of periods needed per person
         gen int `n_periods' = `age_exit' - `age_entry' + 1
@@ -221,26 +242,31 @@ program define tvage, rclass
         tempvar age_continuous
         gen int `age_continuous' = `age_entry' + `period'
 
-        * Create start and stop dates using double precision and rounding
-        * to avoid floating-point precision issues with 365.25
+        * Create start and stop dates at exact anniversary boundaries.
         * Start: max(study entry, birthday for this age)
         * Stop: min(study exit, birthday for next age - 1)
         gen double `startgen' = `entry_eff' if `period' == 0
-        replace `startgen' = round(`dobvar' + `age_continuous' * 365.25) if `period' > 0
+        replace `startgen' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`dobvar') + `age_continuous') if `period' > 0
+        replace `startgen' = mdy(2, 28, year(`dobvar') + `age_continuous') ///
+            if `period' > 0 & month(`dobvar') == 2 & day(`dobvar') == 29 ///
+            & missing(`startgen')
 
         gen double `stopgen' = `exit_eff' if `period' == `n_periods' - 1
-        replace `stopgen' = round(`dobvar' + (`age_continuous' + 1) * 365.25) - 1 if `period' < `n_periods' - 1
+        replace `stopgen' = mdy(month(`dobvar'), day(`dobvar'), ///
+            year(`dobvar') + `age_continuous' + 1) - 1 ///
+            if `period' < `n_periods' - 1
+        replace `stopgen' = mdy(2, 28, ///
+            year(`dobvar') + `age_continuous' + 1) - 1 ///
+            if `period' < `n_periods' - 1 & month(`dobvar') == 2 ///
+            & day(`dobvar') == 29 & missing(`stopgen')
 
-        * Handle edge cases from rounding near birthdays
+        * Clamp to the effective study interval.
         replace `startgen' = min(`startgen', `exit_eff')
         replace `stopgen' = max(`startgen', `stopgen')
 
-        * Round to ensure integer dates for proper merging
-        replace `startgen' = round(`startgen')
-        replace `stopgen' = round(`stopgen')
-
-        * Drop degenerate intervals
-        drop if `stopgen' < `startgen' | (`stopgen' == `startgen' & `period' < `n_periods' - 1)
+        * Drop invalid intervals; one-day intervals are valid on inclusive dates.
+        drop if `stopgen' < `startgen'
 
         * Create age groups based on groupwidth
         if `groupwidth' > 1 {

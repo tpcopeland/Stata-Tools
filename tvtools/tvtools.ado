@@ -1,4 +1,4 @@
-*! tvtools Version 1.6.9  2026/07/10
+*! tvtools Version 1.7.0  2026/07/13
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -11,7 +11,7 @@ Basic syntax:
 Optional options:
   list            - Display commands as a simple list
   detail          - Show detailed information with descriptions
-  category(string) - Filter by category: prep, diag, weight, special, all
+  category(string) - Filter by category: prep, diag, weight, all
 
 Returns:
   r(commands)     - List of all command names
@@ -91,7 +91,7 @@ program define tvtools, rclass
             display as result "  tvexpose   " as text "- Create time-varying exposure variables"
             display as result "  tvmerge    " as text "- Merge multiple time-varying datasets"
             display as result "  tvevent    " as text "- Integrate events and competing risks"
-            display as result "  tvage      " as text "- Add time-varying age to stset data"
+            display as result "  tvage      " as text "- Expand person-level follow-up into age bands"
             display as result "  tvband     " as text "- Split intervals on one date-derived axis"
             display as result "  tvsplit    " as text "- Multi-timescale Lexis interval splitting"
             display as result "  tvpanel    " as text "- Build fixed-width MSM panel grid"
@@ -168,8 +168,8 @@ program define _tvtools_detail
         display as text "               time-varying datasets. Supports multiple event"
         display as text "               types and censoring."
         display as text ""
-        display as result "  tvage" as text "        Add time-varying age to stset data. Updates"
-        display as text "               age as analysis time progresses."
+        display as result "  tvage" as text "        Expand one-row-per-person follow-up into"
+        display as text "               exact calendar-age bands."
         display as text ""
         display as result "  tvband" as text "       Split follow-up intervals along one date-derived"
         display as text "               axis (age, calendar period, or elapsed time)."

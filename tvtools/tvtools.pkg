@@ -8,7 +8,7 @@ d observational studies.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260710
+d Distribution-Date: 20260713
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -19,9 +19,8 @@ d KW: longitudinal
 d KW: survival analysis
 d KW: epidemiology
 d
-d INSTALLATION COMPLETE!
-d
-d Access the dialogs immediately with:
+d After installation, type {cmd:help tvtools} for the complete command and
+d workflow index. Access the dialogs with:
 d     . db tvexpose
 d     . db tvmerge
 d     . db tvevent
@@ -29,12 +28,13 @@ d
 d OPTIONAL: Add to Stata menus for dropdown access
 d Add these lines to your profile.do:
 d     capture window menu append submenu "stUser" "Time-varying exposures"
-d     window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
-d     window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
-d     window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
-d     window menu refresh
+d     capture window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
+d     capture window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
+d     capture window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
+d     capture window menu refresh
 d
-d For help: help tvexpose, help tvmerge, help tvevent, help tvage, help tvweight
+d All ten public commands and their individual help files are linked from
+d {cmd:help tvtools}.
 d
 f tvtools.ado
 f tvexpose.ado

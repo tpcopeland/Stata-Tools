@@ -136,6 +136,15 @@ reports model movement only and does not compute sampling or artifact shares.
 and displays the bias of each estimate versus that value.
 
 {phang}
+{opt force} bypasses the comparability check. By default {cmd:iivw_diagnose}
+requires the three stored models to share an outcome, an estimator, a
+family-link, and a cluster variable, and exits with an error when they do not:
+a decomposition of the gap between two estimates of {it:different} quantities
+is not a decomposition of anything. With {opt force} the command proceeds and
+reports the table as descriptive only, sets {cmd:r(decomposable)} to 0, and
+withholds the sampling and artifact shares.
+
+{phang}
 {opt level(#)} sets the confidence level for the individual coefficient
 intervals displayed from each stored model. {it:#} must be between 10 and
 99.99; the default is the current {helpb level:set level} value, usually 95.

@@ -42,8 +42,8 @@ gen entry = mdy(1, 1, 2020)
 gen exit = mdy(12, 31, 2023)
 format dob entry exit %tdCCYY/NN/DD
 
-* Age at entry: floor((21915 - 3818) / 365.25) = floor(49.55) = 49
-* Age at exit: floor((23376 - 3818) / 365.25) = floor(53.55) = 53
+* Entry precedes the 50th birthday (15jun2020); exit follows the 53rd.
+* Exact attained ages are therefore 49 at entry and 53 at exit.
 * Should get 5 intervals: ages 49, 50, 51, 52, 53
 
 tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit) groupwidth(1)

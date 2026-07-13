@@ -1,4 +1,4 @@
-*! tvmerge Version 1.6.9  2026/07/10
+*! tvmerge Version 1.7.0  2026/07/13
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -367,9 +367,8 @@ program define tvmerge, rclass
 
         if `has_dup' {
             * Auto-suffix duplicate exposure output names by position instead of
-            * erroring. This removes the most-repeated friction in the docs:
-            * tvexpose defaults every output to tv_exposure, so merging two of
-            * them previously required a manual rename. Only applies in the
+            * erroring. This covers inputs that deliberately share an exposure
+            * name (including tvexpose's safe fallback name). Only applies in the
             * standard one-exposure-per-dataset case (numexp == numds); the
             * advanced multi-exposure case still requires explicit generate().
             if `numexp_raw' == `numds' {

@@ -30,6 +30,8 @@ program define _iivw_get_settings, rclass
     local censor_var  : char _dta[_iivw_censor_var]
     local maxfu       : char _dta[_iivw_maxfu]
     local lagvars     : char _dta[_iivw_lagvars]
+    local nonconverged : char _dta[_iivw_nonconverged]
+    local fit_nonconverged : char _dta[_iivw_fit_nonconverged]
 
     if "`prefix'" == "" local prefix "_iivw_"
 
@@ -63,6 +65,14 @@ program define _iivw_get_settings, rclass
     * rebuilt censoring row the covariate value it actually had at the last
     * visit; see the note where iivw_weight writes this characteristic.
     return local lagvars "`lagvars'"
+
+    * A nuisance model (visit-intensity, stabilization, or treatment) that the
+    * user accepted nonconverged via allownonconverged. The weights it produced
+    * do not solve their estimating equation, so a diagnostic must not issue a
+    * verdict on them. Kept separate from the outcome-model stamp: the two taint
+    * different things and a converged outcome fit must not clear a bad weight.
+    return local nonconverged "`nonconverged'"
+    return local fit_nonconverged "`fit_nonconverged'"
 
     }
     local rc = _rc

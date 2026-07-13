@@ -273,6 +273,14 @@ supports the verdict could not be completed. A diagnostic with no evidence
 behind it does not get to report a clean bill of health.
 
 {pstd}
+It is {cmd:unknown} for the same reason when the weights were built with
+{helpb iivw_weight:iivw_weight}'s {opt allownonconverged}: the target-SMD null
+follows from the visit model solving its estimating equation, which a
+nonconverged model does not do, so balancing to that target would measure
+nothing. The mark is set when the weights are built and is not cleared by a
+later {helpb iivw_fit}.
+
+{pstd}
 The refit reconstructs the counting-process intervals using the stored
 weighting contract: the same {opt entry()} start times, the same
 {opt baseline()} treatment of the first visit, and the same terminal at-risk
@@ -388,7 +396,7 @@ convention: Buzkova & Lumley weight each observed visit by exp(-{it:gamma}'Z)
 while the visit intensity is {it:lambda-0}(t)exp({it:gamma}'Z), so the weight
 cancels the intensity and the IIW-weighted sum over observed visits has the
 same expectation as the integral over at-risk person-time in {it:dLambda-0}
-units (their eq. 8, p. 8). The equality of the two distributions is what
+units (their eq. 9, p. 7). The equality of the two distributions is what
 {it:target SMD} measures, and it is 0 under a correct visit model.
 
 {pstd}

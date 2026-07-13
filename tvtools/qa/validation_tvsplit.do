@@ -27,7 +27,7 @@ local failed_tests ""
 display as result "tvtools QA: tvsplit correctness -- $S_DATE $S_TIME"
 
 * -----------------------------------------------------------------------
-* CASE 1: calendar(1) + elapsed(entry, day, 365) -- exact axes
+* CASE 1: calendar(1) + elapsed(origin, day, 365) -- exact axes
 *   5 persons, varied entry/exit; assert tiling + single-band + maximality
 * -----------------------------------------------------------------------
 local ++test_count
@@ -37,7 +37,8 @@ capture {
     gen long id = _n
     gen double entry = mdy(1,1,2018) + (_n-1)*97
     gen double exitd = entry + 600 + (_n-1)*111
-    format entry exitd %td
+    gen double ent0 = entry
+    format entry exitd ent0 %td
     * record original span per id for the tiling check
     gen double span0 = exitd - entry + 1
     preserve
@@ -47,13 +48,10 @@ capture {
     restore
 
     tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) ///
-        elapsed(entry, width(365) unit(day) generate(fu))
+        elapsed(ent0, width(365) unit(day) generate(fu))
     assert "`r(fuvar)'" == "fu"
     assert "`r(calvar)'" == "calband"
     assert r(n_axes) == 2
-
-    * bring back original entry to recompute elapsed days; recover via min start
-    bysort id (entry): gen double ent0 = entry[1]
 
     * (2) single-band: calendar
     assert year(entry) == calband
@@ -78,9 +76,10 @@ capture {
     gen long id = _n
     gen double entry = mdy(1,1,2018) + (_n-1)*97
     gen double exitd = entry + 600 + (_n-1)*111
-    format entry exitd %td
+    gen double ent0 = entry
+    format entry exitd ent0 %td
     tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) ///
-        elapsed(entry, width(365) unit(day) generate(fu))
+        elapsed(ent0, width(365) unit(day) generate(fu))
     sort id entry
     by id: gen byte redundant = (_n>1) & (calband==calband[_n-1]) & (fu==fu[_n-1])
     assert redundant == 0
@@ -97,7 +96,7 @@ else {
 
 * -----------------------------------------------------------------------
 * CASE 2: 3-axis age(10)+calendar(1)+elapsed(year,1) -- full Lexis grid
-*   age band value must equal the round(dob+...) boundary formula
+*   age and elapsed-year membership must follow exact anniversaries
 * -----------------------------------------------------------------------
 local ++test_count
 capture {
@@ -116,15 +115,26 @@ capture {
 
     * single-band per axis at start and stop
     assert year(entry)==calband & year(exitd)==calband
-    * age band value = floor of exact age at band lower edge; verify membership:
-    * start age >= ageband and stop age < ageband+10 (in 365.25-year units)
-    gen double age_start = (entry - dob0)/365.25
-    gen double age_stop  = (exitd - dob0)/365.25
-    assert age_start >= ageband - 0.01
-    assert age_stop  <  ageband + 10 + 0.01
-    * elapsed-year band membership
-    gen double fu_start = (entry - ent0)/365.25
-    assert fu_start >= fuband - 0.01 & fu_start < fuband + 1 + 0.01
+    * Exact age-band membership, including the package's 29-Feb -> 28-Feb
+    * policy in non-leap target years.
+    gen double age_lo = mdy(month(dob0), day(dob0), year(dob0) + ageband)
+    replace age_lo = mdy(2, 28, year(dob0) + ageband) ///
+        if month(dob0) == 2 & day(dob0) == 29 & missing(age_lo)
+    gen double age_hi = mdy(month(dob0), day(dob0), year(dob0) + ageband + 10)
+    replace age_hi = mdy(2, 28, year(dob0) + ageband + 10) ///
+        if month(dob0) == 2 & day(dob0) == 29 & missing(age_hi)
+    replace age_hi = age_hi - 1
+    assert entry >= age_lo & exitd <= age_hi
+
+    * Exact elapsed-year membership uses anniversaries of ent0.
+    gen double fu_lo = mdy(month(ent0), day(ent0), year(ent0) + fuband)
+    replace fu_lo = mdy(2, 28, year(ent0) + fuband) ///
+        if month(ent0) == 2 & day(ent0) == 29 & missing(fu_lo)
+    gen double fu_hi = mdy(month(ent0), day(ent0), year(ent0) + fuband + 1)
+    replace fu_hi = mdy(2, 28, year(ent0) + fuband + 1) ///
+        if month(ent0) == 2 & day(ent0) == 29 & missing(fu_hi)
+    replace fu_hi = fu_hi - 1
+    assert entry >= fu_lo & exitd <= fu_hi
 
     * tiling per id
     gen double dur = exitd - entry + 1

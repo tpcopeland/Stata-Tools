@@ -35,9 +35,9 @@ where at least one {it:axis_option} is required:
 {synoptset 30 tabbed}{...}
 {synopthdr:axis_options}
 {synoptline}
-{synopt:{opt age(dobvar}[{cmd:,} {it:asub}]{cmd:)}}split on age (relative to date of birth){p_end}
-{synopt:{opt cal:endar(}[{cmd:,} {it:csub}]{cmd:)}}split on calendar period{p_end}
-{synopt:{opt elap:sed(refvar}[{cmd:,} {it:esub}]{cmd:)}}split on time since a reference date{p_end}
+{synopt:{cmd:age(}{it:dobvar}[{cmd:,} {it:asub}]{cmd:)}}split on age (relative to date of birth){p_end}
+{synopt:{cmd:calendar(}[{cmd:,} {it:csub}]{cmd:)}}split on calendar period{p_end}
+{synopt:{cmd:elapsed(}{it:refvar}[{cmd:,} {it:esub}]{cmd:)}}split on time since a reference date{p_end}
 {synoptline}
 
 {pstd}
@@ -57,7 +57,7 @@ where the per-axis suboptions are
 axes so that every output sub-interval lies in exactly one band on every
 requested axis. The result is ready for age- and period-adjusted Cox or Poisson
 models and is equivalent to repeated Stata {helpb stsplit} or R
-{cmd:Epi::splitMulti} multi-timescale splitting.
+{cmd:Epi::splitLexis} calls, one timescale at a time.
 
 {pstd}
 Splitting is performed one axis at a time. Because interval splitting is
@@ -80,27 +80,33 @@ For splitting on a single axis (and for {opt saveas()} convenience), see
 {phang}
 {opt start(varname)} and {opt stop(varname)} specify the intervals to split. They are
 overwritten in place with the split bounds (the number of rows grows). Both
-must be non-missing daily Stata dates.
+must be non-missing daily Stata dates. The variables named by {opt id()},
+{opt start()}, and {opt stop()} must be distinct.
 
 {dlgtab:Axes (specify at least one)}
 
 {phang}
-{opt age(dobvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on age relative to the
-date-of-birth variable {it:dobvar}. Suboptions: {opt width(#)} (years, default 1),
-{opt min(#)}/{opt max(#)} (drop age bands outside these bounds), and
+{cmd:age(}{it:dobvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on age relative to the
+date-of-birth variable {it:dobvar}. It must be a non-missing numeric daily date
+and must be distinct from {opt id()}, {opt start()}, and {opt stop()}; its
+suboptions are {opt width(#)} (positive whole years, default 1), {opt min(#)}
+and {opt max(#)} (drop age bands outside these bounds), and
 {opt generate(name)} (band variable, default {cmd:ageband}).
 
 {phang}
-{opt calendar(} [{cmd:,} {it:suboptions}]{cmd:)} splits on calendar period at
+{cmd:calendar(} [{cmd:,} {it:suboptions}]{cmd:)} splits on calendar period at
 1 January boundaries. Suboptions: {opt width(#)} (years, default 1),
 {opt anchor(#)} (first calendar year of the grid, default = earliest year in the
 data), and {opt generate(name)} (band variable, default {cmd:calband}).
 
 {phang}
-{opt elapsed(refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date
-variable {it:refvar} (for example study entry). Suboptions: {opt width(#)} (default 1),
-{opt unit(day|year)} (default {cmd:day}), {opt min(#)}/{opt max(#)}, and {opt generate(name)} (band
-variable, default {cmd:fuband}).
+{cmd:elapsed(}{it:refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date
+variable {it:refvar} (for example a copy of study entry). It must be a
+non-missing numeric daily date and must be distinct from {opt id()},
+{opt start()}, and {opt stop()}. Suboptions: {opt width(#)} (default 1),
+{opt unit(day|year)} (default {cmd:day}), {opt min(#)}/{opt max(#)}, and
+{opt generate(name)} (band variable, default {cmd:fuband}). Year-unit widths
+must be positive whole years.
 
 {dlgtab:General}
 
@@ -117,30 +123,43 @@ variable, default {cmd:fuband}).
 without gaps or overlaps.
 
 {pstd}
-{bf:Band variable names} must be distinct across axes; supply
-{opt generate()} in any axis to override the defaults.
+{bf:Band variable names} must be distinct across axes and cannot overwrite an
+existing, structural, or origin variable; supply {opt generate()} in any axis
+to override the defaults.
 
 {pstd}
-{bf:Age precision.} Age boundaries use {cmd:round(dob + age*365.25)} (see
-{helpb tvband}); calendar and day-unit elapsed boundaries are exact.
+{bf:Exact anniversaries.} Age and year-unit elapsed boundaries are exact
+calendar anniversaries. For a 29 February origin, the anniversary is 28
+February in non-leap years and 29 February in leap years. Calendar and
+day-unit elapsed boundaries are also exact.
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}{bf:Example 1: age + calendar + time-since-entry}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvsplit, id(id) start(study_entry) stop(study_exit) ///}{p_end}
-{phang3}{cmd:age(dob, width(10)) calendar(, width(1)) elapsed(study_entry, width(1) unit(year))}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(birth_s entry_s exit_s event_s)}{p_end}
+{phang3}{cmd:1 "29feb1960" "01jan2000" "31dec2005" "31dec2005"}{p_end}
+{phang3}{cmd:2 "15jun1975" "01jan2018" "31dec2022" ""}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double birth_date = date(birth_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double start = date(entry_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double stop = date(exit_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double event_date = date(event_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double fu_origin = start}{p_end}
+{phang2}{cmd:. format birth_date start stop event_date fu_origin %td}{p_end}
+{phang2}{cmd:. drop birth_s entry_s exit_s event_s}{p_end}
 
-{pstd}{bf:Example 2: split an existing time-varying dataset on two axes}{p_end}
-{phang2}{cmd:. * tv_data already has id/start/stop intervals from tvexpose}{p_end}
-{phang2}{cmd:. tvsplit, id(id) start(start) stop(stop) age(dob, width(5)) calendar(, width(1))}{p_end}
+{pstd}{bf:Age + calendar + time-since-entry}{p_end}
+{phang2}{cmd:. tvsplit, id(id) start(start) stop(stop) ///}{p_end}
+{phang3}{cmd:age(birth_date, width(10)) calendar(, width(1)) ///}{p_end}
+{phang3}{cmd:elapsed(fu_origin, width(1) unit(year))}{p_end}
 
-{pstd}{bf:Example 3: declare survival data on the split grid}{p_end}
-{phang2}{cmd:. tvsplit, id(id) start(study_entry) stop(study_exit) calendar(, width(1))}{p_end}
-{phang2}{cmd:. stset study_exit, id(id) failure(event) origin(time study_entry) enter(time study_entry)}{p_end}
-
+{pstd}{bf:Declare the inclusive split grid as survival data}{p_end}
+{phang2}{cmd:. generate byte event = stop == event_date if !missing(event_date)}{p_end}
+{phang2}{cmd:. replace event = 0 if missing(event)}{p_end}
+{phang2}{cmd:. generate double analysis_t0 = start - 1}{p_end}
+{phang2}{cmd:. stset stop, id(id) failure(event) time0(analysis_t0)}{p_end}
 
 {marker results}{...}
 {title:Stored results}

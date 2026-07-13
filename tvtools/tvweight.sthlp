@@ -292,123 +292,73 @@ logit it is P(A=a|X), where a is the observed treatment level.
 {title:Examples}
 
 {pstd}
-The examples below assume you have created a time-varying dataset using
-{helpb tvexpose} with baseline covariates carried through via {cmd:keepvars()}.
+Create a reproducible four-period panel with treatment, censoring, and outcome
+variables:
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 240713}{p_end}
+{phang2}{cmd:. set obs 400}{p_end}
+{phang2}{cmd:. generate long id = ceil(_n / 4)}{p_end}
+{phang2}{cmd:. bysort id: generate int period = _n - 1}{p_end}
+{phang2}{cmd:. generate double age = 45 + mod(id, 30)}{p_end}
+{phang2}{cmd:. generate byte female = mod(id, 2)}{p_end}
+{phang2}{cmd:. generate double comorbidity = rnormal()}{p_end}
+{phang2}{cmd:. generate double p_treat = invlogit(-1 + .02*age + .4*female + .3*comorbidity)}{p_end}
+{phang2}{cmd:. generate byte treated = runiform() < p_treat}{p_end}
+{phang2}{cmd:. generate double rx_start = mdy(1, 1, 2020) + 91*period}{p_end}
+{phang2}{cmd:. generate double rx_stop = rx_start + 90}{p_end}
+{phang2}{cmd:. by id: generate byte will_censor = runiform() < .25 if _n == 1}{p_end}
+{phang2}{cmd:. by id: replace will_censor = will_censor[1]}{p_end}
+{phang2}{cmd:. by id: generate byte censor_period = floor(4*runiform()) if _n == 1}{p_end}
+{phang2}{cmd:. by id: replace censor_period = censor_period[1]}{p_end}
+{phang2}{cmd:. generate byte censored = will_censor & period == censor_period}{p_end}
+{phang2}{cmd:. drop if will_censor & period > censor_period}{p_end}
+{phang2}{cmd:. bysort id (period): generate byte event = _n == _N & !censored & runiform() < .25}{p_end}
+{phang2}{cmd:. format rx_start rx_stop %td}{p_end}
+
+{pstd}{bf:Stabilized IPTW and balance diagnostics}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(age female comorbidity) ///}{p_end}
+{phang3}{cmd:stabilized generate(iptw) balance nolog}{p_end}
+{phang2}{cmd:. matrix list r(balance)}{p_end}
 
 {pstd}
-{bf:Setup}
+Add {opt loveplot} only after installing the optional {bf:psdash} package. The
+weight and {cmd:r(balance)} matrix are still produced when it is absent.
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{pstd}{bf:Panel-aware cumulative MSM weights}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(age female comorbidity) ///}{p_end}
+{phang3}{cmd:id(id) time(period) stabilized cumulative ///}{p_end}
+{phang3}{cmd:generate(iptw_period) cumgenerate(iptw_cum) nolog}{p_end}
 
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(index_age female education)}{p_end}
+{pstd}{bf:IPTW times IPCW}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(age female comorbidity) ///}{p_end}
+{phang3}{cmd:id(id) time(period) stabilized cumulative ipcw(censored) ///}{p_end}
+{phang3}{cmd:censorcovariates(age female comorbidity) generate(iptw_period) ///}{p_end}
+{phang3}{cmd:cumgenerate(iptw_cum) censgenerate(ipcw_cum) ///}{p_end}
+{phang3}{cmd:combgenerate(msm_weight) truncate(1 99) replace nolog}{p_end}
 
-
-{pstd}
-{bf:Example 1: Basic IPTW for binary treatment}
-
-{pstd}
-Recode the multi-level antidepressant variable to binary (any vs none), then
-estimate IPTW:
-
-{phang2}{cmd:. gen byte treated = (tv_exposure > 0) if !missing(tv_exposure)}{p_end}
-{phang2}{cmd:. tvweight treated, covariates(index_age female education)}{p_end}
-
-{pstd}
-Creates the variable {cmd:iptw} in the dataset. The output shows weight
-distribution, percentiles, and effective sample size.
-
+{pstd}{bf:Calendar-quarter index and weighted survival model}{p_end}
+{phang2}{cmd:. generate int calendar_qtr = qofd(rx_start)}{p_end}
+{phang2}{cmd:. format calendar_qtr %tq}{p_end}
+{phang2}{cmd:. generate double analysis_t0 = rx_start - 1}{p_end}
+{phang2}{cmd:. stset rx_stop [pweight=msm_weight], failure(event) time0(analysis_t0)}{p_end}
+{phang2}{cmd:. stcox treated, vce(cluster id)}{p_end}
 
 {pstd}
-{bf:Example 2: Stabilized weights with truncation}
+The interval-specific weight is declared in {cmd:stset}. Omit {cmd:id()} there
+because Stata requires a survival-declaration weight to be constant within a
+declared ID; retain person-level dependence through {cmd:vce(cluster id)} in
+the model.
 
 {pstd}
-Stabilized weights have smaller variance. Truncation at the 1st and 99th
-percentiles limits the influence of extreme weights:
+Use {cmd:qofd(rx_start)}, not {cmd:quarter(rx_start)}: the former retains the
+calendar year, whereas the latter repeats values 1--4 every year. An
+entry-anchored integer {opt period()} from {helpb tvpanel} is preferable for a
+fixed-width MSM grid.
 
-{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:stabilized truncate(1 99) replace}{p_end}
-
-{pstd}
-The {cmd:replace} option overwrites the {cmd:iptw} variable from Example 1.
-
-
-{pstd}
-{bf:Example 3: Multinomial weights for categorical treatment}
-
-{pstd}
-When the exposure has 3+ levels (e.g., 0=unexposed, 1=SSRI, 2=SNRI),
-{cmd:tvweight} automatically uses multinomial logistic regression:
-
-{phang2}{cmd:. tvweight tv_exposure, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:generate(mw) stabilized nolog}{p_end}
-
-{pstd}
-Each observation receives weight 1/P(A=a|X), where a is the observed
-treatment level. The {cmd:nolog} option suppresses the iteration log.
-
-
-{pstd}
-{bf:Example 4: Propensity score output}
-
-{pstd}
-Save the propensity score alongside the weight for diagnostic plots:
-
-{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:generate(sw) denominator(ps) stabilized replace}{p_end}
-
-
-{pstd}
-{bf:Example 5: Panel-aware weighting with time-varying covariates}
-
-{pstd}
-When panel structure is available, {cmd:id()} and {cmd:time()} enable
-cluster-robust standard errors and time fixed effects in the propensity
-score model:
-
-{phang2}{cmd:. gen period = quarter(rx_start)}{p_end}
-{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:id(id) time(period) generate(panel_w) replace nolog}{p_end}
-
-
-{pstd}
-{bf:Example 6: Weighted Cox regression}
-
-{pstd}
-After weighting, fit a marginal structural Cox model:
-
-{phang2}{cmd:. stset rx_stop, failure(event==1) enter(rx_start) id(id)}{p_end}
-{phang2}{cmd:. stcox treated [pw=iptw], robust cluster(id)}{p_end}
-
-{pstd}
-The {cmd:[pw=iptw]} applies the inverse probability weights. Cluster-robust
-standard errors account for within-person correlation in the panel data.
-
-
-{pstd}
-{bf:Example 7: Balance diagnostics with a love plot}
-
-{pstd}
-Check covariate balance before and after weighting and draw a love plot:
-
-{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:generate(w) balance loveplot replace}{p_end}
-
-{pstd}
-The standardized mean differences are printed and returned in {cmd:r(balance)}.
-
-
-{pstd}
-{bf:Example 8: Overlap (ATO) weights for poor overlap}
-
-{pstd}
-When propensity scores are extreme, overlap weights are a principled
-alternative to truncation and balance covariate means exactly:
-
-{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
-{phang3}{cmd:generate(ato_w) wtype(ato) balance replace}{p_end}
-
+{pstd}{bf:Overlap weights}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(age female comorbidity) ///}{p_end}
+{phang3}{cmd:wtype(ato) generate(ato_weight) replace nolog}{p_end}
 
 {marker results}{...}
 {title:Stored results}

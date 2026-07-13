@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.6.9  2026/07/10
+*! tvdiagnose Version 1.7.0  2026/07/13
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -255,27 +255,19 @@ program define tvdiagnose, rclass
         * Keep one row per person for display
         quietly by `id': keep if _n == 1
 
-        * Rename tempvars for display; drop same-named user variables first
-        * (this is a preserved working copy, the originals are untouched)
-        foreach _v in pct_covered n_periods n_gaps {
-            capture drop `_v'
-        }
-        rename `_pctcov' pct_covered
-        rename `_nper' n_periods
-        rename `_ngap' n_gaps
-
         * Display sample of results
         if "`verbose'" != "" {
             display as text "Showing first " min(_N, 20) " persons:"
-            list `id' pct_covered n_periods n_gaps in 1/`=min(_N,20)', clean noobs
+            list `id' `_pctcov' `_nper' `_ngap' in 1/`=min(_N,20)', ///
+                clean noobs
         }
 
         * Display summary statistics
-        quietly sum pct_covered
+        quietly sum `_pctcov'
         local mean_coverage = r(mean)
         local min_coverage = r(min)
         local max_coverage = r(max)
-        quietly summarize n_gaps, meanonly
+        quietly summarize `_ngap', meanonly
         local n_coverage_gaps = r(sum)
 
         display as text "{hline 70}"
@@ -284,7 +276,7 @@ program define tvdiagnose, rclass
         display as text "  Min coverage:  " as result %5.1f `min_coverage' "%"
         display as text "  Max coverage:  " as result %5.1f `max_coverage' "%"
 
-        quietly count if pct_covered < 100
+        quietly count if `_pctcov' < 100
         local n_with_gaps = r(N)
         local n_incomplete_coverage = `n_with_gaps'
         display as text "  Persons with gaps: " as result `n_with_gaps' " (" %4.1f 100*`n_with_gaps'/_N "%)"
@@ -329,21 +321,14 @@ program define tvdiagnose, rclass
 
         if `n_gaps' > 0 {
             format `_gs' `_ge' %tdCCYY/NN/DD
-            * Drop same-named user variables before the display renames
-            * (preserved working copy, originals untouched)
-            foreach _v in gap_start gap_end gap_days {
-                capture drop `_v'
-            }
-            rename `_gs' gap_start
-            rename `_ge' gap_end
-            rename `_gd' gap_days
             if "`verbose'" != "" {
                 display as text "Showing first 20 gaps:"
-                list `id' gap_start gap_end gap_days in 1/`=min(_N,20)', noobs sepby(`id')
+                list `id' `_gs' `_ge' `_gd' in 1/`=min(_N,20)', ///
+                    noobs sepby(`id')
             }
 
             * Gap statistics - save to locals immediately (count overwrites r())
-            quietly sum gap_days, detail
+            quietly sum `_gd', detail
             local mean_gap = r(mean)
             local median_gap = r(p50)
             local max_gap = r(max)
@@ -361,10 +346,10 @@ program define tvdiagnose, rclass
             display as text "  Max gap: " as result %5.0f `max_gap' " days"
 
             * Flag large gaps
-            quietly count if gap_days > `threshold'
+            quietly count if `_gd' > `threshold'
             local n_large_gaps = r(N)
             tempvar _large_gap _any_large _large_id_tag
-            quietly gen byte `_large_gap' = (gap_days > `threshold')
+            quietly gen byte `_large_gap' = (`_gd' > `threshold')
             quietly bysort `id': egen byte `_any_large' = max(`_large_gap')
             quietly egen byte `_large_id_tag' = tag(`id')
             quietly count if `_large_id_tag' & `_any_large'
@@ -530,60 +515,99 @@ program define tvdiagnose, rclass
         local _preserved = 1
         tempvar _prow _graph_exposure
         tempname _swgraph
-        quietly egen long `_prow' = group(`id')
-        quietly summarize `_prow', meanonly
-        local graph_ids_total = r(max)
-        local graph_ids_plotted = min(`graph_ids_total', `maxids')
-        local graph_truncated = (`graph_ids_total' > `maxids')
-        if `graph_truncated' {
-            quietly keep if `_prow' <= `maxids'
-            display as text "Note: swimlane limited to first `maxids' of `graph_ids_total' persons (use maxids())"
+        capture quietly egen long `_prow' = group(`id')
+        local graph_rc = _rc
+        if `graph_rc' == 0 {
+            capture quietly summarize `_prow', meanonly
+            local graph_rc = _rc
+        }
+        if `graph_rc' == 0 {
+            local graph_ids_total = r(max)
+            local graph_ids_plotted = min(`graph_ids_total', `maxids')
+            local graph_truncated = (`graph_ids_total' > `maxids')
+            if `graph_truncated' {
+                capture quietly keep if `_prow' <= `maxids'
+                local graph_rc = _rc
+                if `graph_rc' == 0 {
+                    display as text "Note: swimlane limited to first `maxids' of `graph_ids_total' persons (use maxids())"
+                }
+            }
         }
 
         local _plot ""
         local _leg ""
         local _i = 0
-        if "`exposure'" != "" {
+        if `graph_rc' == 0 & "`exposure'" != "" {
             capture confirm numeric variable `exposure'
             local _exposure_numeric = (_rc == 0)
             if `_exposure_numeric' {
-                quietly clonevar `_graph_exposure' = `exposure'
+                capture quietly clonevar `_graph_exposure' = `exposure'
+                local graph_rc = _rc
             }
             else {
-                quietly count if `exposure' != ""
-                if r(N) == 0 {
-                    quietly gen double `_graph_exposure' = .
+                capture quietly count if `exposure' != ""
+                local graph_rc = _rc
+                if `graph_rc' == 0 & r(N) == 0 {
+                    capture quietly gen double `_graph_exposure' = .
+                    local graph_rc = _rc
                 }
-                else {
-                    quietly encode `exposure', gen(`_graph_exposure')
+                else if `graph_rc' == 0 {
+                    capture quietly encode `exposure', gen(`_graph_exposure')
+                    local graph_rc = _rc
                 }
             }
-            quietly levelsof `_graph_exposure', local(_elevs) missing
+            if `graph_rc' == 0 {
+                capture local _graph_value_label : value label `_graph_exposure'
+                local graph_rc = _rc
+            }
+            if `graph_rc' == 0 {
+                capture quietly levelsof `_graph_exposure', local(_elevs) missing
+                local graph_rc = _rc
+            }
             foreach lv of local _elevs {
-                local ++_i
-                local _plot `"`_plot' (rspike `start' `stop' `_prow' if `_graph_exposure'==`lv', horizontal lwidth(medthick))"'
-                if missing(`lv') {
-                    local _level_label "Missing"
+                if `graph_rc' == 0 {
+                    local ++_i
+                    capture local _plot `"`_plot' (rspike `start' `stop' `_prow' if `_graph_exposure'==`lv', horizontal lwidth(medthick))"'
+                    local graph_rc = _rc
                 }
-                else {
-                    local _level_label : label (`_graph_exposure') `lv'
-                    if `"`_level_label'"' == "" {
-                        if `_exposure_numeric' {
-                            local _level_label "`exposure'=`lv'"
+                if `graph_rc' == 0 {
+                    if missing(`lv') {
+                        local _level_label "Missing"
+                    }
+                    else {
+                        local _level_label ""
+                        if `"`_graph_value_label'"' != "" {
+                            capture local _level_label : ///
+                                label (`_graph_exposure') `lv'
+                            local graph_rc = _rc
                         }
-                        else {
-                            local _level_label "Level `lv'"
+                        if `graph_rc' == 0 & ///
+                            (`"`_level_label'"' == "" | ///
+                            (`_exposure_numeric' & ///
+                            `"`_level_label'"' == "`lv'")) {
+                            if `_exposure_numeric' {
+                                local _level_label "`exposure'=`lv'"
+                            }
+                            else {
+                                local _level_label "Level `lv'"
+                            }
                         }
                     }
                 }
-                local _leg `"`_leg' `_i' "`_level_label'""'
+                if `graph_rc' == 0 {
+                    capture local _leg `"`_leg' `_i' `"`_level_label'"'"'
+                    local graph_rc = _rc
+                }
             }
-            capture noisily twoway `_plot', ytitle("Person (grouped id)") ///
-                xtitle("Date") title("Exposure swimlane") ///
-                legend(order(`_leg')) name(`_swgraph', replace)
-            local graph_rc = _rc
+            if `graph_rc' == 0 {
+                capture noisily twoway `_plot', ///
+                    ytitle("Person (grouped id)") xtitle("Date") ///
+                    title("Exposure swimlane") legend(order(`_leg')) ///
+                    name(`_swgraph', replace)
+                local graph_rc = _rc
+            }
         }
-        else {
+        else if `graph_rc' == 0 {
             capture noisily twoway ///
                 (rspike `start' `stop' `_prow', horizontal lwidth(medthick)), ///
                 ytitle("Person (grouped id)") xtitle("Date") ///
@@ -601,6 +625,7 @@ program define tvdiagnose, rclass
         }
         else {
             capture graph drop `_swgraph'
+            local _cleanup_rc = _rc
         }
         restore
         local _preserved = 0

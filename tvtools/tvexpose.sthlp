@@ -230,7 +230,10 @@ be combined with {cmd:expandunit()} for period splitting.
 {opt expandunit(unit)} splits person-time into rows at regular calendar
 intervals (days, weeks, months, quarters, or years). Used with
 {cmd:continuousunit()} to create finely-grained time-varying data. If omitted,
-the source exposure boundaries determine row granularity.
+it defaults to the unit named in {opt continuousunit()}; therefore requesting
+continuous exposure can add regular boundary rows even when {opt expandunit()}
+is not written explicitly. Specify a coarser or finer {opt expandunit()} to
+control that row-count increase.
 
 {phang}
 {opt bytype} creates separate time-varying variables for each exposure type
@@ -379,9 +382,9 @@ variable. When omitted, the name is derived from the {opt exposure()} varname
 as {cmd:tv_}{it:exposure} (for example, {cmd:exposure(drug_class)} yields
 {cmd:tv_drug_class}), so distinct exposures get distinct names and chain into
 {help tvmerge} / {help tvevent} without manual renames. The name falls back to
-{cmd:tv_exposure} when the derived name would be illegal, exceed 32 characters,
-or collide with the {opt id()} or {opt combine()} variable. The chosen name is
-returned in {cmd:r(genvar)}.
+a collision-safe generic name when the derived name would be illegal, exceed 32
+characters, or collide with the {opt id()} or {opt combine()} variable. Always
+read the chosen name from {cmd:r(genvar)} when scripting around this fallback.
 
 {phang}
 {opt referencelabel(text)} specifies the label for the reference category in
@@ -529,406 +532,75 @@ coarser units (months instead of days) when fine granularity is not needed.
 {title:Examples}
 
 {pstd}
-The examples below use synthetic datasets from {bf:_data/} modeling an SSRI vs SNRI
-antidepressant study in Swedish registries, 2006-2023.
+The following setup uses inline data and temporary files, so it is runnable
+after installation from any working directory:
 
-{phang2}
-{bf:cohort.dta}: 10,000 persons with study entry/exit dates, demographics, and
-outcomes
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(entry_s exit_s) byte female}{p_end}
+{phang3}{cmd:1 "01jan2020" "31dec2020" 1}{p_end}
+{phang3}{cmd:2 "01jan2020" "31dec2020" 0}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double study_entry = date(entry_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double study_exit = date(exit_s, "DMY")}{p_end}
+{phang2}{cmd:. format study_entry study_exit %td}{p_end}
+{phang2}{cmd:. drop entry_s exit_s}{p_end}
+{phang2}{cmd:. tempfile cohort episodes output}{p_end}
+{phang2}{cmd:. save `cohort'}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte drug_class double daily_dose}{p_end}
+{phang3}{cmd:1 "05jan2020" "20feb2020" 1 10}{p_end}
+{phang3}{cmd:1 "01mar2020" "15apr2020" 2 20}{p_end}
+{phang3}{cmd:2 "10jun2020" "31jul2020" 1 10}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double rx_start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double rx_stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. format rx_start rx_stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. save `episodes'}{p_end}
 
-{phang2}
-{bf:tv_antidep_episodes.dta}: Antidepressant exposure episodes (rx_start, rx_stop,
-drug_class, ddd)
+{pstd}{bf:Categorical exposure with an explicit output contract}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) keepvars(female) check}{p_end}
 
-
-{pstd}
-{bf:Example 1: Basic time-varying exposure}
-
-{pstd}
-Create categorical time-varying antidepressant exposure for survival analysis:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit)}{p_end}
-
-{pstd}
-This creates tv_exposure showing drug class (0=unexposed, 1=SSRI, 2=SNRI) during
-each time period. The output has one row per person-time period.
-
-
-{pstd}
-{bf:Example 2: Ever-treated analysis}
-
-{pstd}
-Create binary indicator that switches permanently at first antidepressant
-dispensing:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:evertreated generate(ever_antidep)}{p_end}
+{pstd}{bf:Continuous cumulative exposure and expansion}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:continuousunit(months) generate(cum_months)}{p_end}
 
 {pstd}
-Variable ever_antidep = 0 before first exposure, = 1 from first exposure
-onward. Useful for correcting immortal time bias in ever-vs-never analyses.
-
-
-{pstd}
-{bf:Example 3: Current vs former exposure}
-
-{pstd}
-Distinguish between current and former antidepressant exposure:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:currentformer generate(antidep_status)}{p_end}
-
-{pstd}
-Variable antidep_status: 0=never exposed, 1=currently dispensed, 2=formerly
-dispensed. Returns to 1 if person restarts antidepressant after a gap.
-
-
-{pstd}
-{bf:Example 4: Duration categories}
-
-{pstd}
-Create exposure categories based on cumulative days of antidepressant use:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:duration(365 1095 1825) continuousunit(days)}{p_end}
-
-{pstd}
-Creates categories: 0=unexposed, 1=<1 year, 2=1-<3 years, 3=3-<5 years, 4=5+
-years of cumulative antidepressant use. Uses days with integer thresholds to
-avoid floating-point precision issues.
-
-
-{pstd}
-{bf:Example 5: Continuous cumulative exposure}
-
-{pstd}
-Track cumulative months of antidepressant exposure as a continuous variable:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:continuousunit(months) generate(cumul_antidep_months)}{p_end}
-
-{pstd}
-Variable cumul_antidep_months shows cumulative months of antidepressant exposure
-at each time point. Use in regression models as a continuous predictor.
-
-
-{pstd}
-{bf:Example 6: Continuous exposure with row expansion}
-
-{pstd}
-Split person-time into calendar months with cumulative antidepressant exposure
-in years:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:continuousunit(years) expandunit(months)}{p_end}
-
-{pstd}
-Creates one row per calendar month. Useful when you need to merge with other
-time-varying covariates measured monthly or for time-stratified analyses.
-
-
-{pstd}
-{bf:Example 7: Separate variables by type}
-
-{pstd}
-Create separate time-varying variables for each antidepressant class:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:continuousunit(years) bytype}{p_end}
-
-{pstd}
-Creates tv_exp1 (cumulative years on SSRI) and tv_exp2 (cumulative years on
-SNRI) as separate variables. Allows estimation of class-specific effects in a
-single model.
-
-
-{pstd}
-{bf:Example 8: Recency of exposure}
-
-{pstd}
-Categorize time since last antidepressant exposure:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:recency(1 5) recencyunit(years)}{p_end}
-
-{pstd}
-Creates categories: current exposure, <1 year since last, 1 to <5 years since
-last, ≥5 years since last. Useful for studying how quickly effects dissipate.
-
-
-{pstd}
-{bf:Example 9: Grace period for gaps}
-
-{pstd}
-Treat gaps ≤30 days as continuous antidepressant exposure:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:grace(30) currentformer}{p_end}
-
-{pstd}
-Gaps of 30 days or less are filled, treating brief interruptions as continuous
-exposure. Useful when short gaps represent prescription refill delays rather
-than true cessation.
-
-
-{pstd}
-{bf:Example 10: Type-specific grace periods}
-
-{pstd}
-Apply different grace periods to different antidepressant classes:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:grace(1=30 2=60)}{p_end}
-
-{pstd}
-SSRIs (type 1) get 30-day grace, SNRIs (type 2) get 60 days. Useful when
-different drug classes have different refill patterns.
-
-
-{pstd}
-{bf:Example 11: Lag and washout periods}
-
-{pstd}
-Model 30-day lag before antidepressant becomes active and 90-day washout after
-stopping:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:lag(30) washout(90)}{p_end}
-
-{pstd}
-Exposure begins 30 days after start date and continues 90 days after stop
-date. Models biological delay in onset and persistence of effects.
-
-
-{pstd}
-{bf:Example 12: Priority-based overlap resolution}
-
-{pstd}
-When antidepressant periods overlap, give priority to SNRI over SSRI:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:priority(2 1)}{p_end}
-
-{pstd}
-SNRI (type 2) takes precedence over SSRI (type 1). Useful when overlapping
-periods represent treatment transitions and you want the newer drug to dominate.
-
-
-{pstd}
-{bf:Example 13: Track exposure switching}
-
-{pstd}
-Identify persons who switch between antidepressant classes:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:switching switchingdetail}{p_end}
-
-{pstd}
-Creates has_switched (0/1 indicator) and switching_pattern (string showing
-sequence like "0->1->2" for SSRI then SNRI). Use to identify switchers vs stable
-users.
-
-
-{pstd}
-{bf:Example 14: Keep baseline covariates}
-
-{pstd}
-Bring demographic and clinical variables into the time-varying dataset:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(index_age female education)}{p_end}
-
-{pstd}
-Baseline covariates are included in every row of the output. Ready for
-regression analysis without additional merging.
-
-
-{pstd}
-{bf:Example 15: Comprehensive diagnostics}
-
-{pstd}
-Run all diagnostic checks to verify data quality:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:check gaps overlaps summarize validate}{p_end}
-
-{pstd}
-Displays coverage diagnostics, identifies gaps and overlaps, summarizes exposure
-distribution, and creates validation dataset. Use before proceeding to analysis.
-
-
-{pstd}
-{bf:Example 16: Save output for later analysis}
-
-{pstd}
-Create time-varying dataset and save for repeated analyses:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:currentformer ///}{p_end}
-{phang3}{cmd:keepvars(index_age female education) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{pstd}
-Output saved to _data/tv_antidep.dta. Subsequently load this file for
-different analyses without re-running tvexpose.
-
-
-{pstd}
-{bf:Example 17: Complete workflow for survival analysis}
-
-{pstd}
-Full analysis pipeline from time-varying exposure to Cox regression:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:currentformer generate(antidep_status) ///}{p_end}
-{phang3}{cmd:keepvars(index_age female education) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{cmd:. * Integrate cardiovascular events}{p_end}
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _data/tv_antidep.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) compete(death_date) generate(outcome) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{phang2}{stata "stset rx_stop, failure(outcome==1) enter(rx_start) id(id) scale(365.25)":. stset rx_stop, failure(outcome==1) enter(rx_start) id(id) scale(365.25)}{p_end}
-
-{phang2}{stata "stcox i.antidep_status index_age i.female i.education":. stcox i.antidep_status index_age i.female i.education}{p_end}
-
-{pstd}
-This creates time-varying antidepressant exposure, integrates cardiovascular
-events, declares survival-time data, and estimates hazard ratios using Cox
-regression.
-
-
-{pstd}
-{bf:Example 18: Stratified by calendar period}
-
-{pstd}
-Create separate exposure variables for different calendar periods:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{stata "keep if study_entry >= mdy(1,1,2015)":. keep if study_entry >= mdy(1,1,2015)}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:continuousunit(years) keepdates}{p_end}
-
-{phang2}{stata "gen calendar_year = year(rx_start)":. gen calendar_year = year(rx_start)}{p_end}
-
-{phang2}{stata "table calendar_year, statistic(mean tv_exposure) statistic(count tv_exposure)":. table calendar_year, statistic(mean tv_exposure) statistic(count tv_exposure)}{p_end}
-
-{pstd}
-Restricts analysis to persons entering after 2015 and examines exposure trends
-by calendar year. Useful for assessing temporal changes in treatment patterns.
-
-
-{pstd}
-{bf:Example 19: Cumulative dose tracking}
-
-{pstd}
-Track cumulative defined daily doses for dose-response analysis:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(ddd) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:dose generate(cumul_ddd)}{p_end}
-
-{pstd}
-Creates cumul_ddd showing cumulative defined daily doses at each time
-point. When prescriptions overlap, dose is allocated proportionally based on
-daily dose rates.
-
-
-{pstd}
-{bf:Example 20: Categorical dose for dose-response}
-
-{pstd}
-Create categorical cumulative dose for dose-response analysis:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(ddd) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:dose dosecuts(100 500 1000) generate(ddd_cat)}{p_end}
-
-{pstd}
-Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD,
-3=500-<1000 DDD, 4=1000+ DDD. Useful for Cox regression with categorized
-dose-response.
-
+Because {opt expandunit()} is omitted, it defaults to months here and adds
+monthly boundary rows. To report years on a monthly grid, specify
+{cmd:continuousunit(years) expandunit(months)}.
+
+{pstd}{bf:Duration and recency categories}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:duration(30 90) continuousunit(days) generate(duration_group)}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:recency(30 90) recencyunit(days) generate(recency_group)}{p_end}
+
+{pstd}{bf:Cumulative dose}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(daily_dose) entry(study_entry) exit(study_exit) dose ///}{p_end}
+{phang3}{cmd:dosecuts(300 900) generate(cum_dose)}{p_end}
+
+{pstd}{bf:Temporary-file and frame outputs}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) saveas(`output') replace flow}{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
+{phang2}{cmd:. capture frame drop f_drug}{p_end}
+{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:generate(tv_drug) frameout(f_drug) flow}{p_end}
 
 {marker results}{...}
 {title:Stored results}

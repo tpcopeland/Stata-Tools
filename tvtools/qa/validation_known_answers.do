@@ -523,18 +523,18 @@ else {
 *   Exit: Jun30/2021 = 22461
 *   Event: Mar15/2020 = 21989
 *
-* Hand computation (tvage, groupwidth=1):
-*   age_entry = floor((21731 - 0) / 365.25) = floor(59.480) = 59
-*   age_exit  = floor((22461 - 0) / 365.25) = floor(61.477) = 61
+* Exact-calendar computation (tvage, groupwidth=1):
+*   Entry is after the 59th birthday (01jan2019) and before the 60th.
+*   Exit is after the 61st birthday (01jan2021) and before the 62nd.
 *   n_periods = 61 - 59 + 1 = 3
 *
-*   Age 59: start=21731 (Jul1/2019), stop=round(0+60*365.25)-1 = round(21915)-1 = 21914
+*   Age 59: start=21731 (Jul1/2019), stop=60th birthday-1 = 21914
 *           = [21731, 21914] (Jul1/2019 to Dec31/2019, 184 days)
-*   Age 60: start=round(0+60*365.25) = 21915, stop=round(0+61*365.25)-1 = 22279
-*           = [21915, 22279] (Jan1/2020 to Dec30/2020, 365 days)
-*   Age 61: start=round(0+61*365.25) = 22280, stop=22461
-*           = [22280, 22461] (Dec31/2020 to Jun30/2021, 182 days)
-*   Total PT: 184 + 365 + 182 = 731 = 22461 - 21731 + 1 ✓
+*   Age 60: start=60th birthday = 21915, stop=61st birthday-1 = 22280
+*           = [21915, 22280] (Jan1/2020 to Dec31/2020, 366 days)
+*   Age 61: start=61st birthday = 22281, stop=22461
+*           = [22281, 22461] (Jan1/2021 to Jun30/2021, 181 days)
+*   Total PT: 184 + 366 + 181 = 731 = 22461 - 21731 + 1 ✓
 *
 * tvevent (event=21989, Mar15/2020, type=single):
 *   Event falls in Age 60 interval [21915, 22280], strictly inside → split
@@ -593,24 +593,24 @@ else {
         display as result "  PASS [W3.1.stop1]: age_stop=Dec31/2019"
     }
 
-    * Row 2: age 60 — round(0+61*365.25) = round(22280.25) = 22280, so stop = 22280-1 = 22279
-    if age_tv[2] != 60 | age_start[2] != 21915 | age_stop[2] != 22279 {
-        display as error "  FAIL [W3.1.row2]: expected age=60 [21915,22279], got " ///
+    * Row 2: age 60 ends the day before the exact 61st birthday.
+    if age_tv[2] != 60 | age_start[2] != 21915 | age_stop[2] != 22280 {
+        display as error "  FAIL [W3.1.row2]: expected age=60 [21915,22280], got " ///
             age_tv[2] " [" age_start[2] "," age_stop[2] "]"
         local t_pass = 0
     }
     else {
-        display as result "  PASS [W3.1.row2]: age=60 [Jan1/2020, Dec30/2020]"
+        display as result "  PASS [W3.1.row2]: age=60 [Jan1/2020, Dec31/2020]"
     }
 
     * Row 3: age 61
-    if age_tv[3] != 61 | age_start[3] != 22280 | age_stop[3] != 22461 {
-        display as error "  FAIL [W3.1.row3]: expected age=61 [22280,22461], got " ///
+    if age_tv[3] != 61 | age_start[3] != 22281 | age_stop[3] != 22461 {
+        display as error "  FAIL [W3.1.row3]: expected age=61 [22281,22461], got " ///
             age_tv[3] " [" age_start[3] "," age_stop[3] "]"
         local t_pass = 0
     }
     else {
-        display as result "  PASS [W3.1.row3]: age=61 [Dec31/2020, Jun30/2021]"
+        display as result "  PASS [W3.1.row3]: age=61 [Jan1/2021, Jun30/2021]"
     }
 
     * Person-time conservation: 22461 - 21731 + 1 = 731

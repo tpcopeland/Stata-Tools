@@ -1,4 +1,4 @@
-*! tvsplit Version 1.6.9  2026/07/10
+*! tvsplit Version 1.7.0  2026/07/13
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -40,6 +40,15 @@ program define tvsplit, rclass
         exit 198
     }
 
+    * Structural variables are overwritten or used as stable grouping keys;
+    * aliasing any pair can silently change identity or interval meaning.
+    local structural_names "`id' `start' `stop'"
+    local structural_dups : list dups structural_names
+    if "`structural_dups'" != "" {
+        display as error "id(), start(), and stop() must name distinct variables"
+        exit 198
+    }
+
     * --- Validate id/start/stop are numeric daily dates ------------------
     foreach v in `id' `start' `stop' {
         capture confirm numeric variable `v'
@@ -55,9 +64,9 @@ program define tvsplit, rclass
             exit 120
         }
     }
-    quietly count if missing(`start') | missing(`stop')
+    quietly count if missing(`id') | missing(`start') | missing(`stop')
     if r(N) > 0 {
-        display as error "`r(N)' observation(s) have missing `start' or `stop'"
+        display as error "`r(N)' observation(s) have missing id/start/stop"
         exit 416
     }
 
@@ -86,6 +95,14 @@ program define tvsplit, rclass
         local amax "`max'"
         local agen "`generate'"
         if "`agen'" == "" local agen "ageband"
+        if `awidth' <= 0 {
+            display as error "age() width() must be positive"
+            exit 198
+        }
+        if `awidth' != int(`awidth') {
+            display as error "age() width() must be a whole number of years"
+            exit 198
+        }
         local axisnames "`axisnames' age"
         local genvars "`genvars' `agen'"
     }
@@ -99,6 +116,10 @@ program define tvsplit, rclass
         local canchor "`anchor'"
         local cgen "`generate'"
         if "`cgen'" == "" local cgen "calband"
+        if `cwidth' <= 0 | `cwidth' != int(`cwidth') {
+            display as error "calendar() width() must be a positive whole number of years"
+            exit 198
+        }
         local axisnames "`axisnames' calendar"
         local genvars "`genvars' `cgen'"
     }
@@ -121,12 +142,49 @@ program define tvsplit, rclass
         syntax [, Width(real 1) UNIT(string) MIN(string) MAX(string) GENerate(name) ]
         local ewidth = `width'
         local eunit "`unit'"
+        if "`eunit'" == "" local eunit "day"
         local emin "`min'"
         local emax "`max'"
         local egen "`generate'"
         if "`egen'" == "" local egen "fuband"
+        if `ewidth' <= 0 {
+            display as error "elapsed() width() must be positive"
+            exit 198
+        }
+        if !inlist("`eunit'", "day", "year") {
+            display as error "elapsed() unit() must be day or year"
+            exit 198
+        }
+        if "`eunit'" == "year" & `ewidth' != int(`ewidth') {
+            display as error "elapsed() year width() must be a whole number"
+            exit 198
+        }
         local axisnames "`axisnames' elapsed"
         local genvars "`genvars' `egen'"
+    }
+
+    * Origins must be independent daily-date variables. Freezing an origin
+    * protects its values during splitting but does not make a structural alias
+    * an unambiguous command specification.
+    local originvars ""
+    if "`age'" != "" local originvars "`originvars' `aorig'"
+    if "`elapsed'" != "" local originvars "`originvars' `eorig'"
+    foreach origin of local originvars {
+        local origin_conflict : list origin in structural_names
+        if `origin_conflict' {
+            display as error "origin variable '`origin'' must be distinct from id(), start(), and stop()"
+            exit 198
+        }
+        local fmt : format `origin'
+        if substr("`fmt'", 1, 3) == "%tc" | substr("`fmt'", 1, 3) == "%tC" {
+            display as error "Origin variable '`origin'' has datetime format (`fmt'); tvsplit requires daily dates"
+            exit 120
+        }
+        quietly count if missing(`origin')
+        if r(N) > 0 {
+            display as error "`r(N)' observation(s) have missing origin '`origin''"
+            exit 416
+        }
     }
 
     * --- Reject duplicate output names -----------------------------------
@@ -134,6 +192,19 @@ program define tvsplit, rclass
     if "`ndup'" != "" {
         display as error "duplicate band variable name(s): `ndup'"
         exit 198
+    }
+    local protected_names "`structural_names' `originvars'"
+    foreach genvar of local genvars {
+        local output_conflict : list genvar in protected_names
+        if `output_conflict' {
+            display as error "band variable '`genvar'' conflicts with a structural or origin variable"
+            exit 198
+        }
+        capture confirm new variable `genvar'
+        if _rc {
+            display as error "band variable '`genvar'' already exists"
+            exit 110
+        }
     }
 
     preserve
@@ -143,9 +214,9 @@ program define tvsplit, rclass
         display as text _newline "Lexis splitting on axes:`axisnames'"
     }
 
-    * --- Freeze each axis origin BEFORE any split overwrites start/stop ---
-    * (e.g. elapsed(entry) where entry is also the interval start: the engine
-    * rewrites start in place, so later axes must read a frozen snapshot.)
+    * --- Freeze each validated origin before sequential splitting --------
+    * The engine expands and rewrites interval bounds; snapshots ensure each
+    * later axis continues to use the original origin values.
     tempvar aorig_f eorig_f
     if "`age'" != ""     quietly gen double `aorig_f' = `aorig'
     if "`elapsed'" != "" quietly gen double `eorig_f' = `eorig'

@@ -37,6 +37,13 @@ program define iivw_diagnose, rclass
                 display as error "true() must be numeric"
                 error 198
             }
+            * confirm number accepts . and .a-.z. A missing true value would
+            * propagate straight into every bias as ., and the command would
+            * report a bias table of dots with rc 0.
+            if missing(`true') {
+                display as error "true() may not be missing"
+                error 198
+            }
         }
         local _decimals_final = 4
         if "`decimals'" != "" {
@@ -50,6 +57,29 @@ program define iivw_diagnose, rclass
                 error 198
             }
             local _decimals_final = `decimals'
+        }
+
+        * Export-only options are meaningless without xlsx(): they were parsed,
+        * ignored, and rc 0 returned, so a mistyped export request was
+        * indistinguishable from a successful one. Reject before any work.
+        local _exportonly ""
+        if `"`sheet'"'       != "" local _exportonly "`_exportonly' sheet()"
+        if "`open'"          != "" local _exportonly "`_exportonly' open"
+        if "`replace'"       != "" local _exportonly "`_exportonly' replace"
+        if `"`title'"'       != "" local _exportonly "`_exportonly' title()"
+        if `"`footnote'"'    != "" local _exportonly "`_exportonly' footnote()"
+        if "`decimals'"      != "" local _exportonly "`_exportonly' decimals()"
+        if `"`borderstyle'"' != "" local _exportonly "`_exportonly' borderstyle()"
+        if "`headershade'"   != "" local _exportonly "`_exportonly' headershade"
+        if `"`theme'"'       != "" local _exportonly "`_exportonly' theme()"
+        if `"`headercolor'"' != "" local _exportonly "`_exportonly' headercolor()"
+        if `"`zebracolor'"'  != "" local _exportonly "`_exportonly' zebracolor()"
+        if "`zebra'"         != "" local _exportonly "`_exportonly' zebra"
+        if `"`xlsx'"' == "" & `"`_exportonly'"' != "" {
+            display as error "option(s)`_exportonly' require xlsx()"
+            display as text "  they affect only the exported workbook; with no xlsx() to write,"
+            display as text "  they would be silently ignored"
+            error 198
         }
 
         local coefficient : list clean coefficient
@@ -352,11 +382,10 @@ program define iivw_diagnose, rclass
             display as text "Adjusted bias:      " as result %10.4f `bias_adjusted'
         }
 
+        * xlsx() is the sole trigger: the guard above already rejected any
+        * export-only option that arrived without it.
         local _export_requested = 0
-        if `"`xlsx'"' != "" | ///
-            `"`sheet'"' != "" | "`open'" != "" {
-            local _export_requested = 1
-        }
+        if `"`xlsx'"' != "" local _export_requested = 1
         if `_export_requested' {
             frame create `_diagnose_export' ///
                 strL A ///
@@ -602,9 +631,11 @@ program define iivw_diagnose, rclass
             capture frame drop `_diagnose_export'
             local _drop_rc = _rc
             local _diagnose_export_created = 0
-            if `_export_rc' != 0 & `_export_rc' != 602 {
-                exit `_export_rc'
-            }
+
+            * Do NOT exit here -- see the note at the return gate below. A
+            * confirmed probe (nonexistent export parent, rc 16106) left neither
+            * r(estimates) nor r(decomp) even though every estimate had been
+            * computed. The rc is carried out and re-raised after the returns.
         }
     }
     local rc = _rc
@@ -659,5 +690,13 @@ program define iivw_diagnose, rclass
     }
     if `_export_decimals' < . {
         return scalar decimals = `_export_decimals'
+    }
+
+    * Re-raise a failed export now that the analytical payload is posted. The
+    * caller sees the export's rc, but r() survives it: the decomposition ran
+    * and its results are real whether or not the workbook could be written.
+    * rc 602 (sheet exists, no replace) is warned about above, not an error.
+    if `_export_rc' != 0 & `_export_rc' != 602 {
+        exit `_export_rc'
     }
 end

@@ -40,7 +40,7 @@
 {synopt:{opt gaps}}gap analysis between periods{p_end}
 {synopt:{opt over:laps}}overlap detection{p_end}
 {synopt:{opt sum:marize}}exposure distribution summary (requires exposure){p_end}
-{synopt:{opt all}}run all diagnostic reports{p_end}
+{synopt:{opt all}}run coverage, gaps, overlaps, and summary when possible{p_end}
 {synopt:{opt swim:lane}}plot an exposure swimlane (interval bars per person){p_end}
 
 {syntab:Additional options}
@@ -79,10 +79,9 @@ durations and flags gaps exceeding the threshold.
 data quality issues or intentional features.
 
 {phang2}
-{opt summarize} - Provides exposure distribution statistics including
-frequencies, raw interval-days, and union person-time by exposure category.
-The overall person-time denominator is the union of all intervals within each
-person, so overlapping records are not counted twice.
+{opt summarize} - Reports exposure frequencies, raw interval-days, and union
+person-time by exposure category. Its overall denominator is the union of all
+intervals within each person, so overlapping records are counted once.
 
 
 {marker options}{...}
@@ -115,7 +114,8 @@ locations, durations, and summary statistics.
 
 {phang}
 {opt overlaps} detects overlapping periods within persons. Overlaps occur
-when a period starts before the previous period ends.
+when a period starts on or before the latest stop among prior periods. Dates
+are inclusive.
 
 {phang}
 {opt summarize} displays exposure distribution statistics. Requires
@@ -127,8 +127,8 @@ levels appears in both level-specific rows, and their percentages may sum to
 more than 100. Missing exposure is retained as its own level.
 
 {phang}
-{opt all} runs all diagnostic reports. Equivalent to specifying
-{opt coverage gaps overlaps summarize}.
+{opt all} runs {opt coverage gaps overlaps}. When {opt exposure()} is supplied,
+it also runs {opt summarize}; otherwise, the exposure summary is omitted.
 
 {phang}
 {opt swimlane} draws an exposure swimlane: a horizontal [start, stop] interval
@@ -138,14 +138,15 @@ graph scheme. Large datasets are capped at {opt maxids()} persons. The plot is
 named {cmd:tvd_swimlane} and the data in memory is left unchanged. Numeric value
 labels are used in the legend; unlabeled levels fall back to
 {cmd:exposure=#}, and missing values are labeled {cmd:Missing}. Graph failure
-does not suppress analytic diagnostics: inspect {cmd:r(graph_created)} and
-{cmd:r(graph_rc)} programmatically.
+at any preparation or rendering step does not suppress analytic diagnostics. Inspect
+{cmd:r(graph_created)} and {cmd:r(graph_rc)} programmatically.
 
 {dlgtab:Additional options}
 
 {phang}
-{opt exposure(varname)} specifies the exposure variable. Required for
-the {opt summarize} report.
+{opt exposure(varname)} specifies the exposure variable. A numeric variable is
+required for {opt summarize}; numeric or string variables may color
+{opt swimlane}.
 
 {phang}
 {opt entry(varname)} specifies the study entry date. Required for
@@ -173,68 +174,30 @@ issues are detected, a hint to use {cmd:verbose} is displayed.
 {marker examples}{...}
 {title:Examples}
 
-{pstd}
-The examples below follow a typical workflow: first create time-varying data
-with {helpb tvexpose}, then diagnose the result with {cmd:tvdiagnose}.
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte tv_drug str9(entry_s exit_s)}{p_end}
+{phang3}{cmd:1 "01jan2020" "10jan2020" 0 "01jan2020" "31jan2020"}{p_end}
+{phang3}{cmd:1 "10jan2020" "20jan2020" 1 "01jan2020" "31jan2020"}{p_end}
+{phang3}{cmd:1 "25jan2020" "31jan2020" 0 "01jan2020" "31jan2020"}{p_end}
+{phang3}{cmd:2 "01jan2020" "31jan2020" 2 "01jan2020" "31jan2020"}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. foreach v in start stop entry exit {c -(}}{p_end}
+{phang3}{cmd:generate double `v' = date(`v'_s, "DMY")}{p_end}
+{phang3}{cmd:format `v' %td}{p_end}
+{phang3}{cmd:{c )-}}{p_end}
+{phang2}{cmd:. drop *_s}{p_end}
+
+{pstd}{bf:All applicable reports}{p_end}
+{phang2}{cmd:. tvdiagnose, id(id) start(start) stop(stop) exposure(tv_drug) ///}{p_end}
+{phang3}{cmd:entry(entry) exit(exit) all verbose}{p_end}
 
 {pstd}
-{bf:Example 1: Coverage diagnostics}
+The equality at 10 January is an inclusive overlap; the running-maximum rule
+detects it. The uncovered 21--24 January span is a four-day gap.
 
-{pstd}
-Check what fraction of each person's follow-up is covered by exposure records:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) keepdates}{p_end}
-
-{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) coverage}{p_end}
-
-{pstd}
-Reports mean/min/max coverage and the number of persons with gaps. Add {cmd:verbose}
-to list per-person details.
-
-{pstd}
-{bf:Example 2: Run all diagnostics}
-
-{pstd}
-Combine all four reports in a single call:
-
-{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(tv_exposure) entry(study_entry) exit(study_exit) all verbose}{p_end}
-
-{pstd}
-{cmd:all} is equivalent to specifying {cmd:coverage gaps overlaps summarize}. The {cmd:verbose}
-option shows individual IDs and dates for every issue found.
-
-{pstd}
-{bf:Example 3: Flag large gaps}
-
-{pstd}
-Identify gaps exceeding 90 days between consecutive exposure periods:
-
-{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:gaps threshold(90)}{p_end}
-
-{pstd}
-The default threshold is 30 days. Gaps below the threshold still appear in
-the gap count but are not flagged as warnings.
-
-{pstd}
-{bf:Example 4: Check for overlapping periods}
-
-{pstd}
-Detect periods where a person has two overlapping records:
-
-{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) overlaps verbose}{p_end}
-
-{pstd}
-Overlapping periods in {helpb tvexpose} output usually indicate that the input
-episode data had concurrent exposures. Use {cmd:verbose} to inspect specific
-records and decide whether to re-run {cmd:tvexpose} with overlap-handling
-options such as {cmd:layer}, {cmd:priority()}, or {cmd:split}.
-
+{pstd}{bf:Targeted checks}{p_end}
+{phang2}{cmd:. tvdiagnose, id(id) start(start) stop(stop) gaps threshold(3) verbose}{p_end}
+{phang2}{cmd:. tvdiagnose, id(id) start(start) stop(stop) overlaps verbose}{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -268,18 +231,20 @@ options such as {cmd:layer}, {cmd:priority()}, or {cmd:split}.
 {synopt:{cmd:r(n_ids_affected)}}alias of {cmd:r(n_overlap_ids)}{p_end}
 {synopt:{cmd:r(total_person_time)}}global union person-time in days{p_end}
 {synopt:{cmd:r(raw_interval_person_time)}}sum of inclusive row lengths{p_end}
-{synopt:{cmd:r(overlap_excess_person_time)}}raw interval-days minus global union days{p_end}
+{synopt:{cmd:r(overlap_excess_person_time)}}raw days minus union days{p_end}
 {synopt:{cmd:r(n_exposure_levels)}}rows in {cmd:r(exposure_summary)}{p_end}
 {synopt:{cmd:r(graph_requested)}}1 if {opt swimlane} was requested{p_end}
 {synopt:{cmd:r(graph_created)}}1 if the swimlane graph was created{p_end}
-{synopt:{cmd:r(graph_rc)}}swimlane return code; 0 on success or no request{p_end}
+{synopt:{cmd:r(graph_rc)}}swimlane return code{p_end}
 {synopt:{cmd:r(graph_ids_total)}}persons available to the swimlane{p_end}
 {synopt:{cmd:r(graph_ids_plotted)}}persons included in the swimlane{p_end}
 {synopt:{cmd:r(graph_truncated)}}1 if {opt maxids()} truncated the swimlane{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(exposure_summary)}}one row per exposure level; columns are
-{cmd:exposure raw_days person_days percent n_periods}{p_end}
+{synopt:{cmd:r(exposure_summary)}}exposure-level union summary matrix{p_end}
+
+{pstd}
+Its columns are {cmd:exposure raw_days person_days percent n_periods}.
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(id)}}name of ID variable{p_end}

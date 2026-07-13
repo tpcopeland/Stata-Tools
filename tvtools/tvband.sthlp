@@ -66,8 +66,8 @@ band boundaries of one date-derived axis, producing one row per band the
 interval traverses. It generalizes {helpb tvage} to any continuous axis derived
 from dates:
 
-{phang2}{cmd:age} {hline 1} time since a date of birth (boundaries at birthdays,
-using a 365.25-day year);{p_end}
+{phang2}{cmd:age} {hline 1} time since a date of birth (boundaries at exact
+birthdays);{p_end}
 {phang2}{cmd:calendar} {hline 1} calendar period (boundaries at 1 January);{p_end}
 {phang2}{cmd:elapsed} {hline 1} time since a reference date such as study entry
 (boundaries at multiples of {opt width()} {opt unit()}s).{p_end}
@@ -76,7 +76,7 @@ using a 365.25-day year);{p_end}
 All other variables are carried onto each split row, so covariates are
 preserved. Intervals are inclusive integer Stata dates that abut as
 {cmd:stop + 1 == next start}, matching the rest of the {help tvtools} suite, so
-the output merges with {helpb tvexpose}/{helpb tvmerge} output and feeds
+the output merges with {helpb tvexpose} and {helpb tvmerge} output and feeds
 {helpb stset}. To split on several axes at once (a Lexis diagram), use
 {helpb tvsplit}.
 
@@ -107,8 +107,8 @@ allowed for {cmd:type(calendar)}.
 {phang}
 {opt width(#)} sets the band width. For {cmd:age} and {cmd:calendar} the unit is years (for
 example {cmd:width(10)} gives 10-year bands); for {cmd:elapsed} the unit is set by
-{opt unit()}. Calendar widths must be positive whole years; fractional widths are
-allowed for age and elapsed-year bands. Default is {cmd:width(1)}.
+{opt unit()}. Age, calendar, and elapsed-year widths must be positive whole
+years. Default is {cmd:width(1)}.
 
 {phang}
 {opt unit(day|year)} sets the elapsed-time unit. Default is {cmd:day}. Used only
@@ -155,9 +155,10 @@ its first day to the day before the next band starts, so adjacent rows satisfy
 {cmd:stop + 1 == next start} and tile follow-up without gaps or overlaps.
 
 {pstd}
-{bf:Age precision.} Age boundaries are computed as
-{cmd:round(origin + age*365.25)}, which can differ from an exact birthday by up
-to one day. This matches {helpb tvage}.
+{bf:Exact anniversaries.} Age and year-unit elapsed boundaries are exact
+calendar anniversaries. For a 29 February origin, the anniversary is 28
+February in non-leap years and 29 February in leap years. This matches
+{helpb tvage} and {helpb tvsplit}.
 
 {pstd}
 {bf:General input.} Unlike {helpb tvage}, {cmd:tvband} accepts data that already
@@ -168,18 +169,33 @@ is split independently.
 {marker examples}{...}
 {title:Examples}
 
-{pstd}{bf:Example 1: 10-year age bands}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvband, id(id) start(study_entry) stop(study_exit) type(age) origin(dob) width(10)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(birth_s start_s stop_s)}{p_end}
+{phang3}{cmd:1 "29feb1960" "01jan2000" "31dec2005"}{p_end}
+{phang3}{cmd:2 "15jun1975" "01jan2018" "31dec2022"}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double birth_date = date(birth_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double fu_origin = start}{p_end}
+{phang2}{cmd:. format birth_date start stop fu_origin %td}{p_end}
+{phang2}{cmd:. drop birth_s start_s stop_s}{p_end}
+{phang2}{cmd:. tempfile intervals}{p_end}
+{phang2}{cmd:. save `intervals'}{p_end}
 
-{pstd}{bf:Example 2: single calendar years}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvband, id(id) start(study_entry) stop(study_exit) type(calendar) width(1) generate(calyr)}{p_end}
+{pstd}{bf:Age bands on an existing interval dataset}{p_end}
+{phang2}{cmd:. tvband, id(id) start(start) stop(stop) type(age) ///}{p_end}
+{phang3}{cmd:origin(birth_date) width(5) min(40) max(85) generate(age5)}{p_end}
 
-{pstd}{bf:Example 3: time since entry, 1-year bands}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvband, id(id) start(study_entry) stop(study_exit) type(elapsed) origin(study_entry) width(1) unit(year) generate(fu)}{p_end}
+{pstd}{bf:Calendar periods}{p_end}
+{phang2}{cmd:. use `intervals', clear}{p_end}
+{phang2}{cmd:. tvband, id(id) start(start) stop(stop) type(calendar) ///}{p_end}
+{phang3}{cmd:width(5) anchor(2000) generate(period5)}{p_end}
 
+{pstd}{bf:Exact years since study entry}{p_end}
+{phang2}{cmd:. use `intervals', clear}{p_end}
+{phang2}{cmd:. tvband, id(id) start(start) stop(stop) type(elapsed) ///}{p_end}
+{phang3}{cmd:origin(fu_origin) width(1) unit(year) generate(fuyear)}{p_end}
 
 {marker results}{...}
 {title:Stored results}

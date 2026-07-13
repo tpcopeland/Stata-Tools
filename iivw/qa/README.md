@@ -65,6 +65,17 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 - `test_iivw_v193_regressions.do`
 - `test_iivw_v194_regressions.do`
 - `test_iivw_v196_regressions.do`
+- `test_iivw_v200_phase0.do` — generated-variable transaction, categorical dummy
+  names, nonconvergence-is-an-error, QA gate integrity (C3, C4, C9, Q1, Q4).
+- `test_iivw_v200_phase1.do` — weight contracts: the terminal at-risk interval,
+  the risk-set specification, and the entry/baseline semantics (C1, C5-C7, H17).
+- `test_iivw_v200_phase2.do` — diagnostics redesign: the target-SMD balance
+  verdict, the IIW component, ESS, exogeneity conditioning and Holm adjustment,
+  and the iivw_diagnose comparability gate (C2, C8, H1-H7).
+- `test_iivw_v200_coverage.do` — surface added in Phases 0-2 that no other suite
+  exercised: the convergence guard, the nonconverged-weight taint (and that
+  `iivw_fit` does not launder it), the refit counts, the risk-set returns, and
+  `censor()`/`maxfu()` on `iivw_exogtest`.
 - `test_iivw_weight_adversarial.do`
 - `test_iivw_weight_validation_guards.do`
 

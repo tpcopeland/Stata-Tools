@@ -9,6 +9,7 @@ RESET res1
 
 SCRIPT PREINIT
 BEGIN
+	create STRING qa_command
 	program parseMessage
 	script max_setOptionalOn
 END
@@ -20,7 +21,7 @@ END
 
 DIALOG main, label("tvmerge - Merge multiple time-varying datasets") tabtitle("Main")
 BEGIN
-  TEXT     tx_info       10  10  620  ., label("Merge time-varying exposure datasets (2-6 datasets)")
+  TEXT     tx_info       10  10  620  ., label("Merge 2-6 files, or any number of named frames")
 
   GROUPBOX gb_datasets   10  35 620  180, label("Datasets to merge")
   TEXT     tx_ds1        20  +20 120  ., label("Dataset 1:")
@@ -42,9 +43,12 @@ BEGIN
   FILE     fi_ds6        140 @   470  ., error("Dataset 6 (optional)") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
-  GROUPBOX gb_required   10  215 620  210, label("Required variables (one entry per dataset, space-separated)")
+  TEXT     tx_frames     20  220 220  ., label("Named frames (alternative):")
+  EDIT     ed_frames     240 @ 370    ., label("Frames") option(frames)
+
+  GROUPBOX gb_required   10  250 620  210, label("Required variables (one entry per input, space-separated)")
   TEXT     tx_id         20  +20 280  ., label("Person ID variable (same in all datasets):")
-  VARNAME  vn_id         @   +20 @    ., label("ID variable")
+  EDIT     ed_id         @   +20 @    ., label("ID variable")
 
   TEXT     tx_start      20  +25 590  ., label("Start date variables:")
   EDIT     ed_start      @   +20 @    ., label("Start variables")
@@ -56,13 +60,22 @@ BEGIN
   EDIT     ed_exposure   @   +20 @    ., label("Exposure variables")
 END
 
+DIALOG quantities, tabtitle("Quantities")
+BEGIN
+  GROUPBOX gb_quant      10  10  620  220, label("How interval payloads behave when split")
+  TEXT     tx_continuous 20  +20 590  ., label("Legacy interval totals (deprecated alias; names or positions):")
+  EDIT     ed_continuous @   +20 @    ., label("Continuous") option(continuous)
+  TEXT     tx_rate       20  +25 590  ., label("Rates (names or input positions):")
+  EDIT     ed_rate       @   +20 @    ., label("Rates") option(rate)
+  TEXT     tx_total      20  +25 590  ., label("Interval totals to apportion:")
+  EDIT     ed_total      @   +20 @    ., label("Totals") option(total)
+  TEXT     tx_cumulative 20  +25 590  ., label("Cumulative histories:")
+  EDIT     ed_cumulative @   +20 @    ., label("Cumulative") option(cumulative)
+END
+
 DIALOG options, tabtitle("Options")
 BEGIN
-  GROUPBOX gb_exptype    10  10  620  75,  label("Exposure types")
-  TEXT     tx_continuous 20  +20 590  ., label("Continuous exposures (variable names or positions, e.g., 1 2 3):")
-  EDIT     ed_continuous @   +20 @    ., label("Continuous") option(continuous)
-
-  GROUPBOX gb_naming     10  85 620  140, label("Output variable naming (select one approach)")
+  GROUPBOX gb_naming     10  10 620  140, label("Output variable naming (select one approach)")
   RADIO    rb_default    20  +20 280  ., label("Use default names (as specified in exposure list)") first
   RADIO    rb_generate   @   +20 @    ., label("Specify new names (one per dataset):") ///
            onclickon(script generate_enable) onclickoff(script generate_disable)
@@ -71,7 +84,7 @@ BEGIN
            onclickon(script prefix_enable) onclickoff(script prefix_disable)
   EDIT     ed_prefix     40  +20 250  ., label("Prefix") option(prefix)
 
-  GROUPBOX gb_dates      10  225 620  120, label("Date variable naming")
+  GROUPBOX gb_dates      10  150 620  120, label("Date variable naming")
   TEXT     tx_startname  20  +20 280  ., label("Output start variable name:")
   EDIT     ed_startname  @   +20 180  ., label("Start name") option(startname) ///
            default(start)
@@ -84,27 +97,34 @@ BEGIN
   EDIT     ed_dateformat @   +20 280  ., label("Date format") option(dateformat) ///
            default(%tdCCYY/NN/DD)
 
-  GROUPBOX gb_keep       10  345 620  75,  label("Additional variables")
+  GROUPBOX gb_keep       10  270 620  75,  label("Additional variables")
   TEXT     tx_keep       20  +20 590  ., label("Keep from source datasets (will be suffixed with _ds1, _ds2, etc.):")
   EDIT     ed_keep       @   +20 @    ., label("Keep variables") option(keep)
 END
 
 DIALOG output, tabtitle("Output")
 BEGIN
-  GROUPBOX gb_save       10  10  620  60,  label("Save merged dataset")
+  GROUPBOX gb_save       10  10  620  115, label("Save merged dataset or place it in a frame")
   FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
+  TEXT     tx_frameout   20  +25 240  ., label("Output frame (alternative):")
+  EDIT     ed_frameout   @   +20 280  ., label("Output frame") option(frameout)
 
-  GROUPBOX gb_diag       10  70 620  110, label("Diagnostics and validation")
+  GROUPBOX gb_diag       10  130 620  210, label("Diagnostics, validation, and execution")
   CHECKBOX ck_check      20  +20 280  ., label("Display coverage diagnostics") option(check)
   CHECKBOX ck_valcov     @   +20 @    ., label("Validate coverage (check for gaps)") option(validatecoverage)
   CHECKBOX ck_valoverlap @   +20 @    ., label("Validate overlaps") option(validateoverlap)
   CHECKBOX ck_summarize  @   +20 @    ., label("Display summary statistics") option(summarize)
+  CHECKBOX ck_flow       330 -60 280  ., label("Return flow report") option(flow)
+  CHECKBOX ck_force      @   +20 @    ., label("Allow and drop IDs absent from an input") option(force)
+  CHECKBOX ck_dropinvalid @  +20 @    ., label("Drop malformed rows") option(dropinvalid)
+  CHECKBOX ck_verbose    @   +20 @    ., label("Verbose output") option(verbose)
+  TEXT     tx_batch      20  +30 360  ., label("Deprecated compatibility option (ignored):")
+  EDIT     ed_batch      @   +20 180  ., label("Deprecated batch value") option(batch) default(-1)
 
-  TEXT     tx_note1      10  195 620  80,  label("Note: tvmerge replaces the current dataset in memory with the merged result.")
-  TEXT     tx_note2      10  215 620  80,  label("Use saveas() to preserve the output, or save your work before running.")
+  TEXT     tx_note1      10  355 620  80,  label("Without frameout(), the merged result replaces the data in memory.")
 END
 
 SCRIPT generate_disable
@@ -133,46 +153,52 @@ END
 
 PROGRAM command
 BEGIN
-	put "tvmerge "
-	put `"""'
-	require main.fi_ds1
-	put main.fi_ds1
-	put `"""'
-	put " "
-	put `"""'
-	require main.fi_ds2
-	put main.fi_ds2
-	put `"""'
+	put "tvmerge"
+	if main.ed_frames {
+		put ", "
+		optionarg main.ed_frames
+	}
+	else {
+		put " "
+		put `"""'
+		require main.fi_ds1
+		put main.fi_ds1
+		put `"""'
+		put " "
+		put `"""'
+		require main.fi_ds2
+		put main.fi_ds2
+		put `"""'
 
-	if main.fi_ds3 {
-		put " "
-		put `"""'
-		put main.fi_ds3
-		put `"""'
-	}
-	if main.fi_ds4 {
-		put " "
-		put `"""'
-		put main.fi_ds4
-		put `"""'
-	}
-	if main.fi_ds5 {
-		put " "
-		put `"""'
-		put main.fi_ds5
-		put `"""'
-	}
-	if main.fi_ds6 {
-		put " "
-		put `"""'
-		put main.fi_ds6
-		put `"""'
+		if main.fi_ds3 {
+			put " "
+			put `"""'
+			put main.fi_ds3
+			put `"""'
+		}
+		if main.fi_ds4 {
+			put " "
+			put `"""'
+			put main.fi_ds4
+			put `"""'
+		}
+		if main.fi_ds5 {
+			put " "
+			put `"""'
+			put main.fi_ds5
+			put `"""'
+		}
+		if main.fi_ds6 {
+			put " "
+			put `"""'
+			put main.fi_ds6
+			put `"""'
+		}
+		put ", "
 	}
 
-	put ", "
-
-	require main.vn_id
-	put "id(" main.vn_id ") "
+	require main.ed_id
+	put "id(" main.ed_id ") "
 
 	require main.ed_start
 	put "start(" main.ed_start ") "
@@ -183,20 +209,19 @@ BEGIN
 	require main.ed_exposure
 	put "exposure(" main.ed_exposure ")"
 
-	if options.ed_continuous {
-		put " continuous(" options.ed_continuous ")"
-	}
+	optionarg quantities.ed_continuous
+	optionarg quantities.ed_rate
+	optionarg quantities.ed_total
+	optionarg quantities.ed_cumulative
 
 	if options.rb_generate {
-		if options.ed_generate {
-			put " generate(" options.ed_generate ")"
-		}
+		require options.ed_generate
+		put " generate(" options.ed_generate ")"
 	}
 
 	if options.rb_prefix {
-		if options.ed_prefix {
-			put " prefix(" options.ed_prefix ")"
-		}
+		require options.ed_prefix
+		put " prefix(" options.ed_prefix ")"
 	}
 
 	optionarg options.ed_startname
@@ -210,11 +235,17 @@ BEGIN
 		put output.fi_saveas
 		put `"""'
 		put ")"
-		option output.ck_replace
 	}
+	optionarg output.ed_frameout
+	option output.ck_replace
 
 	option output.ck_check
 	option output.ck_valcov
 	option output.ck_valoverlap
 	option output.ck_summarize
+	option output.ck_flow
+	option output.ck_force
+	option output.ck_dropinvalid
+	option output.ck_verbose
+	optionarg output.ed_batch
 END

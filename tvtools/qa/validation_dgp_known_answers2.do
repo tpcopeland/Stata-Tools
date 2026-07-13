@@ -1280,12 +1280,9 @@ else {
 **# =========================================================================
 **# S42: tvsplit three simultaneous axes -- n_axes=3, coverage invariants
 **# =========================================================================
-* DGP: 1 person, dob 15jun1975, interval [01mar2015, 01aug2016]. Split
-* simultaneously on age, calendar, AND elapsed (from entry) axes. The 365.25 age
-* approximation makes the exact cell count fragile, so the oracle is the set of
-* Lexis invariants that hold for ANY valid 3-axis split: n_axes=3, person-time is
-* conserved (520 days), sub-intervals abut with no gaps/overlaps, and there are
-* strictly more cells than a single-axis split.
+* DGP: 1 person, dob 15jun1975, interval [01mar2015, 01aug2016]. Exact cuts are
+* 15jun2015 and 15jun2016 (age), 01jan2016 (calendar), and 01mar2016 (elapsed),
+* yielding five cells while conserving 520 days.
 local ++test_count
 local t_pass = 1
 capture noisily {
@@ -1326,11 +1323,11 @@ capture noisily {
     }
     else di as result "  PASS [S42.cover]: full coverage, no gaps/overlaps"
 
-    if _N < 4 {
-        di as error "  FAIL [S42.cells]: only `=_N' cells, expected multi-axis cuts"
+    if _N != 5 {
+        di as error "  FAIL [S42.cells]: cells=`=_N', expected 5 exact cells"
         local t_pass = 0
     }
-    else di as result "  PASS [S42.cells]: `=_N' Lexis cells"
+    else di as result "  PASS [S42.cells]: 5 exact Lexis cells"
 }
 if _rc & `t_pass' {
     di as error "  FAIL [S42.run]: rc=`=_rc'"

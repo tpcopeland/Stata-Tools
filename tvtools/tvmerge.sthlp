@@ -218,11 +218,10 @@ collisions are rejected before source data are loaded.
 
 {pmore}
 When {opt generate()} is {it:not} given and two or more inputs carry the same
-exposure name (the common case, since {cmd:tvexpose} defaults every output to
-{cmd:tv_exposure}), {cmd:tvmerge} automatically suffixes the colliding output
-names by position ({cmd:tv_exposure_1}, {cmd:tv_exposure_2}, ...) and prints a
-note, instead of erroring. To skip the rename entirely, give each
-{cmd:tvexpose} run a distinct {opt generate()} name up front.
+exposure name, {cmd:tvmerge} automatically suffixes the colliding output names
+by position (for example, {cmd:drug_1} and {cmd:drug_2}) and prints a note,
+instead of erroring. To skip the rename entirely, give each {cmd:tvexpose} run
+a distinct {opt generate()} name up front.
 
 {phang}
 {opt prefix(string)} adds a prefix to all exposure variable names in the output. For
@@ -414,293 +413,65 @@ command is run quietly.
 {title:Examples}
 
 {pstd}
-{bf:IMPORTANT}: All examples below assume you have first created time-varying
-datasets using {helpb tvexpose}. The examples use synthetic datasets from {bf:_data/}
-modeling an SSRI vs SNRI antidepressant study.
+Build two small interval datasets entirely in temporary files:
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte tv_drug}{p_end}
+{phang3}{cmd:1 "01jan2020" "15jan2020" 0}{p_end}
+{phang3}{cmd:1 "16jan2020" "31jan2020" 1}{p_end}
+{phang3}{cmd:2 "01jan2020" "31jan2020" 2}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double rx_start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double rx_stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. format rx_start rx_stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. tempfile drug benzo merged}{p_end}
+{phang2}{cmd:. save `drug'}{p_end}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte tv_benzo}{p_end}
+{phang3}{cmd:1 "01jan2020" "10jan2020" 0}{p_end}
+{phang3}{cmd:1 "11jan2020" "31jan2020" 1}{p_end}
+{phang3}{cmd:2 "01jan2020" "31jan2020" 0}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double bz_start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double bz_stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. format bz_start bz_stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. save `benzo'}{p_end}
+
+{pstd}{bf:Align two interval sources}{p_end}
+{phang2}{cmd:. tvmerge `drug' `benzo', id(id) ///}{p_end}
+{phang3}{cmd:start(rx_start bz_start) stop(rx_stop bz_stop) ///}{p_end}
+{phang3}{cmd:exposure(tv_drug tv_benzo) saveas(`merged') replace}{p_end}
+
+{pstd}{bf:Prefix the original exposure names}{p_end}
+{phang2}{cmd:. tvmerge `drug' `benzo', id(id) ///}{p_end}
+{phang3}{cmd:start(rx_start bz_start) stop(rx_stop bz_stop) ///}{p_end}
+{phang3}{cmd:exposure(tv_drug tv_benzo) prefix(exp_)}{p_end}
 
 {pstd}
-The standard workflow is:
-
-{phang2}
-Step 1: Create time-varying antidepressant dataset using {cmd:tvexpose}, rename
-exposure
-
-{phang2}
-Step 2: Create time-varying benzodiazepine dataset using {cmd:tvexpose}, rename
-exposure
-
-{phang2}
-Step 3: Merge the two time-varying datasets using {cmd:tvmerge}
-
-
-{pstd}
-{bf:Example 1: Basic two-dataset merge}
-
-{pstd}
-First, create time-varying datasets from the exposure episode files:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) generate(drug_class) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) generate(benzo) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_benzo.dta) replace}{p_end}
-
-{pstd}
-Now merge the two time-varying datasets created by tvexpose:
-
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo)}{p_end}
-
-{pstd}
-The output dataset contains one row for each unique combination of overlapping
-antidepressant and benzodiazepine periods.
-
-
-{pstd}
-{bf:Example 2: Merge with custom variable names}
-
-{pstd}
-Same workflow as Example 1, but specify custom names for output variables:
-
-{phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:generate(antidep_class concomitant_benzo) ///}{p_end}
-{phang3}{cmd:startname(period_start) stopname(period_end)}{p_end}
-
-{pstd}
-Output variables are named antidep_class, concomitant_benzo, period_start, and
-period_end instead of the defaults.
-
-
-{pstd}
-{bf:Example 3: Keep additional covariates from tvexpose outputs}
-
-{pstd}
-When running tvexpose, use keepvars() to bring covariates into the
-time-varying datasets:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(index_age female) saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_antidep.dta, clear":. use _data/tv_antidep.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure drug_class":. rename tv_exposure drug_class}{p_end}
-{phang2}{stata "save _data/tv_antidep.dta, replace":. save _data/tv_antidep.dta, replace}{p_end}
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(education) saveas(_data/tv_benzo.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_benzo.dta, clear":. use _data/tv_benzo.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure benzo":. rename tv_exposure benzo}{p_end}
-{phang2}{stata "save _data/tv_benzo.dta, replace":. save _data/tv_benzo.dta, replace}{p_end}
-
-{pstd}
-Now merge and keep the covariates from both datasets:
-
-{phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:keep(index_age female education)}{p_end}
-
-{pstd}
-The output includes index_age_ds1, female_ds1 (from antidepressant tvexpose),
-education_ds2 (from benzodiazepine tvexpose), plus id, start, stop, drug_class,
-and benzo.
-
-
-{pstd}
-{bf:Example 4: Diagnostics and validation}
-
-{pstd}
-Check the merge results for coverage issues (assume tv_antidep.dta and
-tv_benzo.dta already created):
-
-{phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:check validatecoverage validateoverlap summarize}{p_end}
-
-{pstd}
-The {cmd:check} option displays how many persons were merged, average periods per
-person, and maximum periods. {cmd:validatecoverage} identifies any gaps in the
-merged timeline. {cmd:validateoverlap} flags unexpected overlapping
-periods. {cmd:summarize} shows date range statistics.
-
-
-{pstd}
-{bf:Example 5: Save output to file}
-
-{pstd}
-Merge and save the result for later analysis:
-
-{phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_merged.dta) replace}{p_end}
-
-{pstd}
-This saves the merged dataset to _data/tv_merged.dta.
-
-
-{pstd}
-{bf:Example 6: Merge with different exposure definitions}
-
-{pstd}
-Create one tvexpose output with evertreated and another with currentformer:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:evertreated generate(ever_antidep) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep_ever.dta) replace}{p_end}
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:currentformer generate(benzo_cf) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_benzo_cf.dta) replace}{p_end}
-
-{phang2}{cmd:. tvmerge _data/tv_antidep_ever _data/tv_benzo_cf, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(ever_antidep benzo_cf) ///}{p_end}
-{phang3}{cmd:generate(antidep_ever benzo_status)}{p_end}
-
-{pstd}
-This combines an ever-treated antidepressant variable with a current/former
-benzodiazepine variable in a single dataset.
-
-
-{pstd}
-{bf:Example 7: Prefix for systematic naming}
-
-{pstd}
-Use a prefix instead of custom names (assume tv_antidep.dta and tv_benzo.dta
-already created):
-
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo) prefix(exp_)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:prefix(exp_)}{p_end}
-
-{pstd}
-This creates variables named {cmd:exp_drug_class} and {cmd:exp_benzo} in the
-output.
-
-
-{pstd}
-{bf:Example 8: Integration with cohort data}
-
-{pstd}
-After merging tvexpose outputs, merge with the cohort file for additional
-baseline characteristics:
-
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo)}{p_end}
-
-{phang2}{cmd:. merge m:1 id using _data/cohort.dta, keepusing(index_age female education) keep(match) nogen}{p_end}
-
-{pstd}
-This brings baseline demographic variables into the merged exposure dataset
-for regression analysis.
-
-
-{pstd}
-{bf:Example 9: Comprehensive workflow with validation}
-
-{pstd}
-Complete workflow from tvexpose through tvmerge, validation, and survival
-analysis:
-
-{phang2}{cmd:. * Step 1: Create time-varying antidepressant dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(index_age female) saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_antidep.dta, clear":. use _data/tv_antidep.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure drug_class":. rename tv_exposure drug_class}{p_end}
-{phang2}{stata "save _data/tv_antidep.dta, replace":. save _data/tv_antidep.dta, replace}{p_end}
-
-{phang2}{cmd:. * Step 2: Create time-varying benzodiazepine dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:keepvars(education) saveas(_data/tv_benzo.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_benzo.dta, clear":. use _data/tv_benzo.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure benzo":. rename tv_exposure benzo}{p_end}
-{phang2}{stata "save _data/tv_benzo.dta, replace":. save _data/tv_benzo.dta, replace}{p_end}
-
-{phang2}{cmd:. * Step 3: Merge and validate}{p_end}
-{phang2}{cmd:. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo) ///}{p_end}
-{phang3}{cmd:keep(index_age female education) ///}{p_end}
-{phang3}{cmd:check validatecoverage summarize ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_merged.dta) replace}{p_end}
-
-{phang2}{cmd:. * Step 4: Cross-tabulation}{p_end}
-{phang2}{stata "tab drug_class benzo, mi":. tab drug_class benzo, mi}{p_end}
-
-{phang2}{stata "list id start stop drug_class benzo index_age_ds1 female_ds1 in 1/20, sepby(id)":. list id start stop drug_class benzo index_age_ds1 female_ds1 in 1/20, sepby(id)}{p_end}
-
-
-{pstd}
-{bf:Example 10: Rate exposure merging}
-
-{pstd}
-Merge a categorical antidepressant variable with continuous DDD rates:
-
-{phang2}{cmd:. * Assume tv_antidep.dta has categorical drug_class}{p_end}
-{phang2}{cmd:. * and tv_ddd.dta has continuous DDD rates per day}{p_end}
-
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_ddd, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class ddd_rate) rate(ddd_rate)":. tvmerge _data/tv_antidep _data/tv_ddd, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class ddd_rate) ///}{p_end}
-{phang3}{cmd:rate(ddd_rate)}{p_end}
-
-{pstd}
-This creates variables {cmd:drug_class} (categorical) and {cmd:ddd_rate} (rate
-per day). The rate remains unchanged when merge boundaries split a source row.
-
-
-{pstd}
-{bf:Example 11: Large datasets}
-
-{pstd}
-No performance tuning is needed for large datasets. The compiled Mata sweep
-intersects intervals per person without building the Cartesian product, so the
-same call scales to registry-sized inputs:
-
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo)}{p_end}
-
-{pstd}
-On very large merges a one-line matching-progress indicator is shown (unless the
-command is run quietly). The former {opt batch(#)} option is deprecated and
-ignored.
-
+The output names are {cmd:exp_tv_drug} and {cmd:exp_tv_benzo}: {opt prefix()}
+prepends text to each original name; it does not replace names with positional
+numbers.
+
+{pstd}{bf:Frames-first merge}{p_end}
+{phang2}{cmd:. capture frame drop f_drug}{p_end}
+{phang2}{cmd:. capture frame drop f_benzo}{p_end}
+{phang2}{cmd:. capture frame drop f_merged}{p_end}
+{phang2}{cmd:. frame create f_drug}{p_end}
+{phang2}{cmd:. frame f_drug: use `drug', clear}{p_end}
+{phang2}{cmd:. frame create f_benzo}{p_end}
+{phang2}{cmd:. frame f_benzo: use `benzo', clear}{p_end}
+{phang2}{cmd:. tvmerge, frames(f_drug f_benzo) id(id) ///}{p_end}
+{phang3}{cmd:start(rx_start bz_start) stop(rx_stop bz_stop) ///}{p_end}
+{phang3}{cmd:exposure(tv_drug tv_benzo) frameout(f_merged) check flow}{p_end}
+
+{pstd}{bf:Scriptable gap and overlap validation}{p_end}
+{phang2}{cmd:. tvmerge `drug' `benzo', id(id) ///}{p_end}
+{phang3}{cmd:start(rx_start bz_start) stop(rx_stop bz_stop) ///}{p_end}
+{phang3}{cmd:exposure(tv_drug tv_benzo) validatecoverage validateoverlap verbose}{p_end}
+{phang2}{cmd:. return list}{p_end}
 
 {marker results}{...}
 {title:Stored results}

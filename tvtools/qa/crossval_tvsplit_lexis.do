@@ -1,12 +1,11 @@
 *! crossval_tvsplit_lexis.do -- multi-timescale Lexis parity for tvsplit
 *!
 *! Three independent oracles confirm the Lexis grid tvsplit produces:
-*!   PART A  Stata stsplit (the Stata-blessed multi-timescale splitter) -- age
-*!           axis: same number of split records and same age-band set per person.
+*!   PART A  Stata stsplit on exact person-specific birthday cut dates -- age
+*!           axis: row-for-row parity of inclusive interval boundaries.
 *!   PART B  R Epi::splitMulti (Carstensen's Lexis machinery) -- calendar + elapsed
 *!           axes in DAY units, so cut dates are exact integers and parity is
-*!           day-exact (age is excluded here because tvtools rounds each
-*!           round(dob + a*365.25) boundary, a tvtools-specific convention).
+*!           day-exact.
 *!   PART C  An independent in-Stata re-derivation (explicit cut enumeration, a
 *!           different code path from the engine) -- exact, always runs offline.
 *!
@@ -33,7 +32,7 @@ display as result "tvtools crossval: tvsplit Lexis parity -- $S_DATE $S_TIME"
 
 **# Independent cut-enumeration oracle
 * PART C: independent cut-enumeration oracle (single person, exact)
-*   entry=01jan2019, exit=entry+700; calendar(1) + elapsed(entry,day,200)
+*   entry=01jan2019, exit=entry+700; calendar(1) + elapsed(origin,day,200)
 *   interior cuts (offsets): elapsed 200,400,600 ; calendar Jan1-2020 = 365
 *   -> starts offsets {0,200,365,400,600}; stops {199,364,399,599,700}
 local ++test_count
@@ -43,9 +42,10 @@ capture {
     gen long id = 1
     gen double entry = mdy(1,1,2019)
     gen double exitd = entry + 700
-    format entry exitd %td
+    gen double origin = entry
+    format entry exitd origin %td
     tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) ///
-        elapsed(entry, width(200) unit(day) generate(fu))
+        elapsed(origin, width(200) unit(day) generate(fu))
     sort entry
     gen double soff = entry - mdy(1,1,2019)
     gen double eoff = exitd - mdy(1,1,2019)
@@ -68,8 +68,10 @@ else {
 
 **# Stata stsplit parity on the age axis
 * PART A: Stata stsplit parity on the age axis
-*   tvband age width(1) must produce the same number of records and the same
-*   set of integer ages per person as stsplit on an age-scaled stset.
+*   tvband age width(1) must produce the same inclusive rows as stsplit on
+*   exact person-specific birthday cut dates. stsplit uses a half-open daily
+*   scale ending at exit+1; converting [_t0,_t) to [_t0,_t-1] aligns the
+*   interval conventions without a 365.25 approximation.
 local ++test_count
 capture {
     clear
@@ -81,37 +83,72 @@ capture {
     gen byte dead = 0
     format dob entry exitd %td
 
-    * --- tvtools: age bands ---
+    * --- tvtools: exact age-band boundaries ---
     preserve
     tvband, id(id) start(entry) stop(exitd) type(age) origin(dob) width(1) generate(ageb)
-    bysort id ageb: keep if _n==1
-    bysort id: gen long ntv = _N
-    keep id ageb ntv
-    sort id ageb
+    gen double tstart = entry
+    gen double tstop = exitd
+    keep id tstart tstop
+    sort id tstart
     tempfile tv
     save "`tv'"
     restore
 
-    * --- Stata stsplit: age scale ---
-    stset exitd, id(id) failure(dead) origin(time dob) enter(time entry) scale(365.25)
-    stsplit ssage, at(0(1)120)
-    * ssage carries the integer age (lower edge); count records per person
-    bysort id ssage: keep if _n==1
-    bysort id: gen long nss = _N
-    keep id ssage nss
-    rename ssage ageb
-    sort id ageb
+    * --- Stata stsplit: enumerate exact birthday cuts for each person ---
     tempfile ss
-    save "`ss'"
+    preserve
+    clear
+    set obs 0
+    gen long id = .
+    gen double tstart = .
+    gen double tstop = .
+    save "`ss'", replace
+    restore
+
+    forvalues person = 1/6 {
+        preserve
+        keep if id == `person'
+        quietly summarize dob, meanonly
+        local dob_i = r(min)
+        quietly summarize entry, meanonly
+        local entry_i = r(min)
+        quietly summarize exitd, meanonly
+        local exit_i = r(min)
+        local mm = month(`dob_i')
+        local dd = day(`dob_i')
+        local yy = year(`dob_i')
+        local first_age = year(`entry_i') - `yy' - 1
+        local last_age = year(`exit_i') - `yy' + 1
+        local cuts ""
+        forvalues a = `first_age'/`last_age' {
+            local bd = mdy(`mm', `dd', `yy' + `a')
+            if missing(`bd') & `mm' == 2 & `dd' == 29 {
+                local bd = mdy(2, 28, `yy' + `a')
+            }
+            if `bd' > `entry_i' & `bd' <= `exit_i' {
+                local cuts "`cuts' `bd'"
+            }
+        }
+        gen double exit_open = exitd + 1
+        stset exit_open, id(id) failure(dead) enter(time entry)
+        if trim("`cuts'") != "" {
+            stsplit splitdate, at(`cuts')
+        }
+        gen double tstart = _t0
+        gen double tstop = _t - 1
+        keep id tstart tstop
+        append using "`ss'"
+        sort id tstart
+        save "`ss'", replace
+        restore
+    }
 
     use "`tv'", clear
-    merge 1:1 id ageb using "`ss'"
-    * every tvtools age band matches an stsplit age band and vice versa
-    assert _merge == 3
-    assert ntv == nss
+    sort id tstart
+    cf _all using "`ss'"
 }
 if _rc==0 {
-    display as result "  PASS [A.stsplit]: age-band record/set parity vs stsplit"
+    display as result "  PASS [A.stsplit]: exact birthday-row parity vs stsplit"
     local ++pass_count
 }
 else {
@@ -134,12 +171,13 @@ if `has_r' {
         gen long id = _n
         gen double entry = mdy(1,1,2017) + (_n-1)*70
         gen double exitd = entry + 500 + (_n-1)*90
-        format entry exitd %td
+        gen double origin = entry
+        format entry exitd origin %td
 
         * tvtools result
         preserve
         tvsplit, id(id) start(entry) stop(exitd) calendar(, width(1)) ///
-            elapsed(entry, width(`W') unit(day) generate(fu))
+            elapsed(origin, width(`W') unit(day) generate(fu))
         gen long tstart = entry
         gen long tstop  = exitd
         keep id tstart tstop

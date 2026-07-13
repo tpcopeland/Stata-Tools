@@ -1,4 +1,4 @@
-*! tvband Version 1.6.9  2026/07/10
+*! tvband Version 1.7.0  2026/07/13
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

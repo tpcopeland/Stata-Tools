@@ -143,6 +143,33 @@ program define iivw_exogtest, rclass sortpreserve
             error 198
         }
     }
+    * Export-only options are meaningless without xlsx(): they were parsed,
+    * ignored, and rc 0 returned. replace is deliberately NOT in this list --
+    * here it is dual-purpose and also overwrites the generated lag variables,
+    * so it is legitimate without xlsx().
+    *
+    * This must run BEFORE decimals is defaulted below: that assignment makes
+    * `decimals' unconditionally non-empty, so a user-supplied-decimals test
+    * placed after it would be true on every call.
+    local __iivw_exportonly ""
+    if `"`sheet'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
+    if "`open'"          != "" local __iivw_exportonly "`__iivw_exportonly' open"
+    if `"`title'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
+    if `"`footnote'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
+    if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
+    if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
+    if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
+    if `"`theme'"'       != "" local __iivw_exportonly "`__iivw_exportonly' theme()"
+    if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
+    if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
+    if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
+    if `"`xlsx'"' == "" & `"`__iivw_exportonly'"' != "" {
+        display as error "option(s)`__iivw_exportonly' require xlsx()"
+        display as text "  they affect only the exported workbook; with no xlsx() to write,"
+        display as text "  they would be silently ignored"
+        error 198
+    }
+
     local __iivw_dec_final = 3
     if "`decimals'" != "" local __iivw_dec_final = `decimals'
     local decimals = `__iivw_dec_final'
@@ -738,11 +765,10 @@ program define iivw_exogtest, rclass sortpreserve
     display as text "Conclusion:        " as result "`conclusion'"
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
+    * xlsx() is the sole trigger: the guard near the top has already rejected
+    * any export-only option that arrived without it.
     local __iivw_exog_export_req = 0
-    if `"`xlsx'"' != "" | ///
-        `"`sheet'"' != "" | "`open'" != "" {
-        local __iivw_exog_export_req = 1
-    }
+    if `"`xlsx'"' != "" local __iivw_exog_export_req = 1
     if `__iivw_exog_export_req' {
         local __iivw_n_fitted : word count `__iivw_fitted_groups'
         local __iivw_n_data_cols = 3 * `__iivw_n_fitted'
@@ -949,9 +975,12 @@ program define iivw_exogtest, rclass sortpreserve
         capture frame drop `__iivw_exog_frame'
         local __iivw_exog_drop_rc = _rc
         local __iivw_exog_frame_created = 0
-        if `__iivw_exog_export_rc' != 0 & `__iivw_exog_export_rc' != 602 {
-            exit `__iivw_exog_export_rc'
-        }
+
+        * Do NOT exit here. Besides discarding the r() surface (see the gate
+        * below), exiting with the export rc would also drive the name-
+        * transaction rollback further down -- so a bad xlsx() path would have
+        * silently deleted the lag variables the command had just successfully
+        * generated. The export is a side effect; it rolls back nothing.
     }
 
     local __iivw_return_ok = 1

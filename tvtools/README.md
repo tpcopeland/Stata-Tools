@@ -1,13 +1,61 @@
 # tvtools - Time-varying exposure workflow for survival analysis
 
-**Version 1.6.9** | 2026-07-10
+**Version 1.7.0** | 2026-07-13
 
-`tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, create age-band intervals, and split follow-up time along date-derived or multiple (Lexis) timescales.
+`tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It supports exposure construction, interval alignment, event integration, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
+
+## Quick Start
+
+This end-to-end example uses only inline data and temporary files, so it runs after a normal installation from any working directory:
+
+```stata
+clear
+input long id str9(entry_s exit_s event_s)
+1 "01jan2020" "31jan2020" "20jan2020"
+2 "01jan2020" "31jan2020" ""
+end
+generate double study_entry = date(entry_s, "DMY")
+generate double study_exit  = date(exit_s, "DMY")
+generate double event_date  = date(event_s, "DMY")
+format study_entry study_exit event_date %td
+drop entry_s exit_s event_s
+tempfile events episodes intervals
+save `events'
+
+clear
+input long id str9(start_s stop_s) byte drug_class
+1 "05jan2020" "15jan2020" 1
+2 "10jan2020" "25jan2020" 2
+end
+generate double rx_start = date(start_s, "DMY")
+generate double rx_stop  = date(stop_s, "DMY")
+format rx_start rx_stop %td
+drop start_s stop_s
+save `episodes'
+
+use `events', clear
+tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_drug)
+save `intervals'
+
+use `events', clear
+tvevent using `intervals', id(id) date(event_date) ///
+    start(rx_start) stop(rx_stop) generate(outcome)
+generate double analysis_t0 = rx_start - 1
+stset rx_stop, id(id) failure(outcome==1) time0(analysis_t0)
+tvdiagnose, id(id) start(rx_start) stop(rx_stop) exposure(tv_drug) summarize
+```
+
+The `analysis_t0 = start - 1` conversion preserves the package's inclusive `[start, stop]` day contract when declaring the data to Stata's elapsed-time survival format.
 
 ## Requirements
 
-- Stata 16 or later
-- Internet access if you want to run the public `_data/` examples directly from GitHub
+- Core: Stata 16 or later; `tvtools` has no required community-package dependency.
+- Optional graphs: [`psdash`](../psdash/) for `tvweight, loveplot`; analytical weights and `r(balance)` do not require it.
+- Optional downstream analysis: [`msm`](../msm/) for `msm_prepare` and `msm_weight` after `tvpanel`.
+- Optional demo styling: [`tc_schemes`](../tc_schemes/); command behavior does not depend on it.
+- Release QA only: R plus the reference libraries used by the three external-oracle suites, and `rangematch` for its explicit integration contract.
 
 ## Installation
 
@@ -16,193 +64,180 @@ capture ado uninstall tvtools
 net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools") replace
 ```
 
-If you want the optional menu-setup helper that ships with the package, download the ancillary files separately:
+Optional integrations can be installed independently:
 
 ```stata
-net get tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
-do tvtools_menu_setup.do
+net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace
+net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
 ```
+
+The ancillary menu helper is available through `net get tvtools`; run `do tvtools_menu_setup.do` only if you want a Stata menu entry.
 
 ## Commands
 
 | Command | Purpose | Help |
 |---------|---------|------|
-| `tvtools` | Package index: lists all commands and their categories | `help tvtools` |
-| `tvexpose` | Create time-varying exposure intervals from episode data | `help tvexpose` |
-| `tvmerge` | Merge multiple time-varying datasets into aligned person-time intervals | `help tvmerge` |
-| `tvevent` | Add outcomes and competing risks to an interval dataset | `help tvevent` |
-| `tvdiagnose` | Check coverage, gaps, overlaps, and exposure summaries | `help tvdiagnose` |
-| `tvweight` | Estimate inverse probability of treatment weights for interval data | `help tvweight` |
-| `tvage` | Create time-varying age intervals from dates of birth and follow-up dates | `help tvage` |
-| `tvband` | Split follow-up intervals along a single date-derived axis | `help tvband` |
-| `tvsplit` | Multi-timescale Lexis splitting of follow-up intervals | `help tvsplit` |
-| `tvpanel` | Build a fixed-width, entry-anchored person-period panel for marginal structural models | `help tvpanel` |
+| `tvtools` | List and categorize the suite | `help tvtools` |
+| `tvexpose` | Convert episodes to time-varying exposure intervals | `help tvexpose` |
+| `tvmerge` | Align two or more interval datasets | `help tvmerge` |
+| `tvevent` | Add primary, competing, or recurrent events | `help tvevent` |
+| `tvdiagnose` | Report coverage, gaps, overlaps, and exposure time | `help tvdiagnose` |
+| `tvweight` | Estimate treatment and censoring weights | `help tvweight` |
+| `tvage` | Expand person-level follow-up at exact birthdays | `help tvage` |
+| `tvband` | Split intervals along one date-derived axis | `help tvband` |
+| `tvsplit` | Split intervals on several Lexis timescales | `help tvsplit` |
+| `tvpanel` | Build an entry-anchored fixed-width MSM panel | `help tvpanel` |
 
 ## Options
 
-### Package index options
-
-The `tvtools` index command accepts `list`, `detail`, and `category(string)` (one of
-`all`, `prep`, `diag`, or `weight`; default `all`). It returns:
+The `tvtools` catalog command accepts the following package-index options; command-specific options are documented in each command's help file.
 
 | Option | Meaning |
 |--------|---------|
-| `list` | Print only command names |
+| `list` | Print command names only |
 | `detail` | Print command descriptions |
-| `category(string)` | Restrict the index to `all`, `prep`, `diag`, or `weight` |
+| `category(all|prep|diag|weight)` | Select a command category; default `all` |
 
 ## Stored Results
 
-### Package index stored results
-
 | Result | Meaning |
 |--------|---------|
-| `r(commands)` | Space-separated command names in the selected category |
-| `r(n_commands)` | Number of commands in the selected category |
-| `r(version)` | Version read from the installed `tvtools.ado` header |
-| `r(categories)` | Available categories (`prep diag weight`) |
+| `r(commands)` | Space-separated commands in the selected category |
+| `r(n_commands)` | Number of selected commands |
+| `r(version)` | Installed package version |
+| `r(categories)` | Available non-`all` categories |
 
 ## How It Works
 
-The package follows a pipeline where each command produces output in a consistent id/start/stop format:
+The core pipeline is `tvexpose` → `tvmerge` → `tvevent` → `tvdiagnose`/`tvweight`. Every interval uses closed, inclusive integer Stata daily dates. `tvmerge` consumes interval outputs rather than raw episodes; `tvevent` takes event records in memory and intervals through `using` or `frame()`.
 
-```
-cohort.dta + episodes.dta
-        |
-     tvexpose  -->  person-period intervals (one exposure)
-        |
-     tvmerge   -->  aligned intervals (multiple exposures)
-        |
-     tvevent   -->  intervals with outcome/competing-risk flags
-        |
-     tvdiagnose -->  quality report (coverage, gaps, overlaps)
-        |
-     tvweight  -->  IPTW weights for causal inference
-```
-
-**Key conventions:**
-
-- The **cohort or event data stay in memory**; exposure episodes are supplied through `using` files.
-- All date variables must be **Stata daily dates** (integer days, `%td` format). Datetime variables (`%tc`/`%tC`) are rejected with a clear error.
-- Intervals use a **closed [start, stop] convention** where both endpoints are inclusive.
-- `tvmerge` operates on **tvexpose output**, not raw episode files.
-- For `tvevent`, the **event data** is the master (in memory) and the **interval data** is the using file.
-
-## Demo Output
-
-Generated by `tvtools/demo/demo_tvtools.do` (a 200-patient synthetic SSRI/SNRI cohort plus a 400-person longitudinal panel) and rendered with [logdoc](../logdoc/).
-
-### Frames-first pipeline
-
-The whole `tvexpose` → `tvmerge` → `tvevent` chain runs in memory via `frameout()` / `frames()` — no intermediate `save`/`use`. Each producer returns the names it created (`r(genvar)`, `r(startname)`, `r(generate)`).
-
-### MSM weighting: IPTW × IPCW + positivity
-
-With `ipcw()`, `tvweight` fits a censoring model alongside the propensity model and forms the cumulative IPTW × IPCW weight a marginal structural model needs, then reports a positivity / overlap diagnostic.
-
-![Covariate balance: love plot](demo/balance_loveplot.png)
-
-The love plot itself is rendered by the dedicated propensity-score dashboard package [`psdash`](https://github.com/tpcopeland/Stata-Tools/tree/main/psdash): `tvweight ... balance loveplot` delegates the figure to `psdash balance`. If `psdash` is not installed, `tvweight` prints installation guidance and you can build the plot from the returned `r(balance)` matrix.
-
-### Recurrent events (PWP / Andersen-Gill)
-
-`tvevent, type(recurring)` splits follow-up at each event and adds an event-sequence stratum (`enum()`) plus a gap-time clock (`gaptime`) that resets at each event — ready for Andersen-Gill, PWP total-time, and PWP gap-time models.
-
-### Multi-group weighting and age bands
-
-`tvweight` switches to multinomial logit for 3+ treatment categories; `tvage` uses the harmonized `id()`/`dob()`/`entry()`/`exit()` option names.
-
-### Exposure swimlane
-
-`tvdiagnose, swimlane` visualizes per-person exposure intervals over calendar time.
-
-![Exposure swimlane](demo/swimlane_plot.png)
+`tvage`, `tvband`, and `tvsplit` add exact calendar-timescale bands. `tvpanel` instead creates a uniform entry-anchored grid and can report cumulative exposure in days, weeks, months, quarters, or years before each period starts.
 
 ## Worked Examples
 
-### Fitting a competing-risks model after the pipeline
+### In-memory multi-exposure pipeline
 
-After running the pipeline and adding events, the interval dataset is ready for `stset` and analysis (with `generate()` omitted, `tvexpose using ... exposure(drug)` names its output `tv_drug`):
+Use `frameout()` and `frames()` to avoid intermediate output files. This example creates every input inline and removes its temporary frames when finished:
 
 ```stata
-stset stop, id(id) failure(outcome==1) enter(start)
-stcrreg i.tv_drug, compete(outcome==2)
+clear
+input long id str9(entry_s exit_s)
+1 "01jan2020" "31jan2020"
+2 "01jan2020" "31jan2020"
+end
+generate double study_entry = date(entry_s, "DMY")
+generate double study_exit = date(exit_s, "DMY")
+format study_entry study_exit %td
+drop entry_s exit_s
+tempfile cohort drug_episodes benzo_episodes
+save `cohort'
+
+clear
+input long id str9(start_s stop_s) byte drug_class
+1 "05jan2020" "20jan2020" 1
+2 "10jan2020" "25jan2020" 2
+end
+generate double rx_start = date(start_s, "DMY")
+generate double rx_stop = date(stop_s, "DMY")
+format rx_start rx_stop %td
+drop start_s stop_s
+save `drug_episodes'
+
+clear
+input long id str9(start_s stop_s) byte benzo_class
+1 "12jan2020" "28jan2020" 1
+2 "15jan2020" "18jan2020" 1
+end
+generate double bz_start = date(start_s, "DMY")
+generate double bz_stop = date(stop_s, "DMY")
+format bz_start bz_stop %td
+drop start_s stop_s
+save `benzo_episodes'
+
+use `cohort', clear
+foreach f in f_drug f_benzo f_merged {
+    capture frame drop `f'
+}
+tvexpose using `drug_episodes', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_drug) frameout(f_drug)
+tvexpose using `benzo_episodes', id(id) start(bz_start) stop(bz_stop) ///
+    exposure(benzo_class) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_benzo) frameout(f_benzo)
+tvmerge, frames(f_drug f_benzo) id(id) start(rx_start bz_start) ///
+    stop(rx_stop bz_stop) exposure(tv_drug tv_benzo) frameout(f_merged)
+frame f_merged: describe
+foreach f in f_drug f_benzo f_merged {
+    capture frame drop `f'
+}
 ```
 
-The outcome variable uses `0` for censoring, `1` for the primary event, and `2` for the competing event.
+### Weighting and causal assumptions
+
+`tvweight` supports binary and multinomial treatment models, stabilized and cumulative IPTW, IPCW, balance diagnostics, truncation, and overlap weights. Causal interpretation requires consistency, conditional exchangeability, positivity, and correctly specified treatment models; IPCW additionally requires conditional independent censoring and a correctly specified censoring model. Diagnostics reveal consequences of fitted models but cannot establish those assumptions.
+
+```stata
+clear
+set seed 240713
+set obs 400
+generate long id = ceil(_n/4)
+bysort id: generate int period = _n - 1
+generate double age = 45 + mod(id, 30)
+generate byte sex = mod(id, 2)
+generate double comorbidity = rnormal()
+generate double p_treat = invlogit(-1 + .02*age + .4*sex + .3*comorbidity)
+generate byte treated = runiform() < p_treat
+generate double rx_start = mdy(1, 1, 2020) + 91*period
+generate int calendar_qtr = qofd(rx_start)
+format calendar_qtr %tq
+by id: generate byte will_censor = runiform() < .25 if _n == 1
+by id: replace will_censor = will_censor[1]
+by id: generate byte censor_period = floor(4*runiform()) if _n == 1
+by id: replace censor_period = censor_period[1]
+generate byte censored = will_censor & period == censor_period
+drop if will_censor & period > censor_period
+tvweight treated, covariates(age sex comorbidity) id(id) time(period) ///
+    stabilized cumulative ipcw(censored) censorcovariates(age sex comorbidity) ///
+    balance generate(iptw) combgenerate(msm_weight)
+```
+
+`qofd()` retains the year in the descriptive calendar-quarter variable. The model uses the unique entry-anchored `period` key because an exact 91-day grid can place two starts in the same calendar quarter.
 
 ## Command Reference
 
-### tvexpose
+- `tvtools`: package catalog; accepts `list`, `detail`, and `category(all|prep|diag|weight)` and returns the selected commands and installed version.
+- `tvexpose`: categorical, ever-treated, current/former, duration, continuous, recency, dose, state-time, overlap-resolution, frame, validation, and flow workflows. When continuous exposure is requested, omitted `expandunit()` defaults to `continuousunit()` and may add regular boundary rows.
+- `tvmerge`: aligns multiple interval datasets, preserves rates, apportions interval totals by inclusive overlap days, carries row-start cumulative histories, and reports gaps/overlaps and attrition.
+- `tvevent`: integrates single, competing, or recurrent events; event labels derive from event variables in the master data, and events on either interval endpoint are included.
+- `tvdiagnose`: coverage, gap, overlap, summary, and swimlane diagnostics. Inclusive overlaps begin when a start is on or before the running maximum prior stop.
+- `tvweight`: IPTW/ATO/matching weights, panel and time-varying covariates, cumulative MSM weights, IPCW, balance, overlap, ESS, and graphs.
+- `tvage`: exact-anniversary age expansion with left/right person-time truncation through `minage()` and `maxage()`.
+- `tvband`: one-axis age, calendar, or elapsed-time splitting.
+- `tvsplit`: multi-axis age/calendar/elapsed splitting, equivalent to repeated `stsplit` or `Epi::splitLexis` calls.
+- `tvpanel`: fixed-width entry-anchored periods with active class and optional cumulative exposure in days, weeks, months, quarters, or years.
 
-Transforms episode-format exposure records into person-period intervals. Supports:
+## Demo Output
 
-- **Default**: categorical time-varying exposure
-- **evertreated**: binary ever/never (corrects immortal time bias)
-- **currentformer**: three-level never/current/former
-- **duration()**: cumulative duration categories
-- **continuousunit()**: continuous cumulative exposure (days, weeks, months, quarters, years)
-- **recency()**: time since last exposure
-- **dose**: cumulative dose tracking with proportional overlap allocation
-- **grace()**, **lag()**, **washout()**: exposure timing adjustments
-- **priority()**, **layer**, **split**, **combine()**: overlap resolution
+`demo/demo_tvtools.do` builds a synthetic workflow and produces the checked-in balance and swimlane figures. `psdash` is optional for the love plot; the returned balance matrix remains available without it. From any working directory, pass the checked-out demo directory explicitly:
 
-### tvmerge
+```stata
+local demo_dir "/path/to/checked-out/tvtools/demo"
+do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
+```
 
-Merges two or more `tvexpose` outputs into a single dataset with synchronized time periods. Uses Cartesian interval intersection. Continuous exposures are pro-rated when intervals are split. The `force` option handles non-matching IDs across datasets.
+![Covariate balance: love plot](demo/balance_loveplot.png)
 
-### tvevent
-
-Integrates outcomes and competing risks into interval data. Splits intervals at event dates, adjusts continuous variables proportionally, and flags events (0=censored, 1=primary, 2+=competing). Supports `type(single)` (terminal first event) and `type(recurring)` (wide-format repeated events).
-
-### tvdiagnose
-
-Quality-control tool for interval datasets. Four reports: `coverage` (fraction of follow-up covered), `gaps` (unexposed intervals), `overlaps` (concurrent records), and `summarize` (exposure frequency and person-time). Use `all` to run everything. The `verbose` option shows individual records.
-
-### tvweight
-
-Estimates inverse probability of treatment weights (IPTW) for causal inference. Supports binary (`logit`) and multinomial (`mlogit`) propensity score models, stabilized weights, percentile truncation, and panel-aware weighting with cluster-robust SEs. Reports weight distribution, percentiles, and effective sample size (ESS).
-
-### tvage
-
-Creates time-varying age intervals from dates of birth and follow-up dates. Expands one-record-per-person data into one row per age (or age group). Output is compatible with `tvmerge` for merging age bands with other time-varying covariates.
-
-### tvtools
-
-Package index and command catalog. `list` prints only command names; `detail` adds descriptions; and `category(prep|diag|weight|all)` filters the catalog (default: `all`). It returns `r(commands)`, `r(n_commands)`, `r(version)`, and `r(categories)`.
+![Exposure swimlane](demo/swimlane_plot.png)
 
 ## QA
 
-Canonical QA lives in `qa/`; the full runner is:
+The manifest [`qa/_tvtools_qa_manifest.do`](qa/_tvtools_qa_manifest.do) is the complete source of truth for lane membership, expected assertion counts, and skip policy. Run `cd tvtools/qa && stata-mp -b do run_all.do release` for functional, state, known-answer, external-oracle, optional-integration, and installed-user release checks with zero permitted skips.
 
-```bash
-cd tvtools/qa && stata-mp -b do run_all.do full
-```
-
-Functional suites: `test_default_naming.do`, `test_edge_cases.do`,
-`test_frames_input.do`, `test_integration.do`, `test_options.do`,
-`test_regressions.do`, `test_tvage.do`, `test_tvband.do`,
-`test_tvdiagnose.do`, `test_tvevent.do`, `test_tvexpose.do`,
-`test_tvm_overlap_drift_guard.do`, `test_tvm_point_engine.do`,
-`test_tvmerge.do`, `test_tvpanel.do`, `test_tvsplit.do`, `test_tvtools.do`,
-`test_tvweight.do`, and `test_verbose.do`.
-
-Validation suites: `validation_boundary.do`, `validation_flow.do`,
-`validation_known_answers.do`, `validation_pipeline.do`,
-`validation_supplemental.do`, `validation_tvage.do`, `validation_tvband.do`,
-`validation_tvdiagnose.do`, `validation_tvevent.do`,
-`validation_tvexpose.do`, `validation_tvmerge.do`, `validation_tvpanel.do`,
-`validation_tvsplit.do`, `validation_tvweight.do`,
-`validation_tvweight_balance.do`, `validation_tvweight_msm_recovery.do`,
-and `validation_tvweight_recovery.do`.
-
-Cross-validation suites: `crossval_tvevent_recurring.do`,
-`crossval_tvexpose_expand.do`, `crossval_tvmerge_mata.do`,
-`crossval_tvsplit_lexis.do`, `crossval_tvtools.do`, and
-`crossval_tvweight_ipcw.do`.
+The core known-answer inventory explicitly includes `validation_dgp_known_answers.do`, `validation_dgp_known_answers2.do`, and `validation_tvexpose_statetime.do`, alongside the command-specific `validation_*`, audit-regression, boundary, flow, pipeline, and supplemental suites. External QA comprises `crossval_tvsplit_lexis.do`, `crossval_tvweight_ipcw.do`, `crossval_tvevent_recurring.do`, the `rangematch` drift guard, and optional-package integration. The release lane adds install, shipped-file, help/README, dialog, menu-idempotence, and rerunnable-demo checks. See [`qa/README.md`](qa/README.md) for the exact commands and fixture policy.
 
 ## Version History
 
+- **1.7.0** (2026-07-13): Comprehensive correctness and contract release. `tvexpose` now has explicit day/year recency units, materializes every recency threshold crossing, keeps the final category open-ended, applies point-time carry-forward once, and enforces consistent rate/total/cumulative semantics. `tvmerge` and `tvevent` preserve legitimate duplicate-interval payload rows, propagate interval quantities without silent remapping, enforce exact file/frame variable contracts, and return scriptable gap, overlap, attrition, boundary, and output metadata. `tvpanel`, `tvweight`, and `tvdiagnose` tighten inclusive person-time, sample/factor-level mapping, rollback, ordering, and overlap-aware diagnostics. `tvage`, `tvband`, and `tvsplit` now use exact calendar anniversaries, including 29-Feb transitions, rather than 365.25-day approximations. All help and installed-user examples were reconciled with the code; the three dialogs were rebuilt around the true data roles and are checked through graphical Stata with exact generated-command goldens. The demo is rerunnable and session-safe, menu setup is idempotent, and the manifest-driven release lane now performs an isolated install, external-oracle checks, graphical dialog compilation, documentation reality checks, and zero-skip full QA.
 - **1.6.9** (2026-07-10): Deep-audit correctness and failure-safety release. `tvdiagnose, coverage` now measures the union of intervals clipped to each person's study window, so overlapping records no longer double-count covered time or hide real gaps. `tvage`, `tvband`, `tvevent`, and `tvpanel` allocate collision-safe value-label names instead of overwriting unrelated labels already used by caller or payload variables. `tvweight` rejects duplicate/protected output names, preserves input row order, and rolls back every generated or replaced output after any failure; panel diagnostics also count only in-sample IDs correctly. `tvexpose`, `tvmerge`, and `tvevent` restore the caller's pre-command dataset after late errors. Calendar `tvband` widths must now be whole years, and axis-specific options that would otherwise be ignored are rejected. Regression QA covers the reproduced failures and installed helper autoload.
 - **1.6.8** (2026-07-03): Correctness release from a full-suite deep audit. **tvexpose**: (1) the internal gap-period tempfile was named `gaps`, filling the `gaps` display-option local, so the "Gaps in Coverage" diagnostic ran on every invocation whether or not `gaps` was specified (unwanted output plus a needless save/reload round-trip); the tempfile is renamed and the report is now opt-in as documented. (2) The reversed-dates error path (`exit < entry`) listed offending rows with `in 1/5`, which itself errors with r(198) when the master has fewer than 5 observations, masking the intended r(498) diagnostic; the range is now capped at `_N`. (3) The output summary created working variables literally named `time` and `tag`, so `keepvars(time)` or `keepvars(tag)` crashed with "already defined" (r 110); both are now tempvars. (4) `validate` combined with `bytype` silently created no validation dataset; a note is now displayed and the exclusion is documented. **tvevent**: (5) after splitting intervals at event dates, a `duplicates drop id start stop, force` collapsed legitimate rows that share an interval but differ on payload — e.g. per-stratum rows from `tvexpose, split` lost entire exposure strata silently; the dedup is now full-row only. (6) Re-running tvevent over its own saved output crashed with "label ... already defined" (r 110) whenever no interval needed splitting (and always via the empty-events path), because the event value label loaded from the using file was redefined without clearing it; both label sites now drop the stale definition first. **tvmerge**: (7) in the ID-mismatch report, the sample of IDs present only in dataset *k* was listed with `in 1/N` from the top of the sorted comparison data, where rows for IDs missing from dataset *k* sort first — with mismatches in both directions the second listing showed wrong or no IDs; the list range is now offset correctly (display-only). Regression coverage added in `qa/test_regressions.do`.
 - **1.6.7** (2026-07-02): Upfront `strL` person-identifier screens, propagated from the same defect class found in `rangematch` v1.3.1. **tvmerge**, **tvexpose**, and **tvevent** merge internally on `id()`; a `strL` id failed mid-run with merge's cryptic "key variable id is strL" (r 106) instead of a clear message. All three now reject `strL` ids upfront on every input (master/using/each dataset) with r(109) and a recast hint. **tvpanel** already required a numeric id but reported a string id as "not found or not numeric (date format)", misattributing the problem to date formatting; the id check is now separate, states the numeric requirement, and suggests `egen group()`. Help files document the id-type requirements. No behavior change for valid inputs.
@@ -214,10 +249,10 @@ Cross-validation suites: `crossval_tvevent_recurring.do`,
 - **1.6.1** (2026-06-29): Documentation maintenance. Added the `tvband` (single date-derived axis) and `tvsplit` (multi-timescale Lexis) commands to the README Commands table and intro, where they were previously omitted, and to the `tvtools` package-index `Also see` footer. Hard-wrapped long prose source lines in the `tvevent`, `tvexpose`, and `tvmerge` help files to ~80 columns so the GUI Viewer no longer drops characters at wrap boundaries. No command behavior changed.
 - **1.6.0** (2026-06-29): Method-depth release. **IPCW censoring weights** complete the marginal structural model in `tvweight`: the new `ipcw()` option fits a pooled-logistic censoring model and produces a cumulative inverse-probability-of-censoring weight plus a combined weight equal to the (stabilized) cumulative IPTW times the cumulative IPCW (`censgenerate()`/`combgenerate()`, defaulting to `ipcw` and `{weight}_ipcw`; `censorcovariates()` selects the censoring-model covariates; requires `id()`/`time()`). With `truncate()`, truncation now targets the final combined weight. **Positivity / overlap diagnostic** (always on) reports the range of the propensity of the observed treatment, the share of near-violations (P < 0.05), per-arm PS ranges (binary), and the weight mass held by the top 1% of rows — returned in `r(overlap_lo)`, `r(overlap_hi)`, `r(pct_nonoverlap)`, `r(n_nonoverlap)`, `r(top1_wt_share)`, and `r(ess_combined)`. **Recurrent-event formatting** in `tvevent` adds, under `type(recurring)`, an event-sequence stratum (`enum()`) and an optional gap-time clock (`gaptime`, `gapstart()`/`gapstop()`) so the output feeds Andersen-Gill, PWP conditional (total-time), and PWP gap-time models directly. New parity QA: `crossval_tvweight_ipcw.do` (known-truth recovery of a censored population mean, plus row-for-row agreement with an independent R `glm` IPCW oracle) and `crossval_tvevent_recurring.do` (the stratum and gap-time clock validated against a first-principles event-date oracle and an independent R recomputation).
 - **1.5.0** (2026-06-29): Ergonomics release (backward compatible). **Frames-first output:** `tvexpose` and `tvmerge` gain a `frameout(name)` option that places the result into a named frame and leaves the data in the current frame untouched, so a `tvexpose` → `tvmerge` → `tvevent` pipeline can run entirely in memory without the save/use round-trips it previously required (the output frame is returned in `r(frameout)`; `tvevent` already lands its result in memory and reads inputs via `frame()`). **Option-name harmonization:** `tvage` now accepts the suite-standard `id()`/`dob()`/`entry()`/`exit()` names, and `tvevent` accepts `start()`/`stop()`; the original `idvar()`/`dobvar()`/`entryvar()`/`exitvar()` and `startvar()`/`stopvar()` spellings remain accepted as synonyms (specifying both spellings for one slot errors). **Scriptable chaining:** `tvevent` now returns the chosen output-variable names in `r(generate)`, `r(startvar)`, `r(stopvar)`, and `r(timegen)` (matching `tvexpose`'s `r(genvar)` and `tvmerge`'s `r(startname)`/`r(stopname)`/`r(generated_names)`). New QA covers the frames-first pipeline (non-destructive, byte-identical to the `saveas` path) and the alias/return-macro surface.
-- **1.4.0** (2026-06-29): Usability release. **Behavior change:** when `generate()` is omitted, `tvexpose` now names its output exposure variable after the `exposure()` varname as `tv_`{`exposure`} (for example, `exposure(drug_class)` yields `tv_drug_class`) instead of the fixed `tv_exposure`. Distinct exposures therefore get distinct names and chain straight into `tvmerge`/`tvevent` without the save/use/rename round-trip that every multi-exposure workflow previously needed. The name falls back to the historical `tv_exposure` only when the derived name would be an illegal Stata name, exceed 32 characters, or collide with the `id()` or `combine()` variable; passing `generate()` explicitly is unaffected. The chosen name is now returned in `r(genvar)`. Scripts that relied on the old fixed `tv_exposure` default should either pass `generate(tv_exposure)` or update downstream references to the derived name. New QA: `test_default_naming.do` covers the derived name, explicit-override, collision/over-length fallbacks, and rename-free `tvmerge` chaining.
+- **1.4.0** (2026-06-29): Usability release. When `generate()` is omitted, `tvexpose` derives the output name from `exposure()` (for example, `drug_class` yields `tv_drug_class`) instead of using one fixed name for every exposure. Distinct outputs therefore chain into `tvmerge` and `tvevent` without a manual rename. Illegal, over-length, or protected derived names use a collision-safe generic fallback; `r(genvar)` always reports the chosen name. QA covers derived, explicit, fallback, and rename-free merge paths.
 - **1.3.0** (2026-06-28): Feature release. New `tvband` splits follow-up intervals along a single date-derived axis — age (relative to date of birth), calendar period, or elapsed time since a reference date — generalizing `tvage` to any continuous time axis while preserving covariates on each split row. New `tvsplit` performs multi-timescale (Lexis) splitting on age, calendar period, and time-since-entry simultaneously, so every output sub-interval lies in exactly one band on every requested axis — equivalent to repeated Stata `stsplit` / R `Epi` multi-timescale splitting, ready for age- and period-adjusted Cox or Poisson models. Both share a single splitting engine (`_tvband_split`) and use the suite's inclusive abutting-interval convention, so output merges with `tvexpose`/`tvmerge` and feeds `stset`. New parity QA: `crossval_tvsplit_lexis.do` validates the Lexis grid against an independent cut-enumeration oracle, Stata `stsplit` (age axis), and day-exact R `Epi::splitLexis` (calendar + elapsed axes). Also fixes a `tvage` bug where `minage()`/`maxage()` mislabeled person-time: the first/last interval started/ended at the raw study entry/exit while carrying the clamped age band, so follow-up before `minage` (or after `maxage`) was counted under the boundary band. `tvage` now left/right-truncates that person-time at the age-band boundary. Output is unchanged when `minage`/`maxage` do not bind.
 - **1.2.0** (2026-06-28): Performance release (behavior-preserving). `tvmerge` replaces its `joinby`/`batch()` Cartesian-then-filter core with a compiled Mata interval-overlap sweep that emits only the overlapping interval pairs per person, never materializing the within-person Cartesian product — substantially faster and lighter on memory at registry scale, with identical output. The `batch(#)` option is now deprecated and ignored (accepted as a no-op so existing scripts keep working). `tvexpose` consolidates its weeks/months/quarters/years `expandunit()` row generation into a single Mata routine (bit-identical bin boundaries). Both commands show a one-line matching/overlap progress indicator on very large runs (>100k rows), suppressed under `quietly`. New parity QA: `crossval_tvmerge_mata.do` (vs an independent day-by-day expansion oracle) and `crossval_tvexpose_expand.do` (vs the documented bin formula).
-- **1.1.0** (2026-06-28): Feature release. `tvweight` gains covariate-balance diagnostics (`balance`, standardized mean differences before/after weighting in `r(balance)`), overlap (ATO) and matching weights (`wtype()`), an optional stored propensity model (`estname()`), within-person cumulative MSM weights (`cumulative`/`cumgenerate()`), and built-in love-plot and weight-distribution graphs (`loveplot`, `histogram`). It also fixes a bug where panel-aware weighting (`id()`+`time()`) without `nolog` failed with `invalid 'vce'`. `tvmerge`, `tvevent`, and `tvpanel` now accept inputs from named frames (`frames()`/`frame()`) instead of disk files, and `tvmerge` auto-suffixes duplicate `tv_exposure` output names instead of erroring. `tvexpose`, `tvmerge`, and `tvevent` gain an opt-in attrition/flow report (`flow`, returned in `r(flow)`). `tvdiagnose` gains an exposure `swimlane` plot. The `tvtools` package index now lists `tvpanel`.
+- **1.1.0** (2026-06-28): Feature release. `tvweight` gains covariate-balance diagnostics (`balance`), overlap and matching weights (`wtype()`), stored propensity models, cumulative MSM weights, and graphs. `tvmerge`, `tvevent`, and `tvpanel` gain frame inputs, while `tvmerge` auto-suffixes duplicate exposure names. `tvexpose`, `tvmerge`, and `tvevent` add flow reporting, and `tvdiagnose` adds a swimlane plot.
 - **1.0.3** (2026-06-26): Bug fixes and QA hardening. `tvpanel` now uses collision-safe temporary variables for internal row/class/cumulative bookkeeping and avoids stale value-label mappings when episode labels share names with labels already in memory. `tvexpose` dose-overlap handling now avoids internal `__seg_*` names that can collide with user `keepvars()`. Expanded `tvpanel` and dose-overlap regression QA and wired `test_tvpanel.do` into the canonical runner.
 - **1.0.2** (2026-06-19): Documentation maintenance. Standardized public help-file Author sections and shortened the `tvexpose` `r(overlap_ids)` stored-results synopt.
 - **1.0.1** (2026-06-15): Bug fixes. `tvmerge` now shows variable-not-found and option-parsing errors that were previously suppressed inside a `quietly` block (silent `exit` with no message). `tvevent` uses a tempvar for its reshape row-id instead of a hardcoded `_obs`. Internal `tvevent` helper option abbreviations aligned with the documented forms. Canonical author/affiliation standardized across all files.
@@ -226,3 +261,7 @@ Cross-validation suites: `crossval_tvevent_recurring.do`,
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT License. See [LICENSE](../LICENSE).

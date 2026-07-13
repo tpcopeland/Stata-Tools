@@ -56,13 +56,21 @@ real colvector _finegray_km_censor_single(
     real colvector event_type,
     real colvector t0)
 {
+    real colvector row_id
     real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, cur_time, ep
     real colvector G, ord, entry_ord
 
     n = rows(t)
     G = J(n, 1, 1)
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
 
     surv = 1
     ep = 1  /* entry pointer */
@@ -474,6 +482,7 @@ real scalar _finegray_loglik(
     real colvector t0,
     real colvector tg_id)
 {
+    real colvector row_id
     real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
     real scalar risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
@@ -489,8 +498,15 @@ real scalar _finegray_loglik(
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -570,6 +586,7 @@ void _finegray_score_info(
     real colvector t0,
     real colvector tg_id)
 {
+    real colvector row_id
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
@@ -585,8 +602,15 @@ void _finegray_score_info(
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -698,6 +722,7 @@ real matrix _finegray_score_residuals(
     real colvector t0,
     real colvector tg_id)
 {
+    real colvector row_id
     real scalar n, p, i, j, k, idx, running_invS0
     real scalar S0_t, cur_time, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
@@ -715,8 +740,15 @@ real matrix _finegray_score_residuals(
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -899,6 +931,7 @@ real matrix _finegray_basehazard(
     real colvector t0,
     real colvector tg_id)
 {
+    real colvector row_id
     real scalar n, p, i, j, k, idx, cum_bh, g, ng
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep, has_cause
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
@@ -914,8 +947,15 @@ real matrix _finegray_basehazard(
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -1035,14 +1075,16 @@ real matrix _finegray_schoenfeld(
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
-    /* Stable sort by t, breaking ties by row index.
-       Mata's order() is not stable, so tied event times get an
-       arbitrary ordering that may not match finegray_predict's
-       assignment sort (_t _obs_id).  Adding the row index as
-       a secondary key forces a deterministic tie-break. */
+    /* Stable sort by t, breaking ties by row index.  Mata's order() is not
+       stable -- it resolves ties from Stata's sort seed, which ADVANCES on
+       every sort -- so tied event times otherwise get an arbitrary ordering
+       that may not match finegray_predict's assignment sort (_t _obs_id).
+       NOTE the key spec is (1, 2): "column 1, then column 2".  (1, 1) means
+       "column 1, then column 1", which never consults row_id and leaves the
+       ties randomized. */
     row_id = (1::n)
-    ord = order((t, row_id), (1, 1))
-    entry_ord = order((t0, row_id), (1, 1))
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -1546,6 +1588,7 @@ real matrix _finegray_cif_core(
     real scalar censval,
     real matrix E)
 {
+    real colvector row_id
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
     real colvector clev, sel, levels, gidx, Gminus, jc, ju
@@ -1582,8 +1625,15 @@ real matrix _finegray_cif_core(
     expeta = exp(eta)
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
-    ord = order(t, 1)
-    entry_ord = order(t0, 1)
+    /* Deterministic tie-break by row index.  Mata's order() resolves ties
+       using Stata's sort seed, which ADVANCES on every sort, so a tied key
+       (every t0 == 0 when there is no delayed entry) yields a different
+       permutation on each call -- and the risk-set scan then accumulates in
+       a different floating-point order.  Without this the same command on
+       the same data is not bit-reproducible. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
 
     /* Event scan: per cause-event arrays in ascending time */
     M = sum(is_cause)

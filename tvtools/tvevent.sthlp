@@ -114,6 +114,16 @@ event date for that person.
 event day becomes the endpoint of the first output piece and follow-up after
 that day begins in a second piece. An event on stop is flagged without a split.
 
+{pstd}
+The exact closed-interval boundary contract is:
+
+{phang2}{cmd:event < start}: no match to that interval;{p_end}
+{phang2}{cmd:event == start}: flag the event day; retain later days in a second
+piece when {cmd:start < stop};{p_end}
+{phang2}{cmd:start < event < stop}: split after and flag the event day;{p_end}
+{phang2}{cmd:event == stop}: flag without splitting;{p_end}
+{phang2}{cmd:event > stop}: no match to that interval.{p_end}
+
 {phang2}3. {bf:Quantity handling:} Rates remain unchanged, interval totals are
 apportioned by inclusive duration, and row-start cumulative histories are carried
 unchanged when an event splits a row.
@@ -182,7 +192,8 @@ categories. {break}
 Use standard Stata syntax: {it:value "Label" value "Label"}. {break}
 Example: {cmd:eventlabel(0 "Alive" 1 "Heart Failure" 2 "Death")} {break}
 If not specified, labels default to "Censored" (0) and the variable labels of
-the date variables from the master event dataset in memory.
+the date variables from the master event dataset in memory. Labels never come
+from the interval data supplied in {cmd:using} or {opt frame()}.
 
 {phang}
 {opt timegen(newvar)} creates a new variable containing the cumulative time
@@ -219,10 +230,15 @@ default name is {cmd:_enum}.
 the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
 {cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model. The three standard
 recurrent-event analyses are
-then: {break}{bf:Andersen-Gill}: {cmd:stset stop, enter(start) failure(`generate') id(id)} (no
-stratum). {break}{bf:PWP total time}: as Andersen-Gill but
-{cmd:strata(`enum')}. {break}{bf:PWP gap time}: {cmd:stset _t, enter(_t0) failure(`generate') id(id)}
-with {cmd:strata(`enum')}.
+then: first generate {cmd:double analysis_t0 = start - 1}. {break}
+{bf:Andersen-Gill}: use
+{cmd:stset stop, time0(analysis_t0) failure(`generate') id(id) exit(time .)}
+so follow-up continues after each failure. {break}{bf:PWP total time}: use the
+same declaration and add {cmd:strata(`enum')} to the model. {break}
+{bf:PWP gap time}: generate {cmd:long id_stratum = group(id `enum')} and
+{cmd:double gap_t0 = _t0 - 1}, then declare
+{cmd:stset _t, time0(gap_t0) failure(`generate') id(id_stratum)} and add
+{cmd:strata(`enum')} plus person-clustered standard errors to the model.
 
 {phang}
 {opt gapstart(name)} and {opt gapstop(name)} name the two gap-time clock
@@ -299,199 +315,67 @@ splitting (it ends that interval naturally).
 {title:Examples}
 
 {pstd}
-The examples below use synthetic datasets from {bf:_data/} modeling an SSRI vs SNRI
-antidepressant study.
+Create closed interval data with rate, total, and row-start cumulative
+quantities:
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(start_s stop_s) byte tv_drug double dose_rate course_total cum_days}{p_end}
+{phang3}{cmd:1 "01jan2020" "15jan2020" 0 2 30 0}{p_end}
+{phang3}{cmd:1 "16jan2020" "31jan2020" 1 2 32 15}{p_end}
+{phang3}{cmd:2 "01jan2020" "31jan2020" 2 1 31 0}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double start = date(start_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double stop = date(stop_s, "DMY")}{p_end}
+{phang2}{cmd:. format start stop %td}{p_end}
+{phang2}{cmd:. drop start_s stop_s}{p_end}
+{phang2}{cmd:. char dose_rate[tvtools_quantity] "rate"}{p_end}
+{phang2}{cmd:. char course_total[tvtools_quantity] "total"}{p_end}
+{phang2}{cmd:. char cum_days[tvtools_quantity] "cumulative"}{p_end}
+{phang2}{cmd:. char cum_days[tvtools_history_point] "start"}{p_end}
+{phang2}{cmd:. tempfile intervals events}{p_end}
+{phang2}{cmd:. save `intervals'}{p_end}
+
+{pstd}{bf:Primary and competing events}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id str9(event_s death_s) byte female}{p_end}
+{phang3}{cmd:1 "16jan2020" "" 1}{p_end}
+{phang3}{cmd:2 "" "31jan2020" 0}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. generate double event_date = date(event_s, "DMY")}{p_end}
+{phang2}{cmd:. generate double death_date = date(death_s, "DMY")}{p_end}
+{phang2}{cmd:. format event_date death_date %td}{p_end}
+{phang2}{cmd:. label variable event_date "Primary event"}{p_end}
+{phang2}{cmd:. label variable death_date "Death"}{p_end}
+{phang2}{cmd:. drop event_s death_s}{p_end}
+{phang2}{cmd:. save `events'}{p_end}
+{phang2}{cmd:. tvevent using `intervals', id(id) date(event_date) compete(death_date) ///}{p_end}
+{phang3}{cmd:start(start) stop(stop) generate(outcome) keepvars(female) ///}{p_end}
+{phang3}{cmd:rate(dose_rate) total(course_total) cumulative(cum_days) validate}{p_end}
 
 {pstd}
-The standard workflow is: (1) create time-varying datasets using {cmd:tvexpose}, (2)
-optionally merge using {cmd:tvmerge}, then (3) integrate events using
-{cmd:tvevent}. {bf:Important}: The master dataset in memory should be the event data; the
-using file is the TV interval data from tvexpose.
+The primary event is exactly on the second row's start and the competing event
+is exactly on the interval stop; both endpoints are included. Default status
+labels come from {cmd:event_date} and {cmd:death_date} in the event master.
 
+{pstd}{bf:Declare the inclusive output as survival data}{p_end}
+{phang2}{cmd:. generate double analysis_t0 = start - 1}{p_end}
+{phang2}{cmd:. stset stop, id(id) failure(outcome==1) time0(analysis_t0)}{p_end}
+{phang2}{cmd:. tabulate outcome}{p_end}
 
-{pstd}
-{bf:Example 1: Primary outcome with competing risk (death)}
-
-{pstd}
-Study cardiovascular events with death as a competing risk:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{cmd:. * Load event data as master, TV data as using}{p_end}
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _data/tv_antidep.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) compete(death_date) generate(outcome) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{phang2}{stata "stset rx_stop, id(id) failure(outcome==1) enter(rx_start)":. stset rx_stop, id(id) failure(outcome==1) enter(rx_start)}{p_end}
-
-{phang2}{stata "stcrreg i.tv_exposure, compete(outcome==2)":. stcrreg i.tv_exposure, compete(outcome==2)}{p_end}
-
-{pstd}
-The outcome variable is coded: 0=Censored, 1=Cardiovascular event, 2=Death.
-
-
-{pstd}
-{bf:Example 2: Custom event labels}
-
-{pstd}
-Explicitly label censored, primary, and competing events for clearer output:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{cmd:. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) ///}{p_end}
-{phang3}{cmd:compete(death_date) ///}{p_end}
-{phang3}{cmd:eventlabel(0 "Censored" 1 "CV Event" 2 "Death") ///}{p_end}
-{phang3}{cmd:generate(status) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{pstd}
-The eventlabel() option overrides default labels derived from variable labels.
-
-
-{pstd}
-{bf:Example 3: Cumulative exposure history}
-
-{pstd}
-Carry a non-anticipating row-start cumulative exposure history through an event
-split:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:continuousunit(years) generate(cumul_antidep_years) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _data/tv_antidep_temp.dta, id(id) date(cv_event_date) type(single) cumulative(cumul_antidep_years) start(rx_start) stop(rx_stop)":. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) type(single) cumulative(cumul_antidep_years) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{pstd}
-If a CV event occurs mid-interval, the cumulative value known at the source
-row's start is carried unchanged to both split rows.
-
-
-{pstd}
-{bf:Example 4: Recurring events (wide format)}
-
-{pstd}
-For events that can occur multiple times (e.g., hospitalizations), use
-{cmd:type(recurring)}. The event dataset must have dates in {bf:wide format} with
-numbered suffixes (hosp1, hosp2, etc.):
-
-{phang2}{cmd:. * Event dataset structure (one row per person, multiple date columns):}{p_end}
-{phang2}{cmd:. * id  hosp1       hosp2       hosp3}{p_end}
-{phang2}{cmd:. * 1   2020-01-15  2020-06-20  .}{p_end}
-{phang2}{cmd:. * 2   2020-04-01  .           .}{p_end}
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_intervals.dta) replace}{p_end}
-
-{phang2}{cmd:. * Load event data with wide-format recurring events}{p_end}
-{phang2}{cmd:. use hospitalizations, clear}{p_end}
-
-{phang2}{cmd:. * date(hosp) finds hosp1, hosp2, hosp3, etc.}{p_end}
-{phang2}{stata "tvevent using _data/tv_intervals.dta, id(id) date(hosp) type(recurring) generate(hospitalized) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_intervals.dta, id(id) date(hosp) ///}{p_end}
-{phang3}{cmd:type(recurring) generate(hospitalized) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{pstd}
-The command automatically detects the contiguous hosp1, hosp2, hosp3, etc.,
-and processes all events. A missing suffix such as hosp2 when hosp3
-exists is an error. Unlike {cmd:type(single)}, recurring events do not truncate follow-up after
-the first event. Note that {cmd:compete()} is not supported with recurring events.
-
-
-{pstd}
-{bf:Example 5: Generate time duration variable}
-
-{pstd}
-Create a variable for interval duration, useful for Poisson regression offsets:
-
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _data/tv_antidep_temp.dta, id(id) date(cv_event_date) timegen(interval_years) timeunit(years) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) ///}{p_end}
-{phang3}{cmd:timegen(interval_years) timeunit(years) ///}{p_end}
-{phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
-
-{pstd}
-The timegen() option creates a variable showing cumulative time from study
-entry to each interval's stop date, in the specified unit (days, months, or
-years).
-
-
-{pstd}
-{bf:Example 6: Complete workflow with merged exposures}
-
-{pstd}
-Full pipeline showing tvexpose, tvmerge, and tvevent integration:
-
-{phang2}{cmd:. * Step 1: Create time-varying antidepressant dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_antidep.dta, clear":. use _data/tv_antidep.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure drug_class":. rename tv_exposure drug_class}{p_end}
-{phang2}{stata "save _data/tv_antidep.dta, replace":. save _data/tv_antidep.dta, replace}{p_end}
-
-{phang2}{cmd:. * Step 2: Create time-varying benzodiazepine dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_data/tv_benzo.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_benzo.dta, clear":. use _data/tv_benzo.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure benzo":. rename tv_exposure benzo}{p_end}
-{phang2}{stata "save _data/tv_benzo.dta, replace":. save _data/tv_benzo.dta, replace}{p_end}
-
-{phang2}{cmd:. * Step 3: Merge the two time-varying datasets}{p_end}
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(drug_class benzo)}{p_end}
-
-{phang2}{cmd:. * Step 4: Save merged TV data, then load event data as master}{p_end}
-{phang2}{stata "save _data/tv_merged.dta, replace":. save _data/tv_merged.dta, replace}{p_end}
-{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _data/tv_merged.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) type(single) startvar(start) stopvar(stop)":. tvevent using _data/tv_merged.dta, id(id) ///}{p_end}
-{phang3}{cmd:date(cv_event_date) compete(death_date) ///}{p_end}
-{phang3}{cmd:generate(outcome) type(single) ///}{p_end}
-{phang3}{cmd:startvar(start) stopvar(stop)}{p_end}
-
-{phang2}{cmd:. * Step 5: Set up for survival analysis}{p_end}
-{phang2}{stata "stset stop, id(id) failure(outcome==1) enter(start)":. stset stop, id(id) failure(outcome==1) enter(start)}{p_end}
-
-{phang2}{stata "stcrreg i.drug_class i.benzo, compete(outcome==2)":. stcrreg i.drug_class i.benzo, compete(outcome==2)}{p_end}
-
+{pstd}{bf:Recurring events with total-time and gap-time clocks}{p_end}
+{phang2}{cmd:. use `events', clear}{p_end}
+{phang2}{cmd:. generate double hosp1 = date("10jan2020", "DMY") if id == 1}{p_end}
+{phang2}{cmd:. generate double hosp2 = date("25jan2020", "DMY") if id == 1}{p_end}
+{phang2}{cmd:. format hosp1 hosp2 %td}{p_end}
+{phang2}{cmd:. tvevent using `intervals', id(id) date(hosp) type(recurring) ///}{p_end}
+{phang3}{cmd:start(start) stop(stop) generate(hospitalized) enum(event_no) ///}{p_end}
+{phang3}{cmd:gaptime gapstart(gap0) gapstop(gap1) rate(dose_rate) ///}{p_end}
+{phang3}{cmd:total(course_total) cumulative(cum_days)}{p_end}
+{phang2}{cmd:. generate double ag_t0 = start - 1}{p_end}
+{phang2}{cmd:. stset stop, id(id) failure(hospitalized) time0(ag_t0) exit(time .)}{p_end}
+{phang2}{cmd:. egen long id_stratum = group(id event_no)}{p_end}
+{phang2}{cmd:. generate double pwp_t0 = gap0 - 1}{p_end}
+{phang2}{cmd:. stset gap1, id(id_stratum) failure(hospitalized) time0(pwp_t0)}{p_end}
 
 {marker results}{...}
 {title:Stored results}

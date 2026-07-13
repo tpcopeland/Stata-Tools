@@ -75,6 +75,16 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     marksample touse
     markout `touse' `compete'
+
+    * Stamp the caller's row order NOW, before any egen/gsort/sort in this
+    * command can permute it.  Stata (and Mata) break sort ties using a seed
+    * that ADVANCES on every sort, so a bare `sort _t' -- _t is heavily tied --
+    * hands the engine a different row order on each fit, and the risk-set scan
+    * then accumulates in a different floating-point order.  This key makes the
+    * pre-engine sort total, so the same data always yields the same estimates.
+    tempvar _fg_row0
+    quietly gen long `_fg_row0' = _n
+
     * Save original varlist before FV expansion (for e(fvvarlist))
     local _orig_varlist "`varlist'"
 
@@ -661,7 +671,7 @@ program define finegray, eclass sortpreserve
             local _tg_mata "`_tg_grp'"
         }
 
-        sort _t
+        sort _t `_fg_row0'
 
         if "`log'" != "nolog" {
             display as text "Fitting Fine-Gray model..."

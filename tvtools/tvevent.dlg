@@ -1,6 +1,6 @@
 VERSION 16.0
 INCLUDE _std_large
-DEFINE _dlght 480
+DEFINE _dlght 620
 DEFINE _dlgwd 640
 INCLUDE header
 
@@ -9,6 +9,7 @@ RESET res1
 
 SCRIPT PREINIT
 BEGIN
+	create STRING qa_command
 	program parseMessage
 	script max_setOptionalOn
 END
@@ -20,26 +21,31 @@ END
 
 DIALOG main, label("tvevent - Integrate events into time-varying data") tabtitle("Main")
 BEGIN
-  TEXT     tx_using      20  10  620  ., label("Event dataset:")
-  FILE     fi_using      20  +20 610  ., error("Event dataset") ///
+  TEXT     tx_using      20  10  620  ., label("Interval dataset (using; events are in memory):")
+  FILE     fi_using      20  +20 610  ., error("Interval dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
+  TEXT     tx_frame      20  +25 280  ., label("Or interval frame:")
+  EDIT     ed_frame      @   +20 280  ., label("Interval frame") option(frame)
 
-  GROUPBOX gb_required   10  60  620  115, label("Required variables")
+  GROUPBOX gb_required   10  105 620  170, label("Required variables")
   TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
-  TEXT     tx_date       330 -20 280  ., label("Event date variable (in using):")
-  EDIT     ed_date       @   +20 @    ., label("Event date")
+  TEXT     tx_date       330 -20 280  ., label("Event date variable (in event master):")
+  EDIT     ed_date       @   +20 @    ., label("Event date or recurring-event stub")
+
+  TEXT     tx_start      20  +25 280  ., label("Interval start variable:")
+  EDIT     ed_start      @   +20 @    ., label("Interval start") option(start)
+
+  TEXT     tx_stop       330 -20 280  ., label("Interval stop variable:")
+  EDIT     ed_stop       @   +20 @    ., label("Interval stop") option(stop)
 
   TEXT     tx_gen        20  +25 280  ., label("Generate indicator variable:")
   EDIT     ed_gen        @   +20 @    ., label("Generate") option(generate)
 
-  GROUPBOX gb_type       10  185 620  70, label("Event type")
+  GROUPBOX gb_type       10  285 620  70, label("Event type")
   RADIO    rb_single     20  +20 590  ., label("Single (terminal) - drops post-event time (e.g., death)") first
   RADIO    rb_recur      @   +20 @    ., label("Recurring - keeps all time (e.g., hospitalization)") last
-
-  CHECKBOX ck_replace    20  +45 590  ., label("Replace output variables if they already exist") ///
-           option(replace)
 END
 
 DIALOG compete, tabtitle("Competing Risks")
@@ -59,11 +65,17 @@ END
 
 DIALOG advanced, tabtitle("Advanced")
 BEGIN
-  GROUPBOX gb_cont       10  10  620  75, label("Continuous adjustment")
-  TEXT     tx_cont       20  +20 590  ., label("Cumulative exposure variables to adjust (in master):")
-  VARLIST  vl_cont       @   +20 @    ., label("Continuous") option(continuous)
+  GROUPBOX gb_cont       10  10  620  175, label("Interval quantities to adjust when splitting")
+  TEXT     tx_cont       20  +20 280  ., label("Legacy interval totals (deprecated):")
+  EDIT     ed_cont       @   +20 280  ., label("Continuous") option(continuous)
+  TEXT     tx_rate       330 -20 280  ., label("Rates:")
+  EDIT     ed_rate       @   +20 280  ., label("Rates") option(rate)
+  TEXT     tx_total      20  +25 280  ., label("Interval totals:")
+  EDIT     ed_total      @   +20 280  ., label("Totals") option(total)
+  TEXT     tx_cumulative 330 -20 280  ., label("Cumulative histories:")
+  EDIT     ed_cumulative @   +20 280  ., label("Cumulative") option(cumulative)
 
-  GROUPBOX gb_time       10  95  620  100, label("Time generation")
+  GROUPBOX gb_time       10  195 620  100, label("Time generation")
   CHECKBOX ck_time       20  +20 280  ., label("Generate duration variable") ///
            onclickon(script time_on) onclickoff(script time_off)
   TEXT     tx_timegen    20  +25 180  ., label("Variable name:")
@@ -72,9 +84,32 @@ BEGIN
   COMBOBOX cb_timeunit   @   +20 180  ., dropdownlist contents(units) ///
            option(timeunit)
 
-  GROUPBOX gb_keep       10  220 620  75, label("Additional data")
+  GROUPBOX gb_keep       10  305 620  75, label("Additional event-master data")
   TEXT     tx_keep       20  +20 590  ., label("Keep variables from event dataset:")
   EDIT     ed_keep       @   +20 @    ., label("Keep variables") option(keepvars)
+END
+
+DIALOG recurring, tabtitle("Recurring")
+BEGIN
+  GROUPBOX gb_recur      10  10  620  210, label("Recurring-event output")
+  TEXT     tx_enum       20  +20 280  ., label("Event-number variable:")
+  EDIT     ed_enum       @   +20 280  ., label("Event number") option(enum)
+  CHECKBOX ck_gaptime    20  +30 590  ., label("Generate gap-time clock") option(gaptime)
+  TEXT     tx_gapstart   20  +25 280  ., label("Gap-time start variable:")
+  EDIT     ed_gapstart   @   +20 280  ., label("Gap start") option(gapstart)
+  TEXT     tx_gapstop    330 -20 280  ., label("Gap-time stop variable:")
+  EDIT     ed_gapstop    @   +20 280  ., label("Gap stop") option(gapstop)
+  TEXT     tx_note       20  +30 590  ., label("These options apply with type(recurring).")
+END
+
+DIALOG output, tabtitle("Validation")
+BEGIN
+  GROUPBOX gb_output     10  10  620  190, label("Output and validation")
+  CHECKBOX ck_replace    20  +20 590  ., label("Replace output variables if they already exist") option(replace)
+  CHECKBOX ck_validate   @   +25 @    ., label("Validate the event-integrated intervals") option(validate)
+  CHECKBOX ck_flow       @   +25 @    ., label("Return an attrition/flow report") option(flow)
+  CHECKBOX ck_dropinvalid @  +25 @    ., label("Drop malformed input rows and report them") option(dropinvalid)
+  CHECKBOX ck_verbose    @   +25 @    ., label("Display detailed processing output") option(verbose)
 END
 
 LIST units
@@ -102,18 +137,28 @@ END
 
 PROGRAM command
 BEGIN
-	put "tvevent using "
-	put `"""'
-	require main.fi_using
-	put main.fi_using
-	put `"""'
-	put ", "
+ put "tvevent"
+	if main.ed_frame {
+		put ", "
+		optionarg main.ed_frame
+	}
+	else {
+		put " using "
+		put `"""'
+		require main.fi_using
+		put main.fi_using
+		put `"""'
+		put ", "
+	}
 
 	require main.vn_id
 	put "id(" main.vn_id ") "
 
 	require main.ed_date
 	put "date(" main.ed_date ") "
+
+	optionarg main.ed_start
+	optionarg main.ed_stop
 
 	optionarg main.ed_gen
 
@@ -124,12 +169,13 @@ BEGIN
 		put "type(recurring) "
 	}
 
-	option main.ck_replace
-
 	optionarg compete.ed_compete
 	optionarg compete.ed_labels
 
-	optionarg advanced.vl_cont
+	optionarg advanced.ed_cont
+	optionarg advanced.ed_rate
+	optionarg advanced.ed_total
+	optionarg advanced.ed_cumulative
 
 	if advanced.ck_time {
 		require advanced.ed_timegen
@@ -138,4 +184,13 @@ BEGIN
 	}
 
 	optionarg advanced.ed_keep
+	optionarg recurring.ed_enum
+	option recurring.ck_gaptime
+	optionarg recurring.ed_gapstart
+	optionarg recurring.ed_gapstop
+	option output.ck_replace
+	option output.ck_validate
+	option output.ck_flow
+	option output.ck_dropinvalid
+	option output.ck_verbose
 END

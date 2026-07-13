@@ -82,9 +82,9 @@ else {
 }
 
 * -----------------------------------------------------------------------
-* KA3: age -- boundary date = round(dob + age*365.25)
+* KA3: age -- exact birthday boundaries
 *   dob=01jan1960, interval [01jul2009, 01jul2013], width=1
-*   each interval [round(dob+a*365.25), round(dob+(a+1)*365.25)-1] clamped
+*   each interval [birthday(a), birthday(a+1)-1] is clamped to follow-up
 * -----------------------------------------------------------------------
 local ++test_count
 capture {
@@ -100,8 +100,8 @@ capture {
     * first row starts at study entry; later rows at exact birthday boundaries
     assert t0[1]==mdy(7,1,2009)
     assert t1[_N]==mdy(7,1,2013)
-    * each interior boundary equals round(dob + age*365.25)
-    gen double expect_start = round(mdy(1,1,1960) + a*365.25)
+    * each interior boundary equals the exact birthday for attained age a
+    gen double expect_start = mdy(month(dob), day(dob), year(dob) + a)
     assert t0==expect_start if _n>1
     * abutment + coverage
     gen double dur = t1 - t0 + 1

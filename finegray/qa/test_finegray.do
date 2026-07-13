@@ -2701,6 +2701,141 @@ else {
     local ++fail_count
 }
 
+* T130: run-to-run determinism.  Mata's order() and Stata's sort resolve ties
+* from a sort seed that ADVANCES on every sort, so a tied key handed the engine
+* a different row order on each fit and the risk-set scan accumulated in a
+* different floating-point order.  With no delayed entry EVERY _t0 is 0, so that
+* key is entirely ties -- the worst case.  Before the (t,row_id)/(t0,row_id)
+* ordering fix, the same command on the same data returned different last bits.
+* Compare bit-for-bit in hex: a tolerance-based check cannot see this bug.
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260713
+    quietly set obs 3000
+    gen double z1 = rnormal()
+    gen double z2 = rnormal()
+    gen byte   st = runiform() < 0.5
+    gen double lp = 0.5*z1 - 0.5*z2
+    gen double pz = 1 - 0.5^exp(lp)
+    gen byte   cause = cond(runiform() < pz, 1, 2)
+    gen double u = runiform()
+    gen double tev = -ln(1 - (1 - (1 - u*pz)^exp(-lp))/0.5) if cause == 1
+    replace    tev = rexponential(1) if cause == 2
+    gen double c = runiform()*4
+    gen double t = min(tev, c)
+    gen byte   status = cond(tev <= c, cause, 0)
+    gen byte   anyev = status > 0
+    gen long   id = _n
+    quietly stset t, failure(anyev==1) id(id)
+
+    quietly finegray z1 z2, compete(status) cause(1) strata(st) nolog
+    matrix _T130a = e(b)
+    * advance the sort seed the way any real workflow would, then refit
+    sort z2
+    sort id
+    quietly finegray z1 z2, compete(status) cause(1) strata(st) nolog
+    matrix _T130b = e(b)
+    forvalues j = 1/`=colsof(_T130a)' {
+        assert "`=string(_T130a[1,`j'], "%21x")'" == "`=string(_T130b[1,`j'], "%21x")'"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: T130 refit is bit-identical (no delayed entry)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T130 refit not bit-identical (rc=`=_rc')"
+    local ++fail_count
+}
+
+* T131: the same determinism guarantee under left truncation + truncstrata().
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260714
+    quietly set obs 20000
+    gen byte   z1 = runiform() < 0.5
+    gen double z2 = rnormal()
+    gen double lp = 0.5*z1 - 0.5*z2
+    gen double pz = 1 - 0.5^exp(lp)
+    gen byte   cause = cond(runiform() < pz, 1, 2)
+    gen double u = runiform()
+    gen double tev = -ln(1 - (1 - (1 - u*pz)^exp(-lp))/0.5) if cause == 1
+    replace    tev = rexponential(1) if cause == 2
+    gen double c = min(rexponential(1/0.15), 6)
+    gen double x = min(tev, c)
+    gen byte   status = cond(tev <= c, cause, 0)
+    gen double entry = rexponential(cond(z1 == 1, 1/1.6, 1/0.5))
+    quietly keep if entry < x
+    gen byte anyev = status > 0
+    gen long id = _n
+    quietly stset x, failure(anyev==1) enter(time entry) id(id)
+
+    quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1) nolog
+    matrix _T131a = e(b)
+    sort z2
+    sort id
+    quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1) nolog
+    matrix _T131b = e(b)
+    forvalues j = 1/`=colsof(_T131a)' {
+        assert "`=string(_T131a[1,`j'], "%21x")'" == "`=string(_T131b[1,`j'], "%21x")'"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: T131 refit is bit-identical (left truncation)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T131 refit not bit-identical under LT (rc=`=_rc')"
+    local ++fail_count
+}
+
+* T132: determinism with TIED EVENT TIMES.  T130 uses continuous times, so its
+* _t has no ties and it only exercises the entry-time key (_t0, all zeros).  Real
+* follow-up data is discrete (integer months, rounded visits), which ties _t as
+* well and exercises the OTHER ordering key, `ord'.  Both keys must be total.
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260715
+    quietly set obs 3000
+    gen double z1 = rnormal()
+    gen double z2 = rnormal()
+    gen byte   st = runiform() < 0.5
+    gen double lp = 0.5*z1 - 0.5*z2
+    gen double pz = 1 - 0.5^exp(lp)
+    gen byte   cause = cond(runiform() < pz, 1, 2)
+    gen double u = runiform()
+    gen double tev = -ln(1 - (1 - (1 - u*pz)^exp(-lp))/0.5) if cause == 1
+    replace    tev = rexponential(1) if cause == 2
+    gen double c = runiform()*4
+    * discretize to 12 distinct times -> heavy ties in _t
+    gen double t = ceil(min(tev, c) * 3) / 3
+    gen byte   status = cond(min(tev, c) == tev, cause, 0)
+    gen byte   anyev = status > 0
+    gen long   id = _n
+    quietly stset t, failure(anyev==1) id(id)
+
+    quietly finegray z1 z2, compete(status) cause(1) strata(st) nolog
+    matrix _T132a = e(b)
+    sort z2
+    sort id
+    quietly finegray z1 z2, compete(status) cause(1) strata(st) nolog
+    matrix _T132b = e(b)
+    forvalues j = 1/`=colsof(_T132a)' {
+        assert "`=string(_T132a[1,`j'], "%21x")'" == "`=string(_T132b[1,`j'], "%21x")'"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: T132 refit is bit-identical (tied event times)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T132 refit not bit-identical with tied times (rc=`=_rc')"
+    local ++fail_count
+}
+
 * {smcl}
 * {* SUMMARY}{...}
 display ""

@@ -1,4 +1,4 @@
-*! tvexpose Version 1.6.9  2026/07/10
+*! tvexpose Version 1.7.0  2026/07/13
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -92,7 +92,7 @@ Exposure pattern and switching options:
   statetime            - Create cumulative time in current exposure state
 
 Output and naming options:
-  generate(newvar)     - Name for output exposure variable (default: tv_exposure)
+  generate(newvar)     - Output name (default: tv_<exposure>; safe fallback tv_exposure)
   referencelabel(text) - Label for reference category (default: "Unexposed")
   saveas(filename)     - Save time-varying dataset to file
   replace              - Overwrite existing output file
@@ -382,8 +382,8 @@ program define tvexpose, rclass
         drop `_flow_tag'
     }
     
-    * Set default values
-    * generate() defaults to "tv_exposure" unless user specifies alternate name
+    * Set default values. Without bytype, omitted generate() normally derives
+    * tv_<exposure>; tv_exposure remains only the safe fallback documented below.
     * When bytype is specified, generate() becomes the stub name for bytype variables
     if "`bytype'" != "" {
         * With bytype, if generate() is specified, use it as stub; otherwise use defaults
