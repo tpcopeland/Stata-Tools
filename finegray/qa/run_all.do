@@ -37,13 +37,23 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v111.do /
     test_finegray_v112.do test_finegray_v114.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
-    test_finegray_postest.do
+    test_finegray_postest.do test_finegray_zzf.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
     validation_finegray_recovery_paths.do validation_finegray_cif_recovery.do ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     crossval_predict_stcrreg.do
-local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do
+local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
+    crossval_finegray_zzf.do
+
+* NOT IN ANY LANE YET: validation_finegray_zzf_recovery.do
+*
+* The ZZF known-truth recovery suite is a 100-rep x n=100,000 Monte Carlo (hours,
+* not minutes) and its Gate Z2-green is not fully green: arms A/B/C recover, but
+* the deliberately misspecified negative control (arm D) is still under
+* adjudication on its second coefficient.  Adding a suite that is expected to fail
+* would train the reader to ignore a red lane, which is worse than not running it.
+* Add it here -- and only here -- when Gate Z2-green closes.
 local full_files `core_files' `python_files'
 
 local all_files ``lane'_files'

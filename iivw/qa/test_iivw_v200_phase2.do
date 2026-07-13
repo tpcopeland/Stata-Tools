@@ -17,7 +17,15 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_iivw_v200_phase2.log", replace nomsg
+* Q6: no disposable log in the package tree. This suite used to write
+* test_iivw_v200_phase2.log into qa/, which is gitignored but is still ~4 MB of debris carrying the
+* local Stata license header, and the release hygiene gate had been taught to
+* whitelist exactly these files. The batch invocation
+* (`stata-mp -b do <suite>.do') already produces a readable log in the cwd, and
+* run_all.log captures everything when the suite runs under the runner, so the
+* named log was pure redundancy.
+tempfile _suite_log
+log using "`_suite_log'", replace nomsg
 
 local test_count = 0
 local pass_count = 0

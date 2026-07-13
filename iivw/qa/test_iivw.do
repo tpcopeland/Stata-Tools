@@ -13,7 +13,11 @@ set varabbrev off
 *   do iivw/qa/test_iivw.do 5        Run only test 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * ============================================================
 * Setup
@@ -24,12 +28,23 @@ if "`run_only'" == "" local run_only = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 
 * Expose repo root to programs defined below (locals are not visible in programs)
 global IIVW_QA_REPO_DIR "`repo_dir'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
+
+* Workbook staging (Q6). Fixed /tmp names are shared between concurrent runs:
+* two QA processes writing /tmp/_test_iivw_regtab_108.xlsx race, and the
+* `confirm file' assertion passes on whichever copy won. tempfile is unique per
+* process, so the suite can run in parallel with itself.
+tempfile _xlsx_stub
 
 local test_count = 0
 local pass_count = 0
@@ -1267,7 +1282,7 @@ if `run_only' == 0 | `run_only' == 50 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(mixed) timespec(linear) nolog
+        iivw_fit edss relapse, model(mixed) experimentalmixed timespec(linear) nolog
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
         assert "`e(iivw_timespec)'" == "linear"
@@ -1585,7 +1600,7 @@ if `run_only' == 0 | `run_only' == 62 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(mixed) timespec(linear) ///
+        iivw_fit outcome severity, model(mixed) experimentalmixed timespec(linear) ///
             bootstrap(10) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
@@ -2645,7 +2660,7 @@ capture noisily {
     _setup_relapses
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated edss_bl, model(mixed) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, model(mixed) experimentalmixed timespec(linear) nolog
     * Verify e() results stored for all predictors
     assert _b[treated] != .
     assert _b[edss_bl] != .
@@ -2672,7 +2687,7 @@ capture noisily {
     collect clear
     collect: iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
     * Export without coef() - should auto-detect "Coef." for gaussian glm
-    local _xlsxfile "/tmp/_test_iivw_regtab_108.xlsx"
+    local _xlsxfile "`_xlsx_stub'_regtab_108.xlsx"
     capture erase "`_xlsxfile'"
     regtab, xlsx("`_xlsxfile'") sheet(Test108) title(IIW Test)
     * Verify Excel file created
@@ -2704,7 +2719,7 @@ capture noisily {
         treat(treated) treat_cov(edss_bl) replace nolog
     collect: iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
     * Export multi-model table
-    local _xlsxfile "/tmp/_test_iivw_regtab_109.xlsx"
+    local _xlsxfile "`_xlsx_stub'_regtab_109.xlsx"
     capture erase "`_xlsxfile'"
     regtab, xlsx("`_xlsxfile'") sheet(Test109) ///
         models(IIW \ FIPTIW) title(Comparison) stats(n) noint
@@ -2729,8 +2744,8 @@ capture noisily {
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     collect clear
-    collect: iivw_fit edss treated edss_bl, model(mixed) timespec(linear) nolog
-    local _xlsxfile "/tmp/_test_iivw_regtab_110.xlsx"
+    collect: iivw_fit edss treated edss_bl, model(mixed) experimentalmixed timespec(linear) nolog
+    local _xlsxfile "`_xlsx_stub'_regtab_110.xlsx"
     capture erase "`_xlsxfile'"
     regtab, xlsx("`_xlsxfile'") sheet(Test110) title(Mixed Model)
     confirm file "`_xlsxfile'"
@@ -3084,7 +3099,7 @@ if `run_only' == 0 | `run_only' == 122 {
         collect clear
         iivw_fit edss treated edss_bl, model(gee) timespec(categorical) ///
             categorical(treated) interaction(treated) nolog collect
-        local _xlsxfile "/tmp/_test_iivw_regtab_122.xlsx"
+        local _xlsxfile "`_xlsx_stub'_regtab_122.xlsx"
         capture erase "`_xlsxfile'"
         regtab, xlsx("`_xlsxfile'") sheet(Test122) title(Categorical Time)
         confirm file "`_xlsxfile'"
@@ -3111,15 +3126,8 @@ if `run_only' == 0 | `run_only' == 122 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' TESTS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' TESTS PASSED"
-}
 
 clear

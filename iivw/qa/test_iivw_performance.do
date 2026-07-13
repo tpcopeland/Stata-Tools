@@ -20,7 +20,14 @@ if "`basename'" != "qa" {
     log close _all
     exit 198
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 ado dir
 capture ado uninstall iivw
@@ -61,10 +68,14 @@ end
 local ++test_count
 capture noisily {
     _perf_panel, nids(120) visits(5) seed(20260525)
+    * severity is time-varying, and treat_cov() is a BASELINE model (one row per
+    * subject). From 2.0.0 passing it directly is refused rather than silently
+    * reduced to the earliest row's value, so take the baseline explicitly.
+    bysort id (months): gen double severity_bl = severity[1]
     timer clear 1
     timer on 1
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) ///
-        treat(treat) treat_cov(age female severity) truncate(1 99) nolog
+        treat(treat) treat_cov(age female severity_bl) truncate(1 99) nolog
     iivw_balance severity biomarker, balcut(10) nolog
     local balance_covars "`r(balance_covars)'"
     iivw_fit y treat severity biomarker, timespec(linear) nolog

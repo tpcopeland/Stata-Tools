@@ -11,7 +11,11 @@ set varabbrev off
 *   do iivw/qa/validation_iivw.do 3        Run only test 3
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * ============================================================
 * Setup
@@ -22,6 +26,11 @@ if "`run_only'" == "" local run_only = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 local repo_dir "`qa_dir'/../.."
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -497,9 +506,14 @@ if `run_only' == 0 | `run_only' == 12 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert "`r(weighttype)'" == "iivw"
 
-        * With treat() and treat_cov() -> should be fiptiw
+        * With treat() and treat_cov() -> should be fiptiw.
+        * treat_cov() must be a BASELINE characteristic: the propensity model is
+        * fitted on one row per subject. severity varies within subject here, so
+        * from 2.0.0 passing it directly is refused (rc 459) rather than silently
+        * reduced to whatever value sat on the earliest row.
+        bysort id (months): gen double severity_bl = severity[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            treat(treated) treat_cov(severity) replace nolog
+            treat(treated) treat_cov(severity_bl) replace nolog
         assert "`r(weighttype)'" == "fiptiw"
     }
     if _rc == 0 {
@@ -1077,7 +1091,7 @@ if `run_only' == 0 | `run_only' == 27 {
 
         * Mixed estimate (need to re-weight since iivw_fit stores metadata)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
-        iivw_fit outcome severity, model(mixed) timespec(linear) nolog replace
+        iivw_fit outcome severity, model(mixed) experimentalmixed timespec(linear) nolog replace
         local b_mixed = _b[severity]
 
         * Both should be in same direction and within factor of 2
@@ -1137,15 +1151,8 @@ if `run_only' == 0 | `run_only' == 28 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(validation_iivw) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' VALIDATIONS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' VALIDATIONS PASSED"
-}
 
 clear

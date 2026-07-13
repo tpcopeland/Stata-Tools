@@ -482,7 +482,7 @@ real matrix _finegray_A_at_times(
    a cell never enters the likelihood, and counting it would raise an alarm about
    a number the estimator never divides by.  The cells the scan actually uses are:
 
-     numerator    A_g(t_k) for each cause-`cause' event time t_k and each stratum
+     numerator    A_g(t_k) for each cause-of-interest event time t_k and each stratum
                   g holding at least one competing-event subject with X_i < t_k
      denominator  A_g(X_i-) for each competing-event subject i that is retained,
                   i.e. that some cause event outlives
@@ -497,6 +497,94 @@ real matrix _finegray_A_at_times(
    every weight is <= 1; under left truncation H rises, so A need not be monotone
    and weights above 1 are legitimate.  That is exactly why this diagnostic exists
    only on the ZZF branch.) */
+/* HARD POSITIVITY CHECK for the delayed-entry weights.
+
+   A retained competing-event subject i carries weight A_g(t-)/A_g(X_i-).  If its
+   own stratum's A_g(X_i-) is ZERO, that weight is undefined -- and Mata returns
+   MISSING for x/0 rather than infinity, so the damage surfaces far downstream as
+   "the null log pseudo-likelihood is not finite" / r(430) "convergence not
+   achieved".  That message blames the optimizer for what is actually a
+   positivity violation in the data, and it names no stratum, so the user has
+   nothing to act on.
+
+   How it happens: a subject exits from a competing event so early that almost
+   nobody in its weight stratum has entered yet, so H_g -- the entry-distribution
+   product limit, estimated WITHIN the stratum -- is still 0 there.  Splitting the
+   sample into more weight strata makes this MORE likely, because each H_g is then
+   estimated from fewer subjects.  Observed live: n = 8,000 with 50 truncation
+   strata gave 39 competing subjects with A(X_i-) exactly 0 (bit-exact, not merely
+   small) in a stratum holding 168 subjects -- eight times the >=20-subject support
+   boundary.  THE SIZE BOUNDARY DOES NOT PROTECT AGAINST THIS: it bounds how many
+   subjects a stratum holds, not whether A stays away from zero where the scan
+   actually divides by it.
+
+   We refuse rather than drop the offending subjects: silently dropping them would
+   change the estimand without saying so, which is the failure class this package
+   treats as worst.
+
+   This CANNOT fire on the no-LT branch, so released behaviour stays bit-identical:
+   there H == 1, so A == G, and G(X_i-) > 0 necessarily -- subject i is itself at
+   risk throughout [0, X_i), so the censoring KM's at-risk count never reaches 0
+   before X_i and no factor of the product can vanish. */
+real scalar _finegray_positivity_check(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real scalar n, nj, i, npos
+    real colvector is_compete, gidx, jc, ju, Aden, flagged
+    string scalar badstr
+
+    n = rows(t)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    nj = rows(jc)
+
+    /* A_g(X_i-) in subject i's OWN joint group: the weight's denominator. */
+    Aden = _finegray_G_minus(gidx,
+        _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t))
+
+    /* EXACTLY zero, not "below A_FLOOR".  Those are different failures and must
+       stay different, or one silently eats the other:
+
+         A == 0          the weight is UNDEFINED (Mata gives missing for x/0).
+                         Nothing downstream can recover.  Hard r(459).
+         0 < A < A_FLOOR the weight is defined but enormous.  The estimate is
+                         computable and may be worth inspecting, so this is what
+                         e(N_prob_warn)/e(N_weight_warn) are FOR.
+
+       An earlier version of this check errored on `A <= A_FLOOR', which used the
+       SAME 1e-10 threshold as the low-A warning -- so the fit aborted before the
+       warning could ever fire, and the denominator half of the documented warning
+       contract was unreachable dead code.  A warning you cannot reach is not a
+       warning; it is a comment. */
+    npos = 0
+    flagged = J(nj, 1, 0)
+    for (i = 1; i <= n; i++) {
+        if (!is_compete[i]) continue
+        if (Aden[i] > 0) continue
+        npos++
+        flagged[gidx[i]] = 1
+    }
+
+    badstr = ""
+    for (i = 1; i <= nj; i++) {
+        if (!flagged[i]) continue
+        if (badstr == "") badstr = strofreal(i)
+        else              badstr = badstr + " " + strofreal(i)
+    }
+    st_local("_fg_posstrata", badstr)
+
+    return(npos)
+}
+
 void _finegray_weight_diag(
     real colvector t,
     real colvector delta,
@@ -511,7 +599,7 @@ void _finegray_weight_diag(
     real scalar A_FLOOR, WT_CEIL
     real scalar n, nj, K, i, k, g, r, minprob, maxwt, nprobwarn, nwtwarn, w, a
     real colvector is_cause, is_compete, gidx, jc, ju, et, Aden, flagged
-    real colvector ord, row_id, cmass
+    real colvector ord, row_id, cmin
     real matrix Aev, SUF
     string scalar warnstr
 
@@ -532,8 +620,9 @@ void _finegray_weight_diag(
     for (i = 1; i <= n; i++) {
         r = ord[i]
         if (!is_cause[r]) continue
-        /* Mata's | does NOT short-circuit, so `rows(et) == 0 | t[r] != et[rows(et)]`
-           still evaluates et[0] on the first event and aborts with 3301. */
+        /* Mata's | does NOT short-circuit, so a combined test of the form
+           "rows(et) == 0 | t[r] != et[rows(et)]" still evaluates et[0] on the
+           first event and aborts with 3301.  Keep the bound test separate. */
         if (rows(et) == 0) {
             et = t[r]
             continue
@@ -563,10 +652,21 @@ void _finegray_weight_diag(
     Aden = _finegray_G_minus(gidx, _finegray_A_at_times(t, G, byg_id, t0, tg_id,
                                                         jc, ju, t))
 
-    /* cmass[g] = does stratum g hold any competing-event subject at all?
-       Used to decide which numerator cells the scan can ever consult. */
-    cmass = J(nj, 1, 0)
-    for (i = 1; i <= n; i++) if (is_compete[i]) cmass[gidx[i]] = 1
+    /* cmin[g] = the EARLIEST competing exit in stratum g (missing if g holds no
+       competing-event subject at all).  A numerator cell A_g(t_k) is consulted by
+       the scan only once some competing subject in g has already exited, because
+       until then the backward accumulator for g is exactly zero and Gt[., g] is
+       multiplied by nothing.  Scanning every k instead would let a stratum whose A
+       collapses in a tail it carries no competing mass into raise an alarm about a
+       number the estimator never divides by. */
+    cmin = J(nj, 1, .)
+    for (i = 1; i <= n; i++) {
+        if (!is_compete[i]) continue
+        g = gidx[i]
+        /* Missing is the LARGEST value in Mata, so the initial . needs no special
+           case: the first competing exit in g always compares less than it. */
+        if (t[i] < cmin[g]) cmin[g] = t[i]
+    }
 
     /* Suffix maxima, ONCE per stratum: SUF[k, g] = max A_g over et[k..K].
        Each retained subject then reads its largest possible weight in O(1).
@@ -574,13 +674,17 @@ void _finegray_weight_diag(
        unexpanded scan exists to avoid. */
     SUF = J(K, nj, .)
     for (g = 1; g <= nj; g++) {
-        if (!cmass[g]) continue
+        if (cmin[g] >= .) continue          /* no competing mass: nothing consulted */
 
         SUF[K, g] = Aev[K, g]
         for (k = K - 1; k >= 1; k--) SUF[k, g] = max((Aev[k, g], SUF[k + 1, g]))
 
-        /* Numerator cells consulted in stratum g. */
+        /* Numerator cells consulted in stratum g: event times strictly after the
+           earliest competing exit in g.  This restriction is the code, not just
+           the comment -- an unrestricted k = 1..K loop counts cells the scan
+           never reaches. */
         for (k = 1; k <= K; k++) {
+            if (et[k] <= cmin[g]) continue
             a = Aev[k, g]
             if (a >= .) continue
             if (a < minprob) minprob = a
@@ -599,8 +703,8 @@ void _finegray_weight_diag(
         r = ord[i]
 
         /* Advance to the first cause-event time strictly after this exit.  Mata's
-           & does NOT short-circuit, so the bound test must be its own statement --
-           `k <= K & et[k] <= t[r]` would evaluate et[K+1] and abort. */
+           & does NOT short-circuit, so the bound test must be its own statement:
+           a combined "k <= K & et[k] <= t[r]" evaluates et[K+1] and aborts. */
         while (k <= K) {
             if (et[k] > t[r]) break
             k++
@@ -644,10 +748,10 @@ void _finegray_weight_diag(
     st_matrix("_finegray_nwtwarn", nwtwarn)
 
     /* The flagged group codes are a STRING, so they cannot ride back in a matrix.
-       st_local writes into the calling ado's scope -- unlike st_global, which
-       would need a name Stata accepts (a global may not begin with an underscore:
-       `global _finegray_warnstrata ""` is r(198)) and would clobber a same-named
-       global belonging to the user. */
+       st_local writes into the calling ado's scope.  st_global would not work
+       here: a Stata macro of that kind may not begin with an underscore (the
+       assignment is rejected with r(198)), and any name that IS accepted could
+       collide with one the user already set. */
     st_local("_fg_warnstrata", warnstr)
 }
 
@@ -1477,7 +1581,7 @@ void _finegray_engine(
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
     real scalar step_scale, halving, max_halvings, chi2, df_m
-    real scalar decrement, accepted, n_clust, rank_V
+    real scalar decrement, accepted, n_clust, rank_V, npos
     string rowvector vars
 
     /* Read data */
@@ -1507,6 +1611,23 @@ void _finegray_engine(
 
     /* Compute censoring distribution */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+
+    /* Positivity BEFORE the fit.  A(t) is a function of the data alone -- it does
+       not depend on beta -- so a degenerate weight is knowable before a single
+       Newton step, and reporting it as "convergence not achieved" 200 iterations
+       later is a diagnosis of the wrong thing. */
+    npos = _finegray_positivity_check(t, delta, cause, censval, event_type,
+        G, byg_id, t0, tg_id)
+    if (npos > 0) {
+        errprintf("finegray: positivity violation in the delayed-entry weights\n")
+        errprintf("  %g competing-event subject(s) have A(X_i-) = 0 in their own weight\n", npos)
+        errprintf("  stratum, so the weight A(t-)/A(X_i-) is undefined for them\n")
+        errprintf("  they exited from a competing event before enough subjects in that\n")
+        errprintf("  stratum had entered to estimate the entry distribution there\n")
+        errprintf("  affected weight strata: %s\n", st_local("_fg_posstrata"))
+        errprintf("  use coarser strata()/truncstrata(), or a later time origin\n")
+        exit(error(459))
+    }
 
     /* Starting values: zeros */
     beta = J(p, 1, 0)
@@ -1558,8 +1679,8 @@ void _finegray_engine(
            immediately, stranding the fit at a worse optimum while still
            reporting converged=1.
 
-           Near the optimum the decrement is ~2*(ll_max - ll), so `decrement <
-           tol` means the likelihood is within tol/2 of its maximum. */
+           Near the optimum the decrement is ~2*(ll_max - ll), so a decrement
+           below tol means the likelihood is within tol/2 of its maximum. */
         decrement = score_vec' * step
         if (decrement < 0) decrement = 0    /* info is PSD; absorb fp noise */
 

@@ -69,6 +69,11 @@ local iiw_slack       = 0.05
 {
 *Install iivw from the local package directory (qa runs from iivw/qa/)
 local pkg_dir "`c(pwd)'/.."
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
 

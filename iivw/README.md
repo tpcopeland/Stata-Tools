@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 1.9.7** | 2026-07-13
+**Version 2.0.0** | 2026-07-13
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -63,6 +63,7 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 | `iivw_fit ..., model(mixed)` with weights | Add `experimentalmixed` | The IIW weights enter `mixed` as a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated even though they are printed. Use `model(gee)` for the primary weighted analysis. |
 | Time-varying `treat_cov()` | Build the baseline value yourself | The propensity model is fitted on one row per subject. A time-varying covariate silently entered as whatever value landed on the earliest retained row — not a baseline value. |
 | `r(informative)`, `r(hr_weighted)` | **Gone** | Both encoded a verdict that was wrong in the package's own known-truth scenario. Read `r(leverage)` and `r(balance_flag)` together instead. See [Diagnostic Decision Guide](#diagnostic-decision-guide). |
+| `r(group_labels)`, `r(term_labels)`, `r(skipped_labels)` (pipe-joined) | `r(group_label_1)`…, `r(term_label_1)`…, `r(skipped_label_1)`…, with counts in `r(n_groups)`, `r(n_terms)`, `r(n_skipped)` | A `|` is legal label text, so the joined macro could not be parsed back: `"a\|b"` was indistinguishable from two groups labelled `a` and `b`. The old code also deleted every double quote from a label before exporting it. Labels are now carried verbatim into both `r()` and Excel. |
 
 `iivw_balance` also now reports a **target SMD** — the gap between the IIW-weighted visit distribution and the at-risk person-time distribution it is supposed to reproduce. The older "composition shift" number is still shown, but it is descriptive: a large shift is what a working weight *does*, not evidence that anything is wrong. Only the target SMD has a null at zero.
 
@@ -592,6 +593,43 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting: Informative censoring, variable selection, and weight trimming. *Statistical Methods in Medical Research*. 2025;34(5):915-937. doi:10.1177/09622802241313289.
 
 ## Version History
+
+### v2.0.0 (2026-07-13)
+
+**Breaking release.** A 1.x script will error rather than run. See [Migrating to 2.0.0](#migrating-to-200) for the full table. Every break below exists because the old behavior produced a plausible-looking number that was wrong.
+
+**Weight contracts**
+- An end-of-follow-up specification — one of `censor()`, `maxfu()`, or `endatlastvisit` — is now **required** for IIW/FIPTIW. Without an observation window the intensity model cannot tell a subject who stopped being observed from one who simply had no further visits. `endatlastvisit` reproduces 1.x and attenuated the visit-intensity coefficient by ~26% in a known-truth check
+- `baseline(entry)` is now the default and `nobaseevent` is gone; `baseline(event)` (the 1.x default) must be requested explicitly. Modeling the first visit as a recurrent event lets its own covariates predict its own occurrence
+- `treat_cov()` must be **subject-constant**. The propensity model is fitted on one row per subject, so a time-varying covariate was silently entering as whatever value landed on the earliest retained row — not a baseline value, and it moved when an `if` changed
+- Nonconvergence in any weight model is an error, not a warning; `allownonconverged` stamps the data, and the stamp survives a later `iivw_fit` rather than being laundered by it
+
+**Diagnostics**
+- `iivw_balance` reports a **target SMD**: the gap between the IIW-weighted visit distribution and the at-risk person-time distribution it is supposed to reproduce (Bůžková & Lumley 2007, eq. 9). This is the quantity with a null at zero, and it is what `r(balance_flag)` is now computed from
+- The old "composition shift" is retained but is descriptive only. A large shift is what a *working* weight does; the previous code called it "poor"
+- `r(informative)` and `r(hr_weighted)` are **removed**. Both encoded a verdict that was wrong in the package's own known-truth scenario. A pweighted AG refit has no null at zero, so `r(hr_weighted)` could not be read as a balance result
+- No balance verdict is issued when the weights came from a nonconverged model
+
+**Output and contracts**
+- A failed Excel export no longer discards the analytical results: all three reporting commands now post their full `r()` surface and *then* re-raise the export's return code. Previously an unwritable path cost you the diagnostic you had already computed — and in `iivw_exogtest` it also rolled back the lag variables it had just created
+- Stale weights are detected. `iivw_weight` stamps a sort-invariant fingerprint of the data the weights describe; `iivw_fit` and `iivw_balance` refuse to run if rows, the id/time key, the visit covariates, or the weight column have changed since. Re-sorting is safe
+- Export-only options (`sheet()`, `title()`, `decimals()`, theme/border/zebra, and `replace` for balance/diagnose) now error without `xlsx()` instead of being silently ignored
+- Excel worksheet lookup is case-insensitive, as Excel itself is: writing `Balance` then `balance` no longer dies trying to add a duplicate sheet
+- A missing `cvcut()`/`balcut()`/`essratiocut()`/`true()` is rejected. Every finite number is less than missing, so `cvcut(.)` had classified a CV of 0.64 as "low" and `balcut(.)` called any imbalance "good"
+- `open` dispatches per operating system (`start`/`open`/`xdg-open`) instead of always calling Linux's `xdg-open`, and reports the launch as attempted rather than confirmed — the child's exit status is unreachable from Stata
+- A weighted `model(mixed)` requires `experimentalmixed`. The IIW weights enter `mixed` as a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated even though they print
+- **Labels are no longer mangled on the way out.** `iivw_balance` deleted every double quote from a variable label before writing it to Excel, and `iivw_exogtest` did the same to term and group labels and then joined them with an unescaped `|` — so a label such as `Cohort "A" | high risk` could not round-trip through either the workbook or the returned macros. Labels are now carried verbatim. **Breaking:** `r(group_labels)`, `r(term_labels)`, and `r(skipped_labels)` are replaced by indexed returns — `r(group_label_1)`, `r(term_label_1)`, `r(skipped_label_1)`, … — with counts in `r(n_groups)`, `r(n_terms)`, and `r(n_skipped)`. A delimited macro is unparseable when the delimiter is legal label text: `"a|b"` could not be told apart from two groups, `a` and `b`
+- The Excel border documentation now describes the borders the code actually draws. All three export help files promised "a full thin grid — an outer box plus interior horizontal and vertical rules"; `thin`/`medium` in fact draw the tabtools house style — an outer frame, rules in the header band, and vertical separators between column groups, with no interior horizontal rules between data rows
+
+**QA and release infrastructure** (no shipped behavior change, but this is why the release is trustworthy)
+- An invalid case selector is now an error. `do test_iivw_exogtest.do 999` used to execute no test, finish with `fail_count == 0`, print an all-passed banner and exit 0 — a typo in a selector was indistinguishable from a green suite. Twelve suites shared the pattern
+- Every suite emits one `RESULT: <name> tests=N pass=N fail=N skip=N` sentinel on both the pass and the fail path. Seven suites printed prose on success, so the parser could read a pass count off a suite it had never verified
+- No suite writes a log, workbook, or dataset into the package tree, and the release gate now fails on any it finds instead of whitelisting them. The tree had accumulated 17 gitignored logs (~4 MB), and the cross-validation ones carry the local Stata license header
+- Every suite sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` before installing. A standalone suite run used to rewrite the user's real ado tree; one audit run left `iivw` pointing at `/tmp` and removed `tabtools` outright
+- Package paths are derived by stripping the known suffix by length, not with first-occurrence `subinstr()`, which turned `/tmp/qa-audit-42/iivw/qa` into a nonexistent `/tmp-audit-42/iivw`
+- The IrregLong cross-validation now requires **exact** parity on the weights as well as the coefficient. Matching the coefficient proves both sides fit the same Cox model; it says nothing about the sign of the exponent, the centering convention, or the first-visit rule, all of which sit downstream of it
+- The R reference generators write their own completion sentinel and a package-version manifest as their last statements. Stata's `shell` does not propagate a child's exit status, so a failed R run previously left the reference CSVs stale while the crossval lane compared against them and passed
+- The demo builds every asset in a staging directory and publishes atomically, into sandboxed sysdirs, restoring the graph scheme. It used to delete the four tracked documentation assets up front, so a mid-demo failure left them missing
 
 ### v1.9.7 (2026-07-13)
 

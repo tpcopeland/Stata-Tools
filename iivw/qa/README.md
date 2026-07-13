@@ -21,6 +21,30 @@ Every `test_*.do`, `validation_*.do`, and `crossval_*.do` file is independently
 runnable from this directory. Individual suites perform a targeted local
 reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 
+### Reading the result
+
+`stata-mp -b do` returns shell exit status 0 unconditionally on this platform,
+even after `exit 1` or a failed `assert`. **Never gate on `$?`.** Read one of:
+
+- `qa/run_all_status.txt` — first line is `PASS` or `FAIL`
+- the final log line — `RUNALL: status=PASS|FAIL suites=N pass=N fail=N`
+
+### Lane dependencies
+
+Each lane needs strictly more than the one before it. A lane whose dependencies
+are missing fails loudly; it does not silently skip.
+
+| Lane | Needs | Notes |
+|------|-------|-------|
+| `quick` | Stata 16+, Python 3 with `openpyxl` | The reporting-export suites open the generated workbooks and inspect cells and styling, so `openpyxl` is a **quick-lane** requirement, not a full-lane one. |
+| `sim` | Stata 16+ | Long-form simulation gates (Scenarios A–E). |
+| `full` | everything above, plus R with `IrregLong`, `geepack`, `survival`, `nlme`, `ipw`, `cobalt` | `full` regenerates the reference CSVs from the R scripts before comparing. `ipw` and `cobalt` are needed by `crossval_iivw_external_refs.R`; they were once missing from the runner's dependency message, and the external lane false-greened against stale CSVs as a result. |
+
+The `full` lane refuses to continue if either R script fails, rather than
+comparing against whatever CSVs happen to be on disk. It detects the failure
+with a sentinel file, because Stata's `shell` does not propagate a child's exit
+status (`_rc` is 0 even when the command is missing).
+
 ## Conventions
 
 - `test_*.do` files cover functional, adversarial, integration, release, and
@@ -30,10 +54,28 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 - `crossval_*.do` files compare against independently computed R results.
 - `sim_*.do` files are long-form simulation gates selected by the `sim` and
   `full` lanes.
-- Test files emit a `RESULT: ... tests=N pass=N fail=N` sentinel and exit
-  nonzero on failure.
-- Disposable logs and workbooks are runtime artifacts, not fixtures. Paths are
-  derived from `c(pwd)` or `c(tmpdir)`.
+- Test files emit a `RESULT: <name> tests=N pass=N fail=N skip=N` sentinel on
+  **both** the pass and the fail path, and exit nonzero on failure. The shared
+  `iivw_qa_summary` in `_iivw_qa_common.do` is the single place that writes it;
+  suites do not hand-roll their own success banner.
+- Selectable suites take an optional case selector (`stata-mp -b do suite.do 7`).
+  An invalid selector is an **error**, not a silent no-op: `iivw_qa_selector`
+  rejects a non-integer or negative value, and `iivw_qa_summary` refuses to call
+  a run green when it executed zero cases. Before 2.0.0, `do suite.do 999` ran
+  nothing, reported `fail=0`, printed an all-passed banner and exited 0.
+- Suites do not write logs, workbooks, or datasets into the package tree. Every
+  runtime artifact is staged under `c(tmpdir)` via `tempfile`, and the release
+  gate (`test_iivw_release_adversarial.do`) **fails** on any `.log`, `.smcl`,
+  `.dta`, or `.xlsx` found in the package or `qa` directory. Cross-validation
+  logs carry the local Stata license header, so they are sensitive debris rather
+  than mere clutter.
+- Every suite sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` before installing
+  (`iivw_qa_sandbox`), so running one standalone cannot rewrite the user's real
+  ado tree — which is how an audit run once left `iivw` pointing at `/tmp` and
+  removed `tabtools` outright.
+- Package paths are stripped by known-suffix **length**, never with
+  first-occurrence `subinstr()`. A run from `/tmp/qa-audit-42/iivw/qa` used to
+  derive a nonexistent `/tmp-audit-42/iivw`.
 
 ## File index
 
@@ -78,6 +120,15 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
   lookup, the stale-weight signature, the `treat_cov()` baseline contract, the
   weighted-`mixed` acknowledgment, and a documentation-reality check that runs
   the README Quick Start straight out of the shipped file (H9-H16, H18, C10).
+- `test_iivw_v200_phase3b.do` — label serialization, documentation contracts,
+  and QA-infrastructure gates: variable and value labels containing `"` or `|`
+  round-trip through the indexed `r(*_label_#)` returns and into Excel; the
+  border documentation matches the borders the code draws; the selector and
+  summary contracts refuse a zero-execution run (proved end to end against a
+  real suite); no suite emits prose instead of the `RESULT:` sentinel, derives a
+  path with first-occurrence `subinstr()`, or writes an artifact into the tree;
+  and the demo stages its assets and publishes atomically (H14, D3, Q5, Q6, Q8,
+  Q9, Q12).
 - `test_iivw_v200_coverage.do` — surface added in Phases 0-2 that no other suite
   exercised: the convergence guard, the nonconverged-weight taint (and that
   `iivw_fit` does not launder it), the refit counts, the risk-set returns, and

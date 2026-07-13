@@ -15,3 +15,8 @@ __pycache__/
 
 # Editor / R debris
 .Rhistory
+
+# QA crossval completion sentinels. Written by the R reference generators as
+# their last statement and consumed by run_all.do to prove the reference CSVs
+# were regenerated rather than left stale. Pure runtime state, never committed.
+*.ok

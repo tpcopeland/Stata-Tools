@@ -1,6 +1,7 @@
-*! _finegray_weight_groups.ado
-*! Deterministic reconstruction of the IPCW weight strata.
-*! Internal helper for finegray -- not a user command.
+*! _finegray_weight_groups Version 1.1.4  2026/07/13
+*! Deterministic reconstruction of the IPCW weight strata
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Program class: internal (creates caller-named group variables)
 
 * Builds the two group variables the Mata engine indexes its weights by:
 *

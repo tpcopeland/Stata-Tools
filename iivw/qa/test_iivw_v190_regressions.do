@@ -10,7 +10,15 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_iivw_v190_regressions.log", replace nomsg
+* Q6: no disposable log in the package tree. This suite used to write
+* test_iivw_v190_regressions.log into qa/, which is gitignored but is still ~4 MB of debris carrying the
+* local Stata license header, and the release hygiene gate had been taught to
+* whitelist exactly these files. The batch invocation
+* (`stata-mp -b do <suite>.do') already produces a readable log in the cwd, and
+* run_all.log captures everything when the suite runs under the runner, so the
+* named log was pure redundancy.
+tempfile _suite_log
+log using "`_suite_log'", replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -18,7 +26,14 @@ local fail_count = 0
 
 * Bootstrap: derive package root from qa/ working directory
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -171,34 +186,45 @@ else {
     local ++fail_count
 }
 
-**# T4: weighted model(mixed) fence note fires; absent when unweighted
+**# T4: weighted model(mixed) is GATED (2.0.0); the note fires once acknowledged
+*
+* Before 2.0.0 this fence was only a `note:'. A note does not stop anyone, and
+* the variance components it warns about print immediately below it looking as
+* authoritative as anything else. 2.0.0 requires experimentalmixed instead, so
+* this test now pins the gate as well as the note.
 
 local ++test_count
 if c(stata_version) >= 17 {
     capture noisily {
         _iivw_v190_panel, nsubj(80)
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
-        * weighted mixed -> fence note present
+
+        * weighted mixed WITHOUT the acknowledgment -> hard error, no fit
+        capture iivw_fit edss treated edss_bl, model(mixed) timespec(linear) nolog
+        assert _rc == 198
+
+        * weighted mixed WITH the acknowledgment -> fits, and the note fires
         capture log close iivwcap
         log using "`capf'", replace text name(iivwcap)
-        iivw_fit edss treated edss_bl, model(mixed) timespec(linear) nolog
+        iivw_fit edss treated edss_bl, model(mixed) timespec(linear) ///
+            experimentalmixed nolog
         log close iivwcap
-        _iivw_log_has using "`capf'", pattern("does not rescale these across levels")
+        _iivw_log_has using "`capf'", pattern("consistently weight-estimated")
         assert r(found) == 1
 
-        * unweighted mixed -> note absent
+        * unweighted mixed -> no gate, no note
         capture log close iivwcap
         log using "`capf'", replace text name(iivwcap)
         iivw_fit edss treated edss_bl, model(mixed) timespec(linear) ///
             unweighted id(id) time(days) nolog
         log close iivwcap
-        _iivw_log_has using "`capf'", pattern("does not rescale these across levels")
+        _iivw_log_has using "`capf'", pattern("consistently weight-estimated")
         assert r(found) == 0
     }
     local t4rc = _rc
     capture log close iivwcap
     if `t4rc' == 0 {
-        display as result "  PASS: T4 - weighted mixed fence note fires, absent unweighted"
+        display as result "  PASS: T4 - weighted mixed gated; note fires once acknowledged; unweighted clean"
         local ++pass_count
     }
     else {

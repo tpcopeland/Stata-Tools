@@ -26,7 +26,7 @@ Every executable test passes, with no skips.
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
-| `test_finegray.do` | functional / regression | 130 | 130 | 0 | 0 |
+| `test_finegray.do` | functional / regression | 133 | 133 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
 | `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 14 | 14 | 0 | 0 |
 | `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, safe saving) | 10 | 10 | 0 | 0 |
@@ -46,7 +46,89 @@ Every executable test passes, with no skips.
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| **Total** | | **363** | **363** | **0** | **0** |
+| `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 25 | 25 | 0 | 0 |
+| `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (60 datasets, arms A/B/D) | 62 | 62 | 0 | 0 |
+| **Total** | | **450** | **450** | **0** | **0** |
+
+### The delayed-entry (ZZF) suites
+
+`finegray` estimates the subdistribution hazard under left truncation with the
+stabilized Zhang–Zhang–Fine Weight-1 estimator, using Geskus's product form
+`A(t) = G(t−)·H(t−)`. Two suites guard it, and they answer different questions:
+
+- **`crossval_finegray_zzf.do` — is it the right estimator?** It fits the *same 60
+  datasets* with Stata's `finegray` and with an independent R implementation and
+  requires the coefficients to agree (worst observed relative difference 4.4e-6,
+  which is the two optimizers' tolerance floor). This is a *per-dataset*
+  comparison, not a comparison of Monte-Carlo means — and that distinction is the
+  whole point. Bias is a property of the *estimator*, so a recovery study can
+  never separate "this code is wrong" from "this estimator is biased here." Twenty
+  datasets settle that; a million replications would not.
+  Regenerate the oracle first, from `finegray/qa`:
+  `Rscript crossval_finegray_zzf_beta_r.R`
+- **`test_finegray_zzf.do` — is the surface sound?** Option parsing, the hard
+  support boundaries, the stored `e()` contract, and — the one that matters —
+  that changing a `truncstrata()` variable after estimation makes `finegray_cif`
+  and `finegray_phtest` *fail* (`r(459)`) rather than silently rebuild a different
+  weight design and report it as the fitted model.
+
+**The delayed-entry breaking change (Z8, Z21, Z22).** Under left truncation the
+weights are `A = G·H` and `A` is estimated per joint group, so 150 `strata()`
+levels are 150 *weight* strata **even with no `truncstrata()`** — and the >100
+boundary therefore refuses a delayed-entry model that the released version fitted.
+Without left truncation the same 150 strata still fit, because the no-LT path is
+required to stay bit-identical and an error is not bit-identical. That asymmetry
+is deliberate, so it is pinned from both sides: Z8 asserts the no-LT fit still
+succeeds, Z21 asserts the LT fit is `r(459)`, and Z22 asserts the refusal *names
+the option the user actually typed* — the first version of that message blamed a
+cross-classification with `truncstrata()` even when `truncstrata()` was never
+specified. A guard that fires correctly but explains itself falsely is still a
+defect, so the message text is part of the contract.
+
+**The hard positivity failure (Z23).** A retained competing-event subject carries
+weight `A_g(t−)/A_g(X_i−)`. If its own stratum's `A_g(X_i−)` is **zero**, that
+weight is undefined — and Mata returns *missing* for `x/0`, not infinity, so before
+the guard existed this surfaced far downstream as "the null log pseudo-likelihood
+is not finite" and `r(430)` **convergence not achieved**: a message that blames the
+optimizer for a property of the data and names no stratum. It is now a hard
+`r(459)` that reports how many subjects and which weight strata.
+
+This was **found, not designed**: a benchmark lane (n = 8,000, 50 truncation strata)
+died on it, and 39 competing subjects turned out to have `A(X_i−)` *bit-exactly*
+zero — in a stratum holding 168 subjects, **eight times the ≥20-subject support
+boundary**. That is the whole point of Z23: the size boundary bounds how many
+subjects a stratum *holds*, not whether `A` stays away from zero where the scan
+actually divides by it, so Z6 cannot stand in for it. Splitting the sample into
+more weight strata makes the violation *more* likely, because each stratum's entry
+distribution `Ĥ_g` is then estimated from fewer subjects.
+
+**Refit fidelity (Z24).** `e(refitcmd)` is what `finegray_cif`'s bootstrap re-issues
+on every resample. A fit option dropped from it does **not** error there: the refit
+converges, its covariates still match the stored profile, so the replication is
+*accepted* — and the bootstrap silently describes a **different estimator** than the
+point estimate it is wrapped around. `truncstrata()` was in fact missing, so a
+bootstrapped ZZF fit was resampling the **pooled-weight** estimator; against the
+pre-fix code Z24 shows a coefficient difference of **0.113**. Z24 deliberately does
+*not* look for the option by name — it asserts the invariant that running
+`e(refitcmd)` reproduces `e(b)`, so any fit option dropped in future fails on its own.
+
+**The weight warnings actually fire (Z25).** Z14 only proves they stay *silent* on
+clean data, which a warning that can never fire also passes. Z25 fires them. It also
+guards a threshold collision worth remembering: the first positivity guard errored
+whenever `A(X_i−) ≤ 1e-10` — the *same* threshold as the low-`A` warning — so the fit
+aborted before the warning could ever be reached, making the denominator half of the
+documented `e()` warning contract unreachable dead code. The two are now distinct:
+
+| condition | weight | behaviour |
+|---|---|---|
+| `A == 0` | **undefined** (Mata: `x/0` is missing) | hard `r(459)` |
+| `0 < A < 1e-10` | defined but enormous | **warn**, and still fit |
+
+**Not in any lane yet:** `validation_finegray_zzf_recovery.do`, the known-truth
+recovery Monte Carlo (100 reps × n = 100,000; hours, not minutes). Its Gate
+Z2-green is not fully green — arms A/B/C recover, but the deliberately
+misspecified negative control is still being adjudicated on its second
+coefficient. It is run by hand until that closes.
 
 Last full run: 2026-07-12 via `stata-mp -b do run_all.do full`, R with `cmprsk`
 and `riskRegression` present.
@@ -98,6 +180,7 @@ failure — so a non-zero exit code or a `fail=` count above zero flags a proble
 | `crossval_finegray.do` | R + `cmprsk` (required); `fastcmprsk` (optional) |
 | `crossval_cif.do` | R + `riskRegression` |
 | `crossval_predict_phtest.do` | R + `cmprsk` |
+| `crossval_finegray_zzf.do` | R (base only). Run `Rscript crossval_finegray_zzf_beta_r.R` first — the `.do` file **fails** rather than skips if the oracle is absent, because a crossval that reports success when the reference implementation never ran is worse than no crossval |
 
 R-backed suites are **SKIP-safe**: if R or the reference package is missing they
 report a skip rather than a failure, so the suite still runs on a Stata-only

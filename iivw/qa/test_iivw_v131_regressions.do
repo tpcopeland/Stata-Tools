@@ -27,7 +27,14 @@ if "`basename'" != "qa" {
     display as error "test_iivw_v131_regressions.do must be run from iivw/qa"
     exit 198
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -58,7 +65,7 @@ local ++test_count
 capture noisily {
     _iivw_v131_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, model(mixed) collect nolog
+    capture iivw_fit y treat, model(mixed) experimentalmixed collect nolog
     assert _rc == 198
 }
 if _rc == 0 {

@@ -10,7 +10,11 @@ set varabbrev off
 *   stata-mp -b do test_iivw_exogtest.do 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 **# Setup
 
@@ -21,6 +25,11 @@ if "`base'" != "qa" {
     exit 601
 }
 local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 
 adopath ++ "`pkg_dir'"
 discard
@@ -343,7 +352,7 @@ if `run_only' == 0 | `run_only' == 10 {
 
         assert r(n_models) == 1
         assert r(n_skipped) == 1
-        assert strpos("`r(skipped_labels)'", "1") > 0
+        assert strpos("`r(skipped_label_1)'", "1") > 0
     }
     if _rc == 0 {
         display as result "  PASS: 10 - insufficient groups skipped"
@@ -589,15 +598,6 @@ if `run_only' == 0 | `run_only' == 16 {
 **# Summary
 
 capture adopath - "`pkg_dir'"
-display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_exogtest) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
 
-if `fail_count' > 0 {
-    display as error "FAILED TESTS: `failed_tests'"
-    display "RESULT: test_iivw_exogtest tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    exit 1
-}
-else {
-    display as result "ALL TESTS PASSED"
-}
-
-display "RESULT: test_iivw_exogtest tests=`test_count' pass=`pass_count' fail=`fail_count'"

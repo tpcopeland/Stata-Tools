@@ -32,19 +32,46 @@ else {
 }
 confirm file "`repo_dir'/iivw/iivw.pkg"
 local pkg_dir "`repo_dir'/iivw/demo"
-local xlsx "`pkg_dir'/iivw_results.xlsx"
-local export_xlsx "`pkg_dir'/iivw_reporting_exports.xlsx"
-local psdash_dashboard "`pkg_dir'/iivw_psdash_dashboard.png"
-local psdash_final_weights "`pkg_dir'/iivw_psdash_final_weights.png"
 capture mkdir "`pkg_dir'"
-capture erase "`psdash_dashboard'"
-capture erase "`psdash_final_weights'"
-capture erase "`xlsx'"
-capture erase "`export_xlsx'"
-capture erase "`pkg_dir'/iivw_balance.csv"
-capture erase "`pkg_dir'/iivw_diagnostics.csv"
+
+**# Staging
+* The demo used to erase the four tracked demo assets at the top and write the
+* replacements as it went, so a failure anywhere in the middle left the repo
+* with the documentation assets missing or half-written. Everything is now built
+* in a staging directory under c(tmpdir); the tracked files are replaced only at
+* the very bottom, after every assert in this file has passed. A demo that dies
+* halfway leaves the committed assets exactly as they were.
+tempfile _stub
+local stage "`_stub'_demo"
+capture mkdir "`stage'"
+confirm file "`stage'"
+
+local xlsx "`stage'/iivw_results.xlsx"
+local export_xlsx "`stage'/iivw_reporting_exports.xlsx"
+local psdash_dashboard "`stage'/iivw_psdash_dashboard.png"
+local psdash_final_weights "`stage'/iivw_psdash_final_weights.png"
+
+* The assets this demo publishes. Nothing outside this list is touched.
+local demo_assets ///
+    iivw_results.xlsx ///
+    iivw_reporting_exports.xlsx ///
+    iivw_psdash_dashboard.png ///
+    iivw_psdash_final_weights.png
 
 **# Install packages from local source
+* Into a sandboxed ado tree, not the user's. The demo installs four packages and
+* uninstalls whatever the user already had; run against the real PLUS that
+* silently rewrites their environment, and a mid-demo failure leaves it rewritten.
+local orig_plus     "`c(sysdir_plus)'"
+local orig_personal "`c(sysdir_personal)'"
+local sandbox "`_stub'_sysdir"
+capture mkdir "`sandbox'"
+capture mkdir "`sandbox'/plus"
+capture mkdir "`sandbox'/personal"
+confirm file "`sandbox'/plus"
+sysdir set PLUS     "`sandbox'/plus"
+sysdir set PERSONAL "`sandbox'/personal"
+
 capture ado uninstall iivw
 quietly net install iivw, from("`repo_dir'/iivw") replace
 capture ado uninstall psdash
@@ -53,6 +80,8 @@ capture ado uninstall tabtools
 quietly net install tabtools, from("`repo_dir'/tabtools") replace
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`repo_dir'/tc_schemes") replace
+
+local orig_scheme "`c(scheme)'"
 set scheme plotplainblind
 
 **# Generate synthetic longitudinal SDMT-like data
@@ -83,6 +112,20 @@ bysort id: gen double gap = cond(_n == 1, 0, ///
     0.025 * edss0 + rnormal(0, 0.08)))
 bysort id: gen double years = sum(gap)
 replace years = round(years, 0.01)
+
+* Administrative end of follow-up, constant within subject.
+*
+* Every subject is enrolled for a fixed observation window and is followed to
+* the study close whether or not they keep coming in. That window is what the
+* visit-intensity model needs, and from 2.0.0 iivw_weight refuses to guess it:
+* the alternative -- ending each subject's follow-up at their last visit -- makes
+* a patient leave the risk set BECAUSE they stopped visiting, which is the very
+* process being modeled, and it attenuated the visit-intensity coefficient by
+* ~26% in a known-truth check.
+bysort id: egen double _lastvisit = max(years)
+bysort id: gen double fu_end = max(3.5, _lastvisit)
+drop _lastvisit
+label variable fu_end "Administrative end of follow-up (years)"
 
 gen double true_sdmt = sdmt0 + 0.16 * years + 0.38 * tx * years - ///
     0.18 * edss0 * years + rnormal(0, 2.4)
@@ -129,7 +172,7 @@ estimates store M_unweighted
 
 * # Step 2: FIPTIW weights and leverage diagnostics
 iivw_weight, ///
-    id(id) time(years) ///
+    id(id) time(years) censor(fu_end) ///
     visit_cov(tx age female edss0 sdmt0 dur naive) ///
     lagvars(sdmt relapse) ///
     treat(tx) ///
@@ -170,7 +213,7 @@ estimates store M_adjusted
 
 * # Step 6: exogeneity check and diagnostic decomposition
 iivw_exogtest sdmt relapse, ///
-    id(id) time(years) ///
+    id(id) time(years) censor(fu_end) ///
     adjust(age female edss0 sdmt0 dur naive) ///
     by(tx) efron nolog ///
     xlsx("`export_xlsx'") sheet("Exogeneity") ///
@@ -202,7 +245,7 @@ label define visit_wave_demo 1 "Baseline" 2 "Month 6" ///
 label values visit_wave visit_wave_demo
 
 iivw_weight, ///
-    id(id) time(visit_wave) ///
+    id(id) time(visit_wave) maxfu(4) ///
     visit_cov(tx age female edss0 sdmt0 dur naive relapse) ///
     treat(tx) ///
     treat_cov(age female edss0 sdmt0 dur naive) ///
@@ -238,7 +281,11 @@ quietly import excel using "`export_xlsx'", sheet("Balance") clear allstring
 quietly count
 assert r(N) > 0
 assert C[2] == "Means"
-assert F[2] == "Balance"
+* "Composition shift", not "Balance". iivw_balance no longer claims to measure
+* covariate balance: an IIW weight has no treatment-side target to balance
+* TOWARD, so what the column actually reports is how the weights move the
+* covariate composition of the visit sample. The header was renamed to say so.
+assert F[2] == "Composition shift"
 assert B[3] == "Covariate"
 quietly count if B == "Age at treatment start"
 assert r(N) == 1
@@ -308,7 +355,7 @@ label define visit_wave_demo 1 "Baseline" 2 "Month 6" ///
 label values visit_wave visit_wave_demo
 
 iivw_weight, ///
-    id(id) time(visit_wave) ///
+    id(id) time(visit_wave) maxfu(4) ///
     visit_cov(tx age female edss0 sdmt0 dur naive relapse) ///
     treat(tx) ///
     treat_cov(age female edss0 sdmt0 dur naive) ///
@@ -337,6 +384,24 @@ assert `found_wave_label' == 1
 restore
 
 
+**# Publish
+* Every assert above has passed and every asset exists in staging. Only now are
+* the tracked files replaced. Staging is validated first, so we never delete a
+* good committed asset in order to write a missing one.
+foreach a of local demo_assets {
+    confirm file "`stage'/`a'"
+}
+foreach a of local demo_assets {
+    copy "`stage'/`a'" "`pkg_dir'/`a'", replace
+    confirm file "`pkg_dir'/`a'"
+}
+display as result "Published `: word count `demo_assets'' demo assets to `pkg_dir'"
+
 **# Cleanup
+* Restore the session state the demo changed. (In batch these die with the
+* process anyway; they matter when the demo is run interactively.)
+set scheme `orig_scheme'
+sysdir set PLUS     "`orig_plus'"
+sysdir set PERSONAL "`orig_personal'"
 capture log close _all
 clear

@@ -9,7 +9,14 @@ set varabbrev off
 *   cd iivw/qa && stata-mp -b do test_iivw_fit_unweighted.do
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 ado dir
 capture ado uninstall iivw

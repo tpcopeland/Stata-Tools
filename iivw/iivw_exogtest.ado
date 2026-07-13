@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.9.7  2026/07/13
+*! iivw_exogtest Version 2.0.0  2026/07/13
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -322,10 +322,13 @@ program define iivw_exogtest, rclass sortpreserve
         quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
         local vlab : variable label `v'
         if `"`vlab'"' == "" local vlab "`v'"
-        local vlab = subinstr(`"`vlab'"', char(34), "", .)
+        * The label is carried verbatim -- quotes and pipes are legal label text.
+        * It reaches Excel through a compound-quoted -frame post-, and it reaches
+        * the caller through the indexed r(term_label_#) returns below, neither
+        * of which needs a delimiter. The old code stripped every double quote
+        * and then joined the labels with an unescaped "|", so a label like
+        * `Cohort "A" | high risk' could not round-trip through either.
         local __iivw_term_label_`lag_index' `"`vlab' (lag 1)"'
-        local __iivw_term_labels ///
-            `"`__iivw_term_labels'|`__iivw_term_label_`lag_index''"'
         local __iivw_lag_label `"`__iivw_term_label_`lag_index''"'
         if strlen(`"`__iivw_lag_label'"') > 80 {
             local __iivw_lag_label = substr(`"`__iivw_lag_label'"', 1, 77) + "..."
@@ -333,7 +336,7 @@ program define iivw_exogtest, rclass sortpreserve
         label variable `lagname' `"`__iivw_lag_label'"'
         local __iivw_created_vars "`__iivw_created_vars' `lagname'"
     }
-    local __iivw_term_labels = substr(`"`__iivw_term_labels'"', 2, .)
+    local __iivw_n_terms = `lag_index'
 
     preserve
     local __iivw_restore_needed = 1
@@ -484,8 +487,6 @@ program define iivw_exogtest, rclass sortpreserve
     local joint_min_p = .
     local endogenous_flag = 0
     local row_labels ""
-    local group_labels ""
-    local skipped_labels ""
     local __iivw_fitted_groups ""
 
     display as text ""
@@ -509,14 +510,12 @@ program define iivw_exogtest, rclass sortpreserve
         if "`by'" != "" {
             local glabel : label `group_vallab' `g'
             if `"`glabel'"' == "" local glabel "`g'"
-            local glabel = subinstr(`"`glabel'"', char(34), "", .)
-            local heading "By group: `by' = `glabel'"
+            local heading `"By group: `by' = `glabel'"'
         }
         else {
             local glabel "overall"
             local heading "Overall model"
         }
-        local group_labels `"`group_labels'|`glabel'"'
         local __iivw_glab_`group_index' `"`glabel'"'
 
         quietly count if `__iivw_usable' & `__iivw_group' == `g'
@@ -542,15 +541,15 @@ program define iivw_exogtest, rclass sortpreserve
 
         if "`skip_reason'" != "" {
             local ++n_skipped
-            local skipped_labels `"`skipped_labels'|`glabel'"'
+            local __iivw_skiplab_`n_skipped' `"`glabel'"'
             display as text ""
-            display as text "`heading'"
+            display as text `"`heading'"'
             display as text "note: skipped (`skip_reason')"
             continue
         }
 
         display as text ""
-        display as text "`heading'"
+        display as text `"`heading'"'
 
         local fit_prefix "noisily"
         if "`log'" == "nolog" local fit_prefix "quietly"
@@ -561,7 +560,7 @@ program define iivw_exogtest, rclass sortpreserve
         local fit_rc = _rc
         if `fit_rc' != 0 {
             local ++n_skipped
-            local skipped_labels `"`skipped_labels'|`glabel'"'
+            local __iivw_skiplab_`n_skipped' `"`glabel'"'
             display as text "note: skipped (Cox model failed with rc=`fit_rc')"
             continue
         }
@@ -637,7 +636,12 @@ program define iivw_exogtest, rclass sortpreserve
             matrix `__iivw_results'[`row', 11] = `gIds'
 
             local row_labels "`row_labels' g`group_index'_t`term_index'"
-            local __iivw_display_term `"`__iivw_term_label_`term_index''"'
+            * Console copy only. A double quote inside a SMCL {ralign 22:...}
+            * directive terminates the -display- string, so the screen version
+            * is sanitized. The exported and returned labels above keep the
+            * user's text verbatim -- this strips nothing they can round-trip.
+            local __iivw_display_term = ///
+                subinstr(`"`__iivw_term_label_`term_index''"', char(34), "'", .)
 
             local p_fmt "."
             if `p' < . {
@@ -684,8 +688,7 @@ program define iivw_exogtest, rclass sortpreserve
     matrix colnames `__iivw_results' = group_index term_index b se z p hr lb ub N n_ids
     matrix rownames `__iivw_results' = `row_labels'
 
-    local group_labels = substr(`"`group_labels'"', 2, .)
-    local skipped_labels = substr(`"`skipped_labels'"', 2, .)
+    local __iivw_n_group_labels = `group_index'
 
     * =====================================================================
     * H5: Holm across the group-wise omnibus tests.
@@ -1043,9 +1046,22 @@ program define iivw_exogtest, rclass sortpreserve
         return local lagvars "`generated_lags'"
         return local adjust "`adjust'"
         return local by "`by'"
-        return local group_labels `"`group_labels'"'
-        return local skipped_labels `"`skipped_labels'"'
-        return local term_labels `"`__iivw_term_labels'"'
+        * Labels are returned one per macro, not joined. A variable or value
+        * label may legally contain "|" (and quotes), so any single-macro
+        * delimited form is lossy: r(group_labels) "a|b" was indistinguishable
+        * from one group actually labelled "a|b". The counts below say how many
+        * indexed macros to read.
+        return scalar n_groups = `__iivw_n_group_labels'
+        return scalar n_terms = `__iivw_n_terms'
+        forvalues __iivw_gi = 1/`__iivw_n_group_labels' {
+            return local group_label_`__iivw_gi' `"`__iivw_glab_`__iivw_gi''"'
+        }
+        forvalues __iivw_si = 1/`n_skipped' {
+            return local skipped_label_`__iivw_si' `"`__iivw_skiplab_`__iivw_si''"'
+        }
+        forvalues __iivw_ti = 1/`__iivw_n_terms' {
+            return local term_label_`__iivw_ti' `"`__iivw_term_label_`__iivw_ti''"'
+        }
         return local result_row_labels "`row_labels'"
         return local result_columns "group_index term_index b se z p hr lb ub N n_ids"
         return local conclusion "`conclusion'"

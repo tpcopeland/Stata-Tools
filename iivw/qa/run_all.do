@@ -129,6 +129,7 @@ else {
         test_iivw_v200_phase1 ///
         test_iivw_v200_phase2 ///
         test_iivw_v200_phase3 ///
+        test_iivw_v200_phase3b ///
         test_iivw_v200_coverage ///
         test_iivw_v200_qagate ///
         test_iivw_final_adversarial ///
@@ -151,7 +152,10 @@ if "`mode'" == "full" {
             sysdir set PERSONAL "`orig_personal'"
             exit 603
         }
-        shell cd "`repo_dir'" && Rscript iivw/qa/`rsrc'.R && touch iivw/qa/`rsrc'.ok
+        * The sentinel is written by the R script's own last statement, not by a
+        * shell `touch': `touch' is Unix-only, and chaining it with && only
+        * proves Rscript exited 0, not that it reached the end of the script.
+        shell cd "`repo_dir'" && Rscript iivw/qa/`rsrc'.R
         capture confirm file "`qa_dir'/`rsrc'.ok"
         if _rc {
             display as error "FAILED: `rsrc'.R did not run to completion"

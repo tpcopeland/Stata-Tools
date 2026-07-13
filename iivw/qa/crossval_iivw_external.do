@@ -15,7 +15,11 @@ set varabbrev off
 * references in this directory.
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 **# Bootstrap
 
@@ -154,6 +158,20 @@ local pass_count = 0
 local fail_count = 0
 
 **# XV1: IIW weights match survival::coxph on bladder2
+*
+* THIS IS THE LEGACY ARM, NOT THE ORACLE. Read the `endatlastvisit
+* baseline(event)' below: those are the pre-2.0.0 semantics, and the R reference
+* is built to match them -- observed event rows only, event_one = 1, no
+* administrative-censoring tail. Both sides therefore compute the SAME reduced
+* risk set, so this test cannot detect the omission of that tail. It could not
+* have caught C1, and it did not.
+*
+* Its job now is narrow and worth keeping: it pins the 1.x behavior so the
+* 2.0.0 change is a documented, tested break rather than a drift.
+*
+* The authoritative parity oracle is XV4b/XV4c in crossval_iivw.do, which runs
+* iivw_weight WITH a follow-up window (maxfu 384) against IrregLong and demands
+* an exact match on both the coefficient and the weights.
 
 local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
@@ -552,17 +570,11 @@ if `run_only' == 0 | `run_only' == 4 {
 
 **# Summary
 
-display as text ""
-display as result "External Cross-Validation: `pass_count'/`test_count' passed, `fail_count' failed"
 display as text "  XV1: IIW vs survival::coxph bladder2"
 display as text "  XV2: IPTW vs ipw::ipwpoint Lalonde"
 display as text "  XV3: FIPTIW/outcome vs survival::coxph + geepack::geeglm Dietox"
 display as text "  XV4: cluster(), level(), family()/link() SE option paths vs geeglm"
+iivw_qa_summary, name(crossval_iivw_external) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' EXTERNAL CROSS-VALIDATION TESTS FAILED"
-    exit 1
-}
-
-display as result "RESULT: ALL `pass_count' EXTERNAL CROSS-VALIDATION TESTS PASSED"
 clear

@@ -10,7 +10,11 @@ set varabbrev off
 *   stata-mp -b do test_iivw_weight_adversarial.do 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * Bootstrap from qa/ working directory
 local qa_dir "`c(pwd)'"
@@ -714,13 +718,6 @@ if `run_only' == 0 | `run_only' == 16 {
 }
 
 * Summary
-display as text ""
-display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-if `fail_count' > 0 {
-    display as error "FAILED TESTS:`failed_tests'"
-    display "RESULT: test_iivw_weight_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    exit 1
-}
+iivw_qa_summary, name(test_iivw_weight_adversarial) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
 
-display as result "ALL TESTS PASSED"
-display "RESULT: test_iivw_weight_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"

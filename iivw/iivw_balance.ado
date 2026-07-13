@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.9.7  2026/07/13
+*! iivw_balance Version 2.0.0  2026/07/13
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -892,7 +892,6 @@ program define iivw_balance, rclass
             strL c8
         local __iivw_export_frame_created = 1
 
-        local __iivw_dq = char(34)
         local __iivw_num_fmt "%9.`__iivw_decimals'f"
         local __iivw_int_fmt "%9.0f"
 
@@ -940,7 +939,9 @@ program define iivw_balance, rclass
             if `"`__iivw_label'"' == "" {
                 local __iivw_label "`__iivw_v'"
             }
-            local __iivw_label = subinstr(`"`__iivw_label'"', `"`__iivw_dq'"', "", .)
+            * Carried verbatim. -frame post- below is compound-quoted, so a
+            * double quote in a variable label survives into the workbook; the
+            * old subinstr silently deleted it from the exported cell.
 
             local __iivw_unw ""
             local __iivw_wgt ""

@@ -182,10 +182,12 @@ cell formatting. The allowed range is 0 through 6; the default is 4.
 
 {phang}
 {opt borderstyle(string)} selects the Excel border scheme and requires {opt xlsx()}. {cmd:thin}
-(the default) draws a full thin grid -- an outer box plus interior horizontal
-and vertical rules -- matching the tabtools house style. {cmd:medium} draws the same
-framed grid with medium lines. {cmd:academic} uses a three-rule (top/header/bottom)
-layout with no vertical rules. {cmd:default} is an alias for {cmd:thin}.
+(the default) draws the tabtools house style: an outer frame, horizontal rules in the
+header band, and vertical separators after the label column and between column
+groups. Data rows are not separated by interior horizontal rules. {cmd:medium} draws
+the same layout with medium lines. {cmd:academic} uses a three-rule
+(top/header/bottom) layout with no vertical rules at all. {cmd:default} is an alias
+for {cmd:thin}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output

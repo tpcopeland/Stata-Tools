@@ -32,12 +32,23 @@ set varabbrev off
 *   stata-mp -b do test_iivw_final_adversarial.do 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 **# Setup
 
 local qa_dir  "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -312,7 +323,7 @@ if `run_only' == 0 | `run_only' == 7 {
         _final_panel, seed(10007)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
-        iivw_fit y severity, model(mixed) mixedopts(iterate(50)) nolog
+        iivw_fit y severity, model(mixed) experimentalmixed mixedopts(iterate(50)) nolog
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
     }
@@ -848,16 +859,8 @@ if `run_only' == 0 | `run_only' == 20 {
 
 **# Summary
 
-display as text ""
-display as result "Final adversarial results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_final_adversarial) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
 
-if `fail_count' > 0 {
-    display as error "FAILED TESTS:`failed_tests'"
-    display "RESULT: test_iivw_final_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    exit 1
-}
-
-display as result "ALL FINAL ADVERSARIAL TESTS PASSED"
-display "RESULT: test_iivw_final_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 clear

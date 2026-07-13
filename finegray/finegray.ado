@@ -322,20 +322,25 @@ program define finegray, eclass sortpreserve
     * Count competing events
     quietly count if `compete' != `censvalue' & `compete' != `cause' & `touse'
     local N_compete = r(N)
-    if `N_compete' == 0 {
-        display as error "no competing events found"
-        display as error "with cause(`cause') and censvalue(`censvalue'), " ///
-            "compete() contains no other event types"
-        exit 198
-    }
 
     * Count censored
     quietly count if `compete' == `censvalue' & `touse'
     local N_cens = r(N)
-    if `N_cens' == 0 {
-        display as error "no censored observations found"
-        exit 198
-    }
+
+    * FG-M06: the "no competing events" and "no censored observations" guards that
+    * used to sit here are GONE.  Both are legitimate limiting cases of the model,
+    * not user errors, and the combined-weight path handles each exactly:
+    *
+    *   no competing events -> no subject is ever retained in a risk set past its
+    *     own exit, so the subdistribution risk set IS the ordinary risk set and the
+    *     estimator collapses to Cox on cause `cause'.  (Verified against stcox.)
+    *   no censoring -> G(t) == 1 everywhere, so A == H (== 1 too without delayed
+    *     entry) and every weight is 1.  Complete follow-up is not a defect.
+    *
+    * They were refused before only because the old G-only weight path had not been
+    * shown to degrade gracefully.  Refusing to fit a model that is perfectly well
+    * defined is its own kind of wrong answer.  Both cases are gated in
+    * qa/test_finegray_zzf.do.
 
     * Validate compete/stset consistency (both directions)
     quietly count if _d == 0 & `compete' != `censvalue' & `touse'
@@ -683,6 +688,12 @@ program define finegray, eclass sortpreserve
         * with many strata() levels is unchanged released behaviour, and turning
         * that into an error would break existing analyses -- the no-LT path is
         * required to stay bit-identical, and an error is not bit-identical.
+        *
+        * BREAKING CHANGE, stated so nobody rediscovers it as a bug: a delayed-entry
+        * fit with more than 100 strata() levels used to run and now hard-errors,
+        * EVEN WITHOUT truncstrata().  Under delayed entry the weights are A = G*H,
+        * and A is estimated per joint group, so 150 censoring strata are 150 weight
+        * strata whether or not the user asked for entry strata.  Guarded by Z21/Z22.
         if `_fg_has_lt' {
             tempvar _fg_jgrp _fg_jn
             if "`_byg_mata'" == "" & "`_tg_mata'" == "" {
@@ -694,10 +705,28 @@ program define finegray, eclass sortpreserve
             quietly summarize `_fg_jgrp', meanonly
             local _fg_njgrp = r(max)
 
+            * Name only the options that actually formed the groups.  Blaming a
+            * cross-classification with truncstrata() when the user never typed
+            * truncstrata() sends them looking for an option they did not use.
+            *
+            * Keep each line short.  Stata wraps display output at linesize, and
+            * test Z22 greps this text -- a message that wraps mid-token would make
+            * the guard's own regression test unfalsifiable.
             if `_fg_njgrp' > 100 {
                 display as error "too many weight strata: `_fg_njgrp' observed joint groups (limit 100)"
-                display as error "strata() and truncstrata() are cross-classified, so the number of"
-                display as error "weight strata is their product of observed combinations"
+                if "`_byg_mata'" != "" & "`_tg_mata'" != "" {
+                    display as error "strata() and truncstrata() are cross-classified:"
+                    display as error "the weight strata are their observed combinations"
+                }
+                else if "`_tg_mata'" != "" {
+                    display as error "the weight strata are the observed levels of truncstrata()"
+                }
+                else {
+                    display as error "the weight strata are the observed levels of strata()"
+                    display as error "under delayed entry the entry distribution is estimated"
+                    display as error "within each censoring stratum, so strata() alone bounds it"
+                }
+                display as error "this limit applies to delayed-entry fits only"
                 display as error "use coarser grouping variables"
                 exit 459
             }
@@ -805,8 +834,22 @@ program define finegray, eclass sortpreserve
     * `finegray x in 101/200' the resampled dataset has 100 rows, `in 101/200'
     * selects nothing, and every replication fails with rc 498.  Rebuild the
     * line from the parsed options with no sample qualifier.
+    * Every option that changes e(b) MUST be replayed here.  e(refitcmd) is what
+    * finegray_cif's bootstrap re-issues on each resample, and a dropped fit option
+    * does not error there: the refit converges, its covariates still match, so the
+    * replication is ACCEPTED and the bootstrap silently describes a DIFFERENT
+    * estimator than the point estimate it is wrapped around.
+    *
+    * truncstrata() was missing here, which meant a bootstrapped ZZF fit resampled
+    * the POOLED-weight estimator.  Guarded by Z24, which does not check for the
+    * option by name -- it asserts that running e(refitcmd) reproduces e(b), so any
+    * future fit option dropped from this list fails the test on its own.
+    *
+    * noshr and level() are deliberately absent: both are display-only and cannot
+    * move e(b).
     local _refitcmd `"finegray `_orig_varlist', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
     if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
+    if "`truncstrata'" != ""     local _refitcmd `"`_refitcmd' truncstrata(`truncstrata')"'
     if "`cluster'" != ""         local _refitcmd `"`_refitcmd' cluster(`cluster')"'
     if "`robust'" == "norobust"  local _refitcmd `"`_refitcmd' norobust"'
     if "`adjust'" == "noadjust"  local _refitcmd `"`_refitcmd' noadjust"'
@@ -842,11 +885,15 @@ program define finegray, eclass sortpreserve
     *   N_prob_warn     : consulted A cells below 1e-10
     *   N_weight_warn   : retained weights above 1e6
     *   weight_warn_strata : joint-group codes contributing a flagged cell/weight
-    capture ereturn scalar N_weight_strata = _finegray_nwstrata[1,1]
-    capture ereturn scalar min_weight_prob = _finegray_minprob[1,1]
-    capture ereturn scalar max_lt_weight   = _finegray_maxwt[1,1]
-    capture ereturn scalar N_prob_warn     = _finegray_nprobwarn[1,1]
-    capture ereturn scalar N_weight_warn   = _finegray_nwtwarn[1,1]
+    * NOT wrapped in -capture-.  The engine posts these unconditionally, so a
+    * missing matrix means the weight diagnostics did not run -- and a silent
+    * e(min_weight_prob) == . would be indistinguishable from "no weight was ever
+    * near zero", which is the reassuring reading of a broken contract.  Fail loudly.
+    ereturn scalar N_weight_strata = _finegray_nwstrata[1,1]
+    ereturn scalar min_weight_prob = _finegray_minprob[1,1]
+    ereturn scalar max_lt_weight   = _finegray_maxwt[1,1]
+    ereturn scalar N_prob_warn     = _finegray_nprobwarn[1,1]
+    ereturn scalar N_weight_warn   = _finegray_nwtwarn[1,1]
     ereturn local weight_warn_strata "`_fg_warnstrata'"
     * VCE type: cluster > robust (default) > oim (norobust)
     if "`cluster'" != "" {

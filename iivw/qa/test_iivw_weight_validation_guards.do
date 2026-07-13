@@ -192,17 +192,35 @@ capture noisily {
     _make_guard_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) nolog
     assert "`: char _dta[_iivw_weighted]'" == "1"
+    * Keep the exact original value in a scalar: `local v = time[2]' would
+    * round it, and the signature compares exact bits.
+    tempname orig_t2
+    scalar `orig_t2' = time[2]
+
     replace time = . in 2
     capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) replace nolog
     assert _rc == 198
     * v1.0.6+: validation-stage failures preserve prior weighting metadata
     assert "`: char _dta[_iivw_weighted]'" == "1"
-    * iivw_fit can still use the prior valid weighting
+
+    * ...but from 2.0.0 the prior weights may no longer be USED, because the
+    * data they describe is gone: this test blanked a time value, which is why
+    * the re-weight failed in the first place. Fitting on the old weights would
+    * silently weight the mutated panel with weights computed for the original
+    * one. Preserving the metadata (above) and refusing to fit on it (below) are
+    * not in tension -- the metadata records what was done, the signature
+    * records what it was done TO.
+    capture noisily iivw_fit x z, nolog
+    assert _rc == 459
+
+    * Restoring the data restores the contract: the signature is a fact about
+    * the data, not a latch.
+    replace time = `orig_t2' in 2
     capture noisily iivw_fit x z, nolog
     assert _rc == 0
 }
 if _rc == 0 {
-    display as result "  PASS: failed validation preserves prior weighting metadata (v1.0.6 behavior)"
+    display as result "  PASS: failed validation preserves metadata; stale data refuses the fit"
     local ++pass_count
 }
 else {

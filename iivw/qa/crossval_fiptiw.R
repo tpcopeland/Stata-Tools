@@ -290,3 +290,35 @@ cat("  ", file.path(outdir, "fiptiw_coefs.csv"), "\n")
 cat("  ", file.path(outdir, "fiptiw_outcome_geeglm.csv"), "\n")
 
 cat("\n=== FIPTIW cross-validation data ready ===\n")
+
+# =============================================================================
+# Completion sentinel + version manifest
+# =============================================================================
+# Stata's `shell' does not propagate a child process's exit status: _rc is 0
+# even when Rscript is missing or dies halfway. The runner therefore cannot tell
+# "R failed" from "R succeeded" by return code, and a failed R run would leave
+# the reference CSVs above STALE while the crossval lane compared against them
+# and passed. This file is written as the very last statement of the script, so
+# its existence is the only proof the CSVs were actually regenerated.
+#
+# It is written from R rather than by a shell `touch' in the runner, both because
+# `touch' is Unix-only and because a sentinel R writes itself proves the script
+# reached its end -- a `touch' chained with && only proves Rscript exited 0.
+#
+# The manifest records the exact package versions that produced these CSVs. A
+# parity failure that turns out to be an upstream version change is otherwise
+# indistinguishable from a regression in iivw.
+pkgs <- c("survival", "nlme", "IrregLong", "geepack", "ipw", "cobalt")
+have <- pkgs[vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+manifest <- data.frame(
+    package = c("R", have),
+    version = c(paste(R.version$major, R.version$minor, sep = "."),
+                vapply(have, function(p) as.character(utils::packageVersion(p)),
+                       character(1)))
+)
+write.csv(manifest, file = file.path(outdir, "crossval_fiptiw_versions.csv"),
+          row.names = FALSE)
+cat("\nReference package versions:\n")
+print(manifest, row.names = FALSE)
+
+writeLines("ok", file.path(outdir, "crossval_fiptiw.ok"))

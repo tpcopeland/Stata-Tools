@@ -22,12 +22,21 @@ set varabbrev off
 *   do iivw/qa/validation_iivw_expanded.do 5       Run only test 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -627,15 +636,8 @@ if `run_only' == 0 | `run_only' == 20 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Expanded Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(validation_iivw_expanded) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' EXPANDED VALIDATIONS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' EXPANDED VALIDATIONS PASSED"
-}
 
 clear

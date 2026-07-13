@@ -20,7 +20,14 @@ if "`basename'" == "qa" {
 else {
     local qa_dir "`here'/iivw/qa"
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -345,12 +352,7 @@ else {
 
 **# Summary
 
-display as result "Known-answer validation: `pass_count'/`test_count' passed, `fail_count' failed"
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' KNOWN-ANSWER VALIDATIONS FAILED"
-    log close
-    exit 1
-}
+local run_only = 0
+iivw_qa_summary, name(validation_iivw_known_answers) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-display as result "RESULT: ALL `pass_count' KNOWN-ANSWER VALIDATIONS PASSED"
-log close

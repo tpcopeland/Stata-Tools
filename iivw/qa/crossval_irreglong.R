@@ -1,16 +1,24 @@
 #!/usr/bin/env Rscript
 # crossval_irreglong.R - Generate IrregLong reference weights for cross-validation
 #
-# Replicates the IrregLong Phenobarb vignette and exports exactly these five
-# files (this list is the contract; crossval_iivw_external.do reads them):
+# Replicates the IrregLong Phenobarb vignette and exports exactly these files
+# (this list is the contract; crossval_iivw.do reads them):
 #   1. Prepared dataset                      (phenobarb_prepared.csv)
 #   2. Parity Cox coefficients               (phenobarb_parity_coefs.csv)
 #   3. Parity Cox coefficients, with entry   (phenobarb_parity_entry_coefs.csv)
-#   4. Cox model coefficients                (phenobarb_cox_coefs.csv)
-#   5. Cox counting-process data             (phenobarb_cox_data.csv)
+#   4. Parity WEIGHTS, with entry            (phenobarb_parity_entry_weights.csv)
+#   5. Cox model coefficients                (phenobarb_cox_coefs.csv)
+#   6. Cox counting-process data             (phenobarb_cox_data.csv)
+#   7. Package-version manifest              (crossval_irreglong_versions.csv)
+#   8. Completion sentinel                   (crossval_irreglong.ok, gitignored)
 #
 # It does NOT write phenobarb_weights.csv, whatever earlier versions of this
 # header claimed.
+#
+# (4) is the oracle for XV4c. (3) proves iivw and IrregLong fit the same Cox
+# model; only (4) proves they turn it into the same weight, which is a separate
+# claim -- the exponent sign, the centering convention and the first-visit rule
+# all sit downstream of the coefficient.
 #
 # Usage: Rscript iivw/qa/crossval_irreglong.R
 
@@ -196,6 +204,32 @@ write.csv(
     row.names = FALSE
 )
 
+# Exact-parity WEIGHTS from that same model.
+#
+# Matching the coefficient proves the two implementations fit the same Cox
+# model. It does NOT prove they then turn it into the same weight: the exponent
+# sign, the centering convention and the first-visit rule all live downstream of
+# the coefficient, and a bug in any of them leaves the coefficient untouched.
+# So export exp(-xb) at each observed visit row and let Stata match it to the
+# digit.
+#
+# reference = "zero" is load-bearing. coxph's default linear predictor is
+# CENTERED at the mean covariate; Stata's `predict, xb' after stcox is not. A
+# centered oracle would differ from iivw by the constant exp(mean(x) * beta) --
+# a uniform rescaling that a correlation check sails straight through, which is
+# the exact failure mode XV4/XV3 already demonstrated.
+dc_entry$xb_par <- as.numeric(
+    predict(m_entry, newdata = dc_entry, type = "lp", reference = "zero"))
+obs_par <- dc_entry[dc_entry$event == 1, ]
+write.csv(
+    data.frame(id = obs_par$Subject,
+               time = obs_par$time,
+               r_w = exp(-obs_par$xb_par)),
+    file = file.path(outdir, "phenobarb_parity_entry_weights.csv"),
+    row.names = FALSE
+)
+cat("  parity weights rows:", nrow(obs_par), "\n")
+
 # Export Cox coefficients
 coef_df <- data.frame(
     term = names(cox_coefs),
@@ -243,3 +277,35 @@ cat("\nManual weight summary (exp(-xb)):\n")
 print(summary(manual_weights))
 
 cat("\n=== Cross-validation data ready ===\n")
+
+# =============================================================================
+# Completion sentinel + version manifest
+# =============================================================================
+# Stata's `shell' does not propagate a child process's exit status: _rc is 0
+# even when Rscript is missing or dies halfway. The runner therefore cannot tell
+# "R failed" from "R succeeded" by return code, and a failed R run would leave
+# the reference CSVs above STALE while the crossval lane compared against them
+# and passed. This file is written as the very last statement of the script, so
+# its existence is the only proof the CSVs were actually regenerated.
+#
+# It is written from R rather than by a shell `touch' in the runner, both because
+# `touch' is Unix-only and because a sentinel R writes itself proves the script
+# reached its end -- a `touch' chained with && only proves Rscript exited 0.
+#
+# The manifest records the exact package versions that produced these CSVs. A
+# parity failure that turns out to be an upstream version change is otherwise
+# indistinguishable from a regression in iivw.
+pkgs <- c("survival", "nlme", "IrregLong", "geepack", "ipw", "cobalt")
+have <- pkgs[vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+manifest <- data.frame(
+    package = c("R", have),
+    version = c(paste(R.version$major, R.version$minor, sep = "."),
+                vapply(have, function(p) as.character(utils::packageVersion(p)),
+                       character(1)))
+)
+write.csv(manifest, file = file.path(outdir, "crossval_irreglong_versions.csv"),
+          row.names = FALSE)
+cat("\nReference package versions:\n")
+print(manifest, row.names = FALSE)
+
+writeLines("ok", file.path(outdir, "crossval_irreglong.ok"))

@@ -10,12 +10,23 @@ set varabbrev off
 *   stata-mp -b do test_iivw_fit_adversarial.do 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 **# Setup
 
 local qa_dir  "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -128,7 +139,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _adv_setup_panel, wtype(fiptiw)
-        iivw_fit y treated sev_bl, model(mixed) timespec(none) ///
+        iivw_fit y treated sev_bl, model(mixed) experimentalmixed timespec(none) ///
             cluster(site) nolog
 
         assert e(N) > 0
@@ -383,6 +394,15 @@ if `run_only' == 0 | `run_only' == 11 {
         gen long rowno = _n
         replace severity = . if id <= 3
         replace y = . if id == 4
+
+        * severity is a visit covariate, so blanking it after weighting makes
+        * the stored weights describe data that no longer exists -- from 2.0.0
+        * iivw_fit refuses that (rc 459). Re-weight on the mutated data, which
+        * is what the analyst would have to do anyway. The exclusions this test
+        * is actually about (if/in and missing covariates) are unaffected.
+        quietly iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(severity event) replace nolog
+
         quietly count if id > 5 & rowno <= 220 & ///
             !missing(y, severity, _iivw_weight, months, id)
         local expected = r(N)
@@ -584,7 +604,7 @@ if `run_only' == 0 | `run_only' == 18 {
     capture noisily {
         _adv_setup_panel, nids(30) visits(4) seed(20260529)
         set seed 729
-        iivw_fit y severity, model(mixed) timespec(linear) bootstrap(5) nolog
+        iivw_fit y severity, model(mixed) experimentalmixed timespec(linear) bootstrap(5) nolog
 
         assert e(N_reps) == 5
         assert "`e(vce)'" == "bootstrap"
@@ -629,16 +649,8 @@ if `run_only' == 0 | `run_only' == 19 {
 
 **# Summary
 
-display as text ""
-display as result "Adversarial iivw_fit results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_fit_adversarial) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
 
-if `fail_count' > 0 {
-    display as error "FAILED TESTS:`failed_tests'"
-    display "RESULT: test_iivw_fit_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    exit 1
-}
-
-display as result "ALL ADVERSARIAL IIVW_FIT TESTS PASSED"
-display "RESULT: test_iivw_fit_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 clear

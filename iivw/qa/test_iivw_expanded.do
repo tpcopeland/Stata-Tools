@@ -20,12 +20,21 @@ set varabbrev off
 *   do iivw/qa/test_iivw_expanded.do 5        Run only test 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
+* Sysdir sandbox (Q3): keep this suite's net install out of the user's real
+* ado tree even when the suite is run standalone, outside run_all.
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
+
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -314,7 +323,7 @@ if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, model(mixed) timespec(ns(3)) nolog
+        iivw_fit event severity, model(mixed) experimentalmixed timespec(ns(3)) nolog
         confirm variable _iivw_tns1
         confirm variable _iivw_tns2
         confirm variable _iivw_tns3
@@ -729,7 +738,7 @@ if `run_only' == 0 | `run_only' == 22 {
         iivw_fit event severity, model(gee) nolog
         scalar n_gee = e(N)
 
-        iivw_fit event severity, model(mixed) nolog
+        iivw_fit event severity, model(mixed) experimentalmixed nolog
         scalar n_mixed = e(N)
 
         assert n_gee == n_mixed
@@ -879,7 +888,7 @@ if `run_only' == 0 | `run_only' == 27 {
         _setup_panel
         gen long site = mod(id, 8)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, model(mixed) timespec(linear) ///
+        iivw_fit event severity, model(mixed) experimentalmixed timespec(linear) ///
             cluster(site) nolog
 
         assert e(N) > 0
@@ -950,15 +959,8 @@ if `run_only' == 0 | `run_only' == 28 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Expanded Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_expanded) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' EXPANDED TESTS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' EXPANDED TESTS PASSED"
-}
 
 clear

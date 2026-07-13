@@ -43,8 +43,12 @@ program define _iivw_weight_signature, rclass
     quietly count if !missing(`k', `time', `wvar')
     local __iivw_n = r(N)
 
-    quietly levelsof `k', local(__iivw_lv)
-    local __iivw_nid : word count `__iivw_lv'
+    * group() numbers the subjects 1..G, so the maximum IS the subject count.
+    * NOT levelsof: that materializes every distinct id into a macro, and Stata
+    * macros are capped -- a large registry panel would abort the signature (and
+    * therefore every fit) on a limit that has nothing to do with the weights.
+    quietly summarize `k', meanonly
+    local __iivw_nid = r(max)
 
     * %21x is Stata's exact hexadecimal float format: a signature written with
     * %10.0g would round away the very edits it is meant to detect.

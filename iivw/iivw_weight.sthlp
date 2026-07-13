@@ -313,7 +313,8 @@ subject becomes at risk for the visit process at the first observed
 visit. This removes the circularity of conditioning the baseline visit on
 baseline covariates; when {opt lagvars()} is also used, the baseline measurement
 then legitimately predicts the {it:second} visit rather than itself. Subjects with
-only one visit are not an error: they contribute a baseline row (IIW weight 1)
+only one visit are not an error: they contribute a baseline row (raw IIW weight 1,
+rescaled with the rest)
 and, given an end of follow-up, an at-risk interval running out to it. At
 least one subject must still have two or more visits, so the model has events
 to fit. Under {opt baseline(entry)}, {opt entry()} is ignored -- the first visit defines
@@ -534,7 +535,8 @@ default each subject must have at least 2 visits for IIW and FIPTIW because
 the visit intensity model treats every visit as a recurrent event and so
 needs repeated visits. {opt baseline(entry)}, the default, relaxes this: the baseline
 visit is then treated as study entry, single-visit subjects are retained
-(IIW weight 1), and only one subject need have two or more visits. IPTW-only
+(raw IIW weight 1, rescaled with the rest), and only one subject need have two or
+more visits. IPTW-only
 analyses may use a single row per subject. The {opt id()} and {opt time()}
 combination must uniquely identify each row. The {opt treat()} variable must
 be observed for every row used in IPTW/FIPTIW, binary (0/1), and
@@ -559,7 +561,9 @@ endogenous.
 The first observation per subject receives IIW weight 1 by convention before
 normalization: there is no prior visit from which to estimate intensity at the
 first visit. If visit covariates are missing for first observations, a note
-is displayed and the weight is set to 1.
+is displayed and the raw weight is set to 1. In every case the reported weight is
+the rescaled one, 1/mean(exp(-xb)) -- never exactly 1. See {it:Mean-1
+normalization} below.
 
 {pstd}
 {bf:Mean-1 normalization}

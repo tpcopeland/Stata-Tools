@@ -11,7 +11,11 @@ set varabbrev off
 *   stata-mp -b do test_iivw_exogtest_adversarial.do 5
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 **# Setup
 
@@ -22,7 +26,14 @@ if "`base'" != "qa" {
     capture log close _all
     exit 601
 }
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 adopath ++ "`pkg_dir'"
 discard
@@ -322,9 +333,12 @@ if `run_only' == 0 | `run_only' == 8 {
         assert r(endogenous_flag) == 1
         assert r(joint_min_p) < 0.05
         assert "`r(by)'" == "arm"
-        assert "`r(group_labels)'" == "control|treated"
+        assert r(n_groups) == 2
+        assert "`r(group_label_1)'" == "control"
+        assert "`r(group_label_2)'" == "treated"
         assert "`r(lagvars)'" == "byx_y_lag1"
-        assert "`r(term_labels)'" == "y (lag 1)"
+        assert r(n_terms) == 1
+        assert "`r(term_label_1)'" == "y (lag 1)"
         assert "`r(result_row_labels)'" == " g1_t1 g2_t1"
         assert "`r(result_columns)'" == "group_index term_index b se z p hr lb ub N n_ids"
 
@@ -355,17 +369,6 @@ if `run_only' == 0 | `run_only' == 8 {
 **# Summary
 
 capture adopath - "`pkg_dir'"
-display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_exogtest_adversarial) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
 
-if `fail_count' > 0 {
-    display as error "FAILED TESTS: `failed_tests'"
-    display "RESULT: test_iivw_exogtest_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    capture log close _all
-    exit 1
-}
-else {
-    display as result "ALL TESTS PASSED"
-}
-
-display "RESULT: test_iivw_exogtest_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
-capture log close _all

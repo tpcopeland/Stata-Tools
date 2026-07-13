@@ -33,7 +33,15 @@ version 16.0
 * ----------------------------------------------------------------------------
 
 capture log close
-log using "validation_iivw_recovery_extended.log", replace nomsg
+* Q6: no disposable log in the package tree. This suite used to write
+* validation_iivw_recovery_extended.log into qa/, which is gitignored but is still ~4 MB of debris carrying the
+* local Stata license header, and the release hygiene gate had been taught to
+* whitelist exactly these files. The batch invocation
+* (`stata-mp -b do <suite>.do') already produces a readable log in the cwd, and
+* run_all.log captures everything when the suite runs under the runner, so the
+* named log was pure redundancy.
+tempfile _suite_log
+log using "`_suite_log'", replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -41,7 +49,14 @@ local fail_count = 0
 
 * Bootstrap: derive package root from qa/ working directory (relocatable)
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
 
@@ -649,7 +664,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s12_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, model(mixed) timespec(linear) nolog replace
+    iivw_fit y, model(mixed) experimentalmixed timespec(linear) nolog replace
     scalar s12_est = _b[months]
     scalar s12_ok = 1
 }

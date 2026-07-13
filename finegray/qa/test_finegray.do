@@ -470,21 +470,32 @@ else {
     local ++fail_count
 }
 
-* T25: Error — no competing events
+* T25: No competing events is a SUPPORTED limiting case (FG-M06).
+*
+* This test used to assert rc == 198.  That guard has been removed deliberately:
+* with no competing events nobody is retained in a risk set past their own exit,
+* so the subdistribution risk set IS the ordinary risk set and the estimator is
+* exactly Cox on this cause.  Refusing to fit a model that is perfectly well
+* defined was itself the bug.  Asserting "it no longer errors" would be too weak,
+* so assert the ANSWER: it must reproduce stcox.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     * Make all non-censored events cause 1
     replace status = 1 if status == 2
-    capture finegray ifp tumsize, compete(status) cause(1)
-    assert _rc == 198
+    finegray ifp tumsize, compete(status) cause(1)
+    matrix _T25a = e(b)
+    stcox ifp tumsize, nolog
+    matrix _T25b = e(b)
+    assert abs(_T25a[1,1] - _T25b[1,1]) < 1e-7
+    assert abs(_T25a[1,2] - _T25b[1,2]) < 1e-7
 }
 if _rc == 0 {
-    display as result "  PASS: T25 error: no competing events (rc=198)"
+    display as result "  PASS: T25 no competing events collapses to stcox"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T25 error: no competing (rc=`=_rc')"
+    display as error "  FAIL: T25 no competing events (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1270,7 +1281,13 @@ else {
     local ++fail_count
 }
 
-* T61: Error — no censored observations
+* T61: No censored observations is a SUPPORTED limiting case (FG-M06).
+*
+* This test used to assert rc == 198.  That guard has been removed deliberately:
+* with complete follow-up G(t) == 1 everywhere, so the combined weight A collapses
+* to 1 and every retained weight is exactly 1.  Complete follow-up is not a defect.
+* Assert the weight actually collapses -- e(max_lt_weight) == 1 -- not merely that
+* the command returns.
 local ++test_count
 capture noisily {
     _setup_hypoxia
@@ -1278,11 +1295,12 @@ capture noisily {
     replace status = 2 if status == 0
     * Also need to set _d=1 for consistency
     replace _d = 1 if _d == 0
-    capture finegray ifp tumsize, compete(status) cause(1)
-    assert _rc == 198
+    finegray ifp tumsize, compete(status) cause(1)
+    assert e(N_cens) == 0
+    assert abs(e(max_lt_weight) - 1) < 1e-12
 }
 if _rc == 0 {
-    display as result "  PASS: T61 error: no censored observations (rc=198)"
+    display as result "  PASS: T61 no censored observations: all weights = 1"
     local ++pass_count
 }
 else {

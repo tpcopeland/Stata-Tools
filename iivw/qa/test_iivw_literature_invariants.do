@@ -7,9 +7,9 @@ set varabbrev off
 * Tests: 6
 *
 * Every assertion here is traceable to a specific claim in a specific paper.
-* Written during the Phase 7 reference backfill (2026-07-13), when the packageXs
+* Written during the Phase 7 reference backfill (2026-07-13), when the package's
 * citations were fetched and checked against its code for the first time. The
-* papers are in Stata-Dev `literature/iivw/` with per-source notes.
+* sources themselves are listed below and in each command's References section.
 *
 * Sources:
 *   B&L    Buzkova P, Lumley T. Can J Stat 2007;35(4):485-500.
@@ -25,7 +25,11 @@ set varabbrev off
 *   do iivw/qa/test_iivw_literature_invariants.do 3    Run only test 3
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
@@ -295,15 +299,8 @@ if `run_only' == 0 | `run_only' == 6 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+iivw_qa_summary, name(test_iivw_literature_invariants) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' TESTS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' TESTS PASSED"
-}
 
 clear

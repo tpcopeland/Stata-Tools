@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 1.9.7  2026/07/13
+*! _iivw_get_settings Version 2.0.0  2026/07/13
 *! Retrieve stored metadata from dataset characteristics
 *! Author: Timothy P Copeland, Karolinska Institutet
 

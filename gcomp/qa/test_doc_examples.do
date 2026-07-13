@@ -26,8 +26,11 @@ program define _doc_make_obe_data
     set obs 1000
     gen double c = rnormal(50, 10)
     gen double x = rbinomial(1, invlogit(-2 + 0.02 * c))
-    gen double m = rbinomial(1, invlogit(-1 + 0.8 * x + 0.01 * c))
-    gen double y = rbinomial(1, invlogit(-3 + 0.5 * m + 0.3 * x + 0.02 * c))
+    gen double m = rbinomial(1, invlogit(-1 + 1.5 * x + 0.01 * c))
+    * Keep the displayed-example fixture away from zero total and indirect
+    * effects so the proportion-mediated ratio and its BC interval remain
+    * defined in every deletion and bootstrap run.
+    gen double y = rbinomial(1, invlogit(-3 + 1.2 * m + 0.8 * x + 0.02 * c))
 end
 
 * ============================================================

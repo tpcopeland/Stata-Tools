@@ -221,21 +221,36 @@ def reference_rows(est: dict[str, float], boot: pd.DataFrame) -> list[dict[str, 
     mc_se_logit_a0 = np.sqrt(
         1.0 / (person_time_a0 * event_rate_a0 * (1.0 - event_rate_a0))
     )
+    mc_se_out_a1 = np.sqrt(est["out_a1"] * (1.0 - est["out_a1"]) / N_SUBJECTS)
+    mc_se_out_a0 = np.sqrt(est["out_a0"] * (1.0 - est["out_a0"]) / N_SUBJECTS)
+    mc_se_death_a1 = np.sqrt(
+        est["death_a1"] * (1.0 - est["death_a1"]) / N_SUBJECTS
+    )
+    mc_se_death_a0 = np.sqrt(
+        est["death_a0"] * (1.0 - est["death_a0"]) / N_SUBJECTS
+    )
     mc_bound = {
         "po_a1": 2.5 * mc_se_log_rate_a1,
         "po_a0": 2.5 * mc_se_log_rate_a0,
+        "out_a1": 2.5 * mc_se_out_a1,
+        "out_a0": 2.5 * mc_se_out_a0,
+        "death_a1": 2.5 * mc_se_death_a1,
+        "death_a0": 2.5 * mc_se_death_a0,
+        "out_diff_a1_a0": 2.5 * np.sqrt(mc_se_out_a1**2 + mc_se_out_a0**2),
+        "death_diff_a1_a0": 2.5
+        * np.sqrt(mc_se_death_a1**2 + mc_se_death_a0**2),
         "msm_a": 2.5 * np.sqrt(mc_se_logit_a1**2 + mc_se_logit_a0**2),
         "msm_cons": 2.5 * mc_se_logit_a0,
     }
     tol_est = {
         "po_a1": max(0.08, mc_bound["po_a1"]),
         "po_a0": max(0.08, mc_bound["po_a0"]),
-        "out_a1": 0.03,
-        "out_a0": 0.03,
-        "death_a1": 0.03,
-        "death_a0": 0.03,
-        "out_diff_a1_a0": 0.04,
-        "death_diff_a1_a0": 0.04,
+        "out_a1": max(0.03, mc_bound["out_a1"]),
+        "out_a0": max(0.03, mc_bound["out_a0"]),
+        "death_a1": max(0.03, mc_bound["death_a1"]),
+        "death_a0": max(0.03, mc_bound["death_a0"]),
+        "out_diff_a1_a0": max(0.04, mc_bound["out_diff_a1_a0"]),
+        "death_diff_a1_a0": max(0.04, mc_bound["death_diff_a1_a0"]),
         "msm_a": max(0.12, mc_bound["msm_a"]),
         "msm_cons": max(0.05, mc_bound["msm_cons"]),
     }

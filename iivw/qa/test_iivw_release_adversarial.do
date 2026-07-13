@@ -10,13 +10,19 @@ set varabbrev off
 *   stata-mp -b do test_iivw_release_adversarial.do
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 capture confirm file "`pkg_dir'/iivw.pkg"
 if _rc {
     display as error "Run this test from the iivw/qa directory"
     exit 601
 }
-local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 
 local old_cwd "`c(pwd)'"
 local old_plus "`c(sysdir_plus)'"
@@ -198,6 +204,9 @@ capture noisily {
         "_iivw_check_weighted.ado|_iivw_check_weighted" ///
         "_iivw_bs_estimate.ado|_iivw_bs_estimate" ///
         "_iivw_bs_refit.ado|_iivw_bs_refit" ///
+        "_iivw_reserve_names.ado|_iivw_reserve_names" ///
+        "_iivw_require_converged.ado|_iivw_require_converged" ///
+        "_iivw_weight_signature.ado|_iivw_weight_signature" ///
         "_iivw_export_table.ado|_iivw_export_table" {
         gettoken file cmd : pair, parse("|")
         local cmd = substr("`cmd'", 2, .)
@@ -266,6 +275,10 @@ capture noisily {
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
+        _iivw_bs_refit.ado ///
+        _iivw_reserve_names.ado ///
+        _iivw_require_converged.ado ///
+        _iivw_weight_signature.ado ///
         _iivw_export_table.ado
 
     foreach file of local package_files {
@@ -307,6 +320,10 @@ capture noisily {
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
+        _iivw_bs_refit.ado ///
+        _iivw_reserve_names.ado ///
+        _iivw_require_converged.ado ///
+        _iivw_weight_signature.ado ///
         _iivw_export_table.ado ///
         demo/demo_iivw.do
 
@@ -339,12 +356,14 @@ else {
 
 local ++test_count
 capture noisily {
-    local allowed_logs run_all.log
-    local qa_dofiles : dir "`pkg_dir'/qa" files "*.do"
-    foreach dofile of local qa_dofiles {
-        local allowed_log = subinstr("`dofile'", ".do", ".log", .)
-        local allowed_logs "`allowed_logs' `allowed_log'"
-    }
+    * Q6: this gate used to whitelist <suite>.log for EVERY .do in qa/, so the
+    * 4 MB of license-bearing runtime logs it was supposed to catch were exactly
+    * the files it declared clean. No suite writes a named log into the tree any
+    * more (they stage to c(tmpdir)), so the only .log that can legitimately be
+    * here is the batch log of the invocation currently running: run_all.log
+    * under the runner, or this suite's own log when it is run standalone.
+    * Anything else is debris and must be deleted before release.
+    local allowed_logs run_all.log test_iivw_release_adversarial.log
 
     foreach folder in "`pkg_dir'" "`pkg_dir'/qa" {
         foreach ext in log smcl dta xlsx {
@@ -358,6 +377,10 @@ capture noisily {
                 }
                 if !`allowed' {
                     display as error "runtime artifact found: `folder'/`f'"
+                    display as error "  QA runs must not leave artifacts in the package tree."
+                    display as error "  Cross-validation logs also carry the local Stata license"
+                    display as error "  header, so they are sensitive debris, not just clutter."
+                    display as error "  Delete it and re-run: erase `folder'/`f'"
                     exit 9
                 }
             }
@@ -405,6 +428,10 @@ capture noisily {
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
+        _iivw_bs_refit.ado ///
+        _iivw_reserve_names.ado ///
+        _iivw_require_converged.ado ///
+        _iivw_weight_signature.ado ///
         _iivw_export_table.ado ///
         regtab.ado ///
         tabtools.ado ///
@@ -485,6 +512,10 @@ capture noisily {
     assert "`e(iivw_weighttype)'" == "iivw"
 
     capture program drop _iivw_bs_estimate
+    capture program drop _iivw_bs_refit
+    capture program drop _iivw_reserve_names
+    capture program drop _iivw_require_converged
+    capture program drop _iivw_weight_signature
     iivw_fit edss treated edss_bl, bootstrap(2) nolog replace
     assert "`e(iivw_cmd)'" == "iivw_fit"
     assert e(N_reps) == 2
@@ -662,7 +693,7 @@ capture noisily {
     iivw_fit edss treated edss_bl, timespec(none) replace
 
     if c(stata_version) >= 17 {
-        iivw_fit edss treated edss_bl, model(mixed) replace
+        iivw_fit edss treated edss_bl, model(mixed) experimentalmixed replace
     }
     else {
         display as text "note: Stata < 17; documented mixed-model example not run"

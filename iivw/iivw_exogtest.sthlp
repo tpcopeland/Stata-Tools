@@ -231,10 +231,12 @@ default is 3.
 
 {phang}
 {opt borderstyle(string)} selects the Excel border scheme and requires {opt xlsx()}. {cmd:thin}
-(the default) draws a full thin grid -- an outer box plus interior horizontal
-and vertical rules -- matching the tabtools house style. {cmd:medium} draws the same
-framed grid with medium lines. {cmd:academic} uses a three-rule (top/header/bottom)
-layout with no vertical rules. {cmd:default} is an alias for {cmd:thin}.
+(the default) draws the tabtools house style: an outer frame, horizontal rules in the
+header band, and vertical separators after the label column and between column
+groups. Data rows are not separated by interior horizontal rules. {cmd:medium} draws
+the same layout with medium lines. {cmd:academic} uses a three-rule
+(top/header/bottom) layout with no vertical rules at all. {cmd:default} is an alias
+for {cmd:thin}.
 
 {phang}
 {opt headershade} shades the header rows. It is off by default so that output
@@ -367,6 +369,8 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_ids)}}subjects summed over fitted models (see note){p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
+{synopt:{cmd:r(n_groups)}}number of groups examined, fitted and skipped{p_end}
+{synopt:{cmd:r(n_terms)}}number of lagged terms tested{p_end}
 {synopt:{cmd:r(min_p)}}minimum unadjusted Wald p-value{p_end}
 {synopt:{cmd:r(joint_min_p)}}minimum raw within-group omnibus p-value{p_end}
 {synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
@@ -382,9 +386,9 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(lagvars)}}generated lag variables used in the Cox models{p_end}
 {synopt:{cmd:r(adjust)}}adjustment variables{p_end}
 {synopt:{cmd:r(by)}}by variable, if specified{p_end}
-{synopt:{cmd:r(group_labels)}}pipe-separated labels for model groups{p_end}
-{synopt:{cmd:r(skipped_labels)}}pipe-separated labels for skipped groups{p_end}
-{synopt:{cmd:r(term_labels)}}lagged predictor labels used as result terms{p_end}
+{synopt:{cmd:r(group_label_}{it:#}{cmd:)}}label of group {it:#}, for {it:#} = 1 to {cmd:r(n_groups)}{p_end}
+{synopt:{cmd:r(skipped_label_}{it:#}{cmd:)}}label of skipped group {it:#}, for {it:#} = 1 to {cmd:r(n_skipped)}{p_end}
+{synopt:{cmd:r(term_label_}{it:#}{cmd:)}}label of lagged term {it:#}, for {it:#} = 1 to {cmd:r(n_terms)}{p_end}
 {synopt:{cmd:r(result_row_labels)}}row labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(conclusion)}}short diagnostic conclusion{p_end}
@@ -399,6 +403,15 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {cmd:r(results)} has columns {cmd:group_index}, {cmd:term_index}, {cmd:b},
 {cmd:se}, {cmd:z}, {cmd:p}, {cmd:hr}, {cmd:lb}, {cmd:ub}, {cmd:N}, and
 {cmd:n_ids}.
+
+{phang}
+Labels are returned one per macro, indexed, rather than joined into a single
+delimited macro. A variable or value label may legally contain a vertical bar or a
+double quote, so a delimited macro cannot be parsed back reliably: the old
+{cmd:r(group_labels)} could not distinguish two groups labelled {cmd:a} and {cmd:b}
+from one group labelled {cmd:a|b}. Labels are now carried verbatim into
+{cmd:r(group_label_}{it:#}{cmd:)}, {cmd:r(term_label_}{it:#}{cmd:)},
+{cmd:r(skipped_label_}{it:#}{cmd:)}, and the Excel export.
 
 {phang}
 Note on {cmd:r(N)} and {cmd:r(n_ids)}: both are summed over the fitted models, and skipped

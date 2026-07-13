@@ -19,7 +19,15 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_iivw_v193_regressions.log", replace nomsg
+* Q6: no disposable log in the package tree. This suite used to write
+* test_iivw_v193_regressions.log into qa/, which is gitignored but is still ~4 MB of debris carrying the
+* local Stata license header, and the release hygiene gate had been taught to
+* whitelist exactly these files. The batch invocation
+* (`stata-mp -b do <suite>.do') already produces a readable log in the cwd, and
+* run_all.log captures everything when the suite runs under the runner, so the
+* named log was pure redundancy.
+tempfile _suite_log
+log using "`_suite_log'", replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -27,7 +35,14 @@ local fail_count = 0
 
 * Bootstrap: derive package root from qa/ working directory
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+* Sysdir sandbox + path resolution (Q3/Q8): the sandbox keeps this suite's
+* net install out of the USER's real ado tree even when run standalone, and
+* the "/qa" suffix is stripped by length, not by first-occurrence subinstr()
+* (which mangles any path whose ancestors contain "qa").
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_sandbox
+local pkg_dir  "`r(pkg_dir)'"
+local repo_dir "`r(repo_dir)'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -57,9 +72,14 @@ capture noisily {
     _iivw_v193_panel
     quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
 
-    * fixed command path
+    * fixed command path. experimentalmixed is required from 2.0.0: a weighted
+    * mixed fit is gated, not merely noted. It does not change the estimates --
+    * it is an acknowledgment that the variance components are not consistently
+    * weight-estimated -- so the idcluster() regression this test pins is
+    * unaffected.
     set seed 4321
-    quietly iivw_fit y sev, model(mixed) timespec(none) bootstrap(20) nolog
+    quietly iivw_fit y sev, model(mixed) timespec(none) bootstrap(20) ///
+        experimentalmixed nolog
     assert "`e(iivw_model)'" == "mixed"
     assert e(N_reps) == 20
     local iivw_se = _se[_cons]

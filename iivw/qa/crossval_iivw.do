@@ -22,7 +22,11 @@ set varabbrev off
 *   do iivw/qa/crossval_iivw.do 3        Run only test 3
 
 args run_only
-if "`run_only'" == "" local run_only = 0
+* Q5: a bad selector must be an error, not a silent zero-test pass.
+* `do this.do 999' used to execute nothing and print "ALL TESTS PASSED".
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_selector "`run_only'"
+local run_only = `r(run_only)'
 
 * ============================================================
 * Setup
@@ -71,6 +75,8 @@ foreach ref in ///
     phenobarb_prepared.csv ///
     phenobarb_cox_coefs.csv ///
     phenobarb_cox_data.csv ///
+    phenobarb_parity_entry_coefs.csv ///
+    phenobarb_parity_entry_weights.csv ///
     fiptiw_simdata.csv ///
     fiptiw_coefs.csv ///
     fiptiw_outcome_geeglm.csv {
@@ -408,6 +414,86 @@ if `run_only' == 0 | `run_only' == 45 {
 }
 
 * =============================================================================
+* XV4c: EXACT parity with IrregLong on the WEIGHTS, not just the coefficient
+* =============================================================================
+*
+* XV4b proves the two implementations fit the same Cox model. It does not prove
+* they turn that model into the same weight -- the exponent sign, the centering
+* convention and the first-visit rule all sit downstream of the coefficient and
+* a bug in any of them leaves the coefficient exactly right. The lane needs both
+* halves, and the audit asked for both by name.
+*
+* The oracle is exp(-xb) from IrregLong's own parity model, evaluated at each
+* observed visit with reference="zero" (uncentered, matching stcox's `predict,
+* xb'). Every non-first visit must match to the digit -- no correlation, no
+* tolerance wide enough to hide a uniform rescaling, which is precisely how the
+* centered-vs-uncentered class of error escapes a correlation check.
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 46 {
+    capture noisily {
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
+        keep id time conc
+        sort id time
+
+        iivw_weight, id(id) time(time) lagvars(conc) maxfu(384) efron nolog
+
+        preserve
+        import delimited "`qa_dir'/phenobarb_parity_entry_weights.csv", ///
+            clear varnames(1)
+        tempfile rw
+        quietly save "`rw'"
+        local r_rows = _N
+        restore
+
+        * Merge on the visit key. IrregLong's parity frame drops each subject's
+        * first visit (it is study entry, not a modeled event) and its censoring
+        * rows, so it carries exactly the visits that have an IIW weight.
+        merge 1:1 id time using "`rw'", keep(master match) generate(_mrg)
+
+        * Every R weight row must find its Stata visit. A _merge==2 would mean
+        * the two sides disagree about which rows are visits at all.
+        quietly count if _mrg == 3
+        local n_match = r(N)
+        assert `n_match' == `r_rows'
+
+        * The unmatched master rows must be exactly the first visits -- nothing
+        * else. If iivw were silently dropping or adding visits, the arithmetic
+        * would land here rather than in a weight comparison.
+        bysort id (time): gen byte _isfirst = (_n == 1)
+        quietly count if _mrg == 1 & !_isfirst
+        assert r(N) == 0
+
+        * Digit-for-digit on the IIW weight.
+        gen double wdiff = abs(_iivw_iw - r_w) if _mrg == 3
+        quietly summarize wdiff, meanonly
+        local maxdiff = r(max)
+        display as text "  matched visits  : `n_match'"
+        display as text "  max |w_iivw - w_R| : " %12.3e `maxdiff'
+
+        * A measured run gives ~1e-9. 1e-6 is already far looser than the Cox
+        * convergence tolerance either side uses; if this ever needs widening,
+        * the two sides have stopped computing the same quantity and the fix is
+        * upstream, not here.
+        assert `maxdiff' < 1e-6
+
+        * Guard the guard: a merge that matched nothing would leave wdiff all
+        * missing and summarize would report r(max) == . -- which is NOT < 1e-6,
+        * but only because missing sorts high. Assert the comparison count too.
+        quietly count if !missing(wdiff)
+        assert r(N) == `r_rows'
+    }
+    if _rc == 0 {
+        display as result "  PASS: XV4c - iivw IIW weights EXACTLY match IrregLong exp(-xb)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: XV4c - IrregLong exact weight parity (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
 * XV5: Unstabilized IIW weights match R on simulated data
 * =============================================================================
 *
@@ -738,17 +824,10 @@ if `run_only' == 0 | `run_only' == 10 {
 * ============================================================
 * Summary
 * ============================================================
-display as text ""
-display as result "Cross-Validation: `pass_count'/`test_count' passed, `fail_count' failed"
 display as text "  Part A (IrregLong/Phenobarb):  XV1-XV4"
 display as text "  Part B (FIPTIW simulation):    XV5-XV10"
+iivw_qa_summary, name(crossval_iivw) tests(`test_count') pass(`pass_count') ///
+    fail(`fail_count') runonly(`run_only')
 
-if `fail_count' > 0 {
-    display as error "RESULT: `fail_count' CROSS-VALIDATION TESTS FAILED"
-    exit 1
-}
-else {
-    display as result "RESULT: ALL `pass_count' CROSS-VALIDATION TESTS PASSED"
-}
 
 clear

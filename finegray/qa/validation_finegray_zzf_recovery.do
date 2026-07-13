@@ -100,29 +100,48 @@ local NEG_Z  = 5
 
 * Z2-PREREG: preregistered behaviour of the negative control (arm D).
 *
-* Derived BEFORE these replications from the independent R oracle
-* (qa/crossval_finegray_zzf_r.R, ZZF equation, n = 3000, 80 reps):
+* Entry depends on z1 ALONE, so pooling the entry distribution mis-reconstructs
+* the risk set along z1 and biases b1 downward, hard.  Both coefficients are
+* biased DOWNWARD, and both must be caught:
+*   D/b1  biased beyond `NEG_Z' MC SE, DOWNWARD  (bias ~ -0.12)
+*   D/b2  biased beyond `NEG_Z' MC SE, DOWNWARD  (bias ~ -0.0068)
 *
-*     arm                coef      bias   bias/MCSE
-*     D_bygroup_pooled   z1    -0.11488      -12.34     <- biased DOWNWARD
-*     D_bygroup_pooled   z2    -0.00671       -1.67     <- NOT biased
+* -------------------------------------------------------------------------
+* CORRECTION 2026-07-13.  D/b2 ORIGINALLY REQUIRED "RECOVER", AND THAT WAS WRONG.
 *
-* The misspecification is group-specific, and so is its damage.  Entry depends on
-* z1 ALONE, so a pooled entry distribution mis-reconstructs the risk set along z1
-* and biases b1 toward zero; b2 is unrelated to entry and must come back CLEAN.
+* The original reasoning was that b2 is unrelated to entry, so a z1-directed
+* misspecification must SPARE it -- a specificity check, and a sharper control
+* than a blanket "must be biased".  The reasoning is wrong: the Fine-Gray partial
+* likelihood is NOT COLLAPSIBLE, so a z1-directed distortion of the risk sets
+* perturbs b2 as well.  It perturbs it ~18x less than b1, which is what made the
+* wrong prediction look right.
 *
-* Arm D therefore gates BOTH directions, which makes it a sharper control than a
-* blanket "must be biased":
-*   D/b1  must be biased beyond `NEG_Z' MC SE, DOWNWARD (attenuated toward 0)
-*   D/b2  must RECOVER within `PASS_Z' MC SE  <- specificity: the bias must not
-*                                                 leak into coefficients that the
-*                                                 entry mechanism does not touch
+* The requirement came from the R oracle at n = 3000 / 80 reps, where D/b2 read
+* bias -0.00671, z = -1.67 -- "not significant", which I read as "zero".  It was
+* not zero.  It was a CONSTANT bias observed at low power: at that MCSE (~0.004) a
+* bias of -0.0067 IS z ~ -1.7.  I mistook "undetectable" for "absent".
 *
-* (An earlier draft of this file guessed "b2 biased upward". The oracle refuted
-* that before a single gated replication ran. A sign chosen after seeing the
-* result is not a preregistration; a gate built on a guess fails for the wrong
-* reason. This is why the sign is derived, and why the derivation is recorded.)
+* Settled by a bias-vs-n ladder (_take_action/fg_zzf_probes/ladder2.do), because a
+* finite-sample O(1/n) bias must shrink with n and an asymptotic one must not:
+*
+*         n        source                 D/b2 bias        z
+*      3,000    R oracle, 80 reps          -0.00671     -1.67
+*     25,000    ladder2, 100 reps          -0.00692     -5.09
+*    100,000    Gate Z2-green, 100 reps    -0.00660     -9.63
+*
+* FLAT across a 33x change in n (O(1/n) would have made the 25,000 bias ~4x the
+* 100,000 one; it is 1.05x).  The control proves the ladder can see 1/n shrinkage
+* when it exists: arm A, correctly specified, is clean at n = 25,000 (z = 0.24,
+* 0.50).  And per-dataset agreement with the independent R oracle
+* (crossval_finegray_zzf.do, 60/60, worst rel diff 4.4e-6, arm D INCLUDED) shows
+* the bias belongs to the ESTIMATOR, not to this implementation -- which is the
+* question a recovery study by itself can never answer.
+*
+* The assertion was NOT relaxed to make the gate go green.  It was replaced with
+* the behaviour three independent sample sizes agree on.
+* -------------------------------------------------------------------------
 local PREREG_D1 = -1     /* b1 = +0.5 : biased DOWNWARD, |z| > NEG_Z */
+local PREREG_D2 = -1     /* b2 = -0.5 : biased DOWNWARD, |z| > NEG_Z (see above) */
 
 display as text _newline "Gate Z2 known-truth recovery"
 display as text "  N = `N' retained per replication, REPS = `REPS', base seed = `SEED0'"
@@ -300,12 +319,14 @@ foreach a in A B C D {
         local z    = `bias' / `mcse'
 
         * what this arm/coefficient is REQUIRED to do (see Z2-PREREG above).
-        * Only D/b1 is required to be biased: entry depends on z1 alone, so the
-        * pooled-weight misspecification must hit b1 and SPARE b2.
-        if "`a'" == "D" & `k' == 1 {
+        * BOTH of arm D's coefficients are required to be biased downward: the
+        * Fine-Gray partial likelihood is not collapsible, so the z1-directed
+        * misspecification leaks into b2 as well (~18x weaker, but not zero).
+        if "`a'" == "D" {
             * signed: the bias must exceed NEG_Z MC SE *in the preregistered direction*
-            local ok   = (`z' * `PREREG_D1' > `NEG_Z')
-            local want = "biased, sign " + cond(`PREREG_D1' > 0, "+", "-")
+            local pd   = cond(`k' == 1, `PREREG_D1', `PREREG_D2')
+            local ok   = (`z' * `pd' > `NEG_Z')
+            local want = "biased, sign " + cond(`pd' > 0, "+", "-")
         }
         else {
             local ok   = (abs(`z') <= `PASS_Z')
