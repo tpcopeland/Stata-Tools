@@ -1,12 +1,18 @@
 #!/usr/bin/env Rscript
 # crossval_irreglong.R - Generate IrregLong reference weights for cross-validation
 #
-# Replicates the IrregLong Phenobarb vignette and exports:
-#   1. Prepared dataset (phenobarb_prepared.csv)
-#   2. Cox model coefficients (phenobarb_cox_coefs.csv)
-#   3. IIW weights per observation (phenobarb_weights.csv)
+# Replicates the IrregLong Phenobarb vignette and exports exactly these five
+# files (this list is the contract; crossval_iivw_external.do reads them):
+#   1. Prepared dataset                      (phenobarb_prepared.csv)
+#   2. Parity Cox coefficients               (phenobarb_parity_coefs.csv)
+#   3. Parity Cox coefficients, with entry   (phenobarb_parity_entry_coefs.csv)
+#   4. Cox model coefficients                (phenobarb_cox_coefs.csv)
+#   5. Cox counting-process data             (phenobarb_cox_data.csv)
 #
-# Usage: Rscript iivw/qa/xval_irreglong.R
+# It does NOT write phenobarb_weights.csv, whatever earlier versions of this
+# header claimed.
+#
+# Usage: Rscript iivw/qa/crossval_irreglong.R
 
 library(IrregLong)
 library(nlme)

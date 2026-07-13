@@ -742,6 +742,13 @@ capture noisily {
     assert abs(e(tce)) < 0.04
     assert abs(e(nde)) < 0.04
     assert abs(e(nie)) < 0.02
+    * This fixed seed deliberately produces a few failed resamples. Confirm
+    * that the disclosed effective count remains above the 90% inference gate.
+    assert e(bootstrap_requested) == 200
+    assert e(bootstrap_attempted) == 200
+    assert e(bootstrap_successful) >= 180
+    assert e(bootstrap_failed) == 200 - e(bootstrap_successful)
+    assert e(bootstrap_failed) > 0
 }
 if _rc == 0 {
     display as result "  PASS: P8 Null effect: all ~0 (TCE=" %6.4f e(tce) ///

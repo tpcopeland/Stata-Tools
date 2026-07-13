@@ -35,17 +35,17 @@ where at least one {it:axis_option} is required:
 {synoptset 30 tabbed}{...}
 {synopthdr:axis_options}
 {synoptline}
-{synopt:{cmd:age(}{it:dobvar}[{cmd:,} {it:asub}]{cmd:)}}split on age (relative to date of birth){p_end}
-{synopt:{cmd:calendar(}[{cmd:,} {it:csub}]{cmd:)}}split on calendar period{p_end}
-{synopt:{cmd:elapsed(}{it:refvar}[{cmd:,} {it:esub}]{cmd:)}}split on time since a reference date{p_end}
+{synopt:{opt age}{cmd:(}{it:dobvar}[{cmd:,} {it:asub}]{cmd:)}}split on age (relative to date of birth){p_end}
+{synopt:{opt cal:endar}{cmd:(}[{cmd:,} {it:csub}]{cmd:)}}split on calendar period{p_end}
+{synopt:{opt elap:sed}{cmd:(}{it:refvar}[{cmd:,} {it:esub}]{cmd:)}}split on time since a reference date{p_end}
 {synoptline}
 
 {pstd}
 where the per-axis suboptions are
 
-{p 8 12 2}{it:asub} {space 3}= {opt w:idth(#)} {opt min(#)} {opt max(#)} {opt gen:erate(name)}{p_end}
-{p 8 12 2}{it:csub} {space 3}= {opt w:idth(#)} {opt anchor(#)} {opt gen:erate(name)}{p_end}
-{p 8 12 2}{it:esub} {space 3}= {opt w:idth(#)} {opt unit(day|year)} {opt min(#)} {opt max(#)} {opt gen:erate(name)}{p_end}
+{p 8 12 2}{it:asub} {space 3}= {cmd:width(#)} {cmd:min(#)} {cmd:max(#)} {cmd:generate(name)}{p_end}
+{p 8 12 2}{it:csub} {space 3}= {cmd:width(#)} {cmd:anchor(#)} {cmd:generate(name)}{p_end}
+{p 8 12 2}{it:esub} {space 3}= {cmd:width(#)} {cmd:unit(day|year)} {cmd:min(#)} {cmd:max(#)} {cmd:generate(name)}{p_end}
 
 
 {marker description}{...}
@@ -86,26 +86,26 @@ must be non-missing daily Stata dates. The variables named by {opt id()},
 {dlgtab:Axes (specify at least one)}
 
 {phang}
-{cmd:age(}{it:dobvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on age relative to the
+{opt age}{cmd:(}{it:dobvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on age relative to the
 date-of-birth variable {it:dobvar}. It must be a non-missing numeric daily date
 and must be distinct from {opt id()}, {opt start()}, and {opt stop()}; its
-suboptions are {opt width(#)} (positive whole years, default 1), {opt min(#)}
-and {opt max(#)} (drop age bands outside these bounds), and
-{opt generate(name)} (band variable, default {cmd:ageband}).
+suboptions are {cmd:width(#)} (positive whole years, default 1), {cmd:min(#)}
+and {cmd:max(#)} (drop age bands outside these bounds), and
+{cmd:generate(name)} (band variable, default {cmd:ageband}).
 
 {phang}
-{cmd:calendar(} [{cmd:,} {it:suboptions}]{cmd:)} splits on calendar period at
-1 January boundaries. Suboptions: {opt width(#)} (years, default 1),
-{opt anchor(#)} (first calendar year of the grid, default = earliest year in the
-data), and {opt generate(name)} (band variable, default {cmd:calband}).
+{opt cal:endar}{cmd:(} [{cmd:,} {it:suboptions}]{cmd:)} splits on calendar period at
+1 January boundaries. Suboptions: {cmd:width(#)} (years, default 1),
+{cmd:anchor(#)} (first calendar year of the grid, default = earliest year in the
+data), and {cmd:generate(name)} (band variable, default {cmd:calband}).
 
 {phang}
-{cmd:elapsed(}{it:refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date
+{opt elap:sed}{cmd:(}{it:refvar} [{cmd:,} {it:suboptions}]{cmd:)} splits on time since the reference-date
 variable {it:refvar} (for example a copy of study entry). It must be a
 non-missing numeric daily date and must be distinct from {opt id()},
-{opt start()}, and {opt stop()}. Suboptions: {opt width(#)} (default 1),
-{opt unit(day|year)} (default {cmd:day}), {opt min(#)}/{opt max(#)}, and
-{opt generate(name)} (band variable, default {cmd:fuband}). Year-unit widths
+{opt start()}, and {opt stop()}. Suboptions: {cmd:width(#)} (default 1),
+{cmd:unit(day|year)} (default {cmd:day}), {cmd:min(#)}/{cmd:max(#)}, and
+{cmd:generate(name)} (band variable, default {cmd:fuband}). Year-unit widths
 must be positive whole years.
 
 {dlgtab:General}

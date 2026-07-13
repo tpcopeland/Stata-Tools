@@ -72,6 +72,12 @@ reinstall so an older SSC/GitHub copy cannot shadow the package under review.
 - `test_iivw_v200_phase2.do` — diagnostics redesign: the target-SMD balance
   verdict, the IIW component, ESS, exogeneity conditioning and Holm adjustment,
   and the iivw_diagnose comparability gate (C2, C8, H1-H7).
+- `test_iivw_v200_phase3.do` — output, export, and contract hardening: missing
+  numeric thresholds, export-only options without `xlsx()`, the return gate on a
+  failed export (all three reporting commands), case-insensitive Excel sheet
+  lookup, the stale-weight signature, the `treat_cov()` baseline contract, the
+  weighted-`mixed` acknowledgment, and a documentation-reality check that runs
+  the README Quick Start straight out of the shipped file (H9-H16, H18, C10).
 - `test_iivw_v200_coverage.do` — surface added in Phases 0-2 that no other suite
   exercised: the convergence guard, the nonconverged-weight taint (and that
   `iivw_fit` does not launder it), the refit counts, the risk-set returns, and

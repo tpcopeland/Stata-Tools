@@ -928,9 +928,11 @@ commands:
 {synopt:{cmd:e(obs_data)}}observed outcome mean{p_end}
 
 {pstd}
-{cmd:e(sample)} marks original analytic rows. Successful calls require
-{cmd:e(bootstrap_successful)==e(bootstrap_requested)} and
-{cmd:e(bootstrap_failed)==0}.
+{cmd:e(sample)} marks original analytic rows. All requested bootstrap draws must
+be attempted. A successful call requires at least two and at least 90% of the
+requested draws to succeed, and every requested confidence-interval matrix must
+be complete and finite. The {cmd:e(bootstrap_*)} scalars disclose any accepted
+failed draws; inference then uses the successful draws only.
 
 {pstd}
 {cmd:e(model_diagnostics)} columns are {cmd:N}, {cmd:converged}, {cmd:ll},

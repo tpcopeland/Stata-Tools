@@ -4,6 +4,7 @@
 *! This file is included by run_all.do, so its locals are created in the
 *! runner's scope. Keep manifest_suites, manifest_counts, and
 *! manifest_allow_skips positionally aligned.
+*! Install hygiene is owned by _tvtools_qa_common.do::_tvtools_qa_bootstrap.
 
 **# Curated lanes
 
@@ -40,6 +41,7 @@ local external_suites crossval_tvsplit_lexis crossval_tvweight_ipcw ///
 local core_suites `quick_suites' `core_only_suites'
 local full_suites `core_suites' `external_suites'
 local release_suites `full_suites' test_package_release
+local release_delegated_suites test_dialogs_gui.do
 local meta_suites test_package_runner_contract
 
 **# Pinned result contracts

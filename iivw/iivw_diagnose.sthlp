@@ -36,13 +36,13 @@
 {synoptline}
 {synopt:{opt unw:eighted(estname)}}stored unweighted outcome model{p_end}
 {synopt:{opt we:ighted(estname)}}stored IIVW/FIPTIW-weighted outcome model{p_end}
-{synopt:{opt ad:justed(estname)}}stored weighted model with measurement-process adjustment{p_end}
+{synopt:{opt ad:justed(estname)}}stored adjusted model{p_end}
 {synopt:{opt ex:ogeneity(string)}}exogeneity status; default {cmd:unknown}{p_end}
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
-{synopt:{opt force}}compare estimates that are not the same estimand; descriptive only{p_end}
-{synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default {cmd:c(level)}{p_end}
-{synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
+{synopt:{opt force}}compare unlike estimands (descriptive){p_end}
+{synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
+{synopt:{opt xlsx(filename)}}write results to an Excel workbook{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
 {synopt:{opt replace}}overwrite the named worksheet if it already exists{p_end}
 {synopt:{opt open}}open the Excel workbook after writing it{p_end}
@@ -52,7 +52,7 @@
 {synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
-{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
+{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
@@ -136,13 +136,13 @@ reports model movement only and does not compute sampling or artifact shares.
 and displays the bias of each estimate versus that value.
 
 {phang}
-{opt force} bypasses the comparability check. By default {cmd:iivw_diagnose}
-requires the three stored models to share an outcome, an estimator, a
-family-link, and a cluster variable, and exits with an error when they do not:
-a decomposition of the gap between two estimates of {it:different} quantities
-is not a decomposition of anything. With {opt force} the command proceeds and
-reports the table as descriptive only, sets {cmd:r(decomposable)} to 0, and
-withholds the sampling and artifact shares.
+{opt force} bypasses the comparability check. By default {cmd:iivw_diagnose} requires the
+three stored models to share an outcome, an estimator, a family-link, and a
+cluster variable, and exits with an error when they do not: a decomposition of
+the gap between two estimates of {it:different} quantities is not a decomposition
+of anything. With {opt force} the command proceeds and reports the table as
+descriptive only, sets {cmd:r(decomposable)} to 0, and withholds the sampling and
+artifact shares.
 
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
@@ -339,7 +339,7 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synoptset 28 tabbed}{...}
 {synopthdr:Scalars}
 {synoptline}
-{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 {synoptline}
 
 {synopthdr:Macros}
@@ -350,14 +350,14 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synopt:{cmd:r(adjusted)}}stored adjusted model name{p_end}
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
-{synopt:{cmd:r(decomposable)}}1 if the three estimates are the same estimand; 0 under {opt force}{p_end}
+{synopt:{cmd:r(decomposable)}}1 if the estimates share an estimand{p_end}
 {synopt:{cmd:r(depvar)}}outcome shared by the three models{p_end}
 {synopt:{cmd:r(ci_dist_unweighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(ci_dist_weighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(ci_dist_adjusted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(conclusion)}}interpretation category{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
-{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 {synoptline}
 
 {synopthdr:Matrices}

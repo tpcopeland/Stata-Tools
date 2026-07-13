@@ -128,6 +128,7 @@ else {
         test_iivw_v200_phase0 ///
         test_iivw_v200_phase1 ///
         test_iivw_v200_phase2 ///
+        test_iivw_v200_phase3 ///
         test_iivw_v200_coverage ///
         test_iivw_v200_qagate ///
         test_iivw_final_adversarial ///

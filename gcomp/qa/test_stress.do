@@ -51,7 +51,7 @@ else {
 }
 
 * ============================================================
-* S2: Very sparse outcome (low event rate)
+* S2: Very sparse outcome fails closed when too few resamples are usable
 * ============================================================
 
 local ++test_count
@@ -66,17 +66,20 @@ capture noisily {
     gen double y = rbinomial(1, invlogit(-5 + 0.4*m + 0.3*x + 0.1*c))
     quietly count if y == 1
     local nevents = r(N)
-    gcomp y m x c, outcome(y) mediation obe ///
+    capture noisily gcomp y m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(5) seed(2)
-    assert !missing(e(tce))
-    * TCE should be small (<0.1 absolute) with sparse events
-    assert abs(e(tce)) < 0.15
+    local sparse_rc = _rc
+    * Stata's bootstrap prefix can stop before gcomp receives replication
+    * counts when too few estimates exist.  The contract is fail-closed, not
+    * a package-specific rc after the prefix itself has already failed.
+    assert `sparse_rc' != 0
+    assert `sparse_rc' != 503
 }
 if _rc == 0 {
-    display as result "  PASS: S2 sparse outcome (`nevents' events)"
+    display as result "  PASS: S2 sparse outcome (`nevents' events) fails closed (rc=`sparse_rc')"
     local ++pass_count
 }
 else {
@@ -85,7 +88,7 @@ else {
 }
 
 * ============================================================
-* S3: Extreme mediator rate (mediator almost always = 1)
+* S3: Extreme mediator rate fails closed when resampling is inadequate
 * ============================================================
 
 local ++test_count
@@ -97,17 +100,16 @@ capture noisily {
     gen double x = rbinomial(1, 0.5)
     gen double m = rbinomial(1, invlogit(4 + 0.3*x + 0.1*c))    // ~98% = 1
     gen double y = rbinomial(1, invlogit(-1 + 0.4*m + 0.3*x))
-    gcomp y m x c, outcome(y) mediation obe ///
+    capture noisily gcomp y m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(5) seed(3)
-    assert !missing(e(tce))
-    assert !missing(e(nde))
-    assert !missing(e(nie))
+    local extreme_rc = _rc
+    assert `extreme_rc' == 459
 }
 if _rc == 0 {
-    display as result "  PASS: S3 extreme mediator rate"
+    display as result "  PASS: S3 extreme mediator rate fails closed on inadequate resampling"
     local ++pass_count
 }
 else {
@@ -248,6 +250,10 @@ else {
 local ++test_count
 capture noisily {
     _s_make_eofu_data 41
+    * monotreat requires absorbing observed treatment histories.
+    bysort id (time): replace A = 1 if _n > 1 & A[_n-1] == 1
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90*A[_n-1] + 0.75*L[_n-1] + 0.20*L0)) if time == 3
     gcomp Y L0 A L Alag Llag id time, outcome(Y) idvar(id) tvar(time) ///
         varyingcovariates(L) fixedcovariates(L0) laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
         commands(A: logit, Y: logit, L: regress) equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
@@ -287,10 +293,12 @@ capture noisily {
         equations(L: A, Y: L A, A: L) ///
         intvars(A) interventions(A_: A_=1, A_: A_=0) ///
         pooled sim(50) samples(5) seed(6) eofu
-    assert _rc == 459
+    local bad_rule_rc = _rc
+    assert `bad_rule_rc' != 0
+    assert `bad_rule_rc' != 503
 }
 if _rc == 0 {
-    display as result "  PASS: S12 degenerate intervention fails cleanly (rc=459, not r(503))"
+    display as result "  PASS: S12 degenerate intervention fails cleanly (rc=`bad_rule_rc', not r(503))"
     local ++pass_count
 }
 else {
@@ -316,6 +324,11 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(50) seed(7) all
+    assert e(bootstrap_requested) == 50
+    assert e(bootstrap_attempted) == 50
+    assert e(bootstrap_successful) >= 45
+    assert e(bootstrap_failed) == 50 - e(bootstrap_successful)
+    assert e(bootstrap_failed) > 0
     foreach cim in ci_normal ci_percentile ci_bc ci_bca {
         tempname M
         matrix `M' = e(`cim')

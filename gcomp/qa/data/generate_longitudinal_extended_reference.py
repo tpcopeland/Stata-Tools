@@ -202,17 +202,42 @@ def bootstrap(data: pd.DataFrame) -> pd.DataFrame:
 
 def reference_rows(est: dict[str, float], boot: pd.DataFrame) -> list[dict[str, object]]:
     se = boot.drop(columns=["rep"]).std(ddof=1).to_dict()
+    # The Python oracle integrates the fitted event law exactly, whereas gcomp's
+    # non-EOFU point run draws one Monte Carlo population of N_SUBJECTS. A fixed
+    # absolute tolerance below one MC standard deviation is therefore a false
+    # precision gate. Derive a 2.5-SD bound from the oracle's expected event
+    # counts/person-time and retain the original software-agreement floors.
+    event_rate_a1 = float(np.exp(est["po_a1"]))
+    event_rate_a0 = float(np.exp(est["po_a0"]))
+    event_count_a1 = N_SUBJECTS * est["out_a1"]
+    event_count_a0 = N_SUBJECTS * est["out_a0"]
+    person_time_a1 = event_count_a1 / event_rate_a1
+    person_time_a0 = event_count_a0 / event_rate_a0
+    mc_se_log_rate_a1 = 1.0 / np.sqrt(event_count_a1)
+    mc_se_log_rate_a0 = 1.0 / np.sqrt(event_count_a0)
+    mc_se_logit_a1 = np.sqrt(
+        1.0 / (person_time_a1 * event_rate_a1 * (1.0 - event_rate_a1))
+    )
+    mc_se_logit_a0 = np.sqrt(
+        1.0 / (person_time_a0 * event_rate_a0 * (1.0 - event_rate_a0))
+    )
+    mc_bound = {
+        "po_a1": 2.5 * mc_se_log_rate_a1,
+        "po_a0": 2.5 * mc_se_log_rate_a0,
+        "msm_a": 2.5 * np.sqrt(mc_se_logit_a1**2 + mc_se_logit_a0**2),
+        "msm_cons": 2.5 * mc_se_logit_a0,
+    }
     tol_est = {
-        "po_a1": 0.08,
-        "po_a0": 0.08,
+        "po_a1": max(0.08, mc_bound["po_a1"]),
+        "po_a0": max(0.08, mc_bound["po_a0"]),
         "out_a1": 0.03,
         "out_a0": 0.03,
         "death_a1": 0.03,
         "death_a0": 0.03,
         "out_diff_a1_a0": 0.04,
         "death_diff_a1_a0": 0.04,
-        "msm_a": 0.12,
-        "msm_cons": 0.05,
+        "msm_a": max(0.12, mc_bound["msm_a"]),
+        "msm_cons": max(0.05, mc_bound["msm_cons"]),
     }
     tol_se = {
         "po_a1": 0.08,
@@ -242,7 +267,7 @@ def reference_rows(est: dict[str, float], boot: pd.DataFrame) -> list[dict[str, 
                 "bootstrap_reps": len(boot),
                 "data_seed": DATA_SEED,
                 "bootstrap_seed": BOOT_SEED,
-                "notes": "pooled GLM Binomial nuisance models; deterministic plug-in intervention risk sets",
+                "notes": "pooled GLM Binomial nuisance models; deterministic plug-in oracle; point tolerance includes 2.5-SD stochastic Stata MC bound",
             }
         )
     return rows

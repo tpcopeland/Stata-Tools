@@ -1058,4 +1058,13 @@ program define iivw_exogtest, rclass sortpreserve
         }
         return matrix results = `__iivw_results'
     }
+
+    * Re-raise a failed export now that the analytical payload is posted. The
+    * caller sees the export's rc, but r() survives it and the generated lag
+    * variables stay generated: the tests ran and their results are real
+    * whether or not the workbook could be written. rc 602 (sheet exists, no
+    * replace) is warned about above, not an error.
+    if `__iivw_exog_export_rc' != 0 & `__iivw_exog_export_rc' != 602 {
+        exit `__iivw_exog_export_rc'
+    }
 end

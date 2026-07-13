@@ -229,7 +229,7 @@ Causal interpretation requires more than a successful command. The intervention 
 
 `impute()` performs single stochastic chained-equation imputation, not Rubin-style multiple imputation. Cycles across distinct targets are intentional fully conditional specification and are iterated in `impute()` order; self-dependence and incomplete maps are rejected. Imputation uncertainty is not propagated as between-imputation uncertainty. Extended missing codes `.a`–`.z` are treated as missing, just like `.`.
 
-Monte Carlo error and finite-bootstrap error remain sampling approximations. `gcomp` now fails closed if any requested bootstrap replication fails or a requested interval matrix is incomplete; inspect `e(bootstrap_*)`. `savemodels` produces auditable analytic-sample refit approximations, not exact nonpooled simulation-loop fits.
+Monte Carlo error and finite-bootstrap error remain sampling approximations. `gcomp` requires every requested bootstrap draw to be attempted and at least two and 90% to succeed; it fails closed below that threshold or if a requested interval matrix is incomplete. Accepted failed draws are reported in `e(bootstrap_*)`, and inference uses the successful draws. `savemodels` produces auditable analytic-sample refit approximations, not exact nonpooled simulation-loop fits.
 
 ## Saved Point-Estimate Data
 
@@ -252,7 +252,7 @@ For standard controlled mediation, arms `3` and `4` are alternative- and baselin
 
 All results are stored in `e()`:
 
-**Sample and resampling scalars:** `e(N)` is analytic rows in mediation and subjects in time-varying mode; `e(N_rows)` and `e(N_subjects)` remove that ambiguity. `e(MC_sims)` is the actual Monte Carlo size. `e(samples)` and `e(bootstrap_requested)` are the requested bootstrap count; `e(bootstrap_attempted)`, `e(bootstrap_successful)`, and `e(bootstrap_failed)` give the observed completion counts. Successful commands require all requested replications. `e(seed)` is present when supplied.
+**Sample and resampling scalars:** `e(N)` is analytic rows in mediation and subjects in time-varying mode; `e(N_rows)` and `e(N_subjects)` remove that ambiguity. `e(MC_sims)` is the actual Monte Carlo size. `e(samples)` and `e(bootstrap_requested)` are the requested bootstrap count; `e(bootstrap_attempted)`, `e(bootstrap_successful)`, and `e(bootstrap_failed)` give the observed completion counts. Successful commands require all draws attempted and at least `max(2, ceil(0.90 × requested))` successful replications. `e(seed)` is present when supplied.
 
 **Matrices:** `e(b)` is the named point-estimate vector and `e(V)` is its full bootstrap covariance matrix. `e(se)` and `e(ci_normal)` match its columns; `e(ci_percentile)`, `e(ci_bc)`, and `e(ci_bca)` are present with `all`. `e(effects)` is an effecttab-compatible matrix for non-OCE mediation. `e(model_diagnostics)` follows the schema above.
 

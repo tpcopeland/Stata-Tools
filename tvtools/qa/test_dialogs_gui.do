@@ -1,4 +1,6 @@
 *! test_dialogs_gui.do — graphical compile/open and command-builder goldens
+*! run_dialog_gui.sh receives the isolated PLUS installation created by
+*! _tvtools_qa_common.do::_tvtools_qa_bootstrap.
 
 version 16.0
 clear all

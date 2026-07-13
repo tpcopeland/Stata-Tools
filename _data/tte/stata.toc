@@ -1,5 +1,0 @@
-v 3
-d Stata-Tools data: tte
-d Timothy P Copeland, Karolinska Institutet
-d https://github.com/tpcopeland/Stata-Tools
-p tte

@@ -39,8 +39,8 @@
 {synoptline}
 {syntab:Unweighted diagnostic fits}
 {synopt:{opt unw:eighted}}fit without applying IIVW/IPTW/FIPTIW weights{p_end}
-{synopt:{opt id(varname)}}subject identifier for {opt unweighted} fits without stored metadata{p_end}
-{synopt:{opt time(varname)}}time variable for {opt unweighted} fits without stored metadata{p_end}
+{synopt:{opt id(varname)}}subject id for {opt unweighted} fits{p_end}
+{synopt:{opt time(varname)}}time variable for {opt unweighted} fits{p_end}
 
 {syntab:Model}
 {synopt:{opt mod:el(string)}}estimation method: {cmd:gee} (default) or {cmd:mixed}{p_end}
@@ -49,20 +49,21 @@
 {synopt:{opt times:pec(string)}}time specification; default {cmd:linear}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
 {synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
-{synopt:{opt base:cat(#)}}reference category for {opt categorical()} (default: lowest value){p_end}
+{synopt:{opt base:cat(#)}}reference category for {opt categorical()}{p_end}
 {synopt:{opt timebase:cat(#)}}reference category for categorical time{p_end}
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
 {synopt:{opt boot:strap(#)}}bootstrap replicates (default: 0 = sandwich SE){p_end}
-{synopt:{opt refit:weights}}re-estimate the IIW/IPTW/FIPTIW weights inside each bootstrap replicate{p_end}
+{synopt:{opt refit:weights}}re-estimate weights in each replicate{p_end}
 
 {syntab:Reporting}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a model fails to converge{p_end}
-{synopt:{opt replace}}overwrite existing time/categorical/interaction variables{p_end}
-{synopt:{opt col:lect}}enable Stata's {cmd:collect} framework for table building{p_end}
+{synopt:{opt experimental:mixed}}acknowledge the weighted {opt model(mixed)} caveat{p_end}
+{synopt:{opt replace}}overwrite generated variables{p_end}
+{synopt:{opt col:lect}}enable the {cmd:collect} framework{p_end}
 {synopt:{opt gee:opts(string)}}additional options passed to {cmd:glm}{p_end}
 {synopt:{opt mixed:opts(string)}}additional options passed to {cmd:mixed}{p_end}
 
@@ -155,8 +156,10 @@ identifies. {cmd:model(mixed)} applies IIVW weights through a single
 observation-level {cmd:[pw=]}, which Stata does not rescale across levels, so
 the random-effects variance components are {it:not} consistently
 weight-estimated (Rabe-Hesketh and Skrondal 2006). Under weighting, interpret
-only the fixed-effect (mean) structure of a mixed fit; {cmd:iivw_fit} prints a
-note to this effect. For a properly weighted subject-specific model, a
+only the fixed-effect (mean) structure of a mixed fit. A {bf:weighted}
+{cmd:model(mixed)} therefore requires {opt experimental:mixed}, which is how you
+state that you understand the variance components it prints are not a valid
+weighted estimate. For a properly weighted subject-specific model, a
 multilevel-pseudolikelihood approach with level-specific weight scaling is
 required and is outside the scope of this command.
 
@@ -212,11 +215,11 @@ Not compatible with {cmd:timespec(none)}, since there are no time variables
 to interact with.
 
 {pmore}
-Interaction variables are named {cmd:_iivw_ix_{it:covar}_{it:suffix}} where {it:suffix} is {cmd:time}, {cmd:tsq}, {cmd:tcu}, {cmd:tnsN}, or
-{cmd:tcat_N}. Names longer than 32 characters are truncated with a warning. If
-truncation would produce duplicate interaction-variable names, {cmd:iivw_fit} stops
-with an error so the model is not fit with a silently collapsed interaction
-list.
+Interaction variables are named {cmd:_iivw_ix_{it:covar}_{it:suffix}} where {it:suffix} is {cmd:time}, {cmd:tsq},
+{cmd:tcu}, {cmd:tnsN}, or {cmd:tcat_N}. Names longer than 32 characters are truncated with a
+warning. If truncation would produce duplicate interaction-variable names,
+{cmd:iivw_fit} stops with an error so the model is not fit with a silently collapsed
+interaction list.
 
 {pmore}
 If a variable in {opt interaction()} is not included in {it:indepvars}, a
@@ -324,6 +327,17 @@ fails to converge. By default nonconvergence is an {bf:error}: a nonconverged
 fit has no valid coefficients or standard errors, and recording it as a
 successful fit would let every downstream diagnostic report on numbers that
 mean nothing. Use it only to inspect the failure.
+
+{phang}
+{opt experimental:mixed} is required to fit a {bf:weighted} {opt model(mixed)}. The IIW weights
+enter {cmd:mixed} as a single observation-level {cmd:[pw=]}, which Stata does not rescale
+across levels, so the random-effects variance components are {bf:not} consistently
+weight-estimated even though they are reported (Rabe-Hesketh and Skrondal
+2006). The IIW theory identifies a {it:marginal} estimator, so {opt model(gee)} is the
+defensible primary weighted analysis. Specify {opt experimental:mixed} only if you
+want the fixed-effect (mean) structure and accept that the variance components
+are not a valid weighted estimate. Unweighted {opt model(mixed)} is unaffected and
+needs no acknowledgment.
 
 {phang}
 {opt nolog} suppresses the iteration log from the underlying {cmd:glm} or
@@ -526,9 +540,9 @@ output.
 To compare multiple weighting strategies side by side:
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) treat(treated) treat_cov(age) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) treat(treated) treat_cov(age) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(Compare) models(IIW \ FIPTIW) coef(Coef.) stats(n)}{p_end}
 
@@ -676,7 +690,7 @@ target for {helpb iivw_diagnose}.{p_end}
 {phang2}{cmd:. gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))}{p_end}
 {phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) nolog}{p_end}
 
 {pstd}
 {bf:Diagnostic baseline: Unweighted model}
@@ -793,9 +807,9 @@ Allow both treatment and age effects to vary over time.
 Run two weighting strategies and combine them in a single Excel table.
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog collect}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 
@@ -837,7 +851,7 @@ labels.
 {phang2}{cmd:. gen byte visit_wave = visit}{p_end}
 {phang2}{cmd:. label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12" 4 "Month 18", replace}{p_end}
 {phang2}{cmd:. label values visit_wave wave}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(visit_wave) visit_cov(edss_bl relapse) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(categorical) categorical(treatment) interaction(treatment) replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Waves) title(Treatment by Visit Wave)}{p_end}
 
@@ -882,7 +896,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_id)}}panel ID used{p_end}
 {synopt:{cmd:e(iivw_time)}}time variable used{p_end}
 {synopt:{cmd:e(iivw_time_vars)}}time variables included in the outcome model{p_end}
-{synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummy variables created, when applicable{p_end}
+{synopt:{cmd:e(iivw_time_cat_vars)}}categorical-time dummies created{p_end}
 {synopt:{cmd:e(iivw_time_basecat)}}reference category for categorical time, when applicable{p_end}
 {synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
 {synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}, when applicable{p_end}

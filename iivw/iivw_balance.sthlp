@@ -39,13 +39,13 @@
 {syntab:Thresholds}
 {synopt:{opt cvcut(#)}}weight CV threshold for low leverage; default {cmd:0.10}{p_end}
 {synopt:{opt essratiocut(#)}}ESS/N threshold for low leverage; default {cmd:0.95}{p_end}
-{synopt:{opt bal:cut(#)}}absolute target SMD threshold for the balance flag; default {cmd:0.10}{p_end}
+{synopt:{opt bal:cut(#)}}target-SMD cutoff for the flag; default {cmd:0.10}{p_end}
 
 {syntab:Supplementary AG refit}
-{synopt:{opt agr:efit}}also display the refitted visit-intensity model's hazard ratios{p_end}
+{synopt:{opt agr:efit}}also show the refit hazard ratios{p_end}
 {synopt:{opt efr:on}}ignored; the refit replays the stored tie method{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
-{synopt:{opt l:evel(#)}}confidence level for AG-refit hazard-ratio intervals; default {cmd:c(level)}{p_end}
+{synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Reporting}
 {synopt:{opt xlsx(filename)}}write the balance table to an Excel workbook{p_end}
@@ -58,7 +58,7 @@
 {synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
-{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
+{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
@@ -293,13 +293,13 @@ weight-generating model.
 {pstd}
 {bf:Why no weighted refit is reported.} The intuitive check -- refit the visit
 model with the IIW weights and see whether the coefficients go to zero -- does
-not work, and is no longer offered. {cmd:stcox} with {cmd:pweight}s applies the
-weight to the event term {it:and} to the risk-set average. In the score at
-{it:beta} = 0 the weight cancels against the intensity in the first but not the
-second, leaving a term in the {it:weighted} risk-set mean that does not vanish.
-The weighted coefficients therefore have no null at zero: on correctly weighted
-data the unweighted visit-model hazard ratio was 1.523 and the IIW-weighted
-refit gave 1.537. Use {it:target SMD}, which does have a null.
+not work, and is no longer offered. {cmd:stcox} with {cmd:pweight}s applies the weight to
+the event term {it:and} to the risk-set average. In the score at {it:beta} = 0 the
+weight cancels against the intensity in the first but not the second, leaving
+a term in the {it:weighted} risk-set mean that does not vanish. The weighted
+coefficients therefore have no null at zero: on correctly weighted data the
+unweighted visit-model hazard ratio was 1.523 and the IIW-weighted refit gave
+1.537. Use {it:target SMD}, which does have a null.
 
 
 {marker examples}{...}
@@ -318,7 +318,7 @@ refit gave 1.537. Use {it:target SMD}, which does have a null.
 {phang2}{cmd:. gen byte female = mod(id, 2)}{p_end}
 {phang2}{cmd:. gen double severity = .04 * age + .25 * female + .12 * visit + rnormal()}{p_end}
 {phang2}{cmd:. gen byte relapse = runiform() < invlogit(-2 + .4 * severity)}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(months) visit_cov(age female) lagvars(severity relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(months) visit_cov(age female) lagvars(severity relapse) censor(fu_end) nolog}{p_end}
 
 {pstd}Check leverage and visit-model covariate balance.{p_end}
 
@@ -342,7 +342,7 @@ AG-refit view.{p_end}
 
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2:Scalars}{p_end}
-{synopt:{cmd:r(N)}}analysis observations with nonmissing weights, ID, and time{p_end}
+{synopt:{cmd:r(N)}}analysis observations{p_end}
 {synopt:{cmd:r(n_ids)}}number of subjects{p_end}
 {synopt:{cmd:r(weight_cv)}}weight coefficient of variation{p_end}
 {synopt:{cmd:r(ess)}}effective sample size, (sum w)^2 / sum(w^2){p_end}
@@ -366,10 +366,10 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(balance_flag)}}{cmd:good}, {cmd:poor}, or {cmd:unknown}{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
-{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 
 {p2col 5 28 32 2:Export scalars}{p_end}
-{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(balance)}}covariate composition statistics and flags{p_end}

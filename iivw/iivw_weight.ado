@@ -999,6 +999,52 @@ program define iivw_weight, rclass sortpreserve
             bysort `id' (`time'): gen byte `_first_obs' = (_n == 1)
         }
 
+        * treat() and treat_cov() are documented as BASELINE characteristics,
+        * and the propensity model below is fitted on each subject's earliest
+        * retained row. Nothing used to enforce that. A time-varying variable
+        * was silently reduced to "whatever value happened to sit on the
+        * earliest row that survived the sample restrictions" -- which is not a
+        * baseline value, is not what the help promises, and shifts if the user
+        * changes an if/in. Detect within-subject variation and refuse it: the
+        * user must build an explicit baseline variable, so the choice of which
+        * row counts as baseline is theirs and is visible.
+        * min/max, NOT sd. egen's sd() over a run of identical doubles returns
+        * roundoff (~1e-15), not 0, so an sd()>0 test flags almost every genuinely
+        * constant covariate -- a guard that rejects the valid case is worse than
+        * no guard. min and max involve no arithmetic and are exact.
+        *
+        * They also both ignore missing, which is what we want: a baseline
+        * covariate recorded once and missing at later visits is a normal
+        * registry layout, and only the baseline row feeds the model anyway. The
+        * contract is that the NONMISSING values within a subject agree.
+        tempvar __iivw_wmn __iivw_wmx
+        local __iivw_tvary ""
+        foreach __iivw_v in `treat' `treat_covars' {
+            capture drop `__iivw_wmn'
+            capture drop `__iivw_wmx'
+            quietly bysort `id': egen double `__iivw_wmn' = min(`__iivw_v')
+            quietly bysort `id': egen double `__iivw_wmx' = max(`__iivw_v')
+            quietly count if `__iivw_wmn' != `__iivw_wmx' & ///
+                !missing(`__iivw_wmn', `__iivw_wmx')
+            if r(N) > 0 local __iivw_tvary "`__iivw_tvary' `__iivw_v'"
+        }
+        capture drop `__iivw_wmn'
+        capture drop `__iivw_wmx'
+        if "`__iivw_tvary'" != "" {
+            display as error "treatment-model variables vary within subject:`__iivw_tvary'"
+            display as error ""
+            display as text "  The propensity model is a BASELINE model: it is fitted on one row"
+            display as text "  per subject, the earliest retained visit. A variable that changes"
+            display as text "  over follow-up therefore enters as whatever value happened to land"
+            display as text "  on that row -- not as a baseline value."
+            display as text ""
+            display as text "  Construct the baseline value explicitly, e.g."
+            display as text "    bysort `id' (`time'): generate double base_x = x[1]"
+            display as text "  and pass base_x. Then the row that defines baseline is your choice,"
+            display as text "  not an accident of the sort order."
+            exit 459
+        }
+
         tempfile __iivw_psfile
         local logit_rc = 0
         local __iivw_logit_hold_ok = 0
@@ -1306,6 +1352,14 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_truncate] "`truncate'"
     char _dta[_iivw_efron]    "`efron_opt'"
     char _dta[_iivw_entry]    "`entry'"
+
+    * Fingerprint the data these weights actually describe, so a consumer can
+    * tell whether it is still looking at them. Stamped last, after every other
+    * characteristic, so it describes the committed state. See
+    * _iivw_weight_signature.ado for what it does and does not guarantee.
+    _iivw_weight_signature, id(`id') time(`time') ///
+        wvar(`prefix'weight) covars(`visit_covars')
+    char _dta[_iivw_wsig] "`r(signature)'"
 
     * =========================================================================
     * DISPLAY RESULTS

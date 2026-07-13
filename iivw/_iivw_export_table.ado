@@ -312,14 +312,7 @@ program define _iivw_export_table, rclass
         local __iivw_return_sheet `"`sheet'"'
 
         if "`open'" != "" {
-            * `shell' does not propagate the child's exit status: a missing or
-            * failing xdg-open still leaves _rc == 0, so the open itself cannot
-            * be verified here. Only Stata refusing to start a shell surfaces in
-            * _rc. Either way the workbook is written, so never fail the export.
-            capture shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
-            if _rc {
-                display as text "note: Excel file was written but Stata could not start a shell to open it"
-            }
+            _iivw_open_workbook `"`__iivw_xlsx'"'
         }
     }
     else {
@@ -421,11 +414,7 @@ program define _iivw_export_table, rclass
     local __iivw_return_sheet `"`sheet'"'
 
     if "`open'" != "" {
-        * See the tabtools branch above: `shell' cannot report a failed open.
-        capture shell xdg-open `"`__iivw_xlsx'"' >/dev/null 2>&1 &
-        if _rc {
-            display as text "note: Excel file was written but Stata could not start a shell to open it"
-        }
+        _iivw_open_workbook `"`__iivw_xlsx'"'
     }
     }
 
@@ -443,6 +432,43 @@ program define _iivw_export_table, rclass
     return scalar N_rows = `__iivw_return_rows'
     return local xlsx `"`__iivw_return_xlsx'"'
     return local sheet `"`__iivw_return_sheet'"'
+end
+
+* Best-effort workbook launcher for open. Both export branches call this rather
+* than hardcoding xdg-open, which only exists on Linux/BSD -- on Windows and
+* macOS the old code shelled out to a launcher that is not installed, so open
+* could not work there at all.
+*
+* The child's exit status is unreachable: neither shell nor winexec propagates
+* it, so a launcher that is absent or fails still leaves _rc == 0. Only Stata
+* refusing to start the process at all surfaces in _rc. The open is therefore
+* reported as attempted, never as succeeded -- and it never fails the export,
+* because the workbook is already written by the time we get here.
+*
+* The caller has already rejected shell metacharacters and quote characters in
+* the path (see the xlsx() guard above), so the quoting below is safe.
+capture program drop _iivw_open_workbook
+program define _iivw_open_workbook
+    version 16.0
+    gettoken __iivw_file 0 : 0
+
+    if "`c(os)'" == "Windows" {
+        capture winexec cmd.exe /c start "" `"`__iivw_file'"'
+    }
+    else if "`c(os)'" == "MacOSX" {
+        capture shell open `"`__iivw_file'"' >/dev/null 2>&1 &
+    }
+    else {
+        capture shell xdg-open `"`__iivw_file'"' >/dev/null 2>&1 &
+    }
+    if _rc {
+        display as text ///
+            "note: Excel file was written but Stata could not start a process to open it"
+    }
+    else {
+        display as text ///
+            "note: asked the operating system to open the workbook; Stata cannot confirm it did"
+    }
 end
 
 version 16.0
@@ -473,7 +499,12 @@ real scalar _iivw_xlsx_sheet_exists(string scalar filepath, string scalar sheet)
     sheets = b.get_sheets()
     found = 0
     for (i = 1; i <= length(sheets); i++) {
-        if (sheets[i] == sheet) {
+        // Case-insensitive, like Excel itself. With an exact-case compare,
+        // writing "Balance" and then re-exporting to "balance" without replace
+        // reported "sheet does not exist", skipped the rc 602 guard, and then
+        // died rc 16114 inside add_sheet() -- the wrong error, at the wrong
+        // layer, after the user had already been told the write was safe.
+        if (strlower(sheets[i]) == strlower(sheet)) {
             found = 1
             break
         }
@@ -574,9 +605,18 @@ void _iivw_xlsx_write_tabtools(
     class xl scalar b
     string rowvector sheets
     string matrix table
+    string scalar actual
     real scalar i, found
 
     b = xl()
+
+    // actual is the sheet name as the workbook itself spells it. Excel sheet
+    // names are case-insensitive -- a book cannot hold both "Balance" and
+    // "balance" -- so an exact-case search failed to find an existing sheet
+    // whose case differed, add_sheet() then tried to create a duplicate, and
+    // the write died rc 16114. Match case-insensitively and then operate on
+    // the book's own spelling, never the caller's.
+    actual = sheet
 
     if (!fileexists(filepath)) {
         b.create_book(filepath, sheet, "xlsx")
@@ -586,25 +626,26 @@ void _iivw_xlsx_write_tabtools(
         sheets = b.get_sheets()
         found = 0
         for (i = 1; i <= length(sheets); i++) {
-            if (sheets[i] == sheet) {
+            if (strlower(sheets[i]) == strlower(sheet)) {
                 found = 1
+                actual = sheets[i]
                 break
             }
         }
         if (found) {
-            b.clear_sheet(sheet)
+            b.clear_sheet(actual)
         }
         else {
-            b.add_sheet(sheet)
+            b.add_sheet(actual)
         }
-        b.set_sheet(sheet)
+        b.set_sheet(actual)
     }
 
     b.set_mode("open")
     table = _iivw_xlsx_cur_strmat(varlist)
     b.put_string(1, 1, table)
 
-    _iivw_xlsx_style_tabtools(b, sheet, n_rows, n_cols, note_row, widths,
+    _iivw_xlsx_style_tabtools(b, actual, n_rows, n_cols, note_row, widths,
         font, fontsize, bcode, headershade, zebra, headercolor, zebracolor,
         valuespanfrom)
     b.close_book()

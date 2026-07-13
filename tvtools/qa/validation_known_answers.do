@@ -730,16 +730,11 @@ else {
 *   [22067, 22159] exp=1  (Jun1-Aug31, 93 days)
 *   [22160, 22281] ref=0  (Sep1-Dec31, 122 days)
 *
-* tvage for Person 1 (DOB=Jan1/1965=-1826, groupwidth=5):
-*   age_entry = floor((21915 - (-1826)) / 365.25) = floor(65.001) = 65
-*   Note: 21915+1826 = 23741, 23741/365.25 = 64.9979... → floor = 64
-*   Wait — recalculate: -1826 is Jan2/1965 actually. Let me use mdy values.
-*   mdy(1,1,1965) = 1826 (days since Jan1/1960)
-*   age_entry = floor((21915 - 1826) / 365.25) = floor(20089/365.25) = floor(54.998) = 54
-*   age_exit  = floor((22281 - 1826) / 365.25) = floor(20455/365.25) = floor(55.999) = 55
-*   2 age groups: 50-54, 55-59
-*
-* This is getting complex. Let me compute with Stata below and verify.
+* Exact tvage boundaries:
+*   Person 1 is exactly 55 on 01jan2020 and remains 55 through 31dec2020,
+*   so groupwidth(5) yields the 55-59 group only.
+*   Person 2 is 49 on 01jan2020 and turns 50 on 01jul2020, yielding groups
+*   45-49 and 50-54.
 
 display as text _newline "WORKFLOW 4: Full pipeline - 2 persons, exposure + age + event"
 
@@ -822,18 +817,12 @@ local t_pass = 1
 capture noisily {
     clear
     input long id double(dob entry exit_)
-        1 1826 21915 22281
+        1 1827 21915 22281
         2 3834 21915 22281
     end
     format %td dob entry exit_
 
-    * Verify age calculations before running tvage
-    * Person 1: DOB=mdy(1,1,1965)=1826
-    *   age_entry = floor((21915-1826)/365.25) = 55
-    *   age_exit  = floor((22281-1826)/365.25) = 55
-    * Person 2: DOB=mdy(7,1,1970)=3834
-    *   age_entry = floor((21915-3834)/365.25) = floor(49.480) = 49
-    *   age_exit  = floor((22281-3834)/365.25) = floor(50.481) = 50
+    * Exact attained ages are 55→55 for Person 1 and 49→50 for Person 2.
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
         generate(age_tv) startgen(age_start) stopgen(age_stop) ///
@@ -1455,23 +1444,20 @@ else {
 **# WORKFLOW 7: Multi-person tvage with birthday boundaries
 * =============================================================================
 *
-* Test that tvage correctly handles the 365.25-day age formula across
-* leap-year boundaries with known DOBs.
+* Test exact birthday boundaries, including the documented 29-Feb policy.
 *
 * Person 1: DOB=Feb29/2000 (leap day baby)
 *   mdy(2,29,2000) = 14669
 *   Entry=Jan1/2020 = 21915
-*   Exit=Dec31/2021 = 22646
-*   age_entry = floor((21915-14669)/365.25) = floor(7246/365.25) = floor(19.838) = 19
-*   age_exit  = floor((22646-14669)/365.25) = floor(7977/365.25) = floor(21.838) = 21
+*   Exit=Dec31/2021 = 22645
+*   Age 20 begins on 29feb2020; age 21 begins on 28feb2021.
 *   → 3 age intervals: 19, 20, 21
 *
 * Person 2: DOB=Dec31/1999
 *   mdy(12,31,1999) = 14609
 *   Entry=Jan1/2020 = 21915
-*   Exit=Dec31/2020 = 22281
-*   age_entry = floor((21915-14609)/365.25) = 20
-*   age_exit  = floor((22281-14609)/365.25) = 21
+*   Exit=Dec31/2020 = 22280
+*   Age 21 begins on the exact birthday, 31dec2020.
 *   -> 2 age intervals: 20, 21
 
 display as text _newline "WORKFLOW 7: tvage birthday boundary edge cases"
@@ -1482,21 +1468,32 @@ local t_pass = 1
 capture noisily {
     clear
     input long id double(dob entry exit_)
-        1 14669 21915 22646
-        2 14609 21915 22281
+        1 14669 21915 22645
+        2 14609 21915 22280
     end
     format %td dob entry exit_
-
-    * Verify our hand calculations match Stata's floor()
-    assert floor((21915 - 14669) / 365.25) == 19
-    assert floor((22646 - 14669) / 365.25) == 21
-    assert floor((21915 - 14609) / 365.25) == 20
-    assert floor((22281 - 14609) / 365.25) == 21
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
         generate(age_tv) startgen(age_start) stopgen(age_stop)
 
     sort id age_start
+
+    * Exact rows pin leap- and non-leap-year anniversary handling.
+    quietly count if id == 1 & age_tv == 19 & ///
+        age_start == td(01jan2020) & age_stop == td(28feb2020)
+    assert r(N) == 1
+    quietly count if id == 1 & age_tv == 20 & ///
+        age_start == td(29feb2020) & age_stop == td(27feb2021)
+    assert r(N) == 1
+    quietly count if id == 1 & age_tv == 21 & ///
+        age_start == td(28feb2021) & age_stop == td(31dec2021)
+    assert r(N) == 1
+    quietly count if id == 2 & age_tv == 20 & ///
+        age_start == td(01jan2020) & age_stop == td(30dec2020)
+    assert r(N) == 1
+    quietly count if id == 2 & age_tv == 21 & ///
+        age_start == td(31dec2020) & age_stop == td(31dec2020)
+    assert r(N) == 1
 
     * Person 1: 3 rows (ages 19, 20, 21)
     quietly count if id == 1
@@ -1516,8 +1513,8 @@ capture noisily {
     }
     * Person 1 last row must end at exit
     quietly summarize age_stop if id == 1
-    if r(max) != 22646 {
-        display as error "  FAIL [W7.1.p1_stop]: expected 22646, got `=r(max)'"
+    if r(max) != 22645 {
+        display as error "  FAIL [W7.1.p1_stop]: expected 22645, got `=r(max)'"
         local t_pass = 0
     }
 
@@ -1548,15 +1545,15 @@ capture noisily {
     capture drop pt
     quietly gen double pt = age_stop - age_start + 1
     quietly summarize pt if id == 1
-    * 22646 - 21915 + 1 = 732
-    if r(sum) != 732 {
-        display as error "  FAIL [W7.1.p1_pt]: expected 732, got `=r(sum)'"
+    * 22645 - 21915 + 1 = 731
+    if r(sum) != 731 {
+        display as error "  FAIL [W7.1.p1_pt]: expected 731, got `=r(sum)'"
         local t_pass = 0
     }
     quietly summarize pt if id == 2
-    * 22281 - 21915 + 1 = 367
-    if r(sum) != 367 {
-        display as error "  FAIL [W7.1.p2_pt]: expected 367, got `=r(sum)'"
+    * 22280 - 21915 + 1 = 366
+    if r(sum) != 366 {
+        display as error "  FAIL [W7.1.p2_pt]: expected 366, got `=r(sum)'"
         local t_pass = 0
     }
 }
@@ -2138,16 +2135,14 @@ capture noisily {
         1 7305 21915 22096
     end
     format %td dob entry exit_
-    * DOB = mdy(1,1,1980) = 7305
-    * age_entry = floor((21915-7305)/365.25) = floor(14610/365.25) = floor(39.999) = 39
-    * Wait: 14610/365.25 = 39.9726... → floor = 39
-    * Hmm let me be more precise: mdy(1,1,1980) = 7305
-    * 365.25*40 = 14610. So 14610/365.25 = 40.0 exactly. floor(40.0) = 40.
-    * Actually Stata stores as double, so 14610/365.25 might be 39.999...
-    * This is exactly the edge case. Let me just run it and check.
+    * DOB = 01jan1980; entry is the exact 40th birthday.
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) ///
         generate(age_tv) startgen(age_start) stopgen(age_stop)
+    assert _N == 1
+    assert age_tv[1] == 40
+    assert age_start[1] == td(01jan2020)
+    assert age_stop[1] == td(30jun2020)
     tempfile w11_age
     save `w11_age'
 

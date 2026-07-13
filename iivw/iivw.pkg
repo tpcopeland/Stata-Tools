@@ -39,3 +39,4 @@ f _iivw_bs_refit.ado
 f _iivw_export_table.ado
 f _iivw_reserve_names.ado
 f _iivw_require_converged.ado
+f _iivw_weight_signature.ado

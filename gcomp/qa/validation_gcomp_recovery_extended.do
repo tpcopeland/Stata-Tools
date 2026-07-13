@@ -9,7 +9,7 @@ version 16.0
 * built into the data?" -- an exact analytic oracle, because we wrote the DGP.
 * This suite complements validation_gcomp_recovery.do (time-varying static
 * regime) by exercising the point-treatment / baseline-standardized path, the
-* multi-level dose-response path, and the mediation (obe) NDE/NIE/TCE/CDE
+* two-visit baseline-treatment / dose-response path, and the mediation (obe) NDE/NIE/TCE/CDE
 * decomposition -- each with the truth computed directly from the DGP, never
 * from another estimator.
 *
@@ -57,6 +57,17 @@ program define chk
     }
 end
 
+* Encode baseline-treatment recovery cases as valid two-visit eofu panels.
+* The first row carries baseline/treatment history and the second carries the
+* terminal outcome; duplicated baseline variables remain fixed within subject.
+capture program drop _gcx_two_visit_eofu
+program define _gcx_two_visit_eofu
+    syntax, OUTcome(varname)
+    expand 2
+    bysort id: replace time = _n
+    replace `outcome' = . if time == 1
+end
+
 * Tolerances (from observed MC error)
 local tolPO   = 0.02      // point-treatment potential outcome / RD
 local tolCont = 0.03      // continuous-outcome ATE
@@ -92,6 +103,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar CRUDE0 = r(mean)
     scalar CRUDE_RD = CRUDE1 - CRUDE0
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1 x2, y: a x1 x2) sim(20000) samples(2) seed(1001)
@@ -133,6 +145,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar C0 = r(mean)
     scalar CRUDE = C1 - C0
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: regress) ///
         equations(a: x1, y: a x1) sim(20000) samples(2) seed(1002)
@@ -163,6 +176,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar C0 = r(mean)
     scalar CRUDE_RD = C1 - C0
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1, y: a x1) sim(20000) samples(2) seed(1003)
@@ -194,6 +208,7 @@ capture noisily {
     gen double y = 1 + 1.0*a + 0.5*x1 + 0.8*ax1 + rnormal()
     quietly summarize x1, meanonly
     scalar T_ATE = 1.0 + 0.8*r(mean)
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1 ax1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: regress) ///
         derived(ax1) derrules(ax1: a*x1) ///
@@ -231,6 +246,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar C0 = r(mean)
     scalar CRUDE_RD = C1 - C0
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1 x2, y: a x1 x2) sim(20000) samples(2) seed(1005)
@@ -264,6 +280,7 @@ capture noisily {
     quietly summarize p0, meanonly
     scalar T_PO0 = r(mean)
     scalar T_RD = T_PO1 - T_PO0
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1 x2 x3 x4, outcome(y) idvar(id) tvar(time) eofu ///
         fixedcovariates(x1 x2 x3 x4) intvars(a) interventions(a=1, a=0) ///
         commands(a: logit, y: logit) equations(a: x1 x2 x3 x4, y: a x1 x2 x3 x4) ///
@@ -295,6 +312,7 @@ capture noisily {
         quietly summarize pp`lev', meanonly
         scalar T_PO`lev' = r(mean)
     }
+    _gcx_two_visit_eofu, outcome(y)
     gcomp y a x1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=0, a=1, a=2) commands(a: ologit, y: logit) ///
         equations(a: x1, y: a x1) sim(20000) samples(2) seed(1007)

@@ -40,21 +40,21 @@
 
 {syntab:Model}
 {synopt:{opt adj:ust(varlist)}}baseline or design covariates to condition on{p_end}
-{synopt:{opt by(varname)}}fit separate timing diagnostics within levels; must be constant within subject{p_end}
-{synopt:{opt byst:art}}allow a time-varying {opt by()} using start-of-interval values{p_end}
+{synopt:{opt by(varname)}}separate diagnostics by level{p_end}
+{synopt:{opt byst:art}}allow time-varying {opt by()} (start values){p_end}
 {synopt:{opt ent:ry(varname)}}subject-specific study entry time{p_end}
 {synopt:{opt cens:or(varname)}}subject-specific end of follow-up{p_end}
 {synopt:{opt max:fu(#)}}common end of follow-up for all subjects{p_end}
 {synopt:{opt endatlast:visit}}follow-up ends at each subject's last visit{p_end}
 
 {syntab:Generated lags}
-{synopt:{opt gen:erate(name)}}prefix for generated lag variables; default {cmd:_iivw_exog_}{p_end}
-{synopt:{opt replace}}overwrite generated lag variables and an existing Excel worksheet{p_end}
+{synopt:{opt gen:erate(name)}}lag-variable prefix; default {cmd:_iivw_exog_}{p_end}
+{synopt:{opt replace}}overwrite lag variables and worksheet{p_end}
 
 {syntab:Estimation}
 {synopt:{opt efr:on}}use Efron method for tied event times in {cmd:stcox}{p_end}
 {synopt:{opt nolog}}suppress Cox iteration log{p_end}
-{synopt:{opt l:evel(#)}}confidence level for hazard-ratio intervals; default {cmd:c(level)}{p_end}
+{synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
 {syntab:Excel export}
 {synopt:{opt xlsx(filename)}}write the exogeneity table to an Excel workbook{p_end}
@@ -66,7 +66,7 @@
 {synopt:{opt border:style(string)}}Excel border scheme; default {cmd:thin}{p_end}
 {synopt:{opt headers:hade}}shade the header rows; off by default{p_end}
 {synopt:{opt the:me(string)}}journal preset (e.g. {cmd:lancet}, {cmd:nejm}, {cmd:jama}, {cmd:apa}){p_end}
-{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255; used with {opt headershade}{p_end}
+{synopt:{opt headerc:olor(string)}}header fill as {cmd:"R G B"} 0-255{p_end}
 {synopt:{opt zebrac:olor(string)}}zebra fill as {cmd:"R G B"} 0-255; used with {opt zebra}{p_end}
 {synopt:{opt zeb:ra}}shade alternating data rows{p_end}
 {synoptline}
@@ -157,11 +157,11 @@ produced your weights.
 {pmore}
 {cmd:iivw_exogtest} fits the same Andersen-Gill visit-intensity model as
 {helpb iivw_weight}, so it inherits the same requirement: the model needs each
-subject's observation {it:window}, not merely the intervals between their visits.
-Without a post-last-visit at-risk interval, every subject leaves the risk set at
-their own last visit, and the test statistic is computed on a risk set shaped by
-the very process it is testing. See {helpb iivw_weight##options:iivw_weight} for
-the full discussion; the three options mean exactly what they mean there.
+subject's observation {it:window}, not merely the intervals between their
+visits. Without a post-last-visit at-risk interval, every subject leaves the
+risk set at their own last visit, and the test statistic is computed on a risk
+set shaped by the very process it is testing. See {helpb iivw_weight##options:iivw_weight} for the full
+discussion; the three options mean exactly what they mean there.
 
 {dlgtab:Generated lags}
 
@@ -367,13 +367,13 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_ids)}}subjects summed over fitted models (see note){p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
-{synopt:{cmd:r(min_p)}}minimum individual Wald p-value; exploratory, unadjusted{p_end}
+{synopt:{cmd:r(min_p)}}minimum unadjusted Wald p-value{p_end}
 {synopt:{cmd:r(joint_min_p)}}minimum raw within-group omnibus p-value{p_end}
 {synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
 {synopt:{cmd:r(n_tests)}}number of omnibus tests in the Holm family{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(endogenous_flag)}}1 if {cmd:r(holm_min_p)} is below alpha; otherwise 0{p_end}
-{synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
+{synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
 {synopt:{cmd:r(id)}}subject identifier{p_end}
@@ -389,7 +389,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(result_columns)}}column labels for {cmd:r(results)}{p_end}
 {synopt:{cmd:r(conclusion)}}short diagnostic conclusion{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
-{synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
+{synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(results)}}numeric model-by-term results matrix{p_end}
@@ -420,13 +420,13 @@ omnibus (joint) test of all lagged predictors, one per fitted group,
 omnibus p-value falls below alpha.
 
 {pstd}
-The individual term p-values in the table are {bf:exploratory}. They are
-reported unadjusted and they do {it:not} set the flag. Flagging on "any term in
-any group is significant" gives the flag an uncontrolled familywise error rate:
-with ten independent null terms, the probability that at least one falls below
-0.05 is 1 - 0.95^10 = 40%, before the group-wise omnibus tests are counted at
-all. A diagnostic that fires on 40% of null data is not a diagnostic, and a
-workflow that keys off it will discard good weights.
+The individual term p-values in the table are {bf:exploratory}. They are reported
+unadjusted and they do {it:not} set the flag. Flagging on "any term in any group is
+significant" gives the flag an uncontrolled familywise error rate: with ten
+independent null terms, the probability that at least one falls below 0.05 is
+1 - 0.95^10 = 40%, before the group-wise omnibus tests are counted at all. A
+diagnostic that fires on 40% of null data is not a diagnostic, and a workflow
+that keys off it will discard good weights.
 
 {pstd}
 Holm is used rather than Bonferroni because it is uniformly more powerful and

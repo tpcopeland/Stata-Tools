@@ -44,6 +44,16 @@ if `n_manifest' != `n_counts' | `n_manifest' != `n_skip_flags' {
     exit 9
 }
 
+foreach delegated of local release_delegated_suites {
+    capture confirm file "`qa_dir'/`delegated'"
+    if _rc {
+        display as error "Delegated release suite is missing: `delegated'"
+        set more `_orig_more'
+        set varabbrev `_orig_varabbrev'
+        exit 601
+    }
+}
+
 do "`qa_dir'/_tvtools_qa_common.do"
 global TVTOOLS_QA_MANAGED_BY_RUNNER "1"
 capture noisily _tvtools_qa_bootstrap

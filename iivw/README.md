@@ -9,20 +9,32 @@
 ```stata
 clear
 set seed 20260710
-set obs 240
-gen long id = ceil(_n/4)
-bysort id: gen byte visit = _n
-gen double months = 3 * (visit - 1) + runiform() / 10
+set obs 300
+gen long id = _n
 gen double baseline_risk = rnormal()
-bysort id: replace baseline_risk = baseline_risk[1]
+gen double censor_time = 24
+
+* Sicker patients are seen more often: the visit intensity depends on
+* baseline_risk, so the observed visits over-represent them.
+expand 40
+bysort id: gen int k = _n
+gen double gap = -ln(runiform()) / (0.15 * exp(0.6 * baseline_risk))
+bysort id (k): gen double months = sum(gap)
+keep if months < censor_time
+drop gap k
+
 gen double outcome = 10 + .4 * months + baseline_risk + rnormal()
 
-iivw_weight, id(id) time(months) visit_cov(baseline_risk) nobaseevent nolog
+iivw_weight, id(id) time(months) visit_cov(baseline_risk) censor(censor_time) nolog
 iivw_balance
 iivw_fit outcome baseline_risk, timespec(linear) nolog
 ```
 
-This creates visit-intensity weights, checks whether they have useful leverage, and fits the weighted longitudinal outcome model.
+This creates visit-intensity weights, checks whether they reproduce the at-risk population, and fits the weighted longitudinal outcome model.
+
+In this example the mean `baseline_risk` over the *observed visits* is 0.65, because sicker patients come back more often — but over the *at-risk person-time* it is 0.20. The weights close that gap: the weighted mean is 0.17, a target SMD of 0.01, and `iivw_balance` reports `good`. That gap is the bias `iivw` exists to remove.
+
+`censor(censor_time)` is required (as is `maxfu()` or `endatlastvisit`): the visit-intensity model needs each subject's observation window, not merely the gaps between the visits you happened to see. See [Migrating to 2.0.0](#migrating-to-200).
 
 ## Requirements
 
@@ -30,6 +42,7 @@ This creates visit-intensity weights, checks whether they have useful leverage, 
 - Stata 17 or later for `iivw_fit, model(mixed)`
 - Optional: [`tabtools`](../tabtools) for the `regtab` model-table Excel examples
 - Optional: [`psdash`](../psdash) for treatment-propensity diagnostics (`psdash combined`, `psdash weights`) in IPTW/FIPTIW workflows
+- Demo only: `tc_schemes` (graph schemes), installed by `demo/demo_iivw.do`. Not needed to use the package.
 
 ## Installation
 
@@ -37,6 +50,21 @@ This creates visit-intensity weights, checks whether they have useful leverage, 
 capture ado uninstall iivw
 net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/iivw") replace
 ```
+
+## Migrating to 2.0.0
+
+**2.0.0 is a breaking release.** A 1.x script will error rather than run — deliberately. Each of these changes exists because the old behavior produced a plausible-looking number that was wrong, and silently accepting the old syntax would have kept doing that.
+
+| 1.x | 2.0.0 | Why |
+|---|---|---|
+| `nobaseevent` | **Delete it** — `baseline(entry)` is now the default | Modeling the first visit as a recurrent event lets its own covariates predict its own occurrence. The old default was the circular one. |
+| *(relied on the old default)* | `baseline(event)`, explicitly | Same reason, stated from the other side. Stata's `syntax` cannot tell an explicit `baseevent` from an omitted option, so the old name is rejected rather than quietly misread. |
+| *(no end-of-follow-up option)* | One of `censor()`, `maxfu()`, `endatlastvisit` is **required** for IIW/FIPTIW | Without an observation window the intensity model cannot distinguish a subject who stopped being observed from one who simply had no more visits. `endatlastvisit` reproduces 1.x exactly, and attenuated the visit-intensity coefficient by ~26% in a known-truth check — it is rarely what a registry or EHR cohort looks like. |
+| `iivw_fit ..., model(mixed)` with weights | Add `experimentalmixed` | The IIW weights enter `mixed` as a single observation-level `[pw=]`, which Stata does not rescale across levels, so the random-effects variance components are not consistently weight-estimated even though they are printed. Use `model(gee)` for the primary weighted analysis. |
+| Time-varying `treat_cov()` | Build the baseline value yourself | The propensity model is fitted on one row per subject. A time-varying covariate silently entered as whatever value landed on the earliest retained row — not a baseline value. |
+| `r(informative)`, `r(hr_weighted)` | **Gone** | Both encoded a verdict that was wrong in the package's own known-truth scenario. Read `r(leverage)` and `r(balance_flag)` together instead. See [Diagnostic Decision Guide](#diagnostic-decision-guide). |
+
+`iivw_balance` also now reports a **target SMD** — the gap between the IIW-weighted visit distribution and the at-risk person-time distribution it is supposed to reproduce. The older "composition shift" number is still shown, but it is descriptive: a large shift is what a working weight *does*, not evidence that anything is wrong. Only the target SMD has a null at zero.
 
 ## Commands
 
@@ -88,12 +116,12 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 3. **Inspect diagnostics** with `iivw_balance` for the visit-intensity model.  When `treat()` and `treat_cov()` are used, run `psdash combined` for treatment-propensity overlap, common support, balance, and treatment-weight diagnostics.
 4. **Fit the outcome model** with `iivw_fit`.  It reads the weight variable and panel structure from the dataset automatically.
 
-### Two default-modeling choices worth changing
+### Modeling choices worth making deliberately
 
-Two `iivw_weight` options materially affect the weights and are worth setting deliberately rather than leaving at their backward-compatible defaults:
-
-- **`nobaseevent` for registry/EHR designs.** By default the baseline visit is modeled as a recurrent event in the Andersen-Gill intensity model, which lets its covariates predict its own occurrence (a circularity). When the baseline visit is an enrollment event common to everyone — registry cohorts, EHR extracts, non-protocol data — `nobaseevent` treats it as study entry instead, removing the circularity. It is the more defensible specification for most observational designs; retain the default only when the first observed visit is itself part of the modeled visit process.
-- **`stabcov()` to stabilize the weights.** Without a stabilization numerator the IIW weight is `exp(-xb)`, which can be volatile. A stabilization model leaves the estimand unchanged but typically lowers weight variance and effective-sample-size loss (Buzková & Lumley 2007). `iivw_weight` prints a note when `stabcov()` is omitted.
+- **`baseline()` — how the first visit enters the intensity model.** The default, `baseline(entry)`, treats each subject's first visit as study entry (risk onset) and models only the follow-up visits. `baseline(event)` instead models the first visit as a recurrent event, which lets its own covariates predict its own occurrence — a circularity. `baseline(event)` is the pre-2.0.0 behavior and is appropriate only when the first observed visit is genuinely part of the modeled visit process rather than an enrollment event. For registry cohorts, EHR extracts, and other non-protocol data, keep the default.
+- **The censoring specification is required.** Exactly one of `censor()`, `maxfu()`, or `endatlastvisit` must be given. It defines each subject's at-risk window, which the Andersen-Gill intensity model needs in order to know that a subject who *stopped* being observed is different from one who simply had no further visits. Guessing it is not safe, so `iivw_weight` will not.
+- **`stabcov()` to stabilize the weights.** Without a stabilization numerator the IIW weight is `exp(-xb)`, which can be volatile. A stabilization model leaves the estimand unchanged but typically lowers weight variance and effective-sample-size loss (Bůžková & Lumley 2007). `iivw_weight` prints a note when `stabcov()` is omitted.
+- **Put *lagged* covariates in `visit_cov()`, not concurrent ones.** A covariate measured *at* a visit cannot explain why that visit happened; conditioning on it violates the conditional non-informativeness assumption the weights rest on. Use `lagvars()` to carry the previous visit's value forward instead.
 
 ## Recommended Analysis Recipes
 
@@ -106,7 +134,7 @@ Goal: estimate a population-average longitudinal trajectory when sicker patients
 ```stata
 iivw_weight, id(id) time(months) ///
     visit_cov(age sex baseline_score baseline_edss clinic_year) ///
-    lagvars(current_score relapse) truncate(1 99) efron nolog
+    lagvars(current_score relapse) censor(fu_end) truncate(1 99) efron nolog
 
 iivw_fit current_score age sex baseline_score, ///
     timespec(ns(3)) nolog
@@ -121,7 +149,7 @@ Goal: compare treatment groups when both treatment assignment and follow-up freq
 ```stata
 iivw_weight, id(id) time(months) ///
     visit_cov(age sex baseline_edss baseline_score clinic_year) ///
-    lagvars(current_score relapse) ///
+    lagvars(current_score relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex baseline_edss baseline_score) ///
     truncate(1 99) efron replace nolog
 
@@ -165,7 +193,7 @@ estimates store M_unweighted
 * 2. FIPTIW weighted model
 iivw_weight, id(id) time(months_since_tx) ///
     visit_cov(treatment age sex bl_edss bl_sdmt) ///
-    lagvars(sdmt_score recent_relapse) ///
+    lagvars(sdmt_score recent_relapse) censor(fu_end) ///
     treat(treatment) treat_cov(age sex bl_edss bl_sdmt) ///
     truncate(1 99) efron replace nolog
 
@@ -248,7 +276,7 @@ Run `psdash combined` immediately after `iivw_weight` to inspect treatment-prope
 ```stata
 iivw_weight, id(id) time(months) ///
     visit_cov(age sex bl_edss bl_sdmt) ///
-    lagvars(sdmt relapse) ///
+    lagvars(sdmt relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
     truncate(1 99) efron replace nolog
 
@@ -267,7 +295,7 @@ The most common practical mistake is treating `visit_cov()` and `treat_cov()` as
 | Baseline disease severity that drives both visits and treatment | `visit_cov()` and `treat_cov()` | It can confound both observation and treatment assignment |
 | Previous outcome value or recent event | `lagvars()` or a precomputed lag in `visit_cov()` | It predicts future visit intensity without using the current visit outcome to explain itself |
 | Demographic or calendar design variable | Usually both models if it affects both mechanisms | It can capture structural visit access and treatment patterns |
-| Post-treatment mediator | Usually neither treatment model nor primary outcome covariate unless explicitly planned | It can change the estimand if adjusted for casually |
+| Post-treatment mediator | Usually neither treatment model nor primary outcome covariate unless explicitly planned | It can change the estimand if adjusted for causally |
 | Cumulative test count or practice-effect proxy | Outcome model diagnostic adjustment, not `visit_cov()` by default | It is part of the measurement process being evaluated |
 
 Start with a subject-matter model that is smaller than the full dataset dictionary. Add variables because they plausibly drive the visit or treatment process, not because they improve in-sample fit. If the final weights are extreme or ESS is poor, simplify before interpreting a highly variable weighted estimate.
@@ -325,7 +353,7 @@ When the main concern is that patients with worse disease are seen more often, b
 
 ```stata
 iivw_weight, id(id) time(days) ///
-    visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
+    visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) nolog
 iivw_balance
 summarize _iivw_weight, detail
 iivw_fit edss treated edss_bl, model(gee) timespec(linear)
@@ -339,7 +367,7 @@ Add `treat()` and `treat_cov()` when treatment assignment is also non-random:
 
 ```stata
 iivw_weight, id(id) time(days) ///
-    visit_cov(edss_bl age sex) lagvars(edss relapse) ///
+    visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex edss_bl) ///
     truncate(1 99) replace nolog
 
@@ -363,7 +391,7 @@ Use `timespec(linear)`, `timespec(quadratic)`, `timespec(cubic)`, `timespec(ns(#
 
 ```stata
 iivw_weight, id(id) time(days) ///
-    visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog
+    visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) replace nolog
 iivw_fit edss treatment edss_bl, ///
     categorical(treatment) timespec(ns(3)) interaction(treatment) replace
 ```
@@ -378,7 +406,7 @@ label define wave 1 "Baseline" 2 "Month 6" 3 "Month 12" 4 "Month 18", replace
 label values visit_wave wave
 
 iivw_weight, id(id) time(visit_wave) ///
-    visit_cov(edss_bl relapse) replace nolog
+    visit_cov(edss_bl) lagvars(relapse) censor(fu_end) replace nolog
 iivw_fit edss treatment edss_bl, ///
     timespec(categorical) timebasecat(1) ///
     categorical(treatment) interaction(treatment) replace collect
@@ -427,7 +455,7 @@ iivw_diagnose months_since_tx, ///
     exogeneity(unknown) xlsx(iivw_results.xlsx) sheet(Diagnostics) replace
 ```
 
-These direct exports are workbook-only: each command writes a styled `.xlsx` sheet with tabtools/regtab-style title, group-header, statistic-header, label-column, border, width, and footnote conventions. Existing workbooks are updated by replacing only the named sheet. `iivw_balance` and `iivw_exogtest` use variable-label row headers when labels are available. For `iivw_exogtest`, `replace` still means overwrite generated lag variables, not Excel workbook replacement.
+These direct exports are workbook-only: each command writes a styled `.xlsx` sheet with tabtools/regtab-style title, group-header, statistic-header, label-column, border, width, and footnote conventions. Existing workbooks are updated by replacing only the named sheet. `iivw_balance` and `iivw_exogtest` use variable-label row headers when labels are available. For `iivw_exogtest`, `replace` is dual-purpose: it overwrites both the generated lag variables and an existing named worksheet.
 
 ## Weight Diagnostics
 

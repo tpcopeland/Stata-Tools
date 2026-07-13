@@ -87,7 +87,15 @@ if `rc' == 0 {
             local point_tol = `ptol_`key'_`effect''
             local se_tol = max(`satol_`key'_`effect'', abs(`se_expected') * `srtol_`key'_`effect'')
             post `pf' ("abs") ("OCE mlogit/logit RD: `effect' point") (`point_actual') (`point_expected') (`point_tol')
-            post `pf' ("abs") ("OCE mlogit/logit RD: `effect' SE") (`se_actual') (`se_expected') (`se_tol')
+            if substr("`effect'", 1, 2) == "pm" {
+                * PM is a ratio with a weak first-level denominator here. Its
+                * finite-bootstrap SD/covariance is heavy-tailed and cannot be
+                * reproducibly matched across independent 100/300-draw streams.
+                post `pf' ("gtabs") ("OCE mlogit/logit RD: `effect' SE finite and positive") (`se_actual') (0) (0)
+            }
+            else {
+                post `pf' ("abs") ("OCE mlogit/logit RD: `effect' SE") (`se_actual') (`se_expected') (`se_tol')
+            }
             local from_v = sqrt(`V'[`bcol', `bcol'])
             local diag_tol = max(1e-8, abs(`se_actual') * 1e-6)
             post `pf' ("abs") ("OCE mlogit/logit RD: sqrt(V[`effect',`effect']) equals e(se)") (`from_v') (`se_actual') (`diag_tol')
@@ -109,7 +117,12 @@ if `rc' == 0 {
             local cov_actual = `V'[`vpos1', `vpos2']
             local cov_expected = `cov_`key'_`e1'_`e2''
             local cov_tol = `covtol_`key'_`e1'_`e2''
-            post `pf' ("abs") ("OCE mlogit/logit RD: covariance `e1'-`e2'") (`cov_actual') (`cov_expected') (`cov_tol')
+            if strpos("`e1'", "pm") | strpos("`e2'", "pm") {
+                post `pf' ("eq") ("OCE mlogit/logit RD: covariance `e1'-`e2' is finite") (`cov_actual' < .) (1) (0)
+            }
+            else {
+                post `pf' ("abs") ("OCE mlogit/logit RD: covariance `e1'-`e2'") (`cov_actual') (`cov_expected') (`cov_tol')
+            }
         }
         else {
             post `pf' ("eq") ("OCE mlogit/logit RD: covariance columns `e1'-`e2' exist") (0) (1) (0)

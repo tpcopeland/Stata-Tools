@@ -4,12 +4,15 @@
 # Implements the Tompkins et al. (2025) DGP and computes IIW, IPTW, and
 # FIPTIW weights for comparison with the Stata iivw package.
 #
-# Exports:
-#   1. Simulated dataset (fiptiw_simdata.csv)
-#   2. Observed-only dataset with weights (fiptiw_weights.csv)
-#   3. Model coefficients (fiptiw_coefs.csv)
+# Exports exactly these three files (this list is the contract):
+#   1. Observed-only simulated dataset with weights (fiptiw_simdata.csv)
+#   2. Model coefficients                           (fiptiw_coefs.csv)
+#   3. Weighted GEE outcome fit                     (fiptiw_outcome_geeglm.csv)
 #
-# Usage: Rscript iivw/qa/xval_fiptiw.R
+# It does NOT write fiptiw_weights.csv, whatever earlier versions of this header
+# claimed; the weights travel in fiptiw_simdata.csv.
+#
+# Usage: Rscript iivw/qa/crossval_fiptiw.R
 
 library(survival)
 library(geepack)

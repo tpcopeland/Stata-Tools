@@ -50,11 +50,11 @@
     "slow": {
       "budget_seconds": 7200,
       "suites": [
-        {"name": "test_stress", "timeout_seconds": 1800},
+        {"name": "test_stress", "timeout_seconds": 1800, "expected_resampling_failures_min": 1, "expected_resampling_failures_max": 100},
         {"name": "validation_gcomp_recovery", "timeout_seconds": 1800},
         {"name": "validation_gcomp_recovery_extended", "timeout_seconds": 2400},
         {"name": "validation_gcomp_recovery_surface", "timeout_seconds": 3600},
-        {"name": "validation_peripartum_readiness", "timeout_seconds": 2400}
+        {"name": "validation_peripartum_readiness", "timeout_seconds": 2400, "expected_resampling_failures_min": 1, "expected_resampling_failures_max": 10}
       ]
     },
     "release": {

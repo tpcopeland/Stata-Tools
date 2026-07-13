@@ -29,6 +29,15 @@ The added SE gates address the highest-priority gap:
   compares PO/RD point estimates and SEs, computes RD SE from `e(V)`, and
   compares `cov(PO1,PO2)` against Python subject-bootstrap references.
 
+The OCE level-1 proportion mediated is an intentional exception to cross-tool
+SE/covariance equality. Its total-effect denominator is weak enough that the
+finite-bootstrap ratio distribution is heavy-tailed, so independent 100-draw
+Stata and 300-draw Python streams do not estimate its variance reproducibly.
+QA still cross-validates the PM point estimate, requires its SE and PM
+covariances to be finite, verifies `sqrt(diag(e(V))) == e(se)`, and retains
+external SE/covariance comparisons for the non-ratio effects. This is an
+estimand-specific exception, not a widened catch-all tolerance.
+
 Remaining gaps are narrower effect families and more complex longitudinal
 branches listed below.
 

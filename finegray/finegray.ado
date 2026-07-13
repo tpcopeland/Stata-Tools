@@ -671,6 +671,50 @@ program define finegray, eclass sortpreserve
             local _tg_mata "`_tg_grp'"
         }
 
+        * ---- Support boundary for the combined-weight design.
+        *
+        * The weights are estimated WITHIN each observed joint (censoring x
+        * truncation) stratum, so every stratum must carry enough subjects to
+        * estimate G and H there.  Both limits are hard failures: silently pooling
+        * groups the user asked to keep separate would change the estimand without
+        * saying so, which is the failure class this package treats as worst.
+        *
+        * Enforced only on the ZZF (delayed-entry) branch.  A right-censoring fit
+        * with many strata() levels is unchanged released behaviour, and turning
+        * that into an error would break existing analyses -- the no-LT path is
+        * required to stay bit-identical, and an error is not bit-identical.
+        if `_fg_has_lt' {
+            tempvar _fg_jgrp _fg_jn
+            if "`_byg_mata'" == "" & "`_tg_mata'" == "" {
+                quietly gen byte `_fg_jgrp' = 1
+            }
+            else {
+                quietly egen long `_fg_jgrp' = group(`_byg_mata' `_tg_mata')
+            }
+            quietly summarize `_fg_jgrp', meanonly
+            local _fg_njgrp = r(max)
+
+            if `_fg_njgrp' > 100 {
+                display as error "too many weight strata: `_fg_njgrp' observed joint groups (limit 100)"
+                display as error "strata() and truncstrata() are cross-classified, so the number of"
+                display as error "weight strata is their product of observed combinations"
+                display as error "use coarser grouping variables"
+                exit 459
+            }
+
+            quietly bysort `_fg_jgrp': gen long `_fg_jn' = _N
+            quietly summarize `_fg_jn', meanonly
+            local _fg_minjn = r(min)
+
+            if `_fg_minjn' < 20 {
+                display as error "a weight stratum has only `_fg_minjn' subjects (minimum 20)"
+                display as error "the censoring and entry distributions are estimated within each"
+                display as error "joint stratum; too few subjects makes those weights unusable"
+                display as error "use coarser grouping variables"
+                exit 459
+            }
+        }
+
         sort _t `_fg_row0'
 
         if "`log'" != "nolog" {
@@ -716,6 +760,10 @@ program define finegray, eclass sortpreserve
     local _fg_rank     = _finegray_rank[1,1]
     local _fg_nclust   = .
     capture local _fg_nclust = _finegray_nclust[1,1]
+
+    * `_fg_warnstrata' is set directly in this scope by _finegray_weight_diag via
+    * st_local (a string cannot ride back in a matrix). It is "" when nothing was
+    * flagged, and on the no-LT branch where the diagnostics do not run.
 
     * Compute p-value from chi2
     if `_fg_chi2' != . & `_fg_df_m' > 0 {
@@ -784,6 +832,22 @@ program define finegray, eclass sortpreserve
     *   zzf1_geskus     : stabilized ZZF Weight 1 via A = G(t-)H(t-)
     if `_fg_has_lt' ereturn local lt_weight "zzf1_geskus"
     else ereturn local lt_weight "right_censoring"
+
+    * Weight-sensitivity diagnostics, computed once by _finegray_weight_diag over
+    * the cells the scan ACTUALLY consults (a stratum's A may collapse in a tail
+    * it carries no competing mass into; that cell is never divided by).
+    *   N_weight_strata : observed joint (censoring x truncation) strata
+    *   min_weight_prob : smallest consulted A
+    *   max_lt_weight   : largest retained subject-by-cause-time weight
+    *   N_prob_warn     : consulted A cells below 1e-10
+    *   N_weight_warn   : retained weights above 1e6
+    *   weight_warn_strata : joint-group codes contributing a flagged cell/weight
+    capture ereturn scalar N_weight_strata = _finegray_nwstrata[1,1]
+    capture ereturn scalar min_weight_prob = _finegray_minprob[1,1]
+    capture ereturn scalar max_lt_weight   = _finegray_maxwt[1,1]
+    capture ereturn scalar N_prob_warn     = _finegray_nprobwarn[1,1]
+    capture ereturn scalar N_weight_warn   = _finegray_nwtwarn[1,1]
+    ereturn local weight_warn_strata "`_fg_warnstrata'"
     * VCE type: cluster > robust (default) > oim (norobust)
     if "`cluster'" != "" {
         ereturn local vce "cluster"
@@ -880,6 +944,33 @@ program define finegray, eclass sortpreserve
         display as text ""
     }
 
+    * Weight-sensitivity warnings, for the same reason: before the coefficients
+    * they discredit, not after.  These are not errors -- the fit is reported --
+    * but a near-zero A or an enormous weight means a handful of subjects carry
+    * the estimate, and the reader must see that next to the numbers.
+    if `_fg_has_lt' {
+        local _fg_npw = e(N_prob_warn)
+        local _fg_nww = e(N_weight_warn)
+        local _fg_mxw : display %9.3e e(max_lt_weight)
+        local _fg_mxw = trim("`_fg_mxw'")
+
+        if `_fg_npw' > 0 & `_fg_npw' < . {
+            display as error "warning: the combined weight A(t) falls below 1e-10 in `_fg_npw' consulted cells"
+            display as text "(near-zero censoring or entry probability: the weights there are" ///
+                " not estimable and the fit leans on very few subjects)"
+        }
+        if `_fg_nww' > 0 & `_fg_nww' < . {
+            display as error "warning: `_fg_nww' retained weights exceed 1e6 (largest `_fg_mxw')"
+            display as text "(a few subjects dominate the risk sets; treat these coefficients" ///
+                " as unstable)"
+        }
+        local _fg_ws "`e(weight_warn_strata)'"
+        if "`_fg_ws'" != "" {
+            display as text "(affected joint weight strata: `_fg_ws')"
+            display as text ""
+        }
+    }
+
     if "`shr'" == "noshr" {
         ereturn display, level(`level')
     }
@@ -917,7 +1008,9 @@ program define finegray, eclass sortpreserve
     * Clean up temporary matrices (runs on both success and error paths)
     foreach m in _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
         _finegray_chi2 _finegray_df_m _finegray_conv ///
-        _finegray_rank _finegray_nclust _finegray_basehaz {
+        _finegray_rank _finegray_nclust _finegray_basehaz ///
+        _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
+        _finegray_nprobwarn _finegray_nwtwarn {
         capture matrix drop `m'
     }
 

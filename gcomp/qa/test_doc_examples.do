@@ -42,7 +42,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42)
+        base_confs(c) sim(500) samples(20) seed(42)
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "mediation"
     assert !missing(e(tce))
@@ -67,7 +67,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) control(0) sim(100) samples(20) seed(42)
+        base_confs(c) control(0) sim(500) samples(20) seed(42)
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "mediation"
     assert !missing(e(cde))
@@ -101,7 +101,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42)
+        base_confs(c) sim(500) samples(20) seed(42)
     assert "`e(mediation_type)'" == "oce"
     * OCE with multi-level exposure: effects are vector-valued (TCE(1), TCE(2), ...)
     * — check e(b) instead of the scalar e(tce).
@@ -131,7 +131,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42)
+        base_confs(c) sim(500) samples(20) seed(42)
     gcomptab, xlsx("`xlsx'") sheet("Table 1") ///
         title("Causal Mediation: Smoking Effect via Inflammation")
     confirm file "`xlsx'"
@@ -242,7 +242,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42) diagnostics
+        base_confs(c) sim(500) samples(20) seed(42) diagnostics
     assert "`e(cmd)'" == "gcomp"
     capture confirm matrix e(model_diagnostics)
     assert _rc == 0
@@ -273,7 +273,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) control(0) sim(100) samples(20) seed(42) all
+        base_confs(c) control(0) sim(500) samples(20) seed(42) all
 
     gcomptab, xlsx("`xlsx'") sheet("Percentile CI") ///
         ci(percentile) title("Mediation Results (Percentile CI)")
@@ -341,7 +341,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42)
+        base_confs(c) sim(500) samples(20) seed(42)
     ereturn list
     mat list e(b)
     mat list e(se)

@@ -122,9 +122,9 @@ probability of censoring weighting (IPCW) instead.{p_end}
 {title:Commands}
 
 {synoptset 20}{...}
-{synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights from visit and treatment models{p_end}
+{synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights{p_end}
 {synopt:{helpb iivw_balance}}check weight leverage and visit-model covariate balance{p_end}
-{synopt:{helpb iivw_fit}}fit unweighted or weighted outcome model using GEE or mixed effects{p_end}
+{synopt:{helpb iivw_fit}}fit the outcome model (GEE or mixed){p_end}
 {synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
 {synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope movement across models{p_end}
 
@@ -321,7 +321,7 @@ event (relapse) that also predicts future visit timing.
 When the main concern is that patients with worse disease are seen more
 often, but treatment assignment is either randomized or not being analyzed:
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_balance}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
 
@@ -338,7 +338,7 @@ When both visit frequency and treatment assignment are driven by disease
 severity, add {cmd:treat()} and {cmd:treat_cov()} to correct for both
 simultaneously:
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}
 
 {pstd}
@@ -352,7 +352,7 @@ marginal or reference-arm time slope, here {cmd:days}.
 
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, unweighted id(id) time(days) timespec(none) nolog}{p_end}
 {phang2}{cmd:. estimates store M_unweighted}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_balance, nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, model(gee) timespec(none) replace nolog}{p_end}
 {phang2}{cmd:. estimates store M_fiptiw}{p_end}

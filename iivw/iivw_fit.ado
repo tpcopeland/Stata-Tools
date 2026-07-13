@@ -66,7 +66,7 @@ program define iivw_fit, eclass
          ID(varname) TIME(varname) ///
          BOOTstrap(integer 0) REFITweights ///
          Level(cilevel) noLOG ///
-         REPLACE ALLOWNONCONVerged ///
+         REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
 
     * =========================================================================
@@ -1118,12 +1118,34 @@ program define iivw_fit, eclass
         * weight-estimated (Rabe-Hesketh & Skrondal 2006). The marginal (GEE)
         * estimator is the one the IIW theory identifies; model(gee) is the
         * defensible primary weighted analysis.
+        *
+        * This used to be a `note:'. A note does not stop anyone -- it scrolls
+        * past in a long fit log, and the variance components it warns about are
+        * printed immediately below it looking exactly as authoritative as any
+        * other output. Requiring the acknowledgment makes the user state that
+        * they know the random-effects half of this model is not identified by
+        * the weighting, which is the whole point of the warning.
+        if "`unweighted'" == "" & "`experimentalmixed'" == "" {
+            display as error "weighted model(mixed) requires experimentalmixed"
+            display as error ""
+            display as text "  IIVW weights enter mixed as a single observation-level [pw=], which"
+            display as text "  Stata does not rescale across levels. The random-effects variance"
+            display as text "  components are therefore NOT consistently weight-estimated"
+            display as text "  (Rabe-Hesketh & Skrondal 2006), even though they are reported."
+            display as text ""
+            display as text "  The IIW theory identifies a MARGINAL estimator. Use:"
+            display as text "    iivw_fit ..., model(gee)"
+            display as text "  for the primary weighted analysis."
+            display as text ""
+            display as text "  If you want the fixed-effect (mean) structure anyway and accept that"
+            display as text "  the variance components are not a valid weighted estimate, add"
+            display as text "  experimentalmixed. model(mixed) is unaffected without weights."
+            exit 198
+        }
         if "`unweighted'" == "" {
-            display as text "note: weighted model(mixed) applies IIVW weights through a single"
-            display as text "  observation-level [pw=]; Stata does not rescale these across levels,"
-            display as text "  so the random-effects variance components are not consistently"
-            display as text "  weight-estimated. Interpret the fixed-effect (mean) structure as the"
-            display as text "  target and prefer model(gee) for the primary weighted analysis."
+            display as text "note: weighted model(mixed) -- the fixed-effect (mean) structure is the"
+            display as text "  target; the random-effects variance components below are not"
+            display as text "  consistently weight-estimated. See model(gee)."
         }
 
         display as text "Fitting `weighttype' mixed model..."

@@ -497,25 +497,54 @@ _tvx_audit_record malformed_episode_strict `captured_rc'
 capture noisily {
     tempfile episodes
     clear
-    set obs 3
-    generate long id = 1
-    generate double start = cond(_n == 1, 1, cond(_n == 2, ., 8))
-    generate double stop = cond(_n == 1, 2, cond(_n == 2, 5, 7))
-    generate byte exposure = cond(_n == 3, ., 1)
+    input long id double(start stop) byte exposure
+      1  1  2 1
+      1 20 21 1
+     99  1  2 1
+      .  1  2 1
+      1  .  2 1
+      1  8  7 1
+      1  3  4 .
+    end
     save "`episodes'", replace
     clear
-    set obs 2
-    generate long id = _n
-    generate double entry = 1
-    generate double exitdate = cond(id == 1, 10, .)
+    input long id double(entry exitdate)
+    1 1 10
+    . 1 10
+    2 . 10
+    3 10 1
+    end
     tvexpose using "`episodes'", id(id) start(start) stop(stop) ///
         exposure(exposure) reference(0) entry(entry) exit(exitdate) ///
-        dropinvalid flow generate(x)
-    assert id == 1
-    assert r(n_invalid_master) == 1
-    assert r(n_invalid_exposure) == 2
-    assert r(n_uncovered_days) == 0
+        lag(3) dropinvalid flow generate(x)
+    local invalid_master = r(n_invalid_master)
+    local invalid_master_id = r(n_invalid_master_id)
+    local invalid_master_dates = r(n_invalid_master_dates)
+    local invalid_master_order = r(n_invalid_master_order)
+    local invalid_exposure = r(n_invalid_exposure)
+    local invalid_exposure_id = r(n_invalid_exposure_id)
+    local invalid_exposure_dates = r(n_invalid_exposure_dates)
+    local invalid_exposure_order = r(n_invalid_exposure_order)
+    local invalid_exposure_value = r(n_invalid_exposure_value)
+    local unmatched_exposure = r(n_unmatched_exposure)
+    local outside_window = r(n_outside_window)
+    local lag_removed = r(n_lag_removed)
+    local uncovered_days = r(n_uncovered_days)
     matrix F = r(flow)
+    assert id == 1
+    assert `invalid_master' == 3
+    assert `invalid_master_id' == 1
+    assert `invalid_master_dates' == 1
+    assert `invalid_master_order' == 1
+    assert `invalid_exposure' == 4
+    assert `invalid_exposure_id' == 1
+    assert `invalid_exposure_dates' == 1
+    assert `invalid_exposure_order' == 1
+    assert `invalid_exposure_value' == 1
+    assert `unmatched_exposure' == 1
+    assert `outside_window' == 1
+    assert `lag_removed' == 1
+    assert `uncovered_days' == 0
     assert rowsof(F) == 2 & colsof(F) == 3
 }
 local captured_rc = _rc

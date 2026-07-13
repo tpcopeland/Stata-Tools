@@ -1710,9 +1710,13 @@ bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable: _
 	local _gc_samples_successful=e(N_reps)
 	local _gc_samples_failed=e(N_misreps)
 	local _gc_samples_attempted=`_gc_samples_successful'+`_gc_samples_failed'
-	if `_gc_samples_failed'>0 | `_gc_samples_successful'<`samples' {
-		noi di as err "bootstrap failed: requested `samples', successful `_gc_samples_successful', failed `_gc_samples_failed'"
+	local _gc_samples_required=max(2,ceil(0.90*`samples'))
+	if `_gc_samples_attempted'!=`samples' | `_gc_samples_successful'<`_gc_samples_required' {
+		noi di as err "bootstrap inference inadequate: requested `samples', attempted `_gc_samples_attempted', successful `_gc_samples_successful', failed `_gc_samples_failed'; at least `_gc_samples_required' successful replications required"
 		exit 459
+	}
+	if `_gc_samples_failed'>0 {
+		noi di as text "Warning: bootstrap completed with `_gc_samples_successful' of `samples' successful replications (`_gc_samples_failed' failed); inference uses the successful replications."
 	}
 mat b=e(b)
 mat V=e(V)

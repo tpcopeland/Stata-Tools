@@ -76,6 +76,15 @@ program define chk
     }
 end
 
+* Encode baseline-treatment recovery cases as valid two-visit eofu panels.
+capture program drop _gcs_two_visit_eofu
+program define _gcs_two_visit_eofu
+    syntax, OUTcome(varname)
+    expand 2
+    bysort id: replace time = _n
+    replace `outcome' = . if time == 1
+end
+
 * Tolerances (from observed MC error at the sim()/samples() below)
 local tolPO    = 0.02     // point-treatment potential outcome / RD (random MC)
 local tolDet   = 0.015    // deterministic (minsim) recovery -- no draw noise
@@ -113,6 +122,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar C0 = r(mean)
     scalar CRUDE_RD = C1 - C0
+    _gcs_two_visit_eofu, outcome(y)
     gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1 x2, y: a x1 x2) sim(25000) samples(2) seed(2001) minsim
@@ -130,7 +140,7 @@ if `ok' {
     chk "S1 crude misses RD" `=(abs(CRUDE_RD - T_RD) > `naiveMin')'
 }
 
-**# S2: moreMC -- Monte-Carlo simulation size larger than N
+**# S2: moreMC -- explicit time-varying compatibility guard
 
 capture noisily {
     clear
@@ -149,17 +159,14 @@ capture noisily {
     quietly summarize p0, meanonly
     scalar T_PO0 = r(mean)
     scalar T_RD = T_PO1 - T_PO0
-    gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
+    capture noisily gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1 x2, y: a x1 x2) sim(50000) samples(2) seed(2002) moreMC
-    matrix b = e(b)
-    scalar G_RD = b[1,1] - b[1,2]
+    local moremc_rc = _rc
+    assert `moremc_rc' == 198
 }
 local ok = (_rc==0)
-chk "S2 gcomp ran (moreMC sim>N)" `ok'
-if `ok' {
-    chk "S2 moreMC recover RD" `=(abs(G_RD - T_RD) < `tolPO')'
-}
+chk "S2 moreMC is explicitly rejected for time-varying analysis" `ok'
 
 **# S3: protective (negative) treatment effect -- sign path
 
@@ -184,6 +191,7 @@ capture noisily {
     quietly summarize y if a==0, meanonly
     scalar C0 = r(mean)
     scalar CRUDE_RD = C1 - C0
+    _gcs_two_visit_eofu, outcome(y)
     gcomp y a x1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1, y: a x1) sim(20000) samples(2) seed(2003)
@@ -219,6 +227,7 @@ capture noisily {
     quietly summarize p00, meanonly
     scalar T_P00 = r(mean)
     scalar T_RD = T_P11 - T_P00
+    _gcs_two_visit_eofu, outcome(y)
     gcomp y a b x, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x) ///
         intvars(a b) interventions(a=1 \ b=1, a=0 \ b=0) ///
         commands(a: logit, b: logit, y: logit) ///
@@ -255,6 +264,7 @@ capture noisily {
         quietly summarize pp`lev', meanonly
         scalar T_PO`lev' = r(mean)
     }
+    _gcs_two_visit_eofu, outcome(y)
     gcomp y a x1, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1) ///
         intvars(a) interventions(a=0, a=1, a=2, a=3) commands(a: ologit, y: logit) ///
         equations(a: x1, y: a x1) sim(20000) samples(2) seed(2005)
@@ -499,6 +509,7 @@ capture noisily {
     scalar CRUDE_RD = C1 - C0
     * introduce MAR missingness on x2 (probability depends on observed x1)
     replace x2 = . if runiform() < invlogit(-0.7 + 0.6*x1)
+    _gcs_two_visit_eofu, outcome(y)
     gcomp y a x1 x2, outcome(y) idvar(id) tvar(time) eofu fixedcovariates(x1 x2) ///
         intvars(a) interventions(a=1, a=0) commands(a: logit, y: logit) ///
         equations(a: x1 x2, y: a x1 x2) impute(x2) imp_cmd(x2: regress) ///

@@ -467,6 +467,190 @@ real matrix _finegray_A_at_times(
     return(out)
 }
 
+/* Combined-weight diagnostics, computed ONCE after convergence.
+   Posts the e() contract's weight-sensitivity scalars:
+
+     _finegray_nwstrata   number of OBSERVED joint (censoring x truncation) strata
+     _finegray_minprob    smallest A actually consulted by the scan
+     _finegray_maxwt      largest RETAINED subject-by-cause-time weight
+     _finegray_nprobwarn  count of consulted A cells below A_FLOOR (1e-10)
+     _finegray_nwtwarn    count of retained weights above WT_CEIL (1e6)
+     _finegray_warnstrata joint-group codes contributing a flagged cell/weight
+
+   "CONSULTED" is the load-bearing word.  A stratum's A(t) may collapse toward
+   zero in a tail where that stratum carries no competing-event mass at all; such
+   a cell never enters the likelihood, and counting it would raise an alarm about
+   a number the estimator never divides by.  The cells the scan actually uses are:
+
+     numerator    A_g(t_k) for each cause-`cause' event time t_k and each stratum
+                  g holding at least one competing-event subject with X_i < t_k
+     denominator  A_g(X_i-) for each competing-event subject i that is retained,
+                  i.e. that some cause event outlives
+
+   max weight is computed WITHOUT expanding the n x K weight matrix.  A_g is a
+   step function of time, so for subject i in stratum g
+
+       max_{t_k > X_i} A_g(t_k) / A_g(X_i-)
+
+   needs only a SUFFIX MAXIMUM of A_g over the cause-event times -- O(n + K) per
+   stratum, not O(n*K).  (With no delayed entry H == 1, A = G is nonincreasing and
+   every weight is <= 1; under left truncation H rises, so A need not be monotone
+   and weights above 1 are legitimate.  That is exactly why this diagnostic exists
+   only on the ZZF branch.) */
+void _finegray_weight_diag(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real scalar A_FLOOR, WT_CEIL
+    real scalar n, nj, K, i, k, g, r, minprob, maxwt, nprobwarn, nwtwarn, w, a
+    real colvector is_cause, is_compete, gidx, jc, ju, et, Aden, flagged
+    real colvector ord, row_id, cmass
+    real matrix Aev, SUF
+    string scalar warnstr
+
+    A_FLOOR = 1e-10
+    WT_CEIL = 1e6
+
+    n = rows(t)
+    is_cause   = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    nj = rows(jc)
+
+    /* Cause-event times, ascending and unique. */
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    et = J(0, 1, .)
+    for (i = 1; i <= n; i++) {
+        r = ord[i]
+        if (!is_cause[r]) continue
+        /* Mata's | does NOT short-circuit, so `rows(et) == 0 | t[r] != et[rows(et)]`
+           still evaluates et[0] on the first event and aborts with 3301. */
+        if (rows(et) == 0) {
+            et = t[r]
+            continue
+        }
+        if (t[r] != et[rows(et)]) et = et \ t[r]
+    }
+    K = rows(et)
+
+    minprob   = .
+    maxwt     = .
+    nprobwarn = 0
+    nwtwarn   = 0
+    flagged   = J(nj, 1, 0)
+
+    if (K == 0) {
+        st_matrix("_finegray_nwstrata", nj)
+        st_matrix("_finegray_minprob", .)
+        st_matrix("_finegray_maxwt", .)
+        st_matrix("_finegray_nprobwarn", 0)
+        st_matrix("_finegray_nwtwarn", 0)
+        st_local("_fg_warnstrata", "")
+        return
+    }
+
+    /* A at the cause-event times (K x nj) and each subject's own denominator. */
+    Aev  = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, et)
+    Aden = _finegray_G_minus(gidx, _finegray_A_at_times(t, G, byg_id, t0, tg_id,
+                                                        jc, ju, t))
+
+    /* cmass[g] = does stratum g hold any competing-event subject at all?
+       Used to decide which numerator cells the scan can ever consult. */
+    cmass = J(nj, 1, 0)
+    for (i = 1; i <= n; i++) if (is_compete[i]) cmass[gidx[i]] = 1
+
+    /* Suffix maxima, ONCE per stratum: SUF[k, g] = max A_g over et[k..K].
+       Each retained subject then reads its largest possible weight in O(1).
+       Doing this per subject instead would be O(n*K) -- the very expansion the
+       unexpanded scan exists to avoid. */
+    SUF = J(K, nj, .)
+    for (g = 1; g <= nj; g++) {
+        if (!cmass[g]) continue
+
+        SUF[K, g] = Aev[K, g]
+        for (k = K - 1; k >= 1; k--) SUF[k, g] = max((Aev[k, g], SUF[k + 1, g]))
+
+        /* Numerator cells consulted in stratum g. */
+        for (k = 1; k <= K; k++) {
+            a = Aev[k, g]
+            if (a >= .) continue
+            if (a < minprob) minprob = a
+            if (a < A_FLOOR) {
+                nprobwarn++
+                flagged[g] = 1
+            }
+        }
+    }
+
+    /* Denominators and retained weights.  Walk subjects in ASCENDING time so the
+       pointer k -- the first cause-event time strictly after the current exit --
+       only ever moves forward: O(n + K), not O(n*K). */
+    k = 1
+    for (i = 1; i <= n; i++) {
+        r = ord[i]
+
+        /* Advance to the first cause-event time strictly after this exit.  Mata's
+           & does NOT short-circuit, so the bound test must be its own statement --
+           `k <= K & et[k] <= t[r]` would evaluate et[K+1] and abort. */
+        while (k <= K) {
+            if (et[k] > t[r]) break
+            k++
+        }
+
+        if (!is_compete[r]) continue
+
+        /* No cause event outlives this subject: it is never weighted into any
+           risk set, so its A(X_i-) is not consulted and must not raise an alarm. */
+        if (k > K) continue
+
+        g = gidx[r]
+        a = Aden[r]
+        if (a >= .) continue
+
+        if (a < minprob) minprob = a
+        if (a < A_FLOOR) {
+            nprobwarn++
+            flagged[g] = 1
+        }
+        if (a <= 0) continue
+
+        w = SUF[k, g] / a
+        if (maxwt >= . | w > maxwt) maxwt = w
+        if (w > WT_CEIL) {
+            nwtwarn++
+            flagged[g] = 1
+        }
+    }
+
+    warnstr = ""
+    for (g = 1; g <= nj; g++) {
+        if (!flagged[g]) continue
+        warnstr = warnstr + (warnstr == "" ? "" : " ") + strofreal(g)
+    }
+
+    st_matrix("_finegray_nwstrata", nj)
+    st_matrix("_finegray_minprob", minprob)
+    st_matrix("_finegray_maxwt", maxwt)
+    st_matrix("_finegray_nprobwarn", nprobwarn)
+    st_matrix("_finegray_nwtwarn", nwtwarn)
+
+    /* The flagged group codes are a STRING, so they cannot ride back in a matrix.
+       st_local writes into the calling ado's scope -- unlike st_global, which
+       would need a name Stata accepts (a global may not begin with an underscore:
+       `global _finegray_warnstrata ""` is r(198)) and would clobber a same-named
+       global belonging to the user. */
+    st_local("_fg_warnstrata", warnstr)
+}
+
 /* Log pseudo-likelihood via incremental risk-set scan with Breslow ties.
    Supports left truncation via entry-time pointer. */
 real scalar _finegray_loglik(
@@ -1529,6 +1713,10 @@ void _finegray_engine(
     rank_V = rank(V)
     df_m = rank_V
     chi2 = beta' * invsym(V) * beta
+
+    /* Combined-weight sensitivity diagnostics (the e() weight contract). */
+    _finegray_weight_diag(t, delta, cause, censval, event_type,
+        G, byg_id, t0, tg_id)
 
     /* Post results to Stata matrices */
     st_matrix("_finegray_b", beta')
