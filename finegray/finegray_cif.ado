@@ -321,8 +321,19 @@ program define finegray_cif, rclass sortpreserve
     }
 
     tempname OUT
+    * Rebuild the truncation strata from the STORED specification, never from a
+    * variable left behind in the data: the fit's weight design must be reproduced
+    * exactly or the CIF is computed under different weights than the model was.
+    local _tg_mata ""
+    if `"`e(truncstrata)'"' != "" {
+        tempvar _tg_grp
+        _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
+            tgname(`_tg_grp') touse(`es')
+        local _tg_mata "`_tg_grp'"
+    }
+
     mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
-        `=e(censvalue)', "`_byg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
+        `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
         "`OUT'", "`_t0var'")
 
     * =====================================================================

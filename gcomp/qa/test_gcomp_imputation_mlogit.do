@@ -22,9 +22,7 @@ local fail_count = 0
 * === Bootstrap (sandboxed local install) ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 **# Helper: build a mediation dataset with a 3-category mediator (some missing)
 capture program drop _gcimp_make_mediation
@@ -247,8 +245,8 @@ else {
 display _n as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: test_gcomp_imputation_mlogit tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    display "RESULT: test_gcomp_imputation_mlogit tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: test_gcomp_imputation_mlogit tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_gcomp_imputation_mlogit tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

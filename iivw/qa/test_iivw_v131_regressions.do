@@ -57,7 +57,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v131_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, model(mixed) collect nolog
     assert _rc == 198
 }
@@ -76,7 +76,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v131_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, model(gee) bootstrap(20) collect nolog
     assert _rc == 198
 }
@@ -95,7 +95,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v131_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, model(gee) collect nolog
     * On Stata 17+ collect succeeds (rc 0); on Stata 16 the version guard
     * fires (rc 198). Either way it must not silently mis-handle collect.

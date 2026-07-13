@@ -10,13 +10,6 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture noisily shell python3 "`qa_dir'/data/generate_mediation_se_reference.py"
-if _rc {
-    display as error "Python statsmodels mediation reference generation failed"
-    display "RESULT: crossval_mediation_se tests=0 pass=0 fail=1 status=FAIL"
-    exit 1
-}
-
 capture confirm file "`qa_dir'/data/mediation_se_reference.csv"
 if _rc {
     display as error "Missing data/mediation_se_reference.csv"
@@ -42,9 +35,7 @@ if _rc {
     exit 1
 }
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 preserve
 import delimited using "`qa_dir'/data/mediation_se_reference.csv", clear varnames(1) asdouble

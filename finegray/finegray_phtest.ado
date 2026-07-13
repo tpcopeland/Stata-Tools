@@ -198,9 +198,16 @@ program define finegray_phtest, rclass
     }
 
     * Compute scaled Schoenfeld residuals via Mata
+    local _tg_mata ""
+    if `"`e(truncstrata)'"' != "" {
+        tempvar _tg_grp
+        _finegray_weight_groups, truncstrata(`e(truncstrata)') tgname(`_tg_grp')
+        local _tg_mata "`_tg_grp'"
+    }
+
     mata: _finegray_schoenfeld_compute( ///
         "`covariates'", "`events'", `cause', `censvalue', ///
-        "`_byg_mata'", 1, "`_t0var'")
+        "`_byg_mata'", "`_tg_mata'", 1, "`_t0var'")
 
     restore
 

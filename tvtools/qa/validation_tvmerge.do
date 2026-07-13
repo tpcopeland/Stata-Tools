@@ -1853,10 +1853,10 @@ save "${DATA_DIR}/tvmerge_zero_cont.dta", replace
 clear
 input long id double(start2 stop2) double cum2
     1 21915 22097 -50
-    1 22097 22281 100
+    1 22098 22281 100
 end
 format %td start2 stop2
-label data "Continuous variable with negative value"
+label data "Nonoverlapping interval totals with a negative value"
 save "${DATA_DIR}/tvmerge_neg_cont.dta", replace
 
 * Test 5.22.1: Touching Intervals (stop1 = start2)
@@ -1989,12 +1989,13 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(cum1 cum2) continuous(cum1 cum2)
 
-    * Should complete without error
-    assert _N >= 1
-
-    * Negative values should be preserved/interpolated
-    quietly sum cum2
-    * Should have some negative or mixed values depending on period
+    * Closed intervals sharing an endpoint overlap, so the fixture uses
+    * consecutive nonoverlapping rows. Both signed totals must survive.
+    assert _N == 2
+    quietly count if cum2 < 0
+    assert r(N) == 1
+    quietly summarize cum2, meanonly
+    assert r(min) == -50 & r(max) == 100
 }
 if _rc == 0 {
     display as result "  PASS: Negative continuous variable handled correctly"

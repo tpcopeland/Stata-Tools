@@ -16,9 +16,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 local testdir "`c(tmpdir)'"
 
@@ -28,18 +26,27 @@ local testdir "`c(tmpdir)'"
 
 capture program drop _fit_mediation
 program define _fit_mediation
+    syntax [, ALL]
     clear
     set seed 777
     set obs 400
     gen double c = rnormal()
     gen double x = rbinomial(1, invlogit(-0.3 + 0.2*c))
-    gen double m = rbinomial(1, invlogit(-1 + 0.8*x + 0.5*c))
-    gen double y = rbinomial(1, invlogit(-1.5 + 0.6*m + 0.4*x + 0.3*c))
+    if "`all'" != "" {
+        gen double m = 0.8*x + 0.5*c + rnormal(0, 0.7)
+        gen double y = rbinomial(1, invlogit(-0.5 + 0.7*m + 0.5*x + 0.2*c))
+        local commands "m: regress, y: logit"
+    }
+    else {
+        gen double m = rbinomial(1, invlogit(-0.4 + 1.2*x + 0.3*c))
+        gen double y = rbinomial(1, invlogit(-0.8 + 1.0*m + 0.8*x + 0.2*c))
+        local commands "m: logit, y: logit"
+    }
     gcomp y m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
-        commands(m: logit, y: logit) ///
+        commands(`commands') ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(1) all
+        base_confs(c) sim(300) samples(20) seed(1) `all'
 end
 
 capture program drop _mock_mediation_results
@@ -304,7 +311,7 @@ capture erase "`testdir'/_itest_i7.xlsx"
 local ++test_count
 capture erase "`testdir'/_itest_i8.xlsx"
 capture noisily {
-    _fit_mediation
+    _fit_mediation, all
     gcomptab, xlsx("`testdir'/_itest_i8.xlsx") sheet("Normal")   ci(normal)
     gcomptab, xlsx("`testdir'/_itest_i8.xlsx") sheet("Percentile") ci(percentile)
     gcomptab, xlsx("`testdir'/_itest_i8.xlsx") sheet("BC")       ci(bc)
@@ -486,7 +493,6 @@ capture noisily {
     filefilter "`pkg_dir'/gcomptab.ado" "`helperless_dir'/gcomptab.ado", ///
         from("_gcomp_xl_common.ado") to("_gcomp_xl_missing_for_test.ado") replace
 
-    capture ado uninstall gcomp
     foreach p in gcomptab _gcomp_col_letter _gcomp_validate_path ///
         _gcomp_xl_footnote _gcomp_xl_open _gcomp_xl_validate_sheet {
         capture program drop `p'
@@ -528,11 +534,12 @@ foreach k in i1 i2 i3 i7 i8 i9 i12 i13 i14 {
 
 display ""
 display as result "test_interactions Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_interactions tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_interactions tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_interactions tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

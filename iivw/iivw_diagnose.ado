@@ -22,7 +22,7 @@ program define iivw_diagnose, rclass
 
         syntax anything(name=coefficient id="coefficient") , ///
             UNWeighted(name) WEighted(name) ADjusted(name) ///
-            [EXogeneity(string) ESTimand(string) TRue(string) ///
+            [EXogeneity(string) ESTimand(string) TRue(string) FORCE ///
              Level(cilevel) XLSX(string asis) ///
              SHeet(string asis) Title(string asis) Footnote(string asis) ///
              DECimals(string) REPLACE OPEN ///
@@ -105,15 +105,105 @@ program define iivw_diagnose, rclass
                 error 111
             }
             local se_`role' = scalar(`_setmp')
+
+            * Metadata for the comparability gate (H3) and the interval
+            * distribution (H4). Captured while the estimates are restored --
+            * this is the only moment they are readable.
+            local depvar_`role'  "`e(depvar)'"
+            local cmd_`role'     "`e(cmd)'"
+            local cmd2_`role'    "`e(cmd2)'"
+            local family_`role'  "`e(family)'"
+            local link_`role'    "`e(link)'"
+            local clust_`role'   "`e(clustvar)'"
+            local N_`role'       = e(N)
+            local dfr_`role'     = e(df_r)
         }
 
+        * =================================================================
+        * H3: the three estimates must be the same estimand.
+        * =================================================================
+        * The command decomposes b_unweighted - b_weighted into a "sampling"
+        * gap and b_weighted - b_adjusted into an "artifact" gap. Subtracting
+        * coefficients is only meaningful when they are coefficients OF THE SAME
+        * THING, on the same scale, from the same outcome. Nothing checked that.
+        * An isolated probe stored regressions of price, weight and length --
+        * three different outcomes -- passed them in as the three roles, and got
+        * rc 0 and a precise-looking decomposition across outcomes that have
+        * nothing to do with each other.
+        *
+        * A difference of coefficients from different models is a number, not an
+        * estimate. force() exists for a deliberately descriptive comparison and
+        * says so in the output; it does not make the decomposition valid.
+        * =================================================================
+        local _incomparable ""
+        foreach role in weighted adjusted {
+            if "`depvar_`role''" != "`depvar_unweighted'" {
+                local _incomparable "`_incomparable' outcome(`role': `depvar_`role'' vs unweighted: `depvar_unweighted')"
+            }
+            if "`cmd_`role''" != "`cmd_unweighted'" {
+                local _incomparable "`_incomparable' estimator(`role': `cmd_`role'' vs unweighted: `cmd_unweighted')"
+            }
+            if "`family_`role''" != "`family_unweighted'" | ///
+                "`link_`role''" != "`link_unweighted'" {
+                local _incomparable "`_incomparable' family/link(`role')"
+            }
+            if "`clust_`role''" != "`clust_unweighted'" {
+                local _incomparable "`_incomparable' cluster(`role': `clust_`role'' vs unweighted: `clust_unweighted')"
+            }
+        }
+
+        if `"`_incomparable'"' != "" & "`force'" == "" {
+            display as error "the three estimates are not comparable, so their differences are not a decomposition"
+            display as error ""
+            foreach _m of local _incomparable {
+                display as error "  mismatch: `_m'"
+            }
+            display as error ""
+            display as error "  iivw_diagnose splits b(unweighted) - b(weighted) into a sampling gap and"
+            display as error "  b(weighted) - b(adjusted) into an artifact gap. Those subtractions mean"
+            display as error "  nothing unless all three estimate the same coefficient, of the same"
+            display as error "  outcome, on the same scale, at the same cluster level."
+            display as error ""
+            display as error "  Refit the three models so they differ ONLY in weighting/adjustment, or"
+            display as error "  add force to obtain a purely descriptive side-by-side comparison"
+            display as error "  (which will be labeled non-decomposable)."
+            error 198
+        }
+        local _forced_incomparable = 0
+        if `"`_incomparable'"' != "" & "`force'" != "" {
+            local _forced_incomparable = 1
+            display as text "note: force specified with incomparable estimates. The gaps below are"
+            display as text "  differences between models that do not estimate the same quantity, so"
+            display as text "  they are NOT a sampling/artifact decomposition. Descriptive only."
+        }
+
+        * =================================================================
+        * H4: use each estimate's own interval distribution.
+        * =================================================================
+        * The help documents plain -regress- inputs, which report t intervals on
+        * e(df_r) residual degrees of freedom. Applying one normal critical value
+        * to all three roles silently reports the wrong limits: on sysuse auto
+        * (df_r = 72) the mpg lower limit came out -342.9227 where regress itself
+        * gives -344.7008. Each role now uses its own df.
+        * =================================================================
         local z = invnormal(1 - (100 - `level') / 200)
-        local ll_unweighted = `b_unweighted' - `z' * `se_unweighted'
-        local ul_unweighted = `b_unweighted' + `z' * `se_unweighted'
-        local ll_weighted   = `b_weighted'   - `z' * `se_weighted'
-        local ul_weighted   = `b_weighted'   + `z' * `se_weighted'
-        local ll_adjusted   = `b_adjusted'   - `z' * `se_adjusted'
-        local ul_adjusted   = `b_adjusted'   + `z' * `se_adjusted'
+        foreach role in unweighted weighted adjusted {
+            if `dfr_`role'' > 0 & `dfr_`role'' < . {
+                local crit_`role' = invttail(`dfr_`role'', (100 - `level') / 200)
+                local dist_`role' "t(`dfr_`role'')"
+            }
+            else {
+                local crit_`role' = `z'
+                local dist_`role' "z"
+            }
+        }
+
+        local ll_unweighted = `b_unweighted' - `crit_unweighted' * `se_unweighted'
+        local ul_unweighted = `b_unweighted' + `crit_unweighted' * `se_unweighted'
+        local ll_weighted   = `b_weighted'   - `crit_weighted'   * `se_weighted'
+        local ul_weighted   = `b_weighted'   + `crit_weighted'   * `se_weighted'
+        local ll_adjusted   = `b_adjusted'   - `crit_adjusted'   * `se_adjusted'
+        local ul_adjusted   = `b_adjusted'   + `crit_adjusted'   * `se_adjusted'
 
         matrix `_estimates' = ///
             (`b_unweighted', `se_unweighted', `ll_unweighted', `ul_unweighted' \ ///
@@ -548,6 +638,14 @@ program define iivw_diagnose, rclass
     }
     return matrix decomp = `_decomp'
     return matrix estimates = `_estimates'
+    * Comparability and interval provenance. decomposable = 0 means the three
+    * estimates are not the same estimand and the gaps are descriptive only.
+    return scalar decomposable = `=1 - `_forced_incomparable''
+    return local ci_dist_unweighted "`dist_unweighted'"
+    return local ci_dist_weighted "`dist_weighted'"
+    return local ci_dist_adjusted "`dist_adjusted'"
+    return local depvar "`depvar_unweighted'"
+
     return local conclusion "`conclusion'"
     return local estimand "`estimand'"
     return local exogeneity "`exogeneity'"

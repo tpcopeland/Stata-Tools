@@ -67,15 +67,17 @@ if `run_only' == 0 | `run_only' == 1 {
         foreach wt in iivw iptw fiptiw {
             _setup_panel_v
             if "`wt'" == "iivw" {
-                iivw_weight, id(id) time(months) visit_cov(severity) ///
+                iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
                     wtype(`wt') nolog
             }
             else if "`wt'" == "iptw" {
+                * IPTW fits no visit-intensity model, so it takes neither the
+                * end-of-follow-up nor the baseline() specification.
                 iivw_weight, id(id) time(months) ///
                     treat(treated) treat_cov(sev_bl) wtype(`wt') nolog
             }
             else {
-                iivw_weight, id(id) time(months) visit_cov(severity) ///
+                iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
                     treat(treated) treat_cov(sev_bl) wtype(`wt') nolog
             }
             quietly summarize _iivw_weight
@@ -104,14 +106,14 @@ if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _setup_panel_v
         * Get pre-truncation weights and hand-compute percentiles
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(raw_) nolog
         quietly _pctile raw_weight, percentiles(5 95)
         local lo = r(r1)
         local hi = r(r2)
         drop raw_weight raw_iw
 
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncate(5 95) nolog
         quietly summarize _iivw_weight
         * All weights must lie in [lo, hi] to float precision
@@ -135,7 +137,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         * Create 4-level grouping var
         gen byte grp = 1 + mod(id, 4)
         label define _grplbl 1 "low" 2 "med" 3 "high" 4 "extreme"
@@ -169,7 +171,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity sev_bl, timespec(cubic) ///
             interaction(severity sev_bl) nolog
         * cubic -> 3 time vars (time, time_sq, time_cu)
@@ -195,7 +197,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         gen byte grp = 1 + mod(id, 3)
         * basecat(2) -> no dummy for level 2; dummies for 1 and 3
         iivw_fit event severity grp, categorical(grp) basecat(2) nolog
@@ -222,7 +224,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, timespec(cubic) nolog
         gen double expected_sq = months^2
         gen double expected_cu = months^3
@@ -250,7 +252,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert `=r(min_weight)' <= `=r(p1_weight)'
         assert `=r(p1_weight)' <= `=r(median_weight)'
         assert `=r(median_weight)' <= `=r(p99_weight)'
@@ -273,7 +275,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(wx_) nolog
         local stored : char _dta[_iivw_prefix]
         assert "`stored'" == "wx_"
@@ -333,12 +335,12 @@ if `run_only' == 0 | `run_only' == 10 {
     capture noisily {
         _setup_panel_v
         * First prefix
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(A_) nolog
         rename A_weight w_A
         rename A_iw iw_A
         * Second prefix on the same dataset
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(B_) nolog
 
         * Weights computed from same data, different prefix -> identical
@@ -366,7 +368,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 11 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, timespec(ns(4)) nolog
         * All 4 basis vars have no missing inside data range
         forvalues k = 1/4 {
@@ -391,7 +393,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 12 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             stabcov(sev_bl) nolog
         * First-obs IIW weights identical across subjects (baseline convention,
         * mean-1 normalized) even with a stabilization model
@@ -417,7 +419,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, bootstrap(30) nolog
         * bootstrap posts N_reps via e()
         assert e(N_reps) == 30
@@ -440,11 +442,11 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 14 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         gen double w1 = _iivw_weight
         drop _iivw_weight _iivw_iw
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         gen double w2 = _iivw_weight
 
         gen double diff = abs(w1 - w2)
@@ -468,7 +470,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) nolog
         gen double expected = _iivw_iw * _iivw_tw
         gen double diff = abs(_iivw_weight - expected)
@@ -492,7 +494,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 16 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, level(90) nolog
         scalar b90 = _b[severity]
         iivw_fit event severity, level(99) nolog
@@ -516,7 +518,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 17 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local ess_stored = r(ess)
         quietly summarize _iivw_weight
         local sum_w = r(sum)
@@ -543,7 +545,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 18 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         * ns(3): 2 interior knots at 33.33% and 66.66%
         quietly _pctile months, percentiles(33.33333333 66.66666667)
         local p33 = r(r1)
@@ -575,7 +577,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 19 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) nolog
         local lbl : variable label _iivw_weight
         * FIPTIW label exists and says FIPTIW
@@ -598,7 +600,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 20 {
     capture noisily {
         _setup_panel_v
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(raw_) nolog
         quietly _pctile raw_weight, percentiles(10 90)
         local lo = r(r1)
@@ -607,7 +609,7 @@ if `run_only' == 0 | `run_only' == 20 {
         local expected = r(N)
         drop raw_weight raw_iw
 
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncate(10 90) nolog
         local actual = r(n_truncated)
         assert `actual' == `expected'

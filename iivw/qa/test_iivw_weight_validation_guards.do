@@ -40,7 +40,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace id = . in 1
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -58,7 +58,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace time = . in 2
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -76,7 +76,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace entry = . in 1
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -94,7 +94,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace entry = 0.5 in 2
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -112,7 +112,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace entry = 1
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -130,7 +130,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace entry = 2
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111
@@ -148,7 +148,7 @@ local ++test_count
 capture noisily {
     _make_guard_panel
     replace entry = 0.25
-    iivw_weight, id(id) time(time) visit_cov(x z) entry(entry) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) entry(entry) nolog
     assert r(N) == 60
     assert r(n_ids) == 20
     * First-obs IIW weights are identical across subjects (baseline convention,
@@ -173,7 +173,7 @@ capture noisily {
     _make_guard_panel
     set varabbrev on
     replace time = . in 2
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) nolog
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
     set varabbrev off
@@ -190,10 +190,10 @@ else {
 local ++test_count
 capture noisily {
     _make_guard_panel
-    iivw_weight, id(id) time(time) visit_cov(x z) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) nolog
     assert "`: char _dta[_iivw_weighted]'" == "1"
     replace time = . in 2
-    capture noisily iivw_weight, id(id) time(time) visit_cov(x z) replace nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(x z) replace nolog
     assert _rc == 198
     * v1.0.6+: validation-stage failures preserve prior weighting metadata
     assert "`: char _dta[_iivw_weighted]'" == "1"

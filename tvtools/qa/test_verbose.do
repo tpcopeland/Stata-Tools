@@ -50,6 +50,16 @@ program define _check_log, rclass
     return scalar found = `found'
 end
 
+* Helper program: collapse whitespace before checking a complete listed row.
+capture program drop _check_log_row
+program define _check_log_row, rclass
+    syntax , logfile(string) needle(string)
+    local content = fileread("`logfile'")
+    local content = ustrregexra(`"`content'"', "[[:space:]]+", " ")
+    local found = strpos(`"`content'"', `"`needle'"') > 0
+    return scalar found = `found'
+end
+
 **# TVEXPOSE VERBOSE TESTS
 
 * Create inline cohort and exposure data with aligned dates
@@ -64,18 +74,19 @@ quietly {
     tempfile _cohort
     save `_cohort'
 
-    * Exposure with invalid period (start > stop)
+    * Exposure with a fractional daily date that would otherwise survive
     clear
     set obs 3
     gen long id = .
     gen double rx_start = .
     gen double rx_stop = .
     gen int exp_type = .
-    format rx_start rx_stop %tdCCYY/NN/DD
+    format rx_start %12.1f
+    format rx_stop %tdCCYY/NN/DD
     replace id = 1 in 1
-    replace rx_start = mdy(6, 1, 2020) in 1
-    replace rx_stop = mdy(4, 1, 2020) in 1
-    replace exp_type = 1 in 1
+    replace rx_start = mdy(6, 1, 2020) + 0.5 in 1
+    replace rx_stop = mdy(8, 31, 2020) in 1
+    replace exp_type = 9 in 1
     * Valid record so command doesn't end with 0 exposure
     replace id = 1 in 2
     replace rx_start = mdy(7, 1, 2020) in 2
@@ -87,6 +98,21 @@ quietly {
     replace exp_type = 1 in 3
     tempfile _exp_invalid
     save `_exp_invalid'
+
+    * Valid exposure subset for malformed-master checks
+    drop in 1
+    tempfile _exp_valid
+    save `_exp_valid'
+
+    * Master with one fractional daily date that would otherwise survive
+    use `_cohort', clear
+    set obs 4
+    replace id = 991 in 4
+    replace study_entry = mdy(1, 1, 2020) + 0.5 in 4
+    replace study_exit = mdy(12, 31, 2021) in 4
+    format study_entry %12.1f
+    tempfile _cohort_invalid
+    save `_cohort_invalid'
 
     * Exposure with overlapping different categories (no overlap strategy)
     clear
@@ -168,10 +194,12 @@ capture noisily {
     use `_cohort', clear
     tempfile _log_noverb
     quietly log using `_log_noverb', text replace name(_vlog)
-    tvexpose using `_exp_invalid', ///
+    capture noisily tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit)
+    local cmdrc = _rc
     log close _vlog
+    assert `cmdrc' == 498
     _check_log, logfile(`_log_noverb') needle("specify verbose to list affected IDs and dates")
     assert r(found) == 1
     _check_log, logfile(`_log_noverb') needle("First invalid records")
@@ -194,11 +222,16 @@ capture noisily {
     use `_cohort', clear
     tempfile _log_verb
     quietly log using `_log_verb', text replace name(_vlog)
-    tvexpose using `_exp_invalid', ///
+    capture noisily tvexpose using `_exp_invalid', ///
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) verbose
+    local cmdrc = _rc
     log close _vlog
+    assert `cmdrc' == 498
     _check_log, logfile(`_log_verb') needle("First invalid records")
+    assert r(found) == 1
+    _check_log_row, logfile(`_log_verb') ///
+        needle("1 22067.5 2020/08/31 9")
     assert r(found) == 1
     _check_log, logfile(`_log_verb') needle("specify verbose to list")
     assert r(found) == 0
@@ -211,6 +244,145 @@ else {
     display as error "  FAIL: tvexpose invalid periods with verbose (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' tvexp_invalid_verb"
+    capture log close _vlog
+}
+
+**## Invalid exposure: verbose dropinvalid lists and removes the exact row
+local ++test_count
+capture noisily {
+    use `_cohort', clear
+    tempfile _log_exp_drop
+    quietly log using `_log_exp_drop', text replace name(_vlog)
+    capture noisily tvexpose using `_exp_invalid', ///
+        id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
+        reference(0) entry(study_entry) exit(study_exit) verbose dropinvalid
+    local cmdrc = _rc
+    local n_invalid = .
+    if `cmdrc' == 0 {
+        local n_invalid = r(n_invalid_exposure)
+    }
+    log close _vlog
+    assert `cmdrc' == 0
+    assert `n_invalid' == 1
+    _check_log_row, logfile(`_log_exp_drop') ///
+        needle("1 22067.5 2020/08/31 9")
+    assert r(found) == 1
+    _check_log, logfile(`_log_exp_drop') ///
+        needle("dropinvalid: removed 1 malformed exposure row(s)")
+    assert r(found) == 1
+    confirm variable tv_exp_type
+    count if tv_exp_type == 9
+    assert r(N) == 0
+    count if tv_exp_type == 1
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose verbose dropinvalid lists and removes malformed exposure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose verbose dropinvalid exposure behavior (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tvexp_invalid_verb_drop"
+    capture log close _vlog
+}
+
+**## Invalid master: nonverbose strict mode shows only the hint
+local ++test_count
+capture noisily {
+    use `_cohort_invalid', clear
+    tempfile _log_master_noverb
+    quietly log using `_log_master_noverb', text replace name(_vlog)
+    capture noisily tvexpose using `_exp_valid', ///
+        id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
+        reference(0) entry(study_entry) exit(study_exit)
+    local cmdrc = _rc
+    log close _vlog
+    assert `cmdrc' == 498
+    _check_log, logfile(`_log_master_noverb') ///
+        needle("specify verbose to list affected IDs and dates")
+    assert r(found) == 1
+    _check_log, logfile(`_log_master_noverb') needle("First invalid records")
+    assert r(found) == 0
+    _check_log, logfile(`_log_master_noverb') needle("21915.5")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose malformed master shows hint only without verbose"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose nonverbose malformed-master behavior (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tvexp_master_invalid_noverb"
+    capture log close _vlog
+}
+
+**## Invalid master: verbose strict mode lists the exact row
+local ++test_count
+capture noisily {
+    use `_cohort_invalid', clear
+    tempfile _log_master_verb
+    quietly log using `_log_master_verb', text replace name(_vlog)
+    capture noisily tvexpose using `_exp_valid', ///
+        id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
+        reference(0) entry(study_entry) exit(study_exit) verbose
+    local cmdrc = _rc
+    log close _vlog
+    assert `cmdrc' == 498
+    _check_log_row, logfile(`_log_master_verb') ///
+        needle("991 21915.5 2021/12/31")
+    assert r(found) == 1
+    _check_log, logfile(`_log_master_verb') needle("Malformed master input: 1 row(s)")
+    assert r(found) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose verbose lists the exact malformed master row"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose verbose malformed-master listing (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tvexp_master_invalid_verb"
+    capture log close _vlog
+}
+
+**## Invalid master: verbose dropinvalid lists, removes, and continues
+local ++test_count
+capture noisily {
+    use `_cohort_invalid', clear
+    tempfile _log_master_drop
+    quietly log using `_log_master_drop', text replace name(_vlog)
+    capture noisily tvexpose using `_exp_valid', ///
+        id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
+        reference(0) entry(study_entry) exit(study_exit) verbose dropinvalid
+    local cmdrc = _rc
+    local n_invalid = .
+    if `cmdrc' == 0 {
+        local n_invalid = r(n_invalid_master)
+    }
+    log close _vlog
+    assert `cmdrc' == 0
+    assert `n_invalid' == 1
+    _check_log_row, logfile(`_log_master_drop') ///
+        needle("991 21915.5 2021/12/31")
+    assert r(found) == 1
+    _check_log, logfile(`_log_master_drop') ///
+        needle("dropinvalid: removed 1 malformed master row(s)")
+    assert r(found) == 1
+    count if id == 991
+    assert r(N) == 0
+    count if id == 1
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose verbose dropinvalid removes malformed master and continues"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose verbose dropinvalid master behavior (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tvexp_master_invalid_verb_drop"
     capture log close _vlog
 }
 

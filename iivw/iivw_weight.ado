@@ -41,7 +41,7 @@ program define iivw_weight, rclass sortpreserve
     set varabbrev off
     local __iivw_smcl_lb = char(123)
     local __iivw_smcl_rb = char(125)
-    tempname __iivw_visit_est __iivw_logit_est
+    tempname __iivw_visit_est __iivw_logit_est __iivw_bmat
     local __iivw_visit_hold_ok = 0
     local __iivw_logit_hold_ok = 0
 
@@ -67,8 +67,10 @@ program define iivw_weight, rclass sortpreserve
          STABcov(varlist numeric) ///
          LAGvars(varlist numeric) ///
          ENTry(varname numeric) ///
+         CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
          TRUNCate(numlist min=2 max=2) ///
-         GENerate(name) REPLACE noLOG EFRon noBASEevent ///
+         BASEline(string) ///
+         GENerate(name) REPLACE noLOG EFRon ///
          ALLOWNONCONVerged]
 
     * =========================================================================
@@ -84,10 +86,30 @@ program define iivw_weight, rclass sortpreserve
     local efron_opt ""
     if "`efron'" != "" local efron_opt "efron"
 
-    * noBASEevent: treat the first visit per subject as study entry (risk onset)
-    * rather than a modeled recurrent event. The syntax macro is `baseevent'
-    * (the "no" stripped); it equals "nobaseevent" when the user disables it.
-    local exclude_base = ("`baseevent'" == "nobaseevent")
+    * Baseline handling. Since 2.0.0 the first visit per subject is study ENTRY
+    * (risk onset), not a modeled recurrent event: the old default let baseline
+    * covariates predict the occurrence of the very visit at which they were
+    * measured. baseline(event) restores the legacy contract for designs where
+    * the baseline visit really is an event of the same recurrent process.
+    *
+    * This is a value option rather than a pair of flags because Stata cannot
+    * express the pair: `syntax [, noBASEevent]' leaves the macro EMPTY both when
+    * the user types the positive form and when they omit the option, so an
+    * explicit `baseevent' would be silently indistinguishable from saying
+    * nothing -- and declaring `BASEevent NOBASEevent' as two flags does not help,
+    * because Stata auto-negates the positive flag and swallows `nobaseevent'
+    * before the second declaration ever sees it. The 1.x option name is gone:
+    * `nobaseevent' now fails loudly rather than becoming a silent no-op.
+    if "`baseline'" == "" local baseline "entry"
+    if !inlist("`baseline'", "entry", "event") {
+        display as error "baseline() must be entry or event"
+        display as error "  entry (default): the first visit per subject is study entry"
+        display as error "  event:           the first visit is a modeled visit-intensity event"
+        display as error "                   (the pre-2.0.0 behavior; see nobaseevent in the"
+        display as error "                   migration notes)"
+        error 198
+    }
+    local exclude_base = ("`baseline'" == "entry")
 
     local __iivw_created_vars ""
 
@@ -132,8 +154,14 @@ program define iivw_weight, rclass sortpreserve
         display as error "`wtype' requires treat() option"
         error 198
     }
-    if inlist("`wtype'", "iivw", "fiptiw") & "`visit_cov'" == "" {
-        display as error "`wtype' requires visit_cov() option"
+    * The visit-intensity model needs at least one covariate, but it does not
+    * care which option it arrives through: a model whose only predictor is a
+    * lagged covariate is specified entirely by lagvars(). Requiring visit_cov()
+    * to be nonempty forced a spurious contemporaneous term into exactly that
+    * model, which is the one the reference implementation fits on Phenobarb.
+    if inlist("`wtype'", "iivw", "fiptiw") & "`visit_cov'" == "" & "`lagvars'" == "" {
+        display as error "`wtype' requires visit_cov() or lagvars()"
+        display as error "  the visit-intensity model needs at least one covariate"
         error 198
     }
     if inlist("`wtype'", "iptw", "fiptiw") & "`treat_cov'" == "" {
@@ -168,9 +196,16 @@ program define iivw_weight, rclass sortpreserve
             display as error "wtype(iptw) fits no Cox visit intensity model"
             error 198
         }
-        if `exclude_base' {
-            display as error "nobaseevent is only allowed with IIW or FIPTIW weights"
+        if "`baseline'" != "entry" {
+            display as error "baseline() is only allowed with IIW or FIPTIW weights"
             display as error "wtype(iptw) fits no visit intensity model"
+            error 198
+        }
+        if "`censor'" != "" | "`maxfu'" != "" | "`endatlastvisit'" != "" {
+            display as error "censor(), maxfu() and endatlastvisit are only allowed with"
+            display as error "  IIW or FIPTIW weights"
+            display as error "wtype(iptw) fits no visit-intensity counting-process model,"
+            display as error "  so there is no risk set for an end of follow-up to extend"
             error 198
         }
     }
@@ -220,7 +255,7 @@ program define iivw_weight, rclass sortpreserve
         * stset excludes it from the visit-intensity risk sets. The row still
         * gets the conventional baseline weight of 1; only the intensity model
         * loses it as an event. Say so rather than leaving the exclusion
-        * buried in the stset table. (Under nobaseevent baseline rows are
+        * buried in the stset table. (Under baseline(entry) those rows are
         * dropped by design, so no note is needed.)
         if !`exclude_base' {
             tempvar _first_t0
@@ -269,32 +304,175 @@ program define iivw_weight, rclass sortpreserve
         drop `_entry_min' `_entry_max' `_first_time'
     }
 
+    * =========================================================================
+    * END-OF-FOLLOW-UP CONTRACT
+    * =========================================================================
+    * The Andersen-Gill risk set is the set of subjects still under observation:
+    * Buzkova & Lumley (2007) write the at-risk process as xi_i(t) = I(C_i > t)
+    * with C_i the drop-out time or end of follow-up (p.7; it enters the risk-set
+    * denominator at their eq. 8, p.8), and Tompkins et al. (2025) write the same
+    * denominator with I(C_j >= t) (p.5).
+    *
+    * Before 2.0.0 this package built intervals only between observed visits, so
+    * every subject silently left the risk set at their own last visit -- making
+    * risk-set membership a function of the visit process being modeled. Measured
+    * on a known-truth DGP (gamma = 0.5, C_i ~ U(tau/2, tau)), that attenuated the
+    * visit-intensity coefficient by about a quarter (0.371 vs 0.500, bias 99
+    * MCSEs). The weights are exp(-xb), so it propagated into every downstream
+    * estimate. There is no safe default here, and the old one was not safe, so
+    * 2.0.0 requires the user to state the design.
+    local __iivw_cens_mode ""
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        local __iivw_n_cens_opts = 0
+        if "`censor'" != ""         local ++__iivw_n_cens_opts
+        if "`maxfu'" != ""          local ++__iivw_n_cens_opts
+        if "`endatlastvisit'" != "" local ++__iivw_n_cens_opts
+
+        if `__iivw_n_cens_opts' > 1 {
+            display as error "specify only one of censor(), maxfu() and endatlastvisit"
+            display as error "  they are three ways of stating the same thing: when each"
+            display as error "  subject stops being at risk of a visit"
+            error 198
+        }
+        if `__iivw_n_cens_opts' == 0 {
+            display as error "end of follow-up is not specified"
+            display as error ""
+            display as error "The visit-intensity model needs each subject's observation window,"
+            display as error "not just the intervals between their visits. Specify exactly one of:"
+            display as error ""
+            display as error "  censor(varname)  subject-specific end of follow-up (administrative"
+            display as error "                   censoring, death, loss to follow-up); must be"
+            display as error "                   constant within id() and >= the subject's last visit"
+            display as error "  maxfu(#)         a common end of follow-up shared by all subjects"
+            display as error "  endatlastvisit   follow-up genuinely ends at each subject's last"
+            display as error "                   visit (the pre-2.0.0 behavior)"
+            display as error ""
+            display as error "endatlastvisit is rarely the right description of a registry or EHR"
+            display as error "cohort: it makes a subject leave the risk set because they stopped"
+            display as error "visiting, which is the very process being modeled. It attenuated the"
+            display as error "visit-intensity coefficient by ~26% in a known-truth check."
+            error 198
+        }
+
+        if "`endatlastvisit'" != "" {
+            local __iivw_cens_mode "lastvisit"
+        }
+        else if "`maxfu'" != "" {
+            local __iivw_cens_mode "maxfu"
+
+            * A visit after the stated end of follow-up is a data error, not a
+            * modeling choice: the subject was demonstrably still at risk.
+            quietly summarize `time', meanonly
+            if r(max) > `maxfu' {
+                quietly count if `time' > `maxfu'
+                display as error "`=r(N)' visits occur after maxfu(`maxfu')"
+                display as error "  the maximum visit time is " %12.0g `=r(max)'
+                display as error "  use censor() for subject-specific follow-up"
+                error 198
+            }
+        }
+        else {
+            local __iivw_cens_mode "censor"
+
+            quietly count if missing(`censor')
+            if r(N) > 0 {
+                display as error "censor() contains missing values"
+                display as error "each subject must have a nonmissing end of follow-up"
+                error 198
+            }
+
+            tempvar _cmin _cmax _lastvis
+            quietly bysort `id': egen double `_cmin' = min(`censor')
+            quietly bysort `id': egen double `_cmax' = max(`censor')
+            quietly count if `_cmin' != `_cmax'
+            if r(N) > 0 {
+                display as error "censor() must be constant within each id()"
+                display as error "  end of follow-up is a property of the subject, not of the visit"
+                error 198
+            }
+
+            quietly bysort `id': egen double `_lastvis' = max(`time')
+            quietly count if `censor' < `_lastvis'
+            if r(N) > 0 {
+                display as error "censor() is earlier than the last observed visit for some subjects"
+                display as error "  a subject cannot have stopped being at risk at a time when they"
+                display as error "  were observably still visiting; check the censoring variable"
+                error 198
+            }
+            drop `_cmin' `_cmax' `_lastvis'
+        }
+    }
+
+    * A covariate whose value over an interval depends on the PREVIOUS visit must
+    * be declared in lagvars(), not pre-computed and passed through visit_cov().
+    *
+    * The censoring interval (last visit, C] is built by copying the subject's
+    * last visit row, so a covariate carries forward the value in effect when
+    * they were last seen -- right for a contemporaneous covariate. A covariate
+    * that is ALREADY a lag carries forward the value from the visit before that,
+    * which is off by one, and the package has no way to tell the two apart from
+    * the data alone. Declared via lagvars(), the lag is rebuilt on the censoring
+    * row from its source variable and is exact (this is also what IrregLong does:
+    * it lags after appending, never before).
+    *
+    * Warn on the name, which is the only signal available. A warning, not an
+    * error: a variable may legitimately be called "lagoon".
+    if inlist("`wtype'", "iivw", "fiptiw") & "`__iivw_cens_mode'" != "lastvisit" {
+        local __iivw_suspect ""
+        foreach v of local visit_cov {
+            if regexm(lower("`v'"), "(^|_)lag") {
+                local __iivw_suspect "`__iivw_suspect' `v'"
+            }
+        }
+        if "`__iivw_suspect'" != "" & "`lagvars'" == "" {
+            display as text "note: visit_cov() contains what looks like a pre-computed lag:" ///
+                as result "`__iivw_suspect'"
+            display as text "  on the censoring interval after each subject's last visit, a"
+            display as text "  pre-computed lag carries the value from one visit too far back."
+            display as text "  Declare the SOURCE variable in lagvars() instead, and the lag is"
+            display as text "  rebuilt correctly on that interval."
+        }
+    }
+
     * Check for sufficient observations per subject when fitting visit intensity
     if inlist("`wtype'", "iivw", "fiptiw") {
         tempvar _nvis
         quietly bysort `id' (`time'): gen long `_nvis' = _N
         if `exclude_base' {
-            * Under nobaseevent the baseline visit is study entry, not a modeled
+            * Under baseline(entry) the baseline visit is study entry, not a modeled
             * event, so single-visit subjects contribute only a baseline row
             * (weight 1) and need not be dropped. The model still requires at
             * least one subject with a follow-up visit to have any events to fit.
             quietly summarize `_nvis'
             if r(max) < 2 {
-                display as error "nobaseevent requires at least one subject with 2 or more visits"
+                display as error "baseline(entry) requires at least one subject with 2 or more visits"
                 display as error "with no follow-up visits the intensity model has no events to fit"
                 error 198
             }
         }
-        else {
+        else if "`__iivw_cens_mode'" == "lastvisit" {
+            * baseline(event) with no end of follow-up: a single-visit subject
+            * would contribute the single interval (entry, t1] and then vanish,
+            * with no at-risk time at all beyond their one visit. Refuse, as
+            * before.
+            *
+            * With a real end of follow-up this restriction is gone: such a
+            * subject contributes (entry, t1] with an event and (t1, C] without
+            * one, which is a complete and perfectly ordinary risk history.
+            * Dropping them because they visited only once was the same defect
+            * as ending the risk set at the last visit -- excluding subjects on
+            * the basis of the visit process being modeled. IrregLong keeps them.
             quietly summarize `_nvis'
             if r(min) < 2 {
                 quietly count if `_nvis' < 2
                 local n_single = r(N)
                 display as error "`n_single' observations belong to subjects with only 1 visit"
-                display as error "`wtype' requires at least 2 visits per subject"
-                display as text  "  to retain single-visit subjects, specify nobaseevent: the"
-                display as text  "  baseline visit is then treated as study entry rather than a"
-                display as text  "  modeled visit-intensity event"
+                display as error "`wtype' requires at least 2 visits per subject under"
+                display as error "  baseline(event) with endatlastvisit"
+                display as text  "  to retain single-visit subjects, either specify an end of"
+                display as text  "  follow-up -- censor() or maxfu() -- so they contribute a"
+                display as text  "  censored interval after their visit, or use baseline(entry),"
+                display as text  "  which treats the baseline visit as study entry"
                 error 198
             }
         }
@@ -500,7 +678,7 @@ program define iivw_weight, rclass sortpreserve
         display as text "Baseline visit:   " as result ///
             "study entry (not modeled as a visit-intensity event)"
         if "`entry'" != "" {
-            display as text "note: entry() is ignored under nobaseevent; the first" ///
+            display as text "note: entry() is ignored under baseline(entry); the first" ///
                 " visit per subject defines risk onset"
         }
     }
@@ -527,6 +705,10 @@ program define iivw_weight, rclass sortpreserve
         local __iivw_visit_converged = 1
         local __iivw_stab_converged = 1
         local __iivw_iw_rc = 0
+        local __iivw_visit_N = 0
+        local __iivw_visit_Nsub = 0
+        local __iivw_stab_N = 0
+        local __iivw_n_cens_rows = 0
         local __iivw_visit_hold_ok = 0
         capture _estimates hold `__iivw_visit_est', nullok
         if _rc == 0 {
@@ -551,7 +733,7 @@ program define iivw_weight, rclass sortpreserve
                 bysort `id' (`time'): gen double `_entry_val' = `entry'[1]
             }
 
-            tempvar _start _stop _event
+            tempvar _start _stop _event _censrow _isfirst
 
             * Start time: previous visit time (or entry time for first visit)
             if "`entry'" != "" {
@@ -565,31 +747,110 @@ program define iivw_weight, rclass sortpreserve
 
             gen double `_stop' = `time'
             gen byte `_event' = 1
+            gen byte `_censrow' = 0
+            bysort `id' (`time'): gen byte `_isfirst' = (_n == 1)
 
-            * Under nobaseevent the baseline visit is study entry, not an event.
-            * Drop the (entry, t1] interval so the subject enters the visit-
-            * intensity risk set at the first visit and the modeled events are
-            * the follow-up visits (t1,t2], (t2,t3], .... This removes the
-            * circularity of the baseline visit predicting its own occurrence and
-            * lets single-visit subjects pass through (they contribute no event).
+            * ---------------------------------------------------------------
+            * Step 1b: Administrative-censoring rows
+            *
+            * (last visit, end of follow-up] with no event, so the subject stays
+            * in the risk set for as long as they were actually under observation
+            * rather than leaving it at their own last visit. This is Buzkova &
+            * Lumley's xi_i(t) = I(C_i > t), and it is what IrregLong's
+            * addcensoredrows() builds before it ever calls coxph.
+            *
+            * Each censoring row is a copy of the subject's LAST VISIT row, so
+            * every covariate carries forward the value in effect when the
+            * subject was last seen. For a subject-constant covariate that is
+            * exactly IrregLong's behavior (it copies those columns). For a
+            * lagged covariate it is too, once the lag is rebuilt below: the
+            * value lagged by one visit across (last visit, C] is the value AT
+            * the last visit, which the copied row already carries in the source
+            * variable itself.
+            *
+            * An UNLAGGED time-varying covariate is the one place we deliberately
+            * differ: IrregLong leaves it missing, which makes coxph drop the
+            * censoring row and quietly reintroduces the omission this whole
+            * construction exists to fix. Carrying it forward keeps the subject
+            * in the risk set. The help file states this.
+            * ---------------------------------------------------------------
+            if "`__iivw_cens_mode'" != "lastvisit" {
+                tempvar _cens_t _lastrow _newrow
+
+                if "`__iivw_cens_mode'" == "maxfu" {
+                    gen double `_cens_t' = `maxfu'
+                }
+                else {
+                    bysort `id' (`time'): gen double `_cens_t' = `censor'[1]
+                }
+                bysort `id' (`time'): gen byte `_lastrow' = (_n == _N)
+
+                * A subject last seen exactly at their end of follow-up needs no
+                * extra row: the interval would have zero length, and stset drops
+                * it anyway. (IrregLong calls this case `alreadythere'.)
+                expand 2 if `_lastrow' & `_cens_t' > `_stop' & ///
+                    !missing(`_cens_t'), gen(`_newrow')
+                quietly count if `_newrow'
+                local __iivw_n_cens_rows = r(N)
+
+                replace `_start'   = `_stop'   if `_newrow'
+                replace `_stop'    = `_cens_t' if `_newrow'
+                replace `_event'   = 0         if `_newrow'
+                replace `_censrow' = 1         if `_newrow'
+                replace `_isfirst' = 0         if `_newrow'
+                replace `time'     = `_cens_t' if `_newrow'
+
+                * A censoring row is not a user observation and must never merge
+                * back as one. Blanking the row id is what guarantees that.
+                replace `_obsno' = . if `_newrow'
+
+                local __iivw_lag_ix = 0
+                foreach v of local lagvars {
+                    local ++__iivw_lag_ix
+                    local lagname : word `__iivw_lag_ix' of `__iivw_lag_names'
+                    replace `lagname' = `v' if `_newrow'
+                }
+            }
+
+            * Under the default contract the baseline visit is study entry, not
+            * an event. Drop the (entry, t1] interval so the subject enters the
+            * visit-intensity risk set at the first visit and the modeled events
+            * are the follow-up visits (t1,t2], (t2,t3], .... This removes the
+            * circularity of the baseline visit predicting its own occurrence.
+            * Censoring rows are NOT baseline rows and survive this: that is what
+            * puts a subject with no follow-up visit into the risk set for their
+            * whole observation window, which the old construction could not do.
             * Dropped baseline rows are reinstated with weight 1 after restore.
             if `exclude_base' {
-                tempvar _firstrow_drop
-                bysort `id' (`time'): gen byte `_firstrow_drop' = (_n == 1)
-                drop if `_firstrow_drop'
-                drop `_firstrow_drop'
+                drop if `_isfirst'
             }
 
             * ---------------------------------------------------------------
             * Step 2: Fit Andersen-Gill Cox model
             * ---------------------------------------------------------------
+            * One common risk set for BOTH models. The stabilized weight is an
+            * intensity ratio, so its numerator and denominator have to be
+            * evaluated over the same risk set; refitting the numerator on its
+            * own complete cases let rows that can never receive a weight (they
+            * are missing a denominator covariate) still shape the numerator's
+            * coefficients and the risk sets of the rows that do. Marking the
+            * common sample up front also means a row missing ANY input to either
+            * model gets no weight, rather than a weight built from a numerator
+            * that learned from it.
+            tempvar _cox_ok
+            gen byte `_cox_ok' = 1
+            markout `_cox_ok' `visit_covars' `stabcov'
+
             * stset for counting process (AG recurrent events)
             * exit(time .) allows multiple events per subject
             stset `_stop', enter(time `_start') failure(`_event') ///
                 id(`id') exit(time .)
 
-            stcox `visit_covars', `log_opt' `efron_opt'
+            stcox `visit_covars' if `_cox_ok', `log_opt' `efron_opt'
             local __iivw_visit_converged = e(converged)
+            local __iivw_visit_N = e(N)
+            local __iivw_visit_Nsub = e(N_sub)
+            matrix `__iivw_bmat' = e(b)
 
             * Get linear predictor
             tempvar _xb_full
@@ -603,8 +864,9 @@ program define iivw_weight, rclass sortpreserve
 
             if "`stabcov'" != "" {
                 noisily display as text "  Stabilization model: stcox `stabcov'"
-                noisily stcox `stabcov', `log_opt' `efron_opt'
+                noisily stcox `stabcov' if `_cox_ok', `log_opt' `efron_opt'
                 local __iivw_stab_converged = e(converged)
+                local __iivw_stab_N = e(N)
 
                 tempvar _xb_stab
                 predict double `_xb_stab', xb
@@ -612,10 +874,16 @@ program define iivw_weight, rclass sortpreserve
             }
             else {
                 gen double `prefix'iw = exp(-`_xb_full')
+                local __iivw_stab_N = `__iivw_visit_N'
             }
 
+            * The censoring rows have done their work: they held the subject in
+            * the risk set while the models were fitted. They are not visits, so
+            * they carry no weight and must not travel back to the user's data.
+            drop if `_censrow'
+
             * In default mode the preserved data still holds the baseline rows.
-            * Under nobaseevent those rows were dropped before fitting; their
+            * Under baseline(entry) those rows were dropped before fitting; their
             * weight (1) is reinstated after restore in the full data, so the
             * first-visit handling below is skipped to avoid mislabeling the
             * first follow-up visit as the baseline.
@@ -744,11 +1012,27 @@ program define iivw_weight, rclass sortpreserve
             exit `__iivw_hold_rc'
         }
         local __iivw_logit_converged = 1
+        local __iivw_ps_N = 0
+        local __iivw_p_treat = .
         preserve
         capture noisily {
             quietly keep if `_first_obs'
             logit `treat' `treat_covars', `log_opt'
             local __iivw_logit_converged = e(converged)
+            local __iivw_ps_N = e(N)
+
+            * The stabilization numerator is the treatment prevalence in the
+            * population the propensity model actually describes -- its own
+            * e(sample). Recomputing it over every first row instead pulls in
+            * subjects the model could not fit (missing a treatment covariate),
+            * and when that missingness is differential by arm the numerator is
+            * simply the wrong number: with treatment covariates missing for five
+            * of ten treated subjects, prevalence over the 15 analyzable subjects
+            * is 5/15 = 0.3333 while every-first-row prevalence is 0.5, scaling
+            * treated weights by 1.5 and control weights by 0.75.
+            quietly summarize `treat' if e(sample), meanonly
+            local __iivw_p_treat = r(mean)
+
             tempvar _ps_tmp
             predict double `_ps_tmp', pr
             keep `id' `_ps_tmp'
@@ -817,9 +1101,9 @@ program define iivw_weight, rclass sortpreserve
                 noisily display as text "  consider using truncate() to stabilize weights"
             }
 
-            * Stabilized IPTW: use cross-sectional prevalence
-            summarize `treat' if `_first_obs'
-            local p_treat = r(mean)
+            * Stabilized IPTW: prevalence over the propensity model's own sample
+            * (computed inside the logit block above, where e(sample) is live).
+            local p_treat = `__iivw_p_treat'
 
             gen double `prefix'tw = .
             replace `prefix'tw = `p_treat' / `prefix'ps ///
@@ -905,10 +1189,24 @@ program define iivw_weight, rclass sortpreserve
     local w_p50  = r(p50)
     local w_p99  = r(p99)
 
-    * Effective sample size: (sum w)^2 / (sum w^2)
+    * Effective sample size: (sum w)^2 / (sum w^2), Kish (1965).
+    *
+    * The ESS measures concentration among the rows that ACTUALLY CARRY A
+    * WEIGHT. Rows whose weight is missing (an incomplete covariate, a missing
+    * propensity score) contribute to neither sum, so dividing the ESS by the
+    * total row count conflates two unrelated losses: variability among the
+    * weighted rows, and rows that were never weighted at all. With 20 rows,
+    * 4 missing propensity scores and all 16 usable weights exactly 1, the old
+    * code reported "ESS 16.0 (of 20)" -- which reads as 20% concentration loss
+    * when the true concentration loss is zero.
+    *
+    * So: report the missingness loss and the concentration loss separately,
+    * and take the ESS ratio against the weighted rows, which is the only
+    * denominator for which ESS/N == 1 means "no weight variability".
     quietly {
         summarize `prefix'weight
         local sum_w = r(sum)
+        local n_weighted = r(N)
         tempvar _w2
         gen double `_w2' = `prefix'weight^2
         summarize `_w2'
@@ -916,6 +1214,17 @@ program define iivw_weight, rclass sortpreserve
         drop `_w2'
     }
     local ess = (`sum_w'^2) / `sum_w2'
+
+    local ess_ratio = .
+    if `n_weighted' > 0 local ess_ratio = `ess' / `n_weighted'
+
+    tempvar _wtag
+    quietly egen byte `_wtag' = tag(`id') if !missing(`prefix'weight)
+    quietly count if `_wtag' == 1
+    local n_ids_weighted = r(N)
+    drop `_wtag'
+
+    local n_unweighted = `N' - `n_weighted'
 
     * =========================================================================
     * COMMIT: STORE METADATA
@@ -930,6 +1239,7 @@ program define iivw_weight, rclass sortpreserve
         _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
         _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
         _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
+        _iivw_censor_mode _iivw_censor_var _iivw_maxfu _iivw_lagvars ///
         _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
         _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
         _iivw_categorical _iivw_cat_vars _iivw_basecat ///
@@ -948,11 +1258,27 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_weighttype] "`wtype'"
     char _dta[_iivw_weight_var] "`prefix'weight"
     char _dta[_iivw_prefix] "`prefix'"
-    char _dta[_iivw_contract_version] "1"
+    char _dta[_iivw_contract_version] "2"
     if inlist("`wtype'", "iivw", "fiptiw") {
         char _dta[_iivw_iw_var] "`prefix'iw"
         char _dta[_iivw_visit_covars] "`visit_covars'"
         char _dta[_iivw_baseevent] "`exclude_base'"
+
+        * The risk-set specification travels with the weights. Every consumer
+        * that refits the visit-intensity model -- the bootstrap replay, the
+        * agrefit balance check, the exogeneity test -- must rebuild the SAME
+        * risk set, or it silently reports on a different estimator than the one
+        * that produced the weights.
+        char _dta[_iivw_censor_mode] "`__iivw_cens_mode'"
+        char _dta[_iivw_censor_var] "`censor'"
+        char _dta[_iivw_maxfu] "`maxfu'"
+
+        * The SOURCE variables behind any generated lag columns. A consumer that
+        * rebuilds the censoring row cannot get its covariates right without
+        * these: on the interval (last visit, C] the lagged covariate takes the
+        * value AT the last visit, i.e. the source variable's own value on that
+        * row -- NOT the lag column's value, which refers to the visit before it.
+        char _dta[_iivw_lagvars] "`lagvars'"
     }
     else {
         char _dta[_iivw_iw_var] ""
@@ -995,10 +1321,22 @@ program define iivw_weight, rclass sortpreserve
     display as text "  P1:       " as result %9.4f `w_p1'
     display as text "  P99:      " as result %9.4f `w_p99'
     display as text ""
-    display as text "Observations:          " as result %9.0f `N'
-    display as text "Subjects:              " as result %9.0f `n_ids'
+    display as text "Observations:          " as result %9.0f `N' ///
+        as text "  (weighted: " as result `n_weighted' as text ")"
+    display as text "Subjects:              " as result %9.0f `n_ids' ///
+        as text "  (weighted: " as result `n_ids_weighted' as text ")"
     display as text "Effective sample size: " as result %9.1f `ess' ///
-        as text " (of " as result `N' as text ")"
+        as text " (of " as result `n_weighted' as text " weighted rows)"
+    if `ess_ratio' < . {
+        display as text "  ESS / weighted rows: " as result %9.3f `ess_ratio' ///
+            as text "  (1.0 = no weight variability)"
+    }
+    if `n_unweighted' > 0 {
+        display as text ""
+        display as text "Note: " as result `n_unweighted' as text " row(s) carry no weight (missing model inputs)."
+        display as text "  That is a missing-data loss, not weight concentration; the two are"
+        display as text "  reported separately. The ESS above describes only the weighted rows."
+    }
 
     * Note the mean-1 normalization of the visit-intensity component
     if inlist("`wtype'", "iivw", "fiptiw") {
@@ -1008,11 +1346,36 @@ program define iivw_weight, rclass sortpreserve
         display as text "  the rescaling only makes the mean/ESS/max diagnostics interpretable)"
     }
 
-    * Warn if mean deviates from 1
+    * Report the final mean descriptively. It is NOT a specification diagnostic:
+    *
+    *   - untruncated IIW is normalized to mean 1 above, so the check would be
+    *     passed by construction and carries no information about model fit;
+    *   - after truncate(), a departure from 1 is a mechanical consequence of
+    *     clipping the tails, not evidence of a bad model;
+    *   - for FIPTIW the mean is E[IIW x IPTW], which departs from 1 whenever the
+    *     two components covary -- even when both models are correctly specified.
+    *
+    * The old text ("Consider checking model specification") drew a specification
+    * conclusion from a quantity that cannot support one, in the one case
+    * (truncation) where the cause was already known.
     if abs(`w_mean' - 1) > 0.2 {
         display as text ""
-        display as text "Note: weight mean is " as result %5.3f `w_mean'
-        display as text "  Consider checking model specification or using truncation."
+        display as text "Note: final weight mean is " as result %5.3f `w_mean' as text " (not 1)."
+        if `n_truncated' > 0 {
+            display as text "  truncate() clipped `n_truncated' weight(s); a mean away from 1 is the"
+            display as text "  arithmetic consequence of that clipping."
+        }
+        else if "`wtype'" == "fiptiw" {
+            display as text "  For FIPTIW the mean is E[IIW x IPTW], which departs from 1 whenever the"
+            display as text "  visit and treatment weights covary. This is expected and is not by"
+            display as text "  itself evidence of misspecification in either component."
+        }
+        else if "`wtype'" == "iptw" {
+            display as text "  Stabilized IPTW has mean 1 only in expectation; sampling variation and"
+            display as text "  positivity violations both move it. Inspect max_weight and the ESS."
+        }
+        display as text "  This is descriptive. Judge the visit model with `__iivw_smcl_lb'cmd:iivw_balance`__iivw_smcl_rb' and the"
+        display as text "  treatment model with its own balance diagnostics; the weight mean tests neither."
     }
 
     * Nudge toward stabilized weights when the visit model is unstabilized.
@@ -1053,6 +1416,18 @@ program define iivw_weight, rclass sortpreserve
     return scalar median_weight = `w_p50'
     return scalar p99_weight = `w_p99'
     return scalar ess = `ess'
+
+    * ESS bookkeeping (H6). N/n_ids are totals; the *_weighted pair counts only
+    * the rows that carry a weight, and ess_ratio is taken against those -- so
+    * ess_ratio == 1 means "no weight variability" and nothing else. Rows lost to
+    * missing model inputs are reported as n_unweighted, never folded into the ESS.
+    return scalar N_total = `N'
+    return scalar N_weighted = `n_weighted'
+    return scalar n_unweighted = `n_unweighted'
+    return scalar n_ids_total = `n_ids'
+    return scalar n_ids_weighted = `n_ids_weighted'
+    return scalar ess_ratio = `ess_ratio'
+
     return scalar n_truncated = `n_truncated'
     return scalar nobaseevent = `exclude_base'
 
@@ -1061,17 +1436,30 @@ program define iivw_weight, rclass sortpreserve
     return local visit_covars "`visit_covars'"
     if inlist("`wtype'", "iivw", "fiptiw") {
         return local iw_var "`prefix'iw"
+
+        * The risk set is now an auditable part of the contract, not something
+        * the user has to infer from a stset table that scrolled past.
+        return local censor_mode "`__iivw_cens_mode'"
+        if "`__iivw_cens_mode'" == "censor" return local censor_var "`censor'"
+        if "`__iivw_cens_mode'" == "maxfu"  return scalar maxfu = `maxfu'
+        return scalar n_censor_rows = `__iivw_n_cens_rows'
+        return scalar visit_N = `__iivw_visit_N'
+        return scalar visit_N_sub = `__iivw_visit_Nsub'
+        return scalar stab_N = `__iivw_stab_N'
+        return matrix visit_b = `__iivw_bmat'
     }
     if inlist("`wtype'", "iptw", "fiptiw") {
         return scalar ps_min = `ps_min'
         return scalar ps_max = `ps_max'
         return scalar n_ps_extreme = `n_ps_extreme'
+        return scalar ps_N = `__iivw_ps_N'
+        return scalar ps_prevalence = `__iivw_p_treat'
         return local ps_var "`prefix'ps"
         return local tw_var "`prefix'tw"
         return local treat_covars "`treat_covars'"
         return local ps_estimand "ate"
     }
-    return local contract_version "1"
+    return local contract_version "2"
 
     }
     local rc = _rc

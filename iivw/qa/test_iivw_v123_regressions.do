@@ -57,7 +57,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v123_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     iivw_fit y treat x, timespec(linear) bootstrap(40) level(90) nolog
     assert e(level) == 90
 }
@@ -76,7 +76,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v123_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     iivw_fit y treat x, timespec(linear) bootstrap(40) nolog
     assert e(level) == 95
 }

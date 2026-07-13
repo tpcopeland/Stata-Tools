@@ -834,48 +834,64 @@ commands:
 {pstd}
 {cmd:gcomp} stores the following in {cmd:e()}:
 
-{pstd}
-{bf:Scalars:}
+{synoptset 29 tabbed}{...}
+{p2col 5 29 33 2: Sample and resampling scalars}{p_end}
+{synopt:{cmd:e(N)}}rows (mediation) or subjects (time-varying){p_end}
+{synopt:{cmd:e(N_rows)}}analytic rows{p_end}
+{synopt:{cmd:e(N_subjects)}}analytic subjects{p_end}
+{synopt:{cmd:e(MC_sims)}}actual Monte Carlo size{p_end}
+{synopt:{cmd:e(samples)}}requested bootstrap count (legacy name){p_end}
+{synopt:{cmd:e(bootstrap_requested)}}requested bootstrap count{p_end}
+{synopt:{cmd:e(bootstrap_attempted)}}attempted bootstrap count{p_end}
+{synopt:{cmd:e(bootstrap_successful)}}successful bootstrap count{p_end}
+{synopt:{cmd:e(bootstrap_failed)}}failed bootstrap count{p_end}
+{synopt:{cmd:e(seed)}}supplied seed, when present{p_end}
+{synopt:{cmd:e(N_impute_targets)}}number of imputation targets{p_end}
+{synopt:{cmd:e(impute_needed_}{it:#}{cmd:)}}missing target rows before eligibility{p_end}
+{synopt:{cmd:e(impute_eligible_}{it:#}{cmd:)}}eligible target rows{p_end}
+{synopt:{cmd:e(impute_dropped_}{it:#}{cmd:)}}unusable target rows dropped{p_end}
+{synopt:{cmd:e(N_models)}}stored refit count{p_end}
 
-{synoptset 25 tabbed}{...}
-{p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:e(N)}}number of subjects (mediation) or total person-time observations (time-varying){p_end}
-{synopt:{cmd:e(MC_sims)}}Monte Carlo simulation size used{p_end}
-{synopt:{cmd:e(samples)}}number of bootstrap replications{p_end}
-{synopt:{cmd:e(N_models)}}number of stored component models (with {cmd:savemodels}){p_end}
+{p2col 5 29 33 2: Matrices}{p_end}
+{synopt:{cmd:e(b)}}named point-estimate vector{p_end}
+{synopt:{cmd:e(V)}}full bootstrap covariance matrix{p_end}
+{synopt:{cmd:e(se)}}standard-error vector{p_end}
+{synopt:{cmd:e(ci_normal)}}normal CI; rows are lower, upper{p_end}
+{synopt:{cmd:e(ci_percentile)}}percentile CI with {cmd:all}{p_end}
+{synopt:{cmd:e(ci_bc)}}bias-corrected CI with {cmd:all}{p_end}
+{synopt:{cmd:e(ci_bca)}}BCa CI with {cmd:all}{p_end}
+{synopt:{cmd:e(effects)}}named mediation-effect table{p_end}
+{synopt:{cmd:e(model_diagnostics)}}component diagnostic matrix{p_end}
 
-{pstd}
-{bf:Matrices:}
-
-{synoptset 25 tabbed}{...}
-{p2col 5 25 29 2: Matrices}{p_end}
-{synopt:{cmd:e(b)}}coefficient vector with named columns (e.g. {cmd:tce nde nie pm cde}){p_end}
-{synopt:{cmd:e(V)}}variance-covariance matrix (diagonal: SE{c 178} from bootstrap){p_end}
-{synopt:{cmd:e(se)}}standard error vector (same column names as {cmd:e(b)}){p_end}
-{synopt:{cmd:e(ci_normal)}}normal-approximation 95% CI (row 1 = lower, row 2 = upper){p_end}
-{synopt:{cmd:e(ci_percentile)}}percentile bootstrap CI (requires {cmd:all}){p_end}
-{synopt:{cmd:e(ci_bc)}}bias-corrected bootstrap CI (requires {cmd:all}){p_end}
-{synopt:{cmd:e(ci_bca)}}bias-corrected accelerated bootstrap CI (requires {cmd:all}){p_end}
-{synopt:{cmd:e(effects)}}effecttab-compatible matrix: estimate, ci_lower, ci_upper, pvalue (mediation, non-{cmd:oce}){p_end}
-{synopt:{cmd:e(model_diagnostics)}}model-fit statistics (N, converged, ll, r2, rmse) per model{p_end}
-
-{pstd}
-{bf:Macros:}
-
-{synoptset 25 tabbed}{...}
-{p2col 5 25 29 2: Macros}{p_end}
+{p2col 5 29 33 2: Replay and design macros}{p_end}
 {synopt:{cmd:e(cmd)}}{cmd:gcomp}{p_end}
+{synopt:{cmd:e(cmdline)}}complete command line{p_end}
 {synopt:{cmd:e(analysis_type)}}{cmd:mediation} or {cmd:time_varying}{p_end}
-{synopt:{cmd:e(outcome)}}outcome variable name{p_end}
-{synopt:{cmd:e(exposure)}}exposure variable(s) (mediation only){p_end}
-{synopt:{cmd:e(mediator)}}mediator variable(s) (mediation only){p_end}
-{synopt:{cmd:e(mediation_type)}}effect type used: {cmd:obe}, {cmd:oce}, {cmd:linexp}, {cmd:specific}, or {cmd:baseline}{p_end}
-{synopt:{cmd:e(scale)}}reporting scale: {cmd:RD} (default), {cmd:logOR}, or {cmd:logRR}{p_end}
-{synopt:{cmd:e(msm)}}MSM specification (time-varying with {cmd:msm()} only){p_end}
-{synopt:{cmd:e(model_names)}}stored component-model names {cmd:_gcomp_m_*} (with {cmd:savemodels}){p_end}
-{synopt:{cmd:e(model_cmds)}}component-model commands (with {cmd:savemodels}){p_end}
-{synopt:{cmd:e(model_depvars)}}component-model dependent variables (with {cmd:savemodels}){p_end}
-{synopt:{cmd:e(model_eq_}{it:k}{cmd:)}}prediction equation for model {it:k} (with {cmd:savemodels}){p_end}
+{synopt:{cmd:e(outcome)}}outcome name{p_end}
+{synopt:{cmd:e(exposure)}}mediation exposure names{p_end}
+{synopt:{cmd:e(mediator)}}mediation mediator names{p_end}
+{synopt:{cmd:e(mediation_type)}}mediation estimand family{p_end}
+{synopt:{cmd:e(scale)}}{cmd:RD}, {cmd:logOR}, or {cmd:logRR}{p_end}
+{synopt:{cmd:e(idvar)}}panel identifier name{p_end}
+{synopt:{cmd:e(tvar)}}panel time name{p_end}
+{synopt:{cmd:e(intvars)}}intervention variable names{p_end}
+{synopt:{cmd:e(interventions)}}intervention rules{p_end}
+{synopt:{cmd:e(msm)}}MSM specification in either mode{p_end}
+{synopt:{cmd:e(msm_colnames)}}full posted MSM parameter names{p_end}
+{synopt:{cmd:e(run_id)}}point-estimate run identifier{p_end}
+{synopt:{cmd:e(rngstate)}}initial point-estimate RNG state{p_end}
+{synopt:{cmd:e(graph)}}created survival graph name{p_end}
+{synopt:{cmd:e(saving)}}saved point-data path{p_end}
+{synopt:{cmd:e(saved_schema_version)}}saved-file schema version{p_end}
+{synopt:{cmd:e(saved_arm_schema)}}saved-file arm mapping{p_end}
+{synopt:{cmd:e(impute_targets)}}ordered imputation targets{p_end}
+{synopt:{cmd:e(impute_target_}{it:#}{cmd:)}}indexed imputation target name{p_end}
+{synopt:{cmd:e(model_names)}}stored refit names{p_end}
+{synopt:{cmd:e(model_cmds)}}stored refit commands{p_end}
+{synopt:{cmd:e(model_depvars)}}stored refit dependent variables{p_end}
+{synopt:{cmd:e(model_eq_}{it:#}{cmd:)}}stored refit equation{p_end}
+{synopt:{cmd:e(model_skipped)}}unavailable refit targets{p_end}
+{synopt:{cmd:e(model_capture)}}refit-approximation label{p_end}
 
 {pstd}
 {bf:Convenience scalars} (mediation without {cmd:oce}):
@@ -909,7 +925,24 @@ commands:
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:e(obs_data)}}observed outcome prevalence in the data{p_end}
+{synopt:{cmd:e(obs_data)}}observed outcome mean{p_end}
+
+{pstd}
+{cmd:e(sample)} marks original analytic rows. Successful calls require
+{cmd:e(bootstrap_successful)==e(bootstrap_requested)} and
+{cmd:e(bootstrap_failed)==0}.
+
+{pstd}
+{cmd:e(model_diagnostics)} columns are {cmd:N}, {cmd:converged}, {cmd:ll},
+{cmd:r2}, and {cmd:rmse}; inapplicable cells are missing. Rows identify the
+modeled variable and, for visit-specific fits, the visit.
+
+{pstd}
+Saved data use {cmd:_int} for the arm and {cmd:_id} for simulation identity,
+and time-varying output also contains {cmd:_source_id}. Arm {cmd:0} is observed
+analytic data. Time-varying arms {cmd:1..K} follow {opt interventions()} order
+and {cmd:K+1} is the simulated observed regime. The dataset characteristic
+{cmd:gcomp_arm_schema} records the exact mediation mapping and auxiliary arms.
 
 
 {marker references}{...}
@@ -919,6 +952,10 @@ commands:
 Daniel RM, De Stavola BL, Cousens SN (2011). gformula: Estimating causal
 effects in the presence of time-varying confounding or mediation using the
 g-computation formula. {it:The Stata Journal} 11(4):479-517.
+
+{phang}
+Daniel RM, De Stavola BL, Cousens SN, Vansteelandt S (2015). Causal
+mediation analysis with multiple mediators. {it:Biometrics} 71(1):1-14.
 
 {phang}
 Robins JM (1986). A new approach to causal inference in mortality studies with

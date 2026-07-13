@@ -19,7 +19,7 @@ version 16.0
 *   N6  efron + scheduled     -- informative-observation panel, Efron ties
 *   N7  negative slope        -- sign recovery
 *   N8  cluster()             -- point-estimate invariance to cluster choice
-*   N9  iivw_exogtest         -- endogenous DGP flags, exogenous does not
+*   N9  iivw_exogtest         -- endogenous DGP flags, endatlastvisit exogenous does not
 *   N10 iivw_balance          -- weighting rebalances covariate; control does not
 *   N11 iivw_diagnose         -- DGP-driven bias decomposition (end-to-end)
 *   N12 FIPTIW + Poisson      -- collapsible marginal log-rate-ratio
@@ -98,7 +98,7 @@ capture noisily {
     glm y T months tm, family(gaussian) link(identity) vce(cluster id)
     scalar n1_naive_slope = _b[months]
     drop tm
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y T, timespec(linear) interaction(T) nolog replace
     scalar n1_slope = _b[months]
     scalar n1_ix = _b[_iivw_ix_T_time]
@@ -151,7 +151,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n2_naive_slope = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y grp, timespec(linear) categorical(grp) basecat(1) nolog replace
     scalar n2_slope = _b[months]
     scalar n2_c2 = _b[_iivw_cat_grp_2]
@@ -204,7 +204,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n3_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z1 Z2) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z1 Z2) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n3_est = _b[months]
     scalar n3_ok = 1
@@ -309,7 +309,7 @@ capture noisily {
     gen byte y = runiform() < prob
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n5_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, family(gaussian) timespec(linear) nolog replace
     scalar n5_est = _b[months]
     scalar n5_ok = 1
@@ -355,7 +355,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n6_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) efron nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) efron nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n6_est = _b[months]
     scalar n6_ok = 1
@@ -403,7 +403,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n7_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n7_est = _b[months]
     scalar n7_ok = 1
@@ -452,7 +452,7 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n8_bdef = _b[months]
     scalar n8_sedef = _se[months]
@@ -478,7 +478,7 @@ if `rc' == 0 local ++pass_count
 else local ++fail_count
 _rc_result `rc' "N8 cluster() point-invariant, recovers (b=" + string(n8_bdef,"%6.4f") + ")"
 
-**# N9: iivw_exogtest -- endogenous DGP flags, exogenous does not
+**# N9: iivw_exogtest -- endogenous DGP flags, endatlastvisit exogenous does not
 * Known-answer power/size for the visit-process exogeneity test. In the ENDOGENOUS
 * DGP the next-visit gap depends on the lagged outcome (rate rises with past y), so
 * the test must flag endogeneity (r(endogenous_flag)==1). In the EXOGENOUS control
@@ -505,7 +505,7 @@ capture noisily {
     gen double months = vtime
     bysort id: gen int nv = _N
     drop if nv < 2
-    iivw_exogtest y, id(id) time(months) nolog
+    iivw_exogtest y, endatlastvisit id(id) time(months) nolog
     scalar n9_endo_flag = r(endogenous_flag)
     scalar n9_endo_p = r(min_p)
 
@@ -525,7 +525,7 @@ capture noisily {
     bysort id (k): gen double y = a_i + 0.4*k + rnormal(0, 0.5)
     bysort id: gen int nv = _N
     drop if nv < 2
-    iivw_exogtest y, id(id) time(months) nolog
+    iivw_exogtest y, endatlastvisit id(id) time(months) nolog
     scalar n9_exo_flag = r(endogenous_flag)
     scalar n9_exo_p = r(min_p)
     scalar n9_ok = 1
@@ -577,12 +577,14 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_balance Z, nolog
     matrix Binf = r(balance)
     scalar n10_inf_unw = Binf[1,1]
     scalar n10_inf_wt = Binf[1,2]
-    scalar n10_inf_smd = r(balance_max_smd)
+    scalar n10_inf_smd = r(balance_max_shift)
+    scalar n10_inf_tsmd = r(balance_max_tsmd)
+    scalar n10_inf_flag_good = ("`r(balance_flag)'" == "good")
 
     * -- non-informative control
     clear
@@ -604,9 +606,9 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_balance Z, nolog
-    scalar n10_ni_smd = r(balance_max_smd)
+    scalar n10_ni_smd = r(balance_max_shift)
     scalar n10_ok = 1
 }
 local rc = _rc
@@ -622,6 +624,17 @@ capture noisily {
     assert abs(n10_inf_wt) < abs(n10_inf_unw)              // weighting reduced covariate bias
     assert n10_inf_smd > 0.10                              // informative leverage detected (obs 0.60)
     assert n10_ni_smd < 0.05                               // control: nothing to rebalance
+
+    * C2, the whole point of this DGP. The correction WORKED: it moved the
+    * observed-visit mean of Z from 0.36 to 0.06, toward the patient target.
+    * The OLD code read that 0.60 movement as |SMD| > 0.10 and reported
+    * "Balance flag: poor" and "Informative: 0" -- it told the user to disregard
+    * a correction that had done exactly what it was designed to do.
+    *
+    * Movement is now descriptive. The verdict comes from the gap to the at-risk
+    * person-time target, which correct weights close.
+    assert abs(n10_inf_tsmd) < 0.10
+    assert n10_inf_flag_good == 1
 }
 local rc = _rc
 if `rc' == 0 local ++pass_count
@@ -657,7 +670,7 @@ capture noisily {
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
     estimates clear
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) unweighted nolog replace
     scalar n11_unw_slope = _b[months]
     estimates store UNW
@@ -722,7 +735,7 @@ capture noisily {
     gen int yc = rpoisson(mu)
     glm yc T, family(poisson) link(log) vce(cluster id)
     scalar n12_naive = _b[T]
-    iivw_weight, id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
         wtype(fiptiw) nolog replace
     iivw_fit yc T, family(poisson) link(log) timespec(none) nolog replace
     scalar n12_est = _b[T]
@@ -774,10 +787,10 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n13_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n13_full = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) truncate(5 95) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncate(5 95) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n13_trunc = _b[months]
     scalar n13_ok = 1

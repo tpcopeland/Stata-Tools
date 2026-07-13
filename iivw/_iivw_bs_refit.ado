@@ -19,7 +19,8 @@ program define _iivw_bs_refit, eclass
         _iivw_weighttype _iivw_weight_var _iivw_prefix _iivw_iw_var ///
         _iivw_tw_var _iivw_ps_var _iivw_treat _iivw_treat_covars ///
         _iivw_ps_estimand _iivw_contract_version _iivw_visit_covars ///
-        _iivw_baseevent _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry
+        _iivw_baseevent _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
+        _iivw_censor_mode _iivw_censor_var _iivw_maxfu
     local __iivw_ci 0
     foreach c of local __iivw_csnap_names {
         local ++__iivw_ci
@@ -30,9 +31,11 @@ program define _iivw_bs_refit, eclass
     syntax varlist(numeric min=1) [if] [in], ///
         NEWID(varname) TIMEvar(varname) WTYPE(string) PREFIX(string) ///
         MODel(string) ///
-        [VISITcov(string) TREAT(string) TREATcov(string) ///
-         STABcov(string) TRUNCate(string) EFRon NOBASEevent ///
+        [PANELid(varname) ///
+         VISITcov(string) TREAT(string) TREATcov(string) ///
+         STABcov(string) TRUNCate(string) EFRon BASEline(string) ///
          ENTRY(string) ///
+         CENSor(string) MAXfu(string) ENDATLASTvisit ///
          FAMily(string) LINk(string) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
@@ -42,12 +45,38 @@ program define _iivw_bs_refit, eclass
     local weight_var "`prefix'weight"
 
     * ---------------------------------------------------------------------
+    * The resampled subject.
+    *
+    * newid() is bootstrap's idcluster() variable: a distinct id per resampled
+    * CLUSTER. When cluster() is the panel id that is also the resampled
+    * subject, and passing it through was fine. When cluster() sits above the
+    * panel -- a clinic -- it is not: iivw_weight was handed the clinic draw as
+    * id(), so an entire clinic became one subject in the visit-intensity
+    * counting process, its patients' visits interleaved into a single
+    * recurrent-event history.
+    *
+    * group(newid, panelid) is the resampled subject in both cases: unique per
+    * (draw, patient), so a clinic drawn twice still yields two distinct copies
+    * of each of its patients. When cluster() IS the panel the mapping is
+    * one-to-one with newid, which is why the common case never showed the bug.
+    * ---------------------------------------------------------------------
+    tempvar _bs_subj
+    if "`panelid'" != "" {
+        quietly egen long `_bs_subj' = group(`newid' `panelid')
+    }
+    else {
+        quietly gen long `_bs_subj' = `newid'
+    }
+
+    * ---------------------------------------------------------------------
     * Recompute weights on the resampled panel.
-    * newid() is bootstrap's idcluster() variable: it gives each resampled
-    * subject a distinct id, so duplicated clusters keep a unique id-time key
-    * and the Andersen-Gill visit-intensity model sees them as separate
-    * subjects. lagvars() is NOT replayed: the *_lag1 variables already travel
-    * with each resampled row, so they are passed through visit_cov() verbatim.
+    * lagvars() is NOT replayed: the *_lag1 variables already travel with each
+    * resampled row, so they are passed through visit_cov() verbatim.
+    *
+    * The end-of-follow-up contract IS replayed. Without it the replicates would
+    * refit the visit-intensity model on a truncated risk set while the observed
+    * estimate used the full one -- bootstrapping a different estimator than the
+    * one being reported.
     * ---------------------------------------------------------------------
     local efron_opt = cond("`efron'" != "", "efron", "")
 
@@ -56,7 +85,7 @@ program define _iivw_bs_refit, eclass
         if "`truncate'" != "" {
             local wopts "`wopts' truncate(`truncate')"
         }
-        quietly iivw_weight, id(`newid') time(`timevar') `wopts' ///
+        quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
             wtype(iptw) generate(`prefix') replace nolog
     }
     else {
@@ -71,12 +100,22 @@ program define _iivw_bs_refit, eclass
         if "`truncate'" != "" {
             local wopts "`wopts' truncate(`truncate')"
         }
-        * entry() is ignored under nobaseevent, so only replay it otherwise
-        if "`nobaseevent'" == "" & "`entry'" != "" {
+        * entry() is ignored when the baseline visit is study entry
+        if "`baseline'" == "event" & "`entry'" != "" {
             local wopts "`wopts' entry(`entry')"
         }
-        quietly iivw_weight, id(`newid') time(`timevar') `wopts' ///
-            wtype(`wtype') `efron_opt' `nobaseevent' ///
+        if "`censor'" != "" {
+            local wopts "`wopts' censor(`censor')"
+        }
+        else if "`maxfu'" != "" {
+            local wopts "`wopts' maxfu(`maxfu')"
+        }
+        else {
+            local wopts "`wopts' endatlastvisit"
+        }
+        local base_opt = cond("`baseline'" != "", "baseline(`baseline')", "")
+        quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
+            wtype(`wtype') `efron_opt' `base_opt' ///
             generate(`prefix') replace nolog
     }
 
@@ -103,8 +142,10 @@ program define _iivw_bs_refit, eclass
             `glm_family' `glm_link' `log_opt' `geeopts'
     }
     else if "`model'" == "mixed" {
+        * The random intercept groups on the resampled SUBJECT, not the
+        * resampled cluster -- see the group(newid, panelid) note above.
         mixed `depvar' `covars' [pw=`weight_var'] if `touse' ///
-            || `newid':, `log_opt' `mixedopts'
+            || `_bs_subj':, `log_opt' `mixedopts'
     }
     else {
         display as error "model() must be gee or mixed"

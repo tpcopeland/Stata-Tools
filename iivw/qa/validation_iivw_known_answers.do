@@ -108,7 +108,7 @@ else {
 local ++test_count
 capture noisily {
     _ka_iivw_dataset_a
-    iivw_weight, id(id) time(t) visit_cov(x) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x) nolog
     local ret_N = r(N)
     local ret_n_ids = r(n_ids)
     _ka_iivw_assert_unit_weights, ess(16)
@@ -127,7 +127,7 @@ else {
 local ++test_count
 capture noisily {
     _ka_iivw_dataset_a
-    iivw_weight, id(id) time(t) visit_cov(x) stabcov(x) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x) stabcov(x) nolog
     _ka_iivw_assert_unit_weights, ess(16)
 }
 if _rc == 0 {
@@ -171,7 +171,7 @@ else {
 local ++test_count
 capture noisily {
     _ka_iivw_dataset_b
-    iivw_weight, id(id) time(t) visit_cov(x) treat(treat) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x) treat(treat) ///
         treat_cov(x) wtype(fiptiw) nolog
     assert "`r(weighttype)'" == "fiptiw"
     gen double expected = cond(treat == 1 & x == 0, 2, ///
@@ -224,7 +224,7 @@ capture noisily {
     bysort id: gen byte t = _n
     gen byte x = mod(id, 2)
     gen double z = 10 * id + t
-    iivw_weight, id(id) time(t) visit_cov(x) lagvars(z) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x) lagvars(z) nolog
     sort id t
     by id: assert missing(z_lag1) if _n == 1
     by id: assert z_lag1 == z[_n - 1] if _n > 1

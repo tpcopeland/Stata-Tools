@@ -46,7 +46,8 @@ program define finegray, eclass sortpreserve
     syntax varlist(numeric fv) [if] [in] , ///
         COMPete(varname numeric) CAUse(integer) ///
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
-         STRata(varlist numeric) CLuster(varname numeric) noROBust ///
+         STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
+         CLuster(varname numeric) noROBust ///
          noADJust noLOG ///
          ITERate(integer 200) TOLerance(real 1e-8)]
 
@@ -95,6 +96,13 @@ program define finegray, eclass sortpreserve
         local _sig_seen : list posof "`_sig_var'" in _fg_sigvars
         if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_sig_var'"
     }
+    * truncstrata() variables define the weight design, so they belong in the
+    * estimation-data signature: changing them after the fit must make every
+    * postestimation command FAIL rather than silently rebuild different groups.
+    foreach _sig_var of local truncstrata {
+        local _sig_seen : list posof "`_sig_var'" in _fg_sigvars
+        if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_sig_var'"
+    }
     if "`cluster'" != "" {
         local _sig_seen : list posof "`cluster'" in _fg_sigvars
         if `_sig_seen' == 0 local _fg_sigvars "`_fg_sigvars' `cluster'"
@@ -114,6 +122,7 @@ program define finegray, eclass sortpreserve
         }
     }
     if "`strata'" != "" markout `touse' `strata'
+    if "`truncstrata'" != "" markout `touse' `truncstrata'
     if "`cluster'" != "" markout `touse' `cluster'
 
     quietly replace `touse' = 0 if _st != 1
@@ -167,6 +176,10 @@ program define finegray, eclass sortpreserve
             }
         }
         foreach _cv of local strata {
+            local _seen : list posof "`_cv'" in _fg_checkvars
+            if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `_cv'"
+        }
+        foreach _cv of local truncstrata {
             local _seen : list posof "`_cv'" in _fg_checkvars
             if `_seen' == 0 local _fg_checkvars "`_fg_checkvars' `_cv'"
         }
@@ -238,6 +251,32 @@ program define finegray, eclass sortpreserve
         local N = r(N)
         local _fg_reduced = 1
         display as text "(note: `_fg_nrecords' records reduced to `N' subjects)"
+    }
+
+    * Delayed entry is a property of the SUBJECT, not of the record: with
+    * (start, stop] intervals every record after the first has _t0 > 0 without any
+    * left truncation at all.  A subject has delayed entry only if its EARLIEST
+    * entry is positive.  This flag selects the weight (A = G*H vs A = G) and is
+    * reported in e(lt_weight), so getting it wrong silently switches estimators.
+    *
+    * Derived from quantities the reduction already computed.  An `egen ... by()`
+    * here would RE-SORT the data, permuting records tied on _t and changing the
+    * scan's floating-point accumulation order -- which perturbs every no-delayed-
+    * entry result in its last digits.  Gate Z-perf #3 caught exactly that.
+    if `_fg_reduced' {
+        quietly count if `touse' & `_fg_mint0' > 0 & !missing(`_fg_mint0')
+    }
+    else {
+        quietly count if `touse' & _t0 > 0
+    }
+    local _fg_has_lt = (r(N) > 0)
+
+    if "`truncstrata'" != "" & !`_fg_has_lt' {
+        display as error "truncstrata() requires delayed entry"
+        display as error "no subject in the estimation sample enters after time 0, " ///
+            "so there is no entry distribution to stratify"
+        display as error "stset with enter() to specify delayed entry"
+        exit 198
     }
 
     * =========================================================================
@@ -611,6 +650,17 @@ program define finegray, eclass sortpreserve
             }
         }
 
+        * Truncation strata: the entry distribution H is estimated within these
+        * groups.  Empty => one group => H == 1 => the combined weight A collapses
+        * to G and the no-delayed-entry path is bit-identical to previous releases.
+        local _tg_mata ""
+        if "`truncstrata'" != "" {
+            tempvar _tg_grp
+            _finegray_weight_groups, truncstrata(`truncstrata') ///
+                tgname(`_tg_grp') touse(`touse')
+            local _tg_mata "`_tg_grp'"
+        }
+
         sort _t
 
         if "`log'" != "nolog" {
@@ -619,7 +669,7 @@ program define finegray, eclass sortpreserve
 
         mata: _finegray_engine( ///
             "`varlist'", "`compete'", `cause', `censvalue', ///
-            "`_byg_mata'", "`vce_type'", "`cluster'", ///
+            "`_byg_mata'", "`_tg_mata'", "`vce_type'", "`cluster'", ///
             `iterate', `tolerance', ("`log'" != "nolog"), ///
             ("`adjust'" != "noadjust"))
     }
@@ -716,7 +766,14 @@ program define finegray, eclass sortpreserve
     * coefficients to whatever levels happen to be present now.
     if `_has_fv' ereturn local fvsemantic "`_fv_semantic'"
     if "`strata'" != "" ereturn local strata "`strata'"
+    if "`truncstrata'" != "" ereturn local truncstrata "`truncstrata'"
     if "`cluster'" != "" ereturn local clustvar "`cluster'"
+
+    * Combined-weight contract.  lt_weight names the weight actually computed:
+    *   right_censoring : no delayed entry; A == G; identical to prior releases
+    *   zzf1_geskus     : stabilized ZZF Weight 1 via A = G(t-)H(t-)
+    if `_fg_has_lt' ereturn local lt_weight "zzf1_geskus"
+    else ereturn local lt_weight "right_censoring"
     * VCE type: cluster > robust (default) > oim (norobust)
     if "`cluster'" != "" {
         ereturn local vce "cluster"

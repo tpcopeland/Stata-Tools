@@ -35,6 +35,12 @@ program define _iivw_v194_balance_panel
     char _dta[_iivw_time] "time"
     char _dta[_iivw_weighttype] "iivw"
     char _dta[_iivw_weight_var] "_iivw_weight"
+    * A real IIW/FIPTIW run always creates the visit component. iivw_balance
+    * diagnoses that component by default, so a fixture without it is not a
+    * contract the package can produce.
+    capture confirm variable _iivw_iw
+    if _rc gen double _iivw_iw = _iivw_weight
+    char _dta[_iivw_iw_var] "_iivw_iw"
     char _dta[_iivw_prefix] "_iivw_"
     char _dta[_iivw_visit_covars] "z"
 end

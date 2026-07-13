@@ -33,14 +33,17 @@
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
+{syntab:Weight component}
+{synopt:{opt comp:onent(iiw|final)}}which weight to describe; default {cmd:iiw}{p_end}
+
 {syntab:Thresholds}
 {synopt:{opt cvcut(#)}}weight CV threshold for low leverage; default {cmd:0.10}{p_end}
 {synopt:{opt essratiocut(#)}}ESS/N threshold for low leverage; default {cmd:0.95}{p_end}
-{synopt:{opt smdcut(#)}}absolute standardized-difference threshold; default {cmd:0.10}{p_end}
+{synopt:{opt bal:cut(#)}}absolute target SMD threshold for the balance flag; default {cmd:0.10}{p_end}
 
 {syntab:Supplementary AG refit}
-{synopt:{opt agr:efit}}also refit unweighted and weighted visit-timing Cox models{p_end}
-{synopt:{opt efr:on}}use Efron method for tied event times in AG refits{p_end}
+{synopt:{opt agr:efit}}also display the refitted visit-intensity model's hazard ratios{p_end}
+{synopt:{opt efr:on}}ignored; the refit replays the stored tie method{p_end}
 {synopt:{opt nolog}}suppress Cox iteration logs in AG refits{p_end}
 {synopt:{opt l:evel(#)}}confidence level for AG-refit hazard-ratio intervals; default {cmd:c(level)}{p_end}
 
@@ -101,18 +104,36 @@ weights are nearly constant and therefore have little ability to move an
 estimate.
 
 {phang}
-{opt smdcut(#)} specifies the absolute standardized-difference threshold used
-for {cmd:r(balance_flag)}. The default is {cmd:0.10}. The statistic is the
-weighted mean minus the unweighted mean, divided by the unweighted standard
-deviation. This is a heuristic composition check, not a formal test.
+{opt bal:cut(#)} specifies the absolute {it:target SMD} above which the
+IIW-weighted visits are judged not to reproduce the at-risk person-time
+distribution. The default is {cmd:0.10}. See
+{help iivw_balance##interpreting:Interpreting results} for what the target is.
+
+{dlgtab:Weight component}
+
+{phang}
+{opt comp:onent(iiw|final)} selects which weight the leverage and composition
+statistics describe. The default, {cmd:iiw}, is the visit-intensity weight
+({cmd:_iivw_iw}) -- the component this command is about. {cmd:final} is the
+stored analysis weight ({cmd:_iivw_weight}), which for {cmd:fiptiw} is
+IIW x IPTW.
+
+{phang}
+For {cmd:fiptiw}, summarizing the product and calling the result a
+visit-model diagnostic attributes treatment-weight variation to the visit
+process: with a constant IIW and a well-separated propensity model, the
+product can show a large weight CV and a large mean shift when the visit
+weights did nothing at all. Treatment-side balance belongs to
+{helpb psdash}. The balance verdict always uses the IIW component, whatever
+{opt component()} is set to.
 
 {dlgtab:Supplementary AG refit}
 
 {phang}
-{opt agr:efit} refits one Andersen-Gill style Cox model per stored visit-model
-covariate, once without weights and once with the stored IIVW/FIPTIW
-weights. It returns hazard-ratio matrices as a supplementary model-matched
-view. Covariates that have no usable variation or fail to fit are skipped with
+{opt agr:efit} displays the hazard ratios of the refitted visit-intensity
+model. The refit itself always runs -- it is what the balance verdict rests
+on -- so {opt agrefit} only controls the display. Covariates that have no
+usable variation or fail to fit are skipped with
 a note and a nonzero row-specific return code.
 
 {phang}
@@ -194,17 +215,46 @@ is {cmd:adequate} when CV is at least {cmd:0.25} and ESS/N is at most
 changed for the low-leverage gate with {opt cvcut()} and {opt essratiocut()}.
 
 {pstd}
-The balance table reports weighted and unweighted means for each modeled
-visit covariate and any extra covariates supplied by the user. The
-standardized difference is scale-free:
-
-{p 12 12 2}
-{it:SMD} = (weighted mean - unweighted mean) / unweighted SD.
+{cmd:iivw_balance} reports two different things about each covariate, and it is
+important not to confuse them.
 
 {pstd}
-The returned {cmd:r(informative)} flag is {cmd:1} only when leverage is {cmd:moderate} or
-{cmd:adequate} and {cmd:r(balance_flag)} is {cmd:good}. Use it as a simulation or workflow
-guard. Do not treat it as proof that the visit model is correct.
+{bf:Composition shift} is descriptive. It measures how far the weights moved
+the covariate composition of the observed visits:
+
+{p 12 12 2}
+{it:shift} = (weighted mean - unweighted mean) / unweighted SD.
+
+{pstd}
+A large shift says the weights did a lot of work. It does {it:not} say they did
+the right work, because it compares the sample to itself and has no target. It
+therefore drives no verdict. A large shift is exactly what you should expect
+when the visit process is strongly informative and the weights are correcting
+it properly.
+
+{pstd}
+{bf:Target SMD} is the verdict. Under a correctly specified visit-intensity
+model the IIW weight cancels the intensity, so the IIW-weighted distribution of
+a covariate over the {it:observed visits} equals its distribution over the
+{it:at-risk person-time}, measured in {it:dLambda-0} units:
+
+{p 12 12 2}
+{it:target SMD} = (IIW-weighted visit mean - person-time mean) / person-time SD.
+
+{pstd}
+That is a real reference distribution rather than a rearrangement of the same
+visits, so it has a null: it is 0 when the weights work. {cmd:r(balance_flag)}
+is {cmd:good} when the largest absolute target SMD is at or below
+{opt balcut()}, and {cmd:poor} otherwise. Computing the person-time target
+requires each subject's terminal at-risk interval, which is why the weights
+must have been built with {opt censor()} or {opt maxfu()} to get the most out
+of this diagnostic.
+
+{pstd}
+Covariates you pass in {it:varlist} that were {it:not} in the visit model are
+the most informative test here, because the verdict on the model's own
+covariates is partly self-fulfilling -- in the same way that a propensity-score
+balance check on the score model's own covariates is.
 
 
 {marker interpreting}{...}
@@ -214,22 +264,34 @@ guard. Do not treat it as proof that the visit model is correct.
 Read {cmd:iivw_balance} as a diagnostic stress test. A {cmd:low} leverage
 verdict means a null weighting movement is not informative, because nearly
 constant weights cannot move estimates much. A {cmd:poor} balance flag means
-the modeled covariate composition changed beyond the documented convention
-and the result needs more scrutiny.
+the IIW-weighted visits do not reproduce the at-risk person-time distribution
+they are meant to represent, so the visit model needs more scrutiny.
 
 {pstd}
-The AG refit reconstructs the counting-process intervals using the stored
-weighting contract: when the weights were built with {opt entry()}, the same
-entry times define the first interval's start, and when they were built with
-{opt nobaseevent}, each subject's baseline visit is again excluded from the
-modeled events. This keeps the refit's risk sets aligned with the
+{cmd:r(balance_flag)} is {cmd:unknown}, not {cmd:good}, when the refit that
+supports the verdict could not be completed. A diagnostic with no evidence
+behind it does not get to report a clean bill of health.
+
+{pstd}
+The refit reconstructs the counting-process intervals using the stored
+weighting contract: the same {opt entry()} start times, the same
+{opt baseline()} treatment of the first visit, and the same terminal at-risk
+interval from {opt censor()} or {opt maxfu()}. On that interval a {it:lagged}
+covariate takes the value it had at the last visit, rebuilt from the source
+variable -- not the value in the lag column of the last visit row, which refers
+to the visit before it. This keeps the refit's risk sets aligned with the
 weight-generating model.
 
 {pstd}
-The supplementary {opt agrefit} output is deliberately secondary. Cox
-partial-likelihood weighting does not guarantee hazard ratios shrink to one,
-so these matrices are best used to understand direction and scale rather than
-as pass/fail criteria.
+{bf:Why no weighted refit is reported.} The intuitive check -- refit the visit
+model with the IIW weights and see whether the coefficients go to zero -- does
+not work, and is no longer offered. {cmd:stcox} with {cmd:pweight}s applies the
+weight to the event term {it:and} to the risk-set average. In the score at
+{it:beta} = 0 the weight cancels against the intensity in the first but not the
+second, leaving a term in the {it:weighted} risk-set mean that does not vanish.
+The weighted coefficients therefore have no null at zero: on correctly weighted
+data the unweighted visit-model hazard ratio was 1.523 and the IIW-weighted
+refit gave 1.537. Use {it:target SMD}, which does have a null.
 
 
 {marker examples}{...}
@@ -277,8 +339,11 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(weight_cv)}}weight coefficient of variation{p_end}
 {synopt:{cmd:r(ess)}}effective sample size, (sum w)^2 / sum(w^2){p_end}
 {synopt:{cmd:r(ess_ratio)}}effective sample size divided by {cmd:r(N)}{p_end}
-{synopt:{cmd:r(balance_max_smd)}}maximum absolute SMD among modeled visit covariates{p_end}
-{synopt:{cmd:r(informative)}}1 if leverage is not low and balance flag is good; otherwise 0{p_end}
+{synopt:{cmd:r(balance_max_shift)}}maximum absolute composition shift; descriptive{p_end}
+{synopt:{cmd:r(balance_max_tsmd)}}maximum absolute target SMD; drives {cmd:r(balance_flag)}{p_end}
+{synopt:{cmd:r(refit_N)}}at-risk intervals used by the visit-model refit{p_end}
+{synopt:{cmd:r(refit_n_censrows)}}terminal at-risk intervals in the refit{p_end}
+{synopt:{cmd:r(refit_ok)}}1 if the refit that supports the verdict completed{p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
 {synopt:{cmd:r(id)}}stored panel ID variable{p_end}
@@ -288,8 +353,9 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(visit_covars)}}stored visit-model covariates{p_end}
 {synopt:{cmd:r(extra_covars)}}extra covariates supplied in {it:varlist}{p_end}
 {synopt:{cmd:r(balance_covars)}}all covariates in the displayed table{p_end}
+{synopt:{cmd:r(component)}}{cmd:iiw} or {cmd:final}; which weight was described{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
-{synopt:{cmd:r(balance_flag)}}{cmd:good} or {cmd:poor}{p_end}
+{synopt:{cmd:r(balance_flag)}}{cmd:good}, {cmd:poor}, or {cmd:unknown}{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}
@@ -298,14 +364,14 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 
 {p2col 5 28 32 2:Matrices}{p_end}
-{synopt:{cmd:r(balance)}}covariate-balance statistics and flags{p_end}
-{synopt:{cmd:r(hr_unweighted)}}unweighted AG-refit HRs; only with {opt agrefit}{p_end}
-{synopt:{cmd:r(hr_weighted)}}weighted AG-refit HRs; only with {opt agrefit}{p_end}
+{synopt:{cmd:r(balance)}}covariate composition statistics and flags{p_end}
+{synopt:{cmd:r(hr_unweighted)}}refitted visit-intensity model HRs{p_end}
 {p2colreset}{...}
 
 {pstd}
 {cmd:r(balance)} contains the unweighted mean, weighted mean, unweighted SD,
-SMD, absolute SMD, N, missing count, and modeled-covariate flag.
+composition shift, absolute shift, N, missing count, and modeled-covariate
+flag.
 
 
 {marker references}{...}
@@ -314,16 +380,26 @@ SMD, absolute SMD, N, missing count, and modeled-covariate flag.
 {pstd}
 {bf:What is and is not sourced.} The weights being diagnosed come from
 Buzkova & Lumley (2007) (see {helpb iivw_weight}). The effective sample size is
-Kish's, {it:ESS} = (sum of weights)^2 / (sum of squared weights). The
-{it:leverage} and {it:balance} verdicts, and the thresholds behind them, are
-conventions adopted by this package and are not taken from a published
-diagnostic: in particular the {cmd:0.10} cut on the standardized difference is
-borrowed from the propensity-score balance literature, where the statistic
-compares {it:two treatment groups}. The statistic computed here compares the
-weighted and unweighted composition of the {it:same} sample, which is a
-different quantity, so the conventional cut is a rule of thumb rather than a
-validated threshold. Treat {cmd:r(leverage)}, {cmd:r(balance_flag)} and
-{cmd:r(informative)} as descriptive summaries, not as tests.
+Kish's, {it:ESS} = (sum of weights)^2 / (sum of squared weights).
+
+{pstd}
+The {it:target SMD} null is a consequence of the estimator itself, not a
+convention: Buzkova & Lumley weight each observed visit by exp(-{it:gamma}'Z)
+while the visit intensity is {it:lambda-0}(t)exp({it:gamma}'Z), so the weight
+cancels the intensity and the IIW-weighted sum over observed visits has the
+same expectation as the integral over at-risk person-time in {it:dLambda-0}
+units (their eq. 8, p. 8). The equality of the two distributions is what
+{it:target SMD} measures, and it is 0 under a correct visit model.
+
+{pstd}
+The {cmd:0.10} {opt balcut()} and the {it:leverage} thresholds remain package
+{it:conventions} with no published source: {cmd:0.10} is borrowed from the
+propensity-score balance literature. It now cuts a statistic of the same kind
+that literature uses -- a standardized gap between a weighted sample and the
+distribution it is supposed to represent -- rather than the earlier
+weighted-versus-unweighted movement, but the cut is still a rule of thumb, not
+a validated threshold. Treat {cmd:r(leverage)} and {cmd:r(balance_flag)} as
+descriptive summaries, not as tests.
 
 {phang}
 Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear

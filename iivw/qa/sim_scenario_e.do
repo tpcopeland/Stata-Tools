@@ -196,7 +196,7 @@ forvalues s = 1/`n_sims' {
         }
 
         *IIW-weighted GEE
-        capture iivw_weight, id(id) time(ftime) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) wtype(iivw) ///
             truncate(1 99) nolog replace
         if _rc == 0 {
@@ -220,7 +220,7 @@ forvalues s = 1/`n_sims' {
         }
 
         *FIPTIW-weighted GEE
-        capture iivw_weight, id(id) time(ftime) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncate(1 99) nolog replace
@@ -245,7 +245,7 @@ forvalues s = 1/`n_sims' {
         }
 
         *FIPTIW + cumulative test count
-        capture iivw_weight, id(id) time(ftime) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncate(1 99) nolog replace

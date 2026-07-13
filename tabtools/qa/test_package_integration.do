@@ -2148,33 +2148,19 @@ capture program drop _review_build_comptab_frame
 program define _review_build_comptab_frame
     version 17.0
     capture frame drop rb_src
-    frame create rb_src
-    frame rb_src {
-        clear
-        set obs 5
-        gen str244 A = ""
-        gen str244 c1 = ""
-        gen str244 c2 = ""
-        gen str244 c3 = ""
-        replace A = "Variable" in 2
-        replace c1 = "Estimate" in 2
-        replace c2 = "95% CI" in 2
-        replace c3 = "p-value" in 2
-        replace A = "Characteristic" in 3
-        replace c1 = "b" in 3
-        replace c2 = "95% CI" in 3
-        replace c3 = "p-value" in 3
-        replace A = "Age" in 4
-        replace c1 = "1.23" in 4
-        replace c2 = "(0.50, 1.96)" in 4
-        replace c3 = "0.040" in 4
-        replace A = "Sex" in 5
-        replace c1 = "0.88" in 5
-        replace c2 = "(0.40, 1.36)" in 5
-        replace c3 = "0.520" in 5
-        gen long _orig_n = _n
-        gen byte _keep = 99
-    }
+    clear
+    set obs 50
+    set seed 20260713
+    gen double age = 40 + 20 * runiform()
+    gen byte sex = mod(_n, 2)
+    gen double outcome = 1 + 0.2 * age - 0.5 * sex + rnormal()
+    label variable age "Age"
+    label variable sex "Sex"
+    collect clear
+    collect: regress outcome age sex
+    regtab, frame(rb_src, replace) noint
+    frame rb_src: gen long _orig_n = _n
+    frame rb_src: gen byte _keep = 99
 end
 
 **# Tests
@@ -3431,15 +3417,17 @@ capture noisily {
 
     clear
     stratetab, using(`rate1') outcomes(1) frame(_eb_rates, replace) ///
-        outlabels("Outcome") explabels("Exposure")
+        outcomeids(_t) outlabels("Outcome") explabels("Exposure")
 
     clear
     set obs 80
     set seed 60606
     gen byte treated = mod(_n, 2)
-    gen double y = 10 + 2 * treated + rnormal()
+    gen double follow = exp(-0.5 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: regress y treated
+    collect: stcox treated
     regtab, frame(_eb_hr_model, replace) eplotframe(_eb_hr_model_ep, replace) ///
         noint coef("aHR")
 
@@ -3634,19 +3622,21 @@ capture noisily {
 
     clear
     stratetab, using(`rate1') outcomes(1) frame(_ef_rates, replace) ///
-        outlabels("Outcome") explabels("Exposure")
+        outcomeids(_t) outlabels("Outcome") explabels("Exposure")
 
     clear
     set obs 80
     set seed 60606
     gen byte treated = mod(_n, 2)
-    gen double yv = 10 + 2 * treated + rnormal()
+    gen double follow = exp(-0.5 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: regress yv treated
+    collect: stcox i.treated
     regtab, frame(_ef_hr_model, replace) eplotframe(_ef_hr_model_ep, replace) ///
         noint coef("aHR")
 
-    hrcomptab _ef_rates, modelframes(_ef_hr_model) rows(1) effect("aHR") ///
+    hrcomptab _ef_rates, modelframes(_ef_hr_model) rows(3) effect("aHR") ///
         frame(_ef_hr, replace) eplotframe(_ef_hr_ep, replace)
 
     frame _ef_hr_ep {

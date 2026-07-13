@@ -55,7 +55,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v193_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
 
     * fixed command path
     set seed 4321
@@ -102,7 +102,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v193_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     set seed 909
     quietly iivw_fit y sev, model(gee) timespec(none) bootstrap(20) nolog
     local iivw_gee_se = _se[sev]
@@ -130,7 +130,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v193_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     quietly iivw_balance, agrefit nolog
     matrix HU = r(hr_unweighted)
     local se_cmd = HU[1, 5]
@@ -164,40 +164,38 @@ else {
     local ++fail_count
 }
 
-**# T4: weighted AG refit SE is cluster-robust (matches vce(cluster), not naive)
+**# T4: the weighted AG refit is gone -- it never had a null to test against
 
 local ++test_count
 capture noisily {
     _iivw_v193_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     quietly iivw_balance, agrefit nolog
-    matrix HW = r(hr_weighted)
-    local se_cmd = HW[1, 5]
 
-    sort id time
-    by id (time): gen double agstart = cond(_n == 1, 0, time[_n-1])
-    gen double agstop = time
-    gen byte agev = 1
-    keep if !missing(agstart, agstop) & agstop > agstart
+    * r(hr_weighted) used to report an IIW-weighted Andersen-Gill refit beside
+    * the unweighted one, inviting the reader to compare the two. That comparison
+    * cannot be made: stcox with pweights applies the weight to the event term
+    * AND to the risk-set average, so in the score at beta = 0 the weight cancels
+    * against the intensity in the first but not the second. The weighted
+    * coefficients therefore have no null at 0 -- measured, on correctly weighted
+    * data the unweighted visit-model HR was 1.523 and the IIW-weighted refit
+    * gave 1.537. It does not go to 1, and it was never going to.
+    *
+    * A statistic with no null cannot support a verdict, so it is no longer
+    * returned. Balance is judged by r(balance_max_tsmd), against the at-risk
+    * person-time distribution that correct IIW weights are supposed to restore.
+    capture matrix list r(hr_weighted)
+    assert _rc != 0
 
-    * weighted AG refit: pweights, no id() in stset (weights vary within id)
-    quietly stset agstop [pw=_iivw_weight], enter(time agstart) ///
-        failure(agev) exit(time .)
-    quietly stcox sev, vce(cluster id) nolog
-    local se_cluster = _se[sev]
-    quietly stcox sev, nolog
-    local se_naive = _se[sev]
-
-    assert reldif(`se_cmd', `se_cluster') < 1e-6
-    assert reldif(`se_cluster', `se_naive') > 0.005
-    assert reldif(`se_cmd', `se_naive') > 0.005
+    assert r(balance_max_tsmd) < .
+    assert inlist("`r(balance_flag)'", "good", "poor", "unknown")
 }
 if _rc == 0 {
-    display as result "  PASS: T4 - weighted AG refit is cluster-robust"
+    display as result "  PASS: T4 - the null-less weighted AG refit is not reported"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T4 - weighted AG refit SE (error `=_rc')"
+    display as error "  FAIL: T4 - weighted AG refit removal (error `=_rc')"
     local ++fail_count
 }
 

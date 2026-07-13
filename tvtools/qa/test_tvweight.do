@@ -1043,6 +1043,9 @@ capture noisily {
     2 1 1 0
     2 2 1 1
     2 3 0 0
+    3 1 0 1
+    3 2 1 0
+    3 3 1 1
     end
     tvweight exposure, covariates(x) id(id) time(time) cumulative generate(w) nolog
     * id=1 has a gap at time=2 (x missing -> excluded by markout). The
@@ -1070,17 +1073,38 @@ else {
 * TEST: ipcw() combined weight chains across a touse gap
 capture noisily {
     clear
-    input id time x cens exposure
-    1 1 1 0 1
-    1 2 . 0 0
-    1 3 0 0 1
-    2 1 1 0 0
-    2 2 1 0 1
-    2 3 0 1 0
-    3 1 0 0 1
-    3 2 1 0 0
-    3 3 1 1 1
-    end
+    set obs `=62*3'
+    generate long id = ceil(_n / 3)
+    bysort id: generate byte time = _n
+    generate byte x = mod(id + time, 2)
+    generate byte cens = mod(id + 3*time, 7) == 0
+    generate byte exposure = mod(id + 2*time, 4) < 2
+
+    * Retain the original gap/oracle subjects while filler IDs ensure both
+    * censoring outcomes occur in every estimable x-by-time pattern.
+    replace x = 1 if id == 1 & time == 1
+    replace cens = 0 if id == 1 & time == 1
+    replace exposure = 1 if id == 1 & time == 1
+    replace x = . if id == 1 & time == 2
+    replace cens = 0 if id == 1 & time == 2
+    replace exposure = 0 if id == 1 & time == 2
+    replace x = 0 if id == 1 & time == 3
+    replace cens = 0 if id == 1 & time == 3
+    replace exposure = 1 if id == 1 & time == 3
+
+    replace x = 1 if id == 2 & inlist(time, 1, 2)
+    replace x = 0 if id == 2 & time == 3
+    replace cens = 0 if id == 2 & inlist(time, 1, 2)
+    replace cens = 1 if id == 2 & time == 3
+    replace exposure = 0 if id == 2 & inlist(time, 1, 3)
+    replace exposure = 1 if id == 2 & time == 2
+
+    forvalues tt = 1/3 {
+        forvalues xx = 0/1 {
+            quietly summarize cens if time == `tt' & x == `xx', meanonly
+            assert r(min) == 0 & r(max) == 1
+        }
+    }
     tvweight exposure, covariates(x) id(id) time(time) cumulative ipcw(cens) generate(w) nolog
     * Internal cum_iptw (feeding the combined weight) must equal the
     * externally-visible cumulative() chain: both reuse the same

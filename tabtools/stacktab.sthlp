@@ -53,21 +53,78 @@ one composite sheet with {cmd:stacktab}.
 {synopt:{opt no:te(string)}}note row written below the table in the first table column{p_end}
 {synopt:{opt foot:note(string)}}tabtools-style alias for {opt note()}{p_end}
 {synopt:{opt col:umnmerge(mergespec)}}concatenate column pairs with header label{p_end}
-{synopt:{opt sp:acing(#)}}blank rows inserted between vertically stacked blocks; default is 0{p_end}
+{synopt:{opt sp:acing(#)}}blank rows inserted between vertically stacked blocks{p_end}
 
 {syntab:Formatting}
 {synopt:{opt st:yle(stylespec)}}row heights and table-relative column widths via Mata {cmd:xl()}{p_end}
 {synopt:{opt bo:rders(borderspec)}}border specifications via Mata {cmd:xl()}{p_end}
 
 {syntab:Additional outputs}
-{synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame; use {cmd:frame("name, replace")} to replace{p_end}
+{synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame{p_end}
 {synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt dis:play}}list the composed table in the Results window before writing{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt dis:play}}list the composed table in Results{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
 {synopt:{opt she:etreplace}}replace the output sheet if it exists{p_end}
 {synoptline}
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt app:end} append rows below an existing output sheet{p_end}
+
+{phang}
+{opt bl:ocks(blockspec)} backslash-separated block definitions{p_end}
+
+{phang}
+{opt bo:rders(borderspec)} border specifications via Mata {cmd:xl()}{p_end}
+
+{phang}
+{opt col:umnmerge(mergespec)} concatenate column pairs with header label{p_end}
+
+{phang}
+{opt csv(filename)} export the composed table to CSV{p_end}
+
+{phang}
+{opt dis:play} list the composed table in the Results window before writing{p_end}
+
+{phang}
+{opt foot:note(string)} tabtools-style alias for {opt note()}{p_end}
+
+{phang}
+{opt fra:me(framespec)} store the composed table in a Stata frame; use {cmd:frame("name, replace")}
+to replace{p_end}
+
+{phang}
+{opt lay:out(string)} vstack (default) or hstack{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel, CSV, and frame exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt no:te(string)} note row written below the table in the first table column{p_end}
+
+{phang}
+{opt sh:eet(string)} output sheet name in the workbook{p_end}
+
+{phang}
+{opt she:etreplace} replace the output sheet if it exists{p_end}
+
+{phang}
+{opt sp:acing(#)} blank rows inserted between vertically stacked blocks; default is 0{p_end}
+
+{phang}
+{opt st:yle(stylespec)} row heights and table-relative column widths via Mata {cmd:xl()}{p_end}
+
+{phang}
+{opt ti:tle(string)} title written to cell {cmd:A1}; the table starts at {cmd:B2}{p_end}
 
 {marker description}{...}
 {title:Description}
@@ -152,7 +209,8 @@ specification currently supports {cmd:outer(all)}, {cmd:top(row 1)}, and {cmd:bo
 note cells are Excel-only formatting elements and are not added to the frame
 or CSV. Specify {cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
 writes the same composed table to a delimited file and requires a {cmd:.csv}
-extension.
+extension. All requested destinations are preflighted before any frame or file is
+replaced; an existing {opt markdown()} file requires {opt mdappend}.
 
 {marker examples}{...}
 {title:Examples}
@@ -176,9 +234,9 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synoptset 22}{...}
 {synopt:{cmd:r(blocks_loaded)}}number of blocks imported{p_end}
 {synopt:{cmd:r(rows_written)}}rows written by the current call{p_end}
-{synopt:{cmd:r(rows_out)}}last worksheet row occupied by the written table, excluding note row{p_end}
+{synopt:{cmd:r(rows_out)}}last worksheet row written{p_end}
 {synopt:{cmd:r(cols_out)}}columns in the composed table{p_end}
-{synopt:{cmd:r(append_start)}}first Excel row of the table body written by the current call{p_end}
+{synopt:{cmd:r(append_start)}}first row of the appended table body{p_end}
 {synopt:{cmd:r(note_row)}}Excel row of the note/footnote, when specified{p_end}
 {synopt:{cmd:r(layout)}}layout used: {cmd:vstack} or {cmd:hstack}{p_end}
 {synopt:{cmd:r(sheet)}}output sheet name{p_end}

@@ -89,6 +89,12 @@ program define gcomp, eclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
 set varabbrev off
+* A failed estimation command must leave the caller's previously active e()
+* result intact.  Hold before preserve so the hidden e(sample) marker is part
+* of the data snapshot; discard the hold only after new gcomp results are
+* posted successfully.
+tempname _gc_caller_estimates
+_estimates hold `_gc_caller_estimates', restore copy nullok
 * The legacy engine still uses several literal matrix names internally.  Save
 * any caller matrices under tempnames and restore them on every exit path.
 local _gc_literal_matrices "b V se ci_normal ci_percentile ci_bc ci_bca _matrow matvis _gc_diag_result EPO catvals out_mlogit msm_params matem1 matem2"
@@ -943,7 +949,8 @@ forvalues i=1/`nvar' {
 		exit 111
 	}
 	foreach _candidate of local _gc_dataset_vars {
-		if ustrregexm(`" `_eq' "', "(^|[^A-Za-z0-9_])`_candidate'([^A-Za-z0-9_]|$)") {
+		mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_eq"), st_local("_candidate"))))
+		if `_gc_dep_hit' {
 			capture confirm numeric variable `_candidate'
 			if _rc {
 				noi di as err "equations(): string predictor `_candidate' is not supported"
@@ -954,9 +961,20 @@ forvalues i=1/`nvar' {
 	}
 	forvalues _j=`i'/`nvar' {
 		local _later : word `_j' of `varlist2'
-		if ustrregexm(`" `_eq' "', "(^|[^A-Za-z0-9_])`_later'([^A-Za-z0-9_]|$)") {
-			if `_j'==`i' noi di as err "equations(): `_v' appears in its own equation"
-			else noi di as err "equations(): `_v' depends on later simulated variable `_later'; reorder the variables"
+		mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_eq"), st_local("_later"))))
+		if `_gc_dep_hit' {
+			if `_j'==`i' {
+				noi di as err "equations(): `_v' appears in its own equation"
+				exit 198
+			}
+			* Intervention nodes are assigned by interventions() before the
+			* counterfactual predictions for a visit.  A death/covariate model
+			* may therefore use a declared intervention even when the internal
+			* component-model list places that intervention later.  Ordinary
+			* simulated nodes must still form the declared acyclic order.
+			local _gc_policy_node : list posof "`_later'" in intvars
+			if "`mediation'"=="" & `_gc_policy_node' continue
+			noi di as err "equations(): `_v' depends on later simulated variable `_later'; reorder the variables"
 			exit 198
 		}
 	}
@@ -1150,7 +1168,8 @@ if "`mediation'" == "" {
 			* later rule, which would otherwise leave stale/cyclic state.
 			forvalues _dj=`_di'/`_gc_nder' {
 				local _gc_later_dvar : word `_dj' of `derived'
-				if ustrregexm(`" `_gc_dexpr' "', "(^|[^A-Za-z0-9_])`_gc_later_dvar'([^A-Za-z0-9_]|$)") {
+			mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_gc_dexpr"), st_local("_gc_later_dvar"))))
+			if `_gc_dep_hit' {
 					if `_dj'==`_di' noi di as err "derrules(): `_gc_dvar' cannot depend on itself"
 					else noi di as err "derrules(): `_gc_dvar' depends on later derived variable `_gc_later_dvar'; reorder derived()"
 					exit 198
@@ -1250,7 +1269,8 @@ if "`impute'" != "" {
 			noi di as err `"imp_eq(): invalid equation for `_imp_v': `_imp_e'"'
 			exit 111
 		}
-		if ustrregexm(`" `_imp_e' "', "(^|[^A-Za-z0-9_])`_imp_v'([^A-Za-z0-9_]|$)") {
+		mata: st_local("_gc_dep_hit", strofreal(_gcomp_expression_uses_variable(st_local("_imp_e"), st_local("_imp_v"))))
+		if `_gc_dep_hit' {
 			noi di as err "imp_eq(): `_imp_v' cannot predict itself"
 			exit 198
 		}
@@ -1453,9 +1473,21 @@ foreach member of local originallist {
 	}
 	local _gc_alias_names : list retokenize _gc_alias_names
 
-	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules fixedcovariates laggedvars lagrules msm exposure mediator base_confs post_confs impute control baseline alternative"
+	* The first token of msm() is a Stata command, not a variable reference.  It
+	* must not be rewritten when a legal caller variable happens to share that
+	* name (for example, a covariate named regress).
+	local _gc_msm_command ""
+	local _gc_msm_rest ""
+	if `"`msm'"' != "" {
+		gettoken _gc_msm_command _gc_msm_rest : msm
+	}
+	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules fixedcovariates laggedvars lagrules exposure mediator base_confs post_confs impute control baseline alternative"
 	foreach currstring of local listofstrings {
 		mata: st_local("`currstring'", _gcomp_alias_expression(st_local("`currstring'"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+	}
+	if `"`_gc_msm_command'"' != "" {
+		mata: st_local("_gc_msm_rest", _gcomp_alias_expression(st_local("_gc_msm_rest"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+		local msm `"`_gc_msm_command' `_gc_msm_rest'"'
 	}
 
 	* Rebuild keyed command/equation maps so model-command words are never
@@ -3179,14 +3211,16 @@ else {
 			ereturn local model_eq_`_gck' "`_gc_model_eq_`_gck''"
 		}
 	}
+	_estimates unhold `_gc_caller_estimates', not
 
-} /* end capture noisily */
+	} /* end capture noisily */
 local _gc_rc = _rc
 
 * Restore is still pending on any error before the successful posting path.
 capture restore
 capture frame drop `_gc_sample_frame'
 if `_gc_rc' & "`_gc_graph_name'" != "" capture graph drop `_gc_graph_name'
+if `_gc_rc' & `"`_gc_model_names'"' != "" capture estimates drop `_gc_model_names'
 
 * Clean up non-temp matrices (outside capture noisily so they're always cleaned)
 capture matrix drop b
@@ -3346,15 +3380,44 @@ if `_gc_rc' exit `_gc_rc'
 end
 
 capture mata: mata drop _gcomp_alias_expression()
+capture mata: mata drop _gcomp_expression_uses_variable()
 mata:
+real scalar _gcomp_expression_uses_variable(string scalar s,
+                                            string scalar target)
+{
+    string scalar ch, tok, next
+    real scalar i, j, k
+
+    i = 1
+    while (i <= strlen(s)) {
+        ch = substr(s, i, 1)
+        if (regexm(ch, "[A-Za-z_]")) {
+            j = i + 1
+            while (j <= strlen(s) & regexm(substr(s, j, 1), "[A-Za-z0-9_]")) {
+                j++
+            }
+            tok = substr(s, i, j-i)
+            if (tok == target) {
+                k = j
+                while (k <= strlen(s) & strpos(" " + char(9), substr(s, k, 1))) k++
+                next = k <= strlen(s) ? substr(s, k, 1) : ""
+                if (next != "." & next != "(") return(1)
+            }
+            i = j
+        }
+        else i++
+    }
+    return(0)
+}
+
 string scalar _gcomp_alias_expression(string scalar s,
                                       string scalar from_string,
                                       string scalar to_string)
 {
     string rowvector from, to
-    string scalar out, ch, tok
+    string scalar out, ch, tok, next
     real rowvector hit
-    real scalar i, j
+    real scalar i, j, k
 
     from = tokens(from_string)
     to = tokens(to_string)
@@ -3371,7 +3434,10 @@ string scalar _gcomp_alias_expression(string scalar s,
             }
             tok = substr(s, i, j-i)
             hit = selectindex(from :== tok)
-            if (cols(hit)) tok = to[hit[1]]
+            k = j
+            while (k <= strlen(s) & strpos(" " + char(9), substr(s, k, 1))) k++
+            next = k <= strlen(s) ? substr(s, k, 1) : ""
+            if (cols(hit) & next != "." & next != "(") tok = to[hit[1]]
             out = out + tok
             i = j
         }

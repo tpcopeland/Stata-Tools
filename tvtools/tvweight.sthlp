@@ -56,6 +56,7 @@
 {synopt:{opt id(varname)}}person identifier for time-varying models{p_end}
 {synopt:{opt time(varname)}}time variable for time-varying models{p_end}
 {synopt:{opt est:name(name)}}store the propensity model under this name{p_end}
+{synopt:{opt estrep:lace}}replace an existing {opt estname()} target{p_end}
 
 {syntab:Diagnostics}
 {synopt:{opt bal:ance}}report standardized mean differences{p_end}
@@ -117,7 +118,8 @@ with more than 2 levels, multinomial logistic regression is used automatically.
 {phang}
 {opt covariates(varlist)} specifies the covariates to include in the propensity
 score model. These should be confounders that predict both treatment and
-outcome.
+outcome. Stata factor-variable notation, including interactions such as
+{cmd:i.sex##c.age}, is allowed.
 
 {dlgtab:Weight Options}
 
@@ -180,10 +182,16 @@ treatment and informative censoring (Hernan & Robins). Requires {opt id()} and
 {opt time()}. With {opt stabilized}, both weights use stabilized numerators. With
 {opt truncate()}, truncation is applied to the final combined weight.
 
+{pmore}
+The censoring model uses its raw fitted P(uncensored|history). Probabilities are
+reported but never silently capped. A zero, one, or missing probability makes
+IPCW undefined and stops with error 498; {opt truncate()} acts on the final
+combined weight only when explicitly requested.
+
 {phang}
 {opt censorcovariates(varlist)} lists the covariates for the censoring
 model. Defaults to the treatment-model covariates ({opt covariates()} plus any
-{opt tvcovariates()}).
+{opt tvcovariates()}). Factor-variable notation is allowed.
 
 {phang}
 {opt censgenerate(name)} names the cumulative censoring weight variable
@@ -206,13 +214,17 @@ model. Defaults to the treatment-model covariates ({opt covariates()} plus any
 
 {phang}
 {opt tvcovariates(varlist)} specifies time-varying covariates for the
-propensity score model. Requires {opt id()} and {opt time()} options.
+propensity score model. Factor-variable notation is allowed. Requires
+{opt id()} and {opt time()} options.
 
 {phang}
 {opt id(varname)} specifies the person identifier variable. When specified
 with {opt time()}, enables panel-aware weighting: time fixed effects
 ({cmd:i.}{it:time}) are included in the propensity score model and
-cluster-robust standard errors are computed by {it:id}.
+cluster-robust standard errors are computed by {it:id}. History-dependent
+modes ({opt cumulative}, {opt tvcovariates()}, and {opt ipcw()}) require
+{opt id()} and {opt time()} to identify estimation-sample rows uniquely; duplicate
+keys stop with error 459 before outputs are retained.
 
 {phang}
 {opt time(varname)} specifies the time variable. When specified with {opt id()}, time
@@ -223,7 +235,14 @@ approach for marginal structural models with time-varying treatments.
 {opt estname(name)} stores the fitted propensity model under {it:name} via
 {helpb estimates store}, so it can be inspected, replayed, or used by
 {helpb margins} downstream. Without this option the model is discarded after
-the weights are computed.
+the weights are computed. {cmd:tvweight} restores whatever estimation results
+were active on entry, whether or not {opt estname()} is specified.
+
+{phang}
+{opt estreplace} permits {opt estname()} to replace an existing stored estimate. Without
+{opt estreplace}, an existing name causes error 110. Replacement is
+transactional: if weight construction later fails, the prior stored estimate
+is restored. {opt estreplace} requires {opt estname()}.
 
 {dlgtab:Diagnostics}
 
@@ -234,7 +253,9 @@ between exposure groups, both before and after weighting, and returns them in
 (Austin 2009, 2011). The denominator is the unweighted pooled standard
 deviation, so the before and after columns share a common scale. For
 categorical exposures the maximum absolute SMD across non-reference levels is
-reported per covariate.
+reported per covariate. Factor variables and interactions are expanded into
+their estimable nonbase columns; {cmd:r(balance_terms)} maps those columns to
+the rows of {cmd:r(balance)}.
 
 {phang}
 {opt loveplot} produces a love plot of the SMDs (unweighted vs
@@ -249,13 +270,16 @@ the returned {cmd:r(balance)} matrix. Install psdash with
 
 {phang}
 {opt histogram} draws a histogram of the weight distribution. The plot honors
-the active graph scheme.
+the active graph scheme. Graph outcomes are reported by
+{cmd:r(histogram_created)}, {cmd:r(loveplot_created)}, and
+{cmd:r(graph_created)}.
 
 {dlgtab:Output Options}
 
 {phang}
 {opt denominator(name)} creates an additional variable containing the
-propensity score (predicted probability of observed treatment given covariates).
+fitted propensity score. For binary logit this is P(A=1|X); for multinomial
+logit it is P(A=a|X), where a is the observed treatment level.
 
 {phang}
 {opt replace} allows overwriting of existing weight variables.
@@ -417,6 +441,14 @@ alternative to truncation and balance covariate means exactly:
 {synopt:{cmd:r(pct_nonoverlap)}}percentage of rows with P(observed treatment) < 0.05{p_end}
 {synopt:{cmd:r(n_nonoverlap)}}number of rows with P(observed treatment) < 0.05{p_end}
 {synopt:{cmd:r(top1_wt_share)}}percentage of total weight mass held by the top 1% of rows{p_end}
+{synopt:{cmd:r(n_top1_rows)}}number of rows used for the top-1% statistic{p_end}
+{synopt:{cmd:r(n_ps_extreme)}}rows with P(observed treatment) < .001 or > .999{p_end}
+{synopt:{cmd:r(n_ps_boundary)}}rows with a zero, one, or missing fitted probability{p_end}
+{synopt:{cmd:r(n_cens_extreme)}}rows with P(uncensored) < .001 or > .999{p_end}
+{synopt:{cmd:r(n_cens_boundary)}}rows with a zero, one, or missing uncensoring probability{p_end}
+{synopt:{cmd:r(histogram_created)}}1 if the requested histogram was created; 0 otherwise{p_end}
+{synopt:{cmd:r(loveplot_created)}}1 if the requested love plot was created; 0 otherwise{p_end}
+{synopt:{cmd:r(graph_created)}}1 if either optional graph was created; 0 otherwise{p_end}
 {synopt:{cmd:r(ess_combined)}}effective sample size of the combined weight (if ipcw){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
@@ -433,6 +465,7 @@ alternative to truncation and balance covariate means exactly:
 {synopt:{cmd:r(censgenerate)}}name of the cumulative censoring weight (if ipcw){p_end}
 {synopt:{cmd:r(combgenerate)}}name of the combined IPTW{c -(}IPCW weight (if ipcw){p_end}
 {synopt:{cmd:r(censorcovariates)}}covariates used in the censoring model (if ipcw){p_end}
+{synopt:{cmd:r(balance_terms)}}factor-expanded terms indexing {cmd:r(balance)} (if balance){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}unweighted/weighted SMD matrix{p_end}
@@ -520,6 +553,30 @@ For categorical exposures the generalized forms are used: the overlap weight is
 min{sub:k}P(A=k|X)/P(A=a|X).
 
 {pstd}
+All components of either multinomial weight use the same raw vector of fitted
+class probabilities. {cmd:tvweight} reports probabilities below .001 or above
+.999 but does not cap or otherwise modify them. The {opt truncate()} option,
+when requested, acts explicitly on weights rather than silently changing fitted
+probabilities. Exact boundary probabilities make weights undefined and stop
+with error 498.
+
+{pstd}
+The same raw-probability contract applies to the pooled censoring model used by
+{opt ipcw()}: missing predictions (including rows excluded by perfect
+prediction) and exact boundary probabilities stop with error 498. Extreme but
+finite probabilities are reported and retained; explicit {opt truncate()}
+changes only the final combined weight.
+
+{pstd}
+{bf:Positivity and concentration diagnostics}
+
+{pstd}
+The top-1% diagnostic ranks the final analysis weight (the combined IPTW-IPCW
+weight when {opt ipcw()} is used) and sums exactly ceil(.01*N) rows. Descending
+weight and original observation order define the deterministic ranking, so a
+percentile tie cannot sweep extra rows into the statistic.
+
+{pstd}
 {bf:Per-row IPTW versus cumulative MSM weights}
 
 {pstd}
@@ -535,6 +592,18 @@ W{sub:it} = {&prod}{sub:s<=t} weight at period s
 The {opt cumulative} option computes this product (requires {opt id()} and
 {opt time()}). For the full fixed-width MSM panel grid that feeds the {bf:msm}
 package, see {help tvpanel}.
+
+{pstd}
+{bf:Causal interpretation}
+
+{pstd}
+Causal interpretation of these weights requires consistency, conditional
+exchangeability (no unmeasured confounding), positivity for every treatment
+history of interest, and correctly specified treatment models. Analyses using
+{opt ipcw()} additionally require conditional independent censoring and a
+correctly specified censoring model. Balance, overlap, extreme-probability,
+weight-concentration, and effective-sample-size diagnostics assess consequences
+of the fitted models; they do not prove these identifying assumptions.
 
 
 {marker author}{...}

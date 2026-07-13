@@ -1,5 +1,5 @@
 metric,value,source,notes
-po_all1,0.08786,python_mc,"Always-treat mean potential outcome under the sequential 3-visit DGP"
-po_all0,0.25003,python_mc,"Never-treat mean potential outcome under the sequential 3-visit DGP"
-po_natural,0.16357,python_mc,"Natural-regime mean potential outcome under the same DGP"
-risk_difference,-0.16216,python_mc,"Always-treat minus never-treat risk difference"
+po_all1,0.08805231600568739,python_numpy_forward_mc,"Always-treat mean; seed=20260421; MC subjects=3000000; NumPy=2.4.4"
+po_all0,0.24961532551423352,python_numpy_forward_mc,"Never-treat mean; seed=20260421; MC subjects=3000000; NumPy=2.4.4"
+po_natural,0.1635133068662821,python_numpy_forward_mc,"Natural-regime mean; seed=20260421; MC subjects=3000000; NumPy=2.4.4"
+risk_difference,-0.16156300950854613,python_numpy_forward_mc,"Always-treat minus never-treat; seed=20260421; MC subjects=3000000; NumPy=2.4.4"

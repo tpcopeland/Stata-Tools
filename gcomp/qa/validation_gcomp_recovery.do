@@ -39,9 +39,6 @@ version 16.0
 * sim(5000)), not from whatever makes the test pass.
 * ----------------------------------------------------------------------------
 
-capture log close _all
-log using "validation_gcomp_recovery.log", replace nomsg name(grec)
-
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -49,9 +46,7 @@ local fail_count = 0
 * Bootstrap: derive package root from qa/ working directory (relocatable)
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 * Forward-sim truth for one static regime: returns r(my) = E[Y(regime)].
 * Y depends on A2 (=Alag), L2 (=Llag), L0; only the path through L2 matters.
@@ -207,10 +202,8 @@ capture program drop _gcomp_build
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: validation_gcomp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    log close grec
+    display "RESULT: validation_gcomp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: validation_gcomp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
-log close grec
+display "RESULT: validation_gcomp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

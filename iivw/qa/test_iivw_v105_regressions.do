@@ -49,14 +49,14 @@ capture noisily {
         scalar before_b = _b[x]
 
         if "`wtype'" == "iivw" {
-            iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+            iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
         }
         else if "`wtype'" == "iptw" {
             iivw_weight, id(id) time(t) treat(treat) treat_cov(x z) ///
                 wtype(iptw) nolog
         }
         else {
-            iivw_weight, id(id) time(t) visit_cov(x z) treat(treat) ///
+            iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) treat(treat) ///
                 treat_cov(x z) wtype(fiptiw) nolog
         }
 
@@ -79,7 +79,7 @@ local ++test_count
 capture noisily {
     _iivw_v105_panel
     gen byte __iivw_first = 7
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     assert __iivw_first == 7
 
     _iivw_v105_panel

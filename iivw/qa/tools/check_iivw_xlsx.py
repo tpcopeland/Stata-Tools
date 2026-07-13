@@ -14,7 +14,7 @@ SPECS = {
     "balance": {
         "row2": {
             3: "Means",
-            6: "Balance",
+            6: "Composition shift",
             9: "Counts",
         },
         "row3": [
@@ -23,8 +23,8 @@ SPECS = {
             "Unweighted mean",
             "Weighted mean",
             "Unweighted SD",
-            "SMD",
-            "|SMD|",
+            "Shift",
+            "|Shift|",
             "Modeled",
             "N",
             "Missing",

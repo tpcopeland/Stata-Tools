@@ -63,9 +63,9 @@ capture noisily {
     _perf_panel, nids(120) visits(5) seed(20260525)
     timer clear 1
     timer on 1
-    iivw_weight, id(id) time(months) visit_cov(age female severity) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) ///
         treat(treat) treat_cov(age female severity) truncate(1 99) nolog
-    iivw_balance severity biomarker, smdcut(10) nolog
+    iivw_balance severity biomarker, balcut(10) nolog
     local balance_covars "`r(balance_covars)'"
     iivw_fit y treat severity biomarker, timespec(linear) nolog
     timer off 1
@@ -102,7 +102,7 @@ capture noisily {
     local vars_before : word count `r(varlist)'
     timer clear 2
     timer on 2
-    iivw_weight, id(id) time(months) visit_cov(age female severity) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) ///
         wtype(iivw) nolog
     iivw_fit y treat severity biomarker, timespec(quadratic) nolog
     timer off 2

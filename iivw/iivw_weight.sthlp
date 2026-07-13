@@ -58,6 +58,9 @@
 {syntab:Data options}
 {synopt:{opt lag:vars(varlist)}}time-varying covariates to lag by one visit{p_end}
 {synopt:{opt ent:ry(varname)}}study entry time per subject (default: 0){p_end}
+{synopt:{opt cens:or(varname)}}subject-specific end of follow-up (IIW/FIPTIW){p_end}
+{synopt:{opt max:fu(#)}}common end of follow-up for all subjects (IIW/FIPTIW){p_end}
+{synopt:{opt endatlast:visit}}follow-up ends at each subject's last visit (IIW/FIPTIW){p_end}
 
 {syntab:Reporting}
 {synopt:{opt trunc:ate(# #)}}percentile trimming (e.g., {cmd:truncate(1 99)}){p_end}
@@ -65,7 +68,8 @@
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
 {synopt:{opt efr:on}}use Efron method for tied visit times in Cox model{p_end}
-{synopt:{opt nobase:event}}treat the first visit as study entry, not a modeled event (IIW/FIPTIW){p_end}
+{synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
+{synopt:{opt base:line(entry|event)}}whether the first visit is study entry (default) or a modeled event (IIW/FIPTIW){p_end}
 
 {synoptline}
 {p2colreset}{...}
@@ -156,7 +160,8 @@ for IIW and FIPTIW weights.
 {pmore}
 For {cmd:wtype(iptw)}, {opt visit_cov()} is optional. The visit model is skipped entirely,
 and any {opt visit_cov()} variables are ignored with a note. Other visit-model-only
-options, including {opt stabcov()}, {opt lagvars()}, {opt entry()}, {opt efron}, and {opt nobaseevent}, are
+options, including {opt stabcov()}, {opt lagvars()}, {opt entry()}, {opt efron}, {opt baseline()},
+and the end-of-follow-up specification, are
 not allowed with {cmd:wtype(iptw)} because no visit intensity model is fit.
 
 {pmore}
@@ -254,41 +259,94 @@ distribution carefully in such designs, as late entry can concentrate
 weight on a few early-entering subjects.
 
 {phang}
-{opt nobaseevent} treats each subject's first visit as study entry (risk onset)
-rather than as a modeled event in the visit-intensity Andersen-Gill model. The
-default models every visit, including the baseline, as a recurrent event,
-which means the baseline visit's covariates help predict the baseline visit's
-own occurrence. Under {opt nobaseevent} the modeled events are the follow-up visits
-only -- the intervals (t1,t2], (t2,t3], ... -- so the subject becomes at risk
-for the visit process at the first observed visit. This option is allowed only
-for IIW or FIPTIW weights.
+{bf:One of} {opt censor()}, {opt maxfu()} {bf:or} {opt endatlastvisit} {bf:is required}
+for IIW and FIPTIW weights. They are three ways of saying the same thing: when each
+subject stops being at risk of a visit. There is no default, because no default is safe.
 
 {pmore}
-This has two consequences. First, it removes the circularity of conditioning
-the baseline visit on baseline covariates; when {opt lagvars()} is also used,
-the baseline measurement then legitimately predicts the {it:second} visit
-rather than itself. Second, subjects with only one visit are no longer an
-error: they contribute a single baseline row (IIW weight 1) and supply no
-event to the intensity model. At least one subject must still have two or
-more visits so the model has events to fit.
+The Andersen-Gill visit-intensity model needs each subject's observation
+{it:window}, not merely the intervals between their visits. Buzkova and Lumley
+(2007) write the at-risk process as xi_i(t) = I(C_i > t), with C_i the drop-out
+time or end of follow-up; it is C_i, not the last visit, that decides who is in
+the risk set at time t. Before version 2.0.0 this command built intervals only
+between observed visits, so every subject silently left the risk set at their
+own last visit -- which made risk-set membership a function of the very visit
+process being modeled. On a known-truth simulation that attenuated the
+visit-intensity coefficient by about a quarter, and since the weights are
+exp(-xb), the error propagated into every downstream estimate.
+
+{phang}
+{opt censor(varname)} gives each subject's end of follow-up: administrative
+censoring, death, or loss to follow-up. It must be constant within {opt id()} and
+must not be earlier than the subject's last observed visit. This is the usual
+choice for registry and EHR cohorts, where follow-up ends at different times for
+different people.
+
+{phang}
+{opt maxfu(#)} gives a single end of follow-up shared by every subject. It is the
+convenient form when all subjects are followed for the same length of time. No
+visit may occur after it.
+
+{phang}
+{opt endatlastvisit} declares that follow-up genuinely ends at each subject's
+last visit -- that they were at risk of another visit right up to their final
+one, and not for one moment afterwards. This is the pre-2.0.0 behavior. It is
+rarely the right description of an observational cohort, and it is never the
+right description of one in which people are lost to follow-up.
 
 {pmore}
-{opt nobaseevent} changes the fitted intensity model and therefore the
-weights, so the default behavior is retained for backward compatibility unless
-you request it. When {opt nobaseevent} is specified, {opt entry()} is ignored
--- the first visit defines risk onset.
+For each subject an interval (last visit, end of follow-up] with no event is
+added to the model's data before fitting. It carries the covariate values in
+effect when the subject was last seen; a variable named in {opt lagvars()} is
+lagged correctly across it. These rows exist only inside the model -- no row is
+added to your data, and no weight is computed for them.
+
+{phang}
+{opt baseline(entry|event)} controls whether each subject's first visit is study
+entry or a modeled event.
 
 {pmore}
-{bf:Recommendation.} For most observational designs in which the baseline
-visit is an enrollment event common to everyone -- registry cohorts, EHR
-extracts, and similar non-protocol data -- {opt nobaseevent} is the more
-defensible choice, because the timing of the baseline visit is not part of the
-informative observation process being corrected. Modeling the baseline visit
-as a recurrent event (the default) lets its covariates predict its own
-occurrence, which is circular; {opt nobaseevent} removes that circularity and is
-the recommended specification whenever the baseline visit is study entry rather
-than a clinically triggered follow-up visit. Retain the default only when the
-first observed visit is itself part of the modeled visit process.
+{opt baseline(entry)}, the default, treats the first visit as study entry (risk
+onset) rather than as an event in the Andersen-Gill model. The modeled events are
+the follow-up visits only -- the intervals (t1,t2], (t2,t3], ... -- so the
+subject becomes at risk for the visit process at the first observed visit. This
+removes the circularity of conditioning the baseline visit on baseline
+covariates; when {opt lagvars()} is also used, the baseline measurement then
+legitimately predicts the {it:second} visit rather than itself. Subjects with
+only one visit are not an error: they contribute a baseline row (IIW weight 1)
+and, given an end of follow-up, an at-risk interval running out to it. At least
+one subject must still have two or more visits, so the model has events to fit.
+Under {opt baseline(entry)}, {opt entry()} is ignored -- the first visit defines
+risk onset.
+
+{pmore}
+{opt baseline(event)} models every visit, including the baseline, as a recurrent
+event. This was the default before 2.0.0. Use it only when the first observed
+visit is itself part of the modeled visit process -- that is, when it was
+clinically triggered rather than an enrollment event. For registry cohorts, EHR
+extracts, and similar non-protocol data, the timing of the baseline visit is not
+part of the informative observation process being corrected, and
+{opt baseline(event)} would let its covariates predict its own occurrence.
+
+{phang}
+{bf:Migrating from 1.x.} Two defaults changed, and the old option name is gone:
+
+{phang2}
+o {cmd:nobaseevent} is now {cmd:baseline(entry)} -- and it is the default, so you
+can simply delete it. The old name is rejected rather than accepted, because
+Stata's {helpb syntax} cannot distinguish an explicit {cmd:baseevent} from an
+omitted option (both leave the macro empty), so keeping it would have meant
+silently ignoring whatever you asked for.{p_end}
+
+{phang2}
+o Code that relied on the old default now needs {cmd:baseline(event)}
+{it:explicitly}.{p_end}
+
+{phang2}
+o Every IIW/FIPTIW call now needs an end-of-follow-up specification. To reproduce
+1.x weights exactly, add {cmd:endatlastvisit} -- but read the note above first:
+it is very likely not what your design actually looks like, and it is the
+specification that attenuates the visit-intensity coefficient.{p_end}
 
 {dlgtab:Reporting}
 
@@ -328,6 +386,16 @@ re-running the weighting step with different options.
 
 {phang}
 {opt nolog} suppresses iteration logs from the Cox and logistic models.
+
+{phang}
+{opt allownonconv:erged} lets {cmd:iivw_weight} proceed when the
+visit-intensity Cox model, the stabilization model, or the propensity model
+fails to converge. By default a nonconverged model is an {bf:error}, not a
+warning. A nonconverged model's linear predictor is not a fitted linear
+predictor, so exp(-xb) is not a weight; letting it reach the data would stamp
+an invalid weighting contract onto the dataset and every downstream command
+would treat it as sound. Use this option only when you intend to inspect the
+failure, never to get past it.
 
 {phang}
 {opt efron} uses the Efron method for handling tied event times in the Andersen-Gill
@@ -457,7 +525,7 @@ falsification check for this assumption, not a proof of it.
 Data must be in long panel format with one row per subject-visit. By
 default each subject must have at least 2 visits for IIW and FIPTIW because
 the visit intensity model treats every visit as a recurrent event and so
-needs repeated visits. Specify {opt nobaseevent} to relax this: the baseline
+needs repeated visits. {opt baseline(entry)}, the default, relaxes this: the baseline
 visit is then treated as study entry, single-visit subjects are retained
 (IIW weight 1), and only one subject need have two or more visits. IPTW-only
 analyses may use a single row per subject. The {opt id()} and {opt time()}
@@ -742,8 +810,23 @@ than the default Breslow method.
 {synopt:{cmd:r(median_weight)}}median weight{p_end}
 {synopt:{cmd:r(p99_weight)}}99th percentile weight{p_end}
 {synopt:{cmd:r(ess)}}effective sample size: (sum w)^2 / sum(w^2){p_end}
+{synopt:{cmd:r(ess_ratio)}}{cmd:r(ess)} divided by {cmd:r(N_weighted)}; 1.0 means no weight variability{p_end}
+{synopt:{cmd:r(N_total)}}rows in the analysis sample{p_end}
+{synopt:{cmd:r(N_weighted)}}rows that carry a weight{p_end}
+{synopt:{cmd:r(n_unweighted)}}rows with no weight, from missing model inputs{p_end}
+{synopt:{cmd:r(n_ids_total)}}subjects in the analysis sample{p_end}
+{synopt:{cmd:r(n_ids_weighted)}}subjects with at least one weighted row{p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
-{synopt:{cmd:r(nobaseevent)}}1 if {opt nobaseevent} was specified, 0 otherwise{p_end}
+{synopt:{cmd:r(nobaseevent)}}1 under {opt baseline(entry)}, 0 under {opt baseline(event)}{p_end}
+{synopt:{cmd:r(censor_mode)}}{cmd:censor}, {cmd:maxfu} or {cmd:lastvisit} (IIW/FIPTIW){p_end}
+{synopt:{cmd:r(censor_var)}}the {opt censor()} variable, if used{p_end}
+{synopt:{cmd:r(maxfu)}}the {opt maxfu()} value, if used{p_end}
+{synopt:{cmd:r(n_censor_rows)}}censoring intervals added to the visit-intensity model{p_end}
+{synopt:{cmd:r(visit_N)}}intervals in the visit-intensity risk set{p_end}
+{synopt:{cmd:r(visit_N_sub)}}subjects in the visit-intensity risk set{p_end}
+{synopt:{cmd:r(stab_N)}}intervals in the stabilization (numerator) model{p_end}
+{synopt:{cmd:r(ps_N)}}subjects in the propensity model (IPTW/FIPTIW){p_end}
+{synopt:{cmd:r(ps_prevalence)}}treatment prevalence in the propensity model's sample{p_end}
 {synopt:{cmd:r(ps_min)}}minimum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(ps_max)}}maximum treatment propensity score (IPTW/FIPTIW){p_end}
 {synopt:{cmd:r(n_ps_extreme)}}extreme propensity-score observations{p_end}
@@ -759,6 +842,9 @@ than the default Breslow method.
 {synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
 {synopt:{cmd:r(contract_version)}}iivw metadata contract version{p_end}
 
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(visit_b)}}visit-intensity Cox coefficients (IIW/FIPTIW){p_end}
+
 {p2col 5 28 32 2: Dataset characteristics}{p_end}
 {synopt:{cmd:_dta[_iivw_weighted]}}flag that weights are current{p_end}
 {synopt:{cmd:_dta[_iivw_id]}}subject identifier used in {opt id()}{p_end}
@@ -770,7 +856,10 @@ than the default Breslow method.
 {synopt:{cmd:_dta[_iivw_tw_var]}}treatment IPTW component variable, when created{p_end}
 {synopt:{cmd:_dta[_iivw_ps_var]}}treatment propensity-score variable, when created{p_end}
 {synopt:{cmd:_dta[_iivw_visit_covars]}}expanded visit-model covariate list for {cmd:iivw_balance}{p_end}
-{synopt:{cmd:_dta[_iivw_baseevent]}}1 if {opt nobaseevent} was specified, 0 otherwise (IIW/FIPTIW){p_end}
+{synopt:{cmd:_dta[_iivw_baseevent]}}1 under {opt baseline(entry)}, 0 under {opt baseline(event)} (IIW/FIPTIW){p_end}
+{synopt:{cmd:_dta[_iivw_censor_mode]}}the end-of-follow-up specification (IIW/FIPTIW){p_end}
+{synopt:{cmd:_dta[_iivw_censor_var]}}the {opt censor()} variable, if used{p_end}
+{synopt:{cmd:_dta[_iivw_maxfu]}}the {opt maxfu()} value, if used{p_end}
 {synopt:{cmd:_dta[_iivw_treat]}}treatment variable, if specified{p_end}
 {synopt:{cmd:_dta[_iivw_treat_covars]}}treatment-model covariates, if specified{p_end}
 {synopt:{cmd:_dta[_iivw_ps_estimand]}}treatment propensity-score estimand, currently {cmd:ate}{p_end}

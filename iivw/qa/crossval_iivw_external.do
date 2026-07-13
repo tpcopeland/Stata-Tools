@@ -183,7 +183,7 @@ if `run_only' == 0 | `run_only' == 1 {
         assert abs(_se[number] - `r_se_number') < 1e-6
         assert abs(_se[size] - `r_se_size') < 1e-6
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(rx2 number size) efron nolog
 
         * Package normalizes _iivw_iw to mean 1; align R's weights to mean 1 too
@@ -355,7 +355,7 @@ if `run_only' == 0 | `run_only' == 3 {
         assert abs(`s_ps_evit200' - `r_ps_evit200') < 1e-7
         assert abs(`s_pr_treat' - `r_pr_treat') < 1e-12
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(cu_high startwt evit100 evit200) ///
             stabcov(cu_high) ///
             treat(cu_high) treat_cov(startwt evit100 evit200) ///
@@ -451,7 +451,7 @@ if `run_only' == 0 | `run_only' == 4 {
         import delimited "`ref_dir'/crossval_iivw_external_dietox.csv", ///
             clear asdouble
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(cu_high startwt evit100 evit200) ///
             stabcov(cu_high) ///
             treat(cu_high) treat_cov(startwt evit100 evit200) ///

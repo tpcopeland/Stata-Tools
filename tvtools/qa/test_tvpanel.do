@@ -130,18 +130,21 @@ capture noisily {
 if _rc test_fail "rc=`=_rc'"
 else test_pass
 
-* ---- TEST 5: exit<=entry dropped; one-row-per-person enforced ----
-run_test "guards: exit<=entry drop, dup id reject"
+* ---- TEST 5: one-day follow-up retained; one-row-per-person enforced ----
+run_test "guards: one-day follow-up retained, dup id rejected"
 capture noisily {
     preserve
-    * add a bad person with exit<=entry
+    * Add a valid one-day person (entry == exit).
     set obs 3
     replace id = 3 if _n==3
     replace entry = `e1' if _n==3
     replace exit  = `e1' if _n==3
     format entry exit %td
     tvpanel using `epi', id(id) entry(entry) exit(exit) exposure(eclass) reference(0) width(91)
-    assert_exact `=r(n_persons)' 2 "exit<=entry person dropped"
+    assert_exact `=r(n_persons)' 3 "one-day person retained"
+    quietly count if id == 3 & period == 0 & start == `e1' & ///
+        stop == `e1' & tv_class == 0
+    assert_exact `=r(N)' 1 "one-day reference row"
     restore
 }
 if _rc test_fail "rc=`=_rc'"

@@ -941,11 +941,11 @@ else {
     }
 }
 
-* Test 6.2: Missing continuous variable value
-* Tests that missing values remain missing after continuous proportioning
+* Test 6.2: Missing interval-total value is malformed
+* Required declared quantities are strict; missing * ratio is not valid data
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 6.2: Missing continuous variable value"
+    display as text _n "Test 6.2: Missing interval-total value"
 }
 
 capture {
@@ -964,17 +964,12 @@ capture {
     end
     format %td event_dt
 
-    tvevent using "${DATA_DIR}/_val_missing_cont.dta", id(id) date(event_dt) ///
+    capture noisily tvevent using "${DATA_DIR}/_val_missing_cont.dta", id(id) date(event_dt) ///
         startvar(start) stopvar(stop) ///
-        continuous(dose) generate(outcome)
-
-    * With type(single), only the pre-event interval remains
-    quietly count
-    assert r(N) == 1
-
-    * Dose should still be missing (missing * ratio = missing)
-    quietly count if missing(dose)
-    assert r(N) == 1
+        total(dose) generate(outcome)
+    local cmdrc = _rc
+    assert `cmdrc' == 498
+    assert _N == 1 & id == 1 & event_dt == 21965
 }
 if _rc == 0 {
     local ++pass_count
@@ -982,7 +977,7 @@ if _rc == 0 {
         display "[OK] 6.2"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: Missing continuous value preserved as missing"
+        display as result "  PASS: Missing interval total rejected transactionally"
     }
 }
 else {
@@ -992,7 +987,7 @@ else {
         display "[FAIL] 6.2|`=_rc'"
     }
     else {
-        display as error "  FAIL: Missing continuous test (error `=_rc')"
+        display as error "  FAIL: Missing interval-total test (error `=_rc')"
     }
 }
 
@@ -1142,4 +1137,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

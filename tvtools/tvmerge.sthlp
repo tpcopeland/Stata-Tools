@@ -43,7 +43,10 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopt:{opt fr:ames(namelist)}}read inputs from named frames instead of files{p_end}
 
 {syntab:Exposure types}
-{synopt:{opt con:tinuous(namelist)}}continuous exposure variables{p_end}
+{synopt:{opt ra:te(namelist)}}rates; unchanged when intervals split{p_end}
+{synopt:{opt tot:al(namelist)}}interval totals; apportioned by inclusive days{p_end}
+{synopt:{opt cum:ulative(namelist)}}row-start cumulative histories; carried unchanged{p_end}
+{synopt:{opt con:tinuous(namelist)}}deprecated alias for {cmd:total()}{p_end}
 
 {syntab:Output naming}
 {synopt:{opt gen:erate(namelist)}}new names for exposure variables (one per dataset){p_end}
@@ -57,6 +60,7 @@ frames via {opt frames()} (see below); supply one or the other, not both.
 {synopt:{opt frameo:ut(name)}}place result in a frame; leave current data intact{p_end}
 {synopt:{opt replace}}overwrite existing file or frame{p_end}
 {synopt:{opt keep(varlist)}}additional source variables to retain{p_end}
+{synopt:{opt dropi:nvalid}}explicitly remove malformed required rows{p_end}
 
 {syntab:Diagnostics and validation}
 {synopt:{opt check}}display coverage diagnostics{p_end}
@@ -106,7 +110,8 @@ of exposure periods. The command creates all possible overlapping combinations
 between datasets (cartesian product).
 
 {pstd}
-{bf:Exposure types}: {cmd:tvmerge} handles two types of exposures:
+{bf:Exposure types}: {cmd:tvmerge} distinguishes categorical exposures and
+three continuous-quantity algebras:
 
 {phang}
 {bf:Categorical exposures} (default): Creates cartesian product of all exposure
@@ -114,13 +119,21 @@ combinations. Each unique combination of exposure values across datasets becomes
 a separate period.
 
 {phang}
-{bf:Continuous exposures}: Treats exposure as a rate per day. The exposure value
-is prorated proportionally when intervals are split during merging.
+{bf:Rates}: amounts per day, unchanged when rows are split.
+
+{phang}
+{bf:Interval totals}: amounts attributable to one closed source row, apportioned
+by inclusive overlap days so the pieces sum to the source total.
+
+{phang}
+{bf:Cumulative histories}: amounts known at row start, carried unchanged when
+that row is split. See {help tvtools##contracts:data contracts}.
 
 {pstd}
-{bf:Important}: {cmd:tvmerge} replaces the dataset currently in memory with the merged
-result. Use {opt saveas()} to save results to a file, or load your original data
-from a saved file before running if you need to preserve it.
+{bf:Important}: By default, {cmd:tvmerge} replaces the dataset currently in
+memory with the merged result. {opt frameout()} instead places the result in a
+named frame and leaves current data intact. {opt saveas()} additionally writes
+the result to disk.
 
 
 {marker options}{...}
@@ -146,6 +159,11 @@ in the same order as the datasets in the command line.
 {opt exposure(namelist)} specifies the exposure variables for all datasets,
 listed in the same order as the datasets in the command line.
 
+{pstd}
+Within each positional source, the variables assigned to {opt id()},
+{opt start()}, {opt stop()}, and its positional {opt exposure()} must be
+distinct. Role conflicts are rejected before any source file is opened.
+
 
 {dlgtab:Input}
 
@@ -160,10 +178,30 @@ positional file list or {opt frames()}, not both. All other options ({opt start(
 {dlgtab:Exposure types}
 
 {phang}
-{opt continuous(namelist)} specifies which exposures should be treated as
-continuous (rates per day) rather than categorical. You can specify either
-variable names or dataset positions (1, 2, 3, etc.). Continuous exposure values
-are prorated proportionally when intervals are split during merging.
+{opt rate(namelist)} specifies rates. Values remain invariant under interval
+slicing. Specify exposure variable names or positions (1, 2, 3, etc.).
+
+{phang}
+{opt total(namelist)} specifies interval totals. A total is multiplied by the
+ratio of inclusive output days to inclusive source-row days whenever a merge
+boundary splits its source row. Because overlapping rows can allocate the same
+source total more than once, {cmd:tvmerge} rejects any input overlap when
+{opt total()} (or its legacy alias) is declared; resolve source overlaps first.
+
+{phang}
+{opt cumulative(namelist)} specifies cumulative histories measured at row
+start; values are carried unchanged when a merge boundary splits
+the row. When a source variable carries {cmd:[tvtools_quantity]}, the matching
+algebra option is required; omission, disagreement, or an unknown metadata
+value is
+rejected. Every cumulative source variable must also carry
+{cmd:char varname[tvtools_history_point] "start"}; missing or different
+history metadata is rejected.
+
+{phang}
+{opt continuous(namelist)} is a deprecated compatibility alias for
+{opt total()}. It retains the released proportional-allocation behavior and
+prints a migration warning. A variable may appear in only one algebra list.
 
 
 {dlgtab:Output naming}
@@ -172,6 +210,11 @@ are prorated proportionally when intervals are split during merging.
 {opt generate(namelist)} specifies new names for exposure variables in the output
 dataset. Provide exactly one name per dataset, in the same order as the
 datasets. This option is mutually exclusive with {opt prefix()}.
+
+{pmore}
+Names must be unique and cannot collide with {opt id()}, the output bounds, or
+any retained {opt keep()} name after its {cmd:_ds#} suffix is applied. All
+collisions are rejected before source data are loaded.
 
 {pmore}
 When {opt generate()} is {it:not} given and two or more inputs carry the same
@@ -183,8 +226,9 @@ note, instead of erroring. To skip the rename entirely, give each
 
 {phang}
 {opt prefix(string)} adds a prefix to all exposure variable names in the output. For
-example, {cmd:prefix(exp_)} would create variables named exp1, exp2, etc. This
-option is mutually exclusive with {opt generate()}.
+example, exposures {cmd:drug_class} and {cmd:benzo} with {cmd:prefix(exp_)} become
+{cmd:exp_drug_class} and {cmd:exp_benzo}. This option is mutually exclusive with
+{opt generate()}.
 
 {phang}
 {opt startname(string)} specifies the name for the start date variable in the output
@@ -223,7 +267,19 @@ datasets. These variables are included in the output dataset with _ds#
 suffixes (where # is the dataset number) to distinguish variables from
 different sources. For example, if you specify {cmd:keep(dose)}, the output will
 contain dose_ds1, dose_ds2, and so on. The ID variable, start and stop date
-variables, and exposure variables are always kept and do not receive suffixes.
+variables, and exposure variables are always kept and do not receive
+suffixes. Do not repeat any of those structural variables in
+{opt keep()}. All derived {cmd:_ds#} names are validated before source data
+are opened. Final duplicate removal compares the complete output row, including
+every
+retained payload; rows that differ in requested payload are preserved.
+
+{phang}
+{opt dropinvalid} explicitly removes source rows with a missing ID, missing or
+fractional daily bound, reversed bounds, or missing required exposure. The
+default is strict and returns error 498 without changing the caller's
+data. After a successful {opt dropinvalid} run, exact aggregate and per-dataset counts
+are stored in {cmd:r()}; strict runs exit before posting stored results.
 
 
 {dlgtab:Diagnostics and validation}
@@ -234,16 +290,16 @@ average periods per person, maximum periods per person, and total merged
 intervals.
 
 {phang}
-{opt validatecoverage} checks for gaps in person-time coverage. Gaps larger than
-1 day are reported. This is useful for ensuring that your merge has not
-inadvertently created discontinuous exposure histories. Any gaps found are
-listed showing the ID, start and stop dates, and gap size.
+{opt validatecoverage} checks the running union of each person's intervals for
+gaps. A start more than one day after the maximum prior stop is a gap. This
+running-maximum rule remains correct for nested and crossing rows. The count is
+returned in {cmd:r(n_gaps)}.
 
 {phang}
-{opt validateoverlap} checks for unexpected overlapping periods within the same
-person. Overlaps occur when a period starts before the previous period ends. Any
-overlaps found are listed showing the ID and the overlapping periods. This can
-indicate data quality issues or unintended merge results.
+{opt validateoverlap} evaluates every active prior interval within person and
+flags each overlapping pair whose complete exposure vector is identical. It
+therefore detects overlaps hidden behind nested rows. The pair count is returned
+in {cmd:r(n_overlaps)}.
 
 {phang}
 {opt summarize} displays summary statistics (min, max, mean, percentiles) for the
@@ -255,7 +311,9 @@ ids across the inputs) and records entering versus leaving the merge, with the
 difference. Persons can drop when {opt force} merges datasets with non-matching
 ids. The table is returned in the matrix {cmd:r(flow)} (rows {cmd:persons} and
 {cmd:records}; columns {cmd:in}, {cmd:out}, {cmd:dropped}) for STROBE/RECORD-PE
-reporting. It is a pure side channel and does not change the output dataset.
+reporting. It is a pure side channel and does not change the output
+dataset. The same matrix is returned automatically whenever {opt dropinvalid} or
+{opt force} removes rows or IDs, even if {opt flow} was omitted.
 
 {phang}
 {opt verbose} displays individual IDs and dates when {cmd:validatecoverage}
@@ -302,19 +360,21 @@ representing all combinations.
 {bf:Time period validity}
 
 {pstd}
-All input datasets must have valid time periods where start <= stop. Records
-with invalid periods (start > stop) are automatically excluded with a warning
-message. Point-in-time observations (where start = stop) are valid; for
-example, lab measurements or clinic visits that occur on a single day.
+All input datasets must have integer daily bounds with start <=
+stop. Point-in-time observations (where start = stop) are valid; for example, lab
+measurements or clinic visits that occur on a single day. Missing, fractional,
+or reversed bounds cause error 498 by default. Specify {opt dropinvalid} to
+remove those rows explicitly and receive exact attrition counts.
 
 
 {pstd}
 {bf:Missing values}
 
 {pstd}
-Missing exposure values are retained by default and appear in the output
-dataset. Missing date values will cause records to be excluded (they cannot
-define valid time periods).
+Missing IDs, bounds, or required exposure values cause error 498 by default and
+leave the caller's data unchanged. Specify {opt dropinvalid} to remove malformed
+rows explicitly; the command then returns aggregate and per-dataset counts and
+the mandatory flow matrix.
 
 
 {pstd}
@@ -328,7 +388,8 @@ multiple datasets. The ID variable is not suffixed because it represents the
 same entity across all datasets. The output start and stop date variables are
 not suffixed because they represent the merged time intervals, not
 source-specific values. Exposure variables are renamed according to
-{opt generate()}, {opt prefix()}, or default names (exp1, exp2, etc.).
+{opt generate()}, {opt prefix()}, or their original source names. Repeated
+original names are automatically suffixed by input position.
 
 {pstd}
 {bf:Performance considerations}
@@ -382,24 +443,15 @@ First, create time-varying datasets from the exposure episode files:
 
 {phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) generate(drug_class) ///}{p_end}
 {phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
-
-{phang2}{cmd:. * Rename exposure (tvmerge requires unique names per dataset)}{p_end}
-{phang2}{stata "use _data/tv_antidep.dta, clear":. use _data/tv_antidep.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure drug_class":. rename tv_exposure drug_class}{p_end}
-{phang2}{stata "save _data/tv_antidep.dta, replace":. save _data/tv_antidep.dta, replace}{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
 {phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) generate(benzo) ///}{p_end}
 {phang3}{cmd:saveas(_data/tv_benzo.dta) replace}{p_end}
-
-{phang2}{stata "use _data/tv_benzo.dta, clear":. use _data/tv_benzo.dta, clear}{p_end}
-{phang2}{stata "rename tv_exposure benzo":. rename tv_exposure benzo}{p_end}
-{phang2}{stata "save _data/tv_benzo.dta, replace":. save _data/tv_benzo.dta, replace}{p_end}
 
 {pstd}
 Now merge the two time-varying datasets created by tvexpose:
@@ -548,8 +600,8 @@ already created):
 {phang3}{cmd:prefix(exp_)}{p_end}
 
 {pstd}
-This creates variables named exp_1 (antidepressant class) and exp_2
-(benzodiazepine) in the output.
+This creates variables named {cmd:exp_drug_class} and {cmd:exp_benzo} in the
+output.
 
 
 {pstd}
@@ -614,7 +666,7 @@ analysis:
 
 
 {pstd}
-{bf:Example 10: Continuous exposure merging}
+{bf:Example 10: Rate exposure merging}
 
 {pstd}
 Merge a categorical antidepressant variable with continuous DDD rates:
@@ -622,14 +674,14 @@ Merge a categorical antidepressant variable with continuous DDD rates:
 {phang2}{cmd:. * Assume tv_antidep.dta has categorical drug_class}{p_end}
 {phang2}{cmd:. * and tv_ddd.dta has continuous DDD rates per day}{p_end}
 
-{phang2}{stata "tvmerge _data/tv_antidep _data/tv_ddd, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class ddd_rate) continuous(ddd_rate)":. tvmerge _data/tv_antidep _data/tv_ddd, id(id) ///}{p_end}
+{phang2}{stata "tvmerge _data/tv_antidep _data/tv_ddd, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class ddd_rate) rate(ddd_rate)":. tvmerge _data/tv_antidep _data/tv_ddd, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class ddd_rate) ///}{p_end}
-{phang3}{cmd:continuous(ddd_rate)}{p_end}
+{phang3}{cmd:rate(ddd_rate)}{p_end}
 
 {pstd}
-This creates variables: drug_class (categorical) and ddd_rate (rate per day,
-prorated to each time slice).
+This creates variables {cmd:drug_class} (categorical) and {cmd:ddd_rate} (rate
+per day). The rate remains unchanged when merge boundaries split a source row.
 
 
 {pstd}
@@ -663,14 +715,31 @@ ignored.
 {synopt:{cmd:r(mean_periods)}}mean periods per person{p_end}
 {synopt:{cmd:r(max_periods)}}maximum periods for any person{p_end}
 {synopt:{cmd:r(N_datasets)}}number of datasets merged{p_end}
-{synopt:{cmd:r(n_continuous)}}number of continuous exposures (if continuous() used){p_end}
+{synopt:{cmd:r(n_rate)}}number of rate variables{p_end}
+{synopt:{cmd:r(n_total)}}number of interval-total variables{p_end}
+{synopt:{cmd:r(n_cumulative)}}number of cumulative-history variables{p_end}
+{synopt:{cmd:r(n_continuous)}}number of totals declared through legacy {cmd:continuous()}{p_end}
 {synopt:{cmd:r(n_categorical)}}number of categorical exposures{p_end}
+{synopt:{cmd:r(n_invalid)}}malformed source rows detected{p_end}
+{synopt:{cmd:r(n_invalid_id)}}rows with missing IDs{p_end}
+{synopt:{cmd:r(n_invalid_dates)}}rows with missing or fractional daily bounds{p_end}
+{synopt:{cmd:r(n_invalid_order)}}rows with reversed bounds{p_end}
+{synopt:{cmd:r(n_invalid_exposure)}}rows with missing required exposure values{p_end}
+{synopt:{cmd:r(n_invalid_ds#)}}malformed rows in source dataset #{p_end}
+{synopt:{cmd:r(n_input_overlaps)}}input rows overlapping a running prior maximum{p_end}
+{synopt:{cmd:r(n_input_overlaps_ds#)}}input overlaps in source dataset #{p_end}
+{synopt:{cmd:r(n_gaps)}}output coverage gaps (zero unless validation finds any){p_end}
+{synopt:{cmd:r(n_overlaps)}}identical-vector output overlap pairs{p_end}
+{synopt:{cmd:r(n_duplicates_dropped)}}full-row duplicates removed{p_end}
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(datasets)}}list of datasets merged{p_end}
 {synopt:{cmd:r(exposure_vars)}}names of exposure variables in output{p_end}
-{synopt:{cmd:r(continuous_vars)}}continuous exposure variable names{p_end}
+{synopt:{cmd:r(rate_vars)}}rate variable names{p_end}
+{synopt:{cmd:r(total_vars)}}interval-total variable names{p_end}
+{synopt:{cmd:r(cumulative_vars)}}cumulative-history variable names{p_end}
+{synopt:{cmd:r(continuous_vars)}}legacy {cmd:continuous()} aliases (totals){p_end}
 {synopt:{cmd:r(categorical_vars)}}names of categorical exposure variables{p_end}
 {synopt:{cmd:r(startname)}}name of start date variable in output{p_end}
 {synopt:{cmd:r(stopname)}}name of stop date variable in output{p_end}

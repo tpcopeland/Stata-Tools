@@ -22,15 +22,13 @@ DESCRIPTION:
     MODELS: formats one or more stored component-model refits.
 
 SYNTAX:
-    gcomptab, xlsx(string) sheet(string) [ci(string) effect(string) title(string)
-              labels(string) decimal(integer) font(string) fontsize(integer)
-              borderstyle(string) zebra footnote(string) open boldp(real)
-              highlight(real)
-              doseresponse strategylabels(string) expyears(numlist)
-              reference(integer) nord]
+    Mediation:    gcomptab, xlsx(string) sheet(string) [options]
+    Dose response:gcomptab, xlsx(string) sheet(string) [doseresponse options]
+    Models:       gcomptab, models [xlsx()/sheet()] [markdown() csv() display]
 
-    xlsx:    Required. Excel file name (requires .xlsx suffix)
-    sheet:   Required. Excel sheet name
+    xlsx/sheet are required for mediation and dose-response. Models mode needs
+    at least one of xlsx(), markdown(), csv(), or display; sheet defaults to
+    "Models" when xlsx() is supplied.
     ci:      CI type: normal, percentile, bc, or bca (default: normal)
     effect:  Label for effect column (mediation default "Estimate";
              dose-response default "Risk")
@@ -150,6 +148,7 @@ capture noisily {
     if `"`headercolor'"' == "" local headercolor "219 229 241"
     if `"`zebracolor'"' == "" local zebracolor "237 242 249"
 	if "`font'" == "" local font "Arial"
+	_gcomp_validate_path `"`font'"' "font()"
 	if "`borderstyle'" == "" local borderstyle "thin"
 	if `decimal' < 1 | `decimal' > 6 {
 		noisily display as error "decimal()/digits() must be between 1 and 6"
@@ -260,9 +259,7 @@ quietly {
     local font "`r(font)'"
     local borderstyle "`r(borderstyle)'"
     local _hborder "`r(hborder)'"
-    local n_cols = r(n_cols)
-
-    _gcomptab_extract, ci(`"`ci'"') ncols(`n_cols')
+    _gcomptab_extract, ci(`"`ci'"')
     local has_cde = r(has_cde)
     local N_effects = r(N_effects)
     local tce = r(tce)
@@ -392,9 +389,9 @@ program define _gcomptab_validate, rclass
     tempname eb ese
     matrix `eb' = e(b)
     local n_cols = colsof(`eb')
-    if `n_cols' < 4 {
+    if rowsof(`eb') != 1 | `n_cols' < 4 {
         noisily display as error "Unexpected matrix dimensions from gcomp"
-        noisily display as error "Expected named mediation effects, found `n_cols' columns"
+        noisily display as error "Expected a one-row matrix containing named mediation effects"
         exit 198
     }
     foreach _col in tce nde nie pm {
@@ -404,6 +401,7 @@ program define _gcomptab_validate, rclass
             exit 198
         }
     }
+    local _b_has_cde = (colnumb(`eb', "cde") != .)
 
     capture confirm matrix e(se)
     if _rc != 0 {
@@ -411,9 +409,9 @@ program define _gcomptab_validate, rclass
         exit 119
     }
     matrix `ese' = e(se)
-    if rowsof(`ese') != 1 | colsof(`ese') != `n_cols' {
+    if rowsof(`ese') != 1 | colsof(`ese') < 4 {
         noisily display as error "e(se) matrix has unexpected dimensions"
-        noisily display as error "Expected 1 x `n_cols', found " rowsof(`ese') " x " colsof(`ese')
+        noisily display as error "Expected one row containing named mediation effects"
         exit 198
     }
     foreach _col in tce nde nie pm {
@@ -422,6 +420,12 @@ program define _gcomptab_validate, rclass
             noisily display as error "gcomp results may be from an incompatible version"
             exit 198
         }
+    }
+    local _se_has_cde = (colnumb(`ese', "cde") != .)
+    if `_se_has_cde' != `_b_has_cde' {
+        noisily display as error "e(b) and e(se) disagree on optional column 'cde'"
+        noisily display as error "gcomp results may be from an incompatible version"
+        exit 198
     }
 
     if !strmatch("`xlsx'", "*.xlsx") {
@@ -467,7 +471,7 @@ end
 capture program drop _gcomptab_extract
 program define _gcomptab_extract, rclass
     version 16.0
-    syntax, CI(string) NCOLS(integer)
+    syntax, CI(string)
 
     tempname eb ese ci_mat
     matrix `eb' = e(b)
@@ -480,9 +484,9 @@ program define _gcomptab_extract, rclass
         exit 111
     }
     matrix `ci_mat' = e(ci_`ci')
-    if rowsof(`ci_mat') != 2 | colsof(`ci_mat') != `ncols' {
+    if rowsof(`ci_mat') != 2 | colsof(`ci_mat') < 4 {
         noisily display as error "CI matrix ci_`ci' has unexpected dimensions"
-        noisily display as error "Expected 2 x `ncols', found " rowsof(`ci_mat') " x " colsof(`ci_mat')
+        noisily display as error "Expected two rows containing named mediation effects"
         exit 198
     }
     foreach _col in tce nde nie pm {
@@ -491,6 +495,13 @@ program define _gcomptab_extract, rclass
             noisily display as error "gcomp results may be from an incompatible version"
             exit 198
         }
+    }
+    local _b_has_cde = (colnumb(`eb', "cde") != .)
+    local _ci_has_cde = (colnumb(`ci_mat', "cde") != .)
+    if `_ci_has_cde' != `_b_has_cde' {
+        noisily display as error "e(b) and ci_`ci' disagree on optional column 'cde'"
+        noisily display as error "gcomp results may be from an incompatible version"
+        exit 198
     }
 
     local tce = `eb'[1, colnumb(`eb', "tce")]
@@ -709,9 +720,11 @@ program define _gcomptab_style_excel
 
         mata: `_gc_xl'.set_row_height(1, 1, 30)
         mata: `_gc_xl'.set_column_width(1, 1, 1)
-        mata: `_gc_xl'.set_column_width(2, 2, `=`labelwidth' * 0.9')
+        * Add explicit padding: xl() width units are narrower than one display
+        * character, so a sub-unit multiplier visibly clipped long effect names.
+        mata: `_gc_xl'.set_column_width(2, 2, `=`labelwidth' * 1.1 + 1')
         mata: `_gc_xl'.set_column_width(3, 3, 12)
-        mata: `_gc_xl'.set_column_width(4, 4, `=`ciwidth' * 0.85')
+        mata: `_gc_xl'.set_column_width(4, 4, `=`ciwidth' * 1.05 + 1')
         mata: `_gc_xl'.set_column_width(5, 5, 10)
 
         local _varlist "title_col effect_label estimate ci_95 se"
@@ -1482,6 +1495,10 @@ capture noisily {
             local _vn : word `j' of `_cn'
             local _en : word `j' of `_eq'
 			local _identity : word `j' of `_full'
+			* Single-equation models share coefficient rows by the coefficient
+			* stripe itself.  Equation prefixes are estimator internals there;
+			* retaining them would split the same covariate across model columns.
+			if inlist("`cmd`k''", "regress", "logit") local _identity "`_vn'"
 			* Skip all Stata-identified omitted/base-level coefficients.
 			if `_omit`k''[1,`j'] continue
 			* Preserve the full coefficient stripe as identity; use only a numeric
@@ -1702,16 +1719,19 @@ capture noisily {
 	forvalues i=1/`_T' {
 		local _term_width = max(`_term_width', ustrlen(`"`tlab`i''"'))
 	}
-	local _term_width = min(max(`_term_width'+2, 12), 40)
+	local _term_width = min(max(`_term_width'+1, 8), 40)
 	forvalues k=1/`_M' {
-		local _w_est`k' = max(ustrlen(`"`mlab`k'' `scale`k''"')+2, 12)
-		local _w_unc`k' = max(ustrlen(`"`mlab`k'' `_unchdr'"')+2, 14)
-		local _w_p`k' = max(ustrlen(`"`mlab`k'' p"')+2, 8)
+		* The model label spans the complete model group in row 2.  Using that
+		* merged label to size every member column needlessly triples its width
+		* and can force the worksheet onto a second printed page.
+		local _w_est`k' = max(ustrlen(`"`scale`k''"')+1, 10)
+		local _w_unc`k' = max(ustrlen(`"`_unchdr'"')+2, 14)
+		local _w_p`k' = 7
 		local _w_compact`k' = `_w_est`k''
 		forvalues i=1/`_T' {
-			local _w_est`k' = max(`_w_est`k'', ustrlen(`"`est`i'_`k''"')+2)
-			local _w_unc`k' = max(`_w_unc`k'', ustrlen(`"`unc`i'_`k''"')+2)
-			local _w_p`k' = max(`_w_p`k'', ustrlen(`"`p`i'_`k''"')+2)
+			local _w_est`k' = max(`_w_est`k'', ustrlen(`"`est`i'_`k''"')+1)
+			local _w_unc`k' = max(`_w_unc`k'', ustrlen(`"`unc`i'_`k''"')+1)
+			local _w_p`k' = max(`_w_p`k'', ustrlen(`"`p`i'_`k''"')+1)
 			local _w_compact`k' = max(`_w_compact`k'', ///
 				ustrlen(strtrim(`"`est`i'_`k'' `unc`i'_`k''"'))+2)
 		}
@@ -1872,6 +1892,21 @@ capture noisily {
 			exit `_gc_xl_rc'
 		}
 		capture mata: mata drop `_gc_models_xl'
+		* Stata 17's xl() row-height finalizer can drop the top-left value
+		* of a merged title row while leaving the shared string orphaned.
+		* Reassert the public title contract after xl() has closed the book.
+		if `"`title'"'!="" {
+			capture noisily {
+				putexcel set `"`xlsx'"', modify sheet(`"`sheet'"')
+				putexcel A1 = `"`title'"', bold
+				putexcel close
+			}
+			if _rc {
+				local _gc_title_rc = _rc
+				noisily display as error "models: Excel title finalization failed (rc=`_gc_title_rc')"
+				exit `_gc_title_rc'
+			}
+		}
     }
 
 	* ===================== Markdown / CSV =====================

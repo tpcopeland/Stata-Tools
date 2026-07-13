@@ -13,9 +13,7 @@ local fail_count = 0
 * === Bootstrap install ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 local testdir "`c(tmpdir)'"
 
@@ -43,8 +41,15 @@ capture noisily {
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
         sim(50) samples(3) seed(1) savemodels
+    local _model_names "`e(model_names)'"
+    local _nmodels : word count `_model_names'
+    local _model1 : word 1 of `_model_names'
+    local _model2 : word 2 of `_model_names'
     assert e(N_models) == 2
-    assert "`e(model_names)'"   == "_gcomp_m_1 _gcomp_m_2"
+    assert `_nmodels' == 2
+    assert "`_model1'" != ""
+    assert "`_model2'" != ""
+    assert "`_model1'" != "`_model2'"
     assert "`e(model_cmds)'"    == "logit logit"
     assert "`e(model_depvars)'" == "m y"
     assert "`e(model_eq_1)'" == "x c"
@@ -68,10 +73,11 @@ capture noisily {
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
         sim(50) samples(3) seed(1) savemodels
+    local _model1 : word 1 of `e(model_names)'
     logit m x c
     tempname ref
     matrix `ref' = e(b)
-    estimates restore _gcomp_m_1
+    estimates restore `_model1'
     tempname got
     matrix `got' = e(b)
     assert mreldif(`ref', `got') < 1e-10
@@ -212,8 +218,9 @@ capture noisily {
     local _before "`e(model_names)'"
     quietly gcomptab, models display
     local _after "`e(model_names)'"
+    local _nmodels : word count `_after'
     assert "`_before'" == "`_after'"
-    assert "`_after'" == "_gcomp_m_1 _gcomp_m_2"
+    assert `_nmodels' == 2
     * a second chained call must still work
     gcomptab, models display se nopvalue keep(x c)
     assert r(N_rows) == 2
@@ -268,7 +275,8 @@ capture noisily {
     quietly gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
         sim(50) samples(3) seed(1) savemodels
-    gcomptab, models usemodels(_gcomp_m_2) display
+    local _model2 : word 2 of `e(model_names)'
+    gcomptab, models usemodels(`_model2') display
     assert r(N_models) == 1
     assert r(N_rows) == 4
 }
@@ -366,6 +374,8 @@ display as text "test_models.do: `pass_count'/`test_count' passed, `fail_count' 
 display as text "{hline 60}"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
+    display "RESULT: test_models tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 9
 }
 display as result "ALL TESTS PASSED"
+display "RESULT: test_models tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

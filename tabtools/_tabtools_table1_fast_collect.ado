@@ -1,4 +1,4 @@
-*! _tabtools_table1_fast_collect Version 1.9.7  2026/07/10
+*! _tabtools_table1_fast_collect Version 1.9.8  2026/07/13
 *! Fast pre-finalization aggregation helper for table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -542,52 +542,63 @@ program define _tabtools_table1_fast_collect, rclass
                     if `_den' > 0 & `_den' < . local smd`i' = (`_p1' - `_p2') / `_den'
                 }
                 else if inlist("`typ'", "cat", "cate") {
-                    local _ssq 0
                     quietly levelsof `v' if `touse' & `by' < . & `v' < ., local(_smd_lvls)
-                    foreach _clv of local _smd_lvls {
-                        if `has_wt' {
-                            local _den_if1 "`touse' & `by' == `level1' & `v' < ."
-                            local _den_if2 "`touse' & `by' == `level2' & `v' < ."
-                            quietly summarize `wt' if `_den_if1'
-                            local _tot1 = r(sum)
-                            quietly summarize `wt' if `_den_if2'
-                            local _tot2 = r(sum)
-                            quietly summarize `wt' if `touse' & `by' == `level1' & `v' == `_clv'
-                            local _num1 = r(sum)
-                            quietly summarize `wt' if `touse' & `by' == `level2' & `v' == `_clv'
-                            local _num2 = r(sum)
-                        }
-                        else if `has_fw' {
-                            local _den_if1 "`touse' & `by' == `level1' & `v' < ."
-                            local _den_if2 "`touse' & `by' == `level2' & `v' < ."
-                            quietly summarize `fwvar' if `_den_if1', meanonly
-                            local _tot1 = r(sum)
-                            quietly summarize `fwvar' if `_den_if2', meanonly
-                            local _tot2 = r(sum)
-                            quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' == `_clv', meanonly
-                            local _num1 = r(sum)
-                            quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' == `_clv', meanonly
-                            local _num2 = r(sum)
-                        }
-                        else {
-                            quietly count if `touse' & `by' == `level1' & `v' < .
-                            local _tot1 = r(N)
-                            quietly count if `touse' & `by' == `level2' & `v' < .
-                            local _tot2 = r(N)
-                            quietly count if `touse' & `by' == `level1' & `v' == `_clv'
-                            local _num1 = r(N)
-                            quietly count if `touse' & `by' == `level2' & `v' == `_clv'
-                            local _num2 = r(N)
-                        }
-                        if `_tot1' > 0 & `_tot2' > 0 {
-                            local _p1 = `_num1' / `_tot1'
-                            local _p2 = `_num2' / `_tot2'
-                            local _pavg = (`_p1' + `_p2') / 2
-                            local _den = sqrt(`_pavg' * (1 - `_pavg'))
-                            if `_den' > 0 & `_den' < . local _ssq = `_ssq' + ((`_p1' - `_p2') / `_den')^2
-                        }
+                    local _smd_k : word count `_smd_lvls'
+                    local _tot1 .
+                    local _tot2 .
+                    if `has_wt' {
+                        quietly summarize `wt' if `touse' & `by' == `level1' & `v' < .
+                        local _tot1 = r(sum)
+                        quietly summarize `wt' if `touse' & `by' == `level2' & `v' < .
+                        local _tot2 = r(sum)
                     }
-                    local smd`i' = sqrt(`_ssq')
+                    else if `has_fw' {
+                        quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' < ., meanonly
+                        local _tot1 = r(sum)
+                        quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' < ., meanonly
+                        local _tot2 = r(sum)
+                    }
+                    else {
+                        quietly count if `touse' & `by' == `level1' & `v' < .
+                        local _tot1 = r(N)
+                        quietly count if `touse' & `by' == `level2' & `v' < .
+                        local _tot2 = r(N)
+                    }
+
+                    if `_smd_k' >= 2 & `_tot1' > 0 & `_tot2' > 0 {
+                        local _smd_dims = `_smd_k' - 1
+                        tempname _p1mat _p2mat _catsmd
+                        matrix `_p1mat' = J(1, `_smd_dims', .)
+                        matrix `_p2mat' = J(1, `_smd_dims', .)
+                        forvalues _cj = 1/`_smd_dims' {
+                            local _clv : word `_cj' of `_smd_lvls'
+                            local _num1 0
+                            local _num2 0
+                            if `has_wt' {
+                                quietly summarize `wt' if `touse' & `by' == `level1' & `v' == `_clv'
+                                local _num1 = r(sum)
+                                quietly summarize `wt' if `touse' & `by' == `level2' & `v' == `_clv'
+                                local _num2 = r(sum)
+                            }
+                            else if `has_fw' {
+                                quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' == `_clv', meanonly
+                                local _num1 = r(sum)
+                                quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' == `_clv', meanonly
+                                local _num2 = r(sum)
+                            }
+                            else {
+                                quietly count if `touse' & `by' == `level1' & `v' == `_clv'
+                                local _num1 = r(N)
+                                quietly count if `touse' & `by' == `level2' & `v' == `_clv'
+                                local _num2 = r(N)
+                            }
+                            matrix `_p1mat'[1, `_cj'] = `_num1' / `_tot1'
+                            matrix `_p2mat'[1, `_cj'] = `_num2' / `_tot2'
+                        }
+                        mata: st_numscalar("`_catsmd'", _t1tcfc_cat_smd( ///
+                            st_matrix("`_p1mat'"), st_matrix("`_p2mat'")))
+                        local smd`i' = scalar(`_catsmd')
+                    }
                 }
             }
         }
@@ -909,6 +920,7 @@ end
 capture mata: mata drop _t1tcfc_group_index()
 capture mata: mata drop _t1tcfc_level_index()
 capture mata: mata drop _t1tcfc_wquantile()
+capture mata: mata drop _t1tcfc_cat_smd()
 capture mata: mata drop _t1tcfc_collect_mata()
 
 mata:
@@ -959,6 +971,28 @@ real scalar _t1tcfc_wquantile(real colvector x, real colvector w, real scalar p)
         if (running > target) return(xs[i])
     }
     return(xs[rows(xs)])
+}
+
+real scalar _t1tcfc_cat_smd(real rowvector p1, real rowvector p2)
+{
+    real scalar dims, distance2
+    real rowvector delta
+    real matrix pooled_cov
+
+    dims = cols(p1)
+    if (dims < 1 | cols(p2) != dims) return(.)
+    if (any(p1 :>= .) | any(p2 :>= .)) return(.)
+    if (any(p1 :< 0) | any(p2 :< 0)) return(.)
+
+    pooled_cov = ((diag(p1') - p1' * p1) +
+                  (diag(p2') - p2' * p2)) / 2
+    if (rank(pooled_cov) < dims) return(.)
+
+    delta = p1 - p2
+    distance2 = delta * invsym(pooled_cov) * delta'
+    if (distance2 < 0 & distance2 > -1e-12) distance2 = 0
+    if (distance2 < 0 | distance2 >= .) return(.)
+    return(sqrt(distance2))
 }
 
 void _t1tcfc_collect_mata(

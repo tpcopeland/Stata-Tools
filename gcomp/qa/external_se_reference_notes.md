@@ -1,6 +1,6 @@
 # External Reference Notes for gcomp Point Estimates and SEs
 
-Date: 2026-05-06
+Date: 2026-07-13
 
 Scope: research notes for adversarial QA of `gcomp` point estimates, bootstrap
 standard errors, and bootstrap covariance matrices against comparable R/Python
@@ -238,33 +238,28 @@ Recommended tolerances:
 - Imputation options: external validation must mirror the chained imputation
   cycles and random draws. Do not mix with first-line SE checks.
 
-## Recommended Next QA Additions
+## Implemented External Gates
 
-1. Create a Python-generated CSV of bootstrap reference distributions for the
-   existing `external_mediation_binary.csv`, `external_mediation_continuous.csv`,
-   and `external_timevarying.csv` fixtures. Store one row per analysis/effect:
-   point estimate, bootstrap SD, and optional percentile CI.
-2. Add a Stata `crossval_external_se.do` that runs the same scenarios with
-   `samples(499)` or `samples(999)` and asserts:
-   - `e(b)` columns match Python point estimates within the point tolerances
-   - `e(se)` and `sqrt(vecdiag(e(V)))` match Python bootstrap SDs within SE
-     tolerances
-   - convenience scalars such as `e(se_tce)` match `e(se)` columns
-3. Keep R `mediation` comparison as a separate sanity test, not the hard SE
-   gate.
-4. Add one small OCE custom Python point-estimate fixture after OBE SEs pass.
-   Do not block release on OCE SEs until vector naming and effect definitions
-   are fully pinned down.
-5. Defer MSM, survival, stochastic interventions, ordinal models, and imputation
-   to targeted follow-up fixtures. They need bespoke oracles and should not be
-   conflated with the clean OBE/EOFU SE gate.
+The recommended oracle layers are now executable rather than prospective:
 
-## Bottom Line
+- `crossval_mediation_se.do` consumes the committed statsmodels point, SE, and
+  covariance fixtures for binary and continuous OBE mediation.
+- `crossval_timevarying_se.do` consumes the committed subject-bootstrap EOFU
+  point, SE, and covariance fixtures.
+- `crossval_mediation_extended.do`, `crossval_longitudinal_extended.do`, and
+  `crossval_intervention_imputation.do` cover OCE/specific/linear mediation,
+  survival, dynamic/stochastic interventions, and imputation with bespoke
+  Python oracles.
+- `crossval_gcomp.do` imports `data/r_benchmarks.csv`; it no longer maintains a
+  second rounded copy of the R values in Stata source.
+- `data/generate_timevarying_reference.py` now owns the former provenance-free
+  `timevarying_python_benchmark.csv` fixture.
+- `crossval_fixture_provenance.do` runs every generator in a temporary copy,
+  checks pinned Python/R package versions, and compares generated CSV cells to
+  the committed fixtures without modifying tracked files.
 
-The cleanest adversarial QA path is not to depend primarily on high-level R
-causal packages. Use custom Python/statsmodels as the exact oracle for both
-point estimates and bootstrap SEs in simple, fully specified OBE mediation and
-EOFU time-varying scenarios. Use R `mediation` and `gfoRmula` for triangulation
-and plausibility checks where their estimands align, but treat them as secondary
-references unless their resampling and intervention contracts are explicitly
-matched.
+The custom statsmodels implementations remain the hard numerical oracles. R
+`mediation` remains a secondary triangulation layer because its quasi-Bayesian
+inference is not identical to `gcomp`'s bootstrap. Exact generator commands,
+seeds, versions, methods, and numerical drift tolerances are recorded in
+`data/fixture_manifest.json`.

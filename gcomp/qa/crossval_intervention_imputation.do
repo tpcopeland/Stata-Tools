@@ -15,16 +15,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local data_dir "`qa_dir'/data"
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
-
-capture noisily shell python3 "`data_dir'/generate_intervention_imputation_reference.py"
-if _rc {
-    display as error "Python intervention/imputation reference generation failed"
-    display "RESULT: crossval_intervention_imputation tests=0 pass=0 fail=1 status=FAIL"
-    exit 1
-}
+do "`qa_dir'/_qa_bootstrap.do"
 
 preserve
 import delimited using "`data_dir'/intervention_imputation_reference.csv", clear varnames(1) asdouble

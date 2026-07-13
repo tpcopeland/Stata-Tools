@@ -115,6 +115,81 @@ write.csv(data_sorted[, export_cols],
     file = file.path(outdir, "phenobarb_prepared.csv"),
     row.names = FALSE)
 
+# =============================================================================
+# 2b. EXACT-PARITY reference model
+# =============================================================================
+# The binned model above cannot be reproduced exactly by iivw_weight, and the
+# reason is worth stating: its covariates are *pre-computed* bins of conc.lag.
+# IrregLong builds its lags AFTER appending the maxfu censoring rows, so on a
+# censoring row conc.lag is conc at the subject's last visit. A pre-computed lag
+# copied onto that row instead carries conc from the visit before it -- off by
+# one. Any implementation that lags before appending gets this wrong.
+#
+# So the parity oracle uses conc.lag itself, which BOTH sides derive from the
+# raw conc column: R via lagvars=c("time","conc"), Stata via lagvars(conc). The
+# two censoring rows are then identical by construction, and the Cox
+# coefficients must agree to numerical tolerance -- not merely correlate.
+i_par <- iiw.weights(
+    Surv(time.lag, time, event) ~ conc.lag + cluster(Subject),
+    id = "Subject", time = "time", event = "event",
+    data = data,
+    invariant = c("Subject", "Wt"),
+    lagvars = c("time", "conc"),
+    maxfu = 16 * 24,
+    lagfirst = c(0, 0),
+    first = FALSE
+)
+par_coefs <- coef(i_par$m)
+par_ses <- sqrt(diag(vcov(i_par$m)))
+cat("\nExact-parity Cox model (conc.lag, maxfu = 384):\n")
+print(par_coefs)
+cat("  n intervals:", i_par$m$n, " n events:", i_par$m$nevent, "\n")
+
+write.csv(
+    data.frame(term = names(par_coefs),
+               estimate = as.numeric(par_coefs),
+               se = as.numeric(par_ses),
+               n = i_par$m$n,
+               nevent = i_par$m$nevent),
+    file = file.path(outdir, "phenobarb_parity_coefs.csv"),
+    row.names = FALSE
+)
+
+# ... and the same model under iivw's DEFAULT baseline contract, where the first
+# visit is study entry rather than a modeled event.
+#
+# This is the arm Stata can match to the digit. IrregLong sets the first row's
+# lag to a constant (lagfirst = 0); iivw leaves it missing, since there is no
+# previous visit to lag from. That disagreement only touches the FIRST interval
+# of each subject -- and under baseline(entry) that interval is not a modeled
+# event at all, so the two implementations are then fitting identically
+# constructed data and the coefficients must agree exactly rather than merely
+# closely.
+dc <- addcensoredrows(data, maxfu = 16 * 24,
+                      tinvarcols = which(names(data) %in% c("Subject", "Wt")),
+                      id = "Subject", time = "time", event = "event")
+dc <- lagfn(dc, lagvars = c("time", "conc"), id = "Subject", time = "time",
+            lagfirst = c(0, 0))
+dc <- dc[order(dc$Subject, dc$time), ]
+# Drop each subject's first VISIT row (the censoring rows are not visits).
+firstvisit <- ave(rep(1, nrow(dc)), dc$Subject, FUN = cumsum) == 1
+dc_entry <- dc[!firstvisit, ]
+
+m_entry <- coxph(Surv(time.lag, time, event) ~ conc.lag, data = dc_entry)
+cat("\nExact-parity Cox model, baseline-as-entry (conc.lag, maxfu = 384):\n")
+print(coef(m_entry))
+cat("  n intervals:", m_entry$n, " n events:", m_entry$nevent, "\n")
+
+write.csv(
+    data.frame(term = names(coef(m_entry)),
+               estimate = as.numeric(coef(m_entry)),
+               se = as.numeric(sqrt(diag(vcov(m_entry)))),
+               n = m_entry$n,
+               nevent = m_entry$nevent),
+    file = file.path(outdir, "phenobarb_parity_entry_coefs.csv"),
+    row.names = FALSE
+)
+
 # Export Cox coefficients
 coef_df <- data.frame(
     term = names(cox_coefs),
@@ -135,6 +210,7 @@ write.csv(cox_data[, c("Subject", "time", "time.lag", "conc", "conc.lag",
 cat("\nExported:\n")
 cat("  ", file.path(outdir, "phenobarb_prepared.csv"), "\n")
 cat("  ", file.path(outdir, "phenobarb_cox_coefs.csv"), "\n")
+cat("  ", file.path(outdir, "phenobarb_parity_coefs.csv"), "\n")
 cat("  ", file.path(outdir, "phenobarb_cox_data.csv"), "\n")
 
 # =============================================================================

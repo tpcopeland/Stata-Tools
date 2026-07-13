@@ -18,9 +18,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _g_tv_val_build
 program define _g_tv_val_build
@@ -257,5 +255,7 @@ else {
 display ""
 display as text "Validation summary: `pass_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
+    display "RESULT: validation_timevarying tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
+display "RESULT: validation_timevarying tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

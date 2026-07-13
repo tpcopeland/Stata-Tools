@@ -63,6 +63,8 @@ data may instead be supplied as a named frame via {opt frame()}.
 
 {syntab:Other}
 {synopt:{opth keepvars(varlist)}}master variables carried onto every period row{p_end}
+{synopt:{opt dropinvalid}}remove malformed source rows explicitly{p_end}
+{synopt:{opt verbose}}list up to five malformed rows and reason counts{p_end}
 {synopt:{opt saveas(filename)}}save the panel to disk{p_end}
 {synopt:{opt replace}}allow {opt saveas()} to overwrite{p_end}
 {synopt:{opt noi:sily}}display a build summary{p_end}
@@ -96,7 +98,8 @@ day. {cmd:tvpanel} is the entry point for building that grid before
 {opth id(varname)}, {opth entry(varname)}, {opth exit(varname)} identify the person and the study
 window in the master data (one row per person). {opt id()} must be numeric; encode a
 string identifier first (e.g. {cmd:egen long id2 = group(id)}). {opt entry()} anchors the
-grid.
+grid. The closed window {cmd:entry == exit} is valid one-day follow-up and emits one
+period-0 row.
 
 {phang}
 {opt frame(name)} reads the episode data from a named {help frame:frame} held in
@@ -109,8 +112,8 @@ file. Values must be integers (they become the suffix of the cumulative
 variables and the values of the active-class variable); {opt cumulative()}
 additionally requires non-negative codes, since class values become
 variable-name suffixes. Any value label on this variable is carried onto
-{opt generate()}. Episode {opt start()}/{opt stop()} must be daily {bf:%td} dates, not datetime
-({bf:%tc}); interval arithmetic is in whole days.
+{opt generate()}. Episode {opt start()}/{opt stop()} must contain integer daily-date
+values, not datetime ({bf:%tc}) values; interval arithmetic is in whole days.
 
 {phang}
 {opt width(#)} sets the interval width in days. {cmd:width(91)} (the default) gives the
@@ -141,6 +144,16 @@ strictly before the interval start. See {help tvpanel##semantics:below}.
 {opth keepvars(varlist)} carries master-data variables onto every panel row.
 
 {phang}
+{opt dropinvalid} removes malformed source rows and reports exact counts in
+{cmd:r()}. By default, any missing identifier, missing or fractional date,
+reversed interval, or missing/noninteger exposure class stops with {cmd:r(498)}
+and leaves the master unchanged. Duplicate master identifiers remain an error.
+
+{phang}
+{opt verbose} lists up to five malformed rows and displays counts by reason
+but does not enable row removal; combine it with {opt dropinvalid} to continue.
+
+{phang}
 {opt saveas(filename)} writes the panel to disk and restores the master
 data. {opt replace} permits an existing file to be overwritten.
 
@@ -159,10 +172,14 @@ through its carryover window.
 
 {pstd}
 {bf:Cumulative exposure} is evaluated {bf:as of the interval start}
-(non-anticipating): for each class it sums exposure-days in
+(non-anticipating): for each class it first forms the union of that person's
+closed episode intervals, so nested, crossing, duplicate, and abutting
+same-class episodes never double count a day. It then sums exposure-days in
 {cmd:[episode start, interval start - 1]} and converts to the requested unit. The
 current interval's own exposure is not yet counted, so the value entering
-period {it:k} reflects only history before {it:k}.
+period {it:k} reflects only history before {it:k}. Each cumulative variable has
+{cmd:char var[tvtools_quantity] "cumulative"} and
+{cmd:char var[tvtools_history_point] "start"} for downstream composition.
 
 {pstd}
 {bf:Lagged cumulative exposure} (e.g. cumulative as of {cmd:interval start - 730 days})
@@ -199,6 +216,16 @@ splits. Use {cmd:tvpanel} when the downstream model is an MSM keyed by period; u
 {synopt:{cmd:r(n_persons)}}persons in the panel{p_end}
 {synopt:{cmd:r(n_observations)}}period rows{p_end}
 {synopt:{cmd:r(width)}}interval width in days{p_end}
+{synopt:{cmd:r(n_invalid)}}malformed master plus episode rows removed{p_end}
+{synopt:{cmd:r(n_invalid_master)}}malformed master rows removed{p_end}
+{synopt:{cmd:r(n_invalid_master_id)}}master rows with missing identifiers{p_end}
+{synopt:{cmd:r(n_invalid_master_dates)}}master rows with missing/fractional dates{p_end}
+{synopt:{cmd:r(n_invalid_master_order)}}master rows with exit before entry{p_end}
+{synopt:{cmd:r(n_invalid_episodes)}}malformed episode rows removed{p_end}
+{synopt:{cmd:r(n_invalid_episode_id)}}episode rows with missing identifiers{p_end}
+{synopt:{cmd:r(n_invalid_episode_dates)}}episode rows with missing/fractional dates{p_end}
+{synopt:{cmd:r(n_invalid_episode_order)}}episode rows with stop before start{p_end}
+{synopt:{cmd:r(n_invalid_episode_exposure)}}episode rows with missing/noninteger classes{p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(periodvar)}}name of the period variable{p_end}

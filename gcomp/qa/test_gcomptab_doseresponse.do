@@ -15,9 +15,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture which gcomptab
 assert _rc == 0
@@ -324,5 +322,7 @@ else {
 display ""
 display as text "Dose-response test summary: `pass_count' passed, `fail_count' failed (of `test_count')"
 if `fail_count' > 0 {
+    display "RESULT: test_gcomptab_doseresponse tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 9
 }
+display "RESULT: test_gcomptab_doseresponse tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

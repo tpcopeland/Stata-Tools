@@ -129,11 +129,11 @@ else {
     local ++fail_count
 }
 
-**# T6: after iivw_weight, unweighted reuses metadata and preserves weights
+**# T6: after iivw_weight, endatlastvisit baseline(event) unweighted reuses metadata and preserves weights
 local ++test_count
 capture noisily {
     _setup_unweighted_panel
-    iivw_weight, id(id) time(t) visit_cov(x trt) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x trt) nolog
     local weighted_before : char _dta[_iivw_weighted]
     local weighttype_before : char _dta[_iivw_weighttype]
     local weightvar_before : char _dta[_iivw_weight_var]
@@ -221,7 +221,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_unweighted_panel
-    iivw_weight, id(id) time(t) visit_cov(x trt) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x trt) nolog
     iivw_fit y x, timespec(linear) nolog
     assert "`e(iivw_weighttype)'" == "iivw"
     assert "`e(iivw_unweighted)'" == "0"

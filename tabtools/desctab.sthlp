@@ -57,37 +57,37 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 
 {synoptset 28 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(filename)}}write an Excel workbook. The filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt xlsx(filename)}}write an Excel workbook{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}worksheet name. Default is {cmd:Descriptive}{p_end}
 {synopt:{opt title(string)}}title written to cell A1 and used in console display{p_end}
 {synopt:{opt foot:note(string)}}footnote written below the Excel table{p_end}
-{synopt:{opt compose(string)}}collapse multiple statistics into one cell using a preset or custom template (see below){p_end}
-{synopt:{opt nformats(string)}}override statistic formats using pairs such as {cmd:"count %4.0f mean %5.2f"}{p_end}
-{synopt:{opt digits(#)}}digits for continuous statistics. Default is 2, or the session default set by {cmd:tabtools set digits}{p_end}
-{synopt:{opt pctdigits(#)}}digits for displayed percents in composite cells. Default is 1{p_end}
-{synopt:{opt nintegerfmt(string)}}format for counts and integer totals. Default is {cmd:%12.0fc}{p_end}
-{synopt:{opt pctscale(string)}}percent scale for proportions: {cmd:auto} (default), {cmd:0to1}, or {cmd:0to100}{p_end}
-{synopt:{opt pctsign}}append a percent sign to percent/proportion display values. Compose mode enables this by default{p_end}
+{synopt:{opt compose(string)}}combine statistics with a cell template{p_end}
+{synopt:{opt nformats(string)}}set display formats by statistic{p_end}
+{synopt:{opt digits(#)}}digits for continuous statistics{p_end}
+{synopt:{opt pctdigits(#)}}digits for displayed percents in composite cells{p_end}
+{synopt:{opt nintegerfmt(string)}}format for counts and integer totals{p_end}
+{synopt:{opt pctscale(string)}}choose proportion or percentage scale{p_end}
+{synopt:{opt pctsign}}append percent signs{p_end}
 {synopt:{opt rowtotals}}keep row totals when {opt nototals} is also specified{p_end}
 {synopt:{opt coltotals}}keep column totals when {opt nototals} is also specified{p_end}
 {synopt:{opt nototals}}drop row and column totals labeled {cmd:Total}{p_end}
-{synopt:{opt keep(string)}}keep only rows whose displayed row label matches a listed token{p_end}
-{synopt:{opt drop(string)}}drop rows whose displayed row label matches a listed token. Cannot be combined with {opt keep()}{p_end}
-{synopt:{opt statorder(string)}}display statistics in the specified order, appending any remaining collected statistics afterward{p_end}
-{synopt:{opt statlabels(string)}}custom statistic labels, for example {cmd:"count=N \ mean=Mean"}{p_end}
+{synopt:{opt keep(string)}}retain rows matching displayed labels{p_end}
+{synopt:{opt drop(string)}}omit rows matching displayed labels{p_end}
+{synopt:{opt statorder(string)}}set the statistic display order{p_end}
+{synopt:{opt statlabels(string)}}set custom statistic labels{p_end}
 {synopt:{opt nomis:sing}}drop rows labeled missing, {cmd:.}, or {cmd:.m}{p_end}
-{synopt:{opt zebra}}apply alternating row shading in Excel. Shading is off by default{p_end}
-{synopt:{opt headers:hade}}shade header rows in Excel. Header shading is off by default{p_end}
-{synopt:{opt headerc:olor(string)}}header fill color as a supported Stata color name or RGB triplet{p_end}
-{synopt:{opt zebrac:olor(string)}}zebra fill color as a supported Stata color name or RGB triplet{p_end}
+{synopt:{opt zebra}}apply alternating row shading in Excel{p_end}
+{synopt:{opt headers:hade}}shade header rows in Excel{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt the:me(string)}}journal-style font and border theme shared across tabtools; use {opt headershade}/{opt zebra} for shaded fills{p_end}
-{synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt open}}open the workbook after export{p_end}
 {synopt:{opt csv(string)}}also export the display table as CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame{p_end}
+{synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt fra:me(name)}}store the display table in a Stata frame{p_end}
 {synopt:{opt high:light(#)}}highlight rows where {opt hls:tat()} is below the threshold{p_end}
 {synopt:{opt hls:tat(string)}}statistic used for {opt high:light()}. Default is {cmd:mean}{p_end}
 {synoptline}
@@ -97,6 +97,114 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {cmd:mean_sd}, {cmd:mean_semean}, {cmd:median_iqr}, {cmd:median_range}, and
 {cmd:mean_ci}. Custom templates such as {cmd:"{c -(}total{c )-} / {c -(}count{c )-} ({c -(}mean{c )-})"} are also allowed.
 
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+
+{phang}
+{opt coltotals} keep column totals when {opt nototals} is also specified{p_end}
+
+{phang}
+{opt csv(string)} also export the display table as CSV{p_end}
+
+{phang}
+{opt digits(#)} digits for continuous statistics. Default is 2, or the session default set by
+{cmd:tabtools set digits}{p_end}
+
+{phang}
+{opt drop(string)} drop rows whose displayed row label matches a listed token. Cannot be combined
+with {opt keep()}{p_end}
+
+{phang}
+{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+
+{phang}
+{opt foot:note(string)} footnote written below the Excel table{p_end}
+
+{phang}
+{opt fra:me(name)} store the display table in a Stata frame. Use {cmd:frame(name, replace)} to
+replace an existing frame{p_end}
+
+{phang}
+{opt headerc:olor(string)} header fill color as a supported Stata color name or RGB triplet{p_end}
+
+{phang}
+{opt headers:hade} shade header rows in Excel. Header shading is off by default{p_end}
+
+{phang}
+{opt high:light(#)} highlight rows where {opt hls:tat()} is below the threshold{p_end}
+
+{phang}
+{opt hls:tat(string)} statistic used for {opt high:light()}. Default is {cmd:mean}{p_end}
+
+{phang}
+{opt keep(string)} keep only rows whose displayed row label matches a listed token{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel, CSV, and frame exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt nformats(string)} override statistic formats using pairs such as {cmd:"count %4.0f mean %5.2f"}{p_end}
+
+{phang}
+{opt nintegerfmt(string)} format for counts and integer totals. Default is {cmd:%12.0fc}{p_end}
+
+{phang}
+{opt nomis:sing} drop rows labeled missing, {cmd:.}, or {cmd:.m}{p_end}
+
+{phang}
+{opt nototals} drop row and column totals labeled {cmd:Total}{p_end}
+
+{phang}
+{opt open} open the workbook after export. Requires {opt xlsx()} or {opt excel()}{p_end}
+
+{phang}
+{opt pctdigits(#)} digits for displayed percents in composite cells. Default is 1{p_end}
+
+{phang}
+{opt pctscale(string)} percent scale for proportions: {cmd:auto} (default), {cmd:0to1}, or
+{cmd:0to100}{p_end}
+
+{phang}
+{opt pctsign} append a percent sign to percent/proportion display values. Compose mode enables this
+by default{p_end}
+
+{phang}
+{opt rowtotals} keep row totals when {opt nototals} is also specified{p_end}
+
+{phang}
+{opt sheet(string)} worksheet name. Default is {cmd:Descriptive}{p_end}
+
+{phang}
+{opt statlabels(string)} custom statistic labels, for example {cmd:"count=N \ mean=Mean"}{p_end}
+
+{phang}
+{opt statorder(string)} display statistics in the specified order, appending any remaining collected
+statistics afterward{p_end}
+
+{phang}
+{opt the:me(string)} journal-style font and border theme shared across tabtools; use
+{opt headershade}/ {opt zebra} for shaded fills{p_end}
+
+{phang}
+{opt title(string)} title written to cell A1 and used in console display{p_end}
+
+{phang}
+{opt xlsx(filename)} write an Excel workbook. The filename must end in {cmd:.xlsx}{p_end}
+
+{phang}
+{opt zebra} apply alternating row shading in Excel. Shading is off by default{p_end}
+
+{phang}
+{opt zebrac:olor(string)} zebra fill color as a supported Stata color name or RGB triplet{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -146,7 +254,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{cmd:r(methods)}}short methods sentence{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}numeric matrix parsed from displayed cells where possible; text composite cells are missing in this matrix{p_end}
+{synopt:{cmd:r(table)}}numeric matrix parsed from displayed cells where possible{p_end}
 
 {marker author}{...}
 {title:Author}

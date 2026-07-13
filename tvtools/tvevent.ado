@@ -8,6 +8,7 @@
 Basic syntax:
   tvevent using intervals.dta, id(varname) date(varname) ///
     [generate(newvar) type(single|recurring) keepvars(varlist) ///
+     rate(varlist) total(varlist) cumulative(varlist) ///
      continuous(varlist) timegen(newvar) timeunit(string) ///
      compete(varlist) eventlabel(string) validate replace]
 
@@ -25,8 +26,8 @@ Description:
   Integrates event data (master) into tvexpose/tvmerge intervals (using).
   1. Identifies events occurring within intervals.
   2. Resolves competing risks (earliest date wins).
-  3. Splits intervals at the event date (when start < date < stop).
-  4. Proportionally adjusts 'continuous' variables.
+  3. Splits intervals at the event date (when start <= date < stop).
+  4. Carries rates/cumulative histories and apportions interval totals.
   5. Flags the event type (1=Primary, 2+=Competing).
 
   Boundary behavior (inclusive [start, stop] intervals):
@@ -43,7 +44,16 @@ program define tvevent, rclass
     set varabbrev off
     tempname _te_master_frame _te_using_frame _te_output_frame
     local _caller_snap_taken = 0
+    local _caller_zero_var_obs = 0
     local _caller_snapshot_ready = 0
+    local n_invalid_master = 0
+    local n_invalid_master_id = 0
+    local n_invalid_master_dates = 0
+    local n_invalid_intervals = 0
+    local n_invalid_interval_id = 0
+    local n_invalid_interval_dates = 0
+    local n_invalid_interval_order = 0
+    local n_invalid_quantity = 0
 
     capture noisily {
 
@@ -55,6 +65,9 @@ program define tvevent, rclass
          Type(string) ///
          KEEPvars(namelist) ///
          CONtinuous(namelist) ///
+         RAte(namelist) ///
+         TOTal(namelist) ///
+         CUMulative(namelist) ///
          TIMEGen(name) ///
          TIMEUnit(string) ///
          COMpete(namelist) ///
@@ -69,7 +82,13 @@ program define tvevent, rclass
          GAPSTOP(name) ///
          VALidate ///
          FLOW ///
+         DROPInvalid ///
+         VERBose ///
          REPlace]
+
+    local keepvars_explicit = ("`keepvars'" != "")
+    local auto_keep_excluded ""
+    local _return_flow = ("`flow'" != "" | "`dropinvalid'" != "")
 
     * Harmonized aliases: start()/stop() are the suite-standard names; the
     * legacy startvar()/stopvar() spellings remain accepted (capitalized
@@ -114,20 +133,12 @@ program define tvevent, rclass
         quietly save "`_tve_caller_snap'", replace
         local _caller_snap_taken = 1
     }
-    local _caller_snapshot_ready = 1
-
-    * Flow accounting: capture input persons/records from the interval (using)
-    * data. Opt-in via flow; the master events stay in memory (preserved).
-    if "`flow'" != "" {
-        preserve
-        quietly use `id' using "`using'", clear
-        local _flow_rin = _N
-        tempvar _flow_tag
-        quietly egen byte `_flow_tag' = tag(`id')
-        quietly count if `_flow_tag' == 1
-        local _flow_pin = r(N)
-        restore
+    else if _N > 0 {
+        * Stata cannot save observations-only data. Its restorable state is the
+        * observation count, just as in tvmerge's caller transaction.
+        local _caller_zero_var_obs = _N
     }
+    local _caller_snapshot_ready = 1
 
     * Row-id used as a reshape uniqueness key; a tempvar avoids colliding with a
     * user column that survives the keep below (previously a hardcoded _obs).
@@ -183,6 +194,10 @@ program define tvevent, rclass
         di as error "type() must be either 'single' or 'recurring'"
         exit 198
     }
+    if "`type'" == "recurring" & "`compete'" != "" {
+        di as error "compete() is not supported with type(recurring)"
+        exit 198
+    }
 
     * Recurrent-event (PWP/AG) formatting: event-sequence stratum + gap-time
     * clock. Only meaningful for repeated events, so it requires type(recurring).
@@ -203,6 +218,41 @@ program define tvevent, rclass
     }
     else local do_gaptime = 0
 
+    * Three quantity algebras are explicit. The released continuous() behavior
+    * apportioned values by duration, so it remains a warned alias for total().
+    local continuous_vars "`continuous'"
+    if "`continuous'" != "" {
+        noisily display as text ///
+            "Warning: continuous() is deprecated; use total() for interval totals."
+        local total "`total' `continuous'"
+    }
+    foreach quantity in rate total cumulative continuous_vars {
+        local quantity_dups : list dups `quantity'
+        if "`quantity_dups'" != "" {
+            local option_name = subinstr("`quantity'", "_vars", "", .)
+            display as error "`option_name'() contains duplicate variable name(s):`quantity_dups'"
+            exit 198
+        }
+        local `quantity' : list uniq `quantity'
+    }
+    local all_quantity "`rate' `total' `cumulative'"
+    local all_quantity : list uniq all_quantity
+    foreach qvar of local all_quantity {
+        local n_assignments = 0
+        foreach quantity in rate total cumulative {
+            local in_quantity : list qvar in `quantity'
+            if `in_quantity' local ++n_assignments
+        }
+        if `n_assignments' > 1 {
+            display as error "Variable `qvar' appears in more than one of rate(), total(), and cumulative()"
+            exit 198
+        }
+    }
+    local n_rate_quantity : word count `rate'
+    local n_total_quantity : word count `total'
+    local n_cumulative_quantity : word count `cumulative'
+    local n_continuous_quantity : word count `continuous_vars'
+
     local output_names "`id' `startvar' `stopvar' `generate' `date'"
     if "`timegen'" != "" local output_names "`output_names' `timegen'"
     if `do_recur_fmt' local output_names "`output_names' `enum'"
@@ -213,18 +263,42 @@ program define tvevent, rclass
         exit 198
     }
 
-    * For recurring events, detect wide-format event variables (date1, date2, ...)
+    * For recurring events, detect the entire wide stub before processing.
+    * A gap such as date1/date3 must error: stopping at the first missing suffix
+    * silently discards later events while returning success.
     local eventvars ""
     local n_eventvars = 0
     if "`type'" == "recurring" {
-        local eventnum = 1
-        while 1 {
+        local _event_max = 0
+        capture ds `date'*
+        if _rc == 0 local _event_candidates "`r(varlist)'"
+        foreach evar of local _event_candidates {
+            local _event_suffix = substr("`evar'", strlen("`date'") + 1, .)
+            if "`_event_suffix'" != "" & ///
+                regexm("`_event_suffix'", "^[0-9]+$") {
+                local _event_index = real("`_event_suffix'")
+                local _event_canonical "`date'`_event_index'"
+                if `_event_index' < 1 | "`evar'" != "`_event_canonical'" {
+                    di as error ///
+                        "Recurring event variable `evar' is not a canonical positive-numbered `date'# variable"
+                    exit 198
+                }
+                if `_event_index' > `_event_max' {
+                    local _event_max = `_event_index'
+                }
+            }
+        }
+
+        if `_event_max' > 0 {
+            forvalues eventnum = 1/`_event_max' {
             capture confirm variable `date'`eventnum'
             if _rc {
-                continue, break
+                    di as error ///
+                        "Recurring event variables must be contiguous; `date'`eventnum' is missing"
+                    exit 111
+                }
+                local eventvars "`eventvars' `date'`eventnum'"
             }
-            local eventvars "`eventvars' `date'`eventnum'"
-            local eventnum = `eventnum' + 1
         }
         local eventvars = strtrim("`eventvars'")
         local n_eventvars : word count `eventvars'
@@ -266,23 +340,6 @@ program define tvevent, rclass
         di as error "id() variable `id' is strL in the master (event) dataset; strL variables cannot be used as merge keys"
         di as error "recast it first, e.g. generate str20 `id'2 = `id'"
         exit 109
-    }
-
-    * Check for duplicate IDs in master (should be 1 row per person for event data)
-    * Skip check if dataset is empty
-    if _N > 0 {
-        tempvar dup_check
-        quietly bysort `id': gen `dup_check' = _N
-        quietly count if `dup_check' > 1
-        if r(N) > 0 {
-            local dup_ids = r(N)
-            di as txt "Warning: Master (event) dataset has multiple rows per `id' (`dup_ids' observations affected)."
-            di as txt "         Event data should have one row per person with event dates in columns."
-            if "`type'" == "recurring" {
-                di as txt "         For recurring events, use wide format: `date'1, `date'2, etc."
-            }
-        }
-        drop `dup_check'
     }
 
     * Validate date variable(s) based on event type
@@ -348,9 +405,71 @@ program define tvevent, rclass
             }
         }
     }
+
+    * Required event-source fields are strict by default. A missing event date
+    * is a legitimate censored record; a nonmissing fractional daily date is
+    * malformed. dropinvalid removes the whole offending event-source row.
+    local master_date_vars "`date' `compete'"
+    if "`type'" == "recurring" local master_date_vars "`eventvars'"
+    tempvar _tve_bad_mid _tve_bad_mdate _tve_bad_master
+    quietly generate byte `_tve_bad_mid' = missing(`id')
+    quietly generate byte `_tve_bad_mdate' = 0
+    foreach dvar of local master_date_vars {
+        quietly replace `_tve_bad_mdate' = 1 if ///
+            !missing(`dvar') & `dvar' != floor(`dvar')
+    }
+    quietly generate byte `_tve_bad_master' = ///
+        `_tve_bad_mid' | `_tve_bad_mdate'
+    quietly count if `_tve_bad_mid'
+    local n_invalid_master_id = r(N)
+    quietly count if `_tve_bad_mdate'
+    local n_invalid_master_dates = r(N)
+    quietly count if `_tve_bad_master'
+    local n_invalid_master = r(N)
+
+    if `n_invalid_master' > 0 & "`dropinvalid'" == "" {
+        noisily display as error "Malformed event input: `n_invalid_master' row(s)"
+        noisily display as error ///
+            "  missing ID: `n_invalid_master_id'; invalid daily event dates: `n_invalid_master_dates'"
+        if "`verbose'" != "" {
+            preserve
+            quietly keep if `_tve_bad_master'
+            noisily list `id' `master_date_vars' in 1/`=min(5, _N)', noobs
+            restore
+        }
+        noisily display as error ///
+            "Correct the event data or specify dropinvalid."
+        exit 498
+    }
+    if `n_invalid_master' > 0 {
+        quietly drop if `_tve_bad_master'
+        noisily display as text ///
+            "dropinvalid: removed `n_invalid_master' malformed event row(s)"
+    }
+    drop `_tve_bad_mid' `_tve_bad_mdate' `_tve_bad_master'
+
+    * Duplicate event rows are supported, but diagnostics count affected IDs
+    * exactly once. Person-level keepvars must be constant within ID.
+    if _N > 0 {
+        tempvar dup_check dup_tag
+        quietly bysort `id': generate long `dup_check' = _N
+        quietly egen byte `dup_tag' = tag(`id')
+        quietly count if `dup_tag' & `dup_check' > 1
+        local dup_ids = r(N)
+        if `dup_ids' > 0 {
+            di as txt "Warning: Master (event) dataset has multiple rows for `dup_ids' person(s)."
+            di as txt "         Event data normally use one row per person with event dates in columns."
+            if "`type'" == "recurring" {
+                di as txt "         For recurring events, use wide format: `date'1, `date'2, etc."
+            }
+        }
+        drop `dup_check' `dup_tag'
+    }
     
-    * Default keepvars to all variables in master except id, date/eventvars, and compete
-    if "`keepvars'" == "" {
+    * Preserve backward-compatible automatic keepvars, but only for names that
+    * cannot be confused with structural or generated output fields. Explicit
+    * keepvars() requests remain strict and error on every collision.
+    if !`keepvars_explicit' {
         foreach v of varlist * {
             local is_excluded = 0
             * Exclude id
@@ -368,11 +487,243 @@ program define tvevent, rclass
             foreach c of local compete {
                 if "`v'" == "`c'" local is_excluded = 1
             }
+            * Exclude protected output names from automatic selection
+            local is_output : list v in output_names
+            if `is_output' & !`is_excluded' {
+                local is_excluded = 1
+                local auto_keep_excluded "`auto_keep_excluded' `v'"
+            }
             if !`is_excluded' {
                 local keepvars "`keepvars' `v'"
             }
         }
         local keepvars = strtrim("`keepvars'")
+    }
+
+    foreach v of local keepvars {
+        capture confirm variable `v'
+        if _rc {
+            display as error "keepvars() variable `v' not found in the event dataset"
+            exit 111
+        }
+        local keep_output_collision : list v in output_names
+        if `keep_output_collision' {
+            if `keepvars_explicit' {
+                display as error ///
+                    "keepvars() variable `v' conflicts with a structural or generated output name"
+                exit 198
+            }
+            local keepvars : list keepvars - v
+            local auto_keep_excluded "`auto_keep_excluded' `v'"
+        }
+    }
+
+    * Validate and stage the interval source once. All later diagnostics and
+    * processing consume this clean tempfile, so strict/dropinvalid semantics
+    * cannot diverge between the empty-event and ordinary paths.
+    local using_display `"`using'"'
+    tempfile _tve_clean_using
+    preserve
+    capture quietly use "`using'", clear
+    if _rc {
+        local _tve_use_rc = _rc
+        noisily display as error ///
+            "Interval dataset could not be opened: `using_display'"
+        exit `_tve_use_rc'
+    }
+    quietly count
+    if r(N) == 0 {
+        noisily display as error "No observations in using (interval) dataset"
+        exit 2000
+    }
+    capture confirm variable `id'
+    if _rc {
+        noisily display as error ///
+            "ID variable `id' not found in using (interval) dataset."
+        exit 111
+    }
+    local _tve_uidtype : type `id'
+    if "`_tve_uidtype'" == "strL" {
+        noisily display as error ///
+            "id() variable `id' is strL in the using dataset; recast it to str# first"
+        exit 109
+    }
+    foreach v in `startvar' `stopvar' {
+        capture confirm numeric variable `v'
+        if _rc {
+            noisily display as error ///
+                "Interval variable `v' not found or not numeric in the using dataset"
+            exit 109
+        }
+        local fmt : format `v'
+        if substr("`fmt'", 1, 3) == "%tc" | substr("`fmt'", 1, 3) == "%tC" {
+            noisily display as error ///
+                "Interval variable `v' has datetime format (`fmt'); daily dates are required"
+            exit 120
+        }
+    }
+
+    ds
+    local interval_schema "`r(varlist)'"
+    foreach v of local keepvars {
+        local keep_source_collision : list v in interval_schema
+        if `keep_source_collision' {
+            if `keepvars_explicit' {
+                noisily display as error ///
+                    "keepvars() variable `v' already exists in the interval dataset"
+                exit 198
+            }
+            local keepvars : list keepvars - v
+            local auto_keep_excluded "`auto_keep_excluded' `v'"
+        }
+    }
+
+    * Metadata is an executable contract. Every tagged quantity must be named
+    * in the matching option, and cumulative histories must be row-start values.
+    foreach sourcevar of local interval_schema {
+        local source_quantity : char `sourcevar'[tvtools_quantity]
+        if "`source_quantity'" != "" {
+            if !inlist("`source_quantity'", "rate", "total", "cumulative") {
+                noisily display as error ///
+                    "Unknown [tvtools_quantity] metadata on `sourcevar': `source_quantity'"
+                exit 498
+            }
+            local declared_quantity ""
+            foreach quantity in rate total cumulative {
+                local is_declared : list sourcevar in `quantity'
+                if `is_declared' local declared_quantity "`quantity'"
+            }
+            if "`declared_quantity'" == "" {
+                noisily display as error ///
+                    "Quantity variable `sourcevar' requires explicit `source_quantity'()"
+                exit 498
+            }
+            if "`declared_quantity'" != "`source_quantity'" {
+                noisily display as error ///
+                    "Quantity metadata conflict for `sourcevar': source is `source_quantity', option declares `declared_quantity'"
+                exit 498
+            }
+        }
+    }
+    foreach qvar of local all_quantity {
+        capture confirm numeric variable `qvar'
+        if _rc {
+            noisily display as error ///
+                "Quantity variable `qvar' not found or not numeric in the interval dataset"
+            exit 111
+        }
+        local quantity_collision : list qvar in output_names
+        if `quantity_collision' {
+            noisily display as error ///
+                "Quantity variable `qvar' conflicts with a structural, generated, time, or recurrence output name"
+            exit 198
+        }
+        local is_cumulative : list qvar in cumulative
+        if `is_cumulative' {
+            local history_point : char `qvar'[tvtools_history_point]
+            if "`history_point'" != "start" {
+                noisily display as error ///
+                    "Cumulative variable `qvar' requires [tvtools_history_point] = start"
+                exit 498
+            }
+        }
+    }
+
+    * Raw interval counts feed the stable 2x3 pipeline flow matrix.
+    local _flow_rin = _N
+    tempvar _flow_tag
+    quietly egen byte `_flow_tag' = tag(`id') if !missing(`id')
+    quietly count if `_flow_tag' == 1
+    local _flow_pin = r(N)
+    drop `_flow_tag'
+
+    tempvar _tve_bad_iid _tve_bad_idate _tve_bad_iorder ///
+        _tve_bad_quantity _tve_bad_interval
+    quietly generate byte `_tve_bad_iid' = missing(`id')
+    quietly generate byte `_tve_bad_idate' = ///
+        missing(`startvar') | missing(`stopvar') | ///
+        (!missing(`startvar') & `startvar' != floor(`startvar')) | ///
+        (!missing(`stopvar') & `stopvar' != floor(`stopvar'))
+    quietly generate byte `_tve_bad_iorder' = ///
+        !missing(`startvar', `stopvar') & `startvar' > `stopvar'
+    quietly generate byte `_tve_bad_quantity' = 0
+    foreach qvar of local all_quantity {
+        quietly replace `_tve_bad_quantity' = 1 if missing(`qvar')
+    }
+    quietly generate byte `_tve_bad_interval' = ///
+        `_tve_bad_iid' | `_tve_bad_idate' | `_tve_bad_iorder' | ///
+        `_tve_bad_quantity'
+    quietly count if `_tve_bad_iid'
+    local n_invalid_interval_id = r(N)
+    quietly count if `_tve_bad_idate'
+    local n_invalid_interval_dates = r(N)
+    quietly count if `_tve_bad_iorder'
+    local n_invalid_interval_order = r(N)
+    quietly count if `_tve_bad_quantity'
+    local n_invalid_quantity = r(N)
+    quietly count if `_tve_bad_interval'
+    local n_invalid_intervals = r(N)
+
+    if `n_invalid_intervals' > 0 & "`dropinvalid'" == "" {
+        noisily display as error ///
+            "Malformed interval input: `n_invalid_intervals' row(s)"
+        noisily display as error ///
+            "  missing ID: `n_invalid_interval_id'; invalid daily bounds: `n_invalid_interval_dates'; reversed bounds: `n_invalid_interval_order'; missing quantity: `n_invalid_quantity'"
+        if "`verbose'" != "" {
+            tempvar _tve_stage_order
+            quietly generate long `_tve_stage_order' = _n
+            quietly gsort -`_tve_bad_interval' `_tve_stage_order'
+            noisily list `id' `startvar' `stopvar' `all_quantity' ///
+                in 1/`=min(5, _N)', noobs
+            quietly sort `_tve_stage_order'
+            drop `_tve_stage_order'
+        }
+        noisily display as error ///
+            "Correct the interval data or specify dropinvalid."
+        exit 498
+    }
+    if `n_invalid_intervals' > 0 {
+        quietly drop if `_tve_bad_interval'
+        noisily display as text ///
+            "dropinvalid: removed `n_invalid_intervals' malformed interval row(s)"
+    }
+    drop `_tve_bad_iid' `_tve_bad_idate' `_tve_bad_iorder' ///
+        `_tve_bad_quantity' `_tve_bad_interval'
+    quietly count
+    if r(N) == 0 {
+        noisily display as error "No valid interval rows remain after dropinvalid"
+        exit 2000
+    }
+    quietly save "`_tve_clean_using'", replace
+    restore
+    local using "`_tve_clean_using'"
+
+    * Interval-side names are known only after staging, so enforce the
+    * person-level contract after automatic collision filtering is final.
+    local keepvars = strtrim("`keepvars'")
+    local auto_keep_excluded : list uniq auto_keep_excluded
+    local auto_keep_excluded = strtrim("`auto_keep_excluded'")
+    if !`keepvars_explicit' {
+        if "`keepvars'" != "" {
+            noisily display as text "Auto keepvars preserved: `keepvars'"
+        }
+        if "`auto_keep_excluded'" != "" {
+            noisily display as text ///
+                "Auto keepvars excluded (protected output/interval names): `auto_keep_excluded'"
+        }
+    }
+    foreach v of local keepvars {
+        if _N > 0 {
+            tempvar _tve_kv_diff
+            quietly bysort `id': generate byte `_tve_kv_diff' = (`v' != `v'[1])
+            quietly count if `_tve_kv_diff'
+            if r(N) > 0 {
+                display as error ///
+                    "keepvars() variable `v' is not uniquely defined within `id'"
+                exit 459
+            }
+            drop `_tve_kv_diff'
+        }
     }
 
     **# 1b. VALIDATION DIAGNOSTICS (if requested)
@@ -406,10 +757,11 @@ program define tvevent, rclass
             preserve
             * Check primary event date only — competing dates in the same
             * row are expected and should not count as "multiple events"
-            tempvar has_event total_events
+            tempvar has_event total_events multiple_tag
             gen `has_event' = !missing(`date')
             bysort `id': egen long `total_events' = total(`has_event')
-            quietly count if `total_events' > 1
+            quietly egen byte `multiple_tag' = tag(`id')
+            quietly count if `multiple_tag' & `total_events' > 1
             local v_multiple = r(N)
             restore
 
@@ -449,6 +801,7 @@ program define tvevent, rclass
         preserve
         quietly {
         tempfile master_events
+        tempvar _tve_event_obs
         if "`type'" == "single" {
             keep `id' `date' `compete'
             * Stack primary + competing dates into one column
@@ -477,20 +830,65 @@ program define tvevent, rclass
             rename `date' _event_date
             drop `obs' _eventnum
         }
+        quietly count
+        if r(N) == 0 {
+            * A nonempty master with only missing event dates is a legitimate
+            * all-censored input. There are no points to send to the matching
+            * engine, so the outside-union diagnostic is exactly zero.
+            local v_outside = 0
+        }
+        else {
+        generate long `_tve_event_obs' = _n
         save `master_events', replace
 
-        * Load interval data
+        * Match points against the actual union of closed interval rows. The
+        * shared half-open engine receives [start, stop+1), which is exactly the
+        * closed daily interval [start, stop]. An event is outside when its row
+        * identifier has no match in any interval, including internal gaps.
         use "`using'", clear
+        keep `id' `startvar' `stopvar'
+        duplicates drop
+        tempvar _tve_viobs _tve_vgid _tve_vhi
+        generate long `_tve_viobs' = _n
+        tempfile _tve_val_intervals _tve_val_xwalk _tve_val_matched
+        save `_tve_val_intervals', replace
+        keep `id'
+        duplicates drop
+        generate long `_tve_vgid' = _n
+        save `_tve_val_xwalk', replace
 
-        * Get min/max interval times per person
-        collapse (min) _min_start=`startvar' (max) _max_stop=`stopvar', by(`id')
+        use `_tve_val_intervals', clear
+        merge m:1 `id' using `_tve_val_xwalk', keep(match) nogenerate
+        generate double `_tve_vhi' = `stopvar' + 1
+        frame put `_tve_vgid' `startvar' `_tve_vhi' `_tve_viobs', ///
+            into(`_te_master_frame')
+        frame `_te_master_frame': order `_tve_vgid' `startvar' `_tve_vhi' `_tve_viobs'
 
-        * Merge with events
-        merge 1:m `id' using `master_events', keep(match) nogen
+        use `master_events', clear
+        merge m:1 `id' using `_tve_val_xwalk', keep(match) nogenerate
+        frame put `_tve_vgid' _event_date `_tve_event_obs', ///
+            into(`_te_using_frame')
+        frame `_te_using_frame': order `_tve_vgid' _event_date `_tve_event_obs'
 
-        * Check events outside boundaries
-        count if _event_date < _min_start | _event_date > _max_stop
+        capture findfile _tvmerge_mata.ado
+        if _rc == 0 run "`r(fn)'"
+        else exit 111
+        frame create `_te_output_frame'
+        _tvmerge_point_pairs `_te_master_frame' `_te_using_frame' `_te_output_frame'
+        frame `_te_output_frame': keep __tvm_ui
+        frame `_te_output_frame': rename __tvm_ui `_tve_event_obs'
+        frame `_te_output_frame': duplicates drop
+        frame `_te_output_frame': generate byte _tve_matched = 1
+        frame `_te_output_frame': save `_tve_val_matched', replace
+        frame drop `_te_master_frame'
+        frame drop `_te_using_frame'
+        frame drop `_te_output_frame'
+
+        use `master_events', clear
+        merge 1:1 `_tve_event_obs' using `_tve_val_matched', nogenerate
+        count if missing(_tve_matched)
         local v_outside = r(N)
+        } // end one-or-more nonmissing validation events
         }
         restore
 
@@ -516,43 +914,56 @@ program define tvevent, rclass
 
         **# 2. PREPARE DATASETS
 
-        * Handle empty event dataset (0 observations in master)
         local master_N = _N
-        if `master_N' == 0 {
-            noisily di as txt "Note: Event dataset is empty. All intervals will be marked as censored."
-            _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
-                stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
-                timegen(`timegen') `replace'
-            * Capture subroutine returns (incl. output-name macros) before exiting
-            return add
-            exit 0
-        }
+        tempfile events
 
         * Save keepvars for ALL people before filtering to events-only
         if "`keepvars'" != "" {
             tempfile _all_keepvars
             preserve
             keep `id' `keepvars'
-            duplicates drop `id', force
+            bysort `id': keep if _n == 1
             save `_all_keepvars'
             restore
         }
 
+        * Capture labels before event rows are reshaped or filtered away.
         if "`type'" == "recurring" {
-            * --- RECURRING EVENTS: Reshape wide to long ---
-
-            * Capture label from first event variable
             local first_evar : word 1 of `eventvars'
             local orig_date_label : variable label `first_evar'
             local lab_1 "`orig_date_label'"
             if "`lab_1'" == "" local lab_1 "Event: `date'"
-
-            * Note: competing risks not supported with recurring events
-            if "`compete'" != "" {
-                noisily di as txt "Note: compete() option ignored for recurring events."
-                local compete ""
-            }
             local num_compete = 0
+        }
+        else {
+            local orig_date_label : variable label `date'
+            local lab_1 "`orig_date_label'"
+            if "`lab_1'" == "" local lab_1 "Event: `date'"
+            local num_compete : word count `compete'
+            if `num_compete' > 0 {
+                local i = 1
+                foreach v of local compete {
+                    local c_lab_`i' : variable label `v'
+                    if "`c_lab_`i''" == "" local c_lab_`i' "Competing: `v'"
+                    local i = `i' + 1
+                }
+            }
+        }
+
+        * Empty and all-missing event inputs now enter the ordinary interval
+        * pipeline with a typed zero-row event table. This guarantees the same
+        * generate/time/recurrence schema and r() contract on every path.
+        if `master_N' == 0 {
+            noisily di as txt ///
+                "Note: Event dataset is empty. All intervals will be marked as censored."
+            keep `id'
+            generate double `date' = .
+            generate int _event_type = .
+            save `events', replace
+            local n_event_rows = 0
+        }
+        else if "`type'" == "recurring" {
+            * --- RECURRING EVENTS: Reshape wide to long ---
 
             * Keep only needed variables for reshape
             keep `id' `eventvars'
@@ -567,36 +978,36 @@ program define tvevent, rclass
             drop if missing(`date')
             drop `obs' _eventnum
 
-            * Floor dates and set event type (all are type 1 for recurring)
-            replace `date' = floor(`date')
-            gen int _event_type = 1
+            * An all-missing recurring master follows the same typed empty
+            * event-table path as an empty master and an all-missing single
+            * master. Do not call duplicates on a zero-observation reshape.
+            if _N == 0 {
+                noisily di as txt ///
+                    "Note: All recurring event dates are missing. All intervals will be marked as censored."
+                keep `id'
+                capture drop `date'
+                generate double `date' = .
+                generate int _event_type = .
+                save `events', replace
+                local n_event_rows = 0
+            }
+            else {
+                * Floor dates and set event type (all are type 1 for recurring)
+                replace `date' = floor(`date')
+                gen int _event_type = 1
 
-            * Remove duplicate id-date combinations (same event on same date)
-            duplicates drop `id' `date', force
+                * Remove duplicate id-date combinations (same event on same date)
+                duplicates drop `id' `date', force
 
-            * Sort by id and date for proper processing
-            sort `id' `date'
-
-            tempfile events
-            save `events'
+                * Sort by id and date for proper processing
+                sort `id' `date'
+                quietly count
+                local n_event_rows = r(N)
+                save `events', replace
+            }
         }
         else {
             * --- SINGLE EVENTS: Original logic with competing risks ---
-
-            * Capture labels from master (event) dataset before processing
-            local orig_date_label : variable label `date'
-            local lab_1 "`orig_date_label'"
-            if "`lab_1'" == "" local lab_1 "Event: `date'"
-
-            local num_compete : word count `compete'
-            if `num_compete' > 0 {
-                local i = 1
-                foreach v of local compete {
-                    local c_lab_`i' : variable label `v'
-                    if "`c_lab_`i''" == "" local c_lab_`i' "Competing: `v'"
-                    local i = `i' + 1
-                }
-            }
 
             * -- COMPETING RISK LOGIC: Determine earliest event per person --
             replace `date' = floor(`date')
@@ -614,25 +1025,26 @@ program define tvevent, rclass
             * Clean up event data
             keep if !missing(_eff_date)
 
-            * Check if all event dates were missing
+            * All-missing dates produce the same typed empty event table.
             if _N == 0 {
                 noisily di as txt "Note: All event dates are missing. All intervals will be marked as censored."
-                _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
-                    stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
-                    timegen(`timegen') `replace'
-                return add
-                exit 0
+                keep `id'
+                capture drop `date'
+                generate double `date' = .
+                generate int _event_type = .
+                save `events', replace
+                local n_event_rows = 0
             }
-
-            capture drop `date'
-            rename _eff_date `date'
-            rename _eff_type _event_type
-
-            keep `id' `date' _event_type
-            duplicates drop `id' `date', force
-
-            tempfile events
-            save `events'
+            else {
+                capture drop `date'
+                rename _eff_date `date'
+                rename _eff_type _event_type
+                keep `id' `date' _event_type
+                duplicates drop `id' `date', force
+                quietly count
+                local n_event_rows = r(N)
+                save `events', replace
+            }
         }
 
         * Load USING dataset (interval data from tvexpose/tvmerge)
@@ -682,40 +1094,25 @@ program define tvevent, rclass
         local orig_start_fmt : format `startvar'
         local orig_stop_fmt : format `stopvar'
 
-        if "`continuous'" != "" {
-            foreach v of local continuous {
-                capture confirm numeric variable `v'
-                if _rc {
-                    noisily di as error "Continuous variable `v' not found or is not numeric in using (interval) dataset."
-                    exit 111
-                }
-            }
-        }
-
-        * Check replace option (generate/timegen/date will be created in interval data)
+        * Check replace policy for every variable created in interval data.
+        local created_outputs "`generate' `date'"
+        if "`timegen'" != "" local created_outputs "`created_outputs' `timegen'"
+        if `do_recur_fmt' local created_outputs "`created_outputs' `enum'"
+        if `do_gaptime' local created_outputs "`created_outputs' `gapstart' `gapstop'"
         if "`replace'" == "" {
-            capture confirm variable `generate'
-            if _rc == 0 {
-                noisily di as error "Variable `generate' already exists in using dataset. Use replace option."
-                exit 110
-            }
-            capture confirm variable `date'
-            if _rc == 0 {
-                noisily di as error "Variable `date' already exists in using dataset. Use replace option."
-                exit 110
-            }
-            if "`timegen'" != "" {
-                capture confirm variable `timegen'
+            foreach outvar of local created_outputs {
+                capture confirm variable `outvar'
                 if _rc == 0 {
-                    noisily di as error "Variable `timegen' already exists in using dataset. Use replace option."
+                    noisily di as error ///
+                        "Variable `outvar' already exists in using dataset. Use replace option."
                     exit 110
                 }
             }
         }
         else {
-            capture drop `generate'
-            capture drop `date'
-            if "`timegen'" != "" capture drop `timegen'
+            foreach outvar of local created_outputs {
+                capture drop `outvar'
+            }
         }
 
         _tvtools_new_vallabel, base(`_ev_lbl_base')
@@ -745,6 +1142,15 @@ program define tvevent, rclass
         preserve
         keep `id' `startvar' `stopvar'
         duplicates drop
+        tempfile splits
+
+        if `n_event_rows' == 0 {
+            use `events', clear
+            keep `id' `date'
+            save `splits', replace
+            local n_splits = 0
+        }
+        else {
 
         * Split points are events strictly inside [start, stop): date >= start &
         * date < stop. Identify them with the shared half-open point-in-interval
@@ -812,11 +1218,11 @@ program define tvevent, rclass
         if _N > 0 {
             duplicates drop `id' `date', force
         }
-        tempfile splits
-        save `splits'
+        save `splits', replace
 
         count
         local n_splits = r(N)
+        }
         restore
         
         **# 4. EXECUTE SPLITS
@@ -949,77 +1355,90 @@ program define tvevent, rclass
             duplicates drop
         }
 
-        * Adjust Continuous Variables
-        if "`continuous'" != "" {
+        * Interval totals are the only algebra adjusted by a split. Rates and
+        * row-start cumulative histories are invariant across the new rows.
+        if "`total'" != "" {
             tempvar new_dur ratio
             gen double `new_dur' = `stopvar' - `startvar' + 1
             gen double `ratio' = cond(_orig_dur == 0 | `new_dur' == 0, 1, `new_dur' / _orig_dur)
-            foreach v of local continuous {
+            foreach v of local total {
                 replace `v' = `v' * `ratio'
             }
             drop `new_dur' `ratio'
         }
         drop _orig_dur _orig_interval_id
+        foreach v of local rate {
+            char `v'[tvtools_quantity] "rate"
+        }
+        foreach v of local total {
+            char `v'[tvtools_quantity] "total"
+        }
+        foreach v of local cumulative {
+            char `v'[tvtools_quantity] "cumulative"
+            char `v'[tvtools_history_point] "start"
+        }
 
         **# 5. MERGE EVENT FLAGS
 
         * keepvars for all people already saved in _all_keepvars
 
-        tempvar match_date
-        gen double `match_date' = `stopvar'
-        
-        tempname event_frame
-        frame create `event_frame'
-
-        * Use capture to ensure frame cleanup on error
-        local frame_rc = 0
-        capture noisily {
-            frame `event_frame' {
-                use `events'
-                rename `date' `match_date'
-            }
-
-            * Use m:1 since multiple intervals can have same stop date (valid data)
-            quietly frlink m:1 `id' `match_date', frame(`event_frame')
-
-            tempvar imported_type
-            quietly frget `imported_type' = _event_type, from(`event_frame')
-
-            quietly gen long `generate' = `imported_type'
-            quietly replace `generate' = 0 if missing(`generate')
-
-            * Note: Boundary events (date == stop) are flagged but not split.
-            * Splitting occurs when start <= date < stop (event at start or inside interval).
-            * An event at the stop date ends that interval without needing to split it.
-
-            * Import event date variable so it appears in output
-            capture drop `date'
-            quietly frget `date' = `match_date', from(`event_frame')
+        if `n_event_rows' == 0 {
+            generate long `generate' = 0
+            generate double `date' = .
             if `"`orig_date_label'"' != "" {
-                label var `date' `"`orig_date_label'"'
+                label variable `date' `"`orig_date_label'"'
             }
-            else {
-                label var `date' "Event date"
+            else label variable `date' "Event date"
+        }
+        else {
+            tempvar match_date
+            gen double `match_date' = `stopvar'
+
+            tempname event_frame
+            frame create `event_frame'
+
+            * Use capture to ensure frame cleanup on error
+            local frame_rc = 0
+            capture noisily {
+                frame `event_frame' {
+                    use `events'
+                    rename `date' `match_date'
+                }
+
+                * Use m:1 since multiple intervals can have same stop date (valid data)
+                quietly frlink m:1 `id' `match_date', frame(`event_frame')
+
+                tempvar imported_type
+                quietly frget `imported_type' = _event_type, from(`event_frame')
+
+                quietly gen long `generate' = `imported_type'
+                quietly replace `generate' = 0 if missing(`generate')
+
+                * Boundary events (date == stop) are flagged but not split.
+                capture drop `date'
+                quietly frget `date' = `match_date', from(`event_frame')
+                if `"`orig_date_label'"' != "" {
+                    label var `date' `"`orig_date_label'"'
+                }
+                else {
+                    label var `date' "Event date"
+                }
             }
+            local frame_rc = _rc
+
+            * Always clean up the frame
+            capture frame drop `event_frame'
+            local cleanup_rc = _rc
+
+            if `frame_rc' != 0 {
+                exit `frame_rc'
+            }
+
+            drop `match_date' `imported_type'
         }
-        local frame_rc = _rc
-
-        * Always clean up the frame
-        capture frame drop `event_frame'
-        local cleanup_rc = _rc
-
-        * Exit if there was an error
-        if `frame_rc' != 0 {
-            exit `frame_rc'
-        }
-
-        drop `match_date' `imported_type'
 
         * Merge person-level covariates by id (not tied to event date)
         if "`keepvars'" != "" {
-            foreach v of local keepvars {
-                capture drop `v'
-            }
             merge m:1 `id' using `_all_keepvars', keep(master match) nogen
         }
 
@@ -1170,8 +1589,9 @@ program define tvevent, rclass
     }
     di as txt "{hline 50}"
 
-    * Flow accounting report (opt-in via flow option)
-    if "`flow'" != "" {
+    * Flow is returned whenever requested or whenever dropinvalid authorizes
+    * attrition. It remains a 2x3 interval-pipeline matrix for API stability.
+    if `_return_flow' {
         tempvar _flow_tago
         quietly egen byte `_flow_tago' = tag(`id')
         quietly count if `_flow_tago' == 1
@@ -1198,6 +1618,24 @@ program define tvevent, rclass
         di as txt "{hline 60}"
         return matrix flow = `_flowmat'
     }
+
+    return scalar n_invalid = `n_invalid_master' + `n_invalid_intervals'
+    return scalar n_invalid_master = `n_invalid_master'
+    return scalar n_invalid_master_id = `n_invalid_master_id'
+    return scalar n_invalid_master_dates = `n_invalid_master_dates'
+    return scalar n_invalid_intervals = `n_invalid_intervals'
+    return scalar n_invalid_interval_id = `n_invalid_interval_id'
+    return scalar n_invalid_interval_dates = `n_invalid_interval_dates'
+    return scalar n_invalid_interval_order = `n_invalid_interval_order'
+    return scalar n_invalid_quantity = `n_invalid_quantity'
+    return scalar n_rate = `n_rate_quantity'
+    return scalar n_total = `n_total_quantity'
+    return scalar n_cumulative = `n_cumulative_quantity'
+    return scalar n_continuous = `n_continuous_quantity'
+    return local rate_vars "`rate'"
+    return local total_vars "`total'"
+    return local cumulative_vars "`cumulative'"
+    return local continuous_vars "`continuous_vars'"
 
     * Output-name macros so downstream steps can read the chosen names
     return local generate "`generate'"
@@ -1226,7 +1664,10 @@ program define tvevent, rclass
     if `rc' & `_caller_snapshot_ready' {
         capture restore
         if `_caller_snap_taken' capture quietly use "`_tve_caller_snap'", clear
-        else capture quietly clear
+        else {
+            capture quietly clear
+            if `_caller_zero_var_obs' > 0 capture quietly set obs `_caller_zero_var_obs'
+        }
         local _te_cleanup_rc = _rc
     }
 

@@ -262,7 +262,9 @@ else {
     local ++fail_count
 }
 
-* Test: binary 1/2 with value labels → "bin"
+* Test: a non-0/1 two-level variable remains categorical. The binary
+* collector has a literal 0/1 contract, so classifying 1/2 as bin would make
+* the advertised automatic path fail instead of rendering both categories.
 capture noisily {
     clear
     set obs 20
@@ -270,10 +272,10 @@ capture noisily {
     label define bin2_lbl 1 "A" 2 "B"
     label values bvar2 bin2_lbl
     _tabtools_detect_vartype bvar2
-    assert "`result'" == "bin"
+    assert "`result'" == "cat"
 }
 if _rc == 0 {
-    display as result "  PASS: _tabtools_detect_vartype - binary 1/2 labeled → bin"
+    display as result "  PASS: _tabtools_detect_vartype - two-level 1/2 labeled → cat"
     local ++pass_count
 }
 else {
@@ -1828,7 +1830,7 @@ capture noisily {
         sheet("Surv") title("Survival Estimates") events
 
     _wx_assert "`output_dir'/_wx_survtab.txt" ///
-        `"`python_cmd' "`checker'" "`output_dir'/_wx_survtab.xlsx" --sheet "Surv" --merged-row 10 --result-file "`output_dir'/_wx_survtab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_survtab.xlsx" --sheet "Surv" --merged-row 8 --result-file "`output_dir'/_wx_survtab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX7 - survtab log-rank row merged"
@@ -1877,6 +1879,7 @@ capture noisily {
     clear
     stratetab, using(`_wx_rate1' `_wx_rate2') outcomes(1) ///
         frame(_wx_hr_rates, replace) ///
+        outcomeids(_t) ///
         outlabels("Sustained EDSS 4") ///
         explabels("Any HRT" \ "Estrogen Dose")
 
@@ -1884,17 +1887,23 @@ capture noisily {
     set obs 30
     set seed 20260418
     gen byte treated = mod(_n, 2)
-    gen double y = 10 + 2 * treated + rnormal()
+    gen double follow = exp(-0.5 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: regress y treated
+    collect: stcox treated
     regtab, frame(_wx_hr_bin, replace) noint
 
     clear
     set obs 45
+    set seed 20260419
     gen byte dose = mod(_n, 4)
-    gen double y = 12 + 1.5 * (dose == 1) + 2.5 * (dose == 2) + 3.5 * (dose == 3) + rnormal()
+    gen double follow = exp(-0.2 * (dose == 1) - 0.4 * (dose == 2) ///
+        - 0.6 * (dose == 3) + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: regress y i.dose
+    collect: stcox i.dose
     regtab, frame(_wx_hr_dose, replace) noint
 
     capture erase "`output_dir'/_wx_hrcomptab.xlsx"
@@ -2137,7 +2146,8 @@ capture noisily {
     capture frame drop _console_rates
     stratetab, using("`rate1'") outcomes(1) ///
         xlsx("`output_dir'/_console_contract_stratetab.xlsx") sheet("Rates") ///
-        title("Console_Stratetab") frame(_console_rates, replace)
+        title("Console_Stratetab") frame(_console_rates, replace) ///
+        outcomeids(_t)
     confirm file "`output_dir'/_console_contract_stratetab.xlsx"
 
     sysuse auto, clear
@@ -2152,8 +2162,20 @@ capture noisily {
         sheet("Comp") title("Console_Comptab")
     confirm file "`output_dir'/_console_contract_comptab.xlsx"
 
+    clear
+    set obs 80
+    set seed 20260713
+    gen byte treated = mod(_n, 2)
+    gen double follow = exp(-0.5 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
+    collect clear
+    collect: stcox treated
+    capture frame drop _console_hr_model
+    regtab, frame(_console_hr_model) noint
+
     capture erase "`output_dir'/_console_contract_hrcomptab.xlsx"
-    hrcomptab _console_rates, modelframes(_console_model) rows(1) ///
+    hrcomptab _console_rates, modelframes(_console_hr_model) rows(1) ///
         xlsx("`output_dir'/_console_contract_hrcomptab.xlsx") sheet("HR") ///
         title("Console_Hrcomptab")
     confirm file "`output_dir'/_console_contract_hrcomptab.xlsx"
@@ -2210,6 +2232,7 @@ else {
 
 capture frame drop _console_reg
 capture frame drop _console_model
+capture frame drop _console_hr_model
 capture frame drop _console_rates
 quietly tabtools set clear
 display as result "ALL CONSOLE DISPLAY CONTRACT TESTS PASSED"
@@ -2751,16 +2774,29 @@ capture noisily {
     _contract_make_rate, basename("`hrate2'")
     clear
     stratetab, using("`hrate1'" "`hrate2'") outcomes(2) ///
-        frame(contract_hr_rates, replace)
-    sysuse auto, clear
+        frame(contract_hr_rates, replace) ///
+        outcomeids(endpoint1 \ endpoint2)
+    clear
+    set obs 120
+    set seed 20260713
+    gen double x = rnormal()
+    gen double z = rnormal()
+    gen double w = rnormal()
+    gen double follow1 = exp(-0.4 * x + 0.2 * z + rnormal())
+    gen double follow2 = exp(-0.3 * x + 0.1 * z - 0.2 * w + rnormal())
+    gen byte failed = 1
     collect clear
-    collect: regress price foreign mpg weight
-    collect: regress price foreign mpg weight length
-    regtab, frame(contract_hr_model, replace) noint
+    stset follow1, failure(failed)
+    collect: stcox x z
+    stset follow2, failure(failed)
+    collect: stcox x z w
+    regtab, frame(contract_hr_model, replace) noint ///
+        models("Endpoint 1" \ "Endpoint 2")
     local xlsx "`output_dir'/contract_hrcomptab.xlsx"
     capture erase "`xlsx'"
     capture frame drop contract_hr
     hrcomptab contract_hr_rates, modelframes(contract_hr_model) rows(1) ///
+        outcomemap("Endpoint 1" \ "Endpoint 2") ///
         xlsx("`xlsx'") sheet("HR") frame(contract_hr, replace)
     confirm file "`xlsx'"
     assert `"`r(xlsx)'"' == `"`xlsx'"'
@@ -3112,7 +3148,8 @@ capture noisily {
     _tabtools_collect_render, type(desctab) rowdim(rep78) coldim(foreign) ///
         results(mean sd frequency)
     assert _N >= 8
-    assert c(k) == 10
+    assert c(k) == 13
+    confirm variable _tt_row_key _tt_row_total _tt_row_missing
     assert B[2] == "Domestic"
     assert E[2] == "Foreign"
     assert H[2] == "Total"
@@ -3127,6 +3164,7 @@ if _rc == 0 {
     local ++pass_count
 }
 else {
+    capture restore
     display as error "  FAIL: desctab coldim layout render (rc=`=_rc')"
     local ++fail_count
 }
@@ -3142,7 +3180,8 @@ capture noisily {
     _tabtools_collect_render, type(desctab) rowdim(rep78#foreign) ///
         results(mean frequency)
     assert _N == 18
-    assert c(k) == 3
+    assert c(k) == 6
+    confirm variable _tt_row_key _tt_row_total _tt_row_missing
     assert B[1] == "Mean"
     assert C[1] == "Frequency"
     assert A[2] == "Repair record 1978#Car origin"
@@ -3166,6 +3205,7 @@ if _rc == 0 {
     local ++pass_count
 }
 else {
+    capture restore
     display as error "  FAIL: desctab compound row layout render (rc=`=_rc')"
     local ++fail_count
 }
@@ -3186,7 +3226,8 @@ capture noisily {
     _tabtools_collect_render, type(desctab) rowdim(rep78) ///
         coldim(foreign#highmpg) results(mean frequency)
     assert _N == 10
-    assert c(k) == 19
+    assert c(k) == 22
+    confirm variable _tt_row_key _tt_row_total _tt_row_missing
     assert B[1] == "Car origin#Mileage band"
     assert B[2] == "Domestic > Low MPG"
     assert B[3] == "Mean"
@@ -3213,6 +3254,7 @@ if _rc == 0 {
     local ++pass_count
 }
 else {
+    capture restore
     display as error "  FAIL: desctab compound column layout render (rc=`=_rc')"
     local ++fail_count
 }
@@ -3459,16 +3501,18 @@ capture noisily {
     save "`_md_rate'.dta", replace
     clear
     stratetab, using(`_md_rate') outcomes(1) frame(_md_rates, replace) ///
-        outlabels("Outcome") explabels("Exposure")
+        outcomeids(_t) outlabels("Outcome") explabels("Exposure")
     clear
     set obs 80
     set seed 60607
     gen byte treated = mod(_n, 2)
-    gen double y = 10 + 2 * treated + rnormal()
+    gen double follow = exp(-0.5 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: regress y treated
-    regtab, frame(_md_hrmod, replace) noint coef("aHR")
-    hrcomptab _md_rates, modelframes(_md_hrmod) rows(1) effect("aHR") ///
+    collect: stcox treated
+    regtab, frame(_md_hrmod, replace) noint
+    hrcomptab _md_rates, modelframes(_md_hrmod) rows(1) effect("HR") ///
         markdown("`md_hr'") csv("`csv_hr'") title("Survival")
     assert "`r(markdown)'" == "`md_hr'"
     assert "`r(csv)'" == "`csv_hr'"
@@ -4311,7 +4355,7 @@ capture noisily {
     stset studytime, failure(died)
     capture erase "`output_dir'/_xl_survtab.xlsx"
     survtab, times(10 20 30) by(drug) xlsx("`output_dir'/_xl_survtab.xlsx") ///
-        sheet("Surv") title("Survival Estimates") events
+        sheet("Surv") title("Survival Estimates") events median
 
     shell python3 "`checker'" "`output_dir'/_xl_survtab.xlsx" --sheet "Surv" ///
         --min-rows 8 --min-cols 4 ///

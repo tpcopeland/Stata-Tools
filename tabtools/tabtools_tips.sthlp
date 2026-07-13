@@ -30,8 +30,15 @@
 {title:Options}
 
 {synoptset 18 tabbed}{...}
-{synopt:{opt open}}open the tips help file directly instead of printing the compact command-line index{p_end}
+{synopt:{opt open}}open this help topic in the Viewer{p_end}
 {synoptline}
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt open} open the tips help file directly instead of printing the compact command-line index{p_end}
 
 {marker description}{...}
 {title:Description}
@@ -241,12 +248,12 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:regtab, xlsx(regression.xlsx) sheet("Logistic")}
 {cmd:title("Table 2. Predictors of High Price") noint boldp(0.05) zebra}{p_end}
 
-{title:4. Cox model with median odds ratio}
+{title:4. Mixed-effects Weibull model with median hazard ratio}
 {phang2}{cmd:webuse catheter, clear}{p_end}
 {phang2}{cmd:stset time, failure(infect)}{p_end}
 {phang2}{cmd:collect clear}{p_end}
-{phang2}{cmd:collect: mestreg age female, distribution(weibull) || patient:}{p_end}
-{phang2}{cmd:regtab, xlsx(survival.xlsx) sheet("Cox MOR") title("Table 3. Catheter Infection Model") relabel noint}{p_end}
+{phang2}{cmd:collect: mestreg age female || patient:, distribution(weibull)}{p_end}
+{phang2}{cmd:regtab, xlsx(survival.xlsx) sheet("Weibull MHR") title("Table 3. Catheter Infection Model") relabel noint}{p_end}
 
 {title:5. Treatment effects with margins}
 {phang2}{cmd:webuse cattaneo2, clear}{p_end}
@@ -257,6 +264,7 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 
 {title:6. Multi-model manuscript workflow}
 {phang2}{cmd:sysuse auto, clear}{p_end}
+{phang2}{cmd:generate byte expensive = price > 6000}{p_end}
 {phang2}{cmd:tabtools set theme lancet}{p_end}
 {phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat)}
 {cmd:xlsx(manuscript.xlsx) sheet("Table 1") title("Table 1. Baseline Characteristics") smd}{p_end}
@@ -280,18 +288,22 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {title:8. Incidence rates by exposure}
 {phang2}{cmd:webuse diet, clear}{p_end}
 {phang2}{cmd:stset dox, failure(fail) origin(time dob) enter(time doe) scale(365.25) id(id)}{p_end}
-{phang2}{cmd:strate hienergy, per(1000) output(rate_hienergy, replace)}{p_end}
+{phang2}{cmd:strate hienergy, per(1) output(rate_hienergy, replace)}{p_end}
 {phang2}{cmd:stratetab, using(rate_hienergy) xlsx(rates.xlsx) outcomes(1)}
 {cmd:outlabels("CHD Death") explabels("Energy Intake")}
 {cmd:title("Incidence Rates per 1,000 Person-Years") zebra}{p_end}
 
 {title:9. Table 2 workflow with hrcomptab}
-{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose)}
-{cmd:outcomes(3) frame(hrt_rates, replace)}{p_end}
-{phang2}{cmd:regtab, frame(hrt_bin, replace) noint coef("HR")}{p_end}
-{phang2}{cmd:regtab, frame(hrt_dose, replace) noint coef("HR")}{p_end}
-{phang2}{cmd:hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) rows(1 \ 3/5)}
-{cmd:effect("aHR") xlsx(HRT.xlsx) sheet("Table 2")}{p_end}
+{phang2}{cmd:webuse diet, clear}{p_end}
+{phang2}{cmd:stset dox, failure(fail) origin(time dob) enter(time doe) scale(365.25) id(id)}{p_end}
+{phang2}{cmd:strate hienergy, per(1) output(rate_chd, replace)}{p_end}
+{phang2}{cmd:stratetab, using(rate_chd) outcomes(1) outlabels("CHD death") outcomeids(chd)}
+{cmd:frame(chd_rates, replace)}{p_end}
+{phang2}{cmd:collect clear}{p_end}
+{phang2}{cmd:collect: stcox i.hienergy}{p_end}
+{phang2}{cmd:regtab, frame(chd_model, replace) noint coef("HR")}{p_end}
+{phang2}{cmd:hrcomptab chd_rates, modelframes(chd_model) rows(3) outcomemap(_t)}
+{cmd:frame(chd_table2, replace)}{p_end}
 
 {title:10. Console preview without Excel}
 {phang2}{cmd:sysuse auto, clear}{p_end}
@@ -362,22 +374,38 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:puttab using report.xlsx, sheet("Top10") frame(top) title("First Ten Cars") varlabels theme(nejm) zebra}{p_end}
 
 {title:20. Emit-then-assemble pipeline}
-{phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Primary") varlabels}{p_end}
-{phang2}{cmd:puttab term ahr ci using parts.xlsx, sheet("Dose") varlabels}{p_end}
+{phang2}{cmd:clear}{p_end}
+{phang2}{cmd:input str18 term double ahr str16 ci}{p_end}
+{phang2}{cmd:"Any HRT use" 0.82 "0.70, 0.96"}{p_end}
+{phang2}{cmd:"Current HRT use" 0.76 "0.61, 0.94"}{p_end}
+{phang2}{cmd:"Low dose" 0.91 "0.73, 1.13"}{p_end}
+{phang2}{cmd:"High dose" 0.69 "0.51, 0.93"}{p_end}
+{phang2}{cmd:end}{p_end}
+{phang2}{cmd:puttab term ahr ci in 1/2 using parts.xlsx, sheet("Primary") varlabels}{p_end}
+{phang2}{cmd:puttab term ahr ci in 3/4 using parts.xlsx, sheet("Dose") varlabels}{p_end}
 {phang2}{cmd:stacktab using parts.xlsx, sheet("Table 2")}
-{cmd:blocks(sheet(Primary) rows(1/4) cols(A-C) label(Any HRT use) \}
-{cmd:sheet(Dose) rows(1/3) cols(A-C) label(By estrogen dose))}
+{cmd:blocks(sheet(Primary) rows(2/4) cols(B-D) label(Any HRT use) \}
+{cmd:sheet(Dose) rows(2/4) cols(B-D) label(By estrogen dose))}
 {cmd:columnmerge(B+C as "aHR (95% CI)") spacing(1)}
 {cmd:title("Table 2. Hormone Therapy and Recurrent Events")}{p_end}
 
 {title:21. Monte Carlo simulation performance table}
+{phang2}{cmd:clear}{p_end}
+{phang2}{cmd:set seed 20260713}{p_end}
+{phang2}{cmd:set obs 400}{p_end}
+{phang2}{cmd:generate int sim = mod(_n-1, 100) + 1}{p_end}
+{phang2}{cmd:generate str8 estimator = cond(mod(floor((_n-1)/100), 2)==0, "Method A", "Method B")}{p_end}
+{phang2}{cmd:generate str8 scenario = cond(_n<=200, "Base", "Stress")}{p_end}
+{phang2}{cmd:generate str8 estimand = "theta"}{p_end}
+{phang2}{cmd:generate double true_value = 1}{p_end}
+{phang2}{cmd:generate double se = 0.20}{p_end}
+{phang2}{cmd:generate double estimate = true_value + (estimator=="Method B")*0.05 + rnormal()*se}{p_end}
+{phang2}{cmd:generate byte covered = abs(estimate-true_value) <= invnormal(.975)*se}{p_end}
 {phang2}{cmd:simtab estimator, estimate(estimate) se(se) true(true_value)}
-{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(1000)}
+{cmd:by(scenario) estimand(estimand) sim(sim) coverage(covered) nsim(100)}
 {cmd:metrics(mean bias empse meanse coverage n nonconv)}
 {cmd:xlsx("sim.xlsx") sheet("Table 2") borderstyle(academic) digits(3)}
 {cmd:plotframe(sim_plot, replace) display}{p_end}
-{phang2}{cmd:simsum estimate, true(true_value) se(se) methodvar(estimator) id(sim) mcse clear}{p_end}
-{phang2}{cmd:simtab, from(simsum) xlsx("sim.xlsx") sheet("Table 2") display}{p_end}
 
 {hline}
 {title:Also see}

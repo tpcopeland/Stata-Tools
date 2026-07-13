@@ -1294,27 +1294,30 @@ else {
     local failed_tests "`failed_tests' 4.18.1"
 }
 
-* Test 4.18.2: compete() Ignored with type(recurring)
-* Purpose: Verify compete() is silently ignored (not error) with type(recurring)
-* Note: tvevent displays a note and ignores compete() rather than erroring
+* Test 4.18.2: compete() rejected with type(recurring)
+* Purpose: Unsupported endpoint semantics must never succeed as a no-op
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 4.18.2: compete() Ignored with type(recurring)"
+    display as text _n "Test 4.18.2: compete() Rejected with type(recurring)"
 }
 
 capture {
     use "${DATA_DIR}/events_recurring_wide.dta", clear
-    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
+    local before_N = _N
+    quietly summarize id, meanonly
+    local before_id_sum = r(sum)
+    capture noisily tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
         startvar(start) stopvar(stop) ///
         type(recurring) compete(hosp2) generate(outcome)
-    * Command should succeed (compete() is ignored, not error)
-    * Outcome should only have values 0 and 1 (no competing risk value 2)
-    quietly tab outcome
-    quietly count if outcome == 2
-    assert r(N) == 0  // No competing risk outcomes since compete() was ignored
+    local cmdrc = _rc
+    assert `cmdrc' == 198
+    assert _N == `before_N'
+    quietly summarize id, meanonly
+    assert r(sum) == `before_id_sum'
+    confirm variable hosp1 hosp2
 }
 if _rc == 0 {
-    display as result "  PASS: compete() with type(recurring) is ignored (no error)"
+    display as result "  PASS: compete() with type(recurring) returns error 198 transactionally"
     local ++pass_count
 }
 else {
@@ -2789,7 +2792,7 @@ capture {
     clear
     set obs 10
     gen id = _n
-    gen edss4_dt = mdy(6, 15, 2020) + runiform()*100
+    gen edss4_dt = mdy(6, 15, 2020) + floor(runiform()*101)
     gen death_dt = .
     replace death_dt = mdy(8, 1, 2020) if _n <= 2
     tempfile event_data

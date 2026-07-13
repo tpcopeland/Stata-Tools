@@ -7,9 +7,6 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close
-log using "test_gcomptab_text_export.log", replace nomsg
-
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -17,8 +14,7 @@ local fail_count = 0
 * Bootstrap: derive package root from qa/ working directory, sandboxed install
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
+do "`qa_dir'/_qa_bootstrap.do"
 
 local td "`c(tmpdir)'"
 
@@ -48,10 +44,10 @@ program define _mk_med
     clear
     set seed 12345
     set obs 1000
-    gen double c = rnormal(50, 10)
-    gen double x = rbinomial(1, invlogit(-2 + 0.02 * c))
-    gen double m = rbinomial(1, invlogit(-1 + 0.8 * x + 0.01 * c))
-    gen double y = rbinomial(1, invlogit(-3 + 0.5 * m + 0.3 * x + 0.02 * c))
+    gen double c = rnormal()
+    gen double x = rbinomial(1, invlogit(-0.2 + 0.4 * c))
+    gen double m = rbinomial(1, invlogit(-0.4 + 1.2 * x + 0.3 * c))
+    gen double y = rbinomial(1, invlogit(-0.8 + 1.0 * m + 0.8 * x + 0.2 * c))
 end
 
 capture program drop _mk_tv
@@ -91,7 +87,7 @@ capture noisily {
     _mk_med
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(42)
+        base_confs(c) sim(300) samples(20) seed(42) minsim
     gcomptab, xlsx("`xlsx'") sheet("Med") title("Mediation Demo") ///
         markdown("`md'") csv("`csv'")
     * returns
@@ -177,7 +173,7 @@ capture noisily {
     _mk_med
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
-        base_confs(c) sim(50) samples(10) seed(1)
+        base_confs(c) sim(300) samples(10) seed(1) minsim
     * bad markdown extension
     capture gcomptab, xlsx("`xlsx'") sheet("E") markdown("`td'/bad.txt")
     assert _rc == 198
@@ -211,7 +207,7 @@ capture noisily {
     _mk_med
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
-        base_confs(c) sim(50) samples(10) seed(2)
+        base_confs(c) sim(300) samples(10) seed(2) minsim
     * theme + explicit header/zebra colors, with markdown companion
     gcomptab, xlsx("`xlsx'") sheet("T1") theme(nejm) ///
         headercolor("200 210 230") zebracolor("245 245 245") markdown("`md'")
@@ -246,7 +242,7 @@ capture noisily {
     _mk_med
     gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
-        base_confs(c) sim(50) samples(3) seed(3) savemodels
+        base_confs(c) sim(300) samples(3) seed(3) minsim savemodels
     * eform + stars/starslevels + digits + termlabels
     gcomptab, models xlsx("`xlsx'") sheet("M1") eform stars ///
         starslevels(0.05 0.01) digits(2) termlabels("Intercept \ Exposure")
@@ -278,29 +274,29 @@ capture noisily {
     clear
     set seed 999
     set obs 1500
-    gen double c = rnormal(50,10)
-    gen double x = rbinomial(1, invlogit(-2 + 0.02*c))
-    gen double m1 = rbinomial(1, invlogit(-1 + 0.8*x + 0.01*c))
-    gen double m2 = rbinomial(1, invlogit(-0.5 + 0.6*x + 0.4*m1))
-    gen double y = rbinomial(1, invlogit(-3 + 0.5*m1 + 0.4*m2 + 0.3*x + 0.02*c))
+    gen double c = rnormal()
+    gen double x = rbinomial(1, invlogit(-0.2 + 0.4*c))
+    gen byte m1 = rbinomial(1, invlogit(-0.7 + 0.8*x + 0.4*c))
+    gen byte m2 = rbinomial(1, invlogit(-0.5 + 0.6*x + 0.4*m1))
+    gen double y = 0.7*m1 + 0.4*m2 + 0.6*x + 0.2*c + rnormal(0, 0.7)
     gcomp y m1 x c, outcome(y) mediation obe boceam exposure(x) mediator(m1) ///
-        commands(m1: logit, y: logit) equations(m1: x c, y: m1 x c) ///
-        base_confs(c) sim(80) samples(10) seed(7)
+        commands(m1: logit, y: regress) equations(m1: x c, y: m1 x c) ///
+        base_confs(c) msm(regress y x m1) sim(300) samples(10) seed(7) minsim
     assert "`e(analysis_type)'" == "mediation"
     assert !missing(e(tce))
     * multi-mediator boceam -> clean guarded error (rc=198), not a cryptic crash
     capture gcomp y m1 m2 x c, outcome(y) mediation obe boceam exposure(x) mediator(m1 m2) ///
-        commands(m1: logit, m2: logit, y: logit) ///
+        commands(m1: logit, m2: logit, y: regress) ///
         equations(m1: x c, m2: x m1 c, y: m1 m2 x c) base_confs(c) sim(50) samples(5)
     assert _rc == 198
-    * graph option draws without error in batch
-    gcomp y m1 x c, outcome(y) mediation obe exposure(x) mediator(m1) ///
-        commands(m1: logit, y: logit) equations(m1: x c, y: m1 x c) ///
+    * graph() is a time-varying diagnostic and is rejected in mediation mode
+    capture gcomp y m1 x c, outcome(y) mediation obe exposure(x) mediator(m1) ///
+        commands(m1: logit, y: regress) equations(m1: x c, y: m1 x c) ///
         base_confs(c) sim(50) samples(5) seed(8) graph
-    assert "`e(analysis_type)'" == "mediation"
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: F gcomp boceam (single/guarded) + graph"
+    display as result "  PASS: F gcomp boceam (single/guarded) + graph guard"
     local ++pass_count
 }
 else {
@@ -313,10 +309,8 @@ else {
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: test_gcomptab_text_export tests=`test_count' pass=`pass_count' fail=`fail_count'"
-    log close
+    display "RESULT: test_gcomptab_text_export tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: test_gcomptab_text_export tests=`test_count' pass=`pass_count' fail=`fail_count'"
-log close
+display "RESULT: test_gcomptab_text_export tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

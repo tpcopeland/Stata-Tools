@@ -12,19 +12,17 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _make_med_data
 program define _make_med_data
     clear
     set seed 8801
-    set obs 500
-    gen double c = rnormal(50, 10)
-    gen byte x = rbinomial(1, invlogit(-2 + 0.02 * c))
-    gen byte m = rbinomial(1, invlogit(-1 + 0.8 * x + 0.01 * c))
-    gen byte y = rbinomial(1, invlogit(-3 + 0.5 * m + 0.3 * x + 0.02 * c))
+    set obs 1000
+    gen double c = rnormal()
+    gen byte x = rbinomial(1, invlogit(-0.2 + 0.4 * c))
+    gen byte m = rbinomial(1, invlogit(-0.4 + 1.2 * x + 0.3 * c))
+    gen byte y = rbinomial(1, invlogit(-0.8 + 1.0 * m + 0.8 * x + 0.2 * c))
 end
 
 capture program drop _make_cont_data
@@ -42,10 +40,11 @@ capture program drop _make_tv_data
 program define _make_tv_data
     clear
     set seed 8803
-    set obs 120
+    set obs 600
     gen long id = ceil(_n / 3)
     bysort id: gen byte time = _n
     gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
     gen double L = rnormal() + 0.2 * time
     gen byte A = rbinomial(1, invlogit(-0.8 + 0.35 * L))
     gen byte Y = rbinomial(1, invlogit(-1.7 + 0.4 * L + 0.35 * A))
@@ -384,4 +383,8 @@ else {
 display _n as text "=============================================="
 display as result "Diagnostics tests: `pass_count' passed, `fail_count' failed out of `test_count'"
 display as text "=============================================="
-if `fail_count' > 0 exit 1
+if `fail_count' > 0 {
+    display "RESULT: test_gcomp_diagnostics tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
+    exit 1
+}
+display "RESULT: test_gcomp_diagnostics tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

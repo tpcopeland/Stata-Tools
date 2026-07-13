@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-07-13",
+  "environment": {
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "pandas": "2.3.3",
+    "statsmodels": "0.14.6",
+    "R": "4.6.1",
+    "mediation": "4.5.1"
+  },
+  "generators": [
+    {
+      "script": "generate_external_replication.py",
+      "command": "python3 generate_external_replication.py",
+      "outputs": ["external_mediation_binary.csv", "external_mediation_continuous.csv", "external_timevarying.csv", "external_reference.csv"],
+      "seeds": [20260506, 20260507, 20260508],
+      "method": "statsmodels plug-in parametric g-formula",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Allows only floating-point serialization drift, far below every inferential tolerance."
+    },
+    {
+      "script": "generate_intervention_imputation_reference.py",
+      "command": "python3 generate_intervention_imputation_reference.py",
+      "outputs": ["intervention_imputation_dynamic_data.csv", "intervention_imputation_mediation_data.csv", "intervention_imputation_reference.csv", "intervention_imputation_covariance.csv"],
+      "seeds": [20260521, 20260522, 20260523, 20260524, 20260527],
+      "method": "statsmodels plug-in g-formula plus 700-replicate bootstrap",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Allows only floating-point serialization drift."
+    },
+    {
+      "script": "generate_longitudinal_extended_reference.py",
+      "command": "python3 generate_longitudinal_extended_reference.py",
+      "outputs": ["longitudinal_extended_survival.csv", "longitudinal_extended_reference.csv", "longitudinal_extended_covariance.csv"],
+      "seeds": [20260517, 20260518],
+      "method": "statsmodels longitudinal plug-in oracle plus 220 subject bootstraps",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Allows only floating-point serialization drift."
+    },
+    {
+      "script": "generate_mediation_extended_reference.py",
+      "command": "python3 generate_mediation_extended_reference.py",
+      "outputs": ["mediation_extended_categorical.csv", "mediation_extended_linexp.csv", "mediation_extended_reference.csv", "mediation_extended_covariance.csv"],
+      "seeds": [202605071, 202605072, 202605171, 202605172, 202605173],
+      "method": "statsmodels categorical/linear plug-in mediation plus 300 bootstraps",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Covers machine-epsilon covariance drift such as 1 versus 1.0000000000000004."
+    },
+    {
+      "script": "generate_mediation_se_reference.py",
+      "command": "python3 generate_mediation_se_reference.py",
+      "outputs": ["mediation_se_binary.csv", "mediation_se_continuous.csv", "mediation_se_reference.csv", "mediation_se_covariance.csv"],
+      "seeds": [202605061, 202605062, 202605160, 202605260],
+      "method": "statsmodels mediation plug-in oracle plus 1000 bootstraps",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Allows only floating-point serialization drift."
+    },
+    {
+      "script": "generate_timevarying_se_reference.py",
+      "command": "python3 generate_timevarying_se_reference.py",
+      "outputs": ["timevarying_se_data.csv", "timevarying_se_reference.csv", "timevarying_se_covariance.csv", "timevarying_se_bootstrap.csv"],
+      "seeds": [20260513, 20260514, 20261514],
+      "method": "statsmodels EOFU plug-in oracle plus 700 subject bootstraps",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Allows only floating-point serialization drift."
+    },
+    {
+      "script": "generate_r_benchmarks.R",
+      "command": "Rscript generate_r_benchmarks.R",
+      "outputs": ["crossval_data.csv", "r_benchmarks.csv"],
+      "seeds": [42, 12345],
+      "method": "R mediation 4.5.1 quasi-Bayesian benchmark and analytical Monte Carlo integration",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Pins the single machine-readable benchmark consumed by crossval_gcomp.do."
+    },
+    {
+      "script": "generate_timevarying_reference.py",
+      "command": "python3 generate_timevarying_reference.py",
+      "outputs": ["timevarying_python_benchmark.csv"],
+      "seeds": [20260421],
+      "method": "3,000,000-subject NumPy forward Monte Carlo g-formula",
+      "numeric_tolerance": 1e-09,
+      "tolerance_rationale": "Generator and committed fixture are deterministic under the pinned NumPy runtime."
+    }
+  ]
+}

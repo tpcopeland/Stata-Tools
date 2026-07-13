@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.7  10jul2026}{...}
+{* *! version 1.9.8  13jul2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -77,14 +77,14 @@ guide and end-to-end worked recipes.
 {pstd}
 {bf:Composite and assembly}
 
-{synopt:{helpb comptab}}Combine selected rows from regtab/effecttab frames into one table{p_end}
-{synopt:{helpb hrcomptab}}Combine a stratetab frame with regtab rows into a Table 2-style sheet{p_end}
-{synopt:{helpb stacktab}}Assemble already-exported Excel sheets/blocks into one composite sheet{p_end}
+{synopt:{helpb comptab}}Combine selected model-frame rows{p_end}
+{synopt:{helpb hrcomptab}}Combine rate and hazard-ratio frames{p_end}
+{synopt:{helpb stacktab}}Assemble exported Excel blocks{p_end}
 
 {pstd}
 {bf:Styled in-memory export}
 
-{synopt:{helpb puttab}}Style one in-memory table (dataset, frame, or matrix) as a single sheet{p_end}
+{synopt:{helpb puttab}}Style one in-memory table{p_end}
 
 {pstd}
 {bf:Rates And Clinical}
@@ -96,7 +96,7 @@ guide and end-to-end worked recipes.
 {pstd}
 {bf:Simulation studies}
 
-{synopt:{helpb simtab}}Monte Carlo simulation performance table (pairs with simsum/siman){p_end}
+{synopt:{helpb simtab}}Summarize Monte Carlo performance{p_end}
 
 {pstd}
 {bf:Utility}
@@ -193,26 +193,26 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synoptset 22 tabbed}{...}
 {synopt:{opt list}}display commands as a simple list{p_end}
 {synopt:{opt detail}}show detailed information with descriptions{p_end}
-{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:simulation}, {cmd:general}, {cmd:all}{p_end}
+{synopt:{opt c:ategory(string)}}filter the command list by category{p_end}
 {synoptline}
 
 {dlgtab:Settings keys}
 
 {synoptset 22 tabbed}{...}
-{synopt:{cmd:font} {it:name}}font family applied to all cells (e.g., {cmd:Calibri}, {cmd:Times New Roman}){p_end}
+{synopt:{cmd:font} {it:name}}set the default font family{p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmd:theme} {it:name}}journal-inspired theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{cmd:theme} {it:name}}set the default formatting theme{p_end}
 {synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
-{synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting; number between 0 and 1{p_end}
+{synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
 {synoptline}
 
 {dlgtab:Profile options}
 
 {synoptset 22 tabbed}{...}
-{synopt:{opt perm:anent}}after applying {cmd:tabtools set}, write the current defaults to a disk profile{p_end}
-{synopt:{opt prof:ile(filename)}}write or read an alternate profile file; default is {cmd:tabtools_profile.do} in Stata's PERSONAL ado directory{p_end}
+{synopt:{opt perm:anent}}persist current defaults to disk{p_end}
+{synopt:{opt prof:ile(filename)}}write or read an alternate profile file{p_end}
 {synoptline}
 
 {pstd}
@@ -251,6 +251,43 @@ direct {cmd:tabtools set font}, {cmd:set fontsize}, and
 {cmd:set borderstyle} first resolve that named theme to {cmd:custom}, then
 apply the requested override.
 
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+
+{phang}
+{opt c:ategory(string)} filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates},
+{cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:export}, {cmd:simulation}, {cmd:general},
+{cmd:all}{p_end}
+
+{phang}
+{opt detail} show detailed information with descriptions{p_end}
+
+{phang}
+{opt font(string)} font family for the custom theme{p_end}
+
+{phang}
+{opt fontsize(#)} font size in points for the custom theme{p_end}
+
+{phang}
+{opt headerc:olor(string)} header fill: supported Stata color name or RGB triplet{p_end}
+
+{phang}
+{opt list} display commands as a simple list{p_end}
+
+{phang}
+{opt perm:anent} after applying {cmd:tabtools set}, write the current defaults to a disk profile{p_end}
+
+{phang}
+{opt prof:ile(filename)} write or read an alternate profile file; default is
+{cmd:tabtools_profile.do} in Stata's PERSONAL ado directory{p_end}
+
+{phang}
+{opt zebrac:olor(string)} zebra fill: supported Stata color name or RGB triplet{p_end}
 
 {marker defaults}{...}
 {title:Persistent defaults}
@@ -406,6 +443,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 1.9.7{p_end}
+{pstd}{bf:Version} 1.9.8{p_end}
 
 {hline}

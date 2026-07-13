@@ -11,7 +11,7 @@ program define _iivw_bs_estimate, eclass
     syntax varlist(numeric min=1) [if] [in], ///
         MODel(string) ///
         [WEIGHTvar(varname) ///
-         FAMily(string) LINk(string) PANELid(varname) ///
+         FAMily(string) LINk(string) PANELid(varname) BSid(varname) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
     marksample touse
@@ -42,9 +42,30 @@ program define _iivw_bs_estimate, eclass
             display as error "panelid() required with model(mixed)"
             error 198
         }
+
+        * The random intercept groups on the PANEL UNIT (the subject), which is
+        * not the same thing as bootstrap's resampled-cluster id when cluster()
+        * sits above the panel -- a clinic, say. Passing the clinic draw id
+        * straight through made a whole clinic one random-effect group: in a
+        * 8-clinic x 5-patient hierarchy, 8 groups instead of 40, moving the
+        * fixed effect from 0.510 to 0.436 and the intercept SD from 1.136 to
+        * 0.211.
+        *
+        * group(bsid, panelid) is the resampled subject: it is what idcluster()
+        * would have produced had the panel been the resampling unit, and it
+        * still gives a subject drawn twice two distinct groups. When cluster()
+        * IS the panel id the mapping is one-to-one, so this is a no-op there --
+        * which is why the common case never surfaced the bug.
+        local grpvar "`panelid'"
+        if "`bsid'" != "" {
+            tempvar _bs_subj
+            quietly egen long `_bs_subj' = group(`bsid' `panelid')
+            local grpvar "`_bs_subj'"
+        }
+
         * vce(cluster) omitted: bootstrap prefix handles clustering
         mixed `depvar' `covars' `wt_clause' if `touse' ///
-            || `panelid':, `log_opt' `mixedopts'
+            || `grpvar':, `log_opt' `mixedopts'
     }
     else {
         display as error "model() must be gee or mixed"

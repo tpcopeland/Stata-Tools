@@ -13,7 +13,8 @@
     Produces:
       Console (1 text log + 1 markdown file):
         1. console_output.log         - consolidated display log
-        2. console_output.md          - markdown console output for README
+        2. console_output.md          - transient console conversion for local inspection
+                                         (gitignored; not a README source)
       simtab section (folded in; runs for "all" or "simtab"):
         demo_simtab.xlsx   (2 sheets) - scenarios + multi-estimand workbook
         In "all" mode the simtab console tables fold into console_output.md and
@@ -1516,6 +1517,7 @@ save "`rate23'.dta", replace
 stratetab, using(`rate11' `rate12' `rate13' `rate21' `rate22' `rate23') ///
     outcomes(3) frame(_demo_hr_rates, replace) ///
     outlabels("Sustained EDSS 4" \ "Sustained EDSS 6" \ "Recurring Relapse") ///
+    outcomeids(edss4 \ edss6 \ relapse) ///
     explabels("Any HRT" \ "Estrogen Dose")
 
 * Binary HRT model frame: one non-reference row
@@ -1539,7 +1541,8 @@ stset time, failure(edss6) id(id)
 collect: stcox hrt c.age i.female i.education, nolog
 stset time, failure(relapse) id(id)
 collect: stcox hrt c.age i.female i.education, nolog
-regtab, frame(_demo_hr_bin, replace) noint coef("HR")
+regtab, frame(_demo_hr_bin, replace) noint coef("HR") ///
+    models(edss4 \ edss6 \ relapse)
 
 * Dose category model frame: three non-reference rows after header + reference
 clear
@@ -1561,10 +1564,12 @@ stset time, failure(edss6) id(id)
 collect: stcox i.dosecat c.age i.female i.education, nolog
 stset time, failure(relapse) id(id)
 collect: stcox i.dosecat c.age i.female i.education, nolog
-regtab, frame(_demo_hr_dose, replace) noint coef("HR")
+regtab, frame(_demo_hr_dose, replace) noint coef("HR") ///
+    models(edss4 \ edss6 \ relapse)
 
 hrcomptab _demo_hr_rates, modelframes(_demo_hr_bin _demo_hr_dose) ///
     rows(1 \ 3/5) ///
+    outcomemap(edss4 \ edss6 \ relapse) ///
     xlsx("`xlsx_hrcomptab'") sheet("HR Composite") ///
     effect("aHR") zebra headershade ///
     title("Table 19. Hormone Therapy Events, Person-Years, and Adjusted Hazard Ratios") ///

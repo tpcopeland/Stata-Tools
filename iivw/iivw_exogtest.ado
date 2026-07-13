@@ -54,13 +54,83 @@ program define iivw_exogtest, rclass sortpreserve
 
     syntax varlist(numeric min=1) [if] [in] , ///
         ID(varname) TIME(varname numeric) ///
-        [ADJust(varlist numeric) BY(varname) ENTry(varname numeric) ///
+        [ADJust(varlist numeric) BY(varname) BYSTart ENTry(varname numeric) ///
+         CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
          GENerate(name) REPLACE EFRon noLOG Level(cilevel) ///
          XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) OPEN ///
          BORDERstyle(string) HEADERShade THEme(string) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
+
+    * =========================================================================
+    * END-OF-FOLLOW-UP CONTRACT
+    * =========================================================================
+    * iivw_exogtest fits the same Andersen-Gill visit-intensity model as
+    * iivw_weight, so it inherited the same defect: without a censoring interval
+    * every subject left the risk set at their own last visit, and the test
+    * statistic was computed on a risk set shaped by the very process it is
+    * testing. The contract is identical to iivw_weight's -- and must MATCH the
+    * one the weights were built under, or the test describes a different model.
+    local __iivw_n_cens_opts = 0
+    if "`censor'" != ""         local ++__iivw_n_cens_opts
+    if "`maxfu'" != ""          local ++__iivw_n_cens_opts
+    if "`endatlastvisit'" != "" local ++__iivw_n_cens_opts
+
+    if `__iivw_n_cens_opts' > 1 {
+        display as error "specify only one of censor(), maxfu() and endatlastvisit"
+        error 198
+    }
+    if `__iivw_n_cens_opts' == 0 {
+        display as error "end of follow-up is not specified"
+        display as error ""
+        display as error "The visit-intensity model needs each subject's observation window,"
+        display as error "not just the intervals between their visits. Specify exactly one of:"
+        display as error ""
+        display as error "  censor(varname)  subject-specific end of follow-up; must be constant"
+        display as error "                   within id() and >= the subject's last visit"
+        display as error "  maxfu(#)         a common end of follow-up shared by all subjects"
+        display as error "  endatlastvisit   follow-up genuinely ends at each subject's last visit"
+        display as error ""
+        display as error "Use the same specification you gave iivw_weight, or the test reports"
+        display as error "on a different visit-intensity model than the one that made the weights."
+        error 198
+    }
+
+    local __iivw_cens_mode "censor"
+    if "`endatlastvisit'" != "" local __iivw_cens_mode "lastvisit"
+    if "`maxfu'" != ""          local __iivw_cens_mode "maxfu"
+
+    if "`__iivw_cens_mode'" == "maxfu" {
+        quietly summarize `time', meanonly
+        if r(max) > `maxfu' {
+            quietly count if `time' > `maxfu'
+            display as error "`=r(N)' visits occur after maxfu(`maxfu')"
+            error 198
+        }
+    }
+    if "`__iivw_cens_mode'" == "censor" {
+        quietly count if missing(`censor')
+        if r(N) > 0 {
+            display as error "censor() contains missing values"
+            error 198
+        }
+        tempvar __iivw_cmin __iivw_cmax __iivw_lastvis
+        quietly bysort `id': egen double `__iivw_cmin' = min(`censor')
+        quietly bysort `id': egen double `__iivw_cmax' = max(`censor')
+        quietly count if `__iivw_cmin' != `__iivw_cmax'
+        if r(N) > 0 {
+            display as error "censor() must be constant within each id()"
+            error 198
+        }
+        quietly bysort `id': egen double `__iivw_lastvis' = max(`time')
+        quietly count if `censor' < `__iivw_lastvis'
+        if r(N) > 0 {
+            display as error "censor() is earlier than the last observed visit for some subjects"
+            error 198
+        }
+        drop `__iivw_cmin' `__iivw_cmax' `__iivw_lastvis'
+    }
 
     if "`decimals'" != "" {
         capture confirm integer number `decimals'
@@ -97,11 +167,29 @@ program define iivw_exogtest, rclass sortpreserve
     }
     local __iivw_hold_ok = 1
 
-    marksample touse
+    if "`bystart'" != "" & "`by'" == "" {
+        display as error "bystart requires by()"
+        error 198
+    }
+
+    * novarlist, and `varlist' is NOT marked out.
+    *
+    * The model fits the LAGGED value of each tested variable, never its current
+    * value. Marking out a missing current value therefore throws away an
+    * interval whose predictor is perfectly well observed: if y is missing at
+    * visit 3, the interval ENDING at visit 3 -- whose predictor is y at visit 2
+    * -- is fine, and only the interval ending at visit 4 is unusable. The old
+    * rule discarded both. On 30 subjects x 4 visits, blanking visit-3 outcomes
+    * for five subjects left 80 usable intervals where the lag-only rule leaves
+    * 85 (complete data: 90).
+    *
+    * Missingness in the generated lags is marked out below, once they exist,
+    * which is the only place it can be judged correctly.
+    marksample touse, novarlist
     * strok: id() and by() may legitimately be string variables; without
     * strok, markout silently marks EVERY observation out for a string
     * variable and the diagnostic dies with a misleading "no observations".
-    markout `touse' `id' `time' `varlist' `adjust', strok
+    markout `touse' `id' `time' `adjust', strok
     if "`by'" != "" {
         markout `touse' `by', strok
     }
@@ -239,6 +327,40 @@ program define iivw_exogtest, rclass sortpreserve
     quietly gen double `__iivw_stop' = `time'
     quietly gen byte `__iivw_event' = 1
 
+    * Censoring rows: (last visit, end of follow-up] with no event, so a subject
+    * stays at risk for as long as they were under observation instead of leaving
+    * the risk set at their own last visit. Each row copies the subject's LAST
+    * VISIT row, so the covariates carry forward the values in effect when they
+    * were last seen -- and the generated lag of a covariate across that interval
+    * is precisely the covariate's value AT the last visit, which the copied row
+    * already holds in the source variable. See iivw_weight for the full note.
+    if "`__iivw_cens_mode'" != "lastvisit" {
+        tempvar __iivw_cens_t __iivw_lastrow __iivw_newrow
+
+        if "`__iivw_cens_mode'" == "maxfu" {
+            quietly gen double `__iivw_cens_t' = `maxfu'
+        }
+        else {
+            quietly bysort `id' (`time'): gen double `__iivw_cens_t' = `censor'[1]
+        }
+        quietly bysort `id' (`time'): gen byte `__iivw_lastrow' = (_n == _N)
+
+        quietly expand 2 if `__iivw_lastrow' & `__iivw_cens_t' > `__iivw_stop' & ///
+            !missing(`__iivw_cens_t'), gen(`__iivw_newrow')
+
+        quietly replace `__iivw_start' = `__iivw_stop'    if `__iivw_newrow'
+        quietly replace `__iivw_stop'  = `__iivw_cens_t'  if `__iivw_newrow'
+        quietly replace `__iivw_event' = 0                if `__iivw_newrow'
+        quietly replace `time'         = `__iivw_cens_t'  if `__iivw_newrow'
+
+        local __iivw_lag_ix = 0
+        foreach v of local varlist {
+            local ++__iivw_lag_ix
+            local lagname : word `__iivw_lag_ix' of `generated_lags'
+            quietly replace `lagname' = `v' if `__iivw_newrow'
+        }
+    }
+
     quietly gen byte `__iivw_usable' = `touse'
     foreach lv of local generated_lags {
         quietly replace `__iivw_usable' = 0 if missing(`lv')
@@ -256,7 +378,55 @@ program define iivw_exogtest, rclass sortpreserve
     }
 
     if "`by'" != "" {
-        quietly egen long `__iivw_group' = group(`by') if `touse', label
+        * H2: a risk interval is (previous visit, current visit]. Taking its
+        * stratum from the CURRENT row means a subject who switches arm at visit
+        * 4 has the interval that ENDED at visit 4 classified by the value the
+        * switch produced -- the interval is assigned by something that happened
+        * at its own endpoint. That is end-of-interval conditioning, and for a
+        * treatment-arm by() it silently attributes pre-switch visit behaviour to
+        * the post-switch arm.
+        *
+        * So: by() must be constant within id, which is what the documented
+        * treatment-arm use means anyway. A genuinely time-varying stratum is
+        * supported, but only with explicit start-of-interval semantics, which
+        * the user has to ask for.
+        tempvar __iivw_bychg
+        quietly bysort `id' (`time'): gen byte `__iivw_bychg' = ///
+            sum(`by' != `by'[1]) if `touse'
+        quietly count if `__iivw_bychg' > 0 & `__iivw_bychg' < . & `touse'
+        local __iivw_n_bychg = r(N)
+        drop `__iivw_bychg'
+
+        if `__iivw_n_bychg' > 0 & "`bystart'" == "" {
+            display as error "by(`by') changes within id for `__iivw_n_bychg' observation(s)"
+            display as error ""
+            display as error "  Each Andersen-Gill interval is (previous visit, current visit]. Taking"
+            display as error "  its group from the current row would classify an interval by a value"
+            display as error "  that was only realized at the interval's own endpoint, so a subject who"
+            display as error "  switches at visit 4 would have the interval ENDING at visit 4 counted"
+            display as error "  in the post-switch group. That is end-of-interval conditioning."
+            display as error ""
+            display as error "  Either use a by() variable that is constant within id (the documented"
+            display as error "  treatment-arm use), or add bystart, which assigns each interval the"
+            display as error "  group in force at its START -- the value at the previous visit."
+            error 198
+        }
+
+        if "`bystart'" != "" {
+            * The stratum in force over (t[_n-1], t[_n]] is the one at t[_n-1].
+            * The first interval begins at study entry, where the value in force
+            * is the subject's own first observed value.
+            tempvar __iivw_bystart
+            quietly bysort `id' (`time'): gen `:type `by'' `__iivw_bystart' = ///
+                cond(_n == 1, `by', `by'[_n-1]) if `touse'
+            quietly egen long `__iivw_group' = group(`__iivw_bystart') ///
+                if `touse', label
+            local __iivw_by_shown "`by' (start of interval)"
+        }
+        else {
+            quietly egen long `__iivw_group' = group(`by') if `touse', label
+            local __iivw_by_shown "`by'"
+        }
         quietly levelsof `__iivw_group' if `touse', local(group_levels)
         local group_vallab : value label `__iivw_group'
     }
@@ -264,6 +434,7 @@ program define iivw_exogtest, rclass sortpreserve
         quietly gen byte `__iivw_group' = 1 if `touse'
         local group_levels 1
         local group_vallab ""
+        local __iivw_by_shown ""
     }
 
     quietly egen byte `__iivw_idtag' = tag(`id' `__iivw_group') if `__iivw_usable'
@@ -301,7 +472,7 @@ program define iivw_exogtest, rclass sortpreserve
         display as text "Adjustment:       " as result "`adjust'"
     }
     if "`by'" != "" {
-        display as text "By variable:      " as result "`by'"
+        display as text "By variable:      " as result "`__iivw_by_shown'"
     }
     display as text "Alpha:            " as result %5.3f `alpha'
 
@@ -373,13 +544,17 @@ program define iivw_exogtest, rclass sortpreserve
         local total_N = `total_N' + `gN'
         local total_ids = `total_ids' + `gIds'
 
+        * The within-group omnibus test is the PRIMARY test. It is one test per
+        * group regardless of how many terms are in the model, so the only
+        * multiplicity left to control is across groups -- which is done with
+        * Holm after the loop. The flag is NOT set here; setting it on any raw
+        * p-value is what inflated it (see below).
         capture test `generated_lags'
         local test_rc = _rc
         local joint_p = .
         if `test_rc' == 0 {
             local joint_p = r(p)
             if `joint_p' < `joint_min_p' local joint_min_p = `joint_p'
-            if `joint_p' < `alpha' local endogenous_flag = 1
         }
         local __iivw_jointp_`group_index' = `joint_p'
         local group_sig = (`joint_p' < `alpha')
@@ -413,10 +588,12 @@ program define iivw_exogtest, rclass sortpreserve
                 local lb = exp(`b' - `zcrit' * `se')
                 local ub = exp(`b' + `zcrit' * `se')
                 if `p' < `min_p' local min_p = `p'
-                if `p' < `alpha' {
-                    local endogenous_flag = 1
-                    local group_sig = 1
-                }
+                * Individual term p-values are EXPLORATORY and no longer set the
+                * flag. Flagging on "any term in any group is significant" gave
+                * the flag an uncontrolled familywise error rate: with ten
+                * independent null terms, P(at least one p < .05) = 1 - .95^10 =
+                * 40%, before the group-wise joint tests are even counted. A
+                * diagnostic that fires on 40% of null data is not a diagnostic.
             }
 
             local ++row
@@ -483,6 +660,64 @@ program define iivw_exogtest, rclass sortpreserve
     local group_labels = substr(`"`group_labels'"', 2, .)
     local skipped_labels = substr(`"`skipped_labels'"', 2, .)
 
+    * =====================================================================
+    * H5: Holm across the group-wise omnibus tests.
+    * =====================================================================
+    * The flag now fires on ONE family: the within-group omnibus tests, one per
+    * fitted group, Holm-adjusted across groups. Holm is used rather than
+    * Bonferroni because it is uniformly more powerful and needs no independence
+    * assumption -- the groups are disjoint subject sets, but the terms within a
+    * model are not independent, and Holm is valid regardless.
+    *
+    * Step-down: order the m raw p-values ascending, multiply the k-th by
+    * (m - k + 1), enforce monotonicity by running the maximum, and cap at 1.
+    * =====================================================================
+    * Ranks are computed by counting, not by sorting: `: list sort' orders
+    * STRINGS, and a p-value of 6.7e-11 sorts after 0.04 lexically. Silent, and
+    * it would corrupt every adjusted p-value in the table.
+    local __iivw_tested ""
+    foreach __g of local __iivw_fitted_groups {
+        if `__iivw_jointp_`__g'' < . local __iivw_tested "`__iivw_tested' `__g'"
+    }
+    local __iivw_m : word count `__iivw_tested'
+
+    local holm_min_p = .
+    if `__iivw_m' > 0 {
+        * Step 1: rank ascending (ties share the lower rank), then the raw Holm
+        * factor (m - rank + 1) for each group.
+        foreach __g of local __iivw_tested {
+            local __iivw_rank = 1
+            foreach __h of local __iivw_tested {
+                if `__iivw_jointp_`__h'' < `__iivw_jointp_`__g'' {
+                    local ++__iivw_rank
+                }
+            }
+            local __iivw_step_`__g' = ///
+                (`__iivw_m' - `__iivw_rank' + 1) * `__iivw_jointp_`__g''
+            if `__iivw_step_`__g'' > 1 local __iivw_step_`__g' = 1
+        }
+        * Step 2: enforce monotonicity -- an adjusted p is the running maximum
+        * over every group with a raw p at least as small.
+        foreach __g of local __iivw_tested {
+            local __iivw_adj = `__iivw_step_`__g''
+            foreach __h of local __iivw_tested {
+                if `__iivw_jointp_`__h'' <= `__iivw_jointp_`__g'' & ///
+                    `__iivw_step_`__h'' > `__iivw_adj' {
+                    local __iivw_adj = `__iivw_step_`__h''
+                }
+            }
+            local __iivw_holmp_`__g' = `__iivw_adj'
+            if `holm_min_p' >= . | `__iivw_adj' < `holm_min_p' {
+                local holm_min_p = `__iivw_adj'
+            }
+        }
+    }
+
+    * The flag. One family, adjusted. Individual term p-values are exploratory
+    * and deliberately do not enter it.
+    local endogenous_flag = 0
+    if `holm_min_p' < . & `holm_min_p' < `alpha' local endogenous_flag = 1
+
     if `endogenous_flag' {
         local conclusion "evidence that lagged predictors are associated with visit timing"
     }
@@ -494,8 +729,12 @@ program define iivw_exogtest, rclass sortpreserve
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text "Models fitted:     " as result `n_models'
     display as text "Groups skipped:    " as result `n_skipped'
-    display as text "Minimum p-value:   " as result %8.4f `min_p'
-    display as text "Minimum joint p:   " as result %8.4f `joint_min_p'
+    display as text "Minimum joint p:   " as result %8.4f `joint_min_p' ///
+        as text "  (raw, within-group omnibus)"
+    display as text "Minimum Holm p:    " as result %8.4f `holm_min_p' ///
+        as text "  (adjusted across `__iivw_m' group(s); this drives the flag)"
+    display as text "Minimum term p:    " as result %8.4f `min_p' ///
+        as text "  (exploratory; not adjusted, does not drive the flag)"
     display as text "Conclusion:        " as result "`conclusion'"
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
@@ -759,8 +998,14 @@ program define iivw_exogtest, rclass sortpreserve
         return scalar n_ids = `total_ids'
         return scalar n_models = `n_models'
         return scalar n_skipped = `n_skipped'
+        * min_p is the smallest INDIVIDUAL term p-value: exploratory, unadjusted,
+        * and no longer part of the flag. joint_min_p is the smallest raw
+        * within-group omnibus p. holm_min_p is that family Holm-adjusted across
+        * groups, and it -- alone -- decides endogenous_flag.
         return scalar min_p = `min_p'
         return scalar joint_min_p = `joint_min_p'
+        return scalar holm_min_p = `holm_min_p'
+        return scalar n_tests = `__iivw_m'
         return scalar alpha = `alpha'
         return scalar endogenous_flag = `endogenous_flag'
         return local id "`id'"

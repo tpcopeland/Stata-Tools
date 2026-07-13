@@ -50,8 +50,15 @@ local({
 stopifnot(is.function(gen_fg), is.function(zzf_fit), all(BETA == c(0.5, -0.5)))
 cat("definitions loaded: gen_fg, zzf_fit, zzf_weights; BETA =", BETA, "\n")
 
-N    <- 3000
-REPS <- 80
+# The preregistration itself was run at N = 3000, REPS = 80 (the numbers quoted
+# in validation_finegray_zzf_recovery.do's Z2-PREREG header).  Override to check
+# cheaply that this file still resolves its oracle after a move:
+#   ZZF_PREREG_N=800 ZZF_PREREG_REPS=2 Rscript validation_finegray_zzf_prereg_r.R
+N    <- as.integer(Sys.getenv("ZZF_PREREG_N",    "3000"))
+REPS <- as.integer(Sys.getenv("ZZF_PREREG_REPS", "80"))
+if (N < 3000L || REPS < 80L)
+  cat("*** SMOKE SETTINGS (N =", N, ", REPS =", REPS, ") -- path/plumbing check only.\n",
+      "*** These numbers do NOT restate the preregistration.\n")
 
 pool <- function(d) { d$wgroup <- 0L; d }
 

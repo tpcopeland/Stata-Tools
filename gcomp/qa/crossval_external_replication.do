@@ -13,9 +13,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 preserve
 import delimited using "`qa_dir'/data/external_reference.csv", clear varnames(1) asdouble

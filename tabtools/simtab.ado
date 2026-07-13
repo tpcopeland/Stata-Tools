@@ -1,4 +1,4 @@
-*! simtab Version 1.9.7  2026/07/10
+*! simtab Version 1.9.8  2026/07/13
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -367,10 +367,10 @@ program define simtab, rclass
 
             * ----- mark usable rows -----
             marksample touse, novarlist
-            markout `touse' `estimator' `estimate' `se'
+            markout `touse' `estimator' `estimate' `se', strok
             if `_true_isvar' markout `touse' `_truevar'
-            if `_has_by'  markout `touse' `by'
-            if `_has_emd' markout `touse' `estimand'
+            if `_has_by'  markout `touse' `by', strok
+            if `_has_emd' markout `touse' `estimand', strok
             quietly count if `touse'
             if r(N) == 0 {
                 display as error "no usable observations after applying if/in and dropping missing required values"

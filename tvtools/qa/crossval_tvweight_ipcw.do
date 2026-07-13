@@ -117,6 +117,7 @@ if `has_rscript' {
 
         tvweight treat, covariates(L1 L2) id(id) time(t) ipcw(cens) ///
             censorcovariates(L1 L2) generate(iptw) censgenerate(cw)
+        assert r(n_cens_boundary) == 0
 
         preserve
         keep id t L1 L2 cens cw
@@ -139,7 +140,8 @@ if `has_rscript' {
         file write _rf "d <- d[order(d\$id, d\$t), ]" _n
         file write _rf "m <- glm(cens ~ L1 + L2 + factor(t), family=binomial, data=d)" _n
         file write _rf "pc <- predict(m, type='response')" _n
-        file write _rf "punc <- pmin(pmax(1-pc, 0.001), 0.999)" _n
+        file write _rf "punc <- 1-pc" _n
+        file write _rf "stopifnot(all(is.finite(punc)), all(punc > 0 & punc < 1))" _n
         file write _rf "w <- 1/punc" _n
         file write _rf "d\$cw_r <- ave(w, d\$id, FUN=cumprod)" _n
         file write _rf "write.csv(d[, c('id','t','cw_r')], args[2], row.names=FALSE)" _n

@@ -15,9 +15,7 @@ local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local testdir "`c(tmpdir)'"
 local orig_varabbrev = c(varabbrev)
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture which gcomptab
 assert _rc == 0
@@ -142,8 +140,8 @@ program define _adv_mock_bad_b_missing, eclass
     ereturn matrix ci_normal = `cin'
 end
 
-capture program drop _adv_mock_bad_b_cde_missing
-program define _adv_mock_bad_b_cde_missing, eclass
+capture program drop _adv_mock_extra_no_cde
+program define _adv_mock_extra_no_cde, eclass
     version 16.0
     tempname b V se_mat cin
     matrix `b' = (0.4321, 0.2102, 0.2219, 0.5136, 0.9999)
@@ -326,19 +324,22 @@ capture erase "`testdir'/_adv_gcomptab_bad_b.xlsx"
 
 local ++test_count
 capture noisily {
-    _adv_mock_bad_b_cde_missing
-    capture gcomptab, xlsx("`testdir'/_adv_gcomptab_bad_cde.xlsx") sheet("BadCDE")
-    assert _rc == 198
+    _adv_mock_extra_no_cde
+    gcomptab, xlsx("`testdir'/_adv_gcomptab_extra.xlsx") sheet("Extra")
+    assert r(N_effects) == 4
+    assert r(has_cde) == 0
+    assert r(tce) == 0.4321
+    assert r(pm) == 0.5136
 }
 if _rc == 0 {
-    display as result "  PASS: A6 five-column e(b) without cde name returns rc 198"
+    display as result "  PASS: A6 additional non-effect columns are ignored by name"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: A6 cde column-name validation (error `=_rc')"
+    display as error "  FAIL: A6 named extra-column handling (error `=_rc')"
     local ++fail_count
 }
-capture erase "`testdir'/_adv_gcomptab_bad_cde.xlsx"
+capture erase "`testdir'/_adv_gcomptab_extra.xlsx"
 
 local ++test_count
 capture noisily {
@@ -796,7 +797,7 @@ capture erase "`e_xlsx'"
 set varabbrev `orig_varabbrev'
 
 foreach p in _adv_mock_gcomp _adv_mock_no_analysis _adv_mock_bad_b_missing ///
-    _adv_mock_bad_b_cde_missing _adv_mock_bad_se_missing ///
+    _adv_mock_extra_no_cde _adv_mock_bad_se_missing ///
     _adv_mock_bad_ci_dim _adv_mock_bad_ci_names ///
     _adv_mock_missing_percentile {
     capture program drop `p'
@@ -811,11 +812,12 @@ foreach f of local adv_files {
 
 display ""
 display as result "test_adversarial_gcomptab Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_adversarial_gcomptab tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_adversarial_gcomptab tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_adversarial_gcomptab tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

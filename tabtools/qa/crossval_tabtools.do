@@ -550,25 +550,29 @@ local ++test_count
 capture noisily {
     import delimited "`r_data_dir'/crossval_cat_smd_data.csv", clear
 
-    * Compute category-level proportions manually (same logic as table1_tc.ado)
+    * Compute the Yang-Dalton Mahalanobis distance independently from
+    * category proportions, omitting the final category from the covariance.
     quietly count if group == 1
     local n1 = r(N)
     quietly count if group == 2
     local n2 = r(N)
 
-    local _smd_ssq = 0
-    forvalues k = 1/3 {
+    tempname _cv6_p1 _cv6_p2 _cv6_smd
+    matrix `_cv6_p1' = J(1, 2, .)
+    matrix `_cv6_p2' = J(1, 2, .)
+    forvalues k = 1/2 {
         quietly count if category == `k' & group == 1
         local p1 = r(N) / `n1'
         quietly count if category == `k' & group == 2
         local p2 = r(N) / `n2'
-        local pavg = (`p1' + `p2') / 2
-        local denom = sqrt(`pavg' * (1 - `pavg'))
-        if `denom' > 0 {
-            local _smd_ssq = `_smd_ssq' + ((`p1' - `p2') / `denom')^2
-        }
+        matrix `_cv6_p1'[1, `k'] = `p1'
+        matrix `_cv6_p2'[1, `k'] = `p2'
     }
-    local smd_cat = sqrt(`_smd_ssq')
+    mata: p1 = st_matrix("`_cv6_p1'"); p2 = st_matrix("`_cv6_p2'"); ///
+        S = ((diag(p1') - p1' * p1) + (diag(p2') - p2' * p2)) / 2; ///
+        delta = p1 - p2; ///
+        st_numscalar("`_cv6_smd'", sqrt(delta * invsym(S) * delta'))
+    local smd_cat = scalar(`_cv6_smd')
 
     local r_smd `r_smd_cat_actual'
 
@@ -1134,6 +1138,191 @@ else {
     local failed_tests "`failed_tests' CV17"
 }
 
+* ============================================================
+**# CV1-CV17 public-command bridges
+* The preceding calculations remain low-level formula checks. These bridges
+* prove that the same formula families are reached through shipped commands,
+* numeric frames, and stored results rather than duplicated test locals alone.
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 50
+    generate double x = _n - 25.5
+    generate double z = x^2
+    quietly summarize z, meanonly
+    replace z = z - r(mean)
+    quietly summarize x
+    replace x = x / r(sd)
+    quietly summarize z
+    replace z = z / r(sd)
+    generate double y = 0.30*x + sqrt(1 - 0.30^2)*z
+    quietly pwcorr x y
+    matrix _cv1_c = r(C)
+    local _cv1_r = _cv1_c[1,2]
+    local _cv1_p = 2*ttail(48, abs(`_cv1_r'*sqrt(48/(1-`_cv1_r'^2))))
+    capture frame drop _cv1_public
+    corrtab x y, full pvalues digits(6) frame(_cv1_public, replace)
+    frame _cv1_public: local _cv1_cell = c2[4]
+    local _cv1_open = strpos(`"`_cv1_cell'"', "(")
+    local _cv1_close = strpos(`"`_cv1_cell'"', ")")
+    local _cv1_shown = real(substr(`"`_cv1_cell'"', `_cv1_open' + 1, ///
+        `_cv1_close' - `_cv1_open' - 1))
+    assert abs(`_cv1_shown' - `_cv1_p') < 0.00051
+    capture frame drop _cv1_public
+}
+if _rc == 0 {
+    display as result "  PASS: CV1 public corrtab frame reaches the p-value formula"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV1 public corrtab formula bridge"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV1_public"
+}
+
+local ++test_count
+capture noisily {
+    import delimited "`r_data_dir'/crossval_smd_data.csv", clear
+    table1_tc, by(group) vars(x contn) smd nopvalue
+    matrix _cv_t1_u = r(table)
+    local _cv_smd_u = el(_cv_t1_u, rownumb(_cv_t1_u, "x"), ///
+        colnumb(_cv_t1_u, "smd"))
+    assert abs(abs(`_cv_smd_u') - abs(`r_smd_unequal')) < 0.001
+
+    generate double one = 1
+    table1_tc, by(group) vars(x contn) wt(one) smd nopvalue
+    matrix _cv_t1_w = r(table)
+    local _cv_smd_w = el(_cv_t1_w, rownumb(_cv_t1_w, "x"), ///
+        colnumb(_cv_t1_w, "smd"))
+    assert abs(abs(`_cv_smd_w') - abs(`r_smd_equal')) < 0.001
+
+    import delimited "`r_data_dir'/crossval_cat_smd_data.csv", clear
+    table1_tc, by(group) vars(category cat) smd nopvalue
+    matrix _cv_t1_c = r(table)
+    local _cv_smd_c = el(_cv_t1_c, rownumb(_cv_t1_c, "category"), ///
+        colnumb(_cv_t1_c, "smd"))
+    assert abs(`_cv_smd_c' - `r_smd_cat_actual') < 0.001
+
+    import delimited "`r_data_dir'/crossval_ess_data.csv", clear
+    generate byte group = cond(_n <= 50, 1, 2)
+    table1_tc, by(group) vars(id contn) wt(wt) wtcompare total(after) ///
+        nformat(%12.6f) clear
+    generate long _cv_row = _n
+    quietly summarize _cv_row if strtrim(factor) == "Effective sample size", meanonly
+    assert r(N) == 1
+    local _cv_ess_row = r(min)
+    local _cv_ess_text = subinstr(Wt_T[`_cv_ess_row'], "ESS=", "", 1)
+    local _cv_ess = real("`_cv_ess_text'")
+    assert abs(`_cv_ess' - `r_ess') < 0.000001
+
+    clear
+    input byte group double rank_value
+    0 1
+    0 2
+    0 3
+    0 4
+    1 3
+    1 4
+    1 5
+    1 6
+    end
+    quietly ranksum rank_value, by(group)
+    local _cv_rank_p = 2*normal(-abs(r(z)))
+    table1_tc, by(group) vars(rank_value conts)
+    matrix _cv_t1_p = r(table)
+    local _cv_cmd_p = el(_cv_t1_p, rownumb(_cv_t1_p, "rank_value"), ///
+        colnumb(_cv_t1_p, "p_value"))
+    assert abs(`_cv_cmd_p' - `_cv_rank_p') < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: CV5-CV7/CV14 public table1_tc SMD, ESS, and z-to-p bridges"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV5-CV7/CV14 public table1_tc formula bridges"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV5_7_14_public"
+}
+
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260713
+    set obs 1000
+    generate long group = ceil(_n/50)
+    generate double x = rnormal()
+    generate double _u_seed = rnormal() if mod(_n - 1, 50) == 0
+    bysort group: egen double u = max(_u_seed)
+    generate double prob = invlogit(-1 + 0.5*x + u)
+    generate byte y = runiform() < prob
+    collect clear
+    collect: melogit y x || group:
+    matrix _cv_mor_b = e(b)
+    local _cv_mor_var = .
+    local _cv_mor_j = 0
+    local _cv_mor_names : colfullnames _cv_mor_b
+    foreach _cv_mor_name of local _cv_mor_names {
+        local ++_cv_mor_j
+        if regexm("`_cv_mor_name'", "^/var\(_cons") ///
+            local _cv_mor_var = _cv_mor_b[1, `_cv_mor_j']
+    }
+    assert `_cv_mor_var' < .
+    local _cv_mor_want = exp(sqrt(2*`_cv_mor_var')*invnormal(0.75))
+    capture frame drop _cv_mor_display
+    capture frame drop _cv_mor_plot
+    regtab, frame(_cv_mor_display, replace) ///
+        eplotframe(_cv_mor_plot, replace)
+    frame _cv_mor_plot {
+        quietly summarize estimate if strpos(label, "Median Odds Ratio") > 0, meanonly
+        assert r(N) == 1
+        assert abs(r(mean) - `_cv_mor_want') < 1e-10
+        quietly summarize ll if strpos(label, "Median Odds Ratio") > 0, meanonly
+        local _cv_mor_ll = r(mean)
+        quietly summarize ul if strpos(label, "Median Odds Ratio") > 0, meanonly
+        local _cv_mor_ul = r(mean)
+        assert `_cv_mor_ll' < `_cv_mor_want'
+        assert `_cv_mor_want' < `_cv_mor_ul'
+    }
+    capture frame drop _cv_mor_display
+    capture frame drop _cv_mor_plot
+}
+if _rc == 0 {
+    display as result "  PASS: CV10/CV16 public regtab MOR transformation bridge"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV10/CV16 public regtab MOR bridge"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV10_16_public"
+}
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    keep if inlist(drug, 1, 2)
+    stset studytime, failure(died)
+    capture frame drop _cv_surv_public
+    survtab, times(10 20) by(drug) rmst(20) difference ///
+        frame(_cv_surv_public, replace)
+    assert r(rmst_1) < .
+    assert r(rmst_2) < .
+    assert abs(r(rmst_diff) - (r(rmst_1) - r(rmst_2))) < 1e-10
+    assert abs(r(rmst_diff_se) - sqrt(r(rmst_se_1)^2 + r(rmst_se_2)^2)) < 1e-10
+    assert r(rmst_diff_lb) < r(rmst_diff_ub)
+    capture frame drop _cv_surv_public
+}
+if _rc == 0 {
+    display as result "  PASS: CV12-CV13 public survtab difference/RMST bridges"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV12-CV13 public survtab formula bridges"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV12_13_public"
+}
+
 **# Command-Backed Oracle Checks
 **## CV18: diagtab command returns R-benchmarked diagnostic estimates
 local ++test_count
@@ -1156,6 +1345,19 @@ capture noisily {
     assert abs(r(lr_neg) - `r_diag_LRn') < 1e-10
     assert abs(r(dor) - `r_diag_DOR') < 1e-10
     assert abs(r(youden) - `r_diag_J') < 1e-10
+    assert abs(r(lr_pos_lb) - `r_diag_LRp_lo') < 0.0005
+    assert abs(r(lr_pos_ub) - `r_diag_LRp_hi') < 0.0005
+    assert abs(r(lr_neg_lb) - `r_diag_LRn_lo') < 0.0005
+    assert abs(r(lr_neg_ub) - `r_diag_LRn_hi') < 0.0005
+    assert abs(r(dor_lb) - `r_diag_DOR_lo') < 0.005
+    assert abs(r(dor_ub) - `r_diag_DOR_hi') < 0.005
+
+    diagtab test gold, prevalence(0.05)
+    assert abs(r(ppv) - `r_bayes_PPV') < 1e-10
+    assert abs(r(npv) - `r_bayes_NPV') < 1e-10
+    diagtab test gold, prevalence(0.30)
+    assert abs(r(ppv) - `r_bayes_PPV2') < 1e-10
+    assert abs(r(npv) - `r_bayes_NPV2') < 1e-10
 }
 if _rc == 0 {
     display as result "  PASS: CV18 diagtab command matches R diagnostic oracle"

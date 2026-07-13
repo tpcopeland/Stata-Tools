@@ -9,13 +9,6 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture noisily shell python3 "`qa_dir'/data/generate_mediation_extended_reference.py"
-if _rc {
-    display as error "Python statsmodels extended mediation reference generation failed"
-    display "RESULT: crossval_mediation_extended tests=0 pass=0 fail=1 status=FAIL"
-    exit 1
-}
-
 foreach fixture in reference covariance categorical linexp {
     capture confirm file "`qa_dir'/data/mediation_extended_`fixture'.csv"
     if _rc {
@@ -25,9 +18,7 @@ foreach fixture in reference covariance categorical linexp {
     }
 }
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 preserve
 import delimited using "`qa_dir'/data/mediation_extended_reference.csv", clear varnames(1) asdouble

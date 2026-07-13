@@ -75,10 +75,10 @@ program define _adv_setup_panel, rclass
 
     if "`wtype'" != "none" {
         if "`wtype'" == "iivw" {
-            iivw_weight, id(id) time(months) visit_cov(severity event) nolog
+            iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity event) nolog
         }
         else if "`wtype'" == "fiptiw" {
-            iivw_weight, id(id) time(months) visit_cov(severity event) ///
+            iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity event) ///
                 treat(treated) treat_cov(sev_bl) wtype(fiptiw) nolog
         }
         else if "`wtype'" == "iptw" {

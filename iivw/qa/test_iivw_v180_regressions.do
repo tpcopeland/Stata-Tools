@@ -74,7 +74,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     set seed 180180
     iivw_fit y treat, model(gee) timespec(linear) bootstrap(15) refitweights nolog
     assert "`e(iivw_refitweights)'" == "1"
@@ -95,7 +95,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
 
     set seed 180180
     iivw_fit y treat, model(gee) timespec(linear) bootstrap(40) refitweights nolog
@@ -129,7 +129,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     local id_before     : char _dta[_iivw_id]
     local wvar_before   : char _dta[_iivw_weight_var]
     local time_before   : char _dta[_iivw_time]
@@ -163,7 +163,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) ///
         treat(treat) treat_cov(sev) truncate(1 99) nolog
     set seed 180180
     iivw_fit y treat sev, model(gee) timespec(linear) bootstrap(15) refitweights nolog
@@ -185,7 +185,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, model(gee) refitweights nolog
     assert _rc == 198
 }
@@ -204,7 +204,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v180_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, unweighted id(id) time(days) ///
         bootstrap(15) refitweights nolog
     assert _rc == 198
@@ -225,7 +225,7 @@ local ++test_count
 capture noisily {
     _iivw_v180_panel
     gen long clinic = mod(id, 5)
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, model(gee) bootstrap(15) refitweights cluster(clinic) nolog
     assert _rc == 198
 }
@@ -246,7 +246,7 @@ capture noisily {
     _iivw_v180_panel
     tempfile tlog8
     quietly log using "`tlog8'", replace text name(nudge8)
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     quietly log close nudge8
     _iivw_v180_log_has "`tlog8'" unstabilized
     assert r(found) == 1
@@ -269,7 +269,7 @@ capture noisily {
     _iivw_v180_panel
     tempfile tlog9
     quietly log using "`tlog9'", replace text name(nudge9)
-    iivw_weight, id(id) time(days) visit_cov(sev) stabcov(treat) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) stabcov(treat) wtype(iivw) nolog
     quietly log close nudge9
     _iivw_v180_log_has "`tlog9'" unstabilized
     assert r(found) == 0

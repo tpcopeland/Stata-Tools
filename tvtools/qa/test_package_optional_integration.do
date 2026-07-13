@@ -71,6 +71,9 @@ capture noisily {
     _mk_binary
     graph drop _all
     tvweight a, covariates(x1 x2) generate(w) balance loveplot histogram
+    assert r(loveplot_created) == 1
+    assert r(histogram_created) == 1
+    assert r(graph_created) == 1
     graph describe tvw_loveplot
     graph describe tvw_histogram
 }
@@ -86,6 +89,9 @@ capture noisily {
     _mk_multinomial
     graph drop _all
     tvweight a, covariates(x1 x2) generate(w) model(mlogit) balance loveplot
+    assert r(loveplot_created) == 1
+    assert r(histogram_created) == 0
+    assert r(graph_created) == 1
     graph describe tvw_loveplot
 }
 if _rc == 0 local ++pass_count
@@ -103,6 +109,9 @@ capture noisily {
     graph drop _all
     tvweight a, covariates(x1 x2) generate(w) balance loveplot
     matrix B = r(balance)
+    assert r(loveplot_created) == 0
+    assert r(histogram_created) == 0
+    assert r(graph_created) == 0
     assert rowsof(B) == 2 & colsof(B) == 2
     capture graph describe tvw_loveplot
     assert _rc != 0
@@ -121,6 +130,9 @@ capture noisily {
     _mk_binary
     datasignature set
     tvweight a, covariates(x1 x2) generate(w) balance loveplot
+    assert r(loveplot_created) == 1
+    assert r(histogram_created) == 0
+    assert r(graph_created) == 1
     drop w
     datasignature confirm
 }

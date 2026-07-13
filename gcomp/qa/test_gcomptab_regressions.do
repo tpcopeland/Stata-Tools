@@ -14,9 +14,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture which gcomptab
 assert _rc == 0
@@ -294,7 +292,8 @@ capture noisily {
 
     mock_gcomp_nocde
     capture gcomptab, xlsx("`testdir'/_gcomptab_open_failure.xlsx") sheet("OpenFail") open
-    assert _rc == 693
+    assert _rc == 0
+    assert r(open_rc) == 693
     assert r(N_effects) == 4
     assert abs(r(tce) - 0.15) < 1e-12
     assert `"`r(xlsx)'"' == "`testdir'/_gcomptab_open_failure.xlsx"
@@ -324,11 +323,12 @@ capture program drop mock_gcomp_nocde
 
 display ""
 display as result "test_gcomptab_regressions Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_gcomptab_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_gcomptab_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_gcomptab_regressions tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

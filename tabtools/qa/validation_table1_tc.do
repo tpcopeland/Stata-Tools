@@ -498,22 +498,15 @@ capture noisily {
     local p2 = r(mean)
     local oracle_b = abs((`p1' - `p2') / sqrt((`p1' * (1 - `p1') + `p2' * (1 - `p2')) / 2))
 
-    local oracle_cat_sq = 0
-    levelsof cat, local(cat_levels)
-    foreach lv of local cat_levels {
-        quietly count if g == 0
-        local n1 = r(N)
-        quietly count if g == 1
-        local n2 = r(N)
-        quietly count if g == 0 & cat == `lv'
-        local q1 = r(N) / `n1'
-        quietly count if g == 1 & cat == `lv'
-        local q2 = r(N) / `n2'
-        local qbar = (`q1' + `q2') / 2
-        local den = sqrt(`qbar' * (1 - `qbar'))
-        if `den' > 0 & `den' < . local oracle_cat_sq = `oracle_cat_sq' + ((`q1' - `q2') / `den')^2
-    }
-    local oracle_cat = sqrt(`oracle_cat_sq')
+    quietly count if g == 0
+    local qn1 = r(N)
+    quietly count if g == 1
+    local qn2 = r(N)
+    quietly count if g == 0 & cat == 1
+    local q1 = r(N) / `qn1'
+    quietly count if g == 1 & cat == 1
+    local q2 = r(N) / `qn2'
+    local oracle_cat = abs((`q1' - `q2') / sqrt((`q1' * (1 - `q1') + `q2' * (1 - `q2')) / 2))
 
     assert abs(`smd_x' - `oracle_x') < 1e-10
     assert abs(`smd_b' - `oracle_b') < 1e-10
@@ -528,7 +521,62 @@ else {
     local ++fail_count
 }
 
+* --- KE0.1: multinomial Mahalanobis distance is coding invariant, and K=2
+*             categorical SMD reduces to the binary formula.
+local ++n_total
+capture noisily {
+    clear
+    input byte(g category) int frequency
+    0 1 30
+    0 2 50
+    0 3 20
+    1 1 45
+    1 2 35
+    1 3 20
+    end
+    expand frequency
 
+    table1_tc category, by(g) vars(category cat) smd frame(_ke_cat_original, replace)
+    matrix _ke_cat_smd_original = r(table)
+    local _ke_smd_col = colnumb(_ke_cat_smd_original, "smd")
+    local _ke_smd_original = el(_ke_cat_smd_original, 1, `_ke_smd_col')
+
+    recode category (1=3) (3=1), generate(category_reversed)
+    table1_tc category_reversed, by(g) vars(category_reversed cat) smd frame(_ke_cat_reversed, replace)
+    matrix _ke_cat_smd_reversed = r(table)
+    local _ke_smd_col = colnumb(_ke_cat_smd_reversed, "smd")
+    local _ke_smd_reversed = el(_ke_cat_smd_reversed, 1, `_ke_smd_col')
+    assert abs(`_ke_smd_original' - `_ke_smd_reversed') < 1e-10
+
+    generate byte binary = category == 1
+    generate byte binary_as_cat = binary
+    table1_tc binary, by(g) vars(binary bin) smd frame(_ke_binary, replace)
+    matrix _ke_binary_smd = r(table)
+    local _ke_smd_col = colnumb(_ke_binary_smd, "smd")
+    local _ke_smd_binary = el(_ke_binary_smd, 1, `_ke_smd_col')
+    table1_tc binary_as_cat, by(g) vars(binary_as_cat cat) smd frame(_ke_binary_cat, replace)
+    matrix _ke_binary_cat_smd = r(table)
+    local _ke_smd_col = colnumb(_ke_binary_cat_smd, "smd")
+    local _ke_smd_binary_cat = el(_ke_binary_cat_smd, 1, `_ke_smd_col')
+    assert abs(`_ke_smd_binary' - `_ke_smd_binary_cat') < 1e-10
+
+    capture frame drop _ke_cat_original
+    capture frame drop _ke_cat_reversed
+    capture frame drop _ke_binary
+    capture frame drop _ke_binary_cat
+}
+if _rc == 0 {
+    display as result "  PASS: KE0.1 — categorical SMD coding invariance and binary reduction"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: KE0.1 — categorical SMD invariants (rc=`=_rc')"
+    local ++fail_count
+    capture frame drop _ke_cat_original
+    capture frame drop _ke_cat_reversed
+    capture frame drop _ke_binary
+    capture frame drop _ke_binary_cat
+}
 * =========================================================================
 
 **# Migrated: descriptive identities

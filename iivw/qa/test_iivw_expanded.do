@@ -93,7 +93,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         * Capture scalars before intervening r-class calls clobber r()
         local N_scalar   = r(N)
         local ess_scalar = r(ess)
@@ -133,14 +133,14 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99
         iivw_fit event severity, bootstrap(20) nolog
         matrix b1 = e(b)
         scalar se1 = _se[severity]
 
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99
         iivw_fit event severity, bootstrap(20) nolog
         matrix b2 = e(b)
@@ -168,13 +168,13 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 1
         iivw_fit event severity, bootstrap(20) nolog
         scalar se_a = _se[severity]
 
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99999
         iivw_fit event severity, bootstrap(20) nolog
         scalar se_b = _se[severity]
@@ -219,7 +219,7 @@ if `run_only' == 0 | `run_only' == 4 {
         gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))
         label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
         label values treatment arm
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, model(gee) timespec(linear)
         assert e(converged) == 1
     }
@@ -260,7 +260,7 @@ if `run_only' == 0 | `run_only' == 5 {
         gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))
         label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
         label values treatment arm
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(age sex edss_bl) ///
             truncate(1 99) replace nolog
         iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
@@ -284,7 +284,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) lagvars(severity) stabcov(sev_bl) ///
             truncate(5 95) nolog
         local n_trunc = r(n_truncated)
@@ -313,7 +313,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, model(mixed) timespec(ns(3)) nolog
         confirm variable _iivw_tns1
         confirm variable _iivw_tns2
@@ -338,7 +338,7 @@ if `run_only' == 0 | `run_only' == 8 {
         _setup_panel
         gen double entry_time = -5
         * Negative entry should either accept (flexible) or error cleanly
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             entry(entry_time) nolog
         * Weights must still be finite
         quietly count if missing(_iivw_weight) | _iivw_weight <= 0
@@ -363,7 +363,7 @@ if `run_only' == 0 | `run_only' == 9 {
         _setup_panel
         * Entry exactly at first visit time -> first start==stop
         bysort id (months): gen double entry_time = months[1]
-        capture iivw_weight, id(id) time(months) visit_cov(severity) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             entry(entry_time) nolog
         * Either errors or produces valid weights; catastrophic crash rejected
         if _rc == 0 {
@@ -390,7 +390,7 @@ if `run_only' == 0 | `run_only' == 10 {
         _setup_panel
         * User already has a variable "_iivw_weight" in data
         gen double _iivw_weight = 1
-        capture iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert _rc == 110
     }
     if _rc == 0 {
@@ -429,7 +429,7 @@ if `run_only' == 0 | `run_only' == 11 {
         forvalues j = 2/`i' {
             append using `f`j''
         }
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert r(n_ids) == 5
         quietly count if missing(_iivw_weight)
         assert r(N) == 0
@@ -451,7 +451,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 12 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         * Force iivw_fit error via invalid timespec, confirm no partial time vars
         capture iivw_fit event severity, timespec(invalid) nolog
         assert _rc == 198
@@ -479,7 +479,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, level(90) nolog
         matrix ci90 = r(table)
         scalar w90 = _se[severity] * invnormal(0.95) * 2
@@ -511,7 +511,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 14 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, family(binomial) link(logit) nolog
         assert e(converged) == 1
     }
@@ -532,11 +532,11 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local type1 : char _dta[_iivw_weighttype]
         assert "`type1'" == "iivw"
         * Re-run with replace -> should now be fiptiw (since treat specified)
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) replace nolog
         local type2 : char _dta[_iivw_weighttype]
         assert "`type2'" == "fiptiw"
@@ -560,7 +560,7 @@ if `run_only' == 0 | `run_only' == 16 {
         _setup_panel
         * Record pre-call more state
         local more_before "`c(more)'"
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, nolog
         local more_after "`c(more)'"
         assert "`more_before'" == "`more_after'"
@@ -606,7 +606,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 18 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(mywt_) nolog
         iivw_fit event severity, timespec(quadratic) nolog
         * Time vars should use mywt_ prefix, not _iivw_
@@ -670,7 +670,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 20 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(custom_) nolog
         local wv "`r(weight_var)'"
         assert "`wv'" == "custom_weight"
@@ -693,7 +693,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 21 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit event severity, nolog
         scalar b_none = _b[severity]
@@ -724,7 +724,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 22 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit event severity, model(gee) nolog
         scalar n_gee = e(N)
@@ -751,12 +751,12 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 23 {
     capture noisily {
         _setup_panel
-        capture iivw_weight, id(id) time(months) visit_cov(severity) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncate(0 100) nolog
         assert _rc == 198
         * Near-boundary values work
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncate(0.01 99.99) nolog
         assert r(n_truncated) >= 0 & r(n_truncated) < .
     }
@@ -777,7 +777,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 24 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit event severity, timespec(quadratic) nolog
         * Second call with replace should not error
@@ -841,10 +841,10 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 26 {
     capture noisily {
         _setup_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         gen byte bad_treat = 2
-        capture iivw_weight, id(id) time(months) visit_cov(severity) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(bad_treat) generate(wx_) nolog
         assert _rc == 198
 
@@ -878,7 +878,7 @@ if `run_only' == 0 | `run_only' == 27 {
     capture noisily {
         _setup_panel
         gen long site = mod(id, 8)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit event severity, model(mixed) timespec(linear) ///
             cluster(site) nolog
 
@@ -907,12 +907,12 @@ if `run_only' == 0 | `run_only' == 28 {
         _setup_panel
 
         * Weight metadata: FIPTIW sets _iivw_treat; IIW rerun clears it.
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) nolog
         local treat1 : char _dta[_iivw_treat]
         assert "`treat1'" == "treated"
 
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
         local type2 : char _dta[_iivw_weighttype]
         local treat2 : char _dta[_iivw_treat]
         assert "`type2'" == "iivw"

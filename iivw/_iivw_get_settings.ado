@@ -26,6 +26,10 @@ program define _iivw_get_settings, rclass
     local truncate   : char _dta[_iivw_truncate]
     local efron      : char _dta[_iivw_efron]
     local entry      : char _dta[_iivw_entry]
+    local censor_mode : char _dta[_iivw_censor_mode]
+    local censor_var  : char _dta[_iivw_censor_var]
+    local maxfu       : char _dta[_iivw_maxfu]
+    local lagvars     : char _dta[_iivw_lagvars]
 
     if "`prefix'" == "" local prefix "_iivw_"
 
@@ -47,6 +51,18 @@ program define _iivw_get_settings, rclass
     return local truncate "`truncate'"
     return local efron "`efron'"
     return local entry "`entry'"
+
+    * The risk-set specification. Any consumer that refits the visit-intensity
+    * model must replay this, or it describes a different estimator than the one
+    * that produced the weights it is reporting on.
+    return local censor_mode "`censor_mode'"
+    return local censor_var "`censor_var'"
+    return local maxfu "`maxfu'"
+
+    * Source variables behind the generated lag columns. Needed to give a
+    * rebuilt censoring row the covariate value it actually had at the last
+    * visit; see the note where iivw_weight writes this characteristic.
+    return local lagvars "`lagvars'"
 
     }
     local rc = _rc

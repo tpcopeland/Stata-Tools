@@ -16,9 +16,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 * ============================================================
 * Shared synthetic data with `all` CI option fitted once
@@ -34,11 +32,21 @@ gen double y = rbinomial(1, invlogit(-1.5 + 0.6*m + 0.4*x + 0.3*c))
 tempfile dgp
 save `dgp'
 
+* Use the independently exercised smooth DGP for the BCa stress case.  The
+* binary DGP above remains saved for the later RD/logRR checks.
+clear
+set seed 777
+set obs 400
+gen double c = rnormal()
+gen double x = rbinomial(1, invlogit(-0.3 + 0.2*c))
+gen double m = 0.8*x + 0.5*c + rnormal(0, 0.7)
+gen byte y = rbinomial(1, invlogit(-0.5 + 0.7*m + 0.5*x + 0.2*c))
+
 gcomp y m x c, outcome(y) mediation obe ///
     exposure(x) mediator(m) ///
-    commands(m: logit, y: logit) ///
+    commands(m: regress, y: logit) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(100) samples(50) seed(42) all
+    base_confs(c) sim(300) samples(20) seed(1) all
 
 tempname b se cin cip cibc cibca
 matrix `b'    = e(b)
@@ -167,16 +175,16 @@ local ++test_count
 capture noisily {
     clear
     set seed 43
-    set obs 500
+    set obs 1000
     gen double c = rnormal()
     gen double x = floor(runiform() * 3)
-    gen double m = rbinomial(1, invlogit(-0.5 + 0.3*x + 0.2*c))
-    gen double y = rbinomial(1, invlogit(-1 + 0.4*m - 0.2*x + 0.1*c))
+    gen double m = rbinomial(1, invlogit(-0.4 + 0.7*x + 0.3*c))
+    gen double y = rbinomial(1, invlogit(-0.8 + 0.8*m + 0.5*x + 0.2*c))
     gcomp y m x c, outcome(y) mediation oce ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(43)
+        base_confs(c) sim(300) samples(20) seed(43) minsim
     * OCE with 3-level exposure: TCE/NDE/NIE are vector-valued (one per contrast).
     * Decomposition must hold element-wise from e(b).
     tempname _boce
@@ -223,18 +231,18 @@ local ++test_count
 capture noisily {
     clear
     set seed 44
-    set obs 500
+    set obs 800
     gen double c = rnormal()
     gen double x = rnormal(0, 1)                           // continuous
-    gen double m = rbinomial(1, invlogit(-0.5 + 0.4*x + 0.2*c))
-    gen double y = rbinomial(1, invlogit(-1 + 0.5*m + 0.3*x + 0.1*c))
+    gen double m = 0.8*x + 0.3*c + rnormal(0, 0.7)
+    gen double y = 0.7*m + 0.5*x + 0.2*c + rnormal(0, 0.7)
     * linexp replaces obe for continuous exposure; baseline() is also invalid
     gcomp y m x c, outcome(y) mediation ///
         exposure(x) mediator(m) ///
-        commands(m: logit, y: logit) ///
+        commands(m: regress, y: regress) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) ///
-        sim(100) samples(20) seed(44) linexp
+        sim(300) samples(20) seed(44) linexp minsim
     local decomp = abs(e(tce) - e(nde) - e(nie))
     assert `decomp' < 0.05
 }
@@ -411,11 +419,12 @@ else {
 
 display ""
 display as result "validation_extra Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: validation_extra tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: validation_extra tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: validation_extra tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

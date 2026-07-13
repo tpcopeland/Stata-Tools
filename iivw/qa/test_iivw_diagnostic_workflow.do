@@ -104,7 +104,7 @@ capture noisily {
     assert _se[months] < .
     estimates store WF_unweighted
 
-    iivw_weight, id(id) time(months) visit_cov(marker visit_need female) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(marker visit_need female) ///
         treat(treat) treat_cov(age0 severity0 female) truncate(1 99) nolog
     assert r(N) == _N
     assert r(n_ids) == 40
@@ -148,7 +148,7 @@ capture noisily {
     assert _b[marker] < .
     estimates store WF_adjusted
 
-    iivw_exogtest y marker, id(id) time(months) adjust(age0 female treat) ///
+    iivw_exogtest y marker, endatlastvisit id(id) time(months) adjust(age0 female treat) ///
         level(90) nolog
     assert r(N) == 120
     assert r(n_ids) == 40
@@ -228,7 +228,7 @@ local ++test_count
 capture noisily {
     _workflow_panel
     replace months = months[1] in 2
-    capture noisily iivw_weight, id(id) time(months) ///
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
         visit_cov(marker visit_need female) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight

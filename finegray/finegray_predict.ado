@@ -482,9 +482,17 @@ program define finegray_predict, rclass sortpreserve
                     quietly egen long `_byg_grp' = group(`e(strata)')
                     local _byg_mata "`_byg_grp'"
                 }
+                local _tg_mata ""
+                if `"`e(truncstrata)'"' != "" {
+                    tempvar _tg_grp
+                    _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
+                        tgname(`_tg_grp') touse(`_fvbasis')
+                    local _tg_mata "`_tg_grp'"
+                }
+
                 mata: _finegray_cif_predict( ///
                     "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
-                    `=e(censvalue)', "`_byg_mata'", "`e(clustvar)'", ///
+                    `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
                     "`_fvbasis'", "`touse'", "`tvar'", "`cif_chk'", ///
                     "`se_cif'", "`_t0var'")
             }
@@ -552,9 +560,16 @@ program define finegray_predict, rclass sortpreserve
             }
         }
 
+        local _tg_mata ""
+        if `"`e(truncstrata)'"' != "" {
+            tempvar _tg_grp
+            _finegray_weight_groups, truncstrata(`e(truncstrata)') tgname(`_tg_grp')
+            local _tg_mata "`_tg_grp'"
+        }
+
         mata: _finegray_schoenfeld_compute( ///
             "`_score_varlist'", "`events_var'", `cause_val', `censvalue_val', ///
-            "`_byg_mata'", 0, "`_t0var'")
+            "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'")
 
         restore
 

@@ -14,19 +14,20 @@
 {title:Title}
 
 {p2colset 5 20 22 2}{...}
-{p2col:{cmd:gcomptab} {hline 2}}Format gcomp mediation or time-varying dose-response results into Excel tables{p_end}
+{p2col:{cmd:gcomptab} {hline 2}}Format gcomp effect and component-model tables{p_end}
 {p2colreset}{...}
 
 {pstd}
-Export results from {helpb gcomp} into a publication-ready Excel table. Two
-modes are supported: {bf:mediation} (the default — formats the TCE/NDE/NIE/PM/CDE
-decomposition) and {bf:dose-response} (formats a time-varying intervention run
-into a per-strategy table of counterfactual risks, confidence intervals,
-implied exposure-years, and risk differences versus a reference strategy).
+Format results from {helpb gcomp} in three modes: named mediation effects,
+time-varying dose-response strategies, or stored component-model refit
+approximations. Excel is required for mediation/dose-response; models mode
+accepts any of Excel, Markdown, CSV, or Results-window display.
 
 
 {marker syntax}{...}
 {title:Syntax}
+
+{pstd}{bf:Mediation (default) or dose-response:}
 
 {p 4 8 2}
 {cmd:gcomptab}{cmd:,}
@@ -34,29 +35,40 @@ implied exposure-years, and risk differences versus a reference strategy).
 {opt sheet(string)}
 [{it:options}]
 
+{pstd}{bf:Component models:}
+
+{p 4 8 2}
+{cmd:gcomptab}{cmd:,}
+{opt models}
+[{opt xlsx(filename)} {opt sheet(string)}]
+[{opt markdown(filename)}]
+[{opt csv(filename)}]
+[{opt display}]
+[{it:options}]
+
 {synoptset 27 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Required}
+{syntab:Excel target (mediation/dose)}
 {synopt:{opt xlsx(filename)}}output Excel filename (must end with {cmd:.xlsx}){p_end}
 {synopt:{opt sheet(string)}}target sheet name{p_end}
 
 {syntab:Companion text exports (all modes)}
-{synopt:{opt markd:own(filename)}}also write the table to a Markdown file ({cmd:.md}/{cmd:.markdown}/{cmd:.qmd}/{cmd:.rmd}){p_end}
+{synopt:{opt markd:own(filename)}}write Markdown companion/output{p_end}
 {synopt:{opt csv(filename)}}also write the table to a CSV file ({cmd:.csv}){p_end}
 
 {syntab:Content}
 {synopt:{opt ci(string)}}CI type: {cmd:normal} (default), {cmd:percentile}, {cmd:bc}, or {cmd:bca}{p_end}
-{synopt:{opt effect(string)}}header label for estimate column; default is {cmd:"Estimate"}{p_end}
+{synopt:{opt effect(string)}}estimate-column label{p_end}
 {synopt:{opt title(string)}}title text for cell A1{p_end}
 {synopt:{opt labels(string)}}custom effect labels separated by backslash{p_end}
-{synopt:{opt decimal(#)}}decimal places for numeric values; default is {cmd:3}; range 1-6{p_end}
+{synopt:{opt decimal(#)}}decimal places; default {cmd:3}, range 1-6{p_end}
 
 {syntab:Formatting}
 {synopt:{opt f:ont(string)}}font family; default is {cmd:"Arial"}{p_end}
-{synopt:{opt fonts:ize(#)}}body font size; title uses fontsize+2; default is {cmd:10}{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt the:me(string)}}journal-style preset for font, size, borders, and zebra shading{p_end}
+{synopt:{opt fonts:ize(#)}}body font size; default {cmd:10}{p_end}
+{synopt:{opt border:style(string)}}{cmd:thin}, {cmd:medium}, {cmd:academic}, or {cmd:none}{p_end}
+{synopt:{opt the:me(string)}}journal-style formatting preset{p_end}
 {synopt:{opt headers:hade}}shade header rows{p_end}
 {synopt:{opt nosha:de}}suppress header shading from a theme{p_end}
 {synopt:{opt headerc:olor(string)}}header fill color; default {cmd:"219 229 241"}{p_end}
@@ -66,22 +78,22 @@ implied exposure-years, and risk differences versus a reference strategy).
 {synopt:{opt foot:note(string)}}footnote text below the table in smaller italic font{p_end}
 
 {syntab:Emphasis}
-{synopt:{opt bold:p(#)}}bold numeric cells when Wald p < cutoff; default {cmd:0} disables{p_end}
-{synopt:{opt high:light(#)}}highlight row in yellow when Wald p < cutoff; default {cmd:0} disables{p_end}
+{synopt:{opt bold:p(#)}}bold cells below Wald-p cutoff{p_end}
+{synopt:{opt high:light(#)}}highlight rows below Wald-p cutoff{p_end}
 
 {syntab:Dose-response (time-varying)}
-{synopt:{opt dose:response}}force the dose-response branch (otherwise auto-detected){p_end}
-{synopt:{opt strategy:labels(string)}}backslash-separated strategy labels, one per PO# column{p_end}
-{synopt:{opt expy:ears(numlist)}}implied mean cumulative exposure-years, one per PO# column{p_end}
-{synopt:{opt ref:erence(#)}}PO index used as the risk-difference reference; default is {cmd:1}{p_end}
+{synopt:{opt dose:response}}force dose-response mode{p_end}
+{synopt:{opt strategy:labels(string)}}strategy labels in PO# order{p_end}
+{synopt:{opt expy:ears(numlist)}}exposure-years in PO# order{p_end}
+{synopt:{opt ref:erence(#)}}reference PO index; default {cmd:1}{p_end}
 {synopt:{opt nord}}suppress the risk-difference-vs-reference column{p_end}
 
 {syntab:Component models (models mode)}
-{synopt:{opt models}}enter component-model mode (required to enter; reads stored {cmd:gcomp} models){p_end}
+{synopt:{opt models}}enter component-model mode{p_end}
 {synopt:{opt usemod:els(namelist)}}stored estimates to include; default {cmd:e(model_names)}{p_end}
 {synopt:{opt modell:abels(string)}}column header per model, backslash-separated{p_end}
 {synopt:{opt terml:abels(string)}}row (term) labels, backslash-separated{p_end}
-{synopt:{opt disp:lay}}echo the table to the Results window (models mode only){p_end}
+{synopt:{opt disp:lay}}echo table to the Results window{p_end}
 {synopt:{opt eform}}force exponentiation{p_end}
 {synopt:{opt noeform}}suppress exponentiation{p_end}
 {synopt:{opt raw}}report raw coefficients (alias of {opt noeform}){p_end}
@@ -99,21 +111,21 @@ implied exposure-years, and risk differences versus a reference strategy).
 {synopt:{opt stat:s(string)}}per-model footer statistics ({cmd:n} supported){p_end}
 
 {syntab:Other}
-{synopt:{opt open}}open the Excel file after export{p_end}
+{synopt:{opt open}}request a best-effort workbook open{p_end}
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}
-In dose-response mode {opt effect()} defaults to {cmd:"Risk"} and the mediation-only
-options ({opt labels()}, {opt boldp()}, {opt highlight()}) are ignored.
+In dose-response mode {opt effect()}
+defaults to {cmd:"Risk"}; mediation-only options are rejected or excluded by
+the mode contract.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:gcomptab} is a post-estimation command that reads the {cmd:e()} results left behind
-by {helpb gcomp} and writes them into a formatted Excel workbook. It supports two
-layouts.
+{cmd:gcomptab} reads active {cmd:gcomp} results or stored component refits and
+builds one of three table layouts.
 
 {pstd}
 {bf:Mediation mode (default)} formats a causal-mediation run. The exported
@@ -125,6 +137,11 @@ table includes one row for each mediation effect:
 {p 8 12 2}{hline 3} Proportion Mediated (PM){p_end}
 {p 8 12 2}{hline 3} Controlled Direct Effect (CDE) — only when the fitted {cmd:gcomp} model included
 {opt control()}{p_end}
+
+{pstd}
+Effects are located by full column name, not by total vector width. Additional
+mediation MSM parameters remain in {cmd:e(b)} but are deliberately omitted
+from this named-effect table.
 
 {pstd}
 Each row shows the point estimate, 95% confidence interval, and standard
@@ -158,6 +175,12 @@ reference strategy. This mode is selected automatically when {cmd:e(b)} contains
 {cmd:PO#} columns and no {cmd:tce} column, or explicitly with {opt doseresponse}.
 
 {pstd}
+{bf:Component-model mode} formats one or more stored estimates, normally the
+analytic-sample refit approximations named in {cmd:e(model_names)} after
+{cmd:gcomp, savemodels}. Full Stata coefficient stripes remain the identity,
+and display labels never merge distinct factor or interaction terms.
+
+{pstd}
 {cmd:gcomp} posts one {cmd:PO#} column per intervention {it:plus} a final column
 for the simulated observed (natural-course) regime, so a run with {it:m}
 interventions yields {it:k} = {it:m}+1 {cmd:PO#} columns. {opt strategylabels()}
@@ -171,17 +194,19 @@ therefore {cmd:0}.
 {marker options}{...}
 {title:Options}
 
-{dlgtab:Required}
+{dlgtab:Excel target (required in mediation/dose-response)}
 
 {phang}
 {opt xlsx(filename)} specifies the Excel workbook to create or update. The
 filename must end with {cmd:.xlsx}. If the file already exists, only the named
-sheet is replaced; other sheets are preserved.
+sheet is replaced; other sheets are preserved. In models mode Excel is
+optional because Markdown, CSV, or {opt display} can be the sole target.
 
 {phang}
 {opt sheet(string)} specifies the sheet name within the workbook. If the sheet
 already exists it is overwritten; otherwise a new sheet is created. Sheet names
-must be 31 characters or fewer and may not contain {cmd:: \ / ? * [ ]}.
+must be 31 characters or fewer and may not contain {cmd:: \ / ? * [ ]}. In
+models mode the default is {cmd:Models} when {opt xlsx()} is supplied.
 
 {dlgtab:Content}
 
@@ -225,8 +250,7 @@ confidence limits, and standard errors. Default is {cmd:3}. Range is 1 to 6.
 
 {phang}
 {opt f:ont(string)} sets the font family for all text in the workbook. Default is
-{cmd:"Arial"}. Any font installed on your system can be used. Font names containing
-shell metacharacters are rejected before workbook creation.
+{cmd:"Arial"}. Any font installed on your system can be used.
 
 {phang}
 {opt fontsize(#)} sets the body text font size in points. The title row
@@ -235,8 +259,9 @@ shell metacharacters are rejected before workbook creation.
 {phang}
 {opt borderstyle(string)} controls the table border style:{break}
 {cmd:thin} {hline 2} thin boxed table (default){break}
-{cmd:medium} {hline 2} medium-weight borders on all cells
-{break}{cmd:academic} {hline 2} horizontal rules only, between header/body/footer
+{cmd:medium} {hline 2} medium-weight borders on all cells{break}
+{cmd:academic} {hline 2} horizontal rules only{break}
+{cmd:none} {hline 2} no explicit borders
 
 {phang}
 {opt theme(string)} applies a journal-style preset. Allowed values are
@@ -353,11 +378,19 @@ not required). The {opt title()}, {opt footnote()}, {opt font()},
 {opt boldp()}, {opt highlight()}, and {opt open} options apply to the xlsx output
 as in the other modes.
 
+{pstd}
+All text staging uses lossless long strings. Markdown escapes pipes,
+backslashes, and line breaks. CSV uses a standards-aware serializer for
+commas, quotes, Unicode, and line breaks; formula-leading nonnumeric text is
+written as text rather than an executable spreadsheet formula.
+
 {dlgtab:Other}
 
 {phang}
-{opt open} opens the Excel file in the default application after export. On
-most systems this launches Excel or a compatible viewer.
+{opt open} makes a best-effort request to open the completed Excel file. File
+writing and analytical returns are established first. {cmd:r(open_rc)} reports
+the request status; on headless Linux, a successful launcher call does not
+prove that a visible desktop application opened.
 
 
 {marker remarks}{...}
@@ -391,9 +424,9 @@ multi-sheet workbook by calling {cmd:gcomptab} repeatedly with different
 {pstd}
 {cmd:gcomptab} supports {opt obe}, {opt linexp}, {opt specific}, and
 baseline-based mediation results. It does {bf:not} support {opt oce} results
-because {opt oce} produces a variable number of contrast rows (one per
-non-baseline exposure level) that cannot be formatted with a fixed 4-or-5
-row layout. For {opt oce} output, extract results from {cmd:e()} directly.
+because {opt oce} produces per-level contrast sets rather than the named
+single TCE/NDE/NIE/PM rows. Mediation MSM coefficients do not cause rejection,
+and they remain in {cmd:e(b)} while being omitted from this effects-only layout.
 
 {pstd}
 {bf:When to use gcomptab vs. effecttab}
@@ -408,8 +441,19 @@ built-in commands ({helpb teffects}, {helpb margins}).
 {title:Examples}
 
 {pstd}
-All examples below assume you have already run a {cmd:gcomp} mediation model. See
-{helpb gcomp} for complete data-generation and model-fitting examples.
+The first block is complete and supplies the active mediation results used by
+Examples 1-6:
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 12345}{p_end}
+{phang2}{cmd:. set obs 800}{p_end}
+{phang2}{cmd:. generate double c = rnormal()}{p_end}
+{phang2}{cmd:. generate byte x = rbinomial(1, invlogit(.2*c))}{p_end}
+{phang2}{cmd:. generate byte m = rbinomial(1, invlogit(-.5+.7*x+.2*c))}{p_end}
+{phang2}{cmd:. generate byte y = rbinomial(1, invlogit(-1+.5*x+.7*m+.2*c))}{p_end}
+{phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///}{p_end}
+{phang2}{cmd:      commands(m: logit, y: logit) equations(m: x c, y: m x c) ///}{p_end}
+{phang2}{cmd:      base_confs(c) sim(400) samples(50) seed(42) all savemodels}{p_end}
 
     {hline}
 {pstd}
@@ -481,14 +525,22 @@ Combine title, footnote, zebra, bold, and yellow highlighting:
 {bf:Example 7: Time-varying dose-response table}
 
 {pstd}
-Fit a time-varying g-formula with sustained-exposure interventions, then
-format the per-strategy risks into a dose-response table. With
-{cmd:interventions(A=1, A=0)} there are three {cmd:PO#} columns (the two interventions
-plus the simulated observed regime), so three strategy labels and three
-exposure-years are supplied:
+Fit a self-contained time-varying g-formula, then format the three {cmd:PO#}
+columns (two interventions plus simulated observed regime):
 
-{phang2}{cmd:. gcomp Y ... , outcome(Y) idvar(id) tvar(time) intvars(A) eofu ///}{p_end}
-{phang2}{cmd:      interventions(A=1, A=0) sim(500) samples(200) seed(12345)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 54321}{p_end}
+{phang2}{cmd:. set obs 600}{p_end}
+{phang2}{cmd:. generate long id = ceil(_n/3)}{p_end}
+{phang2}{cmd:. bysort id: generate double time = 2*_n-1}{p_end}
+{phang2}{cmd:. generate double L = rnormal()+.1*time}{p_end}
+{phang2}{cmd:. generate byte A = rbinomial(1,invlogit(-.8+.2*L))}{p_end}
+{phang2}{cmd:. generate byte Y = rbinomial(1,invlogit(-1+.4*A+.2*L))}{p_end}
+{phang2}{cmd:. gcomp Y L A id time, outcome(Y) idvar(id) tvar(time) ///}{p_end}
+{phang2}{cmd:      varyingcovariates(L) intvars(A) interventions(A=1, A=0) ///}{p_end}
+{phang2}{cmd:      commands(L: regress, A: logit, Y: logit) ///}{p_end}
+{phang2}{cmd:      equations(L: time, A: L time, Y: A L time) ///}{p_end}
+{phang2}{cmd:      eofu pooled sim(200) samples(50) seed(12345)}{p_end}
 {phang2}{cmd:. gcomptab, doseresponse sheet("Table 5 DR") xlsx(table5.xlsx) ///}{p_end}
 {phang2}{cmd:      strategylabels("Always HE \ Never HE \ Observed regime") ///}{p_end}
 {phang2}{cmd:      expyears(5 0 2) reference(1) effect("Risk")}{p_end}
@@ -501,8 +553,16 @@ exposure-years are supplied:
 Capture the fitted component models during a mediation run, then export them as
 a multi-model coefficient table to Excel and Markdown:
 
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 12345}{p_end}
+{phang2}{cmd:. set obs 800}{p_end}
+{phang2}{cmd:. generate double c = rnormal()}{p_end}
+{phang2}{cmd:. generate byte x = rbinomial(1, invlogit(.2*c))}{p_end}
+{phang2}{cmd:. generate byte m = rbinomial(1, invlogit(-.5+.7*x+.2*c))}{p_end}
+{phang2}{cmd:. generate byte y = rbinomial(1, invlogit(-1+.5*x+.7*m+.2*c))}{p_end}
 {phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///}{p_end}
-{phang2}{cmd:      commands(m: logit, y: logit) equations(m: x c, y: m x c) savemodels}{p_end}
+{phang2}{cmd:      commands(m: logit, y: logit) equations(m: x c, y: m x c) ///}{p_end}
+{phang2}{cmd:      sim(400) samples(50) seed(42) savemodels}{p_end}
 {phang2}{cmd:. gcomptab, models xlsx(models.xlsx) sheet("Component models") ///}{p_end}
 {phang2}{cmd:      modellabels("Mediator \ Outcome") stats(n) stars title("Component models")}{p_end}
 {phang2}{cmd:. gcomptab, models markdown(models.md) compact}{p_end}
@@ -547,19 +607,21 @@ in {it:Options}.{p_end}
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(N_effects)}}number of effects exported (4 without CDE, 5 with CDE){p_end}
+{synopt:{cmd:r(N_effects)}}named mediation effects exported{p_end}
+{synopt:{cmd:r(has_cde)}}1 when CDE is present; otherwise 0{p_end}
 {synopt:{cmd:r(tce)}}total causal effect{p_end}
 {synopt:{cmd:r(nde)}}natural direct effect{p_end}
 {synopt:{cmd:r(nie)}}natural indirect effect{p_end}
 {synopt:{cmd:r(pm)}}proportion mediated{p_end}
-{synopt:{cmd:r(cde)}}controlled direct effect (only when the fitted model included CDE){p_end}
+{synopt:{cmd:r(cde)}}controlled direct effect, when present{p_end}
+{synopt:{cmd:r(open_rc)}}best-effort opener status with {opt open}{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename used{p_end}
 {synopt:{cmd:r(sheet)}}sheet name used{p_end}
 {synopt:{cmd:r(ci)}}CI type displayed{p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename written (only with {opt markdown()}){p_end}
-{synopt:{cmd:r(csv)}}CSV filename written (only with {opt csv()}){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename written{p_end}
+{synopt:{cmd:r(csv)}}CSV filename written{p_end}
 
 {pstd}
 In {bf:dose-response} mode {cmd:gcomptab} stores instead:
@@ -574,11 +636,11 @@ In {bf:dose-response} mode {cmd:gcomptab} stores instead:
 {synopt:{cmd:r(sheet)}}sheet name used{p_end}
 {synopt:{cmd:r(ci)}}CI type displayed{p_end}
 {synopt:{cmd:r(ref_label)}}label of the reference strategy{p_end}
-{synopt:{cmd:r(markdown)}}Markdown filename written (only with {opt markdown()}){p_end}
-{synopt:{cmd:r(csv)}}CSV filename written (only with {opt csv()}){p_end}
+{synopt:{cmd:r(markdown)}}Markdown filename written{p_end}
+{synopt:{cmd:r(csv)}}CSV filename written{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}{it:k} x 5 matrix (rows {cmd:PO1..POk}; columns {cmd:risk}, {cmd:ci_lower}, {cmd:ci_upper}, {cmd:exp_years}, {cmd:rd}){p_end}
+{synopt:{cmd:r(table)}}strategy estimate/CI/exposure/RD matrix{p_end}
 
 {pstd}
 In {bf:models} mode {cmd:gcomptab} stores instead:
@@ -592,6 +654,7 @@ In {bf:models} mode {cmd:gcomptab} stores instead:
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(coef_label)}}shared scale label, or {cmd:mixed}{p_end}
 {synopt:{cmd:r(methods)}}auto methods sentence{p_end}
+{synopt:{cmd:r(term_names)}}full coefficient identities in row order{p_end}
 {synopt:{cmd:r(xlsx)} {cmd:r(sheet)} {cmd:r(markdown)} {cmd:r(csv)}}output targets written{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}

@@ -69,7 +69,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v190_panel, nsubj(80)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) nolog
     * final IIW weight mean is exactly 1
     assert abs(r(mean_weight) - 1) < 1e-8
@@ -77,7 +77,7 @@ capture noisily {
     quietly summarize _iivw_iw if !missing(_iivw_iw), meanonly
     assert abs(r(mean) - 1) < 1e-8
     * FIPTIW: iw component mean 1 (final weight ~ mean of stabilized tw)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) ///
         replace nolog
     quietly summarize _iivw_iw if !missing(_iivw_iw), meanonly
@@ -97,7 +97,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v190_panel, nsubj(80)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) nolog
     * A constant rescale of the weights must not move beta or the sandwich SE
     gen double w_scaled = _iivw_weight * 1000
@@ -132,7 +132,7 @@ local ++test_count
 capture noisily {
     * 20 clusters -> note present
     _iivw_v190_panel, nsubj(20)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
     iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
@@ -142,7 +142,7 @@ capture noisily {
 
     * 60 clusters -> note absent
     _iivw_v190_panel, nsubj(60)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
     iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
@@ -152,7 +152,7 @@ capture noisily {
 
     * 20 clusters but bootstrap() -> block skipped, note absent
     _iivw_v190_panel, nsubj(20)
-    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
     iivw_fit edss treated edss_bl, model(gee) timespec(linear) bootstrap(20) nolog
@@ -177,7 +177,7 @@ local ++test_count
 if c(stata_version) >= 17 {
     capture noisily {
         _iivw_v190_panel, nsubj(80)
-        iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
         * weighted mixed -> fence note present
         capture log close iivwcap
         log using "`capf'", replace text name(iivwcap)

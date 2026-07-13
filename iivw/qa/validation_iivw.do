@@ -52,7 +52,7 @@ if `run_only' == 0 | `run_only' == 1 {
             4 8    3.5
             4 16   4
         end
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         * First obs per subject share the baseline-convention weight. After the
         * mean-1 normalization of _iivw_iw the common value is 1/mean(exp(-xb)),
         * not 1, but it is identical across subjects (SD 0).
@@ -91,7 +91,7 @@ if `run_only' == 0 | `run_only' == 2 {
         gen double severity = 2 + 0.1 * months + rnormal(0, 0.5)
 
         * Run iivw_weight
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Manually verify: fit the same AG Cox model and check exp(-xb)
         sort id months
@@ -189,7 +189,7 @@ if `run_only' == 0 | `run_only' == 4 {
         bysort id: replace treated = treated[1]
         gen double severity = baseline_sev + rnormal(0, 0.3)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(baseline_sev) nolog
 
         * FIPTIW should equal IIW * IPTW exactly
@@ -223,7 +223,7 @@ if `run_only' == 0 | `run_only' == 5 {
         gen double severity = rnormal(3, 2)
 
         * First run without truncation
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         tempvar w_raw
         gen double `w_raw' = _iivw_weight
 
@@ -233,7 +233,7 @@ if `run_only' == 0 | `run_only' == 5 {
         local hi_val = r(r2)
 
         * Re-run with truncation
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             truncate(5 95) replace nolog
 
         * All weights should be within bounds (with tolerance)
@@ -266,7 +266,7 @@ if `run_only' == 0 | `run_only' == 6 {
         gen double months = (visit_n - 1) * 6
         gen double severity = rnormal(3, 1)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local reported_ess = r(ess)
 
         * Manual ESS computation
@@ -305,7 +305,7 @@ if `run_only' == 0 | `run_only' == 7 {
         gen double months = (visit_n - 1) * 6
         gen double constant = 5
 
-        iivw_weight, id(id) time(months) visit_cov(constant) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(constant) nolog
 
         * With constant covariates, xb = c for all, so exp(-xb) = k for all
         * After setting first obs to 1, remaining should be identical
@@ -339,7 +339,7 @@ if `run_only' == 0 | `run_only' == 8 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Fit via iivw_fit
         iivw_fit outcome severity, model(gee) timespec(linear) nolog
@@ -379,7 +379,7 @@ if `run_only' == 0 | `run_only' == 9 {
             if _n > 1 & days == days[_n-1]
         gen byte relapse = !missing(relapse_date)
 
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
 
         * All weights must be strictly positive (exp(-xb) > 0 always)
         quietly count if _iivw_weight <= 0 & !missing(_iivw_weight)
@@ -411,12 +411,12 @@ if `run_only' == 0 | `run_only' == 10 {
         gen byte relapse = !missing(relapse_date)
 
         * Unstabilized
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         local mean_unstab = r(mean_weight)
         local sd_unstab = r(sd_weight)
 
         * Stabilized with subset of covariates
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             stabcov(relapse) replace nolog
         local mean_stab = r(mean_weight)
         local sd_stab = r(sd_weight)
@@ -454,7 +454,7 @@ if `run_only' == 0 | `run_only' == 11 {
             2 11  2.0
         end
 
-        iivw_weight, id(id) time(months) visit_cov(edss) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(edss) ///
             lagvars(edss) nolog
 
         * Verify lag values are correct
@@ -494,11 +494,11 @@ if `run_only' == 0 | `run_only' == 12 {
         gen byte treated = mod(id, 2)
 
         * Without treat() → should be iivw
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert "`r(weighttype)'" == "iivw"
 
         * With treat() and treat_cov() -> should be fiptiw
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(severity) replace nolog
         assert "`r(weighttype)'" == "fiptiw"
     }
@@ -531,7 +531,7 @@ if `run_only' == 0 | `run_only' == 13 {
         quietly count if `first' == 1
         local manual_ids = r(N)
 
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         assert r(n_ids) == `manual_ids'
         assert r(n_ids) == 500
         assert r(N) == 4433
@@ -561,7 +561,7 @@ if `run_only' == 0 | `run_only' == 14 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(cubic) nolog
 
         confirm variable _iivw_time_sq
@@ -632,7 +632,7 @@ if `run_only' == 0 | `run_only' == 16 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(quadratic) nolog
 
         confirm variable _iivw_time_sq
@@ -663,7 +663,7 @@ if `run_only' == 0 | `run_only' == 17 {
         gen double severity = rnormal(3, 1)
         gen double outcome = rnormal(5, 1)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(ns(1)) nolog
 
         * ns(1) = 1 df = just linear in time
@@ -704,12 +704,12 @@ if `run_only' == 0 | `run_only' == 18 {
         end
 
         * With entry: first interval starts at entry_t
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             entry(entry_t) nolog
         local n_entry = r(N)
 
         * Without entry: first interval starts at 0
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             replace nolog
         local n_noentry = r(N)
 
@@ -748,7 +748,7 @@ if `run_only' == 0 | `run_only' == 19 {
         gen double months = (visit_n - 1) * 6
         gen double severity = rnormal(3, 0.5)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * IIW weights are normalized to mean 1 by construction (exact, not a range)
         assert abs(r(mean_weight) - 1) < 1e-8
@@ -784,7 +784,7 @@ if `run_only' == 0 | `run_only' == 20 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome arm, categorical(arm) nolog
 
         * Base category (0=Placebo) has no dummy
@@ -831,14 +831,14 @@ if `run_only' == 0 | `run_only' == 21 {
         gen double months = (visit_n - 1) * 3
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - 2 * severity + rnormal(0, 3)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Sandwich SEs
         iivw_fit outcome severity, model(gee) timespec(linear) nolog
         local se_sandwich = _se[severity]
 
         * Re-weight (iivw_fit clears some metadata)
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
 
         * Bootstrap SEs (50 reps for stability)
         iivw_fit outcome severity, model(gee) timespec(linear) ///
@@ -877,14 +877,14 @@ if `run_only' == 0 | `run_only' == 22 {
         gen double months = (visit_n - 1) * 6
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Non-bootstrap estimate
         iivw_fit outcome severity, model(gee) timespec(linear) nolog
         local b_direct = _b[severity]
 
         * Re-weight
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
 
         * Bootstrap estimate (point estimate should match)
         iivw_fit outcome severity, model(gee) timespec(linear) ///
@@ -919,7 +919,7 @@ if `run_only' == 0 | `run_only' == 23 {
         gen double severity = rnormal(3, 1)
 
         * Run in natural order
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         tempvar w_ordered
         gen double `w_ordered' = _iivw_weight
         tempvar orig_n
@@ -928,7 +928,7 @@ if `run_only' == 0 | `run_only' == 23 {
         * Shuffle and re-run
         gen double _shuffle = runiform()
         sort _shuffle
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
 
         * Restore original order and compare
         sort `orig_n'
@@ -961,11 +961,11 @@ if `run_only' == 0 | `run_only' == 24 {
         gen double months = (visit_n - 1) * 6
         gen double severity = rnormal(3, 1)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         tempvar w_first
         gen double `w_first' = _iivw_weight
 
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
         gen double wdiff = abs(_iivw_weight - `w_first')
         quietly summarize wdiff
         assert r(max) < 1e-10
@@ -995,7 +995,7 @@ if `run_only' == 0 | `run_only' == 25 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(ns(2)) nolog
 
         confirm variable _iivw_tns1
@@ -1032,7 +1032,7 @@ if `run_only' == 0 | `run_only' == 26 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(ns(3)) nolog
 
         confirm variable _iivw_tns1
@@ -1069,14 +1069,14 @@ if `run_only' == 0 | `run_only' == 27 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - 2 * severity + rnormal(0, 3)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * GEE estimate
         iivw_fit outcome severity, model(gee) timespec(linear) nolog
         local b_gee = _b[severity]
 
         * Mixed estimate (need to re-weight since iivw_fit stores metadata)
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
         iivw_fit outcome severity, model(mixed) timespec(linear) nolog replace
         local b_mixed = _b[severity]
 
@@ -1110,7 +1110,7 @@ if `run_only' == 0 | `run_only' == 28 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - severity * months * 0.01 + rnormal(0, 2)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         iivw_fit outcome severity, timespec(quadratic) ///
             interaction(severity) nolog
 

@@ -461,7 +461,7 @@ capture noisily {
     assert r(n_commands) == 5
     assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
 
-    iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"
     assert r(N) == 320
     assert r(n_ids) == 80
@@ -507,12 +507,12 @@ capture noisily {
     discard
     _qa_iivw_doc_data
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
     summarize _iivw_weight, detail
     iivw_fit edss treated edss_bl, model(gee) timespec(linear)
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) ///
         truncate(1 99) replace nolog
@@ -522,7 +522,7 @@ capture noisily {
     iivw_fit edss treated age sex edss_bl, ///
         model(gee) timespec(ns(3)) interaction(treated) replace
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog
     iivw_fit edss treatment edss_bl, ///
         categorical(treatment) timespec(ns(3)) interaction(treatment) replace
@@ -570,20 +570,20 @@ capture noisily {
     discard
     _qa_iivw_doc_data
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
     summarize _iivw_weight, detail
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog
     confirm variable edss_lag1
     confirm variable relapse_lag1
 
-    iivw_weight, id(id) time(days) visit_cov(edss_bl) lagvars(edss) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl) lagvars(edss) ///
         generate(w_) replace nolog
     confirm variable w_iw
     confirm variable w_weight
@@ -593,12 +593,12 @@ capture noisily {
     assert "`r(weighttype)'" == "iptw"
     confirm variable _iivw_tw
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         stabcov(treated) replace nolog
     assert "`r(weighttype)'" == "iivw"
 
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         efron replace nolog
     assert "`r(weighttype)'" == "iivw"
@@ -618,7 +618,7 @@ capture noisily {
 
     discard
     _qa_iivw_doc_data
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
 
     iivw_fit edss treated edss_bl, model(gee) timespec(linear)
@@ -640,11 +640,11 @@ capture noisily {
     iivw_fit edss treated age edss_bl, timespec(quadratic) interaction(treated age) replace
 
     collect clear
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         truncate(1 99) replace nolog
     iivw_fit edss treated edss_bl, model(gee) nolog collect
-    iivw_weight, id(id) time(days) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog
     iivw_fit edss treated edss_bl, model(gee) nolog replace collect

@@ -87,7 +87,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) stabcov(z) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) stabcov(z) nolog
         quietly summarize _iivw_iw
         assert reldif(r(min), 1) < 1e-10
         assert reldif(r(max), 1) < 1e-10
@@ -113,7 +113,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) stabcov(z) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) stabcov(z) ///
             treat(trt) treat_cov(k) nolog
         quietly summarize _iivw_iw
         assert reldif(r(min), 1) < 1e-10
@@ -140,7 +140,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) nolog
         tempvar prod absdiff
         gen double `prod' = _iivw_iw * _iivw_tw
         gen double `absdiff' = abs(_iivw_weight - `prod')
@@ -179,7 +179,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) nolog
         tempvar isfirst
         bysort id (months): gen byte `isfirst' = (_n == 1)
         quietly summarize _iivw_iw if `isfirst'
@@ -214,14 +214,14 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) nolog
         quietly summarize _iivw_iw
         local iw_max_untrimmed = r(max)
         quietly summarize _iivw_weight
         local w_max_untrimmed = r(max)
 
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) ///
             truncate(5 95) nolog
         quietly summarize _iivw_iw
         * component is NOT trimmed
@@ -265,7 +265,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_irregular
-        iivw_weight, id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) ///
             wtype(fiptiw) nolog
         tempvar num
         gen double `num' = cond(trt == 1, _iivw_tw * _iivw_ps, ///

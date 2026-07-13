@@ -72,7 +72,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt uc:i(varname)}}upper CI limit (for coverage){p_end}
 {synopt:{opt pv:alue(varname)}}replication-level p-value (for power){p_end}
 {synopt:{opt rej:ect(varname)}}pre-computed 0/1 rejection indicator (for power){p_end}
-{synopt:{opt nsim(#)}}intended replication count per cell (enables non-convergence){p_end}
+{synopt:{opt nsim(#)}}set intended replications per cell{p_end}
 {synoptline}
 
 {synopthdr:input (ingest mode)}
@@ -86,7 +86,7 @@ table-grade measures itself from replication-level data.{p_end}
 
 {synopthdr:metrics and computation}
 {synoptline}
-{synopt:{opt met:rics(tokens)}}metrics to display; default {cmd:mean bias empse meanse coverage n}{p_end}
+{synopt:{opt met:rics(tokens)}}metrics to display{p_end}
 {synopt:{opt lev:el(#)}}nominal CI level for Wald coverage; default {cmd:95}{p_end}
 {synopt:{opt alp:ha(#)}}rejection threshold for power; default {cmd:0.05}{p_end}
 {synopt:{opt min:reps(#)}}minimum usable replications per cell; default {cmd:2}{p_end}
@@ -104,7 +104,7 @@ table-grade measures itself from replication-level data.{p_end}
 {synopt:{opt sh:eet(name)}}Excel sheet name; default {cmd:Simulation}{p_end}
 {synopt:{opt csv(file)}}CSV export (.csv){p_end}
 {synopt:{opt mark:down(file)}}Markdown export (.md/.markdown/.qmd/.rmd){p_end}
-{synopt:{opt mdapp:end}}append to an existing Markdown file; requires {opt markdown()}{p_end}
+{synopt:{opt mdapp:end}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name[, replace])}}store the rendered table as a frame{p_end}
 {synopt:{opt plotf:rame(name[, replace])}}store the numeric companion frame{p_end}
 {synopt:{opt ti:tle(string)}}table title{p_end}
@@ -122,6 +122,124 @@ table-grade measures itself from replication-level data.{p_end}
 {p 4 6 2}At least one output target ({opt xlsx()}, {opt csv()}, {opt markdown()},
 {opt frame()}, {opt plotframe()}, or {opt display}) is required.{p_end}
 
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt alp:ha(#)} rejection threshold for power; default {cmd:0.05}{p_end}
+
+{phang}
+{opt border:style(name)} default, thin, medium, academic{p_end}
+
+{phang}
+{opt by(varname)} scenario / data-generating process (row groups){p_end}
+
+{phang}
+{opt byv:ar(name)} scenario column ( {cmd:from(summary)}){p_end}
+
+{phang}
+{opt cov:erage(varname)} pre-computed 0/1 coverage indicator{p_end}
+
+{phang}
+{opt dig:its(#)} decimals for estimate-scale metrics; default 2{p_end}
+
+{phang}
+{opt estim:and(varname)} target parameter (column groups){p_end}
+
+{phang}
+{opt estimandv:ar(name)} target column ( {cmd:from(summary)}){p_end}
+
+{phang}
+{opt est:imate(varname)} replication-level point estimate (required){p_end}
+
+{phang}
+{opt estimatorv:ar(name)} method column ( {cmd:from(summary)}){p_end}
+
+{phang}
+{opt foot:note(string)} table footnote{p_end}
+
+{phang}
+{opt from(spec)} {cmd:simsum}, {cmd:siman}, or {cmd:summary}{p_end}
+
+{phang}
+{opt headerc:olor(c)} header fill color{p_end}
+
+{phang}
+{opt headers:hade} shade the header row{p_end}
+
+{phang}
+{opt lc:i(varname)} lower CI limit (for coverage){p_end}
+
+{phang}
+{opt lev:el(#)} nominal CI level for Wald coverage; default {cmd:95}{p_end}
+
+{phang}
+{opt mdapp:end} append to an existing Markdown file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt meas:ures(map)} column mapping, e.g. {cmd:measures(mean=m bias=b n=nr)}{p_end}
+
+{phang}
+{opt met:rics(tokens)} metrics to display; default {cmd:mean bias empse meanse coverage n}{p_end}
+
+{phang}
+{opt min:reps(#)} minimum usable replications per cell; default {cmd:2}{p_end}
+
+{phang}
+{opt nosig:n} suppress leading + on signed metrics{p_end}
+
+{phang}
+{opt nsim(#)} intended replication count per cell (enables non-convergence){p_end}
+
+{phang}
+{opt open} open the Excel workbook after export{p_end}
+
+{phang}
+{opt order(data|sort)} level ordering; default {cmd:data} (first occurrence){p_end}
+
+{phang}
+{opt pctdig:its(#)} decimals for percent metrics; default 0{p_end}
+
+{phang}
+{opt pv:alue(varname)} replication-level p-value (for power){p_end}
+
+{phang}
+{opt rej:ect(varname)} pre-computed 0/1 rejection indicator (for power){p_end}
+
+{phang}
+{opt se(varname)} replication-level model-based SE (required){p_end}
+
+{phang}
+{opt sedig:its(#)} decimals for SE-scale metrics; default = {cmd:digits()}{p_end}
+
+{phang}
+{opt sh:eet(name)} Excel sheet name; default {cmd:Simulation}{p_end}
+
+{phang}
+{opt sim(varname)} replication identifier (enables duplicate check){p_end}
+
+{phang}
+{opt the:me(name)} journal theme (lancet, nejm, bmj, ...){p_end}
+
+{phang}
+{opt ti:tle(string)} table title{p_end}
+
+{phang}
+{opt true(#|varname)} true parameter value: literal or variable (required){p_end}
+
+{phang}
+{opt uc:i(varname)} upper CI limit (for coverage){p_end}
+
+{phang}
+{opt warn:reps(#)} low-precision warning threshold; default {cmd:100}{p_end}
+
+{phang}
+{opt zebra} alternate-row shading{p_end}
+
+{phang}
+{opt zebrac:olor(c)} zebra stripe color{p_end}
+
 {marker description}{...}
 {title:Description}
 
@@ -134,6 +252,12 @@ estimator x estimand x scenario. {cmd:simtab} computes the table-grade measures
 below, plus cheap closed-form Monte Carlo standard errors used to flag
 off-nominal coverage, and renders the table. A leading {it:estimator} variable,
 {opt estimate()}, {opt se()}, and {opt true()} are required.{p_end}
+
+{pstd}The leading {it:estimator} variable and the variables supplied to
+{opt by()} and {opt estimand()} may be numeric (with or without value labels)
+or string; their nonmissing values are preserved as cell identities and
+display labels. Observations with a missing numeric value or an empty string
+in any requested identity variable are excluded from the analysis sample.{p_end}
 
 {pstd}In {bf:ingest mode} ({opt from()}), the current data in memory {bf:is} the
 summary. {cmd:simtab} maps its columns onto the internal cell model and renders

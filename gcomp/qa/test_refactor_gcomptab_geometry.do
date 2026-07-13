@@ -15,21 +15,11 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local testdir "`c(tmpdir)'"
 
-local orig_plus "`c(sysdir_plus)'"
-local orig_personal "`c(sysdir_personal)'"
 tempname install_id
 local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`testdir'/gcomp_s5_plus_`install_tag'"
-local personal_dir "`testdir'/gcomp_s5_personal_`install_tag'"
 local xlsx "`testdir'/_gcomp_s5_geometry_`install_tag'.xlsx"
 
-capture mkdir "`plus_dir'"
-capture mkdir "`personal_dir'"
-sysdir set PLUS "`plus_dir'"
-sysdir set PERSONAL "`personal_dir'"
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _s5_mock_gcomp
 program define _s5_mock_gcomp, eclass
@@ -145,30 +135,13 @@ capture erase "`xlsx'"
 
 display ""
 display as result "test_refactor_gcomptab_geometry Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_refactor_gcomptab_geometry tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_refactor_gcomptab_geometry tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
 }
 else {
+    display "RESULT: test_refactor_gcomptab_geometry tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
-}
-
-sysdir set PLUS "`orig_plus'"
-sysdir set PERSONAL "`orig_personal'"
-capture ado uninstall gcomp
-foreach _sub in "_" "g" {
-    local _subfiles : dir "`plus_dir'/`_sub'" files "*"
-    foreach _file of local _subfiles {
-        capture erase "`plus_dir'/`_sub'/`_file'"
-    }
-    capture rmdir "`plus_dir'/`_sub'"
-}
-foreach _dir in "`plus_dir'" "`personal_dir'" {
-    local _files : dir "`_dir'" files "*"
-    foreach _file of local _files {
-        capture erase "`_dir'/`_file'"
-    }
-    capture rmdir "`_dir'"
 }
 
 if `fail_count' > 0 {

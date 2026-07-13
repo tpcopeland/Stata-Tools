@@ -1,8 +1,26 @@
 # tabtools - Publication-ready Excel and Markdown tables across common Stata workflows
 
-**Version 1.9.7** | 2026-07-10
+**Version 1.9.8** | 2026-07-13
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel and Markdown across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook or report.
+
+## Quick Start
+
+This built-in-data workflow creates a baseline table and a regression table without writing files:
+
+```stata
+sysuse auto, clear
+generate byte expensive = price > 6000
+
+table1_tc price mpg weight rep78, by(foreign) smd ///
+    frame(quick_table1, replace)
+
+collect clear
+collect: logistic expensive mpg weight i.foreign
+regtab, nointercept frame(quick_model, replace)
+```
+
+Both commands print a preview and leave reusable frames. Add `xlsx()`, `markdown()`, or `csv()` when you are ready to export.
 
 ## Requirements
 
@@ -396,10 +414,33 @@ comptab g_crude g_adj, rows(1 \ 1) section("Crude" \ "Adjusted") ///
 
 - `help tabtools` for the suite overview and persistent defaults
 - `tabtools_tips` or `help tabtools_tips` for compact option patterns and longer end-to-end recipes
-- `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, and `help stacktab` for command-specific syntax
+- `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, `help diagtab`, `help puttab`, `help stacktab`, and `help simtab` for command-specific syntax
+
+## Reproducibility and QA
+
+The canonical full lane installs its required simulation-oracle dependencies into a disposable Stata ado tree, regenerates the R cross-validation fixtures in a temporary directory, stages demo regeneration outside the checkout, and removes per-run output on exit:
+
+```bash
+cd tabtools/qa
+stata-mp -b do run_all.do full
+```
+
+Run the release lane to include the performance benchmark, and use the package-local cleanup target for interrupted runs:
+
+```bash
+stata-mp -b do run_all.do release
+bash clean_artifacts.sh
+```
+
+See [`qa/README.md`](qa/README.md) for suite membership, external tools, and result interpretation.
+
+## License
+
+`tabtools` is distributed under the MIT License.
 
 ## Version History
 
+- **1.9.8** (2026-07-13): Repairs the deep-audit correctness failures across transactional Excel/frame output, composite semantic identity, GLM effect scales, confidence-level provenance, Table 1 sampling/weighting and categorical SMDs, simulation-cell identity and metric-specific denominators, high-precision and p-value rendering, Markdown output, and runnable recipes. Adds adversarial regression coverage, fresh R and external-oracle execution, staged demo verification, executable help-recipe checks, documentation structure/render gates, and a full-suite release gate.
 - **1.9.7** (2026-07-10): Completes Excel worksheet-name validation before workbook creation. Blank names, the reserved name `History`, and names beginning or ending with an apostrophe now fail with an actionable `r(198)` instead of reaching the Mata writer (which emitted undocumented `r(16114)` for boundary apostrophes); valid interior apostrophes such as `O'Brien` remain supported.
 - **1.9.6** (2026-07-10): Preserves `puttab` dimensions/source and `simtab` analytical metadata when an optional export fails, while omitting artifact returns for files that were not created. Hardens output-path validation against both quote characters, removes the retired `table1_tc, noisily` help entry, and extends adversarial QA for export-failure contracts and valid RMST support. The Stata Dev CLI now scopes stored-result coverage to the command that produced it, recognizes command-named ado version headers and released helper-version drift, ignores historical QA filenames in package changelogs, and parses `cmdab` options plus dynamic stored-result families in help files.
 - **1.9.5** (2026-07-09): Corrected RMST support validation, quote round-tripping in descriptive-table titles/footnotes, and case-insensitive worksheet styling. Improved Monte Carlo power precision checks and QA/release metadata.

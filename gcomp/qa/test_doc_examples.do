@@ -15,9 +15,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 local testdir "`c(tmpdir)'"
 
@@ -368,11 +366,12 @@ else {
 
 display ""
 display as result "test_doc_examples Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_doc_examples tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_doc_examples tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_doc_examples tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

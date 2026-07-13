@@ -237,10 +237,13 @@ capture {
     end
     format %td start stop
 
-    * Total days = (31+31+31) = 93 (using stop-start+1 formula)
+    * Raw interval-days = 93. The two ID 1 intervals share day 22036,
+    * so their union is 61 days; ID 2 contributes 31 days: 92 total.
     tvdiagnose, id(id) start(start) stop(stop) exposure(exposure) summarize
 
-    assert r(total_person_time) == 93
+    assert r(total_person_time) == 92
+    assert r(raw_interval_person_time) == 93
+    assert r(overlap_excess_person_time) == 1
 }
 if _rc == 0 {
     display as result "  PASS 5.4: Total person-time exact"
@@ -1710,4 +1713,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

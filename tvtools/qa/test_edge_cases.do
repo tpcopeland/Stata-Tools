@@ -90,14 +90,15 @@ quietly count
 local n_before = r(N)
 capture noisily tvdiagnose, id(id) start(start) stop(stop) ///
     entry(study_entry) exit(study_exit) coverage
+local cmdrc = _rc
 quietly count
 local n_after = r(N)
-if _rc == 0 & `n_before' == `n_after' {
+if `cmdrc' == 0 & `n_before' == `n_after' {
     display as result "  PASSED - data preserved (N=" `n_before' " -> " `n_after' ")"
     test_pass
 }
 else {
-    display as error "  FAILED - data changed: N=" `n_before' " -> " `n_after' ", rc=" _rc
+    display as error "  FAILED - data changed: N=" `n_before' " -> " `n_after' ", rc=" `cmdrc'
     test_fail "edge-case assertion failed"
 }
 
@@ -122,14 +123,15 @@ display as text _newline "{bf:Test #10c: tvdiagnose gaps preserves data}"
 quietly count
 local n_before = r(N)
 capture noisily tvdiagnose, id(id) start(start) stop(stop) gaps
+local cmdrc = _rc
 quietly count
 local n_after = r(N)
-if _rc == 0 & `n_before' == `n_after' {
+if `cmdrc' == 0 & `n_before' == `n_after' {
     display as result "  PASSED - gaps: data preserved (N=" `n_before' " -> " `n_after' ")"
     test_pass
 }
 else {
-    display as error "  FAILED - data changed or error: rc=" _rc
+    display as error "  FAILED - data changed or error: rc=" `cmdrc'
     test_fail "edge-case assertion failed"
 }
 
@@ -141,14 +143,15 @@ display as text _newline "{bf:Test #10d: tvdiagnose overlaps preserves data}"
 quietly count
 local n_before = r(N)
 capture noisily tvdiagnose, id(id) start(start) stop(stop) overlaps
+local cmdrc = _rc
 quietly count
 local n_after = r(N)
-if _rc == 0 & `n_before' == `n_after' {
+if `cmdrc' == 0 & `n_before' == `n_after' {
     display as result "  PASSED - overlaps: data preserved (N=" `n_before' " -> " `n_after' ")"
     test_pass
 }
 else {
-    display as error "  FAILED - data changed or error: rc=" _rc
+    display as error "  FAILED - data changed or error: rc=" `cmdrc'
     test_fail "edge-case assertion failed"
 }
 
@@ -160,14 +163,15 @@ display as text _newline "{bf:Test #10e: tvdiagnose summarize preserves data}"
 quietly count
 local n_before = r(N)
 capture noisily tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) summarize
+local cmdrc = _rc
 quietly count
 local n_after = r(N)
-if _rc == 0 & `n_before' == `n_after' {
+if `cmdrc' == 0 & `n_before' == `n_after' {
     display as result "  PASSED - summarize: data preserved (N=" `n_before' " -> " `n_after' ")"
     test_pass
 }
 else {
-    display as error "  FAILED - data changed or error: rc=" _rc
+    display as error "  FAILED - data changed or error: rc=" `cmdrc'
     test_fail "edge-case assertion failed"
 }
 
@@ -180,14 +184,15 @@ quietly count
 local n_before = r(N)
 capture noisily tvdiagnose, id(id) start(start) stop(stop) ///
     exposure(tv_exposure) entry(study_entry) exit(study_exit) all
+local cmdrc = _rc
 quietly count
 local n_after = r(N)
-if _rc == 0 & `n_before' == `n_after' {
+if `cmdrc' == 0 & `n_before' == `n_after' {
     display as result "  PASSED - all: data preserved (N=" `n_before' " -> " `n_after' ")"
     test_pass
 }
 else {
-    display as error "  FAILED - data changed or error: rc=" _rc
+    display as error "  FAILED - data changed or error: rc=" `cmdrc'
     test_fail "edge-case assertion failed"
 }
 
@@ -532,4 +537,3 @@ if `fail_count' > 0 {
     exit 1
 }
 display as result "ALL TESTS PASSED"
-

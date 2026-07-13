@@ -52,7 +52,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     capture noisily iivw_fit y t treat x, timespec(linear) nolog
     assert _rc == 198
     capture noisily iivw_fit y t treat x, timespec(ns(3)) nolog
@@ -75,7 +75,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     iivw_fit y t treat x, timespec(none) nolog
     assert _b[t] != .
     assert "`e(iivw_timespec)'" == "none"
@@ -95,7 +95,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     iivw_fit y treat x, timespec(linear) nolog
     local prior_fitted   : char _dta[_iivw_fitted]
     local prior_model    : char _dta[_iivw_model]
@@ -135,7 +135,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     local prior_weighted   : char _dta[_iivw_weighted]
     local prior_weighttype : char _dta[_iivw_weighttype]
     local prior_wvar       : char _dta[_iivw_weight_var]
@@ -144,7 +144,7 @@ capture noisily {
     assert "`prior_wvar'"       == "_iivw_weight"
 
     * Validation failure: bad wtype()
-    capture noisily iivw_weight, id(id) time(t) visit_cov(x z) wtype(foo) ///
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(foo) ///
         replace nolog
     assert _rc == 198
     local post_weighted   : char _dta[_iivw_weighted]
@@ -153,7 +153,7 @@ capture noisily {
     assert "`post_weighttype'" == "iivw"
 
     * Validation failure: bad truncate range
-    capture noisily iivw_weight, id(id) time(t) visit_cov(x z) ///
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) ///
         truncate(0 100) replace nolog
     assert _rc == 198
     local post2_weighted : char _dta[_iivw_weighted]
@@ -175,7 +175,7 @@ local ++test_count
 capture noisily {
     _iivw_v106_panel
     gen double x_copy = x
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
     * x and x_copy are perfectly collinear; glm drops one. The custom
     * summary loop should emit "(omitted)" rather than silently skipping.
     tempname fh
@@ -215,14 +215,14 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wt(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wt(iivw) nolog
     assert "`r(weighttype)'" == "iivw"
 
     iivw_weight, id(id) time(t) treat(treat) treat_c(x z) wt(iptw) ///
         replace nolog
     assert "`r(weighttype)'" == "iptw"
 
-    iivw_weight, id(id) time(t) visit_cov(x z) treat(treat) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) treat(treat) ///
         treat_c(x z) wt(fiptiw) replace nolog
     assert "`r(weighttype)'" == "fiptiw"
 }
@@ -241,7 +241,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v106_panel
-    iivw_weight, id(id) time(t) visit_cov(x z) wtype(iivw) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
 
     * Bad model() must error
     capture noisily _iivw_bs_estimate y x z, weightvar(_iivw_weight) model(foo) family(gaussian)

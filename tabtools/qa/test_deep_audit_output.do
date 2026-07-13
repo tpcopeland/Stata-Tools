@@ -75,7 +75,7 @@ collect clear
 collect: regress price mpg
 set level 95
 capture frame drop deep_reg90
-capture noisily regtab, frame(deep_reg90, replace) noint
+capture noisily regtab, level(90) frame(deep_reg90, replace) noint
 local reg_rc = _rc
 local reg_level = cond(`reg_rc' == 0, r(ci_level), .)
 local reg_methods ""
@@ -129,16 +129,23 @@ label variable _Upper "Upper 90% confidence limit"
 save "`rate90'.dta", replace
 clear
 capture frame drop deep_strate90
-capture noisily stratetab, using("`rate90'") outcomes(1) ///
+capture noisily stratetab, using("`rate90'") outcomes(1) level(90) ///
+    outcomeids(deep_rate) ///
     frame(deep_strate90, replace)
 local strate_rc = _rc
 local strate_level = cond(`strate_rc' == 0, r(ci_level), .)
+local strate_outcome_ids ""
+local strate_methods ""
+if `strate_rc' == 0 local strate_outcome_ids `"`r(outcome_ids)'"'
+if `strate_rc' == 0 local strate_methods `"`r(methods)'"'
 local strate_char ""
 if `strate_rc' == 0 frame deep_strate90: local strate_char : char _dta[tabtools_ci_level]
 capture noisily {
     assert `strate_rc' == 0
     assert `strate_level' == 90
     assert "`strate_char'" == "90"
+    assert "`strate_outcome_ids'" == "deep_rate"
+    assert strpos("`strate_methods'", "90%") > 0
     local _strate_ci_hits = 0
     frame deep_strate90 {
         foreach v of varlist c* {
@@ -429,7 +436,9 @@ local ++test_count
 sysuse cancer, clear
 stset studytime, failure(died)
 capture frame drop deep_surv_no_median
-survtab, times(10) by(drug) frame(deep_surv_no_median, replace)
+survtab, times(10) by(drug) level(90) frame(deep_surv_no_median, replace)
+local _surv_level = r(ci_level)
+frame deep_surv_no_median: local _surv_char : char _dta[tabtools_ci_level]
 local implicit_median = 0
 frame deep_surv_no_median {
     ds, has(type string)
@@ -439,7 +448,7 @@ frame deep_surv_no_median {
     }
 }
 capture frame drop deep_surv_median
-survtab, times(10) by(drug) median frame(deep_surv_median, replace)
+survtab, times(10) by(drug) median level(90) frame(deep_surv_median, replace)
 local explicit_median = 0
 frame deep_surv_median {
     ds, has(type string)
@@ -451,6 +460,8 @@ frame deep_surv_median {
 capture noisily {
     assert `implicit_median' == 0
     assert `explicit_median' > 0
+    assert `_surv_level' == 90
+    assert "`_surv_char'" == "90"
 }
 if _rc == 0 {
     display as result "  PASS M19: median remains opt-in under by()"

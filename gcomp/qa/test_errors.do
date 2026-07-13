@@ -15,9 +15,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local testdir "`c(tmpdir)'"
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _make_med_data
 program define _make_med_data
@@ -398,11 +396,12 @@ else {
 
 display ""
 display as result "test_errors Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_errors tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_errors tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_errors tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

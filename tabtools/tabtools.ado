@@ -1,4 +1,4 @@
-*! tabtools Version 1.9.7  2026/07/10
+*! tabtools Version 1.9.8  2026/07/13
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

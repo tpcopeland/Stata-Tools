@@ -24,13 +24,13 @@
 {p 8 17 2}
 {cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)}
 [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)}
-{opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)}
+{opt outlabels(string)} {opt outcomeids(string)} {opt explabels(string)} {opt digits(integer 1)}
 {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}
 {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio}
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt border:style(string)} {opt the:me(string)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
-{opt markdown(filename)} {opt mdappend} {opt fra:me(name)}]
+{opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt level(#)}]
 
 
 {marker description}{...}
@@ -91,6 +91,14 @@ can still display the table, write {opt csv()} or {opt markdown()}, or populate 
 outcomes are labeled as "Outcome 1", "Outcome 2", etc.
 
 {phang}
+{opt outcomeids(string)} supplies unique, machine-readable outcome identities
+separated by backslashes, in the same order as {opt outlabels()}. The number of
+identities must match {opt outcomes()}, blanks and case-insensitive duplicates
+are rejected, and the identities are stored in the output frame for safe
+matching by {helpb hrcomptab}. When omitted, the displayed outcome labels are
+used as identities.
+
+{phang}
 {opt explabels(string)} specifies exposure group labels separated by backslash
 ({bf:\}). The number of labels must match the number of exposure groups (total
 files / outcomes). If not specified, exposures are labeled as "Exposure 1",
@@ -121,6 +129,14 @@ is 1 (no scaling).
 {opt ratescale(real 1000)} multiplies rate and confidence interval values by the
 specified factor. Default is 1000, displaying rates per 1000 person-years. Use
 when strate was run with {cmd:per(1)}.
+
+{phang}
+{opt level(#)} verifies confidence-level provenance in the saved
+{cmd:strate, output()} files. When their interval variable labels identify a
+level, all files must agree and an explicit {opt level()} must match. Specify
+{opt level()} when every source lacks that metadata. Mixed known/unknown or
+conflicting levels are rejected. The resolved level is shown in headers,
+returned in {cmd:r(ci_level)}, and stored on a requested frame.
 
 {phang2}{opt rateratio} adds an incidence rate ratio (IRR) column per outcome. Reference
 group is the first exposure group (displays "Ref."). 95% CI computed via
@@ -266,18 +282,21 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(N_rows)}}number of rows in the output table{p_end}
 {synopt:{cmd:r(N_exposures)}}number of exposure groups{p_end}
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
+{synopt:{cmd:r(ci_level)}}confidence level carried by the source intervals{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(rates)}}incidence rates matrix (rows = category rows across exposures, cols = outcomes){p_end}
-{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (cols = outcomes; present when {cmd:rateratio} specified){p_end}
+{synopt:{cmd:r(rates)}}numeric incidence-rate matrix{p_end}
+{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (cols = outcomes{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
+{synopt:{cmd:r(outcome_ids)}}backslash-separated machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(methods)}}methods paragraph with rate and CI provenance{p_end}
 
 
 {marker author}{...}

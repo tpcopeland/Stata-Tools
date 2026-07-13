@@ -90,8 +90,15 @@ capture noisily {
     * And it must equal the analytic 90% interval for the same b/se.
     scalar b_u = E90[1, 1]
     scalar se_u = E90[1, 2]
-    assert reldif(ll90, b_u - invnormal(0.95) * se_u) < 1e-10
-    assert reldif(ul90, b_u + invnormal(0.95) * se_u) < 1e-10
+    * H4: regress reports t intervals on e(df_r) residual degrees of freedom.
+    * These assertions used to codify the NORMAL limits, which is what
+    * iivw_diagnose wrongly applied to every input regardless of estimator: on
+    * sysuse auto (df_r = 72) it put the mpg lower limit at -342.9227 where
+    * regress itself gives -344.7008. The oracle is now the estimator's own
+    * contract, not a normal approximation to it.
+    assert reldif(ll90, b_u - invttail(72, 0.05) * se_u) < 1e-10
+    assert reldif(ul90, b_u + invttail(72, 0.05) * se_u) < 1e-10
+    assert abs(ll90 - (b_u - invnormal(0.95) * se_u)) > 1e-6
 }
 if _rc == 0 {
     display as result "  PASS: T1 - iivw_diagnose honours set level"
@@ -115,8 +122,15 @@ capture noisily {
 
     scalar b_u = E99[1, 1]
     scalar se_u = E99[1, 2]
-    assert reldif(E99[1, 3], b_u - invnormal(0.995) * se_u) < 1e-10
-    assert reldif(E99[1, 4], b_u + invnormal(0.995) * se_u) < 1e-10
+    * H4: regress reports t intervals on e(df_r) residual degrees of freedom.
+    * These assertions used to codify the NORMAL limits, which is what
+    * iivw_diagnose wrongly applied to every input regardless of estimator: on
+    * sysuse auto (df_r = 72) it put the mpg lower limit at -342.9227 where
+    * regress itself gives -344.7008. The oracle is now the estimator's own
+    * contract, not a normal approximation to it.
+    assert reldif(E99[1, 3], b_u - invttail(72, 0.005) * se_u) < 1e-10
+    assert reldif(E99[1, 4], b_u + invttail(72, 0.005) * se_u) < 1e-10
+    assert abs(E99[1, 3] - (b_u - invnormal(0.995) * se_u)) > 1e-6
 }
 if _rc == 0 {
     display as result "  PASS: T2 - explicit level() overrides set level"
@@ -225,14 +239,21 @@ capture noisily {
 
     * Subject-constant by(): each subject lands in exactly one group,
     * so the sum equals the distinct subject count.
-    quietly iivw_exogtest y, id(id) time(days) by(arm) generate(a_) nolog
+    quietly iivw_exogtest y, endatlastvisit id(id) time(days) by(arm) generate(a_) nolog
     assert r(n_models) == 2
     assert r(n_ids) == 30
 
-    * Time-varying by(): every subject has usable lagged intervals in both
-    * groups, so the documented per-group sum is 2 x 30. This is the
-    * contract iivw_exogtest.sthlp describes; it is not a distinct count.
-    quietly iivw_exogtest y, id(id) time(days) by(late) generate(l_) nolog
+    * H2: a time-varying by() is now REFUSED unless the user asks for
+    * start-of-interval semantics. Assigning an interval the group value
+    * realized at its own endpoint is end-of-interval conditioning.
+    capture iivw_exogtest y, endatlastvisit id(id) time(days) by(late) generate(l_) replace nolog
+    assert _rc == 198
+
+    * With bystart, every subject still has usable lagged intervals in both
+    * groups, so the documented per-group sum is 2 x 30. This is the contract
+    * iivw_exogtest.sthlp describes; it is not a distinct count.
+    quietly iivw_exogtest y, endatlastvisit id(id) time(days) by(late) bystart ///
+        generate(l_) replace nolog
     assert r(n_models) == 2
     assert r(n_ids) == 60
 }
@@ -254,14 +275,15 @@ capture noisily {
 
     * 30 subjects x 6 visits = 180 rows; the first visit per subject has a
     * missing lag, leaving 150 usable intervals regardless of grouping.
-    quietly iivw_exogtest y, id(id) time(days) generate(n_) nolog
+    quietly iivw_exogtest y, endatlastvisit id(id) time(days) generate(n_) nolog
     local n_overall = r(N)
     assert `n_overall' == 150
 
-    quietly iivw_exogtest y, id(id) time(days) by(arm) generate(a_) nolog
+    quietly iivw_exogtest y, endatlastvisit id(id) time(days) by(arm) generate(a_) nolog
     assert r(N) == `n_overall'
 
-    quietly iivw_exogtest y, id(id) time(days) by(late) generate(l_) nolog
+    quietly iivw_exogtest y, endatlastvisit id(id) time(days) by(late) bystart ///
+        generate(l_) nolog
     assert r(N) == `n_overall'
 }
 if _rc == 0 {

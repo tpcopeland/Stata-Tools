@@ -126,6 +126,8 @@ else {
         test_iivw_v194_regressions ///
         test_iivw_v196_regressions ///
         test_iivw_v200_phase0 ///
+        test_iivw_v200_phase1 ///
+        test_iivw_v200_phase2 ///
         test_iivw_v200_qagate ///
         test_iivw_final_adversarial ///
         test_iivw_release_adversarial

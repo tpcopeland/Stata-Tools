@@ -541,7 +541,7 @@ capture noisily {
     webuse diet, clear
     stset dox, failure(fail) origin(time dob) enter(time doe) ///
         scale(365.25) id(id)
-    strate hienergy, per(1000) output(rate_hienergy, replace)
+    strate hienergy, per(1) output(rate_hienergy, replace)
     stratetab, using(rate_hienergy) outcomes(1) ///
         xlsx(rates.xlsx) sheet("Rates") ///
         outlabels("CHD Death") explabels("Energy Intake") ///
@@ -808,10 +808,11 @@ capture noisily {
     file open `fh' using "`pkg_dir'/table1_tc.sthlp", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "{opt table1_tc}") > 0 & ///
+        if strpos(`"`line'"', "{cmd:table1_tc}") > 0 & ///
             strpos(`"`line'"', "[{cmd:,} {opt by(varname)} {it:options}]") > 0 {
             local saw_optional_by 1
         }
+        assert strpos(`"`line'"', "{opt table1_tc}") == 0
         file read `fh' line
     }
     file close `fh'
@@ -828,6 +829,37 @@ else {
     local failed_tests "`failed_tests' table1_optional_by"
 }
 
+capture noisily {
+    tempname fh
+    local saw_fweight_syntax 0
+    local saw_weight_link 0
+
+    file open `fh' using "`pkg_dir'/table1_tc.sthlp", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "{cmd:[fweight=}{it:exp}{cmd:]}") > 0 {
+            local saw_fweight_syntax 1
+        }
+        if strpos(`"`line'"', "{help weight}") > 0 {
+            local saw_weight_link 1
+        }
+        assert strpos(`"`line'"', "{helpb svy:}") == 0
+        file read `fh' line
+    }
+    file close `fh'
+
+    assert `saw_fweight_syntax' == 1
+    assert `saw_weight_link' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc documents standard fweight syntax and valid SMCL links"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc weight syntax or SMCL link contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' table1_weight_smcl"
+}
 capture noisily {
     tempfile grep_out
     shell grep -cE 'Repository Checkout Demo|not part of the net install payload' "`pkg_dir'/README.md" > "`grep_out'" 2>/dev/null
@@ -1093,8 +1125,10 @@ capture confirm file "`repo_root'/_data/cohort.dta"
 local has_data = (_rc == 0)
 capture confirm file "`repo_root'/tc_schemes/stata.toc"
 local has_scheme = (_rc == 0)
+capture confirm file "`repo_root'/logdoc/stata.toc"
+local has_logdoc = (_rc == 0)
 
-if !`has_data' | !`has_scheme' {
+if !`has_data' | !`has_scheme' | !`has_logdoc' {
     display as error "  FAIL: required repo-only demo assets are not available"
     local ++fail_count
     local failed_tests "`failed_tests' demo_prerequisites"
@@ -1107,9 +1141,11 @@ else {
             "`pkg_dir'/" "`demo_stage_pkg'/"
         shell ln -s "`repo_root'/_data" "`demo_stage_root'/_data"
         shell ln -s "`repo_root'/tc_schemes" "`demo_stage_root'/tc_schemes"
+        shell ln -s "`repo_root'/logdoc" "`demo_stage_root'/logdoc"
         confirm file "`demo_dir'/demo_tabtools.do"
         confirm file "`demo_stage_root'/_data/cohort.dta"
         confirm file "`demo_stage_root'/tc_schemes/stata.toc"
+        confirm file "`demo_stage_root'/logdoc/stata.toc"
     }
     local demo_stage_rc = _rc
     if `demo_stage_rc' {

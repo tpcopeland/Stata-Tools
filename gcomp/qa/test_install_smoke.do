@@ -18,7 +18,7 @@ local testdir "`c(tmpdir)'"
 
 local public_cmds gcomp gcomptab
 local help_targets gcomp gcomptab
-local helper_ados _gcomp_bootstrap _gcomp_bootstrap_impl _gcomp_display_stats _gcomp_diag_capture _gcomp_detangle _gcomp_formatline _gcomp_xl_common
+local helper_ados _gcomp_apply_rule _gcomp_bootstrap _gcomp_bootstrap_impl _gcomp_display_stats _gcomp_diag_capture _gcomp_detangle _gcomp_formatline _gcomp_refit_models _gcomp_xl_common
 
 local orig_plus "`c(sysdir_plus)'"
 local orig_personal "`c(sysdir_personal)'"
@@ -33,6 +33,7 @@ sysdir set PLUS "`plus_dir'"
 sysdir set PERSONAL "`personal_dir'"
 discard
 
+noisily ado dir
 capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'") replace
 
@@ -276,11 +277,12 @@ else {
 
 display ""
 display as result "test_install_smoke Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_install_smoke tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_install_smoke tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
 }
 else {
+    display "RESULT: test_install_smoke tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }
 

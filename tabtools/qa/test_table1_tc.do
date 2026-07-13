@@ -2737,23 +2737,26 @@ else {
     local ++fail_count
 }
 
-**## 1b. Weighted SMD with one zero-weight group returns without error
-capture noisily {
+**## 1b. Weighted SMD rejects a comparison with only one positive-weight group
+capture {
     clear
     set obs 60
     gen byte group = cond(_n <= 30, 1, 2)
     gen byte catvar = mod(_n, 3)
     gen double wt = cond(group == 1, runiform(), 0)
-    table1_tc, vars(catvar cat) by(group) smd wt(wt)
-    assert r(N) > 0
-    matrix list r(table)
+    tempfile zero_group_before
+    save "`zero_group_before'", replace
+    capture table1_tc, vars(catvar cat) by(group) smd wt(wt)
+    local zero_group_rc = _rc
+    assert `zero_group_rc' == 498
+    cf _all using "`zero_group_before'"
 }
 if _rc == 0 {
-    display as result "  PASS [1b]: table1_tc weighted SMD with zero-weight group completes without error"
+    display as result "  PASS [1b]: table1_tc rejects a zero-weight-only comparison group"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [1b]: table1_tc weighted SMD with zero-weight group (rc=`=_rc')"
+    display as error "  FAIL [1b]: table1_tc zero-weight-only group contract (rc=`=_rc')"
     local ++fail_count
 }
 

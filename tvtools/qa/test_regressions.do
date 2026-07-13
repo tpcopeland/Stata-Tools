@@ -3195,7 +3195,7 @@ local ++test_count
 capture noisily {
     local qa_dir "`c(pwd)'"
     local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
-    local expected_synopt "{synopt:{cmd:r(overlap_ids)}}IDs with unresolved overlapping exposure categories{p_end}"
+    local expected_synopt "{synopt:{cmd:r(overlap_ids)}}IDs with initially detected class conflicts{p_end}"
 
     tempname fh
     file open `fh' using "`pkg_dir'/tvexpose.sthlp", read text
@@ -3214,7 +3214,8 @@ capture noisily {
                 local long_synopt = 1
             }
         }
-        if strpos(`"`trimmed'"', "{cmd:r(overlap_ids)} is stored only when") > 0 {
+        if strpos(`"`trimmed'"', ///
+            "{cmd:r(overlap_ids)} is stored only when class conflicts are initially detected") > 0 {
             local found_note = 1
         }
         file read `fh' line

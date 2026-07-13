@@ -1,0 +1,48 @@
+feature_id,expected_behavior,oracle_type,suite,lane,seed,fixture_or_contract
+GCOMP-C01,Pooled monotreat fits the treatment model only while no prior observed treatment has occurred,hand-built e(sample) and coefficient identity,test_audit_remediation,quick,1462,audit/validation_monotreat_risk.do
+GCOMP-C02,Multiple mediators are drawn sequentially so later mediators condition on earlier simulated mediators,dependent-mediator known answer,test_audit_remediation,quick,91273,audit/validation_joint_mediator.do
+GCOMP-C03,boceam without msm() fails before mutation and boceam with msm() leaves ordinary mediation effects invariant,error plus invariance oracle,test_audit_remediation,quick,35,audit/validation_boceam.do
+GCOMP-C04,Factor-level MSM terms retain distinct full coefficient identities and values,stripe and value oracle,test_audit_remediation,quick,2281,audit/validation_factor_msm.do
+GCOMP-C05,An imputation target with no finite donors returns promptly with rc 2000,timeout and error oracle,test_audit_remediation,quick,1,audit/test_imputation_no_donor.do
+GCOMP-C06,Requested attempted successful and failed resampling counts are exact and inadequate inference fails closed,structured count and expected-failure oracle,test_expected_resampling_failure,quick,606,declared resampling-marker range in lanes.json
+GCOMP-C07,Binary exposure mediator monotreatment and death histories enforce documented support and absorbing-state contracts,adversarial support matrix,test_audit_remediation,quick,8801,audit/test_structural_contract.do
+GCOMP-H01,Extended and system missing imputation inputs obey the same missing-value contract,seeded equivalence oracle,test_audit_remediation,quick,923,audit/test_extended_missing.do
+GCOMP-H02,Each keyed control() value is applied to its named mediator in controlled arms,saved-arm value oracle,test_audit_remediation,quick,44,audit/test_multicontrol.do
+GCOMP-H03,Saved simulated arms reproduce the posted point estimate from the same stochastic run,exact recomputation from saved arms,test_audit_remediation,quick,711,audit/test_saved_match.do
+GCOMP-H04,monotreat validates the intervention model family rather than the outcome family,option-by-model-family matrix,test_audit_remediation,quick,81,audit/test_option_contract.do
+GCOMP-H05,moreMC is rejected in time-varying mode and MC counts are explicit,mode/count contract,test_audit_remediation,quick,85,audit/test_option_contract.do
+GCOMP-H06,Unsupported graph/mode combinations fail early and supported graphs use an isolated name,error plus caller-graph oracle,test_audit_remediation,quick,91,audit/test_option_contract.do
+GCOMP-H07,Caller matrices globals Mata objects estimates frames graphs data sort and settings survive success/error paths,bit-identical caller-state oracle,test_audit_remediation,quick,48,audit/test_caller_state.do
+GCOMP-H08,Categorical prediction scratch names cannot collide with a valid caller variable,data identity and collision regression,test_audit_remediation,quick,77,audit/test_scratch_collision.do
+GCOMP-H09,Internal aliases preserve long names prefix-related names if samples and caller data,alias and data-identity oracle,test_audit_remediation,quick,904,audit/test_alias_fv.do
+GCOMP-H10,Factor/continuous operators and command verbs are distinguished from variable tokens,parser collision regressions,test_audit_remediation,quick,714,audit/test_fv_prefix_collision.do
+GCOMP-H11,Intervention and derived-rule failures are checked and self/later cycles are rejected,error and saved-value oracle,test_audit_remediation,quick,9231,audit/test_rules_imputation.do
+GCOMP-H12,Imputation targets commands equations support and finite donor pools are preflight validated,validation matrix and target-count oracle,test_audit_remediation,quick,9231,audit/test_rules_imputation.do
+GCOMP-H13,Panel keys fixed covariates baseline support numeric ID and sorting invariants are explicit,adversarial structural matrix,test_audit_remediation,quick,8802,audit/test_structural_contract.do
+GCOMP-H14,Saved paths IDs reserved names and schema metadata round-trip safely,schema path and caller-data oracle,test_audit_remediation,quick,141,audit/test_saving_schema.do
+GCOMP-H15,Component models use collision-free persistent names and disclose analytic-sample refit approximation,replay metadata and RNG invariance,test_audit_remediation,quick,151,audit/test_model_metadata.do
+GCTAB-H01,All workbook modes allocate widths that fit unwrapped content,OOXML semantic width check,test_package_release,release,,demo/demo_gcomptab.xlsx
+GCTAB-H02,Models mode honors border typography decimal and validation contracts,option/style matrix,test_audit_remediation,quick,161,audit/test_gcomptab_option_style.do
+GCTAB-H03,Markdown and CSV escape pipes quotes newlines and formula-leading cells,serialized text adversarial oracle,test_audit_remediation,quick,,audit/test_gcomptab_text_adversarial.do
+GCTAB-H04,strL staging and full coefficient identities prevent truncation and sanitized-key collisions,long-text and term-identity oracle,test_audit_remediation,quick,8102,audit/test_gcomptab_remediation.do
+GCTAB-H05,gcomptab accepts named mediation MSM effects without positional guessing,named-effect postestimation oracle,test_audit_remediation,quick,,audit/test_gcomptab_msm_effect.do
+GCTAB-H06,Source reload caller Mata sheet validation and best-effort open preserve written-result metadata,reload/state/open oracle,test_audit_remediation,quick,161,audit/test_gcomptab_option_style.do
+GCOMP-D01,Stored results define mode units shapes availability and effective resampling counts,documentation contract plus runtime metadata,test_doc_examples,release,,gcomp.sthlp stored-results tables
+GCOMP-D02,Package and command descriptions expose all three table modes and all output formats,static distribution/document contract,test_package_release,release,,gcomp.pkg README.md gcomptab.sthlp
+GCOMP-D03,Printed help examples use complete reproducible setup and execute,exact example execution,test_doc_examples,release,documented,help example blocks
+GCOMP-D04,Causal assumptions and inference limitations are consolidated and tied to modes,documentation completeness contract,test_package_release,release,,gcomp.sthlp assumptions marker
+GCOMP-D05,Every synopt description fits its active Viewer column width,SMCL rendered-width approximation,test_package_release,release,,tools/check_release.py
+GCOMP-D06,Demos derive paths relocatably and one canonical generator deterministically owns the workbook,demo manifest and workbook semantics,test_package_release,release,20260713,demo/manifest.md
+GCOMP-D07,Option descriptions match implemented mode limits defaults and approximation labels,documentation/runtime contract,test_doc_examples,release,,README and help option examples
+GCOMP-Q01,Canonical quick core external slow release and full lanes have explicit inventories timeouts and budgets,manifest and runner contract,run_qa.py,all,20260713,lanes.json
+GCOMP-Q02,Unexplained bootstrap or jackknife x/e markers fail a lane and declared expected failures have bounded marker counts,synthetic parser self-test plus live expected failure,test_expected_resampling_failure,quick,606,run_qa.py parser_self_test
+GCOMP-Q03,Source suites resolve the working tree without installation and the only install smoke is isolated and begins with ado dir,path resolution and isolated install,test_install_smoke,release,,_qa_bootstrap.do
+GCOMP-Q04,Every suite and aggregate emits a terminal structured RESULT and logs are moved to /tmp,manifest/sentinel/artifact contract,run_qa.py,all,,fresh-log and sentinel parser
+GCOMP-Q05,Release gate checks package distribution SMCL widths and workbook XML; visual lane performs raster/pixel audit,semantic plus pixel gate,test_package_release,release,,tools/check_xlsx.py and run_visual.py
+GCOMP-Q06,Every external fixture has a pinned generator command seed method runtime and tolerance and regenerates outside the worktree,independent regeneration and cell diff,crossval_fixture_provenance,external,manifest,data/fixture_manifest.json
+GCOMP-Q07,Each suite runs in a fresh Stata process and canonical lanes pass in seeded randomized order,process isolation and shuffle meta-test,run_qa.py,all,20260713,--shuffle --seed
+GCOMP-Q08,Feature interactions map to expected behavior oracle and executable suite rather than token occurrence,matrix completeness contract,test_package_release,release,,feature_matrix.csv
+GCOMP-Q09,QA documentation is an operational inventory derived from lanes and feature contracts,inventory consistency contract,run_qa.py,all,,README.md lanes.json feature_matrix.csv
+GCOMP-M01,A supplied nonpositive seed is rejected with rc 198 before mutation,error and caller-state oracle,test_audit_remediation,quick,-1,audit/test_caller_state.do
+GCOMP-M02,Public source headers contain valid current syntax architecture and version claims,static header/document contract,test_package_release,release,,gcomp.ado gcomptab.ado
+GCOMP-M03,Saved-output and diagnostic schemas have exact names types arm codes and placeholder/availability rules,schema and diagnostic matrix oracle,test_audit_remediation,quick,141,audit/test_saving_schema.do

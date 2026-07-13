@@ -228,8 +228,8 @@ if `run_only' == 0 | `run_only' == 2 {
 * XV3: iivw_weight on Phenobarb produces valid IIW weights
 * =============================================================================
 *
-* iivw_weight does NOT add censoring rows (unlike IrregLong), so the exact
-* weights will differ. We verify: positive weights, first obs = 1, sane mean.
+* Structural checks on the legacy (endatlastvisit) risk set. Exact parity with
+* IrregLong is asserted separately, in XV4b.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
@@ -251,7 +251,7 @@ if `run_only' == 0 | `run_only' == 3 {
         local n_ids_kept = r(N)
         drop _f
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(conc_low conc_mid conc_high) nolog
 
         assert r(N) == `N_kept'
@@ -299,7 +299,7 @@ if `run_only' == 0 | `run_only' == 4 {
         drop if _nv < 2
         drop _nv
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(conc_low conc_mid conc_high) nolog
 
         correlate _iivw_weight r_weight
@@ -344,6 +344,70 @@ program define _load_fiptiw
 end
 
 * =============================================================================
+* XV4b: EXACT parity with IrregLong on the Phenobarb visit-intensity model
+* =============================================================================
+*
+* This is the test the lane was missing, and its absence is why the censoring
+* defect survived so long: XV3 and XV4 settled for "positive, sane, correlated"
+* precisely BECAUSE iivw built a different risk set than IrregLong, and a
+* correlation of 0.997 hid a 26% attenuation of the coefficient.
+*
+* Both sides now build the identical Cox data:
+*   - one interval per visit, plus a (last visit, 384] interval with no event
+*   - conc lagged by one visit, rebuilt AFTER the censoring row is appended, so
+*     that row carries conc at the last visit (never conc from the visit before
+*     it -- which is what a pre-computed lag would give, and is exactly the trap
+*     the binned XV3/XV4 model falls into)
+*   - the first visit as study entry rather than a modeled event, which is also
+*     what makes the two implementations' differing first-row lag conventions
+*     (IrregLong: lagfirst=0; iivw: missing) irrelevant
+*   - Efron ties, which is coxph's default and stcox's efron option
+*
+* With the risk set right, the coefficients must MATCH, not correlate.
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 45 {
+    capture noisily {
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
+        keep id time conc
+        sort id time
+
+        iivw_weight, id(id) time(time) lagvars(conc) maxfu(384) efron nolog
+        matrix b = r(visit_b)
+        scalar st_b = b[1, 1]
+        local st_n = r(visit_N)
+        local st_c = r(n_censor_rows)
+
+        preserve
+        import delimited "`qa_dir'/phenobarb_parity_entry_coefs.csv", ///
+            clear varnames(1)
+        scalar r_b = estimate[1]
+        scalar r_n = n[1]
+        restore
+
+        display as text "  IrregLong coxph : " %20.16f r_b "   (`=r_n' intervals)"
+        display as text "  iivw_weight     : " %20.16f st_b "   (`st_n' intervals, `st_c' censoring rows)"
+        display as text "  abs difference  : " %12.3e abs(st_b - r_b)
+
+        * Identical risk set, to the interval.
+        assert `st_n' == r_n
+
+        * Identical coefficient, to convergence tolerance. A measured run gave
+        * 3.4e-10. Anything at 1e-3 or worse means the two are fitting different
+        * data again, and the tolerance must not be widened to accommodate it.
+        assert abs(st_b - r_b) < 1e-7
+    }
+    if _rc == 0 {
+        display as result "  PASS: XV4b - iivw_weight EXACTLY matches IrregLong (coefficient, not correlation)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: XV4b - IrregLong exact parity (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
 * XV5: Unstabilized IIW weights match R on simulated data
 * =============================================================================
 *
@@ -361,7 +425,7 @@ if `run_only' == 0 | `run_only' == 5 {
         rename z z_cov
         rename iiw_unstab_first1 r_iiw_weight
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) nolog
 
         * Normalize R's IIW weights to mean 1 to match the package's normalization
@@ -536,7 +600,7 @@ if `run_only' == 0 | `run_only' == 8 {
 
         * FIPTIW with stabilized IIW (matching Tompkins' approach)
         * Numerator model: treated only; Denominator: treated + wt_cov + z_cov
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) ///
             stabcov(treated) ///
             treat(treated) treat_cov(w) nolog
@@ -580,7 +644,7 @@ if `run_only' == 0 | `run_only' == 9 {
         rename wt wt_cov
         rename z z_cov
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(wt_cov z_cov) ///
             treat(treated) treat_cov(w) nolog
 
@@ -626,7 +690,7 @@ if `run_only' == 0 | `run_only' == 10 {
         rename wt wt_cov
         rename z z_cov
 
-        iivw_weight, id(id) time(time) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(time) ///
             visit_cov(treated wt_cov z_cov) ///
             treat(treated) treat_cov(w) nolog
 

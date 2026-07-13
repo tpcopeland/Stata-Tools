@@ -186,7 +186,7 @@ iivw_exogtest sdmt_score recent_relapse, ///
     id(id) time(months_since_tx) adjust(age sex bl_edss bl_sdmt) ///
     by(treatment) efron nolog
 
-* 5. Check whether a null weighting movement is informative
+* 5. Check leverage, composition movement, and balance against the person-time target
 iivw_balance, nolog
 
 * 6. Quantify diagnostic movement
@@ -197,7 +197,11 @@ iivw_diagnose months_since_tx, ///
 
 The decomposition target is the marginal or reference-arm time slope. A large unweighted-to-weighted movement suggests sampling bias. A small weighting movement but large measurement-adjustment movement suggests residual measurement artifact. Treatment x time contrasts can be reported as ordinary sensitivity estimates, but they should not be interpreted with the sampling/artifact share formula. If `iivw_exogtest` finds lagged outcome predictors of visit timing, the measurement-process adjustment may be endogenous and should be read as a bound or sensitivity result rather than a clean correction.
 
-`iivw_balance` returns `r(informative)`, a single workflow flag that is 1 only when weight leverage is not low and the modeled visit-covariate balance flag is good. `iivw_diagnose` returns point diagnostic quantities. It does not produce an interval for the artifact share; that requires a subject-level bootstrap that refits all three models together.
+`iivw_balance` returns two separate things, and they answer different questions. `r(balance_max_shift)` is descriptive: it says how far the weights moved the covariate composition of the observed visits. It carries no verdict, because a large movement proves neither successful correction nor bad balance — it has no target to compare against. `r(balance_max_tsmd)` is the verdict: under a correct visit model the IIW-weighted visits reproduce the at-risk person-time distribution, so a target SMD near zero means the weights did what they are supposed to. `r(balance_flag)` is computed from that, and is `unknown` (not `good`) when the supporting refit could not be run.
+
+There is no longer a single `r(informative)` flag. It gated a workflow decision on the composition-movement statistic, and in the package's own known-truth scenario it reported `Informative: 0` for a correction that had worked exactly as designed. Read `r(leverage)` and `r(balance_flag)` together instead.
+
+`iivw_diagnose` returns point diagnostic quantities. It does not produce an interval for the artifact share; that requires a subject-level bootstrap that refits all three models together.
 
 ## Diagnostic Decision Guide
 
@@ -431,7 +435,9 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 | Diagnostic | What to look for | Action if concerning |
 |------------|------------------|---------------------|
-| `iivw_balance` | `r(leverage) == "low"` or `r(informative) == 0` | Treat null weighting movement as uninformative; revisit visit model |
+| `iivw_balance` | `r(leverage) == "low"` | Weights are nearly constant and cannot move an estimate; a null weighting result is uninformative, not reassuring |
+| `iivw_balance` | `r(balance_flag) == "poor"` | The IIW-weighted visits do not reproduce the at-risk person-time distribution; revisit the visit model |
+| `iivw_balance` | `r(balance_flag) == "unknown"` | The supporting refit failed. You have no balance evidence — do not read this as `good` |
 | `summarize _iivw_weight, detail` | Max > 10, max/min ratio > 100 | Add `truncate(1 99)` |
 | Effective sample size (reported automatically) | ESS much less than N | Simplify the visit model or truncate |
 | Weight mean (reported automatically) | Mean far from 1.0 | Check model specification |
@@ -468,7 +474,7 @@ For technical reports and papers, include enough detail for readers to assess th
 - treatment model covariates for IPTW/FIPTIW
 - whether weights were stabilized with `stabcov()` and/or truncated with `truncate()`
 - weight diagnostics: mean, min, max, selected percentiles, and effective sample size
-- `iivw_balance` leverage, balance flag, and `r(informative)` result
+- `iivw_balance` leverage, composition shift, and the balance flag (with its target SMD)
 - outcome model family/link, time specification, clustering level, and whether SEs were sandwich or bootstrap
 - unweighted, weighted, and measurement-adjusted estimates for the marginal/reference time-slope coefficient when using the diagnostic workflow
 - the `iivw_exogtest` specification and whether lagged outcome or disease-activity variables predicted visit timing
@@ -497,7 +503,7 @@ Before showing results, check:
 - `isid id time` succeeds or the duplicate visit-times have been resolved deliberately
 - `treat()` is binary and constant within subject for IPTW/FIPTIW
 - `summarize _iivw_weight, detail` has no implausible tails after any planned truncation
-- `iivw_balance` does not report low leverage or an uninformative balance result
+- `iivw_balance` does not report low leverage, and its balance flag is `good` (not `poor`, and not `unknown`)
 - the effective sample size is acceptable relative to the scientific precision needed
 - the unweighted and weighted models use the same outcome, predictors, time specification, and clustering level unless a difference is explicitly justified
 - documentation of the final analysis includes the weight type, visit model, treatment model, truncation rule, tie method, outcome model, and diagnostic decisions

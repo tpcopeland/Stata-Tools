@@ -773,6 +773,18 @@ program define tvexpose, rclass
     quietly count if `_tvx_bad_master'
     local n_invalid_master = r(N)
 
+    if `n_invalid_master' > 0 {
+        if "`verbose'" != "" {
+            noisily display as text "First invalid records:"
+            preserve
+            quietly keep if `_tvx_bad_master'
+            noisily list `id' `entry' `exit' in 1/`=min(5, _N)', noobs
+            restore
+        }
+        else {
+            noisily display as text "  (specify verbose to list affected IDs and dates)"
+        }
+    }
     if `n_invalid_master' > 0 & "`dropinvalid'" == "" {
         noisily display as error "Malformed master input: `n_invalid_master' row(s)"
         noisily display as error "  missing ID: `n_invalid_master_id'; invalid daily dates: `n_invalid_master_dates'; entry after exit: `n_invalid_master_order'"
@@ -993,6 +1005,23 @@ program define tvexpose, rclass
     quietly count if `_tvx_bad_exposure'
     local n_invalid_exposure = r(N)
 
+    if `n_invalid_exposure' > 0 {
+        if "`verbose'" != "" {
+            local _tvx_invalid_vars "`id' `start'"
+            if "`stop'" != "" {
+                local _tvx_invalid_vars "`_tvx_invalid_vars' `stop'"
+            }
+            local _tvx_invalid_vars "`_tvx_invalid_vars' `exposure'"
+            noisily display as text "First invalid records:"
+            preserve
+            quietly keep if `_tvx_bad_exposure'
+            noisily list `_tvx_invalid_vars' in 1/`=min(5, _N)', noobs
+            restore
+        }
+        else {
+            noisily display as text "  (specify verbose to list affected IDs and dates)"
+        }
+    }
     if `n_invalid_exposure' > 0 & "`dropinvalid'" == "" {
         noisily display as error "Malformed exposure input: `n_invalid_exposure' row(s)"
         noisily display as error "  missing ID: `n_invalid_exposure_id'; invalid daily dates: `n_invalid_exposure_dates'; reversed bounds: `n_invalid_exposure_order'; missing exposure: `n_invalid_exposure_value'"

@@ -41,6 +41,12 @@ program define _reporting_balance_panel
     char _dta[_iivw_id] "id"
     char _dta[_iivw_time] "t"
     char _dta[_iivw_weight_var] "_iivw_weight"
+    * A real IIW/FIPTIW run always creates the visit component. iivw_balance
+    * diagnoses that component by default, so a fixture without it is not a
+    * contract the package can produce.
+    capture confirm variable _iivw_iw
+    if _rc gen double _iivw_iw = _iivw_weight
+    char _dta[_iivw_iw_var] "_iivw_iw"
     char _dta[_iivw_prefix] "_iivw_"
     char _dta[_iivw_weighttype] "iivw"
     char _dta[_iivw_visit_covars] "x"
@@ -155,11 +161,11 @@ capture noisily {
     assert _N == 6
     assert A[1] == "IIVW balance diagnostic"
     assert C[2] == "Means"
-    assert F[2] == "Balance"
+    assert F[2] == "Composition shift"
     assert I[2] == "Counts"
     assert B[3] == "Covariate"
     assert C[3] == "Unweighted mean"
-    assert G[3] == "|SMD|"
+    assert G[3] == "|Shift|"
     assert H[3] == "Modeled"
     assert B[4] == "x"
     assert B[5] == "z"
@@ -274,18 +280,18 @@ capture noisily {
     assert _rc == 198
 
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) open nolog
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) open nolog
     assert _rc == 198
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
         sheet(ExogOnly) nolog
     assert _rc == 198
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
         xlsx("`badxls'") nolog
     assert _rc == 198
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
         xlsx("`goodxlsx'") decimals(-1) nolog
     assert _rc == 198
 
@@ -336,7 +342,7 @@ capture noisily {
     assert "`r(sheet)'" == "Balance"
 
     _reporting_exog_panel
-    iivw_exogtest y, id(id) time(months) adjust(age female treatment) ///
+    iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female treatment) ///
         xlsx("`workbook'") sheet(Exogeneity) replace nolog
     assert "`r(sheet)'" == "Exogeneity"
 
@@ -567,7 +573,7 @@ capture noisily {
     tempfile exshstub
     local exshxlsx "`exshstub'.xlsx"
     capture erase "`exshxlsx'"
-    iivw_exogtest y, id(id) time(months) nolog ///
+    iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
         xlsx("`exshxlsx'") sheet(ExogShaded) replace ///
         footnote("Custom exogeneity footnote") ///
         headershade zebra headercolor("200 200 200") zebracolor("240 240 240")
@@ -605,7 +611,7 @@ capture noisily {
     tempfile extstub
     local extxlsx "`extstub'.xlsx"
     capture erase "`extxlsx'"
-    iivw_exogtest y, id(id) time(months) nolog ///
+    iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
         xlsx("`extxlsx'") sheet(ExogApa) replace theme(apa)
     tempfile extmark
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
@@ -657,15 +663,15 @@ capture noisily {
     assert _rc == 198
 
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
         xlsx("`vxlsx'") replace borderstyle(fancy)
     assert _rc == 198
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
         xlsx("`vxlsx'") replace headercolor("0 0 999")
     assert _rc == 198
     _reporting_exog_panel
-    capture noisily iivw_exogtest y, id(id) time(months) nolog ///
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) nolog ///
         xlsx("`vxlsx'") replace zebracolor("x y z")
     assert _rc == 198
 }

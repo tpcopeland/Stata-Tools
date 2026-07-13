@@ -96,7 +96,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _exog_independent_panel
-        iivw_exogtest y marker, id(id) time(months) ///
+        iivw_exogtest y marker, endatlastvisit id(id) time(months) ///
             adjust(age female treatment) level(99) nolog
 
         assert r(endogenous_flag) == 0
@@ -129,7 +129,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _exog_dependent_panel
-        iivw_exogtest y, id(id) time(months) adjust(age female) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) ///
             level(90) nolog
 
         assert r(endogenous_flag) == 1
@@ -160,7 +160,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _exog_dependent_panel
-        iivw_exogtest y, id(id) time(months) by(treatment) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) by(treatment) ///
             adjust(age female) level(90) nolog
 
         assert r(n_models) == 2
@@ -194,7 +194,7 @@ if `run_only' == 0 | `run_only' == 4 {
         2 0 9
         2 1 10
         end
-        capture noisily iivw_exogtest y, id(id) time(months) nolog
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) nolog
         assert _rc == 198
     }
     if _rc == 0 {
@@ -213,10 +213,10 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _exog_dependent_panel
-        capture noisily iivw_exogtest y, time(months) nolog
+        capture noisily iivw_exogtest y, endatlastvisit time(months) nolog
         assert _rc == 198
 
-        capture noisily iivw_exogtest y, id(id) nolog
+        capture noisily iivw_exogtest y, endatlastvisit id(id) nolog
         assert _rc == 198
     }
     if _rc == 0 {
@@ -235,7 +235,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _exog_dependent_panel, nids(30) visits(2)
-        iivw_exogtest y, id(id) time(months) level(90) nolog
+        iivw_exogtest y, endatlastvisit id(id) time(months) level(90) nolog
 
         assert r(n_models) == 1
         assert r(N) == 30
@@ -263,7 +263,7 @@ if `run_only' == 0 | `run_only' == 7 {
         matrix B_before = e(b)
         local cmd_before "`e(cmd)'"
 
-        iivw_exogtest y, id(id) time(months) adjust(age treatment) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age treatment) ///
             level(90) nolog
 
         assert "`e(cmd)'" == "`cmd_before'"
@@ -289,7 +289,7 @@ if `run_only' == 0 | `run_only' == 8 {
         replace months = round(months, 0.1)
         bysort id (visit): replace months = months[_n-1] + 0.1 if visit > 1 & months <= months[_n-1]
 
-        iivw_exogtest y, id(id) time(months) efron level(90) nolog
+        iivw_exogtest y, endatlastvisit id(id) time(months) efron level(90) nolog
         assert r(n_models) == 1
         assert r(N) == 320
     }
@@ -309,15 +309,15 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 9 {
     capture noisily {
         _exog_dependent_panel, nids(60) visits(4)
-        iivw_exogtest y, id(id) time(months) generate(ex_) level(90) nolog
+        iivw_exogtest y, endatlastvisit id(id) time(months) generate(ex_) level(90) nolog
         confirm variable ex_y_lag1
 
-        capture noisily iivw_exogtest y, id(id) time(months) generate(ex_) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) generate(ex_) ///
             level(90) nolog
         assert _rc == 110
         confirm variable ex_y_lag1
 
-        iivw_exogtest y, id(id) time(months) generate(ex_) replace ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) generate(ex_) replace ///
             level(90) nolog
         assert r(n_models) == 1
         confirm variable ex_y_lag1
@@ -338,7 +338,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 10 {
     capture noisily {
         _exog_skip_panel
-        iivw_exogtest y, id(id) time(months) by(treatment) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) by(treatment) ///
             adjust(age female) level(90) nolog
 
         assert r(n_models) == 1
@@ -365,7 +365,7 @@ if `run_only' == 0 | `run_only' == 11 {
         local xl "`xlstub'.xlsx"
         capture erase "`xl'"
 
-        iivw_exogtest y marker, id(id) time(months) ///
+        iivw_exogtest y marker, endatlastvisit id(id) time(months) ///
             adjust(age female treatment) level(99) nolog ///
             xlsx("`xl'") sheet("Exog")
 
@@ -413,7 +413,7 @@ if `run_only' == 0 | `run_only' == 12 {
         local xl "`xlstub'.xlsx"
         capture erase "`xl'"
 
-        iivw_exogtest y, id(id) time(months) by(treatment) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) by(treatment) ///
             adjust(age female) level(90) nolog ///
             xlsx("`xl'") sheet("ByExog") decimals(2)
 
@@ -459,7 +459,7 @@ if `run_only' == 0 | `run_only' == 13 {
         * Requesting a sheet (or open) without xlsx() is a user-input
         * error and hard-fails 198, matching iivw_balance/iivw_diagnose.  Only a
         * pre-existing worksheet without replace (rc 602) is softened.
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             adjust(age female) level(90) nolog sheet("OnlySheet")
         assert _rc == 198
     }
@@ -481,7 +481,7 @@ if `run_only' == 0 | `run_only' == 14 {
         _exog_independent_panel
         tempfile xlstub
         local xl "`xlstub'.xlsx"
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             adjust(age female) nolog xlsx("`xl'") decimals(9)
         assert _rc == 198
         capture confirm file "`xl'"
@@ -508,19 +508,19 @@ if `run_only' == 0 | `run_only' == 15 {
         * dec() abbreviation accepted and honored
         capture confirm file "`xl'"
         if _rc == 0 erase "`xl'"
-        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) nolog ///
             xlsx("`xl'") dec(2) replace
         assert r(decimals) == 2
         * default remains 3
         erase "`xl'"
-        iivw_exogtest y, id(id) time(months) adjust(age female) nolog ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) nolog ///
             xlsx("`xl'") replace
         assert r(decimals) == 3
         * v1.6.0: digits() and excel() synonyms removed; now invalid options
-        capture noisily iivw_exogtest y, id(id) time(months) adjust(age female) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) ///
             nolog xlsx("`xl'") digits(4) replace
         assert _rc == 198
-        capture noisily iivw_exogtest y, id(id) time(months) adjust(age female) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) adjust(age female) ///
             nolog excel("`xl'") replace
         assert _rc == 198
         capture erase "`xl'"
@@ -546,7 +546,7 @@ if `run_only' == 0 | `run_only' == 16 {
         capture erase "`xl'"
 
         * First write establishes the workbook and the Exog sheet
-        iivw_exogtest y marker, id(id) time(months) adjust(age female) ///
+        iivw_exogtest y marker, endatlastvisit id(id) time(months) adjust(age female) ///
             nolog xlsx("`xl'") sheet("Exog") title("First title")
         assert "`r(sheet)'" == "Exog"
         import excel using "`xl'", sheet("Exog") cellrange(A1:A1) allstring clear
@@ -556,7 +556,7 @@ if `run_only' == 0 | `run_only' == 16 {
         * (regression: previously replace was not forwarded to the writer, so
         * the sheet could never be replaced)
         _exog_independent_panel
-        iivw_exogtest y marker, id(id) time(months) adjust(age female) ///
+        iivw_exogtest y marker, endatlastvisit id(id) time(months) adjust(age female) ///
             nolog xlsx("`xl'") sheet("Exog") title("Second title") replace
         assert "`r(xlsx)'" == "`xl'"
         assert "`r(sheet)'" == "Exog"
@@ -565,7 +565,7 @@ if `run_only' == 0 | `run_only' == 16 {
 
         * Without replace, the existing sheet is left untouched (warn-and-return)
         _exog_independent_panel
-        capture noisily iivw_exogtest y marker, id(id) time(months) ///
+        capture noisily iivw_exogtest y marker, endatlastvisit id(id) time(months) ///
             adjust(age female) nolog xlsx("`xl'") sheet("Exog") ///
             title("Third title")
         assert _rc == 0

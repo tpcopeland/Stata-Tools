@@ -36,6 +36,7 @@ for treatment effects and margins tables.
 {opt sheet(string)} {opt sep(string asis)} {opt models(string)}
 {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept}
 {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)}
+{opt level(#)}
 {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
 {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
@@ -51,7 +52,7 @@ and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 {marker description}{title:Description}
 
 {pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with,
-for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), 95% CI
+for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), confidence interval
 ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use {opt nopvalue} to suppress the p-value column in
 the rendered output. It applies labels and number formats, exports to a
 temporary workbook, re-imports to allow row edits (e.g., dropping intercept or
@@ -63,48 +64,49 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
-{synopt:{opt sheet(string)}}target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}{p_end}
+{synopt:{opt xlsx(string)}}output Excel filename (must end with .xlsx){p_end}
+{synopt:{opt sheet(string)}}target sheet to create/replace in xlsx(){p_end}
 {synopt:{opt sep(string asis)}}CI-endpoint delimiter for {cmd:collect}; default {cmd:", "}{p_end}
-{synopt:{opt models(string)}}labels merged above each model's columns, backslash-separated; auto-generated if omitted{p_end}
-{synopt:{opt coef(string)}}header for the estimate column; auto-detected per model scale if omitted (see Remarks){p_end}
-{synopt:{opt title(string)}}title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
-{synopt:{opt noint:ercept}}drop intercept, cutpoint, and ancillary rows; auto-enabled for all-ratio-scale models{p_end}
-{synopt:{opt keepi:ntercept}}force display of the intercept row even for exponentiated models{p_end}
-{synopt:{opt nore:effects}}drop all random-effects rows (variances, covariances, SDs){p_end}
-{synopt:{opt stats(string)}}model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (see Remarks){p_end}
-{synopt:{opt digits(#)}}decimal places for coefficients and CIs (default 2, range 0-6){p_end}
-{synopt:{opt labelw:idth(#)}}maximum width of the label column in characters (default 45); longer labels wrap{p_end}
-{synopt:{opt foot:note(string)}}add a footnote row below the table in smaller italic font{p_end}
-{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt models(string)}}set merged model labels{p_end}
+{synopt:{opt coef(string)}}header for the estimate column{p_end}
+{synopt:{opt title(string)}}title written to A1, merged across the table{p_end}
+{synopt:{opt noint:ercept}}drop intercept, cutpoint, and ancillary rows{p_end}
+{synopt:{opt keepi:ntercept}}retain the intercept row{p_end}
+{synopt:{opt nore:effects}}omit random-effects rows{p_end}
+{synopt:{opt stats(string)}}select model-fit statistics{p_end}
+{synopt:{opt digits(#)}}set decimals for coefficients and CIs{p_end}
+{synopt:{opt level(#)}}verify the collection's confidence level{p_end}
+{synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
+{synopt:{opt foot:note(string)}}add italic footnote text{p_end}
+{synopt:{opt open}}open the Excel file after export{p_end}
 {synopt:{opt zebra}}apply alternating light gray row shading{p_end}
 {synopt:{opt high:light(#)}}yellow fill for rows where p-value < #{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below #{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic} (default {cmd:thin}){p_end}
-{synopt:{opt cdisc}}CDISC mode: digits 4, coef label "Estimate", forces {cmd:stats(n)}{p_end}
-{synopt:{opt relab:el}}relabel random effects using variable labels and parameter types (see Remarks){p_end}
+{synopt:{opt border:style(string)}}set the table border style{p_end}
+{synopt:{opt cdisc}}apply CDISC labels and defaults{p_end}
+{synopt:{opt relab:el}}relabel random effects{p_end}
 {synopt:{opt stars}}add significance stars to coefficients (*, **, ***){p_end}
-{synopt:{opt starsl:evels(numlist)}}custom p-value thresholds for stars; exactly 3 values (default 0.05 0.01 0.001){p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color (Stata color name or RGB triplet; default {cmd:"219 229 241"}){p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra color (Stata color name or RGB triplet; default {cmd:"237 242 249"}){p_end}
+{synopt:{opt starsl:evels(numlist)}}custom p-value thresholds for stars{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the table as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt fra:me(name)}}store output in a named frame; {cmd:frame(name, replace)} replaces an existing frame{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}store a graph-ready companion frame for {helpb eplot} (see Remarks){p_end}
-{synopt:{opt keep(varlist)}}show only rows matching these variable names; not with {opt drop()}{p_end}
-{synopt:{opt drop(varlist)}}drop rows matching these variable names; not with {opt keep()}{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt fra:me(name)}}store output in a named frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
+{synopt:{opt keep(varlist)}}show only rows matching these variable names{p_end}
+{synopt:{opt drop(varlist)}}drop rows matching these variable names{p_end}
 {synopt:{opt dimnon:sig}}gray out non-significant rows (see Remarks){p_end}
-{synopt:{opt factorl:abel}}replace factor-variable prefixes (e.g., {it:3.rep78}) with value labels{p_end}
-{synopt:{opt ref:cat(string)}}label for reference-category rows. Default {cmd:"Reference"}{p_end}
-{synopt:{opt cutl:abels(string)}}custom labels for ordered-model cutpoint rows, backslash-separated{p_end}
+{synopt:{opt factorl:abel}}render labels for factor-variable levels{p_end}
+{synopt:{opt ref:cat(string)}}label for reference-category rows{p_end}
+{synopt:{opt cutl:abels(string)}}relabel ordered-model cutpoints{p_end}
 {synopt:{opt comp:act}}merge estimate and CI into one column per model{p_end}
-{synopt:{opt nop:value}}suppress p-value columns; stars and highlighting still use p-values internally{p_end}
-{synopt:{opt addr:ow(string asis)}}append custom label/value rows below the table (see Remarks for syntax){p_end}
-{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10); default 3{p_end}
-{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10); default 2{p_end}
+{synopt:{opt nop:value}}suppress p-value columns{p_end}
+{synopt:{opt addr:ow(string asis)}}append custom label/value rows{p_end}
+{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10){p_end}
+{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10){p_end}
 {synoptline}
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
@@ -112,13 +114,160 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the random
 intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula MOR =
 exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and {cmd:mecloglog}, the
-conversion produces a {bf:Median Hazard Ratio (MHR)}. The 95% CI bounds are
+conversion produces a {bf:Median Hazard Ratio (MHR)}. The collected CI bounds are
 transformed on the same scale. In multi-level models, each transformed
 random-intercept row keeps its own grouping label, so the output reads, for
 example, "Median Odds Ratio (District)" and "Median Odds Ratio
 (School)". MOR/MHR values and other random effects (slopes, covariances,
 residual) follow the requested {opt digits()} precision. Use {opt nore} to suppress all
 random-effects rows if desired.{p_end}
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt addr:ow(string asis)} append custom label/value rows below the table (see Remarks for syntax){p_end}
+
+{phang}
+{opt bold:p(#)} bold p-value cells below #{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}
+(default {cmd:thin}){p_end}
+
+{phang}
+{opt cdisc} CDISC mode: digits 4, coef label "Estimate", forces {cmd:stats(n)}{p_end}
+
+{phang}
+{opt coef(string)} header for the estimate column; auto-detected per model scale if omitted (see
+Remarks){p_end}
+
+{phang}
+{opt comp:act} merge estimate and CI into one column per model{p_end}
+
+{phang}
+{opt csv(filename)} also export the table as a CSV file{p_end}
+
+{phang}
+{opt cutl:abels(string)} custom labels for ordered-model cutpoint rows, backslash-separated{p_end}
+
+{phang}
+{opt dimnon:sig} gray out non-significant rows (see Remarks){p_end}
+
+{phang}
+{opt drop(varlist)} drop rows matching these variable names; not with {opt keep()}{p_end}
+
+{phang}
+{opt eplotf:rame(name[, replace])} store a graph-ready companion frame for {helpb eplot} (see
+Remarks){p_end}
+
+{phang}
+{opt factorl:abel} replace factor-variable prefixes (e.g., {it:3.rep78}) with value labels{p_end}
+
+{phang}
+{opt foot:note(string)} add a footnote row below the table in smaller italic font{p_end}
+
+{phang}
+{opt fra:me(name)} store output in a named frame; {cmd:frame(name, replace)} replaces an existing
+frame{p_end}
+
+{phang}
+{opt headers:hade} apply background fill to the header row{p_end}
+
+{phang}
+{opt high:light(#)} yellow fill for rows where p-value < #{p_end}
+
+{phang}
+{opt highpdp(#)} max decimal places for large p-values (p >= 0.10); default 2{p_end}
+
+{phang}
+{opt keep(varlist)} show only rows matching these variable names; not with {opt drop()}{p_end}
+
+{phang}
+{opt keepi:ntercept} force display of the intercept row even for exponentiated models{p_end}
+
+{phang}
+{opt labelw:idth(#)} maximum width of the label column in characters (default 45); longer labels
+wrap{p_end}
+
+{phang}
+{opt level(#)} verifies confidence-level provenance. By default, {cmd:regtab}
+uses the level stored in the active collection. An explicit value must match
+that stored level or the command fails before writing output. The resolved
+level is used in headers and methods text, returned in {cmd:r(ci_level)}, and
+stored on display and eplot frames.{p_end}
+
+{phang}
+{opt markdown(filename)} export the table as GitHub-Flavored Markdown{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt models(string)} labels merged above each model's columns, backslash-separated; auto-generated
+if omitted{p_end}
+
+{phang}
+{opt noint:ercept} drop intercept, cutpoint, and ancillary rows; auto-enabled for all-ratio-scale
+models{p_end}
+
+{phang}
+{opt nop:value} suppress p-value columns; stars and highlighting still use p-values internally{p_end}
+
+{phang}
+{opt nore:effects} drop all random-effects rows (variances, covariances, SDs){p_end}
+
+{phang}
+{opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+
+{phang}
+{opt pdp(#)} max decimal places for small p-values (p < 0.10); default 3{p_end}
+
+{phang}
+{opt ref:cat(string)} label for reference-category rows. Default {cmd:"Reference"}{p_end}
+
+{phang}
+{opt relab:el} relabel random effects using variable labels and parameter types (see Remarks){p_end}
+
+{phang}
+{opt sep(string asis)} CI-endpoint delimiter for {cmd:collect}; default {cmd:", "}{p_end}
+
+{phang}
+{opt sheet(string)} target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}{p_end}
+
+{phang}
+{opt stars} add significance stars to coefficients (*, **, ***){p_end}
+
+{phang}
+{opt starsl:evels(numlist)} custom p-value thresholds for stars; exactly 3 values (default 0.05 0.01
+0.001){p_end}
+
+{phang}
+{opt stats(string)} model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc},
+{cmd:ll}, {cmd:groups}, {cmd:r2} (see Remarks){p_end}
+
+{phang}
+{opt title(string)} title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
+
+{phang}
+{opt xlsx(string)} output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
+
+{phang}
+{opt zebra} apply alternating light gray row shading{p_end}
+
+
+{phang}
+{cmdab:headerc:olor(} {it:string} {cmd:)} custom header color (Stata color name or RGB triplet; default
+{cmd:"219 229 241"}){p_end}
+
+{phang}
+{cmdab:the:me(} {it:string} {cmd:)} formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
+{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+
+{phang}
+{cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra color (Stata color name or RGB triplet; default
+{cmd:"237 242 249"}){p_end}
 
 {marker remarks}{title:Remarks}
 
@@ -163,6 +312,11 @@ level separately.{p_end}
 {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
 metadata. When {opt frame()} is also set, the display frame records the companion in
 {cmd:_dta[tabtools_eplotframe]}.{p_end}
+{p 4 8 2}- Frame provenance: requested display and eplot frames store the CI
+level, ordered statistic IDs, model count, and per-model command identity,
+outcome identity, effect scale, and display label as {cmd:_dta[tabtools_*]}
+characteristics. {helpb comptab} uses these identities to align compatible
+sources and rejects ambiguous or conflicting metadata.{p_end}
 {p 4 8 2}- {opt addrow()}: appends custom label/value rows below the table body; separate
 multiple rows with a backslash, e.g.,
 {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
@@ -208,10 +362,10 @@ components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end
 {marker examples}{title:Examples}
 
 {pstd}Logistic regression with odds ratios:{p_end}
-{phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
-{phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
-{phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Diabetes") title("Odds Ratios for Diabetes") coef(OR)"':. regtab, xlsx(regression.xlsx) sheet("Diabetes") ///}{p_end}
+{phang2}{cmd:. webuse nhanes2, clear}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: logit diabetes age female i.race bmi highbp}{p_end}
+{phang2}{cmd:. regtab, xlsx(regression.xlsx) sheet("Diabetes") ///}{p_end}
 {phang3}{cmd:title("Odds Ratios for Diabetes") coef(OR)}{p_end}
 
 {pstd}Multinomial logistic regression with outcome-specific RRR rows:{p_end}
@@ -241,11 +395,11 @@ returns. Without {opt keepintercept}, {cmd:regtab} treats cutpoints like ancilla
 and omits them from ratio-scale presentation tables.{p_end}
 
 {pstd}Two models with merged headers, dropping the intercept row:{p_end}
-{phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
-{phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: logit diabetes age female":. collect: logit diabetes age female}{p_end}
-{phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
-{phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Table 2") models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint"':. regtab, xlsx(regression.xlsx) sheet("Table 2") ///}{p_end}
+{phang2}{cmd:. webuse nhanes2, clear}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: logit diabetes age female}{p_end}
+{phang2}{cmd:. collect: logit diabetes age female i.race bmi highbp}{p_end}
+{phang2}{cmd:. regtab, xlsx(regression.xlsx) sheet("Table 2") ///}{p_end}
 {phang3}{cmd:models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint}{p_end}
 
 {pstd}The multilevel and survival examples below are workflow sketches: they assume
@@ -290,8 +444,9 @@ effects. Models with random slopes and covariance terms (e.g.,
 
 {pstd}
 When {opt coef()} is omitted, {cmd:regtab} auto-detects the label from the model
-type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR,
-{cmd:mlogit} {it:->} RRR, {cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef., {cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time)
+type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR,
+{cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:mlogit} {it:->} RRR,
+{cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef., {cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time)
 {it:->} AF, {cmd:regress}/{cmd:mixed} {it:->} Coef. The {opt boldp()} option bolds p-value cells below the
 threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
@@ -304,12 +459,13 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(N_rows)}}number of rows in output table{p_end}
 {synopt:{cmd:r(N_cols)}}number of columns in output table{p_end}
 {synopt:{cmd:r(N_models)}}number of models{p_end}
+{synopt:{cmd:r(ci_level)}}confidence level carried by the collected intervals{p_end}
 {synopt:{cmd:r(aic_}{it:#}{cmd:)}}Akaike information criterion for model {it:#} (when {cmd:stats(aic)}){p_end}
 {synopt:{cmd:r(bic_}{it:#}{cmd:)}}Bayesian information criterion for model {it:#} (when {cmd:stats(bic)}){p_end}
-{synopt:{cmd:r(qic_}{it:#}{cmd:)}}quasi-likelihood information criterion for model {it:#} (when {cmd:stats(qic)}, or {cmd:stats(aic)} for GEE models where AIC is undefined){p_end}
-{synopt:{cmd:r(icc_}{it:#}{cmd:)}}intraclass correlation coefficient for model {it:#} (when {cmd:stats(icc)}){p_end}
+{synopt:{cmd:r(qic_}{it:#}{cmd:)}}QIC for model #, when available{p_end}
+{synopt:{cmd:r(icc_}{it:#}{cmd:)}}ICC for model #, when available{p_end}
 {synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
-{synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model {it:#} (when {cmd:stats(n)}; subjects rather than rows for survival models){p_end}
+{synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model # (when stats(n){p_end}
 {synopt:{cmd:r(groups_}{it:#}{cmd:)}}number of groups for model {it:#} (when {cmd:stats(groups)}){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
@@ -318,14 +474,14 @@ threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
-{synopt:{cmd:r(coef_label)}}shared coefficient label, or {cmd:mixed} when auto headers differ by model{p_end}
+{synopt:{cmd:r(coef_label)}}shared or mixed coefficient label{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name (if {cmd:eplotframe()} specified){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}coefficient values for the displayed body (rows = variables, columns = models){p_end}
+{synopt:{cmd:r(table)}}numeric displayed-body coefficients{p_end}
 {p2colreset}{...}
 
 {pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row names are

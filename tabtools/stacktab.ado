@@ -1,4 +1,4 @@
-*! stacktab Version 1.9.7  2026/07/10
+*! stacktab Version 1.9.8  2026/07/13
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -522,24 +522,41 @@ program define stacktab, rclass
             if `"`title'"' != "" local export_start_row = `existing_rows' + 2
         }
 
-        * ================================================================
-        * OPTIONAL DATASET OUTPUTS
-        * ================================================================
-        tempfile finaldata
-        quietly save `"`finaldata'"', replace
-
+        * Preflight every optional sink before replacing any of them. In
+        * particular, the Markdown writer deliberately refuses an existing
+        * file unless mdappend is requested; discovering that after frame()
+        * and csv() had committed caused a partial transaction.
         local frame_name ""
+        local frame_replace ""
+        local frame_exists = 0
         if `"`frame'"' != "" {
             _stacktab_parse_frame, frame(`frame')
             local frame_name `"`r(name)'"'
             local frame_replace `"`r(replace)'"'
 
             capture frame `frame_name': quietly count
-            if !_rc & "`frame_replace'" == "" {
+            local frame_exists = (_rc == 0)
+            if `frame_exists' & "`frame_replace'" == "" {
                 display as error `"frame "`frame_name'" already exists; specify frame(`frame_name', replace)"'
                 exit 110
             }
+        }
+        if `"`markdown'"' != "" & "`mdappend'" == "" {
+            capture confirm file `"`markdown'"'
             if !_rc {
+                display as error `"file `markdown' already exists; specify mdappend or choose a new markdown() file"'
+                exit 602
+            }
+        }
+
+        * ================================================================
+        * OPTIONAL DATASET OUTPUTS
+        * ================================================================
+        tempfile finaldata
+        quietly save `"`finaldata'"', replace
+
+        if `"`frame'"' != "" {
+            if `frame_exists' {
                 capture frame drop `frame_name'
             }
             frame put _all, into(`frame_name')
@@ -728,7 +745,6 @@ program define _stacktab_xlsx_sheet_bounds, rclass
             }
         }
         if `"`_actual_sheet'"' == "" {
-            display as error `"worksheet "`sheet'" not found"'
             exit 601
         }
 

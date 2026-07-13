@@ -64,7 +64,7 @@ capture noisily {
     tempvar snap
     quietly gen double `snap' = xweight
 
-    capture noisily iivw_weight, id(pid) time(vtime) visit_cov(xweight) ///
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(xweight) ///
         generate(x) replace
     local got_rc = _rc
 
@@ -102,7 +102,7 @@ else {
 local ++test_count
 capture noisily {
     _v200_panel
-    quietly iivw_weight, id(pid) time(vtime) visit_cov(z) generate(x)
+    quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z) generate(x)
 
     * `xtime_sq' is the name iivw_fit generates for quadratic time under prefix x.
     * Hand it to the command as a genuine predictor.
@@ -150,7 +150,7 @@ capture noisily {
     tempvar snap
     quietly gen double `snap' = xy_lag1
 
-    capture noisily iivw_exogtest y xy_lag1, id(pid) time(vtime) ///
+    capture noisily iivw_exogtest y xy_lag1, endatlastvisit id(pid) time(vtime) ///
         generate(x) replace
     local got_rc = _rc
 
@@ -187,7 +187,7 @@ capture noisily {
     _v200_panel
 
     * Establish a valid weighting state.
-    quietly iivw_weight, id(pid) time(vtime) visit_cov(z)
+    quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z)
     confirm variable _iivw_iw
     confirm variable _iivw_weight
     tempvar snap_iw snap_w
@@ -197,7 +197,7 @@ capture noisily {
     * Now force a failing rerun with replace: an all-missing visit covariate
     * gives the Cox model nothing to fit.
     gen double zbad = .
-    capture noisily iivw_weight, id(pid) time(vtime) visit_cov(zbad) replace
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(zbad) replace
     local got_rc = _rc
     if `got_rc' == 0 {
         display as error "C3-4 FAIL: rerun with an all-missing covariate returned rc 0"
@@ -252,7 +252,7 @@ capture noisily {
     quietly replace grp = 1001 if mod(pid, 3) == 2
 
     local pfx "abcdefghijklmnopqrstuvw"
-    quietly iivw_weight, id(pid) time(vtime) visit_cov(z) generate(`pfx')
+    quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z) generate(`pfx')
 
     capture noisily iivw_fit y grp, categorical(grp) basecat(0) replace
     local got_rc = _rc
@@ -322,7 +322,7 @@ else {
 local ++test_count
 capture noisily {
     _v200_panel
-    quietly iivw_weight, id(pid) time(vtime) visit_cov(z)
+    quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z)
 
     * mixedopts(iterate(0)) stops the optimizer before it converges. v1.9.7
     * returns rc 0, e(converged)=0, and stamps _dta[_iivw_fitted]=1.

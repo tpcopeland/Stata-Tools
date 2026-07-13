@@ -237,6 +237,228 @@ real colvector _finegray_G_minus(
     return(out)
 }
 
+/* ------------------------------------------------------------------------
+   DELAYED ENTRY: the entry distribution H, and the combined weight A = G*H.
+
+   Stabilized Zhang-Zhang-Fine Weight 1 is  w_i(t) = A(t-) / A(X_i-)  with
+
+       A(t) = b(t) / S(t-)                  ZZF (2011) eq. (5)   [canonical]
+            = P(L < t) * G(t-)              since b(t) = P(L<t) S(t-) G(t-)
+            = H(t-) * G(t-)                 Geskus (2011) eq. (11)
+
+   so H estimates P(L < t): the probability of having ENTERED by t.  Gate
+   Z-ties established that the two forms agree to machine precision on every
+   tie-collision class, which is what authorizes the G*H product form here.
+
+   The product form is not merely convenient -- it is what makes the no-LT
+   path BIT-IDENTICAL.  With no delayed entry every l_j = 0, so for any t > 0
+   the product below is empty and H == 1, giving A == G exactly.  Computing
+   the canonical b/S instead would reach the same limit by a different
+   floating-point route and would perturb every released right-censoring
+   result in its last digits.
+
+   Sourced formulas (Geskus 2011, sec. 2.1, p.41):
+
+       H(t)  = prod_{l_(j) >  t}  ( 1 - w_j / r(l_(j)) )        eq. (6)
+       H(t-) = prod_{l_(j) >= t}  ( 1 - w_j / r(l_(j)) )        left limit
+       r(u)  = #{ i : x_i >= u  &  l_i <= u }                   p.40
+
+   H is a REVERSE-time product limit: "L is right truncated by X, this
+   statistic is obtained by reversal of time, such that -L is left truncated
+   by -X" (p.41).  So H is a product over entry times ABOVE t, and it rises
+   to 1 at the right edge.
+
+   TIE CONVENTION.  r(l_(j)) counts the entering subjects themselves (l_i <= u,
+   not l_i < u): they are the "events" of the reverse-time process and must be
+   in their own risk set.  This differs from the (t0, t] convention used for
+   the at-risk set and for G, where an entry at exactly t is NOT yet at risk --
+   which is the "events, then censorings, then entries" ordering (Geskus p.40).
+   The two conventions are both correct and they are not the same; this is
+   verified against the direct b/S oracle in qa/crossval_finegray_zzf.do rather
+   than argued.
+   ------------------------------------------------------------------------ */
+
+/* Left limit H_g(target-) of the entry distribution, one column per level of
+   tg_id, evaluated at arbitrary target times.
+
+   H jumps at ENTRY times, which need not be observation (exit) times.  So --
+   unlike G -- H cannot be represented by step values stored at the exit times
+   and read back with _finegray_G_at_times: that lookup would attribute an
+   entry jump to the last exit time below it.  H is therefore built on its own
+   grid of distinct entry times and evaluated directly. */
+real matrix _finegray_H_at_times(
+    real colvector t,
+    real colvector t0,
+    real colvector tg_id,
+    real colvector target_t)
+{
+    real scalar g, i, j, k, nlev, nl, u, w_j, r_j, acc
+    real colvector levels, sel, l_g, t_g, lt, lord, tord
+    real matrix out
+
+    levels = uniqrows(tg_id)
+    nlev = rows(levels)
+    out = J(rows(target_t), nlev, 1)
+
+    for (g = 1; g <= nlev; g++) {
+        sel = selectindex(tg_id :== levels[g])
+        l_g = t0[sel]
+        t_g = t[sel]
+
+        /* distinct entry times, ascending; entries at 0 never bind because
+           H(u-) products run over l_j >= u and every target u is > 0 */
+        lt = uniqrows(select(l_g, l_g :> 0))
+        nl = rows(lt)
+        if (nl == 0) continue          /* no delayed entry in this stratum: H == 1 */
+
+        /* w_j and r_j for EVERY distinct entry time in one ascending pass.
+           A nested subject-by-entry-time loop is O(n^2) and would destroy the
+           linear-scan property this package exists for.  Two pointers instead:
+
+               r(u) = #{ l_i <= u }  -  #{ x_i < u }
+
+           both of which are monotone in u.  O(n log n) for the sorts, O(n) here. */
+        real colvector ls, ts_, wv, rv, Hleft
+        real scalar pl, pt
+
+        ls = sort(l_g, 1)
+        ts_ = sort(t_g, 1)
+        wv = J(nl, 1, 0)
+        rv = J(nl, 1, 0)
+        pl = 1
+        pt = 1
+        for (j = 1; j <= nl; j++) {
+            u = lt[j]
+            /* entries with l_i <= u */
+            while (pl <= rows(ls)) {
+                if (ls[pl] <= u) pl++
+                else break
+            }
+            /* exits with x_i < u */
+            while (pt <= rows(ts_)) {
+                if (ts_[pt] < u) pt++
+                else break
+            }
+            rv[j] = (pl - 1) - (pt - 1)
+            wv[j] = 0
+        }
+        /* w_j = multiplicity of each distinct entry time */
+        pl = 1
+        for (j = 1; j <= nl; j++) {
+            u = lt[j]
+            w_j = 0
+            while (pl <= rows(ls)) {
+                if (ls[pl] == u) {
+                    w_j++
+                    pl++
+                }
+                else if (ls[pl] < u) pl++
+                else break
+            }
+            wv[j] = w_j
+        }
+
+        /* Reverse-time accumulation: walk entry times DOWNWARD, so that after
+           absorbing all l_j >= u we hold H(u-).  Store the running product
+           keyed to each entry time. */
+        Hleft = J(nl, 1, 1)
+        acc = 1
+        for (j = nl; j >= 1; j--) {
+            r_j = rv[j]
+            w_j = wv[j]
+            if (r_j > 0 & w_j > 0) acc = acc * (1 - w_j / r_j)
+            Hleft[j] = acc        /* = prod over entry times >= lt[j] */
+        }
+
+        /* H(target-) = prod over entry times >= target = Hleft[first lt >= target] */
+        tord = order(target_t, 1)
+        lord = 1
+        for (i = 1; i <= rows(tord); i++) {
+            /* advance to the first entry time >= this target */
+            while (lord <= nl) {
+                if (lt[lord] < target_t[tord[i]]) lord++
+                else break
+            }
+            out[tord[i], g] = (lord <= nl ? Hleft[lord] : 1)
+        }
+    }
+    return(out)
+}
+
+/* Combined weight A_j(target-) = G_c(target-) * H_u(target-) for each
+   CROSS-CLASSIFIED weight stratum j = (c, u), where c indexes the censoring
+   strata (strata()) and u the truncation strata (truncstrata()).
+
+   G is estimated within censoring strata and H within truncation strata; a
+   subject's weight uses its own cell of each.  jc/ju map each joint level to
+   its censoring and truncation level.  When truncstrata() is absent there is a
+   single truncation level with H == 1 and this returns exactly _finegray_G_at_times. */
+/* Cross-classified weight strata.  A subject's weight stratum is the pair
+   (censoring stratum, truncation stratum) = (strata(), truncstrata()).  Only
+   OBSERVED combinations become levels, so the joint count is <= nc*nu and is
+   what e(N_weight_strata) reports.
+
+   Outputs (by reference):
+     jidx  n x 1   joint weight-stratum index of each subject, 1..nj
+     jc    nj x 1  censoring-stratum index of each joint level  (column of Gt)
+     ju    nj x 1  truncation-stratum index of each joint level (column of Ht)
+
+   With no truncstrata() there is one truncation level, so jidx/jc reduce to the
+   censoring-stratum index and ju is all 1s -- the pre-ZZF behaviour exactly. */
+void _finegray_joint_setup(
+    real colvector byg_id,
+    real colvector tg_id,
+    real colvector jidx,
+    real colvector jc,
+    real colvector ju)
+{
+    real scalar i, j, nj, n
+    real colvector lc, lu, ci, ui, key, ukey
+
+    lc = uniqrows(byg_id)
+    lu = uniqrows(tg_id)
+    ci = _finegray_group_index(byg_id, lc)
+    ui = _finegray_group_index(tg_id, lu)
+
+    n = rows(byg_id)
+    key = (ci :- 1) :* rows(lu) :+ ui          /* observed (c,u) codes */
+    ukey = uniqrows(key)
+    nj = rows(ukey)
+
+    jidx = J(n, 1, .)
+    for (j = 1; j <= nj; j++) {
+        for (i = 1; i <= n; i++) if (key[i] == ukey[j]) jidx[i] = j
+    }
+    jc = J(nj, 1, .)
+    ju = J(nj, 1, .)
+    for (j = 1; j <= nj; j++) {
+        jc[j] = floor((ukey[j] - 1) / rows(lu)) + 1
+        ju[j] = ukey[j] - (jc[j] - 1) * rows(lu)
+    }
+}
+
+real matrix _finegray_A_at_times(
+    real colvector t,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real colvector jc,
+    real colvector ju,
+    real colvector target_t)
+{
+    real scalar j, nj
+    real matrix Gt, Ht, out
+
+    Gt = _finegray_G_at_times(t, G, byg_id, target_t)
+    Ht = _finegray_H_at_times(t, t0, tg_id, target_t)
+
+    nj = rows(jc)
+    out = J(rows(target_t), nj, 1)
+    for (j = 1; j <= nj; j++) out[., j] = Gt[., jc[j]] :* Ht[., ju[j]]
+    return(out)
+}
+
 /* Log pseudo-likelihood via incremental risk-set scan with Breslow ties.
    Supports left truncation via entry-time pointer. */
 real scalar _finegray_loglik(
@@ -249,12 +471,13 @@ real scalar _finegray_loglik(
     real colvector beta,
     real colvector G,
     real colvector byg_id,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, j, k, ll, idx, cur_time, g, ng
     real scalar risk_S0, ep
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus
+    real colvector levels, gidx, Gminus, jc, ju
     real rowvector raw_bwd
     real matrix Gt
 
@@ -269,9 +492,11 @@ real scalar _finegray_loglik(
     ord = order(t, 1)
     entry_ord = order(t0, 1)
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     /* Incremental risk-set tracking */
@@ -342,12 +567,13 @@ void _finegray_score_info(
     real colvector byg_id,
     real colvector score,
     real matrix info,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus
+    real colvector levels, gidx, Gminus, jc, ju
     real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
@@ -362,9 +588,11 @@ void _finegray_score_info(
     ord = order(t, 1)
     entry_ord = order(t0, 1)
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     /* Incremental risk-set sums */
@@ -467,12 +695,13 @@ real matrix _finegray_score_residuals(
     real colvector beta,
     real colvector G,
     real colvector byg_id,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, j, k, idx, running_invS0
     real scalar S0_t, cur_time, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx, Gminus
+    real colvector cum_invS0, cum_ginvS0, entry_invS0, levels, gidx, Gminus, jc, ju
     real matrix scores, cum_zbars, cum_gzbars, entry_zbars, Gt
     real matrix bwd_s1_raw, running_gzbars
     real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
@@ -489,9 +718,11 @@ real matrix _finegray_score_residuals(
     ord = order(t, 1)
     entry_ord = order(t0, 1)
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
@@ -624,7 +855,8 @@ real matrix _finegray_robust_var(
     real matrix info_inv,
     string scalar clust_var,
     real colvector clust_id,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, use_cluster
     real colvector clev, sel
@@ -634,7 +866,7 @@ real matrix _finegray_robust_var(
     p = cols(Z)
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0)
+        Z, beta, G, byg_id, t0, tg_id)
 
     use_cluster = (clust_var != "" & rows(clust_id) == n)
     if (use_cluster) {
@@ -664,12 +896,13 @@ real matrix _finegray_basehazard(
     real colvector beta,
     real colvector G,
     real colvector byg_id,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, j, k, idx, cum_bh, g, ng
     real scalar n_events, ev_idx, S0_t, cur_time, risk_S0, ep, has_cause
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord
-    real colvector levels, gidx, Gminus
+    real colvector levels, gidx, Gminus, jc, ju
     real rowvector bwd_s0_raw
     real matrix result, Gt
 
@@ -684,9 +917,11 @@ real matrix _finegray_basehazard(
     ord = order(t, 1)
     entry_ord = order(t0, 1)
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
@@ -782,12 +1017,13 @@ real matrix _finegray_schoenfeld(
     real colvector G,
     real colvector byg_id,
     real scalar do_scale,
-    real colvector t0)
+    real colvector t0,
+    real colvector tg_id)
 {
     real scalar n, p, i, j, k, idx, S0_total, cur_time
     real scalar ev_idx, n_events, risk_S0, ep, g, ng
     real colvector eta, expeta, is_cause, is_compete, ord, entry_ord, score_vec
-    real colvector row_id, levels, gidx, Gminus
+    real colvector row_id, levels, gidx, Gminus, jc, ju
     real matrix result, info_mat, risk_S1_mat, bwd_s1_raw, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
 
@@ -808,9 +1044,11 @@ real matrix _finegray_schoenfeld(
     ord = order((t, row_id), (1, 1))
     entry_ord = order((t0, row_id), (1, 1))
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     risk_S0 = 0
@@ -881,7 +1119,7 @@ real matrix _finegray_schoenfeld(
     /* Grambsch-Therneau scaling: multiply by diag(V) */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, score_vec, info_mat, t0)
+            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
         real matrix info_inv
         info_inv = invsym(info_mat)
         if (missing(info_inv[1,1])) {
@@ -904,10 +1142,11 @@ void _finegray_schoenfeld_compute(
     real scalar cause,
     real scalar censval,
     string scalar byg_str,
+    string scalar tg_str,
     real scalar do_scale,
     string scalar t0var)
 {
-    real colvector t, delta, event_type, G, byg_id, beta, t0
+    real colvector t, delta, event_type, G, byg_id, beta, t0, tg_id
     real matrix Z, sch
     string rowvector vars
     real scalar p
@@ -929,11 +1168,19 @@ void _finegray_schoenfeld_compute(
     else {
         byg_id = J(rows(t), 1, 1)
     }
+    /* truncstrata(): the entry-distribution H is estimated within these groups.
+       Absent => a single group => H == 1 => A == G => pre-ZZF behaviour. */
+    if (tg_str != "") {
+        tg_id = st_data(., tg_str)
+    }
+    else {
+        tg_id = J(rows(t), 1, 1)
+    }
 
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
 
     sch = _finegray_schoenfeld(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, do_scale, t0)
+        Z, beta, G, byg_id, do_scale, t0, tg_id)
 
     st_matrix("_finegray_schoenfeld", sch)
 }
@@ -990,6 +1237,7 @@ void _finegray_engine(
     real scalar cause,
     real scalar censval,
     string scalar byg_str,
+    string scalar tg_str,
     string scalar vce_type,
     string scalar clust_str,
     real scalar max_iter,
@@ -997,7 +1245,7 @@ void _finegray_engine(
     real scalar show_log,
     real scalar adjust)
 {
-    real colvector t, delta, event_type, G, byg_id, t0
+    real colvector t, delta, event_type, G, byg_id, t0, tg_id
     real matrix Z, V, bh
     real colvector beta, beta_new, score_vec, step, clust_id
     real matrix info_mat, info_inv
@@ -1024,6 +1272,12 @@ void _finegray_engine(
     else {
         byg_id = J(n, 1, 1)
     }
+    if (tg_str != "") {
+        tg_id = st_data(., tg_str)
+    }
+    else {
+        tg_id = J(n, 1, 1)
+    }
 
     /* Compute censoring distribution */
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
@@ -1035,7 +1289,7 @@ void _finegray_engine(
        identifiable intercept, so this is the beta=0 null, not a constant-only
        fit. */
     ll_0 = _finegray_loglik(t, delta, cause, censval, event_type, Z,
-        J(p, 1, 0), G, byg_id, t0)
+        J(p, 1, 0), G, byg_id, t0, tg_id)
     if (ll_0 >= .) {
         errprintf("finegray: the null log pseudo-likelihood is not finite\n")
         exit(error(430))
@@ -1052,7 +1306,7 @@ void _finegray_engine(
     for (iter = 1; iter <= max_iter; iter++) {
         /* Score and information */
         _finegray_score_info(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, score_vec, info_mat, t0)
+            Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
 
         if (hasmissing(info_mat) | hasmissing(score_vec)) {
             errprintf("finegray: the score or information matrix is not ")
@@ -1098,7 +1352,7 @@ void _finegray_engine(
         for (halving = 1; halving <= max_halvings; halving++) {
             beta_new = beta + step_scale * step
             ll_new = _finegray_loglik(t, delta, cause, censval,
-                event_type, Z, beta_new, G, byg_id, t0)
+                event_type, Z, beta_new, G, byg_id, t0, tg_id)
 
             /* Mata returns exp(overflow) as missing, and (. > x) is TRUE, so a
                bare `ll_new > ll' would accept a missing likelihood as an
@@ -1144,7 +1398,7 @@ void _finegray_engine(
        there would post a stale value (with tolerance(1) it posted e(ll) ==
        e(ll_0) exactly while beta was nonzero). */
     ll = _finegray_loglik(t, delta, cause, censval, event_type, Z, beta, G,
-        byg_id, t0)
+        byg_id, t0, tg_id)
     if (ll >= .) {
         errprintf("finegray: the log pseudo-likelihood is not finite at the ")
         errprintf("solution\n")
@@ -1153,7 +1407,7 @@ void _finegray_engine(
 
     /* Final information for variance */
     _finegray_score_info(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, score_vec, info_mat, t0)
+        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
     if (hasmissing(info_mat)) {
         errprintf("finegray: the information matrix is not finite at the ")
         errprintf("solution\n")
@@ -1206,7 +1460,7 @@ void _finegray_engine(
             clust_id = J(n, 1, .)
         }
         V = _finegray_robust_var(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0)
+            Z, beta, G, byg_id, info_inv, clust_str, clust_id, t0, tg_id)
 
         /* Finite-sample adjustment, on by default and suppressed by noadjust.
            This is StataCorp's stcrreg contract exactly: g/(g-1) when clustered,
@@ -1223,7 +1477,7 @@ void _finegray_engine(
 
     /* Compute baseline hazard */
     bh = _finegray_basehazard(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0)
+        Z, beta, G, byg_id, t0, tg_id)
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
        not the rank: a cluster-robust V can have p positive variances and still
@@ -1285,6 +1539,7 @@ real matrix _finegray_cif_core(
     real colvector event_type,
     real colvector beta,
     real colvector byg_id,
+    real colvector tg_id,
     real colvector clust_id,
     real scalar has_clust,
     real scalar cause,
@@ -1293,7 +1548,7 @@ real matrix _finegray_cif_core(
 {
     real colvector G, eta, expeta, is_cause, is_compete, ord, entry_ord
     real colvector Tm, S0m, obsm, cum_invS0, own, sub, q, psi, score_vec
-    real colvector clev, sel, levels, gidx, Gminus
+    real colvector clev, sel, levels, gidx, Gminus, jc, ju
     real colvector cle, clt0, Acs, invS0, invS0sq, hi, lo
     real matrix info_mat, info_inv, scores, PSIb, zbarm, out, Gt, Gm
     real matrix bwd_s1_raw, Bcs, GmInvS0sq
@@ -1307,18 +1562,20 @@ real matrix _finegray_cif_core(
 
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
     levels = uniqrows(byg_id)
-    ng = rows(levels)
-    gidx = _finegray_group_index(byg_id, levels)
-    Gt = _finegray_G_at_times(t, G, byg_id, t)
+    /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
+       delayed entry H == 1 and this is bit-identical to the former G-only path. */
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Gt = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
     Gminus = _finegray_G_minus(gidx, Gt)
 
     _finegray_score_info(t, delta, cause, censval, event_type, Z, beta, G,
-        byg_id, score_vec, info_mat, t0)
+        byg_id, score_vec, info_mat, t0, tg_id)
     info_inv = invsym(info_mat)
     if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
 
     scores = _finegray_score_residuals(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0)
+        Z, beta, G, byg_id, t0, tg_id)
     PSIb = scores * info_inv
 
     eta = Z * beta
@@ -1488,6 +1745,7 @@ void _finegray_cif_var_st(
     real scalar cause,
     real scalar censval,
     string scalar byg_str,
+    string scalar tg_str,
     string scalar clust_str,
     string scalar tousevar,
     string scalar evalmat,
@@ -1495,7 +1753,7 @@ void _finegray_cif_var_st(
     string scalar t0var)
 {
     real matrix Z, E, out
-    real colvector t, t0, delta, event_type, beta, byg_id, clust_id
+    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, clust_id
     real scalar n, has_clust
 
     Z = st_data(., tokens(zvars), tousevar)
@@ -1507,12 +1765,14 @@ void _finegray_cif_var_st(
     beta = st_matrix("e(b)")'
     if (byg_str != "") byg_id = st_data(., byg_str, tousevar)
     else byg_id = J(n, 1, 1)
+    if (tg_str != "") tg_id = st_data(., tg_str, tousevar)
+    else tg_id = J(n, 1, 1)
     has_clust = (clust_str != "")
     if (has_clust) clust_id = st_data(., clust_str, tousevar)
     else clust_id = J(n, 1, .)
 
     E = st_matrix(evalmat)
-    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id,
+    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id, tg_id,
         clust_id, has_clust, cause, censval, E)
     st_matrix(outmat, out)
 }
@@ -1527,6 +1787,7 @@ void _finegray_cif_predict(
     real scalar cause,
     real scalar censval,
     string scalar byg_str,
+    string scalar tg_str,
     string scalar clust_str,
     string scalar est_touse,
     string scalar eval_touse,
@@ -1536,7 +1797,7 @@ void _finegray_cif_predict(
     string scalar t0var)
 {
     real matrix Z, Zev, E, out
-    real colvector t, t0, delta, event_type, beta, byg_id, clust_id
+    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, clust_id
     real colvector etouse, sel, tev
     real scalar n, has_clust
 
@@ -1549,6 +1810,8 @@ void _finegray_cif_predict(
     beta = st_matrix("e(b)")'
     if (byg_str != "") byg_id = st_data(., byg_str, est_touse)
     else byg_id = J(n, 1, 1)
+    if (tg_str != "") tg_id = st_data(., tg_str, est_touse)
+    else tg_id = J(n, 1, 1)
     has_clust = (clust_str != "")
     if (has_clust) clust_id = st_data(., clust_str, est_touse)
     else clust_id = J(n, 1, .)
@@ -1559,7 +1822,7 @@ void _finegray_cif_predict(
     Zev = st_data(sel, tokens(zvars))
     E = (tev, Zev)
 
-    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id,
+    out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id, tg_id,
         clust_id, has_clust, cause, censval, E)
     st_store(sel, cifvar, out[., 1])
     st_store(sel, sevar, out[., 2])

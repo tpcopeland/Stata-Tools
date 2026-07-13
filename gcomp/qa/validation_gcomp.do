@@ -20,9 +20,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 local testdir "`c(tmpdir)'"
 
@@ -171,7 +169,7 @@ capture noisily {
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(2000) samples(100) seed(20260306)
+        base_confs(c) sim(2000) samples(100) seed(20260306) minsim
 
     * All effects should be positive (exposure increases outcome risk)
     assert e(tce) > 0
@@ -1025,6 +1023,18 @@ else {
 * V11.1: e(MC_sims) matches simulations() parameter
 local ++test_count
 capture noisily {
+    clear
+    set seed 20260321
+    set obs 300
+    gen double c = rnormal()
+    gen double x = rbinomial(1, 0.5)
+    gen double m = rbinomial(1, 0.5)
+    gen double y = rbinomial(1, 0.3)
+    gcomp y m x c, outcome(y) mediation obe ///
+        exposure(x) mediator(m) ///
+        commands(m: logit, y: logit) ///
+        equations(m: x c, y: m x c) ///
+        base_confs(c) sim(100) samples(10) seed(1)
     assert e(MC_sims) == 100
 }
 if _rc == 0 {
@@ -1039,6 +1049,18 @@ else {
 * V12.1: e(samples) matches samples() parameter
 local ++test_count
 capture noisily {
+    clear
+    set seed 20260321
+    set obs 300
+    gen double c = rnormal()
+    gen double x = rbinomial(1, 0.5)
+    gen double m = rbinomial(1, 0.5)
+    gen double y = rbinomial(1, 0.3)
+    gcomp y m x c, outcome(y) mediation obe ///
+        exposure(x) mediator(m) ///
+        commands(m: logit, y: logit) ///
+        equations(m: x c, y: m x c) ///
+        base_confs(c) sim(100) samples(10) seed(1)
     assert e(samples) == 10
 }
 if _rc == 0 {
@@ -1122,11 +1144,12 @@ foreach f of local val_files {
 
 display ""
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: validation_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: validation_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: validation_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

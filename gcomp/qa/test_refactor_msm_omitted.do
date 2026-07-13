@@ -15,32 +15,19 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local testdir "`c(tmpdir)'"
 
-local orig_plus "`c(sysdir_plus)'"
-local orig_personal "`c(sysdir_personal)'"
-tempname install_id
-local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`testdir'/gcomp_s3_plus_`install_tag'"
-local personal_dir "`testdir'/gcomp_s3_personal_`install_tag'"
-
-capture mkdir "`plus_dir'"
-capture mkdir "`personal_dir'"
-sysdir set PLUS "`plus_dir'"
-sysdir set PERSONAL "`personal_dir'"
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _s3_name_absent
 program define _s3_name_absent
     version 16.0
     syntax name(name=mname), Bad(string)
 
-    local names : colnames `mname'
+    local names : colfullnames `mname'
     foreach token of local bad {
         assert !strpos(" `names' ", " `token' ")
     }
     if rowsof(`mname') == colsof(`mname') {
-        local rnames : rownames `mname'
+        local rnames : rowfullnames `mname'
         foreach token of local bad {
             assert !strpos(" `rnames' ", " `token' ")
         }
@@ -57,7 +44,8 @@ gen double c = rnormal()
 bysort id (time): replace c = c[1]
 gen byte a = rbinomial(1, invlogit(-0.20 + 0.40 * c))
 gen double l = 0.30 * c + 0.25 * a + rnormal(0, 0.40)
-gen byte d = rbinomial(1, invlogit(-4.00 + 0.10 * c))
+gen byte d = 0
+replace d = rbinomial(1, invlogit(-1.00 + 0.10 * c)) if time == 3
 gen byte y = rbinomial(1, invlogit(-2.00 + 0.45 * a + 0.25 * l + 0.15 * c))
 tempfile s3_data
 save `s3_data'
@@ -72,13 +60,13 @@ capture noisily {
         intvars(a) interventions(a=1, a=0) ///
         death(d) ///
         commands(d: logit, l: regress, a: logit, y: logit) ///
-        equations(d: a c, l: c a, a: c l, y: a c) ///
-        pooled msm(logit y i.a_##i.a_) ///
+        equations(d: c, l: c, a: c l, y: a c) ///
+        pooled msm(logit y i.a##i.a) ///
         sim(120) samples(6) seed(202605153)
 
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "time_varying"
-    assert "`e(msm)'" == "logit y i.a_##i.a_"
+    assert "`e(msm)'" == "logit y i.a##i.a"
 
     tempname b se V ci
     matrix `b' = e(b)
@@ -86,12 +74,12 @@ capture noisily {
     matrix `V' = e(V)
     matrix `ci' = e(ci_normal)
 
-    local expected "a_ _cons PO1 PO2 PO3 out1 death1 out2 death2 out3 death3"
-    local bcols : colnames `b'
-    local secols : colnames `se'
-    local Vcols : colnames `V'
-    local Vrows : rownames `V'
-    local cicols : colnames `ci'
+    local expected "y:1.a y:_cons PO1 PO2 PO3 out1 death1 out2 death2 out3 death3"
+    local bcols : colfullnames `b'
+    local secols : colfullnames `se'
+    local Vcols : colfullnames `V'
+    local Vrows : rowfullnames `V'
+    local cicols : colfullnames `ci'
 
     assert "`bcols'" == "`expected'"
     assert "`secols'" == "`expected'"
@@ -108,12 +96,12 @@ capture noisily {
     assert rowsof(`ci') == 2
     assert colsof(`ci') == 11
 
-    _s3_name_absent `b', bad("1.a_ 1.a_#1.a_ o. 0b. 1o.")
-    _s3_name_absent `se', bad("1.a_ 1.a_#1.a_ o. 0b. 1o.")
-    _s3_name_absent `V', bad("1.a_ 1.a_#1.a_ o. 0b. 1o.")
-    _s3_name_absent `ci', bad("1.a_ 1.a_#1.a_ o. 0b. 1o.")
+    _s3_name_absent `b', bad("1.a#1.a o. 0b. 1o. a_")
+    _s3_name_absent `se', bad("1.a#1.a o. 0b. 1o. a_")
+    _s3_name_absent `V', bad("1.a#1.a o. 0b. 1o. a_")
+    _s3_name_absent `ci', bad("1.a#1.a o. 0b. 1o. a_")
 
-    assert colnumb(`b', "a_") < .
+    assert colnumb(`b', "1.a") < .
     assert colnumb(`b', "_cons") < .
     assert colnumb(`b', "PO1") < .
     assert colnumb(`b', "death3") < .
@@ -136,30 +124,13 @@ else {
 
 display ""
 display as result "test_refactor_msm_omitted Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_refactor_msm_omitted tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_refactor_msm_omitted tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
 }
 else {
+    display "RESULT: test_refactor_msm_omitted tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
-}
-
-sysdir set PLUS "`orig_plus'"
-sysdir set PERSONAL "`orig_personal'"
-capture ado uninstall gcomp
-foreach _sub in "_" "g" {
-    local _subfiles : dir "`plus_dir'/`_sub'" files "*"
-    foreach _file of local _subfiles {
-        capture erase "`plus_dir'/`_sub'/`_file'"
-    }
-    capture rmdir "`plus_dir'/`_sub'"
-}
-foreach _dir in "`plus_dir'" "`personal_dir'" {
-    local _files : dir "`_dir'" files "*"
-    foreach _file of local _files {
-        capture erase "`_dir'/`_file'"
-    }
-    capture rmdir "`_dir'"
 }
 
 if `fail_count' > 0 {

@@ -242,17 +242,28 @@ write.csv(smd_data, file.path(output_dir, "crossval_smd_data.csv"), row.names = 
 # ============================================================
 # SECTION 5: SMD for categorical variables (Yang & Dalton)
 # ============================================================
-# Formula: sqrt(sum_k ((p1k - p2k) / sqrt(pavg_k * (1 - pavg_k)))^2)
+# Formula: sqrt((p1 - p2)' S^-1 (p1 - p2)), where S is the
+# average of the two groups' multinomial covariance matrices. One
+# category is omitted so that S has dimension (K - 1) x (K - 1).
+
+yang_dalton_smd <- function(p1, p2) {
+    stopifnot(length(p1) == length(p2), length(p1) >= 2)
+    keep <- seq_len(length(p1) - 1L)
+    p1_reduced <- as.numeric(p1[keep])
+    p2_reduced <- as.numeric(p2[keep])
+    covariance1 <- diag(p1_reduced) - tcrossprod(p1_reduced)
+    covariance2 <- diag(p2_reduced) - tcrossprod(p2_reduced)
+    pooled_covariance <- (covariance1 + covariance2) / 2
+    difference <- p1_reduced - p2_reduced
+    sqrt(drop(crossprod(difference, solve(pooled_covariance, difference))))
+}
 
 cat("\nSection 5: SMD (categorical, Yang & Dalton)\n")
 
 # Three-category variable
 p1 <- c(0.30, 0.50, 0.20)  # Group 1 proportions
 p2 <- c(0.45, 0.35, 0.20)  # Group 2 proportions
-pavg <- (p1 + p2) / 2
-denom <- sqrt(pavg * (1 - pavg))
-ssq <- sum(((p1 - p2) / denom)^2)
-smd_cat <- sqrt(ssq)
+smd_cat <- yang_dalton_smd(p1, p2)
 
 results$smd_cat <- smd_cat
 
@@ -269,10 +280,7 @@ cat2 <- sample(1:3, n_cat2, replace = TRUE, prob = p2)
 # Recalculate SMD from actual generated data
 p1_actual <- table(factor(cat1, levels = 1:3)) / n_cat1
 p2_actual <- table(factor(cat2, levels = 1:3)) / n_cat2
-pavg_actual <- (p1_actual + p2_actual) / 2
-denom_actual <- sqrt(pavg_actual * (1 - pavg_actual))
-ssq_actual <- sum(((p1_actual - p2_actual) / denom_actual)^2)
-smd_cat_actual <- sqrt(ssq_actual)
+smd_cat_actual <- yang_dalton_smd(p1_actual, p2_actual)
 
 results$smd_cat_actual <- smd_cat_actual
 

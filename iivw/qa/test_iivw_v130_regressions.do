@@ -61,7 +61,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    capture iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nolog
+    capture iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -79,7 +79,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     assert r(nobaseevent) == 1
 }
 if _rc == 0 {
@@ -97,11 +97,11 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     assert "`: char _dta[_iivw_baseevent]'" == "1"
     * default mode on a 2+visit-only subset must set the char to "0"
     drop if id > 30
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
     assert "`: char _dta[_iivw_baseevent]'" == "0"
 }
 if _rc == 0 {
@@ -119,7 +119,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     * every first/baseline visit shares one IIW weight. Under mean-1
     * normalization the study-entry convention weight (1 before scaling) becomes
     * 1/mean(exp(-xb)) -- identical across baseline rows (SD 0), not literally 1.
@@ -151,9 +151,9 @@ local ++test_count
 capture noisily {
     _iivw_v130_panel
     keep if id <= 30
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
     gen double w_def = _iivw_iw
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent replace nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
     gen double w_nbe = _iivw_iw
     bysort id (days): gen byte _f = (_n == 1)
     * first visits share one weight within each mode (mean-1 normalized: the
@@ -182,7 +182,7 @@ local ++test_count
 capture noisily {
     _iivw_v130_panel
     bysort id (days): keep if _n == 1
-    capture iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
+    capture iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -200,8 +200,8 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) stabcov(treat) ///
-        wtype(iivw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) stabcov(treat) ///
+        wtype(iivw) nolog
     assert r(nobaseevent) == 1
     quietly count if missing(_iivw_iw)
     assert r(N) == 0
@@ -221,8 +221,8 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) treat(treat) treat_cov(sev) ///
-        visit_cov(sev) wtype(fiptiw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) treat(treat) treat_cov(sev) ///
+        visit_cov(sev) wtype(fiptiw) nolog
     assert r(nobaseevent) == 1
     * single-visit subjects retained, combined weight present (iw=1 * tw)
     quietly count if id > 30 & missing(_iivw_weight)
@@ -244,10 +244,10 @@ local ++test_count
 capture noisily {
     _iivw_v130_panel
     keep if id <= 30
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent replace nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) replace nolog
     gen double w_noentry = _iivw_iw
-    iivw_weight, id(id) time(days) visit_cov(sev) entry(entry) ///
-        wtype(iivw) nobaseevent replace nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) entry(entry) ///
+        wtype(iivw) replace nolog
     gen double w_entry = _iivw_iw
     * the baseline (entry,t1] interval is dropped under nobaseevent, so entry()
     * cannot change the fitted model; every weight must match exactly
@@ -269,7 +269,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v130_panel
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     assert "`: char _dta[_iivw_baseevent]'" == "1"
     * iptw-only run does not set _iivw_baseevent; the reset loop must clear the
     * stale "1" so downstream code never reads a mode that no longer applies
@@ -295,12 +295,12 @@ capture noisily {
     keep if id <= 30
     bysort id (days): gen double entry_bad = days[1]
 
-    iivw_weight, id(id) time(days) visit_cov(sev) wtype(iivw) ///
-        nobaseevent replace nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) wtype(iivw) ///
+ replace nolog
     gen double w_noentry_bad = _iivw_iw
 
-    iivw_weight, id(id) time(days) visit_cov(sev) entry(entry_bad) ///
-        wtype(iivw) nobaseevent replace nolog
+    iivw_weight, endatlastvisit id(id) time(days) visit_cov(sev) entry(entry_bad) ///
+        wtype(iivw) replace nolog
     gen double w_entry_bad = _iivw_iw
 
     quietly count if reldif(w_noentry_bad, w_entry_bad) > 1e-10

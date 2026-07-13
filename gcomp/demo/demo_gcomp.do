@@ -1,7 +1,8 @@
 /*  demo_gcomp.do - Demo output for gcomp
 
     Produces:
-      2. Excel table (gcomptab export)              -> .xlsx
+      1. Markdown component-model table             -> component_models.md
+      2. Canonical three-sheet workbook             -> demo_gcomptab.xlsx
 
     Covers:
       - OBE mediation (binary exposure)
@@ -19,13 +20,33 @@ version 16.0
 set varabbrev off
 set linesize 120
 
-* --- Paths ---
-local demo_dir "`c(pwd)'/gcomp/demo"
+**# Relocatable package root and isolated local install
+
+local launch_dir "`c(pwd)'"
+local pkg_dir "`launch_dir'/gcomp"
+capture confirm file "`pkg_dir'/gcomp.pkg"
+if _rc {
+    local pkg_dir "`launch_dir'"
+    capture confirm file "`pkg_dir'/gcomp.pkg"
+}
+if _rc {
+    local pkg_dir "`launch_dir'/.."
+    capture confirm file "`pkg_dir'/gcomp.pkg"
+}
+if _rc {
+    display as error "Run this demo from the Stata-Tools root, gcomp/, or gcomp/demo/."
+    exit 601
+}
+local demo_dir "`pkg_dir'/demo"
 capture mkdir "`demo_dir'"
 
-* --- Install package from local source ---
-capture ado uninstall gcomp
-quietly net install gcomp, from("`c(pwd)'/gcomp") replace
+ado dir
+local old_plus "`c(sysdir_plus)'"
+local demo_plus "`c(tmpdir)'/gcomp_demo_plus"
+capture mkdir "`demo_plus'"
+sysdir set PLUS "`demo_plus'"
+quietly net install gcomp, from("`pkg_dir'") replace
+adopath ++ "`demo_plus'"
 discard
 
 **# Console output
@@ -120,21 +141,25 @@ noisily gcomp outcome L0 A L Alag Llag id time, outcome(outcome) ///
 
 **# Excel export (gcomptab)
 
+* demo_gcomp.do is the sole canonical workbook generator. Rebuild from a
+* clean file so sheet inventory and content never depend on execution order.
+capture erase "`demo_dir'/demo_gcomptab.xlsx"
+
 quietly {
     clear
     set seed 12345
-    set obs 1000
-    gen double c = rnormal(50, 10)
-    gen double x = rbinomial(1, invlogit(-2 + 0.02 * c))
-    gen double m = rbinomial(1, invlogit(-1 + 0.8 * x + 0.01 * c))
-    gen double y = rbinomial(1, invlogit(-3 + 0.5 * m + 0.3 * x + 0.02 * c))
+    set obs 400
+    gen double c = rnormal()
+    gen byte x = rbinomial(1, invlogit(-0.2 + 0.4 * c))
+    gen double m = 0.6 * x + 0.3 * c + rnormal()
+    gen double y = 0.7 * m + 0.4 * x + 0.2 * c + rnormal()
 }
 
 gcomp y m x c, outcome(y) mediation obe ///
     exposure(x) mediator(m) ///
-    commands(m: logit, y: logit) ///
+    commands(m: regress, y: regress) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) control(0) sim(500) samples(50) seed(42) all
+    base_confs(c) control(0) sim(400) samples(50) seed(42)
 
 gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Normal CI") ///
     title("Table 1. Causal Mediation Analysis (Normal CIs)")
@@ -148,17 +173,23 @@ gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Percentile CI") ///
 * multi-model coefficient table to Markdown (for the README) and Excel.
 gcomp y m x c, outcome(y) mediation obe ///
     exposure(x) mediator(m) ///
-    commands(m: logit, y: logit) ///
+    commands(m: regress, y: regress) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(500) samples(50) seed(42) savemodels
+    base_confs(c) sim(400) samples(50) seed(42) savemodels
 
 gcomptab, models markdown("`demo_dir'/component_models.md") ///
     modellabels("Mediator (m) \ Outcome (y)") stats(n)
 
 gcomptab, models xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Component models") ///
     modellabels("Mediator (m) \ Outcome (y)") stats(n) stars ///
-    title("Table 3. Fitted component models (odds ratios)")
+    title("Table 3. Fitted component models (coefficients)")
 
 
-* --- Cleanup ---
+**# Cleanup
+
+confirm file "`demo_dir'/demo_gcomptab.xlsx"
+confirm file "`demo_dir'/component_models.md"
+adopath - "`demo_plus'"
+sysdir set PLUS "`old_plus'"
 clear
+display "RESULT: demo_gcomp sheets=3 status=PASS"

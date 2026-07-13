@@ -28,7 +28,18 @@ program define tvpanel, rclass
         [FRame(name) REFerence(integer 0) WIDTH(integer 91) ///
          START(name) STOP(name) PERiod(name) STARTgen(name) STOPgen(name) ///
          GENerate(name) CUMulative(string) PREfix(string) ///
-         KEEPvars(varlist) SAVEas(string) REPlace NOIsily]
+         KEEPvars(varlist) SAVEas(string) REPlace NOIsily ///
+         DROPInvalid VERBose]
+
+    local n_invalid_master 0
+    local n_invalid_master_id 0
+    local n_invalid_master_dates 0
+    local n_invalid_master_order 0
+    local n_invalid_episodes 0
+    local n_invalid_episode_id 0
+    local n_invalid_episode_dates 0
+    local n_invalid_episode_order 0
+    local n_invalid_episode_exposure 0
 
     * Frames input: materialize the named frame to a tempfile and treat it as
     * the using source (the episode interval data), leaving the rest unchanged.
@@ -117,7 +128,58 @@ program define tvpanel, rclass
         }
     }
 
-    * Master must be one row per person
+    * Preserve before applying the explicit malformed-row policy. All errors
+    * after this point restore the caller's data in the common cleanup block.
+    preserve
+
+    * Master rows are strict by default. Daily dates must be present,
+    * integer-valued, and ordered; exit == entry is a valid one-day window.
+    tempvar _tp_bad_mid _tp_bad_mdates _tp_bad_morder _tp_bad_master _tp_bad_seq
+    quietly generate byte `_tp_bad_mid' = missing(`id')
+    quietly generate byte `_tp_bad_mdates' = ///
+        missing(`entry') | missing(`exit') | ///
+        (`entry' != floor(`entry') & !missing(`entry')) | ///
+        (`exit' != floor(`exit') & !missing(`exit'))
+    quietly generate byte `_tp_bad_morder' = ///
+        `exit' < `entry' & !missing(`entry', `exit')
+    quietly generate byte `_tp_bad_master' = ///
+        `_tp_bad_mid' | `_tp_bad_mdates' | `_tp_bad_morder'
+
+    quietly count if `_tp_bad_mid'
+    local n_invalid_master_id = r(N)
+    quietly count if `_tp_bad_mdates'
+    local n_invalid_master_dates = r(N)
+    quietly count if `_tp_bad_morder'
+    local n_invalid_master_order = r(N)
+    quietly count if `_tp_bad_master'
+    local n_invalid_master = r(N)
+
+    if `n_invalid_master' > 0 {
+        if "`verbose'" != "" {
+            display as text "Malformed master rows (showing up to 5):"
+            quietly generate long `_tp_bad_seq' = sum(`_tp_bad_master')
+            list `id' `entry' `exit' if `_tp_bad_master' & ///
+                `_tp_bad_seq' <= 5, noobs abbreviate(20)
+            display as text "  missing id: " as result `n_invalid_master_id'
+            display as text "  missing/fractional dates: " as result `n_invalid_master_dates'
+            display as text "  exit before entry: " as result `n_invalid_master_order'
+        }
+        if "`dropinvalid'" == "" {
+            display as error `n_invalid_master' " malformed master row(s); specify dropinvalid to remove them"
+            exit 498
+        }
+        drop if `_tp_bad_master'
+        display as text "dropinvalid: removed " as result `n_invalid_master' ///
+            as text " malformed master row(s)"
+    }
+
+    quietly count
+    if r(N) == 0 {
+        display as error "no valid master rows remain after applying dropinvalid"
+        exit 2000
+    }
+
+    * Master must be one row per person after malformed rows are removed.
     tempvar _dup
     quietly duplicates tag `id', gen(`_dup')
     quietly count if `_dup' > 0
@@ -125,16 +187,9 @@ program define tvpanel, rclass
         display as error "Master data must have one observation per `id' (study entry/exit per person)"
         exit 459
     }
-    quietly count if missing(`entry') | missing(`exit')
-    if r(N) > 0 {
-        display as error r(N) " observation(s) have missing `entry' or `exit'"
-        exit 416
-    }
 
     label dir
     local _tp_master_labels "`r(names)'"
-
-    preserve
 
     * --- Stash the master (in memory), then stage the episode (using) file ---
     quietly {
@@ -144,7 +199,7 @@ program define tvpanel, rclass
 
     * --- Stage the episode (using) file ---
     quietly {
-        tempfile epi
+        tempfile epi epi_union
         use "`using'", clear
         foreach v in `id' `start' `stop' `exposure' {
             capture confirm variable `v'
@@ -153,10 +208,12 @@ program define tvpanel, rclass
                 exit 111
             }
         }
-        capture confirm numeric variable `exposure'
-        if _rc {
-            noisily display as error "exposure() must be numeric (integer class codes) for cumulative reshape and panel use"
-            exit 109
+        foreach v in `id' `start' `stop' `exposure' {
+            capture confirm numeric variable `v'
+            if _rc {
+                noisily display as error "Episode variable '`v'' must be numeric"
+                exit 109
+            }
         }
         * Episode start/stop must be daily dates, not datetime (interval math is in days)
         foreach v in `start' `stop' {
@@ -166,12 +223,59 @@ program define tvpanel, rclass
                 exit 120
             }
         }
-        * Episode exposure must be integer-valued (reshape wide j())
-        count if `exposure' != floor(`exposure') & !missing(`exposure')
-        if r(N) > 0 {
-            noisily display as error "exposure() must be integer-valued class codes"
-            exit 198
+
+        * Episode rows follow the same strict/dropinvalid contract as the
+        * master. Reason counts are row counts and may overlap; n_invalid is
+        * the exact union of malformed rows.
+        tempvar _tp_bad_eid _tp_bad_edates _tp_bad_eorder _tp_bad_eclass
+        tempvar _tp_bad_episode _tp_bad_eseq
+        generate byte `_tp_bad_eid' = missing(`id')
+        generate byte `_tp_bad_edates' = ///
+            missing(`start') | missing(`stop') | ///
+            (`start' != floor(`start') & !missing(`start')) | ///
+            (`stop' != floor(`stop') & !missing(`stop'))
+        generate byte `_tp_bad_eorder' = ///
+            `stop' < `start' & !missing(`start', `stop')
+        generate byte `_tp_bad_eclass' = ///
+            missing(`exposure') | ///
+            (`exposure' != floor(`exposure') & !missing(`exposure'))
+        generate byte `_tp_bad_episode' = ///
+            `_tp_bad_eid' | `_tp_bad_edates' | ///
+            `_tp_bad_eorder' | `_tp_bad_eclass'
+
+        count if `_tp_bad_eid'
+        local n_invalid_episode_id = r(N)
+        count if `_tp_bad_edates'
+        local n_invalid_episode_dates = r(N)
+        count if `_tp_bad_eorder'
+        local n_invalid_episode_order = r(N)
+        count if `_tp_bad_eclass'
+        local n_invalid_episode_exposure = r(N)
+        count if `_tp_bad_episode'
+        local n_invalid_episodes = r(N)
+
+        if `n_invalid_episodes' > 0 {
+            if "`verbose'" != "" {
+                noisily display as text "Malformed episode rows (showing up to 5):"
+                generate long `_tp_bad_eseq' = sum(`_tp_bad_episode')
+                noisily list `id' `start' `stop' `exposure' ///
+                    if `_tp_bad_episode' & `_tp_bad_eseq' <= 5, ///
+                    noobs abbreviate(20)
+                noisily display as text "  missing id: " as result `n_invalid_episode_id'
+                noisily display as text "  missing/fractional dates: " as result `n_invalid_episode_dates'
+                noisily display as text "  stop before start: " as result `n_invalid_episode_order'
+                noisily display as text "  missing/noninteger exposure: " as result `n_invalid_episode_exposure'
+            }
+            if "`dropinvalid'" == "" {
+                noisily display as error `n_invalid_episodes' " malformed episode row(s); specify dropinvalid to remove them"
+                exit 498
+            }
+            drop if `_tp_bad_episode'
+            noisily display as text "dropinvalid: removed " ///
+                as result `n_invalid_episodes' ///
+                as text " malformed episode row(s)"
         }
+
         * cumulative() reshapes class codes into variable-name suffixes, which
         * cannot be negative; non-negative codes are required only on that path.
         if "`cumulative'" != "" {
@@ -196,37 +300,75 @@ program define tvpanel, rclass
         }
         keep `id' `start' `stop' `exposure'
         rename (`start' `stop' `exposure') (`tp_estart' `tp_estop' `tp_eclass')
-        drop if missing(`id', `tp_estart', `tp_estop', `tp_eclass')
-        drop if `tp_estop' < `tp_estart'
+        count
+        local n_valid_episodes = r(N)
         save `epi', replace
+
+        * Cumulative exposure is defined on the per-person, per-class union.
+        * Nested, crossing, duplicate, and abutting closed intervals therefore
+        * contribute each day at most once within a class.
+        local cumclasses ""
+        if "`cumulative'" != "" {
+            keep if `tp_eclass' != `reference'
+            count
+            if r(N) > 0 {
+                levelsof `tp_eclass', local(cumclasses)
+                tempvar _tp_runstop _tp_newunion _tp_union
+                sort `id' `tp_eclass' `tp_estart' `tp_estop'
+                by `id' `tp_eclass': generate double `_tp_runstop' = `tp_estop'
+                by `id' `tp_eclass': replace `_tp_runstop' = ///
+                    max(`_tp_runstop'[_n-1], `tp_estop') if _n > 1
+                by `id' `tp_eclass': generate byte `_tp_newunion' = ///
+                    _n == 1 | `tp_estart' > `_tp_runstop'[_n-1] + 1
+                by `id' `tp_eclass': generate long `_tp_union' = ///
+                    sum(`_tp_newunion')
+                collapse (min) `tp_estart' (max) `tp_estop', ///
+                    by(`id' `tp_eclass' `_tp_union')
+                drop `_tp_union'
+            }
+            save `epi_union', replace
+        }
+    }
+
+    * Validate cumulative output names once the actual class suffixes are
+    * known, before any output is committed.
+    local planned_cumvars ""
+    foreach cls of local cumclasses {
+        local cv "`prefix'cum_`cls'"
+        capture confirm name `cv'
+        if _rc {
+            display as error "cumulative output name '`cv'' is not a valid Stata variable name"
+            exit 198
+        }
+        local output_conflict : list cv in output_names
+        local keep_conflict : list cv in keepvars
+        local prior_conflict : list cv in planned_cumvars
+        if `output_conflict' | `keep_conflict' | `prior_conflict' {
+            display as error "cumulative output name '`cv'' conflicts with another output or keepvars() variable"
+            exit 198
+        }
+        local planned_cumvars "`planned_cumvars' `cv'"
     }
 
     * --- Build the fixed grid from the master ---
     quietly {
         use `master', clear
-        keep `id' `entry' `exit' `keepvars'
-        count if `exit' <= `entry'
-        if r(N) > 0 {
-            if "`noisily'" != "" noisily display as text "Note: " r(N) " person(s) with exit <= entry dropped"
-            drop if `exit' <= `entry'
-        }
-        count
-        if r(N) == 0 {
-            noisily display as error "no persons with positive follow-up"
-            exit 2000
-        }
+        tempvar _tp_entry _tp_exit
+        generate double `_tp_entry' = `entry'
+        generate double `_tp_exit' = `exit'
+        keep `id' `_tp_entry' `_tp_exit' `keepvars'
 
         tempvar nper tp_row tp_active tp_days
         * Inclusive [entry, exit] follow-up: emit interval k whenever
         * entry + width*k <= exit. Without the +1, an exit-entry that is an
         * exact multiple of width left the exit day itself uncovered.
-        gen double `nper' = ceil((`exit' - `entry' + 1) / `width')
+        gen double `nper' = ceil((`_tp_exit' - `_tp_entry' + 1) / `width')
         replace `nper' = 1 if `nper' < 1
         expand `nper'
         bysort `id': gen long `period' = _n - 1
         tempvar pstart pstop
-        gen double `pstart' = `entry' + `width' * `period'
-        gen double `pstop'  = min(`entry' + `width' * (`period' + 1) - 1, `exit')
+        gen double `pstart' = `_tp_entry' + `width' * `period'
+        gen double `pstop'  = min(`_tp_entry' + `width' * (`period' + 1) - 1, `_tp_exit')
         gen long `tp_row' = _n
         format `pstart' `pstop' %tdCCYY/NN/DD
         tempfile grid
@@ -240,80 +382,120 @@ program define tvpanel, rclass
     * whose within-person periods x episodes Cartesian blew up on dense data.
     * Equivalent because [pstart,pstart] overlaps [estart,estop] (closed) iff
     * estart <= pstart & estop >= pstart -- the exact former filter.
-    capture findfile _tvmerge_mata.ado
-    if _rc == 0 {
-        quietly run "`r(fn)'"
+    tempfile active
+    if `n_valid_episodes' == 0 {
+        quietly {
+            clear
+            set obs 0
+            generate long `tp_row' = .
+            generate double `tp_active' = .
+            save `active', replace
+        }
     }
     else {
-        noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
-        exit 111
-    }
-    quietly {
-        keep `tp_row' `id' `pstart'
-        gen long `tp_pobs' = _n
-        tempfile _tp_periods
-        save `_tp_periods', replace
+        capture findfile _tvmerge_mata.ado
+        if _rc == 0 {
+            quietly run "`r(fn)'"
+        }
+        else {
+            noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
+            exit 111
+        }
+        quietly {
+            use `grid', clear
+            keep `tp_row' `id' `pstart'
+            gen long `tp_pobs' = _n
+            tempfile _tp_periods
+            save `_tp_periods', replace
 
-        * id -> contiguous gid crosswalk shared by period rows and episodes
-        keep `id'
-        duplicates drop
-        gen long `tp_gid' = _n
-        tempfile _tp_xwalk
-        save `_tp_xwalk', replace
+            * id -> contiguous gid crosswalk shared by period rows and episodes
+            keep `id'
+            duplicates drop
+            gen long `tp_gid' = _n
+            tempfile _tp_xwalk
+            save `_tp_xwalk', replace
 
-        * master work frame: gid, low=pstart, high=pstart, obs
-        use `_tp_periods', clear
-        merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-        gen double `tp_plo' = `pstart'
-        gen double `tp_phi' = `pstart'
-        frame put `tp_gid' `tp_plo' `tp_phi' `tp_pobs', into(`_tp_master_frame')
-        frame `_tp_master_frame': order `tp_gid' `tp_plo' `tp_phi' `tp_pobs'
+            * Retain only episodes whose ids occur in the panel. A nonempty
+            * episode source with no matching ids is still a valid all-reference
+            * panel and must not send an empty frame through the overlap engine.
+            use `epi', clear
+            merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
+            gen long `tp_eobs' = _n
+            tempfile _tp_epi_idx
+            save `_tp_epi_idx', replace
+            count
+            local n_matched_episodes = r(N)
 
-        * using work frame: gid, ulo=estart, uhi=estop, obs. Drop missing-estart
-        * episodes so behaviour matches the former start <= pstart filter
-        * (a missing estart never satisfied it; a missing estop matched, and the
-        * engine maps missing -> +inf, so open upper bounds still match).
-        use `epi', clear
-        drop if missing(`tp_estart')
-        gen long `tp_eobs' = _n
-        tempfile _tp_epi_idx
-        save `_tp_epi_idx', replace
-        merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-        frame put `tp_gid' `tp_estart' `tp_estop' `tp_eobs', into(`_tp_using_frame')
-        frame `_tp_using_frame': order `tp_gid' `tp_estart' `tp_estop' `tp_eobs'
+            if `n_matched_episodes' == 0 {
+                clear
+                set obs 0
+                generate long `tp_row' = .
+                generate double `tp_active' = .
+                save `active', replace
+            }
+            else {
+                frame put `tp_gid' `tp_estart' `tp_estop' `tp_eobs', ///
+                    into(`_tp_using_frame')
+                frame `_tp_using_frame': order `tp_gid' `tp_estart' ///
+                    `tp_estop' `tp_eobs'
 
-        * overlap sweep -> (period, episode) point-in-interval pairs
-        frame create `_tp_output_frame'
-        _tvmerge_overlap_pairs `_tp_master_frame' `_tp_using_frame' `_tp_output_frame'
-        tempfile _tp_pairs
-        frame `_tp_output_frame': save `_tp_pairs', replace
-        frame drop `_tp_master_frame'
-        frame drop `_tp_using_frame'
-        frame drop `_tp_output_frame'
+                * master work frame: gid, low=pstart, high=pstart, obs
+                use `_tp_periods', clear
+                merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
+                gen double `tp_plo' = `pstart'
+                gen double `tp_phi' = `pstart'
+                frame put `tp_gid' `tp_plo' `tp_phi' `tp_pobs', ///
+                    into(`_tp_master_frame')
+                frame `_tp_master_frame': order `tp_gid' `tp_plo' ///
+                    `tp_phi' `tp_pobs'
 
-        * latest-start (then highest class) wins, exactly as before
-        use `_tp_pairs', clear
-        rename __tvm_mi `tp_pobs'
-        rename __tvm_ui `tp_eobs'
-        merge m:1 `tp_pobs' using `_tp_periods', keep(match) nogenerate ///
-            keepusing(`tp_row')
-        merge m:1 `tp_eobs' using `_tp_epi_idx', keep(match) nogenerate ///
-            keepusing(`tp_estart' `tp_eclass')
-        bysort `tp_row' (`tp_estart' `tp_eclass'): keep if _n == _N
-        gen long `tp_active' = `tp_eclass'
-        keep `tp_row' `tp_active'
-        tempfile active
-        save `active', replace
+                * overlap sweep -> (period, episode) point-in-interval pairs
+                frame create `_tp_output_frame'
+                _tvmerge_overlap_pairs `_tp_master_frame' `_tp_using_frame' ///
+                    `_tp_output_frame'
+                tempfile _tp_pairs
+                frame `_tp_output_frame': save `_tp_pairs', replace
+                frame drop `_tp_master_frame'
+                frame drop `_tp_using_frame'
+                frame drop `_tp_output_frame'
+
+                * Latest-start (then highest class) wins. The sweep can return
+                * no pairs when all episodes lie outside every interval start.
+                use `_tp_pairs', clear
+                count
+                if r(N) == 0 {
+                    clear
+                    set obs 0
+                    generate long `tp_row' = .
+                    generate double `tp_active' = .
+                }
+                else {
+                    rename __tvm_mi `tp_pobs'
+                    rename __tvm_ui `tp_eobs'
+                    merge m:1 `tp_pobs' using `_tp_periods', ///
+                        keep(match) nogenerate keepusing(`tp_row')
+                    merge m:1 `tp_eobs' using `_tp_epi_idx', ///
+                        keep(match) nogenerate ///
+                        keepusing(`tp_estart' `tp_eclass')
+                    bysort `tp_row' (`tp_estart' `tp_eclass'): ///
+                        keep if _n == _N
+                    gen double `tp_active' = `tp_eclass'
+                    keep `tp_row' `tp_active'
+                }
+                save `active', replace
+            }
+        }
     }
 
     * --- Per-class cumulative exposure as of interval start (optional) ---
     local cumvars ""
-    if "`cumulative'" != "" {
+    local have_cum_rows 0
+    if "`cumulative'" != "" & "`cumclasses'" != "" {
         quietly {
             use `grid', clear
             keep `tp_row' `id' `pstart'
-            joinby `id' using `epi'
-            keep if `tp_estart' < `pstart' & `tp_eclass' != `reference'
+            joinby `id' using `epi_union'
+            keep if `tp_estart' < `pstart'
             gen double `tp_days' = max(0, min(`tp_estop', `pstart' - 1) - `tp_estart' + 1)
             keep if `tp_days' > 0
             count
@@ -322,8 +504,8 @@ program define tvpanel, rclass
                 reshape wide `tp_days', i(`tp_row') j(`tp_eclass')
                 tempfile cum
                 save `cum', replace
+                local have_cum_rows 1
             }
-            else local cumulative ""
         }
     }
 
@@ -339,17 +521,24 @@ program define tvpanel, rclass
             else label values `generate' `explbl'
         }
 
-        if "`cumulative'" != "" {
+        if `have_cum_rows' {
             merge 1:1 `tp_row' using `cum', nogen keep(1 3)
-            ds `tp_days'*
-            foreach d in `r(varlist)' {
-                local cls = subinstr("`d'", "`tp_days'", "", 1)
+        }
+        if "`cumulative'" != "" {
+            foreach cls of local cumclasses {
+                local d "`tp_days'`cls'"
                 local cv "`prefix'cum_`cls'"
-                gen double `cv' = `d' / `cumdiv'
+                capture confirm variable `d'
+                if _rc generate double `cv' = 0
+                else {
+                    gen double `cv' = `d' / `cumdiv'
+                    drop `d'
+                }
                 replace `cv' = 0 if missing(`cv')
                 label variable `cv' "Cumulative class `cls' exposure (`cumlower') as of interval start"
+                char `cv'[tvtools_quantity] "cumulative"
+                char `cv'[tvtools_history_point] "start"
                 local cumvars "`cumvars' `cv'"
-                drop `d'
             }
         }
 
@@ -405,6 +594,16 @@ program define tvpanel, rclass
     return scalar n_persons = `n_persons'
     return scalar n_observations = `n_obs'
     return scalar width = `width'
+    return scalar n_invalid = `n_invalid_master' + `n_invalid_episodes'
+    return scalar n_invalid_master = `n_invalid_master'
+    return scalar n_invalid_master_id = `n_invalid_master_id'
+    return scalar n_invalid_master_dates = `n_invalid_master_dates'
+    return scalar n_invalid_master_order = `n_invalid_master_order'
+    return scalar n_invalid_episodes = `n_invalid_episodes'
+    return scalar n_invalid_episode_id = `n_invalid_episode_id'
+    return scalar n_invalid_episode_dates = `n_invalid_episode_dates'
+    return scalar n_invalid_episode_order = `n_invalid_episode_order'
+    return scalar n_invalid_episode_exposure = `n_invalid_episode_exposure'
     return local periodvar  "`period'"
     return local startvar   "`startgen'"
     return local stopvar    "`stopgen'"

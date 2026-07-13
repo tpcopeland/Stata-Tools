@@ -26,6 +26,7 @@ and {cmd:regtab} frames
 {cmd:,}
 {opt modelframes(framelist)}
 {cmd:rows(}{it:string}{cmd:)}
+[{opt outcomemap(string)}]
 [{it:options}]
 
 {p 8 17 2}
@@ -34,6 +35,7 @@ and {cmd:regtab} frames
 {cmd:,}
 {opt modelframes(framelist)}
 {opt rown:ames(string)}
+[{opt outcomemap(string)}]
 [{it:options}]
 
 
@@ -42,36 +44,37 @@ and {cmd:regtab} frames
 {synoptline}
 {syntab:Required}
 {synopt:{it:rateframe}}frame created by {helpb stratetab} with {cmd:frame()}{p_end}
-{synopt:{opt modelframes(framelist)}}space-separated list of frames created by {helpb regtab} with {cmd:frame()}{p_end}
-{synopt:{opt rows(string)}}backslash-separated row specifications, one per model frame{p_end}
-{synopt:{opt rown:ames(string)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
+{synopt:{opt modelframes(framelist)}}regtab source frames{p_end}
+{synopt:{opt rows(string)}}row selections, one per model frame{p_end}
+{synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
+{synopt:{opt outcomemap(string)}}map rate outcomes to model identities{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{opt fra:me(name)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame for {helpb eplot}; model frames must have been created by {cmd:regtab} with {opt eplotframe()}{p_end}
-{synopt:{opt forest}}draw an {helpb eplot} forest plot from the companion frame; requires the separate {cmd:eplot} package{p_end}
-{synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
-{synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt fra:me(name)}}save output in a named Stata frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame for eplot{p_end}
+{synopt:{opt forest}}draw an eplot forest plot from the companion frame{p_end}
+{synopt:{opt eploto:ptions(string asis)}}pass options to eplot{p_end}
+{synopt:{opt open}}open Excel file after export{p_end}
 
 {syntab:Content}
-{synopt:{opt title(string)}}table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}
+{synopt:{opt title(string)}}table title for cell A1{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
 {synopt:{opt eff:ect(string)}}header label for the effect column; default {cmd:aHR}{p_end}
-{synopt:{opt refl:abel(string)}}text for inferred reference rows; default {cmd:Reference}{p_end}
+{synopt:{opt refl:abel(string)}}text for inferred reference rows{p_end}
 
 {syntab:Formatting}
-{synopt:{opt the:me(string)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}shade the 2 header rows{p_end}
-{synopt:{opt headerc:olor(string)}}supported Stata color name or RGB triplet for header rows{p_end}
-{synopt:{opt zebrac:olor(string)}}supported Stata color name or RGB triplet for zebra shading{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synoptline}
 
 
@@ -118,6 +121,15 @@ model block per outcome in the rate frame. Standard {cmd:regtab} frames
 are both supported, but all model frames in one call must share the same layout.
 
 {pstd}
+Before values are combined, {cmd:hrcomptab} verifies confidence-level,
+statistic-order, outcome-identity, and hazard-ratio-scale metadata. Model blocks
+are matched to rate outcomes by the machine-readable outcome identities stored
+by {cmd:stratetab} and {cmd:regtab}; they are never assigned only by position, so use
+{opt outcomemap()} when the two sources use different identities. A missing,
+duplicate, ambiguous, non-hazard-ratio, or mixed-confidence mapping is rejected
+before any requested output is replaced.{p_end}
+
+{pstd}
 For forest plots, create each model table with both {opt frame()} and
 {opt eplotframe()}. {cmd:hrcomptab, eplotframe()} maps those selected model effects onto
 the rate scaffold and records section/reference rows for
@@ -158,16 +170,92 @@ column ({cmd:A}) of each model frame. Use one backslash-separated specification
 per frame. Choose unambiguous tokens, or quote multi-word phrases, when labels
 share common digits or prefixes.
 
+{phang}
+{opt outcomemap(string)} supplies one backslash-separated model identity for
+each rate outcome, in rate-frame order. Each token must uniquely match a
+persisted model ID, model outcome ID, or model label in every
+{opt modelframes()} source, and two rate outcomes may not map to the same model
+block. Without this option, each rate outcome ID must uniquely match the
+corresponding model outcome ID.
+
 {dlgtab:Content}
 
 {phang}
-{opt effect(string)} controls the header text for the injected effect
-column. Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
+{opt effect(string)} controls the header text for the injected hazard-ratio
+column. Default is {cmd:aHR}; {cmd:HR}, {cmd:hazard ratio}, and
+{cmd:adjusted hazard ratio} are also accepted. Other effect scales are rejected
+because {cmd:hrcomptab} is specifically a hazard-ratio composite.
 
 {phang}
 {opt reflabel(string)} controls the text shown in inferred reference rows. Default
 is {cmd:Reference}.
 
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+
+{phang}
+{opt csv(filename)} export the composite table to a CSV file{p_end}
+
+{phang}
+{opt eplotf:rame(name[, replace])} save a graph-ready companion frame for {helpb eplot}; model
+frames must have been created by {cmd:regtab} with {opt eplotframe()}{p_end}
+
+{phang}
+{opt eploto:ptions(string asis)} pass additional options to {cmd:eplot} when {opt forest} is
+specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
+
+{phang}
+{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+
+{phang}
+{opt foot:note(string)} footnote text below the table{p_end}
+
+{phang}
+{opt forest} draw an {helpb eplot} forest plot from the companion frame; requires the separate
+{cmd:eplot} package{p_end}
+
+{phang}
+{opt fra:me(name)} save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
+
+{phang}
+{opt headerc:olor(string)} supported Stata color name or RGB triplet for header rows{p_end}
+
+{phang}
+{opt headers:hade} shade the 2 header rows{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel, CSV, and frame exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt open} open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+
+{phang}
+{opt sheet(string)} Excel sheet name; default {cmd:"Composite"}{p_end}
+
+{phang}
+{opt the:me(string)} journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama},
+{it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
+
+{phang}
+{opt title(string)} table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}
+
+{phang}
+{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}{p_end}
+
+{phang}
+{opt zebra} alternating row shading{p_end}
+
+{phang}
+{opt zebrac:olor(string)} supported Stata color name or RGB triplet for zebra shading{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -235,6 +323,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(N_sections)}}number of scaffold sections{p_end}
 {synopt:{cmd:r(N_modelrows)}}number of selected model rows injected{p_end}
 {synopt:{cmd:r(N_modelframes)}}number of source model frames{p_end}
+{synopt:{cmd:r(ci_level)}}confidence level shared by all source frames{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown (if exported){p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown (if exported){p_end}
 
@@ -247,7 +336,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
-{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name, when {cmd:eplotframe()} specified{p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 
 
 {marker author}{...}

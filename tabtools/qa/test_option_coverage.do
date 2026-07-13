@@ -343,14 +343,20 @@ capture noisily {
     label values exposure oc_exp
     tempfile r1
     save "`r1'.dta", replace
-    stratetab, using("`r1'") outcomes(1) frame(oc_rates, replace)
+    stratetab, using("`r1'") outcomes(1) outcomeids(_t) ///
+        frame(oc_rates, replace)
     * regtab model frame
-    sysuse auto, clear
-    gen byte treated = foreign
+    clear
+    set obs 100
+    set seed 20260713
+    gen byte treated = mod(_n, 2)
+    gen double follow = exp(-0.4 * treated + rnormal())
+    gen byte failed = 1
+    stset follow, failure(failed)
     collect clear
-    collect: logistic foreign mpg weight
+    collect: stcox treated
     capture frame drop oc_mod
-    regtab, frame(oc_mod) noint
+    regtab, frame(oc_mod) noint coef(HR)
     hrcomptab oc_rates, modelframes(oc_mod) rows(1) effect("aHR") ///
         csv("`out'/hrcomptab.csv") footnote("note") borderstyle(academic) ///
         zebra zebracolor("240 245 250") frame(oc_hrc1, replace)

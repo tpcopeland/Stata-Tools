@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "lanes": {
+    "quick": {
+      "budget_seconds": 3600,
+      "suites": [
+        {"name": "test_errors", "timeout_seconds": 600},
+        {"name": "test_audit_remediation", "timeout_seconds": 2400},
+        {"name": "test_expected_resampling_failure", "timeout_seconds": 300, "expected_resampling_failures_min": 1, "expected_resampling_failures_max": 100},
+        {"name": "test_gcomptab_regressions", "timeout_seconds": 600},
+        {"name": "test_refactor_bootstrap_dispatch", "timeout_seconds": 600},
+        {"name": "test_refactor_msm_omitted", "timeout_seconds": 600},
+        {"name": "test_refactor_display_golden", "timeout_seconds": 600},
+        {"name": "test_refactor_gcomptab_geometry", "timeout_seconds": 600}
+      ]
+    },
+    "core": {
+      "budget_seconds": 5400,
+      "suites": [
+        {"name": "test_gcomp", "timeout_seconds": 1800},
+        {"name": "test_adversarial_gcomp", "timeout_seconds": 1200},
+        {"name": "test_gcomp_validation", "timeout_seconds": 600},
+        {"name": "test_gcomp_diagnostics", "timeout_seconds": 900},
+        {"name": "test_interactions", "timeout_seconds": 1200},
+        {"name": "test_gcomp_imputation_mlogit", "timeout_seconds": 900},
+        {"name": "test_gcomptab_doseresponse", "timeout_seconds": 600},
+        {"name": "test_gcomptab_text_export", "timeout_seconds": 600},
+        {"name": "test_models", "timeout_seconds": 600},
+        {"name": "test_adversarial_gcomptab", "timeout_seconds": 900},
+        {"name": "validation_adversarial_gcomp", "timeout_seconds": 600},
+        {"name": "validation_extra", "timeout_seconds": 1200},
+        {"name": "validation_gcomp", "timeout_seconds": 1800},
+        {"name": "validation_timevarying", "timeout_seconds": 900}
+      ]
+    },
+    "external": {
+      "budget_seconds": 7200,
+      "suites": [
+        {"name": "crossval_fixture_provenance", "timeout_seconds": 2400},
+        {"name": "crossval_gcomp", "timeout_seconds": 1200},
+        {"name": "crossval_external_replication", "timeout_seconds": 1200},
+        {"name": "crossval_mediation_se", "timeout_seconds": 1800},
+        {"name": "crossval_timevarying_se", "timeout_seconds": 1800},
+        {"name": "crossval_intervention_imputation", "timeout_seconds": 1800},
+        {"name": "crossval_timevarying", "timeout_seconds": 900},
+        {"name": "crossval_longitudinal_extended", "timeout_seconds": 1800},
+        {"name": "crossval_mediation_extended", "timeout_seconds": 1800}
+      ]
+    },
+    "slow": {
+      "budget_seconds": 7200,
+      "suites": [
+        {"name": "test_stress", "timeout_seconds": 1800},
+        {"name": "validation_gcomp_recovery", "timeout_seconds": 1800},
+        {"name": "validation_gcomp_recovery_extended", "timeout_seconds": 2400},
+        {"name": "validation_gcomp_recovery_surface", "timeout_seconds": 3600},
+        {"name": "validation_peripartum_readiness", "timeout_seconds": 2400}
+      ]
+    },
+    "release": {
+      "budget_seconds": 2400,
+      "suites": [
+        {"name": "test_package_release", "timeout_seconds": 900},
+        {"name": "test_install_smoke", "timeout_seconds": 900},
+        {"name": "test_doc_examples", "timeout_seconds": 1200}
+      ]
+    },
+    "refactor": {
+      "budget_seconds": 2400,
+      "suites": [
+        {"name": "test_refactor_bootstrap_dispatch", "timeout_seconds": 600},
+        {"name": "test_refactor_msm_omitted", "timeout_seconds": 600},
+        {"name": "test_refactor_display_golden", "timeout_seconds": 600},
+        {"name": "test_refactor_gcomptab_geometry", "timeout_seconds": 600},
+        {"name": "test_audit_remediation", "timeout_seconds": 900}
+      ]
+    }
+  },
+  "aggregate_lanes": {
+    "full": ["quick", "core", "external", "slow", "release"]
+  },
+  "developer_gates": {
+    "visual": {
+      "command": "python3 run_visual.py",
+      "budget_seconds": 1500,
+      "dependencies": ["Stata", "Stata-Dev renderer", "LibreOffice", "pdftoppm", "Pillow", "numpy"],
+      "golden_directory": "baseline/render"
+    }
+  }
+}

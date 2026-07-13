@@ -126,7 +126,16 @@ capture noisily {
 
     set varabbrev on
     capture table1_tc
-    assert _rc == 198
+    assert _rc == 0
+    assert strpos(" `r(varlist)' ", " x ") > 0
+    assert c(varabbrev) == "on"
+
+    preserve
+    clear
+    capture table1_tc
+    local no_data_rc = _rc
+    restore
+    assert `no_data_rc' == 100
     assert c(varabbrev) == "on"
 
     capture table1_tc x, by(group) vars(x nonsense)
@@ -313,7 +322,7 @@ capture noisily {
     collect clear
     set varabbrev on
     capture regtab
-    assert _rc == 2000
+    assert _rc == 459
     assert c(varabbrev) == "on"
 
     sysuse auto, clear
@@ -358,7 +367,7 @@ capture noisily {
     collect clear
     set varabbrev on
     capture effecttab
-    assert _rc == 198
+    assert _rc == 459
     assert c(varabbrev) == "on"
 
     matrix bad_eff = J(1, 3, .)
@@ -1362,12 +1371,14 @@ capture noisily {
     tempfile rate1
     _make_exportfail_strate, basename("`rate1'")
     clear
-    stratetab, using("`rate1'") outcomes(1) frame(ef_rates, replace)
+    stratetab, using("`rate1'") outcomes(1) outcomeids(_t) ///
+        frame(ef_rates, replace)
 
     sysuse auto, clear
+    stset price, failure(foreign)
     collect clear
-    collect: logistic foreign mpg weight
-    regtab, frame(ef_model, replace) coef(OR)
+    collect: stcox mpg weight
+    regtab, frame(ef_model, replace) coef(HR)
 
     return clear
     capture noisily hrcomptab ef_rates, modelframes(ef_model) rows(1 2) ///

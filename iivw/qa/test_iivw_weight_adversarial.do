@@ -115,7 +115,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _adv_panel
-        iivw_weight, id(id) time(months) visit_cov(severity marker) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) nolog
         assert "`r(weighttype)'" == "iivw"
         confirm variable _iivw_iw
         capture confirm variable _iivw_tw
@@ -135,7 +135,7 @@ if `run_only' == 0 | `run_only' == 1 {
             treat(treated)
 
         _adv_panel
-        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
             treat(treated) treat_cov(sev_bl marker_bl) nolog
         assert "`r(weighttype)'" == "fiptiw"
         confirm variable _iivw_iw
@@ -163,13 +163,13 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _adv_panel
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) wtype(bogus) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
         _adv_panel
-        capture noisily iivw_weight, id(id) time(months) wtype(iivw) nolog
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) wtype(iivw) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
@@ -180,7 +180,7 @@ if `run_only' == 0 | `run_only' == 2 {
         _assert_no_weight_outputs
 
         _adv_panel
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) wtype(fiptiw) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -201,7 +201,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _adv_panel, n_ids(48) visits(5) seed(3101)
-        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
             generate(raw_) nolog
         _pctile raw_weight, percentiles(10 90)
         local p10 = r(r1)
@@ -211,18 +211,18 @@ if `run_only' == 0 | `run_only' == 3 {
         quietly count if raw_weight > `p90' & !missing(raw_weight)
         local n_high = r(N)
 
-        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
             truncate(10 90) nolog
         assert r(n_truncated) == `n_low' + `n_high'
         quietly summarize _iivw_weight
         assert r(min) >= `p10' - 1e-10
         assert r(max) <= `p90' + 1e-10
 
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) truncate(90 10) replace nolog
         assert _rc == 198
 
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) truncate(-1 99) replace nolog
         assert _rc == 198
     }
@@ -274,12 +274,12 @@ if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _adv_panel
         gen double severity_lag1 = 99
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(marker) lagvars(severity) nolog
         assert _rc == 110
 
         drop severity_lag1
-        iivw_weight, id(id) time(months) visit_cov(marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(marker) ///
             lagvars(severity) nolog
         confirm variable severity_lag1
         bysort id (months): assert missing(severity_lag1) if _n == 1
@@ -303,20 +303,20 @@ if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _adv_panel
         bysort id (months): replace entry_ok = months[1] - 0.5
-        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
             entry(entry_ok) nolog
         assert r(N) == _N
 
         _adv_panel
         bysort id (months): gen double entry_bad = months[1]
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) entry(entry_bad) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
         _adv_panel
         bysort id (months): gen double entry_bad = months[1] + 0.01
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) entry(entry_bad) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -324,14 +324,14 @@ if `run_only' == 0 | `run_only' == 6 {
         _adv_panel
         gen double entry_bad = 0
         replace entry_bad = . if id == 1
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) entry(entry_bad) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
         _adv_panel
         bysort id (months): gen double entry_bad = months[1] - 0.5 + _n / 100
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) entry(entry_bad) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -353,14 +353,14 @@ if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _adv_panel
         replace id = . in 1
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
         _adv_panel
         replace months = . in 2
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -368,7 +368,7 @@ if `run_only' == 0 | `run_only' == 7 {
         _adv_panel
         replace months = months[1] in 2
         replace id = id[1] in 2
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -389,7 +389,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _adv_panel, n_ids(20) visits(1)
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -421,7 +421,7 @@ if `run_only' == 0 | `run_only' == 9 {
         _adv_panel, n_ids(24) visits(4)
         replace severity = . if id == 1 & visit == 1
         replace severity = . if id == 2 & visit == 3
-        iivw_weight, id(id) time(months) visit_cov(severity marker) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) nolog
         * id==1 v1 is a first obs with a missing covariate: it takes the
         * baseline-convention weight (shared across first obs after mean-1
         * normalization, no longer literally 1) and is not dropped
@@ -436,14 +436,14 @@ if `run_only' == 0 | `run_only' == 9 {
 
         _adv_panel
         replace treated = . if id == 1 & visit == 2
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) treat(treated) treat_cov(sev_bl) nolog
         assert _rc == 198
         _assert_no_weight_outputs
 
         _adv_panel
         replace treated = . if id == 1
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) treat(treated) treat_cov(sev_bl) nolog
         assert _rc == 198
         _assert_no_weight_outputs
@@ -465,12 +465,12 @@ if `run_only' == 0 | `run_only' == 10 {
     capture noisily {
         _adv_panel
         gen double alt_weight = 42
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) generate(alt_) nolog
         assert _rc == 110
 
         drop alt_weight
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             generate(alt_) nolog
         confirm variable alt_iw
         confirm variable alt_weight
@@ -479,7 +479,7 @@ if `run_only' == 0 | `run_only' == 10 {
 
         _adv_panel
         local long_prefix "abcdefghijklmnopqrstuvwx12"
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) treat(treated) treat_cov(sev_bl) ///
             generate(`long_prefix') nolog
         assert _rc == 198
@@ -510,12 +510,12 @@ if `run_only' == 0 | `run_only' == 11 {
     capture noisily {
         _adv_panel
         set varabbrev on
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         assert "`c(varabbrev)'" == "on"
 
         _adv_panel
         set varabbrev on
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) wtype(bad) nolog
         assert _rc == 198
         assert "`c(varabbrev)'" == "on"
@@ -543,7 +543,7 @@ if `run_only' == 0 | `run_only' == 12 {
         gen double months_before = months
         gen byte treated_before = treated
 
-        iivw_weight, id(id) time(months) visit_cov(severity marker) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
             treat(treated) treat_cov(sev_bl marker_bl) nolog
 
         assert order_before == _n
@@ -568,12 +568,12 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _adv_panel
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local weighted_before : char _dta[_iivw_weighted]
         assert "`weighted_before'" == "1"
 
         gen byte bad_treat = 2
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) treat(bad_treat) treat_cov(sev_bl) ///
             generate(bad_) nolog
         assert _rc == 198
@@ -627,7 +627,7 @@ if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
         _adv_panel, n_ids(30) visits(5) seed(1515)
         gen double severity_clone = 2 * severity
-        capture noisily iivw_weight, id(id) time(months) ///
+        capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity severity_clone) nolog
         local rc = _rc
         if `rc' == 0 {

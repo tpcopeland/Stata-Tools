@@ -527,7 +527,7 @@ capture noisily {
     survtab, times(10 20 30) by(drug) ///
         xlsx("`output_dir'/_val_survtab.xlsx") sheet("surv")
 
-    assert r(N_rows) == 9
+    assert r(N_rows) == 7
     assert rowsof(r(table)) == 3
     assert colsof(r(table)) == 3
     assert abs(r(table)[1,1] - 0.45) < 1e-10

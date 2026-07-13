@@ -8,18 +8,23 @@ Basic syntax:
   iivw_balance [varlist] [if] [in] [, options]
 
 Description:
-  Diagnoses whether inverse-intensity weights have enough leverage to be
-  informative and whether weighted person-time remains imbalanced on the
-  covariates used in the visit-intensity model.
+  Diagnoses whether inverse-intensity weights have enough leverage to matter,
+  how far they move the covariate composition of the observed visits, and --
+  the verdict -- whether the IIW-weighted visits reproduce the at-risk
+  person-time distribution they are supposed to represent.
 
 Options:
+  component(iiw|final) - which weight to describe (default iiw, the visit
+                     component; final is IIW x IPTW for FIPTIW)
   cvcut(#)         - CV threshold below which leverage is low (default 0.10)
   essratiocut(#)  - ESS/N threshold above which leverage is low (default 0.95)
-  smdcut(#)        - absolute standardized-difference cut (default 0.10)
-  agrefit          - also refit unweighted/weighted AG Cox models
-  level(#)         - confidence level for AG-refit HR intervals
-  nolog            - suppress Cox iteration log in AG refits
-  efron            - use Efron ties in AG refits
+  balcut(#)        - absolute target SMD above which the weighted visits do not
+                     reproduce the person-time target (default 0.10)
+  agrefit          - also display the refitted visit-intensity model's HRs
+                     (the refit itself always runs; the verdict rests on it)
+  level(#)         - confidence level for the refit HR intervals
+  nolog            - suppress the Cox iteration log in the refit
+  efron            - ignored; the refit replays the stored tie method
 
 See help iivw_balance for complete documentation
 */
@@ -29,7 +34,7 @@ program define iivw_balance, rclass
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
 
-    tempname __iivw_balance __iivw_hr_unweighted __iivw_hr_weighted
+    tempname __iivw_balance __iivw_hr_unweighted
     tempname __iivw_export_table
     local __iivw_export_frame_created = 0
     local __iivw_return_ok = 0
@@ -44,7 +49,8 @@ program define iivw_balance, rclass
 
     syntax [varlist(default=none numeric)] [if] [in] , ///
         [cvcut(real 0.10) essratiocut(real 0.95) ///
-         smdcut(real 0.10) AGRefit Level(cilevel) noLOG EFRon ///
+         COMPonent(string) BALcut(real 0.10) ///
+         AGRefit Level(cilevel) noLOG EFRon ///
          XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) ///
@@ -59,8 +65,26 @@ program define iivw_balance, rclass
         display as error "essratiocut() must be greater than 0 and less than or equal to 1"
         error 198
     }
-    if `smdcut' <= 0 {
-        display as error "smdcut() must be greater than 0"
+    if `balcut' <= 0 {
+        display as error "balcut() must be greater than 0"
+        error 198
+    }
+
+    * component() selects WHICH weight the diagnostics describe.
+    *
+    * For FIPTIW the stored analysis weight is IIW x IPTW. Summarizing that
+    * product and calling the result a visit-model diagnostic attributes pure
+    * treatment-weight variation to the visit process: with a constant IIW and a
+    * separated propensity model, the old default reported a weight CV of 0.77
+    * and a mean shift of 0.87 when the visit component did nothing at all.
+    * The visit component is iw_var, and that is what this command is about;
+    * the treatment component belongs to psdash.
+    if "`component'" == "" local component "iiw"
+    if !inlist("`component'", "iiw", "final") {
+        display as error "component() must be iiw or final"
+        display as error "  iiw   - the visit-intensity weight only (default; the visit-model diagnostic)"
+        display as error "  final - the stored analysis weight (IIW x IPTW for FIPTIW); a description of"
+        display as error "          the weights you will analyze with, NOT a verdict on the visit model"
         error 198
     }
     if "`decimals'" != "" {
@@ -89,11 +113,21 @@ program define iivw_balance, rclass
     local panel_id     "`r(id)'"
     local panel_time   "`r(time)'"
     local weighttype   "`r(weighttype)'"
-    local weight_var   "`r(weight_var)'"
+    local final_var    "`r(weight_var)'"
+    local iw_var       "`r(iw_var)'"
     local prefix       "`r(prefix)'"
     local visit_covars "`r(visit_covars)'"
     local rep_entry     "`r(entry)'"
     local rep_baseevent "`r(baseevent)'"
+    * Metadata written before this contract existed leaves the flag empty, and
+    * `if `rep_baseevent'' on an empty macro is a syntax error, not a false.
+    if "`rep_baseevent'" == "" local rep_baseevent = 0
+    local rep_stabcov   "`r(stabcov)'"
+    local rep_efron     "`r(efron)'"
+    local rep_lagvars   "`r(lagvars)'"
+    local rep_cens_mode "`r(censor_mode)'"
+    local rep_cens_var  "`r(censor_var)'"
+    local rep_maxfu     "`r(maxfu)'"
 
     if !inlist("`weighttype'", "iivw", "fiptiw") {
         display as error "iivw_balance requires weights with an IIW visit-intensity component"
@@ -105,6 +139,21 @@ program define iivw_balance, rclass
         display as error "visit-model covariates were not found in iivw metadata"
         display as error "rerun iivw_weight with this package version before iivw_balance"
         error 198
+    }
+
+    * Resolve the diagnostic weight (C8). Default: the visit component.
+    local weight_var "`iw_var'"
+    if "`component'" == "final" local weight_var "`final_var'"
+    if "`weight_var'" == "" {
+        display as error "the `component' weight variable was not found in iivw metadata"
+        display as error "rerun iivw_weight with this package version before iivw_balance"
+        error 198
+    }
+    capture confirm numeric variable `weight_var'
+    if _rc {
+        display as error "stored `component' weight variable `weight_var' not found"
+        display as error "rerun iivw_weight before iivw_balance"
+        error 111
     }
 
     foreach v of local visit_covars {
@@ -134,6 +183,15 @@ program define iivw_balance, rclass
     * string variable and the diagnostic dies with a misleading
     * "no observations".
     markout `touse' `panel_id' `panel_time' `weight_var', strok
+
+    * The row set for the visit-model refit: every row with a usable id and
+    * time, WITHOUT requiring a nonmissing weight. The refit rebuilds each
+    * subject's risk history, and a subject's terminal at-risk interval starts
+    * at their last visit -- which is their last visit whether or not that visit
+    * happened to receive a weight.
+    tempvar __iivw_rowset
+    marksample __iivw_rowset, novarlist
+    markout `__iivw_rowset' `panel_id' `panel_time', strok
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -190,14 +248,28 @@ program define iivw_balance, rclass
         local leverage "moderate"
     }
 
+    * COMPOSITION SHIFT -- descriptive, and deliberately NOT called an SMD.
+    *
+    * (weighted mean - unweighted mean) / unweighted SD measures how far the
+    * weights MOVED the covariate composition of the observed visits. It does
+    * not measure residual imbalance against any target, so it cannot support a
+    * good/poor verdict in either direction. The package's own known-truth DGP
+    * proves it: correct IIW moves the mean of Z from 0.36 toward the patient
+    * target 0.06 -- a shift of -0.60 -- and the old code called that "poor"
+    * balance and set Informative: 0, telling the user to disregard a correction
+    * that had just worked exactly as designed.
+    *
+    * A large movement proves neither success nor failure. So the shift is kept
+    * (it is genuinely useful -- it says how much work the weights did) and it is
+    * reported as `shift', with no verdict attached. The verdict now comes from
+    * the weighted visit-model refit below, which does have a defensible null.
     local n_covars : word count `balance_covars'
     matrix `__iivw_balance' = J(`n_covars', 8, .)
     matrix rownames `__iivw_balance' = `balance_covars'
-    matrix colnames `__iivw_balance' = unweighted_mean weighted_mean sd smd abs_smd N n_missing modeled
+    matrix colnames `__iivw_balance' = unweighted_mean weighted_mean sd shift abs_shift N n_missing modeled
 
-    local balance_max_smd = .
+    local balance_max_shift = .
     local modeled_finite = 0
-    local modeled_poor = 0
     local row = 0
 
     foreach v of local balance_covars {
@@ -214,8 +286,8 @@ program define iivw_balance, rclass
         local uw_mean = .
         local w_mean_cov = .
         local sd_cov = .
-        local smd = .
-        local abs_smd = .
+        local shift = .
+        local abs_shift = .
 
         if `n_cov' > 0 {
             quietly summarize `v' if `touse' & !missing(`v')
@@ -234,215 +306,395 @@ program define iivw_balance, rclass
             }
 
             if `sd_cov' > 0 & `sd_cov' < . & `w_mean_cov' < . {
-                local smd = (`w_mean_cov' - `uw_mean') / `sd_cov'
-                local abs_smd = abs(`smd')
+                local shift = (`w_mean_cov' - `uw_mean') / `sd_cov'
+                local abs_shift = abs(`shift')
             }
         }
 
         matrix `__iivw_balance'[`row', 1] = `uw_mean'
         matrix `__iivw_balance'[`row', 2] = `w_mean_cov'
         matrix `__iivw_balance'[`row', 3] = `sd_cov'
-        matrix `__iivw_balance'[`row', 4] = `smd'
-        matrix `__iivw_balance'[`row', 5] = `abs_smd'
+        matrix `__iivw_balance'[`row', 4] = `shift'
+        matrix `__iivw_balance'[`row', 5] = `abs_shift'
         matrix `__iivw_balance'[`row', 6] = `n_cov'
         matrix `__iivw_balance'[`row', 7] = `n_missing'
         matrix `__iivw_balance'[`row', 8] = `modeled'
 
-        if `modeled' & `abs_smd' < . {
+        if `modeled' & `abs_shift' < . {
             local modeled_finite = `modeled_finite' + 1
-            if `balance_max_smd' >= . | `abs_smd' > `balance_max_smd' {
-                local balance_max_smd = `abs_smd'
-            }
-            if `abs_smd' > `smdcut' {
-                local modeled_poor = 1
+            if `balance_max_shift' >= . | `abs_shift' > `balance_max_shift' {
+                local balance_max_shift = `abs_shift'
             }
         }
     }
 
-    if `modeled_finite' == 0 {
-        local balance_flag "poor"
+    * =====================================================================
+    * TARGET-BASED BALANCE -- the source of the balance verdict
+    * =====================================================================
+    * The composition shift above says how far the weights moved the observed
+    * visits. It cannot say whether they moved them to the RIGHT place, because
+    * it has no target. This does.
+    *
+    * WHAT THE TARGET IS. Buzkova & Lumley (2007, eq. 8, p.8) weight each
+    * observed visit by exp(-gamma'Z), and the visit intensity is
+    * lambda_0(t)exp(gamma'Z). The weight and the intensity cancel:
+    *
+    *   E[ sum_visits w_ij g(Z_ij) ] = E[ integral xi_i(t) g(Z_i(t)) dLambda_0(t) ]
+    *
+    * So under a correctly specified visit model, the IIW-WEIGHTED distribution
+    * of a covariate over the OBSERVED VISITS equals its distribution over the
+    * AT-RISK PERSON-TIME, measured in dLambda_0 units. That equality is the
+    * null, it is exact rather than asymptotic in form, and it is what a balance
+    * diagnostic for IIW is supposed to check. The target is a real reference
+    * distribution, not a rearrangement of the same visits.
+    *
+    * Two things make it computable, and both are recent:
+    *   - the at-risk person-time needs each subject's terminal at-risk interval
+    *     (censor()/maxfu()), which the risk set did not contain before;
+    *   - dLambda_0 comes from the fitted model's baseline cumulative hazard.
+    *
+    * WHAT THIS REPLACED, AND WHY NOT THE OBVIOUS THING. The obvious diagnostic
+    * -- refit the visit model with the IIW weights and check the coefficients
+    * are 0 -- is WRONG, and it is worth saying so because the old agrefit
+    * implied it. stcox with pweights applies the weight to the event term AND
+    * to the risk-set average. In the score at beta = 0 the weight cancels
+    * against the intensity in the first but not the second:
+    *
+    *   E[U(0)] = integral lambda_0 sum_i Y_i(t) [ Z_i - Zbar_w(t) ] dt
+    *
+    * which is not 0, because Zbar_w is the WEIGHTED risk-set mean while the
+    * outer sum is unweighted. Measured, on correctly weighted data: the
+    * unweighted visit-model HR was 1.523 and the IIW-weighted refit gave 1.537.
+    * It does not go to 1, and it was never going to. A weighted AG refit is
+    * therefore no longer reported: a statistic with no null cannot support a
+    * verdict, and reporting it beside an unweighted one invited exactly the
+    * comparison it cannot bear. (That also dissolves the Efron/Breslow mismatch
+    * between the two arms -- there is now only one arm, and it uses the stored
+    * tie method, so it reproduces the model that made the weights.)
+    * =====================================================================
+
+    local n_model_covars : word count `model_covars'
+    matrix `__iivw_hr_unweighted' = J(`n_model_covars', 6, .)
+    matrix rownames `__iivw_hr_unweighted' = `model_covars'
+    matrix colnames `__iivw_hr_unweighted' = hr lb ub b se rc
+
+    tempname __iivw_esthold
+    local __iivw_hold_ok = 0
+    local __iivw_restore_needed = 0
+    local __iivw_refit_ok = 0
+    local __iivw_ag_rc = 0
+    local zcrit = invnormal((100 + `level') / 200)
+    local balance_flag "unknown"
+    local balance_max_tsmd = .
+    local refit_N = .
+    local refit_ncens = 0
+
+    * Initialized BEFORE the captured block: the display reads these
+    * unconditionally, and a refit that errors early would otherwise leave them
+    * undefined and take the display down with it.
+    forvalues i = 1/`n_covars' {
+        local __iivw_tsmd_`i' = .
+        local __iivw_tmean_`i' = .
+        local __iivw_wmean_`i' = .
     }
-    else if `modeled_poor' {
-        local balance_flag "poor"
+
+    if "`efron'" != "" {
+        display as text "note: efron is ignored by iivw_balance; the visit-model refit replays the"
+        display as text "  tie method stored by iivw_weight, so that it reproduces the model that"
+        display as text "  actually produced the weights."
     }
-    else {
-        local balance_flag "good"
+
+    * The refit must not clobber the caller's active estimation results.
+    capture _estimates hold `__iivw_esthold', nullok
+    local __iivw_hold_rc = _rc
+    if `__iivw_hold_rc' != 0 {
+        display as error "could not preserve active estimation results"
+        error `__iivw_hold_rc'
     }
+    local __iivw_hold_ok = 1
 
-    local informative = inlist("`leverage'", "moderate", "adequate") & ///
-        "`balance_flag'" == "good"
+    capture noisily {
+        preserve
+        local __iivw_restore_needed = 1
 
-    if "`agrefit'" != "" {
-        local n_model_covars : word count `model_covars'
-        matrix `__iivw_hr_unweighted' = J(`n_model_covars', 6, .)
-        matrix `__iivw_hr_weighted' = J(`n_model_covars', 6, .)
-        matrix rownames `__iivw_hr_unweighted' = `model_covars'
-        matrix rownames `__iivw_hr_weighted' = `model_covars'
-        matrix colnames `__iivw_hr_unweighted' = hr lb ub b se rc
-        matrix colnames `__iivw_hr_weighted' = hr lb ub b se rc
+        * Build the AG rows from every row with a usable id/time -- NOT from
+        * `touse', which also requires a nonmissing weight. iivw_weight built its
+        * risk set the same way and screened covariate missingness only at the
+        * model, so screening earlier here would attach a subject's terminal
+        * at-risk interval to the wrong visit.
+        keep if `__iivw_rowset'
+        sort `panel_id' `panel_time'
 
-        tempname __iivw_esthold
-        local __iivw_hold_ok = 0
-        local __iivw_restore_needed = 0
-        local zcrit = invnormal((100 + `level') / 200)
-
-        * Replay the stored weighting contract when rebuilding the AG
-        * intervals: entry() start times and the nobaseevent baseline
-        * exclusion must match the weight-generating model, or the refit
-        * compares hazard ratios over different risk sets.
-        local __iivw_ag_nobase = ("`rep_baseevent'" == "1")
-        local __iivw_ag_entry ""
-        if !`__iivw_ag_nobase' & "`rep_entry'" != "" {
-            capture confirm numeric variable `rep_entry'
-            if _rc {
-                display as error "stored entry() variable `rep_entry' not found"
-                display as error "rerun iivw_weight or restore it before using agrefit"
-                error 111
-            }
-            local __iivw_ag_entry "`rep_entry'"
+        tempvar __iivw_start __iivw_stop __iivw_event
+        tempvar __iivw_censrow __iivw_isfirst
+        if "`rep_entry'" != "" {
+            tempvar __iivw_entry_val
+            bysort `panel_id' (`panel_time'): gen double ///
+                `__iivw_entry_val' = `rep_entry'[1]
+            bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
+                cond(_n == 1, `__iivw_entry_val', `panel_time'[_n-1])
         }
-
-        * Efron ties are illegal with pweighted stcox (rc 101), so the weighted
-        * AG refit always uses Breslow; efron applies to the unweighted refit
-        * only.  Note this once rather than letting the weighted refit fail.
-        if "`efron_opt'" != "" {
-            display as text "note: efron applies to the unweighted AG " ///
-                "refit only; the weighted refit uses Breslow ties " ///
-                "(pweights preclude Efron)"
+        else {
+            bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
+                cond(_n == 1, 0, `panel_time'[_n-1])
         }
+        gen double `__iivw_stop' = `panel_time'
+        gen byte `__iivw_event' = 1
+        gen byte `__iivw_censrow' = 0
+        bysort `panel_id' (`panel_time'): gen byte `__iivw_isfirst' = (_n == 1)
 
-        capture _estimates hold `__iivw_esthold', nullok
-        local __iivw_hold_rc = _rc
-        if `__iivw_hold_rc' != 0 {
-            display as error "could not preserve active estimation results"
-            error `__iivw_hold_rc'
-        }
-        local __iivw_hold_ok = 1
-
-        capture noisily {
-            preserve
-            local __iivw_restore_needed = 1
-            keep if `touse'
-            sort `panel_id' `panel_time'
-
-            tempvar __iivw_start __iivw_stop __iivw_event
-            if "`__iivw_ag_entry'" != "" {
-                tempvar __iivw_entry_val
-                bysort `panel_id' (`panel_time'): gen double ///
-                    `__iivw_entry_val' = `__iivw_ag_entry'[1]
-                bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
-                    cond(_n == 1, `__iivw_entry_val', `panel_time'[_n-1])
+        * The terminal at-risk interval, with ITS OWN covariates.
+        *
+        * Buzkova & Lumley require the weight to be a deterministic function of
+        * the covariate path Z_i(t) (p.7, p.10), so the interval (last visit, C]
+        * carries the covariate values in force over it. For a LAGGED covariate
+        * that is the source variable's value AT the last visit -- which is NOT
+        * the last visit row's lag column, since that one holds the value from
+        * the visit BEFORE it. Carrying the last row's lag forward would be
+        * wrong by exactly one visit, which is why iivw_weight records lagvars()
+        * and why the lag columns are rebuilt from their sources here.
+        if !inlist("`rep_cens_mode'", "", "lastvisit") {
+            tempvar __iivw_censt __iivw_lastrow __iivw_newrow
+            if "`rep_cens_mode'" == "maxfu" {
+                gen double `__iivw_censt' = `rep_maxfu'
             }
             else {
-                bysort `panel_id' (`panel_time'): gen double `__iivw_start' = ///
-                    cond(_n == 1, 0, `panel_time'[_n-1])
+                capture confirm numeric variable `rep_cens_var'
+                if _rc {
+                    display as error "stored censor() variable `rep_cens_var' not found"
+                    display as error "restore it, or rerun iivw_weight, before iivw_balance"
+                    error 111
+                }
+                bysort `panel_id' (`panel_time'): gen double ///
+                    `__iivw_censt' = `rep_cens_var'[1]
             }
-            gen double `__iivw_stop' = `panel_time'
-            gen byte `__iivw_event' = 1
-            if `__iivw_ag_nobase' {
-                * The weight model treated the baseline visit as study entry,
-                * not a modeled event; mirror that in the refit risk sets.
-                bysort `panel_id' (`panel_time'): drop if _n == 1
-            }
-            keep if !missing(`__iivw_start', `__iivw_stop') & ///
-                `__iivw_stop' > `__iivw_start'
+            bysort `panel_id' (`panel_time'): gen byte ///
+                `__iivw_lastrow' = (_n == _N)
+            expand 2 if `__iivw_lastrow' & `__iivw_censt' > `__iivw_stop' & ///
+                !missing(`__iivw_censt'), gen(`__iivw_newrow')
+            quietly count if `__iivw_newrow'
+            local refit_ncens = r(N)
 
-            local hrow = 0
-            foreach v of local model_covars {
-                local ++hrow
-                quietly count if !missing(`v', `weight_var', ///
-                    `__iivw_start', `__iivw_stop') & ///
-                    `__iivw_stop' > `__iivw_start'
-                local n_ag = r(N)
-                if `n_ag' < 2 {
-                    matrix `__iivw_hr_unweighted'[`hrow', 6] = 2001
-                    matrix `__iivw_hr_weighted'[`hrow', 6] = 2001
-                    continue
-                }
+            quietly replace `__iivw_start'   = `__iivw_stop'  if `__iivw_newrow'
+            quietly replace `__iivw_stop'    = `__iivw_censt' if `__iivw_newrow'
+            quietly replace `__iivw_event'   = 0              if `__iivw_newrow'
+            quietly replace `__iivw_censrow' = 1              if `__iivw_newrow'
+            quietly replace `__iivw_isfirst' = 0              if `__iivw_newrow'
+            quietly replace `panel_time'     = `__iivw_censt' if `__iivw_newrow'
 
-                quietly summarize `v' if !missing(`v', `weight_var', ///
-                    `__iivw_start', `__iivw_stop') & ///
-                    `__iivw_stop' > `__iivw_start'
-                if r(sd) <= 0 | r(sd) >= . {
-                    matrix `__iivw_hr_unweighted'[`hrow', 6] = 2000
-                    matrix `__iivw_hr_weighted'[`hrow', 6] = 2000
-                    noisily display as text "note: `v' has no usable variation for AG refit; skipped"
-                    continue
-                }
-
-                quietly stset `__iivw_stop', enter(time `__iivw_start') ///
-                    failure(`__iivw_event') id(`panel_id') exit(time .)
-
-                * Cluster on the subject id: Andersen-Gill intervals are
-                * correlated within subject, so naive SEs are anti-conservative.
-                capture noisily stcox `v', level(`level') ///
-                    vce(cluster `panel_id') `log_opt' `efron_opt'
-                local hr_rc = _rc
-                matrix `__iivw_hr_unweighted'[`hrow', 6] = `hr_rc'
-                if `hr_rc' == 0 {
-                    local b = _b[`v']
-                    local se = _se[`v']
-                    matrix `__iivw_hr_unweighted'[`hrow', 1] = exp(`b')
-                    matrix `__iivw_hr_unweighted'[`hrow', 2] = exp(`b' - `zcrit' * `se')
-                    matrix `__iivw_hr_unweighted'[`hrow', 3] = exp(`b' + `zcrit' * `se')
-                    matrix `__iivw_hr_unweighted'[`hrow', 4] = `b'
-                    matrix `__iivw_hr_unweighted'[`hrow', 5] = `se'
-                }
-                else {
-                    noisily display as text "note: unweighted AG refit failed for `v' (rc=`hr_rc'); skipped"
-                }
-
-                * Note: stset id() rejects pweights that vary within id (rc 459).
-                * IIW weights are visit-specific, so the weighted AG refit drops
-                * id() from stset and fits stcox on the (start, stop] intervals
-                * directly. The counting-process intervals still define the
-                * recurrent-event risk sets, so the HR point estimates are
-                * identical to a properly-clustered fit; cluster-robust SEs are
-                * requested on stcox itself via vce(cluster) below.
-                quietly stset `__iivw_stop' [pw=`weight_var'], ///
-                    enter(time `__iivw_start') failure(`__iivw_event') ///
-                    exit(time .)
-
-                * Breslow forced: stcox forbids efron with pweights (rc 101).
-                * Cluster on the subject id so the (start, stop] intervals of a
-                * subject share a variance contribution (matches unweighted path).
-                capture noisily stcox `v', level(`level') ///
-                    vce(cluster `panel_id') `log_opt'
-                local hr_rc = _rc
-                matrix `__iivw_hr_weighted'[`hrow', 6] = `hr_rc'
-                if `hr_rc' == 0 {
-                    local b = _b[`v']
-                    local se = _se[`v']
-                    matrix `__iivw_hr_weighted'[`hrow', 1] = exp(`b')
-                    matrix `__iivw_hr_weighted'[`hrow', 2] = exp(`b' - `zcrit' * `se')
-                    matrix `__iivw_hr_weighted'[`hrow', 3] = exp(`b' + `zcrit' * `se')
-                    matrix `__iivw_hr_weighted'[`hrow', 4] = `b'
-                    matrix `__iivw_hr_weighted'[`hrow', 5] = `se'
-                }
-                else {
-                    noisily display as text "note: weighted AG refit failed for `v' (rc=`hr_rc'); skipped"
+            foreach v of local rep_lagvars {
+                local __iivw_lagname "`v'_lag1"
+                capture confirm numeric variable `__iivw_lagname'
+                if _rc == 0 {
+                    quietly replace `__iivw_lagname' = `v' if `__iivw_newrow'
                 }
             }
         }
-        local __iivw_ag_rc = _rc
-        if `__iivw_restore_needed' {
-            capture restore
-            local __iivw_restore_rc = _rc
-            local __iivw_restore_needed = 0
-            if `__iivw_ag_rc' == 0 & `__iivw_restore_rc' != 0 {
-                local __iivw_ag_rc = `__iivw_restore_rc'
-            }
+
+        if `rep_baseevent' == 1 {
+            * baseline(entry): the first visit was study entry, not a modeled
+            * event. Mirror that, or the refit models a different process.
+            drop if `__iivw_isfirst'
         }
-        if `__iivw_hold_ok' {
-            capture _estimates unhold `__iivw_esthold'
-            local __iivw_unhold_rc = _rc
-            local __iivw_hold_ok = 0
-            if `__iivw_ag_rc' == 0 & `__iivw_unhold_rc' != 0 {
-                local __iivw_ag_rc = `__iivw_unhold_rc'
-            }
+        keep if !missing(`__iivw_start', `__iivw_stop') & ///
+            `__iivw_stop' > `__iivw_start'
+
+        tempvar __iivw_coxok
+        gen byte `__iivw_coxok' = 1
+        markout `__iivw_coxok' `model_covars' `rep_stabcov'
+        quietly count if `__iivw_coxok'
+        local refit_N = r(N)
+        if `refit_N' < 2 {
+            display as error "too few usable Andersen-Gill intervals for the visit-model refit"
+            error 2001
         }
-        if `__iivw_ag_rc' != 0 {
-            display as text "note: AG refit view could not be completed (rc=`__iivw_ag_rc')"
+
+        quietly stset `__iivw_stop', enter(time `__iivw_start') ///
+            failure(`__iivw_event') id(`panel_id') exit(time .)
+
+        * ---- Reproduce the stored visit model. Stored tie method, so exp(-xb)
+        * on the visit rows reproduces the stored IIW exactly (up to the mean-1
+        * normalization, which cancels in every ratio computed below).
+        *
+        * vce(cluster) is on the fit itself: Andersen-Gill intervals are
+        * correlated within subject, so the naive SEs are anti-conservative, and
+        * these are the SEs reported in r(hr_unweighted). Clustering changes
+        * neither the coefficients nor the baseline hazard, so the same fit still
+        * serves for the weights and the person-time measure below.
+        quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
+            level(`level') vce(cluster `panel_id')
+        local __iivw_fit_rc = _rc
+
+        tempvar __iivw_xbf __iivw_w __iivw_H
+        quietly predict double `__iivw_xbf', xb
+        if "`rep_stabcov'" != "" {
+            tempvar __iivw_xbs
+            quietly stcox `rep_stabcov' if `__iivw_coxok', `rep_efron'
+            quietly predict double `__iivw_xbs', xb
+            quietly gen double `__iivw_w' = exp(`__iivw_xbs' - `__iivw_xbf')
+            * The person-time measure and the reported HRs must both come from
+            * the model whose weights we are checking, so refit it to make it the
+            * active estimates again.
+            quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
+                level(`level') vce(cluster `panel_id')
+        }
+        else {
+            quietly gen double `__iivw_w' = exp(-`__iivw_xbf')
+        }
+
+        * Record the visit-model HRs (informational; shown under agrefit).
+        local hrow = 0
+        foreach v of local model_covars {
+            local ++hrow
+            local b = _b[`v']
+            local se = _se[`v']
+            matrix `__iivw_hr_unweighted'[`hrow', 1] = exp(`b')
+            matrix `__iivw_hr_unweighted'[`hrow', 2] = exp(`b' - `zcrit' * `se')
+            matrix `__iivw_hr_unweighted'[`hrow', 3] = exp(`b' + `zcrit' * `se')
+            matrix `__iivw_hr_unweighted'[`hrow', 4] = `b'
+            matrix `__iivw_hr_unweighted'[`hrow', 5] = `se'
+            matrix `__iivw_hr_unweighted'[`hrow', 6] = 0
+        }
+
+        * ---- dLambda_0 for every at-risk interval.
+        * predict, basechazard gives Lambda_0 at the row's stop time. The rows of
+        * a subject are contiguous ((prev stop, stop]), so the value at a row's
+        * START is Lambda_0 at the previous row's stop -- except for the first
+        * row, where start is the entry time and may fall between event times.
+        * A single last-observation-carried-forward lookup against the fitted
+        * step function handles both cases, and yields 0 before the first event
+        * time, which is exactly Lambda_0(0) for the default entry.
+        quietly predict double `__iivw_H', basechazard
+
+        tempvar __iivw_orig __iivw_isknot __iivw_qt __iivw_Hstart __iivw_dH
+        gen long `__iivw_orig' = _n
+        expand 2, gen(`__iivw_isknot')
+        * isknot == 0 rows ask "what is Lambda_0(start)?"; isknot == 1 rows are
+        * the fitted step function itself.
+        gen double `__iivw_qt' = cond(`__iivw_isknot', `__iivw_stop', `__iivw_start')
+        quietly replace `__iivw_isknot' = 0 if ///
+            `__iivw_isknot' & (missing(`__iivw_H') | !`__iivw_coxok')
+        * Sort knots BEFORE queries at an identical time: the intervals are
+        * (start, stop], so a jump exactly at `start' belongs to the PREVIOUS
+        * interval and must already be included in Lambda_0(start).
+        gsort `__iivw_qt' -`__iivw_isknot'
+        gen double `__iivw_Hstart' = cond(`__iivw_isknot', `__iivw_H', .)
+        quietly replace `__iivw_Hstart' = `__iivw_Hstart'[_n-1] ///
+            if missing(`__iivw_Hstart') & _n > 1
+        quietly replace `__iivw_Hstart' = 0 if missing(`__iivw_Hstart')
+        quietly drop if `__iivw_isknot'
+        sort `__iivw_orig'
+
+        gen double `__iivw_dH' = `__iivw_H' - `__iivw_Hstart' if `__iivw_coxok'
+        quietly replace `__iivw_dH' = . if `__iivw_dH' < 0
+        quietly count if `__iivw_coxok' & missing(`__iivw_dH')
+        local __iivw_dH_bad = r(N)
+        quietly summarize `__iivw_dH', meanonly
+        if r(N) == 0 | r(sum) <= 0 {
+            display as error "the fitted visit model produced no usable at-risk person-time"
+            error 498
+        }
+
+        * ---- The comparison, per covariate.
+        local __iivw_bix = 0
+        foreach v of local balance_covars {
+            local ++__iivw_bix
+
+            tempvar __iivw_dHv __iivw_wv
+            quietly gen double `__iivw_dHv' = `__iivw_dH' * `v' ///
+                if `__iivw_coxok' & !missing(`v', `__iivw_dH')
+            quietly summarize `__iivw_dH' if `__iivw_coxok' & ///
+                !missing(`v', `__iivw_dH'), meanonly
+            local __iivw_sdH = r(sum)
+            quietly summarize `__iivw_dHv', meanonly
+            local __iivw_sdHv = r(sum)
+
+            local __iivw_tmean = .
+            if `__iivw_sdH' > 0 & `__iivw_sdH' < . {
+                local __iivw_tmean = `__iivw_sdHv' / `__iivw_sdH'
+            }
+
+            * Target SD, on the same person-time measure as the target mean.
+            local __iivw_tsd = .
+            if `__iivw_tmean' < . {
+                tempvar __iivw_dHv2
+                quietly gen double `__iivw_dHv2' = ///
+                    `__iivw_dH' * (`v' - `__iivw_tmean')^2 ///
+                    if `__iivw_coxok' & !missing(`v', `__iivw_dH')
+                quietly summarize `__iivw_dHv2', meanonly
+                if `__iivw_sdH' > 0 & r(sum) < . {
+                    local __iivw_tsd = sqrt(r(sum) / `__iivw_sdH')
+                }
+                drop `__iivw_dHv2'
+            }
+
+            * IIW-weighted mean over the OBSERVED VISITS (events only -- the
+            * terminal at-risk interval is not a visit and carries no visit).
+            quietly gen double `__iivw_wv' = `__iivw_w' * `v' ///
+                if `__iivw_coxok' & !`__iivw_censrow' & !missing(`v', `__iivw_w')
+            quietly summarize `__iivw_w' if `__iivw_coxok' & !`__iivw_censrow' & ///
+                !missing(`v', `__iivw_w'), meanonly
+            local __iivw_sw = r(sum)
+            quietly summarize `__iivw_wv', meanonly
+            local __iivw_swv = r(sum)
+
+            local __iivw_wmean = .
+            if `__iivw_sw' > 0 & `__iivw_sw' < . {
+                local __iivw_wmean = `__iivw_swv' / `__iivw_sw'
+            }
+
+            local __iivw_tsmd_`__iivw_bix' = .
+            if `__iivw_tsd' > 0 & `__iivw_tsd' < . & ///
+                `__iivw_wmean' < . & `__iivw_tmean' < . {
+                local __iivw_tsmd_`__iivw_bix' = ///
+                    (`__iivw_wmean' - `__iivw_tmean') / `__iivw_tsd'
+            }
+            local __iivw_tmean_`__iivw_bix' = `__iivw_tmean'
+            local __iivw_wmean_`__iivw_bix' = `__iivw_wmean'
+
+            local __iivw_a = abs(`__iivw_tsmd_`__iivw_bix'')
+            if `__iivw_a' < . {
+                if `balance_max_tsmd' >= . | `__iivw_a' > `balance_max_tsmd' {
+                    local balance_max_tsmd = `__iivw_a'
+                }
+            }
+            drop `__iivw_dHv' `__iivw_wv'
+        }
+
+        if `balance_max_tsmd' < . local __iivw_refit_ok = 1
+    }
+    local __iivw_ag_rc = _rc
+    if `__iivw_restore_needed' {
+        capture restore
+        local __iivw_restore_rc = _rc
+        local __iivw_restore_needed = 0
+        if `__iivw_ag_rc' == 0 & `__iivw_restore_rc' != 0 {
+            local __iivw_ag_rc = `__iivw_restore_rc'
+        }
+    }
+    if `__iivw_hold_ok' {
+        capture _estimates unhold `__iivw_esthold'
+        local __iivw_unhold_rc = _rc
+        local __iivw_hold_ok = 0
+        if `__iivw_ag_rc' == 0 & `__iivw_unhold_rc' != 0 {
+            local __iivw_ag_rc = `__iivw_unhold_rc'
+        }
+    }
+    if `__iivw_ag_rc' != 0 {
+        display as text "note: the visit-model refit could not be completed (rc=`__iivw_ag_rc');"
+        display as text "  no balance verdict is reported. Leverage and composition shift are unaffected."
+        local __iivw_refit_ok = 0
+    }
+
+    * The verdict. Reported ONLY when the diagnostic that supports it actually
+    * ran: a check with no evidence behind it says "unknown", it does not
+    * default to "good".
+    if `__iivw_refit_ok' & `balance_max_tsmd' < . {
+        if `balance_max_tsmd' <= `balcut' {
+            local balance_flag "good"
+        }
+        else {
+            local balance_flag "poor"
         }
     }
 
@@ -452,9 +704,18 @@ program define iivw_balance, rclass
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text ""
     display as text "Weight type:      " as result upper("`weighttype'")
+    display as text "Component:        " as result "`component'" ///
+        as text cond("`component'" == "iiw", ///
+        "  (visit-intensity weight)", "  (IIW x IPTW analysis weight)")
     display as text "Weight variable:  " as result "`weight_var'"
     display as text "Observations:     " as result %9.0f `N'
     display as text "Subjects:         " as result %9.0f `n_ids'
+    if "`weighttype'" == "fiptiw" & "`component'" == "final" {
+        display as text ""
+        display as text "note: component(final) summarizes IIW x IPTW. Treatment-weight variation"
+        display as text "  enters every number below, so these are NOT visit-model diagnostics."
+        display as text "  The balance verdict still comes from the IIW-weighted visit refit."
+    }
     display as text ""
     display as text "`__iivw_smcl_lb'bf:Leverage`__iivw_smcl_rb'"
     display as text "  Weight CV:       " as result %9.4f `weight_cv' ///
@@ -463,8 +724,12 @@ program define iivw_balance, rclass
         as text "  (low if > " as result %5.3f `essratiocut' as text ")"
     display as text "  Verdict:         " as result "`leverage'"
     display as text ""
-    display as text "`__iivw_smcl_lb'bf:Weighted vs unweighted covariate means`__iivw_smcl_rb'"
-    display as text "  Covariate             Unweighted   Weighted       SMD   Missing"
+    display as text "`__iivw_smcl_lb'bf:Composition shift (descriptive)`__iivw_smcl_rb'"
+    display as text "  How far the weights moved the covariate composition of the observed"
+    display as text "  visits. Movement is not a verdict: a large shift proves neither"
+    display as text "  successful correction nor bad balance. See Balance below for that."
+    display as text ""
+    display as text "  Covariate             Unweighted   Weighted     Shift   Missing"
     forvalues i = 1/`n_covars' {
         local v : word `i' of `balance_covars'
         local vshow = abbrev("`v'", 18)
@@ -474,13 +739,56 @@ program define iivw_balance, rclass
             as result " " %9.4f el(`__iivw_balance', `i', 4) ///
             as result " " %7.0f el(`__iivw_balance', `i', 7)
     }
-    display as text ""
-    display as text "  Balance flag:    " as result "`balance_flag'" ///
-        as text "  (modeled covariates; abs(SMD) <= " ///
-        as result %5.3f `smdcut' as text ")"
-    display as text "  Informative:     " as result `informative'
     if `modeled_finite' == 0 {
-        display as text "  Note: no modeled covariate had usable variation; diagnostic is uninformative"
+        display as text "  Note: no modeled covariate had usable variation"
+    }
+
+    display as text ""
+    display as text "`__iivw_smcl_lb'bf:Balance against the at-risk person-time target`__iivw_smcl_rb'"
+    display as text "  Under a correct visit model the IIW-weighted mean over the observed"
+    display as text "  visits equals the mean over the at-risk person-time. Target SMD is the"
+    display as text "  gap between them, in target SD units; it is 0 when the weights work."
+    display as text ""
+    if `__iivw_refit_ok' {
+        display as text "  At-risk intervals: " as result %9.0f `refit_N' ///
+            as text cond(`refit_ncens' > 0, ///
+            "  (incl. `refit_ncens' terminal at-risk interval(s))", "")
+        display as text ""
+        display as text "  Covariate               Weighted     Target   Target SMD"
+        forvalues i = 1/`n_covars' {
+            local v : word `i' of `balance_covars'
+            local vshow = abbrev("`v'", 18)
+            display as text "  " %18s "`vshow'" ///
+                as result " " %11.4f `__iivw_wmean_`i'' ///
+                as result " " %10.4f `__iivw_tmean_`i'' ///
+                as result " " %12.4f `__iivw_tsmd_`i''
+        }
+        display as text ""
+        display as text "  Max |target SMD|:  " as result %9.4f `balance_max_tsmd' ///
+            as text "  (poor if > " as result %5.3f `balcut' as text ")"
+    }
+    else {
+        display as text "  target diagnostic unavailable; no verdict"
+    }
+    display as text "  Balance flag:    " as result "`balance_flag'"
+
+    if "`agrefit'" != "" {
+        display as text ""
+        display as text "`__iivw_smcl_lb'bf:Visit-intensity model (refit on the weighting risk set)`__iivw_smcl_rb'"
+        display as text "  The model that produced the weights, refit on the same risk set. An"
+        display as text "  IIW-WEIGHTED refit is deliberately not shown: pweights enter both the"
+        display as text "  event term and the risk-set average, so its coefficients have no null"
+        display as text "  at 0 and cannot be read as a balance result. Use Target SMD for that."
+        display as text ""
+        display as text "  Covariate                     HR   CI lower   CI upper"
+        forvalues i = 1/`n_model_covars' {
+            local v : word `i' of `model_covars'
+            local vshow = abbrev("`v'", 18)
+            display as text "  " %18s "`vshow'" ///
+                as result " " %10.4f el(`__iivw_hr_unweighted', `i', 1) ///
+                as result " " %10.4f el(`__iivw_hr_unweighted', `i', 2) ///
+                as result " " %10.4f el(`__iivw_hr_unweighted', `i', 3)
+        }
     }
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
@@ -531,7 +839,7 @@ program define iivw_balance, rclass
         }
         if `"`__iivw_clean_footnote'"' == "" {
             local __iivw_clean_footnote ///
-                "Modeled identifies visit-intensity model covariates; |SMD| is the absolute weighted-minus-unweighted standardized difference."
+                "Modeled identifies visit-intensity model covariates. Shift is the weighted-minus-unweighted mean in unweighted SD units: it measures how far the weights moved the composition of the observed visits, and is descriptive only. The balance verdict comes from the residual coefficients of the IIW-weighted visit-model refit."
         }
 
         frame post `__iivw_export_table' ///
@@ -539,10 +847,10 @@ program define iivw_balance, rclass
             ("") ("") ("") ("") ("")
         frame post `__iivw_export_table' ///
             ("") ("") ("Means") ("") ("") ///
-            ("Balance") ("") ("") ("Counts") ("")
+            ("Composition shift") ("") ("") ("Counts") ("")
         frame post `__iivw_export_table' ///
             ("") ("Covariate") ("Unweighted mean") ("Weighted mean") ///
-            ("Unweighted SD") ("SMD") ("|SMD|") ("Modeled") ///
+            ("Unweighted SD") ("Shift") ("|Shift|") ("Modeled") ///
             ("N") ("Missing")
 
         forvalues i = 1/`n_covars' {
@@ -703,8 +1011,23 @@ program define iivw_balance, rclass
     return scalar weight_cv = `weight_cv'
     return scalar ess = `ess'
     return scalar ess_ratio = `ess_ratio'
-    return scalar balance_max_smd = `balance_max_smd'
-    return scalar informative = `informative'
+    * r(informative) is GONE. It gated a workflow decision on the good/poor
+    * verdict that the composition shift produced, and that verdict was wrong in
+    * the package's own known-truth scenario -- it reported Informative: 0 for a
+    * correction that had worked. A single scalar cannot carry "should I trust
+    * these weights", and pretending it can is what made the defect dangerous
+    * rather than merely wrong. Read r(leverage) and r(balance_flag) together.
+
+    * Descriptive: how far the weights moved the composition.
+    return scalar balance_max_shift = `balance_max_shift'
+
+    * Inferential: the gap between the IIW-weighted visit distribution and the
+    * at-risk person-time distribution it is supposed to reproduce. This is what
+    * r(balance_flag) is computed from.
+    return scalar balance_max_tsmd = `balance_max_tsmd'
+    return scalar refit_N = `refit_N'
+    return scalar refit_n_censrows = `refit_ncens'
+    return scalar refit_ok = `__iivw_refit_ok'
 
     return local id "`panel_id'"
     return local time "`panel_time'"
@@ -715,7 +1038,8 @@ program define iivw_balance, rclass
     return local balance_covars "`balance_covars'"
     return local leverage "`leverage'"
     return local balance_flag "`balance_flag'"
-    return local result_columns "unweighted_mean weighted_mean sd smd abs_smd N n_missing modeled"
+    return local component "`component'"
+    return local result_columns "unweighted_mean weighted_mean sd shift abs_shift N n_missing modeled"
     if `"`__iivw_export_xlsx'"' != "" {
         return local xlsx `"`__iivw_export_xlsx'"'
         return local sheet `"`__iivw_export_sheet'"'
@@ -724,9 +1048,11 @@ program define iivw_balance, rclass
         return scalar decimals = `__iivw_export_decimals'
     }
 
-    if "`agrefit'" != "" {
-        return matrix hr_unweighted = `__iivw_hr_unweighted'
-        return matrix hr_weighted = `__iivw_hr_weighted'
-    }
+    * The visit-model refit now always runs, so its HRs are always returned;
+    * agrefit only controls whether they are DISPLAYED. r(hr_weighted) is gone:
+    * a pweighted AG refit has no null at 0 (see the note at the refit), so the
+    * matrix could not be read as a balance result and should never have been
+    * offered beside r(hr_unweighted) as though it could.
+    return matrix hr_unweighted = `__iivw_hr_unweighted'
     return matrix balance = `__iivw_balance'
 end

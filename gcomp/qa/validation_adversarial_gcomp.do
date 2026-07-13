@@ -15,9 +15,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _vadv_make_null_indirect
 program define _vadv_make_null_indirect
@@ -263,8 +261,8 @@ else {
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME VALIDATIONS FAILED: `failed_tests'"
-    display "RESULT: validation_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    display "RESULT: validation_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
 display as result "ALL VALIDATIONS PASSED"
-display "RESULT: validation_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: validation_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

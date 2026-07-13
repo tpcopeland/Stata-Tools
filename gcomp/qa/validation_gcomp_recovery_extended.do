@@ -30,15 +30,10 @@ version 16.0
 * here, not from whatever makes a test pass.
 * ----------------------------------------------------------------------------
 
-capture log close _all
-log using "validation_gcomp_recovery_extended.log", replace nomsg name(grext)
-
 * Bootstrap: derive package root from qa/ working directory (relocatable)
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 global T = 0
 global P = 0
@@ -639,13 +634,15 @@ capture program drop _gcx_casc
 
 **# Summary
 
-display as result "Results: $P/$T passed, $F failed"
-if $F > 0 {
+local final_T = $T
+local final_P = $P
+local final_F = $F
+macro drop T P F
+display as result "Results: `final_P'/`final_T' passed, `final_F' failed"
+if `final_F' > 0 {
     display as error "SOME TESTS FAILED"
-    display "RESULT: validation_gcomp_recovery_extended tests=$T pass=$P fail=$F"
-    log close grext
+    display "RESULT: validation_gcomp_recovery_extended tests=`final_T' pass=`final_P' fail=`final_F' status=FAIL"
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: validation_gcomp_recovery_extended tests=$T pass=$P fail=$F"
-log close grext
+display "RESULT: validation_gcomp_recovery_extended tests=`final_T' pass=`final_P' fail=`final_F' status=PASS"

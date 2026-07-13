@@ -50,7 +50,7 @@ end
 local ++test_count
 capture noisily {
     _iivw_v192_panel, nsubj(40)
-    iivw_weight, id(sid) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(sid) time(time) visit_cov(sev) nolog
     quietly count if missing(_iivw_weight) | _iivw_weight <= 0
     assert r(N) == 0
 
@@ -75,14 +75,14 @@ capture noisily {
     _iivw_v192_panel, nsubj(40)
 
     * numeric-id reference
-    iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     iivw_fit y sev, nolog
     local b_num = _b[sev]
     local se_num = _se[sev]
     drop _iivw_iw _iivw_weight
 
     * string-id run on identical data
-    iivw_weight, id(sid) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(sid) time(time) visit_cov(sev) nolog
     iivw_fit y sev, nolog
     assert "`e(iivw_cluster)'" == "sid"
     assert reldif(_b[sev], `b_num') < 1e-10
@@ -121,7 +121,7 @@ local ++test_count
 capture noisily {
     _iivw_v192_panel, nsubj(40)
     gen str6 arm = cond(treat, "active", "ctrl")
-    iivw_exogtest y, id(sid) time(time) by(arm) nolog
+    iivw_exogtest y, endatlastvisit id(sid) time(time) by(arm) nolog
     assert r(n_models) >= 1
     assert r(min_p) < .
     capture drop _iivw_exog_y_lag1
@@ -164,7 +164,7 @@ capture noisily {
     replace time = time - t0 if mod(id, 2) == 0
     drop t0
 
-    iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     quietly count if missing(_iivw_weight) | _iivw_weight <= 0
     assert r(N) == 0
 

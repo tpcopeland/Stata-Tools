@@ -19,9 +19,7 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 local testdir "`c(tmpdir)'"
 
@@ -97,13 +95,24 @@ end
 
 clear
 set seed 12345
-set obs 500
+set obs 1000
 gen double c = rnormal()
-gen double x = rbinomial(1, invlogit(-0.5 + 0.3*c))
-gen double m = rbinomial(1, invlogit(-1 + 0.8*x + 0.5*c))
-gen double y = rbinomial(1, invlogit(-1.5 + 0.6*m + 0.4*x + 0.3*c))
+gen double x = rbinomial(1, invlogit(-0.2 + 0.4*c))
+gen double m = rbinomial(1, invlogit(-0.4 + 1.2*x + 0.3*c))
+gen double y = rbinomial(1, invlogit(-0.8 + 1.0*m + 0.8*x + 0.2*c))
 tempfile syndata
 save `syndata'
+
+capture program drop _make_all_ci_data
+program define _make_all_ci_data
+    clear
+    set seed 777
+    set obs 400
+    gen double c = rnormal()
+    gen double x = rbinomial(1, invlogit(-0.3 + 0.2*c))
+    gen double m = 0.8*x + 0.5*c + rnormal(0, 0.7)
+    gen byte y = rbinomial(1, invlogit(-0.5 + 0.7*m + 0.5*x + 0.2*c))
+end
 
 * ============================================================
 * gcomp: Basic functionality
@@ -323,16 +332,16 @@ local ++test_count
 capture noisily {
     clear
     set seed 54321
-    set obs 500
-    gen double y = rbinomial(1, 0.3)
-    gen double m = rbinomial(1, 0.5)
+    set obs 1000
     gen double x = floor(runiform() * 3)
     gen double c = rnormal()
+    gen double m = rbinomial(1, invlogit(-0.4 + 0.7*x + 0.3*c))
+    gen double y = rbinomial(1, invlogit(-0.8 + 0.8*m + 0.5*x + 0.2*c))
     gcomp y m x c, outcome(y) mediation oce ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(5) seed(1)
+        base_confs(c) sim(300) samples(5) seed(1) minsim
     assert "`e(mediation_type)'" == "oce"
 }
 if _rc == 0 {
@@ -349,16 +358,16 @@ local ++test_count
 capture noisily {
     clear
     set seed 54321
-    set obs 500
-    gen double y = rbinomial(1, 0.3)
-    gen double m = rbinomial(1, 0.5)
+    set obs 1000
     gen double x = floor(runiform() * 3)
     gen double c = rnormal()
+    gen double m = rbinomial(1, invlogit(-0.4 + 0.7*x + 0.3*c))
+    gen double y = rbinomial(1, invlogit(-0.8 + 0.8*m + 0.5*x + 0.2*c))
     gcomp y m x c, outcome(y) mediation oce ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(10) seed(1)
+        base_confs(c) sim(300) samples(10) seed(1) minsim
 }
 if _rc == 0 {
     display as result "  PASS: OCE without baseline() auto-detects baseline"
@@ -372,12 +381,12 @@ else {
 * 11. all option (all CI types)
 local ++test_count
 capture noisily {
-    use `syndata', clear
+    _make_all_ci_data
     gcomp y m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
-        commands(m: logit, y: logit) ///
+        commands(m: regress, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(5) seed(1) all
+        base_confs(c) sim(300) samples(20) seed(1) all
     confirm matrix e(ci_normal)
     confirm matrix e(ci_percentile)
     confirm matrix e(ci_bc)
@@ -491,8 +500,8 @@ local ++test_count
 capture noisily {
     use `syndata', clear
     _gcomp_detangle "m: logit, y: logit" command "m y"
-    assert "${S_1}" == "logit"
-    assert "${S_2}" == "logit"
+    assert `"`r(value1)'"' == "logit"
+    assert `"`r(value2)'"' == "logit"
 }
 if _rc == 0 {
     display as result "  PASS: _gcomp_detangle parses model specifications"
@@ -1006,12 +1015,12 @@ else {
 * 47. gcomp with all + gcomptab with each CI type
 local ++test_count
 capture noisily {
-    use `syndata', clear
+    _make_all_ci_data
     gcomp y m x c, outcome(y) mediation obe ///
         exposure(x) mediator(m) ///
-        commands(m: logit, y: logit) ///
+        commands(m: regress, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(5) seed(1) all
+        base_confs(c) sim(300) samples(20) seed(1) all
 
     foreach citype in normal percentile bc bca {
         gcomptab, xlsx("`testdir'/_test_integ_ci.xlsx") ///
@@ -1032,12 +1041,7 @@ else {
 * v1.2.3 deliberation fixes
 * ============================================================
 
-* 48. Fix: !=="" typo — multi-exposure baseline() no longer blocked
-* The typo `!==""` compared against "=" instead of "". This caused mediation
-* with baseline() and multiple exposures to be incorrectly rejected.
-* With the fix, this should reach the normal mediation logic (may still fail
-* for other reasons, but should NOT fail with "obe, oce, specific or linexp
-* cannot be specified when there is more than one exposure").
+* 48. Multiple-exposure effect shortcuts are rejected explicitly
 local ++test_count
 capture noisily {
     clear
@@ -1049,30 +1053,20 @@ capture noisily {
     gen double m = rbinomial(1, invlogit(-1 + 0.5*x1 + 0.3*x2 + 0.2*c))
     gen double y = rbinomial(1, invlogit(-1.5 + 0.4*m + 0.3*x1 + 0.2*x2 + 0.1*c))
 
-    * This should NOT hit the "obe, oce, specific or linexp cannot be specified"
-    * error. It may fail for other reasons (e.g., mediation with 2 exposures
-    * requires explicit baseline values for each), but rc should not be 198
-    * from the fixed conditional.
     capture gcomp y m x1 x2 c, outcome(y) mediation ///
         exposure(x1 x2) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x1 x2 c, y: m x1 x2 c) ///
         base_confs(c) baseline(x1: 0, x2: 0) sim(100) samples(3) seed(1)
 
-    * The key assertion: if the old typo were present, the condition at line 400
-    * would be TRUE (linexp=="" compared to "=" is TRUE), and with nexp>1 we'd
-    * get rc=198 with the multi-exposure error. With the fix, it should pass
-    * through that check (rc may be 0 or a different error, but NOT 198 from
-    * the "obe, oce, specific or linexp" message).
-    * Actually, with baseline() and 2 exposures, gcomp should run successfully.
-    assert _rc == 0
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: Fix !=="" typo — multi-exposure baseline() accepted"
+    display as result "  PASS: Multiple-exposure effect shortcut rejected explicitly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Fix !=="" typo — multi-exposure baseline() (error `=_rc')"
+    display as error "  FAIL: Multiple-exposure effect shortcut contract (error `=_rc')"
     local ++fail_count
 }
 
@@ -1424,9 +1418,11 @@ bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0
 
 bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + 0.10 * fixvar + rnormal(0, 0.35) if time == 2
 bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0 + 0.10 * fixvar)) if time == 2
+bysort id (time): replace A = 1 if time == 2 & A[_n-1] == 1
 
 bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + 0.10 * fixvar + rnormal(0, 0.35) if time == 3
 bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0 + 0.10 * fixvar)) if time == 3
+bysort id (time): replace A = 1 if time == 3 & A[_n-1] == 1
 
 bysort id (time): replace Alag = A[_n-1] if _n > 1
 bysort id (time): replace Llag = L[_n-1] if _n > 1
@@ -1460,6 +1456,23 @@ program define _assert_tv_nondegenerate
         assert `PO1' < `PO2'
         assert `PO3' > `PO1' & `PO3' < `PO2'
     }
+end
+
+capture program drop _make_death_data
+program define _make_death_data
+    clear
+    set seed 33335
+    set obs 600
+    gen long id = ceil(_n / 3)
+    bysort id: gen int time = _n
+    gen double c = rnormal()
+    bysort id (time): replace c = c[1]
+    gen double l = 0.30*c + 0.10*time + rnormal(0, 0.45)
+    gen byte a = rbinomial(1, invlogit(-0.20 + 0.45*l + 0.20*c))
+    gen byte d = 0
+    replace d = rbinomial(1, invlogit(-1.0 + 0.20*c)) if time == 3
+    gen byte y = rbinomial(1, invlogit(-1.2 + 0.55*a + 0.30*l + 0.15*c))
+    replace y = 0 if d == 1
 end
 
 * 59. Time-varying with eofu binary outcome
@@ -1606,29 +1619,18 @@ else {
 }
 
 * 63. Time-varying with death() competing risk
-* NOTE: death() in time-varying mode requires careful data structure.
-* The death variable must be the FIRST simulated variable (before outcome).
 local ++test_count
 capture noisily {
-    clear
-    set seed 33335
-    set obs 1500
-    gen long id = ceil(_n / 5)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double D = rbinomial(1, invlogit(-4 + 0.1*L))
-    gen double Y = rbinomial(1, invlogit(-3 + 0.3*L + 0.2*A))
-    capture gcomp Y D L A id time, outcome(Y) ///
+    _make_death_data
+    gcomp y d l a c id time, outcome(y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(D: logit, Y: logit, L: regress, A: logit) ///
-        equations(D: L A, Y: L A, L: A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        death(D) eofu sim(100) samples(3) seed(1)
-    * death() with eofu is accepted by parser (not rc=198),
-    * but may hit r(5) sort issue in bootstrap — known limitation
-    assert !inlist(_rc, 198)
+        varyingcovariates(l) fixedcovariates(c) ///
+        commands(d: logit, l: regress, a: logit, y: logit) ///
+        equations(d: c time, l: c time, a: c l time, y: a l c time) ///
+        intvars(a) interventions(a=1, a=0) ///
+        death(d) pooled sim(160) samples(6) seed(1)
+    assert "`e(analysis_type)'" == "time_varying"
+    confirm matrix e(b)
 }
 if _rc == 0 {
     display as result "  PASS: Time-varying with death() competing risk"
@@ -1713,8 +1715,6 @@ else {
 }
 
 * 67. Time-varying with msm() — logit MSM
-* NOTE: MSM in eofu mode may hit r(2000) due to MSM variable resolution.
-* Test validates parser accepts msm() syntax.
 local ++test_count
 capture noisily {
     clear
@@ -1722,21 +1722,23 @@ capture noisily {
     set obs 1200
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
-    capture gcomp Y L A id time, outcome(Y) ///
+    gen double c = rnormal()
+    bysort id (time): replace c = c[1]
+    gen double l = 0.3*c + 0.1*time + rnormal(0, 0.6)
+    gen byte a = rbinomial(1, invlogit(-0.2 + 0.5*l + 0.2*c))
+    gen byte y = rbinomial(1, invlogit(-0.8 + 0.8*a + 0.3*l + 0.2*c))
+    gcomp y l a c id time, outcome(y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        eofu msm(logit Y A) sim(100) samples(3) seed(1)
-    * Parser should accept msm() (not rc=198). MSM fitting may fail (rc=2000).
-    assert !inlist(_rc, 198)
+        varyingcovariates(l) fixedcovariates(c) ///
+        commands(l: regress, a: logit, y: logit) ///
+        equations(l: c time, a: l c time, y: a l c time) ///
+        intvars(a) interventions(a=1, a=0) ///
+        pooled msm(logit y a) sim(160) samples(4) seed(1)
+    assert "`e(msm)'" == "logit y a"
+    confirm matrix e(b)
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying msm(logit) parser accepts syntax"
+    display as result "  PASS: Time-varying msm(logit) fits with public names"
     local ++pass_count
 }
 else {
@@ -1745,7 +1747,6 @@ else {
 }
 
 * 68. Time-varying with msm() — regress MSM
-* NOTE: Like test 67, MSM in eofu mode may hit internal errors.
 local ++test_count
 capture noisily {
     clear
@@ -1753,21 +1754,23 @@ capture noisily {
     set obs 1200
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Ycont = 2 + 0.5*L + 0.3*A + rnormal(0, 1)
-    capture gcomp Ycont L A id time, outcome(Ycont) ///
+    gen double c = rnormal()
+    bysort id (time): replace c = c[1]
+    gen double l = 0.3*c + 0.1*time + rnormal(0, 0.6)
+    gen byte a = rbinomial(1, invlogit(-0.2 + 0.5*l + 0.2*c))
+    gen double ycont = 1.0 + 0.7*a + 0.4*l + 0.2*c + rnormal(0, 0.8)
+    gcomp ycont l a c id time, outcome(ycont) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Ycont: regress, A: logit) ///
-        equations(L: A, Ycont: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        eofu msm(regress Ycont A) sim(100) samples(3) seed(1)
-    * Parser should accept msm() (not rc=198)
-    assert !inlist(_rc, 198)
+        varyingcovariates(l) fixedcovariates(c) ///
+        commands(l: regress, a: logit, ycont: regress) ///
+        equations(l: c time, a: l c time, ycont: a l c time) ///
+        intvars(a) interventions(a=1, a=0) ///
+        pooled msm(regress ycont a) sim(160) samples(4) seed(1)
+    assert "`e(msm)'" == "regress ycont a"
+    confirm matrix e(b)
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying msm(regress) parser accepts syntax"
+    display as result "  PASS: Time-varying msm(regress) fits with public names"
     local ++pass_count
 }
 else {
@@ -2390,11 +2393,12 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    capture gcomp Y L A id time, outcome(Y) ///
-        idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+    capture gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
+        idvar(id) tvar(time) varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         exposure(A) eofu
     assert _rc == 198
 }
@@ -2887,22 +2891,14 @@ else {
 * into the mediation display branch ending in r(102).
 local ++test_count
 capture noisily {
-    clear
-    set seed 33335
-    set obs 500
-    gen long id = ceil(_n / 5)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double D = rbinomial(1, invlogit(-3 + 0.1*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.3*L + 0.2*A))
-    gcomp Y D L A id time, outcome(Y) ///
+    _make_death_data
+    gcomp y d l a c id time, outcome(y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(D: logit, Y: logit, L: regress, A: logit) ///
-        equations(D: L A, Y: L A, L: A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        death(D) all sim(50) samples(4) seed(1)
+        varyingcovariates(l) fixedcovariates(c) ///
+        commands(d: logit, l: regress, a: logit, y: logit) ///
+        equations(d: c time, l: c time, a: c l time, y: a l c time) ///
+        intvars(a) interventions(a=1, a=0) ///
+        death(d) pooled all sim(160) samples(20) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
     confirm matrix e(b)
     confirm matrix e(ci_bca)
@@ -2930,7 +2926,7 @@ capture noisily {
     gen byte Y = rbinomial(1, invlogit(-1 + 0.5*X + 0.7*M + 0.3*C))
     gcomp Y X M C, outcome(Y) mediation exposure(X) mediator(M) base_confs(C) ///
         commands(M: logit, Y: logit) equations(M: X C, Y: X M C) ///
-        baseline(X: 0) msm(logit Y_ X_ M_, or) sim(400) samples(4) seed(7)
+        baseline(X: 0) msm(logit Y X M, or) sim(400) samples(4) seed(7)
     assert "`e(analysis_type)'" == "mediation"
     confirm matrix e(b)
     assert e(tce) < .
@@ -2950,6 +2946,8 @@ else {
 
 capture program drop mock_gcomp
 capture program drop mock_gcomp_nocde
+capture program drop _make_all_ci_data
+capture program drop _make_death_data
 local xlsx_files : dir "`testdir'" files "_test_gcomptab*.xlsx"
 foreach f of local xlsx_files {
     capture erase "`testdir'/`f'"
@@ -2965,11 +2963,12 @@ foreach f in _test_integration _test_integ_ci _test_error _test_gcomp_boot {
 
 display ""
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
     exit 1
 }
 else {
+    display "RESULT: test_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }

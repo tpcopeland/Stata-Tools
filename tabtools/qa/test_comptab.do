@@ -61,6 +61,7 @@ capture noisily {
     assert r(N_models) == 1
     assert r(N_rows) == 6
     assert r(N_cols) == 5
+    assert r(ci_level) == 95
     frame ct_out_rows {
         assert A[4] == "Car origin"
         assert A[5] == "Car origin"

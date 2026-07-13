@@ -60,6 +60,7 @@
 {syntab:Reporting}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
+{synopt:{opt allownonconv:erged}}proceed when a model fails to converge{p_end}
 {synopt:{opt replace}}overwrite existing time/categorical/interaction variables{p_end}
 {synopt:{opt col:lect}}enable Stata's {cmd:collect} framework for table building{p_end}
 {synopt:{opt gee:opts(string)}}additional options passed to {cmd:glm}{p_end}
@@ -316,6 +317,13 @@ for every fit, including bootstrap fits. The full bootstrap results, including
 {phang}
 {opt level(#)} specifies the confidence level for confidence
 intervals. The default is {cmd:c(level)}.
+
+{phang}
+{opt allownonconv:erged} lets {cmd:iivw_fit} proceed when the outcome model
+fails to converge. By default nonconvergence is an {bf:error}: a nonconverged
+fit has no valid coefficients or standard errors, and recording it as a
+successful fit would let every downstream diagnostic report on numbers that
+mean nothing. Use it only to inspect the failure.
 
 {phang}
 {opt nolog} suppresses the iteration log from the underlying {cmd:glm} or

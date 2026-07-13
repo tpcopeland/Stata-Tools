@@ -138,6 +138,56 @@ else {
 }
 
 local ++test_count
+local late_csv "`output_dir'/late-failure.csv"
+local late_md "`output_dir'/late-failure.md"
+capture erase "`late_csv'"
+capture erase "`late_md'"
+tempname late_csv_fh late_md_fh
+file open `late_csv_fh' using "`late_csv'", write text replace
+file write `late_csv_fh' "sentinel-csv" _n
+file close `late_csv_fh'
+file open `late_md_fh' using "`late_md'", write text replace
+file write `late_md_fh' "sentinel-md" _n
+file close `late_md_fh'
+capture frame drop late_failure_sink
+frame create late_failure_sink
+frame late_failure_sink: set obs 1
+frame late_failure_sink: generate str20 sentinel = "frame-unchanged"
+capture noisily stacktab using "`collision'", ///
+    blocks(sheet(Source) rows(1/2) cols(A-B)) sheet(LateTarget) ///
+    frame(late_failure_sink, replace) csv("`late_csv'") ///
+    markdown("`late_md'")
+local late_failure_rc = _rc
+file open `late_csv_fh' using "`late_csv'", read text
+file read `late_csv_fh' late_csv_first
+file close `late_csv_fh'
+file open `late_md_fh' using "`late_md'", read text
+file read `late_md_fh' late_md_first
+file close `late_md_fh'
+quietly import excel using "`collision'", describe
+local late_sheet_exists = 0
+forvalues late_s = 1/`r(N_worksheet)' {
+    if lower(`"`r(worksheet_`late_s')'"') == "latetarget" ///
+        local late_sheet_exists = 1
+}
+capture noisily {
+    assert `late_failure_rc' == 602
+    assert `"`late_csv_first'"' == "sentinel-csv"
+    assert `"`late_md_first'"' == "sentinel-md"
+    assert !`late_sheet_exists'
+    frame late_failure_sink: confirm variable sentinel
+    frame late_failure_sink: assert sentinel[1] == "frame-unchanged"
+}
+if _rc == 0 {
+    display as result "  PASS M15b: late Markdown collision is rejected before frame, CSV, or workbook mutation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M15b: late-sink preflight atomicity (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
 capture noisily stacktab using "`collision'", ///
     blocks(sheet(Source) rows(1/2) cols(A-B)) sheet(target)
 local case_default_rc = _rc
@@ -739,6 +789,7 @@ capture frame drop semantic_bad_scale
 capture frame drop sim_hostile
 capture frame drop sim_hostile_plot
 capture frame drop collision_sink
+capture frame drop late_failure_sink
 
 if `fail_count' > 0 exit 9
 exit 0

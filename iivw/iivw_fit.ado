@@ -110,6 +110,9 @@ program define iivw_fit, eclass
         local rep_efron    "`r(efron)'"
         local rep_entry    "`r(entry)'"
         local rep_baseevent "`r(baseevent)'"
+        local rep_censor_mode "`r(censor_mode)'"
+        local rep_censor_var  "`r(censor_var)'"
+        local rep_maxfu       "`r(maxfu)'"
     }
     else {
         local panel_id "`id'"
@@ -225,9 +228,60 @@ program define iivw_fit, eclass
             display as error "  re-run iivw_weight before iivw_fit, refitweights"
             error 198
         }
-        * Replay flags for the per-replicate iivw_weight call
+        * Replay flags for the per-replicate iivw_weight call.
+        * _iivw_baseevent stores exclude_base: 1 = baseline is study entry (the
+        * 2.0.0 default), 0 = the legacy baseline-as-event contract, which the
+        * replicates must opt back into explicitly.
         local rep_efron_flag = cond("`rep_efron'" != "", "efron", "")
-        local rep_nobase_flag = cond("`rep_baseevent'" == "1", "nobaseevent", "")
+        local rep_base_flag = cond("`rep_baseevent'" == "0", "baseline(event)", "baseline(entry)")
+
+        * The replicates must rebuild the SAME risk set the observed weights were
+        * built on. A bootstrap that refits the visit-intensity model on a
+        * truncated risk set is bootstrapping a different estimator than the one
+        * being reported, and its interval does not cover the reported point.
+        if inlist("`weighttype'", "iivw", "fiptiw") {
+            if "`rep_censor_mode'" == "" {
+                display as error "refitweights needs the stored end-of-follow-up contract"
+                display as error "  these weights were built before iivw 2.0.0 recorded the risk set"
+                display as error "  re-run iivw_weight before iivw_fit, refitweights"
+                error 198
+            }
+            if "`rep_censor_mode'" == "censor" {
+                confirm numeric variable `rep_censor_var'
+            }
+        }
+        local rep_cens_opt "endatlastvisit"
+        if "`rep_censor_mode'" == "censor" local rep_cens_opt "censor(`rep_censor_var')"
+        if "`rep_censor_mode'" == "maxfu"  local rep_cens_opt "maxfu(`rep_maxfu')"
+        if "`weighttype'" == "iptw"        local rep_cens_opt ""
+    }
+
+    * =========================================================================
+    * PANEL / CLUSTER NESTING
+    * =========================================================================
+    * A cluster bootstrap resamples whole clusters and then rebuilds the panel
+    * unit inside each draw as group(draw, panel_id). That is only meaningful if
+    * every panel unit lives in exactly one cluster. A subject whose rows span
+    * two clusters would be silently split into two "subjects" by one draw and
+    * duplicated by another -- an incoherent resampling scheme reported as if it
+    * were a valid one. Refuse it.
+    if `bootstrap' > 0 & "`cluster'" != "`panel_id'" {
+        tempvar _iivw_ncl
+        quietly bysort `panel_id' (`cluster'): gen long `_iivw_ncl' = ///
+            sum(`cluster' != `cluster'[_n-1]) if `touse'
+        quietly bysort `panel_id' (`cluster'): replace `_iivw_ncl' = ///
+            `_iivw_ncl'[_N] if `touse'
+        quietly count if `_iivw_ncl' > 1 & `touse'
+        if r(N) > 0 {
+            quietly levelsof `panel_id' if `_iivw_ncl' > 1 & `touse', local(_bad_ids)
+            local _n_bad : word count `_bad_ids'
+            display as error "panel unit is not nested within cluster()"
+            display as error "  `_n_bad' `panel_id' value(s) appear in more than one `cluster'"
+            display as error "  a cluster bootstrap resamples whole clusters and rebuilds each"
+            display as error "  subject inside the draw, which requires one cluster per subject"
+            error 459
+        }
+        drop `_iivw_ncl'
     }
 
     * collect is only wired into the non-bootstrap model(gee) path; refuse it
@@ -1021,12 +1075,13 @@ program define iivw_fit, eclass
             bootstrap, reps(`bootstrap') cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_refit `depvar' `all_covars' if `touse', ///
-                newid(`bsid') timevar(`panel_time') wtype(`weighttype') ///
+                newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
+                wtype(`weighttype') ///
                 prefix(`prefix') model(gee) ///
                 visitcov(`rep_visitcov') treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncate(`rep_truncate') `rep_efron_flag' `rep_nobase_flag' ///
-                entry(`rep_entry') family(`family') link(`link') ///
+                truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
+                entry(`rep_entry') `rep_cens_opt' family(`family') link(`link') ///
                 geeopts(`geeopts') `log_opt'
         }
         else if `bootstrap' > 0 {
@@ -1079,28 +1134,34 @@ program define iivw_fit, eclass
             bootstrap, reps(`bootstrap') cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_refit `depvar' `all_covars' if `touse', ///
-                newid(`bsid') timevar(`panel_time') wtype(`weighttype') ///
+                newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
+                wtype(`weighttype') ///
                 prefix(`prefix') model(mixed) ///
                 visitcov(`rep_visitcov') treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncate(`rep_truncate') `rep_efron_flag' `rep_nobase_flag' ///
-                entry(`rep_entry') mixedopts(`mixedopts') `log_opt'
+                truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
+                entry(`rep_entry') `rep_cens_opt' mixedopts(`mixedopts') `log_opt'
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             * idcluster() relabels each resampled cluster with a unique id, so a
-            * subject drawn twice enters mixed as two separate random-effect
+            * cluster drawn twice enters mixed as two separate random-effect
             * groups rather than one merged group. Without it, mixed collapses
             * the duplicated draws into a single panel, biasing the resampled
             * random-effects variance components and understating the intercept
-            * SE. Pass the fresh id as panelid() (mirrors the refitweights path).
+            * SE.
+            *
+            * But the draw id is not the panel unit when cluster() sits ABOVE the
+            * panel -- a clinic. Passing it as the grouping variable made a whole
+            * clinic one random-effect group. Hand the helper both ids and let it
+            * form group(bsid, panel_id), the resampled subject.
             tempvar bsid
             bootstrap, reps(`bootstrap') cluster(`cluster') ///
                 idcluster(`bsid') level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(mixed) ///
-                panelid(`bsid') `log_opt' ///
+                panelid(`panel_id') bsid(`bsid') `log_opt' ///
                 mixedopts(`mixedopts')
         }
         else {

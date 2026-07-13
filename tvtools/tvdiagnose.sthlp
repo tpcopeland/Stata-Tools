@@ -67,8 +67,8 @@ The command provides four diagnostic reports:
 {phang2}
 {opt coverage} - Calculates the percentage of the study period covered by
 the union of exposure records for each person, clipped to {opt entry()} and
-{opt exit()}. Overlapping records are counted once. Identifies persons with
-incomplete coverage.
+{opt exit()} for that person. Overlapping records are counted once. Leading,
+internal, trailing, and wholly uncovered segments are counted as coverage gaps.
 
 {phang2}
 {opt gaps} - Identifies and quantifies gaps between consecutive periods. Reports gap
@@ -80,7 +80,9 @@ data quality issues or intentional features.
 
 {phang2}
 {opt summarize} - Provides exposure distribution statistics including
-frequencies and person-time by exposure category.
+frequencies, raw interval-days, and union person-time by exposure category.
+The overall person-time denominator is the union of all intervals within each
+person, so overlapping records are not counted twice.
 
 
 {marker options}{...}
@@ -103,7 +105,9 @@ frequencies and person-time by exposure category.
 {opt coverage} runs coverage diagnostics, calculating the percentage of
 each person's follow-up period covered by the union of records. Intervals are
 clipped to the study window and overlapping days are counted once. Requires
-person-constant numeric {opt entry()} and {opt exit()} variables.
+person-constant numeric {opt entry()} and {opt exit()} variables. Coverage-gap
+counts include uncovered time before the first covered interval, between
+covered components, and after the last covered interval.
 
 {phang}
 {opt gaps} analyzes gaps between consecutive periods within each person. Reports gap
@@ -115,7 +119,12 @@ when a period starts before the previous period ends.
 
 {phang}
 {opt summarize} displays exposure distribution statistics. Requires
-{opt exposure()} option.
+numeric {opt exposure()}. {cmd:total_person_time} is the global interval union
+within person; {cmd:raw_interval_person_time} is the unadjusted row sum. The
+returned {cmd:r(exposure_summary)} matrix unions intervals separately within
+person and exposure level. Consequently, person-time from concurrent different
+levels appears in both level-specific rows, and their percentages may sum to
+more than 100. Missing exposure is retained as its own level.
 
 {phang}
 {opt all} runs all diagnostic reports. Equivalent to specifying
@@ -126,7 +135,11 @@ when a period starts before the previous period ends.
 bar for each person, colored by {opt exposure()} level when supplied. It is a
 valid stand-alone action (no other report is required) and honors the active
 graph scheme. Large datasets are capped at {opt maxids()} persons. The plot is
-named {cmd:tvd_swimlane} and the data in memory is left unchanged.
+named {cmd:tvd_swimlane} and the data in memory is left unchanged. Numeric value
+labels are used in the legend; unlabeled levels fall back to
+{cmd:exposure=#}, and missing values are labeled {cmd:Missing}. Graph failure
+does not suppress analytic diagnostics: inspect {cmd:r(graph_created)} and
+{cmd:r(graph_rc)} programmatically.
 
 {dlgtab:Additional options}
 
@@ -229,24 +242,55 @@ options such as {cmd:layer}, {cmd:priority()}, or {cmd:split}.
 {pstd}
 {cmd:tvdiagnose} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
+{synoptset 34 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(n_persons)}}number of unique persons{p_end}
 {synopt:{cmd:r(n_observations)}}number of observations{p_end}
-{synopt:{cmd:r(mean_coverage)}}mean coverage percentage (if coverage){p_end}
-{synopt:{cmd:r(n_with_gaps)}}persons with incomplete coverage (if coverage){p_end}
-{synopt:{cmd:r(n_gaps)}}total number of gaps (if gaps){p_end}
-{synopt:{cmd:r(mean_gap)}}mean gap duration in days (if gaps){p_end}
-{synopt:{cmd:r(max_gap)}}maximum gap duration in days (if gaps){p_end}
-{synopt:{cmd:r(n_large_gaps)}}gaps exceeding threshold (if gaps){p_end}
-{synopt:{cmd:r(n_overlaps)}}number of overlapping periods (if overlaps){p_end}
-{synopt:{cmd:r(n_ids_affected)}}persons with overlaps (if overlaps){p_end}
-{synopt:{cmd:r(total_person_time)}}total person-time in days (if summarize){p_end}
+{synopt:{cmd:r(coverage_run)}}1 if coverage was run; 0 otherwise{p_end}
+{synopt:{cmd:r(gaps_run)}}1 if gap analysis was run; 0 otherwise{p_end}
+{synopt:{cmd:r(overlaps_run)}}1 if overlap analysis was run; 0 otherwise{p_end}
+{synopt:{cmd:r(summarize_run)}}1 if exposure summary was run; 0 otherwise{p_end}
+{synopt:{cmd:r(mean_coverage)}}mean coverage percentage{p_end}
+{synopt:{cmd:r(min_coverage)}}minimum coverage percentage{p_end}
+{synopt:{cmd:r(max_coverage)}}maximum coverage percentage{p_end}
+{synopt:{cmd:r(n_with_gaps)}}persons with incomplete coverage{p_end}
+{synopt:{cmd:r(n_incomplete_coverage)}}alias of {cmd:r(n_with_gaps)}{p_end}
+{synopt:{cmd:r(n_coverage_gaps)}}uncovered segments across study windows{p_end}
+{synopt:{cmd:r(n_gaps)}}internal gaps between observed periods{p_end}
+{synopt:{cmd:r(n_gap_ids)}}persons with internal gaps{p_end}
+{synopt:{cmd:r(mean_gap)}}mean internal-gap duration in days{p_end}
+{synopt:{cmd:r(median_gap)}}median internal-gap duration in days{p_end}
+{synopt:{cmd:r(max_gap)}}maximum internal-gap duration in days{p_end}
+{synopt:{cmd:r(n_large_gaps)}}gaps exceeding {opt threshold()}{p_end}
+{synopt:{cmd:r(n_large_gap_ids)}}persons with a gap exceeding {opt threshold()}{p_end}
+{synopt:{cmd:r(n_overlaps)}}number of overlapping periods{p_end}
+{synopt:{cmd:r(n_overlap_ids)}}persons with overlapping periods{p_end}
+{synopt:{cmd:r(n_ids_affected)}}alias of {cmd:r(n_overlap_ids)}{p_end}
+{synopt:{cmd:r(total_person_time)}}global union person-time in days{p_end}
+{synopt:{cmd:r(raw_interval_person_time)}}sum of inclusive row lengths{p_end}
+{synopt:{cmd:r(overlap_excess_person_time)}}raw interval-days minus global union days{p_end}
+{synopt:{cmd:r(n_exposure_levels)}}rows in {cmd:r(exposure_summary)}{p_end}
+{synopt:{cmd:r(graph_requested)}}1 if {opt swimlane} was requested{p_end}
+{synopt:{cmd:r(graph_created)}}1 if the swimlane graph was created{p_end}
+{synopt:{cmd:r(graph_rc)}}swimlane return code; 0 on success or no request{p_end}
+{synopt:{cmd:r(graph_ids_total)}}persons available to the swimlane{p_end}
+{synopt:{cmd:r(graph_ids_plotted)}}persons included in the swimlane{p_end}
+{synopt:{cmd:r(graph_truncated)}}1 if {opt maxids()} truncated the swimlane{p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(exposure_summary)}}one row per exposure level; columns are
+{cmd:exposure raw_days person_days percent n_periods}{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(id)}}name of ID variable{p_end}
 {synopt:{cmd:r(start)}}name of start variable{p_end}
 {synopt:{cmd:r(stop)}}name of stop variable{p_end}
+{synopt:{cmd:r(graph_name)}}{cmd:tvd_swimlane} when a graph was created{p_end}
+
+{pstd}
+Report-specific scalars are returned as exact zero when a report was not run
+or when a requested report found no events. Use the corresponding
+{cmd:*_run} flag to distinguish those states.
 
 
 {marker author}{...}

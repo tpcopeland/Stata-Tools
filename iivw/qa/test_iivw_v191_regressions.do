@@ -1,7 +1,7 @@
 * =============================================================================
 * test_iivw_v191_regressions.do
 * Regression tests for iivw v1.9.1:
-*   - negative visit times rejected (iivw_weight IIW/FIPTIW, iivw_exogtest)
+*   - negative visit times rejected (iivw_weight IIW/FIPTIW, endatlastvisit iivw_exogtest)
 *   - negative entry() accepted with a note (risk clamped at time 0)
 *   - iivw_balance, agrefit replays the stored entry()/nobaseevent contract
 *   - export sheet() rejects backslash
@@ -45,14 +45,14 @@ end
 local ++test_count
 capture noisily {
     _iivw_v191_panel, nsubj(40)
-    iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     assert "`: char _dta[_iivw_weighted]'" == "1"
 
     * A centered/negative time scale must be rejected before any mutation:
     * stset would silently drop every interval ending at or before 0 from the
     * visit-intensity Cox model while weights were still produced for all rows
     gen double time_c = time - 5
-    capture noisily iivw_weight, id(id) time(time_c) visit_cov(sev) replace nolog
+    capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(time_c) visit_cov(sev) replace nolog
     assert _rc == 198
 
     * validation-stage failure: prior weights and contract intact
@@ -95,7 +95,7 @@ local ++test_count
 capture noisily {
     _iivw_v191_panel, nsubj(40)
     gen double entry_t = -0.5
-    iivw_weight, id(id) time(time) visit_cov(sev) entry(entry_t) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) entry(entry_t) nolog
     quietly count if missing(_iivw_weight) | _iivw_weight <= 0
     assert r(N) == 0
 }
@@ -115,7 +115,7 @@ capture noisily {
     _iivw_v191_panel, nsubj(40)
     gen double time_c = time - 5
     gen double y = sev + rnormal()
-    capture noisily iivw_exogtest y, id(id) time(time_c) nolog
+    capture noisily iivw_exogtest y, endatlastvisit id(id) time(time_c) nolog
     assert _rc == 198
     capture confirm variable _iivw_exog_y_lag1
     assert _rc != 0
@@ -135,7 +135,7 @@ local ++test_count
 capture noisily {
     _iivw_v191_panel, nsubj(40)
     gen double entry_t = 0.3
-    iivw_weight, id(id) time(time) visit_cov(sev) entry(entry_t) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) entry(entry_t) nolog
     iivw_balance, agrefit nolog
     matrix HU = r(hr_unweighted)
     assert HU[1, 6] == 0
@@ -172,7 +172,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v191_panel, nsubj(40)
-    iivw_weight, id(id) time(time) visit_cov(sev) nobaseevent nolog
+    iivw_weight, endatlastvisit id(id) time(time) visit_cov(sev) nolog
     iivw_balance, agrefit nolog
     matrix HU = r(hr_unweighted)
     assert HU[1, 6] == 0
@@ -208,7 +208,7 @@ else {
 local ++test_count
 capture noisily {
     _iivw_v191_panel, nsubj(40)
-    iivw_weight, id(id) time(time) visit_cov(sev) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     local badsheet = "ab" + char(92) + "cd"
     capture noisily iivw_balance, xlsx("test_v191_badsheet.xlsx") ///
         sheet("`badsheet'") replace

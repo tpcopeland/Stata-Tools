@@ -85,42 +85,108 @@ and matrices in memory are left unchanged.{p_end}
 
 {synoptset 26 tabbed}{...}
 {synoptline}
-{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}use the named frame as the source instead of the current dataset{p_end}
-{synopt:{cmdab:m:atrix(}{it:name}{cmd:)}}use the named Stata matrix as the source; row/column names become labels/headers{p_end}
-{synopt:{opt varl:abels}}use variable labels (not names) for the header row of a dataset or frame source{p_end}
+{synopt:{opt fra:me(name)}}use a named frame as the source{p_end}
+{synopt:{opt m:atrix(name)}}use a named matrix as the source{p_end}
+{synopt:{opt varl:abels}}use variable labels in the header row{p_end}
 {synopt:{opt noh:eader}}omit the header row entirely{p_end}
-{synopt:{opt dig:its(#)}}decimal places for numeric columns; default 2, range 0-6; also respects {cmd:tabtools set digits}{p_end}
+{synopt:{opt dig:its(#)}}decimal places for numeric columns{p_end}
 {synoptline}
 
 {dlgtab:Output}
 
 {synoptset 26 tabbed}{...}
-{synopt:{cmd:using} {it:filename}}optional Excel target workbook; must end in {cmd:.xlsx}; the {opt sheet()} is created or replaced{p_end}
+{synopt:{cmd:using} {it:filename}}optional Excel target workbook{p_end}
 {synopt:{opt sh:eet(string)}}Excel sheet name; default is {cmd:Table}{p_end}
 {synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel and CSV exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {cmd:using}{p_end}
 {synoptline}
 
 {dlgtab:Formatting}
 
 {synoptset 26 tabbed}{...}
-{synopt:{opt ti:tle(string)}}title written to cell A1, left-justified and merged across the table{p_end}
-{synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote below the table in smaller italic font{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header color as a supported Stata color name or RGB triplet (e.g., {cmd:"200 220 240"}){p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
+{synopt:{opt ti:tle(string)}}set the table title in cell A1{p_end}
+{synopt:{opt foot:note(string)}}add italic footnote text{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
+{synopt:{opt border:style(string)}}set the table border style{p_end}
+{synopt:{opt headers:hade}}shade the header row{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt zeb:ra}}alternating row shading over data rows{p_end}
 {synoptline}
+
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt csv(filename)} also write the assembled table to a CSV file{p_end}
+
+{phang}
+{opt dig:its(#)} decimal places for numeric columns; default 2, range 0-6; also respects
+{cmd:tabtools set digits}{p_end}
+
+{phang}
+{cmdab:headers:hade} apply background fill to the header row{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel and CSV exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt noh:eader} omit the header row entirely{p_end}
+
+{phang}
+{opt open} open the Excel file after export; requires {cmd:using}{p_end}
+
+{phang}
+{opt sh:eet(string)} Excel sheet name; default is {cmd:Table}{p_end}
+
+{phang}
+{opt ti:tle(string)} title written to cell A1, left-justified and merged across the table{p_end}
+
+{phang}
+{opt varl:abels} use variable labels (not names) for the header row of a dataset or frame source{p_end}
+
+{phang}
+{opt zeb:ra} alternating row shading over data rows{p_end}
+
+
+{phang}
+{cmdab:border:style(} {it:string} {cmd:)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
+{cmd:academic}{p_end}
+
+{phang}
+{cmdab:foot:note(} {it:string} {cmd:)} footnote below the table in smaller italic font{p_end}
+
+{phang}
+{cmdab:fra:me(} {it:name} {cmd:)} use the named frame as the source instead of the current dataset{p_end}
+
+{phang}
+{cmdab:headerc:olor(} {it:string} {cmd:)} custom header color as a supported Stata color name or RGB
+triplet (e.g., {cmd:"200 220 240"}){p_end}
+
+{phang}
+{cmdab:m:atrix(} {it:name} {cmd:)} use the named Stata matrix as the source; row/column names become
+labels/headers{p_end}
+
+{phang}
+{cmdab:the:me(} {it:string} {cmd:)} journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
+{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+
+{phang}
+{cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra stripe color as a supported Stata color name
+or RGB triplet{p_end}
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}{bf:Example 1: A collapse result, current data}{p_end}
-{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. collapse (mean) price mpg (count) n=price, by(foreign)}{p_end}
 {phang2}{cmd:. puttab foreign price mpg n using table.xlsx, sheet("ByOrigin") ///}{p_end}
 {phang3}{cmd:title("Mean price and mpg by origin") theme(nejm) zebra varlabels digits(1)}{p_end}

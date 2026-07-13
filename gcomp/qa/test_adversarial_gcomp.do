@@ -15,9 +15,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _adv_make_med_data
 program define _adv_make_med_data
@@ -216,17 +214,17 @@ capture noisily {
     tempfile med_seed
     save `med_seed'
 
-    _adv_fit_med, simulations(120) samples(4) seed(8101)
+    _adv_fit_med, simulations(600) samples(4) seed(8101)
     tempname b1
     matrix `b1' = e(b)
 
     use `med_seed', clear
-    _adv_fit_med, simulations(120) samples(4) seed(8101)
+    _adv_fit_med, simulations(600) samples(4) seed(8101)
     tempname b2
     matrix `b2' = e(b)
 
     use `med_seed', clear
-    _adv_fit_med, simulations(120) samples(4) seed(8102)
+    _adv_fit_med, simulations(600) samples(4) seed(8102)
     tempname b3
     matrix `b3' = e(b)
 
@@ -585,8 +583,8 @@ else {
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED: `failed_tests'"
-    display "RESULT: test_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    display "RESULT: test_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
 display as result "ALL TESTS PASSED"
-display "RESULT: test_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_adversarial_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

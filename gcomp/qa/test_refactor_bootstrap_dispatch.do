@@ -15,20 +15,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local testdir "`c(tmpdir)'"
 
-local orig_plus "`c(sysdir_plus)'"
-local orig_personal "`c(sysdir_personal)'"
-tempname install_id
-local install_tag = subinstr("`install_id'", "__", "", .)
-local plus_dir "`testdir'/gcomp_refactor_plus_`install_tag'"
-local personal_dir "`testdir'/gcomp_refactor_personal_`install_tag'"
-
-capture mkdir "`plus_dir'"
-capture mkdir "`personal_dir'"
-sysdir set PLUS "`plus_dir'"
-sysdir set PERSONAL "`personal_dir'"
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 **# OBE mediation setup
 clear
@@ -261,18 +248,14 @@ else {
 
 display ""
 display as result "test_refactor_bootstrap_dispatch Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_refactor_bootstrap_dispatch tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
 if `fail_count' > 0 {
+    display "RESULT: test_refactor_bootstrap_dispatch tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     display as error "FAIL"
 }
 else {
+    display "RESULT: test_refactor_bootstrap_dispatch tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
     display as result "PASS"
 }
-
-capture ado uninstall gcomp
-sysdir set PLUS "`orig_plus'"
-sysdir set PERSONAL "`orig_personal'"
-discard
 
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"

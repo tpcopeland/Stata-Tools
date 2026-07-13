@@ -509,6 +509,44 @@ else {
     local ++fail_count
 }
 
+* =====================================================================
+**# T12: string estimator/by/estimand identities and empty-string exclusion
+* =====================================================================
+capture noisily {
+    _simtab_make_data, reps(10) estimands(2)
+    decode estid, gen(estimator_s)
+    decode sc, gen(scenario_s)
+    decode emd, gen(target_s)
+
+    * An empty requested identity is out of sample.  The affected cell has
+    * nine usable replications; every other string-identified cell has ten.
+    replace estimator_s = "" in 1
+    simtab estimator_s, estimate(est) se(se) true(truev) ///
+        by(scenario_s) estimand(target_s) sim(sim) metrics(mean n) ///
+        plotframe(ft12, replace) display
+
+    assert r(n_estimators) == 3
+    assert r(n_by) == 2
+    assert r(n_estimands) == 2
+    assert r(N_cells) == 12
+    assert r(n_reps_min) == 9
+    assert r(n_reps_max) == 10
+    frame ft12: count if estimator_label == "Unweighted" & ///
+        by_label == "A" & estimand_label == "Marginal" & n == 9
+    assert r(N) == 1
+    frame ft12: assert estimator_label != ""
+    frame ft12: assert by_label != ""
+    frame ft12: assert estimand_label != ""
+}
+if _rc == 0 {
+    display as result "  PASS T12: string identities + empty-string exclusion"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T12 (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Migrated from test_simtab_ingest.do
 
 

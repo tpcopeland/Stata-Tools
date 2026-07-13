@@ -15,8 +15,11 @@ Required options:
   exposure(varlist)  - Exposure variables (in order of datasets)
 
 Exposure type options:
-  continuous(namelist) - Specify which exposures are continuous (rates per day)
-                         Can use position numbers (1 2 3) or variable names
+  rate(namelist)       - Rates per day; values are unchanged when intervals split
+  total(namelist)      - Interval totals; values are apportioned when intervals split
+  cumulative(namelist) - Row-start cumulative histories; values are carried unchanged
+  continuous(namelist) - Deprecated alias for total()
+                         Quantity options accept positions or variable names
 
 Output and naming options:
   generate(namelist) - New names for exposure variables (one per dataset)
@@ -35,11 +38,7 @@ Diagnostic and validation options:
   summarize          - Display summary statistics of start/stop dates
 
 Performance options:
-  batch(#)           - Process IDs in batches (default: 20 = 20% of IDs per batch)
-                       Higher values = larger batches = potentially faster but more memory
-                       Lower values = smaller batches = less memory but more I/O
-                       Range: 1-100 (percentage of total IDs)
-                       Recommended: 20-50 for most datasets
+  batch(#)           - Deprecated compatibility option; accepted and ignored
 
 ID matching options:
   force              - Allow merging datasets with non-matching IDs (issues warning)
@@ -47,13 +46,15 @@ ID matching options:
                        With force, mismatched IDs are dropped with a warning.
                        Useful when merging exposure data that is a subset of a cohort.
 
-IMPORTANT: This program replaces the current dataset in memory with the merged result.
-Use the saveas() option to save the result to a file, or load your original data
-from a saved file before running if you need to preserve it.
+IMPORTANT: By default this program replaces the current dataset in memory with
+the merged result. frameout() instead places the result in a named frame and
+leaves the current data intact. saveas() additionally writes the result to disk.
 
 EXPOSURE TYPES:
 - Categorical (default): Creates cartesian product of all exposure combinations
-- Continuous: Treats exposure as rate per day
+- Rate: unchanged when an interval is sliced
+- Total: apportioned by inclusive overlap duration
+- Cumulative: row-start history carried unchanged
 */
 
 program define tvmerge, rclass
@@ -62,7 +63,14 @@ program define tvmerge, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _frameout_snap_taken = 0    // init before block for error-path restore
+    local _caller_zero_var_obs = 0
     local _caller_snapshot_ready = 0
+    local _tvm_diag_master ""
+    local _tvm_diag_using ""
+    local _tvm_diag_out ""
+    local _tvm_work_master ""
+    local _tvm_work_using ""
+    local _tvm_work_out ""
 
     capture noisily {
 
@@ -91,7 +99,11 @@ program define tvmerge, rclass
          FRAMEOut(name) ///
          REPlace ///
          KEEP(namelist) ///
-         CONtinuous(namelist) ///
+         CONtinuous(string asis) ///
+         RAte(string asis) ///
+         TOTal(string asis) ///
+         CUMulative(string asis) ///
+         DROPInvalid ///
          Batch(integer -1) ///
          FORCE ///
          CHECK VALIDATEcoverage VALIDATEoverlap SUMmarize ///
@@ -145,6 +157,11 @@ program define tvmerge, rclass
         quietly save "`_tvm_caller_snap'", replace
         local _frameout_snap_taken = 1
     }
+    else if _N > 0 {
+        * Stata cannot save a dataset that has observations but zero variables.
+        * Its complete restorable state is therefore just the observation count.
+        local _caller_zero_var_obs = _N
+    }
     local _caller_snapshot_ready = 1
 
     * Parse and validate dataset count
@@ -154,91 +171,6 @@ program define tvmerge, rclass
         exit 198
     }
     
-    * Verify all dataset files exist and are valid Stata datasets
-    * This prevents cryptic error messages from use command
-    preserve
-    local validation_error = 0
-    local error_msg ""
-    local error_code = 0
-
-    foreach ds in `datasets' {
-        * Try path as given first (supports tempfile paths without .dta)
-        * Fall back to appending .dta if original path not found
-        local ds_file "`ds'"
-        capture confirm file "`ds_file'"
-        if _rc != 0 {
-            if substr("`ds'", -4, .) != ".dta" {
-                local ds_file "`ds'.dta"
-                capture confirm file "`ds_file'"
-            }
-            if _rc != 0 {
-                local validation_error = 1
-                local error_msg "Dataset file not found: `ds'"
-                local error_code = 601
-                continue, break
-            }
-        }
-        * Also verify it's a valid Stata dataset
-        * Note: Don't use "in 1" - it fails on empty datasets
-        capture use "`ds_file'", clear
-        if _rc != 0 {
-            local validation_error = 1
-            local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
-            local error_code = 610
-            continue, break
-        }
-        * strL ids cannot serve as merge keys; without this screen the internal
-        * ID-mismatch merge fails mid-run with a cryptic "key variable id is
-        * strL" r(106). (id existence per dataset is validated later.)
-        capture confirm variable `id'
-        if _rc == 0 {
-            local _tvm_idtype : type `id'
-            if "`_tvm_idtype'" == "strL" {
-                local validation_error = 1
-                local error_msg "id() variable `id' is strL in `ds'; strL variables cannot be used as merge keys -- recast to str# first (e.g. generate str20 `id'2 = `id')"
-                local error_code = 109
-                continue, break
-            }
-        }
-    }
-    restore
-
-    if `validation_error' {
-        di as error "`error_msg'"
-        exit `error_code'
-    }
-
-    * Flow accounting: capture input persons (union of distinct ids across all
-    * input datasets) and total input records. Opt-in via flow; the extra read
-    * of each input is acceptable on this path only.
-    if "`flow'" != "" {
-        preserve
-        local _flow_rin = 0
-        tempfile _flow_ids
-        local _flow_first = 1
-        foreach ds in `datasets' {
-            local _dsf "`ds'"
-            capture confirm file "`_dsf'"
-            if _rc & substr("`ds'", -4, .) != ".dta" local _dsf "`ds'.dta"
-            quietly use `id' using "`_dsf'", clear
-            local _flow_rin = `_flow_rin' + _N
-            if `_flow_first' {
-                quietly save "`_flow_ids'", replace
-                local _flow_first = 0
-            }
-            else {
-                quietly append using "`_flow_ids'"
-                quietly save "`_flow_ids'", replace
-            }
-        }
-        quietly use "`_flow_ids'", clear
-        tempvar _flow_t
-        quietly egen byte `_flow_t' = tag(`id')
-        quietly count if `_flow_t' == 1
-        local _flow_pin = r(N)
-        restore
-    }
-
     * Validate variable name lengths (Stata allows up to 32 characters)
     * Check single-value options
     foreach opt in id startname stopname prefix {
@@ -279,13 +211,20 @@ program define tvmerge, rclass
     }
     
     * Internal variable names used during merge processing
-    local reserved_names "start_k stop_k id new_start new_stop _valid _gap _overlap _same_exposures _tag _nper _per _per_max _orig_start_merged _orig_stop_merged"
+    local reserved_names "start_k stop_k id new_start new_stop _valid _gap _overlap _same_exposures _tag _nper _per _per_max _first _orig_start_merged _orig_stop_merged"
+    local reserved_names "`reserved_names' __tvm_gid __tvm_mobs __tvm_uobs __tvm_mi __tvm_ui"
+    local reserved_names "`reserved_names' __tvm_mpattern __tvm_mid __tvm_mstart __tvm_mstop __tvm_upattern __tvm_uid __tvm_ustart __tvm_ustop"
 
     * Validate generate() names and count
     if "`generate'" != "" {
         local ngen: word count `generate'
         if `ngen' != `numds' {
             di as error "generate() must contain exactly `numds' names (one per dataset)"
+            exit 198
+        }
+        local duplicate_generate : list dups generate
+        if "`duplicate_generate'" != "" {
+            di as error "generate() contains duplicate output name(s):`duplicate_generate'"
             exit 198
         }
         foreach gname in `generate' {
@@ -396,6 +335,21 @@ program define tvmerge, rclass
     local exposures_raw "`exposure'"
     local numexp_raw: word count `exposures_raw'
 
+    * Structural roles must be distinct within each positional source. The ID
+    * exists in every source; a bound or exposure with the same name would be
+    * consumed by an earlier rename and fail only after the file was opened.
+    forvalues ds_index = 1/`numds' {
+        local role_start : word `ds_index' of `starts'
+        local role_stop : word `ds_index' of `stops'
+        local role_exposure : word `ds_index' of `exposures_raw'
+        local role_names "`id' `role_start' `role_stop' `role_exposure'"
+        local duplicate_roles : list dups role_names
+        if "`duplicate_roles'" != "" {
+            di as error "Dataset `ds_index' reuses a variable across id(), start(), stop(), or exposure():`duplicate_roles'"
+            exit 198
+        }
+    }
+
     if "`generate'" == "" {
         * Check if user specified same variable name multiple times
         local seen_names ""
@@ -427,11 +381,13 @@ program define tvmerge, rclass
                     foreach e2 in `exposures_raw' {
                         if "`e2'" == "`exp_name'" local ++nocc
                     }
+                    local output_base "`exp_name'"
+                    if "`prefix'" != "" local output_base "`prefix'`exp_name'"
                     if `nocc' > 1 {
-                        local generate "`generate' `exp_name'_`pos'"
+                        local generate "`generate' `output_base'_`pos'"
                     }
                     else {
-                        local generate "`generate' `exp_name'"
+                        local generate "`generate' `output_base'"
                     }
                 }
                 * Guard the synthesized names against internal reserved names
@@ -454,67 +410,183 @@ program define tvmerge, rclass
         }
     }
 
+    * Preflight every final exposure name before any source data are loaded.
+    * Structural bounds, the ID, and keep()'s deterministic _ds# outputs are
+    * protected: accepting any collision would overwrite or silently lose data.
+    local final_name_candidates ""
+    if "`generate'" != "" {
+        local final_name_candidates "`generate'"
+    }
+    else if "`prefix'" != "" {
+        foreach exp_name of local exposures_raw {
+            local final_name_candidates "`final_name_candidates' `prefix'`exp_name'"
+        }
+    }
+    else {
+        local final_name_candidates "`exposures_raw'"
+    }
+
+    local duplicate_final_names : list dups final_name_candidates
+    if "`duplicate_final_names'" != "" {
+        di as error "Exposure output names are not unique:`duplicate_final_names'"
+        di as error "Use generate() to choose distinct output names."
+        exit 198
+    }
+
+    * keep() variables are copied as <name>_ds#. Validate both the source role
+    * and every derived output name now, before opening any source dataset.
+    * Structural variables cannot also be payload because the merge renames or
+    * consumes them internally.
+    local structural_input_names "`id' `starts' `stops' `exposures_raw'"
+    local structural_input_names : list uniq structural_input_names
+    local keep_output_names ""
+    if "`keep'" != "" {
+        foreach keepvar of local keep {
+            local keep_is_structural : list keepvar in structural_input_names
+            if `keep_is_structural' {
+                di as error "keep() variable '`keepvar'' is an ID, bound, or exposure variable"
+                exit 198
+            }
+            forvalues ds_index = 1/`numds' {
+                local keep_output "`keepvar'_ds`ds_index'"
+                capture confirm name `keep_output'
+                if _rc != 0 | strlen("`keep_output'") > 32 {
+                    di as error "keep() produces invalid or overlength output name: `keep_output'"
+                    exit 198
+                }
+                local keep_internal_collision : list keep_output in reserved_names
+                if `keep_internal_collision' {
+                    di as error "keep() output name '`keep_output'' conflicts with an internal variable"
+                    exit 198
+                }
+                local keep_structural_outputs "id `startname' `stopname'"
+                local keep_structural_collision : list keep_output in keep_structural_outputs
+                if `keep_structural_collision' {
+                    di as error "keep() output name '`keep_output'' conflicts with an output ID or bound"
+                    exit 198
+                }
+                local keep_output_names "`keep_output_names' `keep_output'"
+            }
+        }
+    }
+    local duplicate_keep_names : list dups keep_output_names
+    if "`duplicate_keep_names'" != "" {
+        di as error "keep() produces duplicate output name(s):`duplicate_keep_names'"
+        exit 198
+    }
+
+    local protected_output_names "id `id' `startname' `stopname' `keep_output_names'"
+    local protected_output_names : list uniq protected_output_names
+
+    foreach out_name of local final_name_candidates {
+        capture confirm name `out_name'
+        if _rc != 0 | strlen("`out_name'") > 32 {
+            di as error "Invalid or overlength exposure output name: `out_name'"
+            exit 198
+        }
+        local output_collision : list out_name in protected_output_names
+        if `output_collision' {
+            di as error "Exposure output name '`out_name'' conflicts with a protected output variable"
+            exit 198
+        }
+        local internal_collision : list out_name in reserved_names
+        if `internal_collision' {
+            di as error "Exposure output name '`out_name'' conflicts with an internal variable"
+            exit 198
+        }
+    }
+
     local exposures "`exposures_raw'"
     local numexp: word count `exposures'
     
-    * Parse continuous exposure specification (names or positions)
-    local continuous_positions ""
-    local continuous_names ""
+    * Quantity algebra is explicit. continuous() remains a compatibility alias
+    * for the historical proportional-allocation behavior, now named total().
     if "`continuous'" != "" {
-        foreach item in `continuous' {
-            * Check if item is a number (position)
+        noisily display as text ///
+            "Warning: continuous() is deprecated; use total() for interval totals."
+        local total "`total' `continuous'"
+    }
+
+    foreach quantity in rate total cumulative {
+        local `quantity'_positions ""
+        local `quantity'_names ""
+        foreach item of local `quantity' {
             capture confirm integer number `item'
             if _rc == 0 {
-                * It's a number - treat as position
                 if `item' < 1 | `item' > `numexp' {
-                    di as error "continuous() position `item' out of range (1-`numexp')"
+                    di as error "`quantity'() position `item' out of range (1-`numexp')"
                     exit 198
                 }
-                local continuous_positions "`continuous_positions' `item'"
-                local exp_at_pos: word `item' of `exposures'
-                local continuous_names "`continuous_names' `exp_at_pos'"
+                local `quantity'_positions "``quantity'_positions' `item'"
+                local exp_at_pos : word `item' of `exposures'
+                local `quantity'_names "``quantity'_names' `exp_at_pos'"
             }
             else {
-                * Not a number - treat as exposure name
                 local found_exp = 0
                 forvalues j = 1/`numexp' {
-                    local exp_j: word `j' of `exposures'
+                    local exp_j : word `j' of `exposures'
                     if "`item'" == "`exp_j'" {
-                        local continuous_positions "`continuous_positions' `j'"
-                        local continuous_names "`continuous_names' `item'"
+                        local `quantity'_positions "``quantity'_positions' `j'"
+                        local `quantity'_names "``quantity'_names' `item'"
                         local found_exp = 1
                     }
                 }
                 if `found_exp' == 0 {
-                    di as error "continuous() exposure `item' not found in exposure list"
+                    di as error "`quantity'() exposure `item' not found in exposure()"
                     exit 198
                 }
             }
         }
+        local `quantity'_positions : list uniq `quantity'_positions
+        local `quantity'_names : list uniq `quantity'_names
     }
 
-    * Count continuous and categorical exposures
-    local n_continuous: word count `continuous_names'
-    local n_categorical = `numexp' - `n_continuous'
-
-    * Identify categorical exposures (those not in continuous list)
-    local categorical_positions ""
-    local categorical_names ""
-    forvalues j = 1/`numexp' {
-        local is_continuous = 0
-        foreach cont_pos in `continuous_positions' {
-            if `j' == `cont_pos' {
-                local is_continuous = 1
+    * Preserve the legacy alias subset separately for truthful compatibility
+    * returns when total() and continuous() are supplied together.
+    local continuous_positions ""
+    foreach item of local continuous {
+        capture confirm integer number `item'
+        if _rc == 0 {
+            local continuous_positions "`continuous_positions' `item'"
+        }
+        else {
+            forvalues j = 1/`numexp' {
+                local exp_j : word `j' of `exposures'
+                if "`item'" == "`exp_j'" {
+                    local continuous_positions "`continuous_positions' `j'"
+                }
             }
         }
-        if `is_continuous' == 0 {
-            local categorical_positions "`categorical_positions' `j'"
-            local exp_j: word `j' of `exposures'
-            local categorical_names "`categorical_names' `exp_j'"
+    }
+    local continuous_positions : list uniq continuous_positions
+
+    * A variable has one algebra only. Check by exposure position so duplicate
+    * source variable names (which are auto-suffixed) remain unambiguous.
+    forvalues j = 1/`numexp' {
+        local n_quantity_assignments = 0
+        foreach quantity in rate total cumulative {
+            local in_quantity : list j in `quantity'_positions
+            if `in_quantity' local ++n_quantity_assignments
+        }
+        if `n_quantity_assignments' > 1 {
+            local exp_j : word `j' of `exposures'
+            di as error "Exposure `j' (`exp_j') appears in more than one of rate(), total(), and cumulative()"
+            exit 198
         }
     }
 
-    * Build final exposure list for output
+    * The legacy downstream names refer only to totals, because those are the
+    * quantities that must be apportioned when an interval is sliced.
+    local n_rate : word count `rate_positions'
+    local n_total : word count `total_positions'
+    local n_cumulative : word count `cumulative_positions'
+    local n_continuous : word count `continuous_positions'
+    local n_categorical = `numexp' - `n_rate' - `n_total' - `n_cumulative'
+
+    * Build final exposure lists by quantity type.
+    local rate_exps ""
+    local total_exps ""
+    local cumulative_exps ""
     local continuous_exps ""
     local categorical_exps ""
 
@@ -522,15 +594,6 @@ program define tvmerge, rclass
     * Note: Loop through ALL exposure variables, not just dataset count
     forvalues j = 1/`numexp_raw' {
         local exp_j: word `j' of `exposures_raw'
-        
-        * Find position of this exposure in unique list
-        local pos = 0
-        forvalues k = 1/`numexp' {
-            local exp_k: word `k' of `exposures'
-            if "`exp_j'" == "`exp_k'" {
-                local pos = `k'
-            }
-        }
         
         * Determine final name for this exposure
         if "`generate'" != "" {
@@ -543,16 +606,22 @@ program define tvmerge, rclass
             local exp_name "`exp_j'"
         }
         
-        * Check if continuous
-        local is_cont = 0
-        foreach cont_pos in `continuous_positions' {
-            if `pos' == `cont_pos' {
-                local is_cont = 1
+        local is_rate : list j in rate_positions
+        local is_total : list j in total_positions
+        local is_cumulative : list j in cumulative_positions
+        local is_continuous_alias : list j in continuous_positions
+
+        if `is_rate' {
+            local rate_exps: list rate_exps | exp_name
+        }
+        else if `is_total' {
+            local total_exps: list total_exps | exp_name
+            if `is_continuous_alias' {
+                local continuous_exps: list continuous_exps | exp_name
             }
         }
-        
-        if `is_cont' == 1 {
-            local continuous_exps: list continuous_exps | exp_name
+        else if `is_cumulative' {
+            local cumulative_exps: list cumulative_exps | exp_name
         }
         else {
             local categorical_exps: list categorical_exps | exp_name
@@ -563,6 +632,98 @@ program define tvmerge, rclass
     if "`keep'" != "" {
         local keep_vars_found ""
     }
+
+    * Aggregate malformed-input accounting across all source datasets.
+    local n_invalid = 0
+    local n_invalid_id = 0
+    local n_invalid_dates = 0
+    local n_invalid_order = 0
+    local n_invalid_exposure = 0
+    local n_forced_id_drops = 0
+
+    * All option, naming, and quantity checks above are source-independent.
+    * Only after they pass do we touch the input files, so a malformed request
+    * cannot be masked by (or incur) an unrelated file-access failure.
+    preserve
+    local validation_error = 0
+    local error_msg ""
+    local error_code = 0
+
+    foreach ds in `datasets' {
+        * Try the supplied path first (including tempfile paths without .dta),
+        * then the conventional .dta suffix.
+        local ds_file "`ds'"
+        capture confirm file "`ds_file'"
+        if _rc != 0 {
+            if substr("`ds'", -4, .) != ".dta" {
+                local ds_file "`ds'.dta"
+                capture confirm file "`ds_file'"
+            }
+            if _rc != 0 {
+                local validation_error = 1
+                local error_msg "Dataset file not found: `ds'"
+                local error_code = 601
+                continue, break
+            }
+        }
+        capture use "`ds_file'", clear
+        if _rc != 0 {
+            local validation_error = 1
+            local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
+            local error_code = 610
+            continue, break
+        }
+        * strL IDs cannot be merge keys. Existence is checked here so flow
+        * accounting below cannot fail with a cryptic use-varlist error.
+        capture confirm variable `id'
+        if _rc != 0 {
+            local validation_error = 1
+            local error_msg "id() variable `id' not found in `ds'"
+            local error_code = 111
+            continue, break
+        }
+        local _tvm_idtype : type `id'
+        if "`_tvm_idtype'" == "strL" {
+            local validation_error = 1
+            local error_msg "id() variable `id' is strL in `ds'; strL variables cannot be used as merge keys -- recast to str# first"
+            local error_code = 109
+            continue, break
+        }
+    }
+    restore
+
+    if `validation_error' {
+        di as error "`error_msg'"
+        exit `error_code'
+    }
+
+    * Flow accounting is collected up front. It is returned on request and
+    * mandatorily whenever dropinvalid or force removes input records/persons.
+    preserve
+        local _flow_rin = 0
+        tempfile _flow_ids
+        local _flow_first = 1
+        foreach ds in `datasets' {
+            local _dsf "`ds'"
+            capture confirm file "`_dsf'"
+            if _rc & substr("`ds'", -4, .) != ".dta" local _dsf "`ds'.dta"
+            quietly use `id' using "`_dsf'", clear
+            local _flow_rin = `_flow_rin' + _N
+            if `_flow_first' {
+                quietly save "`_flow_ids'", replace
+                local _flow_first = 0
+            }
+            else {
+                quietly append using "`_flow_ids'"
+                quietly save "`_flow_ids'", replace
+            }
+        }
+        quietly use "`_flow_ids'", clear
+        tempvar _flow_t
+        quietly egen byte `_flow_t' = tag(`id') if !missing(`id')
+        quietly count if `_flow_t' == 1
+        local _flow_pin = r(N)
+    restore
     
     **# MAIN PROCESSING
     quietly {
@@ -591,12 +752,62 @@ program define tvmerge, rclass
             noisily di as error "Variable `stop1' not found in `first_ds'"
             exit 111
         }
+        capture confirm numeric variable `start1'
+        if _rc != 0 {
+            noisily di as error "start() variable `start1' in dataset 1 must be numeric daily dates"
+            exit 109
+        }
+        capture confirm numeric variable `stop1'
+        if _rc != 0 {
+            noisily di as error "stop() variable `stop1' in dataset 1 must be numeric daily dates"
+            exit 109
+        }
         
         local exp1: word 1 of `exposures_raw'
         capture confirm variable `exp1'
         if _rc != 0 {
             noisily di as error "Variable `exp1' not found in `first_ds'"
             exit 111
+        }
+        local exp1_is_quantity = 0
+        local _position_one "1"
+        foreach quantity_positions in rate_positions total_positions cumulative_positions {
+            local first_in_quantity : list _position_one in `quantity_positions'
+            if `first_in_quantity' local exp1_is_quantity = 1
+        }
+        if `exp1_is_quantity' {
+            capture confirm numeric variable `exp1'
+            if _rc != 0 {
+                noisily di as error "Quantity variable `exp1' in dataset 1 must be numeric"
+                exit 109
+            }
+        }
+        local declared_quantity1 ""
+        foreach quantity in rate total cumulative {
+            local first_in_quantity : list _position_one in `quantity'_positions
+            if `first_in_quantity' local declared_quantity1 "`quantity'"
+        }
+        local source_quantity1 : char `exp1'[tvtools_quantity]
+        if "`source_quantity1'" != "" {
+            if !inlist("`source_quantity1'", "rate", "total", "cumulative") {
+                noisily di as error "Unknown tvtools_quantity metadata for `exp1': `source_quantity1'"
+                exit 498
+            }
+            if "`declared_quantity1'" == "" {
+                noisily di as error "Quantity metadata for `exp1' is `source_quantity1'; declare the matching `source_quantity1'() option"
+                exit 498
+            }
+            if "`declared_quantity1'" != "`source_quantity1'" {
+                noisily di as error "Quantity metadata conflict for `exp1': source is `source_quantity1', option declares `declared_quantity1'"
+                exit 498
+            }
+        }
+        if "`declared_quantity1'" == "cumulative" {
+            local source_history1 : char `exp1'[tvtools_history_point]
+            if "`source_history1'" != "start" {
+                noisily di as error "Cumulative variable `exp1' must declare char tvtools_history_point start"
+                exit 498
+            }
         }
 
         * Non-positional exposures are only read from datasets 2+; warn if the
@@ -638,9 +849,60 @@ program define tvmerge, rclass
             exit 198
         }
 
-        * Floor start dates and ceil stop dates to handle fractional date values
-        replace `startname' = floor(`startname')
-        replace `stopname' = ceil(`stopname')
+        * Required rows are strict by default. Fractional dates are not silently
+        * rounded because they violate the suite's whole-day interval contract.
+        tempvar _bad_id1 _bad_date1 _bad_order1 _bad_exp1 _bad_row1
+        generate byte `_bad_id1' = missing(id)
+        generate byte `_bad_date1' = missing(`startname') | missing(`stopname') | ///
+            (!missing(`startname') & `startname' != floor(`startname')) | ///
+            (!missing(`stopname') & `stopname' != floor(`stopname'))
+        generate byte `_bad_order1' = !missing(`startname', `stopname') & ///
+            `startname' > `stopname'
+        generate byte `_bad_exp1' = missing(`exp1')
+        generate byte `_bad_row1' = `_bad_id1' | `_bad_date1' | ///
+            `_bad_order1' | `_bad_exp1'
+
+        quietly count if `_bad_id1'
+        local invalid_id_ds1 = r(N)
+        quietly count if `_bad_date1'
+        local invalid_dates_ds1 = r(N)
+        quietly count if `_bad_order1'
+        local invalid_order_ds1 = r(N)
+        quietly count if `_bad_exp1'
+        local invalid_exposure_ds1 = r(N)
+        quietly count if `_bad_row1'
+        local invalid_ds1 = r(N)
+
+        local n_invalid = `n_invalid' + `invalid_ds1'
+        local n_invalid_id = `n_invalid_id' + `invalid_id_ds1'
+        local n_invalid_dates = `n_invalid_dates' + `invalid_dates_ds1'
+        local n_invalid_order = `n_invalid_order' + `invalid_order_ds1'
+        local n_invalid_exposure = `n_invalid_exposure' + `invalid_exposure_ds1'
+
+        if `invalid_ds1' > 0 & "`dropinvalid'" == "" {
+            noisily display as error "Malformed input in dataset 1: `invalid_ds1' row(s)"
+            noisily display as error ///
+                "  missing ID: `invalid_id_ds1'; invalid daily dates: `invalid_dates_ds1'; reversed bounds: `invalid_order_ds1'; missing exposure: `invalid_exposure_ds1'"
+            if "`verbose'" != "" {
+                preserve
+                keep if `_bad_row1'
+                noisily list id `startname' `stopname' `exp1' ///
+                    in 1/`=min(5, _N)', noobs
+                restore
+            }
+            noisily display as error "Correct the source data or specify dropinvalid."
+            exit 498
+        }
+        if `invalid_ds1' > 0 {
+            drop if `_bad_row1'
+            noisily display as text ///
+                "dropinvalid: removed `invalid_ds1' malformed row(s) from dataset 1"
+        }
+        drop `_bad_id1' `_bad_date1' `_bad_order1' `_bad_exp1' `_bad_row1'
+        if _N == 0 {
+            noisily display as error "No valid observations remain in dataset 1"
+            exit 2000
+        }
         
         * Apply new exposure name if specified
         if "`generate'" != "" {
@@ -656,14 +918,10 @@ program define tvmerge, rclass
         * Keep only necessary variables plus keep() list
         local keeplist "id `startname' `stopname' `exp1'"
         
-        * Add intensity variable if exposure is continuous
-        local exp1_orig: word 1 of `exposures_raw'
-        local is_cont1 = 0
-        foreach cont_name in `continuous_names' {
-            if "`exp1_orig'" == "`cont_name'" {
-                local is_cont1 = 1
-            }
-        }
+        * Totals are tracked by exposure position, never by raw variable name.
+        * This is essential when multiple source datasets use the same name.
+        local _position_one "1"
+        local is_cont1 : list _position_one in total_positions
         
         * Process keep() variables for dataset 1
         if "`keep'" != "" {
@@ -673,9 +931,9 @@ program define tvmerge, rclass
                     * Track that this variable was found
                     local keep_vars_found: list keep_vars_found | var
                     * Rename with _ds1 suffix to avoid conflicts
-                    tempvar temp_`var'
-                    rename `var' `temp_`var''
-                    rename `temp_`var'' `var'_ds1
+                    tempvar _keep_tmp
+                    rename `var' `_keep_tmp'
+                    rename `_keep_tmp' `var'_ds1
                     local keeplist "`keeplist' `var'_ds1"
                 }
             }
@@ -683,34 +941,34 @@ program define tvmerge, rclass
         
         keep `keeplist'
         
-        * Drop invalid periods where start > stop
-        generate double _valid = (`startname' <= `stopname') & !missing(`startname', `stopname')
-        quietly count if _valid == 0
-        local invalid_ds1 = r(N)
-        keep if _valid == 1
-        drop _valid
-        
         * Sort and save as tempfile
         sort id `startname' `stopname'
 
-        * Check for overlapping intervals in first dataset
-        * Use <= to catch one-day overlaps where start == previous stop
-        * (consistent with [start, stop] inclusive interval convention)
-        tempvar _overlap_check
-        by id: gen byte `_overlap_check' = (`startname' <= `stopname'[_n-1]) if _n > 1
+        * Check against the running prior maximum, so nested intervals do not
+        * hide later overlaps behind a shorter immediate predecessor.
+        tempvar _overlap_check _overlap_maxstop
+        by id: gen double `_overlap_maxstop' = `stopname'
+        by id: replace `_overlap_maxstop' = max(`_overlap_maxstop'[_n-1], `stopname') if _n > 1
+        by id: gen byte `_overlap_check' = ///
+            (`startname' <= `_overlap_maxstop'[_n-1]) if _n > 1
         quietly count if `_overlap_check' == 1
         local n_overlaps_ds1 = r(N)
         if `n_overlaps_ds1' > 0 {
             noisily di as text "Warning: Dataset 1 (`first_ds') contains `n_overlaps_ds1' overlapping interval(s) within persons."
             noisily di as text "         Overlapping input may produce unexpected results."
+            if `n_total' > 0 {
+                noisily di as error "Interval totals cannot be conserved when a source dataset contains overlapping rows."
+                noisily di as error "Resolve source overlaps before using total() or continuous()."
+                exit 459
+            }
         }
-        drop `_overlap_check'
+        drop `_overlap_check' `_overlap_maxstop'
 
         tempfile merged_data
         save `merged_data', replace
 
-        * Track continuous exposures already in merged_data
-        * These need to be re-proportioned when intervals are sliced in subsequent merges
+        * Track interval totals already in merged_data. These must be
+        * re-apportioned when later merge boundaries slice their current rows.
         local merged_continuous_exps ""
         if `is_cont1' == 1 {
             local merged_continuous_exps "`exp1'"
@@ -762,6 +1020,7 @@ program define tvmerge, rclass
                     local exp_k_list "`exp_k_list' `possible_exp'"
                 }
             }
+            local exp_k_list : list uniq exp_k_list
 
             if "`exp_k_list'" == "" {
                 noisily di as error "No exposure variables found in `ds_k'"
@@ -805,6 +1064,68 @@ program define tvmerge, rclass
                 noisily di as error "(This is variable `k' from stop() option: `stops')"
                 exit 111
             }
+            capture confirm numeric variable `start_k_varname'
+            if _rc != 0 {
+                noisily di as error "start() variable `start_k_varname' in dataset `k' must be numeric daily dates"
+                exit 109
+            }
+            capture confirm numeric variable `stop_k_varname'
+            if _rc != 0 {
+                noisily di as error "stop() variable `stop_k_varname' in dataset `k' must be numeric daily dates"
+                exit 109
+            }
+            foreach found_exp of local exp_k_list {
+                local found_is_quantity = 0
+                local declared_quantity ""
+                local _position_k "`k'"
+                if "`found_exp'" == "`exp_k_raw'" {
+                    foreach quantity in rate total cumulative {
+                        local in_quantity : list _position_k in `quantity'_positions
+                        if `in_quantity' {
+                            local found_is_quantity = 1
+                            local declared_quantity "`quantity'"
+                        }
+                    }
+                }
+                else {
+                    foreach quantity in rate total cumulative {
+                        local in_quantity : list found_exp in `quantity'_names
+                        if `in_quantity' {
+                            local found_is_quantity = 1
+                            local declared_quantity "`quantity'"
+                        }
+                    }
+                }
+                if `found_is_quantity' {
+                    capture confirm numeric variable `found_exp'
+                    if _rc != 0 {
+                        noisily di as error "Quantity variable `found_exp' in dataset `k' must be numeric"
+                        exit 109
+                    }
+                }
+                local source_quantity : char `found_exp'[tvtools_quantity]
+                if "`source_quantity'" != "" {
+                    if !inlist("`source_quantity'", "rate", "total", "cumulative") {
+                        noisily di as error "Unknown tvtools_quantity metadata for `found_exp' in dataset `k': `source_quantity'"
+                        exit 498
+                    }
+                    if "`declared_quantity'" == "" {
+                        noisily di as error "Quantity metadata for `found_exp' in dataset `k' is `source_quantity'; declare the matching `source_quantity'() option"
+                        exit 498
+                    }
+                    if "`declared_quantity'" != "`source_quantity'" {
+                        noisily di as error "Quantity metadata conflict for `found_exp' in dataset `k': source is `source_quantity', option declares `declared_quantity'"
+                        exit 498
+                    }
+                }
+                if "`declared_quantity'" == "cumulative" {
+                    local source_history : char `found_exp'[tvtools_history_point]
+                    if "`source_history'" != "start" {
+                        noisily di as error "Cumulative variable `found_exp' in dataset `k' must declare char tvtools_history_point start"
+                        exit 498
+                    }
+                }
+            }
             * Note: exp_k_raw (word k of exposure list) may not exist in this dataset
             * when exposure() has more variables than datasets. The exp_k_list
             * (built above) contains all exposures actually found in this dataset.
@@ -828,10 +1149,6 @@ program define tvmerge, rclass
                 noisily display as error "tvmerge requires daily dates. Convert using: gen date_var = dofc(`stop_k_varname')"
                 exit 198
             }
-
-            * Floor start dates and ceil stop dates to handle fractional date values
-            replace start_k = floor(start_k)
-            replace stop_k = ceil(stop_k)
 
             * Apply new exposure name if specified - only if exp_k_raw exists in this dataset
             local exp_k_raw_exists: list exp_k_raw in exp_k_list
@@ -862,13 +1179,15 @@ program define tvmerge, rclass
             local exp_k_list_final ""
             local exp_k_cont_list ""
             foreach found_exp in `exp_k_list' {
-                local _found_is_cont: list found_exp in continuous_names
                 if "`found_exp'" == "`exp_k_raw'" {
                     * This is the positional exposure, use the renamed version
                     local _renamed_exp "`exp_k'"
+                    local _position_k "`k'"
+                    local _found_is_cont : list _position_k in total_positions
                 }
                 else {
                     * Other exposure found in dataset, apply prefix if specified
+                    local _found_is_cont : list found_exp in total_names
                     if "`prefix'" != "" {
                         rename `found_exp' `prefix'`found_exp'
                         local _renamed_exp "`prefix'`found_exp'"
@@ -883,19 +1202,70 @@ program define tvmerge, rclass
                 }
             }
 
-            * Update exp_k_list for later use (continuous interpolation)
+            * Update exp_k_list for later interval-total allocation.
+            local exp_k_list_final : list uniq exp_k_list_final
+            local exp_k_cont_list : list uniq exp_k_cont_list
             local exp_k_list "`exp_k_list_final'"
+
+            * Strict required-row validation before any interval processing.
+            tempvar _bad_idk _bad_datek _bad_orderk _bad_expk _bad_rowk
+            generate byte `_bad_idk' = missing(id)
+            generate byte `_bad_datek' = missing(start_k) | missing(stop_k) | ///
+                (!missing(start_k) & start_k != floor(start_k)) | ///
+                (!missing(stop_k) & stop_k != floor(stop_k))
+            generate byte `_bad_orderk' = !missing(start_k, stop_k) & start_k > stop_k
+            generate byte `_bad_expk' = 0
+            foreach exp_var of local exp_k_list {
+                replace `_bad_expk' = 1 if missing(`exp_var')
+            }
+            generate byte `_bad_rowk' = `_bad_idk' | `_bad_datek' | ///
+                `_bad_orderk' | `_bad_expk'
+
+            quietly count if `_bad_idk'
+            local invalid_id_ds`k' = r(N)
+            quietly count if `_bad_datek'
+            local invalid_dates_ds`k' = r(N)
+            quietly count if `_bad_orderk'
+            local invalid_order_ds`k' = r(N)
+            quietly count if `_bad_expk'
+            local invalid_exposure_ds`k' = r(N)
+            quietly count if `_bad_rowk'
+            local invalid_ds`k' = r(N)
+
+            local n_invalid = `n_invalid' + `invalid_ds`k''
+            local n_invalid_id = `n_invalid_id' + `invalid_id_ds`k''
+            local n_invalid_dates = `n_invalid_dates' + `invalid_dates_ds`k''
+            local n_invalid_order = `n_invalid_order' + `invalid_order_ds`k''
+            local n_invalid_exposure = `n_invalid_exposure' + `invalid_exposure_ds`k''
+
+            if `invalid_ds`k'' > 0 & "`dropinvalid'" == "" {
+                noisily display as error ///
+                    "Malformed input in dataset `k': `invalid_ds`k'' row(s)"
+                noisily display as error ///
+                    "  missing ID: `invalid_id_ds`k''; invalid daily dates: `invalid_dates_ds`k''; reversed bounds: `invalid_order_ds`k''; missing exposure: `invalid_exposure_ds`k''"
+                if "`verbose'" != "" {
+                    preserve
+                    keep if `_bad_rowk'
+                    noisily list id start_k stop_k `exp_k_list' ///
+                        in 1/`=min(5, _N)', noobs
+                    restore
+                }
+                noisily display as error "Correct the source data or specify dropinvalid."
+                exit 498
+            }
+            if `invalid_ds`k'' > 0 {
+                drop if `_bad_rowk'
+                noisily display as text ///
+                    "dropinvalid: removed `invalid_ds`k'' malformed row(s) from dataset `k'"
+            }
+            drop `_bad_idk' `_bad_datek' `_bad_orderk' `_bad_expk' `_bad_rowk'
+            if _N == 0 {
+                noisily display as error "No valid observations remain in dataset `k'"
+                exit 2000
+            }
 
             * Keep only necessary variables (all exposures found in this dataset)
             local keeplist_k "id start_k stop_k `exp_k_list'"
-            
-            * Check if exposure is continuous
-            local is_cont_k = 0
-            foreach cont_name in `continuous_names' {
-                if "`exp_k_raw'" == "`cont_name'" {
-                    local is_cont_k = 1
-                }
-            }
             
             * Process keep() variables for dataset k
             if "`keep'" != "" {
@@ -905,9 +1275,9 @@ program define tvmerge, rclass
                         * Track that this variable was found
                         local keep_vars_found: list keep_vars_found | var
                         * Rename with _ds# suffix to avoid conflicts
-                        tempvar temp_`var'
-                        rename `var' `temp_`var''
-                        rename `temp_`var'' `var'_ds`k'
+                        tempvar _keep_tmp
+                        rename `var' `_keep_tmp'
+                        rename `_keep_tmp' `var'_ds`k'
                         local keeplist_k "`keeplist_k' `var'_ds`k'"
                     }
                 }
@@ -915,27 +1285,28 @@ program define tvmerge, rclass
             
             keep `keeplist_k'
             
-            * Drop invalid periods where start > stop
-            generate double _valid = (start_k <= stop_k) & !missing(start_k, stop_k)
-            quietly count if _valid == 0
-            local invalid_ds`k' = r(N)
-            keep if _valid == 1
-            drop _valid
-            
             * Sort for merge
             sort id start_k stop_k
 
-            * Check for overlapping intervals in this dataset
-            * Use <= to catch one-day overlaps (consistent with [start, stop] inclusive intervals)
-            tempvar _overlap_check_k
-            by id: gen byte `_overlap_check_k' = (start_k <= stop_k[_n-1]) if _n > 1
+            * Running-maximum overlap screen (nested intervals included).
+            tempvar _overlap_check_k _overlap_maxstop_k
+            by id: gen double `_overlap_maxstop_k' = stop_k
+            by id: replace `_overlap_maxstop_k' = ///
+                max(`_overlap_maxstop_k'[_n-1], stop_k) if _n > 1
+            by id: gen byte `_overlap_check_k' = ///
+                (start_k <= `_overlap_maxstop_k'[_n-1]) if _n > 1
             quietly count if `_overlap_check_k' == 1
-            local n_overlaps_dsk = r(N)
-            if `n_overlaps_dsk' > 0 {
-                noisily di as text "Warning: Dataset `k' (`ds_k') contains `n_overlaps_dsk' overlapping interval(s) within persons."
+            local n_overlaps_ds`k' = r(N)
+            if `n_overlaps_ds`k'' > 0 {
+                noisily di as text "Warning: Dataset `k' (`ds_k') contains `n_overlaps_ds`k'' overlapping interval(s) within persons."
                 noisily di as text "         Overlapping input may produce unexpected results."
+                if `n_total' > 0 {
+                    noisily di as error "Interval totals cannot be conserved when a source dataset contains overlapping rows."
+                    noisily di as error "Resolve source overlaps before using total() or continuous()."
+                    exit 459
+                }
             }
-            drop `_overlap_check_k'
+            drop `_overlap_check_k' `_overlap_maxstop_k'
 
             tempfile ds_k_clean
             save `ds_k_clean', replace
@@ -944,17 +1315,6 @@ program define tvmerge, rclass
             use `merged_data', clear
 
             **# INTERSECT TIME INTERVALS (Mata sweep)
-
-            * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
-            * exp_k_cont_list was built alongside exp_k_list_final above and
-            * already maps continuous_names (original names) onto the renamed
-            * variables, covering positional AND non-positional exposures.
-            foreach exp_var in `exp_k_list' {
-                local is_cont_`exp_var' = 0
-            }
-            foreach exp_var in `exp_k_cont_list' {
-                local is_cont_`exp_var' = 1
-            }
 
             * BATCH PROCESSING: Create numeric sequence for batching
             * This handles string IDs and avoids macro length limits
@@ -1081,6 +1441,7 @@ program define tvmerge, rclass
                     local n_obs_after = r(N)
                     local n_obs_dropped = `n_obs_before' - `n_obs_after'
                     local total_ids_dropped = `n_only_merged' + `n_only_dsk'
+                    local n_forced_id_drops = `n_forced_id_drops' + `total_ids_dropped'
 
                     noisily di as text _newline "  Summary: Dropped `total_ids_dropped' IDs (`n_obs_dropped' observations)"
                     noisily di as text "           Retained `n_obs_after' observations from matching IDs"
@@ -1123,18 +1484,21 @@ program define tvmerge, rclass
                 quietly save `__tvm_dsk', replace
             restore
             quietly merge m:1 id using `__tvm_xwalk', keep(match) nogenerate
-            capture frame drop __tvm_using
-            local _tvm_drc = _rc
-            frame put __tvm_gid start_k stop_k __tvm_uobs, into(__tvm_using)
-            frame __tvm_using: order __tvm_gid start_k stop_k __tvm_uobs
+            tempname _merge_master_frame _merge_using_frame _merge_out_frame
+            local _tvm_work_master "`_merge_master_frame'"
+            local _tvm_work_using "`_merge_using_frame'"
+            local _tvm_work_out "`_merge_out_frame'"
+            frame put __tvm_gid start_k stop_k __tvm_uobs, ///
+                into(`_merge_using_frame')
+            frame `_merge_using_frame': order __tvm_gid start_k stop_k __tvm_uobs
 
             * 4. merged data -> attach gid, push interval matrix to a frame
             use `__tvm_merged', clear
             quietly merge m:1 id using `__tvm_xwalk', keep(match) nogenerate
-            capture frame drop __tvm_master
-            local _tvm_drc = _rc
-            frame put __tvm_gid `startname' `stopname' __tvm_mobs, into(__tvm_master)
-            frame __tvm_master: order __tvm_gid `startname' `stopname' __tvm_mobs
+            frame put __tvm_gid `startname' `stopname' __tvm_mobs, ///
+                into(`_merge_master_frame')
+            frame `_merge_master_frame': order ///
+                __tvm_gid `startname' `stopname' __tvm_mobs
 
             * 5. Run the sweep -> (__tvm_mi, __tvm_ui) overlap pairs.
             *    The engine self-gates a one-line matching-progress indicator at
@@ -1143,18 +1507,21 @@ program define tvmerge, rclass
             *    run, yet is still suppressed when the user runs `quietly tvmerge'
             *    (same visibility class as the warnings and the summary).
             local __tvm_progress = 1
-            capture frame drop __tvm_out
-            local _tvm_drc = _rc
-            frame create __tvm_out
-            noisily _tvmerge_overlap_pairs __tvm_master __tvm_using __tvm_out, progress(`__tvm_progress')
+            frame create `_merge_out_frame'
+            noisily _tvmerge_overlap_pairs `_merge_master_frame' ///
+                `_merge_using_frame' `_merge_out_frame', ///
+                progress(`__tvm_progress')
 
             * 6. Pull the pairs into memory and release the work frames
-            frame __tvm_out: save `__tvm_pairs', replace
+            frame `_merge_out_frame': save `__tvm_pairs', replace
             use `__tvm_pairs', clear
-            capture frame drop __tvm_master
-            capture frame drop __tvm_using
-            capture frame drop __tvm_out
+            capture frame drop `_merge_master_frame'
+            capture frame drop `_merge_using_frame'
+            capture frame drop `_merge_out_frame'
             local _tvm_drc = _rc
+            local _tvm_work_master ""
+            local _tvm_work_using ""
+            local _tvm_work_out ""
 
             quietly count
             if r(N) > 0 {
@@ -1167,7 +1534,7 @@ program define tvmerge, rclass
                 quietly merge m:1 __tvm_uobs using `__tvm_dsk', keep(match) nogenerate
 
                 * Snapshot the merged interval boundaries before intersection
-                * (needed to re-proportion continuous exposures from earlier datasets)
+                * (needed to re-apportion interval totals from earlier datasets)
                 generate double _orig_start_merged = `startname'
                 generate double _orig_stop_merged = `stopname'
 
@@ -1180,11 +1547,11 @@ program define tvmerge, rclass
                 replace `stopname' = new_stop
                 drop new_start new_stop
 
-                * For continuous exposures, interpolate values based on overlap duration
+                * Allocate interval totals based on inclusive overlap duration.
 
-                * 6a. First, proportion continuous exposures from EARLIER datasets
-                * These exposures have already been proportioned to their current interval size,
-                * so we re-proportion them based on how much the merged interval shrunk
+                * 6a. First, re-apportion totals from EARLIER datasets. Each has
+                * already been allocated to its current row, so allocate again
+                * by the fraction retained after this new intersection.
                 foreach merged_exp in `merged_continuous_exps' {
                     capture confirm variable `merged_exp'
                     if _rc == 0 {
@@ -1202,10 +1569,10 @@ program define tvmerge, rclass
                     }
                 }
 
-                * 6b. Then, proportion continuous exposures from dataset k
+                * 6b. Then, apportion interval totals from dataset k.
                 foreach exp_var in `exp_k_list' {
-                    * Use pre-computed continuous indicator (optimization)
-                    if `is_cont_`exp_var'' == 1 {
+                    local exp_is_total : list exp_var in exp_k_cont_list
+                    if `exp_is_total' {
                         * Calculate proportion as (overlap duration) / (original duration from dataset k)
                         * This correctly pro-rates the exposure value
                         tempvar _prop
@@ -1237,7 +1604,7 @@ program define tvmerge, rclass
             * Save updated merged data
             save `merged_data', replace
 
-            * Update tracking list: add ALL of this dataset's continuous
+            * Update tracking list: add ALL of this dataset's interval-total
             * exposures (positional and non-positional) so later merges
             * re-proportion them when intervals shrink further.
             if "`exp_k_cont_list'" != "" {
@@ -1260,19 +1627,20 @@ program define tvmerge, rclass
         
         * Create list of all final exposure variables for validation
         local final_exps ""
-        foreach exp_name in `continuous_exps' `categorical_exps' {
+        foreach exp_name in `rate_exps' `total_exps' `cumulative_exps' `categorical_exps' {
             capture confirm variable `exp_name'
             if _rc == 0 {
                 local final_exps "`final_exps' `exp_name'"
             }
         }
         
-        * Drop exact duplicates (same id, start, stop, and all exposures)
-        local dupvars "id `startname' `stopname' `final_exps'"
+        * Drop only full-row duplicates. Requested keep() payload is part of the
+        * output contract and must never be discarded merely because interval
+        * bounds and exposures match.
         quietly count
         local n_before_dedup = r(N)
         if `n_before_dedup' > 0 {
-            duplicates drop `dupvars', force
+            duplicates drop
             quietly count
             local n_after_dedup = r(N)
         }
@@ -1281,6 +1649,11 @@ program define tvmerge, rclass
         }
         local n_dups = `n_before_dedup' - `n_after_dedup'
 
+        local n_input_overlaps = 0
+        forvalues ds_index = 1/`numds' {
+            local n_input_overlaps = `n_input_overlaps' + `n_overlaps_ds`ds_index''
+        }
+
         * Sort final dataset
         if _N > 0 {
             sort id `startname' `stopname'
@@ -1288,6 +1661,23 @@ program define tvmerge, rclass
         
         * Apply date format to start and stop
         format `startname' `stopname' `dateformat'
+
+        * Persist the algebra as variable metadata for downstream validation.
+        foreach quantity_var of local rate_exps {
+            capture confirm variable `quantity_var'
+            if _rc == 0 char `quantity_var'[tvtools_quantity] "rate"
+        }
+        foreach quantity_var of local total_exps {
+            capture confirm variable `quantity_var'
+            if _rc == 0 char `quantity_var'[tvtools_quantity] "total"
+        }
+        foreach quantity_var of local cumulative_exps {
+            capture confirm variable `quantity_var'
+            if _rc == 0 {
+                char `quantity_var'[tvtools_quantity] "cumulative"
+                char `quantity_var'[tvtools_history_point] "start"
+            }
+        }
         
         **# CALCULATE DIAGNOSTICS
 
@@ -1316,8 +1706,12 @@ program define tvmerge, rclass
         local n_gaps = 0
         local n_overlaps = 0
         if "`validatecoverage'" != "" & _N > 0 {
-            * Check for gaps between consecutive periods
-            bysort id (`startname'): generate double _gap = `startname'[_n] - `stopname'[_n-1] if _n > 1
+            * Compare each start with the running maximum prior stop. Immediate-
+            * predecessor logic falsely reports gaps after a nested short row.
+            tempvar _coverage_max
+            bysort id (`startname' `stopname'): generate double `_coverage_max' = `stopname'
+            by id: replace `_coverage_max' = max(`_coverage_max'[_n-1], `stopname') if _n > 1
+            by id: generate double _gap = `startname' - `_coverage_max'[_n-1] if _n > 1
             
             * Store count of gaps > 1 day for display
             quietly count if _gap > 1 & !missing(_gap)
@@ -1331,7 +1725,7 @@ program define tvmerge, rclass
                 save `gaps_data', replace
                 quietly use `gaps_temp', clear
             }
-            drop _gap
+            drop _gap `_coverage_max'
         }
         
         * Validate overlaps if requested
@@ -1339,37 +1733,71 @@ program define tvmerge, rclass
         * Note: In cartesian merges, overlaps are expected when exposure combinations differ
         * This diagnostic flags overlaps with IDENTICAL exposure values (likely errors)
         if "`validateoverlap'" != "" & _N > 0 {
-            * Check if any period starts before or on the day previous one ends
-            * Uses <= to catch one-day overlaps (consistent with [start, stop] inclusive intervals)
-            by id (`startname'): generate byte _overlap = `startname'[_n] <= `stopname'[_n-1] if _n > 1
+            * Reuse the compiled interval sweep against the output itself. The
+            * sweep emits every active pair; mi<ui removes self and symmetric
+            * duplicates, then an egen pattern compares the complete exposure
+            * vector (numeric, string, labelled, and missing values alike).
+            tempvar _diag_obs _diag_gid _diag_pattern
+            quietly generate long `_diag_obs' = _n
+            quietly egen long `_diag_gid' = group(id)
+            quietly egen long `_diag_pattern' = group(`final_exps'), missing
 
-            * For overlaps, check if exposure values are identical (unexpected)
-            * If exposure values differ, overlap is expected in cartesian merge
-            generate byte _same_exposures = 1 if _overlap == 1
-            foreach exp_varname in `final_exps' {
-                capture confirm variable `exp_varname'
-                if _rc == 0 {
-                    by id (`startname'): replace _same_exposures = 0 ///
-                        if _overlap == 1 & `exp_varname'[_n] != `exp_varname'[_n-1]
+            tempfile _diag_master_lookup _diag_using_lookup _diag_pairs
+            preserve
+                keep `_diag_obs' `_diag_pattern' id `startname' `stopname'
+                rename (`_diag_obs' `_diag_pattern' id `startname' `stopname') ///
+                    (__tvm_mi __tvm_mpattern __tvm_mid __tvm_mstart __tvm_mstop)
+                quietly save `_diag_master_lookup', replace
+            restore
+            preserve
+                keep `_diag_obs' `_diag_pattern' id `startname' `stopname'
+                rename (`_diag_obs' `_diag_pattern' id `startname' `stopname') ///
+                    (__tvm_ui __tvm_upattern __tvm_uid __tvm_ustart __tvm_ustop)
+                quietly save `_diag_using_lookup', replace
+            restore
+
+            tempname _diag_master_frame _diag_using_frame _diag_out_frame
+            local _tvm_diag_master "`_diag_master_frame'"
+            local _tvm_diag_using "`_diag_using_frame'"
+            local _tvm_diag_out "`_diag_out_frame'"
+            frame put `_diag_gid' `startname' `stopname' `_diag_obs', ///
+                into(`_diag_master_frame')
+            frame put `_diag_gid' `startname' `stopname' `_diag_obs', ///
+                into(`_diag_using_frame')
+            frame create `_diag_out_frame'
+            _tvmerge_overlap_pairs `_diag_master_frame' `_diag_using_frame' ///
+                `_diag_out_frame'
+            quietly frame `_diag_out_frame': save `_diag_pairs', replace
+
+            capture frame drop `_diag_master_frame'
+            local _tvm_drc = _rc
+            capture frame drop `_diag_using_frame'
+            local _tvm_drc = _rc
+            capture frame drop `_diag_out_frame'
+            local _tvm_drc = _rc
+            local _tvm_diag_master ""
+            local _tvm_diag_using ""
+            local _tvm_diag_out ""
+
+            preserve
+                quietly use `_diag_pairs', clear
+                quietly keep if __tvm_mi < __tvm_ui
+                quietly merge m:1 __tvm_mi using `_diag_master_lookup', ///
+                    keep(match) nogenerate
+                quietly merge m:1 __tvm_ui using `_diag_using_lookup', ///
+                    keep(match) nogenerate
+                quietly keep if __tvm_mpattern == __tvm_upattern
+                quietly count
+                local n_overlaps = r(N)
+                if `n_overlaps' > 0 {
+                    tempfile overlap_data
+                    rename (__tvm_uid __tvm_ustart __tvm_ustop) ///
+                        (id `startname' `stopname')
+                    keep id `startname' `stopname'
+                    quietly save `overlap_data', replace
                 }
-            }
-            
-            * Only flag overlaps with identical exposure values as unexpected
-            replace _overlap = 0 if _overlap == 1 & _same_exposures == 0
-            
-            * Store count of unexpected overlaps for display
-            quietly count if _overlap == 1
-            local n_overlaps = r(N)
-            
-            * Save overlap records for later display if overlaps found
-            if `n_overlaps' > 0 {
-                tempfile overlap_data overlap_temp
-                save `overlap_temp', replace
-                keep if _overlap == 1
-                save `overlap_data', replace
-                quietly use `overlap_temp', clear
-            }
-            drop _overlap _same_exposures
+            restore
+            drop `_diag_obs' `_diag_gid' `_diag_pattern'
         }
         
         * Display summary statistics if requested
@@ -1411,8 +1839,9 @@ program define tvmerge, rclass
             return scalar max_periods = 0
         }
 
-        * Flow accounting report (opt-in via flow option)
-        if "`flow'" != "" {
+        * Flow accounting report: opt-in normally, mandatory after explicit
+        * row/ID removal so attrition can never be silent.
+        if "`flow'" != "" | `n_invalid' > 0 | `n_forced_id_drops' > 0 {
             tempname _flowmat
             matrix `_flowmat' = J(2, 3, .)
             matrix `_flowmat'[1,1] = `_flow_pin'
@@ -1453,14 +1882,32 @@ program define tvmerge, rclass
             return local generated_names "`generate'"
         }
         
-        * Store continuous and categorical exposure information
+        * Store explicit quantity algebra and the deprecated alias result.
+        return local rate_vars "`rate_exps'"
+        return local total_vars "`total_exps'"
+        return local cumulative_vars "`cumulative_exps'"
+        return scalar n_rate = `n_rate'
+        return scalar n_total = `n_total'
+        return scalar n_cumulative = `n_cumulative'
         if "`continuous'" != "" {
             return local continuous_vars "`continuous_exps'"
             return scalar n_continuous = `n_continuous'
         }
-        if `n_categorical' > 0 {
-            return local categorical_vars "`categorical_exps'"
-            return scalar n_categorical = `n_categorical'
+        return local categorical_vars "`categorical_exps'"
+        return scalar n_categorical = `n_categorical'
+
+        return scalar n_invalid = `n_invalid'
+        return scalar n_invalid_id = `n_invalid_id'
+        return scalar n_invalid_dates = `n_invalid_dates'
+        return scalar n_invalid_order = `n_invalid_order'
+        return scalar n_invalid_exposure = `n_invalid_exposure'
+        return scalar n_gaps = `n_gaps'
+        return scalar n_overlaps = `n_overlaps'
+        return scalar n_input_overlaps = `n_input_overlaps'
+        return scalar n_duplicates_dropped = `n_dups'
+        forvalues ds_index = 1/`numds' {
+            return scalar n_invalid_ds`ds_index' = `invalid_ds`ds_index''
+            return scalar n_input_overlaps_ds`ds_index' = `n_overlaps_ds`ds_index''
         }
         
         * Save dataset if requested
@@ -1485,12 +1932,12 @@ program define tvmerge, rclass
     
     * Display invalid period warnings if found
     if !missing("`invalid_ds1'") & `invalid_ds1' > 0 {
-        di as error "Found `invalid_ds1' rows in `first_ds' where start > stop (will skip)"
+        di as text "dropinvalid removed `invalid_ds1' malformed row(s) from `first_ds'"
     }
     forvalues k = 2/`numds' {
         if !missing("`invalid_ds`k''") & `invalid_ds`k'' > 0 {
             local ds_k: word `k' of `datasets'
-            di as error "Found `invalid_ds`k'' rows in `ds_k' where start > stop (will skip)"
+            di as text "dropinvalid removed `invalid_ds`k'' malformed row(s) from `ds_k'"
         }
     }
     
@@ -1543,7 +1990,7 @@ program define tvmerge, rclass
             di as error "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
             if "`verbose'" != "" {
                 quietly use `overlap_data', clear
-                noisily list id `startname' `stopname' if _overlap == 1, sep(20)
+                noisily list id `startname' `stopname', sep(20)
                 quietly use `current', clear
             }
             else {
@@ -1582,11 +2029,12 @@ program define tvmerge, rclass
     * Frames-first output: copy the merged result into the named frame and reload
     * the caller's data so their working frame is untouched.
     if "`frameout'" != "" {
-        capture frame drop `frameout'
-        local _frame_drop_rc = _rc
-        frame copy `c(frame)' `frameout'
+        _tvexpose_frame_commit, target(`frameout') `replace'
         if `_frameout_snap_taken' quietly use "`_tvm_caller_snap'", clear
-        else quietly clear
+        else {
+            quietly clear
+            if `_caller_zero_var_obs' > 0 quietly set obs `_caller_zero_var_obs'
+        }
         noisily display as text "Result placed in frame: " as result "`frameout'"
         return local frameout "`frameout'"
     }
@@ -1594,20 +2042,26 @@ program define tvmerge, rclass
     } // end capture noisily
     local rc = _rc
 
-    * On the error path, drop any Mata merge work frames left behind by an error
-    * mid-merge. These are only run when rc!=0 so the defensive (and possibly
-    * failing) frame drops never pollute _rc on the success path: _rc is updated
-    * only by capture, so a swallowed "frame not found" would otherwise leak to
-    * the caller and break a following `assert _rc==0`.
+    * Defensive cleanup for diagnostic work frames if an error interrupted the
+    * self-overlap sweep before its normal cleanup block.
+    if "`_tvm_diag_master'" != "" capture frame drop `_tvm_diag_master'
+    if "`_tvm_diag_using'" != "" capture frame drop `_tvm_diag_using'
+    if "`_tvm_diag_out'" != "" capture frame drop `_tvm_diag_out'
+    if "`_tvm_work_master'" != "" capture frame drop `_tvm_work_master'
+    if "`_tvm_work_using'" != "" capture frame drop `_tvm_work_using'
+    if "`_tvm_work_out'" != "" capture frame drop `_tvm_work_out'
+    local _tvm_drc = _rc
+
+    * Restore the caller dataset after any failure. Work frames use tempnames and
+    * were cleaned above, so caller-owned frames can never be dropped here.
     if `rc' {
-        capture frame drop __tvm_master
-        capture frame drop __tvm_using
-        capture frame drop __tvm_out
-        local _tvm_drc = _rc
         capture restore
         if `_caller_snapshot_ready' {
             if `_frameout_snap_taken' capture quietly use "`_tvm_caller_snap'", clear
-            else capture quietly clear
+            else {
+                capture quietly clear
+                if `_caller_zero_var_obs' > 0 capture quietly set obs `_caller_zero_var_obs'
+            }
             local _tvm_drc = _rc    // best-effort restore; do not mask `rc'
         }
     }

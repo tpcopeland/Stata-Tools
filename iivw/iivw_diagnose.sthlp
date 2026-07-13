@@ -40,6 +40,7 @@
 {synopt:{opt ex:ogeneity(string)}}exogeneity status; default {cmd:unknown}{p_end}
 {synopt:{opt est:imand(string)}}{cmd:marginal} or {cmd:contrast}; default is {cmd:marginal}{p_end}
 {synopt:{opt tr:ue(#)}}known true value, mainly for simulations{p_end}
+{synopt:{opt force}}compare estimates that are not the same estimand; descriptive only{p_end}
 {synopt:{opt l:evel(#)}}confidence level for coefficient intervals; default {cmd:c(level)}{p_end}
 {synopt:{opt xlsx(filename)}}write estimates and diagnostic quantities to an Excel workbook{p_end}
 {synopt:{opt sh:eet(sheetname)}}Excel worksheet name; default is {cmd:Diagnostics}{p_end}
@@ -77,8 +78,31 @@ treatment contrasts.
 {pstd}
 The command reads stored estimation results created with
 {cmd:estimates store}. The estimates may come from {cmd:iivw_fit} or from
-ordinary Stata estimation commands such as {cmd:regress} or {cmd:glm}, as long
-as the requested coefficient is present in all three models.
+ordinary Stata estimation commands such as {cmd:regress} or {cmd:glm}.
+
+{pstd}
+{bf:The three models must estimate the same thing.} {cmd:iivw_diagnose} splits
+b(unweighted) - b(weighted) into a sampling gap and b(weighted) - b(adjusted)
+into an artifact gap. Those subtractions mean nothing unless all three
+estimates are of the same coefficient, of the same outcome, on the same scale,
+at the same cluster level. The command therefore checks {cmd:e(depvar)},
+{cmd:e(cmd)}, {cmd:e(family)}/{cmd:e(link)} and {cmd:e(clustvar)} across the
+three roles and exits with an error if they disagree. Presence of the named
+coefficient in all three models is {it:not} sufficient: three regressions of
+three different outcomes all contain {cmd:mpg}, and differencing their
+{cmd:mpg} coefficients produces a precise-looking decomposition of nothing.
+
+{pstd}
+{opt force} bypasses the check for a deliberately descriptive side-by-side
+comparison. The output is then labeled non-decomposable and
+{cmd:r(decomposable)} is 0.
+
+{pstd}
+Confidence intervals use each estimate's {bf:own} distribution: {cmd:t} on
+{cmd:e(df_r)} when the estimator reports finite residual degrees of freedom
+(as {cmd:regress} does), and {cmd:z} otherwise. Each role is treated
+separately, so a mixed set of {cmd:z}- and {cmd:t}-based inputs is handled
+correctly. {cmd:r(ci_dist_*)} records which was used for each role.
 
 
 {marker options}{...}
@@ -317,6 +341,11 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {synopt:{cmd:r(adjusted)}}stored adjusted model name{p_end}
 {synopt:{cmd:r(exogeneity)}}exogeneity setting{p_end}
 {synopt:{cmd:r(estimand)}}estimand setting{p_end}
+{synopt:{cmd:r(decomposable)}}1 if the three estimates are the same estimand; 0 under {opt force}{p_end}
+{synopt:{cmd:r(depvar)}}outcome shared by the three models{p_end}
+{synopt:{cmd:r(ci_dist_unweighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
+{synopt:{cmd:r(ci_dist_weighted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
+{synopt:{cmd:r(ci_dist_adjusted)}}{cmd:t(df)} or {cmd:z}; interval distribution used{p_end}
 {synopt:{cmd:r(conclusion)}}interpretation category{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written; only when Excel export succeeds{p_end}

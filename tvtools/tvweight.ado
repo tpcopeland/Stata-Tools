@@ -53,19 +53,41 @@ program define tvweight, rclass sortpreserve
     local _bak_cumgenerate_needed = 0
     local _bak_censgenerate_needed = 0
     local _bak_combgenerate_needed = 0
+    local _est_target_exists = 0
+    local _est_backup_needed = 0
+    local _est_target_removed = 0
+    local _est_new_stored = 0
+    local histogram_created = 0
+    local loveplot_created = 0
+    local graph_created = 0
+    local n_cens_boundary = 0
+    local n_cens_extreme = 0
+
+    * tvweight is rclass: hold the caller's active e() state before any model
+    * fit and restore it on every exit. estname() is the explicit persistence
+    * mechanism for the propensity model.
+    tempname _tvw_caller_e
+    capture _estimates hold `_tvw_caller_e', restore nullok
+    local _caller_eheld = (_rc == 0)
+    if !`_caller_eheld' {
+        local _hold_rc = _rc
+        set varabbrev `orig_varabbrev'
+        set more `orig_more'
+        exit `_hold_rc'
+    }
 
     capture noisily {
 
     * Parse syntax
-    syntax varname(numeric) [if] [in], COVariates(varlist numeric) ///
+    syntax varname(numeric) [if] [in], COVariates(varlist fv numeric) ///
         [GENerate(name) MODEL(string) STABilized ///
          WType(string) ///
          TRUNCate(numlist min=2 max=2) ///
-         TVCovariates(varlist numeric) ID(varname) TIME(varname) ///
+         TVCovariates(varlist fv numeric) ID(varname) TIME(varname) ///
          REPLACE DENominator(name) noLOG ///
-         BALance LOVEplot HISTogram ESTname(name) ///
+         BALance LOVEplot HISTogram ESTname(name) ESTREPlace ///
          CUMulative CUMGenerate(name) ///
-         IPCW(varname numeric) CENSORCovariates(varlist numeric) ///
+         IPCW(varname numeric) CENSORCovariates(varlist fv numeric) ///
          CENSGenerate(name) COMBGenerate(name)]
 
     local exposure `varlist'
@@ -101,6 +123,10 @@ program define tvweight, rclass sortpreserve
     * loveplot requires the balance computation
     if "`loveplot'" != "" & "`balance'" == "" {
         display as error "loveplot requires the balance option"
+        exit 198
+    }
+    if "`estreplace'" != "" & "`estname'" == "" {
+        display as error "estreplace requires estname()"
         exit 198
     }
 
@@ -142,6 +168,54 @@ program define tvweight, rclass sortpreserve
         local cumgenerate "`generate'_cum"
     }
 
+    * Resolve the underlying variables named by factor-variable expressions.
+    * These raw names drive missing-value screening and output protection;
+    * model commands continue to receive the original fvvarlists.
+    local _model_specs "`covariates' `tvcovariates' `censorcovariates'"
+    quietly fvexpand `_model_specs'
+    local _model_expanded "`r(varlist)'"
+    local _raw_model_vars ""
+    foreach _term of local _model_expanded {
+        quietly _ms_parse_parts `_term'
+        if inlist("`r(type)'", "variable", "factor") {
+            local _raw_model_vars "`_raw_model_vars' `r(name)'"
+        }
+        else if "`r(type)'" == "interaction" {
+            local _knames = r(k_names)
+            forvalues _j = 1/`_knames' {
+                local _raw_model_vars ///
+                    "`_raw_model_vars' `r(name`_j')'"
+            }
+        }
+    }
+    local _raw_model_vars : list uniq _raw_model_vars
+
+    * Stored estimates are outputs too. Never overwrite a named model unless
+    * estreplace is explicit, and retain an exact backup for failure rollback.
+    if "`estname'" != "" {
+        quietly estimates dir
+        local _stored_estimates "`r(names)'"
+        local _est_target_exists : list estname in _stored_estimates
+        if `_est_target_exists' & "`estreplace'" == "" {
+            display as error "stored estimate `estname' already exists; specify estreplace to overwrite it"
+            exit 110
+        }
+        if `_est_target_exists' {
+            tempname _bak_estimate
+            capture quietly estimates restore `estname'
+            if _rc {
+                display as error "could not restore stored estimate `estname' for backup"
+                exit _rc
+            }
+            capture estimates store `_bak_estimate'
+            if _rc {
+                display as error "could not retain an in-memory copy of stored estimate `estname'"
+                exit _rc
+            }
+            local _est_backup_needed = 1
+        }
+    }
+
     * All outputs must be distinct and must not overwrite model inputs. Without
     * this screen, duplicate names fail only after the first output is created,
     * and replace could drop the exposure/covariate used by the model itself.
@@ -154,7 +228,7 @@ program define tvweight, rclass sortpreserve
         display as error "output variable names must be distinct; duplicate(s): `output_dups'"
         exit 198
     }
-    local protected_names "`exposure' `covariates' `tvcovariates' `id' `time' `ipcw' `censorcovariates'"
+    local protected_names "`exposure' `_raw_model_vars' `id' `time' `ipcw'"
     foreach out of local output_names {
         local protected : list out in protected_names
         if `protected' {
@@ -275,16 +349,38 @@ program define tvweight, rclass sortpreserve
 
     * Mark estimation sample BEFORE level checks
     marksample touse
-    markout `touse' `covariates' `tvcovariates'
+    markout `touse' `_raw_model_vars'
     if "`id'" != "" markout `touse' `id'
     if "`time'" != "" markout `touse' `time'
-    if `do_ipcw' markout `touse' `ipcw' `censorcovariates'
+    if `do_ipcw' markout `touse' `ipcw'
 
     quietly count if `touse'
     local n_obs = r(N)
     if `n_obs' == 0 {
         display as error "no valid observations"
         exit 2000
+    }
+
+    * Running treatment/censoring histories require one unambiguous row per
+    * person-period. Duplicate keys make cumulative products order-dependent.
+    local require_unique_key = ///
+        ("`cumulative'" != "" | "`tvcovariates'" != "" | `do_ipcw')
+    if `require_unique_key' {
+        tempvar _key_sample_n
+        quietly egen long `_key_sample_n' = total(`touse'), by(`id' `time')
+        quietly count if `_key_sample_n' > 1 & `touse'
+        local n_duplicate_key_rows = r(N)
+        if `n_duplicate_key_rows' > 0 {
+            tempvar _dupseq
+            quietly generate long `_dupseq' = ///
+                sum(`_key_sample_n' > 1 & `touse')
+            display as error "id()-time() must uniquely identify estimation-sample rows"
+            list `id' `time' if `_key_sample_n' > 1 & `_dupseq' <= 5, ///
+                noobs abbreviate(20)
+            display as error `n_duplicate_key_rows' ///
+                " row(s) participate in duplicate panel keys"
+            exit 459
+        }
     }
 
     * The censoring indicator must be coded 0/1 within the estimation sample
@@ -386,6 +482,8 @@ program define tvweight, rclass sortpreserve
     display as text "Fitting propensity score model..."
 
     tempvar ps
+    local n_ps_boundary = 0
+    local n_ps_extreme = 0
 
     if "`model'" == "logit" {
         * Binary logistic regression
@@ -407,12 +505,27 @@ program define tvweight, rclass sortpreserve
 
         * Optionally retain the propensity model for downstream margins/diagnostics
         if "`estname'" != "" {
-            capture estimates drop `estname'
-            estimates store `estname'
+            if `_est_target_exists' {
+                capture estimates drop `estname'
+                if _rc {
+                    display as error "could not replace stored estimate `estname'"
+                    exit _rc
+                }
+                local _est_target_removed = 1
+            }
+            capture estimates store `estname'
+            if _rc {
+                display as error "could not store propensity model as `estname'"
+                exit _rc
+            }
+            local _est_new_stored = 1
         }
 
         * Predict propensity score (probability of being treated)
         quietly predict double `ps' if `touse', pr
+        quietly count if ///
+            (`ps' <= 0 | `ps' >= 1 | missing(`ps')) & `touse'
+        local n_ps_boundary = r(N)
     }
     else {
         * Multinomial logistic regression
@@ -434,30 +547,61 @@ program define tvweight, rclass sortpreserve
 
         * Optionally retain the propensity model for downstream margins/diagnostics
         if "`estname'" != "" {
-            capture estimates drop `estname'
-            estimates store `estname'
+            if `_est_target_exists' {
+                capture estimates drop `estname'
+                if _rc {
+                    display as error "could not replace stored estimate `estname'"
+                    exit _rc
+                }
+                local _est_target_removed = 1
+            }
+            capture estimates store `estname'
+            if _rc {
+                display as error "could not store propensity model as `estname'"
+                exit _rc
+            }
+            local _est_new_stored = 1
         }
 
         * For mlogit: populate ps with probability of observed treatment
         * so the PS boundary check below works for both logit and mlogit.
         * Also accumulate sum(1/p_k) and min_k(p_k) across levels for the
         * generalized overlap (ato) and matching weight formulas.
-        tempvar _suminv _minp
+        tempvar _suminv _minp _ps_invalid
         quietly {
             gen double `ps' = .
             gen double `_suminv' = 0 if `touse'
             gen double `_minp' = . if `touse'
+            gen byte `_ps_invalid' = 0 if `touse'
             levelsof `exposure' if `touse', local(levels)
             local k = 0
+            local _probvars ""
             foreach lev of local levels {
                 local k = `k' + 1
                 tempvar _ps_k`k'
                 predict double `_ps_k`k'' if `touse', pr outcome(`lev')
                 replace `ps' = `_ps_k`k'' if `exposure' == `lev' & `touse'
-                replace `_suminv' = `_suminv' + 1/`_ps_k`k'' if `touse'
-                replace `_minp' = min(`_minp', `_ps_k`k'') if `touse'
+                replace `_ps_invalid' = 1 if ///
+                    (`_ps_k`k'' <= 0 | `_ps_k`k'' >= 1 | ///
+                    missing(`_ps_k`k'')) & `touse'
+                local _probvars "`_probvars' `_ps_k`k''"
+            }
+            count if `_ps_invalid' & `touse'
+            local n_ps_boundary = r(N)
+            if `n_ps_boundary' == 0 {
+                foreach _pk of local _probvars {
+                    replace `_suminv' = `_suminv' + 1 / `_pk' if `touse'
+                    replace `_minp' = min(`_minp', `_pk') if `touse'
+                }
             }
         }
+    }
+
+    if `n_ps_boundary' > 0 {
+        display as error `n_ps_boundary' ///
+            " observation(s) have zero, one, or missing modeled treatment probabilities"
+        display as error "weights are undefined at the probability boundary; revise the model or sample"
+        exit 498
     }
 
     * =========================================================================
@@ -466,15 +610,31 @@ program define tvweight, rclass sortpreserve
 
     display as text ""
 
-    * Check for extreme propensity scores and warn
-    quietly summarize `ps' if `touse'
-    if r(min) < 0.001 | r(max) > 0.999 {
-        quietly count if (`ps' < 0.001 | `ps' > 0.999) & `touse'
-        local n_extreme = r(N)
-        display as text "{bf:Warning:} `n_extreme' observations with extreme propensity scores (< 0.001 or > 0.999)"
-        display as text "  Propensity scores capped at [0.001, 0.999] to prevent infinite weights"
-        display as text "  Consider truncate() option or reviewing model specification"
-        quietly replace `ps' = max(0.001, min(0.999, `ps')) if `touse'
+    * Diagnose extreme probabilities without changing the fitted probability
+    * vector. Silent probability capping changes the estimand and, for
+    * multinomial ATO/matching weights, previously mixed an uncapped numerator
+    * with a capped observed-arm denominator.
+    tempvar _pobs
+    quietly {
+        if "`model'" == "logit" {
+            gen double `_pobs' = `ps' if ///
+                `exposure' != `ref_level' & `touse'
+            replace `_pobs' = 1 - `ps' if ///
+                `exposure' == `ref_level' & `touse'
+        }
+        else {
+            * mlogit ps is P(A = observed | X), from the same raw probability
+            * vector used for the ATO and matching numerators.
+            gen double `_pobs' = `ps' if `touse'
+        }
+        count if (`_pobs' < .001 | `_pobs' > .999) & `touse'
+        local n_ps_extreme = r(N)
+    }
+    if `n_ps_extreme' > 0 {
+        display as text "{bf:Warning:} `n_ps_extreme' observation(s) have " ///
+            "P(observed treatment|X) below .001 or above .999"
+        display as text "  Fitted probabilities were not modified. Review positivity/model specification"
+        display as text "  and use truncate() explicitly if weight truncation is scientifically justified."
     }
 
     display as text "Calculating weights..."
@@ -509,7 +669,7 @@ program define tvweight, rclass sortpreserve
             }
         }
         else {
-            * Multinomial weights use capped ps (probability of observed treatment)
+            * Multinomial weights use the raw coherent fitted-probability vector
             if "`wtype'" == "iptw" {
                 * Multinomial IPTW: 1/P(A=a|X)
                 gen double `generate' = 1 / `ps' if `touse'
@@ -560,6 +720,16 @@ program define tvweight, rclass sortpreserve
                 }
             }
         }
+    }
+
+    quietly count if ///
+        (missing(`generate') | `generate' <= 0) & `touse'
+    local n_invalid_treatment_weights = r(N)
+    if `n_invalid_treatment_weights' > 0 {
+        display as error `n_invalid_treatment_weights' ///
+            " observation(s) have missing, nonfinite, or nonpositive treatment weights"
+        display as error "revise the treatment model or analysis sample"
+        exit 498
     }
 
     * =========================================================================
@@ -624,6 +794,13 @@ program define tvweight, rclass sortpreserve
             drop `_origorder'
         }
         label variable `cumgenerate' "Cumulative `wtype' weight for `exposure'"
+        quietly count if ///
+            (missing(`cumgenerate') | `cumgenerate' <= 0) & `touse'
+        if r(N) > 0 {
+            display as error r(N) ///
+                " observation(s) have invalid cumulative treatment weights"
+            exit 498
+        }
         display as text "  Cumulative weight variable " as result "`cumgenerate'" ///
             as text " created."
     }
@@ -678,11 +855,31 @@ program define tvweight, rclass sortpreserve
         }
         quietly predict double `pc' if `touse', pr
 
-        * Probability of remaining uncensored this interval; cap to avoid blow-up
+        * Probability of remaining uncensored this interval. Prediction can be
+        * missing for rows excluded by perfect prediction even when logit exits
+        * with rc=0; never turn those missing values into plausible weights.
         tempvar puncens
         quietly {
             gen double `puncens' = 1 - `pc' if `touse'
-            replace `puncens' = max(0.001, min(0.999, `puncens')) if `touse'
+            count if ///
+                (missing(`puncens') | `puncens' <= 0 | `puncens' >= 1) & ///
+                `touse'
+            local n_cens_boundary = r(N)
+        }
+        if `n_cens_boundary' > 0 {
+            display as error `n_cens_boundary' ///
+                " observation(s) have zero, one, or missing modeled uncensoring probabilities"
+            display as error "IPCW is undefined for these rows; revise the censoring model or sample"
+            exit 498
+        }
+        quietly count if ///
+            (`puncens' < .001 | `puncens' > .999) & `touse'
+        local n_cens_extreme = r(N)
+        if `n_cens_extreme' > 0 {
+            display as text "{bf:Warning:} `n_cens_extreme' observation(s) have " ///
+                "P(uncensored|history) below .001 or above .999"
+            display as text "  Fitted censoring probabilities were not modified. Review positivity/model"
+            display as text "  specification and use truncate() explicitly if scientifically justified."
         }
 
         * Per-interval censoring weight; stabilized numerator = marginal P(uncens)
@@ -696,6 +893,13 @@ program define tvweight, rclass sortpreserve
             else {
                 gen double `cw' = 1 / `puncens' if `touse'
             }
+            count if (missing(`cw') | `cw' <= 0) & `touse'
+            local n_invalid_censor_weights = r(N)
+        }
+        if `n_invalid_censor_weights' > 0 {
+            display as error `n_invalid_censor_weights' ///
+                " observation(s) have missing, nonfinite, or nonpositive censoring weights"
+            exit 498
         }
 
         * Cumulative IPCW = within-person running product of the period
@@ -714,6 +918,15 @@ program define tvweight, rclass sortpreserve
             * Combined MSM weight = cumulative IPTW x cumulative IPCW
             gen double `combgenerate' = `_cum_iptw' * `censgenerate' if `touse'
             drop `_origorder2'
+            count if ///
+                (missing(`censgenerate') | `censgenerate' <= 0 | ///
+                missing(`combgenerate') | `combgenerate' <= 0) & `touse'
+            local n_invalid_combined_weights = r(N)
+        }
+        if `n_invalid_combined_weights' > 0 {
+            display as error `n_invalid_combined_weights' ///
+                " observation(s) have invalid cumulative IPCW or combined weights"
+            exit 498
         }
 
         * Optional truncation of the final combined weight
@@ -838,18 +1051,6 @@ program define tvweight, rclass sortpreserve
     * of the OBSERVED treatment: rows where that probability is near zero are
     * near-violations. The weight-concentration share flags a handful of extreme
     * weights dominating the pseudo-population.
-    tempvar _pobs
-    quietly {
-        if "`model'" == "logit" {
-            * Probability of the observed arm (ps = P(treated|X), already capped)
-            gen double `_pobs' = `ps' if `exposure' != `ref_level' & `touse'
-            replace `_pobs' = 1 - `ps' if `exposure' == `ref_level' & `touse'
-        }
-        else {
-            * mlogit: ps already holds P(A = observed | X)
-            gen double `_pobs' = `ps' if `touse'
-        }
-    }
     quietly count if `_pobs' < 0.05 & `touse'
     local n_nonoverlap = r(N)
     local pct_nonoverlap = 100 * `n_nonoverlap' / `n_obs'
@@ -861,12 +1062,19 @@ program define tvweight, rclass sortpreserve
     * using the final analysis weight (combined when ipcw, else the IPTW).
     local _awt "`generate'"
     if `do_ipcw' local _awt "`combgenerate'"
-    quietly _pctile `_awt' if `touse', percentiles(99)
-    local w99cut = r(r1)
-    quietly summarize `_awt' if `touse'
+    tempvar _weight_row_order
+    quietly generate long `_weight_row_order' = _n
+    preserve
+    quietly keep if `touse' & !missing(`_awt')
+    quietly count
+    local n_weight_rows = r(N)
+    local n_top1_rows = ceil(.01 * `n_weight_rows')
+    quietly gsort -`_awt' `_weight_row_order'
+    quietly summarize `_awt'
     local _wsum_all = r(sum)
-    quietly summarize `_awt' if `touse' & `_awt' >= `w99cut'
+    quietly summarize `_awt' in 1/`n_top1_rows'
     local _wsum_top = r(sum)
+    restore
     local top1_wt_share = 100 * `_wsum_top' / `_wsum_all'
 
     display as text ""
@@ -887,7 +1095,8 @@ program define tvweight, rclass sortpreserve
         display as text "  PS range, reference:         " ///
             as result %6.4f `ps_c_lo' as text " to " as result %6.4f `ps_c_hi'
     }
-    display as text "  Weight mass in top 1% of rows: " as result %5.1f `top1_wt_share' "%"
+    display as text "  Weight mass in top 1% of rows (`n_top1_rows' row(s)): " ///
+        as result %5.1f `top1_wt_share' "%"
 
     * Warning for extreme weights
     if `w_max' / `w_min' > 100 {
@@ -937,8 +1146,37 @@ program define tvweight, rclass sortpreserve
     * weighting. Denominator is the unweighted pooled SD so the before/after
     * columns share a common scale (Austin 2009, 2011).
     if "`balance'" != "" {
-        local bal_covars "`covariates' `tvcovariates'"
+        * Expand factor-variable terms into numeric columns. Keep the semantic
+        * factor terms alongside fvrevar's physical variables so the returned
+        * matrix and printed table remain interpretable.
+        quietly fvexpand `covariates' `tvcovariates' if `touse'
+        local _bal_expanded "`r(varlist)'"
+        quietly fvrevar `_bal_expanded' if `touse'
+        local _bal_physical "`r(varlist)'"
+        local _n_semantic : word count `_bal_expanded'
+        local _n_physical : word count `_bal_physical'
+        if `_n_semantic' != `_n_physical' {
+            display as error "could not map expanded factor terms to balance columns"
+            exit 498
+        }
+
+        local bal_covars ""
+        local bal_terms ""
+        forvalues _j = 1/`_n_semantic' {
+            local _term : word `_j' of `_bal_expanded'
+            local _physical : word `_j' of `_bal_physical'
+            quietly _ms_parse_parts `_term'
+            if r(omit) continue
+            local bal_terms "`bal_terms' `_term'"
+            local bal_covars "`bal_covars' `_physical'"
+        }
+        local bal_terms : list clean bal_terms
+        local bal_covars : list clean bal_covars
         local n_bal: word count `bal_covars'
+        if `n_bal' == 0 {
+            display as error "no estimable covariate terms remain for balance"
+            exit 498
+        }
         tempname _balmat
         matrix `_balmat' = J(`n_bal', 2, .)
 
@@ -993,7 +1231,7 @@ program define tvweight, rclass sortpreserve
             }
         }
         matrix colnames `_balmat' = smd_unweighted smd_weighted
-        matrix rownames `_balmat' = `bal_covars'
+        matrix rownames `_balmat' = `bal_terms'
 
         display as text ""
         display as text "{hline 70}"
@@ -1004,9 +1242,10 @@ program define tvweight, rclass sortpreserve
         display as text "{hline 70}"
         display as text %-30s "Covariate" %14s "SMD (unwtd)" %14s "SMD (wtd)"
         local r = 0
-        foreach v of local bal_covars {
+        forvalues _j = 1/`n_bal' {
             local ++r
-            display as text %-30s abbrev("`v'", 30) ///
+            local _term : word `_j' of `bal_terms'
+            display as text %-30s abbrev("`_term'", 30) ///
                 as result %14.4f `_balmat'[`r',1] %14.4f `_balmat'[`r',2]
         }
         display as text "{hline 70}"
@@ -1033,14 +1272,15 @@ program define tvweight, rclass sortpreserve
             display as text "      returned r(balance) matrix (col 1 = unweighted SMD, col 2 = weighted SMD)."
         }
         else {
-            * tvweight leaves its internal logit/mlogit propensity model as the
-            * active e(). Stash it before delegating so psdash's auto-detection
-            * uses the explicit exposure/wvar/covariates passed here rather than
-            * mistaking the stale estimation context for the balance inputs;
-            * restore it afterwards so tvweight's post-run state is unchanged.
-            tempname _tvw_ehold
-            capture _estimates hold `_tvw_ehold', restore nullok
-            local _eheld = (_rc == 0)
+            * The caller's e() is already held for the duration of tvweight.
+            * Clear only the internal propensity model so psdash auto-detection
+            * uses the explicit exposure/wvar/covariates below. Nested
+            * _estimates hold calls are not supported by Stata.
+            capture ereturn clear
+            if _rc {
+                display as error "could not clear the internal propensity model before loveplot"
+                exit _rc
+            }
             * tvweight already printed its own balance table above, so the
             * psdash call is run quietly: it contributes the love plot (graphs
             * render regardless of quietly) without echoing a redundant table.
@@ -1048,17 +1288,12 @@ program define tvweight, rclass sortpreserve
                 covariates(`bal_covars') wvar(`generate') loveplot ///
                 title("Covariate balance") name(tvw_loveplot)
             local _lprc = _rc
-            local _unholdrc = 0
-            if `_eheld' {
-                capture _estimates unhold `_tvw_ehold'
-                local _unholdrc = _rc
-            }
-            if `_unholdrc' {
-                display as error "could not restore the active estimation results after loveplot (rc=`_unholdrc')"
-                exit `_unholdrc'
-            }
             if `_lprc' ///
                 display as text "Note: love plot could not be produced via psdash (rc=`_lprc')"
+            else {
+                capture graph describe tvw_loveplot
+                if !_rc local loveplot_created = 1
+            }
         }
     }
 
@@ -1071,8 +1306,16 @@ program define tvweight, rclass sortpreserve
                 xtitle("`wtype' weight") title("Weight distribution") ///
                 name(tvw_histogram, replace)
         }
-        if _rc display as text "Note: weight histogram could not be produced (rc=`=_rc')"
+        local _hist_rc = _rc
+        if `_hist_rc' {
+            display as text "Note: weight histogram could not be produced (rc=`_hist_rc')"
+        }
+        else {
+            capture graph describe tvw_histogram
+            if !_rc local histogram_created = 1
+        }
     }
+    local graph_created = max(`histogram_created', `loveplot_created')
 
     * Add variable label
     if "`wtype'" == "ato" {
@@ -1107,6 +1350,14 @@ program define tvweight, rclass sortpreserve
     return scalar pct_nonoverlap = `pct_nonoverlap'
     return scalar n_nonoverlap = `n_nonoverlap'
     return scalar top1_wt_share = `top1_wt_share'
+    return scalar n_top1_rows = `n_top1_rows'
+    return scalar n_ps_extreme = `n_ps_extreme'
+    return scalar n_ps_boundary = `n_ps_boundary'
+    return scalar n_cens_extreme = `n_cens_extreme'
+    return scalar n_cens_boundary = `n_cens_boundary'
+    return scalar histogram_created = `histogram_created'
+    return scalar loveplot_created = `loveplot_created'
+    return scalar graph_created = `graph_created'
     return scalar w_mean = `w_mean'
     return scalar w_sd = `w_sd'
     return scalar w_min = `w_min'
@@ -1139,6 +1390,9 @@ program define tvweight, rclass sortpreserve
     if "`estname'" != "" {
         return local estname "`estname'"
     }
+    if "`balance'" != "" {
+        return local balance_terms "`bal_terms'"
+    }
     if "`cumulative'" != "" {
         return local cumgenerate "`cumgenerate'"
     }
@@ -1163,6 +1417,89 @@ program define tvweight, rclass sortpreserve
     * (capture swallows "nothing to restore") when no preserve is pending.
     if `rc' {
         capture restore
+    }
+
+    * Roll back a stored-estimate target if anything failed after the new
+    * propensity model was persisted. The backup is another in-memory stored
+    * estimate, which retains e(sample) and the full postestimation state.
+    if `rc' & (`_est_new_stored' | `_est_target_removed') {
+        if `_est_backup_needed' {
+            local _est_restore_rc = 0
+            local _est_drop_rc = 0
+            local _est_store_rc = 0
+            capture quietly estimates restore `_bak_estimate'
+            local _est_restore_rc = _rc
+            if !`_est_restore_rc' {
+                capture estimates drop `estname'
+                local _est_drop_rc = _rc
+                if `_est_drop_rc' == 111 local _est_drop_rc = 0
+            }
+            if !(`_est_restore_rc' | `_est_drop_rc') {
+                capture quietly estimates store `estname'
+                local _est_store_rc = _rc
+            }
+            if (`_est_restore_rc' | `_est_drop_rc' | `_est_store_rc') {
+                display as error "could not restore stored estimate `estname' after failure"
+                local rc = 498
+            }
+        }
+        else if "`estname'" != "" {
+            capture estimates drop `estname'
+            if _rc {
+                display as error "could not remove stored estimate `estname' after failure"
+                local rc = 498
+            }
+        }
+    }
+
+    * Restore the caller's active estimation results before leaving this rclass
+    * command. A restoration failure takes precedence over an otherwise
+    * successful analysis because silently changing e() is not acceptable. The
+    * tempname-backed estimate is automatically released at program exit, so it
+    * remains available to roll back a tentative target if unhold itself fails.
+    local _rc_before_unhold = `rc'
+    local _unhold_rc = 0
+    if `_caller_eheld' {
+        capture _estimates unhold `_tvw_caller_e'
+        local _unhold_rc = _rc
+        if `_unhold_rc' {
+            display as error "could not restore the caller's active estimation results"
+
+            * The main analysis had succeeded, so estname() was still a
+            * tentative commit. Put back the old target (or remove a newly
+            * created target) before converting the cleanup failure to rc!=0.
+            if !`_rc_before_unhold' & ///
+                (`_est_new_stored' | `_est_target_removed') {
+                local _late_rollback_rc = 0
+                if `_est_backup_needed' {
+                    capture quietly estimates restore `_bak_estimate'
+                    local _late_restore_rc = _rc
+                    local _late_drop_rc = 0
+                    local _late_store_rc = 0
+                    if !`_late_restore_rc' {
+                        capture estimates drop `estname'
+                        local _late_drop_rc = _rc
+                        if `_late_drop_rc' == 111 local _late_drop_rc = 0
+                    }
+                    if !(`_late_restore_rc' | `_late_drop_rc') {
+                        capture quietly estimates store `estname'
+                        local _late_store_rc = _rc
+                    }
+                    local _late_rollback_rc = ///
+                        (`_late_restore_rc' | `_late_drop_rc' | `_late_store_rc')
+                }
+                else if "`estname'" != "" {
+                    capture estimates drop `estname'
+                    local _late_rollback_rc = _rc
+                }
+                if `_late_rollback_rc' {
+                    display as error "could not roll back estname() after caller-state restoration failed"
+                    local rc = 498
+                }
+                else local rc = `_unhold_rc'
+            }
+            else local rc = `_unhold_rc'
+        }
     }
 
     * Roll back every output on failure. Existing variables saved under tempvar

@@ -40,8 +40,12 @@
 
 {syntab:Model}
 {synopt:{opt adj:ust(varlist)}}baseline or design covariates to condition on{p_end}
-{synopt:{opt by(varname)}}fit separate timing diagnostics within levels{p_end}
+{synopt:{opt by(varname)}}fit separate timing diagnostics within levels; must be constant within subject{p_end}
+{synopt:{opt byst:art}}allow a time-varying {opt by()} using start-of-interval values{p_end}
 {synopt:{opt ent:ry(varname)}}subject-specific study entry time{p_end}
+{synopt:{opt cens:or(varname)}}subject-specific end of follow-up{p_end}
+{synopt:{opt max:fu(#)}}common end of follow-up for all subjects{p_end}
+{synopt:{opt endatlast:visit}}follow-up ends at each subject's last visit{p_end}
 
 {syntab:Generated lags}
 {synopt:{opt gen:erate(name)}}prefix for generated lag variables; default {cmd:_iivw_exog_}{p_end}
@@ -121,12 +125,43 @@ covariates, such as age, sex, baseline severity, calendar period, or clinic.
 when the scientific question is whether lagged outcomes predict visit timing
 within treatment arm rather than only in the pooled cohort.
 
+{phang2}
+{it:varname} must be {bf:constant within subject}, which is what the
+treatment-arm use means. If it changes within a subject, {cmd:iivw_exogtest}
+exits with an error rather than guessing. The reason is that each risk interval
+runs from the previous visit to the current one, so taking its group from the
+current row would classify an interval by a value that was only realized at the
+interval's own endpoint: a subject who switches arm at visit 4 would have the
+interval that {it:ended} at visit 4 counted in the post-switch arm. That is
+end-of-interval conditioning.
+
+{phang}
+{opt byst:art} allows a genuinely time-varying {opt by()} variable by assigning
+each interval the group in force at its {bf:start} -- the value at the previous
+visit. The first interval of each subject takes that subject's first observed
+value, which is the value in force at study entry. Requires {opt by()}.
+
 {phang}
 {opt entry(varname)} specifies a subject-specific entry time. The variable must be
 nonmissing, constant within subject, and strictly less than the first visit
 time used for that subject. Negative entry times are accepted (useful when
 first visits occur at time 0), but risk time before 0 is not counted; a note
 is displayed when this applies.
+
+{phang}
+{bf:One of} {opt censor()}, {opt maxfu()} {bf:or} {opt endatlastvisit} {bf:is required},
+and it must match the specification you gave {helpb iivw_weight} -- otherwise the
+exogeneity test describes a different visit-intensity model than the one that
+produced your weights.
+
+{pmore}
+{cmd:iivw_exogtest} fits the same Andersen-Gill visit-intensity model as
+{helpb iivw_weight}, so it inherits the same requirement: the model needs each
+subject's observation {it:window}, not merely the intervals between their visits.
+Without a post-last-visit at-risk interval, every subject leaves the risk set at
+their own last visit, and the test statistic is computed on a risk set shaped by
+the very process it is testing. See {helpb iivw_weight##options:iivw_weight} for
+the full discussion; the three options mean exactly what they mean there.
 
 {dlgtab:Generated lags}
 
@@ -332,10 +367,12 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_ids)}}subjects summed over fitted models (see note){p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
-{synopt:{cmd:r(min_p)}}minimum individual Wald p-value for lagged predictors{p_end}
-{synopt:{cmd:r(joint_min_p)}}minimum joint p-value for lagged predictors{p_end}
+{synopt:{cmd:r(min_p)}}minimum individual Wald p-value; exploratory, unadjusted{p_end}
+{synopt:{cmd:r(joint_min_p)}}minimum raw within-group omnibus p-value{p_end}
+{synopt:{cmd:r(holm_min_p)}}minimum omnibus p-value, Holm-adjusted across groups{p_end}
+{synopt:{cmd:r(n_tests)}}number of omnibus tests in the Holm family{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
-{synopt:{cmd:r(endogenous_flag)}}1 if any individual or joint p-value is below alpha; otherwise 0{p_end}
+{synopt:{cmd:r(endogenous_flag)}}1 if {cmd:r(holm_min_p)} is below alpha; otherwise 0{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimal formatting used; only when an export succeeds{p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}
@@ -367,10 +404,39 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 Note on {cmd:r(N)} and {cmd:r(n_ids)}: both are summed over the fitted models, and skipped
 groups contribute nothing. Every row belongs to exactly one {opt by()} group, so
 {cmd:r(N)} is also the distinct number of usable intervals. Subjects are not
-partitioned that way: if {opt by()} varies within subject, a subject that
-contributes usable intervals to two groups is counted once per group, so
-{cmd:r(n_ids)} exceeds the number of distinct subjects. With a subject-constant {opt by()}
-variable, the usual case, the two coincide.
+partitioned that way: under {opt bystart} a subject whose group changes can
+contribute usable intervals to two groups and is counted once per group, so
+{cmd:r(n_ids)} exceeds the number of distinct subjects. With a subject-constant
+{opt by()} variable, the usual case, the two coincide.
+
+
+{marker multiplicity}{...}
+{title:Multiplicity and the endogeneity flag}
+
+{pstd}
+{cmd:r(endogenous_flag)} is driven by {bf:one} family of tests: the within-group
+omnibus (joint) test of all lagged predictors, one per fitted group,
+{bf:Holm-adjusted across groups}. The flag is 1 when the smallest adjusted
+omnibus p-value falls below alpha.
+
+{pstd}
+The individual term p-values in the table are {bf:exploratory}. They are
+reported unadjusted and they do {it:not} set the flag. Flagging on "any term in
+any group is significant" gives the flag an uncontrolled familywise error rate:
+with ten independent null terms, the probability that at least one falls below
+0.05 is 1 - 0.95^10 = 40%, before the group-wise omnibus tests are counted at
+all. A diagnostic that fires on 40% of null data is not a diagnostic, and a
+workflow that keys off it will discard good weights.
+
+{pstd}
+Holm is used rather than Bonferroni because it is uniformly more powerful and
+requires no independence assumption. Both the raw ({cmd:r(joint_min_p)}) and
+adjusted ({cmd:r(holm_min_p)}) values are returned so that the adjustment is
+auditable.
+
+{pstd}
+Missing an association is still possible: this is a diagnostic with finite
+power, and failing to flag is not evidence that visit timing is exogenous.
 
 
 {marker references}{...}

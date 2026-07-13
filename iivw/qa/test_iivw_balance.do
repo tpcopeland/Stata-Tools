@@ -78,6 +78,12 @@ program define _balance_manual_panel
     char _dta[_iivw_id] "id"
     char _dta[_iivw_time] "t"
     char _dta[_iivw_weight_var] "_iivw_weight"
+    * A real IIW/FIPTIW run always creates the visit component. iivw_balance
+    * diagnoses that component by default, so a fixture without it is not a
+    * contract the package can produce.
+    capture confirm variable _iivw_iw
+    if _rc gen double _iivw_iw = _iivw_weight
+    char _dta[_iivw_iw_var] "_iivw_iw"
     char _dta[_iivw_prefix] "_iivw_"
 
     if "`mode'" == "iptw" {
@@ -118,7 +124,7 @@ program define _balance_tied_panel
     bysort id: gen int nv = _N
     drop if nv < 2
     drop nv k gap vtime rate
-    iivw_weight, id(id) time(months) visit_cov(Z) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) nolog
 end
 
 **# Tests
@@ -127,12 +133,12 @@ local ++test_count
 capture noisily {
     which iivw_balance
     _balance_weight_panel
-    iivw_weight, id(id) time(months) visit_cov(age female severity) nolog
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) nolog
     assert "`r(weighttype)'" == "iivw"
     assert "`r(visit_covars)'" == "age female severity"
     assert "`: char _dta[_iivw_visit_covars]'" == "age female severity"
 
-    iivw_balance, smdcut(10) nolog
+    iivw_balance, balcut(10) nolog
     assert r(N) == _N
     assert r(n_ids) == 60
     assert r(weight_cv) >= 0
@@ -140,15 +146,21 @@ capture noisily {
     assert r(ess_ratio) <= 1
     assert inlist("`r(leverage)'", "low", "moderate", "adequate")
     assert inlist("`r(balance_flag)'", "good", "poor")
-    assert inlist(r(informative), 0, 1)
     assert "`r(visit_covars)'" == "age female severity"
 
     * Panel metadata is echoed back from the stored weighting contract.
     assert "`r(id)'" == "id"
     assert "`r(time)'" == "months"
+    * C8: the default component is the VISIT weight. The stored analysis weight
+    * is reachable with component(final), but it is not a visit-model diagnostic.
+    assert "`r(component)'" == "iiw"
+    assert "`r(weight_var)'" == "_iivw_iw"
+    quietly iivw_balance, component(final) balcut(10) nolog
+    assert "`r(component)'" == "final"
     assert "`r(weight_var)'" == "_iivw_weight"
+    quietly iivw_balance, balcut(10) nolog
     assert "`r(result_columns)'" == ///
-        "unweighted_mean weighted_mean sd smd abs_smd N n_missing modeled"
+        "unweighted_mean weighted_mean sd shift abs_shift N n_missing modeled"
 
     * r(ess) is Kish's effective sample size, and r(ess_ratio) is r(ess)/r(N).
     quietly summarize _iivw_weight
@@ -158,7 +170,7 @@ capture noisily {
     quietly summarize `w2'
     local sw2 = r(sum)
     drop `w2'
-    quietly iivw_balance, smdcut(10) nolog
+    quietly iivw_balance, balcut(10) nolog
     assert reldif(r(ess), (`sw'^2) / `sw2') < 1e-8
     assert reldif(r(ess_ratio), r(ess) / r(N)) < 1e-8
 
@@ -182,7 +194,6 @@ capture noisily {
     _balance_manual_panel nearconstant
     iivw_balance
     assert "`r(leverage)'" == "low"
-    assert r(informative) == 0
     assert r(weight_cv) < .01
     assert r(ess_ratio) > .99
 }
@@ -202,8 +213,7 @@ capture noisily {
     iivw_balance
     assert "`r(leverage)'" == "adequate"
     assert "`r(balance_flag)'" == "good"
-    assert r(informative) == 1
-    assert abs(r(balance_max_smd)) < .001
+    assert abs(r(balance_max_shift)) < .001
 }
 if _rc == 0 {
     display as result "  PASS: T3 - adequate leverage with good balance is informative"
@@ -219,16 +229,28 @@ local ++test_count
 capture noisily {
     _balance_manual_panel poor
     iivw_balance
-    assert "`r(balance_flag)'" == "poor"
-    assert r(balance_max_smd) > .1
-    assert r(informative) == 0
+
+    * This fixture moves the covariate composition a long way. The OLD code read
+    * that movement as "poor" balance and set Informative: 0 -- which is how it
+    * came to call the package's own known-truth correction a failure.
+    assert r(balance_max_shift) > .1
+
+    * The verdict is now a function of the TARGET gap and of nothing else.
+    * Movement is descriptive; it does not enter the flag in either direction.
+    if r(refit_ok) == 1 {
+        assert ("`r(balance_flag)'" == "good") == (abs(r(balance_max_tsmd)) <= .1)
+        assert ("`r(balance_flag)'" == "poor") == (abs(r(balance_max_tsmd)) > .1)
+    }
+    else {
+        assert "`r(balance_flag)'" == "unknown"
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: T4 - poor modeled-covariate balance is uninformative"
+    display as result "  PASS: T4 - a large composition shift does not by itself mean poor balance"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T4 - poor modeled-covariate balance is uninformative (error `=_rc')"
+    display as error "  FAIL: T4 - composition shift must not drive the verdict (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T4"
 }
@@ -255,18 +277,23 @@ else {
 local ++test_count
 capture noisily {
     _balance_manual_panel good
+    * The visit-model refit is what the balance verdict rests on, so it always
+    * runs and its HRs are always returned; agrefit only controls the display.
     iivw_balance
-    capture matrix list r(hr_unweighted)
-    assert _rc != 0
+    matrix HU0 = r(hr_unweighted)
+    assert rowsof(HU0) == 1
+
     iivw_balance, agrefit nolog
     matrix HU = r(hr_unweighted)
-    matrix HW = r(hr_weighted)
     assert rowsof(HU) == 1
-    assert rowsof(HW) == 1
     assert colsof(HU) == 6
-    assert colsof(HW) == 6
     assert HU[1,6] == 0
-    assert HW[1,6] == 0
+
+    * r(hr_weighted) is gone. stcox with pweights applies the weight to the
+    * event term AND the risk-set average, so the IIW-weighted refit has no null
+    * at 0 and cannot be read as a balance result. Use r(balance_max_tsmd).
+    capture matrix list r(hr_weighted)
+    assert _rc != 0
 }
 if _rc == 0 {
     display as result "  PASS: T6 - agrefit matrices are optional and populated"
@@ -318,18 +345,23 @@ local ++test_count
 capture noisily {
     _balance_manual_panel degenerate
     iivw_balance
-    assert "`r(balance_flag)'" == "poor"
-    assert r(informative) == 0
+
+    * A modeled covariate with no variation cannot be fitted, so there is no
+    * evidence either way. The verdict is "unknown" -- NOT "poor", which the old
+    * code returned, and which reads as a finding rather than an absence of one.
+    assert "`r(balance_flag)'" == "unknown"
+    assert r(refit_ok) == 0
+
     matrix B = r(balance)
     assert rowsof(B) == 1
     assert B[1,4] >= .
 }
 if _rc == 0 {
-    display as result "  PASS: T9 - degenerate modeled covariate does not abort"
+    display as result "  PASS: T9 - a degenerate covariate yields unknown, not poor"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T9 - degenerate modeled covariate does not abort (error `=_rc')"
+    display as error "  FAIL: T9 - degenerate covariate verdict (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T9"
 }
@@ -340,7 +372,7 @@ capture noisily {
     _balance_manual_panel good
     iivw_balance
     assert "`c(varabbrev)'" == "on"
-    capture noisily iivw_balance, smdcut(0)
+    capture noisily iivw_balance, balcut(0)
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
     set varabbrev off
@@ -364,7 +396,7 @@ capture noisily {
     iivw_balance, agrefit nolog
     assert "`e(cmd)'" == "`active_cmd'"
     assert reldif(_b[z], `active_b') < 1e-12
-    matrix HW = r(hr_weighted)
+    matrix HW = r(hr_unweighted)
     assert HW[1,6] == 0
 }
 if _rc == 0 {
@@ -428,21 +460,21 @@ capture noisily {
     use "`tied'", clear
     iivw_balance, agrefit nolog
     matrix HUd = r(hr_unweighted)
-    matrix HWd = r(hr_weighted)
-    * Both refits must succeed and the covariate effect must be well away from 1.
+    * The refit must succeed and the covariate effect must be well away from 1.
     assert HUd[1,6] == 0
-    assert HWd[1,6] == 0
     assert HUd[1,1] > 1.2
 
-    * efron changes the unweighted estimate on tied data, and -- after the
-    * pweights-forbid-efron fix -- the weighted refit still succeeds (Breslow).
+    * H8: efron is now IGNORED by iivw_balance. The refit replays the tie method
+    * stored by iivw_weight, so it reproduces the model that actually produced
+    * the weights. Passing efron here must therefore change nothing at all --
+    * previously it silently gave the unweighted arm Efron while the weighted
+    * arm was forced to Breslow, making the gap between them partly a
+    * tie-handling artifact.
     use "`tied'", clear
     iivw_balance, agrefit nolog efron
     matrix HUe = r(hr_unweighted)
-    matrix HWe = r(hr_weighted)
     assert HUe[1,6] == 0
-    assert HWe[1,6] == 0
-    assert abs(HUe[1,4] - HUd[1,4]) > 0.05
+    assert reldif(HUe[1,4], HUd[1,4]) < 1e-12
 
     * level(90) narrows the CI versus the default 95% without moving the point.
     use "`tied'", clear

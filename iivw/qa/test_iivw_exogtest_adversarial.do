@@ -97,7 +97,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _adv_exog_panel, nids(24) visits(4)
 
-        capture noisily iivw_exogtest const_x, id(id) time(months) ///
+        capture noisily iivw_exogtest const_x, endatlastvisit id(id) time(months) ///
             generate(cx_) nolog
         assert _rc == 2000
         _assert_absent cx_const_x_lag1
@@ -121,7 +121,7 @@ if `run_only' == 0 | `run_only' == 2 {
         _adv_exog_panel, nids(10) visits(3)
         replace months = months[2] if id == 1 & visit == 3
 
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             generate(dup_) nolog
         assert _rc == 198
         _assert_absent dup_y_lag1
@@ -144,14 +144,14 @@ if `run_only' == 0 | `run_only' == 3 {
         _adv_exog_panel, nids(16) visits(4)
         gen double entry_bad = entry
         replace entry_bad = entry_bad + 0.20 if id == 2 & visit == 3
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             entry(entry_bad) generate(ent_) nolog
         assert _rc == 198
         _assert_absent ent_y_lag1
 
         _adv_exog_panel, nids(16) visits(4)
         replace entry = 0 if id == 3
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             entry(entry) generate(ent_) nolog
         assert _rc == 198
         _assert_absent ent_y_lag1
@@ -179,7 +179,7 @@ if `run_only' == 0 | `run_only' == 4 {
         2 2 1 1 1.6
         end
 
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             by(arm) generate(few_) nolog
         assert _rc == 2000
         _assert_absent few_y_lag1
@@ -201,7 +201,7 @@ if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _adv_exog_panel, nids(24) visits(4)
         gen double clash_y_lag1 = 123
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             generate(clash_) nolog
         assert _rc == 110
         quietly summarize clash_y_lag1, meanonly
@@ -209,7 +209,7 @@ if `run_only' == 0 | `run_only' == 5 {
         assert r(max) == 123
 
         local long_prefix "abcdefghijklmnopqrstuvwxabcd"
-        capture noisily iivw_exogtest y, id(id) time(months) ///
+        capture noisily iivw_exogtest y, endatlastvisit id(id) time(months) ///
             generate(`long_prefix') nolog
         assert _rc == 198
         capture ds `long_prefix'*
@@ -242,7 +242,7 @@ if `run_only' == 0 | `run_only' == 6 {
         local cmd_before "`e(cmd)'"
 
         set varabbrev on
-        iivw_exogtest y marker, id(id) time(months) ///
+        iivw_exogtest y marker, endatlastvisit id(id) time(months) ///
             adjust(age arm) generate(ps_) level(90) nolog
 
         assert "`c(varabbrev)'" == "on"
@@ -284,7 +284,7 @@ if `run_only' == 0 | `run_only' == 7 {
         matrix B_before = e(b)
         local cmd_before "`e(cmd)'"
 
-        capture noisily iivw_exogtest const_x, id(id) time(months) ///
+        capture noisily iivw_exogtest const_x, endatlastvisit id(id) time(months) ///
             generate(err_) nolog
         assert _rc == 2000
         assert "`e(cmd)'" == "`cmd_before'"
@@ -312,7 +312,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _adv_exog_panel, nids(140) visits(5) seed(20260527) strong bylabel
-        iivw_exogtest y, id(id) time(months) by(arm) ///
+        iivw_exogtest y, endatlastvisit id(id) time(months) by(arm) ///
             adjust(age female) generate(byx_) level(95) nolog
 
         assert r(n_models) == 2

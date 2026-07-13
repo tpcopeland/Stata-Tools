@@ -258,9 +258,9 @@ All results are stored in `e()`:
 
 **Replay and design macros:** `e(cmd)`, `e(cmdline)`, `e(analysis_type)`, `e(outcome)`, `e(exposure)`, `e(mediator)`, `e(mediation_type)`, `e(scale)`, `e(idvar)`, `e(tvar)`, `e(intvars)`, `e(interventions)`, `e(msm)`, and `e(msm_colnames)`. `e(sample)` identifies original analytic rows. `e(run_id)` and `e(rngstate)` identify the point-estimate run; `e(graph)` names a generated survival graph.
 
-**Saving and imputation metadata:** with `saving()`, `e(saving)`, `e(saved_schema_version)`, and `e(saved_arm_schema)` describe the output. With `impute()`, `e(impute_targets)` and `e(N_impute_targets)` are accompanied by indexed `e(impute_target_#)`, `e(impute_needed_#)`, `e(impute_eligible_#)`, and `e(impute_dropped_#)`.
+**Saving and imputation metadata:** with `saving()`, `e(saving)`, `e(saved_schema_version)`, and `e(saved_arm_schema)` describe the output. With `impute()`, `e(impute_targets)` and `e(N_impute_targets)` are accompanied by indexed results whose literal prefixes are `e(impute_target_)`, `e(impute_needed_)`, `e(impute_eligible_)`, and `e(impute_dropped_)`, followed by the target number.
 
-**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (collision-free stored-estimate names), `e(model_cmds)`, `e(model_depvars)`, indexed `e(model_eq_#)`, `e(model_skipped)`, and `e(model_capture)`. The capture label is `analytic_sample_refit_approximation`.
+**Component-model manifest (with `savemodels`):** `e(N_models)`, `e(model_names)` (collision-free stored-estimate names), `e(model_cmds)`, `e(model_depvars)`, indexed results with prefix `e(model_eq_)`, `e(model_skipped)`, and `e(model_capture)`. The capture label is `analytic_sample_refit_approximation`.
 
 **Convenience scalars (mediation, non-oce):** `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, `e(cde)`, and their SEs (`e(se_tce)`, etc.).
 
@@ -280,6 +280,7 @@ Dose-response mode returns `r(k)`, `r(reference)`, `r(ref_label)`, `r(table)`, t
 
 - Robins JM. 1986. A new approach to causal inference in mortality studies with sustained exposure periods. *Mathematical Modelling* 7(9-12):1393-1512.
 - Daniel RM, De Stavola BL, Cousens SN. 2011. gformula: Estimating causal effects in the presence of time-varying confounding or mediation using the g-computation formula. *Stata Journal* 11(4):479-517.
+- Daniel RM, De Stavola BL, Cousens SN, Vansteelandt S. 2015. Causal mediation analysis with multiple mediators. *Biometrics* 71(1):1-14.
 - Taubman SL, Robins JM, Mittleman MA, Hernan MA. 2009. Intervening on risk factors for coronary heart disease: an application of the parametric g-formula. *International Journal of Epidemiology* 38(6):1599-1611.
 - VanderWeele TJ. 2015. *Explanation in causal inference: methods for mediation and interaction*. Oxford University Press.
 

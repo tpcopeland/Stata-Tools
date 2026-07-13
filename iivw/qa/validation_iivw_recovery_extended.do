@@ -91,7 +91,7 @@ capture noisily {
     gen double y = a_i + rnormal(0, 1)
     quietly summarize y, meanonly
     scalar s1_naive = r(mean)
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(none) nolog replace
     scalar s1_est = _b[_cons]
     scalar s1_ok = 1
@@ -148,7 +148,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s2_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z S) stabcov(S) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z S) stabcov(S) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s2_est = _b[months]
     scalar s2_ok = 1
@@ -197,7 +197,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s3_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     scalar s3_wcv = r(sd_weight)/r(mean_weight)
     scalar s3_wmax = r(max_weight)
     iivw_fit y, timespec(linear) nolog replace
@@ -251,7 +251,7 @@ capture noisily {
     glm y months months2, family(gaussian) link(identity) vce(cluster id)
     scalar s4_naive = _b[months2]
     drop months2
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(quadratic) nolog replace
     scalar s4_est = _b[_iivw_time_sq]
     scalar s4_ok = 1
@@ -300,7 +300,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s5_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) entry(entry0) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) entry(entry0) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s5_est = _b[months]
     scalar s5_ok = 1
@@ -348,7 +348,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s6_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nobaseevent nolog replace
+    iivw_weight, endatlastvisit id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s6_est = _b[months]
     scalar s6_ok = 1
@@ -398,7 +398,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s7_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) lagvars(W) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) lagvars(W) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s7_est = _b[months]
     scalar s7_ok = 1
@@ -544,7 +544,7 @@ capture noisily {
     gen double y = a_i - 0.8*T + s_i*months + rnormal(0, 1)
     glm y T months, family(gaussian) link(identity) vce(cluster id)
     scalar s10_naive = _b[T]
-    iivw_weight, id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
         wtype(fiptiw) nolog replace
     iivw_fit y T, timespec(linear) nolog replace
     scalar s10_est = _b[T]
@@ -648,7 +648,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s12_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, model(mixed) timespec(linear) nolog replace
     scalar s12_est = _b[months]
     scalar s12_ok = 1
@@ -701,7 +701,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s13_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) truncate(1 99) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncate(1 99) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s13_est = _b[months]
     scalar s13_ok = 1
@@ -750,7 +750,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s14_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) unweighted nolog replace
     scalar s14_unw = _b[months]
     iivw_fit y, timespec(linear) nolog replace
@@ -802,7 +802,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s15_naive = _b[months]
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s15_est = _b[months]
     scalar s15_ok = 1
@@ -853,7 +853,7 @@ capture noisily {
     glm y months m2 m3, family(gaussian) link(identity) vce(cluster id)
     scalar s16_naive = _b[m3]
     drop m2 m3
-    iivw_weight, id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(cubic) nolog replace
     scalar s16_est = _b[_iivw_time_cu]
     scalar s16_ok = 1

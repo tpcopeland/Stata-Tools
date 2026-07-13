@@ -77,7 +77,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _final_panel, seed(10001)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Create a 3-level categorical with adversarial value labels
         gen byte arm = mod(id, 3)
@@ -115,7 +115,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _final_panel, seed(10002)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         gen byte grp = mod(id, 3)
         bysort id (months): replace grp = grp[1]
@@ -157,7 +157,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         _final_panel, seed(10003)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Pre-existing _iivw_tns1 should block without replace
         gen double _iivw_tns1 = 999
@@ -202,7 +202,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _final_panel, nids(60) visits(8) seed(10004)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit y severity, timespec(ns(3)) nolog
         * ns(3) with 60*8=480 obs should have 2 internal knots
@@ -250,14 +250,14 @@ if `run_only' == 0 | `run_only' == 5 {
         replace months = months + id / 100000
         gen double severity = 2 + rnormal(0, 0.5)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) efron nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) efron nolog
         assert r(N) == 200
         assert r(n_ids) == 40
         quietly count if missing(_iivw_weight) | _iivw_weight <= 0
         assert r(N) == 0
 
         * Without efron (default Breslow) should also work
-        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
         assert r(N) == 200
     }
     if _rc == 0 {
@@ -277,7 +277,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _final_panel, seed(10006)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * geeopts(iterate(50)) should be passed through and not conflict
         iivw_fit y severity, geeopts(iterate(50)) nolog
@@ -310,7 +310,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _final_panel, seed(10007)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         iivw_fit y severity, model(mixed) mixedopts(iterate(50)) nolog
         assert e(N) > 0
@@ -333,7 +333,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _final_panel, seed(10008)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * First collect
         collect clear
@@ -369,7 +369,7 @@ if `run_only' == 0 | `run_only' == 9 {
     capture noisily {
         _final_panel, nids(60) visits(5) seed(10009)
         gen long site = mod(id, 10) + 1
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Keep only sites 1-3 via if (eliminates 7 of 10 clusters)
         iivw_fit y severity if site <= 3, cluster(site) nolog
@@ -408,7 +408,7 @@ if `run_only' == 0 | `run_only' == 10 {
         * Create a covariate with extremely high variance
         gen double extreme_cov = 100 * rnormal(0, 10)
 
-        iivw_weight, id(id) time(months) visit_cov(extreme_cov) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(extreme_cov) nolog
 
         * Weights should be finite (no Inf/NaN from exp(-huge_xb))
         quietly count if missing(_iivw_weight)
@@ -421,7 +421,7 @@ if `run_only' == 0 | `run_only' == 10 {
         assert r(N) >= 0
 
         * Truncation should tame extreme weights
-        iivw_weight, id(id) time(months) visit_cov(extreme_cov) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(extreme_cov) ///
             truncate(5 95) replace nolog
         quietly summarize _iivw_weight
         * After truncation, max weight should be finite and bounded
@@ -455,7 +455,7 @@ if `run_only' == 0 | `run_only' == 11 {
         gen double severity = 2 + rnormal(0, 0.5)
         gen double y = 5 - 0.2 * severity + rnormal(0, 0.3)
 
-        iivw_weight, id(pid) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(pid) time(months) visit_cov(severity) nolog
         assert r(N) == 160
         assert r(n_ids) == 40
         * First-obs IIW weights identical across subjects (mean-1 normalized)
@@ -502,7 +502,7 @@ if `run_only' == 0 | `run_only' == 12 {
         bysort id (months): replace treated = treated[1]
         gen double y = 10 - 0.2 * severity + 0.3 * treated + rnormal(0, 0.5)
 
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) nolog
         assert r(N) == `=`nids' * `nvis''
         assert r(n_ids) == `nids'
@@ -539,7 +539,7 @@ if `run_only' == 0 | `run_only' == 13 {
         gen double constant = 1
         gen double sev = rnormal(2, 0.5)
 
-        capture iivw_weight, id(id) time(months) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(constant) lagvars(sev) nolog
         local wt_rc = _rc
 
@@ -586,7 +586,7 @@ if `run_only' == 0 | `run_only' == 14 {
         gen double orig_months = months
         gen long orig_id = id
 
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * sortpreserve should restore the scrambled order
         assert id == orig_id
@@ -611,7 +611,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
         _final_panel, seed(10015)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Non-contiguous levels: 10, 30, 50
         gen int dose = 10 + 20 * mod(id, 3)
@@ -654,7 +654,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 16 {
     capture noisily {
         _final_panel, nids(60) visits(6) seed(10016)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         gen byte arm = mod(id, 3)
         bysort id (months): replace arm = arm[1]
@@ -702,14 +702,14 @@ if `run_only' == 0 | `run_only' == 17 {
         gen double abcdefghijklmnopqrstuvwxyzab = severity * 1.2
 
         * 27-char name + _lag1 = 32: should work
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             lagvars(abcdefghijklmnopqrstuvwxyza) nolog
         confirm variable abcdefghijklmnopqrstuvwxyza_lag1
 
         * 28-char name + _lag1 = 33: should error with rc=198
         _final_panel, seed(10017)
         gen double abcdefghijklmnopqrstuvwxyzab = severity * 1.2
-        capture iivw_weight, id(id) time(months) visit_cov(severity) ///
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             lagvars(abcdefghijklmnopqrstuvwxyzab) nolog
         assert _rc == 198
     }
@@ -738,7 +738,7 @@ if `run_only' == 0 | `run_only' == 18 {
         gen double severity = rnormal(2, 0.5)
 
         * Should either succeed (degenerate but valid) or error cleanly
-        capture iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local wt_rc = _rc
         if `wt_rc' == 0 {
             * If it succeeds, weights should be finite
@@ -769,7 +769,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 19 {
     capture noisily {
         _final_panel, seed(10019)
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Replace depvar with a constant
         replace y = 5
@@ -803,7 +803,7 @@ if `run_only' == 0 | `run_only' == 20 {
         _final_panel, nids(50) visits(5) seed(10020)
 
         * Step 1: IIW weights
-        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         local wtype1 : char _dta[_iivw_weighttype]
         assert "`wtype1'" == "iivw"
 
@@ -814,7 +814,7 @@ if `run_only' == 0 | `run_only' == 20 {
         assert "`fitted1'" == "1"
 
         * Step 3: Reweight with FIPTIW (replace)
-        iivw_weight, id(id) time(months) visit_cov(severity) ///
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
             treat(treated) treat_cov(sev_bl) replace nolog
         local wtype2 : char _dta[_iivw_weighttype]
         assert "`wtype2'" == "fiptiw"

@@ -17,9 +17,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall gcomp
-quietly net install gcomp, from("`pkg_dir'/") replace
-discard
+do "`qa_dir'/_qa_bootstrap.do"
 
 capture program drop _g_tv_cv_build
 program define _g_tv_cv_build
@@ -88,8 +86,8 @@ restore
 * fitting nuisance models on a finite dataset and then re-simulating under the
 * interventions. The cross-validation target is agreement in level and direction,
 * not bitwise equality.
-local tol_po = 0.08
-local tol_rd = 0.10
+local tol_po = 0.04
+local tol_rd = 0.06
 
 * ============================================================
 * CVT1: Stata POs agree with the external benchmark
@@ -179,5 +177,7 @@ else {
 display ""
 display as text "Cross-validation summary: `pass_count' passed, `fail_count' failed"
 if `fail_count' > 0 {
+    display "RESULT: crossval_timevarying tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
     exit 1
 }
+display "RESULT: crossval_timevarying tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"

@@ -30,7 +30,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
 [{opt xlsx(filename)} {opt excel(filename)} {opt cut:off(#)} {opt cuto:ffs(numlist)}
 {opt prev:alence(#)} {opt ex:act} {opt wil:son} {opt auc} {opt opt:imal}
-{opt dig:its(#)} {opt sheet(string)} {opt title(string)}
+{opt level(#)} {opt dig:its(#)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt zebra}
 {opt headers:hade} {opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
@@ -41,7 +41,8 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2 classification
 table: sensitivity, specificity, PPV, NPV, accuracy, likelihood ratios,
 diagnostic odds ratio, and optionally AUC. Confidence intervals use Wilson
-score (default) or Clopper-Pearson exact method. If {opt cutoff()}, {opt cutoffs()}, and
+score (default) or Clopper-Pearson exact method at {opt level()} (default
+{cmd:c(level)}). If {opt cutoff()}, {opt cutoffs()}, and
 {opt optimal} are all omitted, {it:test_var} must already be coded 0/1. The completed
 table is displayed in the Results window and may also be exported to Excel,
 CSV, or Markdown, or stored in a Stata frame.{p_end}
@@ -51,31 +52,32 @@ CSV, or Markdown, or stored in a Stata frame.{p_end}
 {synoptset 24 tabbed}{...}
 {synoptline}
 {syntab:Diagnostic}
-{synopt:{opt cut:off(#)}}dichotomize a continuous test variable at a single threshold{p_end}
-{synopt:{opt cuto:ffs(numlist)}}evaluate diagnostic accuracy over multiple cutoff values; cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}{p_end}
-{synopt:{opt prev:alence(#)}}adjust PPV and NPV for a target prevalence between 0 and 1{p_end}
-{synopt:{opt ex:act}}use Clopper-Pearson exact confidence intervals; may not be combined with {opt wilson}{p_end}
-{synopt:{opt wil:son}}use Wilson score confidence intervals (default); may not be combined with {opt exact}{p_end}
-{synopt:{opt auc}}report AUC with 95% CI; requires both 0 and 1 in {it:gold_var}{p_end}
+{synopt:{opt cut:off(#)}}set one dichotomization cutoff{p_end}
+{synopt:{opt cuto:ffs(numlist)}}evaluate diagnostic accuracy over multiple cutoff values{p_end}
+{synopt:{opt prev:alence(#)}}set target prevalence for PPV and NPV{p_end}
+{synopt:{opt ex:act}}use Clopper-Pearson exact confidence intervals{p_end}
+{synopt:{opt wil:son}}use Wilson score confidence intervals (default){p_end}
+{synopt:{opt level(#)}}set the confidence level; default is {cmd:c(level)}{p_end}
+{synopt:{opt auc}}report AUC with a confidence interval{p_end}
 {synopt:{opt opt:imal}}choose the cutoff that maximizes Youden's J index{p_end}
-{synopt:{opt dig:its(#)}}decimal places for diagnostic measures and confidence intervals; default 1, range 0-6{p_end}
+{synopt:{opt dig:its(#)}}set decimals for diagnostic measures{p_end}
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
+{synopt:{opt open}}open the Excel file after export{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
-{synopt:{opt the:me(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header rows{p_end}
-{synopt:{opt headerc:olor(string)}}custom header color as a supported Stata color name or RGB triplet (for example, {cmd:"200 220 240"}){p_end}
-{synopt:{opt zebrac:olor(string)}}custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synoptline}
 
@@ -101,7 +103,13 @@ Wilson score. May not be combined with {opt wilson}.{p_end}
 {phang}{opt wilson} use Wilson score confidence intervals (this is the
 default). May not be combined with {opt exact}.{p_end}
 
-{phang}{opt auc} report area under the ROC curve with 95% CI. Cannot be combined
+{phang}{opt level(#)} sets the confidence level for all reported proportion,
+likelihood-ratio, diagnostic-odds-ratio, and AUC intervals. The default is the
+current {cmd:c(level)}, and the resolved level is returned in
+{cmd:r(ci_level)} and stored on a requested output frame.{p_end}
+
+{phang}{opt auc} report area under the ROC curve with a confidence interval at
+the requested {opt level()}. Cannot be combined
 with {opt cutoffs()}, and requires both outcome classes to be present in
 {it:gold_var}.{p_end}
 
@@ -113,28 +121,85 @@ with {opt cutoffs()}.{p_end}
 {phang}{opt digits(#)} decimal places for diagnostic measures and CIs
 (default 1, range 0-6).{p_end}
 
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+
+{phang}
+{opt csv(filename)} also export the output dataset as CSV{p_end}
+
+{phang}
+{opt excel(filename)} synonym for {opt xlsx(filename)}{p_end}
+
+{phang}
+{opt foot:note(string)} footnote text below the table{p_end}
+
+{phang}
+{opt headerc:olor(string)} custom header color as a supported Stata color name or RGB triplet (for
+example, {cmd:"200 220 240"}){p_end}
+
+{phang}
+{opt headers:hade} apply background fill to the header rows{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel, CSV, and frame exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+
+{phang}
+{opt sheet(string)} Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
+
+{phang}
+{opt the:me(string)} journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
+{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+
+{phang}
+{opt title(string)} table title{p_end}
+
+{phang}
+{opt xlsx(filename)} export to Excel; filename must end in {cmd:.xlsx}{p_end}
+
+{phang}
+{opt zebra} alternating row shading{p_end}
+
+{phang}
+{opt zebrac:olor(string)} custom zebra stripe color as a supported Stata color name or RGB triplet{p_end}
+
+
+{phang}
+{cmdab:fra:me(} {it:name} {cmd:)} store the output dataset in a named Stata frame; specify
+{cmd:frame(name, replace)} to replace an existing frame{p_end}
+
 {marker examples}{title:Examples}
 
 {pstd}{bf:Example 1: Basic diagnostic accuracy table}{p_end}
-{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
-{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
-{phang2}{stata "predict phat":. predict phat}{p_end}
-{phang2}{stata "gen byte pred_low = (phat > 0.3)":. gen byte pred_low = (phat > 0.3)}{p_end}
+{phang2}{cmd:. webuse lbw, clear}{p_end}
+{phang2}{cmd:. logit low age lwt smoke}{p_end}
+{phang2}{cmd:. predict phat}{p_end}
+{phang2}{cmd:. gen byte pred_low = (phat > 0.3)}{p_end}
 {phang2}{cmd:. diagtab pred_low low, xlsx(diag.xlsx) ///}{p_end}
 {phang3}{cmd:title("Diagnostic Accuracy: Low Birth Weight Prediction")}{p_end}
 
 {pstd}{bf:Example 2: Continuous test with cutoff and AUC}{p_end}
-{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
-{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
-{phang2}{stata "predict phat":. predict phat}{p_end}
+{phang2}{cmd:. webuse lbw, clear}{p_end}
+{phang2}{cmd:. logit low age lwt smoke}{p_end}
+{phang2}{cmd:. predict phat}{p_end}
 {phang2}{cmd:. diagtab phat low, cutoff(0.4) auc ///}{p_end}
 {phang3}{cmd:xlsx(diag_auc.xlsx) title("LBW Prediction") ///}{p_end}
 {phang3}{cmd:theme(nejm)}{p_end}
 
 {pstd}{bf:Example 3: Multiple cutoffs evaluated simultaneously}{p_end}
-{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
-{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
-{phang2}{stata "predict phat":. predict phat}{p_end}
+{phang2}{cmd:. webuse lbw, clear}{p_end}
+{phang2}{cmd:. logit low age lwt smoke}{p_end}
+{phang2}{cmd:. predict phat}{p_end}
 {phang2}{cmd:. diagtab phat low, cutoffs(0.2 0.3 0.4 0.5) ///}{p_end}
 {phang3}{cmd:xlsx(diag_multi.xlsx) ///}{p_end}
 {phang3}{cmd:title("Diagnostic Accuracy Across Cutoffs")}{p_end}
@@ -145,10 +210,10 @@ displayed as {cmd:--} while stored numeric results remain missing. The combined
 results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}{bf:Example 4: Prevalence-adjusted predictive values}{p_end}
-{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
-{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
-{phang2}{stata "predict phat":. predict phat}{p_end}
-{phang2}{stata "gen byte pred_low = (phat > 0.3)":. gen byte pred_low = (phat > 0.3)}{p_end}
+{phang2}{cmd:. webuse lbw, clear}{p_end}
+{phang2}{cmd:. logit low age lwt smoke}{p_end}
+{phang2}{cmd:. predict phat}{p_end}
+{phang2}{cmd:. gen byte pred_low = (phat > 0.3)}{p_end}
 {phang2}{cmd:. diagtab pred_low low, prevalence(0.07) exact ///}{p_end}
 {phang3}{cmd:title("PPV/NPV Adjusted for 7% Population Prevalence")}{p_end}
 
@@ -160,6 +225,7 @@ results are returned in {cmd:r(cutoff_table)}.{p_end}
 {synopt:{cmd:r(FP)}}false positives (single-cutoff mode){p_end}
 {synopt:{cmd:r(FN)}}false negatives (single-cutoff mode){p_end}
 {synopt:{cmd:r(TN)}}true negatives (single-cutoff mode){p_end}
+{synopt:{cmd:r(ci_level)}}confidence level used for all intervals{p_end}
 {synopt:{cmd:r(sensitivity)}}sensitivity (single-cutoff mode){p_end}
 {synopt:{cmd:r(sensitivity_lb)}}sensitivity lower CI bound{p_end}
 {synopt:{cmd:r(sensitivity_ub)}}sensitivity upper CI bound{p_end}

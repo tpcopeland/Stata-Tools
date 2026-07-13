@@ -37,40 +37,40 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt rows(string)}}backslash-separated row specifications, one per frame; exactly one of {opt rows()} or {opt rownames()} is required{p_end}
-{synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select rows by rendered row-label substring{p_end}
+{synopt:{opt rows(string)}}row selections, one per source frame{p_end}
+{synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export the rendered table as GitHub-Flavored Markdown; may be combined with Excel, CSV, and frame exports{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file; requires {opt markdown()}{p_end}
-{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite companion frame for {helpb eplot}; source frames must have been created by {cmd:regtab} or {cmd:effecttab} with {opt eplotframe()}{p_end}
-{synopt:{opt forest}}draw an {helpb eplot} forest plot from the composite companion frame; requires the separate {cmd:eplot} package{p_end}
-{synopt:{opt eploto:ptions(string asis)}}pass additional options to {cmd:eplot} when {opt forest} is specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
-{synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+{synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt fra:me(name[, replace])}}save composite to a named Stata frame{p_end}
+{synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite frame{p_end}
+{synopt:{opt forest}}draw an eplot forest plot{p_end}
+{synopt:{opt eploto:ptions(string asis)}}pass options to eplot{p_end}
+{synopt:{opt open}}open Excel file after export{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
-{synopt:{cmdab:comp:act}}merge estimate and CI into one column per model{p_end}
-{synopt:{cmdab:sec:tion(}{it:string}{cmd:)}}backslash-separated section labels, one per frame{p_end}
-{synopt:{cmdab:rela:bel(}{it:string}{cmd:)}}rename rows: pairs of row_number "new label"{p_end}
-{synopt:{cmdab:sep:arator(}{it:numlist}{cmd:)}}add horizontal borders above specified data rows{p_end}
+{synopt:{opt comp:act}}merge estimate and CI into one column per model{p_end}
+{synopt:{opt sec:tion(string)}}section labels, one per source frame{p_end}
+{synopt:{opt rela:bel(string)}}rename selected composite rows{p_end}
+{synopt:{opt sep:arator(numlist)}}add borders above selected data rows{p_end}
 
 {syntab:Formatting}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
+{synopt:{opt the:me(string)}}apply a journal formatting theme{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{opt labelw:idth(#)}}maximum width (characters) of the label (first) column (default 45); labels longer than the cap wrap onto extra lines{p_end}
+{synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt bold:p(#)}}bold p-values below threshold{p_end}
-{synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
+{synopt:{opt high:light(#)}}highlight rows where p < threshold{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
-{synopt:{opt headerc:olor(string)}}supported Stata color name or RGB triplet for header rows{p_end}
-{synopt:{opt zebrac:olor(string)}}supported Stata color name or RGB triplet for zebra shading{p_end}
+{synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
+{synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synoptline}
 
 
@@ -100,6 +100,16 @@ the {opt frame()} option. All source frames must have the same column structure
 ({it:estimate} | {it:CI} | {it:p}) and compact frames
 ({it:estimate+CI} | {it:p}) are both supported, but all source frames in one
 call must use the same layout.
+
+{pstd}
+Source frames also carry machine-readable model IDs, outcome IDs, effect
+scales, confidence levels, and statistic order. {cmd:comptab} aligns model
+blocks by unique outcome ID when available, otherwise by unique model ID, and
+rejects sources whose identities, scales, confidence levels, or statistic
+layouts cannot be matched exactly. Display labels alone are not used as
+analytical identities. All sources are snapshotted and every destination is
+built under a temporary name, so rejected aliases or construction failures do
+not alter source frames or existing requested outputs.{p_end}
 
 {pstd}
 For plot-ready composites, create each source table with both {opt frame()} and
@@ -187,6 +197,74 @@ threshold. Example: {cmd:boldp(0.05)}
 smaller than the specified threshold.
 
 
+
+{pstd}
+{it:Detailed option contracts}{p_end}
+
+{phang}
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+
+{phang}
+{opt csv(filename)} export the composite table to a CSV file{p_end}
+
+{phang}
+{opt eplotf:rame(name[, replace])} save a graph-ready composite companion frame for {helpb eplot}; source
+frames must have been created by {cmd:regtab} or {cmd:effecttab} with {opt eplotframe()}{p_end}
+
+{phang}
+{opt eploto:ptions(string asis)} pass additional options to {cmd:eplot} when {opt forest} is
+specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
+
+{phang}
+{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+
+{phang}
+{opt foot:note(string)} footnote text below the table{p_end}
+
+{phang}
+{opt forest} draw an {helpb eplot} forest plot from the composite companion frame; requires the
+separate {cmd:eplot} package{p_end}
+
+{phang}
+{opt headerc:olor(string)} supported Stata color name or RGB triplet for header rows{p_end}
+
+{phang}
+{opt headers:hade} apply background fill to the header row{p_end}
+
+{phang}
+{opt labelw:idth(#)} maximum width (characters) of the label (first) column (default 45); labels
+longer than the cap wrap onto extra lines{p_end}
+
+{phang}
+{opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
+Excel, CSV, and frame exports{p_end}
+
+{phang}
+{opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt open} open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+
+{phang}
+{opt sheet(string)} Excel sheet name (default: "Composite"){p_end}
+
+{phang}
+{opt title(string)} table title for cell A1{p_end}
+
+{phang}
+{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}{p_end}
+
+{phang}
+{opt zebra} alternating row shading{p_end}
+
+{phang}
+{opt zebrac:olor(string)} supported Stata color name or RGB triplet for zebra shading{p_end}
+
+
+{phang}
+{cmdab:fra:me(} {it:name} {cmd:)} save composite to a named Stata frame; specify
+{cmd:frame(name, replace)} to replace an existing frame{p_end}
+
 {marker examples}{...}
 {title:Examples}
 
@@ -258,12 +336,13 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {synopt:{cmd:r(N_cols)}}number of columns in output{p_end}
 {synopt:{cmd:r(N_models)}}number of models (from source frames){p_end}
 {synopt:{cmd:r(N_frames)}}number of source frames{p_end}
+{synopt:{cmd:r(ci_level)}}confidence level shared by all source frames{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
-{synopt:{cmd:r(eplotframe)}}graph-ready composite companion frame name (if {cmd:eplotframe()} specified){p_end}
+{synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
