@@ -93,7 +93,7 @@ status (`_rc` is 0 even when the command is missing).
 - `test_iivw_fit_unweighted.do`
 - `test_iivw_performance.do`
 - `test_iivw_psdash_contract.do`
-- `test_iivw_release_adversarial.do`
+- `test_iivw_release_adversarial.do` — release surface: version/date sync, `.pkg` completeness, dev-path leaks, artifact hygiene, isolated install smoke, and the worked examples from every help file. Also gates **SMCL render integrity**: no help-file line may leave a `{...}` directive open across a newline. `iivw_weight.sthlp` shipped exactly that defect in v2.0.0 (`{it:Mean-1` / `normalization}` split across lines 565-566), which renders the markup literally in the Viewer; every existing content check passed it because all the words were still present, in order. The date sync derives the expected distribution date from `iivw.pkg`, **not** from the `iivw.ado` header date — a doc-only render fix legitimately advances the former while every `.ado` is untouched.
 - `test_iivw_reporting_exports.do`
 - `test_iivw_v105_regressions.do`
 - `test_iivw_v106_regressions.do`

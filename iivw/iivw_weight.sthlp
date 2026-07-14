@@ -562,8 +562,8 @@ The first observation per subject receives IIW weight 1 by convention before
 normalization: there is no prior visit from which to estimate intensity at the
 first visit. If visit covariates are missing for first observations, a note
 is displayed and the raw weight is set to 1. In every case the reported weight
-is the rescaled one, 1/mean(exp(-xb)) -- never exactly 1.
-See {it:Mean-1 normalization} below.
+is the rescaled one, 1/mean(exp(-xb)) -- never exactly 1. See
+{it:Mean-1 normalization} below.
 
 {pstd}
 {bf:Mean-1 normalization}

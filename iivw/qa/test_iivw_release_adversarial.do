@@ -95,6 +95,46 @@ program define _qa_iivw_must_not_contain
     }
 end
 
+* Flag any help-file line on which SMCL braces do not balance -- i.e. a
+* directive left open across a newline, which the Viewer renders literally.
+* Sets `smcl_bad' to the number of offending lines.
+capture mata: mata drop _iivw_smcl_scan()
+mata:
+void _iivw_smcl_scan(string scalar pkg_dir)
+{
+    string vector files
+    string scalar  path, line, s
+    real scalar    f, fh, ln, nopen, nclose, bad
+
+    files = ("iivw", "iivw_weight", "iivw_balance", "iivw_fit",
+             "iivw_exogtest", "iivw_diagnose")
+    bad = 0
+
+    for (f = 1; f <= cols(files); f++) {
+        path = pkg_dir + "/" + files[f] + ".sthlp"
+        fh = fopen(path, "r")
+        ln = 0
+        while ((line = fget(fh)) != J(0, 0, "")) {
+            ln++
+            /* {c -(} and {c )-} are the SMCL escapes for a literal brace and
+               are not directives; they must not count toward the balance. */
+            s = subinstr(line, "{c -(}", "")
+            s = subinstr(s, "{c )-}", "")
+            nopen  = strlen(s) - strlen(subinstr(s, "{", ""))
+            nclose = strlen(s) - strlen(subinstr(s, "}", ""))
+            if (nopen != nclose) {
+                printf("{err}  %s.sthlp:%f: unbalanced SMCL braces\n",
+                       files[f], ln)
+                printf("{err}    %s\n", line)
+                bad++
+            }
+        }
+        fclose(fh)
+    }
+    st_local("smcl_bad", strofreal(bad))
+}
+end
+
 capture program drop _qa_iivw_doc_data
 program define _qa_iivw_doc_data
     version 16.0
@@ -146,10 +186,23 @@ end
 
 local ++test_count
 capture noisily {
-    * Derive the expected version and dates from the canonical iivw.ado and
-    * iivw.sthlp headers so this release gate never goes stale on a version
-    * bump.  The per-file assertions below still fail if any single file is not
-    * bumped in lockstep with these two canonical headers.
+    * VERSION comes from the canonical iivw.ado header; every shipped file must
+    * carry it in lockstep (asserted per-file below).
+    *
+    * DISTRIBUTION DATE comes from iivw.pkg, NOT from the iivw.ado header date.
+    * These are different facts and they are allowed to differ: a doc-only
+    * .sthlp render fix bumps the Distribution-Date and the README date badge
+    * while every .ado -- and therefore every .ado header date -- is untouched
+    * (CLAUDE.md, "Doc-only .sthlp render fixes bump the date, not the
+    * version").  Deriving the expected date from iivw.ado made that legal state
+    * fail this gate, which is how the gate, not the package, was wrong.
+    *
+    * The drift this gate exists to catch is preserved and is still asserted:
+    *   - README's date badge must mirror the .pkg Distribution-Date exactly
+    *     (the iivw/tabtools README release-date drift was a real defect);
+    *   - the .pkg date must be a well-formed YYYYMMDD; and
+    *   - the .pkg date may never be OLDER than the newest .ado header date,
+    *     which is what a forgotten .pkg bump after a code change looks like.
     tempname _relvh
     file open `_relvh' using "`pkg_dir'/iivw.ado", read text
     file read `_relvh' _relvline
@@ -161,8 +214,29 @@ capture noisily {
         local ado_date = regexs(2)
     }
     assert "`version'" != "" & "`ado_date'" != ""
-    local iso_date = subinstr("`ado_date'", "/", "-", .)
-    local pkg_date = subinstr("`ado_date'", "/", "", .)
+    local ado_datenum = subinstr("`ado_date'", "/", "", .)
+    * The flagship iivw.sthlp prose "Version X, <date>" line tracks the SOURCE
+    * date (the .ado header), not the distribution date: a doc-only render fix
+    * leaves it untouched by rule.  Only the README badge mirrors the .pkg.
+    local ado_iso = subinstr("`ado_date'", "/", "-", .)
+
+    tempname _relph
+    local pkg_date ""
+    file open `_relph' using "`pkg_dir'/iivw.pkg", read text
+    file read `_relph' _relpline
+    while r(eof) == 0 {
+        if regexm(`"`_relpline'"', "^d Distribution-Date: ([0-9]+)$") {
+            local pkg_date = regexs(1)
+        }
+        file read `_relph' _relpline
+    }
+    file close `_relph'
+    * A malformed or absent Distribution-Date must fail loudly, not silently
+    * leave `pkg_date' empty and make every date assertion below vacuous.
+    assert strlen("`pkg_date'") == 8 & real("`pkg_date'") < .
+    assert real("`pkg_date'") >= real("`ado_datenum'")
+    local iso_date = substr("`pkg_date'", 1, 4) + "-" ///
+        + substr("`pkg_date'", 5, 2) + "-" + substr("`pkg_date'", 7, 2)
 
     tempname _relsh
     file open `_relsh' using "`pkg_dir'/iivw.sthlp", read text
@@ -177,8 +251,6 @@ capture noisily {
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
-        pattern("d Distribution-Date: `pkg_date'")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
         pattern("d Author: Timothy P Copeland, Karolinska Institutet")
 
@@ -237,7 +309,7 @@ capture noisily {
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
         pattern("{* *! version `version'  `sthlp_date'}")
     _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
-        pattern("Version `version', `iso_date'")
+        pattern("Version `version', `ado_iso'")
     foreach help in iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
         _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version")
@@ -254,6 +326,39 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: release metadata/version sync (error `=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+* SMCL render integrity: no directive may span a newline
+*
+* An SMCL directive must open and close on ONE line.  Wrap a paragraph so that
+* "{it:Mean-1" ends a line and "normalization}" begins the next, and Stata's
+* Viewer does not render italics -- it prints the brace text literally and the
+* markup leaks into the visible help page.  It is invisible in the source, it
+* survives every content check the gate already runs (the words are all still
+* there, in order), and it shipped: iivw_weight.sthlp carried exactly this
+* defect at lines 565-566 in v2.0.0 and no test caught it.
+*
+* Detection: strip the two literal-brace escapes ({c -(} and {c )-}), then
+* require the braces on each line to balance.  Verified to flag both halves of
+* the shipped defect and to leave all six current help files clean.
+* -----------------------------------------------------------------------------
+* Done in Mata, not with `file read' + macros: a help-file line legitimately
+* contains double quotes and unbalanced braces, and expanding one into a Stata
+* string literal to count its characters corrupts the line (or errors, r(198)).
+* Mata handles the bytes as data.
+local ++test_count
+capture noisily {
+    mata: _iivw_smcl_scan("`pkg_dir'")
+    assert `smcl_bad' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: all help files render without literal SMCL markup"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: SMCL render integrity (error `=_rc')"
     local ++fail_count
 }
 
