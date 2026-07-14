@@ -1,4 +1,4 @@
-*! _datamap_load_config Version 1.5.1  2026/07/08
+*! _datamap_load_config Version 1.6.0  2026/07/14
 *! Shared key=value project config parser for datamap commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -58,7 +58,7 @@ program define _datamap_load_config, rclass
                     else if inlist(`"`key'"', "survivalvars", "missing", "show") {
                         return local `key' `"`macval(val)'"'
                     }
-                    else if inlist(`"`key'"', "maxcat", "maxfreq", "mincell", "rare") {
+                    else if inlist(`"`key'"', "maxcat", "maxfreq", "mincell", "rare", "uniqcap") {
                         return local `key' `"`macval(val)'"'
                     }
                     else if inlist(`"`key'"', "outliers", "samples") {

@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.5.2  2026/07/09
+*! _datamap_classify Version 1.6.0  2026/07/14
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -10,10 +10,23 @@ program define _datamap_classify, rclass
     capture noisily {
         syntax using/ , SAVing(string) [MAXCat(integer 25) OBS(integer -1) ///
             EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
-            DETECT_binary(integer 0) QUality_level(string) LOADED]
+            DETECT_binary(integer 0) QUality_level(string) LOADED ///
+            CAP(integer 1000)]
 
         if `maxcat' <= 0 {
             noisily display as error "maxcat must be positive"
+            exit 198
+        }
+        // A censored unique count is only safe if the cap sits above every
+        // threshold the count is later compared against.  Below maxcat, a
+        // capped variable could be misclassified as continuous when it is not.
+        if `cap' < 0 {
+            noisily display as error "cap must be non-negative"
+            exit 198
+        }
+        if `cap' > 0 & `cap' < `maxcat' {
+            noisily display as error ///
+                "cap (`cap') must be >= maxcat (`maxcat')"
             exit 198
         }
         if !inlist("`quality_level'", "", "basic", "strict") {
@@ -71,7 +84,7 @@ program define _datamap_classify, rclass
             str2045 varlabel str80 valuelabel double missing_n ///
             double missing_pct str16 classification double unique_vals ///
             byte is_binary str80 quality_flag int orig_position ///
-            double max_length using `"`saving'"', replace
+            double max_length byte unique_capped using `"`saving'"', replace
         local _post_open = 1
 
         local categorical_vars ""
@@ -110,6 +123,7 @@ program define _datamap_classify, rclass
             local nuniq .
             local is_binary = 0
             local maxlen .
+            local ncapped = 0
 
             // Privacy: never compute values/stats for excluded variables.
             // Leaving unique_vals/is_binary/max_length unset is what stops the
@@ -119,8 +133,11 @@ program define _datamap_classify, rclass
                 if strpos("`vtype'", "str") == 1 {
                     // countempty: "" has always counted as a distinct value
                     // here, matching the -duplicates report- this replaced.
-                    capture _datamap_nuniq `vname', countempty
-                    if _rc == 0 local nuniq = r(n)
+                    capture _datamap_nuniq `vname', countempty cap(`cap')
+                    if _rc == 0 {
+                        local nuniq = r(n)
+                        local ncapped = r(capped)
+                    }
 
                     tempvar _slen
                     quietly gen double `_slen' = length(`vname')
@@ -129,10 +146,14 @@ program define _datamap_classify, rclass
                     quietly drop `_slen'
                 }
                 else {
-                    capture _datamap_nuniq `vname'
+                    capture _datamap_nuniq `vname', cap(`cap')
                     if _rc == 0 {
                         local nuniq = r(n)
-                        if `detect_binary' & `nuniq' == 2 local is_binary = 1
+                        local ncapped = r(capped)
+                        // cap >= maxcat >= 2 is enforced above, so a censored
+                        // count can never be mistaken for a binary variable.
+                        if `detect_binary' & `nuniq' == 2 & !`ncapped' ///
+                            local is_binary = 1
                     }
                 }
             }
@@ -240,12 +261,14 @@ program define _datamap_classify, rclass
 
             post `posth' (`"`vname'"') (`"`vtype'"') (`"`vfmt'"') ///
                 (`"`macval(vlab)'"') (`"`valab_post'"') (`nmiss') (`pctmiss') ///
-                (`"`class'"') (`nuniq') (`is_binary') (`"`qflag'"') (`i') (`maxlen')
+                (`"`class'"') (`nuniq') (`is_binary') (`"`qflag'"') (`i') ///
+                (`maxlen') (`ncapped')
         }
 
         postclose `posth'
         local _post_open = 0
 
+        return scalar cap = `cap'
         return scalar nvars = `nvars'
         return scalar n_categorical = `n_categorical'
         return scalar n_continuous = `n_continuous'

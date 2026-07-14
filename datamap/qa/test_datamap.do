@@ -1546,7 +1546,11 @@ else {
 capture erase "`tmp_dir'/_test_strl.dta"
 capture erase "`tmp_dir'/_out_strl.txt"
 
-**## Tab >32K fallback (uses duplicates report for actual count)
+**## Tab >32K fallback -- never "(too many)"
+* -tabulate- used to abort at ~12k levels and the report said "(too many)".
+* It must still never say that.  From 1.6.0 the count is CENSORED at
+* uniqcap (default 1000) rather than sorted, so a 40,000-distinct variable
+* reports ">1000"; uniqcap(0) asks for the exact count and gets 40000 back.
 local ++test_count
 capture noisily {
     clear
@@ -1554,30 +1558,52 @@ capture noisily {
     gen double bigvar = _n + runiform()
     quietly save "`tmp_dir'/_test_bigvar.dta", replace
 
+    * (a) default: censored, rendered as ">1000", never "(too many)"
     datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar.txt")
     confirm file "`tmp_dir'/_out_bigvar.txt"
 
-    * Verify the output shows actual unique count, not "(too many)"
     tempname fh
     file open `fh' using "`tmp_dir'/_out_bigvar.txt", read text
     local found_too_many 0
-    local found_unique_count 0
+    local found_capped 0
+    local found_bare_bound 0
     file read `fh' line
     while r(eof) == 0 {
         if regexm(`"`macval(line)'"', "\(too many\)") {
             local found_too_many 1
         }
-        if regexm(`"`macval(line)'"', "Unique.*40000") {
-            local found_unique_count 1
+        if regexm(`"`macval(line)'"', "Unique.*>1000") {
+            local found_capped 1
+        }
+        if regexm(`"`macval(line)'"', "Unique Values: 1001") {
+            local found_bare_bound 1
         }
         file read `fh' line
     }
     file close `fh'
     assert `found_too_many' == 0
-    assert `found_unique_count' == 1
+    assert `found_capped' == 1
+    assert `found_bare_bound' == 0
+
+    * (b) uniqcap(0): exact count restored
+    datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar0.txt") uniqcap(0)
+    confirm file "`tmp_dir'/_out_bigvar0.txt"
+
+    tempname fh0
+    file open `fh0' using "`tmp_dir'/_out_bigvar0.txt", read text
+    local found_exact 0
+    file read `fh0' line
+    while r(eof) == 0 {
+        if regexm(`"`macval(line)'"', "Unique.*40000") {
+            local found_exact 1
+        }
+        file read `fh0' line
+    }
+    file close `fh0'
+    assert `found_exact' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - tab >32K fallback (actual unique count shown)"
+    display as result "  PASS: datamap - tab >32K fallback (censored by default, exact under uniqcap(0))"
     local ++pass_count
 }
 else {

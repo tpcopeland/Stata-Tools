@@ -251,6 +251,7 @@ foreach s in N_weight_strata min_weight_prob max_lt_weight N_prob_warn N_weight_
     if e(`s') >= . local _missing "`_missing' `s'"
 }
 if `"`e(lt_weight)'"' == "" local _missing "`_missing' lt_weight"
+if `"`e(lt_vce)'"'    == "" local _missing "`_missing' lt_vce"
 if `"`e(truncstrata)'"' == "" local _missing "`_missing' truncstrata"
 if "`_missing'" == "" {
     local ++pass_count
@@ -776,6 +777,54 @@ else if `_npw' > 0 & `_nww' > 0 & "`_ws'" != "" & `_mp' > 0 & `_mp' < 1e-10 {
 else {
     local ++fail_count
     display as error "  FAIL: Z25 warnings did not fire: nprobwarn=`_npw' nwtwarn=`_nww' minA=`_mp' strata='`_ws''"
+}
+
+* ---------------------------------------------------------------------------
+* Z26: e(lt_vce) names the variance ACTUALLY computed, on every branch.
+*
+* The plan (Gate Z-inference) makes e(lt_vce) part of the public contract so a
+* consumer never has to re-derive which variance was used from the option list.
+* Three reachable values, and each is asserted against the branch that produces
+* it -- a contract macro that is merely PRESENT (Z9) can still be wrong.
+*
+*   no delayed entry  -> not_applicable   (right-censoring branch, unchanged)
+*   LT, default       -> fg_sandwich      (Fine & Gray 1999 eq. 7-8, carrying A)
+*   LT, norobust      -> model_based      (inverse information; Geskus 2011 p.44)
+*   LT, cluster()     -> fg_sandwich      (same estimator, cluster-robust meat)
+*
+* nuisance_adjusted is NOT reachable and must NOT appear: it is unimplemented on
+* purpose (ZZF 2011 Appendix B's equations are images in every obtainable copy;
+* see literature/_requested.md).  A run that reports it would mean someone wired a
+* label to a variance that was never written.
+* ---------------------------------------------------------------------------
+local ++test_count
+preserve
+_zzf_fix, n(4000) seed(20260714)
+quietly stset t, failure(anyev == 1) id(id) enter(time t0)
+
+quietly finegray z1 z2, compete(status) cause(1)
+local _v_def `"`e(lt_vce)'"'
+quietly finegray z1 z2, compete(status) cause(1) norobust
+local _v_mod `"`e(lt_vce)'"'
+gen long cl = mod(_n - 1, 50) + 1
+quietly finegray z1 z2, compete(status) cause(1) cluster(cl)
+local _v_cl `"`e(lt_vce)'"'
+
+_zzf_fix, n(4000) seed(20260714) notrunc
+quietly stset t, failure(anyev == 1) id(id)
+quietly finegray z1 z2, compete(status) cause(1)
+local _v_nolt `"`e(lt_vce)'"'
+restore
+
+if "`_v_def'" == "fg_sandwich" & "`_v_mod'" == "model_based" & ///
+   "`_v_cl'"  == "fg_sandwich" & "`_v_nolt'" == "not_applicable" {
+    local ++pass_count
+    display as result "  PASS: Z26 e(lt_vce) = fg_sandwich / model_based / fg_sandwich(cluster) / not_applicable"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z26 e(lt_vce) got default='`_v_def'' norobust='`_v_mod'' cluster='`_v_cl'' noLT='`_v_nolt''"
+    display as error "        expected fg_sandwich / model_based / fg_sandwich / not_applicable"
 }
 
 * ===========================================================================

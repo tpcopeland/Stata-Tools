@@ -17,6 +17,21 @@
 *           seven scan sites, so nudging an entry time by 1e-7 moved the
 *           coefficients by 2.2e-03. stcrreg is exactly invariant.
 *
+*   FG-C03b [2026-07-14] The SAME invariant caught a SECOND, independent defect,
+*           this time in the ZZF entry-weight estimator H. _finegray_H_at_times
+*           computed the at-risk count at each entry time u as
+*               r(u) = #{l_i <= u} - #{x_i <  u}
+*           which leaves a subject that EXITS at exactly u inside the risk set.
+*           Geskus (2011) orders tied times t_(i) < c_(j) < l_(j) -- events, then
+*           censorings, then entries (p.40) -- and says so explicitly for the
+*           at-risk count (p.41), so everything exiting at u is already gone when
+*           the entries at u are processed. Corrected to #{x_i <= u}.
+*           Nudging 80 tied entry times by 1e-7 moved the coefficient 5.411e-04
+*           before the fix and 0.000e+00 (bit-identical) after it.
+*           The continuous-time crossvals are STRUCTURALLY BLIND to this: tied
+*           entry/exit times have probability zero under their DGP. Only a fixture
+*           built out of exact ties can see it, which is what this file is.
+*
 * Oracle: stcrreg (StataCorp). Note that stcrreg's DEFAULT convergence
 * tolerances leave it ~3e-08 from its own fixed point, which is looser than the
 * agreement we are asserting -- so the oracle is run with tightened tolerances.
@@ -201,12 +216,31 @@ else {
     local ++fail_count
 }
 
-**# 5. FG-C03: delayed-entry parity with stcrreg
-* Bit-parity with stcrreg under delayed entry. NOTE: this asserts agreement
-* with stcrreg, NOT correctness against the Zhang-Zhang-Fine target -- both
-* estimators carry a demonstrated >10-MC-SE bias under left truncation. See
-* the left-truncation section of finegray.sthlp; Phase 9 of the remediation
-* plan owns that decision.
+**# 5. Delayed-entry NON-parity with stcrreg -- INTENTIONAL, and asserted as such
+*
+* [INVERTED 2026-07-14, ZZF Gate Z-inference.]  This test used to assert bit-parity
+* with stcrreg under delayed entry.  Its own comment flagged that it was asserting
+* AGREEMENT, not CORRECTNESS -- "both estimators carry a demonstrated >10-MC-SE bias
+* under left truncation ... Phase 9 of the remediation plan owns that decision."
+*
+* Phase 9 landed.  finegray now targets stabilized Zhang-Zhang-Fine Weight 1 under
+* delayed entry, and stcrreg does not: it keeps the censoring-only IPCW weight,
+* which is not a valid weight for left-truncated data at all.  So parity with
+* stcrreg here is now exactly the WRONG thing to assert, and a test that demanded
+* it would pin the package to the defect it was built to remove.
+*
+* The suite therefore asserts the CONTRACT that replaced it:
+*   (a) the two estimators DISAGREE under delayed entry, materially -- if they ever
+*       agree again, the ZZF weight has silently stopped being applied;
+*   (b) finegray says which weight it used, and it is the ZZF/Geskus one;
+*   (c) the disagreement is confined to delayed entry -- test 6 below still pins
+*       EXACT stcrreg parity on the tie-free, no-truncation fixture.
+*
+* This test does NOT establish that finegray's number is the right one; a
+* disagreement is not a correctness proof.  Correctness lives where it belongs:
+* known-truth recovery (validation_finegray_zzf_recovery.do) and per-dataset
+* agreement with an independent R implementation of the ZZF equation
+* (crossval_finegray_zzf.do).  This test only guards the boundary.
 local ++test_count
 capture noisily {
     _finegray_qa_entry_data, eps(0)
@@ -217,16 +251,28 @@ capture noisily {
 
     quietly stset t, failure(etype) id(id) time0(t0)
     quietly finegray x, compete(etype) cause(1) norobust nolog
+    local b_fg = _b[x]
+    local w    "`e(lt_weight)'"
 
-    display as text "  finegray=" %16.12f _b[x] "  stcrreg=" %16.12f `b_stcrreg'
-    assert reldif(_b[x], `b_stcrreg') < `tol_parity'
+    display as text "  finegray=" %16.12f `b_fg' "  stcrreg=" %16.12f `b_stcrreg'
+    display as text "  reldif  =" %10.3e reldif(`b_fg', `b_stcrreg') "   e(lt_weight)=`w'"
+
+    * (b) the ZZF weight was actually applied
+    assert "`w'" == "zzf1_geskus"
+
+    * (a) and it moved the estimate.  The floor is the parity tolerance this file
+    * uses for two estimators that ARE supposed to agree (1e-7): anything at or
+    * below that would mean the ZZF weight is inert on left-truncated data.
+    assert reldif(`b_fg', `b_stcrreg') > `tol_parity'
 }
 if _rc == 0 {
-    display as result "  PASS: FG-C03 delayed-entry parity with stcrreg"
+    display as result "  PASS: delayed-entry non-parity with stcrreg (ZZF weight is live)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: FG-C03 delayed-entry parity with stcrreg (rc=`=_rc')"
+    display as error "  FAIL: delayed-entry non-parity with stcrreg (rc=`=_rc')"
+    display as error "        finegray agreed with stcrreg under delayed entry, or did not"
+    display as error "        report e(lt_weight)=zzf1_geskus -- the ZZF weight is not being applied"
     local ++fail_count
 }
 

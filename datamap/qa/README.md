@@ -42,6 +42,7 @@ share the package-local generated data and Stata installation state.
 | `test_datamap_v15.do` | Config, metadata, schema comparison, and shared contracts. |
 | `test_datamap_v152.do` | High-cardinality, JSON-number, and identifier regressions. |
 | `test_datamap_v154.do` | Privacy defaults, threshold validation, and graph-option regressions. |
+| `test_datamap_v160.do` | Capped unique counts (`uniqcap()`), the frame-based report writers, and the shared fast counter in `datadict`. |
 | `test_datamap_v2.do` | Historical map and dictionary behavior. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |

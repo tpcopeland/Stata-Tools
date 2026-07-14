@@ -1,5 +1,11 @@
 * run_all.do - curated QA runner for finegray
-* Usage: cd finegray/qa && stata-mp -b do run_all.do [quick|core|python|full]
+* Usage: cd finegray/qa && stata-mp -b do run_all.do [quick|core|python|full|gates]
+*
+* The `gates' lane is the two ZZF Monte Carlo gates.  They are HOURS, not minutes
+* (known-truth recovery: 100 reps x n=100,000 x 4 arms; LT variance coverage: 1000
+* reps x 7 arms x 2 fits), so they are deliberately NOT in `full' -- a lane nobody
+* can afford to run is a lane nobody runs, and it would take the ordinary suites
+* down with it.  They are gates, run on demand, not regression tests.
 
 version 16.0
 set more off
@@ -15,9 +21,9 @@ if "`extra'" != "" {
     exit 198
 }
 
-if !inlist("`lane'", "quick", "core", "python", "full") {
+if !inlist("`lane'", "quick", "core", "python", "full", "gates") {
     display as error "Unknown QA lane: `lane'"
-    display as error "Supported lanes: quick, core, python, full"
+    display as error "Supported lanes: quick, core, python, full, gates"
     exit 198
 }
 
@@ -46,14 +52,21 @@ local core_files `quick_files' ///
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_zzf.do
 
-* NOT IN ANY LANE YET: validation_finegray_zzf_recovery.do
+* The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
+* their own lane so that (a) they are wired in and runnable by name rather than
+* being folk knowledge, and (b) they cannot silently blow up `full'.
 *
-* The ZZF known-truth recovery suite is a 100-rep x n=100,000 Monte Carlo (hours,
-* not minutes) and its Gate Z2-green is not fully green: arms A/B/C recover, but
-* the deliberately misspecified negative control (arm D) is still under
-* adjudication on its second coefficient.  Adding a suite that is expected to fail
-* would train the reader to ignore a red lane, which is worse than not running it.
-* Add it here -- and only here -- when Gate Z2-green closes.
+*   validation_finegray_zzf_recovery.do   Gate Z2-green: known-truth recovery of the
+*                                         ZZF Weight-1 estimator under delayed entry
+*                                         (100 reps x n=100,000 x 4 arms, ~4h)
+*   validation_finegray_zzf_coverage.do   Gate Z-inference: which LT variance covers
+*                                         (1000 reps x 7 arms x 2 fits, ~1h)
+*                                         PASSED 2026-07-14: fg_sandwich covers every
+*                                         arm; model_based undercovers, worse as the
+*                                         truncation fraction rises (0.95 -> 0.82)
+local gates_files validation_finegray_zzf_recovery.do ///
+    validation_finegray_zzf_coverage.do
+
 local full_files `core_files' `python_files'
 
 local all_files ``lane'_files'

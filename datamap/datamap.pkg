@@ -13,7 +13,7 @@ d - datacheck: Console QC profiling and expectation gates
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20260710
+d Distribution-Date: 20260714
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -33,6 +33,7 @@ f datacheck.sthlp
 f datamvp.ado
 f datamvp.sthlp
 f _datamap_classify.ado
+f _datamap_fmt_uniq.ado
 f _datamap_collect_filelist.ado
 f _datamap_collect_from_dir.ado
 f _datamap_count_files.ado

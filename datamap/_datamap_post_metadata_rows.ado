@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.5.1  2026/07/08
+*! _datamap_post_metadata_rows Version 1.6.0  2026/07/14
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -6,7 +6,6 @@ program define _datamap_post_metadata_rows, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    local _restore_needed = 0
     capture noisily {
         syntax, POSTName(name) CLASSifications(string) SOURCECommand(string) ///
             SOURCE(string) DSName(string) NVARS(integer) ///
@@ -21,8 +20,11 @@ program define _datamap_post_metadata_rows, nclass
             local `field' = subinstr(`"`macval(`field')'"', char(39), "", .)
         }
 
-        preserve
-        local _restore_needed = 1
+        // Frame, not -preserve-: preserve costs a full in-memory copy of the
+        // dataset (see _datamap_nuniq.ado), and this only reads a small lookup.
+        tempname _cfr
+        frame create `_cfr'
+        frame `_cfr' {
         quietly use `"`classifications'"', clear
         quietly count
         local C = r(N)
@@ -37,9 +39,10 @@ program define _datamap_post_metadata_rows, nclass
             local m_mn`i' = missing_n[`i']
             local m_mp`i' = missing_pct[`i']
             local m_uv`i' = unique_vals[`i']
+            local m_uc`i' = unique_capped[`i']
         }
-        restore
-        local _restore_needed = 0
+        }
+        frame drop `_cfr'
 
         if `"`varlist'"' == "" local varlist "`classvars'"
         local obs = c(N)
@@ -57,12 +60,18 @@ program define _datamap_post_metadata_rows, nclass
             local nmiss = .
             local pctmiss = .
             local nuniq = .
+            // unique_capped=1 means `nuniq' is a LOWER BOUND (the classifier's
+            // cap + 1), not an exact count.  It travels with the count so a
+            // consumer of the saved metadata cannot mistake one for the other.
+            local ncapped = 0
             if `ix' > 0 {
                 local varclass "`m_class`ix''"
                 if "`varclass'" == "" local varclass "unknown"
                 local nmiss = `m_mn`ix''
                 local pctmiss = `m_mp`ix''
                 local nuniq = `m_uv`ix''
+                local ncapped = `m_uc`ix''
+                if missing(`ncapped') local ncapped = 0
             }
             if missing(`nmiss') {
                 quietly count if missing(`vname')
@@ -126,15 +135,10 @@ program define _datamap_post_metadata_rows, nclass
                 (`"`varclass'"') (`obs') (`nvars') (`nmiss') (`pctmiss') ///
                 (`nuniq') (`"`macval(post_vlab)'"') (`"`macval(post_notes)'"') ///
                 (`"`macval(post_chars)'"') (`mean') (`sd') (`p50') (`p25') ///
-                (`p75') (`vmin') (`vmax') (`"`macval(post_dsig)'"')
+                (`p75') (`vmin') (`vmax') (`"`macval(post_dsig)'"') (`ncapped')
         }
     }
     local rc = _rc
-    if `_restore_needed' {
-        capture restore
-        local _restore_rc = _rc
-        if !`rc' & `_restore_rc' local rc = `_restore_rc'
-    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

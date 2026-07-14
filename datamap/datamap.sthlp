@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.4  10jul2026}{...}
+{* *! version 1.6.0  14jul2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -50,6 +50,7 @@
 {synopt:{opt nola:bels}}suppress the value-label definitions section{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to tabulate; default {bf:25}{p_end}
 {synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
+{synopt:{opt uniqc:ap(#)}}max unique values counted exactly; default {bf:1000}{p_end}
 {synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}; {bf:0} disables{p_end}
 {synopt:{opt nog:uidance}}suppress ANALYSIS GUIDANCE prose{p_end}
 {synopt:{opt com:pact}}write a token-compact map; implies {opt noguidance}{p_end}
@@ -109,7 +110,23 @@ observations are exported unless you explicitly request sample rows with
 {opt samples()}.
 
 {pstd}
-The current dataset in memory is preserved and restored after processing.
+Your data in memory is unchanged by a successful run.
+
+{pstd}
+When {cmd:datamap} documents a file ({opt single()}, {opt directory()},
+{opt filelist()}) it loads that file into memory and restores your original
+data afterwards. When it documents the data already in memory it does not copy
+it at all: it reads the data in place and writes its lookup tables to separate
+frames. That matters on large datasets, because a {helpb preserve} is a full
+second copy of the data in memory -- avoiding it roughly halves peak memory,
+which on a multi-gigabyte dataset can be the difference between fitting in RAM
+and paging to disk.
+
+{pstd}
+The trade-off: because the in-memory path takes no snapshot, a run that fails
+partway through (a full disk, a bad {opt output()} path, a break) is not rolled
+back. A successful run always leaves the data exactly as it found it -- same
+observations, variables, sort order, labels, and {helpb datasignature}.
 
 {pstd}
 For a companion command that produces Markdown data dictionaries suitable for
@@ -180,14 +197,19 @@ N, source variable count, missing count and percent, unique count, labels,
 notes, characteristics, numeric summaries, and Stata datasignature when
 available. Specify {cmd:replace} to overwrite an existing file.
 
+{pmore}
+{bf:unique_capped} marks rows whose {bf:unique} count was censored by
+{opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
+cardinality.
+
 {phang}
 {opt conf:ig(filename)} reads reusable defaults from a text file containing
 {cmd:key = value} or {cmd:key: value} lines. Supported keys include
 {cmd:output}, {cmd:format}, {cmd:exclude}, {cmd:continuous}, {cmd:categorical},
-{cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:mincell}, {cmd:datesafe},
-{cmd:compact}, {cmd:detect}, {cmd:panelid}, {cmd:survivalvars},
-{cmd:dateformat}, {cmd:samples}, and {cmd:missing}. Command-line options
-override config-file defaults.
+{cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:uniqcap}, {cmd:mincell},
+{cmd:datesafe}, {cmd:compact}, {cmd:detect}, {cmd:panelid},
+{cmd:survivalvars}, {cmd:dateformat}, {cmd:samples}, and {cmd:missing}.
+Command-line options override config-file defaults.
 
 {dlgtab:Content control}
 
@@ -213,6 +235,25 @@ threshold show only the unique count. Default is {bf:25}. Must be positive.
 {opt maxc:at(#)} sets the cutoff that separates categorical from continuous. Numeric
 variables with value labels or with {it:#} or fewer unique values are classified as
 categorical; the rest are continuous. Default is {bf:25}. Must be positive.
+
+{phang}
+{opt uniqc:ap(#)} caps how far {cmd:datamap} counts distinct values before it
+stops. A variable with more than {it:#} distinct values is reported as
+{bf:>#} rather than an exact count, and JSON marks it
+{bf:unique_values_capped: true} with {bf:unique_values} holding a lower bound.
+The default is {bf:1000}.
+
+{pmore}
+This is what keeps {cmd:datamap} fast on large files. Counting a continuous or
+ID variable exactly requires sorting every observation; capping lets it stop
+after seeing {it:#}+1 distinct values. Classification is unaffected -- the cap
+is always raised to at least {opt maxcat()} and {opt maxfreq()}, so a capped
+count can never change a variable's class or hide its frequency table.
+
+{pmore}
+Specify {cmd:uniqcap(0)} for exact counts at any cardinality, at the cost of a
+full sort per variable. Panel unit counts under {opt detect(panel)} are always
+exact and ignore this option.
 
 {phang}
 {opt minc:ell(#)} suppresses categorical and binary frequency cells with counts
@@ -546,7 +587,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.5.4 {hline 2} 10jul2026{p_end}
+{pstd}Version 1.6.0 {hline 2} 14jul2026{p_end}
 
 
 {title:Also see}

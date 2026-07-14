@@ -70,15 +70,14 @@ by the fit before reading {cmd:e(basehaz)} or reconstructing influence
 functions. Re-run {cmd:finegray} after changing those data.
 
 {pstd}
-{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
-rather than erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} and
-{cmd:e(basehaz)} exist but hold the last iterate rather than a solution. Because
-that is all this command reads, it would otherwise build a cumulative-incidence
-curve and confidence band from a non-solution and return {cmd:rc 0}.
-{cmd:finegray_cif} therefore exits with {cmd:r(430)} when
+{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model rather than
+erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} and {cmd:e(basehaz)} exist but hold the
+last iterate rather than a solution. Because that is all this command reads,
+it would otherwise build a cumulative-incidence curve and confidence band from
+a non-solution and return {cmd:rc 0}. {cmd:finegray_cif} therefore exits with {cmd:r(430)} when
 {cmd:e(converged)} is not 1; refit with a larger {opt iterate()} or a different
-specification. (Refits inside {opt bootstrap()} that fail to converge are a
-separate matter: they are skipped and counted, not fatal.)
+specification. (Refits inside {opt bootstrap()} that fail to converge are a separate
+matter: they are skipped and counted, not fatal.)
 
 
 {marker options}{...}
@@ -157,6 +156,19 @@ it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 
 {marker remarks}{...}
 {title:Remarks}
+
+{pstd}
+{bf:Left truncation (delayed entry).} CIF points and their standard errors are
+built from the same stabilized Zhang-Zhang-Fine Weight 1 contract as the fit
+itself: the weighted risk sets, the baseline cumulative subdistribution
+hazard, and the influence functions all carry the combined weight A =
+G(t-)H(t-) rather than a censoring-only
+weight. {bf:Delayed-entry cumulative incidence estimates therefore change} relative
+to earlier versions and relative to {helpb stcrreg}, by design. Results with no
+delayed entry are unchanged. The weight design is rebuilt deterministically
+from {cmd:e(strata)} and {cmd:e(truncstrata)}, so the estimation data must still be in
+memory and unmodified. See {help finegray##lt:Left truncation} in {helpb finegray} for the estimator, its
+assumptions, and its support boundaries.
 
 {pstd}
 For a confidence interval on the cumulative incidence of {it:each subject} (or a

@@ -876,6 +876,24 @@ program define finegray, eclass sortpreserve
     if `_fg_has_lt' ereturn local lt_weight "zzf1_geskus"
     else ereturn local lt_weight "right_censoring"
 
+    * LT variance contract.  lt_vce names the variance actually computed on the
+    * delayed-entry branch, so a consumer never has to infer it from the option
+    * list.  Adjudicated by Gate Z-inference (qa/validation_finegray_zzf_coverage.do),
+    * which measures 95% coverage against a known truth across two truncation
+    * intensities and two sample sizes:
+    *   model_based    inverse information, no sandwich (Geskus 2011 p.44)
+    *   fg_sandwich    Fine-Gray (1999) eq. 7-8 sandwich, carrying A = G(t-)H(t-);
+    *                  cluster-robust when cluster() is given
+    *   not_applicable no delayed entry -- the right-censoring branch is unchanged
+    *                  from prior releases and its variance is not at issue here
+    * nuisance_adjusted (the ZZF two-part influence function) is NOT implemented:
+    * its explicit form is in ZZF (2011) Appendix B, whose display equations are
+    * images in every copy obtainable, and it is not being written from memory.
+    * See literature/_requested.md.
+    if !`_fg_has_lt'                      ereturn local lt_vce "not_applicable"
+    else if "`robust'" == "norobust"      ereturn local lt_vce "model_based"
+    else                                  ereturn local lt_vce "fg_sandwich"
+
     * Weight-sensitivity diagnostics, computed once by _finegray_weight_diag over
     * the cells the scan ACTUALLY consults (a stratum's A may collapse in a tail
     * it carries no competing mass into; that cell is never divided by).
@@ -1039,6 +1057,34 @@ program define finegray, eclass sortpreserve
         display as error "small and their confidence intervals do not have nominal coverage."
         display as error "Use the default robust (sandwich) variance for inference; norobust is"
         display as error "provided for comparison with the naive likelihood only."
+
+        * Under delayed entry this is not a caution, it is a MEASURED defect, and
+        * it is far larger than the right-censoring case above.  The weights A(t)
+        * are estimated, and their uncertainty is absent from the information
+        * matrix; the damage grows with the truncation fraction.
+        *
+        * qa/validation_finegray_zzf_coverage.do, 1000 replications per arm,
+        * known truth, 95% nominal:
+        *
+        *   truncation    norobust coverage   default (sandwich) coverage
+        *        0%          0.956 / 0.949        0.954 / 0.943
+        *       37%          0.897 / 0.901        0.941 / 0.951
+        *       69%          0.850 / 0.850        0.955 / 0.953
+        *
+        * The model-based SE runs up to 38% below the true sampling SD at 69%
+        * truncation.  Quote the numbers: a user who is told "generally too small"
+        * cannot tell whether that means 1% or 30%.
+        if `_fg_has_lt' {
+            display as error ""
+            display as error "This fit has DELAYED ENTRY, where the defect above is measured and severe."
+            display as error "The truncation weights are themselves estimated and the information matrix"
+            display as error "does not carry their uncertainty.  In this package's coverage study (1000"
+            display as error "replications, known truth, nominal 95%) norobust intervals covered only"
+            display as error "89% at 37% truncation and 85% at 69% truncation, and the model-based"
+            display as error "standard errors ran up to 38% below the true sampling variability.  The"
+            display as error "failure gets WORSE as the truncation fraction rises."
+            display as error "Do not use norobust for inference on left-truncated data."
+        }
     }
 
     if `_fv_nrefs' > 0 {

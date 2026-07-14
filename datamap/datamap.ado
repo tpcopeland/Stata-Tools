@@ -1,4 +1,4 @@
-*! datamap Version 1.5.4  2026/07/10
+*! datamap Version 1.6.0  2026/07/14
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -111,7 +111,8 @@ program define datamap, rclass
 			          DATESafe DATEFormat(string) ///
 			          DETect(string) AUTODETect PANELid(string) ///
 			          SURVIVALvars(string) QUality QUality2(string) ///
-		          SAMples(integer -999999999) MISSing(string)]
+		          SAMples(integer -999999999) MISSing(string) ///
+		          UNIQCap(integer -999999999)]
 
 			if `"`config'"' != "" {
 				_datamap_validate_path "`config'", option("config()")
@@ -124,7 +125,7 @@ program define datamap, rclass
 					}
 				}
 				if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
-					foreach opt in maxfreq maxcat mincell samples {
+					foreach opt in maxfreq maxcat mincell samples uniqcap {
 						if ``opt'' == -999999999 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
 				}
 				foreach opt in nostats nofreq nolabels datesafe compact noguidance autodetect {
@@ -135,6 +136,7 @@ program define datamap, rclass
 				if `maxcat' == -999999999 local maxcat = 25
 				if `mincell' == -999999999 local mincell = 5
 				if `samples' == -999999999 local samples = 0
+				if `uniqcap' == -999999999 local uniqcap = 1000
 				if `maxfreq' <= 0 | missing(`maxfreq') {
 					noisily di as error "maxfreq must be positive"
 					exit 198
@@ -151,6 +153,10 @@ program define datamap, rclass
 					noisily di as error "samples must be non-negative"
 					exit 198
 				}
+				if `uniqcap' < 0 | missing(`uniqcap') {
+					noisily di as error "uniqcap must be non-negative (0 = exact counts, no cap)"
+					exit 198
+				}
 
 			// Set default date format (ISO 8601: YYYY/MM/DD)
 			if `"`dateformat'"' == "" local dateformat "%tdCCYY/NN/DD"
@@ -159,15 +165,28 @@ program define datamap, rclass
 			exit 198
 		}
 
-		// Preserve current dataset
-		preserve
-		local _restore_needed = 1
-
 	// Validate mutually exclusive input options (only one allowed)
 	local ninput = ("`directory'" != "") + ("`filelist'" != "") + ("`single'" != "")
 	if `ninput' > 1 {
 		noisily di as error "specify only one of directory(), filelist(), or single()"
 		exit 198
+	}
+
+	// Preserve the current dataset ONLY when this run will load files into
+	// memory (single/directory/filelist) -- there, -use- replaces the user's
+	// data and only -restore- puts it back, so preserve is a correctness
+	// requirement, not a safety net.
+	//
+	// Documenting the data already in memory does NOT need it: nothing on that
+	// path replaces the dataset (the metadata save runs in a frame, the report
+	// writers read their lookup in a frame, and the classifier's string-length
+	// column is a tempvar, which Stata drops on program exit -- including an
+	// error exit).  Skipping preserve there halves peak memory, because
+	// preserve costs a full in-memory copy: on a 6GB dataset that copy IS the
+	// difference between fitting in RAM and thrashing swap.
+	if `ninput' > 0 {
+		preserve
+		local _restore_needed = 1
 	}
 
 	// If no input specified, document data currently in memory
@@ -368,7 +387,7 @@ program define datamap, rclass
 				detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 			samples(`samples') missing_detail(`missing_detail') ///
-			missing_pattern(`missing_pattern')
+			missing_pattern(`missing_pattern') uniqcap(`uniqcap')
 	}
 	else {
 		// Generate single combined output file
@@ -384,7 +403,7 @@ program define datamap, rclass
 			detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 				samples(`samples') missing_detail(`missing_detail') ///
-				missing_pattern(`missing_pattern')
+				missing_pattern(`missing_pattern') uniqcap(`uniqcap')
 		}
 
 		local n_categorical = r(n_categorical)
@@ -411,11 +430,16 @@ program define datamap, rclass
 					double missing_pct long unique str2045 variable_label ///
 					str2045 notes str2045 characteristics double mean double sd ///
 					double p50 double p25 double p75 double min double max ///
-					str2045 datasignature using `"`metadata_tmp'"', replace
+					str2045 datasignature byte unique_capped ///
+					using `"`metadata_tmp'"', replace
 				local _metadata_post_open = 1
 				if `"`single'"' != "" {
 					local _mfile `"`single'"'
-					quietly use `"`_mfile'"', clear
+					// In memory mode `single' is a tempfile copy of the data
+					// that is ALREADY loaded -- reloading it would replace the
+					// user's dataset (identical content, but see the top-level
+					// preserve note) for no gain.
+					if "`input_source'" != "memory" quietly use `"`_mfile'"', clear
 					local _mlabel : data label
 					quietly describe, short
 					local _mnvars = r(k)
@@ -485,9 +509,17 @@ program define datamap, rclass
 				}
 				postclose `metadata_post'
 				local _metadata_post_open = 0
-				quietly use `"`metadata_tmp'"', clear
-				if `saving_replace' quietly save `"`saving_file'"', replace
-				else quietly save `"`saving_file'"'
+				// Frame: -use- here would replace the user's data in memory
+				// with the metadata table.  The top-level preserve used to undo
+				// that; the in-memory path no longer has one.
+				tempname _mfr
+				frame create `_mfr'
+				frame `_mfr' {
+					quietly use `"`metadata_tmp'"', clear
+					if `saving_replace' quietly save `"`saving_file'"', replace
+					else quietly save `"`saving_file'"'
+				}
+				frame drop `_mfr'
 				local result_metadata `"`saving_file'"'
 			}
 
@@ -502,9 +534,11 @@ program define datamap, rclass
 		}
 	}
 
-		// Restore original dataset
-		restore
-		local _restore_needed = 0
+		// Restore original dataset (only if this run preserved one)
+		if `_restore_needed' {
+			restore
+			local _restore_needed = 0
+		}
 
 		// Return results
 		return scalar nfiles = `nfiles'
@@ -597,7 +631,8 @@ program define _datamap_ProcessCombined, rclass
 		detect_panel(integer 0) detect_binary(integer 0) detect_survival(integer 0) ///
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
-		missing_detail(integer 0) missing_pattern(integer 0)]
+		missing_detail(integer 0) missing_pattern(integer 0) ///
+		uniqcap(integer 1000)]
 
 	_datamap_pkgversion
 	local _pkgver "`r(version)'"
@@ -648,7 +683,7 @@ program define _datamap_ProcessCombined, rclass
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-				`missing_detail' `missing_pattern' "`dateformat'"
+				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap'
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -676,7 +711,7 @@ program define _datamap_ProcessCombined, rclass
 						"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" `i' `nfiles' ///
 						`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 					"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-					`missing_detail' `missing_pattern' "`dateformat'"
+					`missing_detail' `missing_pattern' "`dateformat'" `uniqcap'
 				local n_categorical = `n_categorical' + r(n_categorical)
 				local n_continuous = `n_continuous' + r(n_continuous)
 				local n_date = `n_date' + r(n_date)
@@ -746,7 +781,8 @@ program define _datamap_ProcessSeparate, rclass
 		detect_panel(integer 0) detect_binary(integer 0) detect_survival(integer 0) ///
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
-		missing_detail(integer 0) missing_pattern(integer 0)]
+		missing_detail(integer 0) missing_pattern(integer 0) ///
+		uniqcap(integer 1000)]
 
 	_datamap_pkgversion
 	local _pkgver "`r(version)'"
@@ -808,7 +844,7 @@ program define _datamap_ProcessSeparate, rclass
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-				`missing_detail' `missing_pattern' "`dateformat'"
+				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap'
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -882,7 +918,7 @@ program define _datamap_ProcessDataset, rclass
 		version 16.0
 			args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
 			     exclude continuous categorical force_date datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
-			     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat
+			     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap
 
 	// Get dataset metadata from describe
 	capture quietly describe using "`filepath'", short
@@ -954,11 +990,23 @@ program define _datamap_ProcessDataset, rclass
 	}
 
 	// Shared classification pass for all output formats and stored results.
+	//
+	// Unique counts above `uniqcap' are censored and render as ">cap", which
+	// lets high-cardinality variables skip the sort entirely (see
+	// _datamap_nuniq.ado).  uniqcap(0) restores exact counts at any
+	// cardinality, at the old cost.
+	//
+	// When capping, the cap must clear every threshold a unique count is
+	// later compared against -- maxcat (classification) and maxfreq
+	// (frequency tables) -- or a censored count could flip a variable's class
+	// or hide its frequency table.
+	if `uniqcap' == 0 local nuniq_cap = 0
+	else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
 	tempfile classifications
 			_datamap_classify using "`filepath'", saving("`classifications'") loaded ///
 				maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
 				continuous("`continuous'") categorical("`categorical'") ///
-				date("`force_date'") ///
+				date("`force_date'") cap(`nuniq_cap') ///
 			detect_binary(`detect_binary') quality_level("`quality_level'")
 	local n_categorical = r(n_categorical)
 	local n_continuous = r(n_continuous)
@@ -1077,7 +1125,15 @@ program define _datamap_ProcessVariables, nclass
 	// Write variable summary table header with structured sections
 	_datamap_write_rule_header `fh' "VARIABLE SUMMARY"
 
-	preserve
+	// Read the classification table in a FRAME, not under -preserve-.
+	// -preserve- snapshots the entire dataset in memory (measured: a full
+	// second copy -- +853MB on an 867MB dataset), and this block only needs
+	// to read a 60-row lookup table.  A frame leaves the main data untouched.
+	// tempname frames auto-drop on normal exit and on error, so no cleanup
+	// flag is needed.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	local nvars = _N
 
@@ -1112,13 +1168,8 @@ program define _datamap_ProcessVariables, nclass
 		else {
 			local pctmiss = missing_pct[`i']
 		}
-		if missing(unique_vals[`i']) {
-			local uniq "."
-		}
-		else {
-			local uniq = string(unique_vals[`i'], "%8.0f")
-			local uniq = strtrim("`uniq'")
-		}
+		_datamap_fmt_uniq `=unique_vals[`i']' `=unique_capped[`i']'
+		local uniq "`r(s)'"
 
 		// Truncate long variable names
 		local vn_disp = substr("`vname'", 1, 23)
@@ -1169,7 +1220,8 @@ program define _datamap_ProcessVariables, nclass
 		file write `fh' "    Missing: `nmiss' (`pctmiss'%)" _n
 			file write `fh' "    Classification: `vclass'" _n _n
 		}
-	restore
+	}
+	frame drop `_cfr'
 
 	if "`compact'" != "" {
 		exit
@@ -1412,7 +1464,10 @@ program define _datamap_ProcessDatasetJson, nclass
 	_datamap_json_escape `"`sortorder'"'
 	local sortorder_json `"`r(escaped)'"'
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	local nvars_class = _N
 	local n_categorical = 0
@@ -1432,6 +1487,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 		local nuniq_`i' = cond(missing(unique_vals[`i']), ., unique_vals[`i'])
+		local ncap_`i' = cond(missing(unique_capped[`i']), 0, unique_capped[`i'])
 		local maxlen_`i' = cond(missing(max_length[`i']), ., max_length[`i'])
 
 		if "`class_`i''" == "categorical" local ++n_categorical
@@ -1446,7 +1502,8 @@ program define _datamap_ProcessDatasetJson, nclass
 		}
 	}
 	local suggested_exclude = strtrim("`suggested_exclude'")
-	restore
+	}
+	frame drop `_cfr'
 
 	_datamap_json_escape `"`suggested_exclude'"'
 	local suggested_json `"`r(escaped)'"'
@@ -1488,6 +1545,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		local nmiss = `nmiss_`i''
 		local pctmiss = `pctmiss_`i''
 		local nuniq = `nuniq_`i''
+		local ncap = `ncap_`i''
 		local maxlen = `maxlen_`i''
 		_datamap_json_number `pctmiss'
 		local pctmiss_json "`r(number)'"
@@ -1513,9 +1571,15 @@ program define _datamap_ProcessDatasetJson, nclass
 		file write `fh' `"          "classification": "`vclass_json'","' _n
 		file write `fh' `"          "missing_n": `nmiss',"' _n
 		file write `fh' `"          "missing_pct": `pctmiss_json',"' _n
+		// When the count is censored, unique_values is a LOWER BOUND (cap+1)
+		// and unique_values_capped is true; consumers must not read it as an
+		// exact cardinality.
 		file write `fh' `"          "unique_values": "'
 		if `nuniq' < . file write `fh' "`nuniq'," _n
 		else file write `fh' "null," _n
+		file write `fh' `"          "unique_values_capped": "'
+		if `ncap' file write `fh' "true," _n
+		else file write `fh' "false," _n
 		file write `fh' `"          "max_length": "'
 		if `maxlen' < . file write `fh' "`maxlen'," _n
 		else file write `fh' "null," _n
@@ -1651,14 +1715,13 @@ program define _datamap_ProcessCategorical, nclass
 	version 16.0
 	args fh classifications format nofreq maxfreq obs mincell noguidance
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if classification == "categorical"
 	local nvars = _N
-	if _N == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -1669,8 +1732,11 @@ program define _datamap_ProcessCategorical, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 		local nuniq_`i' = cond(missing(unique_vals[`i']), 0, unique_vals[`i'])
+		local ncap_`i' = cond(missing(unique_capped[`i']), 0, unique_capped[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "CATEGORICAL VARIABLES"
 
@@ -1685,6 +1751,8 @@ program define _datamap_ProcessCategorical, nclass
 		local pctmiss : di %5.1f `pctmiss_`i''
 		local pctmiss = strtrim("`pctmiss'")
 		local nuniq = `nuniq_`i''
+		_datamap_fmt_uniq `nuniq' `ncap_`i''
+		local uniq_disp "`r(s)'"
 
 		file write `fh' "VARIABLE: `vname'" _n
 		file write `fh' "--------------------" _n
@@ -1697,7 +1765,7 @@ program define _datamap_ProcessCategorical, nclass
 		if "`valab'" != "" file write `fh' "Value Label: `valab'" _n
 		file write `fh' "Classification: categorical" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
-		file write `fh' "Unique Values: `nuniq'" _n _n
+		file write `fh' "Unique Values: `uniq_disp'" _n _n
 
 		// Frequency table
 		if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
@@ -1760,14 +1828,13 @@ program define _datamap_ProcessContinuous, nclass
 	version 16.0
 	args fh classifications format nostats obs noguidance
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if classification == "continuous"
 	local nvars = _N
-	if `nvars' == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -1777,8 +1844,11 @@ program define _datamap_ProcessContinuous, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 		local nuniq_`i' = cond(missing(unique_vals[`i']), 0, unique_vals[`i'])
+		local ncap_`i' = cond(missing(unique_capped[`i']), 0, unique_capped[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "CONTINUOUS VARIABLES"
 
@@ -1792,6 +1862,8 @@ program define _datamap_ProcessContinuous, nclass
 		local pctmiss : di %5.1f `pctmiss_`i''
 		local pctmiss = strtrim("`pctmiss'")
 		local nuniq = `nuniq_`i''
+		_datamap_fmt_uniq `nuniq' `ncap_`i''
+		local uniq_disp "`r(s)'"
 
 		file write `fh' "VARIABLE: `vname'" _n
 		file write `fh' "--------------------" _n
@@ -1803,7 +1875,7 @@ program define _datamap_ProcessContinuous, nclass
 		}
 		file write `fh' "Classification: continuous" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
-		file write `fh' "Unique Values: `nuniq'" _n _n
+		file write `fh' "Unique Values: `uniq_disp'" _n _n
 
 		// Summary statistics
 		if "`nostats'" == "" {
@@ -1885,14 +1957,13 @@ program define _datamap_ProcessDate, nclass
 	version 16.0
 	args fh classifications format datesafe dateformat noguidance
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if classification == "date"
 	local nvars = _N
-	if `nvars' == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -1902,7 +1973,9 @@ program define _datamap_ProcessDate, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "DATE VARIABLES"
 
@@ -2001,14 +2074,13 @@ program define _datamap_ProcessString, nclass
 	version 16.0
 	args fh classifications format noguidance
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if classification == "string"
 	local nvars = _N
-	if `nvars' == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -2018,8 +2090,11 @@ program define _datamap_ProcessString, nclass
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 		local maxlen_`i' = cond(missing(max_length[`i']), 0, max_length[`i'])
 		local nuniq_`i' = cond(missing(unique_vals[`i']), ., unique_vals[`i'])
+		local ncap_`i' = cond(missing(unique_capped[`i']), 0, unique_capped[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "STRING VARIABLES"
 
@@ -2034,8 +2109,8 @@ program define _datamap_ProcessString, nclass
 		local maxlen = `maxlen_`i''
 		local is_strL = ("`vtype'" == "strL")
 		if `nuniq_`i'' < . {
-			local nuniq = string(`nuniq_`i'', "%12.0f")
-			local nuniq = strtrim("`nuniq'")
+			_datamap_fmt_uniq `nuniq_`i'' `ncap_`i''
+			local nuniq "`r(s)'"
 		}
 		else if `is_strL' {
 			local nuniq "(strL)"
@@ -2088,14 +2163,13 @@ program define _datamap_ProcessExcluded, nclass
 	version 16.0
 	args fh classifications format noguidance
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if classification == "excluded"
 	local nvars = _N
-	if `nvars' == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -2105,7 +2179,9 @@ program define _datamap_ProcessExcluded, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "EXCLUDED VARIABLES"
 
@@ -2148,21 +2224,16 @@ program define _datamap_ProcessValueLabels, nclass
 	args fh classifications format
 
 	// Get all value labels used
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if valuelabel != ""
-	if _N == 0 {
-		restore
-		exit
-	}
 
 	// Get unique value labels
-	quietly levelsof valuelabel, local(vallabs)
-
-	if "`vallabs'" == "" {
-		restore
-		exit
-	}
+	local vallabs ""
+	if _N > 0 quietly levelsof valuelabel, local(vallabs)
 
 	// Index-keyed by position in `vallabs': `vars_<labelname>' locals
 	// overflow the 31-character macro-name limit for long label names.
@@ -2178,7 +2249,9 @@ program define _datamap_ProcessValueLabels, nclass
 		}
 		local vars`li' = strtrim("`vars`li''")
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `"`vallabs'"' == "" exit
 
 	_datamap_write_rule_header `fh' "VALUE LABEL DEFINITIONS"
 
@@ -2223,14 +2296,13 @@ program define _datamap_ProcessBinary, nclass
 	version 16.0
 	args fh classifications format obs mincell
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	quietly keep if is_binary == 1
 	local nvars = _N
-	if `nvars' == 0 {
-		restore
-		exit
-	}
 	forvalues i = 1/`nvars' {
 		local vname_`i' = varname[`i']
 		local vtype_`i' = vartype[`i']
@@ -2238,7 +2310,9 @@ program define _datamap_ProcessBinary, nclass
 		local nmiss_`i' = cond(missing(missing_n[`i']), 0, missing_n[`i'])
 		local pctmiss_`i' = cond(missing(missing_pct[`i']), 0, missing_pct[`i'])
 	}
-	restore
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	file write `fh' "Binary Variables (potential outcomes/indicators)" _n _n
 
@@ -2304,26 +2378,27 @@ program define _datamap_ProcessQuality, nclass
 	version 16.0
 	args fh classifications format
 
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
-	quietly count if quality_flag != ""
-	if r(N) == 0 {
-		restore
-		exit
+	quietly keep if quality_flag != ""
+	local nvars = _N
+	forvalues i = 1/`nvars' {
+		local qfvar_`i' = varname[`i']
+		local qfflag_`i' = quality_flag[`i']
 	}
+	}
+	frame drop `_cfr'
+	if `nvars' == 0 exit
 
 	_datamap_write_rule_header `fh' "DATA QUALITY FLAGS"
 
-	quietly keep if quality_flag != ""
-	local nvars = _N
-
 	forvalues i = 1/`nvars' {
-		local vname = varname[`i']
-		local qflag = quality_flag[`i']
-		file write `fh' "  `vname': `qflag'" _n
+		file write `fh' "  `qfvar_`i'': `qfflag_`i''" _n
 	}
 	file write `fh' _n
-	restore
 end
 
 // =============================================================================
@@ -2339,7 +2414,10 @@ program define _datamap_ProcessSamples, nclass
 
 	// Index-keyed by position in `classvars': `class_<varname>' locals
 	// overflow the 31-character macro-name limit for long variable names.
-	preserve
+	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
+	tempname _cfr
+	frame create `_cfr'
+	frame `_cfr' {
 	quietly use "`classifications'", clear
 	local classvars ""
 	forvalues i = 1/`=_N' {
@@ -2347,7 +2425,8 @@ program define _datamap_ProcessSamples, nclass
 		local classvars "`classvars' `vn'"
 		local class`i' = classification[`i']
 	}
-	restore
+	}
+	frame drop `_cfr'
 
 	_datamap_write_rule_header `fh' "SAMPLE OBSERVATIONS"
 	if "`datesafe'" != "" {
@@ -2447,10 +2526,15 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 // Thin wrapper over _datamap_nuniq, which counts distinct values without the
 // full-dataset sort that -egen tag()- required.  Missing (and "" for strings)
 // stay uncounted, as they were under the `if !missing(v)' restriction.
+//
+// cap(0) = never censor.  These callers count panel units, event levels and
+// survival strata, where the exact cardinality IS the answer -- a censored
+// count would report a 500k-patient registry as having 1001 units.  The
+// chunked engine still bounds peak memory at cap(0); it just cannot early-exit.
 program define _datamap_ndistinct, rclass
 	version 16.0
 	args v
-	_datamap_nuniq `v'
+	_datamap_nuniq `v', cap(0)
 	return scalar n = r(n)
 end
 

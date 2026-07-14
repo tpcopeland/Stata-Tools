@@ -128,7 +128,10 @@ replace hc = . in 1/5
 save "`tmp_dir'/_v152_hc.dta", replace
 
 tempfile cls2
-quietly _datamap_classify using "`tmp_dir'/_v152_hc.dta", saving("`cls2'") maxcat(25)
+* cap(0): this test is about the MISSING-value contract at high cardinality, so
+* it needs the exact count.  From 1.6.0 the default cap(1000) would censor a
+* 19,995-distinct variable to 1001 and the missing-exclusion could not be seen.
+quietly _datamap_classify using "`tmp_dir'/_v152_hc.dta", saving("`cls2'") maxcat(25) cap(0)
 preserve
 quietly use "`cls2'", clear
 quietly summarize unique_vals if varname == "hc"

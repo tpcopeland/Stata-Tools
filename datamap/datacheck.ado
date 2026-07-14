@@ -1,4 +1,4 @@
-*! datacheck Version 1.5.4  2026/07/10
+*! datacheck Version 1.6.0  2026/07/14
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -500,9 +500,12 @@ program define datacheck, rclass
         // ---- classify via the shared engine ----
         tempfile proff
 	        // `using' is required by the classifier syntax but ignored under `loaded'.
+	        // cap must clear maxcat, or a censored count could misclassify.
+	        local nuniq_cap = max(1000, `maxcat')
 	        quietly _datamap_classify using "memory", loaded saving(`"`proff'"') ///
 	            maxcat(`maxcat') exclude("`exclude'") continuous("`continuous'") ///
-	            categorical("`categorical'") date("`date'") detect_binary(1)
+	            categorical("`categorical'") date("`date'") detect_binary(1) ///
+	            cap(`nuniq_cap')
         local all_vars       "`r(all_vars)'"
         local cls_continuous "`r(continuous_vars)'"
         local cls_categorical "`r(categorical_vars)'"
@@ -532,6 +535,7 @@ program define datacheck, rclass
                 local m_mn`i'    = missing_n[`i']
                 local m_mp`i'    = missing_pct[`i']
                 local m_uv`i'    = unique_vals[`i']
+                local m_uc`i'    = unique_capped[`i']
                 local m_ml`i'    = max_length[`i']
                 local m_qf`i'    = quality_flag[`i']
             }
@@ -714,9 +718,8 @@ program define datacheck, rclass
                 local vt "`m_type`i''"
                 local mp = `m_mp`i''
                 if missing(`mp') local mp = 0
-                local uq "."
-                if `m_uv`i'' < . local uq = string(`m_uv`i'', "%9.0f")
-                local uq = strtrim("`uq'")
+                _datamap_fmt_uniq `m_uv`i'' `m_uc`i''
+                local uq "`r(s)'"
                 local vshow = substr("`v'", 1, 21)
                 display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
                     %-9s "`vt'" %6.1f `mp' as text "%" ///
@@ -837,9 +840,8 @@ program define datacheck, rclass
                 local ml "."
                 if `m_ml`i'' < . local ml = string(`m_ml`i'', "%9.0f")
                 local ml = strtrim("`ml'")
-                local uq "."
-                if `m_uv`i'' < . local uq = string(`m_uv`i'', "%9.0f")
-                local uq = strtrim("`uq'")
+                _datamap_fmt_uniq `m_uv`i'' `m_uc`i''
+                local uq "`r(s)'"
                 display as text "  " as result "`v'" as text ":  unique=" ///
                     as result "`uq'" as text "  blank=" as result `nblank' ///
                     as text "  maxlen=" as result "`ml'"
@@ -1748,7 +1750,8 @@ program define datacheck, rclass
 	                    double missing_pct long unique str2045 variable_label ///
 	                    str2045 notes str2045 characteristics double mean double sd ///
 	                    double p50 double p25 double p75 double min double max ///
-	                    str2045 datasignature using `"`dcmeta_tmp'"', replace
+	                    str2045 datasignature byte unique_capped ///
+	                    using `"`dcmeta_tmp'"', replace
 	                local _dcsource "memory"
 	                if `"`single'"' != "" local _dcsource `"`single'"'
 	                local _dclabel : data label

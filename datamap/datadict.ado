@@ -1,4 +1,4 @@
-*! datadict Version 1.5.4  2026/07/10
+*! datadict Version 1.6.0  2026/07/14
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -19,6 +19,7 @@ program define datadict, rclass
 		          MISSing STats DETail SAVing(string) ///
 		          COLumns(string asis) CONFig(string) DATASIGnature ///
 		          MAXCat(integer -999999999) MAXFreq(integer -999999999) ///
+		          UNIQCap(integer -999999999) ///
 		          MINCell(integer -999999999) ///
 		          EXClude(string) CONTinuous(string) CATegorical(string) ///
 		          DATEVars(string) DATEFormat(string)]
@@ -54,6 +55,7 @@ program define datadict, rclass
 		if `maxcat' == -999999999 local maxcat = 25
 		if `maxfreq' == -999999999 local maxfreq = 25
 		if `mincell' == -999999999 local mincell = 5
+		if `uniqcap' == -999999999 local uniqcap = 1000
 		if `maxcat' <= 0 | missing(`maxcat') {
 			noisily di as error "maxcat() must be positive"
 			exit 198
@@ -64,6 +66,10 @@ program define datadict, rclass
 		}
 		if `mincell' < 0 | missing(`mincell') {
 			noisily di as error "mincell() must be non-negative"
+			exit 198
+		}
+		if `uniqcap' < 0 | missing(`uniqcap') {
+			noisily di as error "uniqcap() must be non-negative (0 = exact counts, no cap)"
 			exit 198
 		}
 
@@ -152,9 +158,15 @@ program define datadict, rclass
 		}
 	}
 
-	// Preserve current dataset. Cleanup runs after the capture block on all exits.
-	preserve
-	local _restore_needed = 1
+	// Preserve only when this run loads files into memory over the user's data.
+	// Documenting the data already in memory needs no snapshot -- and a
+	// -preserve- is a full second copy of the dataset, which on a multi-GB file
+	// is the difference between fitting in RAM and paging.  See datamap.ado.
+	// Cleanup runs after the capture block on all exits.
+	if !`from_memory' {
+		preserve
+		local _restore_needed = 1
+	}
 
 	// Collect files to process
 	tempfile filelist_tmp
@@ -221,6 +233,7 @@ program define datadict, rclass
 				double missing_pct long unique str2045 variable_label str2045 notes ///
 				str2045 characteristics double mean double sd double p50 ///
 				double p25 double p75 double min double max str2045 datasignature ///
+				byte unique_capped ///
 				using `"`metadata_tmp'"', replace
 		local _post_open = 1
 		local postopt `"postname(`metadata_post')"'
@@ -233,6 +246,7 @@ program define datadict, rclass
 				author(`"`author'"') date(`"`date'"') notes(`"`notes'"') ///
 				changelog(`"`changelog'"') nfiles(`nfiles') `showmissing' `showstats' ///
 				maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+				uniqcap(`uniqcap') ///
 				exclude(`"`exclude'"') continuous(`"`continuous'"') ///
 				categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 				dateformat("`dateformat'") ///
@@ -245,7 +259,7 @@ program define datadict, rclass
 				version(`"`version'"') author(`"`author'"') date(`"`date'"') ///
 				notes(`"`notes'"') changelog(`"`changelog'"') nfiles(`nfiles') ///
 				`showmissing' `showstats' maxcat(`maxcat') maxfreq(`maxfreq') ///
-				mincell(`mincell') exclude(`"`exclude'"') ///
+				mincell(`mincell') uniqcap(`uniqcap') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 				datevars(`"`datevars'"') dateformat("`dateformat'") columns(`columns') ///
 				varspec(`"`varspec'"') `datasignature' `postopt'
@@ -259,19 +273,29 @@ program define datadict, rclass
 	if `"`saving_file'"' != "" {
 		postclose `metadata_post'
 		local _post_open = 0
-		use `"`metadata_tmp'"', clear
-		if `saving_replace' {
-			quietly save `"`saving_file'"', replace
+		// Frame: -use- here would replace the user's data with the metadata
+		// table.  The top-level preserve used to undo that; the in-memory path
+		// no longer takes one.
+		tempname _mfr
+		frame create `_mfr'
+		frame `_mfr' {
+			use `"`metadata_tmp'"', clear
+			if `saving_replace' {
+				quietly save `"`saving_file'"', replace
+			}
+			else {
+				quietly save `"`saving_file'"'
+			}
 		}
-		else {
-			quietly save `"`saving_file'"'
-		}
+		frame drop `_mfr'
 		local result_metadata `"`saving_file'"'
 	}
 
-	// Restore original data
-	restore
-	local _restore_needed = 0
+	// Restore original data (only if this run preserved it)
+	if `_restore_needed' {
+		restore
+		local _restore_needed = 0
+	}
 
 	}
 	local rc = _rc
@@ -1157,6 +1181,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		version 16.0
 		syntax, HANDLE(name) VNAME(name) OBS(integer) COLumns(string) ///
 			MAXCat(integer) MAXFreq(integer) MINCell(integer) DATEFormat(string) VARCLASS(string) ///
+			UNIQCap(integer) ///
 			SOURCE(string asis) OUtput(string asis) DSName(string asis) ///
 			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis)]
 
@@ -1206,14 +1231,16 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	else local pctmiss "0.0"
 	local missingstr "`nmiss' (`pctmiss'%)"
 
-	tempvar uniqtag
-	capture quietly egen byte `uniqtag' = tag(`vname') if !missing(`vname')
-	if _rc {
-		local nuniq = .
-	}
-	else {
-		quietly count if `uniqtag' == 1
-		local nuniq = r(N)
+	// -egen tag()- sorts the WHOLE dataset once per variable, which made
+	// datadict 6.5x slower than datamap on the same file (measured: 347s vs 54s
+	// on a 3M x 60 dataset).  _datamap_nuniq walks the column in bounded chunks
+	// and stops early once the count exceeds the cap.  See _datamap_nuniq.ado.
+	local nuniq = .
+	local ncapped = 0
+	capture _datamap_nuniq `vname', cap(`uniqcap')
+	if _rc == 0 {
+		local nuniq = r(n)
+		local ncapped = r(capped)
 	}
 
 	local valuesstr ""
@@ -1279,7 +1306,8 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 					local statsstr `"`r(valstring)'"'
 				}
 			else {
-				local statsstr "Unique=`nuniq'"
+				_datamap_fmt_uniq `nuniq' `ncapped'
+				local statsstr "Unique=`r(s)'"
 			}
 		}
 	}
@@ -1328,7 +1356,8 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	else if "`varclass'" == "string" {
 		quietly count if !missing(`vname')
 		local nvalid = r(N)
-		local statsstr "N=`nvalid'; `nuniq' unique values"
+		_datamap_fmt_uniq `nuniq' `ncapped'
+		local statsstr "N=`nvalid'; `r(s)' unique values"
 	}
 
 	local row "|"
@@ -1369,7 +1398,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 				(`obs') (`nvars') (`nmiss') (`pctmiss') (`nuniq') (`"`macval(post_vlab)'"') ///
 				(`"`macval(post_notes)'"') (`"`macval(post_chars)'"') ///
 				(`mean') (`sd') (`p50') (`p25') (`p75') (`vmin_raw') (`vmax_raw') ///
-				(`"`macval(post_dsig)'"')
+				(`"`macval(post_dsig)'"') (`ncapped')
 		}
 	end
 
@@ -1431,6 +1460,7 @@ program define _datadict_ProcessCombined, rclass
 			syntax, FILElist(string) NAMESFILE(string) OUtput(string) ///
 				TItle(string asis) DATE(string) NFILES(integer) ///
 				MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
+				UNIQCap(integer) ///
 				DATEFormat(string) ///
 				COLumns(string) [SUBTitle(string asis) VERsion(string) ///
 				AUTHor(string asis) NOTEs(string asis) CHANGElog(string asis) ///
@@ -1499,6 +1529,7 @@ program define _datadict_ProcessCombined, rclass
 					_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
 						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(`i') ///
 						maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+						uniqcap(`uniqcap') ///
 						exclude(`"`exclude'"') continuous(`"`continuous'"') ///
 						categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 						dateformat("`dateformat'") ///
@@ -1572,6 +1603,7 @@ program define _datadict_ProcessSeparate, rclass
 	capture noisily {
 			syntax, FILElist(string) NAMESFILE(string) TItle(string asis) ///
 				DATE(string) NFILES(integer) MAXCat(integer) MAXFreq(integer) ///
+				UNIQCap(integer) ///
 				MINCell(integer) DATEFormat(string) COLumns(string) SUFfix(string) ///
 				[SUBTitle(string asis) VERsion(string) AUTHor(string asis) ///
 				NOTEs(string asis) CHANGElog(string asis) MISSing STats ///
@@ -1619,6 +1651,7 @@ program define _datadict_ProcessSeparate, rclass
 				_datadict_ProcessOneDataset, handle(`fh') filepath(`"`macval(filepath)'"') ///
 					dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') idx(1) ///
 					maxcat(`maxcat') maxfreq(`maxfreq') mincell(`mincell') ///
+					uniqcap(`uniqcap') ///
 					exclude(`"`exclude'"') continuous(`"`continuous'"') ///
 					categorical(`"`categorical'"') datevars(`"`datevars'"') ///
 					dateformat("`dateformat'") ///
@@ -1688,6 +1721,7 @@ program define _datadict_ProcessOneDataset, rclass
 	capture noisily {
 			syntax, HANDLE(name) FILEPATH(string asis) DSName(string asis) ///
 				IDX(integer) MAXCat(integer) MAXFreq(integer) MINCell(integer) ///
+				UNIQCap(integer) ///
 				DATEFormat(string) ///
 				COLumns(string) [DSLABEL(string asis) VARSPEC(string asis) ///
 				OUtput(string asis) POSTNAME(name) DATASIGnature ///
@@ -1722,10 +1756,15 @@ program define _datadict_ProcessOneDataset, rclass
 		}
 
 			tempfile classifications
+			// cap must clear maxcat, or a censored count could misclassify.
+			// uniqcap(0) = exact counts.  Otherwise the cap must clear maxcat and
+			// maxfreq, or a censored count could misclassify or hide a table.
+			if `uniqcap' == 0 local nuniq_cap = 0
+			else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
 			_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
 				maxcat(`maxcat') obs(`obs') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
-				date(`"`datevars'"')
+				date(`"`datevars'"') cap(`nuniq_cap')
 			local allvars "`r(all_vars)'"
 			local categorical_vars "`r(categorical_vars)'"
 			local continuous_vars "`r(continuous_vars)'"
@@ -1804,6 +1843,7 @@ program define _datadict_ProcessOneDataset, rclass
 			}
 				_datadict_WriteVariableRow, handle(`handle') vname(`vn') obs(`obs') ///
 					columns(`columns') maxcat(`maxcat') maxfreq(`maxfreq') ///
+						uniqcap(`nuniq_cap') ///
 						mincell(`mincell') dateformat("`dateformat'") varclass("`varclass'") ///
 						source(`"`macval(filepath)'"') output(`"`output'"') ///
 						dsname(`"`dsname'"') dslabel(`"`macval(dslabel)'"') ///

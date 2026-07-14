@@ -62,6 +62,7 @@
 {synopt:{opt datasig:nature}}include Stata {cmd:datasignature} in provenance{p_end}
 {synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
 {synopt:{opt maxf:req(#)}}max unique values to show individually; default {bf:25}{p_end}
+{synopt:{opt uniqc:ap(#)}}unique values counted exactly; default {bf:1000}{p_end}
 {synopt:{opt minc:ell(#)}}suppress frequency cells smaller than {it:#}; default {bf:5}{p_end}
 {synopt:{opt exc:lude(varlist)}}omit sensitive variables from the dictionary and metadata{p_end}
 {synopt:{opt cont:inuous(varlist)}}force these variables into the continuous group{p_end}
@@ -103,7 +104,16 @@ PDF, Word, or HTML with Pandoc:
 {phang2}{cmd:pandoc data_dictionary.md -o data_dictionary.docx}{p_end}
 
 {pstd}
-The current dataset in memory is preserved and restored after processing.
+Your data in memory is unchanged by a successful run.
+
+{pstd}
+When {cmd:datadict} documents a file ({opt single()}, {opt directory()},
+{opt filelist()}, {opt manifest()}) it loads that file and restores your
+original data afterwards. When it documents the data already in memory it takes
+no snapshot: a {helpb preserve} is a full second copy of the dataset, and
+avoiding it roughly halves peak memory on a large file. The trade-off is that a
+run which fails partway through is not rolled back; a successful run always
+leaves the data exactly as it found it.
 
 {pstd}
 For a companion command that produces plain-text documentation optimized for
@@ -177,6 +187,11 @@ and percent, unique count, variable label, notes, characteristics, numeric
 summary statistics when available, source command, and datasignature. The
 schema is shared with {help datamap} and {help datacheck}. Specify
 {cmd:replace} to overwrite an existing file.
+
+{pmore}
+{bf:unique_capped} marks rows whose {bf:unique} count was censored by
+{opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
+cardinality.
 
 {dlgtab:Document metadata}
 
@@ -266,6 +281,15 @@ source dataset in the provenance block.
 {opt maxc:at(#)} sets the cutoff that separates categorical from continuous. Numeric
 variables with value labels or with {it:#} or fewer unique values are treated as
 categorical. Default is {bf:25}. Must be positive.
+
+{phang}
+{opt uniqc:ap(#)} caps how far {cmd:datadict} counts distinct values before it
+stops. A variable with more than {it:#} distinct values reports a censored count:
+{opt saving()} records the lower bound in {bf:unique} and sets {bf:unique_capped}
+to 1. The default is {bf:1000}. Specify {cmd:uniqcap(0)} for exact counts at any
+cardinality, at the cost of a full sort per variable. Classification is
+unaffected -- the cap is always raised to at least {opt maxcat()} and
+{opt maxfreq()}.
 
 {phang}
 {opt maxf:req(#)} sets the maximum number of unique values to list

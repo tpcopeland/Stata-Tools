@@ -323,9 +323,26 @@ real matrix _finegray_H_at_times(
            A nested subject-by-entry-time loop is O(n^2) and would destroy the
            linear-scan property this package exists for.  Two pointers instead:
 
-               r(u) = #{ l_i <= u }  -  #{ x_i < u }
+               r(u) = #{ l_i <= u }  -  #{ x_i <= u }
 
-           both of which are monotone in u.  O(n log n) for the sorts, O(n) here. */
+           both of which are monotone in u.  O(n log n) for the sorts, O(n) here.
+
+           NOTE THE `<=' ON THE EXIT SIDE.  Geskus (2011) fixes the tie ordering as
+           t_(i) < c_(j) < l_(j) -- events, then censorings, then ENTRIES (p.40) --
+           and states the consequence for the at-risk count directly: "Because we
+           assume events to come first, individuals with an event at c_(j) are not
+           considered to be at risk in the calculation of r(c_(j))" (p.41).  At an
+           ENTRY time u the ordering puts BOTH the events and the censorings at u
+           ahead of the entries at u, so every subject exiting at exactly u has
+           already left and must NOT be counted in r(u).
+
+           This was `x_i < u', which kept those subjects in the risk set and made
+           the estimator depend on whether an entry time exactly COINCIDED with an
+           exit time.  Nudging 80 tied entries from 5 to 5+1e-7 -- a change that
+           cannot move any risk set -- then moved the coefficient by 5.4e-04.
+           The continuous-time crossval fixtures cannot see this (tied entry/exit
+           times have probability zero there); test_finegray_ties FG-C03 can, and
+           did. */
         real colvector ls, ts_, wv, rv, Hleft
         real scalar pl, pt
 
@@ -342,9 +359,9 @@ real matrix _finegray_H_at_times(
                 if (ls[pl] <= u) pl++
                 else break
             }
-            /* exits with x_i < u */
+            /* exits with x_i <= u (events and censorings at u precede entries) */
             while (pt <= rows(ts_)) {
-                if (ts_[pt] < u) pt++
+                if (ts_[pt] <= u) pt++
                 else break
             }
             rv[j] = (pl - 1) - (pt - 1)

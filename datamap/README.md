@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.5.4** | 2026-07-10
+**Version 1.6.0** | 2026-07-14
 
 `datamap` documents Stata datasets without exporting row-level data. It produces four kinds of output:
 
@@ -9,7 +9,7 @@
 - **`datacheck`** profiles a dataset to the console — per-class distributions, missingness, and key-structure/uniqueness — and can gate a do-file on declared expectations (`expectn()`, `isid()`, `inrange()`, `notmissing()`, ...), halting with `r(9)` when reality does not match what you declared.
 - **`datamvp`** analyzes missing-value patterns: pattern-frequency tables, monotone-missingness tests for multiple imputation, stratified analysis, and missingness graphics (a fork of Jeroen Weesie's `mvpatterns`). `datacheck`'s `patterns` option calls it.
 
-`datamap`, `datadict`, and `datacheck` share one classification engine and preserve the dataset in memory. `datamap` and `datadict` accept data in memory, a single `.dta` file, a directory scan, or a named file list; `datadict` also accepts line-delimited manifests for path-safe batch dictionaries.
+`datamap`, `datadict`, and `datacheck` share one classification engine. A successful run leaves your data in memory exactly as it found it. `datamap` and `datadict` accept data in memory, a single `.dta` file, a directory scan, or a named file list; `datadict` also accepts line-delimited manifests for path-safe batch dictionaries.
 
 ## Requirements
 
@@ -442,7 +442,7 @@ Monotone missingness test:
 | Input | `single()`, `directory()`, `filelist()`, `recursive` |
 | Output | `output()`, `format(text\|json)`, `separate`, `append` (text only), `saving()` |
 | Project defaults | `config()` |
-| Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()`, `noguidance`, `compact` |
+| Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()`, `uniqcap()`, `noguidance`, `compact` |
 | Privacy | `exclude()`, `datesafe`, `dateformat()`, `mincell()` |
 | Classification | `continuous()`, `categorical()`, `date()` |
 | Detection | `detect()`, `autodetect`, `panelid()`, `survivalvars()` |
@@ -492,6 +492,7 @@ command. See the command-specific help files for the companion commands.
 | `format` | Choose text or JSON output. |
 | `maxcat` | Set the categorical-classification threshold. |
 | `maxfreq` | Cap displayed category frequencies. |
+| `uniqcap` | Report unique counts above this as `>#` instead of counting exactly; `0` counts exactly. Default 1000. |
 | `mincell` | Suppress small frequency cells. |
 | `missing` | Include detailed or patterned missingness output. |
 | `nofreq` | Suppress categorical frequency tables. |
@@ -573,7 +574,7 @@ cd qa
 stata-mp -b do run_all.do
 ```
 
-The suite covers all four public commands with 16 QA files: 14 functional test
+The suite covers all four public commands with 17 QA files: 15 functional test
 files, 2 validation files, and no cross-validation suite (the package is a
 deterministic documentation and QC tool, so known-answer validations are the
 appropriate oracle).
@@ -584,6 +585,22 @@ appropriate oracle).
 - `qa/README.md` has the complete file index, coverage map, and lane contract.
 
 ## Changelog
+
+### 1.6.0 (2026-07-14)
+
+Large-file performance. On a 3M-row, 60-variable dataset `datamap` went from 201s to 50s; the dominant per-variable cost, the distinct-value count, dropped from 55% of runtime to near zero for continuous and ID variables.
+
+- Unique counts are now **censored above `uniqcap()` (default 1000)** and reported as `>1000` rather than counted exactly. Counting a continuous or ID variable exactly requires sorting every observation; capping lets the counter stop after seeing `uniqcap`+1 distinct values. Measured on a 20M-row double column: 27.0s and 866MB peak → 0.16s and 398MB.
+- New `uniqcap(#)` option (also a config key). `uniqcap(0)` restores exact counts at any cardinality, at the old cost. The cap is always raised to at least `maxcat()` and `maxfreq()`, so a censored count can never change a variable's classification or hide its frequency table. Panel unit counts under `detect(panel)` are always exact.
+- JSON gains `unique_values_capped`; when true, `unique_values` is a lower bound, not an exact count. The saved metadata dataset (`saving()`) gains a matching `unique_capped` column.
+- The report writers now read the classification table in a **frame** instead of under `preserve`. `preserve` costs a full in-memory copy of the dataset, and eleven of these fired per run purely to read a small lookup table. `datamap, single("file.dta")` on an 826MB file dropped from 1.92GB to 1.01GB peak memory.
+- `datadict` counted distinct values with `egen tag()`, which **sorts the whole dataset once per variable** — the very pattern the shared counter was written to replace. It now uses that counter, and gains the same `uniqcap()` option. On the 3M × 60 file `datadict` went from 348s to 135s. Its `saving()` dataset gains the `unique_capped` column.
+- `datacheck` also picks up the shared cap; its console unique counts render as `>1000` when censored.
+- **`datamap` and `datadict` no longer `preserve` when documenting the data already in memory.** A `preserve` is a full second copy of the dataset in memory; skipping it roughly halves peak memory. Pre-loading an 826MB file and running `datamap` went from **1.92GB to 1.01GB** peak — the same as `single()` mode now. Everything that used to rely on the snapshot runs in a frame instead (the report writers, and the `saving()` metadata export, which previously left the *metadata table* in memory and depended on `restore` to put your data back).
+
+  A successful run still leaves the data bit-identical — same observations, variables, sort order, labels, notes, characteristics, and `datasignature`. The trade-off is that a run which **fails partway through is no longer rolled back**. `single()`, `directory()`, `filelist()`, and `manifest()` still preserve, because those genuinely load a file over your data and must restore it.
+
+**Reading a large file: let `datamap` open it.** `datamap, single("big.dta")` from an empty session peaks at about 1.2× the file size. Running `use big.dta` first and then `datamap` still costs about 2.3×, because the top-level `preserve` that guarantees your data is restored must copy it.
 
 ### 1.5.4 (2026-07-10)
 

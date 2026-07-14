@@ -64,6 +64,18 @@ covariate, {it:newvar}{cmd:_2} through {it:newvar}{cmd:_}{it:p} for the
 rest. Residuals are missing for non-cause-event observations.
 
 {pstd}
+{bf:Left truncation (delayed entry).} All prediction types may {bf:move} under delayed
+entry, because the left-truncated fit itself moves: {cmd:xb} because the
+coefficients change, and {opt cif}, {opt ci} and {opt schoenfeld} because the weighted risk sets
+and the baseline cumulative subdistribution hazard now carry the combined
+stabilized Zhang-Zhang-Fine Weight 1 weight A = G(t-)H(t-) rather than a
+censoring-only weight. This is by design; see {help finegray##lt:Left truncation} in
+{helpb finegray}. Results with no delayed entry are unchanged. Point {cmd:xb} scoring needs
+only {cmd:e(b)}, but the {opt ci}, {opt schoenfeld} and {opt bootstrap()} paths reconstruct the weight
+design from {cmd:e(strata)} and {cmd:e(truncstrata)} and therefore require the original,
+unmodified estimation data.
+
+{pstd}
 {bf:What time point does the CIF use?} By default, {opt cif} evaluates the
 CIF at {bf:each observation's own analysis time} {cmd:_t} — one predicted CIF
 per subject, at the follow-up (event or censoring) time that subject
@@ -110,13 +122,12 @@ or a different specification. (Refits inside {opt bootstrap()} that fail to
 converge are a separate matter: they are skipped and counted, not fatal.)
 
 {pstd}
-The {opt ci} and {opt schoenfeld} paths verify that the original estimation
-sample and its model variables are unchanged. If those data have been edited,
-the command exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run.
-That check also covers the package-owned {cmd:_fg_*} design columns: dropping
-them is supported (they are rebuilt on demand), but altering one in place is
-not, because {helpb finegray_cif} and {helpb finegray_phtest} read those columns
-directly.
+The {opt ci} and {opt schoenfeld} paths verify that the original estimation sample and its
+model variables are unchanged. If those data have been edited, the command
+exits with {cmd:r(459)} and requires {cmd:finegray} to be re-run. That check also covers
+the package-owned {cmd:_fg_*} design columns: dropping them is supported (they are
+rebuilt on demand), but altering one in place is not, because {helpb finegray_cif} and
+{helpb finegray_phtest} read those columns directly.
 
 {pstd}
 Point predictions with {opt xb}, and point {opt cif} predictions without

@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.1.2, 2026-07-09): the
+Quality assurance for the **finegray** package (v1.1.4): the
 Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its
 post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
@@ -31,11 +31,11 @@ Every executable test passes, with no skips.
 | `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 14 | 14 | 0 | 0 |
 | `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, safe saving) | 10 | 10 | 0 | 0 |
 | `test_finegray_v114.do` | regression (v1.1.4 fixes: factor-level bootstrap skips, unspaced `saving()`, prediction-variable cleanup) | 4 | 4 | 0 | 0 |
-| `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary) | 6 | 6 | 0 | 0 |
+| `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
 | `test_finegray_bootstrap.do` | **bootstrap and refit integrity** (`if`/`in` stripped from the refit line, replication floor, `seed()` guard, validate-then-mutate) | 6 | 6 | 0 | 0 |
-| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, tampered `_fg_*` columns, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 9 | 9 | 0 | 0 |
+| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, tampered `_fg_*` columns, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 10 | 10 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
@@ -46,9 +46,9 @@ Every executable test passes, with no skips.
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 25 | 25 | 0 | 0 |
+| `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 26 | 26 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (60 datasets, arms A/B/D) | 62 | 62 | 0 | 0 |
-| **Total** | | **450** | **450** | **0** | **0** |
+| **Total** | | **452** | **452** | **0** | **0** |
 
 ### The delayed-entry (ZZF) suites
 
@@ -124,11 +124,18 @@ documented `e()` warning contract unreachable dead code. The two are now distinc
 | `A == 0` | **undefined** (Mata: `x/0` is missing) | hard `r(459)` |
 | `0 < A < 1e-10` | defined but enormous | **warn**, and still fit |
 
-**Not in any lane yet:** `validation_finegray_zzf_recovery.do`, the known-truth
-recovery Monte Carlo (100 reps × n = 100,000; hours, not minutes). Its Gate
-Z2-green is not fully green — arms A/B/C recover, but the deliberately
-misspecified negative control is still being adjudicated on its second
-coefficient. It is run by hand until that closes.
+### The `gates` lane — hours, not minutes
+
+The two ZZF Monte Carlo gates live in their own lane (`run_all.do gates`) rather than in `full`. They are gates, not regression tests: a lane nobody can afford to run is a lane nobody runs, and putting a 4-hour Monte Carlo in `full` would take the ordinary suites down with it.
+
+| Suite | Question | Cost |
+|---|---|---|
+| `validation_finegray_zzf_recovery.do` | **Gate Z2-green.** Does the ZZF estimator recover a known truth under delayed entry, where the released command was 63–190 MC SE off? | 100 reps × n = 100,000 × 4 arms (~4 h) |
+| `validation_finegray_zzf_coverage.do` | **Gate Z-inference.** Which LT variance actually covers? | 1000 reps × 7 arms × 2 fits (~1 h) |
+
+**Gate Z-inference: PASSED 2026-07-14.** `fg_sandwich` (the default) covered 0.94–0.96 in every arm, including 69% truncation and stratified entry. `model_based` (`norobust`) **undercovers, and the failure grows with the truncation fraction** — 0.95 → 0.90 → 0.85 → 0.82 at 0/37/69/63% — with SEs up to 38% below the true sampling variability. This settles a real disagreement in the literature (Geskus 2011 p.44 says no sandwich is needed; Bellach et al. 2020 §5 says the fixed-weight variance undercovers, increasingly with truncation): **on this estimator the measurement agrees with Bellach.** The third candidate, `nuisance_adjusted`, is deliberately **not implemented** — its formula is ZZF (2011) Appendix B, whose display equations are images in every obtainable copy, and it is not being written from memory (`literature/_requested.md`).
+
+One methodological note that is easy to misread as goalpost-moving: the gate compares the mean analytic SE to an **IQR-implied** SD rather than the plain SD. On the `truncstrata` arms the plain-SD ratio failed (0.88) while coverage passed (0.95), because those arms sit on the positivity boundary — a few replications hard-fail `r(459)` and `max_lt_weight` reaches 1.9e3, so ~1% of reps are wild and the plain SD is not a robust scale estimator (trimmed ratio: 0.98). The robust statistic is applied **uniformly to both candidates and every arm**, and it does **not** change the winner: `model_based` fails on *coverage* alone, by 4–14 points, in every left-truncated arm. The raw SD ratio is still printed in every cell.
 
 Last full run: 2026-07-12 via `stata-mp -b do run_all.do full`, R with `cmprsk`
 and `riskRegression` present.
@@ -162,6 +169,7 @@ stata-mp -b do run_all.do quick      # functional/regression lane
 stata-mp -b do run_all.do core       # quick + validation + Stata-only crossval
 stata-mp -b do run_all.do python     # R-backed cross-validation lane
 stata-mp -b do run_all.do full       # all curated suites
+stata-mp -b do run_all.do gates      # ZZF Monte Carlo gates -- HOURS, run on demand
 
 # one suite (batch mode writes <name>.log alongside the .do)
 stata-mp -b do test_finegray.do
@@ -194,7 +202,7 @@ install.packages(c("cmprsk", "riskRegression"))
 
 | File | Role |
 |------|------|
-| `run_all.do` | Curated lane runner (`quick`, `core`, `python`, `full`) |
+| `run_all.do` | Curated lane runner (`quick`, `core`, `python`, `full`, `gates`) |
 | `_finegray_qa_common.do` | Shared sandbox bootstrap for the lane runner, plus the seeded fixture builders (`_finegray_qa_tied_data`, `_finegray_qa_entry_data`, `_finegray_qa_unident_data`) that the tie and optimizer suites are built on |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
 | `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |

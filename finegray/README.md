@@ -82,7 +82,7 @@ Core estimation quantities include `e(N)`, `e(N_fail)`, `e(N_compete)`, `e(N_cen
 | `e(N_fail)` | Number of cause-of-interest events |
 | `e(N_compete)` | Number of competing events |
 | `e(N_cens)` | Number censored |
-| `e(ll)`, `e(ll_0)` | Fitted and constant-only log pseudo-likelihoods |
+| `e(ll)`, `e(ll_0)` | Log pseudo-likelihood at the fitted `b` and at `b = 0` (the null model) |
 | `e(chi2)`, `e(p)`, `e(df_m)` | Wald model test; `e(df_m)` is the numerical rank of `e(V)` |
 | `e(rank)` | Rank of `e(V)` |
 | `e(N_clust)` | Number of clusters (only with `cluster()`) |
@@ -230,12 +230,34 @@ The graph uses the package default profile, an analytic 95% pointwise confidence
 - Native forward-backward scan implementation without data expansion
 - Automatic reduction of multiple-record (delayed entry / `stsplit`) data with subject-constant covariates
 - Support for factor variables and interactions
-- Stratified censoring distributions via `strata()`
+- Stratified censoring distributions via `strata()`, stratified entry distributions via `truncstrata()`
 - Robust, clustered, or model-based standard errors
 - CIF prediction on estimation data or at user-supplied times, with confidence intervals
 - Cumulative incidence curves with confidence bands and exportable estimates (`finegray_cif`)
 - Approximate proportional subdistribution hazards test after estimation
-- Support for left-truncated data handled through `stset`
+- Left truncation (delayed entry) via the stabilized Zhang–Zhang–Fine Weight 1 estimator, computed without expanding the data — see below
+
+## Left truncation (delayed entry)
+
+**Under delayed entry `finegray` deliberately does not agree with `stcrreg`.** This is the package's main statistical contribution, and it is worth understanding before you use it.
+
+A Fine–Gray weight built from the censoring distribution alone is not a valid weight for left-truncated data: if nothing is censored it collapses to a constant, which cannot correct anything. Zhang, Zhang & Fine (2011) show that the resulting estimator is biased and that the bias does **not** shrink as the sample grows. `stcrreg` uses that censoring-only weight, and so did `finegray` before this release.
+
+`finegray` now targets the **stabilized Zhang–Zhang–Fine Weight 1** estimator. Writing `A(t)` for the probability of being under observation at `t`, a subject retained in the risk set after a competing event at `X_i` carries weight `A(t−)/A(X_i−)` instead of the censoring-only ratio `G(t−)/G(X_i−)`. `A` is computed as the product of the delayed-entry-aware censoring survivor `G` and a reverse-time product-limit estimator `H` of the entry distribution (Geskus 2011), which was verified to reproduce the canonical ZZF form to machine precision on every tied-time collision class before it was shipped.
+
+The weight is **separable** — it factors into a function of time times a function of the subject — which is exactly the property that lets the forward–backward scan compute it **without expanding the data**. Reference implementations (`survival::finegray`, `mstate::crprep`) deliver the same weighting by emitting one row per weight change, expanding a 500-subject delayed-entry dataset by 17× and 27× respectively.
+
+**What this means for you:**
+
+| | |
+|---|---|
+| **Delayed-entry results change** | Coefficients, SEs, baseline hazards, predictions and CIFs all move relative to earlier `finegray` versions and relative to `stcrreg`. That is the fix, not a regression. |
+| **No-delayed-entry results do not change** | With every subject entering at the origin, `H ≡ 1`, `A` collapses to `G`, and the estimator is bit-for-bit the existing right-censoring path. |
+| **Pooled weights assume covariate-independent entry** | If entry depends on an observed discrete group, name it in `truncstrata()`. If censoring does, name it in `strata()`. The two are cross-classified internally. |
+| **Continuous covariate-dependent entry is not supported** | It is rejected, not silently approximated: a continuously subject-specific weight destroys the shared time factor the scan depends on. |
+| **Breaking change** | Under delayed entry, `A` is estimated per joint weight stratum, so every `strata()` level is also a weight stratum *even without* `truncstrata()`. At most 100 joint strata (≥20 subjects each) are supported. A delayed-entry model with many `strata()` levels that fitted in 1.1.4 may now stop with `r(459)` rather than silently pooling groups. The same model still fits without delayed entry. |
+
+`e(lt_weight)` reports which weight was actually used (`zzf1_geskus` or `right_censoring`) and `e(lt_vce)` which variance, so no consumer has to infer either from the option list. Weight diagnostics are stored in `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, `e(N_weight_warn)` and `e(weight_warn_strata)`. Unlike censoring-only weights, ZZF weights may legitimately exceed 1.
 
 ## Validation
 
@@ -275,6 +297,7 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
   - Exact collinearity and constant covariates now produce an explicit `r(459)` diagnostic instead of undocumented ridge-dependent estimates; optimizer convergence at a numerical optimum is recognized without requiring a strictly increasing final step.
 
 - **1.1.1** (2026-07-07; Not released to SSC): Correctness fixes for left truncation and multi-record fits.
+  - **RETRACTION.** This entry described left truncation as "corrected." That was overstated and is withdrawn. What 1.1.1 fixed was the *score-residual risk window* under delayed entry — a real bug, and the fix stands. But the underlying **weight** was still the censoring-only IPCW weight, which is not a valid weight for left-truncated data at all (Zhang, Zhang & Fine 2011). Delayed-entry point estimates remained biased after 1.1.1, by tens to hundreds of Monte Carlo standard errors in a covariate-dependent direction, exactly as they were before it. See the **Left truncation** section above for the estimator that actually corrects this.
   - Performance: the CIF influence-function variance (`finegray_cif` and `finegray_predict, cif ci`) was rewritten from an O(_n_&sup2;) per-evaluation-point loop over the cause events to an O(_n_&nbsp;log&nbsp;_n_) prefix-sum computation. Standard errors are numerically identical (max abs difference 1e-16); a `finegray_cif` call at _n_&nbsp;=&nbsp;120,000 dropped from ~91s to ~7s. This makes CIF standard errors practical at epidemiological sample sizes.
   - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, PH tests, and bootstrap refits after `stsplit`-style data.
   - Robust/cluster SEs and CIF influence-function SEs under delayed entry (left truncation) fixed: the per-subject score residuals now restrict the at-risk contribution to each subject's actual risk window `[t0, t]`. Validated against a delete-one jackknife oracle; results with no delayed entry are unchanged.
