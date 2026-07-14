@@ -9,7 +9,7 @@
 {marker syntax}{...}
 {title:Syntax}
 {p 4 8 2}
-{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {opt df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)} {opt diag:nose}] {p_end}
+{cmd:datefix} {varlist} [, {opt newvar(name)} {opt drop} {cmd:df(}{help datetime_display_formats:date %fmt}{cmd:)} {opt order(string)} {opt topyear(#)} {opt diag:nose}] {p_end}
 
 {marker description}{...}
 {title:Description}
@@ -29,7 +29,7 @@
 {p 4 8 2}{opt drop} drops the original variable. Only applicable when {opt newvar()} is
 used; otherwise redundant since the original variable is replaced.{p_end}
 
-{p 4 8 2}{opt df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD}
+{p 4 8 2}{cmd:df(}{help datetime_display_formats:date %fmt}{cmd:)} display format for the date variable. Default is {bf:%tdCCYY/NN/DD}
 (YYYY/MM/DD).{p_end}
 
 {p 4 8 2}{opt order(string)} specifies the ordering of month, day, and year in the input

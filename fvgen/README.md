@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-**Version 1.2.0** | 2026-07-10
+**Version 1.2.0** | 2026-07-14
 
 Flatten factor-variable interactions into labeled main-effect and product variables for friendlier regression export.
 

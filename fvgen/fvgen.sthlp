@@ -95,8 +95,8 @@ flattened variables reproduces the native model's coefficients and fit.
 
 {pstd}
 Why not just relabel the coefficients inside an export tool? Tools such as
-{helpb estout:esttab}'s {cmd:varlabels()} or {helpb collect}/{helpb etable}'s
-relabeling let you rename rows, but you must spell out a label for each
+{helpb estout:esttab}'s {cmd:varlabels()} or the {helpb collect} / {helpb etable}
+relabeling options let you rename rows, but you must spell out a label for each
 interaction term, and the renaming is local to that one tool. {cmd:fvgen} works
 at the {it:variable} level instead: it reads each factor's value labels and
 builds the row labels automatically (level {cmd:2 "Female"} interacted with
