@@ -105,6 +105,13 @@ program define _balance_manual_panel
         char _dta[_iivw_weighttype] "iivw"
         char _dta[_iivw_visit_covars] "x"
     }
+
+    * Sign the hand-built contract, as iivw_weight would at its commit point.
+    * From 3.0.0 the stale-weight guard fails CLOSED, so an unsigned contract is
+    * an error rather than a skipped check -- and a fixture that hand-writes the
+    * characteristics without a signature is a contract the package cannot
+    * produce. See iivw_qa_sign_contract in _iivw_qa_common.do.
+    iivw_qa_sign_contract
 end
 
 * Covariate-driven Poisson visit process with discretized (tied) event times.

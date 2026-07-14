@@ -93,6 +93,11 @@ else {
     local suites          ///
         test_iivw         ///
         test_iivw_expanded ///
+        test_iivw_replay ///
+        test_iivw_state_contract ///
+        test_iivw_stale_state ///
+        test_iivw_ownership ///
+        test_iivw_sample_contract ///
         validation_iivw_recovery ///
         validation_iivw_recovery_extended ///
         validation_iivw_recovery_extended2 ///

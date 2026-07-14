@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 2.0.0** | 2026-07-14
+**Version 3.0.0** | 2026-07-14
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -50,6 +50,20 @@ In this example the mean `baseline_risk` over the *observed visits* is 0.65, bec
 capture ado uninstall iivw
 net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/iivw") replace
 ```
+
+## Migrating to 3.0.0
+
+**3.0.0 is a breaking release**, and every break is a case where 2.x returned `rc 0` while doing something you had not agreed to. None of them changes an estimator — they change what the package is willing to do silently.
+
+| 2.x | 3.0.0 | Why |
+|---|---|---|
+| Rows with a missing model covariate got no weight, and a `Note:` scrolled past | **`r(416)`**. Add `allowmissingweights` if complete-case is what you intend | `iivw_fit` then dropped those rows without a word. The analysis silently became complete-case, and if the loss was differential by arm it silently targeted a different population |
+| `iivw_weight, replace` overwrote any column under the prefix | **`r(110)`** unless iivw created that column | A user's own `_iivw_weight` was backed up and destroyed on success. `replace` now overwrites only what the package can prove it made |
+| Editing `treat()` or a treatment covariate after weighting | **`r(459)`** at the next consumer | It returned `rc 0`. The stored weights no longer described the data and every downstream command used them anyway |
+| `bootstrap() refitweights` with `lagvars()` | Replays the lags from the raw sources; a pre-3.0.0 contract is **refused** | The old replay passed the precomputed `*_lag1` columns through as raw data. On an identity draw it was off by 22% |
+| A **saved `.dta`** carrying weights from 2.x | **`r(459)`** at the next `iivw_fit` or `iivw_balance`. Re-run `iivw_weight` | The contract format changed: the signature now binds every input, every component and the specification, and it fails closed rather than skipping the check when it cannot verify. A 2.x signature cannot be checked against the 3.0.0 contract, and a contract that cannot be checked is one that could silently stop describing its data |
+
+If a script breaks, the error message names the cause. In every case the fix is either to acknowledge the loss explicitly, rename a colliding column, or re-run `iivw_weight` on the current data. **Weighting is cheap; a silently wrong weighted estimate is not.**
 
 ## Migrating to 2.0.0
 
@@ -313,9 +327,44 @@ The weights are a tool for a specific bias problem.  They do not make a weak stu
 | Treatment is binary and time-invariant within subject | Current IPTW/FIPTIW implementation is not for treatment switching |
 | Positivity/overlap is plausible | Subjects with near-certain treatment or visits create extreme weights |
 | Outcome model includes the scientific predictors of interest | Weights correct sampling/visit imbalance; they do not choose the outcome model |
-| Standard errors treat weights as fixed *by default* | The sandwich SE and the default bootstrap hold the weights fixed; add `iivw_fit, bootstrap(#) refitweights` to re-estimate the weights inside each replicate and propagate weight-estimation uncertainty |
+| **Inferential use is NOT cleared** — see the reliability status below | The default sandwich SE, **and `bootstrap(#)` without `refitweights`**, hold the estimated weights fixed. **Neither source paper endorses this.** Bůžková & Lumley derive the variance that corrects for having estimated the weights and say so explicitly ("We account for estimation of γ₀ by including the second term"); Coulombe et al. put the weight-estimation components inside a two-step (Newey–McFadden) sandwich. A fixed-weight sandwich is the first term only. Use `iivw_fit, bootstrap(#) refitweights` — but note that path currently has open defects of its own (below) |
 
 For dropout or censoring, use an IPCW strategy.  For time-varying treatment decisions, use a marginal structural model designed for that setting.
+
+### Reliability status (2026-07-14)
+
+**`iivw` 2.0.0 computes point estimates and weights that are externally verified, and standard errors that are not cleared for inferential use.** This is a deliberate, evidence-based statement, not boilerplate. The full method-to-source-to-code-to-oracle map is in [`METHOD_CONTRACT.md`](METHOD_CONTRACT.md).
+
+**What is verified:**
+
+- The IIW weight `exp(−γᵀZ)` and its stabilized form match Bůžková & Lumley (2007) eq. (6) exactly, and agree **exactly** with `IrregLong` 0.4.1 — the method author's own R implementation — on the visit-model coefficient and the observed-visit weights.
+- The at-risk window `ξ_i(t) = I(C_i > t)` (B&L p.7) is built correctly in 2.0.0 via `censor()`/`maxfu()`. This was the largest 1.x defect (≈26% attenuation of `γ̂`) and it is fixed.
+- The stabilized IPTW weight `Pr[A=a]/Pr[A=a|L]` and its ATE estimand match Hernán & Robins, *Causal Inference: What If* §12.3 and Technical Point 12.2.
+- The outcome estimating equation is the independence GEE of B&L eq. (11).
+
+**What is NOT cleared, and must not be relied on for inference:**
+
+| Open defect | Consequence |
+|---|---|
+| **Default variance treats estimated weights as known** | Reported SEs, CIs and p-values are **not** the ones either source paper derives. Fixed-weight Stata/R SE agreement proves only that both programs computed the same *incomplete* variance |
+| **Treatment is not added to the FIPTIW visit-intensity model** | Coulombe et al. eq. (3.12) includes it. `iivw` does not, and no shipped example or test can currently detect its absence |
+| **`stabcov()` is not checked against the outcome-model design** | B&L require the stabilization numerator `h` to be a deterministic function of the *outcome-model* covariates. Any varlist is accepted |
+| **The stabilized balance target omits `h(X)`** | `iivw_balance` compares a stabilized *observed* weight against an *unstabilized* target |
+| **`truncate()` clips only the final product** | It cannot report which component moved, and it leaves `iivw_balance` describing the untruncated IIW rather than the analysis weight |
+| **`iivw_diagnose` shares and weighted `model(mixed)`** | Package-original / not a valid weighted random-effects estimator. Descriptive only; not validated methods |
+
+**Closed since 2.0.0 — the weighting-state contract (2026-07-14).** Five defects in how the weights are *stored, guarded and replayed* are fixed. None of them changes an estimator; they stop the package from silently reporting on data or on a draw that the weights do not describe. Each is now a regression test that fails on 2.0.0.
+
+| Fixed | What 2.0.0 actually did, measured |
+|---|---|
+| `refitweights` now replays `lagvars()` from the raw sources inside every draw | The **identity draw** — resample every subject exactly once, so the draw *is* the observed panel — disagreed with the observed weights by **22%** (max reldif 2.24e-01). It is now exactly 0 |
+| The bootstrap restores the **whole** `_iivw_` contract, discovered from the data | A *successful* `refitweights` run blanked `_iivw_lagvars` and the stale-weight signature — and the staleness guard still returned 0, because the same bug had erased the evidence it checks against |
+| The stale-weight signature binds every input, every component, and the spec | Editing `treat()`, editing a treatment covariate, corrupting `_iivw_iw` while leaving the product alone, or appending a row **all returned rc 0** |
+| `replace` overwrites only variables iivw can prove it created | A user's own `_iivw_weight = 99` column was backed up and **destroyed at rc 0** |
+| Rows that receive no weight are an **error** unless you say otherwise | The analysis silently became complete-case — and where the loss was differential by arm, it silently answered a question about a different population. `allowmissingweights` is now the explicit acknowledgment, and the loss is reported by arm |
+
+
+Until these close, cite `iivw` for **weighting**, and obtain inference by another route.
 
 ## Worked Examples
 
@@ -541,6 +590,22 @@ Before showing results, check:
 
 The package ships with functional, validation, simulation, reporting-export, install-smoke, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
 
+**What the suite actually establishes.** A green run demonstrates implementation breadth, not valid inference. Naming the gates precisely, because "43/43 passed" does not distinguish them:
+
+| Gate | Status |
+|---|---|
+| IIW weights + visit-model coefficient vs. `IrregLong` 0.4.1, **exact**, with censoring rows and rebuilt lags | ✅ passes — the strongest evidence the package has |
+| Outcome GEE vs. R `geepack::geeglm` (Gaussian, logit, Poisson) | ✅ passes |
+| Functional / error-path / state coverage across all six commands | ✅ passes |
+| **Corrected-variance coverage** (does a 95% CI cover 95% of the time?) | ❌ **never tested.** The simulation suites call ordinary `iivw_fit`, so their coverage columns describe the **fixed-weight** SE — the one that is not cleared |
+| **FIPTIW against the recommended full-risk-set estimator** | ❌ **not tested.** Both the Stata and R arms use `endatlastvisit` and observed-event-only risk sets — the 1.x construction. One arm's tolerance is `correlation > 0.75` |
+| **Stabilized ATE IPTW vs. an independent implementation** | ❌ **no oracle exists** |
+| **Treatment present in the FIPTIW visit model** (Coulombe eq. 3.12) | ❌ **no test can currently detect its absence** |
+
+Three pre-registered false-green mutations are recorded in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md). **The current suite would survive two of the three entirely green.** That is the honest measure of what the QA proves today, and the reason the reliability claim above is narrow.
+
+Oracle strength, tolerances, and the disposition of every existing suite are documented in [`qa/METHOD_ORACLE_MAP.md`](qa/METHOD_ORACLE_MAP.md), [`qa/TOLERANCE_FRAMEWORK.md`](qa/TOLERANCE_FRAMEWORK.md), and [`qa/CROSSVAL_MODULE_MAP.md`](qa/CROSSVAL_MODULE_MAP.md).
+
 Run the fast release gate from the package QA directory:
 
 ```bash
@@ -594,6 +659,34 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 
 ## Version History
 
+### v3.0.0 (2026-07-14)
+
+**Breaking release.** A 2.x script that relied on any of the behaviours below will now error. Every break exists because the old behaviour returned `rc 0` while doing something the user had not agreed to. This release changes how the weights are **stored, guarded and replayed**; it does not change any estimator or any variance.
+
+**Sample loss is now the user's decision**
+
+- Rows that receive no weight are an **error** (`r(416)`). They were a `Note:` in a long log, and `iivw_fit` then dropped them without a word — so the analysis silently became complete-case, and where the loss was differential by treatment arm it silently answered a question about a different population.
+- Add **`allowmissingweights`** to declare that a complete-case analysis is intended. Even then the loss is reported and returned, broken down **by arm**: `r(n_missing_weight)`, `r(n_ids_missing_weight)`, `r(n_lost_treated)`, `r(n_lost_untreated)`, and the two percentages.
+- A missing `treat()` value is refused outright and `allowmissingweights` cannot admit it. A row with no exposure has no place in a contrast between exposure levels.
+
+**`replace` overwrites only what iivw made**
+
+- Ownership is now a mark carried by the variable (`char v[_iivw_owner]`), not an inference from its name. Previously any column sitting under the selected prefix was assumed to be a prior package output: a user's own `_iivw_weight` was backed up and **destroyed at `rc 0`**. An unowned column is now refused with `r(110)`, unmutated.
+
+**The stale-weight guard actually guards**
+
+- The signature now binds **every** consumed input, **every** owned component, and the stored specification. On 2.0.0 it bound only the final weight, the id/time key, and the generated visit-covariate list — so editing `treat()`, editing a treatment covariate, corrupting `_iivw_iw` while leaving the product intact, appending a row, or tampering with the contract all returned `rc 0`.
+- It also **fails closed**: a missing signature is an error, not a skipped check. Erasing one characteristic used to disarm the guard entirely.
+- A harmless `sort` or `gsort` is still safe — the signature is built from sums.
+
+**`bootstrap() refitweights` replays the weighting exactly**
+
+- Each replicate now rebuilds `lagvars()` from the **raw sources**, inside the resampled subject. Before, the precomputed `*_lag1` columns were passed through as raw covariates, so the terminal censoring row got the value from two visits back and the lag construction was frozen at its observed-data value in every draw. On an **identity draw** — every subject resampled exactly once, so the draw *is* the observed panel — the old replay was off by **22%**; it is now exact to `1e-12`.
+- The bootstrap restores the **whole** stored contract, discovered from the data rather than from a hand-maintained list. The old list was missing three fields, so a *successful* refit run blanked `_iivw_lagvars` and the signature — and the staleness guard still returned 0, because the same bug had erased the evidence it checks against.
+- Weights written before 3.0.0 cannot be replayed and `refitweights` refuses them rather than falling back. Re-run `iivw_weight`.
+
+**Still not cleared for inference.** See [Reliability status](#reliability-status-2026-07-14). The default variance still treats the estimated weights as known, treatment is still not added to the FIPTIW visit-intensity model, `stabcov()` is still unchecked against the outcome design, and the stabilized balance target still omits `h(X)`.
+
 ### v2.0.0 (2026-07-13)
 
 **Breaking release.** A 1.x script will error rather than run. See [Migrating to 2.0.0](#migrating-to-200) for the full table. Every break below exists because the old behavior produced a plausible-looking number that was wrong.
@@ -621,7 +714,7 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - **Labels are no longer mangled on the way out.** `iivw_balance` deleted every double quote from a variable label before writing it to Excel, and `iivw_exogtest` did the same to term and group labels and then joined them with an unescaped `|` — so a label such as `Cohort "A" | high risk` could not round-trip through either the workbook or the returned macros. Labels are now carried verbatim. **Breaking:** `r(group_labels)`, `r(term_labels)`, and `r(skipped_labels)` are replaced by indexed returns — `r(group_label_1)`, `r(term_label_1)`, `r(skipped_label_1)`, … — with counts in `r(n_groups)`, `r(n_terms)`, and `r(n_skipped)`. A delimited macro is unparseable when the delimiter is legal label text: `"a|b"` could not be told apart from two groups, `a` and `b`
 - The Excel border documentation now describes the borders the code actually draws. All three export help files promised "a full thin grid — an outer box plus interior horizontal and vertical rules"; `thin`/`medium` in fact draw the tabtools house style — an outer frame, rules in the header band, and vertical separators between column groups, with no interior horizontal rules between data rows
 
-**QA and release infrastructure** (no shipped behavior change, but this is why the release is trustworthy)
+**QA and release infrastructure** (no shipped behavior change; these repairs make the suite's *green* mean more than it used to, which is not the same as clearing the package for inferential use — see Reliability status)
 - An invalid case selector is now an error. `do test_iivw_exogtest.do 999` used to execute no test, finish with `fail_count == 0`, print an all-passed banner and exit 0 — a typo in a selector was indistinguishable from a green suite. Twelve suites shared the pattern
 - Every suite emits one `RESULT: <name> tests=N pass=N fail=N skip=N` sentinel on both the pass and the fail path. Seven suites printed prose on success, so the parser could read a pass count off a suite it had never verified
 - No suite writes a log, workbook, or dataset into the package tree, and the release gate now fails on any it finds instead of whitelisting them. The tree had accumulated 17 gitignored logs (~4 MB), and the cross-validation ones carry the local Stata license header

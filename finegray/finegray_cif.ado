@@ -78,12 +78,11 @@ program define finegray_cif, rclass sortpreserve
         exit 430
     }
     _finegray_check_data
-    capture confirm matrix e(basehaz)
-    if _rc {
-        display as error "baseline hazard not available"
-        display as error "finegray_cif requires e(basehaz) from finegray"
-        exit 198
-    }
+    * No e(basehaz) requirement: the baseline is rebuilt in Mata from e(sample)
+    * and e(b) (exactly, not approximately -- it re-runs the fit's own
+    * _finegray_basehazard).  e(basehaz) is opt-in precisely because materialising
+    * it as a Stata matrix is O(K^2); requiring it here would have forced every
+    * finegray_cif user to pay that cost at fit time.
     capture confirm variable _t
     if _rc {
         display as error "finegray_cif requires the original stset estimation data"
@@ -240,60 +239,6 @@ program define finegray_cif, rclass sortpreserve
         }
     }
 
-    * =====================================================================
-    * BUILD TIME GRID
-    * =====================================================================
-    tempname bh
-    matrix `bh' = e(basehaz)
-    local nbh = rowsof(`bh')
-    if "`attime'" != "" {
-        local grid "`attime'"
-        local mode "table"
-    }
-    else if "`timepoints'" != "" {
-        local grid "`timepoints'"
-        local mode "curve"
-    }
-    else {
-        * Use distinct baseline-hazard times; thin to <= 400 for the matrix/plot
-        local mode "curve"
-        local step = ceil(`nbh' / 400)
-        local grid ""
-        local _lastr = 0
-        forvalues r = 1(`step')`nbh' {
-            local grid "`grid' `=`bh'[`r',1]'"
-            local _lastr = `r'
-        }
-        * A stride > 1 steps OVER the final row whenever nbh is not congruent to
-        * 1 mod step: with nbh = 402 and step = 2 the last grid point is row 401
-        * and the terminal event time is silently dropped -- while nbh = 481
-        * happens to land on it. The CIF's terminal value is its plateau, i.e.
-        * the number most readers take off the curve, so it must never depend on
-        * the parity of the event count. Always close the grid on the last row.
-        if `_lastr' < `nbh' {
-            local grid "`grid' `=`bh'[`nbh',1]'"
-        }
-    }
-    local ngrid : word count `grid'
-    if `ngrid' == 0 {
-        display as error "no time points to evaluate"
-        exit 198
-    }
-
-    * =====================================================================
-    * EVALUATION MATRIX  (k x (1+p): time, profile)
-    * =====================================================================
-    tempname E
-    matrix `E' = J(`ngrid', `=`p'+1', 0)
-    local r 0
-    foreach tt of local grid {
-        local ++r
-        matrix `E'[`r', 1] = `tt'
-        forvalues c = 1/`p' {
-            matrix `E'[`r', `=`c'+1'] = `zrow'[1, `c']
-        }
-    }
-
     * Load Mata engine
     capture program list _finegray_mata_loaded
     if _rc {
@@ -320,7 +265,6 @@ program define finegray_cif, rclass sortpreserve
         local _byg_mata "`_byg_grp'"
     }
 
-    tempname OUT
     * Rebuild the truncation strata from the STORED specification, never from a
     * variable left behind in the data: the fit's weight design must be reproduced
     * exactly or the CIF is computed under different weights than the model was.
@@ -332,6 +276,68 @@ program define finegray_cif, rclass sortpreserve
         local _tg_mata "`_tg_grp'"
     }
 
+    * =====================================================================
+    * BUILD TIME GRID
+    * =====================================================================
+    * Curve mode plots the distinct baseline event times, thinned to <= 400.  It
+    * used to read them out of e(basehaz), which no longer exists unless the user
+    * asked for it -- and which cost O(K^2) to create even when it did.  Get the
+    * thinned grid straight from Mata instead: _finegray_bh_grid rebuilds the
+    * baseline (one linear pass) and posts only the <= 401 grid times, so the
+    * Stata matrix it does create is small enough for the quadratic to vanish.
+    if "`attime'" != "" {
+        local grid "`attime'"
+        local mode "table"
+    }
+    else if "`timepoints'" != "" {
+        local grid "`timepoints'"
+        local mode "curve"
+    }
+    else {
+        * Use distinct baseline-hazard times; thin to <= 400 for the matrix/plot.
+        * The thinning (stride, then always close on the last row) happens inside
+        * _finegray_bh_grid, which reproduces the former Stata-side loop exactly.
+        * A stride > 1 steps OVER the final row whenever nbh is not congruent to
+        * 1 mod step: with nbh = 402 and step = 2 the last grid point is row 401
+        * and the terminal event time is silently dropped -- while nbh = 481
+        * happens to land on it. The CIF's terminal value is its plateau, i.e.
+        * the number most readers take off the curve, so it must never depend on
+        * the parity of the event count. Always close the grid on the last row.
+        local mode "curve"
+        tempname BHG
+        mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
+            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
+            "`_t0var'", 400, "`BHG'")
+        local nbh = `_fg_nbh'
+        local grid ""
+        if `nbh' > 0 {
+            local _ngb = rowsof(`BHG')
+            forvalues r = 1/`_ngb' {
+                local grid "`grid' `=`BHG'[`r',1]'"
+            }
+        }
+    }
+    local ngrid : word count `grid'
+    if `ngrid' == 0 {
+        display as error "no time points to evaluate"
+        exit 198
+    }
+
+    * =====================================================================
+    * EVALUATION MATRIX  (k x (1+p): time, profile)
+    * =====================================================================
+    tempname E
+    matrix `E' = J(`ngrid', `=`p'+1', 0)
+    local r 0
+    foreach tt of local grid {
+        local ++r
+        matrix `E'[`r', 1] = `tt'
+        forvalues c = 1/`p' {
+            matrix `E'[`r', `=`c'+1'] = `zrow'[1, `c']
+        }
+    }
+
+    tempname OUT
     mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
         `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`E'", ///
         "`OUT'", "`_t0var'")
@@ -398,7 +404,13 @@ program define finegray_cif, rclass sortpreserve
                     gen long `_bsid' = _n
                     char _dta[st_id] "`_bsid'"
                 }
-                capture `_fgcmd'
+                * basehaz on the REFIT, not in e(refitcmd): _finegray_boot_cif
+                * reads the replication's baseline out of e(basehaz), so the
+                * matrix must exist inside the replication even though the user's
+                * own fit no longer posts it by default.  Appending the option
+                * here keeps e(refitcmd) itself unchanged, which QA asserts
+                * reproduces e(b) exactly.
+                capture `_fgcmd' basehaz
                 if _rc continue
                 if e(converged) != 1 continue
                 * A resample can lose a factor level, so the refit posts a

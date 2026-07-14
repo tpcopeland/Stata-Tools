@@ -309,6 +309,26 @@ metadata from a preceding {cmd:iivw_weight} run. It is substantially slower than
 fixed-weight bootstrap because the weight models are refit in every replicate.
 
 {pmore}
+{bf:Changed in 3.0.0.} Each replicate now rebuilds {opt lagvars()} from the raw
+source variables, inside the resampled subject, using the same code that built
+the observed weights. Before 3.0.0 the precomputed {cmd:*_lag1} columns were
+passed through as if they were raw covariates. That was wrong in two ways: on a
+terminal censoring interval the lagged value must be the source variable's value
+{it:at} the last visit, and a carried-over lag column supplies the value from two
+visits back instead; and the lag construction could never be rebuilt within a
+draw, so the very uncertainty the bootstrap exists to propagate was frozen at its
+observed-data value in every replicate. Measured on an identity draw -- a
+resample in which every subject is drawn exactly once, so the draw {it:is} the
+observed panel and the weights must come back unchanged -- the old replay was off
+by 22%. It is now exact.
+
+{pmore}
+Weights written by a version of {cmd:iivw} older than 3.0.0 cannot be
+replayed: the raw visit covariates were not stored apart from the generated lag
+columns, so the replay cannot reconstruct them. {opt refitweights} refuses such a contract
+rather than falling back to the old behaviour. Re-run {cmd:iivw_weight}.
+
+{pmore}
 The compact effects table printed by {cmd:iivw_fit} reports
 normal-approximation confidence intervals (coefficient {+/-} {it:z} {cmd:*} SE)
 for every fit, including bootstrap fits. The full bootstrap results, including

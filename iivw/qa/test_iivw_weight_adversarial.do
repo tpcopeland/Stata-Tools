@@ -425,7 +425,11 @@ if `run_only' == 0 | `run_only' == 9 {
         _adv_panel, n_ids(24) visits(4)
         replace severity = . if id == 1 & visit == 1
         replace severity = . if id == 2 & visit == 3
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) nolog
+        * The fixture deliberately blanks a covariate on two rows, so some rows
+        * get no weight. From 3.0.0 that is an error by default; this test is
+        * ABOUT those rows, so it acknowledges the complete-case analysis.
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(severity marker) allowmissingweights nolog
         * id==1 v1 is a first obs with a missing covariate: it takes the
         * baseline-convention weight (shared across first obs after mean-1
         * normalization, no longer literally 1) and is not dropped

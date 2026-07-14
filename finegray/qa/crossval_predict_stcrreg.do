@@ -108,7 +108,10 @@ save "`sout_A'"
 _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens == 1) id(stnum)
-finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+* basehaz: A7 below compares e(basehaz) against stcrreg's own baseline, so the
+* matrix must be posted.  It is opt-in because building a Stata matrix with one
+* row per event time is O(rows^2); predict, basecshazard is the O(N) route.
+finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
 matrix frt = r(table)
 
 finegray_predict fg_xb, xb

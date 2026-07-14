@@ -1,4 +1,4 @@
-*! iivw_weight Version 2.0.0  2026/07/13
+*! iivw_weight Version 3.0.0  2026/07/14
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -71,7 +71,7 @@ program define iivw_weight, rclass sortpreserve
          TRUNCate(numlist min=2 max=2) ///
          BASEline(string) ///
          GENerate(name) REPLACE noLOG EFRon ///
-         ALLOWNONCONVerged]
+         ALLOWNONCONVerged ALLOWMISSINGWeights]
 
     * =========================================================================
     * SET DEFAULTS
@@ -571,6 +571,19 @@ program define iivw_weight, rclass sortpreserve
     local __iivw_gen_names ///
         "`prefix'iw `prefix'tw `prefix'ps `prefix'weight"
 
+    * Ownership tokens, parallel to the generated names. `replace' may overwrite
+    * a name only if the variable already in the data carries exactly the token
+    * this call is about to stamp on it. A user column that merely happens to
+    * sit under the selected prefix carries no token, so it is refused instead
+    * of being backed up and discarded. See _iivw_own.ado.
+    local __iivw_gen_tokens ""
+    foreach __iivw_r in iw tw ps weight {
+        _iivw_own token, role(`__iivw_r') prefix(`prefix')
+        local __iivw_gen_tokens "`__iivw_gen_tokens' `r(token)'"
+    }
+    _iivw_own token, role(lag)
+    local __iivw_lag_token "`r(token)'"
+
     local __iivw_lag_names ""
     foreach v of local lagvars {
         local lagname "`v'_lag1"
@@ -580,16 +593,19 @@ program define iivw_weight, rclass sortpreserve
             error 198
         }
         local __iivw_lag_names "`__iivw_lag_names' `lagname'"
+        local __iivw_gen_tokens "`__iivw_gen_tokens' `__iivw_lag_token'"
     }
     local __iivw_gen_names "`__iivw_gen_names' `__iivw_lag_names'"
     local __iivw_gen_names = strtrim("`__iivw_gen_names'")
+    local __iivw_gen_tokens = strtrim("`__iivw_gen_tokens'")
 
     * Every variable the user handed us as science, in any role.
     local __iivw_protected ///
-        "`id' `time' `entry' `treat' `visit_cov' `treat_cov' `stabcov' `lagvars'"
+        "`id' `time' `entry' `censor' `treat' `visit_cov' `treat_cov' `stabcov' `lagvars'"
     local __iivw_protected : list uniq __iivw_protected
 
     _iivw_reserve_names, generated(`__iivw_gen_names') ///
+        owntokens(`__iivw_gen_tokens') ///
         protected(`__iivw_protected') `replace' context(iivw_weight)
 
     * Back up -- do not drop -- any prior iivw output we are about to replace,
@@ -643,11 +659,17 @@ program define iivw_weight, rclass sortpreserve
         }
     }
 
-    * Build full covariate list for visit model (original + lagged)
+    * Build full covariate list for visit model (original + lagged).
+    * itrim: lag_created accumulates with a leading space, so the concatenation
+    * used to produce "L1 L2  edss_lag1" -- a DOUBLE space. stcox does not care,
+    * but this string is stored on the contract and string-compared by consumers
+    * and by QA, and an invisible extra space is exactly the kind of thing that
+    * makes an equality test fail for a reason nobody can see.
     local visit_covars "`visit_cov'"
     if "`lag_created'" != "" {
         local visit_covars "`visit_covars' `lag_created'"
     }
+    local visit_covars = strtrim(itrim("`visit_covars'"))
 
     * =========================================================================
     * DISPLAY HEADER
@@ -1185,12 +1207,80 @@ program define iivw_weight, rclass sortpreserve
         }
     }
 
-    * Warn if missing weights exist
+    * =========================================================================
+    * SAMPLE-LOSS CONTRACT
+    * =========================================================================
+    * A row with no final weight is a row that will be dropped from the outcome
+    * fit. Until now that was a `Note:' in a long log, and iivw_fit then marked
+    * those rows out without a word: the analysis silently became complete-case,
+    * and if the missingness was differential by arm, the estimand silently
+    * became a different one. rc 0, wrong population.
+    *
+    * So sample loss is now a decision the user makes, not one the package makes
+    * for them. Missing weights are an ERROR by default. allowmissingweights is
+    * the acknowledgment that a complete-case analysis is intended -- and even
+    * then the loss, and its differential-by-arm component, is reported.
+
     quietly count if missing(`prefix'weight)
-    if r(N) > 0 {
-        local n_miss = r(N)
-        display as text "Note: `n_miss' observations have missing weights" ///
-            " (missing covariates)"
+    local n_miss = r(N)
+    local n_miss_ids = 0
+    local arm_loss_msg ""
+
+    if `n_miss' > 0 {
+        tempvar _misstag
+        quietly egen byte `_misstag' = tag(`id') if missing(`prefix'weight)
+        quietly count if `_misstag' == 1
+        local n_miss_ids = r(N)
+        drop `_misstag'
+
+        * Differential loss by treatment arm is the failure that changes the
+        * estimand rather than merely shrinking the sample, so it is measured
+        * and printed separately whenever an arm exists to measure it.
+        if "`treat'" != "" {
+            quietly count if `treat' == 1 & !missing(`treat')
+            local n_arm1 = r(N)
+            quietly count if `treat' == 0 & !missing(`treat')
+            local n_arm0 = r(N)
+            quietly count if `treat' == 1 & !missing(`treat') & missing(`prefix'weight)
+            local n_lost1 = r(N)
+            quietly count if `treat' == 0 & !missing(`treat') & missing(`prefix'weight)
+            local n_lost0 = r(N)
+            local pct1 = cond(`n_arm1' > 0, 100 * `n_lost1' / `n_arm1', 0)
+            local pct0 = cond(`n_arm0' > 0, 100 * `n_lost0' / `n_arm0', 0)
+            local arm_loss_msg ///
+                "treated `n_lost1'/`n_arm1' (`=string(`pct1',"%4.1f")'%), untreated `n_lost0'/`n_arm0' (`=string(`pct0',"%4.1f")'%)"
+        }
+
+        if "`allowmissingweights'" == "" {
+            display as error ""
+            display as error "`n_miss' of `N' observations have no weight (`n_miss_ids' subjects affected)"
+            if "`arm_loss_msg'" != "" {
+                display as error "  loss by arm: `arm_loss_msg'"
+            }
+            display as error ""
+            display as text "  A row with no weight is dropped from the outcome fit. The analysis"
+            display as text "  would silently become complete-case, and if the loss is differential"
+            display as text "  by arm it would silently target a different population than the one"
+            display as text "  you asked about."
+            display as text ""
+            display as text "  A weight is missing when a row lacks an input the weight is built"
+            display as text "  from: a visit-model covariate, a lag source at the first visit of a"
+            display as text "  subject whose baseline is modeled as an event, a treatment-model"
+            display as text "  covariate, or the treatment itself."
+            display as text ""
+            display as text "  Either complete or drop those rows, or add"
+            display as text "    allowmissingweights"
+            display as text "  to declare that a complete-case analysis is what you intend."
+            exit 416
+        }
+
+        display as text ""
+        display as text "note: `n_miss' of `N' observations have no weight (`n_miss_ids' subjects affected)"
+        if "`arm_loss_msg'" != "" {
+            display as text "  loss by arm: `arm_loss_msg'"
+        }
+        display as text "  allowmissingweights was specified: these rows will be dropped from the"
+        display as text "  outcome fit and the analysis is complete-case."
     }
 
     * =========================================================================
@@ -1280,17 +1370,16 @@ program define iivw_weight, rclass sortpreserve
     * is invalidated at the same instant, because new weights make an old fit
     * meaningless -- a stale _iivw_fitted must never survive a reweight.
 
-    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_iw_var _iivw_tw_var ///
-        _iivw_ps_var _iivw_treat _iivw_treat_covars _iivw_ps_estimand ///
-        _iivw_contract_version _iivw_visit_covars _iivw_baseevent ///
-        _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
-        _iivw_censor_mode _iivw_censor_var _iivw_maxfu _iivw_lagvars ///
-        _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
-        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat ///
-        _iivw_time_cat_vars _iivw_time_basecat _iivw_nonconverged {
-        char _dta[`ch'] ""
+    * Clear the ENTIRE _iivw_ characteristic namespace, discovered from the data
+    * rather than from a hand-maintained list. A list has to be edited every time
+    * a field is added, and the one that was not edited is the one that leaks: an
+    * omitted name keeps its value from the PREVIOUS contract and is then read
+    * back by a consumer as if it described the weights just committed.
+    local __iivw_allchars : char _dta[]
+    foreach ch of local __iivw_allchars {
+        if substr("`ch'", 1, 6) == "_iivw_" {
+            char _dta[`ch'] ""
+        }
     }
 
     char _dta[_iivw_weighted] "1"
@@ -1309,6 +1398,17 @@ program define iivw_weight, rclass sortpreserve
         char _dta[_iivw_iw_var] "`prefix'iw"
         char _dta[_iivw_visit_covars] "`visit_covars'"
         char _dta[_iivw_baseevent] "`exclude_base'"
+
+        * The RAW visit-model covariates and the GENERATED lag columns, stored
+        * apart. visit_covars above is their union -- the design actually handed
+        * to stcox -- and it is what a reporting consumer wants. A REPLAY wants
+        * these two: it must pass the raw list to visit_cov() and the lag SOURCES
+        * (below) to lagvars(), so each resampled subject rebuilds its own lags
+        * from its own history. Handing it the union means handing it precomputed
+        * *_lag1 columns as though they were raw inputs, which is the defect this
+        * separation exists to make impossible.
+        char _dta[_iivw_visit_cov_raw] "`visit_cov'"
+        char _dta[_iivw_lag_names] "`=strtrim("`__iivw_lag_names'")'"
 
         * The risk-set specification travels with the weights. Every consumer
         * that refits the visit-intensity model -- the bootstrap replay, the
@@ -1329,6 +1429,8 @@ program define iivw_weight, rclass sortpreserve
     else {
         char _dta[_iivw_iw_var] ""
         char _dta[_iivw_visit_covars] ""
+        char _dta[_iivw_visit_cov_raw] ""
+        char _dta[_iivw_lag_names] ""
     }
     if inlist("`wtype'", "iptw", "fiptiw") {
         char _dta[_iivw_tw_var] "`prefix'tw"
@@ -1353,12 +1455,39 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_efron]    "`efron_opt'"
     char _dta[_iivw_entry]    "`entry'"
 
+    * Rows deliberately left without a weight. Recorded on the contract, not
+    * just printed, so a consumer can say the analysis is complete-case rather
+    * than discovering it by counting rows it silently marked out.
+    if `n_miss' > 0 & "`allowmissingweights'" != "" {
+        char _dta[_iivw_allowmissingweights] "1"
+    }
+
+    * ---------------------------------------------------------------------
+    * Variable-level ownership. From here on, `replace' can prove what it is
+    * allowed to overwrite instead of inferring it from a name.
+    * ---------------------------------------------------------------------
+    local __iivw_owned ""
+    foreach __iivw_r in iw tw ps weight {
+        capture confirm variable `prefix'`__iivw_r'
+        if _rc == 0 {
+            _iivw_own stamp `prefix'`__iivw_r', role(`__iivw_r') prefix(`prefix')
+            local __iivw_owned "`__iivw_owned' `prefix'`__iivw_r'"
+        }
+    }
+    foreach __iivw_l of local __iivw_lag_names {
+        capture confirm variable `__iivw_l'
+        if _rc == 0 {
+            _iivw_own stamp `__iivw_l', role(lag)
+            local __iivw_owned "`__iivw_owned' `__iivw_l'"
+        }
+    }
+    char _dta[_iivw_owned] "`=strtrim("`__iivw_owned'")'"
+
     * Fingerprint the data these weights actually describe, so a consumer can
     * tell whether it is still looking at them. Stamped last, after every other
-    * characteristic, so it describes the committed state. See
-    * _iivw_weight_signature.ado for what it does and does not guarantee.
-    _iivw_weight_signature, id(`id') time(`time') ///
-        wvar(`prefix'weight) covars(`visit_covars')
+    * characteristic, because it binds the specification as well as the columns.
+    * See _iivw_weight_signature.ado for what it does and does not guarantee.
+    _iivw_weight_signature
     char _dta[_iivw_wsig] "`r(signature)'"
 
     * =========================================================================
@@ -1482,12 +1611,30 @@ program define iivw_weight, rclass sortpreserve
     return scalar n_ids_weighted = `n_ids_weighted'
     return scalar ess_ratio = `ess_ratio'
 
+    * Sample-loss contract. n_unweighted above is the row count; these say WHO
+    * was lost and whether the loss was differential by arm, which is the part
+    * that changes the estimand rather than merely the precision.
+    return scalar n_missing_weight = `n_miss'
+    return scalar n_ids_missing_weight = `n_miss_ids'
+    if "`treat'" != "" & `n_miss' > 0 {
+        return scalar n_lost_treated = `n_lost1'
+        return scalar n_lost_untreated = `n_lost0'
+        return scalar pct_lost_treated = `pct1'
+        return scalar pct_lost_untreated = `pct0'
+    }
+    return local allowmissingweights = ///
+        cond(`n_miss' > 0 & "`allowmissingweights'" != "", "1", "0")
+
     return scalar n_truncated = `n_truncated'
     return scalar nobaseevent = `exclude_base'
 
     return local weighttype "`wtype'"
     return local weight_var "`prefix'weight"
     return local visit_covars "`visit_covars'"
+    return local visit_cov_raw "`visit_cov'"
+    return local lag_names "`=strtrim("`__iivw_lag_names'")'"
+    return local lagvars "`lagvars'"
+    return local owned "`=strtrim("`__iivw_owned'")'"
     if inlist("`wtype'", "iivw", "fiptiw") {
         return local iw_var "`prefix'iw"
 
@@ -1535,9 +1682,19 @@ program define iivw_weight, rclass sortpreserve
         * then rename the backups of the user's prior outputs into place. The
         * contract was never touched (it is rewritten only at the commit point),
         * so the pre-call weighting state is restored exactly.
+        *
+        * A rollback that itself fails leaves the data in a state that matches
+        * NO contract -- the previous weights half-restored under names the
+        * stored specification still claims. That is strictly worse than the
+        * error that caused it, and it used to be invisible: the rename's return
+        * code was captured into a local nobody read. It is now reported. The
+        * PRIMARY return code is still the one that propagates -- the user needs
+        * to know why the command failed, not merely that cleaning up after it
+        * also failed -- but they are told, loudly, that the data is not intact.
+        local __iivw_rollback_failed ""
         foreach v of local __iivw_created_vars {
             capture drop `v'
-            local __iivw_drop_rc = _rc
+            if _rc local __iivw_rollback_failed "`__iivw_rollback_failed' `v'(not dropped)"
         }
         local __iivw_bi = 0
         foreach g of local __iivw_bk_names {
@@ -1545,6 +1702,15 @@ program define iivw_weight, rclass sortpreserve
             local __iivw_bt : word `__iivw_bi' of `__iivw_bk_temps'
             capture drop `g'
             capture rename `__iivw_bt' `g'
+            if _rc local __iivw_rollback_failed "`__iivw_rollback_failed' `g'(not restored)"
+        }
+        if "`__iivw_rollback_failed'" != "" {
+            display as error ""
+            display as error "iivw_weight: ROLLBACK FAILED -- the data in memory is not intact"
+            display as error "  could not restore:`__iivw_rollback_failed'"
+            display as error ""
+            display as error "  Do not analyze this dataset. Reload it from disk."
+            display as error "  (The command's own failure, reported above, is the return code.)"
         }
     }
     set varabbrev `__iivw_old_varabbrev'

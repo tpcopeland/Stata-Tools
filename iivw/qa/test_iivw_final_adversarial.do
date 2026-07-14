@@ -170,12 +170,30 @@ if `run_only' == 0 | `run_only' == 3 {
         _final_panel, seed(10003)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
-        * Pre-existing _iivw_tns1 should block without replace
+        * ---------------------------------------------------------------
+        * UPDATED FOR 3.0.0. This block used to assert that `replace' DESTROYED
+        * an unowned `_iivw_tns1 = 999' (it checked `r(max) < 999'), which is
+        * blocker #10 written as a passing test. `replace' now overwrites only a
+        * column iivw can prove it created.
+        * ---------------------------------------------------------------
+
+        * Pre-existing UNOWNED _iivw_tns1 blocks with or without replace
         gen double _iivw_tns1 = 999
         capture iivw_fit y severity, timespec(ns(1)) nolog
         assert _rc == 110
 
-        * With replace, it should succeed and overwrite
+        capture iivw_fit y severity, timespec(ns(1)) replace nolog
+        assert _rc == 110
+        quietly summarize _iivw_tns1
+        assert r(min) == 999 & r(max) == 999
+
+        * Drop the impostor: iivw_fit now creates and owns the basis itself,
+        * and replace overwrites its own output.
+        drop _iivw_tns1
+        iivw_fit y severity, timespec(ns(1)) nolog
+        confirm variable _iivw_tns1
+        assert "`: char _iivw_tns1[_iivw_owner]'" == "iivw|_iivw_|design|2"
+
         iivw_fit y severity, timespec(ns(1)) replace nolog
         confirm variable _iivw_tns1
         quietly summarize _iivw_tns1

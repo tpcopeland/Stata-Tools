@@ -230,27 +230,58 @@ if r(min) < 0.5 {
 
 display as text _newline "SCALING: slope of log(median x) on log(n), per lane"
 display as text "  linear scan => ~1.0    expanded (n x K) weight matrix => ~2.0"
-display as text _newline "strata     runtime slope    memory slope   verdict"
+display as text _newline ///
+    "strata     runtime slope    memory slope    KB per obs   verdict"
 
 local fail = 0
-levelsof groups, local(GS)
+quietly levelsof groups, local(GS)
 foreach g of local GS {
     quietly regress logt logn if groups == `g'
     local ts = _b[logn]
     quietly regress logm logn if groups == `g'
     local ms = _b[logn]
 
+    * Marginal memory per observation, between the smallest and largest n in the
+    * lane.  The peak-RSS INCREMENT carries a fixed offset (the Mata engine, the
+    * tempvars) that does not scale with n -- measured at ~15 MB -- so a log-log
+    * slope on it is biased DOWNWARD, and the more of the n-proportional cost you
+    * remove the more the offset dominates.  Dropping the K-row e(basehaz) matrix
+    * (and its K auto-generated dimension names) removed exactly such a term and
+    * pushed this slope from 0.95 to 0.58 while memory FELL at every n.  The
+    * per-observation marginal cost is the offset-free view: it was flat across
+    * consecutive doublings (0.286, 0.285, 0.319 KB/obs in lane 1).
+    quietly summarize nn if groups == `g'
+    local _nlo = r(min)
+    local _nhi = r(max)
+    quietly summarize kb_incr if groups == `g' & nn == `_nlo'
+    local _kblo = r(mean)
+    quietly summarize kb_incr if groups == `g' & nn == `_nhi'
+    local _kbhi = r(mean)
+    local kb_per_obs = (`_kbhi' - `_kblo') / (`_nhi' - `_nlo')
+
     local ok_t = (`ts' >= 0.8 & `ts' <= 1.3)
-    local ok_m = (`ms' >= 0.8 & `ms' <= 1.2)
+
+    * The memory gate is ONE-SIDED, and deliberately so.  Its stated failure mode
+    * is the n x K expansion this package exists to avoid, which shows up as a
+    * slope of ~2 -- a slope BELOW 1 cannot mean expansion, it means memory grew
+    * more slowly than the data.  The old two-sided band was also serving, by
+    * accident, as a "did we measure anything at all" tripwire; that job now goes
+    * to an explicit check that memory actually grows with n, which is what a dead
+    * or mis-wired measurement (a constant, or zero) would fail.
+    local ok_m = (`ms' <= 1.2) & (`kb_per_obs' > 0.02)
 
     if `ok_t' & `ok_m' {
-        display as result %6.0f `g' %17.2f `ts' %15.2f `ms' "   PASS (linear)"
+        display as result %6.0f `g' %17.2f `ts' %15.2f `ms' ///
+            %16.3f `kb_per_obs' "   PASS (linear)"
     }
     else {
         local why ""
         if !`ok_t' local why "`why' runtime outside [0.8, 1.3];"
-        if !`ok_m' local why "`why' memory outside [0.8, 1.2];"
-        display as error %6.0f `g' %17.2f `ts' %15.2f `ms' "   FAIL:`why'"
+        if `ms' > 1.2 local why "`why' memory slope > 1.2 (superlinear);"
+        if `kb_per_obs' <= 0.02 ///
+            local why "`why' memory does not grow with n (dead measurement?);"
+        display as error %6.0f `g' %17.2f `ts' %15.2f `ms' ///
+            %16.3f `kb_per_obs' "   FAIL:`why'"
         local fail = 1
     }
 }

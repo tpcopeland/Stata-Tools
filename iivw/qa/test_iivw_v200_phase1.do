@@ -329,8 +329,11 @@ capture noisily {
     * Knock out xdenom for a quarter of the subjects.
     quietly replace xdenom = . if mod(pid, 4) == 0
 
+    * xdenom is deliberately blanked for a quarter of the subjects above, so
+    * those rows get no weight. From 3.0.0 that is an error unless acknowledged;
+    * this test is ABOUT the rows that get no weight, so it acknowledges it.
     quietly iivw_weight, id(pid) time(vtime) visit_cov(z xdenom) ///
-        stabcov(xstab) censor(cens) nolog
+        stabcov(xstab) censor(cens) allowmissingweights nolog
     local n_den = r(visit_N)
     local n_num = r(stab_N)
 
@@ -384,8 +387,10 @@ capture noisily {
     bysort pid: gen double vtime = _n - 1
     sort pid vtime
 
+    * xt is deliberately missing for pid<=5, so those subjects get no
+    * propensity score and no weight -- which is exactly the point of the test.
     quietly iivw_weight, id(pid) time(vtime) treat(tx) treat_cov(xt) ///
-        wtype(iptw) nolog
+        wtype(iptw) allowmissingweights nolog
 
     local prev = r(ps_prevalence)
     local psn  = r(ps_N)

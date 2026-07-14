@@ -1,0 +1,320 @@
+# `iivw` — Method Contract
+
+**Status:** Phase 0 gate artifact. **Not a release approval.**
+**Written:** 2026-07-14 · **Package version inspected:** 2.0.0
+**Governing plan:** the `iivw` finalization plan, held in the development repository.
+
+This file is the single place where every supported calculation is mapped to **the source that grounds
+it**, **the equation in that source**, **the code path that implements it**, and **the QA oracle that
+proves it**. A calculation that cannot fill all four columns is not reliability-cleared, and this file
+says so out loud rather than leaving the gap for a reader to discover.
+
+Every source cited here was **fetched and read**; each row points at a page, section, or equation. The
+literature corpus and its provenance index are held in the development repository. Nothing in this file is
+written from recall.
+
+---
+
+## 0. Reliability status in one line
+
+**`iivw` 2.0.0 computes the right point estimates and the wrong standard errors, by its own authors'
+admission, and its default inferential path is the wrong one.** The weights are correct and externally
+verified. The default variance treats estimated weights as known; **both** source papers derive, and
+recommend, the variance that does not. Until Phase 3 lands, no `iivw` interval or p-value is cleared for
+inferential use.
+
+---
+
+## 1. The trust boundary
+
+The first reliable release will support and claim **only** the following. Anything outside this list must
+error, or be conspicuously quarantined as experimental/legacy — it must never return an ordinary-looking
+estimate under a general reliability claim.
+
+| Supported | Not supported (must error or be quarantined) |
+|---|---|
+| Marginal Gaussian / binomial / Poisson outcome means via the independence-GEE estimating equation | Time-varying treatment |
+| IIW for irregular observation under a documented at-risk window (`censor()` or `maxfu()`) | Informative dropout without a separate IPCW model |
+| Baseline = study entry by default; `baseline(event)` only under a validated design | Multilevel weighted random-effects variance components (`model(mixed)`) |
+| Baseline, **binary, subject-constant** treatment for IPTW / FIPTIW | ATT, ATC, multi-arm, or continuous treatment |
+| Subject-level analysis and **subject-level** bootstrap | Higher-level cluster resampling |
+| Visit-model covariates observed **before** the visit they predict, incl. correctly reconstructed `lagvars()` | Concurrent (same-visit) outcome-related covariates in `visit_cov()` |
+| Stabilization **only** when its numerator is a function of the actual outcome-model design | Causal interpretation of `iivw_diagnose`'s package-original shares |
+| Inference that **propagates weight-estimation uncertainty** | Fixed-weight SEs presented as the package's valid IIW/FIPTIW SE |
+
+---
+
+## 2. The two numerator rules — do not conflate them
+
+This is the correction Phase 0 forced, and it changes the plan. `iivw` has **two** weight numerators, and
+they obey **two different rules from two different sources**. The finalization plan (blocker #4) treats
+them as one problem. They are not.
+
+| Numerator | The rule | Source | `iivw` status |
+|---|---|---|---|
+| **IPTW** `g[A]` | must be **a function of `A` only, never of `L`** | *What If*, **Technical Point 12.2, p.155**: "`g[A]` is any function of `A` that is not a function of `L`" | ✅ **Correct by construction.** `iivw` uses the marginal `Pr[A=1]` (`iivw_weight.ado:1076-1080`), computed subject-level on the logit's own `e(sample)`. A function of `A` alone. **Needs no outcome-design check.** |
+| **IIW** `h(X)` | must be **a deterministic function of the outcome-model covariates `X(t)`** | **B&L p.7** (immediately after eq. 6) and **p.10** (the unbiasedness proof conditions on `X`); restated by **Tompkins p.5** and **p.20**; the IPTW-side statement is **Cole & Hernán, Appendix 1**: numerator covariates "must be included" in the weighted model | ❌ **Unenforced.** `stabcov(varlist)` accepts *any* varlist. `iivw_fit` reads the stored `stabcov` only to replay it in the bootstrap and **never checks it against the outcome design**. Defect **IIVW-B04**. |
+
+**Consequence:** the Phase-2 "enforce valid stabilization" work applies to `stabcov()` / the IIW numerator
+**only**. The IPTW numerator is already right, and a "fix" there would be a regression. This also closes
+the old clarity finding C7 ("prevalence computed on the wrong sample") — it is computed on the right
+sample, and `iivw_weight.ado:1069-1078` carries a correct comment explaining why.
+
+---
+
+## 3. The calculation map
+
+Legend — **Cleared**: source + code + independent oracle all agree, and the oracle has run.
+**Grounded, unproven**: formula matches the source, but no independent oracle proves the implementation.
+**Defect**: code and source disagree. **Unsourced**: no source grounds it.
+
+### 3.1 IIW — inverse-intensity weight (Bůžková & Lumley)
+
+| Item | Value |
+|---|---|
+| **Source** | Bůžková P, Lumley T. *Canadian Journal of Statistics* 2007;35(4):485–500. Local copy = the UW Biostat WP #262 preprint; **page numbers below are the preprint's.** |
+| **Estimand** | Marginal GLM `g(µ_i(t)) = β₀ᵀX_i(t)`, eq. (1) p.5 — the expectation does **not** condition on the observation times (p.7). |
+| **Visit model** | Marginal **proportional rate** model `E[dN*_i(t)\|Z_i(t)] = exp{γ₀ᵀZ_i(t)}dΛ₀(t)`, eq. (2) p.6. `Z` and `X` may be arbitrary and different — that is the paper's whole point vs. D. Lin & Ying (2001). |
+| **Weight (unstabilized)** | `w_i(t) = exp{−γᵀZ_i(t)}` — the inverse of `ρ` in eq. (6), p.7. Baseline `Λ₀` **cancels** (rate *ratio*), which is why `predict, xb` after `stcox` suffices and no baseline is ever estimated. |
+| **Weight (stabilized)** | `w_i(t) = exp{δ̂ᵀX_i(t) − γ̂ᵀZ_i(t)}`, with `δ` from a **second** proportional-rate model on the **outcome-model covariates** (p.8). |
+| **Code** | `iivw_weight.ado:856-876`. Unstabilized `gen double iw = exp(-xb_full)` (:876); stabilized `gen double iw = exp(xb_stab - xb_full)` (:873) after a second `stcox stabcov` (:867). |
+| **Status** | ✅ **Cleared** for the formula. Matches IrregLong's `iiw.weights` exactly (`reference-software.notes.md`, source read 2026-07-13), and `crossval_iivw_irreglong` requires **exact** agreement on the visit-model coefficient and observed-visit weights. ⚠️ The **stabilized** branch is *grounded but unenforced* — see §2. |
+
+### 3.2 The risk set — the load-bearing line, and 2.0.0's biggest repair
+
+| Item | Value |
+|---|---|
+| **Source** | **B&L p.7 and eq. (8) p.8: `ξ_i(t) = I(C_i > t)`**, where `C_i` is drop-out or end of follow-up τ, whichever is first. It is **not** an indicator of having a future visit. In B&L's own HUD-VASH analysis they set `C_i = τ = 48 months` for all 460 subjects (p.13) precisely so nobody leaves the risk set early. Corroborated: Tompkins p.5 (`I(C_i ≥ t)`); Coulombe's DGP censors at `C_i ~ U(τ/2, τ)` (§3.3), strictly before the horizon and *not* at the last visit. |
+| **Why it matters** | If follow-up ends at each subject's **last visit**, risk-set membership becomes a function of the very process being modelled. Measured attenuation of `γ̂` was **≈26%**. |
+| **Code** | `iivw_weight.ado:777-800`. Appends an `_event = 0` censoring row over `(last visit, C]` — copying the last visit row so every covariate carries forward — exactly what IrregLong's `addcensoredrows()` builds before it ever calls `coxph`. Gated by `censor()` / `maxfu()`; `endatlastvisit` restores the old (wrong) behaviour. |
+| **Status** | ✅ **Cleared.** This is defect **IIVW-B01**, fixed in 2.0.0 and verified against IrregLong with `maxfu(384)`. **Preserve this behaviour through every later phase.** |
+| **Contract** | `censor()`/`maxfu()` is **required** for a reliability-cleared IIW/FIPTIW result. `endatlastvisit` is a **legacy sensitivity mode**: it must not appear in a primary worked example or in the primary recovery gate. |
+
+### 3.3 IPTW — stabilized, binary, point treatment
+
+| Item | Value |
+|---|---|
+| **Source** | **Hernán & Robins, *Causal Inference: What If*, §12.3, p.153** (free pre-publication draft, 2019-11-10, now in the corpus). *Not* Coulombe and *not* Tompkins — **both write the treatment weight unstabilized** (Coulombe eq. 3.13). Robins/Hernán/Brumback (2000) remains unread and is **no longer load-bearing**. |
+| **Estimand** | **ATE.** §12.3 p.154: the causal difference `E[Y^{a=1}] − E[Y^{a=0}]`, fitted as a weighted `E[Y\|A] = θ₀ + θ₁A`. **Technical Point 12.2 (p.155) proves** the IP-weighted mean equals the counterfactual mean `E[Y^a]`. |
+| **Weight** | `SW^A = f(A)/f(A\|L)`; per arm (p.153, verbatim): "`Pr[A=1]/f(A\|L)` for the treated and `Pr[A=0]/f(A\|L)` for the untreated". |
+| **Code** | `iivw_weight.ado:1155-1158` — `tw = p_treat/ps` if `treat==1`; `tw = (1-p_treat)/(1-ps)` if `treat==0`. `ps` from `logit treat treat_cov` on one row per subject (`:1066`); `p_treat` = subject-level marginal prevalence on that logit's own `e(sample)` (`:1080`). |
+| **Status** | ✅ **Grounded and correct** — exact match to the source, including the numerator rule (§2). Estimand grounded and **proved** in-source. ⚠️ **Not yet independently oracled**: no crossval verifies stabilized ATE IPTW against an independent implementation on one-row-per-subject data (Phase 2 owes this). |
+| **Boundary** | The **ATT** needs a *different* numerator (`p = Pr[A=1\|L]`, *What If* Technical Point 4.1, flagged in the p.153 margin). `iivw` does not implement it. **Do not broaden to ATT/ATC/multi-arm/time-varying** — this source does not cover them. |
+
+### 3.4 FIPTIW — the product weight
+
+| Item | Value |
+|---|---|
+| **Source** | **Coulombe J, Moodie EEM, Platt RW. *Biometrics* 2021;77(1):162–174** — the **origin of FIPTIW** (the authors call it FIPTM). Cited **nowhere** in the package before the 2026-07-13 backfill; Tompkins, whom the package credited, attributes it to Coulombe at their p.2 and p.6 (defect **IIVW-B03**). Local copy = the accepted manuscript as Ch.3 of Coulombe's McGill thesis; **cite the chapter's eq. numbers and PDF pages, never the journal pages.** |
+| **Weight** | Product of the inverse monitoring intensity and the IPTW: `e_i(t;ω)/φ_i(t;γ_V)`, eq. (3.14) PDF p.85–86. Tompkins eq. (5) p.6 restates it as the plain product IPTW × IIW. |
+| **Code** | `iivw_weight.ado:1172` — `gen double weight = iw * tw`. ✅ matches. |
+| **⚠ Treatment MUST be in the visit-intensity model** | **Coulombe eq. (3.12), PDF p.85: `φ_i(t;γ_V) = exp(γ₁ᵀZ_i(t) + γ₂ I_i(t))`** — the treatment `I_i(t)` is *inside* the monitoring-intensity model. |
+| **Status** | ❌ **DEFECT (plan blocker #5).** `iivw_weight` builds the denominator from `visit_cov()` + generated lags and **never adds `treat()`**. Several shipped examples and recovery scenarios omit treatment from `visit_cov()`, so **they cannot detect this.** Phase 2 must add it by construction. |
+| **Also undocumented** | Coulombe's spline intercept default is **2 knots at the tertiles of `t`** (p.85) — `iivw_fit`'s `timespec(ns(#))` does not mention this default. |
+
+### 3.5 Outcome estimating equation
+
+| Item | Value |
+|---|---|
+| **Source** | **B&L eq. (11), p.9.** Under a canonical link it collapses to `Σ_i ∫ W(t) X_i(t)[Y_i(t) − µ_i(t;β)](1/ρ_i)dN_i(t)` — an **independence-working-correlation GEE weighted by `1/ρ`**. |
+| **Code** | `iivw_fit` → `glm ... [pw=w], vce(cluster id)`, which is algebraically the independence GEE with robust SEs (the code says so at `iivw_fit.ado:942-944`). ✅ matches. |
+| **Note** | B&L's optional time-weighting `W(t)` (p.9) is absent from `iivw`; `W(t) ≡ 1` is a **permitted special case, not a defect**. |
+| **Status** | ✅ **Grounded** for the point estimate. The **variance** is a different story — see §3.6. |
+
+### 3.6 Variance — the release blocker
+
+| Item | Value |
+|---|---|
+| **What the code does** | Default: fixed-weight cluster-robust sandwich (`vce(cluster id)`). `bootstrap(#)` **without** `refitweights` **also holds the weights fixed**. |
+| **What B&L do** | **p.10–11.** The asymptotic variance `D⁻¹VD⁻¹` residualises the outcome score against the **visit-model score** before squaring: `V̂ = (1/n)Σ_i[Û_i − ĤÂ⁻¹∫(Z_i(t) − Z̄(t;γ̂))dM̂_i(t)]^⊗2`. In the authors' own words (p.11): **"We account for estimation of γ₀ by including the second term on right-hand side."** A plain fixed-weight sandwich is the **first term only** — it drops the `ĤÂ⁻¹(...)` correction entirely. |
+| **What Coulombe does** | **PDF p.86, verbatim:** the asymptotic variance is computed "with the components of variance due to the weights **incorporated into the sandwich estimator using theory on two-step estimators (Newey and McFadden [1994])**." |
+| **Status** | ❌ **DEFECT IIVW-B02 (plan blocker #1).** **Neither source paper for either of `iivw`'s two weights endorses a fixed-weight sandwich.** Neither says ignoring weight estimation is conservative. (Grep B&L's full text for "conservative", "ignor", "as known", "fixed weight": the only hit is the p.11 sentence above.) |
+| **Documentation** | ✅ **Honest, and already repaired in 2.0.0.** `iivw_fit.sthlp` now states plainly: "**This understates uncertainty.** Both source papers derive a variance that absorbs the weight-estimation term", naming B&L and Coulombe, and points at `bootstrap(#) refitweights`. The 1.x text that called the fixed-weight sandwich "the common approach in the IIW literature (Buzkova & Lumley 2007)" — citing that paper for the very practice its §3.3 exists to correct — **is gone**; the only surviving occurrence is the README changelog entry recording its removal. *(Verified by grep 2026-07-14. The `buzkova-lumley-2007.notes.md` claim that this misattribution is live at `iivw_fit.sthlp:281-284` is **stale** — it predates the 2.0.0 doc repair.)* **The docs are not the defect here. The code is.** |
+| **Consequence** | Fixed-weight R/Stata SE parity proves only that **both programs computed the same incomplete variance.** It is not evidence of valid inference. |
+| **Contract** | Phase 3: the **subject bootstrap that refits all nuisance models** becomes the default inferential path, under an explicit `vce()` contract. Fixed-weight survives only behind `vce(fixed)` + an acknowledgment, and may never be described as the package's valid IIW/FIPTIW SE. |
+
+### 3.7 Balance target (`iivw_balance`)
+
+| Item | Value |
+|---|---|
+| **The identity being checked** | `E[Σ_visits w_ij g(Z_ij)] = E[∫ ξ_i(t) g(Z_i(t)) dΛ₀(t)]` — the IIW-weighted visit mean equals the mean over **at-risk person-time, in `dΛ₀` units**. `iivw_balance.ado:383-393` states this correctly and it is the right null for the **unstabilized** weight `w = exp(−γᵀZ)`. |
+| **Code — observed side** | ✅ Correct. `iivw_balance.ado:575-588` forms `exp(xb_stab − xb_full)` when `stabcov()` is present, `exp(-xb_full)` otherwise. |
+| **Code — target side** | ❌ **DEFECT (plan blocker #7).** The at-risk target is weighted by **`dΛ₀` alone** (`:604-615`, `predict, basechazard`), with **no `h(X)` factor**. |
+| **Why that is wrong** | With a stabilized weight `w = h(X)exp(−γᵀZ)`, the identity becomes `E[Σ w g] = E[∫ ξ h(X) g dΛ₀]`. The target must be weighted by **`h(X)dΛ₀`**. The present formula is correct **only** when the numerator is constant (or happens to cancel for the tested moment). |
+| **Status** | ❌ Defect. The observed weight is stabilized; the target it is compared against is not. Phase 4 fixes the target to `h(X)dΛ₀` for both target means **and** target variances. |
+| **Credit where due** | The command already **refuses to issue a verdict** when the nuisance model did not converge (`:739-749`), with an excellent comment: *"'good' here would be the most dangerous output the command can produce."* That instinct is right and must be extended to the stabilized case until the target is fixed. |
+
+### 3.8 Truncation (`truncate()`)
+
+| Item | Value |
+|---|---|
+| **Sources** | **Tompkins §4.4, p.12–13:** the 95th-percentile trimming recommendation, and the finding that trimming helps **only for IPTW-side extremes** — it did **not** repair visit-model misspecification. **Cole & Hernán, §Weight truncation:** truncation is a **bias–variance tradeoff**, explored by *progressively* truncating; "one can see the **growing bias** as the weights are progressively truncated." |
+| **Code** | `iivw_weight.ado:1205-1219` — `_pctile` on the **final product**, then clips it. |
+| **Status** | ❌ **DEFECT (plan blocker #8).** A generic final-product clip is applied **after** both components are formed, so it (a) cannot report *which* component moved, (b) has no unambiguous statistical target, and (c) leaves `iivw_balance` describing the **untruncated** IIW rather than the analysis weight. |
+| **Contract** | **The default supported analysis is untruncated IIW.** Truncation becomes component-specific (treatment / visit / final), is reported over a progression, always carries the bias warning, and is **never** described as a remedy for misspecification. |
+
+### 3.9 `iivw_exogtest`
+
+| Item | Value |
+|---|---|
+| **Source** | **B&L assumption (4), eq. (4) p.6:** `E[dN*_i(t)\|Z_i(t),X_i(t),Y_i(t),C_i ≥ t] = E[dN*_i(t)\|Z_i(t)]` — visit timing depends on `Y`, `X`, `C` only through `Z`. |
+| **Status** | ✅ The command's target **is** eq. (4). Keep it explicitly as a **falsification diagnostic**. |
+| **Hard rule** | Failure to reject is **not** proof of exogeneity. No output string may imply it is. |
+
+### 3.10 Unsourced surfaces — quarantine
+
+| Surface | Problem |
+|---|---|
+| **`iivw_diagnose`** | Its sampling/artifact **shares are original to this package**. No source. "Share", "point decomposition", and "bounds" are causal language with nothing behind them. A user-supplied `exogeneity(exogenous)` label flips a "diagnostic range" into a "point decomposition" — **a label is not evidence that exogeneity holds.** Quarantine (Phase 4). |
+| **Weighted `model(mixed)`** | Not a valid weighted random-effects estimator. `experimentalmixed` is an honest warning, but a public path that prints ordinary variance components is easy to overread. **Cannot be in the cleared surface.** |
+| **ESS thresholds (`iivw_balance`)** | `ESS = (Σw)²/Σw²` is attributed to **Kish (1965)** — a book we do **not hold** (corroborated across secondary sources; never read). The **thresholds** built on it are package conventions with **no source**, and the help now says so. |
+| **The 0.10 balance threshold** | A **convention**, not proof of correct visit-model specification. |
+
+---
+
+## 3.11 Option classification — all 109 public options
+
+Gate 0 requires that **every** public option be inside the supported contract, explicitly legacy, or
+explicitly experimental. Classifying only the headline options is not enough: the gaps are where the
+damage hides. `S` = supported · `L` = legacy · `X` = experimental/quarantined · `D` = defective (open) ·
+`C` = cosmetic (no statistical content).
+
+**`iivw_weight` (19)**
+
+| Option | | Note |
+|---|---|---|
+| `id` `time` `visit_cov` `treat` `treat_cov` `wtype` `entry` `baseline` `lagvars` | **S** | Core contract. `baseline(event)` is **S-restricted**: valid only under a design where the first visit is genuinely part of the monitored process. |
+| `censor` `maxfu` | **S** | **Required** for a cleared IIW/FIPTIW result (§3.2). |
+| `endatlastvisit` | **L** | Reproduces defect IIVW-B01. Never in a primary example or the primary recovery gate. |
+| `stabcov` | **D** | Unchecked against the outcome design (§2, IIVW-B04). |
+| `truncate` | **D** | Final-product clip only (§3.8, IIVW-B07). |
+| **`efron`** | **S** | **Tie method — statistically load-bearing, and previously unclassified.** Must be part of the replay contract: a bootstrap draw that changes the tie handling is bootstrapping a different estimator. |
+| **`allownonconverged`** | **X** | **Previously unclassified.** Lets a nuisance model that does **not solve its estimating equation** through. `exp(−γ̂ᵀZ)` is then not the IIW weight and no downstream null holds. `iivw_balance` already refuses a verdict in this state (`:739-749`) — **correct, and that refusal must extend to every consumer.** Cannot be part of a cleared result. |
+| `generate` `replace` `log` | **C** | Naming/verbosity. (`replace` has an *ownership* defect — plan blocker #10 — but no statistical content.) |
+
+**`iivw_fit` (22)**
+
+| Option | | Note |
+|---|---|---|
+| `model(gee)` `family` `link` `id` `time` `level` | **S** | Core (§3.5). |
+| `cluster` | **S-restricted** | Subject level only. A higher-level cluster design needs its own resampling/nuisance theory and must error until validated. |
+| `bootstrap` `refitweights` | **D** | The only corrective inferential path, and it is defective (`lagvars()` replay, state corruption). §3.6. |
+| `categorical` `basecat` `interaction` `timebasecat` | **S** | Outcome-design construction. **Load-bearing for §2:** the stabilization check must map `stabcov()` against the design *after* these expand. |
+| **`timespec`** | **S** | **Previously unclassified.** This is Coulombe's spline intercept `α(t)`. His default is **2 knots at the tertiles of `t`** (PDF p.85) — `iivw` does not document that default. |
+| `unweighted` | **S** | The naive comparator. Essential to the recovery grid — it is the estimator that must *miss* when the DGP bites. |
+| `allownonconverged` | **X** | As above. |
+| `experimentalmixed` `mixedopts` | **X** | Not a valid weighted random-effects estimator (§3.10). |
+| **`geeopts`** | **X** | **Previously unclassified — and it is an escape hatch inside the variance blast radius.** It is appended **raw** to the `glm` call *after* `vce(cluster ...)` (`iivw_fit.ado:1101`), so `geeopts(vce(robust))` can silently override the variance the package believes it is computing. **Must not be able to alter `vce()` in a cleared run**: either strip/reject `vce` inside `geeopts()`, or mark any run using it as uncleared and record it in `e()`. |
+| `log` `replace` `collect` | **C** | |
+
+**`iivw_balance` (21)** — `component` **S** · `agrefit` **S** · `balcut` `cvcut` `essratiocut` **X** (thresholds are package conventions with **no source**; the 0.10 cut is a convention, not proof) · `level` `log` `efron` **S** · the 13 `xlsx`/styling options **C**.
+The **stabilized target itself is D** (§3.7, IIVW-B06), independent of any option.
+
+**`iivw_exogtest` (26)** — `id` `time` `adjust` `by` `bystart` `entry` `censor` `maxfu` `generate` `efron` `level` **S** (falsification diagnostic, §3.9) · `endatlastvisit` **L** · `log` `replace` + the 13 styling options **C**.
+**Hard rule:** failure to reject is not proof of exogeneity, whatever the option combination.
+
+**`iivw_diagnose` (21)** — **the whole command is X** (§3.10; package-original shares, no source).
+Two options need naming because they are the sharp edges:
+| Option | | Note |
+|---|---|---|
+| **`exogeneity`** | **X** | A user-supplied *label* flips a "diagnostic range" into a "point decomposition". **A label is not evidence that exogeneity holds.** |
+| **`force`** | **X** | **Previously unclassified.** Bypasses the comparability gate (`iivw_diagnose.ado:185,203`) — it lets **incomparable** estimates through. Under a quarantined, unsourced command this is the most overreadable switch in the package. |
+
+`unweighted` `weighted` `adjusted` `estimand` `true` **X** · `level` `log` + styling **C**.
+
+> **Net:** of the 109 options, ~60 are cosmetic export/styling and carry no statistical content. Of the
+> remainder, this pass found **five statistically load-bearing options that no prior artifact
+> classified**: `efron`, `allownonconverged` (×2), `timespec`, `geeopts`, and `force`. **`geeopts` is the
+> serious one** — it can silently change the variance estimator, which is the exact quantity the release
+> blocker is about.
+
+---
+
+## 4. Phase-0 decisions (no "typical", no "usually")
+
+1. **Supported estimand:** stabilized **binary baseline-treatment ATE only**. Grounded in *What If* §12.3 + Technical Point 12.2. ATT/ATC/multi-arm/time-varying are **out** and must error — no source in the corpus covers them.
+2. **Supported visit model:** Andersen–Gill with **baseline entry** and **observed follow-up end** (`censor()`/`maxfu()` required). `endatlastvisit` = legacy sensitivity only. `baseline(event)` = design-specific, requires an explicit validated design in which the first observed visit is genuinely part of the monitored visit process.
+3. **Supported outcome estimator:** independence GEE (B&L eq. 11).
+4. **Supported inference:** **subject bootstrap with nuisance-model refitting.** This is the default for the first reliable release. Fixed-weight is opt-in only.
+5. **Treatment is automatically included in the FIPTIW visit denominator** (Coulombe eq. 3.12). An opt-out, if retained, is experimental and cannot carry a cleared FIPTIW label.
+6. **Stabilization must be validated against the fitted outcome design** — the **IIW numerator only** (§2). The IPTW numerator is already correct and must not be "fixed".
+7. **Truncation is component-specific**, off by default, and reported as a sensitivity analysis with its bias acknowledged.
+8. **`iivw_diagnose` and weighted `model(mixed)` are experimental/descriptive**, not reliability-cleared.
+
+---
+
+## 5. Free, exact oracles this contract hands to QA
+
+Four checks that need **no external software**, are **hand-verifiable**, are **sourced**, and are **not in
+`iivw`'s QA today**. Cheapest correctness evidence available:
+
+1. **`Z ⊆ X` ⇒ stabilized IIW ≡ unweighted.** B&L p.8: when the visit covariates are a subset of the
+   stabilization covariates, the stabilized weight "equals one for all individuals at all times" under
+   assumption (4). Tompkins p.5 states the same. ⇒ `visit_cov()` ⊆ `stabcov()` must return weights that
+   are **all 1.0** to numerical tolerance.
+2. **Saturated-model equivalence.** *What If* §12.3 p.154: stabilized and unstabilized IPTW give the
+   **same point estimate** when the weighted outcome model is saturated. ⇒ binary `treat()`, outcome model
+   `Y ~ treat` alone: `θ̂₁` identical to tolerance under `wtype(iptw)` with and without stabilization.
+3. **Mean-one.** *What If* §12.3 p.153 ("expected to be 1") and **Cole & Hernán, §Correct model
+   specification: "a necessary condition for correct model specification is that the stabilized weights
+   have a mean of one"**. ⇒ assert `mean(_iivw_tw) ≈ 1`. Necessary, **not sufficient** — no verdict may
+   read the converse. **Use the self-calibrating `4·SD_subj(w)/√n_subjects` band from
+   `qa/TOLERANCE_FRAMEWORK.md`, never a fixed absolute number**: a fixed `0.02` band false-reds on 35% of
+   *correct* runs at n=60 (measured 2026-07-14). `_iivw_tw` is subject-constant, so `n` is **subjects**.
+4. **Coulombe's DGP is a published known-truth fixture.** §3.3, PDF p.87–88: complete, reproducible,
+   **true treatment effect = 1**, and its censoring `C_i ~ U(τ/2, τ)` makes the risk-set question
+   unavoidable by construction. Steal it wholesale for the Phase-2 recovery grid.
+
+---
+
+## 6. Defect register (as grounded by this contract)
+
+| ID | Defect | Source that proves it | Plan blocker |
+|---|---|---|---|
+| **IIVW-B01** | Risk set truncated at last visit | B&L p.7 `ξ_i(t)=I(C_i>t)`; IrregLong `addcensoredrows()` | ✅ **FIXED in 2.0.0** |
+| **IIVW-B02** | Default variance treats estimated weights as known | B&L p.10–11; Coulombe PDF p.86 | #1 — **open, blocking** |
+| **IIVW-B03** | FIPTIW attributed to Tompkins, not Coulombe | Tompkins p.2, p.6 | ✅ fixed at backfill |
+| **IIVW-B04** | `stabcov()` not checked against the outcome design | B&L p.7, p.10; Cole & Hernán App. 1 | #4 — **open** |
+| **IIVW-B05** | Treatment absent from the FIPTIW visit model | Coulombe eq. 3.12 | #5 — **open** |
+| **IIVW-B06** | Stabilized balance target omits `h(X)` | derived from B&L eq. 6 + the balance identity | #7 — **open** |
+| **IIVW-B07** | `truncate()` clips the final product only | Tompkins §4.4; Cole & Hernán §Weight truncation | #8 — **open** |
+| **IIVW-B08** | **`geeopts()` can silently override `vce()`** — appended raw after `vce(cluster ...)` at `iivw_fit.ado:1101` | Found at the Gate-0 review, 2026-07-14. Not in the finalization plan | **NEW — open.** Inside the variance blocker's blast radius |
+
+### State-contract defects — closed by Phase 1 (2026-07-14)
+
+These five are the plan's blockers #2, #3, #9, #10 and #11. Each is now a regression test that **fails on 2.0.0 and passes on 3.0.0**; the "proved by" column names the test and the measured old-code failure.
+
+| ID | Defect | Proved by (old-code behaviour measured 2026-07-14) | Status |
+|---|---|---|---|
+| **IIVW-B09** | `refitweights` did not replay `lagvars()`: the precomputed `*_lag1` columns were passed through `visit_cov()`, so lags were never rebuilt inside a resampled subject and the terminal censoring row carried the value from **two visits back** | `test_iivw_replay.do` T1. The **identity draw** — resample every subject exactly once — disagreed with the observed weights by **max reldif 2.24e-01**. It is now **0.00e+00** | ✅ **FIXED in 3.0.0** |
+| **IIVW-B10** | The bootstrap snapshotted a hand-maintained **list** of `_dta[]` characteristics; three fields were missing from it, so a *successful* `refitweights` run blanked `_iivw_lagvars` and `_iivw_wsig` — and `_iivw_check_weighted` still returned 0, because the guard's own evidence had been erased by the same bug | `test_iivw_state_contract.do` T1–T2. Both halves now discover the namespace from the data, so all **22** contract fields survive | ✅ **FIXED in 3.0.0** |
+| **IIVW-B11** | The stale-weight signature bound only the final weight, the id/time key, and the *generated* visit-covariate list. Editing `treat()`, editing a `treat_cov()` value, corrupting `_iivw_iw` while leaving the product alone, appending a row, or tampering with the stored spec **all returned rc 0** | `test_iivw_stale_state.do`, 17 mutations. The signature now binds every consumed input, every owned output, and the specification. Two specificity tests confirm a harmless re-sort still passes | ✅ **FIXED in 3.0.0** |
+| **IIVW-B12** | Output ownership was **inferred from a name**: an existing `_iivw_*` variable that was not a current input was assumed to be a prior package output. A user's own `_iivw_weight = 99` column was backed up and **discarded at rc 0** — measured: it came back as `1` | `test_iivw_ownership.do` T1. Ownership is now a mark carried by the variable (`char v[_iivw_owner]`), and an unowned column is refused with r(110), unmutated | ✅ **FIXED in 3.0.0** |
+| **IIVW-B13** | Missing final weights were a `Note:` in a long log. `iivw_fit` then marked those rows out silently: the analysis became complete-case without consent, and **differential loss by arm silently changed the estimand** | `test_iivw_sample_contract.do`. Missing weights now error (r(416)); `allowmissingweights` is the acknowledgment; loss is reported and returned **by treatment arm** | ✅ **FIXED in 3.0.0** |
+
+**What Phase 1 did NOT touch.** IIVW-B02, B04, B05, B06, B07 and B08 are all still open. Phase 1 made the weighting *state* transactional and exactly replayable. It did not make any *estimator* or any *variance* correct. A bootstrap that now replays the weights faithfully is still bootstrapping the estimator described in §3, defects and all — it is simply no longer bootstrapping a *different* one by accident.
+
+---
+
+## 7. What Phase 0 changed about the plan
+
+- **Blocker #4 is narrower than written.** It applies to the IIW numerator only. The IPTW numerator is
+  correct by construction (§2). A Phase-2 implementer following the plan literally would have "fixed" a
+  correct calculation.
+- **Blocker #2's premise is now closed.** The plan said "the local literature index currently marks the
+  Robins source as unavailable/unverified. Until a primary source is in the corpus, do not broaden the
+  implementation." A primary source **is now in the corpus** (*What If* §12.3), it grounds the weight and
+  the ATE, and it also **draws the boundary** (ATT needs a different numerator). The prohibition on
+  broadening stands — now for a *sourced* reason rather than an absent one.
+- **Three new free oracles** (§5) exist that the plan did not know about, two of them exact.
+- **Five load-bearing options were unclassified** by every prior artifact (§3.11): `efron`,
+  `allownonconverged`, `timespec`, `geeopts`, `force`. **`geeopts()` is a new defect (IIVW-B08)** — it is
+  appended raw to the `glm` call after `vce(cluster ...)`, so it can silently override the very variance
+  estimator the release blocker is about. The plan's 18-item blocker list does not mention it.
+- **Gate 0's criterion (3) cannot be discharged by Phase 0 at all.** "No unsupported surface can produce
+  an ordinary reliability-cleared result" is an *enforcement* property, and Phase 0 changes no code. Two
+  probes on 2026-07-14 confirmed both open holes still return `rc=0` with ordinary output: `stabcov(Q)`
+  with `Q` outside the outcome design was silently accepted (`b[treat]=0.4915, se=0.0602`), and FIPTIW
+  fitted `stcox L1` with `treat` absent, storing `_iivw_visit_covars = L1`. Criterion (3) is satisfied
+  **only** in the weak sense that the package now documents that **nothing** is reliability-cleared. The
+  substantive requirement — that these **error** — is Phase 2 work and must be re-checked at Gate 2.

@@ -79,6 +79,16 @@ status (`_rc` is 0 even when the command is missing).
 
 ## File index
 
+### Phase-1 contract suites (concern-named)
+
+These five are the Gate-1 evidence for the weighting-state contract. They are named for the concern they probe, not for the release that introduced them, and each one is a regression test for a defect confirmed in the 2026-07-14 audit. **30 of their 53 assertions fail on 2.0.0**, which is what makes them evidence rather than decoration.
+
+- `test_iivw_replay.do` — the bootstrap replay must rebuild the *same estimator* the observed pass built. The oracle is the **identity draw**: resample every subject exactly once, and the recomputed weights must equal the observed weights to `1e-12` (Class E). On 2.0.0 the identity draw was off by **2.2e-01** — a 22% weight error — because `_iivw_bs_refit` passed the precomputed `*_lag1` columns through `visit_cov()` instead of replaying `lagvars()` from the raw sources. Also covers a duplicated-subject draw against an independent reconstruction, and the refusal of a pre-3.0.0 contract that cannot be replayed at all.
+- `test_iivw_state_contract.do` — the caller's data, characteristics, active estimates, sort order, and `varabbrev` survive both success and every injected failure. The 2.0.0 bootstrap snapshotted a *hand-maintained list* of characteristics and the list was missing three fields, so a successful `refitweights` run blanked `_iivw_lagvars` and `_iivw_wsig` — and `_iivw_check_weighted` still returned 0 afterwards, because the guard's own evidence had been erased by the same bug.
+- `test_iivw_stale_state.do` — the weights must stop describing the data *loudly*. Seventeen mutations: every bound input and owned output edited one at a time, plus dropped/appended/duplicated rows, a permuted weight column, a tampered specification, and a deleted column. Two of them (editing `treat()`, editing a `treat_cov()` value) returned **rc 0** on 2.0.0. Two specificity tests keep the guard honest: a harmless re-sort and an unrelated new variable must still pass.
+- `test_iivw_ownership.do` — `replace` may destroy only what iivw made. On 2.0.0 a user's own `_iivw_weight = 99` column was backed up and discarded at rc 0, because ownership was inferred from the *name*. It is now a mark carried by the variable.
+- `test_iivw_sample_contract.do` — a row with no weight is a row dropped from the fit. Missing weights now error by default; `allowmissingweights` is the acknowledgment; and the loss is reported **by treatment arm**, because differential loss changes the estimand rather than merely the precision.
+
 ### Functional and regression tests
 
 - `test_iivw.do`
@@ -94,7 +104,9 @@ status (`_rc` is 0 even when the command is missing).
 - `test_iivw_performance.do`
 - `test_iivw_psdash_contract.do`
 - `test_iivw_release_adversarial.do` — release surface: version/date sync, `.pkg` completeness, dev-path leaks, artifact hygiene, isolated install smoke, and the worked examples from every help file. Also gates **SMCL render integrity**: no help-file line may leave a `{...}` directive open across a newline. `iivw_weight.sthlp` shipped exactly that defect in v2.0.0 (`{it:Mean-1` / `normalization}` split across lines 565-566), which renders the markup literally in the Viewer; every existing content check passed it because all the words were still present, in order. The date sync derives the expected distribution date from `iivw.pkg`, **not** from the `iivw.ado` header date — a doc-only render fix legitimately advances the former while every `.ado` is untouched.
+- `test_iivw_literature_invariants.do` — asserts the identities the source papers state, not the ones the code happens to satisfy: `Z ⊆ X` ⇒ stabilized IIW ≡ 1 (B&L p.8), and the stabilized-IPTW mean-one property.
 - `test_iivw_reporting_exports.do`
+- `test_iivw_v200_qagate.do` — the QA harness's own gates: a bad case selector must error rather than silently run nothing, and a suite that executed zero cases must not be reported green.
 - `test_iivw_v105_regressions.do`
 - `test_iivw_v106_regressions.do`
 - `test_iivw_v123_regressions.do`

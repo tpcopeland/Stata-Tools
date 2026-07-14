@@ -69,6 +69,7 @@
 {synopt:{opt nolog}}suppress model iteration log{p_end}
 {synopt:{opt efr:on}}use Efron method for tied visit times in Cox model{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a weight model fails to converge{p_end}
+{synopt:{opt allowmissingw:eights}}accept rows that receive no weight (complete-case){p_end}
 {synopt:{opt base:line(entry|event)}}first visit: entry (default) or event{p_end}
 
 {synoptline}
@@ -404,6 +405,31 @@ nonconverged nuisance model, and that mark survives any later
 {helpb iivw_fit}. {helpb iivw_balance} then reports {cmd:r(balance_flag)} as {cmd:unknown} and issues no
 good/poor verdict: the target-SMD null assumes the visit model solves its
 estimating equation, and a nonconverged one does not.
+
+{phang}
+{opt allowmissingw:eights} lets {cmd:iivw_weight} proceed when some rows receive
+no final weight. By default that is an {bf:error}.
+
+{phang2}
+A row with no weight is a row that {helpb iivw_fit} will drop. Two things follow,
+and only one of them is about precision. The analysis silently becomes
+complete-case, which costs power. And if the missingness is
+{bf:differential by treatment arm}, the analysis silently targets a different
+population than the one you asked about, which costs the estimand -- and that
+loss is invisible in every number the command prints.
+
+{phang2}
+A weight is missing when a row lacks an input the weight is built from: a
+visit-model covariate, a treatment-model covariate, or a lag source at a first
+visit that is modeled as an event. A missing {opt treat()} value is a different
+matter and is refused outright: a row with no exposure has no place in a contrast
+between exposure levels, and this option does not admit it.
+
+{phang2}
+When the option is used, the loss is reported and
+returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
+{opt treat()} is present -- {cmd:r(n_lost_treated)},
+{cmd:r(n_lost_untreated)} and the two corresponding percentages. Report them.
 
 {phang}
 {opt efron} uses the Efron method for handling tied event times in the Andersen-Gill
@@ -825,6 +851,12 @@ than the default Breslow method.
 {synopt:{cmd:r(N_total)}}rows in the analysis sample{p_end}
 {synopt:{cmd:r(N_weighted)}}rows that carry a weight{p_end}
 {synopt:{cmd:r(n_unweighted)}}rows with no weight, from missing model inputs{p_end}
+{synopt:{cmd:r(n_missing_weight)}}same count, as the sample-loss contract reports it{p_end}
+{synopt:{cmd:r(n_ids_missing_weight)}}subjects with at least one unweighted row{p_end}
+{synopt:{cmd:r(n_lost_treated)}}unweighted rows among the treated ({opt treat()} only){p_end}
+{synopt:{cmd:r(n_lost_untreated)}}unweighted rows among the untreated ({opt treat()} only){p_end}
+{synopt:{cmd:r(pct_lost_treated)}}percent of treated rows lost ({opt treat()} only){p_end}
+{synopt:{cmd:r(pct_lost_untreated)}}percent of untreated rows lost ({opt treat()} only){p_end}
 {synopt:{cmd:r(n_ids_total)}}subjects in the analysis sample{p_end}
 {synopt:{cmd:r(n_ids_weighted)}}subjects with at least one weighted row{p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
@@ -849,6 +881,11 @@ than the default Breslow method.
 {synopt:{cmd:r(tw_var)}}treatment IPTW component variable, when created{p_end}
 {synopt:{cmd:r(ps_var)}}treatment propensity-score variable, when created{p_end}
 {synopt:{cmd:r(visit_covars)}}expanded visit-model covariates used for IIW/FIPTIW{p_end}
+{synopt:{cmd:r(visit_cov_raw)}}the raw {opt visit_cov()} varlist, without the generated lags{p_end}
+{synopt:{cmd:r(lagvars)}}the raw {opt lagvars()} source variables{p_end}
+{synopt:{cmd:r(lag_names)}}the generated {cmd:*_lag1} columns{p_end}
+{synopt:{cmd:r(owned)}}every variable name this call owns under the contract{p_end}
+{synopt:{cmd:r(allowmissingweights)}}{cmd:1} if unweighted rows were accepted, else {cmd:0}{p_end}
 {synopt:{cmd:r(treat_covars)}}treatment-model covariates used for IPTW/FIPTIW{p_end}
 {synopt:{cmd:r(ps_estimand)}}treatment propensity-score estimand, currently {cmd:ate}{p_end}
 {synopt:{cmd:r(contract_version)}}iivw metadata contract version{p_end}

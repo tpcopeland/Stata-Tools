@@ -1,4 +1,4 @@
-*! iivw_fit Version 2.0.0  2026/07/13
+*! iivw_fit Version 3.0.0  2026/07/14
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -101,8 +101,20 @@ program define iivw_fit, eclass
         local weight_var "`r(weight_var)'"
         local prefix     "`r(prefix)'"
 
-        * Weight-construction replay spec (used only by refitweights bootstrap)
-        local rep_visitcov "`r(visit_covars)'"
+        * Weight-construction replay spec (used only by refitweights bootstrap).
+        *
+        * visit_cov_raw and lagvars, NOT visit_covars. visit_covars is the union
+        * -- raw covariates plus the generated *_lag1 columns -- and it is the
+        * right thing to REPORT. It is the wrong thing to REPLAY with: handing it
+        * to iivw_weight's visit_cov() passes the observed panel's precomputed
+        * lags into a resampled panel as if they were raw data, so the lags are
+        * never rebuilt within the draw and the terminal censoring row gets the
+        * value from two visits back. The raw list plus the lag SOURCES lets each
+        * replicate reconstruct its own lags with the same code that built the
+        * observed weights.
+        local rep_visitcov "`r(visit_cov_raw)'"
+        local rep_lagvars  "`r(lagvars)'"
+        local rep_allowmissw "`r(allowmissingweights)'"
         local rep_treat    "`r(treat)'"
         local rep_treatcov "`r(treat_covars)'"
         local rep_stabcov  "`r(stabcov)'"
@@ -213,8 +225,15 @@ program define iivw_fit, eclass
             display as error "  cluster() other than the panel id (`panel_id') is not supported with refitweights"
             error 198
         }
+        * A contract written before 3.0.0 stored only the UNION of the raw visit
+        * covariates and the generated lag columns, so the raw list is empty here
+        * and the replay cannot be reconstructed. Refuse rather than fall back to
+        * the union: falling back is precisely the 2.0.0 defect.
         if inlist("`weighttype'", "iivw", "fiptiw") & "`rep_visitcov'" == "" {
-            display as error "refitweights needs the stored visit-model covariates"
+            display as error "refitweights needs the stored raw visit-model covariates"
+            display as error "  these weights were built before iivw 3.0.0 separated the raw"
+            display as error "  covariates from the generated lag columns, so the replay cannot"
+            display as error "  rebuild the lags inside each resampled subject"
             display as error "  re-run iivw_weight before iivw_fit, refitweights"
             error 198
         }
@@ -254,6 +273,24 @@ program define iivw_fit, eclass
         if "`rep_censor_mode'" == "censor" local rep_cens_opt "censor(`rep_censor_var')"
         if "`rep_censor_mode'" == "maxfu"  local rep_cens_opt "maxfu(`rep_maxfu')"
         if "`weighttype'" == "iptw"        local rep_cens_opt ""
+
+        * The observed weights were computed with rows left unweighted, and the
+        * user acknowledged that. Replay the acknowledgment, or every replicate
+        * that loses a row to the same missingness would hard-error instead.
+        local rep_amw_flag = ///
+            cond("`rep_allowmissw'" == "1", "allowmissingweights", "")
+
+        * The lag sources must still be in the data to be re-lagged per draw.
+        if "`rep_lagvars'" != "" {
+            foreach v of local rep_lagvars {
+                capture confirm numeric variable `v'
+                if _rc {
+                    display as error "refitweights needs the raw lag source `v', which is not in the data"
+                    display as error "  the replicates rebuild lagvars() from the source variables"
+                    error 111
+                }
+            }
+        }
     }
 
     * =========================================================================
@@ -447,6 +484,12 @@ program define iivw_fit, eclass
     * BUILD TIME SPECIFICATION VARIABLES
     * =========================================================================
 
+    * Every design column this command generates is a package output owned under
+    * this prefix in the `design' role. `replace' overwrites one of ours; it does
+    * not overwrite a user column that happens to share the name. See _iivw_own.
+    _iivw_own token, role(design) prefix(`prefix')
+    local __iivw_design_token "`r(token)'"
+
     * Prior fit metadata is NOT cleared here. Under the name transaction, every
     * generated variable is created fresh and every prior output is renamed aside
     * rather than dropped, so an error below restores the previous fit's variables
@@ -502,6 +545,7 @@ program define iivw_fit, eclass
 
                 local tcat_name "`prefix'tcat_`tcat_index'"
                 _iivw_reserve_names, generated(`tcat_name') ///
+                    owntokens(`__iivw_design_token') ///
                     protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `tcat_name'
                 if _rc == 0 {
@@ -531,6 +575,7 @@ program define iivw_fit, eclass
 
             if inlist("`timespec'", "quadratic", "cubic") {
                 _iivw_reserve_names, generated(`prefix'time_sq) ///
+                    owntokens(`__iivw_design_token') ///
                     protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `prefix'time_sq
                 if _rc == 0 {
@@ -547,6 +592,7 @@ program define iivw_fit, eclass
             }
             if "`timespec'" == "cubic" {
                 _iivw_reserve_names, generated(`prefix'time_cu) ///
+                    owntokens(`__iivw_design_token') ///
                     protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `prefix'time_cu
                 if _rc == 0 {
@@ -580,7 +626,8 @@ program define iivw_fit, eclass
 
                 if `ns_df' == 1 {
                     _iivw_reserve_names, generated(`prefix'tns1) ///
-                        protected(`__iivw_protected') `replace' context(iivw_fit)
+                        owntokens(`__iivw_design_token') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                     capture confirm variable `prefix'tns1
                     if _rc == 0 {
                         tempvar __iivw_bk
@@ -620,7 +667,8 @@ program define iivw_fit, eclass
 
                     * First basis: linear time
                     _iivw_reserve_names, generated(`prefix'tns1) ///
-                        protected(`__iivw_protected') `replace' context(iivw_fit)
+                        owntokens(`__iivw_design_token') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                     capture confirm variable `prefix'tns1
                     if _rc == 0 {
                         tempvar __iivw_bk
@@ -642,7 +690,8 @@ program define iivw_fit, eclass
                     forvalues j = 0/`jmax' {
                         local jj = `j' + 2
                         _iivw_reserve_names, generated(`prefix'tns`jj') ///
-                            protected(`__iivw_protected') `replace' context(iivw_fit)
+                            owntokens(`__iivw_design_token') ///
+                    protected(`__iivw_protected') `replace' context(iivw_fit)
                         capture confirm variable `prefix'tns`jj'
                         if _rc == 0 {
                             tempvar __iivw_bk
@@ -860,6 +909,7 @@ program define iivw_fit, eclass
                 }
 
                 _iivw_reserve_names, generated(`vname') ///
+                    owntokens(`__iivw_design_token') ///
                     protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `vname'
                 if _rc == 0 {
@@ -991,6 +1041,7 @@ program define iivw_fit, eclass
                 local all_gen_names "`all_gen_names' `ix_name'"
 
                 _iivw_reserve_names, generated(`ix_name') ///
+                    owntokens(`__iivw_design_token') ///
                     protected(`__iivw_protected') `replace' context(iivw_fit)
                 capture confirm variable `ix_name'
                 if _rc == 0 {
@@ -1049,6 +1100,16 @@ program define iivw_fit, eclass
     }
     local all_covars = strtrim("`all_covars'")
 
+    * The design matrix is complete. Claim every column this call generated, so
+    * a rerun's `replace' can prove it is overwriting our output rather than
+    * inferring it from the name. Stamping here, before estimation, is safe: if
+    * the fit fails, the rollback drops these variables and the marks go with
+    * them.
+    local __iivw_stamp_vars = strtrim("`__iivw_created_vars'")
+    if "`__iivw_stamp_vars'" != "" {
+        _iivw_own stamp `__iivw_stamp_vars', role(design) prefix(`prefix')
+    }
+
     * =========================================================================
     * FIT MODEL
     * =========================================================================
@@ -1078,10 +1139,12 @@ program define iivw_fit, eclass
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
                 wtype(`weighttype') ///
                 prefix(`prefix') model(gee) ///
-                visitcov(`rep_visitcov') treat(`rep_treat') ///
+                visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
+                treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
                 truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
-                entry(`rep_entry') `rep_cens_opt' family(`family') link(`link') ///
+                entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
+                family(`family') link(`link') ///
                 geeopts(`geeopts') `log_opt'
         }
         else if `bootstrap' > 0 {
@@ -1159,10 +1222,12 @@ program define iivw_fit, eclass
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
                 wtype(`weighttype') ///
                 prefix(`prefix') model(mixed) ///
-                visitcov(`rep_visitcov') treat(`rep_treat') ///
+                visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
+                treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
                 truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
-                entry(`rep_entry') `rep_cens_opt' mixedopts(`mixedopts') `log_opt'
+                entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
+                mixedopts(`mixedopts') `log_opt'
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""

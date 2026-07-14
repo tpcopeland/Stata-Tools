@@ -340,19 +340,46 @@ if `run_only' == 0 | `run_only' == 8 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 9 {
     capture noisily {
+        * ---------------------------------------------------------------
+        * UPDATED FOR 3.0.0 -- this test used to assert the defect.
+        *
+        * It created an UNOWNED `_iivw_time_sq = 999', called iivw_fit with
+        * `replace', and asserted `r(max) < 999' -- i.e. it asserted that the
+        * user's column had been DESTROYED. That is exactly blocker #10: the old
+        * rule inferred ownership from the name, so any column sitting under the
+        * prefix was fair game.
+        *
+        * The contract is now: `replace' overwrites a column iivw can PROVE it
+        * created, and refuses anything else without mutating it. So the same
+        * setup must now be refused (110) with the value intact, and a genuinely
+        * owned column must still be replaceable.
+        * ---------------------------------------------------------------
         _adv_setup_panel, seed(20260519)
         gen double _iivw_time_sq = 999
 
+        * no replace: blocked, as before
         capture iivw_fit y severity, timespec(quadratic) nolog
         assert _rc == 110
 
-        iivw_fit y severity, timespec(quadratic) replace nolog
+        * WITH replace: still blocked, because we did not create this column
+        capture iivw_fit y severity, timespec(quadratic) replace nolog
+        assert _rc == 110
         quietly summarize _iivw_time_sq
-        assert r(max) < 999
+        assert r(min) == 999 & r(max) == 999
+
+        * Drop the impostor. Now iivw_fit creates the column itself, stamps it,
+        * and a rerun with replace overwrites its OWN output without complaint.
+        drop _iivw_time_sq
+        iivw_fit y severity, timespec(quadratic) nolog
+        confirm variable _iivw_time_sq
+        assert "`: char _iivw_time_sq[_iivw_owner]'" == "iivw|_iivw_|design|2"
+
+        iivw_fit y severity, timespec(quadratic) replace nolog
         assert "`e(iivw_timespec)'" == "quadratic"
+        confirm variable _iivw_time_sq
     }
     if _rc == 0 {
-        display as result "  PASS: A9 - replace controls time-var collision"
+        display as result "  PASS: A9 - replace overwrites only iivw-owned time vars"
         local ++pass_count
     }
     else {
@@ -400,8 +427,12 @@ if `run_only' == 0 | `run_only' == 11 {
         * iivw_fit refuses that (rc 459). Re-weight on the mutated data, which
         * is what the analyst would have to do anyway. The exclusions this test
         * is actually about (if/in and missing covariates) are unaffected.
+        * severity was blanked for id<=3 above, so some rows can carry no
+        * weight. From 3.0.0 that is an error unless the analyst says they mean
+        * it -- which, for a test whose whole subject is the exclusion of
+        * unweighted rows, they do. allowmissingweights is the acknowledgment.
         quietly iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
-            visit_cov(severity event) replace nolog
+            visit_cov(severity event) replace allowmissingweights nolog
 
         quietly count if id > 5 & rowno <= 220 & ///
             !missing(y, severity, _iivw_weight, months, id)

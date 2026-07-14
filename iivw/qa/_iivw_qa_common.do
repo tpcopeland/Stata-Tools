@@ -200,3 +200,32 @@ program define iivw_qa_summary
     * well as the batch log. `log close _all' does not touch Stata's -b log.
     capture log close _all
 end
+
+* iivw_qa_sign_contract -- stamp a signature onto a HAND-BUILT weight contract.
+*
+* Several suites fabricate a weighting contract directly -- they write
+* `_iivw_weight' by hand and set the _dta characteristics -- so that a
+* diagnostic can be checked against a weight vector whose answer is known on
+* paper. That is a legitimate and valuable oracle: it is the only way to test
+* iivw_balance's arithmetic independently of the model that usually produces the
+* weights.
+*
+* From 3.0.0 the stale-weight guard FAILS CLOSED: a contract with no signature
+* is an error, not a skipped check. (It used to be "if a signature is stored,
+* verify it", which meant erasing the signature disarmed the guard entirely --
+* one edit and every consumer accepted whatever the data happened to contain.)
+*
+* A hand-built contract therefore has to be signed like a real one. This calls
+* the package's own signature routine, which is exactly what iivw_weight does at
+* its commit point -- so the fixture ends up in the state a real weighting run
+* would have left it in, rather than in a state the package cannot produce.
+*
+* This does NOT weaken the guard: test_iivw_stale_state.do still asserts that
+* erasing or tampering with the signature is caught. It just lets the fixtures
+* start from a contract that is internally consistent.
+capture program drop iivw_qa_sign_contract
+program define iivw_qa_sign_contract
+    version 16.0
+    quietly _iivw_weight_signature
+    char _dta[_iivw_wsig] "`r(signature)'"
+end

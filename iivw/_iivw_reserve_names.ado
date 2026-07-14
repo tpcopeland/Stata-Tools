@@ -1,8 +1,11 @@
-*! _iivw_reserve_names Version 2.0.0  2026/07/13
+*! _iivw_reserve_names Version 3.0.0  2026/07/14
 *! Validate a command's complete generated-name inventory before any data is
-*! touched: names must be legal, mutually unique, and must never collide with a
-*! scientific input. `replace' authorizes overwriting a prior package OUTPUT --
-*! it never authorizes destroying an input.
+*! touched: names must be legal, mutually unique, must never collide with a
+*! scientific input, and -- when the caller declares ownership tokens -- must
+*! already be owned by this package in the same role before `replace' may
+*! overwrite them. `replace' authorizes overwriting a prior package OUTPUT --
+*! it never authorizes destroying an input, and it never authorizes destroying
+*! a variable this package did not create.
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
@@ -12,9 +15,21 @@ program define _iivw_reserve_names
     set varabbrev off
     capture noisily {
 
-    syntax , GENerated(string) [PROTected(string) REPLACE CONTEXT(string)]
+    syntax , GENerated(string) ///
+        [PROTected(string) REPLACE CONTEXT(string) OWNTokens(string)]
 
     if "`context'" == "" local context "iivw"
+
+    * owntokens(), when supplied, is a list parallel to generated(): the
+    * ownership token each name is about to be stamped with. Its presence
+    * switches rule 4 from name-based inference to a proven-ownership check.
+    local n_own : word count `owntokens'
+    local n_g   : word count `generated'
+    if "`owntokens'" != "" & `n_own' != `n_g' {
+        display as error "`context': owntokens() must be parallel to generated()"
+        display as error "  `n_g' generated names but `n_own' ownership tokens"
+        error 198
+    }
 
     * ---------------------------------------------------------------------
     * 1. Every generated name must be a legal Stata variable name.
@@ -73,15 +88,52 @@ program define _iivw_reserve_names
     }
 
     * ---------------------------------------------------------------------
-    * 4. A generated name that already exists in the data, and is not an
-    *    input, is a prior package output: overwriting it needs `replace'.
+    * 4. A generated name that already exists in the data needs `replace'.
     * ---------------------------------------------------------------------
-    foreach g of local generated {
+    forvalues i = 1/`n_g' {
+        local g : word `i' of `generated'
         capture confirm variable `g'
-        if _rc == 0 & "`replace'" == "" {
+        if _rc != 0 continue
+
+        if "`replace'" == "" {
             display as error "`context': variable `g' already exists; use the replace option"
             error 110
         }
+
+        * -----------------------------------------------------------------
+        * 5. `replace' overwrites a prior output of THIS package in THIS
+        *    role. It does not overwrite a variable we cannot prove we made.
+        *
+        *    The old rule was "it exists, it is not an input, therefore it is
+        *    ours" -- an inference from a name. A user column that happens to
+        *    sit under the selected prefix satisfied it, and was destroyed.
+        *    Ownership is now read off the variable itself.
+        * -----------------------------------------------------------------
+        if "`owntokens'" == "" continue
+
+        local want : word `i' of `owntokens'
+        local have : char `g'[_iivw_owner]
+
+        if "`have'" == "`want'" continue
+
+        display as error "`context': variable `g' already exists and was not created by iivw"
+        display as error ""
+        if "`have'" == "" {
+            display as error "  It carries no iivw ownership mark, so replace will not touch it."
+            display as error "  replace overwrites variables this package created. It does not"
+            display as error "  authorize destroying a variable of unknown origin that happens to"
+            display as error "  share a name with one of our outputs."
+        }
+        else {
+            display as error "  It is owned by iivw, but under a different contract:"
+            display as error "    it carries: `have'"
+            display as error "    this call would write: `want'"
+            display as error "  (owner|prefix|role|contract-version). A mismatch means the column"
+            display as error "  means something other than what this call is about to write."
+        }
+        display as error ""
+        display as error "  Drop or rename `g', or choose a different generate() prefix."
+        error 110
     }
 
     }

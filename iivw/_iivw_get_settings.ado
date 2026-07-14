@@ -1,6 +1,28 @@
-*! _iivw_get_settings Version 2.0.0  2026/07/13
-*! Retrieve stored metadata from dataset characteristics
+*! _iivw_get_settings Version 3.0.0  2026/07/14
+*! The canonical weighting specification: the one place any consumer reads the
+*! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet
+
+* Every consumer that refits, replays, or reports on the weights -- iivw_fit,
+* _iivw_bs_refit, iivw_balance, iivw_exogtest -- reads the specification from
+* here and nowhere else. A consumer that reconstructs part of the spec from its
+* own options is describing a different estimator than the one that produced the
+* weights it is reporting on.
+*
+* The 3.0.0 additions exist because the 2.0.0 spec was not sufficient to REPLAY
+* the weighting:
+*
+*   visit_cov_raw  the user's visit_cov() varlist, separate from the generated
+*                  lag columns. 2.0.0 stored only their union (visit_covars), so
+*                  a replay could not tell a raw covariate from a *_lag1 column
+*                  and passed the precomputed lags through as if they were raw
+*                  inputs -- which is exactly why the bootstrap could not
+*                  regenerate lags inside a resampled subject.
+*   lag_names      the generated *_lag1 columns, so a consumer can bind them
+*                  without re-deriving the naming rule.
+*   owned          every variable name this package owns under the contract.
+*   allowmissingweights
+*                  whether the user acknowledged rows that carry no weight.
 
 program define _iivw_get_settings, rclass
     version 16.0
@@ -32,6 +54,11 @@ program define _iivw_get_settings, rclass
     local lagvars     : char _dta[_iivw_lagvars]
     local nonconverged : char _dta[_iivw_nonconverged]
     local fit_nonconverged : char _dta[_iivw_fit_nonconverged]
+    local visit_cov_raw : char _dta[_iivw_visit_cov_raw]
+    local lag_names     : char _dta[_iivw_lag_names]
+    local owned         : char _dta[_iivw_owned]
+    local allowmissingweights : char _dta[_iivw_allowmissingweights]
+    local wsig          : char _dta[_iivw_wsig]
 
     if "`prefix'" == "" local prefix "_iivw_"
 
@@ -65,6 +92,24 @@ program define _iivw_get_settings, rclass
     * rebuilt censoring row the covariate value it actually had at the last
     * visit; see the note where iivw_weight writes this characteristic.
     return local lagvars "`lagvars'"
+
+    * The raw visit-model covariates, kept apart from the generated lag columns.
+    * A replay must pass THESE to visit_cov() and the lag SOURCES to lagvars(),
+    * so that each resampled subject rebuilds its own lags. Handing the
+    * precomputed *_lag1 columns to visit_cov() carries one subject's history
+    * into another's, and on a terminal censoring interval it carries the value
+    * from two visits back instead of the last observed one.
+    return local visit_cov_raw "`visit_cov_raw'"
+    return local lag_names "`lag_names'"
+
+    * Every variable name the package owns under this contract, and the
+    * signature that binds the contract to the data.
+    return local owned "`owned'"
+    return local wsig "`wsig'"
+
+    * Rows that carry no final weight, deliberately accepted by the user. The
+    * analysis is complete-case in that case, and every consumer should say so.
+    return local allowmissingweights "`allowmissingweights'"
 
     * A nuisance model (visit-intensity, stabilization, or treatment) that the
     * user accepted nonconverged via allownonconverged. The weights it produced

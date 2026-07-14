@@ -48,7 +48,7 @@ program define finegray, eclass sortpreserve
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
          CLuster(varname numeric) noROBust ///
-         noADJust noLOG ///
+         noADJust noLOG BASEHaz ///
          ITERate(integer 200) TOLerance(real 1e-8)]
 
     * noadjust suppresses the finite-sample correction applied to the sandwich
@@ -754,7 +754,7 @@ program define finegray, eclass sortpreserve
             "`varlist'", "`compete'", `cause', `censvalue', ///
             "`_byg_mata'", "`_tg_mata'", "`vce_type'", "`cluster'", ///
             `iterate', `tolerance', ("`log'" != "nolog"), ///
-            ("`adjust'" != "noadjust"))
+            ("`adjust'" != "noadjust"), ("`basehaz'" != ""))
     }
 
     local _rc_fit = _rc
@@ -768,7 +768,7 @@ program define finegray, eclass sortpreserve
     * RETRIEVE AND POST E() RESULTS
     * =========================================================================
 
-    tempname b V basehaz
+    tempname b V
     matrix `b' = _finegray_b
     matrix `V' = _finegray_V
 
@@ -947,9 +947,23 @@ program define finegray, eclass sortpreserve
     ereturn local datasignature `"`r(datasignature)'"'
     ereturn local datasignaturevars "`_fg_sigvars'"
 
-    capture matrix `basehaz' = _finegray_basehaz
-    if _rc == 0 {
-        ereturn matrix basehaz = `basehaz'
+    * e(basehaz) carries one row per distinct cause-event time, so K is roughly
+    * n/2.  Creating ANY K-row Stata matrix is O(K^2) -- Stata builds the
+    * dimension-name stripe quadratically, and it hits every route (st_matrix,
+    * mkmat, plain copy, transpose, submatrix) alike: 38.6 s of the 95.0 s fit at
+    * n = 200,000.  That round trip was the package's ENTIRE superlinearity
+    * (slope 1.65 with it, 1.05 without), so it is now opt-in via basehaz.
+    * Postestimation never needs it -- finegray_cif and finegray_predict rebuild
+    * the same curve in Mata -- and `predict, basecshazard' gives the baseline as
+    * a VARIABLE, which is O(n) and is the form stcrreg users already know.
+    * ereturn MOVES a named matrix rather than copying it (free: 0.02 s at
+    * K = 40,000), so post the Mata-built matrix directly.  The cleanup loop below
+    * is a `capture matrix drop', so the moved-away name is not an error.
+    if "`basehaz'" != "" {
+        capture confirm matrix _finegray_basehaz
+        if _rc == 0 {
+            ereturn matrix basehaz = _finegray_basehaz
+        }
     }
 
     * Store dataset chars for predict

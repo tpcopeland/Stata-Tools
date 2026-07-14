@@ -35,7 +35,7 @@ program define finegray_predict, rclass sortpreserve
     capture noisily {
 
     syntax newvarname [if] [in] , ///
-        [CIF XB SCHoenfeld TIMEvar(varname numeric) CI Level(cilevel) ///
+        [CIF XB SCHoenfeld BASECSHazard TIMEvar(varname numeric) CI Level(cilevel) ///
          BOOTstrap(integer 0) SEED(string)]
 
     if `bootstrap' < 0 {
@@ -82,12 +82,21 @@ program define finegray_predict, rclass sortpreserve
     }
 
     * Default to xb
-    local n_types = ("`cif'" != "") + ("`xb'" != "") + ("`schoenfeld'" != "")
+    local n_types = ("`cif'" != "") + ("`xb'" != "") + ("`schoenfeld'" != "") ///
+        + ("`basecshazard'" != "")
     if `n_types' > 1 {
-        display as error "specify only one of cif, xb, or schoenfeld"
+        display as error "specify only one of cif, xb, schoenfeld, or basecshazard"
         exit 198
     }
     if `n_types' == 0 local xb "xb"
+
+    * ci/bootstrap()/level() are CIF-only.  basecshazard is a baseline quantity
+    * with no covariate profile, so a CI option paired with it would be parsed,
+    * ignored, and silently produce a bare point estimate -- refuse instead.
+    if "`basecshazard'" != "" & ("`ci'" != "" | `bootstrap' > 0) {
+        display as error "ci and bootstrap() are not supported with basecshazard"
+        exit 198
+    }
 
     if "`ci'" != "" & "`cif'" == "" {
         display as error "ci requires the cif option"
@@ -313,14 +322,88 @@ program define finegray_predict, rclass sortpreserve
         local _created_vars "`varlist'"
         label variable `varlist' "Linear prediction (xb)"
     }
+    else if "`basecshazard'" != "" {
+        * Baseline cumulative subhazard, as a VARIABLE.  This is stcrreg's own
+        * idiom -- stcrreg posts no baseline in e() at all and hands it over
+        * through predict (stcrreg_p accepts basecshazard and basecif) -- so it is
+        * what a user arriving from stcrreg reaches for.  It is also the cheap
+        * representation: n rows in the dataset costs nothing, while the same
+        * curve as a K-row Stata matrix costs O(K^2) to create.
+        local tvar "_t"
+        if "`timevar'" != "" local tvar "`timevar'"
+
+        capture confirm variable `tvar'
+        if _rc {
+            display as error "time variable `tvar' not found"
+            exit 111
+        }
+
+        markout `touse' `tvar'
+        quietly count if `touse'
+        if r(N) == 0 {
+            display as error "no observations with non-missing `tvar'"
+            exit 2000
+        }
+
+        * Load Mata engine for the baseline rebuild / step lookup
+        capture program list _finegray_mata_loaded
+        if _rc {
+            capture findfile _finegray_mata.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+            else {
+                display as error "_finegray_mata.ado not found; reinstall finegray"
+                exit 111
+            }
+        }
+
+        if "`typlist'" == "" local typlist "double"
+        tempvar H0_val
+        quietly gen double `H0_val' = 0
+
+        capture confirm matrix e(basehaz)
+        if _rc == 0 {
+            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`H0_val'", ///
+                "`touse'")
+        }
+        else {
+            tempvar _es
+            quietly gen byte `_es' = e(sample)
+            local _byg_mata "`e(strata)'"
+            local _byg_nvar : word count `e(strata)'
+            if `_byg_nvar' > 1 {
+                tempvar _byg_grp
+                quietly egen long `_byg_grp' = group(`e(strata)')
+                local _byg_mata "`_byg_grp'"
+            }
+            local _tg_mata ""
+            if `"`e(truncstrata)'"' != "" {
+                tempvar _tg_grp
+                _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
+                    tgname(`_tg_grp') touse(`_es')
+                local _tg_mata "`_tg_grp'"
+            }
+            mata: _finegray_step_lookup_direct("`e(covariates)'", ///
+                "`e(compete)'", `=e(cause)', `=e(censvalue)', "`_byg_mata'", ///
+                "`_tg_mata'", "`_es'", "`_t0var'", "`tvar'", "`H0_val'", ///
+                "`touse'")
+        }
+
+        quietly gen `typlist' `varlist' = `H0_val' if `touse'
+        local _created_vars "`varlist'"
+        label variable `varlist' "Baseline cumulative subhazard"
+    }
     else if "`cif'" != "" {
         * CIF = 1 - exp(-H0(t) * exp(xb))
+        * The baseline comes from e(basehaz) when the user asked finegray to post
+        * it, and is otherwise rebuilt in Mata from e(sample) + e(b).  Both give
+        * the same curve -- the rebuild re-runs the fit's own _finegray_basehazard
+        * -- so this branch is about where the numbers come from, not what they
+        * are.  e(basehaz) is opt-in because creating a K-row Stata matrix is
+        * O(K^2); requiring it here would have made every predict user pay it.
         capture confirm matrix e(basehaz)
-        if _rc {
-            display as error "baseline hazard not available"
-            display as error "CIF prediction requires e(basehaz) from finegray"
-            exit 198
-        }
+        local _has_bh = (_rc == 0)
 
         * Get time variable
         local tvar "_t"
@@ -347,9 +430,10 @@ program define finegray_predict, rclass sortpreserve
         matrix colnames `b' = `_score_varlist'
         matrix score double `xb_val' = `b' if `touse'
 
-        * Get basehaz matrix
-        tempname bh
-        matrix `bh' = e(basehaz)
+        * The step-lookup helper takes a matrix NAME and reads it with
+        * st_matrix(), which reads e() matrices directly and for free.  Copying
+        * e(basehaz) into a tempname first is O(K^2) in its row count (6.8 s at
+        * K = 40,000) and buys nothing.  See finegray.ado's basehaz post.
 
         if "`typlist'" == "" local typlist "double"
 
@@ -371,7 +455,36 @@ program define finegray_predict, rclass sortpreserve
                 exit 111
             }
         }
-        mata: _finegray_step_lookup("`bh'", "`tvar'", "`H0_val'", "`touse'")
+        if `_has_bh' {
+            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`H0_val'", ///
+                "`touse'")
+        }
+        else {
+            * Rebuild the fit's weight design from the STORED specification, the
+            * same way finegray_cif does -- never from a variable left behind in
+            * the data, or the baseline is computed under different weights than
+            * the model was.
+            tempvar _es
+            quietly gen byte `_es' = e(sample)
+            local _byg_mata "`e(strata)'"
+            local _byg_nvar : word count `e(strata)'
+            if `_byg_nvar' > 1 {
+                tempvar _byg_grp
+                quietly egen long `_byg_grp' = group(`e(strata)')
+                local _byg_mata "`_byg_grp'"
+            }
+            local _tg_mata ""
+            if `"`e(truncstrata)'"' != "" {
+                tempvar _tg_grp
+                _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
+                    tgname(`_tg_grp') touse(`_es')
+                local _tg_mata "`_tg_grp'"
+            }
+            mata: _finegray_step_lookup_direct("`e(covariates)'", ///
+                "`e(compete)'", `=e(cause)', `=e(censvalue)', "`_byg_mata'", ///
+                "`_tg_mata'", "`_es'", "`_t0var'", "`tvar'", "`H0_val'", ///
+                "`touse'")
+        }
 
         quietly gen `typlist' `varlist' = ///
             1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
@@ -442,7 +555,13 @@ program define finegray_predict, rclass sortpreserve
                             quietly gen long `_bsid' = _n
                             char _dta[st_id] "`_bsid'"
                         }
-                        capture `_fgcmd'
+                        * basehaz on the REFIT (not in e(refitcmd), which QA
+                        * asserts reproduces e(b)): _finegray_boot_cif_obs runs
+                        * AFTER this frame is left, when the resampled estimation
+                        * data is gone, so it cannot rebuild the baseline in Mata
+                        * -- it reads e(basehaz), which must therefore exist for
+                        * the replication.
+                        capture `_fgcmd' basehaz
                         local _reprc = _rc
                         if !`_reprc' & e(converged) != 1 local _reprc = 498
                         * A resample can lose a factor level, so the refit

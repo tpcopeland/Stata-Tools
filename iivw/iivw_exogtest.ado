@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 2.0.0  2026/07/13
+*! iivw_exogtest Version 3.0.0  2026/07/14
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -293,10 +293,23 @@ program define iivw_exogtest, rclass sortpreserve
     }
     local generated_lags = strtrim("`generated_lags'")
 
+    * Ownership tokens, one per generated name. A previous-visit lag column is a
+    * lag column whoever built it, so the role carries no prefix: iivw_weight and
+    * iivw_exogtest must be able to reuse each other's `v_lag1' rather than each
+    * refusing to overwrite the other's. What `replace' still cannot do is
+    * overwrite a column that carries no iivw ownership mark at all.
+    _iivw_own token, role(lag)
+    local __iivw_lag_tokens ""
+    foreach lagname of local generated_lags {
+        local __iivw_lag_tokens "`__iivw_lag_tokens' `r(token)'"
+    }
+    local __iivw_lag_tokens = strtrim("`__iivw_lag_tokens'")
+
     local __iivw_protected "`varlist' `id' `time' `adjust' `by' `entry'"
     local __iivw_protected : list uniq __iivw_protected
 
     _iivw_reserve_names, generated(`generated_lags') ///
+        owntokens(`__iivw_lag_tokens') ///
         protected(`__iivw_protected') `replace' context(iivw_exogtest)
 
     * Back up -- do not drop -- any prior lag variables we are about to replace,
@@ -337,6 +350,10 @@ program define iivw_exogtest, rclass sortpreserve
         local __iivw_created_vars "`__iivw_created_vars' `lagname'"
     }
     local __iivw_n_terms = `lag_index'
+
+    * Claim them. From here on `replace' can prove what it may overwrite on a
+    * rerun instead of inferring it from the name.
+    _iivw_own stamp `generated_lags', role(lag)
 
     preserve
     local __iivw_restore_needed = 1

@@ -225,7 +225,8 @@ capture noisily {
     gen byte t = 1 + floor(5 * runiform())     // only 5 possible times: heavy ties
     gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
     quietly stset t, failure(ev) id(id)
-    quietly finegray x, compete(ev) cause(1) nolog
+    * basehaz: this test asserts properties OF e(basehaz), so it must ask for it
+    quietly finegray x, compete(ev) cause(1) nolog basehaz
 
     * there must genuinely BE ties, or this test proves nothing
     quietly count if ev == 1
@@ -277,7 +278,8 @@ capture noisily {
         gen double t = runiform()      // continuous: ~one event per time
         gen byte ev = cond(runiform() < .55, 1, cond(runiform() < .5, 2, 0))
         quietly stset t, failure(ev) id(id)
-        quietly finegray x, compete(ev) cause(1) nolog
+        * basehaz: the terminal-time assertion is read off the matrix itself
+        quietly finegray x, compete(ev) cause(1) nolog basehaz
 
         matrix bh = e(basehaz)
         local nbh = rowsof(bh)
@@ -418,6 +420,155 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: FG-M03 well-posed PH test (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-B01: postestimation is unchanged when e(basehaz) is not posted
+* e(basehaz) is opt-in because materialising its K ~ n/2 rows as a Stata matrix
+* is O(K^2).  The claim that makes that safe is that postestimation never needed
+* the MATRIX, only the VALUES -- finegray_cif and finegray_predict rebuild the
+* same curve in Mata.  This asserts that claim directly: fit twice, once with the
+* matrix and once without, and require the CIF and the predictions to agree
+* EXACTLY.  A rebuild that drifted (wrong weights, wrong strata, a stale e(b))
+* would show up here and nowhere else -- the default path posts no matrix to
+* compare against, so nothing else in the suite can see it.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55501
+    quietly set obs 2500
+    gen long id = _n
+    gen byte z1 = runiform() < 0.5
+    gen double z2 = rnormal()
+    gen double t0 = 0.2 * runiform()
+    gen double t  = t0 + rexponential(1)
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    gen int wg = 1 + floor(2 * runiform())
+    quietly stset t, failure(ev) id(id) enter(time t0)
+
+    * with the matrix
+    quietly finegray z1 z2, compete(ev) cause(1) truncstrata(wg) nolog basehaz
+    confirm matrix e(basehaz)
+    quietly finegray_predict cif_m, cif
+    quietly finegray_predict bch_m, basecshazard
+    quietly finegray_cif, at(z1=1 z2=0) attime(1 2 3)
+    matrix Cm = r(table)
+
+    * without it (the default): every number must be identical
+    quietly finegray z1 z2, compete(ev) cause(1) truncstrata(wg) nolog
+    capture confirm matrix e(basehaz)
+    assert _rc != 0
+    quietly finegray_predict cif_r, cif
+    quietly finegray_predict bch_r, basecshazard
+    quietly finegray_cif, at(z1=1 z2=0) attime(1 2 3)
+    matrix Cr = r(table)
+
+    gen double _dcif = abs(cif_m - cif_r)
+    gen double _dbch = abs(bch_m - bch_r)
+    quietly summarize _dcif
+    assert r(max) == 0
+    quietly summarize _dbch
+    assert r(max) == 0
+    forvalues i = 1/`=rowsof(Cm)' {
+        forvalues j = 1/`=colsof(Cm)' {
+            assert Cm[`i',`j'] == Cr[`i',`j'] | ///
+                (missing(Cm[`i',`j']) & missing(Cr[`i',`j']))
+        }
+    }
+    display as text "  rebuilt baseline reproduces cif/predict exactly (no e(basehaz))"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B01 postestimation identical without e(basehaz)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B01 postestimation without e(basehaz) (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-B02: predict, basecshazard IS the baseline cumulative subhazard
+* stcrreg posts no baseline matrix and hands the curve over as a variable
+* (predict newvar, basecshazard).  finegray now offers the same idiom.  Pin it to
+* the definition rather than to itself: step e(basehaz) onto each observation's
+* analysis time by hand and require an exact match, and require the curve to be
+* a valid cumulative hazard (nonnegative, nondecreasing in t).
+local ++test_count
+capture noisily {
+    clear
+    set seed 55502
+    quietly set obs 1200
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(ev) id(id)
+    quietly finegray x, compete(ev) cause(1) nolog basehaz
+
+    * double, not the float that `syntax newvarname' defaults to via set type:
+    * a float result carries ~5e-8 of storage noise (this is why T126 in
+    * test_finegray tolerates 1e-6), which would hide a real step-function bug of
+    * the same size.  Ask for double and hold the reconstruction to 1e-12.
+    quietly finegray_predict double bch, basecshazard
+
+    * independent reconstruction: largest cumhazard among basehaz times <= _t
+    matrix bh = e(basehaz)
+    local nbh = rowsof(bh)
+    gen double bch_ref = 0
+    forvalues r = 1/`nbh' {
+        quietly replace bch_ref = bh[`r', 2] if _t >= bh[`r', 1]
+    }
+    gen double _bdiff = abs(bch - bch_ref)
+    quietly summarize _bdiff
+    assert r(max) < 1e-12
+
+    * a cumulative hazard: nonnegative and nondecreasing in time
+    quietly summarize bch
+    assert r(min) >= 0
+    sort _t
+    quietly gen double _lag = bch[_n-1]
+    * guard the missings: an obs outside the predict sample has bch = ., and
+    * `. >= . - 1e-12' is FALSE, so an unguarded assert fails on a curve that is
+    * perfectly monotone
+    assert bch >= _lag - 1e-12 if _n > 1 & !missing(bch) & !missing(_lag)
+    display as text "  basecshazard matches the e(basehaz) step function exactly"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B02 predict, basecshazard = baseline cum. subhazard"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B02 basecshazard (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-B03: basecshazard refuses the CI options it cannot honour
+* ci/bootstrap() are CIF-only.  Parsed-but-ignored options are the silent-no-op
+* class: rc 0, a bare point estimate, and the user believing they got a band.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55503
+    quietly set obs 500
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(ev) id(id)
+    quietly finegray x, compete(ev) cause(1) nolog
+
+    capture finegray_predict b1, basecshazard ci
+    assert _rc == 198
+    capture finegray_predict b2, basecshazard bootstrap(10)
+    assert _rc == 198
+    capture finegray_predict b3, basecshazard cif
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B03 basecshazard rejects ci/bootstrap/cif"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B03 basecshazard option guards (rc=`=_rc')"
     local ++fail_count
 }
 

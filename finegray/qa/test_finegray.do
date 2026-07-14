@@ -651,11 +651,23 @@ else {
     local ++fail_count
 }
 
-* T33: e(b), e(V), e(basehaz) matrices present
+* T33: e(b), e(V) always; e(basehaz) ONLY with basehaz
+* Contract change: e(basehaz) is opt-in.  Creating its K-row Stata matrix is
+* O(K^2) (Stata builds one dimension name per row), and that round trip was the
+* package's entire superlinearity -- runtime slope 1.65 with it, 1.05 without.
+* Postestimation does not need it: finegray_cif and finegray_predict rebuild the
+* same curve in Mata.  Assert BOTH halves -- that the default omits it, and that
+* the option restores it -- or the default could silently start posting it again.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    confirm matrix e(b)
+    confirm matrix e(V)
+    capture confirm matrix e(basehaz)
+    assert _rc != 0
+
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     confirm matrix e(b)
     confirm matrix e(V)
     confirm matrix e(basehaz)
@@ -1023,7 +1035,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix bh = e(basehaz)
     local cnames : colnames bh
     assert "`cnames'" == "time cumhazard"
@@ -1046,7 +1058,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix bh = e(basehaz)
 
     quietly levelsof _t if status == 1 & e(sample), local(_evt)
@@ -2612,7 +2624,9 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    * basehaz: this test reconstructs H0(t*) from the matrix itself, so it needs
+    * e(basehaz) posted.  It is opt-in since the K-row matrix is O(K^2) to create.
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
 
     * Independent xb and a fixed horizon shared by all subjects
     finegray_predict xb_chk, xb

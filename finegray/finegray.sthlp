@@ -51,6 +51,7 @@
 {synopt:{opt noshr}}report coefficients, not hazard ratios{p_end}
 {synopt:{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
+{synopt:{opt baseh:az}}post the baseline cumulative subhazard in {cmd:e(basehaz)}{p_end}
 
 {syntab:Optimization}
 {synopt:{opt iter:ate(#)}}maximum iterations; default is {cmd:iterate(200)}{p_end}
@@ -237,6 +238,16 @@ is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 
 {phang}
 {opt nolog} suppresses the iteration log.
+
+{phang}
+{opt basehaz} posts the baseline cumulative subdistribution hazard in
+{cmd:e(basehaz)}, a matrix with one row per distinct cause-event time and columns
+{cmd:time} and {cmd:cumhazard}. It is not posted by default: that matrix has
+roughly N/2 rows, and building a Stata matrix that tall is O(rows^2), which at
+N = 200,000 took longer than the model fit itself. You do not need it for
+post-estimation -- {helpb finegray_cif} and {helpb finegray_predict} rebuild the
+same curve internally -- and {cmd:predict, basecshazard} returns the baseline as
+a variable at O(N) cost. Ask for {opt basehaz} when you want the matrix itself.
 
 {dlgtab:Optimization}
 
@@ -599,8 +610,25 @@ The speedup grows with sample size because {cmd:stcrreg} expands the dataset by
 the number of unique event times.
 
 {pstd}
-At registry scale (N=50,000+), {cmd:finegray} completes in under 10 seconds with
-3 covariates; {cmd:stcrreg} is not feasible at these sizes.
+Runtime is linear in N. Measured CPU time (Stata/MP, 2 covariates, delayed entry,
+one truncation stratum), doubling N each row:
+
+{col 10}{bf:N}{col 26}{bf:CPU}{col 40}{bf:vs previous}
+{col 10}{hline 40}
+{col 10}25,000{col 26}2.0s
+{col 10}50,000{col 26}4.0s{col 40}2.0x
+{col 10}100,000{col 26}8.3s{col 40}2.1x
+{col 10}200,000{col 26}17.5s{col 40}2.1x
+
+{pstd}
+{bf:Why {opt basehaz} is not the default:} {cmd:e(basehaz)} carries one row per
+distinct cause-event time, so it has roughly N/2 rows. Creating a Stata matrix
+that tall is O(rows^2) -- Stata builds one dimension name per row, and the cost
+is per name, not per element -- which at N = 200,000 cost 38 seconds on its own,
+more than the entire model fit. Requesting {opt basehaz} restores the matrix and
+pays that cost. Nothing else needs it: {helpb finegray_cif} and
+{helpb finegray_predict} rebuild the same curve in Mata, and
+{cmd:predict, basecshazard} returns the baseline as a variable, which is O(N).
 
 {pstd}
 {bf:Limitations:} The {cmd:by:} prefix is not supported because {cmd:finegray}
@@ -784,12 +812,16 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
-{synopt:{cmd:e(basehaz)}}baseline cumulative subdistribution hazard{p_end}
+{synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
 
 {pstd}
 {cmd:e(basehaz)} holds the baseline cumulative subdistribution hazard H0(t) as a
 right-continuous step function: column {it:time} lists the distinct
-cause-of-interest event times and column {it:cumhazard} the corresponding H0(t).
+cause-of-interest event times and column {it:cumhazard} the corresponding H0(t). It
+is posted {bf:only when} {opt basehaz} is specified, because a matrix with one
+row per event time is O(rows^2) to create in Stata; see {opt basehaz} under
+{help finegray##options:Options}. For the baseline as a variable, which costs
+O(N), use {cmd:predict, basecshazard} -- the same idiom {helpb stcrreg} uses.
 
 {pstd}
 The baseline CIF (the analogue of {cmd:stcrreg}'s {cmd:basecif}) is 1 -

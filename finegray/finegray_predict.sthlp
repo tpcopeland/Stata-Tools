@@ -33,6 +33,7 @@
 {synopt:{opt xb}}linear predictor z'beta (default){p_end}
 {synopt:{opt cif}}cumulative incidence function{p_end}
 {synopt:{opt sch:oenfeld}}Schoenfeld residuals at cause-event times{p_end}
+{synopt:{opt basecsh:azard}}baseline cumulative subdistribution hazard H0(t){p_end}
 {synopt:{opth time:var(varname)}}use {it:varname} instead of {cmd:_t} for time{p_end}
 {synopt:{opt ci}}also generate CIF confidence limits{p_end}
 {synopt:{opt boot:strap(#)}}compute bootstrap-based {opt ci} limits with {it:#} subject resamples{p_end}
@@ -172,8 +173,20 @@ unchanged.
 {title:Options}
 
 {phang}
-{opt xb} computes the linear predictor z'beta. This is the default if
-neither {opt cif} nor {opt schoenfeld} is specified.
+{opt xb} computes the linear predictor z'beta. This is the default if none of
+{opt cif}, {opt schoenfeld} or {opt basecshazard} is specified.
+
+{phang}
+{opt basecshazard} generates the baseline cumulative subdistribution hazard
+H0(t), evaluated at each observation's analysis time ({cmd:_t}, or the variable
+given in {opt timevar()}). This is the same quantity {helpb stcrreg} returns with
+{cmd:predict, basecshazard}, and it is the recommended way to obtain the
+baseline: it costs O(N), whereas {cmd:e(basehaz)} -- which holds the same curve as
+a matrix with one row per event time -- is O(rows^2) to create and so is posted
+only when {cmd:finegray}'s {opt basehaz} option is given. {opt ci} and
+{opt bootstrap()} are not allowed with {opt basecshazard}: the baseline carries no
+covariate profile, and a silently ignored {opt ci} would hand back a bare point
+estimate that looks like a band.
 
 {phang}
 {opt cif} computes the cumulative incidence function (CIF) at each

@@ -1,4 +1,4 @@
-*! _iivw_bs_refit Version 2.0.0  2026/07/13
+*! _iivw_bs_refit Version 3.0.0  2026/07/14
 *! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.
@@ -10,17 +10,33 @@ program define _iivw_bs_refit, eclass
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
 
+    * ---------------------------------------------------------------------
+    * Snapshot the ENTIRE _iivw_ characteristic namespace.
+    *
     * The iivw_weight call below rewrites the stored weighting contract with
     * this replicate's resampled (idcluster) id. Bootstrap's observed pass runs
     * on the live dataset, so without this snapshot the bogus id would leak into
-    * the user's _dta characteristics. Snapshot before any work; restore in the
-    * cleanup zone so the contract survives on both success and error.
-    local __iivw_csnap_names _iivw_weighted _iivw_id _iivw_time ///
-        _iivw_weighttype _iivw_weight_var _iivw_prefix _iivw_iw_var ///
-        _iivw_tw_var _iivw_ps_var _iivw_treat _iivw_treat_covars ///
-        _iivw_ps_estimand _iivw_contract_version _iivw_visit_covars ///
-        _iivw_baseevent _iivw_stabcov _iivw_truncate _iivw_efron _iivw_entry ///
-        _iivw_censor_mode _iivw_censor_var _iivw_maxfu
+    * the user's _dta characteristics.
+    *
+    * 2.0.0 snapshotted a hand-maintained LIST of names, and it was incomplete:
+    * _iivw_lagvars, _iivw_wsig and _iivw_nonconverged were not on it. A probe on
+    * 2026-07-14 saw _iivw_lagvars go from `x' to blank across a successful
+    * `iivw_fit, bootstrap(3) refitweights' -- and _iivw_check_weighted still
+    * returned 0 afterwards, because the signature it would have checked against
+    * had been blanked too. The contract silently stopped describing the data and
+    * the guard that exists to catch that had been erased by the same bug.
+    *
+    * A list you have to remember to extend is a list that will be wrong. Read
+    * the names from the data instead, so a field added tomorrow is snapshotted
+    * without anyone having to think about it.
+    * ---------------------------------------------------------------------
+    local __iivw_allchars : char _dta[]
+    local __iivw_csnap_names ""
+    foreach c of local __iivw_allchars {
+        if substr("`c'", 1, 6) == "_iivw_" {
+            local __iivw_csnap_names "`__iivw_csnap_names' `c'"
+        }
+    }
     local __iivw_ci 0
     foreach c of local __iivw_csnap_names {
         local ++__iivw_ci
@@ -32,10 +48,11 @@ program define _iivw_bs_refit, eclass
         NEWID(varname) TIMEvar(varname) WTYPE(string) PREFIX(string) ///
         MODel(string) ///
         [PANELid(varname) ///
-         VISITcov(string) TREAT(string) TREATcov(string) ///
+         VISITcov(string) LAGvars(string) TREAT(string) TREATcov(string) ///
          STABcov(string) TRUNCate(string) EFRon BASEline(string) ///
          ENTRY(string) ///
          CENSor(string) MAXfu(string) ENDATLASTvisit ///
+         ALLOWMISSINGWeights ///
          FAMily(string) LINk(string) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
@@ -70,15 +87,40 @@ program define _iivw_bs_refit, eclass
 
     * ---------------------------------------------------------------------
     * Recompute weights on the resampled panel.
-    * lagvars() is NOT replayed: the *_lag1 variables already travel with each
-    * resampled row, so they are passed through visit_cov() verbatim.
     *
-    * The end-of-follow-up contract IS replayed. Without it the replicates would
-    * refit the visit-intensity model on a truncated risk set while the observed
-    * estimate used the full one -- bootstrapping a different estimator than the
-    * one being reported.
+    * lagvars() IS replayed, from the RAW source variables, inside each draw.
+    *
+    * 2.0.0 did not do this: it passed the precomputed *_lag1 columns straight
+    * through visit_cov(), on the reasoning that they travel with the resampled
+    * rows anyway. They do -- but they carry the OBSERVED panel's lag structure,
+    * not the resampled one, and that is wrong in two ways at once.
+    *
+    *   1. On a terminal censoring interval the correct lagged value is the
+    *      source variable's value AT the last visit. iivw_weight builds that
+    *      when it constructs the censoring row (it copies the last visit's row,
+    *      then overwrites the lag column with the source value). A precomputed
+    *      *_lag1 column copied onto that row instead carries the value from TWO
+    *      visits back.
+    *   2. Lags could never be rebuilt WITHIN a resampled subject. The bootstrap
+    *      is supposed to propagate the uncertainty in the lag construction as
+    *      well as in the coefficients; freezing the lags at their observed-data
+    *      values removes that source of variation from every replicate.
+    *
+    * Passing the raw sources to lagvars() lets iivw_weight rebuild both, per
+    * draw, with the same code that built the observed weights.
+    *
+    * The end-of-follow-up contract IS replayed, as it was in 2.0.0. Without it
+    * the replicates would refit the visit-intensity model on a truncated risk
+    * set while the observed estimate used the full one -- bootstrapping a
+    * different estimator than the one being reported.
+    *
+    * allowmissingweights is replayed too. A draw that happens to lose a row to
+    * a missing covariate must not hard-error out of a bootstrap the user already
+    * acknowledged would be complete-case; and if they did NOT acknowledge it,
+    * the observed pass has already errored before any replicate runs.
     * ---------------------------------------------------------------------
     local efron_opt = cond("`efron'" != "", "efron", "")
+    local amw_opt = cond("`allowmissingweights'" != "", "allowmissingweights", "")
 
     if "`wtype'" == "iptw" {
         local wopts "treat(`treat') treat_cov(`treatcov')"
@@ -86,11 +128,14 @@ program define _iivw_bs_refit, eclass
             local wopts "`wopts' truncate(`truncate')"
         }
         quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
-            wtype(iptw) generate(`prefix') replace nolog
+            wtype(iptw) generate(`prefix') replace nolog `amw_opt'
     }
     else {
         * iivw or fiptiw: visit-intensity model (+ treatment model for fiptiw)
         local wopts "visit_cov(`visitcov')"
+        if "`lagvars'" != "" {
+            local wopts "`wopts' lagvars(`lagvars')"
+        }
         if "`treat'" != "" {
             local wopts "`wopts' treat(`treat') treat_cov(`treatcov')"
         }
@@ -116,7 +161,7 @@ program define _iivw_bs_refit, eclass
         local base_opt = cond("`baseline'" != "", "baseline(`baseline')", "")
         quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
             wtype(`wtype') `efron_opt' `base_opt' ///
-            generate(`prefix') replace nolog
+            generate(`prefix') replace nolog `amw_opt'
     }
 
     * Drop rows with a missing recomputed weight from this replicate's fit
@@ -155,7 +200,21 @@ program define _iivw_bs_refit, eclass
     }
     local rc = _rc
 
-    * Restore the snapshotted weighting contract (runs on success and error)
+    * ---------------------------------------------------------------------
+    * Restore the snapshotted weighting contract. Runs on success and on error.
+    *
+    * Blank the whole _iivw_ namespace FIRST, then rewrite the snapshot. Writing
+    * the snapshot back on its own would restore every field that existed before
+    * -- but would leave any field the replicate's iivw_weight call INVENTED
+    * sitting there, describing a contract that no longer exists. Clearing first
+    * makes the restoration exact in both directions: nothing lost, nothing added.
+    * ---------------------------------------------------------------------
+    local __iivw_nowchars : char _dta[]
+    foreach c of local __iivw_nowchars {
+        if substr("`c'", 1, 6) == "_iivw_" {
+            char _dta[`c'] ""
+        }
+    }
     local __iivw_ci 0
     foreach c of local __iivw_csnap_names {
         local ++__iivw_ci

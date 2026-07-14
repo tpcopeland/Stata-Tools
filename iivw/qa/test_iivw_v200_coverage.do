@@ -58,6 +58,28 @@ program define _cov_registry
     gen double y = 1 + 0.5 * z + rnormal()
 end
 
+
+* _cov_restamp -- re-stamp the weight signature after a hand-edited characteristic.
+*
+* R2 and R3 SIMULATE `iivw_weight ... allownonconverged' by writing the
+* nonconverged stamp onto an already-weighted dataset. From 3.0.0 the stale-weight
+* signature binds the stored SPECIFICATION as well as the columns, so editing a
+* characteristic after the fact is -- correctly -- treated as tampering, and the
+* next consumer errors r(459).
+*
+* That guard is right and it has its own test (test_iivw_stale_state.do T14
+* asserts the tamper IS caught). R2 and R3 are about something else entirely:
+* whether a nonconverged stamp WITHDRAWS the balance verdict and survives
+* iivw_fit. So they re-stamp the signature, which is exactly what iivw_weight
+* itself does at its commit point -- putting the dataset in the state a real
+* `allownonconverged' run would have left it in, rather than in a tampered one.
+capture program drop _cov_restamp
+program define _cov_restamp
+    version 16.0
+    quietly _iivw_weight_signature
+    char _dta[_iivw_wsig] "`r(signature)'"
+end
+
 **# R1 - the convergence guard errors, and allownonconverged downgrades it
 
 local ++test_count
@@ -96,6 +118,7 @@ capture noisily {
     * their provenance is. The verdict must withdraw, because the target-SMD null
     * assumes the visit model solves its estimating equation.
     char _dta[_iivw_nonconverged] "1"
+    _cov_restamp
     quietly iivw_balance
     assert "`r(balance_flag)'" == "unknown"
     assert r(refit_ok) == 0
@@ -116,6 +139,7 @@ capture noisily {
     _cov_registry, n(250) seed(55503)
     quietly iivw_weight, id(id) time(time) visit(z) censor(cens)
     char _dta[_iivw_nonconverged] "1"
+    _cov_restamp
 
     * A CONVERGED outcome fit must not erase the record that the WEIGHTS are
     * untrustworthy. Before the fix, iivw_fit cleared _iivw_nonconverged in its

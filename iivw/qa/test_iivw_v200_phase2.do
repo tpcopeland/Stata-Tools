@@ -187,8 +187,11 @@ capture noisily {
     gen byte holed = (mod(_n, 17) == 0)
     replace z = . if holed & !(_n == 1)
 
+    * z is holed above so some rows carry no weight -- which is the whole
+    * subject of this test (the ESS denominator must be the WEIGHTED rows, not
+    * all rows). From 3.0.0 the loss must be acknowledged.
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(cens) ///
-        wtype(iivw) nolog
+        wtype(iivw) allowmissingweights nolog
 
     quietly count
     local n_total = r(N)
@@ -199,7 +202,7 @@ capture noisily {
     assert `n_wtd' < `n_total'
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(cens) ///
-        wtype(iivw) replace nolog
+        wtype(iivw) replace allowmissingweights nolog
 
     assert r(N_total) == `n_total'
     assert r(N_weighted) == `n_wtd'

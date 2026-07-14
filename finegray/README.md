@@ -99,7 +99,9 @@ Core estimation quantities include `e(N)`, `e(N_fail)`, `e(N_compete)`, `e(N_cen
 | `e(datasignature)`, `e(datasignaturevars)` | Original-data signature used by data-dependent post-estimation |
 | `e(sample)` | Estimation-sample indicator |
 | `e(b)`, `e(V)` | Coefficient vector and variance-covariance matrix |
-| `e(basehaz)` | Baseline cumulative subdistribution hazard by event time |
+| `e(basehaz)` | Baseline cumulative subdistribution hazard by event time — **only when `basehaz` is specified** (see below) |
+
+**`e(basehaz)` is opt-in.** It holds one row per distinct cause-event time, so it has roughly N/2 rows, and creating a Stata matrix that tall is O(rows²) — Stata builds one dimension name per row, and the cost is per name, not per element. At N = 200,000 that single matrix cost 38 s, more than the entire model fit, and it was the only reason `finegray`'s runtime was superlinear (log-log slope 1.65 with it, 1.06 without; 95.0 s → 18.7 s at N = 200,000). Nothing needs it: `finegray_cif` and `finegray_predict` rebuild the same curve in Mata, and `predict, basecshazard` returns the baseline as a variable at O(N) — the same idiom `stcrreg` uses, since `stcrreg` posts no baseline matrix in `e()` either. Specify `basehaz` when you want the matrix itself.
 
 `finegray_cif` stores `r(table)`, `r(at)`, `r(level)`, `r(cause)`, and `r(profile_vars)`. With `bootstrap()`, it also stores `r(bootstrap_requested)`, `r(bootstrap_success)`, and `r(bootstrap_failed)`. `finegray_phtest` stores `r(chi2)`, `r(df)`, `r(p)`, `r(N_fail)`, `r(time)`, and `r(phtest)`. `finegray_predict` creates variables and intentionally clears `r()`.
 

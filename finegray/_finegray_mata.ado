@@ -1590,7 +1590,8 @@ void _finegray_engine(
     real scalar max_iter,
     real scalar tol,
     real scalar show_log,
-    real scalar adjust)
+    real scalar adjust,
+    real scalar want_bh)
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id
     real matrix Z, V, bh
@@ -1839,9 +1840,15 @@ void _finegray_engine(
         V = info_inv
     }
 
-    /* Compute baseline hazard */
-    bh = _finegray_basehazard(t, delta, cause, censval, event_type,
-        Z, beta, G, byg_id, t0, tg_id)
+    /* Compute the baseline hazard only when the caller asked to POST it.  The
+       scan itself is linear, but handing its K ~ n/2 rows to Stata as a matrix
+       is O(K^2) and was the package's whole superlinearity (see the note above
+       _finegray_bh_rebuild).  Postestimation does not read it from here -- it
+       rebuilds the same curve in Mata -- so when want_bh is 0 nothing needs it. */
+    if (want_bh) {
+        bh = _finegray_basehazard(t, delta, cause, censval, event_type,
+            Z, beta, G, byg_id, t0, tg_id)
+    }
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
        not the rank: a cluster-robust V can have p positive variances and still
@@ -1861,8 +1868,11 @@ void _finegray_engine(
     st_matrix("_finegray_V", V)
     st_matrix("_finegray_rank", rank_V)
     if (n_clust < .) st_matrix("_finegray_nclust", n_clust)
-    st_matrix("_finegray_basehaz", bh)
-    st_matrixcolstripe("_finegray_basehaz", (J(2,1,""), ("time" \ "cumhazard")))
+    if (want_bh) {
+        st_matrix("_finegray_basehaz", bh)
+        st_matrixcolstripe("_finegray_basehaz",
+            (J(2,1,""), ("time" \ "cumhazard")))
+    }
     st_matrix("_finegray_ll", ll)
     st_matrix("_finegray_ll_0", ll_0)
     st_matrix("_finegray_chi2", chi2)
@@ -2274,30 +2284,62 @@ void _finegray_boot_cif_obs(
     st_store(sel, ssv, ssc :+ cif :^ 2)
 }
 
-/* Step function lookup via binary search: O(n log n_bh) instead of O(n * n_bh).
-   For each observation in the touse sample, finds the largest basehaz time <= t
-   and assigns the corresponding cumulative hazard to H0var. */
-void _finegray_step_lookup(
-    string scalar bh_matname,
-    string scalar tvar,
-    string scalar H0var,
-    string scalar tousevar)
+/* ------------------------------------------------------------------------
+   Baseline cumulative subhazard WITHOUT a K-row Stata matrix.
+
+   The baseline has one row per distinct cause-event time, so K ~ n/2.  Creating
+   a Stata matrix with K rows is O(K^2) -- Stata builds one dimension name per
+   row, and the cost is per NAME, not per element, so it hits st_matrix(), mkmat,
+   a plain copy and a transpose alike (6.5 s at K = 40,000, 38.6 s at K = 95,600).
+   That round trip, not the forward-backward scan, was this package's entire
+   superlinearity: ablating it moved the runtime slope from 1.65 to 1.05.
+
+   Postestimation needs the baseline's VALUES, not a Stata matrix.  So rebuild it
+   in Mata in one linear pass from the estimation sample and e(b).  This is exact,
+   not an approximation: it re-runs the same _finegray_basehazard() the fit ran.
+   ------------------------------------------------------------------------ */
+real matrix _finegray_bh_rebuild(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar tg_str,
+    string scalar tousevar,
+    string scalar t0var)
 {
-    real matrix bh
-    real colvector times, H0, touse_vec, sel
-    real scalar i, lo, hi, mid, n_bh, n_sel
+    real matrix Z
+    real colvector t, t0, delta, event_type, beta, byg_id, tg_id, G
+    real scalar n
 
-    bh = st_matrix(bh_matname)
+    Z = st_data(., tokens(zvars), tousevar)
+    t = st_data(., "_t", tousevar)
+    t0 = st_data(., t0var, tousevar)
+    delta = st_data(., "_d", tousevar)
+    event_type = st_data(., events_str, tousevar)
+    n = rows(Z)
+    beta = st_matrix("e(b)")'
+    if (byg_str != "") byg_id = st_data(., byg_str, tousevar)
+    else               byg_id = J(n, 1, 1)
+    if (tg_str != "")  tg_id = st_data(., tg_str, tousevar)
+    else               tg_id = J(n, 1, 1)
+
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    return(_finegray_basehazard(t, delta, cause, censval, event_type, Z, beta,
+        G, byg_id, t0, tg_id))
+}
+
+/* Shared binary-search step lookup: largest baseline time <= each element of
+   times, returning its cumulative subhazard (0 before the first event time). */
+real colvector _finegray_step_core(real matrix bh, real colvector times)
+{
+    real colvector H0
+    real scalar i, lo, hi, mid, n_bh, n
+
     n_bh = rows(bh)
-
-    touse_vec = st_data(., tousevar)
-    sel = selectindex(touse_vec)
-    n_sel = length(sel)
-
-    times = st_data(sel, tvar)
-    H0 = J(n_sel, 1, 0)
-
-    for (i = 1; i <= n_sel; i++) {
+    n = rows(times)
+    H0 = J(n, 1, 0)
+    for (i = 1; i <= n; i++) {
         if (times[i] >= .) continue
         lo = 1
         hi = n_bh
@@ -2308,7 +2350,96 @@ void _finegray_step_lookup(
         }
         if (hi >= 1) H0[i] = bh[hi, 2]
     }
+    return(H0)
+}
 
+/* Step lookup with the baseline rebuilt in Mata -- the path taken when the user
+   did not ask for e(basehaz).  Same values as _finegray_step_lookup(); it just
+   never routes the curve through a Stata matrix. */
+void _finegray_step_lookup_direct(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar tg_str,
+    string scalar est_touse,
+    string scalar t0var,
+    string scalar tvar,
+    string scalar H0var,
+    string scalar eval_touse)
+{
+    real matrix bh
+    real colvector touse_vec, sel, times, H0
+
+    bh = _finegray_bh_rebuild(zvars, events_str, cause, censval, byg_str,
+        tg_str, est_touse, t0var)
+    touse_vec = st_data(., eval_touse)
+    sel = selectindex(touse_vec)
+    if (length(sel) == 0) return
+    times = st_data(sel, tvar)
+    H0 = _finegray_step_core(bh, times)
+    st_store(sel, H0var, H0)
+}
+
+/* The THINNED baseline time grid for finegray_cif's curve mode.  Posts at most
+   maxpts+1 rows, so the Stata matrix it creates is small and its O(rows^2) cost
+   is nil -- the point of the exercise is never to hand Stata the full K rows.
+   The thinning indices reproduce the former Stata-side loop exactly (stride, then
+   always close on the last row), so the grid is unchanged to the last bit. */
+void _finegray_bh_grid(
+    string scalar zvars,
+    string scalar events_str,
+    real scalar cause,
+    real scalar censval,
+    string scalar byg_str,
+    string scalar tg_str,
+    string scalar est_touse,
+    string scalar t0var,
+    real scalar maxpts,
+    string scalar outmat)
+{
+    real matrix bh
+    real colvector idx
+    real scalar nbh, step, r, last
+
+    bh = _finegray_bh_rebuild(zvars, events_str, cause, censval, byg_str,
+        tg_str, est_touse, t0var)
+    nbh = rows(bh)
+    st_local("_fg_nbh", strofreal(nbh))
+    if (nbh == 0) return
+
+    step = ceil(nbh / maxpts)
+    idx = J(0, 1, .)
+    last = 0
+    for (r = 1; r <= nbh; r = r + step) {
+        idx = idx \ r
+        last = r
+    }
+    if (last < nbh) idx = idx \ nbh
+    st_matrix(outmat, bh[idx, 1])
+}
+
+/* Step function lookup via binary search: O(n log n_bh) instead of O(n * n_bh).
+   For each observation in the touse sample, finds the largest basehaz time <= t
+   and assigns the corresponding cumulative hazard to H0var.  Used when the user
+   asked for e(basehaz) and the matrix therefore exists; st_matrix() READS an e()
+   matrix for free, it is only CREATING one that is quadratic. */
+void _finegray_step_lookup(
+    string scalar bh_matname,
+    string scalar tvar,
+    string scalar H0var,
+    string scalar tousevar)
+{
+    real matrix bh
+    real colvector times, H0, touse_vec, sel
+
+    bh = st_matrix(bh_matname)
+    touse_vec = st_data(., tousevar)
+    sel = selectindex(touse_vec)
+    if (length(sel) == 0) return
+    times = st_data(sel, tvar)
+    H0 = _finegray_step_core(bh, times)
     st_store(sel, H0var, H0)
 }
 
