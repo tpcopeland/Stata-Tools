@@ -1345,24 +1345,61 @@ else {
 }
 
 * T63: Version consistency across package files
+* QA-M09: this test was titled "version consistency" but only asserted that three
+* `which' calls returned 0 -- it checked NO versions, and omitted half the shipped
+* files.  Now it reads the flagship .ado header version and requires every shipped
+* .ado header and the .pkg Distribution version line to match it.  A drifted
+* version across package files is precisely the thing this test is named to catch.
 local ++test_count
 capture noisily {
-    capture which finegray
-    local rc1 = _rc
-    capture which finegray_predict
-    local rc2 = _rc
-    capture which _finegray_mata
-    local rc3 = _rc
-    assert `rc1' == 0
-    assert `rc2' == 0
-    assert `rc3' == 0
+    * all shipped programs must resolve
+    foreach p in finegray finegray_cif finegray_predict finegray_phtest ///
+                 _finegray_mata _finegray_check_data _finegray_weight_groups ///
+                 _finegray_resolve_baseline {
+        capture which `p'
+        assert _rc == 0
+    }
+
+    * flagship version, read from the .ado header *! line
+    tempname fh
+    file open `fh' using "`pkgroot'/finegray.ado", read text
+    file read `fh' line
+    local flagver ""
+    while r(eof) == 0 & "`flagver'" == "" {
+        if regexm(`"`line'"', "^\*! finegray Version ([0-9]+\.[0-9]+\.[0-9]+)") ///
+            local flagver = regexs(1)
+        file read `fh' line
+    }
+    file close `fh'
+    assert "`flagver'" != ""
+    display as text "  flagship finegray.ado version = `flagver'"
+
+    * every shipped .ado header must carry that same version
+    foreach f in finegray finegray_cif finegray_predict finegray_phtest ///
+                 _finegray_mata _finegray_check_data _finegray_weight_groups ///
+                 _finegray_resolve_baseline {
+        tempname fh2
+        file open `fh2' using "`pkgroot'/`f'.ado", read text
+        file read `fh2' l2
+        local thisver ""
+        while r(eof) == 0 & "`thisver'" == "" {
+            if regexm(`"`l2'"', "^\*!.* Version ([0-9]+\.[0-9]+\.[0-9]+)") ///
+                local thisver = regexs(1)
+            file read `fh2' l2
+        }
+        file close `fh2'
+        if "`thisver'" != "`flagver'" {
+            display as error "  `f'.ado version `thisver' != flagship `flagver'"
+        }
+        assert "`thisver'" == "`flagver'"
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: T63 all package files installed"
+    display as result "  PASS: T63 all .ado headers agree on version `flagver'"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T63 package files (rc=`=_rc')"
+    display as error "  FAIL: T63 version consistency (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -2034,23 +2071,30 @@ else {
     local ++fail_count
 }
 
-* T99: e(fvvarlist) stored correctly
+* T99: e(fvvarlist) and e(fvsemantic) stored correctly
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
     assert "`e(fvvarlist)'" == "i.pelnode ifp i.pelnode#c.ifp tumsize"
+    * e(fvsemantic) holds the fully expanded FV semantic term list for FV models
+    * (it drives the by-level-value alignment in finegray_predict).  It had no QA
+    * coverage; assert it is populated for an FV model and reduced to "." (empty)
+    * for a plain one.
+    assert strpos("`e(fvsemantic)'", "pelnode") > 0
+    assert strpos("`e(fvsemantic)'", "ifp") > 0
     cap drop _fg_*
-    * Non-FV model: e(fvvarlist) should be empty
+    * Non-FV model: both empty in a macro reference
     finegray ifp tumsize, compete(status) cause(1) nolog
     assert "`e(fvvarlist)'" == ""
+    assert "`e(fvsemantic)'" == ""
 }
 if _rc == 0 {
-    display as result "  PASS: T99 e(fvvarlist) stored correctly"
+    display as result "  PASS: T99 e(fvvarlist)/e(fvsemantic) stored correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T99 e(fvvarlist) (rc=`=_rc')"
+    display as error "  FAIL: T99 e(fvvarlist)/e(fvsemantic) (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -2441,10 +2485,18 @@ capture noisily {
     * No residuals should exist outside the requested sample
     quietly count if sch_if < . & _n > 10
     assert r(N) == 0
-    * Residuals should only appear at cause events within first 10 obs
+    * Residuals should only appear within the first 10 obs -- i.e. the total
+    * count equals the count in-window.  The old assertion was `assert r(N) ==
+    * r(N)' after two counts into the SAME r(N): a literal tautology (QA-M04)
+    * that passed no matter what the residuals did.  Capture the totals into
+    * distinct locals and require them equal AND positive (a test that asserts
+    * 0 == 0 proves nothing about a feature that is supposed to produce output).
     quietly count if sch_if < .
+    local n_total = r(N)
     quietly count if sch_if < . & _n <= 10
-    assert r(N) == r(N)
+    local n_window = r(N)
+    assert `n_total' == `n_window'
+    assert `n_total' > 0
     drop sch_if sch_if_2 sch_if_3
 }
 if _rc == 0 {

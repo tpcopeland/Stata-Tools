@@ -79,6 +79,7 @@ net install finegray, from("`pkgroot'") replace
 local NS      : environment ZZF_BENCH_NS
 local RUNS    : environment ZZF_BENCH_RUNS
 local LANES   : environment ZZF_BENCH_LANES
+local _smoke = ("`NS'" != "" | "`RUNS'" != "" | "`LANES'" != "")
 
 if "`NS'"      == "" local NS      "25000 50000 100000 200000"
 if "`RUNS'"    == "" local RUNS    5
@@ -190,6 +191,24 @@ if r(N) > 0 {
     display as error "MEASUREMENT INVALID: `=r(N)' rows have a missing runtime or memory reading"
     log close _bench_zzf
     exit 9
+}
+
+* Environment overrides are the documented plumbing smoke, not a scaling
+* experiment.  They prove that every clean child installed the intended build,
+* ran, and returned usable measurements.  Only the fixed preregistered ladder
+* below may claim or reject linear scaling.
+if `_smoke' {
+    quietly count if secs <= 0 | kb_incr <= 0
+    if r(N) > 0 {
+        display as error "SMOKE FAILED: `=r(N)' rows have nonpositive runtime or memory increments"
+        display "RESULT: benchmark_finegray_zzf mode=smoke rows=`got' expected=`expected' pass=0"
+        log close _bench_zzf
+        exit 9
+    }
+    display as result "SMOKE PASSED: every clean child returned usable measurements"
+    display "RESULT: benchmark_finegray_zzf mode=smoke rows=`got' expected=`expected' pass=1"
+    log close _bench_zzf
+    exit 0
 }
 
 * ---------------------------------------------------------------------------

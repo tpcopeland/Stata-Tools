@@ -1,16 +1,17 @@
 /*  demo_datamap.do - Demo output for datamap
 
     Produces:
-      1. Console output (privacy warning)          -> .log -> .md via logdoc
+      1. Console output (privacy + capped counts)  -> .log -> .md via logdoc
       2. Console output (privacy-safe text map)    -> .log -> .md via logdoc
       3. Console output (JSON + compact output)    -> .log -> .md via logdoc
       4. Console output (Markdown dictionary)      -> .log -> .md via logdoc
       5. Console output (datacheck QC + gates)     -> .log -> .md via logdoc
       6. Console output (datamvp missing patterns) -> .log -> .md via logdoc
-      7. Text maps                                 -> .txt
-      8. JSON map                                  -> .json
-      9. Markdown dictionaries                     -> .md
-     10. Missingness bar graph (datamvp)           -> .png
+      7. In-memory datasignature checks            -> console output
+      8. Text maps                                 -> .txt
+      9. JSON map                                  -> .json
+     10. Markdown dictionaries                     -> .md
+     11. Missingness bar graph (datamvp)           -> .png
 */
 
 version 16.0
@@ -23,12 +24,13 @@ local pkg_dir "datamap/demo"
 capture mkdir "`pkg_dir'"
 
 foreach f in datamap_auto.txt datamap_clinical.txt datamap_missing.txt ///
-    datamap_privacy_warning.txt datamap_compact.txt datamap_json.json ///
-    datadict_auto.md datadict_clinical.md ///
+    datamap_warning.txt datamap_compact.txt datamap_metadata.json ///
+    datadict_auto.md datadict_clinical.md missingness_bar.png ///
     _demo_auto.dta _demo_cohort.dta _demo_missing.dta ///
-    console_privacy.log console_privacy.md ///
-    console_clinical.log console_clinical.md ///
-    console_json_compact.log console_json_compact.md ///
+    console_datamap_privacy.log console_datamap_privacy.md ///
+    console_datamap_json.log console_datamap_json.md ///
+    console_datamap_compact.log console_datamap_compact.md ///
+    console_datamap_missing.log console_datamap_missing.md ///
     console_datadict.log console_datadict.md ///
     console_datacheck.log console_datacheck.md ///
     console_datamvp.log console_datamvp.md {
@@ -129,7 +131,7 @@ end
 quietly {
     clear
     set seed 20260226
-    set obs 160
+    set obs 1200
 
     gen double patient_id = 100000 + _n
     gen double subject_id = 5000 + _n
@@ -200,7 +202,7 @@ quietly {
     label variable site "Study site"
     label variable rare_marker "Rare clinical marker"
 
-    label data "Synthetic Clinical Trial Cohort (N=160)"
+    label data "Synthetic Clinical Trial Cohort (N=1200)"
     save "`pkg_dir'/_demo_cohort.dta", replace
 }
 
@@ -242,7 +244,7 @@ quietly save "`pkg_dir'/_demo_auto.dta", replace
 quietly datamap, single("`pkg_dir'/_demo_auto.dta") ///
     output("`pkg_dir'/datamap_auto.txt") ///
     exclude(make)
-_demo_strip_trailing_spaces using "`pkg_dir'/datamap_auto.txt"
+quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_auto.txt"
 
 quietly datadict, single("`pkg_dir'/_demo_auto.dta") ///
     output("`pkg_dir'/datadict_auto.md") ///
@@ -257,28 +259,41 @@ log using "`pkg_dir'/console_datamap_privacy.log", replace text name(privacy) no
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_warning.txt") ///
     mincell(5) noguidance compact
-noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
+quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
 
-noisily display as text ""
 noisily display as text "Disclosure-risk summary excerpt:"
 noisily _demo_type_head using "`pkg_dir'/datamap_warning.txt", lines(32)
+noisily display as text "Capped unique-count excerpt:"
+noisily _demo_type_matches using "`pkg_dir'/datamap_warning.txt", ///
+    text(">1000") lines(6)
 
 * # Privacy-safe text map
+
+use "`pkg_dir'/_demo_cohort.dta", clear
+quietly datasignature
+local map_signature "`r(datasignature)'"
+tempfile map_integrity
+
+quietly datamap, ///
+    output("`map_integrity'.txt") ///
+    exclude(patient_id subject_id patient_name) ///
+    datesafe mincell(5) autodetect quality samples(3) missing(detail)
+quietly datasignature
+assert "`map_signature'" == "`r(datasignature)'"
+noisily display as result ///
+    "In-memory integrity check: datamap left the datasignature unchanged"
 
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_clinical.txt") ///
     exclude(patient_id subject_id patient_name) ///
     datesafe mincell(5) autodetect quality samples(3) missing(detail)
-noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_clinical.txt"
+quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_clinical.txt"
 
-noisily display as text ""
 noisily display as text "Privacy-safe map excerpt:"
 noisily _demo_type_head using "`pkg_dir'/datamap_clinical.txt", lines(72)
-noisily display as text ""
 noisily display as text "Suppressed frequency cells:"
 noisily _demo_type_matches using "`pkg_dir'/datamap_clinical.txt", ///
     text("suppressed (<5)") lines(8)
-noisily display as text ""
 noisily display as text "Date-safe sample rows:"
 noisily _demo_type_matches using "`pkg_dir'/datamap_clinical.txt", ///
     text("[DATE SUPPRESSED]") lines(6)
@@ -294,10 +309,12 @@ log using "`pkg_dir'/console_datamap_json.log", replace text name(json) nomsg
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_metadata.json") ///
     format(json) exclude(patient_id subject_id patient_name) ///
-    datesafe mincell(5) quality missing(detail)
+    datesafe mincell(5) quality missing(detail) uniqcap(100)
 
 noisily _demo_type_head using "`pkg_dir'/datamap_metadata.json", lines(70)
-noisily display as text ""
+noisily display as text "Censored unique-count flags:"
+noisily _demo_type_matches using "`pkg_dir'/datamap_metadata.json", ///
+    text("unique_values_capped") lines(8)
 noisily display as text "Suppressed JSON cells:"
 noisily _demo_type_matches using "`pkg_dir'/datamap_metadata.json", ///
     text("suppressed") lines(8)
@@ -313,7 +330,7 @@ log using "`pkg_dir'/console_datamap_compact.log", replace text name(compact) no
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_compact.txt") ///
     compact exclude(patient_id subject_id patient_name) datesafe mincell(5)
-noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_compact.txt"
+quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_compact.txt"
 
 noisily _demo_type_head using "`pkg_dir'/datamap_compact.txt", lines(56)
 
@@ -328,7 +345,7 @@ log using "`pkg_dir'/console_datamap_missing.log", replace text name(missing) no
 noisily datamap, single("`pkg_dir'/_demo_missing.dta") ///
     output("`pkg_dir'/datamap_missing.txt") ///
     exclude(id) missing(pattern) quality mincell(5) noguidance
-noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_missing.txt"
+quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_missing.txt"
 
 noisily _demo_type_head using "`pkg_dir'/datamap_missing.txt", lines(80)
 
@@ -340,6 +357,19 @@ log using "`pkg_dir'/console_datadict.log", replace text name(datadict) nomsg
 
 * # Markdown dictionary with shared classification
 
+use "`pkg_dir'/_demo_cohort.dta", clear
+quietly datasignature
+local dict_signature "`r(datasignature)'"
+tempfile dict_integrity
+
+quietly datadict, ///
+    output("`dict_integrity'.md") ///
+    missing stats dateformat(%tdDD/NN/CCYY)
+quietly datasignature
+assert "`dict_signature'" == "`r(datasignature)'"
+noisily display as result ///
+    "In-memory integrity check: datadict left the datasignature unchanged"
+
 noisily datadict, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datadict_clinical.md") ///
     title("SYNTH-01 Clinical Trial Data Dictionary") ///
@@ -349,6 +379,9 @@ noisily datadict, single("`pkg_dir'/_demo_cohort.dta") ///
     missing stats dateformat(%tdDD/NN/CCYY)
 
 noisily _demo_type_head using "`pkg_dir'/datadict_clinical.md", lines(76)
+noisily display as text "Capped dictionary rows:"
+noisily _demo_type_matches using "`pkg_dir'/datadict_clinical.md", ///
+    text(">1000") lines(6)
 
 log close datadict
 
@@ -361,10 +394,10 @@ log using "`pkg_dir'/console_datacheck.log", replace text name(datacheck) nomsg
 * datacheck profiles the data in memory: per-class distributions, missingness,
 * key structure, and quality flags. The cohort carries a deliberate age = -3
 * outlier, a 115% adherence value, a rare "Satellite clinic" site, and missing
-* biomarkers, so the flags and missingness blocks are populated.
+* biomarkers. Its 1,200 distinct IDs also exercise v1.6.0's capped count display.
 
 use "`pkg_dir'/_demo_cohort.dta", clear
-noisily datacheck age sex smoking bmi pct_adherence site, ///
+noisily datacheck patient_id age sex smoking bmi pct_adherence site, ///
     id(patient_id) outliers(3) rare(5)
 
 * # Expectation gate (warn mode)
@@ -372,7 +405,7 @@ noisily datacheck age sex smoking bmi pct_adherence site, ///
 * The same expectations run as a gate. With warn, violations are reported and
 * execution continues; drop warn to halt the do-file with r(9) instead.
 
-noisily datacheck age pct_adherence, expectn(160) isid(patient_id) ///
+noisily datacheck age pct_adherence, expectn(1200) isid(patient_id) ///
     notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
 
 log close datacheck
@@ -410,6 +443,8 @@ capture graph close _all
 **# Verify generated artifact content
 _demo_assert_contains using "`pkg_dir'/datamap_warning.txt", ///
     text("Likely identifiers not excluded")
+_demo_assert_contains using "`pkg_dir'/datamap_warning.txt", ///
+    text(">1000")
 _demo_assert_contains using "`pkg_dir'/datamap_clinical.txt", ///
     text("suppressed (<5)")
 _demo_assert_contains using "`pkg_dir'/datamap_clinical.txt", ///
@@ -418,16 +453,26 @@ _demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
     text("suppressed")
 _demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
     text("mincell")
+_demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
+    text(`""unique_values_capped": true"')
 _demo_assert_contains using "`pkg_dir'/datamap_compact.txt", ///
     text("QUICK REFERENCE")
 _demo_assert_contains using "`pkg_dir'/datamap_missing.txt", ///
     text("Missing Data Summary")
 _demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
     text("| Variable | Label | Type | Missing | Statistics/Values |")
+_demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
+    text(">1000")
 _demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
     text("QUICK REFERENCE")
 _demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+    text(">1000")
+_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
     text("WARNINGS (2)")
+_demo_assert_contains using "`pkg_dir'/console_datamap_privacy.log", ///
+    text("In-memory integrity check: datamap left the datasignature unchanged")
+_demo_assert_contains using "`pkg_dir'/console_datadict.log", ///
+    text("In-memory integrity check: datadict left the datasignature unchanged")
 _demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
     text("Missing value patterns")
 _demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///

@@ -82,8 +82,13 @@ capture noisily {
         t0 = st_data(., "_t0")
         G = _finegray_km_censor(t, dd, 0, et, J(rows(t), 1, 1), t0)
         b = st_matrix("e(b)")'
+        /* 11 args, not 10: the ZZF work added the truncation-stratum column
+           (tg_id) and this call was never updated, so it had been dying with
+           r(3001) -- a red suite nobody was tracking.  The fit above has no
+           truncstrata(), so every subject is in one truncation stratum. */
         sc = _finegray_score_residuals(t, dd, 1, 0, et, Z, b, G,
-                                       J(rows(t), 1, 1), t0)
+                                       J(rows(t), 1, 1), t0,
+                                       J(rows(t), 1, 1))
         st_numscalar("cs_max", max(abs(colsum(sc))))
     }
     restore

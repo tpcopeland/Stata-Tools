@@ -75,7 +75,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
         visit_cov(age sex bl_edss) lagvars(sdmt relapse) ///
         treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
-        truncate(1 99) efron nolog
+        truncfinal(1 99) efron nolog
 
     confirm variable _iivw_iw
     confirm variable _iivw_tw

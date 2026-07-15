@@ -23,7 +23,7 @@ version 16.0
 *   N10 iivw_balance          -- weighting rebalances covariate; control does not
 *   N11 iivw_diagnose         -- DGP-driven bias decomposition (end-to-end)
 *   N12 FIPTIW + Poisson      -- collapsible marginal log-rate-ratio
-*   N13 truncate() attenuation-- documented bounded trade-off on strong weights
+*   N13 truncfinal() attenuation-- documented bounded trade-off on strong weights
 *
 * Every estimator scenario confirms a NAIVE estimator MISSES the truth (proving
 * the scenario actually exercises what the weighting is meant to fix), then
@@ -599,7 +599,7 @@ capture noisily {
     scalar n10_inf_wt = Binf[1,2]
     scalar n10_inf_smd = r(balance_max_shift)
     scalar n10_inf_tsmd = r(balance_max_tsmd)
-    scalar n10_inf_flag_good = ("`r(balance_flag)'" == "good")
+    scalar n10_inf_flag_good = ("`r(balance_flag)'" == "within_rule")
 
     * -- non-informative control
     clear
@@ -772,9 +772,9 @@ if `rc' == 0 local ++pass_count
 else local ++fail_count
 _rc_result `rc' "N12 FIPTIW poisson recovers log-RR (est=" + string(n12_est,"%6.4f") + ")"
 
-**# N13: truncate() attenuation -- documented bounded trade-off on strong weights
+**# N13: truncfinal() attenuation -- documented bounded trade-off on strong weights
 * Strong informativeness (gamma=1.6) concentrates the weights. The UNTRUNCATED IIW
-* recovers the slope 0.5 tightly. Aggressive truncate(5 95) trades variance for
+* recovers the slope 0.5 tightly. Aggressive truncfinal(5 95) trades variance for
 * bias: the truncated estimate moves AWAY from 0.5 (toward the biased naive value)
 * -- a real, documented property, NOT a bug. Bounded gate: truncation still beats
 * naive by a wide margin, but is measurably more biased than the untruncated fit.
@@ -805,7 +805,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n13_full = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncate(5 95) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncfinal(5 95) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar n13_trunc = _b[months]
     scalar n13_ok = 1

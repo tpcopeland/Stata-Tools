@@ -27,19 +27,19 @@ nothing. Oracle strength, best first:
 | # | Supported calculation | Oracle | Tier | Exists today? |
 |---|---|---|---|---|
 | 1 | IIW unstabilized `exp(−γᵀZ)` | IrregLong `iiw.weights`, **exact** agreement on visit-model coefficient + observed-visit weights | 3 | ✅ `crossval_iivw_irreglong` |
-| 2 | **`Z ⊆ X` ⇒ stabilized IIW ≡ 1** | **B&L p.8** analytic invariant: the stabilized weight "equals one for all individuals at all times". Tompkins p.5 concurs | **1** | ❌ **MISSING — add. Free and exact.** |
+| 2 | **`Z ⊆ X` ⇒ stabilized IIW ≡ 1** | **B&L p.8** analytic invariant: the stabilized weight "equals one for all individuals at all times". Tompkins p.5 concurs | **1** | ✅ `test_iivw_literature_invariants` T1–T2, `test_iivw_phase2_contract` T5. Under FIPTIW the numerator must now match the *full* visit design (`visit_cov()` **+ `treat()`**), which makes the identity a two-sided check on the design as well |
 | 3 | Risk set `ξ_i(t)=I(C_i>t)` | IrregLong `addcensoredrows()`, exact row-count + interval match | 3 | ✅ `crossval_iivw_irreglong` (`maxfu(384)`) |
 | 3b | Terminal censoring interval | **Hand-computable**: subject with visits at t=1,3 and `maxfu(10)` ⇒ intervals (0,1],(1,3],(3,10] with `_event`=1,1,0 | **1** | ⚠️ partial — assert it directly |
 | 4 | Stabilized IPTW `Pr[A=a]/Pr[A=a\|L]` | **Independent implementation** on one-row-per-subject data (R `ipw`/`WeightIt`, or hand-computed from a `logit`) | 3 | ❌ **MISSING** (plan Phase 2) |
 | 5 | **Saturated-model equivalence** | ***What If* §12.3 p.154** analytic invariant: stabilized ≡ unstabilized point estimate when the outcome model is `Y ~ A` alone | **1** | ❌ **MISSING — add. Free and exact.** |
 | 6 | **Mean-one** | ***What If* §12.3 p.153** + **Cole & Hernán §Correct model specification**: "a necessary condition for correct model specification is that the stabilized weights have a mean of one" | **1** | ❌ **MISSING — add.** |
 | 7 | FIPTIW product `e_i/φ_i` | Coulombe **eq. 3.14**; parity on a **full at-risk window** | 3 | ⚠️ **legacy only** — current arms use `endatlastvisit` (see §3) |
-| 8 | Treatment in the FIPTIW visit model | Coulombe **eq. 3.12** — assert `treat` appears in the fitted visit-model spec | **1** | ❌ **MISSING** — and no current test *can* detect its absence |
+| 8 | Treatment in the FIPTIW visit model | Coulombe **eq. 3.12** — assert `treat` appears in the fitted visit-model spec | **1** | ✅ **CLOSED (2.0.0, Phase 2)** — `test_iivw_phase2_contract` T1–T4 asserts the fitted design, the dedup, the contract field, the labelled opt-out, and that the refit bootstrap replays it. `test_iivw_literature_invariants` T2 adds the converse: a numerator that does *not* match the full FIPTIW design must **not** collapse to 1, so the identity cannot pass vacuously if `treat()` is ever dropped again |
 | 9 | Outcome GEE (B&L eq. 11) | Stata `glm [pw], vce(cluster id)` ≡ independence GEE; cross-check vs R `geeglm` | 3 | ✅ `crossval_iivw_external` (geeglm arms) |
 | 10 | Known-truth recovery | **Coulombe §3.3 DGP, PDF p.87–88 — true effect = 1**, `C_i ~ U(τ/2,τ)` | 2 | ⚠️ recovery exists but on the **legacy** design (§3) |
 | 11 | **Corrected variance** | Coverage simulation ≥1,000 reps; **and** a fixed-weight arm that demonstrably **fails** a scenario the corrected method passes | 2 | ❌ **MISSING — this is the release blocker** |
 | 12 | Balance target (unstabilized) | Hand-computed `∫ξ(t)g(Z(t))dΛ₀(t)` on a 2-subject fixture | **1** | ⚠️ assert directly |
-| 13 | Balance target (**stabilized**) | DGP with a **nonconstant** numerator where the current `dΛ₀` target **fails** and `h(X)dΛ₀` converges to 0 | **1/2** | ❌ **MISSING** — this is what would have caught IIVW-B06 |
+| 13 | Balance target (**stabilized**) | **The saturated-stabilization identity.** Set `stabcov()` = the full visit model. B&L p.8: the stabilized weight is then **identically 1** — it reweights nothing — so every target SMD must be **0 by algebra**, with no Monte Carlo error and no external implementation. Tier-1: hand-checkable and deterministic | **1** | ✅ **CLOSED** — `test_iivw_phase2_contract` T5–T7. Old code reported max \|TSMD\| = **0.3321411** for a weight vector of all ones. T5 establishes the weight really is 1 (so T6 is not vacuous); T7 pins the unstabilized path bit-for-bit unchanged |
 | 14 | Holm adjustment (`iivw_exogtest`) | Hand-computed p-value vectors incl. ties, skipped groups, 1-vs-many groups | **1** | ⚠️ verify coverage |
 
 **Score: of 14 supported calculations, 4 have an adequate oracle today.** Five of the missing ones (#2,
@@ -69,11 +69,11 @@ so the draw *is* the observed panel, and require the recomputed weights to equal
 to `1e-12` (Class E). This is hand-checkable, deterministic, needs no external software, and has no
 Monte Carlo error for a defect to hide behind.
 
-It discriminates, measurably: on 2.0.0 the identity draw is off by **max reldif 2.24e-01**. On 3.0.0 it
-is **0.00e+00**.
+It discriminates, measurably: against the pre-release build the identity draw is off by
+**max reldif 2.24e-01**. It is now **0.00e+00**.
 
 **What the identity draw does NOT prove.** It runs the same `iivw_weight` on both sides, so it can only
-catch a defect in *what the replay hands to the weighting* — which is exactly where the 2.0.0 defect
+catch a defect in *what the replay hands to the weighting* — which is exactly where the defect
 was (`visit_cov()` receiving precomputed `*_lag1` columns instead of `lagvars()` receiving the raw
 sources). A defect *inside* `iivw_weight` itself would cancel on both sides and pass. That is what the
 IrregLong parity arm (#1) is for, and the two are not substitutes.

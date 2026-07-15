@@ -39,6 +39,23 @@ set more off
 set varabbrev off
 version 16.0
 
+* Install the exact source tree in every clean child.  The parent also installs
+* it before spawning cells, but a child must not be able to inherit a stale PLUS
+* registration if the parent setup is changed or interrupted.
+local pkgroot "`c(pwd)'"
+capture confirm file "`pkgroot'/finegray.pkg"
+if _rc {
+    capture confirm file "`pkgroot'/../finegray.pkg"
+    if _rc {
+        display as error "could not locate finegray package root"
+        exit 601
+    }
+    local pkgroot "`pkgroot'/.."
+}
+capture ado uninstall finegray
+quietly net install finegray, from("`pkgroot'") replace
+discard
+
 * ---------------------------------------------------------------------------
 * Measure CPU TIME, single-threaded -- not wall clock.
 * ---------------------------------------------------------------------------

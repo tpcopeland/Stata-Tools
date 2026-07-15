@@ -171,7 +171,7 @@ if `run_only' == 0 | `run_only' == 3 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * ---------------------------------------------------------------
-        * UPDATED FOR 3.0.0. This block used to assert that `replace' DESTROYED
+        * UPDATED FOR 2.0.0. This block used to assert that `replace' DESTROYED
         * an unowned `_iivw_tns1 = 999' (it checked `r(max) < 999'), which is
         * blocker #10 written as a passing test. `replace' now overwrites only a
         * column iivw can prove it created.
@@ -451,7 +451,7 @@ if `run_only' == 0 | `run_only' == 10 {
 
         * Truncation should tame extreme weights
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(extreme_cov) ///
-            truncate(5 95) replace nolog
+            truncfinal(5 95) replace nolog
         quietly summarize _iivw_weight
         * After truncation, max weight should be finite and bounded
         assert r(max) < .

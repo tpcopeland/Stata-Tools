@@ -107,21 +107,49 @@ if `run_only' == 0 | `run_only' == 1 {
 }
 
 * =============================================================================
-* TEST 2: same identity holds for the FIPTIW visit component
+* TEST 2: the same identity holds for the FIPTIW visit component -- and pins
+*         the FIPTIW visit DESIGN while it is at it
 *
 * The IIW component of a FIPTIW weight is the same object as a standalone IIW
 * weight (TDW eq. 5, p.6: FIPTIW = IPTW x IIW, a plain product), so the B&L p.8
 * identity must survive the presence of a treatment model.
+*
+* But the FIPTIW visit-intensity DENOMINATOR is not visit_cov() alone. Since
+* Phase 2 it is visit_cov() + treat(), by construction, because FIPTIW exists for
+* the design in which treatment drives the monitoring schedule as well as the
+* outcome -- a visit model that omits treatment cannot correct a visit process
+* that depends on it. So the numerator that collapses the ratio to 1 is
+* stabcov(z trt), not stabcov(z).
+*
+* That makes this identity a two-sided check rather than a formality. It closes
+* to exactly 1 only if the numerator design and the denominator design are the
+* SAME set of columns. Ask for stabcov(z) here -- the pre-Phase-2 spelling -- and
+* the ratio is exp(xb_z - xb_{z,trt}), which is not 1 and says so. The test would
+* fail if treat() were quietly dropped from the visit model again.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _setup_irregular
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) stabcov(z) ///
-            treat(trt) treat_cov(k) nolog
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(z) stabcov(z trt) treat(trt) treat_cov(k) nolog
+
+        * The denominator really is z + trt: assert the design, not just the
+        * consequence, so a failure says which of the two broke.
+        assert "`r(visit_covars)'" == "z trt"
+        assert r(treat_in_visit) == 1
+
         quietly summarize _iivw_iw
         assert reldif(r(min), 1) < 1e-10
         assert reldif(r(max), 1) < 1e-10
+
+        * And the converse: a numerator that does NOT match the full FIPTIW
+        * design must not collapse to 1. If it does, treat() is not in the
+        * denominator and the identity above was vacuous.
+        iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+            visit_cov(z) stabcov(z) treat(trt) treat_cov(k) replace nolog
+        quietly summarize _iivw_iw
+        assert reldif(r(max), 1) > 1e-6
     }
     if _rc == 0 {
         local ++pass_count
@@ -206,13 +234,13 @@ if `run_only' == 0 | `run_only' == 4 {
 }
 
 * =============================================================================
-* TEST 5: truncate() winsorizes the FINAL weight, after multiplication
+* TEST 5: truncfinal() winsorizes the FINAL weight, after multiplication
 *
 * TDW Sim III (p.12-13) trims either "first" (the components, before
 * multiplying) or "after" (the product), and reports the difference as
 * negligible. iivw_weight does the latter -- _pctile is applied to the final
 * weight variable (iivw_weight.ado:822). The help documents this, so pin it:
-* the components must be left untouched by truncate().
+* the components must be left untouched by truncfinal().
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
@@ -226,7 +254,7 @@ if `run_only' == 0 | `run_only' == 5 {
 
         _setup_irregular
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(z) treat(trt) treat_cov(k) ///
-            truncate(5 95) nolog
+            truncfinal(5 95) nolog
         quietly summarize _iivw_iw
         * component is NOT trimmed
         assert reldif(r(max), `iw_max_untrimmed') < 1e-10
@@ -237,11 +265,11 @@ if `run_only' == 0 | `run_only' == 5 {
     }
     if _rc == 0 {
         local ++pass_count
-        display as result "PASS: T5 truncate() trims the product, not the components (TDW Sim III)"
+        display as result "PASS: T5 truncfinal() trims the product, not the components (TDW Sim III)"
     }
     else {
         local ++fail_count
-        display as error "FAIL: T5 truncate() trims the product, not the components (TDW Sim III)"
+        display as error "FAIL: T5 truncfinal() trims the product, not the components (TDW Sim III)"
     }
 }
 

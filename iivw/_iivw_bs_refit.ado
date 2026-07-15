@@ -1,4 +1,4 @@
-*! _iivw_bs_refit Version 3.0.0  2026/07/14
+*! _iivw_bs_refit Version 2.0.0  2026/07/14
 *! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.
@@ -18,7 +18,8 @@ program define _iivw_bs_refit, eclass
     * on the live dataset, so without this snapshot the bogus id would leak into
     * the user's _dta characteristics.
     *
-    * 2.0.0 snapshotted a hand-maintained LIST of names, and it was incomplete:
+    * The pre-release build snapshotted a hand-maintained LIST of names, and it was
+    * incomplete:
     * _iivw_lagvars, _iivw_wsig and _iivw_nonconverged were not on it. A probe on
     * 2026-07-14 saw _iivw_lagvars go from `x' to blank across a successful
     * `iivw_fit, bootstrap(3) refitweights' -- and _iivw_check_weighted still
@@ -49,10 +50,11 @@ program define _iivw_bs_refit, eclass
         MODel(string) ///
         [PANELid(varname) ///
          VISITcov(string) LAGvars(string) TREAT(string) TREATcov(string) ///
-         STABcov(string) TRUNCate(string) EFRon BASEline(string) ///
+         STABcov(string) EFRon BASEline(string) ///
+         TRUNCVisit(string) TRUNCTreat(string) TRUNCFinal(string) ///
          ENTRY(string) ///
          CENSor(string) MAXfu(string) ENDATLASTvisit ///
-         ALLOWMISSINGWeights ///
+         ALLOWMISSINGWeights EXPERIMENTALNOTREATVISit ///
          FAMily(string) LINk(string) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
@@ -90,7 +92,7 @@ program define _iivw_bs_refit, eclass
     *
     * lagvars() IS replayed, from the RAW source variables, inside each draw.
     *
-    * 2.0.0 did not do this: it passed the precomputed *_lag1 columns straight
+    * The pre-release build did not do this: it passed the precomputed *_lag1 straight
     * through visit_cov(), on the reasoning that they travel with the resampled
     * rows anyway. They do -- but they carry the OBSERVED panel's lag structure,
     * not the resampled one, and that is wrong in two ways at once.
@@ -109,7 +111,7 @@ program define _iivw_bs_refit, eclass
     * Passing the raw sources to lagvars() lets iivw_weight rebuild both, per
     * draw, with the same code that built the observed weights.
     *
-    * The end-of-follow-up contract IS replayed, as it was in 2.0.0. Without it
+    * The end-of-follow-up contract IS replayed. Without it
     * the replicates would refit the visit-intensity model on a truncated risk
     * set while the observed estimate used the full one -- bootstrapping a
     * different estimator than the one being reported.
@@ -119,14 +121,28 @@ program define _iivw_bs_refit, eclass
     * acknowledged would be complete-case; and if they did NOT acknowledge it,
     * the observed pass has already errored before any replicate runs.
     * ---------------------------------------------------------------------
+    * The FIPTIW visit model carries treat() by construction, so a plain replay
+    * reproduces it without being told. The OPT-OUT is what has to travel: a
+    * replicate that silently re-added treatment while the observed pass omitted
+    * it would bootstrap an estimator the user never ran.
     local efron_opt = cond("`efron'" != "", "efron", "")
     local amw_opt = cond("`allowmissingweights'" != "", "allowmissingweights", "")
+    local ntv_opt = ///
+        cond("`experimentalnotreatvisit'" != "", "experimentalnotreatvisit", "")
+
+    * The trimming spec is replayed by PERCENTILE, not by the observed cutpoint.
+    * A bootstrap draw is a different sample: its 99th percentile is a different
+    * number, and clipping it at the OBSERVED sample's cutpoint would freeze part
+    * of the estimator at its observed-data value and remove that source of
+    * variation from every replicate. The estimator is "fit, then clip at the
+    * pth percentile of THIS sample" -- so that is what each draw must do.
+    local trim_opts ""
+    if "`truncvisit'" != "" local trim_opts "`trim_opts' truncvisit(`truncvisit')"
+    if "`trunctreat'" != "" local trim_opts "`trim_opts' trunctreat(`trunctreat')"
+    if "`truncfinal'" != "" local trim_opts "`trim_opts' truncfinal(`truncfinal')"
 
     if "`wtype'" == "iptw" {
-        local wopts "treat(`treat') treat_cov(`treatcov')"
-        if "`truncate'" != "" {
-            local wopts "`wopts' truncate(`truncate')"
-        }
+        local wopts "treat(`treat') treat_cov(`treatcov')`trim_opts'"
         quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
             wtype(iptw) generate(`prefix') replace nolog `amw_opt'
     }
@@ -142,9 +158,7 @@ program define _iivw_bs_refit, eclass
         if "`stabcov'" != "" {
             local wopts "`wopts' stabcov(`stabcov')"
         }
-        if "`truncate'" != "" {
-            local wopts "`wopts' truncate(`truncate')"
-        }
+        local wopts "`wopts'`trim_opts'"
         * entry() is ignored when the baseline visit is study entry
         if "`baseline'" == "event" & "`entry'" != "" {
             local wopts "`wopts' entry(`entry')"
@@ -161,7 +175,7 @@ program define _iivw_bs_refit, eclass
         local base_opt = cond("`baseline'" != "", "baseline(`baseline')", "")
         quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
             wtype(`wtype') `efron_opt' `base_opt' ///
-            generate(`prefix') replace nolog `amw_opt'
+            generate(`prefix') replace nolog `amw_opt' `ntv_opt'
     }
 
     * Drop rows with a missing recomputed weight from this replicate's fit

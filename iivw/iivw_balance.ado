@@ -1,4 +1,4 @@
-*! iivw_balance Version 3.0.0  2026/07/14
+*! iivw_balance Version 2.0.0  2026/07/14
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -166,6 +166,9 @@ program define iivw_balance, rclass
     if "`rep_baseevent'" == "" local rep_baseevent = 0
     local rep_stabcov   "`r(stabcov)'"
     local rep_efron     "`r(efron)'"
+    local rep_truncvisit "`r(truncvisit)'"
+    local rep_tv_locut   "`r(tv_locut)'"
+    local rep_tv_hicut   "`r(tv_hicut)'"
     local rep_lagvars   "`r(lagvars)'"
     local rep_cens_mode "`r(censor_mode)'"
     local rep_cens_var  "`r(censor_var)'"
@@ -570,10 +573,9 @@ program define iivw_balance, rclass
             level(`level') vce(cluster `panel_id')
         local __iivw_fit_rc = _rc
 
-        tempvar __iivw_xbf __iivw_w __iivw_H
+        tempvar __iivw_xbf __iivw_w __iivw_H __iivw_xbs
         quietly predict double `__iivw_xbf', xb
         if "`rep_stabcov'" != "" {
-            tempvar __iivw_xbs
             quietly stcox `rep_stabcov' if `__iivw_coxok', `rep_efron'
             quietly predict double `__iivw_xbs', xb
             quietly gen double `__iivw_w' = exp(`__iivw_xbs' - `__iivw_xbf')
@@ -585,6 +587,31 @@ program define iivw_balance, rclass
         }
         else {
             quietly gen double `__iivw_w' = exp(-`__iivw_xbf')
+        }
+
+        * ---- Trim the refit weight the way the ANALYSIS weight was trimmed.
+        *
+        * Balance describes the weight the outcome model actually used. When the
+        * visit component was trimmed, the untrimmed exp(-xb) above is NOT that
+        * weight -- so the old code reported the balance of a weight vector nobody
+        * ever fitted with, and reported it as if it were the analysis.
+        *
+        * Clip at the STORED CUTPOINTS, not at the percentiles: this refit sits on
+        * its own risk set and its own weight distribution, so the same percentile
+        * would land on a different number and reproduce a different weight. The
+        * cutpoints are the analysis, and they travel on the contract for exactly
+        * this reason. The mean-1 normalization cancels in every ratio computed
+        * below, so clipping the unnormalized refit at the normalized cutpoints
+        * requires rescaling first -- do that, then clip.
+        if "`rep_truncvisit'" != "" & "`rep_tv_locut'" != "" {
+            quietly summarize `__iivw_w' if `__iivw_coxok' & !missing(`__iivw_w'), meanonly
+            if r(N) > 0 & r(mean) > 0 & r(mean) < . {
+                quietly replace `__iivw_w' = `__iivw_w' / r(mean)
+            }
+            quietly replace `__iivw_w' = `rep_tv_locut' ///
+                if `__iivw_w' < `rep_tv_locut' & !missing(`__iivw_w')
+            quietly replace `__iivw_w' = `rep_tv_hicut' ///
+                if `__iivw_w' > `rep_tv_hicut' & !missing(`__iivw_w')
         }
 
         * Record the visit-model HRs (informational; shown under agrefit).
@@ -634,7 +661,37 @@ program define iivw_balance, rclass
         quietly replace `__iivw_dH' = . if `__iivw_dH' < 0
         quietly count if `__iivw_coxok' & missing(`__iivw_dH')
         local __iivw_dH_bad = r(N)
-        quietly summarize `__iivw_dH', meanonly
+
+        * ---- The TARGET measure the observed visits are reweighted TO.
+        *
+        * Unstabilized IIW gives each observed visit weight exp(-xb) = 1/lambda,
+        * so the weighted visit average of v converges to the at-risk average of v
+        * under the baseline person-time measure dLambda_0. That is the target.
+        *
+        * A STABILIZED IIW carries the numerator h(X) = exp(xb_stab) as well:
+        * w = h(X) exp(-xb). Its weighted visit average therefore converges to
+        *     E[h(X) v dLambda_0] / E[h(X) dLambda_0],
+        * the h(X)-TILTED at-risk average -- not the plain one. Comparing it to a
+        * dLambda_0-only target measures the tilt, which is not a balance defect,
+        * and reports it as one. The old code did exactly that: it built the
+        * stabilized observed weight correctly and then compared it to an
+        * unstabilized target, so the whole balance table was wrong under
+        * stabcov() unless h happened to be constant (or to cancel for the tested
+        * moment, which is how it survived QA -- the tested moments were symmetric
+        * enough that the tilt washed out).
+        *
+        * Weight the target by h(X) too, and the two sides describe the same
+        * population again.
+        tempvar __iivw_tgt
+        if "`rep_stabcov'" != "" {
+            quietly gen double `__iivw_tgt' = exp(`__iivw_xbs') * `__iivw_dH' ///
+                if `__iivw_coxok' & !missing(`__iivw_xbs', `__iivw_dH')
+        }
+        else {
+            quietly gen double `__iivw_tgt' = `__iivw_dH' if `__iivw_coxok'
+        }
+
+        quietly summarize `__iivw_tgt', meanonly
         if r(N) == 0 | r(sum) <= 0 {
             display as error "the fitted visit model produced no usable at-risk person-time"
             error 498
@@ -646,10 +703,10 @@ program define iivw_balance, rclass
             local ++__iivw_bix
 
             tempvar __iivw_dHv __iivw_wv
-            quietly gen double `__iivw_dHv' = `__iivw_dH' * `v' ///
-                if `__iivw_coxok' & !missing(`v', `__iivw_dH')
-            quietly summarize `__iivw_dH' if `__iivw_coxok' & ///
-                !missing(`v', `__iivw_dH'), meanonly
+            quietly gen double `__iivw_dHv' = `__iivw_tgt' * `v' ///
+                if `__iivw_coxok' & !missing(`v', `__iivw_tgt')
+            quietly summarize `__iivw_tgt' if `__iivw_coxok' & ///
+                !missing(`v', `__iivw_tgt'), meanonly
             local __iivw_sdH = r(sum)
             quietly summarize `__iivw_dHv', meanonly
             local __iivw_sdHv = r(sum)
@@ -664,8 +721,8 @@ program define iivw_balance, rclass
             if `__iivw_tmean' < . {
                 tempvar __iivw_dHv2
                 quietly gen double `__iivw_dHv2' = ///
-                    `__iivw_dH' * (`v' - `__iivw_tmean')^2 ///
-                    if `__iivw_coxok' & !missing(`v', `__iivw_dH')
+                    `__iivw_tgt' * (`v' - `__iivw_tmean')^2 ///
+                    if `__iivw_coxok' & !missing(`v', `__iivw_tgt')
                 quietly summarize `__iivw_dHv2', meanonly
                 if `__iivw_sdH' > 0 & r(sum) < . {
                     local __iivw_tsd = sqrt(r(sum) / `__iivw_sdH')
@@ -734,8 +791,8 @@ program define iivw_balance, rclass
     * A nuisance model the user accepted nonconverged via allownonconverged does
     * not solve its estimating equation, so exp(-gamma'Z) is not the IIW weight
     * and the target-SMD null does not hold for it. Balancing to a target the
-    * weights were never built to hit says nothing, so no verdict is issued --
-    * "good" here would be the most dangerous output the command can produce.
+    * weights were never built to hit says nothing, so no flag is issued --
+    * a within_rule here would be the most dangerous output the command can produce.
     if "`rep_nonconv'" == "1" {
         local __iivw_refit_ok = 0
         display as error ///
@@ -748,15 +805,19 @@ program define iivw_balance, rclass
             "  solves its estimating equation, and this one does not."
     }
 
-    * The verdict. Reported ONLY when the diagnostic that supports it actually
-    * ran: a check with no evidence behind it says "unknown", it does not
-    * default to "good".
+    * The flag. It reports where the measured target SMD falls relative to the
+    * balcut() RULE -- not whether the visit model is correctly specified. The
+    * 0.10 default is the usual balance convention, not a proof of anything, so
+    * the labels name the comparison the command actually made: within_rule when
+    * max |target SMD| <= balcut(), exceeds_rule otherwise. It is reported ONLY
+    * when the diagnostic that supports it actually ran; a check with no evidence
+    * behind it says "unknown", it does not default to a pass.
     if `__iivw_refit_ok' & `balance_max_tsmd' < . {
         if `balance_max_tsmd' <= `balcut' {
-            local balance_flag "good"
+            local balance_flag "within_rule"
         }
         else {
-            local balance_flag "poor"
+            local balance_flag "exceeds_rule"
         }
     }
 
@@ -827,13 +888,13 @@ program define iivw_balance, rclass
         }
         display as text ""
         display as text "  Max |target SMD|:  " as result %9.4f `balance_max_tsmd' ///
-            as text "  (poor if > " as result %5.3f `balcut' as text ")"
+            as text "  (exceeds_rule if > " as result %5.3f `balcut' as text ")"
 
         * With no terminal at-risk interval the person-time target is built from
         * the visit intervals alone, so it collapses toward the observed visits
         * and the null becomes nearly untestable: |target SMD| is then small
         * almost regardless of the weights. Reporting that as an unqualified
-        * "good" would overstate what was actually checked.
+        * within_rule would overstate what was actually checked.
         if `refit_ncens' == 0 {
             display as text ""
             display as text "  note: no terminal at-risk interval was available" ///
@@ -851,7 +912,8 @@ program define iivw_balance, rclass
     else {
         display as text "  target diagnostic unavailable; no verdict"
     }
-    display as text "  Balance flag:    " as result "`balance_flag'"
+    display as text "  Rule flag:       " as result "`balance_flag'" ///
+        as text "  (max |target SMD| vs balcut() = " as result %5.3f `balcut' as text ")"
 
     if "`agrefit'" != "" {
         display as text ""

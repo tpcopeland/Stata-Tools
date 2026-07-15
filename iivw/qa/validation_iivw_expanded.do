@@ -123,7 +123,7 @@ if `run_only' == 0 | `run_only' == 2 {
         drop raw_weight raw_iw
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            truncate(5 95) nolog
+            truncfinal(5 95) nolog
         quietly summarize _iivw_weight
         * All weights must lie in [lo, hi] to float precision
         assert r(min) >= `lo' - 1e-8
@@ -619,7 +619,7 @@ if `run_only' == 0 | `run_only' == 20 {
         drop raw_weight raw_iw
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            truncate(10 90) nolog
+            truncfinal(10 90) nolog
         local actual = r(n_truncated)
         assert `actual' == `expected'
     }

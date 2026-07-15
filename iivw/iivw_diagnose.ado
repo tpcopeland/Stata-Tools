@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 3.0.0  2026/07/14
+*! iivw_diagnose Version 2.0.0  2026/07/14
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -284,7 +284,12 @@ program define iivw_diagnose, rclass
             local conclusion "sign_inconsistent"
         }
         else if "`exogeneity'" == "exogenous" {
-            local conclusion "point_decomposition"
+            * exogeneity(exogenous) is a USER ASSERTION, not a tested condition.
+            * It does not license a causal "point decomposition"; it only says the
+            * user is willing to read the descriptive shares as a proportional
+            * attribution. The label stays descriptive so no output claims more
+            * than the data support.
+            local conclusion "shares_descriptive"
         }
 
         display as text ""
@@ -362,6 +367,13 @@ program define iivw_diagnose, rclass
             display as text ""
             display as text "Shares are descriptive because exogeneity of the measurement adjustment"
             display as text "has not been established."
+        }
+        else if "`exogeneity'" == "exogenous" & "`estimand'" == "marginal" {
+            display as text ""
+            display as text "note: exogeneity(exogenous) is your assertion, not a tested condition."
+            display as text "The shares are a descriptive proportional attribution under that"
+            display as text "assumption; they are not a validated causal decomposition, and this"
+            display as text "command does not verify that the adjustment is exogenous."
         }
         else if "`exogeneity'" == "exogenous" & "`estimand'" == "marginal" {
             display as text ""

@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 3.0.0  2026/07/14
+*! _iivw_weight_signature Version 2.0.0  2026/07/14
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -13,9 +13,9 @@
 * specification silently stopped describing the data, and the fit ran anyway
 * on weights that no longer belonged to it. rc 0, wrong answer.
 *
-* What changed in 3.0.0
-* ---------------------
-* The 2.0.0 signature bound only the final weight, the id/time key, and the
+* What it binds, and why that is not obvious
+* -----------------------------------------
+* An earlier build bound only the final weight, the id/time key, and the
 * GENERATED visit-model covariate list. Everything else the weights were built
 * from was unbound, and two probes on 2026-07-14 showed exactly what that costs:
 * editing a subject's treat() value, and then editing a treat_cov() value, each
@@ -151,7 +151,10 @@ program define _iivw_weight_signature, rclass
         foreach __iivw_ch in _iivw_weighttype _iivw_prefix _iivw_baseevent ///
             _iivw_censor_mode _iivw_maxfu _iivw_truncate _iivw_efron ///
             _iivw_ps_estimand _iivw_contract_version _iivw_nonconverged ///
-            _iivw_allowmissingweights _iivw_visit_covars {
+            _iivw_allowmissingweights _iivw_visit_covars ///
+            _iivw_treat_in_visit ///
+            _iivw_truncvisit _iivw_trunctreat _iivw_truncfinal ///
+            _iivw_tv_locut _iivw_tv_hicut _iivw_tt_locut _iivw_tt_hicut {
             local __iivw_cv : char _dta[`__iivw_ch']
             local __iivw_specparts "`__iivw_specparts'~`__iivw_cv'"
         }

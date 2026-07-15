@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.1.4  2026/07/10
+*! _finegray_mata Version 1.2.0  2026/07/15
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -26,7 +26,15 @@ When all _t0 == 0, this degenerates to the original full-cumsum
 algorithm.
 */
 
-* Loading guard
+* Loading guard.
+*
+* The sentinel MUST be a Mata function, not this Stata program.  `mata clear'
+* (and `mata: mata clear') drops every Mata function while leaving Stata programs
+* untouched -- so a Stata-program sentinel still answers "loaded" when the engine
+* is in fact gone, the reload never fires, and the next Mata call dies with
+* r(3499) "function not found".  Every caller therefore probes
+* _finegray_mata_ok() (defined in the Mata block below) and reloads this file if
+* the probe errors.  The program below is kept only as a human-facing marker.
 capture program drop _finegray_mata_loaded
 program define _finegray_mata_loaded
     version 16.0
@@ -42,6 +50,10 @@ end
 
 mata:
 mata set matastrict on
+
+/* The real load sentinel: a Mata function, so that `mata clear' -- which wipes
+   Mata but not Stata programs -- makes the probe fail and the caller reload. */
+void _finegray_mata_ok() {}
 
 /* Single-stratum KM of censoring distribution (with left truncation).
    Returns the POST-JUMP survivor at each observation time, i.e. the ordinary
@@ -1840,15 +1852,15 @@ void _finegray_engine(
         V = info_inv
     }
 
-    /* Compute the baseline hazard only when the caller asked to POST it.  The
-       scan itself is linear, but handing its K ~ n/2 rows to Stata as a matrix
-       is O(K^2) and was the package's whole superlinearity (see the note above
-       _finegray_bh_rebuild).  Postestimation does not read it from here -- it
-       rebuilds the same curve in Mata -- so when want_bh is 0 nothing needs it. */
-    if (want_bh) {
-        bh = _finegray_basehazard(t, delta, cause, censval, event_type,
-            Z, beta, G, byg_id, t0, tg_id)
-    }
+    /* Compute the baseline hazard ALWAYS -- the scan is linear -- and cache it in
+       MATA, which is free.  What is not free is handing its K ~ n/2 rows to Stata
+       as a matrix: that is O(K^2) and was the package's whole superlinearity (see
+       the note above _finegray_bh_rebuild), so the Stata matrix stays opt-in.
+       Postestimation reads the cache, which is what lets `predict, cif' work on
+       NEW data after the estimation sample has been dropped. */
+    bh = _finegray_basehazard(t, delta, cause, censval, event_type,
+        Z, beta, G, byg_id, t0, tg_id)
+    _finegray_bh_store(bh)
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
        not the rank: a cluster-robust V can have p positive variances and still
@@ -2295,8 +2307,19 @@ void _finegray_boot_cif_obs(
    superlinearity: ablating it moved the runtime slope from 1.65 to 1.05.
 
    Postestimation needs the baseline's VALUES, not a Stata matrix.  So rebuild it
-   in Mata in one linear pass from the estimation sample and e(b).  This is exact,
-   not an approximation: it re-runs the same _finegray_basehazard() the fit ran.
+   in Mata in one linear pass from the estimation sample and e(b).  It re-runs the
+   same _finegray_basehazard() the fit ran, so it recovers the SAME curve.
+
+   Caveat, documented deliberately: the rebuild is not BIT-identical to the cached
+   curve -- ~1 ulp (measured 3.8e-15 on a CIF).  _finegray_basehazard breaks tied
+   event times by row index, and the rebuild reads rows in current data order while
+   the fit read them in its own sorted order, so tied contributions accumulate in a
+   different rounding order.  Both paths are individually deterministic and 1 ulp is
+   far below any reported precision, so this is a reproducibility footnote, not a
+   bug -- but it is why a CIF can change in its last bit depending on whether the
+   Mata cache was warm (a bootstrap in the same session bumps the seq and forces the
+   rebuild).  To get the fit-time curve exactly, fit with basehaz: e(basehaz) is
+   read directly and no rebuild happens.
    ------------------------------------------------------------------------ */
 real matrix _finegray_bh_rebuild(
     string scalar zvars,
@@ -2327,6 +2350,104 @@ real matrix _finegray_bh_rebuild(
     G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
     return(_finegray_basehazard(t, delta, cause, censval, event_type, Z, beta,
         G, byg_id, t0, tg_id))
+}
+
+/* ------------------------------------------------------------------------
+   The baseline cache: the curve kept in MATA, where it is free.
+
+   A Stata matrix costs O(K^2) to create because of its dimension-name stripe.
+   A MATA matrix has no stripe -- it is just numbers -- so holding the same K x 2
+   curve in Mata costs nothing.  That is the whole trick: the baseline lives in
+   Mata across commands, and only becomes a Stata matrix if the user asks for
+   e(basehaz).
+
+   This cache exists because postestimation cannot always rebuild.  `predict, cif'
+   on NEW data is a documented workflow: the user drops the estimation data, types
+   a fresh covariate profile, and predicts.  The estimation sample is then gone,
+   so there is nothing to rebuild the baseline FROM -- and the old code only
+   worked because it read a Stata matrix out of e(), which survives `drop _all'.
+
+   The cache is keyed by a per-fit sequence number, posted as e(bh_seq).  A stale
+   cache is the silent-wrong-answer failure mode here (predicting from the
+   PREVIOUS fit's baseline at rc 0), so a consumer must present the seq it expects
+   and gets nothing back unless it matches.  `mata clear' / `discard' wipe the
+   cache, which is safe: the consumer then falls back to rebuilding, or errors.
+   ------------------------------------------------------------------------ */
+void _finegray_bh_store(real matrix bh)
+{
+    external real matrix    _finegray_bh_cache
+    external real scalar    _finegray_bh_seq
+
+    if (_finegray_bh_seq == J(1,1,.) | _finegray_bh_seq >= .) _finegray_bh_seq = 0
+    _finegray_bh_cache = bh
+    _finegray_bh_seq   = _finegray_bh_seq + 1
+    st_local("_fg_bh_seq", strofreal(_finegray_bh_seq, "%18.0g"))
+}
+
+/* Does the cache hold the curve for THIS fit?  Sets the caller's local to 1/0. */
+void _finegray_bh_have(real scalar seq, string scalar lname)
+{
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real scalar ok
+
+    ok = 0
+    if (_finegray_bh_seq < . & _finegray_bh_seq == seq) {
+        if (rows(_finegray_bh_cache) > 0) ok = 1
+    }
+    st_local(lname, strofreal(ok))
+}
+
+/* Step lookup against the cached curve.  Refuses a mismatched seq rather than
+   answering from another fit's baseline. */
+void _finegray_step_lookup_cached(
+    real scalar seq,
+    string scalar tvar,
+    string scalar H0var,
+    string scalar tousevar)
+{
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real colvector touse_vec, sel, times, H0
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
+        errprintf("finegray: cached baseline does not belong to the active fit\n")
+        exit(error(459))
+    }
+    touse_vec = st_data(., tousevar)
+    sel = selectindex(touse_vec)
+    if (length(sel) == 0) return
+    times = st_data(sel, tvar)
+    H0 = _finegray_step_core(_finegray_bh_cache, times)
+    st_store(sel, H0var, H0)
+}
+
+/* The thinned grid, taken from the cached curve (finegray_cif's curve mode). */
+void _finegray_bh_grid_cached(real scalar seq, real scalar maxpts,
+    string scalar outmat)
+{
+    external real matrix _finegray_bh_cache
+    external real scalar _finegray_bh_seq
+    real colvector idx
+    real scalar nbh, step, r, last
+
+    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
+        errprintf("finegray: cached baseline does not belong to the active fit\n")
+        exit(error(459))
+    }
+    nbh = rows(_finegray_bh_cache)
+    st_local("_fg_nbh", strofreal(nbh))
+    if (nbh == 0) return
+
+    step = ceil(nbh / maxpts)
+    idx = J(0, 1, .)
+    last = 0
+    for (r = 1; r <= nbh; r = r + step) {
+        idx = idx \ r
+        last = r
+    }
+    if (last < nbh) idx = idx \ nbh
+    st_matrix(outmat, _finegray_bh_cache[idx, 1])
 }
 
 /* Shared binary-search step lookup: largest baseline time <= each element of

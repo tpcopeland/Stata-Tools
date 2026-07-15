@@ -210,7 +210,7 @@ end
 * iivw_balance's arithmetic independently of the model that usually produces the
 * weights.
 *
-* From 3.0.0 the stale-weight guard FAILS CLOSED: a contract with no signature
+* From 2.0.0 the stale-weight guard FAILS CLOSED: a contract with no signature
 * is an error, not a skipped check. (It used to be "if a signature is stored,
 * verify it", which meant erasing the signature disarmed the guard entirely --
 * one edit and every consumer accepted whatever the data happened to contain.)

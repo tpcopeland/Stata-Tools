@@ -60,7 +60,9 @@ local ++test_count
 capture noisily {
     _mk_hypoxia
     stset dftime, failure(dfcens==1) id(stnum)
-    finegray ifp tumsize pelnode, compete(status) cause(1)
+    * basehaz: this test compares e(basehaz) across the stsplit, so it must be
+    * posted.  It is opt-in because a K-row Stata matrix is O(K^2) to create.
+    finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
     matrix b1 = e(b)
     matrix V1 = e(V)
     scalar ll1 = e(ll)
@@ -70,7 +72,7 @@ capture noisily {
     _mk_hypoxia
     stset dftime, failure(dfcens==1) id(stnum)
     stsplit iv, at(2 4 6 8)
-    finegray ifp tumsize pelnode, compete(status) cause(1)
+    finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
     assert e(N) == N1
     assert mreldif(e(b), b1) < 1e-9
     assert mreldif(e(V), V1) < 1e-9

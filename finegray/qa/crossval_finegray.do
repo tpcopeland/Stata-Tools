@@ -363,7 +363,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     finegray_predict xb_hat, xb
     finegray_predict cif_hat, cif
     matrix bh = e(basehaz)
@@ -574,17 +574,29 @@ else {
 * {smcl}
 * {* SECTION 10: Cluster SE cross-validation}{...}
 
-* C20: Cluster SEs — positive and larger than model SEs
+* C20: Cluster SEs — positive AND larger than model SEs under intra-cluster
+* correlation.  The point of a cluster-robust SE is that it inflates when
+* observations within a cluster are correlated; asserting only that it is
+* positive (QA-H03) is vacuous -- it passes even when clustering makes NO
+* difference.  The old DGP had essentially no within-cluster correlation, so the
+* cluster SE was actually SMALLER than the model SE (0.06474 vs 0.06546), which
+* is exactly why the assertion had been weakened to `> 0' and the pass message
+* quietly renamed.  Fix the DGP, not the assertion: a shared cluster frailty now
+* drives both x1 and the hazard, so the independence SE genuinely understates and
+* the contrast the test is named for actually holds (ratio ~1.15).
 local ++test_count
 capture noisily {
     clear
-    set seed 42
-    set obs 500
-    gen id = _n
-    gen clid = mod(_n-1, 50) + 1
-    gen double x1 = rnormal() + 0.5 * (clid > 25)
+    set seed 20260715
+    set obs 60
+    gen clid = _n
+    gen double u_cl = rnormal()            // cluster random effect
+    expand 20
+    bysort clid: gen id = _n + 1000*clid
+    gen double x1 = u_cl + 0.3*rnormal()   // x1 shares the cluster effect
+    gen double frail = exp(1.2*u_cl)       // frailty on the hazard, same effect
     gen double u = runiform()
-    gen double t_event = -ln(u) / exp(0.3*x1)
+    gen double t_event = -ln(u) / (exp(0.3*x1) * frail)
     gen double t_censor = runiform() * 4
     gen double t = min(t_event, t_censor)
     gen byte d = (t_event <= t_censor)
@@ -597,10 +609,13 @@ capture noisily {
     finegray x1, compete(status) cause(1) nolog cluster(clid)
     local se_cluster = sqrt(e(V)[1,1])
     assert `se_cluster' > 0
-    display as text "  model SE=" %8.5f `se_model' " cluster SE=" %8.5f `se_cluster'
+    display as text "  model SE=" %8.5f `se_model' " cluster SE=" %8.5f `se_cluster' ///
+        " ratio=" %6.3f `se_cluster'/`se_model'
+    * the contrast the test is named for: clustering inflates the SE here
+    assert `se_cluster' > `se_model'
 }
 if _rc == 0 {
-    display as result "  PASS: C20 cluster SEs positive"
+    display as result "  PASS: C20 cluster SE > model SE under intra-cluster correlation"
     local ++pass_count
 }
 else {
@@ -1284,11 +1299,16 @@ if `r_available' {
     }
 
     * C37: CIF at reference pattern (z=0) vs predict.crr
+    * QA-H03: t37_pass stayed 1 if EVERY time point skipped (R output missing),
+    * so C37 could report PASS having compared nothing.  Count the comparisons
+    * actually made and require at least one -- a verdict on zero comparisons is
+    * not a pass.
     local ++test_count
     local t37_pass = 1
+    local t37_ncmp = 0
     restore
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     * CIF at z=0: 1 - exp(-H0(t))
     matrix bh = e(basehaz)
     local nr_bh = rowsof(bh)
@@ -1314,12 +1334,17 @@ if `r_available' {
         }
         local s_cif = 1 - exp(-`H0_tt')
         local adiff = abs(`s_cif' - `r_cif')
+        local ++t37_ncmp
         display as text "  CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' " R=" %8.6f `r_cif' ///
             " diff=" %8.6f `adiff'
         if `adiff' >= 0.01 {
             display as error "  FAIL [C37.t`tt']: diff `adiff' >= 0.01"
             local t37_pass = 0
         }
+    }
+    if `t37_ncmp' == 0 {
+        display as error "  FAIL: C37 compared 0 time points (R cif_ref missing)"
+        local t37_pass = 0
     }
     if `t37_pass' {
         display as result "  PASS: C37 CIF at z=0 vs predict.crr (< 0.01)"
@@ -1414,7 +1439,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog
+    finegray i.pelnode##c.ifp tumsize, compete(status) cause(1) nolog basehaz
     * CIF via finegray_predict
     finegray_predict cif_auto, cif
     * CIF via manual: 1 - exp(-H0(t) * exp(xb))
@@ -1582,11 +1607,42 @@ capture noisily {
     local se_rel = abs(`se_fg' - `se_ref') / abs(`se_ref')
     display as text "  coef: finegray=" %9.5f `b_fg' " stcrreg=" %9.5f `b_ref' " REL=" %6.4f `b_rel'
     display as text "  SE:   finegray=" %9.5f `se_fg' " stcrreg=" %9.5f `se_ref' " REL=" %6.4f `se_rel'
-    assert `b_rel' < 0.02
-    assert `se_rel' < 0.05
+
+    * INVERTED, deliberately: under left truncation finegray must NOT match
+    * stcrreg, and this test used to assert that it did (b_rel < 0.02).
+    *
+    * finegray now implements the stabilized Zhang-Zhang-Fine weight, which
+    * reweights the risk set for delayed entry.  stcrreg does not: it applies the
+    * censoring weight only, which is the estimator the recovery gate
+    * (validation_finegray_zzf_recovery.do) measured as BIASED -- the pooled /
+    * stcrreg-style arm missed the known truth by +62.96 and +190.07 MC SE, while
+    * the ZZF arms recovered it to within +-3 MC SE.  So a green "matches stcrreg
+    * under LT" was a test asserting the defect.
+    *
+    * Asserting mere inequality would pass on any garbage, so pin BOTH sides:
+    *   (1) under LT the two must genuinely diverge, and
+    *   (2) with the SAME data and NO delayed entry they must still agree --
+    *       which proves the divergence is specific to left truncation and not a
+    *       general regression against StataCorp.
+    assert `b_rel' > 0.02
+
+    * (2) parity WITHOUT delayed entry, same dataset
+    preserve
+    quietly replace t_enter = 0
+    stset t, failure(d) id(id) enter(time t_enter)
+    quietly finegray x1, compete(status) cause(1) nolog
+    local b_fg0 = e(b)[1,1]
+    stset t, failure(status==1) id(id) enter(time t_enter)
+    quietly stcrreg x1, compete(status == 2)
+    local b_ref0 = e(b)[1,1]
+    restore
+    local b_rel0 = abs(`b_fg0' - `b_ref0') / abs(`b_ref0')
+    display as text "  no-LT parity: finegray=" %9.5f `b_fg0' " stcrreg=" ///
+        %9.5f `b_ref0' " REL=" %8.6f `b_rel0'
+    assert `b_rel0' < 0.02
 }
 if _rc == 0 {
-    display as result "  PASS: C43 left-truncated coef+SE vs stcrreg"
+    display as result "  PASS: C43 LT diverges from stcrreg (by design); no-LT parity holds"
     local ++pass_count
 }
 else {
@@ -1627,18 +1683,39 @@ capture noisily {
     matrix V_ref = e(V)
     restore
 
+    * INVERTED for the same reason as C43: stcrreg does not reweight the risk set
+    * for delayed entry, and the recovery gate measured that estimator as biased.
+    * At least one coefficient must diverge under LT, and the SAME data with no
+    * delayed entry must still reproduce stcrreg -- the divergence has to be
+    * caused by the truncation, not by a general disagreement.
+    local n_diverged = 0
     forvalues j = 1/2 {
         local b_rel = abs(b_fg[1,`j'] - b_ref[1,`j']) / abs(b_ref[1,`j'])
         local se_fg_j = sqrt(V_fg[`j',`j'])
         local se_ref_j = sqrt(V_ref[`j',`j'])
         local se_rel = abs(`se_fg_j' - `se_ref_j') / abs(`se_ref_j')
         display as text "  x`j' coef REL=" %6.4f `b_rel' " SE REL=" %6.4f `se_rel'
-        assert `b_rel' < 0.02
-        assert `se_rel' < 0.05
+        if `b_rel' > 0.02 local ++n_diverged
+    }
+    assert `n_diverged' >= 1
+
+    preserve
+    quietly replace t_enter = 0
+    stset t, failure(d) id(id) enter(time t_enter)
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+    matrix b_fg0 = e(b)
+    stset t, failure(status==1) id(id) enter(time t_enter)
+    quietly stcrreg x1 x2, compete(status == 2)
+    matrix b_ref0 = e(b)
+    restore
+    forvalues j = 1/2 {
+        local b_rel0 = abs(b_fg0[1,`j'] - b_ref0[1,`j']) / abs(b_ref0[1,`j'])
+        display as text "  no-LT parity x`j': REL=" %8.6f `b_rel0'
+        assert `b_rel0' < 0.02
     }
 }
 if _rc == 0 {
-    display as result "  PASS: C44 left-truncated 2-cov vs stcrreg"
+    display as result "  PASS: C44 LT diverges from stcrreg (by design); no-LT parity holds"
     local ++pass_count
 }
 else {
@@ -1671,7 +1748,7 @@ if `r_available' {
 if `fastcmprsk_available' {
     * Reload Stata results (same model as Section 18)
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix b_stata = e(b)
     matrix V_stata = e(V)
     local ll_stata = e(ll)
@@ -2006,7 +2083,7 @@ if `r_strata_available' {
     * Get Stata baseline hazard for CIF calculation
     restore
     _setup_hypoxia
-    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
+    finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode) basehaz
     matrix bh_strata = e(basehaz)
     local nr_bh_s = rowsof(bh_strata)
     preserve

@@ -107,7 +107,7 @@ program define _balance_manual_panel
     }
 
     * Sign the hand-built contract, as iivw_weight would at its commit point.
-    * From 3.0.0 the stale-weight guard fails CLOSED, so an unsigned contract is
+    * From 2.0.0 the stale-weight guard fails CLOSED, so an unsigned contract is
     * an error rather than a skipped check -- and a fixture that hand-writes the
     * characteristics without a signature is a contract the package cannot
     * produce. See iivw_qa_sign_contract in _iivw_qa_common.do.
@@ -159,7 +159,7 @@ capture noisily {
     assert r(ess_ratio) > 0
     assert r(ess_ratio) <= 1
     assert inlist("`r(leverage)'", "low", "moderate", "adequate")
-    assert inlist("`r(balance_flag)'", "good", "poor")
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
     assert "`r(visit_covars)'" == "age female severity"
 
     * Panel metadata is echoed back from the stored weighting contract.
@@ -226,11 +226,11 @@ capture noisily {
     _balance_manual_panel good
     iivw_balance
     assert "`r(leverage)'" == "adequate"
-    assert "`r(balance_flag)'" == "good"
+    assert "`r(balance_flag)'" == "within_rule"
     assert abs(r(balance_max_shift)) < .001
 }
 if _rc == 0 {
-    display as result "  PASS: T3 - adequate leverage with good balance is informative"
+    display as result "  PASS: T3 - adequate leverage with within_rule balance is informative"
     local ++pass_count
 }
 else {
@@ -252,8 +252,8 @@ capture noisily {
     * The verdict is now a function of the TARGET gap and of nothing else.
     * Movement is descriptive; it does not enter the flag in either direction.
     if r(refit_ok) == 1 {
-        assert ("`r(balance_flag)'" == "good") == (abs(r(balance_max_tsmd)) <= .1)
-        assert ("`r(balance_flag)'" == "poor") == (abs(r(balance_max_tsmd)) > .1)
+        assert ("`r(balance_flag)'" == "within_rule") == (abs(r(balance_max_tsmd)) <= .1)
+        assert ("`r(balance_flag)'" == "exceeds_rule") == (abs(r(balance_max_tsmd)) > .1)
     }
     else {
         assert "`r(balance_flag)'" == "unknown"

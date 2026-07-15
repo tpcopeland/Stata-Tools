@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting and diagnostics for longitudinal data
 
-**Version 3.0.0** | 2026-07-14
+**Version 2.0.0** | 2026-07-14
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and supports IIW, IPTW, and combined FIPTIW analyses. It is designed for clinic-based studies in which some patients contribute more visits because their health affects when they are observed.
 
@@ -51,20 +51,6 @@ capture ado uninstall iivw
 net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/iivw") replace
 ```
 
-## Migrating to 3.0.0
-
-**3.0.0 is a breaking release**, and every break is a case where 2.x returned `rc 0` while doing something you had not agreed to. None of them changes an estimator — they change what the package is willing to do silently.
-
-| 2.x | 3.0.0 | Why |
-|---|---|---|
-| Rows with a missing model covariate got no weight, and a `Note:` scrolled past | **`r(416)`**. Add `allowmissingweights` if complete-case is what you intend | `iivw_fit` then dropped those rows without a word. The analysis silently became complete-case, and if the loss was differential by arm it silently targeted a different population |
-| `iivw_weight, replace` overwrote any column under the prefix | **`r(110)`** unless iivw created that column | A user's own `_iivw_weight` was backed up and destroyed on success. `replace` now overwrites only what the package can prove it made |
-| Editing `treat()` or a treatment covariate after weighting | **`r(459)`** at the next consumer | It returned `rc 0`. The stored weights no longer described the data and every downstream command used them anyway |
-| `bootstrap() refitweights` with `lagvars()` | Replays the lags from the raw sources; a pre-3.0.0 contract is **refused** | The old replay passed the precomputed `*_lag1` columns through as raw data. On an identity draw it was off by 22% |
-| A **saved `.dta`** carrying weights from 2.x | **`r(459)`** at the next `iivw_fit` or `iivw_balance`. Re-run `iivw_weight` | The contract format changed: the signature now binds every input, every component and the specification, and it fails closed rather than skipping the check when it cannot verify. A 2.x signature cannot be checked against the 3.0.0 contract, and a contract that cannot be checked is one that could silently stop describing its data |
-
-If a script breaks, the error message names the cause. In every case the fix is either to acknowledge the loss explicitly, rename a colliding column, or re-run `iivw_weight` on the current data. **Weighting is cheap; a silently wrong weighted estimate is not.**
-
 ## Migrating to 2.0.0
 
 **2.0.0 is a breaking release.** A 1.x script will error rather than run — deliberately. Each of these changes exists because the old behavior produced a plausible-looking number that was wrong, and silently accepting the old syntax would have kept doing that.
@@ -78,6 +64,12 @@ If a script breaks, the error message names the cause. In every case the fix is 
 | Time-varying `treat_cov()` | Build the baseline value yourself | The propensity model is fitted on one row per subject. A time-varying covariate silently entered as whatever value landed on the earliest retained row — not a baseline value. |
 | `r(informative)`, `r(hr_weighted)` | **Gone** | Both encoded a verdict that was wrong in the package's own known-truth scenario. Read `r(leverage)` and `r(balance_flag)` together instead. See [Diagnostic Decision Guide](#diagnostic-decision-guide). |
 | `r(group_labels)`, `r(term_labels)`, `r(skipped_labels)` (pipe-joined) | `r(group_label_1)`…, `r(term_label_1)`…, `r(skipped_label_1)`…, with counts in `r(n_groups)`, `r(n_terms)`, `r(n_skipped)` | A `|` is legal label text, so the joined macro could not be parsed back: `"a\|b"` was indistinguishable from two groups labelled `a` and `b`. The old code also deleted every double quote from a label before exporting it. Labels are now carried verbatim into both `r()` and Excel. |
+| Rows with a missing model covariate got no weight, and a `Note:` scrolled past | **`r(416)`**. Add `allowmissingweights` if a complete-case analysis is what you intend | `iivw_fit` then dropped those rows without a word. The analysis silently became complete-case — and if the loss was differential by treatment arm, it silently answered a question about a different population. The loss is now reported and returned **by arm**. |
+| `iivw_weight, replace` overwrote any column sitting under the prefix | **`r(110)`** unless iivw can prove it created that column | Ownership was inferred from a *name*, so a user's own `_iivw_weight` was backed up and destroyed on success. It is now a mark carried by the variable. |
+| Editing `treat()`, a treatment covariate, or a component weight after weighting | **`r(459)`** at the next `iivw_fit` or `iivw_balance` | The stored weights no longer described the data and every downstream command used them anyway. The guard now binds every input, every component and the specification — and it fails closed, so erasing it is an error rather than a skipped check. A harmless `sort` is still safe. |
+| `truncate(# #)` | **`r(198)`.** Use `trunctreat()`, `truncvisit()`, or `truncfinal()` | It clipped the final product, which under FIPTIW is IIW × IPTW — so it could never say which component was extreme, and the two are not interchangeable. Tompkins et al. (§4.4) find trimming helps for *treatment*-model extremes and does **not** help for *visit*-model extremes. A single knob that did both, and reported neither, could not express that. `truncfinal()` is the identical behavior, named honestly. The supported default is untruncated. |
+| `wtype(fiptiw)` fitted the visit model on `visit_cov()` alone | `treat()` is now **in the visit-intensity model** automatically | FIPTIW exists for the design where treatment drives the monitoring schedule *and* the outcome. Omitting treatment from the visit model leaves the IIW factor unable to correct the very dependence it was chosen for. Weights, balance tables and coefficients will move. `experimentalnotreatvisit` reproduces the old behavior and is recorded as outside the supported contract. |
+| `stabcov()` accepted any varlist | **`r(198)`** at `iivw_fit` if the numerator is not a function of the outcome design | Bůžková & Lumley define the numerator on the **outcome-model** covariates. Stabilizing on a variable the outcome model never sees changes what is being estimated. Add the variable to the outcome model, or drop it from `stabcov()` — unstabilized is always valid. |
 
 `iivw_balance` also now reports a **target SMD** — the gap between the IIW-weighted visit distribution and the at-risk person-time distribution it is supposed to reproduce. The older "composition shift" number is still shown, but it is descriptive: a large shift is what a working weight *does*, not evidence that anything is wrong. Only the target SMD has a null at zero.
 
@@ -149,7 +141,7 @@ Goal: estimate a population-average longitudinal trajectory when sicker patients
 ```stata
 iivw_weight, id(id) time(months) ///
     visit_cov(age sex baseline_score baseline_edss clinic_year) ///
-    lagvars(current_score relapse) censor(fu_end) truncate(1 99) efron nolog
+    lagvars(current_score relapse) censor(fu_end) efron nolog
 
 iivw_fit current_score age sex baseline_score, ///
     timespec(ns(3)) nolog
@@ -166,7 +158,7 @@ iivw_weight, id(id) time(months) ///
     visit_cov(age sex baseline_edss baseline_score clinic_year) ///
     lagvars(current_score relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex baseline_edss baseline_score) ///
-    truncate(1 99) efron replace nolog
+    efron replace nolog
 
 psdash combined, saving(treatment_ps_dashboard.png)
 psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
@@ -210,7 +202,7 @@ iivw_weight, id(id) time(months_since_tx) ///
     visit_cov(treatment age sex bl_edss bl_sdmt) ///
     lagvars(sdmt_score recent_relapse) censor(fu_end) ///
     treat(treatment) treat_cov(age sex bl_edss bl_sdmt) ///
-    truncate(1 99) efron replace nolog
+    efron replace nolog
 
 iivw_balance, nolog
 
@@ -293,7 +285,7 @@ iivw_weight, id(id) time(months) ///
     visit_cov(age sex bl_edss bl_sdmt) ///
     lagvars(sdmt relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex bl_edss bl_sdmt) ///
-    truncate(1 99) efron replace nolog
+    efron replace nolog
 
 psdash combined, saving(treatment_ps_dashboard.png)
 psdash weights, iivwcomponent(final) graph saving(final_fiptiw_weight.png)
@@ -346,22 +338,27 @@ For dropout or censoring, use an IPCW strategy.  For time-varying treatment deci
 
 | Open defect | Consequence |
 |---|---|
-| **Default variance treats estimated weights as known** | Reported SEs, CIs and p-values are **not** the ones either source paper derives. Fixed-weight Stata/R SE agreement proves only that both programs computed the same *incomplete* variance |
-| **Treatment is not added to the FIPTIW visit-intensity model** | Coulombe et al. eq. (3.12) includes it. `iivw` does not, and no shipped example or test can currently detect its absence |
-| **`stabcov()` is not checked against the outcome-model design** | B&L require the stabilization numerator `h` to be a deterministic function of the *outcome-model* covariates. Any varlist is accepted |
-| **The stabilized balance target omits `h(X)`** | `iivw_balance` compares a stabilized *observed* weight against an *unstabilized* target |
-| **`truncate()` clips only the final product** | It cannot report which component moved, and it leaves `iivw_balance` describing the untruncated IIW rather than the analysis weight |
+| **Default variance treats estimated weights as known** | Reported SEs, CIs and p-values are **not** the ones either source paper derives. Fixed-weight Stata/R SE agreement proves only that both programs computed the same *incomplete* variance. **2.0.0 does not fix this** — it makes it visible: the fit now says so where you read the SE, and `e(iivw_vce)` records which of the three variances you got. `bootstrap(#) refitweights` propagates weight-estimation uncertainty and is the path to prefer, but it has **not** been cleared by a coverage simulation against a preregistered gate |
 | **`iivw_diagnose` shares and weighted `model(mixed)`** | Package-original / not a valid weighted random-effects estimator. Descriptive only; not validated methods |
 
-**Closed since 2.0.0 — the weighting-state contract (2026-07-14).** Five defects in how the weights are *stored, guarded and replayed* are fixed. None of them changes an estimator; they stop the package from silently reporting on data or on a draw that the weights do not describe. Each is now a regression test that fails on 2.0.0.
+**Fixed in 2.0.0 — the estimator defects.** Each returned `rc 0` and a plausible number. Each now has a regression test that fails against the code that shipped them.
 
-| Fixed | What 2.0.0 actually did, measured |
+| Was | Now |
 |---|---|
-| `refitweights` now replays `lagvars()` from the raw sources inside every draw | The **identity draw** — resample every subject exactly once, so the draw *is* the observed panel — disagreed with the observed weights by **22%** (max reldif 2.24e-01). It is now exactly 0 |
-| The bootstrap restores the **whole** `_iivw_` contract, discovered from the data | A *successful* `refitweights` run blanked `_iivw_lagvars` and the stale-weight signature — and the staleness guard still returned 0, because the same bug had erased the evidence it checks against |
-| The stale-weight signature binds every input, every component, and the spec | Editing `treat()`, editing a treatment covariate, corrupting `_iivw_iw` while leaving the product alone, or appending a row **all returned rc 0** |
-| `replace` overwrites only variables iivw can prove it created | A user's own `_iivw_weight = 99` column was backed up and **destroyed at rc 0** |
-| Rows that receive no weight are an **error** unless you say otherwise | The analysis silently became complete-case — and where the loss was differential by arm, it silently answered a question about a different population. `allowmissingweights` is now the explicit acknowledgment, and the loss is reported by arm |
+| **Treatment was absent from the FIPTIW visit-intensity model.** The IIW factor cannot correct a visit process that depends on treatment, so `wtype(fiptiw)` was IIW-without-treatment × IPTW — not the FIPTIW of the source literature. No shipped example put treatment in `visit_cov()` by hand, so nothing could see it | `treat()` enters the visit-intensity denominator **by construction**, deduplicated if you also list it, shown in the fitted specification, and replayed by the bootstrap. `experimentalnotreatvisit` is the only way out and is recorded on the contract as outside the supported surface |
+| **`stabcov()` was never checked against the outcome design.** Bůžková & Lumley define the numerator as `h₀(Xᵢ(t)) = exp{δ₀ᵀXᵢ(t)}` — a function of the **outcome-model** covariates. Any varlist was accepted, and a shipped recovery scenario stabilized on a variable it declared absent from the outcome model and counted the result as a pass | `iivw_fit` maps `stabcov()` onto the expanded outcome design and **errors before estimating** if the numerator is not a function of it. `e(iivw_stabilization_validated)` and `e(iivw_stab_terms)` record the check |
+| **The stabilized balance target omitted `h(X)`.** `iivw_balance` built a stabilized *observed* weight and compared it to an *unstabilized* target measure (`dΛ₀` instead of `h(X)dΛ₀`), so the two sides described different populations | The target is weighted by `h(X)dΛ₀` under `stabcov()`, and reduces exactly to `dΛ₀` without it. Pinned by an **identity**: set `stabcov()` to the full visit model and the weight is identically 1, so every target SMD must be 0. The old code reported **0.33** there — for a weight vector that does not reweight |
+| **`truncate()` clipped only the final product.** It could not say which component was extreme, and `iivw_balance` went on describing the *untrimmed* IIW while the outcome model used the trimmed one | `trunctreat()`, `truncvisit()`, `truncfinal()`. Each reports its own count and realized cutpoints, keeps the untrimmed component beside the trimmed one, and is the weight `iivw_balance` actually describes. The supported default is **untruncated**; `truncate()` is now an error |
+
+**What the weighting state contract guarantees.** These are not statistical claims — they are the guarantees that the numbers you see describe the data you have. Each is covered by a concern-named suite in `qa/`, and each guards a failure that otherwise returns `rc 0`.
+
+| Guarantee | The failure it exists to stop |
+|---|---|
+| The bootstrap replays the weighting **exactly**. An *identity draw* — every subject resampled once, so the draw *is* the observed panel — reproduces the observed weights to `1e-12` | A replay that rebuilds a *different* estimator than the one being reported. Its interval would not cover the reported point, and nothing in the output would say so |
+| The full weighting contract survives a bootstrap, byte for byte, on success and on failure | A run that silently blanks part of its own contract — and, if the part is the signature, disarms the guard that would have caught it |
+| The stale-weight signature binds every consumed input, every owned component, and the specification, and it **fails closed** | Weights that quietly stop describing the data: an edited treatment, an edited covariate, a corrupted component, an added row. A weighted estimate that corresponds to no dataset |
+| `replace` overwrites only a variable the package can prove it created | Destroying a user's own column because it happened to share a name with one of ours |
+| A row with no weight is an error unless you acknowledge it | A silently complete-case analysis — and, where the loss is differential by arm, a silently different estimand |
 
 
 Until these close, cite `iivw` for **weighting**, and obtain inference by another route.
@@ -409,7 +406,7 @@ summarize _iivw_weight, detail
 iivw_fit edss treated edss_bl, model(gee) timespec(linear)
 ```
 
-After computing weights, always inspect the distribution before fitting the outcome model.  If the weight tails are extreme (e.g., max > 10), re-run `iivw_weight` with `truncate(1 99)`.  For real analyses, prefer baseline or lagged time-varying predictors in the visit model when the current visit measurement should not be used to explain the timing of that same visit.
+After computing weights, always inspect the distribution before fitting the outcome model.  If the weight tails are extreme (e.g., max > 10), the first question is whether the visit model is specified correctly — trimming is a sensitivity analysis, not a fix.  For real analyses, prefer baseline or lagged time-varying predictors in the visit model when the current visit measurement should not be used to explain the timing of that same visit.
 
 ### 3. FIPTIW: correct visit timing and treatment confounding together
 
@@ -419,7 +416,7 @@ Add `treat()` and `treat_cov()` when treatment assignment is also non-random:
 iivw_weight, id(id) time(days) ///
     visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) ///
     treat(treated) treat_cov(age sex edss_bl) ///
-    truncate(1 99) replace nolog
+    replace nolog
 
 iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
 ```
@@ -516,8 +513,8 @@ After running `iivw_weight`, check these before fitting the outcome model:
 | `iivw_balance` | `r(leverage) == "low"` | Weights are nearly constant and cannot move an estimate; a null weighting result is uninformative, not reassuring |
 | `iivw_balance` | `r(balance_flag) == "poor"` | The IIW-weighted visits do not reproduce the at-risk person-time distribution; revisit the visit model |
 | `iivw_balance` | `r(balance_flag) == "unknown"` | The supporting refit failed. You have no balance evidence — do not read this as `good` |
-| `summarize _iivw_weight, detail` | Max > 10, max/min ratio > 100 | Add `truncate(1 99)` |
-| Effective sample size (reported automatically) | ESS much less than N | Simplify the visit model or truncate |
+| `summarize _iivw_weight, detail` | Max > 10, max/min ratio > 100 | Check the visit model first; `trunctreat(1 99)` as a reported sensitivity analysis |
+| Effective sample size (reported automatically) | ESS much less than N | Simplify the visit model. Trimming raises the ESS without fixing the model |
 | Weight mean (reported automatically) | Mean far from 1.0 | Check model specification |
 | Compare with/without truncation | Treatment effect changes substantially | Result may be driven by a few extreme weights |
 | `psdash combined` (IPTW/FIPTIW only) | Poor treatment PS overlap, common-support loss, or residual treatment-covariate imbalance | Revisit `treat_cov()` and treatment positivity |
@@ -530,7 +527,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 | `treat() contains missing values` | Treatment is missing on one or more visit rows | Fill the baseline treatment consistently within subject, or exclude those subjects deliberately |
 | `treat() must be time-invariant` | Treatment changes over time | Do not use this IPTW/FIPTIW implementation; use a time-varying treatment/MSM approach |
 | `requires at least 2 visits per subject` | IIW/FIPTIW needs repeated visits | Use repeated-visit data, or use `wtype(iptw)` for treatment weighting only |
-| Very large weights | Sparse overlap, overfit model, or unusual visit patterns | Inspect covariates, simplify the model, and try `truncate(1 99)` |
+| Very large weights | Sparse overlap, overfit model, or unusual visit patterns | Inspect covariates, simplify the model, and compare against `trunctreat(1 99)` |
 | `variable ... already exists` | Re-running created-variable steps | Add `replace` if overwriting is intended |
 | `iivw_fit` says weights are missing | Dataset changed or weights were dropped after `iivw_weight` | Re-run `iivw_weight` immediately before `iivw_fit` |
 
@@ -550,7 +547,7 @@ For technical reports and papers, include enough detail for readers to assess th
 - weight type used (`iivw`, `iptw`, or `fiptiw`)
 - visit model covariates and whether `efron` tie handling was used
 - treatment model covariates for IPTW/FIPTIW
-- whether weights were stabilized with `stabcov()` and/or truncated with `truncate()`
+- whether weights were stabilized with `stabcov()`, and which component — if any — was trimmed, at what percentiles
 - weight diagnostics: mean, min, max, selected percentiles, and effective sample size
 - `iivw_balance` leverage, composition shift, and the balance flag (with its target SMD)
 - outcome model family/link, time specification, clustering level, and whether SEs were sandwich or bootstrap
@@ -659,37 +656,20 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 
 ## Version History
 
-### v3.0.0 (2026-07-14)
+### v2.0.0 (2026-07-14)
 
-**Breaking release.** A 2.x script that relied on any of the behaviours below will now error. Every break exists because the old behaviour returned `rc 0` while doing something the user had not agreed to. This release changes how the weights are **stored, guarded and replayed**; it does not change any estimator or any variance.
+**Breaking release.** A 1.x script will error rather than run. See [Migrating to 2.0.0](#migrating-to-200) for the full table. Every break below exists because the old behavior produced a plausible-looking number that was wrong, or returned `rc 0` while doing something the user had not agreed to.
 
-**Sample loss is now the user's decision**
+**Inference disclosure**
+- **An incomplete bootstrap is now an error.** A replicate can fail — a resampled panel with no variation in a covariate drops the term and returns missing for it; a nuisance model may not converge on a draw. Stata's `bootstrap` responds by computing the variance from the replicates that *did* return a number, and `iivw_fit` used to say nothing at all: a measured probe asked for 40 replicates, **6 failed**, and the command printed a standard error built from **34 draws** with no indication in its output or in `e()`. That subset is not random with respect to the estimate — the draws that fail carry the least information about exactly the terms whose SE is being reported — so the surviving SE is anti-conservative. `allowfailedreps` is the explicit acknowledgment, and the counts are stored either way in `e(iivw_bs_reps_requested)`, `e(iivw_bs_reps_completed)`, `e(iivw_bs_reps_failed)`
+- **The fixed-weight variance now says what it is**, where the user reads the SE rather than only in the help file. `e(iivw_vce)` distinguishes `fixed`, `bootstrap-fixedweights` and `bootstrap` — the first two treat the estimated weights as *known* and omit the uncertainty from estimating them, which is not the variance Bůžková & Lumley (2007) or Coulombe et al. (2021) derive. Full inference provenance is stored: `e(iivw_resample_unit)`, `e(iivw_allowfailedreps)`, `e(iivw_wsig)`
+- This is a **disclosure fix, not an inference fix.** The default variance is still the incomplete one (see the open-defect table above); what changed is that the output no longer hides which variance you got
 
-- Rows that receive no weight are an **error** (`r(416)`). They were a `Note:` in a long log, and `iivw_fit` then dropped them without a word — so the analysis silently became complete-case, and where the loss was differential by treatment arm it silently answered a question about a different population.
-- Add **`allowmissingweights`** to declare that a complete-case analysis is intended. Even then the loss is reported and returned, broken down **by arm**: `r(n_missing_weight)`, `r(n_ids_missing_weight)`, `r(n_lost_treated)`, `r(n_lost_untreated)`, and the two percentages.
-- A missing `treat()` value is refused outright and `allowmissingweights` cannot admit it. A row with no exposure has no place in a contrast between exposure levels.
-
-**`replace` overwrites only what iivw made**
-
-- Ownership is now a mark carried by the variable (`char v[_iivw_owner]`), not an inference from its name. Previously any column sitting under the selected prefix was assumed to be a prior package output: a user's own `_iivw_weight` was backed up and **destroyed at `rc 0`**. An unowned column is now refused with `r(110)`, unmutated.
-
-**The stale-weight guard actually guards**
-
-- The signature now binds **every** consumed input, **every** owned component, and the stored specification. On 2.0.0 it bound only the final weight, the id/time key, and the generated visit-covariate list — so editing `treat()`, editing a treatment covariate, corrupting `_iivw_iw` while leaving the product intact, appending a row, or tampering with the contract all returned `rc 0`.
-- It also **fails closed**: a missing signature is an error, not a skipped check. Erasing one characteristic used to disarm the guard entirely.
-- A harmless `sort` or `gsort` is still safe — the signature is built from sums.
-
-**`bootstrap() refitweights` replays the weighting exactly**
-
-- Each replicate now rebuilds `lagvars()` from the **raw sources**, inside the resampled subject. Before, the precomputed `*_lag1` columns were passed through as raw covariates, so the terminal censoring row got the value from two visits back and the lag construction was frozen at its observed-data value in every draw. On an **identity draw** — every subject resampled exactly once, so the draw *is* the observed panel — the old replay was off by **22%**; it is now exact to `1e-12`.
-- The bootstrap restores the **whole** stored contract, discovered from the data rather than from a hand-maintained list. The old list was missing three fields, so a *successful* refit run blanked `_iivw_lagvars` and the signature — and the staleness guard still returned 0, because the same bug had erased the evidence it checks against.
-- Weights written before 3.0.0 cannot be replayed and `refitweights` refuses them rather than falling back. Re-run `iivw_weight`.
-
-**Still not cleared for inference.** See [Reliability status](#reliability-status-2026-07-14). The default variance still treats the estimated weights as known, treatment is still not added to the FIPTIW visit-intensity model, `stabcov()` is still unchecked against the outcome design, and the stabilized balance target still omits `h(X)`.
-
-### v2.0.0 (2026-07-13)
-
-**Breaking release.** A 1.x script will error rather than run. See [Migrating to 2.0.0](#migrating-to-200) for the full table. Every break below exists because the old behavior produced a plausible-looking number that was wrong.
+**Estimators**
+- **FIPTIW now puts `treat()` in the visit-intensity denominator**, by construction, deduplicated if you also list it in `visit_cov()`, shown in the fitted specification and replayed exactly by the refit bootstrap. FIPTIW is the estimator for the design in which treatment drives both the outcome and the monitoring schedule; a visit model without treatment cannot correct a visit process that depends on it, so the old `wtype(fiptiw)` was IIW-without-treatment × IPTW. **Weights, balance tables and coefficients will move.** `experimentalnotreatvisit` restores the old visit model, is labelled experimental, and is recorded on the contract and in `e(iivw_treat_in_visit)` as outside the supported surface
+- **`stabcov()` is validated against the outcome design.** Bůžková & Lumley define the stabilizing numerator as `h₀(Xᵢ(t)) = exp{δ₀ᵀXᵢ(t)}`, a function of the **outcome-model** covariate vector — that is what makes the stabilized estimating equation solve for the same `β` as the unstabilized one. `iivw_fit` now maps `stabcov()` onto the expanded outcome design (after categorical, time and interaction expansion) and **errors before estimating** if the numerator is not a function of it, naming the offending variables. `e(iivw_stabilization_validated)` and `e(iivw_stab_terms)` record the check. Unstabilized IIW is always valid
+- **The stabilized balance target is fixed.** `iivw_balance` weighted the at-risk reference by `dΛ₀` while the observed weight carried the numerator `h(X)` — so under `stabcov()` the two sides of the comparison described different populations and a correctly stabilized IIW was made to look broken. The target is now `h(X)dΛ₀`, and reduces exactly to `dΛ₀` without stabilization (the unstabilized path is bit-for-bit unchanged). Pinned by an algebraic identity rather than a simulation: set `stabcov()` to the full visit model and the weight is identically 1, so every target SMD must be 0. The old code reported a maximum target SMD of **0.33** for a weight vector that does not reweight anything
+- **`truncate()` is replaced by component-specific trimming.** `trunctreat()`, `truncvisit()` and `truncfinal()`. The old option clipped the final product only, so under FIPTIW it could not report which component was extreme — and Tompkins et al. (§4.4) find that trimming helps for *treatment*-model extremes and does not help for *visit*-model extremes, a distinction one knob cannot express. Each option now reports its own count and its own realized cutpoints, keeps the untrimmed component beside the trimmed one (`_iivw_iw_raw`, `_iivw_tw_raw`), and is the weight `iivw_balance` actually describes — it used to report on the untrimmed IIW while the outcome model used the trimmed one. The supported default analysis is **untruncated**; trimming is a labelled sensitivity analysis
 
 **Weight contracts**
 - An end-of-follow-up specification — one of `censor()`, `maxfu()`, or `endatlastvisit` — is now **required** for IIW/FIPTIW. Without an observation window the intensity model cannot tell a subject who stopped being observed from one who simply had no further visits. `endatlastvisit` reproduces 1.x and attenuated the visit-intensity coefficient by ~26% in a known-truth check
@@ -723,6 +703,25 @@ The key diagnostic pattern in the demo mirrors the study logic: weighting moves 
 - The IrregLong cross-validation now requires **exact** parity on the weights as well as the coefficient. Matching the coefficient proves both sides fit the same Cox model; it says nothing about the sign of the exponent, the centering convention, or the first-visit rule, all of which sit downstream of it
 - The R reference generators write their own completion sentinel and a package-version manifest as their last statements. Stata's `shell` does not propagate a child's exit status, so a failed R run previously left the reference CSVs stale while the crossval lane compared against them and passed
 - The demo builds every asset in a staging directory and publishes atomically, into sandboxed sysdirs, restoring the graph scheme. It used to delete the four tracked documentation assets up front, so a mid-demo failure left them missing
+
+**Sample loss is the user's decision, not the package's**
+- Rows that receive no weight are an **error** (`r(416)`). They used to be a `Note:` in a long log, and `iivw_fit` then dropped them without a word — so the analysis silently became complete-case, and where the loss was differential by treatment arm it silently answered a question about a different population
+- Add **`allowmissingweights`** to declare that a complete-case analysis is intended. Even then the loss is reported and returned, broken down **by arm**: `r(n_missing_weight)`, `r(n_ids_missing_weight)`, `r(n_lost_treated)`, `r(n_lost_untreated)`, and the two percentages
+- A missing `treat()` value is refused outright, and `allowmissingweights` cannot admit it. A row with no exposure has no place in a contrast between exposure levels
+
+**`replace` overwrites only what iivw made**
+- Ownership is a mark carried by the variable (`char v[_iivw_owner]`), not an inference from its name. Any column sitting under the selected prefix used to be assumed a prior package output, so a user's own `_iivw_weight` was backed up and **destroyed at `rc 0`**. An unowned column is now refused with `r(110)`, unmutated
+
+**The stale-weight guard actually guards**
+- The signature binds **every** consumed input, **every** owned component, and the stored specification. Editing `treat()`, editing a treatment covariate, corrupting `_iivw_iw` while leaving the product intact, appending a row, or tampering with the contract each used to return `rc 0`
+- It **fails closed**: a missing signature is an error, not a skipped check. Erasing one characteristic used to disarm the guard entirely
+- A harmless `sort` or `gsort` is still safe — the signature is built from sums, so it is invariant to row order
+
+**`bootstrap() refitweights` replays the weighting exactly**
+- Each replicate rebuilds `lagvars()` from the **raw sources**, inside the resampled subject. Passing the precomputed `*_lag1` columns through as raw covariates gave the terminal censoring row the value from two visits back, and froze the lag construction at its observed-data value in every draw. On an **identity draw** — every subject resampled exactly once, so the draw *is* the observed panel and the weights must come back unchanged — that construction was off by **22%**. It is now exact to `1e-12`
+- The bootstrap restores the **whole** stored contract, discovered from the data rather than from a hand-maintained list. A list that is missing a field lets a *successful* refit blank it — and if the field is the signature, the staleness guard is disarmed by the same bug that made it necessary
+
+**Still not cleared for inference.** See [Reliability status](#reliability-status-2026-07-14). The default variance treats the estimated weights as known, treatment is not added to the FIPTIW visit-intensity model, `stabcov()` is not checked against the outcome design, and the stabilized balance target omits `h(X)`.
 
 ### v1.9.7 (2026-07-13)
 

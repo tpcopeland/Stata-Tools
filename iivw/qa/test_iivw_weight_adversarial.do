@@ -216,18 +216,18 @@ if `run_only' == 0 | `run_only' == 3 {
         local n_high = r(N)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity marker) ///
-            truncate(10 90) nolog
+            truncfinal(10 90) nolog
         assert r(n_truncated) == `n_low' + `n_high'
         quietly summarize _iivw_weight
         assert r(min) >= `p10' - 1e-10
         assert r(max) <= `p90' + 1e-10
 
         capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
-            visit_cov(severity) truncate(90 10) replace nolog
+            visit_cov(severity) truncfinal(90 10) replace nolog
         assert _rc == 198
 
         capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
-            visit_cov(severity) truncate(-1 99) replace nolog
+            visit_cov(severity) truncfinal(-1 99) replace nolog
         assert _rc == 198
     }
     if _rc == 0 {
@@ -426,7 +426,7 @@ if `run_only' == 0 | `run_only' == 9 {
         replace severity = . if id == 1 & visit == 1
         replace severity = . if id == 2 & visit == 3
         * The fixture deliberately blanks a covariate on two rows, so some rows
-        * get no weight. From 3.0.0 that is an error by default; this test is
+        * get no weight. From 2.0.0 that is an error by default; this test is
         * ABOUT those rows, so it acknowledges the complete-case analysis.
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity marker) allowmissingweights nolog

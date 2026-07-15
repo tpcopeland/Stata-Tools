@@ -24,10 +24,9 @@
 *                 and did not survive extraction: the text reads "we obtain <gap>
 *                 where <gap> and <gap> is a martingale."  The journal PDF is
 *                 paywalled.  Writing that influence function would therefore mean
-*                 DERIVING IT FROM MEMORY, which is exactly the move
-*                 .claude/skills/_shared/literature-rules.md forbids -- a
-*                 remembered influence function is a plausible formula with no
-*                 provenance, and its boundary cases are where memory fails.
+*                 DERIVING IT FROM MEMORY -- a remembered influence function is a
+*                 plausible formula with no provenance, and its boundary cases are
+*                 exactly where memory fails.
 *                 Tracked in literature/_requested.md.  If neither candidate below
 *                 covers, this gate BLOCKS on obtaining that appendix.  It does not
 *                 get guessed.

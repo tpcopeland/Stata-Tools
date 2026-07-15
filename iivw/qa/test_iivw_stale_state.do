@@ -28,11 +28,12 @@ set varabbrev off
 *
 * WHAT IT CAUGHT
 * --------------
-* The 2.0.0 signature bound only the final weight, the id/time key, and the
+* The old signature bound only the final weight, the id/time key, and the
 * generated visit-covariate list. Everything else was unbound. Two focused
 * probes on 2026-07-14 confirmed the cost: editing a subject's treat() value,
 * and editing a treat_cov() value, EACH left _iivw_check_weighted returning 0
-* on stale FIPTIW weights. Both are r(459) below, and both fail on 2.0.0.
+* on stale FIPTIW weights. Both are r(459) below, and both fail against the
+* pre-release build.
 
 local qa_dir "`c(pwd)'"
 local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
@@ -118,7 +119,7 @@ else {
 }
 
 **# T2: edit a raw LAG SOURCE
-* The lag SOURCE, not the generated lag column. 2.0.0 bound the generated column
+* The lag SOURCE, not the generated lag column. The old signature bound the generated column
 * (it is in visit_covars) but not the variable it was built from, so a source
 * edit was invisible -- and the source is what a replay rebuilds the lag from.
 
@@ -140,7 +141,7 @@ else {
 }
 
 **# T3: edit TREATMENT
-* Confirmed rc=0 on 2.0.0 by a focused probe on 2026-07-14.
+* Confirmed rc=0 in the pre-release build by a focused probe on 2026-07-14.
 
 local ++test_count
 capture noisily {
@@ -160,7 +161,7 @@ else {
 }
 
 **# T4: edit a TREATMENT-MODEL covariate
-* Also confirmed rc=0 on 2.0.0.
+* Also confirmed rc=0 in the pre-release build.
 
 local ++test_count
 capture noisily {

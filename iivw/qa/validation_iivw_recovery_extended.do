@@ -132,15 +132,47 @@ if `rc' == 0 local ++pass_count
 else local ++fail_count
 _rc_result `rc' "S1 bounded level recovery (naive=" + string(s1_naive,"%6.4f") + " est=" + string(s1_est,"%6.4f") + ")"
 
-**# S2: IIW slope recovery with stabilized weights, stabcov(S)
-* Heterogeneous slope s_i = 0.5 + 0.6*Z (population marginal slope = 0.5). Visit
-* intensity depends on Z (drives the naive bias) AND an independent baseline S
-* that is NOT in the outcome. Stabilizing by S (stabcov(S)) leaves Z fully in the
-* denominator so the Z-oversampling is corrected, while the S term cancels; the
-* estimand is unchanged and variance is lower. Truth = 0.5, handle _b[months].
-scalar s2_ok = 0
-local ++test_count
-capture noisily {
+**# S2: stabilized IIW -- the numerator must live in the outcome model
+*
+* Buzkova & Lumley (2007) define the stabilizing numerator as
+*     h0(X_i(t)) = exp{delta0' X_i(t)}
+* where X is the OUTCOME model covariate vector. The numerator is a function of
+* the outcome design by construction; that is what makes the stabilized
+* estimating equation solve for the same beta as the unstabilized one.
+*
+* This scenario USED TO stabilize on a baseline S while stating in its own
+* comment that S "is NOT in the outcome", fit `iivw_fit y, timespec(linear)',
+* recover 0.5, and count that as evidence that stabilization works. It is not.
+* It was an estimator outside the one the package cites, and the recovery it
+* observed rode on an accident of this DGP (S was drawn independently of Z and
+* of y, so E[h(S)] factored out of the estimating equation). Change S to be
+* correlated with anything in the outcome and the same code silently returns a
+* different estimand. A scenario that passes for a reason the estimator does not
+* guarantee is not a validation -- it is a coincidence with a green light.
+*
+* Split in two. S2a asserts the violation is now REFUSED. S2b does the
+* stabilization the paper actually defines and requires it to recover the truth.
+*
+* Shared DGP. Two covariates, with deliberately different roles:
+*
+*   Z  drives the SLOPE (s_i = 0.5 + 0.6*Z) and the visit intensity, and is NOT
+*      in the outcome model. This is what IIW exists for and what biases the
+*      naive fit: high-slope subjects are seen more often, so the observed
+*      visits oversample them.
+*   S  shifts the INTERCEPT (additively) and drives the visit intensity, and IS
+*      in the outcome model. So it is a legal stabilization numerator.
+*
+* Population marginal slope is E[s_i] = 0.5, and E[y | months, S] is linear in
+* the IIW-weighted population, so the outcome model y ~ months + S is correctly
+* specified there. That matters: a stabilized weight preserves the estimand
+* because E[Y - mu(X;beta) | X] = 0 makes the h(X)-weighted score mean-zero. Get
+* the mean model wrong and the h-tilt no longer cancels -- an earlier draft of
+* S2b stabilized validly but fitted y ~ months + Z while the DGP contained a
+* Z-by-months interaction, and the "valid" stabilization returned 0.637 instead
+* of 0.500. The guard was right; the scenario was wrong.
+capture program drop _s2_dgp
+program define _s2_dgp
+    version 16.0
     clear
     set seed 202
     set obs 20000
@@ -148,7 +180,7 @@ capture noisily {
     gen double Z = runiform(-1, 1)
     gen double S = runiform(-1, 1)
     gen double s_i = 0.5 + 0.6*Z
-    gen double a_i = 10 + 1.0*Z
+    gen double a_i = 10 + 1.0*Z + 0.5*S
     gen double rate_i = 1.5*exp(0.7*Z + 0.8*S)
     expand 80
     bysort id: gen int k = _n
@@ -161,28 +193,66 @@ capture noisily {
     drop if nv < 2
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
-    glm y months, family(gaussian) link(identity) vce(cluster id)
-    scalar s2_naive = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z S) stabcov(S) wtype(iivw) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
-    scalar s2_est = _b[months]
-    scalar s2_ok = 1
+end
+
+* ---- S2a: stabilizing outside the outcome design is refused, not estimated.
+scalar s2a_ok = 0
+local ++test_count
+capture noisily {
+    _s2_dgp
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+        visit_cov(Z S) stabcov(S) wtype(iivw) nolog replace
+
+    * S is in the numerator. The outcome model below is y ~ months: it never sees
+    * S. Before Phase 2 this ran to completion and printed a slope.
+    capture iivw_fit y, timespec(linear) nolog replace
+    assert _rc == 198
+    scalar s2a_ok = 1
 }
 local rc = _rc
-if `rc' == 0 & s2_ok == 1 local ++pass_count
+if `rc' == 0 & s2a_ok == 1 local ++pass_count
 else local ++fail_count
-_rc_result `rc' "S2 setup (IIW stabcov)"
+_rc_result `rc' "S2a invalid stabilization (numerator outside outcome design) is refused"
+
+* ---- S2b: the stabilization Buzkova & Lumley define, and it recovers.
+* Numerator h0 = exp(delta*S) with S IN the outcome model y ~ months + S. Z stays
+* in the denominator only, so the Z-driven oversampling of high-slope subjects is
+* still corrected -- which is the bias the naive fit carries and IIW removes.
+* Truth for _b[months] = E[s_i] = 0.5.
+scalar s2b_ok = 0
+local ++test_count
+capture noisily {
+    _s2_dgp
+    glm y months S, family(gaussian) link(identity) vce(cluster id)
+    scalar s2_naive = _b[months]
+
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
+        visit_cov(Z S) stabcov(S) wtype(iivw) nolog replace
+    iivw_fit y S, timespec(linear) nolog replace
+    scalar s2_est = _b[months]
+
+    * The guard must have run and passed -- not been skipped. A validated flag of
+    * 0 here would mean the fit never checked, and the recovery below would prove
+    * nothing about the check.
+    assert e(iivw_stabilization_validated) == 1
+    assert "`e(iivw_stab_terms)'" == "S"
+    scalar s2b_ok = 1
+}
+local rc = _rc
+if `rc' == 0 & s2b_ok == 1 local ++pass_count
+else local ++fail_count
+_rc_result `rc' "S2b setup (valid stabcov within the outcome design)"
 
 local ++test_count
 capture noisily {
-    assert s2_ok == 1
+    assert s2b_ok == 1
     assert abs(s2_naive - 0.5) > 0.08                    // naive bias ~ +0.14
-    assert abs(s2_est - 0.5) < 0.03                      // residual ~0.008 (~2.4x SE)
+    assert abs(s2_est - 0.5) < 0.03
 }
 local rc = _rc
 if `rc' == 0 local ++pass_count
 else local ++fail_count
-_rc_result `rc' "S2 stabilized IIW recovers slope (est=" + string(s2_est,"%6.4f") + ")"
+_rc_result `rc' "S2b validly stabilized IIW recovers slope (est=" + string(s2_est,"%6.4f") + ")"
 
 **# S3: non-informative visits negative control (gamma=0)
 * When the visit rate does not depend on Z, there is nothing to correct: the
@@ -689,7 +759,7 @@ else local ++fail_count
 _rc_result `rc' "S12 weighted mixed bounded partial recovery (est=" + string(s12_est,"%6.4f") + ")"
 
 **# S13: truncation invariance under benign (mild) weights
-* Mild informativeness (gamma=0.3) so truncate(1 99) removes essentially nothing;
+* Mild informativeness (gamma=0.3) so truncfinal(1 99) removes essentially nothing;
 * recovery of the true slope 0.5 is preserved. (Aggressive truncation on strong
 * weights would attenuate toward the null -- deliberately avoided here.)
 scalar s13_ok = 0
@@ -716,7 +786,7 @@ capture noisily {
     gen double y = a_i + s_i*months + rnormal(0, 1)
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar s13_naive = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncate(1 99) nolog replace
+    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncfinal(1 99) nolog replace
     iivw_fit y, timespec(linear) nolog replace
     scalar s13_est = _b[months]
     scalar s13_ok = 1

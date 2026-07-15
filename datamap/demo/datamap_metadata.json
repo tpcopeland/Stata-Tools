@@ -1,14 +1,14 @@
 {
-  "datamap_version": "1.4.1",
-  "generated": "19 Jun 2026 15:17:40",
+  "datamap_version": "1.6.0",
+  "generated": "15 Jul 2026 00:26:56",
   "format": "json",
   "datasets": [
     {
       "name": "_demo_cohort.dta",
-      "observations": 160,
+      "observations": 1200,
       "variables": 17,
-      "label": "Synthetic Clinical Trial Cohort (N=160)",
-      "data_signature": "160:17(68284):1184352066:4157885057",
+      "label": "Synthetic Clinical Trial Cohort (N=1200)",
+      "data_signature": "1200:17(68284):2844760337:3810411015",
       "sort_order": "",
       "privacy": {
         "mincell": 5,
@@ -35,6 +35,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": null,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -51,6 +52,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": null,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -67,6 +69,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": null,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -82,17 +85,18 @@
           "classification": "continuous",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 136,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 160,
-            "mean": 57.26625,
-            "sd": 13.4331837664,
-            "p25": 48.8,
-            "median": 56.8,
-            "p75": 65.35,
+            "n": 1200,
+            "mean": 57.5936666667,
+            "sd": 12.1046504296,
+            "p25": 49.15,
+            "median": 58.2,
+            "p75": 65.5,
             "min": -3,
-            "max": 96.8
+            "max": 97.7
           },
           "frequencies": [
           ]
@@ -107,6 +111,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": 2,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -114,16 +119,16 @@
             {
               "value": "0",
               "label": "Female",
-              "count": 77,
-              "pct": 48.1,
+              "count": 586,
+              "pct": 48.8,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "1",
               "label": "Male",
-              "count": 83,
-              "pct": 51.9,
+              "count": 614,
+              "pct": 51.2,
               "suppressed": false,
               "threshold": 5
             }
@@ -136,9 +141,10 @@
           "label": "Smoking status",
           "value_label": "smoke_lbl",
           "classification": "categorical",
-          "missing_n": 26,
-          "missing_pct": 16.3,
+          "missing_n": 188,
+          "missing_pct": 15.7,
           "unique_values": 3,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -146,24 +152,24 @@
             {
               "value": "0",
               "label": "Never",
-              "count": 46,
-              "pct": 28.7,
+              "count": 352,
+              "pct": 29.3,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "1",
               "label": "Former",
-              "count": 48,
-              "pct": 30,
+              "count": 315,
+              "pct": 26.3,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "2",
               "label": "Current",
-              "count": 40,
-              "pct": 25,
+              "count": 345,
+              "pct": 28.7,
               "suppressed": false,
               "threshold": 5
             }
@@ -176,19 +182,20 @@
           "label": "Body mass index (kg/m2)",
           "value_label": "",
           "classification": "continuous",
-          "missing_n": 13,
-          "missing_pct": 8.1,
-          "unique_values": 104,
+          "missing_n": 91,
+          "missing_pct": 7.6,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 147,
-            "mean": 27.1503401361,
-            "sd": 5.15013464579,
-            "p25": 23.4,
-            "median": 27.1,
-            "p75": 30.8,
-            "min": 13.1,
-            "max": 41.8
+            "n": 1109,
+            "mean": 27.2749323715,
+            "sd": 5.14486733119,
+            "p25": 23.8,
+            "median": 27.3,
+            "p75": 30.5,
+            "min": 7.9,
+            "max": 44.2
           },
           "frequencies": [
           ]
@@ -200,19 +207,20 @@
           "label": "Systolic blood pressure (mmHg)",
           "value_label": "",
           "classification": "continuous",
-          "missing_n": 10,
-          "missing_pct": 6.3,
-          "unique_values": 64,
+          "missing_n": 51,
+          "missing_pct": 4.3,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 150,
-            "mean": 135.593333333,
-            "sd": 19.069317802,
-            "p25": 122,
-            "median": 137,
+            "n": 1149,
+            "mean": 135.772845953,
+            "sd": 19.3658548788,
+            "p25": 123,
+            "median": 135,
             "p75": 148,
-            "min": 74,
-            "max": 192
+            "min": 73,
+            "max": 200
           },
           "frequencies": [
           ]
@@ -224,19 +232,20 @@
           "label": "Serum creatinine (mg/dL)",
           "value_label": "",
           "classification": "continuous",
-          "missing_n": 23,
-          "missing_pct": 14.4,
-          "unique_values": 84,
+          "missing_n": 142,
+          "missing_pct": 11.8,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 137,
-            "mean": 1.03182481752,
-            "sd": 0.332992710965,
-            "p25": 0.81,
-            "median": 1.05,
-            "p75": 1.24,
-            "min": 0.16,
-            "max": 1.73
+            "n": 1058,
+            "mean": 1.03266540643,
+            "sd": 0.35356581131,
+            "p25": 0.79,
+            "median": 1.04,
+            "p75": 1.26,
+            "min": -0.07,
+            "max": 2.27
           },
           "frequencies": [
           ]
@@ -248,19 +257,20 @@
           "label": "Medication adherence (%)",
           "value_label": "",
           "classification": "continuous",
-          "missing_n": 38,
-          "missing_pct": 23.8,
-          "unique_values": 110,
+          "missing_n": 232,
+          "missing_pct": 19.3,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 122,
-            "mean": 76.9647540984,
-            "sd": 20.0986571737,
-            "p25": 63.4,
-            "median": 78.55,
-            "p75": 91.3,
-            "min": 34.1,
-            "max": 120.5
+            "n": 968,
+            "mean": 78.0088842975,
+            "sd": 17.9553054093,
+            "p25": 66.8,
+            "median": 78.2,
+            "p75": 89.25,
+            "min": 25.1,
+            "max": 147.3
           },
           "frequencies": [
           ]
@@ -274,11 +284,12 @@
           "classification": "date",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 152,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 160,
-            "span": 895,
+            "n": 1200,
+            "span": 898,
             "span_unit": "days"
           },
           "frequencies": [
@@ -293,11 +304,12 @@
           "classification": "date",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 160,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 160,
-            "span": 27442,
+            "n": 1200,
+            "span": 27760,
             "span_unit": "days"
           },
           "frequencies": [
@@ -312,17 +324,18 @@
           "classification": "continuous",
           "missing_n": 0,
           "missing_pct": 0,
-          "unique_values": 72,
+          "unique_values": 101,
+          "unique_values_capped": true,
           "max_length": null,
           "summary": {
-            "n": 160,
-            "mean": 0.3085625,
-            "sd": 0.282493049672,
-            "p25": 0.1,
-            "median": 0.24,
-            "p75": 0.445,
+            "n": 1200,
+            "mean": 0.288175,
+            "sd": 0.277360523672,
+            "p25": 0.09,
+            "median": 0.2,
+            "p75": 0.4,
             "min": 0,
-            "max": 1.72
+            "max": 1.98
           },
           "frequencies": [
           ]
@@ -337,6 +350,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": 2,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -344,16 +358,16 @@
             {
               "value": "0",
               "label": "Censored",
-              "count": 120,
-              "pct": 75,
+              "count": 872,
+              "pct": 72.7,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "1",
               "label": "Event",
-              "count": 40,
-              "pct": 25,
+              "count": 328,
+              "pct": 27.3,
               "suppressed": false,
               "threshold": 5
             }
@@ -369,6 +383,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": 2,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -376,16 +391,16 @@
             {
               "value": "0",
               "label": "Control",
-              "count": 88,
-              "pct": 55,
+              "count": 617,
+              "pct": 51.4,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "1",
               "label": "Active",
-              "count": 72,
-              "pct": 45,
+              "count": 583,
+              "pct": 48.6,
               "suppressed": false,
               "threshold": 5
             }
@@ -401,6 +416,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": 7,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -408,48 +424,48 @@
             {
               "value": "1",
               "label": "Stockholm",
-              "count": 31,
-              "pct": 19.4,
+              "count": 207,
+              "pct": 17.3,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "2",
               "label": "Gothenburg",
-              "count": 34,
-              "pct": 21.3,
+              "count": 202,
+              "pct": 16.8,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "3",
               "label": "Malmo",
-              "count": 23,
-              "pct": 14.4,
+              "count": 189,
+              "pct": 15.8,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "4",
               "label": "Uppsala",
-              "count": 24,
-              "pct": 15,
+              "count": 209,
+              "pct": 17.4,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "5",
               "label": "Linkoping",
-              "count": 19,
-              "pct": 11.9,
+              "count": 196,
+              "pct": 16.3,
               "suppressed": false,
               "threshold": 5
             },
             {
               "value": "6",
               "label": "Lund",
-              "count": 26,
-              "pct": 16.3,
+              "count": 194,
+              "pct": 16.2,
               "suppressed": false,
               "threshold": 5
             },
@@ -473,6 +489,7 @@
           "missing_n": 0,
           "missing_pct": 0,
           "unique_values": 2,
+          "unique_values_capped": false,
           "max_length": null,
           "summary": {
           },
@@ -480,8 +497,8 @@
             {
               "value": "0",
               "label": "Absent",
-              "count": 157,
-              "pct": 98.1,
+              "count": 1197,
+              "pct": 99.8,
               "suppressed": false,
               "threshold": 5
             },

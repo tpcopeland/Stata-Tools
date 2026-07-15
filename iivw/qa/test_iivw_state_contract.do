@@ -99,7 +99,7 @@ program define _iivw_state_snap, rclass
 end
 
 **# T1: a SUCCESSFUL refitweights bootstrap leaves the contract byte-identical
-* The exact probe from the audit. Fails on 2.0.0.
+* The exact probe from the audit. Fails against the pre-release build.
 
 local ++test_count
 capture noisily {
@@ -140,7 +140,7 @@ capture noisily {
     }
     display as text "    all `nf' weighting-contract fields survived intact"
 
-    * and the staleness guard must still be ARMED afterwards -- the 2.0.0 bug
+    * and the staleness guard must still be ARMED afterwards -- the old bug
     * blanked the signature, which disarmed it
     capture _iivw_check_weighted
     assert _rc == 0
@@ -403,11 +403,12 @@ else {
 
 **# T8: a contract field nobody enumerated still survives
 *
-* HONEST SCOPE. This test PASSES on 2.0.0, so it is not what catches the bug --
+* HONEST SCOPE. This test PASSES against the pre-release build too, so it is not
+* what catches the bug --
 * T1 is. It is worth keeping anyway, and it is worth saying exactly why, because
 * a test whose stated purpose it does not serve is a false green in waiting.
 *
-* The 2.0.0 defect had two halves: iivw_weight CLEARED the _iivw_ namespace from
+* The old defect had two halves: iivw_weight CLEARED the _iivw_ namespace from
 * one hardcoded list, and _iivw_bs_refit SNAPSHOTTED it from a different
 * hardcoded list. Three fields were on the first list and not the second, so the
 * bootstrap cleared them and never put them back. A field on NEITHER list -- like

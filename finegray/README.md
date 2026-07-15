@@ -1,6 +1,6 @@
 # finegray - Fast Fine-Gray competing risks regression
 
-**Version 1.1.4** | 2026-07-10
+**Version 1.2.0** | 2026-07-15
 
 `finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
 
@@ -48,7 +48,9 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `cause()` | `finegray` | Required cause-of-interest value |
 | `censvalue()` | `finegray` | Censoring value; default `0` |
 | `strata()` | `finegray` | Stratify the censoring distribution |
+| `truncstrata()` | `finegray` | Stratify the entry (delayed-entry) distribution; cross-classified with `strata()` internally |
 | `cluster()` | `finegray` | Cluster-robust inference; requires more clusters than coefficients |
+| `basehaz` | `finegray` | Post the baseline cumulative subhazard in `e(basehaz)`; off by default because the matrix is O(rows²) to build (see Stored results) |
 | `robust` / `norobust` | `finegray` | Sandwich variance is the default; `norobust` selects the observed-information variance, which is **not valid for inference** under a pseudo-likelihood |
 | `adjust` / `noadjust` | `finegray` | The finite-sample adjustment to the sandwich (`N/(N-1)`, or `g/(g-1)` with `cluster()`) is the default, matching `stcrreg`; `noadjust` omits it |
 | `shr` / `noshr` | `finegray` | SHRs are the default; `noshr` reports log-SHR coefficients |
@@ -56,7 +58,7 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `log` / `nolog` | `finegray` | Iteration logging is the default; `nolog` suppresses it |
 | `iterate()` | `finegray` | Maximum Newton-Raphson iterations; default `200` |
 | `tolerance()` | `finegray` | Convergence tolerance; default `1e-8` |
-| `xb`, `cif`, `schoenfeld` | `finegray_predict` | Select the prediction type; default `xb` |
+| `xb`, `cif`, `schoenfeld`, `basecshazard` | `finegray_predict` | Select the prediction type; default `xb`. `basecshazard` writes the baseline cumulative subhazard as a variable (the `stcrreg` idiom), at O(N) |
 | `timevar()` | `finegray_predict` | Evaluate CIF predictions at a supplied time variable |
 | `ci`, `level()` | `finegray_predict` | Add CIF confidence limits at the requested level |
 | `bootstrap()`, `seed()` | `finegray_predict` | Use reproducible subject- or cluster-bootstrap CIF limits |
@@ -93,8 +95,12 @@ Core estimation quantities include `e(N)`, `e(N_fail)`, `e(N_compete)`, `e(N_cen
 | `e(cmd)`, `e(cmdline)`, `e(predict)` | Command metadata |
 | `e(refitcmd)` | Estimation command without `if`/`in`, replayed by the `bootstrap()` refits |
 | `e(depvar)`, `e(compete)` | Event-type variable |
-| `e(covariates)`, `e(fvvarlist)` | Expanded covariates and original factor-variable specification |
-| `e(strata)`, `e(clustvar)`, `e(vce)` | Variance and censoring-strata metadata |
+| `e(covariates)`, `e(fvvarlist)`, `e(fvsemantic)` | Expanded covariates, original factor-variable specification, and its expansion semantics |
+| `e(strata)`, `e(truncstrata)`, `e(clustvar)`, `e(vce)` | Censoring-strata, entry-strata, cluster, and variance metadata |
+| `e(lt_weight)`, `e(lt_vce)` | Left-truncation weight form and the variance actually computed under delayed entry |
+| `e(n_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)` | Weight-design diagnostics: number of joint weight strata, smallest weight probability, largest LT weight |
+| `e(n_prob_warn)`, `e(n_weight_warn)`, `e(weight_warn_strata)` | Weight-diagnostic warning counts and the joint-group codes they flagged |
+| `e(bh_seq)` | Internal key to the cached Mata baseline; presented by post-estimation and refused on mismatch (bookkeeping, not a statistic) |
 | `e(title)`, `e(marginsok)`, `e(properties)` | Estimation-command metadata |
 | `e(datasignature)`, `e(datasignaturevars)` | Original-data signature used by data-dependent post-estimation |
 | `e(sample)` | Estimation-sample indicator |
@@ -121,7 +127,7 @@ Operational details that matter:
 - `finegray_predict, xb` can be used on datasets that contain the model covariates
 - `finegray_predict, cif` additionally requires a time variable (`_t` or `timevar()`)
 - `finegray_predict, schoenfeld` and `finegray_phtest` require the original `stset` estimation data
-- `finegray_predict` reproduces `stcrreg`'s post-estimation quantities: `xb` matches `predict, xb`, the baseline CIF matches `predict, basecif`, and `e(basehaz)` is the cumulative-subhazard analogue (`H0 = -ln(1 - basecif)`). The per-observation `cif` is the covariate-adjusted CIF, which `stcrreg` produces via `stcurve, cif at()` rather than `predict`; `finegray_predict, cif` matches it to numerical precision. Schoenfeld residuals match `stcrreg` exactly at untied event times; at tied event times the per-event split differs by convention while the per-time total is identical (see below)
+- Without delayed entry, `finegray_predict` reproduces `stcrreg`'s post-estimation quantities: `xb` matches `predict, xb`, the baseline CIF matches `predict, basecif`, and `e(basehaz)` is the cumulative-subhazard analogue (`H0 = -ln(1 - basecif)`). The per-observation `cif` is the covariate-adjusted CIF, which `stcrreg` produces via `stcurve, cif at()` rather than `predict`; `finegray_predict, cif` matches it to numerical precision. Schoenfeld residuals match `stcrreg` exactly at untied event times; at tied event times the per-event split differs by convention while the per-time total is identical (see below)
 - Factor-variable models are supported, but prediction on new data still requires the same factor-level support as the estimation sample
 - Data-dependent post-estimation commands verify that the original estimation sample has not changed; re-run `finegray` after editing model data
 - Constant or exactly collinear covariate columns are rejected explicitly rather than silently ridge-regularized
@@ -263,11 +269,11 @@ The weight is **separable** — it factors into a function of time times a funct
 
 ## Validation
 
-The package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression (`cmprsk`, `riskRegression`). The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior.
+On ordinary right-censored data without delayed entry, the package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression: `cmprsk::crr` and `fastcmprsk::fastCrr`. (`riskRegression::FGR` is used for the CIF prediction check, but it is a `cmprsk` wrapper — it calls `do.call(cmprsk::crr, args)` — so it does not count as a further independent estimator.) The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior. The delayed-entry ZZF branch is validated separately against direct estimating-equation oracles, independent R implementations, and Monte Carlo recovery and coverage gates; agreement with `stcrreg` is not expected there.
 
-The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, and `full` lanes) and documented in `qa/README.md`. The `qa/` directory contains 15 package QA files: 5 functional/regression files, 6 validation files, and 4 cross-validation files covering all four public commands. The current static inventory contains 619 checks across those suites, including the dedicated `test_finegray_v114.do` bootstrap/parsing regression file.
+The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, `full`, and `gates` lanes) and documented in `qa/README.md`. The `qa/` directory contains 25 package QA files: 12 functional/regression files (including `test_documentation_examples.do`, which runs every documented example verbatim), 8 validation files, and 5 cross-validation files covering all four public commands, plus a performance benchmark. The two Monte Carlo recovery/coverage gates run under the `gates` lane (hours, not minutes). A skipped or missing suite fails the runner — an external oracle that does not run is treated as an unrun check, not a pass.
 
-`qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
+On no-delayed-entry data, `qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
 
 - **Schoenfeld residuals at tied event times.** At an event time shared by two or more cause events, `finegray` and `stcrreg` partition the residual among the simultaneous events using different conventions, so an individual residual at a tied time can differ. The QA suite asserts that (a) residuals match `stcrreg` exactly at untied event times and (b) the sum of the residuals within each event time — and hence the overall score, which is zero at the estimate — is identical. Only the per-observation values at tied times differ; untied times, per-time totals, and every event-time aggregate are unaffected.
 
@@ -276,12 +282,22 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
 ## References
 
 - Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association*. 1999;94(446):496-509.
+- Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the subdistribution with right-censored and left-truncated competing risks data. *Statistics in Medicine*. 2011;30(16):1933-1951.
+- Geskus RB. Cause-specific cumulative incidence estimation and the Fine and Gray model under both left truncation and right censoring. *Biometrics*. 2011;67(1):39-49.
+- Bellach A, Kosorok MR, Gilbert PB, Fine JP. General regression model for the subdistribution of a competing risk under left-truncation and right-censoring. *Biometrika*. 2020;107(4):949-964.
 - Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on weighted residuals. *Biometrika*. 1994;81(3):515-526.
 - Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*. 2021;30(3):685-693.
 
 ## Version History
 
-- **1.1.4** (2026-07-10; Pending SSC release): Bootstrap and parsing robustness fixes.
+- **1.2.0** (2026-07-15; Pending SSC release): Left-truncation estimator, opt-in baseline, and a hardened QA gate. Supersedes the never-released 1.1.x line.
+  - **Left truncation now uses the stabilized Zhang–Zhang–Fine (2011) weight.** Under delayed entry the weight is `A(t−) = G(t−)·H(t−)` (the Geskus 2011 product form), reweighting the risk set for entry rather than applying the censoring weight alone. Delayed-entry point estimates that were biased by tens to hundreds of Monte Carlo standard errors — see the retracted 1.1.1 note below — now recover the truth to within Monte Carlo error. `strata()` stratifies the censoring distribution and the new `truncstrata()` stratifies the entry distribution; the two are cross-classified into joint weight strata. With **no** delayed entry the estimator is bit-identical to before. `e(lt_weight)` and `e(lt_vce)` record the weight form and the variance actually computed (`fg_sandwich` is the default and the only one valid under truncation; `norobust` under delayed entry undercovers and now warns).
+  - **`e(basehaz)` is now opt-in (`basehaz`), and is a behavior change.** It holds one row per distinct cause-event time (≈ N/2 rows), and creating a Stata matrix that tall is O(rows²) — it cost 38 s at N = 200,000, more than the fit, and was the *only* reason `finegray` was superlinear in N. It is no longer posted unless you request `basehaz`; the runtime is now linear (log-log slope 1.06, 95 s → 18.7 s at N = 200,000). Post-estimation does not need the matrix — `finegray_cif` and `finegray_predict` rebuild the curve in Mata — so no `finegray_cif`/`predict` result changed. Only a user reading `e(basehaz)` directly, or `estimates save`-ing and predicting in a later session, needs to add `basehaz`.
+  - **New `predict newvar, basecshazard`** returns the baseline cumulative subhazard as a variable at O(N) — the same idiom `stcrreg` uses, since `stcrreg` posts no baseline matrix in `e()`.
+  - **Fixed a tie-handling defect in the delayed-entry at-risk count.** The entry-time risk set kept subjects exiting at that exact instant; Geskus's tie ordering (events, then censorings, then entries) removes them. Continuous data never exposed it (tied entry/exit has probability zero); a fixture of exact ties in Stata does.
+  - **QA gate hardening.** `run_all.do` now fails on a skipped or missing suite — a skipped external oracle is an unrun check, not a pass — closing the hole by which a fully green suite could coexist with unrun checks. Several tests that asserted a tautology, a vacuous positivity check, or parity with `stcrreg` under left truncation (which the new estimator deliberately breaks) were rewritten to assert the contrast they are named for.
+
+- **1.1.4** (2026-07-10; Never released to SSC; superseded by 1.2.0): Bootstrap and parsing robustness fixes.
   - Bootstrap refits (`finegray_cif, bootstrap()` and `finegray_predict, ci bootstrap()`) now skip any replication whose resample loses a factor level. Previously such a replication posted a shorter coefficient vector: `finegray_cif` silently mispaired coefficients against the stored covariate profile (wrong bootstrap SE with `rc=0`), and `finegray_predict` aborted with a Mata conformability error `r(3200)`. Skipped replications are counted in `r(bootstrap_failed)` and reported in the skipped-replications note, which `finegray_predict` now also displays.
   - `finegray_cif, saving()` accepts `saving(filename,replace)` without a space after the comma; previously only `saving(filename, replace)` was accepted and the unspaced form was rejected with `r(198)`.
   - `finegray_predict` no longer leaves a partial prediction variable behind when it exits with an error (for example, a failed bootstrap or a confidence-limit name collision); any variables created by the failed call are dropped.

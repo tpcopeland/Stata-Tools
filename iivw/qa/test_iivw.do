@@ -136,7 +136,7 @@ if `run_only' == 0 | `run_only' == 3 {
         _setup_relapses
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
-            treat(treated) treat_cov(edss_bl) truncate(1 99) nolog
+            treat(treated) treat_cov(edss_bl) truncfinal(1 99) nolog
         assert "`r(weighttype)'" == "fiptiw"
         assert r(n_truncated) >= 0
         confirm variable _iivw_iw
@@ -365,14 +365,14 @@ if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
-            truncate(5 95) nolog
+            truncfinal(5 95) nolog
         assert r(n_truncated) >= 0
         quietly summarize _iivw_weight
         local w_range = r(max) - r(min)
         assert `w_range' < .
     }
     if _rc == 0 {
-        display as result "  PASS: Test 13 - truncate(5 95) bounds weights"
+        display as result "  PASS: Test 13 - truncfinal(5 95) bounds weights"
         local ++pass_count
     }
     else {
@@ -523,7 +523,7 @@ if `run_only' == 0 | `run_only' == 20 {
     capture noisily {
         _setup_relapses
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss) ///
-            truncate(99 1) nolog
+            truncfinal(99 1) nolog
         assert _rc == 198
     }
     if _rc == 0 {
@@ -2160,7 +2160,7 @@ if `run_only' == 0 | `run_only' == 86 {
 local ++test_count
 capture noisily {
     _setup_relapses
-    capture iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss) truncate(-1 101) nolog
+    capture iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss) truncfinal(-1 101) nolog
     assert _rc == 198
 }
 if _rc == 0 {

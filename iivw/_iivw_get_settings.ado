@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 3.0.0  2026/07/14
+*! _iivw_get_settings Version 2.0.0  2026/07/14
 *! The canonical weighting specification: the one place any consumer reads the
 *! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -9,11 +9,12 @@
 * own options is describing a different estimator than the one that produced the
 * weights it is reporting on.
 *
-* The 3.0.0 additions exist because the 2.0.0 spec was not sufficient to REPLAY
+* These fields exist because a spec that stores only the UNION of the raw visit
+* covariates and the generated lags is not sufficient to REPLAY
 * the weighting:
 *
 *   visit_cov_raw  the user's visit_cov() varlist, separate from the generated
-*                  lag columns. 2.0.0 stored only their union (visit_covars), so
+*                  lag columns. Storing only their union (visit_covars) means
 *                  a replay could not tell a raw covariate from a *_lag1 column
 *                  and passed the precomputed lags through as if they were raw
 *                  inputs -- which is exactly why the bootstrap could not
@@ -46,6 +47,15 @@ program define _iivw_get_settings, rclass
     local baseevent  : char _dta[_iivw_baseevent]
     local stabcov    : char _dta[_iivw_stabcov]
     local truncate   : char _dta[_iivw_truncate]
+    local truncvisit : char _dta[_iivw_truncvisit]
+    local trunctreat : char _dta[_iivw_trunctreat]
+    local truncfinal : char _dta[_iivw_truncfinal]
+    local tv_locut   : char _dta[_iivw_tv_locut]
+    local tv_hicut   : char _dta[_iivw_tv_hicut]
+    local tt_locut   : char _dta[_iivw_tt_locut]
+    local tt_hicut   : char _dta[_iivw_tt_hicut]
+    local iw_raw_var : char _dta[_iivw_iw_raw_var]
+    local tw_raw_var : char _dta[_iivw_tw_raw_var]
     local efron      : char _dta[_iivw_efron]
     local entry      : char _dta[_iivw_entry]
     local censor_mode : char _dta[_iivw_censor_mode]
@@ -58,6 +68,7 @@ program define _iivw_get_settings, rclass
     local lag_names     : char _dta[_iivw_lag_names]
     local owned         : char _dta[_iivw_owned]
     local allowmissingweights : char _dta[_iivw_allowmissingweights]
+    local treat_in_visit : char _dta[_iivw_treat_in_visit]
     local wsig          : char _dta[_iivw_wsig]
 
     if "`prefix'" == "" local prefix "_iivw_"
@@ -78,6 +89,22 @@ program define _iivw_get_settings, rclass
     return local baseevent "`baseevent'"
     return local stabcov "`stabcov'"
     return local truncate "`truncate'"
+
+    * Component-specific trimming. The CUTPOINTS travel alongside the percentiles
+    * because a consumer that refits the visit model cannot reproduce the analysis
+    * weight from the percentiles alone -- its refit sits on a different
+    * distribution, so the same percentile lands on a different number. Clipping
+    * at the stored cutpoints is the only way to describe the weight the outcome
+    * model actually used.
+    return local truncvisit "`truncvisit'"
+    return local trunctreat "`trunctreat'"
+    return local truncfinal "`truncfinal'"
+    return local tv_locut "`tv_locut'"
+    return local tv_hicut "`tv_hicut'"
+    return local tt_locut "`tt_locut'"
+    return local tt_hicut "`tt_hicut'"
+    return local iw_raw_var "`iw_raw_var'"
+    return local tw_raw_var "`tw_raw_var'"
     return local efron "`efron'"
     return local entry "`entry'"
 
@@ -110,6 +137,12 @@ program define _iivw_get_settings, rclass
     * Rows that carry no final weight, deliberately accepted by the user. The
     * analysis is complete-case in that case, and every consumer should say so.
     return local allowmissingweights "`allowmissingweights'"
+
+    * Whether treat() sits in the visit-intensity denominator. Under the supported
+    * FIPTIW contract it always does; 0 means the user took the experimental
+    * opt-out, and a replay that does not reproduce that opt-out would refit a
+    * DIFFERENT visit model than the one the reported weights came from.
+    return local treat_in_visit "`treat_in_visit'"
 
     * A nuisance model (visit-intensity, stabilization, or treatment) that the
     * user accepted nonconverged via allownonconverged. The weights it produced

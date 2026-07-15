@@ -1,4 +1,4 @@
-*! finegray Version 1.1.4  2026/07/10
+*! finegray Version 1.2.0  2026/07/15
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -625,7 +625,10 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * LOAD MATA ENGINE
     * =========================================================================
-    capture program list _finegray_mata_loaded
+    capture mata: _finegray_mata_ok()
+    * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+    * leaves Stata programs standing, so a program sentinel says "loaded" when
+    * the engine is gone and the next Mata call dies with r(3499).
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {
@@ -789,6 +792,11 @@ program define finegray, eclass sortpreserve
     local _fg_rank     = _finegray_rank[1,1]
     local _fg_nclust   = .
     capture local _fg_nclust = _finegray_nclust[1,1]
+    local _fg_nclust_rc = _rc
+    if "`cluster'" != "" & `_fg_nclust_rc' {
+        display as error "internal cluster-count result is unavailable"
+        exit 498
+    }
 
     * `_fg_warnstrata' is set directly in this scope by _finegray_weight_diag via
     * st_local (a string cannot ride back in a matrix). It is "" when nothing was
@@ -965,6 +973,13 @@ program define finegray, eclass sortpreserve
             ereturn matrix basehaz = _finegray_basehaz
         }
     }
+
+    * The key to the Mata baseline cache (see _finegray_bh_store).  The curve
+    * itself lives in Mata, where it costs nothing; this is only its receipt.  A
+    * consumer must present this seq to get the cache back, so a stale curve from
+    * a PREVIOUS fit can never be used to answer for this one -- that would be a
+    * wrong CIF at rc 0, which is the failure class that matters.
+    ereturn local bh_seq "`_fg_bh_seq'"
 
     * Store dataset chars for predict
     char _dta[_finegray_estimated] "1"

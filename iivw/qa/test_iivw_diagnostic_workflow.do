@@ -112,7 +112,7 @@ capture noisily {
     estimates store WF_unweighted
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(marker visit_need female) ///
-        treat(treat) treat_cov(age0 severity0 female) truncate(1 99) nolog
+        treat(treat) treat_cov(age0 severity0 female) truncfinal(1 99) nolog
     assert r(N) == _N
     assert r(n_ids) == 40
     assert "`r(weighttype)'" == "fiptiw"

@@ -73,7 +73,7 @@ capture noisily {
     assert reldif(D[3,1], 0.32) < 1e-12
     assert reldif(D[4,1], 0.34375) < 1e-12
     assert reldif(D[5,1], 0.65625) < 1e-12
-    assert "`r(conclusion)'" == "point_decomposition"
+    assert "`r(conclusion)'" == "shares_descriptive"
     assert rowsof(E) == 3
     assert colsof(E) == 4
 }

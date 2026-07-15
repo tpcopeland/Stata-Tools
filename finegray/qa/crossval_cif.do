@@ -46,6 +46,21 @@ if "`Rscript'" == "" {
     if `"`line'"' != "" local Rscript "Rscript"
 }
 
+* Run-unique file prefix (QA-H02): the R oracle CSVs used FIXED paths in
+* c(tmpdir), so two concurrent runs of this suite clobbered each other's oracle,
+* and a stale _cv_out.csv from a previous run was consumed as if it were this
+* run's -- a fixed path, gated only on existence, with no pre-delete.  A per-run
+* prefix isolates the files; the output is pre-deleted before the R call and
+* required to reappear before it is trusted.  Key = start time packed to digits
+* plus a random draw, so two runs starting in the same second still differ.
+* (c(pid) would be ideal but is undefined in this Stata build.)
+local _cvkey = subinstr("$S_TIME", ":", "", .) + string(runiformint(100000, 999999))
+local _cvpx = "_cv_`_cvkey'_"
+local _cv_in  "`c(tmpdir)'/`_cvpx'in.csv"
+local _cv_nd  "`c(tmpdir)'/`_cvpx'nd.csv"
+local _cv_tm  "`c(tmpdir)'/`_cvpx'tm.csv"
+local _cv_out "`c(tmpdir)'/`_cvpx'out.csv"
+
 **# ------------------------------------------------------------------
 **# Fit on hypoxia and export for R
 **# ------------------------------------------------------------------
@@ -59,7 +74,7 @@ preserve
 keep if e(sample)
 rename dftime time
 keep time status ifp tumsize pelnode
-export delimited using "`c(tmpdir)'/_cv_in.csv", replace
+export delimited using "`_cv_in'", replace
 restore
 
 * Two profiles: means and a fixed profile
@@ -75,11 +90,11 @@ set obs 2
 gen ifp = cond(_n==1, mi, 20)
 gen tumsize = cond(_n==1, mt, 5)
 gen pelnode = cond(_n==1, mp, 1)
-export delimited using "`c(tmpdir)'/_cv_nd.csv", replace
+export delimited using "`_cv_nd'", replace
 clear
 set obs 3
 gen time = cond(_n==1, 2, cond(_n==2, 5, 8))
-export delimited using "`c(tmpdir)'/_cv_tm.csv", replace
+export delimited using "`_cv_tm'", replace
 restore
 
 **# ------------------------------------------------------------------
@@ -87,10 +102,16 @@ restore
 **# ------------------------------------------------------------------
 local have_r = 0
 if "`Rscript'" != "" {
+    * Pre-delete the oracle output so a stale CSV from a previous run cannot be
+    * mistaken for this run's (QA-H02).  Then require it to REAPPEAR: existence
+    * after a delete-then-run is proof the R call actually wrote it.
+    capture erase "`_cv_out'"
+    capture confirm file "`_cv_out'"
+    assert _rc != 0
     capture shell `Rscript' "`qa_dir'/crossval_cif_r.R" ///
-        "`c(tmpdir)'/_cv_in.csv" "`c(tmpdir)'/_cv_nd.csv" ///
-        "`c(tmpdir)'/_cv_tm.csv" "`c(tmpdir)'/_cv_out.csv"
-    capture confirm file "`c(tmpdir)'/_cv_out.csv"
+        "`_cv_in'" "`_cv_nd'" ///
+        "`_cv_tm'" "`_cv_out'"
+    capture confirm file "`_cv_out'"
     if !_rc local have_r = 1
 }
 
@@ -102,7 +123,7 @@ if `have_r' {
     matrix P2 = r(table)
 
     preserve
-    import delimited using "`c(tmpdir)'/_cv_out.csv", clear case(preserve)
+    import delimited using "`_cv_out'", clear case(preserve)
     * profile 1 rows then profile 2 rows, each times 2 5 8
     local maxdiff = 0
     forvalues r = 1/3 {
@@ -136,7 +157,7 @@ else {
 _finegray_use_hypoxia
 gen byte status = failtype
 stset dftime, failure(dfcens==1) id(stnum)
-finegray ifp tumsize pelnode, compete(status) cause(1)
+finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
 quietly summarize ifp if e(sample), meanonly
 scalar mi = r(mean)
 quietly summarize tumsize if e(sample), meanonly
@@ -184,7 +205,11 @@ forvalues b=1/`reps' {
         bsample
         gen long _nid = _n
         stset dftime, failure(dfcens==1) id(_nid)
-        capture finegray ifp tumsize pelnode, compete(status) cause(1)
+        * basehaz: _cifpt reads e(basehaz) to step the baseline by hand, so each
+        * bootstrap refit must post it.  Without the option the matrix is absent,
+        * _cifpt errors, every replication is discarded, and nb stays 0 -- which
+        * surfaces as a MISSING bootstrap SE, not as a failed fit.
+        capture finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
         if _rc==0 {
             scalar nb=nb+1
             _cifpt 2

@@ -62,8 +62,14 @@
 {synopt:{opt max:fu(#)}}common end of follow-up (IIW/FIPTIW){p_end}
 {synopt:{opt endatlast:visit}}follow-up ends at last visit (IIW/FIPTIW){p_end}
 
+{syntab:Sensitivity}
+{synopt:{opt trunct:reat(# #)}}percentile trimming of the IPTW component{p_end}
+{synopt:{opt truncv:isit(# #)}}percentile trimming of the IIW component{p_end}
+{synopt:{opt truncf:inal(# #)}}percentile trimming of the final weight{p_end}
+{synopt:{opt trunc:ate(# #)}}{it:removed}; use {opt truncfinal()}{p_end}
+{synopt:{opt experimentalnotreatvis:it}}FIPTIW: omit {opt treat()} from the visit model{p_end}
+
 {syntab:Reporting}
-{synopt:{opt trunc:ate(# #)}}percentile trimming (e.g., {cmd:truncate(1 99)}){p_end}
 {synopt:{opt gen:erate(name)}}prefix for weight variables (default: {cmd:_iivw_}){p_end}
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
@@ -350,29 +356,68 @@ reproduce 1.x weights exactly, add {cmd:endatlastvisit} -- but read the note abo
 first: it is very likely not what your design actually looks like, and it is
 the specification that attenuates the visit-intensity coefficient.{p_end}
 
-{dlgtab:Reporting}
+{dlgtab:Sensitivity}
 
 {phang}
-{opt truncate(# #)} truncates (winsorizes) weights at the specified
-percentiles. For example, {cmd:truncate(1 99)} sets all weights below the
-1st percentile to the 1st percentile value, and all weights above the 99th
-percentile to the 99th percentile value. This stabilizes estimates when a
-few observations have extreme weights. Both percentile values must be
-strictly between 0 and 100.
+{bf:The supported default analysis is untruncated.} Trimming is a labelled
+sensitivity analysis, never the primary result. It does not drop observations;
+it caps the influence of extreme weights, and it does so by changing what is
+being estimated.
+
+{phang}
+{opt trunctreat(# #)} winsorizes the {bf:IPTW component} at the given
+percentiles. This is the trim the sensitivity literature actually studies:
+Tompkins et al. (2025) report that trimming reduces bias when the extreme
+weights arise from the {it:treatment} model (near-violations of positivity).
+It is not free. Bounding an extreme propensity weight bounds the influence of
+the subjects least like their counterfactual arm, so it shifts the target away
+from the ATE toward the overlap population. Report it as a sensitivity
+analysis and say that you did.
+
+{phang}
+{opt truncvisit(# #)} winsorizes the {bf:IIW component}. Tompkins et al. (2025)
+find that trimming does {bf:not} improve estimation when the extreme weights
+arise from the {it:visit} model. An extreme visit weight is a signal to
+respecify the visit model, not to cap it: trimming bounds the influence of rows
+the model already fitted badly, but it does not make the model fit them. Expect
+{helpb iivw_balance} to get {it:worse} under this option, because a bounded
+weight has less room to reweight -- that is the honest reading, and it is why
+this option cannot be described as a remedy for misspecification.
+
+{phang}
+{opt truncfinal(# #)} winsorizes the {bf:final weight} after the components are
+multiplied. Under FIPTIW the final weight is IIW x IPTW, so a row clipped here
+could have been extreme through either factor, and this option cannot say which.
+Prefer {opt trunctreat()} or {opt truncvisit()} whenever you need to know.
 
 {pmore}
-Truncation does not drop observations; it caps the influence of extreme
-weights. For FIPTIW weights, Tompkins et al. (2025) recommend trimming at the
-95th percentile ({cmd:truncate(5 95)}) when extreme weights are present, and report
-two findings worth knowing before you reach for this option: trimming reduces
-bias when the extreme weights arise from the {it:treatment} model (near-violations
-of positivity), but it does {bf:not} improve estimation when they arise from the
-{it:visit} model -- there, an extreme weight is a signal to respecify the visit
-model, not to cap it. Whether the IIW and IPTW components are trimmed before
-or after multiplication makes a negligible difference. {cmd:iivw_weight} truncates
-the final weight. If you still see extreme weights after truncation, check
-whether the visit model is well-specified or whether certain subjects have
-unusual visit patterns.
+All three take percentiles strictly between 0 and 100, with the lower bound
+below the upper. They compose: components are bounded first, then the product of
+the bounded components. Each reports its own count and its own realized
+cutpoints, and each keeps the untrimmed component beside the trimmed one --
+{it:prefix}{cmd:iw_raw} and {it:prefix}{cmd:tw_raw} -- so a reader can see
+exactly which rows moved and by how much.
+
+{phang}
+{opt truncate(# #)} was removed in 2.0.0 and now errors. {bf:Users of iivw 1.x:} it
+clipped only the final product, so it could never report which component was
+extreme, and it left {helpb iivw_balance} describing the untrimmed IIW while the
+outcome model used the trimmed one. Use {opt truncfinal()} for the identical
+behaviour, stated explicitly, or better, name the component with
+{opt trunctreat()} or {opt truncvisit()}.
+
+{phang}
+{opt experimentalnotreatvisit} omits {opt treat()} from the visit-intensity
+model under {cmd:wtype(fiptiw)}. FIPTIW exists for the design in which treatment
+drives both the outcome and the monitoring schedule, so the treatment variable
+belongs in the visit-intensity denominator and {cmd:iivw_weight} puts it there
+by construction. Omitting it leaves the IIW factor unable to correct a visit
+process that depends on treatment: the result is not the FIPTIW of the source
+literature, but IIW-without-treatment multiplied by IPTW. This option exists for
+sensitivity and legacy comparison only. It is outside the supported contract and
+is recorded as such in the weighting contract and in {cmd:e()}.
+
+{dlgtab:Reporting}
 
 {phang}
 {opt generate(name)} specifies a prefix for generated weight variables. Default is
@@ -611,12 +656,14 @@ weight equals 1 divided by the sample mean of {cmd:exp(-xb)}, not exactly 1.
 {bf:Truncation}
 
 {pstd}
-Extreme weights can destabilize estimates. The {opt truncate()} option
-winsorizes weights at the specified percentiles (sets values beyond the
-bounds to the boundary value, rather than dropping observations). A common
-choice is {cmd:truncate(1 99)}. Start without truncation, inspect the
-weight distribution, and add truncation if the max weight is very large
-(e.g., > 10) or the effective sample size is much smaller than N.
+Extreme weights can destabilize estimates. {opt trunctreat()}, {opt truncvisit()}
+and {opt truncfinal()} winsorize a {it:named} component at the specified
+percentiles (values beyond the bounds are set to the boundary value; no
+observation is dropped). The supported analysis is untruncated. Start there,
+inspect the weight distribution, and reach for a trim only as a labelled
+sensitivity analysis -- and then name the component, because trimming the
+treatment weight and trimming the visit weight are different acts with
+different consequences. See {it:Sensitivity} above.
 
 {pstd}
 {bf:Extreme propensity scores}
@@ -624,8 +671,9 @@ weight distribution, and add truncation if the max weight is very large
 {pstd}
 When computing IPTW or FIPTIW weights, propensity scores near 0 or 1 produce
 extreme weights because they appear in the denominator. {cmd:iivw_weight} displays a
-note if any observations have propensity scores below 0.01 or above 0.99,
-recommending {opt truncate()} to stabilize weights. Extreme propensity scores can
+note if any observations have propensity scores below 0.01 or above 0.99.
+{opt trunctreat()} bounds their influence as a sensitivity analysis, at the cost
+of shifting the target toward the overlap population. Extreme propensity scores can
 indicate positivity violations (some covariate patterns always or never
 receive treatment).
 
@@ -637,8 +685,9 @@ The effective sample size (ESS) measures how much information the weighted
 sample retains relative to an unweighted sample of the same size. It is
 calculated as (sum w)^2 / sum(w^2). An ESS much smaller than N indicates
 highly variable weights that may reduce statistical power. As a rule of
-thumb, an ESS below 50% of N warrants investigating model specification or
-using truncation.
+thumb, an ESS below 50% of N warrants investigating model specification.
+Trimming will raise the ESS, but raising the ESS is not the same as fixing the
+model -- see {it:Sensitivity}.
 
 {pstd}
 {bf:Weight mean}
@@ -662,15 +711,15 @@ max, and percentiles. Weights with a max above 10 or a ratio of max/min above
 100 suggest the model may be struggling with certain subjects.{p_end}
 
 {phang2}2. {bf:Effective sample size.} Reported by {cmd:iivw_weight}
-automatically. If ESS is much less than N, consider truncation or
-simplifying the visit model.{p_end}
+automatically. If ESS is much less than N, look first at the visit model
+specification.{p_end}
 
 {phang2}3. {bf:Weight mean.} Should be near 1.0. A mean far from 1
 suggests model misspecification.{p_end}
 
-{phang2}4. {bf:Sensitivity to truncation.} Compare results with and without
-{opt truncate(1 99)}. If the treatment effect changes substantially, the
-estimate may be driven by a few extreme weights.{p_end}
+{phang2}4. {bf:Sensitivity to trimming.} Compare results with and without
+{opt trunctreat(1 99)}. If the treatment effect changes substantially, the
+estimate may be driven by a few subjects with weak overlap.{p_end}
 
 {phang2}5. {bf:Treatment propensity component.} For IPTW/FIPTIW, run
 {cmd:psdash combined} after {cmd:iivw_weight} to inspect treatment-propensity
@@ -703,7 +752,7 @@ weighting only is required.{p_end}
 {phang2}{bf:Very large weights or very small ESS.} This usually indicates
 sparse overlap, an overly complex model, or unusual visit patterns. Inspect
 the covariates, simplify the visit or treatment model, and compare results
-with {cmd:truncate(1 99)}.{p_end}
+with {cmd:trunctreat(1 99)}.{p_end}
 
 {phang2}{bf:Generated variable already exists.} The command is protecting
 variables from a previous run. Add {opt replace} only when you intentionally
@@ -724,8 +773,8 @@ was used;{p_end}
 
 {phang2}(c) the treatment model covariates for IPTW/FIPTIW;{p_end}
 
-{phang2}(d) whether IIW stabilization ({opt stabcov()}) and/or percentile
-truncation ({opt truncate()}) was used;{p_end}
+{phang2}(d) whether IIW stabilization ({opt stabcov()}) was used, and which
+component -- if any -- was trimmed, at what percentiles;{p_end}
 
 {phang2}(e) weight diagnostics: mean, min, max, selected percentiles, and
 effective sample size.{p_end}
@@ -767,11 +816,14 @@ as predictors of when patients visit the clinic.
 {phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
 
 {pstd}
-{bf:Example 2: FIPTIW with truncation}
+{bf:Example 2: FIPTIW with a treatment-weight sensitivity trim}
 
 {pstd}
-Correct for both informative visits and treatment confounding. {opt truncate(1 99)}
-caps extreme weights at the 1st and 99th percentiles.
+Correct for both informative visits and treatment confounding. {opt trunctreat(1 99)}
+caps the {it:treatment} component at the 1st and 99th percentiles, as a labelled
+sensitivity analysis; the primary result should be the untrimmed one. Note that
+{cmd:treat(treated)} also enters the visit-intensity model automatically under
+{cmd:wtype(fiptiw)}.
 
 {pstd}
 The two {cmd:psdash} commands below are optional. Install {cmd:psdash} before
@@ -779,7 +831,7 @@ running them if needed:
 
 {phang2}{cmd:. net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace}{p_end}
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace censor(fu_end) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) trunctreat(1 99) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. psdash combined}{p_end}
 {phang2}{cmd:. psdash weights, iivwcomponent(final) detail graph}{p_end}
 {phang2}{cmd:. iivw_balance, agrefit nolog}{p_end}
@@ -859,7 +911,19 @@ than the default Breslow method.
 {synopt:{cmd:r(pct_lost_untreated)}}percent of untreated rows lost ({opt treat()} only){p_end}
 {synopt:{cmd:r(n_ids_total)}}subjects in the analysis sample{p_end}
 {synopt:{cmd:r(n_ids_weighted)}}subjects with at least one weighted row{p_end}
-{synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
+{synopt:{cmd:r(n_truncated)}}rows clipped by {opt truncfinal()}{p_end}
+{synopt:{cmd:r(truncvisit)}}the {opt truncvisit()} percentiles, if used{p_end}
+{synopt:{cmd:r(trunctreat)}}the {opt trunctreat()} percentiles, if used{p_end}
+{synopt:{cmd:r(truncfinal)}}the {opt truncfinal()} percentiles, if used{p_end}
+{synopt:{cmd:r(n_trunc_visit)}}rows clipped by {opt truncvisit()}{p_end}
+{synopt:{cmd:r(trunc_visit_lo)}}realized lower cutpoint of {opt truncvisit()}{p_end}
+{synopt:{cmd:r(trunc_visit_hi)}}realized upper cutpoint of {opt truncvisit()}{p_end}
+{synopt:{cmd:r(iw_raw_var)}}the untrimmed IIW component, if {opt truncvisit()}{p_end}
+{synopt:{cmd:r(n_trunc_treat)}}rows clipped by {opt trunctreat()}{p_end}
+{synopt:{cmd:r(trunc_treat_lo)}}realized lower cutpoint of {opt trunctreat()}{p_end}
+{synopt:{cmd:r(trunc_treat_hi)}}realized upper cutpoint of {opt trunctreat()}{p_end}
+{synopt:{cmd:r(tw_raw_var)}}the untrimmed IPTW component, if {opt trunctreat()}{p_end}
+{synopt:{cmd:r(treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:r(nobaseevent)}}1 under {opt baseline(entry)}, 0 under {opt baseline(event)}{p_end}
 {synopt:{cmd:r(censor_mode)}}{cmd:censor}, {cmd:maxfu} or {cmd:lastvisit} (IIW/FIPTIW){p_end}
 {synopt:{cmd:r(censor_var)}}the {opt censor()} variable, if used{p_end}

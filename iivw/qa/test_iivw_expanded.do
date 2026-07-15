@@ -271,7 +271,7 @@ if `run_only' == 0 | `run_only' == 5 {
         label values treatment arm
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(age sex edss_bl) ///
-            truncate(1 99) replace nolog
+            truncfinal(1 99) replace nolog
         iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
         assert "`e(iivw_weighttype)'" == "fiptiw"
         assert e(converged) == 1
@@ -295,7 +295,7 @@ if `run_only' == 0 | `run_only' == 6 {
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
             visit_cov(severity) lagvars(severity) stabcov(sev_bl) ///
-            truncate(5 95) nolog
+            truncfinal(5 95) nolog
         local n_trunc = r(n_truncated)
         * Lagged variable created
         confirm variable severity_lag1
@@ -754,19 +754,19 @@ if `run_only' == 0 | `run_only' == 22 {
 }
 
 * =============================================================================
-* E23: truncate(0 100) rejected at option validation
+* E23: truncfinal(0 100) rejected at option validation
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 23 {
     capture noisily {
         _setup_panel
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            truncate(0 100) nolog
+            truncfinal(0 100) nolog
         assert _rc == 198
         * Near-boundary values work
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            truncate(0.01 99.99) nolog
+            truncfinal(0.01 99.99) nolog
         assert r(n_truncated) >= 0 & r(n_truncated) < .
     }
     if _rc == 0 {

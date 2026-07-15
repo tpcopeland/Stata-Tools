@@ -205,7 +205,7 @@ foreach scenario in A B C {
             *IIW-weighted GEE
             capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
                 visit_cov(u_i conf_tv) wtype(iivw) ///
-                truncate(1 99) nolog replace
+                truncfinal(1 99) nolog replace
             if _rc == 0 {
                 capture iivw_fit y_obs treatment conf_ti, ///
                     model(gee) timespec(linear) interaction(treatment) ///
@@ -223,7 +223,7 @@ foreach scenario in A B C {
             capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
                 visit_cov(u_i conf_tv) ///
                 treat(treatment) treat_cov(conf_ti u_i) ///
-                truncate(1 99) nolog replace
+                truncfinal(1 99) nolog replace
             if _rc == 0 {
                 capture iivw_fit y_obs treatment conf_ti, ///
                     model(gee) timespec(linear) interaction(treatment) ///
@@ -242,7 +242,7 @@ foreach scenario in A B C {
                 capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
                     visit_cov(u_i conf_tv) ///
                     treat(treatment) treat_cov(conf_ti u_i) ///
-                    truncate(1 99) nolog replace
+                    truncfinal(1 99) nolog replace
                 if _rc == 0 {
                     capture iivw_fit y_obs treatment test_number conf_ti, ///
                         model(gee) timespec(linear) interaction(treatment) ///

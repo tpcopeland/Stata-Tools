@@ -286,6 +286,9 @@ capture noisily {
         if substr("`s'", 1, 1) == "_"  continue
         if "`s'" == "run_all.do"        continue
         if substr("`s'", 1, 4) == "sim_" continue
+        * benchmark_* are high-replication gates in their own lane, not curated
+        * pass/fail suites the aggregate parses -- excluded like sim_*.
+        if substr("`s'", 1, 10) == "benchmark_" continue
 
         preserve
         quietly import delimited using "`qa_dir'/`s'", delimiter(tab) ///

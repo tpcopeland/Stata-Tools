@@ -203,7 +203,7 @@ forvalues s = 1/`n_sims' {
         *IIW-weighted GEE
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) wtype(iivw) ///
-            truncate(1 99) nolog replace
+            truncfinal(1 99) nolog replace
         if _rc == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, ///
                 model(gee) timespec(none) nolog replace
@@ -228,7 +228,7 @@ forvalues s = 1/`n_sims' {
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
-            truncate(1 99) nolog replace
+            truncfinal(1 99) nolog replace
         if _rc == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, ///
                 model(gee) timespec(none) nolog replace
@@ -253,7 +253,7 @@ forvalues s = 1/`n_sims' {
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
-            truncate(1 99) nolog replace
+            truncfinal(1 99) nolog replace
         if _rc == 0 {
             gen double log_test_number = log(test_number + 1)
             capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, ///

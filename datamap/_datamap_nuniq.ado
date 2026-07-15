@@ -1,4 +1,4 @@
-*! _datamap_nuniq Version 1.6.0  2026/07/14
+*! _datamap_nuniq Version 1.6.1  2026/07/15
 *! Distinct-value count for one variable, without sorting the dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -25,7 +25,9 @@
 // Memory is bounded ONLY because the walk stops at the cap.  With cap(0) the
 // caller is asking for an exact count at any cardinality, the distinct set
 // grows to the full cardinality regardless, and chunking just adds re-merges
-// (measured 40% SLOWER than one sort).  cap(0) therefore takes a direct path.
+// (measured 40% SLOWER than one sort).  cap(0) therefore takes a direct path,
+// reading the column through a view (st_view/st_sview) so uniqrows sorts
+// straight from the data and the initial full-length copy is never allocated.
 //
 // The cap MUST be >= any threshold the caller compares the count against
 // (maxcat, maxfreq).  Otherwise a censored count could silently flip a
@@ -55,19 +57,23 @@ mata:
 real rowvector _datamap_nuniq_num(string scalar vname, real scalar cap)
 {
 	real scalar N, lo, hi, chunk, maxchunk, slack, n
-	real colvector d
+	real colvector d, V
 
 	N = st_nobs()
 	if (N == 0) return((0, 0))
 
 	// cap<=0 means the caller needs an EXACT count at any cardinality (panel
-	// unit counts).  Chunking cannot help there: the running distinct set
+	// unit counts on high-cardinality IDs -- the very columns where a copy
+	// hurts most).  Chunking cannot help there: the running distinct set
 	// grows to the full cardinality anyway, and re-merging it once per chunk
-	// is ~40% slower than one sort.  Take the direct path instead -- and
-	// filter missings AFTER uniqrows, so select() copies the distinct set
-	// rather than a second full-length copy of the column.
+	// is ~40% slower than one sort.  Take the direct path instead -- read the
+	// column through a VIEW so uniqrows sorts straight from it and the initial
+	// full-length st_data copy is never allocated, and filter missings AFTER
+	// uniqrows so select() copies only the (small) distinct set.  uniqrows on
+	// a view returns a fresh sorted matrix and leaves the data untouched.
 	if (cap <= 0) {
-		d = uniqrows(st_data(., vname))
+		st_view(V, ., vname)
+		d = uniqrows(V)
 		d = select(d, d :< .)
 		return((rows(d), 0))
 	}
@@ -94,15 +100,17 @@ real rowvector _datamap_nuniq_str(string scalar vname, real scalar countempty,
 	real scalar cap)
 {
 	real scalar N, lo, hi, chunk, maxchunk, slack, n
-	string colvector d
+	string colvector d, V
 
 	N = st_nobs()
 	if (N == 0) return((0, 0))
 
 	// See _datamap_nuniq_num: cap<=0 wants an exact count, which chunking
-	// cannot make cheaper once the distinct set is large.
+	// cannot make cheaper once the distinct set is large.  Read through a
+	// string view so the initial full-length st_sdata copy is never made.
 	if (cap <= 0) {
-		d = uniqrows(st_sdata(., vname))
+		st_sview(V, ., vname)
+		d = uniqrows(V)
 		if (!countempty) d = select(d, d :!= "")
 		return((rows(d), 0))
 	}

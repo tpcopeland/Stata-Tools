@@ -11,7 +11,7 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* A row with no final weight is a row that iivw_fit will mark out. Until 3.0.0
+* A row with no final weight is a row that iivw_fit will mark out. Until 2.0.0
 * that happened silently: iivw_weight printed a `Note:' into a long log and
 * returned 0, and iivw_fit then dropped the rows without a word.
 *
@@ -64,7 +64,7 @@ program define _iivw_samp_panel
 end
 
 **# T1: a missing VISIT covariate errors by default
-* On 2.0.0 this returns 0 with a note.
+* In the pre-release build this returned 0 with a note.
 
 local ++test_count
 capture noisily {

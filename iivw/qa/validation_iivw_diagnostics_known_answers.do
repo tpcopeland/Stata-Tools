@@ -115,7 +115,7 @@ capture noisily {
     assert abs(B[3,1] - 2) < 1e-12
     assert abs(B[4,1] + 1) < 1e-12
 
-    assert "`dconc'" == "point_decomposition"
+    assert "`dconc'" == "shares_descriptive"
 
     local rn : rownames E
     local cn : colnames E

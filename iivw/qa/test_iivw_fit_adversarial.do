@@ -341,7 +341,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 9 {
     capture noisily {
         * ---------------------------------------------------------------
-        * UPDATED FOR 3.0.0 -- this test used to assert the defect.
+        * UPDATED FOR 2.0.0 -- this test used to assert the defect.
         *
         * It created an UNOWNED `_iivw_time_sq = 999', called iivw_fit with
         * `replace', and asserted `r(max) < 999' -- i.e. it asserted that the
@@ -428,7 +428,7 @@ if `run_only' == 0 | `run_only' == 11 {
         * is what the analyst would have to do anyway. The exclusions this test
         * is actually about (if/in and missing covariates) are unaffected.
         * severity was blanked for id<=3 above, so some rows can carry no
-        * weight. From 3.0.0 that is an error unless the analyst says they mean
+        * weight. From 2.0.0 that is an error unless the analyst says they mean
         * it -- which, for a test whose whole subject is the exclusion of
         * unweighted rows, they do. allowmissingweights is the acknowledgment.
         quietly iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///

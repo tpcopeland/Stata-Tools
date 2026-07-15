@@ -47,6 +47,7 @@ Every executable test passes, with no skips.
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
 | `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 26 | 26 | 0 | 0 |
+| `test_documentation_examples.do` | **runnable doc examples** — every README/help code block run verbatim (Quick Start, basic fit, `predict cif`, phtest, fit variants, cif/predict CI, `basehaz`/`basecshazard`) | 7 | 7 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (60 datasets, arms A/B/D) | 62 | 62 | 0 | 0 |
 | **Total** | | **452** | **452** | **0** | **0** |
 

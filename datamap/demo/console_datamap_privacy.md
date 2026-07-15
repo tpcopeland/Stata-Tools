@@ -11,7 +11,6 @@ title: "console_datamap_privacy"
 ```
 
 ```
-(file /tmp/St647618.000003 not found)
 warning: likely identifier variable(s) not in exclude(): patient_id subject_id patient_name
 Output written to: datamap/demo/datamap_warning.txt
 Documentation generated successfully
@@ -19,16 +18,7 @@ Documentation generated successfully
 ```
 
 ```stata
-. noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
-```
-
-```
-(file /tmp/St647618.000001 not found)
-
-```
-
-```stata
-. noisily display as text ""
+. quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
 ```
 
 ```stata
@@ -46,7 +36,7 @@ Disclosure-risk summary excerpt:
 
 ```
 Dataset Documentation
-Generated: 19 Jun 2026 15:17:40
+Generated: 15 Jul 2026 00:26:56
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -54,10 +44,10 @@ DATASET: _demo_cohort.dta
 
 METADATA
 --------
-Observations: 160
+Observations: 1200
 Variables: 17
-Label: Synthetic Clinical Trial Cohort (N=160)
-Data Signature: 160:17(68284):1184352066:4157885057
+Label: Synthetic Clinical Trial Cohort (N=1200)
+Data Signature: 1200:17(68284):2844760337:3810411015
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -68,8 +58,8 @@ Likely identifiers not excluded: patient_id subject_id patient_name
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 160 observations and 17 variables. The data spans from 1925/03/1
-> 7 to 2023/06/16. Key variable categories include: identifiers, demographics, clinical data, outcomes.
+This dataset contains cross-sectional data. It includes 1200 observations and 17 variables. The data spans from 1924/11/
+> 29 to 2023/06/18. Key variable categories include: identifiers, demographics, clinical data, outcomes.
 
 ========================================
 VARIABLE SUMMARY
@@ -82,7 +72,75 @@ QUICK REFERENCE
 
 ```
 
+```stata
+. noisily display as text "Capped unique-count excerpt:"
+```
+
+```
+Capped unique-count excerpt:
+
+```
+
+```stata
+. noisily _demo_type_matches using "`pkg_dir'/datamap_warning.txt",
+>     text(">1000") lines(6)
+```
+
+```
+  patient_id              double    continuous      0.0%   >1000
+  subject_id              double    continuous      0.0%   >1000
+  patient_name            str32     string          0.0%   >1000
+  birth_date              double    date            0.0%   >1000
+
+```
+
 ## Privacy-safe text map
+
+```stata
+. use "`pkg_dir'/_demo_cohort.dta", clear
+```
+
+```
+(Synthetic Clinical Trial Cohort (N=1200))
+
+```
+
+```stata
+. quietly datasignature
+```
+
+```stata
+. local map_signature "`r(datasignature)'"
+```
+
+```stata
+. tempfile map_integrity
+```
+
+```stata
+. quietly datamap,
+>     output("`map_integrity'.txt")
+>     exclude(patient_id subject_id patient_name)
+>     datesafe mincell(5) autodetect quality samples(3) missing(detail)
+```
+
+```stata
+. quietly datasignature
+```
+
+```stata
+. assert "`map_signature'" == "`r(datasignature)'"
+```
+
+```stata
+. noisily display as result
+```
+
+```
+>     "In-memory integrity check: datamap left the datasignature unchanged"
+In-memory integrity check: datamap left the datasignature unchanged
+
+```
 
 ```stata
 . noisily datamap, single("`pkg_dir'/_demo_cohort.dta")
@@ -92,24 +150,13 @@ QUICK REFERENCE
 ```
 
 ```
-(file datamap/demo/datamap_clinical.txt not found)
-(file /tmp/St647618.000003 not found)
 Output written to: datamap/demo/datamap_clinical.txt
 Documentation generated successfully
 
 ```
 
 ```stata
-. noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_clinical.txt"
-```
-
-```
-(file /tmp/St647618.000001 not found)
-
-```
-
-```stata
-. noisily display as text ""
+. quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_clinical.txt"
 ```
 
 ```stata
@@ -127,7 +174,7 @@ Privacy-safe map excerpt:
 
 ```
 Dataset Documentation
-Generated: 19 Jun 2026 15:17:40
+Generated: 15 Jul 2026 00:26:56
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -135,10 +182,10 @@ DATASET: _demo_cohort.dta
 
 METADATA
 --------
-Observations: 160
+Observations: 1200
 Variables: 17
-Label: Synthetic Clinical Trial Cohort (N=160)
-Data Signature: 160:17(68284):1184352066:4157885057
+Label: Synthetic Clinical Trial Cohort (N=1200)
+Data Signature: 1200:17(68284):2844760337:3810411015
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -149,20 +196,20 @@ Likely identifiers not excluded: 0
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 160 observations and 17 variables. The data includes date variab
+This dataset contains cross-sectional data. It includes 1200 observations and 17 variables. The data includes date varia
 ```
 
 ```stata
-> les (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, o
-> utcomes.
+> bles (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data,
+> outcomes.
 ```
 
 ```
 Survival Analysis Variables Detected
   Likely time variables: follow_up_time
-    follow_up_time range: 0 to 1.7
+    follow_up_time range: 0 to 2
   Likely event indicators: event
-    event rate: 25%
+    event rate: 27.3%
 
 Common Variable Patterns Detected
   Likely IDs: patient_id subject_id patient_name
@@ -174,7 +221,7 @@ Common Variable Patterns Detected
 Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 3
-  Observations with complete data: 79 (49.4%)
+  Observations with complete data: 624 (52%)
 
 ========================================
 VARIABLE SUMMARY
@@ -186,16 +233,16 @@ QUICK REFERENCE
   patient_id              double    excluded        0.0%       .
   subject_id              double    excluded        0.0%       .
   patient_name            str32     excluded        0.0%       .
-  age                     double    continuous      0.0%     136
+  age                     double    continuous      0.0%     450
   sex                     double    categorical     0.0%       2
-  smoking                 double    categorical    16.3%       3
-  bmi                     double    continuous      8.1%     104
-  sbp                     double    continuous      6.3%      64
-  creatinine              double    continuous     14.4%      84
-  pct_adherence           double    continuous     23.8%     110
-  enroll_date             double    date            0.0%     152
-  birth_date              double    date            0.0%     160
-  follow_up_time          double    continuous      0.0%      72
+  smoking                 double    categorical    15.7%       3
+  bmi                     double    continuous      7.6%     238
+  sbp                     double    continuous      4.3%     108
+  creatinine              double    continuous     11.8%     168
+  pct_adherence           double    continuous     19.3%     534
+  enroll_date             double    date            0.0%     649
+  birth_date              double    date            0.0%   >1000
+  follow_up_time          double    continuous      0.0%     123
   event                   double    categorical     0.0%       2
   treatment               double    categorical     0.0%       2
   site                    double    categorical     0.0%       7
@@ -207,10 +254,6 @@ QUICK REFERENCE
     Format: %10.0g
 ... [output truncated]
 
-```
-
-```stata
-. noisily display as text ""
 ```
 
 ```stata
@@ -235,10 +278,6 @@ Suppressed frequency cells:
 ```
 
 ```stata
-. noisily display as text ""
-```
-
-```stata
 . noisily display as text "Date-safe sample rows:"
 ```
 
@@ -253,11 +292,11 @@ Date-safe sample rows:
 ```
 
 ```
-| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 1 | 27.5 | 157 | 1.39 | 83.7 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .29 |
->  1 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.6 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .1 |
->  0 | 0 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.4 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .07 |
-> 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .11 | 0
+> | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .39
+> | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .04 |
+> 1 | 1 | 9 | 1 |
 
 ```

@@ -29,7 +29,8 @@ set varabbrev off
 *
 * WHAT IT CAUGHT
 * --------------
-* On 2.0.0 the identity draw disagreed with the observed weights by a maximum
+* Against the pre-release build the identity draw disagreed with the observed
+* weights by a maximum
 * relative difference of 2.2e-01 -- a 22% weight error -- because _iivw_bs_refit
 * passed the PRECOMPUTED *_lag1 columns through visit_cov() instead of replaying
 * lagvars() from the raw sources. Two consequences, both silent:
@@ -42,7 +43,9 @@ set varabbrev off
 *      the lag construction -- which the bootstrap exists to propagate -- was
 *      frozen at its observed-data value in every replicate.
 *
-* Every test below FAILS on 2.0.0 and passes on 3.0.0.
+* Every test below FAILS against the pre-release build and passes on the shipped
+* code. The pre-release build is the 2026-07-13 development state -- 2.0.0 was
+* never released, so "old code" here means that build, not a version any user had.
 
 local qa_dir "`c(pwd)'"
 local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
@@ -155,7 +158,7 @@ end
 
 **# T0: the replay contract is RETURNED, not just stored
 *
-* The whole replay rests on three returns that 2.0.0 did not have: the raw
+* The whole replay rests on three returns the pre-release build did not have: the raw
 * visit covariates kept apart from the generated lag columns, the lag sources,
 * and the owned-output inventory. If any of them is empty or wrong, every test
 * below would still pass -- they read the CHARACTERISTICS -- while a user
@@ -199,7 +202,7 @@ else {
 }
 
 **# T1: IIW, raw lagvars() + subject-specific censor()
-* The exact configuration the 2.0.0 replay got wrong. The terminal censoring
+* The exact configuration the old replay got wrong. The terminal censoring
 * interval's lagged covariate is the source value AT the last visit; the old
 * replay carried the value from two visits back.
 
@@ -445,11 +448,11 @@ else {
     local failed_tests "`failed_tests' T9"
 }
 
-**# T10: a pre-3.0.0 contract must be REFUSED, not silently replayed
+**# T10: a pre-2.0.0 contract must be REFUSED, not silently replayed
 *
 * Weights written before the raw visit covariates were separated from the
 * generated lag columns cannot be replayed: the raw list is not recoverable from
-* the union. Falling back to the union is exactly the 2.0.0 defect, so the
+* the union. Falling back to the union is exactly the old defect, so the
 * refusal is the fix -- an error here is the correct behavior.
 
 local ++test_count
@@ -458,7 +461,7 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(L1) lagvars(edss) ///
         censor(fu_end) nolog
 
-    * Simulate the older contract: blank the field 3.0.0 added.
+    * Simulate the older contract: blank the field 2.0.0 added.
     char _dta[_iivw_visit_cov_raw] ""
     * The signature binds the spec, so re-stamp it to keep this test about the
     * replay refusal and not about the staleness guard firing first.
@@ -470,11 +473,11 @@ capture noisily {
 }
 local rc = _rc
 if `rc' == 0 {
-    display as result "  PASS: T10 - pre-3.0.0 contract is refused by refitweights"
+    display as result "  PASS: T10 - pre-2.0.0 contract is refused by refitweights"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T10 - pre-3.0.0 contract is refused (error `rc')"
+    display as error "  FAIL: T10 - pre-2.0.0 contract is refused (error `rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T10"
 }

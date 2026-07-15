@@ -161,7 +161,7 @@ capture noisily {
 
     * Validation failure: bad truncate range
     capture noisily iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) ///
-        truncate(0 100) replace nolog
+        truncfinal(0 100) replace nolog
     assert _rc == 198
     local post2_weighted : char _dta[_iivw_weighted]
     assert "`post2_weighted'" == "1"

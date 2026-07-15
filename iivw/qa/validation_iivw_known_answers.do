@@ -205,7 +205,7 @@ local ++test_count
 capture noisily {
     _ka_iivw_dataset_b
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) ///
-        wtype(iptw) truncate(25 75) nolog
+        wtype(iptw) truncfinal(25 75) nolog
     assert r(n_truncated) == 4
     local ret_ess = r(ess)
     quietly summarize _iivw_weight

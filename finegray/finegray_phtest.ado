@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.1.4  2026/07/10
+*! finegray_phtest Version 1.2.0  2026/07/15
 *! Proportional subdistribution hazards test after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -100,7 +100,10 @@ program define finegray_phtest, rclass
     }
 
     * Load Mata engine
-    capture program list _finegray_mata_loaded
+    capture mata: _finegray_mata_ok()
+    * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+    * leaves Stata programs standing, so a program sentinel says "loaded" when
+    * the engine is gone and the next Mata call dies with r(3499).
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {

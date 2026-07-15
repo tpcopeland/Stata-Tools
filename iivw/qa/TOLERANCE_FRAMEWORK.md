@@ -122,12 +122,34 @@ PASS  iff  |mean(θ̂) − θ_true|  <  k · MCSE(bias)        with k = 3
 | Hard floor | **no point coverage below 0.92** |
 | Reported alongside | bias + MCSE(bias), empirical SD, mean model-based SE, coverage + its Wilson interval |
 
-- **The empirical SE must track the Monte Carlo SD.** A model-based SE systematically below the empirical
-  SD *is* the fixed-weight defect, visible.
+- **The refit (default) method's empirical SE must track the Monte Carlo SD**, and its coverage Wilson
+  interval must contain 0.95 with no point below 0.92.
 - **Pilot runs may tune `R` and runtime. They may not tune the acceptance boundary.**
-- **The gate must be able to fail.** Fixed-weight inference is required to **fail at least one scenario
-  that the corrected method passes** — otherwise the coverage suite does not prove it can detect the
-  original defect, and a green result means nothing (`METHOD_ORACLE_MAP.md` §2, mutation M2).
+
+> #### ⚠ The separation direction is OVER-coverage, not under-coverage — corrected 2026-07-15
+>
+> The plan's blocker #1 assumes the fixed-weight default *under*-states uncertainty. **Under a correctly
+> specified weight model it does the opposite**, and the 200×300 pilot confirmed it (refit coverage 0.925,
+> fixed 0.930; fixed SE ran **+3.0%** above refit; at strong dependence the gap widens). The reason is a
+> theorem, not a tuning accident: the Bůžková–Lumley variance (p.10–11, `METHOD_CONTRACT.md` §3.6)
+> residualises the outcome score against the visit-model score before squaring, `V = Var(Û − proj)`, and
+> the fixed-weight sandwich is the first term `Var(Û)` only. For a Cox-partial-likelihood (MLE) visit
+> model that projection is orthogonal, so `Var(Û − proj) ≤ Var(Û)` (Henmi & Eguchi 2004; the IPW analogue
+> is Lunceford & Davidian 2004). **Treating estimated weights as known therefore makes the interval too
+> WIDE (conservative), and the fixed default over-covers.** There is no correct-specification scenario in
+> which it under-covers.
+>
+> **So the "gate must be able to fail" separator is a TWO-SIDED calibration test, preregistered here
+> before the release run:** in the **strong-dependence** scenario (`GAMMA` and `DELTA` both large, so the
+> projection correction is a large share of the total variance) the **refit** coverage Wilson interval
+> must contain 0.95, while the **fixed** coverage Wilson interval must **exclude 0.95 from above**
+> (empirical over-coverage). That is the demonstrable difference between the two methods, and it is honest
+> about the direction. If, at the strong-dependence setting the release run uses, the fixed over-coverage
+> is too mild for its Wilson interval to clear 0.95, the honest conclusion is that **coverage cannot
+> separate the two methods under correct specification** — the demonstrable difference is then the
+> systematic fixed-vs-refit **SE ratio > 1**, which the run also reports. Under-coverage of the fixed
+> method is expected only under weight-model **misspecification**, which is a separate, still-to-build arm
+> and is not part of this correct-specification gate.
 
 ---
 

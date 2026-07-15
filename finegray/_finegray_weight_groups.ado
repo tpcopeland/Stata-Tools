@@ -1,4 +1,4 @@
-*! _finegray_weight_groups Version 1.1.4  2026/07/13
+*! _finegray_weight_groups Version 1.2.0  2026/07/15
 *! Deterministic reconstruction of the IPCW weight strata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (creates caller-named group variables)

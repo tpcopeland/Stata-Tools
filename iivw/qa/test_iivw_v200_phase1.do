@@ -330,7 +330,7 @@ capture noisily {
     quietly replace xdenom = . if mod(pid, 4) == 0
 
     * xdenom is deliberately blanked for a quarter of the subjects above, so
-    * those rows get no weight. From 3.0.0 that is an error unless acknowledged;
+    * those rows get no weight. From 2.0.0 that is an error unless acknowledged;
     * this test is ABOUT the rows that get no weight, so it acknowledges it.
     quietly iivw_weight, id(pid) time(vtime) visit_cov(z xdenom) ///
         stabcov(xstab) censor(cens) allowmissingweights nolog

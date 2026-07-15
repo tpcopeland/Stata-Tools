@@ -208,7 +208,7 @@ capture noisily {
     assert _rc != 0
 
     assert r(balance_max_tsmd) < .
-    assert inlist("`r(balance_flag)'", "good", "poor", "unknown")
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule", "unknown")
 }
 if _rc == 0 {
     display as result "  PASS: T4 - the null-less weighted AG refit is not reported"

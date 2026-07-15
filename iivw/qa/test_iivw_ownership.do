@@ -11,14 +11,14 @@ set varabbrev off
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
-* Until 3.0.0, `replace' decided what it was allowed to overwrite by reasoning
+* `replace' used to decide what it was allowed to overwrite by reasoning
 * about a NAME: a variable called `_iivw_weight' that is not a current input must
 * be a prior package output, so destroying it is what the user asked for.
 *
 * Nothing established that. A user column that merely happened to sit under the
 * selected prefix -- a hand-built weight from an earlier project, an imported
 * column, a merge artefact -- satisfied the rule exactly, and was backed up and
-* discarded on success. On 2.0.0, T1 below destroys a user's `_iivw_weight = 99'
+* discarded on success. Against the pre-release build, T1 below destroys a user's `_iivw_weight = 99'
 * column and reports rc 0.
 *
 * Ownership is now a fact carried BY the variable:
@@ -67,7 +67,7 @@ end
 
 **# T1: an UNOWNED variable under the prefix must NOT be destroyed
 *
-* The defect, exactly as the audit recorded it. On 2.0.0 this returns 0 and the
+* The defect, exactly as the audit recorded it. In the pre-release build this returns 0 and the
 * user's column comes back as a weight. The `assert' on the value is the part
 * that matters: refusing with the right return code but mutating anyway would be
 * just as bad, and an rc-only test could not tell the difference.

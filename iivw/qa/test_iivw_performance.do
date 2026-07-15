@@ -75,7 +75,7 @@ capture noisily {
     timer clear 1
     timer on 1
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) ///
-        treat(treat) treat_cov(age female severity_bl) truncate(1 99) nolog
+        treat(treat) treat_cov(age female severity_bl) truncfinal(1 99) nolog
     iivw_balance severity biomarker, balcut(10) nolog
     local balance_covars "`r(balance_covars)'"
     iivw_fit y treat severity biomarker, timespec(linear) nolog
@@ -84,7 +84,12 @@ capture noisily {
     local elapsed = r(t1)
 
     assert `elapsed' < 45
-    assert "`balance_covars'" == "age female severity biomarker"
+    * treat is in the list because FIPTIW now puts it in the visit-intensity
+    * model by construction (Phase 2). iivw_balance reports on the design that
+    * was actually fitted, so the treatment term appears here too -- and it
+    * should: whether the weights balance treatment across the at-risk set is
+    * precisely the question FIPTIW exists to answer.
+    assert "`balance_covars'" == "age female severity treat biomarker"
     assert "`e(iivw_cmd)'" == "iivw_fit"
     assert "`e(iivw_weighttype)'" == "fiptiw"
     quietly count if missing(_iivw_weight) | _iivw_weight <= 0

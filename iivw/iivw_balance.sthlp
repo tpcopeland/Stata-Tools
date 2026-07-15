@@ -246,11 +246,43 @@ a covariate over the {it:observed visits} equals its distribution over the
 {pstd}
 That is a real reference distribution rather than a rearrangement of the same
 visits, so it has a null: it is 0 when the weights work. {cmd:r(balance_flag)}
-is {cmd:good} when the largest absolute target SMD is at or below
-{opt balcut()}, and {cmd:poor} otherwise. Computing the person-time target
+is {cmd:within_rule} when the largest absolute target SMD is at or below
+{opt balcut()}, and {cmd:exceeds_rule} otherwise. The flag names where the
+measured SMD falls relative to the {opt balcut()} convention (0.10 by default);
+it is not a proof that the visit model is correctly specified. Computing the
+person-time target
 requires each subject's terminal at-risk interval, which is why the weights
 must have been built with {opt censor()} or {opt maxfu()} to get the most out
 of this diagnostic.
+
+{pstd}
+{bf:Under stabilization the target is tilted, and so is the reference.} A
+stabilized IIW carries the numerator h(X) = exp({it:delta}'X) as well as the
+inverse intensity, so its weighted visit average converges to the
+{it:h(X)-weighted} at-risk average, not the plain one. {cmd:iivw_balance}
+therefore weights the person-time reference by h(X){it:dLambda-0} whenever the
+weights were built with {opt stabcov()}, so that both sides of the comparison
+describe the same population. Without {opt stabcov()}, h(X) is 1 and the target
+reduces exactly to {it:dLambda-0}.
+
+{pstd}
+The check that this is right is an identity, not a simulation. Bůžková & Lumley
+(2007, p.8) note that when the visit-model covariates are a subset of the
+outcome-model covariates the stabilized weight equals one everywhere. Set
+{opt stabcov()} equal to the full visit model and the weight is identically 1 --
+it reweights nothing -- so every target SMD must be exactly 0. It is. (Before
+iivw 2.0.0 the observed weight was stabilized but the reference was not, and
+this configuration reported a maximum target SMD of 0.33 for a weight vector of
+all ones.)
+
+{pstd}
+{bf:Trimmed weights.} If the visit component was trimmed with
+{opt truncvisit()}, {cmd:iivw_balance} reproduces the trim at the realized
+cutpoints, so the table describes the weight the outcome model actually used
+rather than the untrimmed weight it was derived from. Expect balance to be
+{it:worse} under a trim: a bounded weight has less room to reweight. That is the
+honest reading, and it is why trimming the visit weight is not a remedy for a
+misspecified visit model.
 
 {pstd}
 Covariates you pass in {it:varlist} that were {it:not} in the visit model are
@@ -265,12 +297,13 @@ balance check on the score model's own covariates is.
 {pstd}
 Read {cmd:iivw_balance} as a diagnostic stress test. A {cmd:low} leverage
 verdict means a null weighting movement is not informative, because nearly
-constant weights cannot move estimates much. A {cmd:poor} balance flag means
-the IIW-weighted visits do not reproduce the at-risk person-time distribution
-they are meant to represent, so the visit model needs more scrutiny.
+constant weights cannot move estimates much. An {cmd:exceeds_rule} balance flag
+means the IIW-weighted visits do not reproduce the at-risk person-time
+distribution they are meant to represent within the {opt balcut()} rule, so the
+visit model needs more scrutiny.
 
 {pstd}
-{cmd:r(balance_flag)} is {cmd:unknown}, not {cmd:good}, when the refit that
+{cmd:r(balance_flag)} is {cmd:unknown}, not {cmd:within_rule}, when the refit that
 supports the verdict could not be completed. A diagnostic with no evidence
 behind it does not get to report a clean bill of health.
 
@@ -365,7 +398,7 @@ AG-refit view.{p_end}
 {synopt:{cmd:r(balance_covars)}}all covariates in the displayed table{p_end}
 {synopt:{cmd:r(component)}}{cmd:iiw} or {cmd:final}; which weight was described{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
-{synopt:{cmd:r(balance_flag)}}{cmd:good}, {cmd:poor}, or {cmd:unknown}{p_end}
+{synopt:{cmd:r(balance_flag)}}{cmd:within_rule}, {cmd:exceeds_rule}, or {cmd:unknown}{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel workbook written; only when {opt xlsx()} succeeds{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}

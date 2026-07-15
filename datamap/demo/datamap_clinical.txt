@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 19 Jun 2026 15:17:40
+Generated: 15 Jul 2026 00:26:56
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -7,10 +7,10 @@ DATASET: _demo_cohort.dta
 
 METADATA
 --------
-Observations: 160
+Observations: 1200
 Variables: 17
-Label: Synthetic Clinical Trial Cohort (N=160)
-Data Signature: 160:17(68284):1184352066:4157885057
+Label: Synthetic Clinical Trial Cohort (N=1200)
+Data Signature: 1200:17(68284):2844760337:3810411015
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -21,13 +21,13 @@ Likely identifiers not excluded: 0
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 160 observations and 17 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, outcomes.
+This dataset contains cross-sectional data. It includes 1200 observations and 17 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, outcomes.
 
 Survival Analysis Variables Detected
   Likely time variables: follow_up_time
-    follow_up_time range: 0 to 1.7
+    follow_up_time range: 0 to 2
   Likely event indicators: event
-    event rate: 25%
+    event rate: 27.3%
 
 Common Variable Patterns Detected
   Likely IDs: patient_id subject_id patient_name
@@ -39,7 +39,7 @@ Common Variable Patterns Detected
 Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 3
-  Observations with complete data: 79 (49.4%)
+  Observations with complete data: 624 (52%)
 
 ========================================
 VARIABLE SUMMARY
@@ -51,16 +51,16 @@ QUICK REFERENCE
   patient_id              double    excluded        0.0%       .
   subject_id              double    excluded        0.0%       .
   patient_name            str32     excluded        0.0%       .
-  age                     double    continuous      0.0%     136
+  age                     double    continuous      0.0%     450
   sex                     double    categorical     0.0%       2
-  smoking                 double    categorical    16.3%       3
-  bmi                     double    continuous      8.1%     104
-  sbp                     double    continuous      6.3%      64
-  creatinine              double    continuous     14.4%      84
-  pct_adherence           double    continuous     23.8%     110
-  enroll_date             double    date            0.0%     152
-  birth_date              double    date            0.0%     160
-  follow_up_time          double    continuous      0.0%      72
+  smoking                 double    categorical    15.7%       3
+  bmi                     double    continuous      7.6%     238
+  sbp                     double    continuous      4.3%     108
+  creatinine              double    continuous     11.8%     168
+  pct_adherence           double    continuous     19.3%     534
+  enroll_date             double    date            0.0%     649
+  birth_date              double    date            0.0%   >1000
+  follow_up_time          double    continuous      0.0%     123
   event                   double    categorical     0.0%       2
   treatment               double    categorical     0.0%       2
   site                    double    categorical     0.0%       7
@@ -106,35 +106,35 @@ QUICK REFERENCE
     Type: double
     Format: %10.0g
     Label: Smoking status
-    Missing: 26 (16.3%)
+    Missing: 188 (15.7%)
     Classification: categorical
 
   bmi
     Type: double
     Format: %10.0g
     Label: Body mass index (kg/m2)
-    Missing: 13 (8.1%)
+    Missing: 91 (7.6%)
     Classification: continuous
 
   sbp
     Type: double
     Format: %10.0g
     Label: Systolic blood pressure (mmHg)
-    Missing: 10 (6.3%)
+    Missing: 51 (4.3%)
     Classification: continuous
 
   creatinine
     Type: double
     Format: %10.0g
     Label: Serum creatinine (mg/dL)
-    Missing: 23 (14.4%)
+    Missing: 142 (11.8%)
     Classification: continuous
 
   pct_adherence
     Type: double
     Format: %10.0g
     Label: Medication adherence (%)
-    Missing: 38 (23.8%)
+    Missing: 232 (19.3%)
     Classification: continuous
 
   enroll_date
@@ -202,8 +202,8 @@ Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Female: 77 (48.1%)
-    1 = Male: 83 (51.9%)
+    0 = Female: 586 (48.8%)
+    1 = Male: 614 (51.2%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
 
@@ -215,13 +215,13 @@ Display Format: %10.0g
 Label: Smoking status
 Value Label: smoke_lbl
 Classification: categorical
-Missing: 26 obs (16.3%)
+Missing: 188 obs (15.7%)
 Unique Values: 3
 
   Frequencies:
-    0 = Never: 46 (28.7%)
-    1 = Former: 48 (30.0%)
-    2 = Current: 40 (25.0%)
+    0 = Never: 352 (29.3%)
+    1 = Former: 315 (26.3%)
+    2 = Current: 345 (28.7%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms.
 
@@ -237,8 +237,8 @@ Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Censored: 120 (75.0%)
-    1 = Event: 40 (25.0%)
+    0 = Censored: 872 (72.7%)
+    1 = Event: 328 (27.3%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
 
@@ -254,8 +254,8 @@ Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Control: 88 (55.0%)
-    1 = Active: 72 (45.0%)
+    0 = Control: 617 (51.4%)
+    1 = Active: 583 (48.6%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
 
@@ -271,12 +271,12 @@ Missing: 0 obs (0.0%)
 Unique Values: 7
 
   Frequencies:
-    1 = Stockholm: 31 (19.4%)
-    2 = Gothenburg: 34 (21.3%)
-    3 = Malmo: 23 (14.4%)
-    4 = Uppsala: 24 (15.0%)
-    5 = Linkoping: 19 (11.9%)
-    6 = Lund: 26 (16.3%)
+    1 = Stockholm: 207 (17.3%)
+    2 = Gothenburg: 202 (16.8%)
+    3 = Malmo: 189 (15.8%)
+    4 = Uppsala: 209 (17.4%)
+    5 = Linkoping: 196 (16.3%)
+    6 = Lund: 194 (16.2%)
     9 = Satellite clinic: suppressed (<5)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline.
@@ -293,7 +293,7 @@ Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Absent: 157 (98.1%)
+    0 = Absent: 1197 (99.8%)
     1 = Present: suppressed (<5)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
@@ -310,15 +310,15 @@ Display Format: %10.0g
 Label: Age at enrollment (years)
 Classification: continuous
 Missing: 0 obs (0.0%)
-Unique Values: 136
+Unique Values: 450
 
 DISTRIBUTION:
-  Valid N: 160
-  Mean: 57.27
-  SD: 13.43
-  Median: 56.8
-  IQR: 48.8-65.35
-  Range: -3 to 96.8
+  Valid N: 1200
+  Mean: 57.59
+  SD: 12.1
+  Median: 58.2
+  IQR: 49.15-65.5
+  Range: -3 to 97.7
 
 ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality.
 
@@ -329,16 +329,16 @@ Storage Type: double
 Display Format: %10.0g
 Label: Body mass index (kg/m2)
 Classification: continuous
-Missing: 13 obs (8.1%)
-Unique Values: 104
+Missing: 91 obs (7.6%)
+Unique Values: 238
 
 DISTRIBUTION:
-  Valid N: 147
-  Mean: 27.15
-  SD: 5.15
-  Median: 27.1
-  IQR: 23.4-30.8
-  Range: 13.1 to 41.8
+  Valid N: 1109
+  Mean: 27.27
+  SD: 5.14
+  Median: 27.3
+  IQR: 23.8-30.5
+  Range: 7.9 to 44.2
 
 ANALYSIS GUIDANCE: Use as continuous variable.
 
@@ -349,16 +349,16 @@ Storage Type: double
 Display Format: %10.0g
 Label: Systolic blood pressure (mmHg)
 Classification: continuous
-Missing: 10 obs (6.3%)
-Unique Values: 64
+Missing: 51 obs (4.3%)
+Unique Values: 108
 
 DISTRIBUTION:
-  Valid N: 150
-  Mean: 135.59
-  SD: 19.07
-  Median: 137
-  IQR: 122-148
-  Range: 74 to 192
+  Valid N: 1149
+  Mean: 135.77
+  SD: 19.37
+  Median: 135
+  IQR: 123-148
+  Range: 73 to 200
 
 ANALYSIS GUIDANCE: Use as continuous variable.
 
@@ -369,16 +369,16 @@ Storage Type: double
 Display Format: %10.0g
 Label: Serum creatinine (mg/dL)
 Classification: continuous
-Missing: 23 obs (14.4%)
-Unique Values: 84
+Missing: 142 obs (11.8%)
+Unique Values: 168
 
 DISTRIBUTION:
-  Valid N: 137
+  Valid N: 1058
   Mean: 1.03
-  SD: .33
-  Median: 1.05
-  IQR: .81-1.24
-  Range: .16 to 1.73
+  SD: .35
+  Median: 1.04
+  IQR: .79-1.26
+  Range: -.07 to 2.27
 
 ANALYSIS GUIDANCE: Use as continuous variable.
 
@@ -389,18 +389,18 @@ Storage Type: double
 Display Format: %10.0g
 Label: Medication adherence (%)
 Classification: continuous
-Missing: 38 obs (23.8%)
-Unique Values: 110
+Missing: 232 obs (19.3%)
+Unique Values: 534
 
 DISTRIBUTION:
-  Valid N: 122
-  Mean: 76.96
-  SD: 20.1
-  Median: 78.55
-  IQR: 63.4-91.3
-  Range: 34.1 to 120.5
+  Valid N: 968
+  Mean: 78.01
+  SD: 17.96
+  Median: 78.2
+  IQR: 66.8-89.25
+  Range: 25.1 to 147.3
 
-ANALYSIS GUIDANCE: Use as continuous variable. 23.8% missing - verify missingness mechanism before analysis.
+ANALYSIS GUIDANCE: Use as continuous variable.
 
 VARIABLE: follow_up_time
 --------------------
@@ -410,15 +410,15 @@ Display Format: %10.0g
 Label: Follow-up time (years)
 Classification: continuous
 Missing: 0 obs (0.0%)
-Unique Values: 72
+Unique Values: 123
 
 DISTRIBUTION:
-  Valid N: 160
-  Mean: .31
+  Valid N: 1200
+  Mean: .29
   SD: .28
-  Median: .24
-  IQR: .1-.45
-  Range: 0 to 1.72
+  Median: .2
+  IQR: .09-.4
+  Range: 0 to 1.98
 
 ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality.
 
@@ -435,7 +435,7 @@ Label: Date of enrollment
 Classification: date
 Missing: 0 obs (0.0%)
 
-DATE RANGE: 895 days span (exact dates suppressed for privacy)
+DATE RANGE: 898 days span (exact dates suppressed for privacy)
 
 ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
 
@@ -448,9 +448,9 @@ Label: Date of birth
 Classification: date
 Missing: 0 obs (0.0%)
 
-DATE RANGE: 27442 days span (exact dates suppressed for privacy)
+DATE RANGE: 27760 days span (exact dates suppressed for privacy)
 
-ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Long follow-up period (~75 years). Verify date ranges are plausible before analysis.
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Long follow-up period (~76 years). Verify date ranges are plausible before analysis.
 
 ========================================
 EXCLUDED VARIABLES
@@ -498,28 +498,28 @@ sex: Biological sex
   Type: double (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Female): 77 (48.1%)
-    1 (Male): 83 (51.9%)
+    0 (Female): 586 (48.8%)
+    1 (Male): 614 (51.2%)
 
 event: Primary endpoint
   Type: double (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Censored): 120 (75.0%)
-    1 (Event): 40 (25.0%)
+    0 (Censored): 872 (72.7%)
+    1 (Event): 328 (27.3%)
 
 treatment: Randomization arm
   Type: double (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Control): 88 (55.0%)
-    1 (Active): 72 (45.0%)
+    0 (Control): 617 (51.4%)
+    1 (Active): 583 (48.6%)
 
 rare_marker: Rare clinical marker
   Type: double (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Absent): 157 (98.1%)
+    0 (Absent): 1197 (99.8%)
     1 (Present): suppressed (<5)
 
 ========================================
@@ -536,9 +536,9 @@ First 3 observations (excluded variables masked; date variables suppressed):
 
 | patient_id(masked) | subject_id(masked) | patient_name(masked) | age | sex | smoking | bmi | sbp | creatinine | pct_adherence | enroll_date | birth_date | follow_up_time | event | treatment | site | rare_marker |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 1 | 27.5 | 157 | 1.39 | 83.7 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .29 | 1 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 0 | 2 | 26.1 | 143 | 1.2 | 66.6 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .1 | 0 | 0 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 0 | . | 31.5 | 147 | . | 63.4 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .07 | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .11 | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .39 | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .04 | 1 | 1 | 9 | 1 |
 
 ========================================
 VALUE LABEL DEFINITIONS

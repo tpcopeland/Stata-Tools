@@ -524,7 +524,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     finegray_predict xb_ic, xb
     finegray_predict cif_ic, cif
     * Compute CIF manually from xb + basehaz

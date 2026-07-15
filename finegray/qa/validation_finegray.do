@@ -381,7 +381,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     finegray_predict xb_val, xb
     finegray_predict cif_val, cif
     matrix bh = e(basehaz)
@@ -435,7 +435,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix bh = e(basehaz)
     local nr = rowsof(bh)
     local xb1 = e(b)[1,1] * ifp[1] + e(b)[1,2] * tumsize[1] + ///
@@ -467,7 +467,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix bh = e(basehaz)
     local nr = rowsof(bh)
     local ok = 1
@@ -493,7 +493,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_hypoxia
-    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog basehaz
     matrix bh = e(basehaz)
     local nr = rowsof(bh)
     local ok = 1

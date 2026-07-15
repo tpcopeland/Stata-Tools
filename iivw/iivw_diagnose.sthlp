@@ -121,10 +121,13 @@ adjusts for the measurement process.
 
 {phang}
 {opt exogeneity(string)} controls interpretation of the measurement-process
-adjustment. {cmd:exogenous} reports the shares as a point diagnostic under additive
-separability. {cmd:unknown} reports them as descriptive only. {cmd:endogenous} treats the
-weighted and adjusted estimates as a diagnostic range because direct
-adjustment may over-correct.
+adjustment; it is a user {it:assertion}, not a condition the command tests.
+{cmd:exogenous} states that you are willing to read the shares as a descriptive
+proportional attribution under additive separability, but the shares are still
+not a validated causal decomposition, and {cmd:iivw_diagnose} does not verify
+that the adjustment is exogenous. {cmd:unknown} reports the shares as descriptive
+only, and {cmd:endogenous} treats the weighted and adjusted estimates as a
+diagnostic range because direct adjustment may over-correct.
 
 {phang}
 {opt estimand(string)} specifies whether {it:coefficient} is a {cmd:marginal} or {cmd:contrast}
@@ -246,9 +249,11 @@ the decomposition as sign-inconsistent.
 {title:Interpreting results}
 
 {pstd}
-If exogeneity of the measurement-process adjustment is plausible, shares
-summarize how much movement is attributable to sampling correction versus
-residual measurement artifact under additive separability.
+If you assert that the measurement-process adjustment is exogenous, the shares
+give a descriptive proportional split of the movement between sampling correction
+and residual measurement artifact under additive separability. This split is an
+attribution under an assumption you have supplied, and it is not a validated
+causal decomposition; the command does not test the assumption.
 
 {pstd}
 If the measurement process appears outcome-dependent, use

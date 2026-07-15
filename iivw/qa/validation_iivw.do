@@ -243,7 +243,7 @@ if `run_only' == 0 | `run_only' == 5 {
 
         * Re-run with truncation
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) ///
-            truncate(5 95) replace nolog
+            truncfinal(5 95) replace nolog
 
         * All weights should be within bounds (with tolerance)
         quietly count if _iivw_weight < `lo_val' - 1e-10 & !missing(_iivw_weight)

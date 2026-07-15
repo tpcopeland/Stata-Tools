@@ -171,7 +171,7 @@ local ++test_count
 capture noisily {
     _iivw_v180_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) ///
-        treat(treat) treat_cov(sev) truncate(1 99) nolog
+        treat(treat) treat_cov(sev) truncfinal(1 99) nolog
     set seed 180180
     iivw_fit y treat sev, model(gee) timespec(linear) bootstrap(15) refitweights nolog
     assert "`e(iivw_refitweights)'" == "1"

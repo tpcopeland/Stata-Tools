@@ -651,7 +651,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) ///
-        truncate(1 99) replace nolog
+        truncfinal(1 99) replace nolog
 
     iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
 
@@ -712,7 +712,7 @@ capture noisily {
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
-        treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog
+        treat(treated) treat_cov(age sex edss_bl) truncfinal(1 99) replace nolog
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog
@@ -778,11 +778,11 @@ capture noisily {
     collect clear
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
-        truncate(1 99) replace nolog
+        truncfinal(1 99) replace nolog
     iivw_fit edss treated edss_bl, model(gee) nolog collect
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
-        treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog
+        treat(treated) treat_cov(age sex edss_bl) truncfinal(1 99) replace nolog
     iivw_fit edss treated edss_bl, model(gee) nolog replace collect
     which regtab
     regtab, xlsx(iivw_results.xlsx) sheet(Comparison) ///

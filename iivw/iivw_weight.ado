@@ -1,4 +1,4 @@
-*! iivw_weight Version 3.0.0  2026/07/14
+*! iivw_weight Version 2.0.0  2026/07/14
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -25,6 +25,10 @@ Options:
   treat_cov(varlist)   - Covariates for treatment model
   wtype(string)        - Weight type: iivw, iptw, or fiptiw (auto-detect)
   stabcov(varlist)     - Stabilization covariates for IIW numerator
+  experimentalnotreatvisit
+                       - FIPTIW only: omit treat() from the visit-intensity
+                         model (sensitivity/legacy; outside the supported
+                         contract)
   lagvars(varlist)     - Time-varying covariates to lag by one visit
   entry(varname)       - Study entry time per subject (default: 0)
   truncate(# #)        - Percentile trimming bounds
@@ -69,9 +73,13 @@ program define iivw_weight, rclass sortpreserve
          ENTry(varname numeric) ///
          CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
          TRUNCate(numlist min=2 max=2) ///
+         TRUNCVisit(numlist min=2 max=2) ///
+         TRUNCTreat(numlist min=2 max=2) ///
+         TRUNCFinal(numlist min=2 max=2) ///
          BASEline(string) ///
          GENerate(name) REPLACE noLOG EFRon ///
-         ALLOWNONCONVerged ALLOWMISSINGWeights]
+         ALLOWNONCONVerged ALLOWMISSINGWeights ///
+         EXPERIMENTALNOTREATVISit]
 
     * =========================================================================
     * SET DEFAULTS
@@ -167,6 +175,44 @@ program define iivw_weight, rclass sortpreserve
     if inlist("`wtype'", "iptw", "fiptiw") & "`treat_cov'" == "" {
         display as error "`wtype' requires treat_cov() option"
         error 198
+    }
+
+    * -------------------------------------------------------------------------
+    * FIPTIW: treatment belongs in the visit-intensity denominator.
+    * -------------------------------------------------------------------------
+    * FIPTIW exists for the design in which treatment drives BOTH the outcome
+    * (confounding by indication, handled by the IPTW factor) AND the monitoring
+    * schedule (a treated patient is seen more often, handled by the IIW factor).
+    * If treatment is left out of the visit-intensity model, the second of those
+    * two mechanisms is simply not modeled: the IIW factor cannot reweight away a
+    * visit process it does not know depends on treatment, and the product is not
+    * the FIPTIW of the source literature. The package used to build the
+    * denominator from visit_cov() plus the generated lags alone and never add
+    * treat(), so an ordinary `wtype(fiptiw)' call silently fitted the wrong
+    * visit model -- and none of the shipped examples or recovery scenarios put
+    * treatment in visit_cov() by hand, so nothing could see it.
+    *
+    * It is now added BY CONSTRUCTION. A user who already listed it in
+    * visit_cov() gets it once, not twice.
+    local treat_in_visit = 0
+    if "`experimentalnotreatvisit'" != "" & "`wtype'" != "fiptiw" {
+        display as error "experimentalnotreatvisit is only allowed with wtype(fiptiw)"
+        display as error "  it opts out of adding treat() to the visit-intensity model,"
+        display as error "  and only FIPTIW adds it"
+        error 198
+    }
+    if "`wtype'" == "fiptiw" {
+        if "`experimentalnotreatvisit'" != "" {
+            display as text ""
+            display as text "note: experimentalnotreatvisit -- treat() is NOT in the visit-intensity"
+            display as text "  model. The IIW factor cannot correct a visit process that depends on"
+            display as text "  treatment, so this is not the FIPTIW estimator of the literature. It"
+            display as text "  is a sensitivity/legacy path and is outside the supported contract."
+            display as text ""
+        }
+        else {
+            local treat_in_visit = 1
+        }
     }
 
     * Note when visit_cov is supplied but ignored for IPTW-only
@@ -539,18 +585,69 @@ program define iivw_weight, rclass sortpreserve
         }
     }
 
-    * Validate truncation
+    * =========================================================================
+    * TRUNCATION: WHICH COMPONENT?
+    * =========================================================================
+    * truncate() clipped the final product and nothing else. Under FIPTIW the
+    * final product is IIW x IPTW, so a clipped row could have been extreme
+    * because its propensity score was near 0/1, because its visit intensity was
+    * tiny, or because two moderate factors multiplied -- and the output said
+    * only "truncated 37 observations". Those are different problems with
+    * different remedies, and the literature treats them differently:
+    * trimming an extreme TREATMENT weight is a recognized (if estimand-shifting)
+    * sensitivity analysis, while trimming an extreme VISIT weight did not repair
+    * a misspecified visit model in the work that tested it -- it just made the
+    * weights look tamer. A single knob that does both, and reports neither,
+    * cannot express that distinction.
+    *
+    * So truncate() is gone and the component is now named. The default supported
+    * analysis is UNTRUNCATED. Component clipping is a labelled sensitivity
+    * analysis with its own counts and its own cutpoints, and both the raw and the
+    * analysis component are kept in the data so a reader can see exactly what
+    * moved.
     if "`truncate'" != "" {
-        local trunc_lo: word 1 of `truncate'
-        local trunc_hi: word 2 of `truncate'
-        if `trunc_lo' >= `trunc_hi' {
-            display as error "truncate() lower bound must be less than upper bound"
-            error 198
+        display as error "truncate() is not a supported option"
+        display as error ""
+        display as text "  It clipped the FINAL weight, which under FIPTIW is the product of the"
+        display as text "  visit weight and the treatment weight -- so it could never say which"
+        display as text "  component was extreme, and the two are not interchangeable."
+        display as text ""
+        display as text "  Name the component instead:"
+        display as text "    trunctreat(1 99)   trim the IPTW component (a reported sensitivity"
+        display as text "                       analysis; it shifts the estimand)"
+        display as text "    truncvisit(1 99)   trim the IIW component (NOT a remedy for a"
+        display as text "                       misspecified visit model)"
+        display as text "    truncfinal(1 99)   trim the final product (the old behaviour, now"
+        display as text "                       explicit about what it does)"
+        display as text ""
+        display as text "  The supported default is untruncated IIW."
+        error 198
+    }
+
+    foreach __iivw_tk in visit treat final {
+        if "`trunc`__iivw_tk''" != "" {
+            local __iivw_tlo : word 1 of `trunc`__iivw_tk''
+            local __iivw_thi : word 2 of `trunc`__iivw_tk''
+            if `__iivw_tlo' >= `__iivw_thi' {
+                display as error "trunc`__iivw_tk'() lower bound must be less than upper bound"
+                error 198
+            }
+            if `__iivw_tlo' <= 0 | `__iivw_thi' >= 100 {
+                display as error "trunc`__iivw_tk'() values must be strictly between 0 and 100"
+                error 198
+            }
         }
-        if `trunc_lo' <= 0 | `trunc_hi' >= 100 {
-            display as error "truncate() values must be strictly between 0 and 100"
-            error 198
-        }
+    }
+
+    if "`truncvisit'" != "" & !inlist("`wtype'", "iivw", "fiptiw") {
+        display as error "truncvisit() is only allowed with IIW or FIPTIW weights"
+        display as error "wtype(iptw) has no visit-intensity component to trim"
+        error 198
+    }
+    if "`trunctreat'" != "" & !inlist("`wtype'", "iptw", "fiptiw") {
+        display as error "trunctreat() is only allowed with IPTW or FIPTIW weights"
+        display as error "wtype(iivw) has no treatment component to trim"
+        error 198
     }
 
     * =========================================================================
@@ -568,8 +665,14 @@ program define iivw_weight, rclass sortpreserve
     * variables, or the data keeps treatment outputs that no contract describes.
     * So the owned set is the full four -- names not recreated by this wtype are
     * backed up, never restored on success, and thus cleared atomically.
+    * iw_raw/tw_raw hold the UNTRUNCATED component when that component is
+    * trimmed, so the analysis weight and the raw weight are both in the data and
+    * a reader can see exactly which rows moved and by how much. They are owned
+    * unconditionally, like the other four: a rerun WITHOUT truncation must clear
+    * the previous run's raw columns, or the data keeps a pair of variables that
+    * no contract describes.
     local __iivw_gen_names ///
-        "`prefix'iw `prefix'tw `prefix'ps `prefix'weight"
+        "`prefix'iw `prefix'tw `prefix'ps `prefix'weight `prefix'iw_raw `prefix'tw_raw"
 
     * Ownership tokens, parallel to the generated names. `replace' may overwrite
     * a name only if the variable already in the data carries exactly the token
@@ -577,7 +680,7 @@ program define iivw_weight, rclass sortpreserve
     * sit under the selected prefix carries no token, so it is refused instead
     * of being backed up and discarded. See _iivw_own.ado.
     local __iivw_gen_tokens ""
-    foreach __iivw_r in iw tw ps weight {
+    foreach __iivw_r in iw tw ps weight iwraw twraw {
         _iivw_own token, role(`__iivw_r') prefix(`prefix')
         local __iivw_gen_tokens "`__iivw_gen_tokens' `r(token)'"
     }
@@ -669,7 +772,63 @@ program define iivw_weight, rclass sortpreserve
     if "`lag_created'" != "" {
         local visit_covars "`visit_covars' `lag_created'"
     }
+    * FIPTIW: treatment enters the visit-intensity denominator by construction.
+    * `list uniq' is the deduplication -- a user who already put treat() in
+    * visit_cov() must not get a collinear duplicate column in the Cox model.
+    if `treat_in_visit' {
+        local visit_covars "`visit_covars' `treat'"
+        local visit_covars : list uniq visit_covars
+    }
     local visit_covars = strtrim(itrim("`visit_covars'"))
+
+    * -------------------------------------------------------------------------
+    * Treatment inputs must be subject-constant -- checked BEFORE any model.
+    * -------------------------------------------------------------------------
+    * This check used to live inside the IPTW component, which runs AFTER the
+    * visit-intensity model. That was survivable while treat() was only ever a
+    * propensity-model input. It is not survivable now: under FIPTIW, treat() is
+    * a covariate of the Cox model above, so a subject-varying treatment would
+    * have already been fitted as a time-varying visit predictor by the time the
+    * old check fired. Validate first, fit second.
+    *
+    * min/max, NOT sd. egen's sd() over a run of identical doubles returns
+    * roundoff (~1e-15), not 0, so an sd()>0 test flags almost every genuinely
+    * constant covariate -- a guard that rejects the valid case is worse than no
+    * guard. min and max involve no arithmetic and are exact.
+    *
+    * They also both ignore missing, which is what we want: a baseline covariate
+    * recorded once and missing at later visits is a normal registry layout, and
+    * only the baseline row feeds the propensity model anyway. The contract is
+    * that the NONMISSING values within a subject agree.
+    if inlist("`wtype'", "iptw", "fiptiw") {
+        tempvar __iivw_wmn __iivw_wmx
+        local __iivw_tvary ""
+        foreach __iivw_v in `treat' `treat_cov' {
+            capture drop `__iivw_wmn'
+            capture drop `__iivw_wmx'
+            quietly bysort `id': egen double `__iivw_wmn' = min(`__iivw_v')
+            quietly bysort `id': egen double `__iivw_wmx' = max(`__iivw_v')
+            quietly count if `__iivw_wmn' != `__iivw_wmx' & ///
+                !missing(`__iivw_wmn', `__iivw_wmx')
+            if r(N) > 0 local __iivw_tvary "`__iivw_tvary' `__iivw_v'"
+        }
+        capture drop `__iivw_wmn'
+        capture drop `__iivw_wmx'
+        if "`__iivw_tvary'" != "" {
+            display as error "treatment-model variables vary within subject:`__iivw_tvary'"
+            display as error ""
+            display as text "  The propensity model is a BASELINE model: it is fitted on one row"
+            display as text "  per subject, the earliest retained visit. A variable that changes"
+            display as text "  over follow-up therefore enters as whatever value happened to land"
+            display as text "  on that row -- not as a baseline value."
+            display as text ""
+            display as text "  Construct the baseline value explicitly, e.g."
+            display as text "    bysort `id' (`time'): generate double base_x = x[1]"
+            display as text "  and pass base_x. Then the row that defines baseline is your choice,"
+            display as text "  not an accident of the sort order."
+            exit 459
+        }
+    }
 
     * =========================================================================
     * DISPLAY HEADER
@@ -689,12 +848,27 @@ program define iivw_weight, rclass sortpreserve
     if "`treat'" != "" {
         display as text "Treatment:        " as result "`treat'"
     }
+    if "`wtype'" == "fiptiw" {
+        if `treat_in_visit' {
+            display as text "Treatment in visit model: " as result "yes" ///
+                as text " (added by construction)"
+        }
+        else {
+            display as text "Treatment in visit model: " as error "no" ///
+                as text " (experimentalnotreatvisit)"
+        }
+    }
     if "`treat_cov'" != "" {
         display as text "Treatment covars: " as result "`treat_cov'"
     }
     display as text "Weight type:      " as result "`wtype_display'"
-    if "`truncate'" != "" {
-        display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
+    local __iivw_trimshow ""
+    if "`truncvisit'" != "" local __iivw_trimshow "`__iivw_trimshow' visit(`truncvisit')"
+    if "`trunctreat'" != "" local __iivw_trimshow "`__iivw_trimshow' treat(`trunctreat')"
+    if "`truncfinal'" != "" local __iivw_trimshow "`__iivw_trimshow' final(`truncfinal')"
+    if "`__iivw_trimshow'" != "" {
+        display as text "Trimming:         " as result ///
+            "`=strtrim("`__iivw_trimshow'")'" as text " (percentiles; sensitivity analysis)"
     }
     if `exclude_base' & inlist("`wtype'", "iivw", "fiptiw") {
         display as text "Baseline visit:   " as result ///
@@ -996,6 +1170,44 @@ program define iivw_weight, rclass sortpreserve
         }
 
         label variable `prefix'iw "Inverse intensity weight"
+
+        * ---- Visit-component sensitivity trim.
+        * Clipped AFTER the mean-1 normalization, so the percentile cutpoints are
+        * on the same scale the user sees in the diagnostics. The raw component is
+        * kept beside it: a trimmed IIW is a sensitivity analysis, and a reader
+        * has to be able to see what was trimmed away.
+        if "`truncvisit'" != "" {
+            local tv_lo : word 1 of `truncvisit'
+            local tv_hi : word 2 of `truncvisit'
+            quietly {
+                gen double `prefix'iw_raw = `prefix'iw
+                local __iivw_created_vars "`__iivw_created_vars' `prefix'iw_raw"
+                label variable `prefix'iw_raw "Inverse intensity weight (untrimmed)"
+
+                _pctile `prefix'iw if !missing(`prefix'iw), ///
+                    percentiles(`tv_lo' `tv_hi')
+                local __iivw_tv_locut = r(r1)
+                local __iivw_tv_hicut = r(r2)
+                count if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
+                local __iivw_tv_nlo = r(N)
+                count if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
+                local __iivw_tv_nhi = r(N)
+                replace `prefix'iw = `__iivw_tv_locut' ///
+                    if `prefix'iw < `__iivw_tv_locut' & !missing(`prefix'iw)
+                replace `prefix'iw = `__iivw_tv_hicut' ///
+                    if `prefix'iw > `__iivw_tv_hicut' & !missing(`prefix'iw)
+            }
+            local __iivw_tv_n = `__iivw_tv_nlo' + `__iivw_tv_nhi'
+            display as text "Trimming the VISIT component at the `tv_lo'th and `tv_hi'th percentiles..."
+            display as text "  Trimmed `__iivw_tv_n' observations (`__iivw_tv_nlo' low, `__iivw_tv_nhi' high)"
+            display as text "  cutpoints: " as result ///
+                "`=string(`__iivw_tv_locut',"%9.0g")'" as text " / " as result ///
+                "`=string(`__iivw_tv_hicut',"%9.0g")'"
+            display as text "  note: trimming the visit weight does NOT repair a misspecified visit"
+            display as text "  model. It bounds the influence of rows the model already fitted"
+            display as text "  badly; it does not make the model fit them. Untrimmed IIW is the"
+            display as text "  supported analysis. The raw component is kept in `prefix'iw_raw."
+        }
     }
 
     * =========================================================================
@@ -1021,51 +1233,11 @@ program define iivw_weight, rclass sortpreserve
             bysort `id' (`time'): gen byte `_first_obs' = (_n == 1)
         }
 
-        * treat() and treat_cov() are documented as BASELINE characteristics,
-        * and the propensity model below is fitted on each subject's earliest
-        * retained row. Nothing used to enforce that. A time-varying variable
-        * was silently reduced to "whatever value happened to sit on the
-        * earliest row that survived the sample restrictions" -- which is not a
-        * baseline value, is not what the help promises, and shifts if the user
-        * changes an if/in. Detect within-subject variation and refuse it: the
-        * user must build an explicit baseline variable, so the choice of which
-        * row counts as baseline is theirs and is visible.
-        * min/max, NOT sd. egen's sd() over a run of identical doubles returns
-        * roundoff (~1e-15), not 0, so an sd()>0 test flags almost every genuinely
-        * constant covariate -- a guard that rejects the valid case is worse than
-        * no guard. min and max involve no arithmetic and are exact.
-        *
-        * They also both ignore missing, which is what we want: a baseline
-        * covariate recorded once and missing at later visits is a normal
-        * registry layout, and only the baseline row feeds the model anyway. The
-        * contract is that the NONMISSING values within a subject agree.
-        tempvar __iivw_wmn __iivw_wmx
-        local __iivw_tvary ""
-        foreach __iivw_v in `treat' `treat_covars' {
-            capture drop `__iivw_wmn'
-            capture drop `__iivw_wmx'
-            quietly bysort `id': egen double `__iivw_wmn' = min(`__iivw_v')
-            quietly bysort `id': egen double `__iivw_wmx' = max(`__iivw_v')
-            quietly count if `__iivw_wmn' != `__iivw_wmx' & ///
-                !missing(`__iivw_wmn', `__iivw_wmx')
-            if r(N) > 0 local __iivw_tvary "`__iivw_tvary' `__iivw_v'"
-        }
-        capture drop `__iivw_wmn'
-        capture drop `__iivw_wmx'
-        if "`__iivw_tvary'" != "" {
-            display as error "treatment-model variables vary within subject:`__iivw_tvary'"
-            display as error ""
-            display as text "  The propensity model is a BASELINE model: it is fitted on one row"
-            display as text "  per subject, the earliest retained visit. A variable that changes"
-            display as text "  over follow-up therefore enters as whatever value happened to land"
-            display as text "  on that row -- not as a baseline value."
-            display as text ""
-            display as text "  Construct the baseline value explicitly, e.g."
-            display as text "    bysort `id' (`time'): generate double base_x = x[1]"
-            display as text "  and pass base_x. Then the row that defines baseline is your choice,"
-            display as text "  not an accident of the sort order."
-            exit 459
-        }
+        * treat() and treat_cov() are documented as BASELINE characteristics, and
+        * the propensity model below is fitted on each subject's earliest retained
+        * row. That contract is enforced by the subject-constancy check hoisted
+        * above the visit-intensity model -- it has to run before the Cox fit now
+        * that FIPTIW puts treat() in the visit denominator.
 
         tempfile __iivw_psfile
         local logit_rc = 0
@@ -1166,7 +1338,8 @@ program define iivw_weight, rclass sortpreserve
                 local n_ps_extreme = `n_ps_lo' + `n_ps_hi'
                 noisily display as text "note: `n_ps_extreme' observations have " ///
                     "extreme propensity scores (<0.01 or >0.99)"
-                noisily display as text "  consider using truncate() to stabilize weights"
+                noisily display as text "  trunctreat() bounds their influence, as a labelled" ///
+                    " sensitivity analysis"
             }
 
             * Stabilized IPTW: prevalence over the propensity model's own sample
@@ -1182,6 +1355,44 @@ program define iivw_weight, rclass sortpreserve
             drop `_ps_tmp'
             label variable `prefix'tw "Inverse probability of treatment weight"
             local __iivw_created_vars "`__iivw_created_vars' `prefix'tw"
+        }
+
+        * ---- Treatment-component sensitivity trim.
+        * This is the trim the sensitivity literature actually studies, and it is
+        * not free: bounding an extreme propensity weight bounds the influence of
+        * the subjects who are least like their counterfactual arm, so it shifts
+        * the estimand away from the ATE toward the overlap population. Report it
+        * as a sensitivity analysis, never as the primary result.
+        if "`trunctreat'" != "" {
+            local tt_lo : word 1 of `trunctreat'
+            local tt_hi : word 2 of `trunctreat'
+            quietly {
+                gen double `prefix'tw_raw = `prefix'tw
+                local __iivw_created_vars "`__iivw_created_vars' `prefix'tw_raw"
+                label variable `prefix'tw_raw "IPT weight (untrimmed)"
+
+                _pctile `prefix'tw if !missing(`prefix'tw), ///
+                    percentiles(`tt_lo' `tt_hi')
+                local __iivw_tt_locut = r(r1)
+                local __iivw_tt_hicut = r(r2)
+                count if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
+                local __iivw_tt_nlo = r(N)
+                count if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+                local __iivw_tt_nhi = r(N)
+                replace `prefix'tw = `__iivw_tt_locut' ///
+                    if `prefix'tw < `__iivw_tt_locut' & !missing(`prefix'tw)
+                replace `prefix'tw = `__iivw_tt_hicut' ///
+                    if `prefix'tw > `__iivw_tt_hicut' & !missing(`prefix'tw)
+            }
+            local __iivw_tt_n = `__iivw_tt_nlo' + `__iivw_tt_nhi'
+            display as text "Trimming the TREATMENT component at the `tt_lo'th and `tt_hi'th percentiles..."
+            display as text "  Trimmed `__iivw_tt_n' observations (`__iivw_tt_nlo' low, `__iivw_tt_nhi' high)"
+            display as text "  cutpoints: " as result ///
+                "`=string(`__iivw_tt_locut',"%9.0g")'" as text " / " as result ///
+                "`=string(`__iivw_tt_hicut',"%9.0g")'"
+            display as text "  note: this bounds the influence of subjects with the weakest overlap,"
+            display as text "  so it shifts the target away from the ATE. It is a sensitivity"
+            display as text "  analysis. The raw component is kept in `prefix'tw_raw."
         }
     }
 
@@ -1287,13 +1498,23 @@ program define iivw_weight, rclass sortpreserve
     * TRUNCATION
     * =========================================================================
 
+    * The final product is trimmed LAST, after any component trim, so the two
+    * compose in the order the user reads them: components are bounded first,
+    * then the product of the bounded components. n_truncated counts only the
+    * rows this final clip moved -- the component counts are reported separately,
+    * because "37 rows were truncated" without saying WHICH weight was extreme is
+    * exactly the ambiguity the old truncate() shipped.
     local n_truncated = 0
-    if "`truncate'" != "" {
-        display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
+    local n_lo = 0
+    local n_hi = 0
+    if "`truncfinal'" != "" {
+        local tf_lo : word 1 of `truncfinal'
+        local tf_hi : word 2 of `truncfinal'
+        display as text "Trimming the FINAL weight at the `tf_lo'th and `tf_hi'th percentiles..."
 
         quietly {
             _pctile `prefix'weight if !missing(`prefix'weight), ///
-                percentiles(`trunc_lo' `trunc_hi')
+                percentiles(`tf_lo' `tf_hi')
             local lo_val = r(r1)
             local hi_val = r(r2)
 
@@ -1309,7 +1530,14 @@ program define iivw_weight, rclass sortpreserve
                 if `prefix'weight > `hi_val' & !missing(`prefix'weight)
         }
 
-        display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
+        display as text "  Trimmed `n_truncated' observations (`n_lo' low, `n_hi' high)"
+        display as text "  cutpoints: " as result "`=string(`lo_val',"%9.0g")'" ///
+            as text " / " as result "`=string(`hi_val',"%9.0g")'"
+        if "`wtype'" == "fiptiw" {
+            display as text "  note: this clips the PRODUCT, so it cannot say whether a trimmed row"
+            display as text "  was extreme through its visit weight or its treatment weight. Use"
+            display as text "  truncvisit()/trunctreat() when you need to know."
+        }
     }
 
     * =========================================================================
@@ -1425,12 +1653,19 @@ program define iivw_weight, rclass sortpreserve
         * value AT the last visit, i.e. the source variable's own value on that
         * row -- NOT the lag column's value, which refers to the visit before it.
         char _dta[_iivw_lagvars] "`lagvars'"
+
+        * Whether treat() is in the visit-intensity denominator. The replay must
+        * reproduce this exactly: rebuilding a FIPTIW draw without it would fit a
+        * different visit model than the observed pass, so the bootstrap would be
+        * bootstrapping an estimator nobody reported.
+        char _dta[_iivw_treat_in_visit] "`treat_in_visit'"
     }
     else {
         char _dta[_iivw_iw_var] ""
         char _dta[_iivw_visit_covars] ""
         char _dta[_iivw_visit_cov_raw] ""
         char _dta[_iivw_lag_names] ""
+        char _dta[_iivw_treat_in_visit] "0"
     }
     if inlist("`wtype'", "iptw", "fiptiw") {
         char _dta[_iivw_tw_var] "`prefix'tw"
@@ -1451,7 +1686,27 @@ program define iivw_weight, rclass sortpreserve
     * the full weight computation inside each bootstrap replicate. Stored as the
     * exact option values so a resampled panel reproduces the same weighting.
     char _dta[_iivw_stabcov]  "`stabcov'"
-    char _dta[_iivw_truncate] "`truncate'"
+    * The trimming spec, per component, plus the realized CUTPOINTS. A consumer
+    * that refits the visit model (iivw_balance, iivw_exogtest) rebuilds the raw
+    * IIW from the model and would otherwise describe the untrimmed weight while
+    * the outcome fit used the trimmed one -- reporting on a weight nobody used.
+    * The cutpoints, not the percentiles, are what it needs: a refit on a
+    * different risk set would land on different percentiles of a different
+    * distribution, so the only way to reproduce the ANALYSIS weight is to clip
+    * at the same numbers the analysis clipped at.
+    char _dta[_iivw_truncvisit] "`truncvisit'"
+    char _dta[_iivw_trunctreat] "`trunctreat'"
+    char _dta[_iivw_truncfinal] "`truncfinal'"
+    if "`truncvisit'" != "" {
+        char _dta[_iivw_tv_locut] "`__iivw_tv_locut'"
+        char _dta[_iivw_tv_hicut] "`__iivw_tv_hicut'"
+        char _dta[_iivw_iw_raw_var] "`prefix'iw_raw"
+    }
+    if "`trunctreat'" != "" {
+        char _dta[_iivw_tt_locut] "`__iivw_tt_locut'"
+        char _dta[_iivw_tt_hicut] "`__iivw_tt_hicut'"
+        char _dta[_iivw_tw_raw_var] "`prefix'tw_raw"
+    }
     char _dta[_iivw_efron]    "`efron_opt'"
     char _dta[_iivw_entry]    "`entry'"
 
@@ -1466,12 +1721,25 @@ program define iivw_weight, rclass sortpreserve
     * Variable-level ownership. From here on, `replace' can prove what it is
     * allowed to overwrite instead of inferring it from a name.
     * ---------------------------------------------------------------------
+    * The role is NOT always the variable-name suffix -- `iw_raw' carries role
+    * `iwraw' -- so the name and the role are carried as parallel lists rather
+    * than derived from one another. Deriving one from the other is what left the
+    * raw columns unstamped on the first pass: they were created, they were in the
+    * reserved-name set, and nothing claimed them -- so the NEXT run's `replace'
+    * refused to overwrite them, correctly, as columns iivw did not own. A
+    * generated variable that is not stamped is a variable the package cannot
+    * clean up after itself.
+    local __iivw_own_names "iw tw ps weight iw_raw tw_raw"
+    local __iivw_own_roles "iw tw ps weight iwraw twraw"
     local __iivw_owned ""
-    foreach __iivw_r in iw tw ps weight {
-        capture confirm variable `prefix'`__iivw_r'
+    local __iivw_oi = 0
+    foreach __iivw_n of local __iivw_own_names {
+        local ++__iivw_oi
+        local __iivw_r : word `__iivw_oi' of `__iivw_own_roles'
+        capture confirm variable `prefix'`__iivw_n'
         if _rc == 0 {
-            _iivw_own stamp `prefix'`__iivw_r', role(`__iivw_r') prefix(`prefix')
-            local __iivw_owned "`__iivw_owned' `prefix'`__iivw_r'"
+            _iivw_own stamp `prefix'`__iivw_n', role(`__iivw_r') prefix(`prefix')
+            local __iivw_owned "`__iivw_owned' `prefix'`__iivw_n'"
         }
     }
     foreach __iivw_l of local __iivw_lag_names {
@@ -1545,7 +1813,7 @@ program define iivw_weight, rclass sortpreserve
         display as text ""
         display as text "Note: final weight mean is " as result %5.3f `w_mean' as text " (not 1)."
         if `n_truncated' > 0 {
-            display as text "  truncate() clipped `n_truncated' weight(s); a mean away from 1 is the"
+            display as text "  truncfinal() clipped `n_truncated' weight(s); a mean away from 1 is the"
             display as text "  arithmetic consequence of that clipping."
         }
         else if "`wtype'" == "fiptiw" {
@@ -1625,7 +1893,26 @@ program define iivw_weight, rclass sortpreserve
     return local allowmissingweights = ///
         cond(`n_miss' > 0 & "`allowmissingweights'" != "", "1", "0")
 
+    * Trimming, per component. n_truncated is the FINAL-product clip only; the
+    * component clips have their own counts and their own cutpoints, because
+    * "n weights were truncated" without naming the component is the ambiguity
+    * that made the old option unusable as a sensitivity analysis.
     return scalar n_truncated = `n_truncated'
+    return local truncvisit "`truncvisit'"
+    return local trunctreat "`trunctreat'"
+    return local truncfinal "`truncfinal'"
+    if "`truncvisit'" != "" {
+        return scalar n_trunc_visit = `__iivw_tv_n'
+        return scalar trunc_visit_lo = `__iivw_tv_locut'
+        return scalar trunc_visit_hi = `__iivw_tv_hicut'
+        return local iw_raw_var "`prefix'iw_raw"
+    }
+    if "`trunctreat'" != "" {
+        return scalar n_trunc_treat = `__iivw_tt_n'
+        return scalar trunc_treat_lo = `__iivw_tt_locut'
+        return scalar trunc_treat_hi = `__iivw_tt_hicut'
+        return local tw_raw_var "`prefix'tw_raw"
+    }
     return scalar nobaseevent = `exclude_base'
 
     return local weighttype "`wtype'"
@@ -1635,6 +1922,7 @@ program define iivw_weight, rclass sortpreserve
     return local lag_names "`=strtrim("`__iivw_lag_names'")'"
     return local lagvars "`lagvars'"
     return local owned "`=strtrim("`__iivw_owned'")'"
+    return scalar treat_in_visit = `treat_in_visit'
     if inlist("`wtype'", "iivw", "fiptiw") {
         return local iw_var "`prefix'iw"
 

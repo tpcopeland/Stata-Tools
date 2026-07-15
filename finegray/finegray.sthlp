@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  10jul2026}{...}
+{* *! version 1.2.0  15jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -249,6 +249,16 @@ post-estimation -- {helpb finegray_cif} and {helpb finegray_predict} rebuild the
 same curve internally -- and {cmd:predict, basecshazard} returns the baseline as
 a variable at O(N) cost. Ask for {opt basehaz} when you want the matrix itself.
 
+{phang}
+{opt basehaz} is also what you need if you will {helpb estimates:estimates save}
+the fit and predict from it in a {it:later} Stata session. The cached baseline
+lives in Mata and does not cross sessions, and a saved estimation set carries only
+{cmd:e()} -- so without {cmd:e(basehaz)} in it, {cmd:predict, cif} after
+{cmd:estimates use} cannot recover the baseline and exits with an error telling you
+to refit. Fit with {opt basehaz} and the matrix is saved alongside the estimates,
+so the workflow just works. Predicting in the {it:same} session needs nothing
+extra.
+
 {dlgtab:Optimization}
 
 {phang}
@@ -379,7 +389,7 @@ estimated {it:per joint weight stratum}, so every level of {opt strata()} is als
 weight stratum even when {opt truncstrata()} is not specified. At most 100 joint
 strata are supported, each with at least 20 estimation-sample subjects; beyond
 that {cmd:finegray} stops with {cmd:r(459)} rather than pooling groups behind your
-back. {bf:A delayed-entry model with many {opt strata()} levels that fitted in version 1.1.4 may now stop with {cmd:r(459)}.} The
+back. {bf:A delayed-entry model with many {opt strata()} levels may stop with {cmd:r(459)}.} The
 same model still fits without delayed entry, because that branch is required
 to remain bit-identical. If you hit this boundary, reduce the number of
 censoring strata.
@@ -491,9 +501,10 @@ estimation uses generated design columns rather than native Stata factor
 notation.
 
 {pstd}
-{bf:Cross-validation against other implementations:} {cmd:finegray} is
-systematically validated against three independent implementations: Stata's
-{cmd:stcrreg}, R's {cmd:cmprsk::crr}, and R's {cmd:fastcmprsk::fastCrr}.
+{bf:Cross-validation against other implementations:} On ordinary
+right-censored data without delayed entry, {cmd:finegray} is systematically
+validated against three independent implementations: Stata's {cmd:stcrreg},
+R's {cmd:cmprsk::crr}, and R's {cmd:fastcmprsk::fastCrr}.
 
 {pstd}
 The cross-validation suite covers coefficients, standard errors,
@@ -502,8 +513,8 @@ censoring, and post-estimation predictions (xb, CIF, and Schoenfeld residuals)
 across real and simulated datasets.
 
 {pstd}
-Point estimates (coefficients) and log pseudo-likelihoods are numerically
-identical across all four implementations.
+On that no-delayed-entry branch, point estimates (coefficients) and log
+pseudo-likelihoods are numerically identical across all four implementations.
 
 {pstd}
 Against {cmd:cmprsk::crr}, coefficients match to 6 decimal places, robust SEs
@@ -515,9 +526,13 @@ Against {cmd:fastcmprsk::fastCrr}, coefficients and log-likelihoods match to 6
 decimal places, and the baseline cumulative hazard matches to 8 decimal places.
 
 {pstd}
-Against {cmd:stcrreg}, coefficients match within 1e-4 across all tested
-configurations including multiple covariate combinations, both causes, factor
-variables, cluster SEs, and left-truncated data.
+Against {cmd:stcrreg}, coefficients match within 1e-4 across the tested
+no-delayed-entry configurations, including multiple covariate combinations,
+both causes, factor variables, and cluster SEs. Under delayed entry,
+{cmd:stcrreg} targets the censoring-only weight and parity is neither expected
+nor a validation target; the ZZF branch is instead checked against direct
+estimating-equation oracles, independent R implementations, and Monte Carlo
+recovery and coverage gates.
 
 {pstd}
 The {opt strata()} option is cross-validated against
@@ -558,9 +573,9 @@ standard errors {cmd:stcrreg} reports.
 variance estimator; wider divergence (up to ~50%) is expected.
 
 {pstd}
-{bf:Post-estimation predictions vs {help stcrreg}:} The {helpb finegray_predict}
-outputs are cross-validated against {cmd:stcrreg}'s native predictions and agree
-to numerical precision.
+{bf:Post-estimation predictions vs {help stcrreg}:} Without delayed entry, the
+{helpb finegray_predict} outputs are cross-validated against {cmd:stcrreg}'s
+native predictions and agree to numerical precision.
 
 {pstd}
 {opt xb} equals {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (covariates
@@ -592,9 +607,11 @@ hence the overall score -- is identical.
 See {helpb finegray_predict} for the per-prediction detail.
 
 {pstd}
-{bf:Performance:} The forward-backward scan algorithm is O(np) per
-Newton-Raphson iteration, compared to O(nDp) for {cmd:stcrreg}, where D is the
-number of unique event times. Benchmarks on simulated competing risks data (3
+{bf:Performance:} For fixed covariate dimension and a bounded number of weight
+strata, the forward-backward scan is linear in n. Per Newton-Raphson iteration,
+the score work is O(np) and the full information-matrix work is O(np^2),
+compared with event-time data expansion in {cmd:stcrreg}, where D is the number
+of unique event times. Benchmarks on simulated competing risks data (3
 covariates, Stata/MP):
 
 {col 10}{bf:N}{col 24}{bf:finegray}{col 40}{bf:stcrreg}{col 56}{bf:Speedup}
@@ -798,6 +815,7 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(truncstrata)}}entry stratification variables; if {opt truncstrata()} specified{p_end}
 {synopt:{cmd:e(lt_weight)}}weight computed; see {help finegray##lt:Left truncation}{p_end}
 {synopt:{cmd:e(lt_vce)}}variance computed under delayed entry{p_end}
+{synopt:{cmd:e(bh_seq)}}internal key to the cached baseline; see below{p_end}
 {synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged by the weight diagnostics{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
@@ -813,6 +831,16 @@ weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR){p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix{p_end}
 {synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
+
+{pstd}
+{cmd:e(bh_seq)} is bookkeeping, not a statistic. The baseline curve is kept in
+Mata after every fit, where it costs nothing, so that {helpb finegray_cif} and
+{helpb finegray_predict} can use it without ever building a Stata matrix -- which
+is also what lets {cmd:predict, cif} work on new data, after the estimation sample
+has been dropped. {cmd:e(bh_seq)} says which fit that cached curve belongs to: it
+must be presented by post-estimation and is refused if it does not match, so a
+curve from an earlier fit can never answer for the current one. You should not
+need to read it.
 
 {pstd}
 {cmd:e(basehaz)} holds the baseline cumulative subdistribution hazard H0(t) as a
@@ -857,7 +885,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.4, 2026-07-10{p_end}
+{pstd}Version 1.2.0, 2026-07-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

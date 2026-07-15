@@ -15,33 +15,33 @@ Version 1.1
 
 **Filename:** `_demo_cohort.dta`  
 **Source path:** `datamap/demo/_demo_cohort.dta`  
-**Description:** Dataset containing 17 variables and 160 observations.  
-**Observations:** 160  
+**Description:** Dataset containing 17 variables and 1200 observations.  
+**Observations:** 1200  
 **Variables in file:** 17  
 **Variables documented:** 17  
-**File size:** 38,293 bytes  
+**File size:** 204,694 bytes  
 
 ### Variables
 
 | Variable | Label | Type | Missing | Statistics/Values |
 |---|---|---|---|---|
-| `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=160<br>Median=100,080; IQR=100,040-100,120<br>Mean=100,080 (SD=46.33)<br>Range=100,001-100,160 |
-| `subject_id` | Study subject identifier | Numeric | 0 (0.0%) | N=160<br>Median=5,080; IQR=5,040-5,120<br>Mean=5,080 (SD=46.33)<br>Range=5,001-5,160 |
-| `patient_name` | Patient full name | String | 0 (0.0%) | N=160; 160 unique values |
-| `age` | Age at enrollment (years) | Numeric | 0 (0.0%) | N=160<br>Median=56.80; IQR=48.80-65.35<br>Mean=57.27 (SD=13.43)<br>Range=-3.00-96.80 |
-| `sex` | Biological sex | Numeric | 0 (0.0%) | Unique=2<br>0 Female (77; 48.1%)<br>1 Male (83; 51.9%) |
-| `smoking` | Smoking status | Numeric | 26 (16.2%) | Unique=3<br>0 Never (46; 34.3%)<br>1 Former (48; 35.8%)<br>2 Current (40; 29.9%) |
-| `bmi` | Body mass index (kg/m2) | Numeric | 13 (8.1%) | N=147<br>Median=27.10; IQR=23.40-30.80<br>Mean=27.15 (SD=5.15)<br>Range=13.10-41.80 |
-| `sbp` | Systolic blood pressure (mmHg) | Numeric | 10 (6.2%) | N=150<br>Median=137; IQR=122-148<br>Mean=136 (SD=19.07)<br>Range=74.00-192 |
-| `creatinine` | Serum creatinine (mg/dL) | Numeric | 23 (14.4%) | N=137<br>Median=1.05; IQR=0.810-1.24<br>Mean=1.03 (SD=0.333)<br>Range=0.160-1.73 |
-| `pct_adherence` | Medication adherence (%) | Numeric | 38 (23.8%) | N=122<br>Median=78.55; IQR=63.40-91.30<br>Mean=76.96 (SD=20.10)<br>Range=34.10-120 |
-| `enroll_date` | Date of enrollment | Date | 0 (0.0%) | N=160<br>Range: 02/01/2021 to 16/06/2023 |
-| `birth_date` | Date of birth | Date | 0 (0.0%) | N=160<br>Range: 17/03/1925 to 04/05/2000 |
-| `follow_up_time` | Follow-up time (years) | Numeric | 0 (0.0%) | N=160<br>Median=0.240; IQR=0.100-0.445<br>Mean=0.309 (SD=0.282)<br>Range=0-1.72 |
-| `event` | Primary endpoint | Numeric | 0 (0.0%) | Unique=2<br>0 Censored (120; 75.0%)<br>1 Event (40; 25.0%) |
-| `treatment` | Randomization arm | Numeric | 0 (0.0%) | Unique=2<br>0 Control (88; 55.0%)<br>1 Active (72; 45.0%) |
-| `site` | Study site | Numeric | 0 (0.0%) | Unique=7<br>1 Stockholm (31; 19.4%)<br>2 Gothenburg (34; 21.2%)<br>3 Malmo (23; 14.4%)<br>4 Uppsala (24; 15.0%)<br>5 Linkoping (19; 11.9%)<br>6 Lund (26; 16.2%)<br>9 Satellite clinic (3; 1.9%) |
-| `rare_marker` | Rare clinical marker | Numeric | 0 (0.0%) | Unique=2<br>0 Absent (157; 98.1%)<br>1 Present (3; 1.9%) |
+| `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=1200<br>Median=100,600; IQR=100,300-100,900<br>Mean=100,600 (SD=347)<br>Range=100,001-101,200 |
+| `subject_id` | Study subject identifier | Numeric | 0 (0.0%) | N=1200<br>Median=5,600; IQR=5,300-5,900<br>Mean=5,600 (SD=347)<br>Range=5,001-6,200 |
+| `patient_name` | Patient full name | String | 0 (0.0%) | N=1200; >1000 unique values |
+| `age` | Age at enrollment (years) | Numeric | 0 (0.0%) | N=1200<br>Median=58.20; IQR=49.15-65.50<br>Mean=57.59 (SD=12.10)<br>Range=-3.00-97.70 |
+| `sex` | Biological sex | Numeric | 0 (0.0%) | Unique=2<br>0 Female (586; 48.8%)<br>1 Male (614; 51.2%) |
+| `smoking` | Smoking status | Numeric | 188 (15.7%) | Unique=3<br>0 Never (352; 34.8%)<br>1 Former (315; 31.1%)<br>2 Current (345; 34.1%) |
+| `bmi` | Body mass index (kg/m2) | Numeric | 91 (7.6%) | N=1109<br>Median=27.30; IQR=23.80-30.50<br>Mean=27.27 (SD=5.14)<br>Range=7.90-44.20 |
+| `sbp` | Systolic blood pressure (mmHg) | Numeric | 51 (4.2%) | N=1149<br>Median=135; IQR=123-148<br>Mean=136 (SD=19.37)<br>Range=73.00-200 |
+| `creatinine` | Serum creatinine (mg/dL) | Numeric | 142 (11.8%) | N=1058<br>Median=1.04; IQR=0.790-1.26<br>Mean=1.03 (SD=0.354)<br>Range=-0.070-2.27 |
+| `pct_adherence` | Medication adherence (%) | Numeric | 232 (19.3%) | N=968<br>Median=78.20; IQR=66.80-89.25<br>Mean=78.01 (SD=17.96)<br>Range=25.10-147 |
+| `enroll_date` | Date of enrollment | Date | 0 (0.0%) | N=1200<br>Range: 01/01/2021 to 18/06/2023 |
+| `birth_date` | Date of birth | Date | 0 (0.0%) | N=1200<br>Range: 29/11/1924 to 30/11/2000 |
+| `follow_up_time` | Follow-up time (years) | Numeric | 0 (0.0%) | N=1200<br>Median=0.200; IQR=0.090-0.400<br>Mean=0.288 (SD=0.277)<br>Range=0-1.98 |
+| `event` | Primary endpoint | Numeric | 0 (0.0%) | Unique=2<br>0 Censored (872; 72.7%)<br>1 Event (328; 27.3%) |
+| `treatment` | Randomization arm | Numeric | 0 (0.0%) | Unique=2<br>0 Control (617; 51.4%)<br>1 Active (583; 48.6%) |
+| `site` | Study site | Numeric | 0 (0.0%) | Unique=7<br>1 Stockholm (207; 17.2%)<br>2 Gothenburg (202; 16.8%)<br>3 Malmo (189; 15.8%)<br>4 Uppsala (209; 17.4%)<br>5 Linkoping (196; 16.3%)<br>6 Lund (194; 16.2%)<br>9 Satellite clinic (suppressed <5) |
+| `rare_marker` | Rare clinical marker | Numeric | 0 (0.0%) | Unique=2<br>0 Absent (1197; 99.8%)<br>1 Present (suppressed <5) |
 
 
 ## Notes
@@ -59,4 +59,4 @@ Version 1.1
 
 **Author:** Timothy P Copeland, Karolinska Institutet
 
-**Last Updated:** 19 Jun 2026
+**Last Updated:** 15 Jul 2026

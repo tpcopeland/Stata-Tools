@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.1.4  2026/07/10
+*! finegray_cif Version 1.2.0  2026/07/15
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -240,7 +240,10 @@ program define finegray_cif, rclass sortpreserve
     }
 
     * Load Mata engine
-    capture program list _finegray_mata_loaded
+    capture mata: _finegray_mata_ok()
+    * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+    * leaves Stata programs standing, so a program sentinel says "loaded" when
+    * the engine is gone and the next Mata call dies with r(3499).
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {
@@ -305,9 +308,25 @@ program define finegray_cif, rclass sortpreserve
         * the parity of the event count. Always close the grid on the last row.
         local mode "curve"
         tempname BHG
-        mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
-            `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
-            "`_t0var'", 400, "`BHG'")
+
+        * Prefer the Mata cache (free) over rebuilding (one linear pass).  Both
+        * give the same curve; the cache refuses a seq from a different fit, so a
+        * stale baseline cannot leak in.  finegray_cif always runs on the
+        * estimation data (_finegray_check_data enforces it), so the rebuild is
+        * always available as the fallback after `discard' / `mata clear'.
+        local _seq `"`e(bh_seq)'"'
+        local _have = 0
+        if "`_seq'" != "" {
+            mata: _finegray_bh_have(`_seq', "_have")
+        }
+        if `_have' {
+            mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'")
+        }
+        else {
+            mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
+                `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
+                "`_t0var'", 400, "`BHG'")
+        }
         local nbh = `_fg_nbh'
         local grid ""
         if `nbh' > 0 {

@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.1.4  2026/07/10
+*! finegray_predict Version 1.2.0  2026/07/15
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -346,7 +346,10 @@ program define finegray_predict, rclass sortpreserve
         }
 
         * Load Mata engine for the baseline rebuild / step lookup
-        capture program list _finegray_mata_loaded
+        capture mata: _finegray_mata_ok()
+        * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+        * leaves Stata programs standing, so a program sentinel says "loaded" when
+        * the engine is gone and the next Mata call dies with r(3499).
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {
@@ -363,32 +366,9 @@ program define finegray_predict, rclass sortpreserve
         quietly gen double `H0_val' = 0
 
         capture confirm matrix e(basehaz)
-        if _rc == 0 {
-            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`H0_val'", ///
-                "`touse'")
-        }
-        else {
-            tempvar _es
-            quietly gen byte `_es' = e(sample)
-            local _byg_mata "`e(strata)'"
-            local _byg_nvar : word count `e(strata)'
-            if `_byg_nvar' > 1 {
-                tempvar _byg_grp
-                quietly egen long `_byg_grp' = group(`e(strata)')
-                local _byg_mata "`_byg_grp'"
-            }
-            local _tg_mata ""
-            if `"`e(truncstrata)'"' != "" {
-                tempvar _tg_grp
-                _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
-                    tgname(`_tg_grp') touse(`_es')
-                local _tg_mata "`_tg_grp'"
-            }
-            mata: _finegray_step_lookup_direct("`e(covariates)'", ///
-                "`e(compete)'", `=e(cause)', `=e(censvalue)', "`_byg_mata'", ///
-                "`_tg_mata'", "`_es'", "`_t0var'", "`tvar'", "`H0_val'", ///
-                "`touse'")
-        }
+        local _has_bh = (_rc == 0)
+        _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
+            hasbh(`_has_bh') t0var(`_t0var')
 
         quietly gen `typlist' `varlist' = `H0_val' if `touse'
         local _created_vars "`varlist'"
@@ -444,7 +424,10 @@ program define finegray_predict, rclass sortpreserve
         quietly gen double `H0_val' = 0
 
         * Load Mata engine for step lookup
-        capture program list _finegray_mata_loaded
+        capture mata: _finegray_mata_ok()
+        * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+        * leaves Stata programs standing, so a program sentinel says "loaded" when
+        * the engine is gone and the next Mata call dies with r(3499).
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {
@@ -455,36 +438,8 @@ program define finegray_predict, rclass sortpreserve
                 exit 111
             }
         }
-        if `_has_bh' {
-            mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`H0_val'", ///
-                "`touse'")
-        }
-        else {
-            * Rebuild the fit's weight design from the STORED specification, the
-            * same way finegray_cif does -- never from a variable left behind in
-            * the data, or the baseline is computed under different weights than
-            * the model was.
-            tempvar _es
-            quietly gen byte `_es' = e(sample)
-            local _byg_mata "`e(strata)'"
-            local _byg_nvar : word count `e(strata)'
-            if `_byg_nvar' > 1 {
-                tempvar _byg_grp
-                quietly egen long `_byg_grp' = group(`e(strata)')
-                local _byg_mata "`_byg_grp'"
-            }
-            local _tg_mata ""
-            if `"`e(truncstrata)'"' != "" {
-                tempvar _tg_grp
-                _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
-                    tgname(`_tg_grp') touse(`_es')
-                local _tg_mata "`_tg_grp'"
-            }
-            mata: _finegray_step_lookup_direct("`e(covariates)'", ///
-                "`e(compete)'", `=e(cause)', `=e(censvalue)', "`_byg_mata'", ///
-                "`_tg_mata'", "`_es'", "`_t0var'", "`tvar'", "`H0_val'", ///
-                "`touse'")
-        }
+        _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
+            hasbh(`_has_bh') t0var(`_t0var')
 
         quietly gen `typlist' `varlist' = ///
             1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
@@ -650,7 +605,10 @@ program define finegray_predict, rclass sortpreserve
         local p : word count `covariates'
 
         * Load Mata engine
-        capture program list _finegray_mata_loaded
+        capture mata: _finegray_mata_ok()
+        * probe MATA, not a Stata program: `mata clear' drops Mata functions but
+        * leaves Stata programs standing, so a program sentinel says "loaded" when
+        * the engine is gone and the next Mata call dies with r(3499).
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {

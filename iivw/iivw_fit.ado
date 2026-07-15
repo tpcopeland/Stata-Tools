@@ -1,4 +1,4 @@
-*! iivw_fit Version 3.0.0  2026/07/14
+*! iivw_fit Version 2.0.0  2026/07/14
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -64,7 +64,8 @@ program define iivw_fit, eclass
          CLuster(varname) ///
          UNWeighted ///
          ID(varname) TIME(varname) ///
-         BOOTstrap(integer 0) REFITweights ///
+         VCE(string asis) ///
+         BOOTstrap(integer 0) REFITweights ALLOWFAILEDReps ///
          Level(cilevel) noLOG ///
          REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
@@ -118,13 +119,16 @@ program define iivw_fit, eclass
         local rep_treat    "`r(treat)'"
         local rep_treatcov "`r(treat_covars)'"
         local rep_stabcov  "`r(stabcov)'"
-        local rep_truncate "`r(truncate)'"
+        local rep_truncvisit "`r(truncvisit)'"
+        local rep_trunctreat "`r(trunctreat)'"
+        local rep_truncfinal "`r(truncfinal)'"
         local rep_efron    "`r(efron)'"
         local rep_entry    "`r(entry)'"
         local rep_baseevent "`r(baseevent)'"
         local rep_censor_mode "`r(censor_mode)'"
         local rep_censor_var  "`r(censor_var)'"
         local rep_maxfu       "`r(maxfu)'"
+        local rep_treat_in_visit "`r(treat_in_visit)'"
     }
     else {
         local panel_id "`id'"
@@ -150,6 +154,100 @@ program define iivw_fit, eclass
         local weighttype "unweighted"
         local weight_var ""
         local prefix "_iivw_"
+    }
+
+    * =========================================================================
+    * VARIANCE CONTRACT: vce()
+    * =========================================================================
+    * The reliability-cleared inferential path is a subject-level bootstrap that
+    * REFITS every nuisance model inside each draw, so the interval reflects the
+    * uncertainty in estimating the weights and not just the outcome-model
+    * uncertainty with the weights frozen. That is the variance Buzkova & Lumley
+    * (2007) and Coulombe, Moodie & Platt (2021) actually derive.
+    *
+    * vce() is the contract for choosing it. The legacy bootstrap()/refitweights
+    * spellings are retained as deprecated shims (they still work, with a note)
+    * so existing analysis code does not break, but they are no longer the way to
+    * ask for a variance: bootstrap(#) alone was ambiguous -- it meant "fixed
+    * weights" only because refitweights was absent -- and vce() removes that
+    * ambiguity by naming each method exactly once.
+    *
+    *   vce(bootstrap, reps(#) [seed(#)])   refit bootstrap  (recommended)
+    *   vce(bootstrap, reps(#) fixedweights) bootstrap, weights held fixed
+    *   vce(fixed)                          analytic cluster-robust sandwich
+    *
+    * vce(fixed) and the fixedweights bootstrap both treat the estimated weights
+    * as KNOWN. Naming one of them explicitly IS the acknowledgment that the SE
+    * omits nuisance-estimation uncertainty; the disclosure note still prints.
+    local vce_seed ""
+    if `"`vce'"' != "" {
+        if `bootstrap' > 0 | "`refitweights'" != "" {
+            display as error "specify the variance through vce() OR the legacy"
+            display as error "  bootstrap()/refitweights options, not both"
+            error 198
+        }
+
+        * Split "method , suboptions" on the first comma.
+        gettoken _vcemethod _vcesub : vce, parse(",")
+        local _vcemethod = strtrim("`_vcemethod'")
+        local _vcesub = strtrim(`"`_vcesub'"')
+        if substr(`"`_vcesub'"', 1, 1) == "," ///
+            local _vcesub = strtrim(substr(`"`_vcesub'"', 2, .))
+
+        if !inlist("`_vcemethod'", "bootstrap", "fixed") {
+            display as error "vce() must be bootstrap or fixed"
+            display as error "  vce(bootstrap, reps(#) [seed(#)])   refit bootstrap (recommended)"
+            display as error "  vce(bootstrap, reps(#) fixedweights) bootstrap, weights held fixed"
+            display as error "  vce(fixed)                          analytic sandwich (weights known)"
+            error 198
+        }
+
+        * Parse the method-specific suboptions off a rebuilt command line. The
+        * primary syntax has already been consumed, so reusing local 0 here is
+        * safe and the sub-option names collide with nothing above.
+        local 0 `", `_vcesub'"'
+        capture syntax [, REPS(integer 0) SEED(string) FIXEDWEIGHTS]
+        if _rc {
+            display as error "invalid vce() suboptions: `_vcesub'"
+            display as error "  allowed: reps(#), seed(#), fixedweights"
+            error 198
+        }
+
+        if "`_vcemethod'" == "fixed" {
+            if `reps' > 0 | "`seed'" != "" | "`fixedweights'" != "" {
+                display as error "vce(fixed) takes no suboptions"
+                display as error "  it is the analytic cluster-robust sandwich; there are no replicates"
+                error 198
+            }
+            local bootstrap 0
+            local refitweights ""
+        }
+        else {
+            * vce(bootstrap): a bootstrap needs a replicate count. There is no
+            * defensible default -- too few replicates gives an unstable interval
+            * and silently picking a number hides that choice from the user.
+            if `reps' <= 0 {
+                display as error "vce(bootstrap) requires reps(#) with # > 0"
+                display as error "  e.g. vce(bootstrap, reps(500)); use more for a release interval"
+                error 198
+            }
+            local bootstrap `reps'
+            if "`fixedweights'" != "" {
+                local refitweights ""
+            }
+            else {
+                local refitweights "refitweights"
+            }
+            local vce_seed "`seed'"
+        }
+    }
+    else if `bootstrap' > 0 | "`refitweights'" != "" {
+        * Legacy spelling. Map is unchanged; just steer the user to vce().
+        local _legacy_target "vce(bootstrap, reps(`bootstrap')"
+        if "`refitweights'" == "" local _legacy_target "`_legacy_target' fixedweights"
+        local _legacy_target "`_legacy_target')"
+        display as text ///
+            "note: bootstrap()/refitweights is deprecated; use `_legacy_target'"
     }
 
     * =========================================================================
@@ -225,13 +323,13 @@ program define iivw_fit, eclass
             display as error "  cluster() other than the panel id (`panel_id') is not supported with refitweights"
             error 198
         }
-        * A contract written before 3.0.0 stored only the UNION of the raw visit
+        * A contract written before 2.0.0 stored only the UNION of the raw visit
         * covariates and the generated lag columns, so the raw list is empty here
         * and the replay cannot be reconstructed. Refuse rather than fall back to
-        * the union: falling back is precisely the 2.0.0 defect.
+        * the union: falling back is precisely the defect this separation prevents.
         if inlist("`weighttype'", "iivw", "fiptiw") & "`rep_visitcov'" == "" {
             display as error "refitweights needs the stored raw visit-model covariates"
-            display as error "  these weights were built before iivw 3.0.0 separated the raw"
+            display as error "  these weights were built before iivw 2.0.0 separated the raw"
             display as error "  covariates from the generated lag columns, so the replay cannot"
             display as error "  rebuild the lags inside each resampled subject"
             display as error "  re-run iivw_weight before iivw_fit, refitweights"
@@ -279,6 +377,28 @@ program define iivw_fit, eclass
         * that loses a row to the same missingness would hard-error instead.
         local rep_amw_flag = ///
             cond("`rep_allowmissw'" == "1", "allowmissingweights", "")
+
+        * FIPTIW puts treat() in the visit-intensity denominator by construction,
+        * so a replicate reproduces it without being told. The experimental
+        * OPT-OUT has to be replayed explicitly: otherwise every draw would refit
+        * a visit model that the observed pass never fitted, and the interval
+        * would belong to an estimator the user never asked for. A stored contract
+        * that predates the field cannot be replayed either way -- refuse it here
+        * rather than guess, on the same footing as a missing risk-set contract.
+        local rep_ntv_flag ""
+        if "`weighttype'" == "fiptiw" {
+            if "`rep_treat_in_visit'" == "" {
+                display as error "refitweights needs the stored visit-model treatment contract"
+                display as error "  these FIPTIW weights were built before iivw recorded whether"
+                display as error "  treat() is in the visit-intensity model, so the replicates"
+                display as error "  cannot reproduce the visit model they came from"
+                display as error "  re-run iivw_weight before iivw_fit, refitweights"
+                error 198
+            }
+            if "`rep_treat_in_visit'" == "0" {
+                local rep_ntv_flag "experimentalnotreatvisit"
+            }
+        }
 
         * The lag sources must still be in the data to be re-lagged per draw.
         if "`rep_lagvars'" != "" {
@@ -1111,8 +1231,76 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * STABILIZATION VALIDITY
+    * =========================================================================
+    * A stabilized IIW carries the numerator h(X) = exp(delta'X_stab). The
+    * weighted estimating equation stays unbiased for the marginal beta only if
+    * h is a function of covariates that are IN the outcome mean model: then
+    * E[Y - mu(X;beta) | X] = 0 makes the h-weighted score mean-zero whatever h
+    * is. Stabilize on a variable the outcome model never sees and that argument
+    * collapses -- the weighted equation solves for an h-weighted average of
+    * subject-specific effects, not for the beta being reported.
+    *
+    * iivw_weight cannot check this: it runs before the outcome design exists and
+    * has no way to know what the user will eventually fit. iivw_fit CAN, and
+    * until now it did not -- the assumption was documented in the help and
+    * enforced nowhere. Worse, a shipped recovery scenario stabilized on a
+    * variable it explicitly stated was absent from the outcome model and then
+    * counted recovery as a pass, which encoded the violation as evidence.
+    *
+    * The check is deliberately conservative: it requires each stabcov() variable
+    * to be a SOURCE of the outcome design (an independent variable, a
+    * categorical or interaction source, or the panel time variable behind the
+    * fitted time terms). A stabilization variable that is some other
+    * deterministic function of a design covariate is defensible in theory, but
+    * the package cannot prove that from the data, and a guard that accepts what
+    * it cannot verify is not a guard. Put the function in the outcome model.
+    local stab_validated = 0
+    local stab_terms ""
+    if "`unweighted'" == "" & "`rep_stabcov'" != "" {
+        local design_sources "`indepvars'"
+        if "`categorical'" != ""  local design_sources "`design_sources' `categorical'"
+        if "`interaction'" != ""  local design_sources "`design_sources' `interaction'"
+        if "`time_vars'" != "" & "`panel_time'" != "" {
+            local design_sources "`design_sources' `panel_time'"
+        }
+        local design_sources : list uniq design_sources
+
+        local stab_missing : list rep_stabcov - design_sources
+        if "`stab_missing'" != "" {
+            display as error "stabilized IIW numerator is not a function of the outcome design"
+            display as error ""
+            display as error "  stabcov() variables absent from this outcome model:`stab_missing'"
+            display as error ""
+            display as text  "  The weights were stabilized on:      `rep_stabcov'"
+            display as text  "  This outcome model is built from:    `design_sources'"
+            display as text  ""
+            display as text  "  A stabilized IIW is unbiased for the marginal effect only when its"
+            display as text  "  numerator depends on covariates the outcome model conditions on."
+            display as text  "  Stabilizing on a variable this model never sees changes the estimand:"
+            display as text  "  the weighted fit targets a numerator-weighted average of"
+            display as text  "  subject-specific effects, not the beta printed in the table."
+            display as text  ""
+            display as text  "  Either add those variables to the outcome model, or recompute the"
+            display as text  "  weights with a stabcov() that this model contains -- including"
+            display as text  "  unstabilized, which is always valid."
+            error 198
+        }
+        local stab_validated = 1
+        local stab_terms "`rep_stabcov'"
+    }
+
+    * =========================================================================
     * FIT MODEL
     * =========================================================================
+
+    * vce(bootstrap, seed(#)) fixes the resampling stream for reproducibility.
+    * Set it immediately before the draws so no intervening RNG use consumes the
+    * stream first. This deliberately advances the global seed, as any seeded
+    * bootstrap does.
+    if `bootstrap' > 0 & "`vce_seed'" != "" {
+        set seed `vce_seed'
+    }
 
     if "`model'" == "gee" {
 
@@ -1142,8 +1330,11 @@ program define iivw_fit, eclass
                 visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
                 treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
+                truncvisit(`rep_truncvisit') trunctreat(`rep_trunctreat') ///
+                truncfinal(`rep_truncfinal') ///
+                `rep_efron_flag' `rep_base_flag' ///
                 entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
+                `rep_ntv_flag' ///
                 family(`family') link(`link') ///
                 geeopts(`geeopts') `log_opt'
         }
@@ -1225,8 +1416,11 @@ program define iivw_fit, eclass
                 visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
                 treat(`rep_treat') ///
                 treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncate(`rep_truncate') `rep_efron_flag' `rep_base_flag' ///
+                truncvisit(`rep_truncvisit') trunctreat(`rep_trunctreat') ///
+                truncfinal(`rep_truncfinal') ///
+                `rep_efron_flag' `rep_base_flag' ///
                 entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
+                `rep_ntv_flag' ///
                 mixedopts(`mixedopts') `log_opt'
         }
         else if `bootstrap' > 0 {
@@ -1265,6 +1459,70 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * REPLICATE ACCOUNTING
+    * =========================================================================
+    * A bootstrap replicate can fail. A resampled panel may contain no variation
+    * in a covariate, so the outcome model drops the term and returns a missing
+    * coefficient for it; a nuisance model may fail to converge on a draw; a draw
+    * may lose every weighted row.
+    *
+    * Stata's -bootstrap- handles that by computing the variance from the
+    * replicates that DID return a number, and recording the shortfall in
+    * e(N_misreps). It does not stop, and iivw_fit used to say nothing at all: a
+    * measured probe asked for 40 replicates, 6 failed, and the command printed
+    * an SE built from 34 draws with no indication anywhere in its own output or
+    * in e() that it had done so.
+    *
+    * That is an SE from an undocumented subset of the draws the user asked for,
+    * and the subset is not random with respect to the estimate -- the draws that
+    * fail are the ones with the least information about exactly the terms whose
+    * SE is being reported. The result is anti-conservative and there is nothing
+    * in the output to say so.
+    *
+    * So: an incomplete bootstrap is an ERROR. allowfailedreps is the explicit
+    * acknowledgment, and even then the counts are reported and stored in e().
+    local bs_reps_req = 0
+    local bs_reps_done = 0
+    local bs_reps_fail = 0
+    if `bootstrap' > 0 {
+        local bs_reps_req = `bootstrap'
+        local bs_reps_done = e(N_reps)
+        local bs_reps_fail = e(N_misreps)
+        if "`bs_reps_fail'" == "" | `bs_reps_fail' >= . local bs_reps_fail = 0
+        if "`bs_reps_done'" == "" | `bs_reps_done' >= . local bs_reps_done = 0
+
+        if `bs_reps_fail' > 0 {
+            if "`allowfailedreps'" == "" {
+                display as error ""
+                display as error "`bs_reps_fail' of `bs_reps_req' bootstrap replicates failed"
+                display as error ""
+                display as text "  The reported standard errors would be computed from the"
+                display as text "  `bs_reps_done' replicates that returned a number. That subset is not"
+                display as text "  random with respect to what is being estimated: the draws that fail"
+                display as text "  are the ones carrying the least information about the very terms"
+                display as text "  whose standard error you are reading. The result is"
+                display as text "  anti-conservative, and nothing in the table would say so."
+                display as text ""
+                display as text "  A replicate fails when a resampled panel has no variation in a"
+                display as text "  covariate (the term is dropped and returns missing), when a nuisance"
+                display as text "  model does not converge on the draw, or when the draw retains no"
+                display as text "  weighted rows."
+                display as text ""
+                display as text "  Either respecify -- a rare binary covariate and a small number of"
+                display as text "  subjects is the usual cause -- or add"
+                display as text "    allowfailedreps"
+                display as text "  to declare that an SE from `bs_reps_done'/`bs_reps_req' draws is what you intend."
+                error 430
+            }
+
+            display as text ""
+            display as text "note: `bs_reps_fail' of `bs_reps_req' bootstrap replicates failed"
+            display as text "  allowfailedreps was specified: the standard errors below come from"
+            display as text "  the `bs_reps_done' replicates that completed, and are likely anti-conservative."
+        }
+    }
+
+    * =========================================================================
     * FEW-CLUSTER INFERENCE WARNING
     * =========================================================================
     * Cluster-robust (sandwich) SEs are anti-conservative when the number of
@@ -1283,6 +1541,37 @@ program define iivw_fit, eclass
             display as text "  anti-conservative with few clusters. Consider bootstrap(#) for"
             display as text "  inference (add refitweights to also propagate weight uncertainty)."
         }
+    }
+
+    * =========================================================================
+    * FIXED-WEIGHT VARIANCE DISCLOSURE
+    * =========================================================================
+    * The reported SE treats the estimated weights as KNOWN. It is not the
+    * variance Buzkova & Lumley derive (they add the visit-model score
+    * correction) nor the one Coulombe, Moodie & Platt use (a two-step sandwich).
+    * Agreement with R on this number proves only that both programs computed the
+    * same incomplete variance.
+    *
+    * This is stated where the user reads the SE, not only in the help file. It
+    * is the single most consequential thing about the output and it was
+    * previously invisible.
+    if "`unweighted'" == "" & (`bootstrap' == 0 | "`refitweights'" == "") {
+        display as text ""
+        display as text "{hline 70}"
+        if `bootstrap' == 0 {
+            display as text "note: these standard errors treat the estimated weights as KNOWN."
+        }
+        else {
+            display as text "note: bootstrap() without refitweights holds the weights FIXED across"
+            display as text "  replicates, so these standard errors treat them as known."
+        }
+        display as text "  They omit the uncertainty from estimating the visit-intensity model"
+        display as text "  (and the propensity model, for IPTW/FIPTIW). This is not the variance"
+        display as text "  derived by Buzkova & Lumley (2007) or by Coulombe et al. (2021)."
+        display as text ""
+        display as text "  For inference that propagates weight-estimation uncertainty:"
+        display as text "    iivw_fit ..., bootstrap(#) refitweights"
+        display as text "{hline 70}"
     }
 
     * =========================================================================
@@ -1417,6 +1706,43 @@ program define iivw_fit, eclass
     ereturn local iivw_cmd "iivw_fit"
     ereturn local iivw_model "`model'"
     ereturn local iivw_weighttype "`weighttype'"
+    ereturn local iivw_treat_in_visit "`rep_treat_in_visit'"
+    ereturn scalar iivw_stabilization_validated = `stab_validated'
+    ereturn local iivw_stab_terms "`stab_terms'"
+
+    * ---------------------------------------------------------------------
+    * INFERENCE PROVENANCE
+    * ---------------------------------------------------------------------
+    * Everything a reader needs to say what the reported SE actually is, without
+    * having to reconstruct it from the command line. The variance method, the
+    * resampling unit, whether the nuisance models were refit inside the draws,
+    * the replicate accounting, and the weight contract the whole thing rests on.
+    *
+    * e(iivw_vce) is the load-bearing one. "fixed" means the weights were treated
+    * as KNOWN: the SE omits the uncertainty in estimating them, which is not the
+    * variance either source paper derives. A reader who cannot tell "fixed" from
+    * "bootstrap" from the output cannot tell whether the interval means anything.
+    if `bootstrap' > 0 & "`refitweights'" != "" {
+        ereturn local iivw_vce "bootstrap"
+    }
+    else if `bootstrap' > 0 {
+        ereturn local iivw_vce "bootstrap-fixedweights"
+    }
+    else {
+        ereturn local iivw_vce "fixed"
+    }
+    ereturn local iivw_resample_unit = cond(`bootstrap' > 0, "`cluster'", "")
+    ereturn scalar iivw_bs_reps_requested = `bs_reps_req'
+    ereturn scalar iivw_bs_reps_completed = `bs_reps_done'
+    ereturn scalar iivw_bs_reps_failed = `bs_reps_fail'
+    ereturn local iivw_allowfailedreps = ///
+        cond(`bs_reps_fail' > 0 & "`allowfailedreps'" != "", "1", "0")
+    ereturn local iivw_vce_seed "`vce_seed'"
+
+    * The weight contract these estimates rest on. If it is empty, the fit was
+    * unweighted; if it is stale, _iivw_check_weighted already errored.
+    local __iivw_wsig_now : char _dta[_iivw_wsig]
+    ereturn local iivw_wsig "`__iivw_wsig_now'"
     local unweighted_flag = ("`unweighted'" != "")
     ereturn local iivw_unweighted "`unweighted_flag'"
     local refit_flag = ("`refitweights'" != "" & `bootstrap' > 0)

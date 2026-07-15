@@ -54,8 +54,10 @@
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
-{synopt:{opt boot:strap(#)}}bootstrap replicates (default: 0 = sandwich SE){p_end}
-{synopt:{opt refit:weights}}re-estimate weights in each replicate{p_end}
+{synopt:{opt vce(vcetype)}}{cmd:bootstrap} (refit) or {cmd:fixed}{p_end}
+{synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
+{synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
+{synopt:{opt refit:weights}}{it:legacy}; prefer {opt vce()}{p_end}
 
 {syntab:Reporting}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
@@ -275,11 +277,35 @@ prints a note when fewer than 40 clusters contribute to an analytic-SE
 (non-bootstrap) fit; prefer {opt bootstrap(#)} for inference in that regime.
 
 {phang}
-{opt bootstrap(#)} specifies the number of bootstrap replicates. When
+{opt vce(vcetype)} chooses the variance estimator. It is the contract for
+standard errors; the {opt bootstrap(#)}/{opt refitweights} spellings below are
+retained as a legacy alias but name each method less clearly.
+
+{pmore}
+{cmd:vce(bootstrap, reps(#) [seed(#)])} is the recommended method: a
+subject-level bootstrap that {bf:refits} every nuisance model inside each draw,
+so the interval propagates weight-estimation uncertainty -- the variance
+Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) derive. {opt reps()}
+is required, as there is no defensible default replicate count; {opt seed()}
+fixes the resampling stream and is stored in {cmd:e(iivw_vce_seed)} for
+reproducibility.
+
+{pmore}
+{cmd:vce(bootstrap, reps(#) fixedweights)} bootstraps with the weights held
+{bf:fixed} across draws, so the interval reflects outcome-model uncertainty
+only; {cmd:vce(fixed)} is the analytic cluster-robust sandwich. Both treat the
+estimated weights as {bf:known} and therefore understate uncertainty, so naming
+one explicitly is the acknowledgment of that, and the disclosure note still
+prints. {cmd:e(iivw_vce)} records which of the three was used.
+
+{phang}
+{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. When
 {cmd:bootstrap(0)} (the default), sandwich standard errors are used. When
 positive, the {cmd:bootstrap} prefix is applied with clustering at
 {opt cluster()}, which defaults to the subject ID stored by
-{cmd:iivw_weight}. Negative values are not allowed.
+{cmd:iivw_weight}. Negative values are not allowed. Prefer {opt vce()}; a plain
+{cmd:bootstrap(#)} was ambiguous because it meant fixed weights only by the
+absence of {opt refitweights}.
 
 {pmore}
 By default the bootstrap treats the IIW/IPTW weights as fixed and does not
@@ -308,10 +334,39 @@ stored subject {opt id()} (so {opt cluster()} must be that id), and needs the we
 metadata from a preceding {cmd:iivw_weight} run. It is substantially slower than the
 fixed-weight bootstrap because the weight models are refit in every replicate.
 
+{phang}
+{opt allowfailedreps} accepts a bootstrap whose replicates did not all complete.
+
 {pmore}
-{bf:Changed in 3.0.0.} Each replicate now rebuilds {opt lagvars()} from the raw
+A replicate can fail: a resampled panel may contain no variation in a covariate,
+so the outcome model drops that term and returns a missing coefficient for it; a
+nuisance model may not converge on a draw; a draw may retain no weighted rows.
+Stata's {helpb bootstrap} responds by computing the variance from the replicates
+that {it:did} return a number and recording the shortfall in {cmd:e(N_misreps)}.
+It does not stop.
+
+{pmore}
+That subset is not random with respect to what is being estimated. The draws that
+fail are the ones carrying the least information about exactly the terms whose
+standard error is being reported, so the surviving standard error is
+anti-conservative -- and before 2.0.0 nothing in the output said so. A measured
+probe (40 subjects, a binary covariate true for 2 of them, {cmd:bootstrap(40)})
+had six replicates fail and printed a standard error built from 34 draws in
+silence.
+
+{pmore}
+An incomplete bootstrap is therefore an {bf:error}. {opt allowfailedreps} is how
+you declare that a standard error from a subset of the draws is what you intend.
+Even then the counts are reported and stored:
+{cmd:e(iivw_bs_reps_requested)}, {cmd:e(iivw_bs_reps_completed)},
+{cmd:e(iivw_bs_reps_failed)}. The usual cause is a rare binary covariate in a
+small panel; respecifying is almost always the better answer than accepting the
+option.
+
+{pmore}
+{bf:Changed in 2.0.0.} Each replicate now rebuilds {opt lagvars()} from the raw
 source variables, inside the resampled subject, using the same code that built
-the observed weights. Before 3.0.0 the precomputed {cmd:*_lag1} columns were
+the observed weights. An earlier implementation passed the precomputed {cmd:*_lag1} columns
 passed through as if they were raw covariates. That was wrong in two ways: on a
 terminal censoring interval the lagged value must be the source variable's value
 {it:at} the last visit, and a carried-over lag column supplies the value from two
@@ -323,7 +378,7 @@ observed panel and the weights must come back unchanged -- the old replay was of
 by 22%. It is now exact.
 
 {pmore}
-Weights written by a version of {cmd:iivw} older than 3.0.0 cannot be
+Weights written by a version of {cmd:iivw} older than 2.0.0 cannot be
 replayed: the raw visit covariates were not stored apart from the generated lag
 columns, so the replay cannot reconstruct them. {opt refitweights} refuses such a contract
 rather than falling back to the old behaviour. Re-run {cmd:iivw_weight}.
@@ -385,6 +440,37 @@ multi-model tables. Use this when combining results from multiple
 
 {marker remarks}{...}
 {title:Remarks}
+
+{pstd}
+{bf:Stabilized weights are checked against this outcome model}
+
+{pstd}
+Bůžková & Lumley (2007) define the stabilizing numerator as
+h0(X{it:i}(t)) = exp({it:delta}'X{it:i}(t)), where X is the {bf:outcome-model}
+covariate vector. That is not incidental notation. The stabilized estimating
+equation solves for the same {it:beta} as the unstabilized one precisely because
+the numerator is a function of covariates the outcome model conditions on: with
+E[Y - mu(X;{it:beta}) | X] = 0, the h-weighted score is mean-zero whatever h is.
+Stabilize on a variable this outcome model never sees and that argument
+collapses -- the weighted fit then targets an h-weighted average of
+subject-specific effects, not the {it:beta} in the table.
+
+{pstd}
+{cmd:iivw_weight} cannot check this: it runs before the outcome model exists.
+{cmd:iivw_fit} can, and does. If any {opt stabcov()} variable is not a source of
+this outcome design -- an independent variable, a {opt categorical()} or
+{opt interaction()} source, or the panel time variable behind the fitted time
+terms -- the fit stops with an error before estimating anything, and names the
+offending variables. Add them to the outcome model, or recompute the weights
+with a numerator this model contains. Unstabilized IIW is always valid.
+{cmd:e(iivw_stabilization_validated)} records that the check ran and passed;
+{cmd:e(iivw_stab_terms)} records the terms it cleared.
+
+{pstd}
+The check is deliberately conservative. A stabilization variable that is some
+other deterministic function of a design covariate is defensible in theory, but
+the package cannot prove that from the data, and a guard that accepts what it
+cannot verify is not a guard. Put the function in the outcome model.
 
 {pstd}
 {bf:Independence working correlation}
@@ -910,6 +996,13 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_refitweights)}}1 if bootstrap weights were refit; otherwise 0{p_end}
+{synopt:{cmd:e(iivw_vce)}}{cmd:fixed}, {cmd:bootstrap-fixedweights}, or {cmd:bootstrap}{p_end}
+{synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
+{synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
+{synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
+{synopt:{cmd:e(iivw_wsig)}}signature of the weight contract behind the estimates{p_end}
+{synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
+{synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}
@@ -923,6 +1016,13 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created, when applicable{p_end}
 {synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}, when applicable{p_end}
 {synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created, when applicable{p_end}
+
+{synoptset 24 tabbed}{...}
+{p2col 5 24 28 2: Scalars}{p_end}
+{synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} was validated against the outcome design{p_end}
+{synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}
+{synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
+{synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
 
 {pstd}
 The command also stores fit metadata in dataset characteristics so downstream

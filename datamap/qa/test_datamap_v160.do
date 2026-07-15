@@ -140,6 +140,23 @@ local ok = (r(n) == 20000 & r(capped) == 0)
 _v160_record `ok' "cap(0) gives exact count for 20000-distinct id (got n=`r(n)')"
 local pass_count = `pass_count' + `ok'
 
+* The exact-count (cap<=0) path reads the column through a VIEW (st_view /
+* st_sview) so the initial full-length copy is never allocated.  A view aliases
+* the live data, so any Mata op that wrote back through it would silently
+* corrupt the caller's dataset at rc=0.  Assert the data is bit-identical after
+* exact counts on a numeric AND a string column (both view paths), including the
+* countempty branch that runs select() on the view's uniqrows result.
+quietly datasignature
+local ds_view "`r(datasignature)'"
+_datamap_nuniq vid, cap(0)
+_datamap_nuniq vstr, cap(0)
+_datamap_nuniq vstr, cap(0) countempty
+quietly datasignature
+local ++test_count
+local ok = ("`ds_view'" == "`r(datasignature)'")
+_v160_record `ok' "exact-count view path leaves data bit-identical (no view write-back)"
+local pass_count = `pass_count' + `ok'
+
 * The panel unit count must NOT be censored.  It flows through
 * _datamap_ndistinct, which passes cap(0) precisely so that a 5000-unit panel
 * reports 5000 units and not the cap bound.  Had _datamap_ndistinct inherited
@@ -556,8 +573,9 @@ local pass_count = `pass_count' + `ok'
 capture erase "`tmp_dir'/_v160_other.dta"
 
 **# summary
-display ""
 display as text "test_datamap_v160: `pass_count'/`test_count' passed"
+local fail_count = `test_count' - `pass_count'
+display "RESULT: test_datamap_v160 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `pass_count' < `test_count' {
     display as error "test_datamap_v160 FAILED"
     exit 9

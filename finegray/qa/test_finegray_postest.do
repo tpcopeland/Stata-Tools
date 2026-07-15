@@ -572,6 +572,112 @@ else {
     local ++fail_count
 }
 
+**# FG-B04: predict, cif on NEW DATA, with no e(basehaz) and no estimation sample
+* This is the case that the opt-in e(basehaz) change nearly broke, and it is a
+* DOCUMENTED workflow: drop the estimation data, type a fresh covariate profile,
+* predict.  There is then nothing to rebuild the baseline FROM -- the old code
+* only survived because it read a Stata matrix out of e(), which outlives
+* `drop _all'.  The baseline is now cached in Mata (free: a Mata matrix has no
+* dimension-name stripe), and this asserts the cache actually carries it across
+* the data being destroyed.  Pin it to a value, not just to rc 0: an empty cache
+* would give H0 = 0 and a CIF of exactly 0 at rc 0, which is the silent-wrong
+* answer this whole design has to avoid.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55504
+    quietly set obs 2000
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(ev) id(id)
+    quietly finegray x, compete(ev) cause(1) nolog
+
+    * the truth, computed while the estimation data are still here
+    gen double t5 = 0.5
+    quietly finegray_predict double cif_est, cif timevar(t5)
+    local truth = cif_est[1]
+    local x1 = x[1]
+
+    * now destroy the estimation data entirely and predict on a fresh profile
+    drop _all
+    set obs 1
+    gen double x = `x1'
+    gen double t5 = 0.5
+    capture noisily finegray_predict double cif_new, cif timevar(t5)
+    assert _rc == 0
+    assert !missing(cif_new[1])
+    assert cif_new[1] > 0
+    assert reldif(cif_new[1], `truth') < 1e-7
+    display as text "  new-data CIF = " %9.7f cif_new[1] ///
+        " reproduces the in-sample value " %9.7f `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B04 predict, cif on new data (Mata baseline cache)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B04 predict on new data (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-B05: the cache must never answer for a DIFFERENT fit, and must fail loudly
+* A cache keyed to nothing is a stale-state bug waiting to happen: predicting from
+* the PREVIOUS fit's baseline at rc 0 is exactly the silent-wrong-answer class.
+* Two halves: (a) after a second fit, prediction uses the SECOND fit's baseline;
+* (b) when the cache is wiped (mata clear) AND the data are gone, the command
+* ERRORS rather than guessing.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55505
+    quietly set obs 2000
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    gen double t5 = 0.5
+    quietly stset t, failure(ev) id(id)
+
+    * fit A on a HALF sample, fit B on the full sample: different baselines
+    quietly finegray x if id <= 1000, compete(ev) cause(1) nolog
+    quietly finegray_predict double cifA, cif timevar(t5)
+    local seqA `"`e(bh_seq)'"'
+
+    quietly finegray x, compete(ev) cause(1) nolog
+    quietly finegray_predict double cifB, cif timevar(t5)
+    local seqB `"`e(bh_seq)'"'
+
+    * the receipt must change, and so must the answer
+    assert "`seqA'" != "`seqB'"
+    quietly summarize cifA
+    local mA = r(mean)
+    quietly summarize cifB
+    local mB = r(mean)
+    assert reldif(`mA', `mB') > 1e-8
+    display as text "  fit A seq=`seqA' mean CIF=" %8.6f `mA' ///
+        "   fit B seq=`seqB' mean CIF=" %8.6f `mB'
+
+    * (b) cache wiped AND estimation data gone -> must ERROR, not guess
+    drop _all
+    set obs 1
+    gen double x = 0
+    gen double t5 = 0.5
+    mata: mata clear
+    capture finegray_predict double cif_dead, cif timevar(t5)
+    assert _rc == 459
+    display as text "  cache wiped + data gone -> rc 459 (refuses to guess)"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B05 baseline cache is fit-keyed and fails loudly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B05 cache staleness guard (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_postest tests=`test_count' pass=`pass_count' fail=`fail_count'"

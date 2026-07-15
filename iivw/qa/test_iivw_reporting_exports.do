@@ -58,7 +58,7 @@ program define _reporting_balance_panel
     char _dta[_iivw_weighttype] "iivw"
     char _dta[_iivw_visit_covars] "x"
     * Sign the hand-built contract, as iivw_weight would at its commit point.
-    * From 3.0.0 the stale-weight guard fails CLOSED, so an unsigned contract is
+    * From 2.0.0 the stale-weight guard fails CLOSED, so an unsigned contract is
     * an error rather than a skipped check. See iivw_qa_sign_contract.
     iivw_qa_sign_contract
 end

@@ -43,7 +43,8 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v111.do /
     test_finegray_v112.do test_finegray_v114.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
-    test_finegray_postest.do test_finegray_zzf.do
+    test_finegray_postest.do test_finegray_zzf.do ///
+    test_documentation_examples.do
 local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
     validation_finegray_recovery_paths.do validation_finegray_cif_recovery.do ///
@@ -90,8 +91,14 @@ if _rc == 0 {
                 if "`skip_reason'" == "" {
                     local skip_reason "listed in _skip.txt"
                 }
-                local skip_key = subinstr("`skip_name'", ".", "_", .)
-                local skip_reason_`skip_key' `"`skip_reason'"'
+                * Index the reason by POSITION, not by a name derived from the
+                * filename.  `skip_reason_' + "test_finegray_ties_do" is 33
+                * characters and Stata's macro-name limit is 31, so the old
+                * name-keyed local died with r(198) on any realistically named
+                * suite -- the skip mechanism could not parse the very files it
+                * exists to skip.
+                local _si : list sizeof skip_names
+                local skip_reason_`_si' `"`skip_reason'"'
             }
         }
         file read `skipfh' line
@@ -117,9 +124,10 @@ foreach f of local all_files {
     local in_skip : list f in skip_names
     if `in_skip' {
         local ++n_skip
-        local skip_key = subinstr("`f'", ".", "_", .)
-        display _newline as text "=== Skipping: `f' ==="
-        display as text "  Reason: `skip_reason_`skip_key''"
+        local _pos : list posof "`f'" in skip_names
+        display _newline as error "=== Skipping: `f' ==="
+        display as error "  Reason: `skip_reason_`_pos''"
+        display as error "  A skipped suite does NOT pass; this run cannot be green."
         continue
     }
 
@@ -137,14 +145,60 @@ foreach f of local all_files {
     set more off
     set varabbrev off
     capture noisily do "`qa_dir'/`f'"
-    if _rc == 0 {
+    local _file_rc = _rc
+
+    * rc 0 is NOT the same as "everything was checked".  Four crossval suites can
+    * skip their external-oracle checks (R missing, Rscript failed) and still exit
+    * 0, announcing it only as `skip=N' in their own RESULT line -- which this
+    * runner never read.  A crossval that skipped every comparison would have been
+    * counted as a PASS.  Read the suite's log, parse its RESULT line, and treat a
+    * nonzero skip count as a FAILURE: per CLAUDE.md a missing R/Python dependency
+    * is a one-line install, never a licence to skip a correctness check.
+    local _sk = 0
+    if `_file_rc' == 0 {
+        local _base = subinstr("`f'", ".do", "", .)
+        capture confirm file "`qa_dir'/`_base'.log"
+        if _rc == 0 {
+            * Read the log as DATA, not through macros.  A QA log echoes its own
+            * source, so its lines are full of quotes and backticks; passing one
+            * back through a macro reference dies with r(132) "too few quotes".
+            * As a string variable the text is inert -- strpos()/substr() cannot
+            * be confused by it.  char(1) as the delimiter keeps each line whole.
+            quietly capture import delimited using "`qa_dir'/`_base'.log", ///
+                delimiter(`"`=char(1)'"') varnames(nonames) ///
+                stringcols(_all) bindquote(nobind) clear
+            if _rc == 0 {
+                * The RESULT line appears twice: once as the echoed SOURCE
+                * (skip=`skip_count', which real() reads as missing) and once as
+                * the evaluated OUTPUT (skip=0).  Taking the max over non-missing
+                * matches picks the real one and ignores the echo.
+                quietly capture gen double _skv = ///
+                    real(word(substr(v1, strpos(v1, "skip=") + 5, .), 1)) ///
+                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "skip=") > 0
+                if _rc == 0 {
+                    quietly summarize _skv
+                    if r(N) > 0 & r(max) < . local _sk = r(max)
+                }
+            }
+            clear
+        }
+    }
+
+    if `_file_rc' == 0 & `_sk' == 0 {
         local ++n_pass
         display as result "  PASSED: `f'"
+    }
+    else if `_file_rc' == 0 & `_sk' > 0 {
+        local ++n_fail
+        local failed_files "`failed_files' `f'(skipped `_sk')"
+        display as error "  FAILED: `f' -- exited 0 but SKIPPED `_sk' check(s)"
+        display as error "  A skipped external oracle is an unrun check, not a pass."
+        display as error "  Install the missing dependency and re-run."
     }
     else {
         local ++n_fail
         local failed_files "`failed_files' `f'"
-        display as error "  FAILED: `f' (rc=`=_rc')"
+        display as error "  FAILED: `f' (rc=`_file_rc')"
     }
 }
 
@@ -157,7 +211,27 @@ if `n_fail' > 0 {
     display as error "Failed files:`failed_files'"
     local suite_rc = 1
 }
-else {
+
+* A file listed in _skip.txt was NOT run, so the suite did not prove what it
+* claims to prove.  This runner used to increment n_skip and then ignore it:
+* suite_rc was 1 only when n_fail > 0, so dropping a suite into _skip.txt made
+* the release gate print ALL CURATED QA FILES PASSED while silently not running
+* it.  That is the mechanism by which a 347/347 green suite coexisted with three
+* release-blocking defects (QA-H01).  A gate that can be disabled by adding one
+* file is not a gate: skipping is now a FAILURE, and _skip.txt can only ever
+* document a known-red suite, never hide one.
+if `n_skip' > 0 {
+    display as error ///
+        "`n_skip' curated file(s) were SKIPPED via _skip.txt and did not run:"
+    foreach s of local skip_names {
+        local _pos : list posof "`s'" in skip_names
+        display as error "  `s' -- `skip_reason_`_pos''"
+    }
+    display as error "A skipped suite is an unrun suite. This run is NOT green."
+    local suite_rc = 1
+}
+
+if `suite_rc' == 0 {
     display as result "ALL CURATED QA FILES PASSED"
 }
 

@@ -11,20 +11,13 @@ title: "console_datamap_missing"
 ```
 
 ```
-(file datamap/demo/datamap_missing.txt not found)
-(file /tmp/St647618.000003 not found)
 Output written to: datamap/demo/datamap_missing.txt
 Documentation generated successfully
 
 ```
 
 ```stata
-. noisily _demo_strip_trailing_spaces using "`pkg_dir'/datamap_missing.txt"
-```
-
-```
-(file /tmp/St647618.000001 not found)
-
+. quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_missing.txt"
 ```
 
 ```stata
@@ -33,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 19 Jun 2026 15:17:40
+Generated: 15 Jul 2026 00:26:56
 
 ========================================
 DATASET: _demo_missing.dta

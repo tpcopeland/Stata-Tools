@@ -109,7 +109,7 @@ else {
     display "FAIL T1: iivw_balance component selection (C8)"
 }
 
-**# T2 - C2: correct weights must be called good, not poor
+**# T2 - C2: correct weights must be flagged within_rule, not exceeds_rule
 
 local ++test_count
 capture noisily {
@@ -127,7 +127,7 @@ capture noisily {
     * reproduces the at-risk person-time distribution it is supposed to
     * represent. THIS is balance.
     assert abs(r(balance_max_tsmd)) < 0.10
-    assert "`r(balance_flag)'" == "good"
+    assert "`r(balance_flag)'" == "within_rule"
     assert r(refit_ok) == 1
     assert r(refit_n_censrows) > 0
 
@@ -141,14 +141,14 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display "PASS T2: correct IIW weights yield a good verdict despite a large shift (C2)"
+    display "PASS T2: correct IIW weights yield a within_rule flag despite a large shift (C2)"
 }
 else {
     local ++fail_count
     display "FAIL T2: balance verdict on correctly weighted data (C2)"
 }
 
-**# T3 - C2 negative control: misspecified weights must be called poor
+**# T3 - C2 negative control: misspecified weights must be flagged exceeds_rule
 
 local ++test_count
 capture noisily {
@@ -162,14 +162,14 @@ capture noisily {
     * Ask for balance on z, which the weight model never saw.
     quietly iivw_balance z, nolog
 
-    * A diagnostic that says "good" here would be useless. The weighted visits
-    * do NOT reproduce the person-time distribution of z.
+    * A diagnostic that says within_rule here would be useless. The weighted
+    * visits do NOT reproduce the person-time distribution of z.
     assert abs(r(balance_max_tsmd)) > 0.20
-    assert "`r(balance_flag)'" == "poor"
+    assert "`r(balance_flag)'" == "exceeds_rule"
 }
 if _rc == 0 {
     local ++pass_count
-    display "PASS T3: misspecified weights are called poor against the target (C2)"
+    display "PASS T3: misspecified weights are flagged exceeds_rule against the target (C2)"
 }
 else {
     local ++fail_count
@@ -189,7 +189,7 @@ capture noisily {
 
     * z is holed above so some rows carry no weight -- which is the whole
     * subject of this test (the ESS denominator must be the WEIGHTED rows, not
-    * all rows). From 3.0.0 the loss must be acknowledged.
+    * all rows). From 2.0.0 the loss must be acknowledged.
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(cens) ///
         wtype(iivw) allowmissingweights nolog
 
@@ -240,7 +240,7 @@ capture noisily {
     tempfile h7log
     quietly log using "`h7log'", text replace name(h7cap)
     iivw_weight, id(id) time(time) lagvars(z) censor(cens) ///
-        wtype(iivw) truncate(0.5 1.2) nolog
+        wtype(iivw) truncfinal(0.5 1.2) nolog
     capture log close h7cap
 
     * Read the captured console output back. No ".log" suffix: a tempfile name
@@ -262,7 +262,7 @@ capture noisily {
     assert strpos(`"`h7_text'"', "Consider checking model specification") == 0
 
     * ...and it should say what actually moved the mean.
-    assert strpos(`"`h7_text'"', "truncate() clipped") > 0
+    assert strpos(`"`h7_text'"', "truncfinal() clipped") > 0
 }
 if _rc == 0 {
     local ++pass_count

@@ -62,7 +62,7 @@ end
 * _cov_restamp -- re-stamp the weight signature after a hand-edited characteristic.
 *
 * R2 and R3 SIMULATE `iivw_weight ... allownonconverged' by writing the
-* nonconverged stamp onto an already-weighted dataset. From 3.0.0 the stale-weight
+* nonconverged stamp onto an already-weighted dataset. From 2.0.0 the stale-weight
 * signature binds the stored SPECIFICATION as well as the columns, so editing a
 * characteristic after the fact is -- correctly -- treated as tampering, and the
 * next consumer errors r(459).
@@ -110,7 +110,7 @@ capture noisily {
 
     * Baseline: with clean weights the verdict is issued.
     quietly iivw_balance
-    assert inlist("`r(balance_flag)'", "good", "poor")
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
     assert r(refit_ok) == 1
 
     * Now mark the weights as coming from a nonconverged nuisance model, exactly
@@ -307,7 +307,7 @@ capture noisily {
     local stamp : char _dta[_iivw_nonconverged]
     assert "`stamp'" == ""
     quietly iivw_balance
-    assert inlist("`r(balance_flag)'", "good", "poor")
+    assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
 
     quietly iivw_fit y z, allownonconverged
     local fstamp : char _dta[_iivw_fit_nonconverged]
@@ -394,7 +394,7 @@ else {
     display "FAIL R10: target SMD did not converge (bias, not noise)"
 }
 
-**# R11 - a degenerate person-time target must not pass as a confident "good"
+**# R11 - a degenerate person-time target must not pass as a confident within_rule
 
 local ++test_count
 capture noisily {
