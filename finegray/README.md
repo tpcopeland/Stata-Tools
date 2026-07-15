@@ -1,10 +1,8 @@
-# finegray - Fast Fine-Gray competing risks regression
+# finegray — Fast Fine-Gray competing risks regression
 
 **Version 1.2.0** | 2026-07-15
 
-`finegray` fits the Fine and Gray (1999) subdistribution hazards model for competing risks data. It uses a native Mata forward-backward scan implementation that avoids data expansion, so it remains practical on datasets where `stcrreg` becomes slow or infeasible.
-
-The package also includes post-estimation tools for prediction, cumulative incidence curves, and proportional subdistribution hazards diagnostics. The intended workflow is `finegray` for estimation, `finegray_predict` for `xb`, CIF, or Schoenfeld residuals, `finegray_cif` for cumulative incidence curves and fixed-horizon CIF with confidence intervals, and `finegray_phtest` for the proportional hazards check.
+`finegray` fits the Fine and Gray (1999) proportional subdistribution hazards model with a native Mata scan that avoids data expansion. It also provides post-estimation prediction, cumulative-incidence curves and intervals, and an explicitly approximate proportionality diagnostic.
 
 ## Quick Start
 
@@ -22,7 +20,7 @@ finegray_phtest
 
 - Stata 16 or later
 - Data must be `stset` with `id()`
-- Datasets with multiple records per subject (delayed entry, `(start,stop]` intervals, `stsplit`) are supported automatically when covariates are constant within subject; genuinely time-varying covariates are not (the subdistribution hazard is undefined with them)
+- Datasets with multiple records per subject (delayed entry, `(start,stop]` intervals, `stsplit`) are supported automatically when covariates are constant within subject; covariates that change within subject are not supported. In particular, internal time-varying covariates do not retain the model's direct relationship to the CIF after a competing event.
 
 ## Installation
 
@@ -36,9 +34,9 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | Command | Description |
 |---------|-------------|
 | `finegray` | Fit a Fine-Gray subdistribution hazards model |
-| `finegray_predict` | Generate `xb`, CIF (with optional CI), or Schoenfeld residuals after `finegray` |
+| `finegray_predict` | Generate `xb`, CIF (with optional CI), baseline cumulative subhazard, or Schoenfeld residuals after `finegray` |
 | `finegray_cif` | Plot cumulative incidence curves with confidence bands; report fixed-horizon CIF with CI |
-| `finegray_phtest` | Test the proportional subdistribution hazards assumption |
+| `finegray_phtest` | Screen the proportional subdistribution hazards assumption with an approximate residual diagnostic |
 
 ## Options
 
@@ -70,7 +68,7 @@ net install finegray, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `bootstrap()`, `seed()` | `finegray_cif` | Use a reproducible subject or cluster bootstrap |
 | `nograph` | `finegray_cif` | Suppress graph creation |
 | `time()` | `finegray_phtest` | Select `rank`, `log`, or `identity`; default `rank` |
-| `detail` | `finegray_phtest` | Display the first 20 scaled-Schoenfeld rows |
+| `detail` | `finegray_phtest` | Display the first 20 approximately scaled Schoenfeld rows |
 
 ## Stored Results
 
@@ -125,9 +123,9 @@ Operational details that matter:
 - `compete()` is usually coded as `0 = censored`, `1 = cause 1`, `2 = cause 2`, and so on
 - `cause(#)` selects the event type of interest
 - `finegray_predict, xb` can be used on datasets that contain the model covariates
-- `finegray_predict, cif` additionally requires a time variable (`_t` or `timevar()`)
+- `finegray_predict, cif` additionally requires a time variable (`_t` or `timevar()`); it uses `e(basehaz)` when that opt-in matrix exists and otherwise resolves the fit-specific cached or rebuilt baseline
 - `finegray_predict, schoenfeld` and `finegray_phtest` require the original `stset` estimation data
-- Without delayed entry, `finegray_predict` reproduces `stcrreg`'s post-estimation quantities: `xb` matches `predict, xb`, the baseline CIF matches `predict, basecif`, and `e(basehaz)` is the cumulative-subhazard analogue (`H0 = -ln(1 - basecif)`). The per-observation `cif` is the covariate-adjusted CIF, which `stcrreg` produces via `stcurve, cif at()` rather than `predict`; `finegray_predict, cif` matches it to numerical precision. Schoenfeld residuals match `stcrreg` exactly at untied event times; at tied event times the per-event split differs by convention while the per-time total is identical (see below)
+- Without delayed entry, `finegray_predict` reproduces `stcrreg`'s post-estimation quantities: `xb` matches `predict, xb`, the baseline CIF matches `predict, basecif`, and the fitted cumulative subhazard is `H0 = -ln(1 - basecif)` (also available in `e(basehaz)` when `basehaz` was requested). The per-observation `cif` is the covariate-adjusted CIF, which `stcrreg` produces via `stcurve, cif at()` rather than `predict`; `finegray_predict, cif` matches it to numerical precision. Schoenfeld residuals match `stcrreg` exactly at untied event times; at tied event times the per-event split differs by convention while the per-time total is identical (see below)
 - Factor-variable models are supported, but prediction on new data still requires the same factor-level support as the estimation sample
 - Data-dependent post-estimation commands verify that the original estimation sample has not changed; re-run `finegray` after editing model data
 - Constant or exactly collinear covariate columns are rejected explicitly rather than silently ridge-regularized
@@ -169,7 +167,7 @@ finegray_predict cif_at5, cif timevar(t5)
 
 ### 3. Run the proportional hazards diagnostic
 
-`finegray_phtest` is the post-estimation check for time-varying effects. It uses scaled Schoenfeld residuals and therefore must be run on the original estimation data.
+`finegray_phtest` is an approximate post-estimation diagnostic for time-varying effects. It uses diagonal-scaled Schoenfeld residuals and simple residual–time correlations, so it must be run on the original estimation data and should not be interpreted as a formal Grambsch–Therneau joint test.
 
 ```stata
 webuse hypoxia, clear
@@ -202,7 +200,7 @@ finegray ifp tumsize pelnode, compete(status) cause(1) noshr
 
 `norobust` switches from the default sandwich variance to the observed-information variance. **These standard errors are not valid for inference.** The Fine-Gray objective is a pseudo-likelihood — the inverse-probability-of-censoring weights make subjects' contributions dependent — so the inverse information matrix does not estimate the sampling variance of the coefficients. They are generally too small, and their confidence intervals do not have nominal coverage. `norobust` exists so the naive likelihood variance can be inspected and compared against the sandwich; `finegray` prints a warning whenever it is used.
 
-The default sandwich treats the estimated censoring weights as fixed: it does not propagate the uncertainty in the estimated censoring distribution G(t). This is the same variance `stcrreg` reports. Against `cmprsk::crr`, which does include that nuisance term, `finegray`'s standard errors are smaller by roughly 0.2% in relative terms; coefficients are unaffected. Where that matters, `bootstrap()` in `finegray_cif` and `finegray_predict` re-estimates G(t) in every replication and so captures the censoring-weight uncertainty exactly.
+The default sandwich treats the estimated censoring weights as fixed: it does not propagate the uncertainty in the estimated censoring distribution G(t). This is the same variance `stcrreg` reports. Against `cmprsk::crr`, which does include that nuisance term, `finegray`'s standard errors are smaller by roughly 0.2% in relative terms; coefficients are unaffected. Where that matters, `bootstrap()` in `finegray_cif` and `finegray_predict` re-estimates the model and its G(t) weights in every replication; with delayed entry it also re-estimates H(t) and the weight strata.
 
 ### 5. Cumulative incidence curves and fixed-horizon CIF
 
@@ -223,7 +221,7 @@ gen double t5 = 5
 finegray_predict cif5, cif timevar(t5) ci          // per-subject 5-year CIF + cif5_lci/cif5_uci
 ```
 
-## Demonstration
+## Demo
 
 The comprehensive demo script (`finegray/demo/demo_finegray.do`) installs the local package, exercises every public command and all 1.1.x workflows, verifies exported CIF data, and refreshes the graph below. Run it from the Stata-Tools repository root with `stata-mp -b do finegray/demo/demo_finegray.do`.
 
@@ -242,8 +240,8 @@ The graph uses the package default profile, an analytic 95% pointwise confidence
 - Robust, clustered, or model-based standard errors
 - CIF prediction on estimation data or at user-supplied times, with confidence intervals
 - Cumulative incidence curves with confidence bands and exportable estimates (`finegray_cif`)
-- Approximate proportional subdistribution hazards test after estimation
-- Left truncation (delayed entry) via the stabilized Zhang–Zhang–Fine Weight 1 estimator, computed without expanding the data — see below
+- Approximate proportional subdistribution hazards diagnostic after estimation
+- Left truncation (delayed entry) via the separable Geskus product-limit weight, computed without expanding the data; in the unstratified continuous-time setting this is equivalent to Zhang–Zhang–Fine Weight 1 — see below
 
 ## Left truncation (delayed entry)
 
@@ -251,7 +249,9 @@ The graph uses the package default profile, an analytic 95% pointwise confidence
 
 A Fine–Gray weight built from the censoring distribution alone is not a valid weight for left-truncated data: if nothing is censored it collapses to a constant, which cannot correct anything. Zhang, Zhang & Fine (2011) show that the resulting estimator is biased and that the bias does **not** shrink as the sample grows. `stcrreg` uses that censoring-only weight, and so did `finegray` before this release.
 
-`finegray` now targets the **stabilized Zhang–Zhang–Fine Weight 1** estimator. Writing `A(t)` for the probability of being under observation at `t`, a subject retained in the risk set after a competing event at `X_i` carries weight `A(t−)/A(X_i−)` instead of the censoring-only ratio `G(t−)/G(X_i−)`. `A` is computed as the product of the delayed-entry-aware censoring survivor `G` and a reverse-time product-limit estimator `H` of the entry distribution (Geskus 2011), which was verified to reproduce the canonical ZZF form to machine precision on every tied-time collision class before it was shipped.
+`finegray` implements the **Geskus (2011) product-limit representation**. Writing `A(t) = G(t−)H(t−)`, where `G` is the delayed-entry-aware censoring survivor and `H` is a reverse-time product-limit estimator of entry, a subject retained after a competing event at `X_i` carries `A(t−)/A(X_i−)` instead of the censoring-only ratio `G(t−)/G(X_i−)`. Geskus states that this weight is equivalent to Zhang–Zhang–Fine Weight 1, and Bellach et al. (2020) prove the equivalence for continuous failure times; the package supplies and tests its own finite-sample tie convention.
+
+The citation scope matters under stratification. Zhang, Zhang & Fine (2011, eq. 7) use a pooled time-side stabilizer with stratum-specific subject-side denominators. `finegray` instead estimates `G` within `strata()`, estimates `H` within `truncstrata()`, and cross-classifies the two; that symmetric cross-classified construction is a package extension and is not attributed to Zhang et al.'s stratified equation.
 
 The weight is **separable** — it factors into a function of time times a function of the subject — which is exactly the property that lets the forward–backward scan compute it **without expanding the data**. Reference implementations (`survival::finegray`, `mstate::crprep`) deliver the same weighting by emitting one row per weight change, expanding a 500-subject delayed-entry dataset by 17× and 27× respectively.
 
@@ -261,17 +261,17 @@ The weight is **separable** — it factors into a function of time times a funct
 |---|---|
 | **Delayed-entry results change** | Coefficients, SEs, baseline hazards, predictions and CIFs all move relative to earlier `finegray` versions and relative to `stcrreg`. That is the fix, not a regression. |
 | **No-delayed-entry results do not change** | With every subject entering at the origin, `H ≡ 1`, `A` collapses to `G`, and the estimator is bit-for-bit the existing right-censoring path. |
-| **Pooled weights assume covariate-independent entry** | If entry depends on an observed discrete group, name it in `truncstrata()`. If censoring does, name it in `strata()`. The two are cross-classified internally. |
+| **Pooled weights assume covariate-independent entry and censoring** | If entry depends on an observed discrete group, name it in `truncstrata()`. If censoring does, name it in `strata()`. The two are cross-classified internally as a package extension. |
 | **Continuous covariate-dependent entry is not supported** | It is rejected, not silently approximated: a continuously subject-specific weight destroys the shared time factor the scan depends on. |
 | **Breaking change** | Under delayed entry, `A` is estimated per joint weight stratum, so every `strata()` level is also a weight stratum *even without* `truncstrata()`. At most 100 joint strata (≥20 subjects each) are supported. A delayed-entry model with many `strata()` levels that fitted in 1.1.4 may now stop with `r(459)` rather than silently pooling groups. The same model still fits without delayed entry. |
 
-`e(lt_weight)` reports which weight was actually used (`zzf1_geskus` or `right_censoring`) and `e(lt_vce)` which variance, so no consumer has to infer either from the option list. Weight diagnostics are stored in `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, `e(N_weight_warn)` and `e(weight_warn_strata)`. Unlike censoring-only weights, ZZF weights may legitimately exceed 1.
+`e(lt_weight)` reports which weight was actually used (`zzf1_geskus` or `right_censoring`) and `e(lt_vce)` which variance, so no consumer has to infer either from the option list. The stored label `zzf1_geskus` is historical; the implemented contract is the Geskus product-limit form and the package extension just described. Weight diagnostics are stored in `e(N_weight_strata)`, `e(min_weight_prob)`, `e(max_lt_weight)`, `e(N_prob_warn)`, `e(N_weight_warn)` and `e(weight_warn_strata)`. Product-limit delayed-entry weights may legitimately exceed 1.
 
 ## Validation
 
-On ordinary right-censored data without delayed entry, the package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression: `cmprsk::crr` and `fastcmprsk::fastCrr`. (`riskRegression::FGR` is used for the CIF prediction check, but it is a `cmprsk` wrapper — it calls `do.call(cmprsk::crr, args)` — so it does not count as a further independent estimator.) The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior. The delayed-entry ZZF branch is validated separately against direct estimating-equation oracles, independent R implementations, and Monte Carlo recovery and coverage gates; agreement with `stcrreg` is not expected there.
+On ordinary right-censored data without delayed entry, the package QA cross-validates `finegray` against Stata's `stcrreg` and independent R implementations of Fine-Gray regression: `cmprsk::crr` and `fastcmprsk::fastCrr`. (`riskRegression::FGR` is used for the CIF prediction check, but it is a `cmprsk` wrapper — it calls `do.call(cmprsk::crr, args)` — so it does not count as a further independent estimator.) The validation files under `qa/` cover coefficients, standard errors, log pseudo-likelihoods, CIF predictions (point estimates bit-exact against `riskRegression`), CIF confidence intervals (validated against a subject bootstrap), baseline hazards, multiple-record reduction, and stratified censoring behavior. The delayed-entry product-limit branch and its package-specific stratified extension are validated separately against direct estimating-equation oracles, independent R implementations, and Monte Carlo recovery and coverage gates; agreement with `stcrreg` is not expected there.
 
-The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, `full`, and `gates` lanes) and documented in `qa/README.md`. The `qa/` directory contains 25 package QA files: 12 functional/regression files (including `test_documentation_examples.do`, which runs every documented example verbatim), 8 validation files, and 5 cross-validation files covering all four public commands, plus a performance benchmark. The two Monte Carlo recovery/coverage gates run under the `gates` lane (hours, not minutes). A skipped or missing suite fails the runner — an external oracle that does not run is treated as an unrun check, not a pass.
+The suite is driven by `qa/run_all.do` (`quick`, `core`, `python`, `full`, and `gates` lanes) and documented in `qa/README.md`. The `qa/` directory contains 26 executable suite files: 12 functional/regression files (including `test_documentation_examples.do`, which runs the README workflows and advertised baseline options), 8 validation files, 5 cross-validation files covering all four public commands, and a performance benchmark. The two Monte Carlo recovery/coverage gates run under the `gates` lane (hours, not minutes). A skipped or missing suite fails the runner — an external oracle that does not run is treated as an unrun check, not a pass.
 
 On no-delayed-entry data, `qa/crossval_predict_stcrreg.do` cross-validates every `finegray_predict` path directly against `stcrreg`'s native post-estimation predictions (no external dependency, so it never skips): `xb`, the relative subhazard `exp(xb)`, the covariate-adjusted CIF, the baseline CIF (`basecif`), the baseline cumulative subhazard (`e(basehaz)`), Schoenfeld residuals, and the subhazard ratios with their standard errors and 95% confidence intervals. All agree to numerical precision, with one documented and asserted exception:
 
@@ -281,17 +281,20 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
 
 ## References
 
-- Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association*. 1999;94(446):496-509.
-- Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the subdistribution with right-censored and left-truncated competing risks data. *Statistics in Medicine*. 2011;30(16):1933-1951.
-- Geskus RB. Cause-specific cumulative incidence estimation and the Fine and Gray model under both left truncation and right censoring. *Biometrics*. 2011;67(1):39-49.
-- Bellach A, Kosorok MR, Gilbert PB, Fine JP. General regression model for the subdistribution of a competing risk under left-truncation and right-censoring. *Biometrika*. 2020;107(4):949-964.
-- Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on weighted residuals. *Biometrika*. 1994;81(3):515-526.
-- Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*. 2021;30(3):685-693.
+- Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association*. 1999;94(446):496–509. [doi:10.1080/01621459.1999.10474144](https://doi.org/10.1080/01621459.1999.10474144)
+- Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the subdistribution with right-censored and left-truncated competing risks data. *Statistics in Medicine*. 2011;30(16):1933–1951. [doi:10.1002/sim.4264](https://doi.org/10.1002/sim.4264)
+- Geskus RB. Cause-specific cumulative incidence estimation and the Fine and Gray model under both left truncation and right censoring. *Biometrics*. 2011;67(1):39–49. [doi:10.1111/j.1541-0420.2010.01420.x](https://doi.org/10.1111/j.1541-0420.2010.01420.x)
+- Bellach A, Kosorok MR, Gilbert PB, Fine JP. General regression model for the subdistribution of a competing risk under left-truncation and right-censoring. *Biometrika*. 2020;107(4):949–964. [doi:10.1093/biomet/asaa034](https://doi.org/10.1093/biomet/asaa034)
+- Bellach A, Kosorok MR, Rüschendorf L, Fine JP. Weighted NPMLE for the subdistribution of a competing risk. *Journal of the American Statistical Association*. 2019;114(525):259–270. [doi:10.1080/01621459.2017.1401540](https://doi.org/10.1080/01621459.2017.1401540)
+- Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing risks data. *Journal of Computational and Graphical Statistics*. 2021;30(3):685–693. [doi:10.1080/10618600.2020.1841650](https://doi.org/10.1080/10618600.2020.1841650)
+- Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on weighted residuals. *Biometrika*. 1994;81(3):515–526. [doi:10.1093/biomet/81.3.515](https://doi.org/10.1093/biomet/81.3.515). Correction with the same title: Grambsch PM, Therneau TM. *Biometrika*. 1995;82(3):668. [doi:10.1093/biomet/82.3.668](https://doi.org/10.1093/biomet/82.3.668)
+
+Citation scope: Fine and Gray (1999) ground the model, right-censoring risk sets, and Schoenfeld-type residual plots. Zhang et al. (2011) ground left-truncated Weight 1 in its published `b/S` form; Geskus (2011) grounds the `G·H` product-limit form and tie ordering; Bellach et al. (2020) ground their continuous-time equivalence. Bellach et al. (2019) ground the estimated-weight variance term and the limitation for internal time-varying covariates. Kawaguchi et al. (2021) ground only the right-censoring, no-ties scan decomposition—not this package's tie, left-truncation, or variance extensions. Grambsch and Therneau (1994, corrected 1995) concern the Cox model; `finegray_phtest` borrows their residual–time diagnostic idea but does not implement or claim that paper's formal joint test for the proportional subdistribution hazards model.
 
 ## Version History
 
 - **1.2.0** (2026-07-15; Pending SSC release): Left-truncation estimator, opt-in baseline, and a hardened QA gate. Supersedes the never-released 1.1.x line.
-  - **Left truncation now uses the stabilized Zhang–Zhang–Fine (2011) weight.** Under delayed entry the weight is `A(t−) = G(t−)·H(t−)` (the Geskus 2011 product form), reweighting the risk set for entry rather than applying the censoring weight alone. Delayed-entry point estimates that were biased by tens to hundreds of Monte Carlo standard errors — see the retracted 1.1.1 note below — now recover the truth to within Monte Carlo error. `strata()` stratifies the censoring distribution and the new `truncstrata()` stratifies the entry distribution; the two are cross-classified into joint weight strata. With **no** delayed entry the estimator is bit-identical to before. `e(lt_weight)` and `e(lt_vce)` record the weight form and the variance actually computed (`fg_sandwich` is the default and the only one valid under truncation; `norobust` under delayed entry undercovers and now warns).
+  - **Left truncation now uses the Geskus (2011) product-limit weight.** Under delayed entry the weight factor is `A(t−) = G(t−)·H(t−)`, reweighting the risk set for entry rather than applying the censoring weight alone. This is equivalent to Zhang–Zhang–Fine Weight 1 in the unstratified continuous-time setting; the tied-time rule and symmetric cross-classified `strata()`/`truncstrata()` construction are package extensions. Delayed-entry point estimates that were biased by tens to hundreds of Monte Carlo standard errors — see the retracted 1.1.1 note below — now recover the truth to within Monte Carlo error. With **no** delayed entry the estimator is bit-identical to before. `e(lt_weight)` and `e(lt_vce)` record the stored weight label and the variance actually computed; the default sandwich met the package's truncation coverage gate, while `norobust` undercovered and now warns.
   - **`e(basehaz)` is now opt-in (`basehaz`), and is a behavior change.** It holds one row per distinct cause-event time (≈ N/2 rows), and creating a Stata matrix that tall is O(rows²) — it cost 38 s at N = 200,000, more than the fit, and was the *only* reason `finegray` was superlinear in N. It is no longer posted unless you request `basehaz`; the runtime is now linear (log-log slope 1.06, 95 s → 18.7 s at N = 200,000). Post-estimation does not need the matrix — `finegray_cif` and `finegray_predict` rebuild the curve in Mata — so no `finegray_cif`/`predict` result changed. Only a user reading `e(basehaz)` directly, or `estimates save`-ing and predicting in a later session, needs to add `basehaz`.
   - **New `predict newvar, basecshazard`** returns the baseline cumulative subhazard as a variable at O(N) — the same idiom `stcrreg` uses, since `stcrreg` posts no baseline matrix in `e()`.
   - **Fixed a tie-handling defect in the delayed-entry at-risk count.** The entry-time risk set kept subjects exiting at that exact instant; Geskus's tie ordering (events, then censorings, then entries) removes them. Continuous data never exposed it (tied entry/exit has probability zero); a fixture of exact ties in Stata does.
@@ -309,7 +312,7 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
 
 - **1.1.2** (2026-07-09; Not released to SSC): Deep correctness and state-safety review.
   - Fixed stratified censoring IPCW throughout the estimator, robust variance, baseline hazard, Schoenfeld residuals, and CIF influence functions. Each retained competing-event subject now uses the censoring survival from its own stratum; coefficients and log pseudo-likelihood now match `cmprsk::crr(..., cengroup=)` to numerical precision.
-  - Added estimation-data signatures. `finegray_cif`, `finegray_phtest`, and the data-dependent `finegray_predict` paths reject stale or edited estimation data, while point `xb`/CIF scoring remains available on compatible new data.
+  - Added estimation-data signatures. `finegray_cif`, `finegray_phtest`, and the data-dependent `finegray_predict` paths reject stale or edited estimation data, while point `xb` scoring—and point CIF scoring while the active fit retains its baseline—remains available on compatible new data.
   - Hardened post-estimation state and return gates: failed refits cannot expose stale success, graph/save failures preserve the complete analytical `r()` payload, `saving()` is strictly parsed, and `at()` rejects nonfinite values.
   - Bootstrap inference skips nonconverged refits, reports requested/successful/failed counts from `finegray_cif`, requires at least two successful replications, and preserves the original estimates and `e(sample)`.
   - Exact collinearity and constant covariates now produce an explicit `r(459)` diagnostic instead of undocumented ridge-dependent estimates; optimizer convergence at a numerical optimum is recognized without requiring a strictly increasing final step.
@@ -317,7 +320,7 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
 - **1.1.1** (2026-07-07; Not released to SSC): Correctness fixes for left truncation and multi-record fits.
   - **RETRACTION.** This entry described left truncation as "corrected." That was overstated and is withdrawn. What 1.1.1 fixed was the *score-residual risk window* under delayed entry — a real bug, and the fix stands. But the underlying **weight** was still the censoring-only IPCW weight, which is not a valid weight for left-truncated data at all (Zhang, Zhang & Fine 2011). Delayed-entry point estimates remained biased after 1.1.1, by tens to hundreds of Monte Carlo standard errors in a covariate-dependent direction, exactly as they were before it. See the **Left truncation** section above for the estimator that actually corrects this.
   - Performance: the CIF influence-function variance (`finegray_cif` and `finegray_predict, cif ci`) was rewritten from an O(_n_&sup2;) per-evaluation-point loop over the cause events to an O(_n_&nbsp;log&nbsp;_n_) prefix-sum computation. Standard errors are numerically identical (max abs difference 1e-16); a `finegray_cif` call at _n_&nbsp;=&nbsp;120,000 dropped from ~91s to ~7s. This makes CIF standard errors practical at epidemiological sample sizes.
-  - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, PH tests, and bootstrap refits after `stsplit`-style data.
+  - Post-estimation after a multi-record (reduced) fit now reconstructs each subject's true entry time: `finegray` persists the earliest entry per subject in `_fg_entry` (recorded in `_dta[_finegray_entryvar]`), and `finegray_cif`, `finegray_phtest`, and the `ci`/`schoenfeld`/`bootstrap()` paths of `finegray_predict` read it instead of the kept record's own `_t0`. Previously these recomputed risk sets as if every subject entered at its last interval start, giving wrong CIF points/SEs, Schoenfeld residuals, proportionality summaries, and bootstrap refits after `stsplit`-style data.
   - Robust/cluster SEs and CIF influence-function SEs under delayed entry (left truncation) fixed: the per-subject score residuals now restrict the at-risk contribution to each subject's actual risk window `[t0, t]`. Validated against a delete-one jackknife oracle; results with no delayed entry are unchanged.
   - `finegray_cif, bootstrap()` no longer destroys `e(sample)`: estimates are now held before `preserve` so the `e(sample)` marker survives the resampling loop; previously any post-estimation command run after a bootstrap call failed with "no observations".
   - `finegray_cif, ci` and `finegray_predict, cif ci` no longer error (Mata type mismatch) when the model was fit with two or more `strata()` variables; they now combine the strata into a single group column like `finegray_phtest` already did.
@@ -329,7 +332,7 @@ Standard errors are robust (sandwich) by default in both commands and agree to w
   - New command `finegray_cif`: cumulative incidence curves with pointwise confidence bands (an `stcurve, cif` analogue that also plots the interval), fixed-horizon CIF tables (`attime()`), curves on a custom time grid (`timepoints()`), a subject-bootstrap band (`bootstrap()`/`seed()`), and exportable estimates via `saving()`. The CIF plot's legend defaults to a single row, and all `twoway` graph options (including `legend()` — e.g. `legend(off)`, `legend(pos(6))`) pass through and override the defaults.
   - `finegray_predict, cif ci` adds per-subject CIF confidence limits (influence-function SE, complementary log-log scale), with an optional bootstrap band. The analytic SE now builds its influence functions from the full estimation sample even when prediction is restricted with `if`/`in`.
   - `finegray` now accepts datasets with multiple records per subject (delayed entry / `(start,stop]` / `stsplit`) when covariates are constant within subject, reducing them automatically; time-varying covariates are rejected with a clear message.
-  - Documentation clarification (from the unreleased 1.0.1): `finegray_predict, cif` evaluates the CIF at each observation's own analysis time `_t`; `timevar()` gives a common horizon and `e(basehaz)` is the `stcrreg basecif` analogue.
+  - Documentation clarification (from the unreleased 1.0.1): `finegray_predict, cif` evaluates the CIF at each observation's own analysis time `_t`; `timevar()` gives a common horizon, and the fitted baseline cumulative subhazard is the cumulative-hazard analogue of `stcrreg`'s `basecif`.
 - **1.0.0** (2026-04-06; Released to SSC): Initial Stata-Tools release of `finegray`, `finegray_predict`, and `finegray_phtest`
 
 ## Author

@@ -9,11 +9,12 @@
 {viewerjumpto "Options" "finegray_phtest##options"}{...}
 {viewerjumpto "Examples" "finegray_phtest##examples"}{...}
 {viewerjumpto "Stored results" "finegray_phtest##results"}{...}
+{viewerjumpto "References" "finegray_phtest##references"}{...}
 {viewerjumpto "Author" "finegray_phtest##author"}{...}
 {title:Title}
 
 {p2colset 5 26 28 2}{...}
-{p2col:{cmd:finegray_phtest} {hline 2}}Test proportional subdistribution hazards assumption{p_end}
+{p2col:{cmd:finegray_phtest} {hline 2}}Approximate proportional subdistribution hazards diagnostic{p_end}
 {p2colreset}{...}
 
 
@@ -36,45 +37,51 @@
 {title:Description}
 
 {pstd}
-{cmd:finegray_phtest} tests the proportional subdistribution hazards (PSH)
-assumption after {helpb finegray}. It computes scaled Schoenfeld residuals
-at each cause-event time and tests their correlation with a function of time.
+{cmd:finegray_phtest} provides an approximate diagnostic for the proportional
+subdistribution hazards (PSH) assumption after {helpb finegray}. It computes
+diagonal-scaled Schoenfeld residuals at cause-event times and correlates each
+residual series with a function of time.
 
 {pstd}
-Under the PSH assumption, the scaled Schoenfeld residuals should be
-uncorrelated with time. A significant test indicates that the effect of the
-corresponding covariate changes over time, violating the PSH assumption.
+Time patterns in the residuals suggest that a covariate's effect may change
+over time. The reported chi-squared statistics and p-values are screening
+summaries, not formally calibrated subdistribution-hazard tests; see
+{it:Statistical scope} below.
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
-Schoenfeld residuals carry the combined stabilized Zhang-Zhang-Fine Weight 1
-weight A = G(t-)H(t-), not a censoring-only weight. Under delayed entry the
-residuals, the per-covariate tests, and the global test therefore
-{bf:intentionally differ} from the prior {cmd:finegray} path and from {helpb stcrreg}. Results
-with no delayed entry are unchanged. See {help finegray##lt:Left truncation} in {helpb finegray}.
+Schoenfeld residuals use the Geskus product-limit factor A = G(t-)H(t-), not a
+censoring-only weight. This is equivalent to Zhang-Zhang-Fine Weight 1 in the
+unstratified continuous-time setting; the finite-sample tie rule and symmetric
+cross-classified {opt strata()}/{opt truncstrata()} construction are package
+extensions. Under delayed entry the residuals and diagnostic summaries differ
+from the right-censoring path and from {helpb stcrreg}. See
+{help finegray##lt:Left truncation} in {helpb finegray}.
 
 {pstd}
 {bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model rather than
 erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} exists but holds the last iterate
 rather than a solution. Schoenfeld residuals taken at a non-solution do not
-have mean zero and the test built on them is meaningless, so {cmd:finegray_phtest}
-exits with {cmd:r(430)} when {cmd:e(converged)} is not 1. Refit with a larger {opt iterate()} or
-a different specification.
+have the fitted score property, so the diagnostic is meaningless and
+{cmd:finegray_phtest} exits with {cmd:r(430)} when {cmd:e(converged)} is not 1. Refit
+with a larger {opt iterate()} or a different specification.
 
 {pstd}
-The per-variable tests use scaled Schoenfeld residuals correlated with a time
-function, similar in spirit to {cmd:estat phtest} after {cmd:stcox}. However,
-the implementation differs in two ways: (1) scaling uses only the diagonal of
-the inverse information matrix rather than the full matrix, and (2) the global
-test is the sum of the per-variable chi-squared statistics.
+{bf:Statistical scope.} For each covariate, the command multiplies its raw
+Schoenfeld residual by the corresponding diagonal element of the inverse
+observed-information matrix. It then calculates the residual-time correlation
+rho and reports n*rho^2 against a one-degree-of-freedom chi-squared reference. The
+statistic labeled {it:Global test} is the sum of those marginal statistics,
+with {it:p} degrees of freedom.
 
 {pstd}
-{bf:The global test is not a joint test.} Summing the per-variable
-chi-squared statistics and taking {it:df} = {it:p} ignores the covariance
-{it:between} covariates, so the global statistic is an approximate PH diagnostic
-only. It is most trustworthy when the covariates are close to orthogonal, and it
-should not be read as a formal joint test of proportionality. The per-variable
-tests are unaffected.
+This construction is inspired by weighted-residual diagnostics for Cox models,
+but it does not implement the full Grambsch-Therneau transformation or a
+published subdistribution-hazard calibration. The marginal p-values are
+therefore approximate. The summed statistic also ignores covariance between
+covariates and is not a formal joint test. Use the residual pattern and
+sensitivity across {opt time()} choices as diagnostic evidence, not as a
+stand-alone accept/reject procedure.
 
 {pstd}
 The test is only defined where it can be computed. If every cause event occurs
@@ -109,7 +116,7 @@ loading a new dataset.
 {opt time(function)} specifies the time function used in the correlation
 test. {cmd:rank} (the default) uses the rank of event times. {cmd:log} uses
 log(time). {cmd:identity} uses raw event times. The rank transformation is
-robust to outliers and is the standard choice.
+less sensitive to extreme event times and is the default screening choice.
 
 {phang}
 {opt detail} displays the first 20 rows of the scaled Schoenfeld residual matrix.
@@ -127,7 +134,7 @@ robust to outliers and is the standard choice.
 {phang2}{cmd:. finegray ifp tumsize pelnode, compete(status) cause(1)}{p_end}
 
 {pstd}
-{bf:Default PH test (rank of time)}
+{bf:Default proportionality diagnostic (rank of time)}
 
 {phang2}{cmd:. finegray_phtest}{p_end}
 
@@ -150,9 +157,9 @@ robust to outliers and is the standard choice.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(chi2)}}global chi-squared statistic{p_end}
+{synopt:{cmd:r(chi2)}}sum of marginal chi-squared screening statistics{p_end}
 {synopt:{cmd:r(df)}}degrees of freedom{p_end}
-{synopt:{cmd:r(p)}}global p-value{p_end}
+{synopt:{cmd:r(p)}}approximate p-value for the summed statistic{p_end}
 {synopt:{cmd:r(N_fail)}}number of cause events{p_end}
 
 {synoptset 20 tabbed}{...}
@@ -161,7 +168,36 @@ robust to outliers and is the standard choice.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(phtest)}}p x 3 matrix: chi2, df, p for each variable{p_end}
+{synopt:{cmd:r(phtest)}}p x 3 matrix: marginal chi2, df, approximate p{p_end}
+
+
+{marker references}{...}
+{title:References and citation scope}
+
+{pstd}
+Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a
+competing risk. {it:JASA} 1999; 94(446): 496-509.
+
+{pstd}{browse "https://doi.org/10.1080/01621459.1999.10474144":doi:10.1080/01621459.1999.10474144}{p_end}
+
+{pstd}
+Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
+weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
+
+{pstd}{browse "https://doi.org/10.1093/biomet/81.3.515":doi:10.1093/biomet/81.3.515}{p_end}
+
+{pstd}
+Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
+weighted residuals [correction]. {it:Biometrika} 1995; 82(3): 668.
+
+{pstd}{browse "https://doi.org/10.1093/biomet/82.3.668":doi:10.1093/biomet/82.3.668}{p_end}
+
+{pstd}
+Fine and Gray (1999) support Schoenfeld-type residual plots for the
+subdistribution model. Grambsch and Therneau (1994, corrected 1995) concern
+the Cox model and are cited only as inspiration for time-transformed
+weighted-residual diagnostics. Neither article validates the marginal
+n*rho^2 statistics or their sum as implemented here.
 
 
 {marker author}{...}

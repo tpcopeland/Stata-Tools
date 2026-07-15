@@ -79,7 +79,7 @@ risk-set unit. Left-truncated (delayed entry) data are supported.
 {newvar}
 {ifin}{cmd:,}
 [{opt xb} {opt cif} {opt sch:oenfeld} {opt time:var(varname)} {opt ci}
-{opt l:evel(#)} {opt boot:strap(#)} {opt seed(#)}]
+{opt basecsh:azard} {opt l:evel(#)} {opt boot:strap(#)} {opt seed(#)}]
 
 {p 8 17 2}
 {cmd:finegray_cif}
@@ -106,9 +106,10 @@ covariates on the cumulative incidence of a cause of interest in the presence of
 competing events.
 
 {pstd}
-The estimator uses a native O(np) forward-backward scan algorithm (Kawaguchi et
-al. 2021) that avoids data expansion entirely, making it substantially faster
-than {cmd:stcrreg} for large datasets.
+The estimator uses a native forward-backward scan adapted from Kawaguchi et al. (2021)
+that avoids data expansion. Their published decomposition covers
+right-censored data without ties; tie handling and delayed entry are package
+extensions described below.
 
 {pstd}
 See {it:Performance} under {help finegray##remarks:Remarks} for benchmarks.
@@ -223,8 +224,9 @@ variance {helpb stcrreg} reports, and coefficients are unaffected — only the s
 errors are. Against {cmd:cmprsk::crr}, whose variance includes the censoring-weight
 nuisance term, {cmd:finegray}'s standard errors differ by roughly 0.2% in relative
 terms on tie-free data. Where that difference matters, {opt bootstrap()} in
-{helpb finegray_cif} and {helpb finegray_predict} resamples subjects and re-estimates G(t) in
-every replication, so it captures the censoring-weight uncertainty exactly.
+{helpb finegray_cif} and {helpb finegray_predict} resamples subjects and
+re-estimates the model and G(t) in every replication. With delayed entry it
+also re-estimates H(t) and the weight strata.
 
 {dlgtab:Reporting}
 
@@ -353,15 +355,24 @@ vanish as the sample grows. {cmd:stcrreg} uses that censoring-only weight; so di
 {cmd:finegray} before this release.
 
 {pstd}
-{cmd:finegray} instead targets the {bf:stabilized Zhang-Zhang-Fine Weight 1}
-estimator. Writing A(t) for the probability of being under observation at t, a
-subject retained in the risk set after a competing event at X_i carries weight
-A(t-)/A(X_i-) rather than the censoring-only ratio G(t-)/G(X_i-). A(t) is
-computed as the product of the delayed-entry-aware censoring survivor G and a
-reverse-time product-limit estimator H of the entry distribution (Geskus
-2011), and {cmd:e(lt_weight)} reports {cmd:zzf1_geskus} whenever this branch is taken. The
-two forms were verified to agree to machine precision across every tied-time
-collision class before either was shipped.
+{cmd:finegray} implements the {bf:Geskus (2011) product-limit representation}. Writing
+A(t) = G(t-)H(t-), where G is the delayed-entry-aware censoring survivor
+and H is a reverse-time product-limit estimator of entry, a subject retained
+after a competing event at X_i carries A(t-)/A(X_i-) instead of the
+censoring-only ratio G(t-)/G(X_i-). Geskus states that this weight is equivalent
+to Zhang-Zhang-Fine Weight 1, and Bellach et al. (2020) prove the equivalence for
+continuous failure times. The package supplies and tests its own finite-sample
+tie convention.
+
+{pstd}
+The citation scope changes under stratification. Zhang, Zhang and Fine (2011,
+eq. 7) use a pooled time-side stabilizer and stratum-specific subject-side
+denominators. {cmd:finegray} instead estimates G within {opt strata()}, H within
+{opt truncstrata()}, and cross-classifies the two. That symmetric
+cross-classified construction is a package extension, not Zhang et al.'s
+published stratified equation. The stored {cmd:e(lt_weight)} label
+{cmd:zzf1_geskus} is historical; the implemented contract is the product-limit
+form and extension described here.
 
 {pstd}
 {bf:Consequences you should expect.} Delayed-entry coefficients, standard errors,
@@ -373,15 +384,16 @@ right-censoring path. {cmd:e(lt_weight)} reports {cmd:right_censoring} there, an
 {cmd:e(lt_vce)} reports {cmd:not_applicable}.
 
 {pstd}
-{bf:Which weights are valid for your data.} Pooled weights (no {opt truncstrata()})
-assume the entry and censoring mechanisms do not depend on the
+{bf:Which weights are valid for your data.} Pooled weights (no {opt strata()} or
+{opt truncstrata()}) assume that entry and censoring do not depend on the model
 covariates. When entry depends on an observed discrete group, name it in
 {opt truncstrata()}; when censoring does, name it in {opt strata()}. The two are
-cross-classified internally. Entry mechanisms that depend continuously on
-covariates are {bf:not supported} in this release and are not approximated silently
-— a continuously subject-specific weight destroys the shared time factor the
-scan is built on. Internal time-varying covariates remain prohibited, as they
-are for any subdistribution model.
+cross-classified internally as a package extension. Continuous
+covariate-dependent entry is {bf:not supported} and is not approximated
+silently. Covariates that change within subject are also unsupported; for
+internal time-varying covariates, the direct relationship between a
+subdistribution hazard and the CIF is generally unavailable after a competing
+event.
 
 {pstd}
 {bf:Support boundary, and a breaking change.} Under delayed entry the weight A is
@@ -426,9 +438,10 @@ does not propagate the uncertainty in estimating G and H. Zhang, Zhang and
 Fine (2011, Appendix B) give a two-part variance whose second and third terms
 account for that uncertainty, and it is not implemented here. The coverage
 study above is the evidence that the fixed-weight sandwich is nevertheless
-adequate across the supported range; where you need the weight-estimation
-uncertainty propagated exactly, {opt bootstrap()} in {helpb finegray_cif} and
-{helpb finegray_predict} re-estimates G, H and the weight strata in every replication.
+adequate across the supported range. Where weight-estimation uncertainty
+matters, {opt bootstrap()} in {helpb finegray_cif} and
+{helpb finegray_predict} re-estimates G, H and the weight strata in every
+replication.
 
 {pstd}
 {bf:Diagnostics.} {cmd:finegray} reports the weight design and its
@@ -444,9 +457,10 @@ reported as warnings and the fit proceeds.
 
 {pstd}
 {bf:Proportional hazards diagnostic:} Use {cmd:finegray_phtest} after estimation
-for an approximate test of the proportional subdistribution hazards assumption
-via scaled Schoenfeld residuals. See {helpb finegray_phtest} for details on the
-diagonal-only scaling and independent per-variable test structure.
+for an approximate diagnostic of the proportional subdistribution hazards
+assumption. It uses diagonal-scaled Schoenfeld residuals and simple
+residual-time correlations; neither its per-variable statistics nor their sum
+is the formal Grambsch-Therneau joint test. See {helpb finegray_phtest}.
 
 {pstd}
 Both {cmd:finegray_phtest} and {cmd:finegray_predict, schoenfeld} require the
@@ -486,10 +500,10 @@ require to reconstruct the estimation risk sets. It persists like the
 {cmd:finegray} run; do not drop it while post-estimation is still needed.
 
 {pmore}
-Genuinely time-varying covariates are not supported and produce an error,
-because the subdistribution hazard is not defined with internal time-varying
-covariates (see {helpb stcox} for a cause-specific model with time-varying
-covariates).
+Covariates that change within subject are not supported and produce an error. In
+particular, internal time-varying covariates do not retain the model's
+direct CIF interpretation after a competing event. See {helpb stcox} for a
+cause-specific model with time-varying covariates.
 
 {pstd}
 {bf:Margins:} {cmd:margins} is supported after {cmd:finegray} for the linear
@@ -558,9 +572,10 @@ default; {opt noadjust} now reproduces those earlier numbers exactly.
 {cmd:cmprsk::crr} computes a sandwich that additionally propagates the uncertainty
 in the estimated censoring distribution G(t). Coefficients match {cmd:finegray} to 8
 decimal places, but its standard errors are larger by roughly 0.2% in relative
-terms because {cmd:finegray} omits that nuisance term. To capture censoring-weight
-uncertainty exactly, use {opt bootstrap()} in {helpb finegray_cif} or {helpb finegray_predict},
-which re-estimates G(t) in every replication.
+terms because {cmd:finegray} omits that nuisance term. To account for
+censoring-weight estimation through resampling, use {opt bootstrap()} in
+{helpb finegray_cif} or {helpb finegray_predict}; each replication re-estimates
+G(t).
 
 {pstd}
 {cmd:finegray} with {opt norobust} and {cmd:crr$invinf} both report the inverse observed
@@ -579,9 +594,9 @@ native predictions and agree to numerical precision.
 
 {pstd}
 {opt xb} equals {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (covariates
-at 0) equals {cmd:predict, basecif}; and {cmd:e(basehaz)} equals {cmd:stcrreg}'s
-cumulative-subhazard analogue (H0(t) = -ln(1 - {cmd:basecif})) at each distinct
-event time.
+at 0) equals {cmd:predict, basecif}; and the fitted cumulative subhazard equals
+H0(t) = -ln(1 - {cmd:basecif}) at each distinct event time. When the fit
+requests {opt basehaz}, this curve is also posted in {cmd:e(basehaz)}.
 
 {pstd}
 The per-observation {opt cif} is the covariate-adjusted CIF 1 -
@@ -657,39 +672,72 @@ To fit models on subgroups, use {cmd:if} conditions. Sampling weights
 ({cmd:fweight}, {cmd:pweight}) are not supported.
 
 {pstd}
-{bf:References}
+{bf:References and citation scope}
 
 {pstd}
 Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a
 competing risk. {it:JASA} 1999; 94(446): 496-509.
+
+{pstd}{browse "https://doi.org/10.1080/01621459.1999.10474144":doi:10.1080/01621459.1999.10474144}{p_end}
 
 {pstd}
 Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the
 subdistribution with right-censored and left-truncated competing risks
 data. {it:Statistics in Medicine} 2011; 30(16): 1933-1951.
 
+{pstd}{browse "https://doi.org/10.1002/sim.4264":doi:10.1002/sim.4264}{p_end}
+
 {pstd}
 Geskus RB. Cause-specific cumulative incidence estimation and the Fine and Gray
 model under both left truncation and right censoring. {it:Biometrics}
 2011; 67(1): 39-49.
+
+{pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01420.x":doi:10.1111/j.1541-0420.2010.01420.x}{p_end}
 
 {pstd}
 Bellach A, Kosorok MR, Gilbert PB, Fine JP. General regression model for the
 subdistribution of a competing risk under left-truncation and
 right-censoring. {it:Biometrika} 2020; 107(4): 949-964.
 
+{pstd}{browse "https://doi.org/10.1093/biomet/asaa034":doi:10.1093/biomet/asaa034}{p_end}
+
 {pstd}
-Bellach A, Kosorok MR, Ruschendorf L, Fine JP. Weighted NPMLE for the
+Bellach A, Kosorok MR, Rüschendorf L, Fine JP. Weighted NPMLE for the
 subdistribution of a competing risk. {it:JASA} 2019; 114(525): 259-270.
+
+{pstd}{browse "https://doi.org/10.1080/01621459.2017.1401540":doi:10.1080/01621459.2017.1401540}{p_end}
 
 {pstd}
 Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing
 risks data. {it:Journal of Computational and Graphical Statistics}
 2021; 30(3): 685-693.
 
+{pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
+
 {pstd}
 Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
 weighted residuals. {it:Biometrika} 1994; 81(3): 515-526.
+
+{pstd}{browse "https://doi.org/10.1093/biomet/81.3.515":doi:10.1093/biomet/81.3.515}{p_end}
+
+{pstd}
+Grambsch PM, Therneau TM. Proportional hazards tests and diagnostics based on
+weighted residuals [correction]. {it:Biometrika} 1995; 82(3): 668.
+
+{pstd}{browse "https://doi.org/10.1093/biomet/82.3.668":doi:10.1093/biomet/82.3.668}{p_end}
+
+{pstd}
+Fine and Gray (1999) ground the model, right-censoring risk sets, variance
+structure, and Schoenfeld-type residual plots. Zhang et al. (2011) ground
+left-truncated Weight 1 in its published b/S form; Geskus (2011) grounds the
+G*H product-limit representation and tie ordering; Bellach et al. (2020) ground
+their continuous-time equivalence. Bellach et al. (2019) ground the
+estimated-weight variance term and the limitation for internal time-varying
+covariates. Kawaguchi et al. (2021) ground only the right-censoring, no-ties
+scan decomposition, not this package's tie, left-truncation, or variance
+extensions. Grambsch and Therneau (1994, corrected 1995) concern the Cox model
+and are cited only for diagnostic inspiration; see {helpb finegray_phtest} for
+the package diagnostic's limitations.
 
 
 {marker examples}{...}

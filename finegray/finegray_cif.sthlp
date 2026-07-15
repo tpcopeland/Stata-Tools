@@ -52,10 +52,11 @@ a chosen covariate profile after {helpb finegray}, as
 CIF(t | z) = 1 - exp( -H0(t) * exp(z'b) ),
 
 {pstd}
-where H0(t) is the baseline cumulative subdistribution hazard stored in
-{cmd:e(basehaz)}. By default it plots the CIF over the event-time grid; with
-{opt attime()} it instead reports the CIF at specific horizons (for example the
-5-year cumulative incidence).
+where H0(t) is the fitted baseline cumulative subdistribution hazard. The
+command uses {cmd:e(basehaz)} when that opt-in matrix exists and otherwise
+resolves the fit-specific cached or rebuilt baseline. By default it plots the
+CIF over the event-time grid; with {opt attime()} it instead reports the CIF at
+specific horizons (for example the 5-year cumulative incidence).
 
 {pstd}
 {cmd:finegray_cif} is the {helpb finegray} analogue of {helpb stcurve}{cmd:, cif}
@@ -66,18 +67,17 @@ estimates behind the curve.
 {pstd}
 The command requires the unchanged original {cmd:stset} estimation data in
 memory. It verifies a signature of the estimation sample and the variables used
-by the fit before reading {cmd:e(basehaz)} or reconstructing influence
-functions. Re-run {cmd:finegray} after changing those data.
+by the fit before resolving the baseline or reconstructing influence functions. Re-run
+{cmd:finegray} after changing those data.
 
 {pstd}
-{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model rather than
-erroring, leaving {cmd:e(converged)} at 0, so {cmd:e(b)} and {cmd:e(basehaz)} exist but hold the
-last iterate rather than a solution. Because that is all this command reads,
-it would otherwise build a cumulative-incidence curve and confidence band from
-a non-solution and return {cmd:rc 0}. {cmd:finegray_cif} therefore exits with {cmd:r(430)} when
-{cmd:e(converged)} is not 1; refit with a larger {opt iterate()} or a different
-specification. (Refits inside {opt bootstrap()} that fail to converge are a separate
-matter: they are skipped and counted, not fatal.)
+{bf:A converged fit is required.} {cmd:finegray} reports a nonconverged model
+rather than erroring, leaving {cmd:e(converged)} at 0 and {cmd:e(b)} at the last
+iterate rather than a solution. The cached, posted, or rebuilt baseline would
+correspond to that non-solution. {cmd:finegray_cif} therefore exits with
+{cmd:r(430)} when {cmd:e(converged)} is not 1; refit with a larger
+{opt iterate()} or a different specification. Refits inside {opt bootstrap()}
+that fail to converge are skipped and counted rather than treated as fatal.
 
 
 {marker options}{...}
@@ -101,24 +101,26 @@ term must be set through its internal {cmd:_fg_*} indicator names instead (see
 
 {phang}
 {opt timepoints(numlist)} evaluates the curve at the specified times rather than
-at the distinct cause-event times in {cmd:e(basehaz)}.
+at the distinct cause-event times of the fitted baseline.
 
 {phang}
 {opt ci} adds pointwise confidence limits. The standard error of the CIF is an
 influence-function (sandwich) standard error; limits are formed on the
 complementary log-log scale so that they remain inside (0,1). The standard error
-treats the inverse-probability-of-censoring weights as known; under heavy
-censoring it is mildly anti-conservative, in which case {opt bootstrap()} gives a
-bootstrap-based band that includes censoring-weight uncertainty.
+treats the fitted weight functions as known. Under heavy censoring or delayed
+entry it can therefore omit weight-estimation variability; {opt bootstrap()}
+re-estimates the weight functions in each replication.
 
 {phang}
 {opt bootstrap(#)} computes the confidence band by resampling subjects with
 replacement and refitting the model. If the original fit specified
 {opt cluster()}, whole clusters are resampled instead. The simulated band
-therefore follows the fitted variance structure and includes uncertainty from
-estimating the censoring weights. Nonconverged refits, and refits whose resample
-loses a factor level (so the coefficient vector no longer matches the stored
-covariate profile), are skipped and counted in {cmd:r(bootstrap_failed)}. At
+therefore follows the fitted resampling unit and includes variability from
+re-estimating the censoring weights. Under delayed entry it also re-estimates
+the entry weights and weight strata. Nonconverged refits, and refits whose
+resample loses a factor level (so the coefficient vector no longer matches the
+stored covariate profile), are skipped and counted in
+{cmd:r(bootstrap_failed)}. At
 least 25 replications must be requested, and at least 25 must succeed, or
 {cmd:finegray_cif} exits with an error: a standard error is the sample standard
 deviation of the replicate estimates, and below about 25 replications that
@@ -158,17 +160,17 @@ it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 {title:Remarks}
 
 {pstd}
-{bf:Left truncation (delayed entry).} CIF points and their standard errors are
-built from the same stabilized Zhang-Zhang-Fine Weight 1 contract as the fit
-itself: the weighted risk sets, the baseline cumulative subdistribution
-hazard, and the influence functions all carry the combined weight A =
-G(t-)H(t-) rather than a censoring-only
-weight. {bf:Delayed-entry cumulative incidence estimates therefore change} relative
-to earlier versions and relative to {helpb stcrreg}, by design. Results with no
-delayed entry are unchanged. The weight design is rebuilt deterministically
-from {cmd:e(strata)} and {cmd:e(truncstrata)}, so the estimation data must still be in
-memory and unmodified. See {help finegray##lt:Left truncation} in {helpb finegray} for the estimator, its
-assumptions, and its support boundaries.
+{bf:Left truncation (delayed entry).} CIF points and standard errors use the same
+Geskus product-limit contract as the fit: the risk sets, baseline cumulative
+subdistribution hazard, and influence functions carry A = G(t-)H(t-) rather
+than a censoring-only weight. This form is equivalent to Zhang-Zhang-Fine
+Weight 1 in the unstratified continuous-time setting. The finite-sample tie rule
+and symmetric cross-classified {opt strata()}/{opt truncstrata()} construction
+are package extensions. Delayed-entry estimates therefore change relative to
+earlier versions and {helpb stcrreg}, by design. The estimation data must remain
+in memory and unmodified so the weight design can be rebuilt. See
+{help finegray##lt:Left truncation} in {helpb finegray} for the citations,
+assumptions, and support boundaries.
 
 {pstd}
 For a confidence interval on the cumulative incidence of {it:each subject} (or a

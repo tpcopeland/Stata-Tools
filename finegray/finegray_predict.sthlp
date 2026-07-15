@@ -46,7 +46,7 @@
 {title:Description}
 
 {pstd}
-{cmd:finegray_predict} generates predictions after {helpb finegray}. Three
+{cmd:finegray_predict} generates predictions after {helpb finegray}. Four
 prediction types are available:
 
 {phang2}
@@ -55,8 +55,8 @@ model coefficient vector.
 
 {phang2}
 {bf:cif} computes the cumulative incidence function: CIF(t|z) = 1 -
-exp(-H0(t) * exp(z'beta)), where H0(t) is the baseline cumulative
-subdistribution hazard stored in {cmd:e(basehaz)}.
+exp(-H0(t) * exp(z'beta)), where H0(t) is the fitted baseline cumulative
+subdistribution hazard.
 
 {phang2}
 {bf:schoenfeld} computes Schoenfeld residuals at cause-event times. For a
@@ -64,17 +64,21 @@ model with p covariates, this creates p variables: {it:newvar} for the first
 covariate, {it:newvar}{cmd:_2} through {it:newvar}{cmd:_}{it:p} for the
 rest. Residuals are missing for non-cause-event observations.
 
+{phang2}
+{bf:basecshazard} computes H0(t), the baseline cumulative subdistribution
+hazard, at each requested time.
+
 {pstd}
-{bf:Left truncation (delayed entry).} All prediction types may {bf:move} under delayed
-entry, because the left-truncated fit itself moves: {cmd:xb} because the
-coefficients change, and {opt cif}, {opt ci} and {opt schoenfeld} because the weighted risk sets
-and the baseline cumulative subdistribution hazard now carry the combined
-stabilized Zhang-Zhang-Fine Weight 1 weight A = G(t-)H(t-) rather than a
-censoring-only weight. This is by design; see {help finegray##lt:Left truncation} in
-{helpb finegray}. Results with no delayed entry are unchanged. Point {cmd:xb} scoring needs
-only {cmd:e(b)}, but the {opt ci}, {opt schoenfeld} and {opt bootstrap()} paths reconstruct the weight
-design from {cmd:e(strata)} and {cmd:e(truncstrata)} and therefore require the original,
-unmodified estimation data.
+{bf:Left truncation (delayed entry).} All prediction types may {bf:move} under
+delayed entry because the fitted coefficients and baseline move. The risk sets
+use the Geskus product-limit factor A = G(t-)H(t-), which is equivalent to
+Zhang-Zhang-Fine Weight 1 in the unstratified continuous-time setting. The
+finite-sample tie rule and symmetric cross-classified
+{opt strata()}/{opt truncstrata()} construction are package extensions. See
+{help finegray##lt:Left truncation} in {helpb finegray}. Point {cmd:xb} scoring
+needs only {cmd:e(b)}, but {opt ci}, {opt schoenfeld}, and {opt bootstrap()}
+reconstruct the weight design and require the original, unmodified estimation
+data.
 
 {pstd}
 {bf:What time point does the CIF use?} By default, {opt cif} evaluates the
@@ -87,11 +91,13 @@ CIF. {cmd:stcrreg} produces this covariate-adjusted CIF through
 obtain the predicted CIF for every observation at a {bf:common} time point
 t*, set a constant time variable and pass it through {opt timevar()} (see
 {it:CIF at custom time points} under Examples). The baseline cumulative
-subdistribution hazard H0(t) — the analogue of {cmd:stcrreg}'s {cmd:basecif}
-— is stored as a right-continuous step function in {cmd:e(basehaz)} (columns
-{it:time} and {it:cumhazard}); the baseline CIF at any time is
-F0(t) = 1 - exp(-H0(t)), and an individual's covariate-adjusted CIF is obtained
-from that baseline CIF as CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), equivalently
+subdistribution hazard H0(t) — the cumulative-hazard analogue of
+{cmd:stcrreg}'s {cmd:basecif} — is a right-continuous step function. The command
+uses {cmd:e(basehaz)} when the fit requested
+{opt basehaz}; otherwise it uses the active fit's cached baseline or rebuilds
+the same curve from the unchanged estimation data. Its baseline CIF is
+F0(t) = 1 - exp(-H0(t)), and an individual's covariate-adjusted CIF is
+CIF(t|z) = 1 - (1 - F0(t))^exp(z'beta), equivalently
 1 - exp(-H0(t) * exp(z'beta)).
 
 {pstd}
@@ -131,12 +137,14 @@ rebuilt on demand), but altering one in place is not, because {helpb finegray_ci
 {helpb finegray_phtest} read those columns directly.
 
 {pstd}
-Point predictions with {opt xb}, and point {opt cif} predictions without
-{opt ci}, remain available on compatible new data. {opt xb} is a pure linear
-score, so it does not depend on {cmd:_t}, {cmd:_d} or {opt compete()}, and it is
-unaffected by changes to them. What it does depend on is each coefficient being
-paired with the right column, which is guaranteed by the level-value alignment
-described below.
+Point {opt xb} predictions remain available on compatible new data. Point
+{opt cif} and {opt basecshazard} predictions are also available there while the
+active fit still holds its cached or posted baseline. After restoring stored
+estimates in a later session, request {opt basehaz} at estimation if those
+baseline-dependent predictions must work without the original data. {opt xb}
+is a pure linear score, so it does not depend on {cmd:_t}, {cmd:_d}, or
+{opt compete()}; it depends only on pairing each coefficient with the correct
+column, as described below.
 
 {pstd}
 {bf:Data requirements by prediction type:} {opt xb} predictions can be
@@ -152,10 +160,11 @@ will exit with an informative error if the estimation context is not present.
 reproduces the post-estimation predictions of Stata's native Fine-Gray
 estimator {helpb stcrreg}. {opt xb} is numerically identical to
 {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF (all covariates set to 0)
-reproduces {cmd:predict, basecif}; and {cmd:e(basehaz)} equals {cmd:stcrreg}'s
-cumulative-subhazard analogue (H0(t) = -ln(1 - {cmd:basecif})) at each
-distinct event time. The per-observation {opt cif} is the covariate-adjusted
-CIF, which {cmd:stcrreg} exposes only through {cmd:stcurve, cif at()} (not
+reproduces {cmd:predict, basecif}; and the fitted baseline cumulative
+subhazard equals H0(t) = -ln(1 - {cmd:basecif}) at each distinct event time. When
+{cmd:finegray} is fit with {opt basehaz}, that curve is also posted in
+{cmd:e(basehaz)}. The per-observation {opt cif} is the covariate-adjusted CIF,
+which {cmd:stcrreg} exposes only through {cmd:stcurve, cif at()} (not
 {cmd:predict}); {cmd:finegray_predict, cif} matches it to numerical
 precision. {opt schoenfeld} residuals are identical to {cmd:predict, schoenfeld}
 {bf:at untied cause-event times}. At a {bf:tied} cause-event time the two
@@ -193,10 +202,11 @@ estimate that looks like a band.
 observation's analysis time {cmd:_t} (or the time given by {opt timevar()}) —
 one prediction per row, at that subject's follow-up time, not at a single
 shared horizon. The CIF is computed as 1 - exp(-H0(t) * exp(z'beta)) using the
-baseline cumulative subdistribution hazard from {cmd:e(basehaz)}, evaluated as
-a step function: for each observation, H0 is read off at the largest event
-time less than or equal to that observation's time. To predict at a fixed
-horizon for the whole sample, use {opt timevar()} with a constant time
+resolved fitted baseline, evaluated as a step function: for each observation,
+H0 is read at the largest event time less than or equal to that observation's
+time. The command uses the opt-in {cmd:e(basehaz)} matrix when present and
+otherwise uses the active fit's cached or rebuilt baseline. To predict at a
+fixed horizon for the whole sample, use {opt timevar()} with a constant time
 variable.
 
 {phang}
@@ -228,9 +238,9 @@ on the complementary log-log scale so they remain inside (0,1). Because the
 influence functions require the original estimation data, {opt ci} restricts
 the prediction to the estimation sample ({cmd:e(sample)}) and needs {cmd:_t} in
 memory. The standard error treats the inverse-probability-of-censoring weights
-as known; under heavy censoring it is mildly anti-conservative. For confidence
-bands over a grid of times, or a fixed-horizon table for a covariate profile,
-see {helpb finegray_cif}.
+and, under delayed entry, the entry weights as fixed. It therefore omits
+weight-estimation variability. For confidence bands over a grid of times, or a
+fixed-horizon table for a covariate profile, see {helpb finegray_cif}.
 
 {phang}
 {opt bootstrap(#)} (with {opt ci}) computes the confidence limits by resampling
@@ -243,9 +253,10 @@ replications must be requested, and at least 25 must succeed, or
 standard deviation of the replicate estimates, and below about 25 replications
 that standard deviation is itself mostly noise. The refit is run on the
 estimation sample, so any {cmd:if} or {cmd:in} qualifier used at fit time does
-not apply to the replications. The interval includes uncertainty from estimating
-the censoring weights. Point predictions are unchanged, and the original
-{cmd:e()} results and {cmd:e(sample)} are preserved.
+not apply to the replications. Each replication re-estimates the model and its
+censoring weights; under delayed entry it also re-estimates the entry weights
+and weight strata. Point predictions are unchanged, and the original {cmd:e()}
+results and {cmd:e(sample)} are preserved.
 
 {phang}
 {opt seed(#)} sets the random-number seed used by {opt bootstrap()}. It requires
@@ -323,11 +334,12 @@ level 2 to level 3, and so on, with no error. Matching by value cannot.
 {title:Stored results}
 
 {pstd}
-{cmd:finegray_predict} creates a new variable but does not store results in
-{cmd:r()} or {cmd:e()}. The new variable is labeled:
+{cmd:finegray_predict} creates one or more variables but does not store results
+in {cmd:r()} or {cmd:e()}. The variables are labeled:
 
 {phang2}{cmd:xb}: "Linear prediction (xb)"{p_end}
 {phang2}{cmd:cif}: "CIF prediction"{p_end}
+{phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
 {phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:varname}" for each covariate{p_end}
 
 
