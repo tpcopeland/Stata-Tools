@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/07/15
+*! finegray Version 1.2.1  2026/07/15
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -681,11 +681,13 @@ program define finegray, eclass sortpreserve
 
         * ---- Support boundary for the combined-weight design.
         *
-        * The weights are estimated WITHIN each observed joint (censoring x
-        * truncation) stratum, so every stratum must carry enough subjects to
-        * estimate G and H there.  Both limits are hard failures: silently pooling
-        * groups the user asked to keep separate would change the estimand without
-        * saying so, which is the failure class this package treats as worst.
+        * The factorized weights are EVALUATED for each observed joint (censoring x
+        * truncation) stratum: G is estimated within censoring strata and H within
+        * truncation strata.  Every observed combination must still carry enough
+        * support to make its configured weight usable.  Both limits are hard
+        * failures: silently pooling groups the user asked to keep separate would
+        * change the estimand without saying so, which is the failure class this
+        * package treats as worst.
         *
         * Enforced only on the ZZF (delayed-entry) branch.  A right-censoring fit
         * with many strata() levels is unchanged released behaviour, and turning
@@ -695,8 +697,9 @@ program define finegray, eclass sortpreserve
         * BREAKING CHANGE, stated so nobody rediscovers it as a bug: a delayed-entry
         * fit with more than 100 strata() levels used to run and now hard-errors,
         * EVEN WITHOUT truncstrata().  Under delayed entry the weights are A = G*H,
-        * and A is estimated per joint group, so 150 censoring strata are 150 weight
-        * strata whether or not the user asked for entry strata.  Guarded by Z21/Z22.
+        * and A is evaluated for every observed joint group, so 150 censoring strata
+        * are 150 weight strata whether or not the user asked for entry strata.
+        * Guarded by Z21/Z22.
         if `_fg_has_lt' {
             tempvar _fg_jgrp _fg_jn
             if "`_byg_mata'" == "" & "`_tg_mata'" == "" {
@@ -740,8 +743,8 @@ program define finegray, eclass sortpreserve
 
             if `_fg_minjn' < 20 {
                 display as error "a weight stratum has only `_fg_minjn' subjects (minimum 20)"
-                display as error "the censoring and entry distributions are estimated within each"
-                display as error "joint stratum; too few subjects makes those weights unusable"
+                display as error "the factorized weight is evaluated within each observed joint"
+                display as error "stratum; too few subjects makes that configured weight unusable"
                 display as error "use coarser grouping variables"
                 exit 459
             }
@@ -880,8 +883,14 @@ program define finegray, eclass sortpreserve
 
     * Combined-weight contract.  lt_weight names the weight actually computed:
     *   right_censoring : no delayed entry; A == G; identical to prior releases
-    *   zzf1_geskus     : stabilized ZZF Weight 1 via A = G(t-)H(t-)
-    if `_fg_has_lt' ereturn local lt_weight "zzf1_geskus"
+    *   zzf1_geskus       : one weight stratum; Geskus product-limit form
+    *   zzf1_stratified   : ZZF eq. 7 pooled-stabilizer form; when the
+    *                       censoring/entry groupings differ, the subject
+    *                       denominator uses the documented factorized extension
+    if `_fg_has_lt' {
+        if `_fg_njgrp' > 1 ereturn local lt_weight "zzf1_stratified"
+        else                ereturn local lt_weight "zzf1_geskus"
+    }
     else ereturn local lt_weight "right_censoring"
 
     * LT variance contract.  lt_vce names the variance actually computed on the

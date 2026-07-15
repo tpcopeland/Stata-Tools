@@ -18,10 +18,13 @@ program define _finegray_qa_bootstrap, rclass
 
     local orig_plus "`c(sysdir_plus)'"
     local orig_personal "`c(sysdir_personal)'"
-    tempname install_id
-    local install_tag = subinstr("`install_id'", "__", "", .)
-    local plus_dir "`c(tmpdir)'/finegray_plus_`install_tag'"
-    local personal_dir "`c(tmpdir)'/finegray_personal_`install_tag'"
+    * tempname counters restart at __000000 in every Stata process, so they are
+    * not safe directory identifiers: concurrent lanes otherwise uninstall and
+    * replace each other's helpers.  tempfile paths include Stata's process id
+    * (for example, /tmp/St12345.000001), which makes these directories unique.
+    tempfile install_anchor
+    local plus_dir "`install_anchor'_plus"
+    local personal_dir "`install_anchor'_personal"
 
     capture mkdir "`plus_dir'"
     capture mkdir "`personal_dir'"

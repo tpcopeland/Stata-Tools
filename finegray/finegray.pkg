@@ -7,9 +7,10 @@ d hazard ratios (SHR) that quantify the effect of covariates on the
 d cumulative incidence of a cause of interest in the presence of
 d competing events. The implementation uses a native Mata
 d forward-backward scan algorithm that avoids data expansion
-d entirely. Supports factor variables, robust/clustered SEs,
-d stratified censoring distributions, CIF prediction, Schoenfeld
-d residuals, and a proportional subdistribution hazards test.
+d entirely. Supports delayed entry with Zhang-Zhang-Fine Weight 1,
+d censoring and entry strata, factor variables, robust/clustered
+d SEs, CIF prediction, Schoenfeld residuals, and an approximate
+d proportional subdistribution hazards diagnostic.
 d
 d KW: competing risks
 d KW: Fine-Gray

@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/07/15
+*! finegray_cif Version 1.2.1  2026/07/15
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -174,6 +174,11 @@ program define finegray_cif, rclass sortpreserve
                 display as error "at(): values must be finite numbers"
                 exit 198
             }
+            * Numeric value used for factor-level matching.  Match against the
+            * fit-time semantic expansion, not the package-owned variable name:
+            * Stata accepts 1, 1.0, and 1e0 as the same level, and long internal
+            * names may be truncated before the level suffix.
+            local _anum = real(`"`_aval'"')
             local _pos : list posof "`_avar'" in covs
             if `_pos' > 0 {
                 * Direct covariate column (continuous term, or an internal
@@ -204,19 +209,23 @@ program define finegray_cif, rclass sortpreserve
                         }
                     }
                 }
-                * Collect this factor's main-effect dummies (_fg_<var>_<lvl>),
-                * zero them all, then set the requested level to 1.  A
+                * Collect this factor's main-effect dummies from the fit-time
+                * semantic expansion, zero them all, then set the requested
+                * numeric level to 1.  Removing base terms reproduces the exact
+                * column order used to build e(covariates), including when an
+                * _fg_* name was truncated to Stata's 32-character limit.  A
                 * reference level leaves every dummy at 0.
                 local _found = 0
-                local _tgt "_fg_`_avar'_`_aval'"
                 local _tgtpos = 0
                 local _cc = 0
-                foreach _cn of local covs {
+                local _fvsem "`e(fvsemantic)'"
+                foreach _fst of local _fvsem {
+                    if regexm("`_fst'", "[0-9]+b\.") continue
                     local ++_cc
-                    if regexm("`_cn'", "^_fg_`_avar'_([0-9]+)$") {
+                    if regexm("`_fst'", "^([0-9]+)\.`_avar'$") {
                         local _found = 1
                         matrix `zrow'[1, `_cc'] = 0
-                        if "`_cn'" == "`_tgt'" local _tgtpos = `_cc'
+                        if real(regexs(1)) == `_anum' local _tgtpos = `_cc'
                     }
                 }
                 if !`_found' {
@@ -227,9 +236,8 @@ program define finegray_cif, rclass sortpreserve
                 * Validate the requested level against the observed data
                 capture confirm variable `_avar'
                 if !_rc {
-                    quietly levelsof `_avar' if e(sample), local(_lvls)
-                    local _lvlok : list posof "`_aval'" in _lvls
-                    if `_lvlok' == 0 {
+                    quietly count if e(sample) & `_avar' == `_anum'
+                    if r(N) == 0 {
                         display as error "at(): `_aval' is not an observed level of `_avar'"
                         exit 198
                     }

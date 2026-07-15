@@ -266,19 +266,22 @@ else {
 local ++test_count
 local _lt_zzf `"`e(lt_weight)'"'
 preserve
+quietly finegray z1 z2, compete(status) cause(1)
+local _lt_pool `"`e(lt_weight)'"'
 _zzf_fix, n(4000) seed(20260713) notrunc
 quietly stset t, failure(anyev == 1) id(id)
 quietly finegray z1 z2, compete(status) cause(1)
 local _lt_rc `"`e(lt_weight)'"'
 local _maxw_rc = e(max_lt_weight)
 restore
-if "`_lt_zzf'" == "zzf1_geskus" & "`_lt_rc'" == "right_censoring" {
+if "`_lt_zzf'" == "zzf1_stratified" & "`_lt_pool'" == "zzf1_geskus" & ///
+        "`_lt_rc'" == "right_censoring" {
     local ++pass_count
-    display as result "  PASS: Z10 e(lt_weight) = zzf1_geskus / right_censoring"
+    display as result "  PASS: Z10 e(lt_weight) distinguishes stratified / pooled LT / no LT"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z10 got `_lt_zzf' / `_lt_rc'"
+    display as error "  FAIL: Z10 got `_lt_zzf' / `_lt_pool' / `_lt_rc'"
 }
 
 * Z11: with no delayed entry H == 1, so A == G is nonincreasing and EVERY weight
@@ -501,8 +504,10 @@ else {
 * ===========================================================================
 * 6. THE DELAYED-ENTRY BREAKING CHANGE (found by /reviewer, not by design)
 * ===========================================================================
-* Under delayed entry the weights are A = G*H and A is estimated per joint group,
-* so 150 censoring strata are 150 weight strata EVEN WITH NO truncstrata().  The
+* Under delayed entry the weights are A = G*H: G is estimated within censoring
+* strata, H within entry strata, and their product is evaluated for each observed
+* joint group.  Thus 150 censoring strata are 150 observed joint weight groups
+* EVEN WITH NO truncstrata().  The
 * >100 boundary therefore fires on a model that fit in the released version.
 *
 * That asymmetry is defensible -- the no-LT branch must stay bit-identical, and an
@@ -563,8 +568,9 @@ capture drop many150
 * ===========================================================================
 * 7. HARD POSITIVITY FAILURE (Gate Z3-functional)
 * ===========================================================================
-* A retained competing-event subject carries weight A_g(t-)/A_g(X_i-).  If its own
-* stratum's A_g(X_i-) is ZERO the weight is undefined -- and Mata returns MISSING
+* A retained competing-event subject is divided by its own stratum's A_g(X_i-)
+* (with a pooled time-side numerator under equation 7).  If A_g(X_i-) is ZERO,
+* the weight is undefined -- and Mata returns MISSING
 * for x/0, not infinity, so before the guard existed this surfaced downstream as
 * "the null log pseudo-likelihood is not finite" and r(430) "convergence not
 * achieved": a message that blames the optimizer for a property of the data and

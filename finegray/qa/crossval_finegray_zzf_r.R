@@ -17,16 +17,13 @@
 #     S_g(t) = left-truncated Kaplan-Meier of ALL-CAUSE survival within g
 #     A_g(t) = b_g(t) / S_g(t-)
 #
-#     w_i(t) = 1                          if X_i >= t          (still at risk)
-#            = A_g(t) / A_g(X_i)          if competing event at X_i < t
+#     w_i(t) = A_pool(t) / A_g(t)         if X_i >= t          (still at risk)
+#            = A_pool(t) / A_g(X_i)       if competing event at X_i < t
 #            = 0                          otherwise
 #
-# STABILIZER: PER-STRATUM, not ZZF eq. (7)'s pooled one.  Deliberate; decided
-# 2026-07-13 and defended in fg_zzf_plan.md Z0.  Both are consistent (the
-# numerator probe below is the evidence).  Per-stratum keeps the at-risk weight
-# at exactly 1 -- which is what Geskus's (2011, p.44) "no need for a sandwich
-# estimator" argument depends on -- and collapses to G_g(t-)/G_g(X_i-) when
-# L = 0, so no released right-censoring result moves.
+# STABILIZER: POOLED, exactly as ZZF eq. (7).  The stratum-specific A_g appears
+# only on the subject side.  This distinction is observable: an at-risk subject
+# in stratum g generally carries A_pool(t)/A_g(t), not 1.
 #
 # TIE ORDERING (Geskus 2011, p.40-41): events < censorings < entries at a tied
 # time.  Gate Z1 fixtures are continuous and tie-free by construction; Gate
@@ -95,8 +92,45 @@ make_A <- function(L, X, status) {
   function(u) bf(u) / Sm(u)
 }
 
+# Product-limit components used by the package's separate censoring/entry
+# stratification.  On continuous data G_g(t-)H_g(t-) equals b_g(t)/S_g(t-);
+# keeping these functions separate also lets the oracle exercise genuinely
+# cross-classified censoring and entry groups.
+make_G <- function(L, X, status) {
+  ct <- sort(unique(X[status == 0L]))
+  if (!length(ct)) return(function(u) rep(1, length(u)))
+  surv <- 1
+  s <- numeric(length(ct))
+  for (k in seq_along(ct)) {
+    tt <- ct[k]
+    nrisk <- sum(L < tt & X >= tt)
+    dc <- sum(X == tt & status == 0L)
+    if (nrisk > 0) surv <- surv * (1 - dc / nrisk)
+    s[k] <- surv
+  }
+  function(u) c(1, s)[findInterval(u - 1e-12, ct) + 1L]
+}
+
+make_H <- function(L, X) {
+  lt <- sort(unique(L[L > 0]))
+  if (!length(lt)) return(function(u) rep(1, length(u)))
+  hleft <- numeric(length(lt))
+  acc <- 1
+  for (k in rev(seq_along(lt))) {
+    uu <- lt[k]
+    risk <- sum(L <= uu & X > uu)
+    ent <- sum(L == uu)
+    if (risk > 0 && ent > 0) acc <- acc * (1 - ent / risk)
+    hleft[k] <- acc
+  }
+  function(u) vapply(u, function(tt) {
+    k <- which(lt >= tt)[1]
+    if (is.na(k)) 1 else hleft[k]
+  }, numeric(1))
+}
+
 # The ZZF Weight-1 weight matrix: n x K, rows = subjects, cols = cause-1 event times.
-zzf_weights <- function(d, cause = 1L, stabilizer = c("perstratum", "pooled")) {
+zzf_weights <- function(d, cause = 1L, stabilizer = c("pooled", "perstratum")) {
   stabilizer <- match.arg(stabilizer)
   n  <- nrow(d)
   et <- sort(unique(d$X[d$status == cause]))
@@ -133,10 +167,44 @@ zzf_weights <- function(d, cause = 1L, stabilizer = c("perstratum", "pooled")) {
   list(W = W, et = et, den = den)
 }
 
-# Weighted FG log pseudo-likelihood; outer weight at own event is 1 (per-stratum).
-zzf_fit <- function(d, zvars, cause = 1L, stabilizer = "perstratum") {
+# Canonical pooled-stabilizer weights with separately estimated censoring and
+# entry components.  cgroup and tgroup may be the same (published eq. 7) or
+# different (the package's cross-classified nuisance-factor extension).
+zzf_weights_cross <- function(d, cgroup, tgroup, cause = 1L) {
+  n <- nrow(d)
+  et <- sort(unique(d$X[d$status == cause]))
+  K <- length(et)
+  cg <- unique(cgroup)
+  tg <- unique(tgroup)
+  Gf <- setNames(lapply(cg, function(g) {
+    k <- cgroup == g
+    make_G(d$L[k], d$X[k], d$status[k])
+  }), as.character(cg))
+  Hf <- setNames(lapply(tg, function(g) {
+    k <- tgroup == g
+    make_H(d$L[k], d$X[k])
+  }), as.character(tg))
+  Apool <- make_A(d$L, d$X, d$status)
+  num <- matrix(rep(Apool(et), each = n), n, K)
+  aden_t <- matrix(NA_real_, n, K)
+  aden_x <- numeric(n)
+  for (i in seq_len(n)) {
+    gf <- Gf[[as.character(cgroup[i])]]
+    hf <- Hf[[as.character(tgroup[i])]]
+    aden_t[i, ] <- gf(et) * hf(et)
+    aden_x[i] <- gf(d$X[i]) * hf(d$X[i])
+  }
+  atrisk <- outer(d$X, et, ">=") & outer(d$L, et, "<")
+  comp <- outer(d$X, et, "<") & (d$status != 0L & d$status != cause)
+  W <- matrix(0, n, K)
+  W[atrisk] <- (num / aden_t)[atrisk]
+  W[comp] <- (num / matrix(aden_x, n, K))[comp]
+  list(W = W, et = et, den = aden_x)
+}
+
+# Weighted FG log pseudo-likelihood from a supplied weight matrix.
+zzf_fit_weights <- function(d, zvars, ww, cause = 1L) {
   Z  <- as.matrix(d[, zvars, drop = FALSE])
-  ww <- zzf_weights(d, cause, stabilizer)
   W  <- ww$W; et <- ww$et
   evrow <- lapply(et, function(t) which(d$X == t & d$status == cause))
   owt   <- vapply(seq_along(et), function(k) {
@@ -164,6 +232,15 @@ zzf_fit <- function(d, zvars, cause = 1L, stabilizer = "perstratum") {
        conv = op$convergence, ll = -op$value)
 }
 
+
+zzf_fit <- function(d, zvars, cause = 1L, stabilizer = "pooled") {
+  zzf_fit_weights(d, zvars, zzf_weights(d, cause, stabilizer), cause)
+}
+
+zzf_fit_cross <- function(d, zvars, cgroup, tgroup, cause = 1L) {
+  zzf_fit_weights(d, zvars, zzf_weights_cross(d, cgroup, tgroup, cause), cause)
+}
+
 # ---------------------------------------------------------------------
 # 2.  Fixture generators.  Known-truth Fine-Gray DGP (ZZF 2011 sec. 4.1).
 #         F1(t|z) = 1 - {1 - p(1 - e^-t)}^exp(b'z)
@@ -173,14 +250,16 @@ P_MASS <- 0.5
 BETA   <- c(z1 = 0.5, z2 = -0.5)
 BETA2  <- c(0.5, 0.5)      # competing-cause coefficients
 
-gen_fg <- function(n, trunc = c("none", "independent", "bygroup"),
+gen_fg <- function(n, trunc = c("none", "independent", "bygroup", "cross"),
                    cens_by_group = FALSE, tau = 6, seed = NULL) {
   trunc <- match.arg(trunc)
   if (!is.null(seed)) set.seed(seed)
   # oversample: left truncation discards subjects with L > X
   m <- n * 6L
   z1 <- rbinom(m, 1, 0.5); z2 <- rnorm(m)
-  grp <- z1                                       # the discrete weight group
+  grp <- z1                                       # published single weight group
+  cgrp <- z1                                      # censoring group
+  tgrp <- as.integer(z2 > 0)                      # distinct entry group
   ez  <- exp(BETA["z1"] * z1 + BETA["z2"] * z2)
   p1  <- 1 - (1 - P_MASS)^ez
   cause <- ifelse(runif(m) < p1, 1L, 2L)
@@ -199,14 +278,16 @@ gen_fg <- function(n, trunc = c("none", "independent", "bygroup"),
   L <- switch(trunc,
     none        = rep(0, m),
     independent = rexp(m, rate = 0.9),
-    bygroup     = rexp(m, rate = ifelse(grp == 1, 1.6, 0.5))   # entry depends on grp
+    bygroup     = rexp(m, rate = ifelse(grp == 1, 1.6, 0.5)),  # entry depends on grp
+    cross       = rexp(m, rate = ifelse(tgrp == 1, 1.6, 0.5))  # distinct entry group
   )
   X   <- pmin(tt, cens)
   st  <- ifelse(tt <= cens, cause, 0L)
   keep <- which(L < X)                              # the truncation
   keep <- keep[seq_len(min(n, length(keep)))]
   data.frame(id = seq_along(keep), L = L[keep], X = X[keep], status = st[keep],
-             z1 = z1[keep], z2 = z2[keep], wgroup = grp[keep])
+             z1 = z1[keep], z2 = z2[keep], wgroup = grp[keep],
+             cgroup = cgrp[keep], tgroup = tgrp[keep])
 }
 
 # ---------------------------------------------------------------------
@@ -276,13 +357,16 @@ sf_weight_at <- function(fg, id_i, t) {
 coxph_on_our_weights <- function(d, zz, zvars) {
   et <- zz$et; W <- zz$W
   rows <- list(); k <- 0L
-  brk <- c(0, et)
+  # Cox partial likelihood depends on event ordering, not the gaps between
+  # event times.  Use an integer event grid so survival::aeqSurv cannot merge
+  # two distinct simulated times that happen to be nearly equal and reject an
+  # otherwise valid interval as having effective length zero.
   for (j in seq_along(et)) {
     keep <- which(W[, j] > 0)
     if (!length(keep)) next
     k <- k + 1L
     rows[[k]] <- data.frame(
-      id = d$id[keep], tstart = brk[j], tstop = et[j],
+      id = d$id[keep], tstart = j - 1L, tstop = j,
       ev = as.integer(d$X[keep] == et[j] & d$status[keep] == 1L),
       w = W[keep, j], d[keep, zvars, drop = FALSE])
   }
@@ -317,16 +401,37 @@ fixtures <- list(
   list(nm = "censstrata_only",  n = 800, trunc = "none",        cens = TRUE,  strat = TRUE,  oracle = "cmprsk"),
   list(nm = "truncstrata_only", n = 800, trunc = "bygroup",     cens = FALSE, strat = TRUE,  oracle = "none"),
   list(nm = "same_grouping",    n = 800, trunc = "bygroup",     cens = TRUE,  strat = TRUE,  oracle = "none"),
-  list(nm = "cross_grouping",   n = 800, trunc = "bygroup",     cens = TRUE,  strat = TRUE,  oracle = "none")
+  list(nm = "cross_grouping",   n = 800, trunc = "cross",       cens = TRUE,  strat = TRUE,  oracle = "none")
 )
 
 for (fi in seq_along(fixtures)) {
   fx <- fixtures[[fi]]
   d <- gen_fg(fx$n, trunc = fx$trunc, cens_by_group = fx$cens, seed = SEED + fi)
-  if (!fx$strat) d$wgroup <- 0L
+  if (!fx$strat) {
+    d$wgroup <- 0L
+    d$cgroup <- 0L
+    d$tgroup <- 0L
+  } else if (fx$nm == "censstrata_only") {
+    d$cgroup <- d$z1
+    d$tgroup <- 0L
+  } else if (fx$nm == "truncstrata_only") {
+    d$cgroup <- 0L
+    d$tgroup <- d$z1
+  } else if (fx$nm == "same_grouping") {
+    d$cgroup <- d$z1
+    d$tgroup <- d$z1
+  }
   write.csv(d, file.path(OUT, paste0("zzf_fix_", fx$nm, ".csv")), row.names = FALSE)
 
-  zz <- zzf_fit(d, c("z1", "z2"), stabilizer = "perstratum")
+  zz <- if (fx$nm %in% c("truncstrata_only", "same_grouping", "cross_grouping")) {
+    zzf_fit_cross(d, c("z1", "z2"), d$cgroup, d$tgroup)
+  } else if (fx$nm == "censstrata_only") {
+    # The released no-left-truncation path remains the ordinary per-censoring-
+    # stratum Fine-Gray weight, which cmprsk::crr(cengroup=) represents.
+    zzf_fit(d, c("z1", "z2"), stabilizer = "perstratum")
+  } else {
+    zzf_fit(d, c("z1", "z2"), stabilizer = "pooled")
+  }
 
   # -- (b) independent optimizer check: same weights, coxph instead of our optim
   cxb   <- coxph_on_our_weights(d, zz, c("z1", "z2"))
@@ -365,13 +470,16 @@ for (fi in seq_along(fixtures)) {
     if (!is.null(cr)) dcoef <- max(abs(zz$beta - cr))
   }
 
-  # PASS rules.  Where no software oracle exists, the fixture passes on the
-  # optimizer check + weight parity alone, and is FLAGGED so nobody later reads
-  # the green as end-to-end external corroboration.  Z2 recovery is its real gate.
-  ok_coef <- is.na(dcoef) || dcoef < 5e-5
-  ok_wt   <- is.na(dw)    || dw    < 1e-8
-  ok_base <- is.na(dbase) || dbase < 1e-4
-  ok_opt  <- d_opt < 5e-5
+  # PASS rules.  A named external oracle must produce finite evidence; NA is a
+  # failure, never a waiver.  For stratified weights WITH left truncation no
+  # external package represents the shared-baseline estimator, so survival's
+  # symmetric-stratum weight difference is diagnostic only and is not gated.
+  # Those fixtures are gated here by the independent optimizer and elsewhere by
+  # Stata/direct-equation parity plus known-truth recovery.
+  ok_coef <- if (onm == "none") TRUE else !is.na(dcoef) && dcoef < 5e-5
+  ok_wt   <- if (onm == "none") TRUE else !is.na(dw) && n_cmp > 0L && dw < 1e-8
+  ok_base <- if (onm == "survival") !is.na(dbase) && dbase < 1e-4 else TRUE
+  ok_opt  <- !is.na(d_opt) && d_opt < 5e-5
   pass    <- ok_coef && ok_wt && ok_base && ok_opt
 
   cat(sprintf("  %-17s [%-8s] d_coef=%-9s d_wt=%-9s d_base=%-9s d_opt=%.1e  %s%s\n",
@@ -406,8 +514,12 @@ gate_df <- do.call(rbind, gate)
 write.csv(gate_df, file.path(OUT, "zzf_oracle_gate.csv"), row.names = FALSE)
 
 cat("\n")
-if (all(gate_df$pass)) cat("GATE Z1: PASS on all fixtures\n") else
-  cat("GATE Z1: FAILURES ->", paste(gate_df$fixture[!gate_df$pass], collapse = ", "), "\n")
+if (all(gate_df$pass)) {
+  cat("GATE Z1: PASS on all fixtures\n")
+} else {
+  stop("GATE Z1 failures: ",
+       paste(gate_df$fixture[!gate_df$pass], collapse = ", "), call. = FALSE)
+}
 nn <- sum(gate_df$oracle == "none")
 cat(sprintf("  %d/%d fixtures have NO external software oracle (stratified weights + left\n",
             nn, nrow(gate_df)))

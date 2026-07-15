@@ -62,9 +62,8 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         (100 reps x n=100,000 x 4 arms, ~4h)
 *   validation_finegray_zzf_coverage.do   Gate Z-inference: which LT variance covers
 *                                         (1000 reps x 7 arms x 2 fits, ~1h)
-*                                         PASSED 2026-07-14: fg_sandwich covers every
-*                                         arm; model_based undercovers, worse as the
-*                                         truncation fraction rises (0.95 -> 0.82)
+*                                         Passed 2026-07-15 on the equation-7
+*                                         stratified-weight correction.
 local gates_files validation_finegray_zzf_recovery.do ///
     validation_finegray_zzf_coverage.do
 
@@ -140,6 +139,12 @@ foreach f of local all_files {
     }
 
     local ++n_run
+    local _base = subinstr("`f'", ".do", "", .)
+    * A suite that exits 0 before opening its log must not inherit a green
+    * RESULT from an earlier run.  Remove the expected log before execution;
+    * absence afterward is then evidence that the suite never published its
+    * checks, not an invitation to read stale state.
+    capture erase "`qa_dir'/`_base'.log"
     display _newline as text "=== Running: `f' ==="
     clear all
     set more off
@@ -147,16 +152,14 @@ foreach f of local all_files {
     capture noisily do "`qa_dir'/`f'"
     local _file_rc = _rc
 
-    * rc 0 is NOT the same as "everything was checked".  Four crossval suites can
-    * skip their external-oracle checks (R missing, Rscript failed) and still exit
-    * 0, announcing it only as `skip=N' in their own RESULT line -- which this
-    * runner never read.  A crossval that skipped every comparison would have been
-    * counted as a PASS.  Read the suite's log, parse its RESULT line, and treat a
-    * nonzero skip count as a FAILURE: per CLAUDE.md a missing R/Python dependency
-    * is a one-line install, never a licence to skip a correctness check.
+    * rc 0 is NOT the same as "everything was checked".  Require a machine-readable
+    * evaluated RESULT sentinel and verify tests = pass + fail, fail = 0, and no
+    * smoke/skip marker.  This catches suites that print FAIL but forget to exit,
+    * truncated external oracles, and smoke gate runs that are not gate evidence.
     local _sk = 0
+    local _result_ok = 0
+    local _result_reason "missing evaluated RESULT sentinel"
     if `_file_rc' == 0 {
-        local _base = subinstr("`f'", ".do", "", .)
         capture confirm file "`qa_dir'/`_base'.log"
         if _rc == 0 {
             * Read the log as DATA, not through macros.  A QA log echoes its own
@@ -168,10 +171,44 @@ foreach f of local all_files {
                 delimiter(`"`=char(1)'"') varnames(nonames) ///
                 stringcols(_all) bindquote(nobind) clear
             if _rc == 0 {
-                * The RESULT line appears twice: once as the echoed SOURCE
-                * (skip=`skip_count', which real() reads as missing) and once as
-                * the evaluated OUTPUT (skip=0).  Taking the max over non-missing
-                * matches picks the real one and ignores the echo.
+                * The line appears twice: echoed source macros parse as missing;
+                * only the evaluated output supplies numeric fields.
+                quietly capture gen double _tv = ///
+                    real(word(substr(v1, strpos(v1, "tests=") + 6, .), 1)) ///
+                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "tests=") > 0
+                quietly capture gen double _pv = ///
+                    real(word(substr(v1, strpos(v1, "pass=") + 5, .), 1)) ///
+                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "pass=") > 0
+                quietly capture gen double _fv = ///
+                    real(word(substr(v1, strpos(v1, "fail=") + 5, .), 1)) ///
+                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "fail=") > 0
+                quietly count if !missing(_tv, _pv, _fv)
+                if _rc == 0 & r(N) == 1 {
+                    quietly summarize _tv if !missing(_tv, _pv, _fv), meanonly
+                    local _rt = r(mean)
+                    quietly summarize _pv if !missing(_tv, _pv, _fv), meanonly
+                    local _rp = r(mean)
+                    quietly summarize _fv if !missing(_tv, _pv, _fv), meanonly
+                    local _rf = r(mean)
+                    local _smoke = 0
+                    quietly capture gen double _smv = ///
+                        real(word(substr(v1, strpos(v1, "smoke=") + 6, .), 1)) ///
+                        if strpos(v1, "RESULT:") > 0 & strpos(v1, "smoke=") > 0
+                    if _rc == 0 {
+                        quietly summarize _smv, meanonly
+                        if r(N) > 0 & r(max) < . local _smoke = r(max)
+                    }
+                    if `_rt' > 0 & `_rt' == `_rp' + `_rf' & `_rf' == 0 & `_smoke' == 0 {
+                        local _result_ok = 1
+                        local _result_reason ""
+                    }
+                    else {
+                        local _result_reason "RESULT tests=`_rt' pass=`_rp' fail=`_rf' smoke=`_smoke'"
+                    }
+                }
+                else if _rc == 0 & r(N) > 1 {
+                    local _result_reason "multiple evaluated RESULT sentinels"
+                }
                 quietly capture gen double _skv = ///
                     real(word(substr(v1, strpos(v1, "skip=") + 5, .), 1)) ///
                     if strpos(v1, "RESULT:") > 0 & strpos(v1, "skip=") > 0
@@ -184,7 +221,7 @@ foreach f of local all_files {
         }
     }
 
-    if `_file_rc' == 0 & `_sk' == 0 {
+    if `_file_rc' == 0 & `_sk' == 0 & `_result_ok' {
         local ++n_pass
         display as result "  PASSED: `f'"
     }
@@ -194,6 +231,12 @@ foreach f of local all_files {
         display as error "  FAILED: `f' -- exited 0 but SKIPPED `_sk' check(s)"
         display as error "  A skipped external oracle is an unrun check, not a pass."
         display as error "  Install the missing dependency and re-run."
+    }
+    else if `_file_rc' == 0 {
+        local ++n_fail
+        local failed_files "`failed_files' `f'(invalid RESULT)"
+        display as error "  FAILED: `f' -- `_result_reason'"
+        display as error "  rc=0 without a zero-failure evaluated RESULT is not a pass."
     }
     else {
         local ++n_fail

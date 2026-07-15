@@ -161,12 +161,12 @@ it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
 
 {pstd}
 {bf:Left truncation (delayed entry).} CIF points and standard errors use the same
-Geskus product-limit contract as the fit: the risk sets, baseline cumulative
-subdistribution hazard, and influence functions carry A = G(t-)H(t-) rather
-than a censoring-only weight. This form is equivalent to Zhang-Zhang-Fine
-Weight 1 in the unstratified continuous-time setting. The finite-sample tie rule
-and symmetric cross-classified {opt strata()}/{opt truncstrata()} construction
-are package extensions. Delayed-entry estimates therefore change relative to
+Zhang-Zhang-Fine Weight-1 contract as the fit. With one weight stratum this is
+the equivalent Geskus product-limit form A = G(t-)H(t-); with multiple strata
+it uses the equation-7 pooled time-side stabilizer and stratum-specific subject
+denominators. Different censoring and entry groupings use the package's
+factorized cross-classification. Because the finite-sample tie rule is
+package-defined, delayed-entry estimates change relative to
 earlier versions and {helpb stcrreg}, by design. The estimation data must remain
 in memory and unmodified so the weight design can be rebuilt. See
 {help finegray##lt:Left truncation} in {helpb finegray} for the citations,

@@ -71,10 +71,11 @@ hazard, at each requested time.
 {pstd}
 {bf:Left truncation (delayed entry).} All prediction types may {bf:move} under
 delayed entry because the fitted coefficients and baseline move. The risk sets
-use the Geskus product-limit factor A = G(t-)H(t-), which is equivalent to
-Zhang-Zhang-Fine Weight 1 in the unstratified continuous-time setting. The
-finite-sample tie rule and symmetric cross-classified
-{opt strata()}/{opt truncstrata()} construction are package extensions. See
+use Zhang-Zhang-Fine Weight 1. With one weight stratum this is the equivalent
+Geskus product-limit factor A = G(t-)H(t-); with multiple strata it uses the
+equation-7 pooled time-side stabilizer and stratum-specific subject
+denominators. Different censoring and entry groupings use the package's factorized
+cross-classification. The finite-sample tie rule is package-defined. See
 {help finegray##lt:Left truncation} in {helpb finegray}. Point {cmd:xb} scoring
 needs only {cmd:e(b)}, but {opt ci}, {opt schoenfeld}, and {opt bootstrap()}
 reconstruct the weight design and require the original, unmodified estimation

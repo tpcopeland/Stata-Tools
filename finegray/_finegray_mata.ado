@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/15
+*! _finegray_mata Version 1.2.1  2026/07/15
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -496,6 +496,46 @@ real matrix _finegray_A_at_times(
     return(out)
 }
 
+/* ZZF (2011) equation (7) uses a POOLED time-side stabilizer and a
+   stratum-specific subject-side denominator.  The same algebra applies to the
+   package's factorized censoring-by-entry extension when its two grouping
+   variables differ.  This differs from the historical symmetric
+   A_g(t)/A_g(X_i) implementation only when delayed entry and multiple weight
+   strata are both present.  Keeping the predicate explicit preserves the
+   released no-entry path bit for bit. */
+real scalar _finegray_use_pooled_stabilizer(
+    real colvector t0,
+    real colvector byg_id,
+    real colvector tg_id)
+{
+    real colvector gidx, jc, ju
+
+    if (sum(t0 :> 0) == 0) return(0)
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    return(rows(jc) > 1)
+}
+
+/* Pooled A(t-) = G_pool(t-) H_pool(t-), evaluated on target_t.  Bellach et
+   al. (2020) establish the continuous-time equivalence to ZZF's b(t)/S(t-);
+   the package's tie convention is separately regression-tested. */
+real colvector _finegray_A_pool_at_times(
+    real colvector t,
+    real colvector delta,
+    real scalar censval,
+    real colvector event_type,
+    real colvector t0,
+    real colvector target_t)
+{
+    real colvector one, Gp
+    real matrix Gpt, Hpt
+
+    one = J(rows(t), 1, 1)
+    Gp = _finegray_km_censor(t, delta, censval, event_type, one, t0)
+    Gpt = _finegray_G_at_times(t, Gp, one, target_t)
+    Hpt = _finegray_H_at_times(t, t0, one, target_t)
+    return(Gpt[., 1] :* Hpt[., 1])
+}
+
 /* Combined-weight diagnostics, computed ONCE after convergence.
    Posts the e() contract's weight-sensitivity scalars:
 
@@ -528,8 +568,10 @@ real matrix _finegray_A_at_times(
    only on the ZZF branch.) */
 /* HARD POSITIVITY CHECK for the delayed-entry weights.
 
-   A retained competing-event subject i carries weight A_g(t-)/A_g(X_i-).  If its
-   own stratum's A_g(X_i-) is ZERO, that weight is undefined -- and Mata returns
+   A retained competing-event subject i is divided by its own stratum's
+   A_g(X_i-): its numerator is A_g(t-) on the one-stratum branch and
+   the pooled A(t-) under equation 7.  If A_g(X_i-) is ZERO, that weight is
+   undefined -- and Mata returns
    MISSING for x/0 rather than infinity, so the damage surfaces far downstream as
    "the null log pseudo-likelihood is not finite" / r(430) "convergence not
    achieved".  That message blames the optimizer for what is actually a
@@ -566,15 +608,85 @@ real scalar _finegray_positivity_check(
     real colvector t0,
     real colvector tg_id)
 {
-    real scalar n, nj, i, npos
-    real colvector is_compete, gidx, jc, ju, Aden, flagged
+    real scalar n, nj, i, j, k, g, npos, ep, cur_time, last_cause
+    real colvector is_cause, is_compete, gidx, jc, ju, flagged, Apool
+    real colvector row_id, ord, entry_ord, riskn
+    real matrix Aden
     string scalar badstr
 
     n = rows(t)
+    is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
 
     _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
     nj = rows(jc)
+
+    /* Under the equation-7 pooled-stabilizer form, every genuinely at-risk
+       subject is divided by its group's A_g(t-), not just retained
+       competing-event subjects by A_g(X_i-).  Check exactly those consulted
+       denominator cells.  Inactive groups are deliberately ignored: 0/A_g
+       never enters the scan. */
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+        Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+        row_id = (1::n)
+        ord = order((t, row_id), (1, 2))
+        entry_ord = order((t0, row_id), (1, 2))
+        riskn = J(nj, 1, 0)
+        flagged = J(nj, 1, 0)
+        last_cause = max(select(t, is_cause))
+        npos = 0
+        ep = 1
+        i = 1
+        while (i <= n) {
+            cur_time = t[ord[i]]
+            while (ep <= n) {
+                if (t0[entry_ord[ep]] >= cur_time) break
+                k = entry_ord[ep]
+                if (t[k] >= cur_time) riskn[gidx[k]] = riskn[gidx[k]] + 1
+                ep++
+            }
+            j = i
+            while (j <= n) {
+                if (t[ord[j]] != cur_time) break
+                j++
+            }
+            for (k = i; k < j; k++) {
+                if (!is_cause[ord[k]]) continue
+                if (Apool[ord[k]] <= 0) {
+                    npos++
+                    for (g = 1; g <= nj; g++) {
+                        if (riskn[g] > 0) flagged[g] = 1
+                    }
+                }
+                for (g = 1; g <= nj; g++) {
+                    if (riskn[g] <= 0) continue
+                    if (Aden[ord[k], g] > 0) continue
+                    npos++
+                    flagged[g] = 1
+                }
+            }
+            for (k = i; k < j; k++) {
+                g = gidx[ord[k]]
+                riskn[g] = riskn[g] - 1
+            }
+            i = j
+        }
+        for (i = 1; i <= n; i++) {
+            if (!is_compete[i] | t[i] >= last_cause) continue
+            if (Aden[i, gidx[i]] > 0) continue
+            npos++
+            flagged[gidx[i]] = 1
+        }
+        badstr = ""
+        for (i = 1; i <= nj; i++) {
+            if (!flagged[i]) continue
+            if (badstr == "") badstr = strofreal(i)
+            else              badstr = badstr + " " + strofreal(i)
+        }
+        st_local("_fg_posstrata", badstr)
+        return(npos)
+    }
 
     /* A_g(X_i-) in subject i's OWN joint group: the weight's denominator. */
     Aden = _finegray_G_minus(gidx,
@@ -614,6 +726,158 @@ real scalar _finegray_positivity_check(
     return(npos)
 }
 
+void _finegray_weight_diag_zzf(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real scalar A_FLOOR, WT_CEIL, n, nj, K, i, j, k, g, ep, cur_time
+    real scalar minprob, maxwt, nprobwarn, nwtwarn, a, w, p
+    real colvector is_cause, is_compete, gidx, jc, ju, row_id, ord, entry_ord
+    real colvector et, Pev, Pmax, Aden, riskn, flagged
+    real matrix Aev, active
+    string scalar warnstr
+
+    A_FLOOR = 1e-10
+    WT_CEIL = 1e6
+    n = rows(t)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    nj = rows(jc)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+
+    et = J(0, 1, .)
+    for (i = 1; i <= n; i++) {
+        if (!is_cause[ord[i]]) continue
+        if (rows(et) == 0) et = t[ord[i]]
+        else if (t[ord[i]] != et[rows(et)]) et = et \ t[ord[i]]
+    }
+    K = rows(et)
+    if (K == 0) {
+        st_matrix("_finegray_nwstrata", nj)
+        st_matrix("_finegray_minprob", .)
+        st_matrix("_finegray_maxwt", .)
+        st_matrix("_finegray_nprobwarn", 0)
+        st_matrix("_finegray_nwtwarn", 0)
+        st_local("_fg_warnstrata", "")
+        return
+    }
+
+    Aev = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, et)
+    Pev = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, et)
+    Aden = _finegray_G_minus(gidx,
+        _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t))
+    active = J(K, nj, 0)
+    riskn = J(nj, 1, 0)
+    ep = 1
+    k = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            j = entry_ord[ep]
+            if (t[j] >= cur_time) riskn[gidx[j]] = riskn[gidx[j]] + 1
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        if (k <= K) {
+            if (et[k] == cur_time) {
+                active[k, .] = riskn'
+                k++
+            }
+        }
+        for (g = i; g < j; g++) {
+            riskn[gidx[ord[g]]] = riskn[gidx[ord[g]]] - 1
+        }
+        i = j
+    }
+
+    Pmax = J(K, 1, .)
+    Pmax[K] = Pev[K]
+    for (k = K - 1; k >= 1; k--) Pmax[k] = max((Pev[k], Pmax[k + 1]))
+    minprob = .
+    maxwt = .
+    nprobwarn = 0
+    nwtwarn = 0
+    flagged = J(nj, 1, 0)
+    for (k = 1; k <= K; k++) {
+        p = Pev[k]
+        if (p < minprob) minprob = p
+        if (p < A_FLOOR) {
+            nprobwarn++
+            for (g = 1; g <= nj; g++) {
+                if (active[k, g] > 0) flagged[g] = 1
+            }
+        }
+        for (g = 1; g <= nj; g++) {
+            if (active[k, g] <= 0) continue
+            a = Aev[k, g]
+            if (a < minprob) minprob = a
+            if (a < A_FLOOR) {
+                nprobwarn++
+                flagged[g] = 1
+            }
+            if (a <= 0) continue
+            w = p / a
+            if (maxwt >= . | w > maxwt) maxwt = w
+            if (w > WT_CEIL) {
+                nwtwarn++
+                flagged[g] = 1
+            }
+        }
+    }
+
+    k = 1
+    for (i = 1; i <= n; i++) {
+        j = ord[i]
+        while (k <= K) {
+            if (et[k] > t[j]) break
+            k++
+        }
+        if (!is_compete[j] | k > K) continue
+        g = gidx[j]
+        a = Aden[j]
+        if (a < minprob) minprob = a
+        if (a < A_FLOOR) {
+            nprobwarn++
+            flagged[g] = 1
+        }
+        if (a <= 0) continue
+        w = Pmax[k] / a
+        if (maxwt >= . | w > maxwt) maxwt = w
+        if (w > WT_CEIL) {
+            nwtwarn++
+            flagged[g] = 1
+        }
+    }
+
+    warnstr = ""
+    for (g = 1; g <= nj; g++) {
+        if (!flagged[g]) continue
+        warnstr = warnstr + (warnstr == "" ? "" : " ") + strofreal(g)
+    }
+    st_matrix("_finegray_nwstrata", nj)
+    st_matrix("_finegray_minprob", minprob)
+    st_matrix("_finegray_maxwt", maxwt)
+    st_matrix("_finegray_nprobwarn", nprobwarn)
+    st_matrix("_finegray_nwtwarn", nwtwarn)
+    st_local("_fg_warnstrata", warnstr)
+}
+
 void _finegray_weight_diag(
     real colvector t,
     real colvector delta,
@@ -631,6 +895,12 @@ void _finegray_weight_diag(
     real colvector ord, row_id, cmin
     real matrix Aev, SUF
     string scalar warnstr
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        _finegray_weight_diag_zzf(t, delta, cause, censval, event_type,
+            G, byg_id, t0, tg_id)
+        return
+    }
 
     A_FLOOR = 1e-10
     WT_CEIL = 1e6
@@ -784,6 +1054,354 @@ void _finegray_weight_diag(
     st_local("_fg_warnstrata", warnstr)
 }
 
+/* Canonical stratified ZZF equation (7): pooled A(t) stabilizer,
+   stratum-specific A_g(.) denominators.  Risk-set sums are maintained on the
+   denominator scale; the pooled factor cancels from S1/S0 but remains as the
+   outer cause-event weight in the estimating equation. */
+real scalar _finegray_loglik_zzf_strat(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, Apool, riskn
+    real scalar n, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, ll
+    real rowvector risk0, bwd0
+    real matrix Aden
+
+    n = rows(t)
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+
+    risk0 = J(1, ng, 0)
+    /* Activity is combinatorial, not numerical.  Entry and exit traverse
+       different orders, so a weighted sum can retain a tiny positive residue
+       after its last subject exits; riskn prevents that empty stratum from
+       consulting A_g(t). */
+    riskn = J(ng, 1, 0)
+    bwd0 = J(1, ng, 0)
+    ep = 1
+    ll = 0
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = bwd0 * J(ng, 1, 1)
+                for (g = 1; g <= ng; g++) {
+                    if (riskn[g] > 0) coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                }
+                ew = Apool[idx] / Aden[idx, gidx[idx]]
+                ll = ll + ew * (eta[idx] - log(Apool[idx] * coreS0))
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+        }
+        i = j
+    }
+    return(ll)
+}
+
+void _finegray_score_info_zzf_strat(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector score,
+    real matrix info,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, Apool, riskn
+    real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew
+    real rowvector risk0, bwd0, coreS1, zbar
+    real matrix risk1, bwd1, risk2, bwd2, coreS2, Aden
+
+    n = rows(t)
+    p = cols(Z)
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+
+    risk0 = J(1, ng, 0)
+    riskn = J(ng, 1, 0)
+    risk1 = J(ng, p, 0)
+    risk2 = J(ng, p * p, 0)
+    bwd0 = J(1, ng, 0)
+    bwd1 = J(ng, p, 0)
+    bwd2 = J(ng, p * p, 0)
+    score = J(p, 1, 0)
+    info = J(p, p, 0)
+    ep = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+                risk1[g, .] = risk1[g, .] + expeta[idx] * Z[idx, .]
+                risk2[g, .] = risk2[g, .] +
+                    vec(expeta[idx] * (Z[idx, .]' * Z[idx, .]))'
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = 0
+                coreS1 = J(1, p, 0)
+                coreS2 = J(p, p, 0)
+                for (g = 1; g <= ng; g++) {
+                    coreS0 = coreS0 + bwd0[g]
+                    coreS1 = coreS1 + bwd1[g, .]
+                    coreS2 = coreS2 + rowshape(bwd2[g, .], p)
+                    if (riskn[g] > 0) {
+                        coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                        coreS1 = coreS1 + risk1[g, .] / Aden[idx, g]
+                        coreS2 = coreS2 + rowshape(risk2[g, .], p) / Aden[idx, g]
+                    }
+                }
+                zbar = coreS1 / coreS0
+                ew = Apool[idx] / Aden[idx, gidx[idx]]
+                score = score + ew * (Z[idx, .] - zbar)'
+                info = info + ew * (coreS2 / coreS0 - zbar' * zbar)
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+                bwd1[g, .] = bwd1[g, .] + expeta[idx] / Gminus[idx] * Z[idx, .]
+                bwd2[g, .] = bwd2[g, .] +
+                    vec(expeta[idx] / Gminus[idx] * (Z[idx, .]' * Z[idx, .]))'
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+            risk1[g, .] = risk1[g, .] - expeta[idx] * Z[idx, .]
+            risk2[g, .] = risk2[g, .] -
+                vec(expeta[idx] * (Z[idx, .]' * Z[idx, .]))'
+        }
+        i = j
+    }
+}
+
+real matrix _finegray_scores_zzf_strat(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, Apool, entry_rinv, exit_rinv, exit_cinv
+    real colvector riskn
+    real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, run_cinv
+    real rowvector risk0, bwd0, coreS1, zbar, run_cz
+    real matrix risk1, bwd1, Aden, scores, run_rz, entry_rz, exit_rz, exit_cz
+    real rowvector run_rinv
+
+    n = rows(t)
+    p = cols(Z)
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+
+    risk0 = J(1, ng, 0)
+    riskn = J(ng, 1, 0)
+    risk1 = J(ng, p, 0)
+    bwd0 = J(1, ng, 0)
+    bwd1 = J(ng, p, 0)
+    scores = J(n, p, 0)
+    run_rinv = J(1, ng, 0)
+    run_rz = J(ng, p, 0)
+    entry_rinv = J(n, 1, 0)
+    entry_rz = J(n, p, 0)
+    exit_rinv = J(n, 1, 0)
+    exit_rz = J(n, p, 0)
+    run_cinv = 0
+    run_cz = J(1, p, 0)
+    exit_cinv = J(n, 1, 0)
+    exit_cz = J(n, p, 0)
+    ep = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+                risk1[g, .] = risk1[g, .] + expeta[idx] * Z[idx, .]
+                entry_rinv[idx] = run_rinv[g]
+                entry_rz[idx, .] = run_rz[g, .]
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = 0
+                coreS1 = J(1, p, 0)
+                for (g = 1; g <= ng; g++) {
+                    coreS0 = coreS0 + bwd0[g]
+                    coreS1 = coreS1 + bwd1[g, .]
+                    if (riskn[g] > 0) {
+                        coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                        coreS1 = coreS1 + risk1[g, .] / Aden[idx, g]
+                    }
+                }
+                zbar = coreS1 / coreS0
+                ew = Apool[idx] / Aden[idx, gidx[idx]]
+                scores[idx, .] = scores[idx, .] + ew * (Z[idx, .] - zbar)
+                run_cinv = run_cinv + ew / coreS0
+                run_cz = run_cz + ew * zbar / coreS0
+                for (g = 1; g <= ng; g++) {
+                    /* A stratum with no natural at-risk subject contributes
+                       exactly zero here.  Its A_g(t) may also be zero: touching
+                       1/A_g(t) would manufacture missing score rows from a cell
+                       the estimating equation never consults. */
+                    if (riskn[g] <= 0) continue
+                    run_rinv[g] = run_rinv[g] + ew / (Aden[idx, g] * coreS0)
+                    run_rz[g, .] = run_rz[g, .] +
+                        ew * zbar / (Aden[idx, g] * coreS0)
+                }
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            exit_rinv[idx] = run_rinv[g]
+            exit_rz[idx, .] = run_rz[g, .]
+            exit_cinv[idx] = run_cinv
+            exit_cz[idx, .] = run_cz
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+                bwd1[g, .] = bwd1[g, .] + expeta[idx] / Gminus[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+            risk1[g, .] = risk1[g, .] - expeta[idx] * Z[idx, .]
+        }
+        i = j
+    }
+
+    for (i = 1; i <= n; i++) {
+        scores[i, .] = scores[i, .] - expeta[i] *
+            (Z[i, .] * (exit_rinv[i] - entry_rinv[i]) -
+             (exit_rz[i, .] - entry_rz[i, .]))
+        if (is_compete[i]) {
+            scores[i, .] = scores[i, .] - expeta[i] / Gminus[i] *
+                (Z[i, .] * (run_cinv - exit_cinv[i]) -
+                 (run_cz - exit_cz[i, .]))
+        }
+    }
+    return(scores)
+}
+
 /* Log pseudo-likelihood via incremental risk-set scan with Breslow ties.
    Supports left truncation via entry-time pointer. */
 real scalar _finegray_loglik(
@@ -806,6 +1424,11 @@ real scalar _finegray_loglik(
     real colvector levels, gidx, Gminus, jc, ju
     real rowvector raw_bwd
     real matrix Gt
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        return(_finegray_loglik_zzf_strat(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, t0, tg_id))
+    }
 
     n = rows(t)
     p = cols(Z)
@@ -910,6 +1533,12 @@ void _finegray_score_info(
     real colvector levels, gidx, Gminus, jc, ju
     real matrix bwd_s1_raw, bwd_s2_raw, S2_total, risk_S2, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        _finegray_score_info_zzf_strat(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, score, info, t0, tg_id)
+        return
+    }
 
     n = rows(t)
     p = cols(Z)
@@ -1048,6 +1677,11 @@ real matrix _finegray_score_residuals(
     real matrix bwd_s1_raw, running_gzbars
     real rowvector bwd_s0_raw, running_zbar_sum, z_bar_t, S1_t, risk_S1
     real rowvector running_ginvS0, total_ginvS0, total_gzbars
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        return(_finegray_scores_zzf_strat(t, delta, cause,
+            censval, event_type, Z, beta, G, byg_id, t0, tg_id))
+    }
 
     n = rows(t)
     p = cols(Z)
@@ -1234,6 +1868,106 @@ real matrix _finegray_robust_var(
     return(info_inv * meat * info_inv)
 }
 
+/* Canonical stratified ZZF Breslow baseline.  The pooled stabilizer cancels
+   between the weighted event count and weighted risk set, leaving one
+   stratum-specific event denominator outside the denominator-scale risk sum. */
+real matrix _finegray_basehaz_zzf(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, riskn
+    real scalar n, i, j, k, idx, cur_time, ep, g, ng, coreS0
+    real scalar cum_bh, ev_idx, n_events, has_cause
+    real rowvector risk0, bwd0
+    real matrix Aden, result
+
+    n = rows(t)
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+
+    risk0 = J(1, ng, 0)
+    riskn = J(ng, 1, 0)
+    bwd0 = J(1, ng, 0)
+    n_events = sum(is_cause)
+    result = J(n_events, 2, .)
+    cum_bh = 0
+    ev_idx = 0
+    ep = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        has_cause = 0
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = bwd0 * J(ng, 1, 1)
+                for (g = 1; g <= ng; g++) {
+                    if (riskn[g] > 0) coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                }
+                cum_bh = cum_bh +
+                    1 / (Aden[idx, gidx[idx]] * coreS0)
+                has_cause = 1
+            }
+        }
+        if (has_cause) {
+            ev_idx++
+            result[ev_idx, 1] = cur_time
+            result[ev_idx, 2] = cum_bh
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+        }
+        i = j
+    }
+    if (ev_idx < 1) return(J(0, 2, .))
+    if (ev_idx < rows(result)) result = result[(1..ev_idx), .]
+    return(result)
+}
+
 /* Compute baseline cumulative subhazard (with left truncation) */
 real matrix _finegray_basehazard(
     real colvector t,
@@ -1255,6 +1989,11 @@ real matrix _finegray_basehazard(
     real colvector levels, gidx, Gminus, jc, ju
     real rowvector bwd_s0_raw
     real matrix result, Gt
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        return(_finegray_basehaz_zzf(t, delta, cause, censval, event_type,
+            Z, beta, G, byg_id, t0, tg_id))
+    }
 
     n = rows(t)
     p = cols(Z)
@@ -1360,6 +2099,119 @@ real matrix _finegray_basehazard(
     return(result)
 }
 
+/* Canonical stratified ZZF Schoenfeld contributions. */
+real matrix _finegray_schoenfeld_zzf(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real matrix Z,
+    real colvector beta,
+    real colvector G,
+    real colvector byg_id,
+    real scalar do_scale,
+    real colvector t0,
+    real colvector tg_id)
+{
+    real colvector row_id, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, Apool, score_vec, riskn
+    real scalar n, p, i, j, k, idx, cur_time, ep, g, ng, coreS0, ew, ev
+    real rowvector risk0, bwd0, coreS1, zbar
+    real matrix risk1, bwd1, Aden, result, info_mat, info_inv
+
+    n = rows(t)
+    p = cols(Z)
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+    Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
+
+    risk0 = J(1, ng, 0)
+    riskn = J(ng, 1, 0)
+    risk1 = J(ng, p, 0)
+    bwd0 = J(1, ng, 0)
+    bwd1 = J(ng, p, 0)
+    result = J(sum(is_cause), p + 1, .)
+    ev = 0
+    ep = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+                risk1[g, .] = risk1[g, .] + expeta[idx] * Z[idx, .]
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = 0
+                coreS1 = J(1, p, 0)
+                for (g = 1; g <= ng; g++) {
+                    coreS0 = coreS0 + bwd0[g]
+                    coreS1 = coreS1 + bwd1[g, .]
+                    if (riskn[g] > 0) {
+                        coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                        coreS1 = coreS1 + risk1[g, .] / Aden[idx, g]
+                    }
+                }
+                zbar = coreS1 / coreS0
+                ew = Apool[idx] / Aden[idx, gidx[idx]]
+                ev++
+                result[ev, 1] = t[idx]
+                result[ev, 2..p+1] = ew * (Z[idx, .] - zbar)
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+                bwd1[g, .] = bwd1[g, .] +
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+            risk1[g, .] = risk1[g, .] - expeta[idx] * Z[idx, .]
+        }
+        i = j
+    }
+    if (do_scale & ev > 0) {
+        _finegray_score_info_zzf_strat(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
+        info_inv = invsym(info_mat)
+        if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+        for (k = 1; k <= p; k++) {
+            result[., k + 1] = result[., k + 1] * info_inv[k, k]
+        }
+    }
+    return(result)
+}
+
 /* Schoenfeld residuals at each cause-event time (with left truncation).
    Returns n_fail x (p+1) matrix: [time, resid_1, ..., resid_p]
    Optionally scales by diag(info_inv) for Grambsch-Therneau test. */
@@ -1383,6 +2235,11 @@ real matrix _finegray_schoenfeld(
     real colvector row_id, levels, gidx, Gminus, jc, ju
     real matrix result, info_mat, risk_S1_mat, bwd_s1_raw, Gt
     real rowvector bwd_s0_raw, S1_total, z_bar, risk_S1
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        return(_finegray_schoenfeld_zzf(t, delta, cause, censval,
+            event_type, Z, beta, G, byg_id, do_scale, t0, tg_id))
+    }
 
     n = rows(t)
     p = cols(Z)
@@ -1650,10 +2507,10 @@ void _finegray_engine(
         G, byg_id, t0, tg_id)
     if (npos > 0) {
         errprintf("finegray: positivity violation in the delayed-entry weights\n")
-        errprintf("  %g competing-event subject(s) have A(X_i-) = 0 in their own weight\n", npos)
-        errprintf("  stratum, so the weight A(t-)/A(X_i-) is undefined for them\n")
-        errprintf("  they exited from a competing event before enough subjects in that\n")
-        errprintf("  stratum had entered to estimate the entry distribution there\n")
+        errprintf("  %g consulted joint-stratum denominator cell(s) are zero\n", npos)
+        errprintf("  a configured ZZF Weight-1 risk contribution is therefore undefined\n")
+        errprintf("  this can occur at an event time or at a retained competing exit\n")
+        errprintf("  before enough subjects in that stratum have entered\n")
         errprintf("  affected weight strata: %s\n", st_local("_fg_posstrata"))
         errprintf("  use coarser strata()/truncstrata(), or a later time origin\n")
         exit(error(459))
@@ -1852,6 +2709,13 @@ void _finegray_engine(
         V = info_inv
     }
 
+    if (hasmissing(V)) {
+        errprintf("finegray: the variance matrix is not finite\n")
+        errprintf("the estimated weights or score contributions are numerically unstable\n")
+        errprintf("inspect the weight warnings and use coarser strata()/truncstrata()\n")
+        exit(error(430))
+    }
+
     /* Compute the baseline hazard ALWAYS -- the scan is linear -- and cache it in
        MATA, which is free.  What is not free is handing its K ~ n/2 rows to Stata
        as a matrix: that is O(K^2) and was the package's whole superlinearity (see
@@ -1921,6 +2785,222 @@ void _finegray_engine(
    public entry points (_st for a Stata matrix of points, _predict for one point
    per observation) both delegate here so the influence-function logic lives in
    one place. */
+/* Influence-function CIF for the stratified ZZF equation-7 form.  This is the
+   denominator-scale analogue of _finegray_cif_core(): each event contributes
+   dL = 1/(A_event*C), an at-risk subject in group g contributes
+   1/(A_event*A_g*C^2), and a retained competing subject contributes
+   1/(A_event*A_i*C^2).  The IPCW product-limit weights are treated as known,
+   matching the package's documented analytic variance contract. */
+real matrix _finegray_cif_core_zzf(
+    real matrix Z,
+    real colvector t,
+    real colvector t0,
+    real colvector delta,
+    real colvector event_type,
+    real colvector beta,
+    real colvector byg_id,
+    real colvector tg_id,
+    real colvector clust_id,
+    real scalar has_clust,
+    real scalar cause,
+    real scalar censval,
+    real matrix E)
+{
+    real colvector row_id, G, eta, expeta, is_cause, is_compete, ord, entry_ord
+    real colvector gidx, Gminus, jc, ju, score_vec, riskn
+    real colvector Tm, dLm, obsm, cumL, Aevent, Ccomp
+    real colvector own, sub, q, psi, cle, clt0, hi, lo, Ccs, clev, sel
+    real matrix info_mat, info_inv, scores, PSIb, Aden, zbarm, Rm, Rcs, out
+    real matrix risk1, bwd1
+    real rowvector risk0, bwd0, coreS1, zbar, zstar, bvec
+    real scalar n, p, ng, M, ev, i, j, k, idx, ep, g, cur_time, coreS0
+    real scalar ii, mp, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+
+    n = rows(Z)
+    p = cols(Z)
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
+    ng = rows(jc)
+    Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
+    Gminus = _finegray_G_minus(gidx, Aden)
+
+    _finegray_score_info_zzf_strat(t, delta, cause, censval, event_type,
+        Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id)
+    info_inv = invsym(info_mat)
+    if (missing(info_inv[1, 1])) info_inv = invsym(info_mat + 1e-6 * I(p))
+    scores = _finegray_scores_zzf_strat(t, delta, cause, censval,
+        event_type, Z, beta, G, byg_id, t0, tg_id)
+    PSIb = scores * info_inv
+
+    eta = Z * beta
+    expeta = exp(eta)
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
+    row_id = (1::n)
+    ord = order((t, row_id), (1, 2))
+    entry_ord = order((t0, row_id), (1, 2))
+
+    M = sum(is_cause)
+    Tm = J(M, 1, .)
+    dLm = J(M, 1, .)
+    obsm = J(M, 1, .)
+    Aevent = J(M, 1, .)
+    Ccomp = J(M, 1, .)
+    zbarm = J(M, p, .)
+    Rm = J(M, ng, 0)
+    risk0 = J(1, ng, 0)
+    riskn = J(ng, 1, 0)
+    risk1 = J(ng, p, 0)
+    bwd0 = J(1, ng, 0)
+    bwd1 = J(ng, p, 0)
+    ev = 0
+    ep = 1
+    i = 1
+    while (i <= n) {
+        cur_time = t[ord[i]]
+        while (ep <= n) {
+            if (t0[entry_ord[ep]] >= cur_time) break
+            idx = entry_ord[ep]
+            if (t[idx] >= cur_time) {
+                g = gidx[idx]
+                risk0[g] = risk0[g] + expeta[idx]
+                riskn[g] = riskn[g] + 1
+                risk1[g, .] = risk1[g, .] + expeta[idx] * Z[idx, .]
+            }
+            ep++
+        }
+        j = i
+        while (j <= n) {
+            if (t[ord[j]] != cur_time) break
+            j++
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_cause[idx]) {
+                coreS0 = 0
+                coreS1 = J(1, p, 0)
+                for (g = 1; g <= ng; g++) {
+                    coreS0 = coreS0 + bwd0[g]
+                    coreS1 = coreS1 + bwd1[g, .]
+                    if (riskn[g] > 0) {
+                        coreS0 = coreS0 + risk0[g] / Aden[idx, g]
+                        coreS1 = coreS1 + risk1[g, .] / Aden[idx, g]
+                    }
+                }
+                zbar = coreS1 / coreS0
+                ev++
+                Tm[ev] = t[idx]
+                obsm[ev] = idx
+                Aevent[ev] = Aden[idx, gidx[idx]]
+                dLm[ev] = 1 / (Aevent[ev] * coreS0)
+                Ccomp[ev] = 1 / (Aevent[ev] * coreS0 ^ 2)
+                zbarm[ev, .] = zbar
+                for (g = 1; g <= ng; g++) {
+                    if (riskn[g] > 0) {
+                        Rm[ev, g] = 1 /
+                            (Aevent[ev] * Aden[idx, g] * coreS0 ^ 2)
+                    }
+                }
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            if (is_compete[idx]) {
+                g = gidx[idx]
+                bwd0[g] = bwd0[g] + expeta[idx] / Gminus[idx]
+                bwd1[g, .] = bwd1[g, .] +
+                    expeta[idx] / Gminus[idx] * Z[idx, .]
+            }
+        }
+        for (k = i; k < j; k++) {
+            idx = ord[k]
+            g = gidx[idx]
+            risk0[g] = risk0[g] - expeta[idx]
+            riskn[g] = riskn[g] - 1
+            risk1[g, .] = risk1[g, .] - expeta[idx] * Z[idx, .]
+        }
+        i = j
+    }
+
+    cumL = runningsum(dLm)
+    Ccs = 0 \ runningsum(Ccomp)
+    Rcs = J(M + 1, ng, 0)
+    for (g = 1; g <= ng; g++) {
+        Rcs[|2, g \ M + 1, g|] = runningsum(Rm[., g])
+    }
+
+    cle = J(n, 1, 0)
+    clt0 = J(n, 1, 0)
+    mp = 0
+    for (ii = 1; ii <= n; ii++) {
+        idx = ord[ii]
+        while (mp < M) {
+            if (Tm[mp + 1] <= t[idx]) mp++
+            else break
+        }
+        cle[idx] = mp
+    }
+    mp = 0
+    for (ii = 1; ii <= n; ii++) {
+        idx = entry_ord[ii]
+        while (mp < M) {
+            if (Tm[mp + 1] <= t0[idx]) mp++
+            else break
+        }
+        clt0[idx] = mp
+    }
+
+    ne = rows(E)
+    out = J(ne, 2, 0)
+    for (e = 1; e <= ne; e++) {
+        tstar = E[e, 1]
+        zstar = E[e, (2..p + 1)]
+        mstar = colsum(Tm :<= tstar)
+        if (mstar == 0) {
+            out[e, 1] = 0
+            out[e, 2] = 0
+            continue
+        }
+        L0 = cumL[mstar]
+        bvec = -colsum(zbarm[(1..mstar), .] :*
+            (dLm[(1..mstar)] * J(1, p, 1)))
+        rstar = exp(zstar * beta)
+        cif = 1 - exp(-L0 * rstar)
+        factor = rstar * exp(-L0 * rstar)
+
+        own = J(n, 1, 0)
+        for (m = 1; m <= mstar; m++) {
+            own[obsm[m]] = own[obsm[m]] + dLm[m]
+        }
+        hi = (cle :> mstar) :* mstar :+ (cle :<= mstar) :* cle
+        lo = (clt0 :> hi) :* hi :+ (clt0 :<= hi) :* clt0
+        sub = J(n, 1, 0)
+        for (i = 1; i <= n; i++) {
+            g = gidx[i]
+            sub[i] = Rcs[hi[i] + 1, g] - Rcs[lo[i] + 1, g]
+            if (is_compete[i]) {
+                sub[i] = sub[i] +
+                    (Ccs[mstar + 1] - Ccs[hi[i] + 1]) / Gminus[i]
+            }
+        }
+        q = own - expeta :* sub
+        psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
+
+        if (has_clust) {
+            clev = uniqrows(clust_id)
+            V = 0
+            for (k = 1; k <= rows(clev); k++) {
+                sel = selectindex(clust_id :== clev[k])
+                V = V + colsum(psi[sel]) ^ 2
+            }
+        }
+        else V = colsum(psi :^ 2)
+        out[e, 1] = cif
+        out[e, 2] = sqrt(V)
+    }
+    return(out)
+}
+
 real matrix _finegray_cif_core(
     real matrix Z,
     real colvector t,
@@ -1947,6 +3027,11 @@ real matrix _finegray_cif_core(
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
     real scalar mp, ii, g, ng
+
+    if (_finegray_use_pooled_stabilizer(t0, byg_id, tg_id)) {
+        return(_finegray_cif_core_zzf(Z, t, t0, delta, event_type, beta,
+            byg_id, tg_id, clust_id, has_clust, cause, censval, E))
+    }
 
     n = rows(Z)
     p = cols(Z)

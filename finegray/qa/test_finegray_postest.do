@@ -678,6 +678,88 @@ else {
     local ++fail_count
 }
 
+**# FG-M04: numerically equivalent factor levels in at() must map identically
+* The parser used the literal token to build _fg_grp_<level>.  Consequently,
+* at(grp=1) worked while equally valid decimal/scientific spellings were
+* rejected as unobserved levels.  Compare the profile and CIF, not merely rc.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog
+
+    quietly finegray_cif, at(grp=1 x=0) attime(4) nograph
+    matrix T_int = r(table)
+    matrix Z_int = r(at)
+
+    quietly finegray_cif, at(grp=1.0 x=0) attime(4) nograph
+    matrix T_dec = r(table)
+    matrix Z_dec = r(at)
+
+    quietly finegray_cif, at(grp=1e0 x=0) attime(4) nograph
+    matrix T_sci = r(table)
+    matrix Z_sci = r(at)
+
+    assert mreldif(T_int, T_dec) < 1e-12
+    assert mreldif(Z_int, Z_dec) < 1e-12
+    assert mreldif(T_int, T_sci) < 1e-12
+    assert mreldif(Z_int, Z_sci) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: FG-M04 decimal/scientific levels match at(grp=1)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-M04 equivalent factor syntax rejected or remapped (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-M05: at() must use semantic levels when the internal name is truncated
+* A 30-character source name plus a ten-digit level cannot fit in Stata's
+* 32-character internal-variable limit.  Matching `_fg_<var>_<level>' therefore
+* treated the observed nonbase level as the reference profile at rc 0.  Pin the
+* profile and CIF against the explicit generated dummy, including scientific
+* spelling of the large level.
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    rename grp this_is_a_very_long_group_name
+    replace this_is_a_very_long_group_name = ///
+        cond(this_is_a_very_long_group_name == 1, 0, 1000000000)
+    quietly finegray i.this_is_a_very_long_group_name x, ///
+        compete(ev) cause(1) nolog
+    local _dc : word 1 of `e(covariates)'
+
+    quietly finegray_cif, at(`_dc'=1 x=0) attime(4) nograph
+    matrix T_direct = r(table)
+    matrix Z_direct = r(at)
+
+    quietly finegray_cif, ///
+        at(this_is_a_very_long_group_name=1000000000 x=0) ///
+        attime(4) nograph
+    matrix T_long = r(table)
+    matrix Z_long = r(at)
+
+    quietly finegray_cif, ///
+        at(this_is_a_very_long_group_name=1e9 x=0) ///
+        attime(4) nograph
+    matrix T_sci_long = r(table)
+    matrix Z_sci_long = r(at)
+
+    assert Z_direct[1,1] == 1
+    assert mreldif(T_direct, T_long) < 1e-12
+    assert mreldif(Z_direct, Z_long) < 1e-12
+    assert mreldif(T_direct, T_sci_long) < 1e-12
+    assert mreldif(Z_direct, Z_sci_long) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: FG-M05 long factor name maps by semantic level"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-M05 long factor name remapped at rc 0 (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_postest tests=`test_count' pass=`pass_count' fail=`fail_count'"

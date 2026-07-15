@@ -23,12 +23,11 @@
 # Arms (all share gen_fg, the ZZF sec. 4.1 DGP; truth = BETA = (0.5, -0.5)):
 #   A  none        + pooled weights      -> control, must recover
 #   B  independent + pooled weights      -> supported, must recover
-#   C  bygroup     + per-stratum weights -> supported (truncstrata), must recover
+#   C  bygroup     + published stratified weights -> supported, must recover
 #   D  bygroup     + pooled weights      -> NEGATIVE CONTROL, must stay biased
 #
-# "pooled" is represented by collapsing wgroup to a single level, which makes the
-# per-stratum stabilizer degenerate to the pooled one.  That is exactly what the
-# post-Z3 command will do when truncstrata() is not specified.
+# "pooled" is represented by collapsing wgroup to a single level.  Arm C uses
+# ZZF equation (7): a pooled time-side stabilizer with z1-specific denominators.
 
 # The oracle file runs the Z1 gate at top level, so source() would re-run it (and
 # rewrite the frozen CSVs).  Evaluate ONLY its definitions: function definitions
@@ -47,8 +46,9 @@ local({
     if (is_fun || is_const) eval(e, envir = globalenv())
   }
 })
-stopifnot(is.function(gen_fg), is.function(zzf_fit), all(BETA == c(0.5, -0.5)))
-cat("definitions loaded: gen_fg, zzf_fit, zzf_weights; BETA =", BETA, "\n")
+stopifnot(is.function(gen_fg), is.function(zzf_fit),
+          is.function(zzf_fit_cross), all(BETA == c(0.5, -0.5)))
+cat("definitions loaded: gen_fg, zzf_fit, zzf_fit_cross; BETA =", BETA, "\n")
 
 # The preregistration itself was run at N = 3000, REPS = 80 (the numbers quoted
 # in validation_finegray_zzf_recovery.do's Z2-PREREG header).  Override to check
@@ -65,7 +65,10 @@ pool <- function(d) { d$wgroup <- 0L; d }
 arms <- list(
   A_none_pooled      = function(s) zzf_fit(pool(gen_fg(N, "none",        seed = s)), c("z1","z2")),
   B_indep_pooled     = function(s) zzf_fit(pool(gen_fg(N, "independent", seed = s)), c("z1","z2")),
-  C_bygroup_strat    = function(s) zzf_fit(     gen_fg(N, "bygroup",     seed = s),  c("z1","z2")),
+  C_bygroup_strat    = function(s) {
+    d <- gen_fg(N, "bygroup", seed = s)
+    zzf_fit_cross(d, c("z1", "z2"), d$z1, d$z1)
+  },
   D_bygroup_pooled   = function(s) zzf_fit(pool(gen_fg(N, "bygroup",     seed = s)), c("z1","z2"))
 )
 

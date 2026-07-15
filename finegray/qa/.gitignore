@@ -5,10 +5,10 @@
 # violated the "artifacts never tracked" distribution standard. They are
 # recreated on demand by the QA suite, so nothing depends on a tracked copy.
 #
-# Anchored to the qa/ root with a leading slash. The crossval suites write
-# their generated R cross-check CSVs (inputs and outputs) to c(tmpdir), not
-# qa/data/, so there are no tracked QA data fixtures; the rule below also
-# ignores any data/ subtree should one be recreated.
+# Anchored to the qa/ root with a leading slash. Most crossval suites write
+# generated R cross-check CSVs to c(tmpdir); the ZZF oracle deliberately
+# regenerates qa/data/ and validates its manifest on every run. None of those
+# generated inputs or outputs is a tracked fixture.
 /*.dta
 /*.xlsx
 /*.csv

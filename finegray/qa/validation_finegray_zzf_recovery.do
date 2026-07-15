@@ -133,7 +133,7 @@ local NEG_Z  = 5
 * 100,000 one; it is 1.05x).  The control proves the ladder can see 1/n shrinkage
 * when it exists: arm A, correctly specified, is clean at n = 25,000 (z = 0.24,
 * 0.50).  And per-dataset agreement with the independent R oracle
-* (crossval_finegray_zzf.do, 60/60, worst rel diff 4.4e-6, arm D INCLUDED) shows
+* (crossval_finegray_zzf.do, 100/100, worst rel diff 4.4e-6, arm D INCLUDED) shows
 * the bias belongs to the ESTIMATOR, not to this implementation -- which is the
 * question a recovery study by itself can never answer.
 *
@@ -243,15 +243,23 @@ forvalues r = 1/`REPS' {
     _zzf_gen, n(`N') seed(`s') trunc(none)
     quietly stset t, failure(anyev == 1) id(id)
     capture quietly finegray z1 z2, compete(status) cause(1)
-    if _rc == 0  post _pf ("A") (`r') (_b[z1]) (_b[z2])
-    else         post _pf ("A") (`r') (.) (.)
+    local fit_rc = _rc
+    if `fit_rc' == 0 post _pf ("A") (`r') (_b[z1]) (_b[z2])
+    else {
+        display as error "  FITFAIL arm A rep `r': rc=`fit_rc'"
+        post _pf ("A") (`r') (.) (.)
+    }
 
     * ---- arm B: entry independent of z, pooled weights (supported)
     _zzf_gen, n(`N') seed(`s') trunc(independent)
     quietly stset t, failure(anyev == 1) id(id) enter(time t0)
     capture quietly finegray z1 z2, compete(status) cause(1)
-    if _rc == 0  post _pf ("B") (`r') (_b[z1]) (_b[z2])
-    else         post _pf ("B") (`r') (.) (.)
+    local fit_rc = _rc
+    if `fit_rc' == 0 post _pf ("B") (`r') (_b[z1]) (_b[z2])
+    else {
+        display as error "  FITFAIL arm B rep `r': rc=`fit_rc'"
+        post _pf ("B") (`r') (.) (.)
+    }
 
     * ---- arms C and D: entry depends on z1. SAME dataset, so C-vs-D is paired.
     _zzf_gen, n(`N') seed(`s') trunc(bygroup)
@@ -259,13 +267,21 @@ forvalues r = 1/`REPS' {
 
     if `has_ts' {
         capture quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1)
-        if _rc == 0  post _pf ("C") (`r') (_b[z1]) (_b[z2])
-        else         post _pf ("C") (`r') (.) (.)
+        local fit_rc = _rc
+        if `fit_rc' == 0 post _pf ("C") (`r') (_b[z1]) (_b[z2])
+        else {
+            display as error "  FITFAIL arm C rep `r': rc=`fit_rc'"
+            post _pf ("C") (`r') (.) (.)
+        }
     }
 
     capture quietly finegray z1 z2, compete(status) cause(1)
-    if _rc == 0  post _pf ("D") (`r') (_b[z1]) (_b[z2])
-    else         post _pf ("D") (`r') (.) (.)
+    local fit_rc = _rc
+    if `fit_rc' == 0 post _pf ("D") (`r') (_b[z1]) (_b[z2])
+    else {
+        display as error "  FITFAIL arm D rep `r': rc=`fit_rc'"
+        post _pf ("D") (`r') (.) (.)
+    }
 
     if mod(`r', 10) == 0 ///
         display as text "  ... replication `r' of `REPS' (started `t0run', now `c(current_time)')"
@@ -311,6 +327,9 @@ foreach a in A B C D {
             local ++fail_count
             continue
         }
+        if `nrep' < `REPS' {
+            display as error "  `a'/b`k': only `nrep' of `REPS' replications fitted"
+        }
         quietly summarize b`k' if arm == "`a'", detail
         local mean = r(mean)
         local sd   = r(sd)
@@ -325,11 +344,11 @@ foreach a in A B C D {
         if "`a'" == "D" {
             * signed: the bias must exceed NEG_Z MC SE *in the preregistered direction*
             local pd   = cond(`k' == 1, `PREREG_D1', `PREREG_D2')
-            local ok   = (`z' * `pd' > `NEG_Z')
+            local ok   = (`z' * `pd' > `NEG_Z' & `nrep' == `REPS')
             local want = "biased, sign " + cond(`pd' > 0, "+", "-")
         }
         else {
-            local ok   = (abs(`z') <= `PASS_Z')
+            local ok   = (abs(`z') <= `PASS_Z' & `nrep' == `REPS')
             local want = "recover"
         }
 
@@ -403,4 +422,9 @@ else {
     }
 }
 
+local pass_count = `test_count' - `fail_count'
+local smoke = !`FULL'
+local gate_ok = ("`MODE'" == "GREEN" & `FULL' & `fail_count' == 0)
+display as text "RESULT: validation_finegray_zzf_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' smoke=`smoke'"
 log close _zzf
+if !`gate_ok' exit 9

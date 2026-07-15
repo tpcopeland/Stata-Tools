@@ -50,12 +50,14 @@ summaries, not formally calibrated subdistribution-hazard tests; see
 
 {pstd}
 {bf:Left truncation (delayed entry).} The weighted risk sets underlying the
-Schoenfeld residuals use the Geskus product-limit factor A = G(t-)H(t-), not a
-censoring-only weight. This is equivalent to Zhang-Zhang-Fine Weight 1 in the
-unstratified continuous-time setting; the finite-sample tie rule and symmetric
-cross-classified {opt strata()}/{opt truncstrata()} construction are package
-extensions. Under delayed entry the residuals and diagnostic summaries differ
-from the right-censoring path and from {helpb stcrreg}. See
+Schoenfeld residuals use Zhang-Zhang-Fine Weight 1, not a censoring-only
+weight. With one weight stratum this is the equivalent Geskus product-limit
+factor A = G(t-)H(t-); with multiple strata it uses the equation-7 pooled
+time-side stabilizer and stratum-specific subject denominators. Different
+censoring and entry groupings use the package's factorized cross-classification,
+and the finite-sample tie rule is package-defined. Under delayed entry the
+residuals and diagnostic summaries differ from the right-censoring path and
+from {helpb stcrreg}. See
 {help finegray##lt:Left truncation} in {helpb finegray}.
 
 {pstd}

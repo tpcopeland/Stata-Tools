@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  15jul2026}{...}
+{* *! version 1.2.1  15jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -355,7 +355,8 @@ vanish as the sample grows. {cmd:stcrreg} uses that censoring-only weight; so di
 {cmd:finegray} before this release.
 
 {pstd}
-{cmd:finegray} implements the {bf:Geskus (2011) product-limit representation}. Writing
+With one weight stratum, {cmd:finegray} implements the
+{bf:Geskus (2011) product-limit representation}. Writing
 A(t) = G(t-)H(t-), where G is the delayed-entry-aware censoring survivor
 and H is a reverse-time product-limit estimator of entry, a subject retained
 after a competing event at X_i carries A(t-)/A(X_i-) instead of the
@@ -365,14 +366,20 @@ continuous failure times. The package supplies and tests its own finite-sample
 tie convention.
 
 {pstd}
-The citation scope changes under stratification. Zhang, Zhang and Fine (2011,
-eq. 7) use a pooled time-side stabilizer and stratum-specific subject-side
-denominators. {cmd:finegray} instead estimates G within {opt strata()}, H within
-{opt truncstrata()}, and cross-classifies the two. That symmetric
-cross-classified construction is a package extension, not Zhang et al.'s
-published stratified equation. The stored {cmd:e(lt_weight)} label
-{cmd:zzf1_geskus} is historical; the implemented contract is the product-limit
-form and extension described here.
+With multiple weight strata, {cmd:finegray} uses the Zhang, Zhang and Fine
+(2011, eq. 7) form: the time-side stabilizer is pooled, while each subject-side
+denominator is stratum-specific. When {opt strata()} and {opt truncstrata()}
+specify the same grouping, this is the paper's stratified nonparametric
+construction. When they differ, {cmd:finegray} estimates G within {opt strata()},
+estimates H within {opt truncstrata()}, and multiplies the components in each
+observed combination. That factorized cross-classification is a package
+extension, not a construction attributed to Zhang et al. The same contract is
+used by estimation and every postestimation calculation.
+
+{pstd}
+{cmd:e(lt_weight)} reports {cmd:zzf1_geskus} for a one-stratum delayed-entry
+fit and {cmd:zzf1_stratified} for the equation-7 pooled-stabilizer form with
+multiple joint strata, including the factorized extension just described.
 
 {pstd}
 {bf:Consequences you should expect.} Delayed-entry coefficients, standard errors,
@@ -387,10 +394,12 @@ right-censoring path. {cmd:e(lt_weight)} reports {cmd:right_censoring} there, an
 {bf:Which weights are valid for your data.} Pooled weights (no {opt strata()} or
 {opt truncstrata()}) assume that entry and censoring do not depend on the model
 covariates. When entry depends on an observed discrete group, name it in
-{opt truncstrata()}; when censoring does, name it in {opt strata()}. The two are
-cross-classified internally as a package extension. Continuous
-covariate-dependent entry is {bf:not supported} and is not approximated
-silently. Covariates that change within subject are also unsupported; for
+{opt truncstrata()}; when censoring does, name it in {opt strata()}. Observed
+combinations form the joint denominator strata. Continuous covariate-dependent
+entry is {bf:not supported}; the command cannot infer or reject that dependence
+from the realized data. Do not use pooled weights in that setting unless a
+scientifically defensible discrete stratification removes the dependence. Covariates
+that change within subject are also unsupported; for
 internal time-varying covariates, the direct relationship between a
 subdistribution hazard and the CIF is generally unavailable after a competing
 event.
@@ -446,11 +455,12 @@ replication.
 {pstd}
 {bf:Diagnostics.} {cmd:finegray} reports the weight design and its
 sensitivity: {cmd:e(N_weight_strata)}, {cmd:e(min_weight_prob)} (the smallest A the scan
-actually divides by), {cmd:e(max_lt_weight)}, and the counts {cmd:e(N_prob_warn)} and
+actually consults), {cmd:e(max_lt_weight)}, and the counts {cmd:e(N_prob_warn)} and
 {cmd:e(N_weight_warn)} with the affected groups in {cmd:e(weight_warn_strata)}. Unlike the
 censoring-only weight, ZZF weights may legitimately exceed 1, so a maximum
 weight above 1 under delayed entry is expected rather than alarming. If A
-reaches exactly zero for a retained subject its weight is undefined, and
+reaches exactly zero at a consulted denominator or pooled stabilizer, the
+corresponding risk contribution is undefined and
 {cmd:finegray} refuses the fit with {cmd:r(459)}, naming the offending groups, instead of
 failing later as a convergence error. Weights that are merely extreme are
 reported as warnings and the fit proceeds.
@@ -845,7 +855,7 @@ the package diagnostic's limitations.
 {synopt:{cmd:e(N_weight_strata)}}number of observed joint (censoring x entry) weight strata{p_end}
 {synopt:{cmd:e(min_weight_prob)}}smallest weight probability A actually consulted by the scan{p_end}
 {synopt:{cmd:e(max_lt_weight)}}largest retained subject-by-cause-time weight{p_end}
-{synopt:{cmd:e(N_prob_warn)}}count of consulted time-by-stratum cells with A < 1e-10{p_end}
+{synopt:{cmd:e(N_prob_warn)}}count of consulted weight probabilities with A < 1e-10{p_end}
 {synopt:{cmd:e(N_weight_warn)}}count of retained subject-by-cause-time weights above 1e6{p_end}
 
 {synoptset 20 tabbed}{...}
@@ -933,7 +943,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-07-15{p_end}
+{pstd}Version 1.2.1, 2026-07-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

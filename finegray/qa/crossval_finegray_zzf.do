@@ -15,22 +15,14 @@
 * and any bias belongs to the estimator, not to this package.  Twenty datasets
 * settle that; a million Monte-Carlo reps would not.
 *
-* ARMS.  A (no entry), B (entry independent of z), D (entry depends on z1) --
-* all fitted with POOLED weights, which in R means wgroup == 0 for every subject
-* and in Stata means no strata() and no truncstrata().  Same statistic on both
-* sides, so exact agreement is required.
-*
-* ARM C IS DELIBERATELY ABSENT.  R's `wgroup` stratifies the censoring
-* distribution G and the truncation distribution H JOINTLY; Stata's
-* truncstrata(z1) stratifies H alone and pools G.  Both are consistent for the
-* same estimand (censoring does not depend on the group in this DGP), but they
-* are NOT the same statistic, so demanding per-dataset agreement would be a bug
-* in the test, not a finding.  Arm C is gated by recovery instead.
+* ARMS.  A/B/D use pooled weights; C implements ZZF equation (7) with the same
+* discrete group for censoring and entry; X uses genuinely distinct censoring
+* and entry groups.  C and X close the old blind spot where the suite never
+* cross-validated truncstrata() or a true cross-classification.
 *
 * ORACLE.  Datasets and betas come from crossval_finegray_zzf_beta_r.R, which
 * sources gen_fg/zzf_fit/zzf_weights from the frozen crossval_finegray_zzf_r.R.
-* Run it FIRST, from finegray/qa:
-*     Rscript crossval_finegray_zzf_beta_r.R
+* The suite regenerates it on every run.  Stale ignored CSVs are not evidence.
 
 clear all
 set more off
@@ -67,28 +59,119 @@ capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
 * ---------------------------------------------------------------------------
-* Locate the oracle.  A MISSING oracle must FAIL, never skip: a crossval that
-* quietly reports success because the reference implementation never ran is the
-* exact false green this suite exists to prevent.
+* Regenerate and validate the oracle manifest.  The generator owns data/ and
+* creates it, so this path works from a clean checkout.
 * ---------------------------------------------------------------------------
+* Pin the full oracle size here.  The R generator accepts smaller environment
+* overrides for direct smoke work; inheriting one into this suite must not turn
+* a 100-dataset cross-validation into a green three-dataset smoke run.
+capture noisily shell ZZF_XV_N=3000 ZZF_XV_REPS=20 ///
+    Rscript "`qadir'/crossval_finegray_zzf_beta_r.R"
+if _rc {
+    display as error "R oracle generation failed (rc=`=_rc')"
+    exit 9
+}
 capture confirm file "`datadir'/zzf_xv_oracle_beta.csv"
 if _rc {
     display as error "MISSING ORACLE: `datadir'/zzf_xv_oracle_beta.csv"
-    display as error "Run this first, from finegray/qa:"
-    display as error "    Rscript crossval_finegray_zzf_beta_r.R"
     exit 601
 }
+capture confirm file "`datadir'/zzf_xv_manifest.csv"
+if _rc {
+    display as error "MISSING ORACLE MANIFEST: `datadir'/zzf_xv_manifest.csv"
+    exit 601
+}
+
+tempfile manifest
+import delimited "`datadir'/zzf_xv_manifest.csv", clear case(preserve)
+capture assert schema_version == 2
+if _rc {
+    display as error "unsupported or malformed ZZF oracle manifest"
+    exit 459
+}
+capture isid arm
+if _rc {
+    display as error "oracle manifest contains duplicate arm rows"
+    exit 459
+}
+local expected_arms "A B C D X"
+quietly count if !inlist(arm, "A", "B", "C", "D", "X")
+if r(N) != 0 {
+    display as error "oracle manifest contains an unknown arm"
+    exit 459
+}
+foreach arm of local expected_arms {
+    quietly count if arm == "`arm'"
+    if r(N) != 1 {
+        display as error "oracle manifest has `r(N)' rows for required arm `arm'"
+        exit 459
+    }
+}
+capture assert method == "pooled" if inlist(arm, "A", "B", "D")
+if _rc {
+    display as error "oracle manifest has the wrong method for a pooled arm"
+    exit 459
+}
+capture assert method == "same" if arm == "C"
+if _rc {
+    display as error "oracle manifest has the wrong method for arm C"
+    exit 459
+}
+capture assert method == "cross" if arm == "X"
+if _rc {
+    display as error "oracle manifest has the wrong method for arm X"
+    exit 459
+}
+capture assert ///
+    (inlist(arm, "A", "B", "D") & fit_options == "pooled") | ///
+    (arm == "C" & fit_options == "strata(z1) truncstrata(z1)") | ///
+    (arm == "X" & fit_options == "strata(cgroup) truncstrata(tgroup)")
+if _rc {
+    display as error "oracle manifest fit_options do not match the required arm contract"
+    exit 459
+}
+quietly summarize expected_reps, meanonly
+if r(min) != r(max) | r(min) != 20 {
+    display as error "oracle manifest must specify exactly 20 replications per arm"
+    exit 459
+}
+local expected_reps = r(min)
+quietly summarize expected_n, meanonly
+if r(min) != r(max) | r(min) != 3000 {
+    display as error "oracle manifest must specify exactly 3000 subjects per dataset"
+    exit 459
+}
+local expected_n = r(min)
+local n_arms = r(N)
+save "`manifest'", replace
 
 tempfile oracle
 import delimited "`datadir'/zzf_xv_oracle_beta.csv", clear case(preserve)
 quietly count
 local n_oracle = r(N)
-if `n_oracle' == 0 {
-    display as error "oracle beta file is empty"
+if `n_oracle' != `n_arms' * `expected_reps' {
+    display as error "oracle has `n_oracle' rows; manifest requires `=`n_arms' * `expected_reps''"
     exit 459
 }
+capture isid arm rep
+if _rc {
+    display as error "oracle has duplicate arm/rep rows"
+    exit 459
+}
+capture assert n == `expected_n'
+if _rc {
+    display as error "oracle beta rows do not contain the required `expected_n' subjects"
+    exit 459
+}
+foreach arm of local expected_arms {
+    quietly count if arm == "`arm'"
+    if r(N) != `expected_reps' {
+        display as error "oracle arm `arm' has `r(N)' rows; expected `expected_reps'"
+        exit 459
+    }
+}
 save "`oracle'", replace
-display as text "oracle: `n_oracle' fitted datasets"
+display as text "oracle: `n_oracle' fitted datasets (`n_arms' arms x `expected_reps' reps)"
 
 * ---------------------------------------------------------------------------
 * Compare, dataset by dataset.
@@ -108,20 +191,19 @@ local worstid ""
 
 display as text _newline "arm rep       stata_b1          r_b1       stata_b2          r_b2      max_rel"
 
-foreach arm in A B D {
-    forvalues r = 1/`n_oracle' {
+foreach arm of local expected_arms {
+    forvalues r = 1/`expected_reps' {
 
-        * Does the oracle have this arm/rep?  (REPS is set by the R side.)
         use "`oracle'", clear
         quietly count if arm == "`arm'" & rep == `r'
-        if r(N) == 0 continue
-        if r(N) > 1 {
-            display as error "oracle has `r(N)' rows for arm `arm' rep `r'"
+        if r(N) != 1 {
+            display as error "oracle has `r(N)' rows for required arm `arm' rep `r'"
             exit 459
         }
         quietly keep if arm == "`arm'" & rep == `r'
         local ob1 = b1[1]
         local ob2 = b2[1]
+        local on  = n[1]
 
         local f "`datadir'/zzf_xv_`arm'_`=string(`r', "%02.0f")'.csv"
         capture confirm file "`f'"
@@ -131,6 +213,29 @@ foreach arm in A B D {
         }
 
         import delimited "`f'", clear case(preserve)
+        foreach v in id L X status z1 z2 cgroup tgroup {
+            capture confirm numeric variable `v'
+            if _rc {
+                display as error "oracle dataset `arm'/`r' lacks numeric variable `v'"
+                exit 459
+            }
+        }
+        quietly count
+        if r(N) != `on' {
+            display as error "oracle dataset `arm'/`r' has `r(N)' rows; beta row records `on'"
+            exit 459
+        }
+        capture isid id
+        if _rc {
+            display as error "oracle dataset `arm'/`r' has missing or duplicate IDs"
+            exit 459
+        }
+        capture assert !missing(id, L, X, status, z1, z2, cgroup, tgroup) & ///
+            L >= 0 & L < X & inlist(status, 0, 1, 2)
+        if _rc {
+            display as error "oracle dataset `arm'/`r' violates its schema or support"
+            exit 459
+        }
         rename L t0
         rename X t
         quietly gen byte anyev = status > 0
@@ -144,8 +249,10 @@ foreach arm in A B D {
             quietly stset t, failure(anyev == 1) id(id) enter(time t0)
         }
 
-        * Pooled weights on the Stata side: no strata(), no truncstrata().
-        capture quietly finegray z1 z2, compete(status) cause(1)
+        local weightopts ""
+        if "`arm'" == "C" local weightopts "strata(z1) truncstrata(z1)"
+        if "`arm'" == "X" local weightopts "strata(cgroup) truncstrata(tgroup)"
+        capture quietly finegray z1 z2, compete(status) cause(1) `weightopts'
         if _rc {
             display as error "  FAIL: arm `arm' rep `r' -- finegray exited rc = `=_rc'"
             local ++test_count

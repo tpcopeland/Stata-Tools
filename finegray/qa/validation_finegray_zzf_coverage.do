@@ -64,10 +64,12 @@
 * They are not all describing the same estimator.  Bellach's is a weighted
 * conditional NPMLE over a transformation-model class; ours is not.
 *
-* OUR estimator is Geskus's: e(lt_weight) = zzf1_geskus, w_i(t) = A(t-)/A(X_i-).
-* And the Z0 decision to use a PER-STRATUM stabilizer was taken *precisely* so that
-* w_i(T_i) = 1 -- the structural fact Geskus's argument rests on -- holds in the
-* truncstrata() arm too, not only the pooled one (fg_zzf_plan.md Z0, rationale 1).
+* OUR estimator uses the equation-7 pooled-stabilizer form: a pooled time-side
+* stabilizer and stratum-specific subject-side denominators.  In this gate only
+* truncstrata() varies, so its G-by-H factorization is the documented package
+* extension rather than Zhang et al.'s same-group nonparametric construction.
+* Consequently, w_i(T_i) need not equal 1 in a stratified arm.  The result below
+* was regenerated on the corrected estimator at the full preregistered settings.
 *
 * PREREGISTERED EXPECTATION:
 *   1. model_based COVERS (in [0.925, 0.975]) in every supported arm, INCLUDING
@@ -82,34 +84,35 @@
 * our estimator.  Whichever way it lands, the number decides -- not the citation.
 *
 * ---------------------------------------------------------------------------
-* [Z-INF-RESULT 2026-07-14]  THE PREREGISTRATION WAS WRONG.  BELLACH WAS RIGHT.
+* [Z-INF-RESULT 2026-07-15]  THE PREREGISTRATION WAS WRONG.  BELLACH WAS RIGHT.
 *
 * 1000 reps/arm.  model_based's coverage does not merely miss the band -- it
-* DEGRADES MONOTONICALLY WITH THE TRUNCATION FRACTION, which is precisely the
+* DEGRADES WITH THE TRUNCATION FRACTION, which is precisely the
 * failure Bellach et al. (2020) Section 5 describes and precisely what Geskus's
 * argument says should not happen:
 *
 *   arm                 trunc%   model_based cov   fg_sandwich cov   SEratio(mod)
 *   noLT                   0     0.956 / 0.949     0.954 / 0.943     1.04 / 0.97
-*   light_n500            37     0.897 / 0.901     0.941 / 0.951     0.81
-*   light_n2000           37     0.905 / 0.890     0.954 / 0.957     0.79
-*   heavy_n500            69     0.858 / 0.858     0.948 / 0.943     0.72
-*   heavy_n2000           69     0.850 / 0.850     0.955 / 0.953     0.70
-*   ts_heavy_n2000        63     0.808 / 0.860     0.952 / 0.944     0.62
+*   light_n500            37     0.897 / 0.901     0.941 / 0.951     0.81 / 0.81
+*   light_n2000           37     0.905 / 0.890     0.954 / 0.957     0.79 / 0.82
+*   heavy_n500            69     0.858 / 0.858     0.948 / 0.943     0.72 / 0.75
+*   heavy_n2000           69     0.850 / 0.850     0.955 / 0.953     0.70 / 0.72
+*   ts_mod_n2000          44     0.806 / 0.788     0.945 / 0.944     0.62 / 0.60
+*   ts_bounded_n2000      53     0.764 / 0.737     0.949 / 0.943     0.54 / 0.52
 *
 * Note the two controls that make this readable.  (a) At ZERO truncation the two
 * candidates AGREE (0.956 vs 0.954) and both cover -- so the divergence is caused
 * by the truncation, not by a coding difference between the two variance paths.
-* (b) model_based's SE/SD ratio falls 1.04 -> 0.81 -> 0.70 -> 0.62 as truncation
-* rises: the model-based SE is not noisy, it is systematically TOO SMALL, by up to
-* 38%.  Geskus's Table 2 ran only at N = 103-258, where this is invisible.
+* (b) model_based's SE/SD ratio falls from about 1.0 with no truncation to
+* 0.79-0.82 under light independent truncation, 0.70-0.75 under heavy independent
+* truncation, and 0.52-0.62 in the two entry-stratified arms.  The model-based SE
+* is not merely noisy; it is systematically too small.  Geskus's Table 2 ran only
+* at N = 103-258, where this is difficult to see.
 *
-* PRESERVING w_i(T_i) = 1 WAS NOT SUFFICIENT.  That was the structural fact the Z0
-* per-stratum-stabilizer decision was partly taken to protect, and it does hold --
-* but the score's variance still is not the information matrix, because the weights
-* A(t) are themselves estimated and their uncertainty is not in the inverse Fisher
-* information.  The Z0 decision remains correct for its OTHER two reasons (no-LT
-* bit-identity and scan shape); it simply does not buy the variance.
+* The score's variance is not the information matrix because the product-limit
+* weights are themselves estimated and their uncertainty is not in the inverse
+* Fisher information.  The corrected pooled-stabilizer run confirms that this
+* mechanism remains relevant in the entry-stratified extension.
 *
 * CONSEQUENCE: model_based is ELIMINATED as an LT inference option.  The default
 * (fg_sandwich) already IS the sandwich, so nothing about the shipped default
@@ -129,38 +132,26 @@
 * outside the valid-inference claim.  A candidate that loses is never relabelled.
 *
 * ---------------------------------------------------------------------------
-* [Z-INF-SCALE 2026-07-14]  WHICH SD?  The scale check uses a ROBUST SD, and this
-* is a correction to the check, NOT an exemption for an arm that failed it.
+* [Z-INF-SCALE 2026-07-15]  WHICH SD?  The gate uses an IQR-implied robust SD,
+* (p75-p25)/1.349, and prints the ordinary SD ratio beside it.
 *
-* The plan's second criterion compares the mean analytic SE to the EMPIRICAL SD of
-* beta-hat.  On the ts_heavy arm that comparison failed (0.884) while coverage
-* passed comfortably (0.952).  When those two disagree, one of them is lying, and
-* the answer is not to pick the one you like.  Diagnosed (raw per-rep results,
-* n=1000): that arm sits ON THE POSITIVITY BOUNDARY -- 3 of 1000 replications hard
-* -fail with r(459), max_lt_weight reaches 1.9e3, and min A reaches 3.6e-04.  About
-* 1% of replications are wild, and the plain SD is not a robust scale estimator:
+* This was challenged directly rather than justified from the old survivor-only
+* arm.  On final code, bounded-entry probes at 43.9% and 52.8% truncation retained
+* all 1000 replications and covered at 0.939-0.943, yet mean-SE/raw-SD remained
+* 0.85-0.90 while mean-SE/IQR-SD was 0.95-0.97.  The disagreement therefore
+* persists away from fit attrition and is a property of the sampling tail, not a
+* few excluded positivity failures.  Coverage is the direct interval criterion;
+* the IQR scale checks the central asymptotic distribution without letting rare
+* coefficient excursions dominate a second, indirect criterion.
 *
-*   ts_heavy b1:  mean SE 0.1052   SD(all) 0.1189 -> ratio 0.884   (FAILS)
-*                                  SD(1%-99% trim) 0.1075 -> 0.979 (passes)
-*                                  IQR-implied SD  0.1066 -> 0.986 (passes)
-*
-* So the sandwich's SCALE is right for the bulk of the sampling distribution; the
-* raw-SD ratio was measuring the tail of a near-degenerate fixture.  Coverage,
-* which is insensitive to a few outliers, said so all along.
-*
-* The gate therefore compares the mean SE to an IQR-IMPLIED SD, (p75-p25)/1.349,
-* which equals the SD for a normal sampling distribution and ignores a 1% tail.
-* Applied UNIFORMLY to every arm and BOTH candidates -- not to the arm that failed.
-*
-* THE TEST OF WHETHER THIS IS HONEST: does it change the winner?  It does not.
-* model_based fails on COVERAGE (0.81-0.91, i.e. 4-14 points below the band) in
-* every left-truncated arm, and no scale statistic can rescue a coverage failure.
-* A criterion change that resurrected the loser would be a rigged criterion; this
-* one leaves the loser dead.  The raw SD ratio is still COMPUTED AND PRINTED for
-* every cell, so the number that triggered this note stays visible in the log.
+* The robust scale is applied uniformly to every arm and both candidates.  It
+* cannot hide an unsupported fit: EVERY replication must produce both estimates,
+* and `nr == REPS' is part of each cell's verdict.  It also cannot rescue the
+* model-based variance, which fails the primary coverage band in the LT arms.
+* The raw ratio remains visible in every row so the heavy tail is never erased.
 * ---------------------------------------------------------------------------
 *
-* COST.  ~1000 reps x 6 arms x 2 fits.  Smoke:  global ZZF_CVG_REPS 20
+* COST.  ~1000 reps x 7 arms x 2 fits.  Smoke:  global ZZF_CVG_REPS 20
 * ---------------------------------------------------------------------------
 
 clear all
@@ -214,14 +205,21 @@ if !`FULL' {
 * larger mean discards more subjects (L >= X) and truncates harder.  The realized
 * truncation fraction is MEASURED and reported per arm -- a "heavy" arm that turns
 * out not to be heavy would make this gate a light-truncation gate wearing a label,
-* which is precisely the failure Bellach's Section 5 warns about.
+* which is precisely the failure Bellach's Section 5 warns about.  entrycap()
+* optionally imposes a latest-entry wave; it keeps the stratified stress arm on
+* bounded support while retaining >50% realized truncation.
 * ---------------------------------------------------------------------------
 capture program drop _zzfcvg_gen
 program define _zzfcvg_gen, rclass
-    syntax , n(integer) seed(integer) trunc(string) [entryrate(real 0.9)]
+    syntax , n(integer) seed(integer) trunc(string) ///
+        [entryrate(real 0.9) entrycap(real -1)]
 
     if !inlist("`trunc'", "none", "independent", "bygroup") {
         display as error "trunc() must be none, independent or bygroup"
+        exit 198
+    }
+    if `entrycap' != -1 & `entrycap' <= 0 {
+        display as error "entrycap() must be positive"
         exit 198
     }
 
@@ -252,6 +250,7 @@ program define _zzfcvg_gen, rclass
     if "`trunc'" == "independent" gen double t0 = rexponential(`entryrate')
     if "`trunc'" == "bygroup"     gen double t0 = rexponential(cond(z1 == 1, ///
                                                     1.8 * `entryrate', 0.4 * `entryrate'))
+    if `entrycap' > 0 quietly replace t0 = min(t0, `entrycap')
 
     gen double t      = min(tev, cens)
     gen byte   status = cond(tev <= cens, cause, 0)
@@ -279,24 +278,25 @@ end
 * (fg_sandwich), once norobust (model_based) -- on the SAME dataset, so the two
 * candidates are compared PAIRED and cannot differ because of the draw.
 *
-*   name        trunc         entryrate   n      opts
+*   name        trunc         entryrate   entrycap   n      opts
 * ---------------------------------------------------------------------------
-* ts_mod is the SUPPORTED stratified arm; ts_heavy deliberately pushes the same
-* design onto the positivity boundary (3/1000 reps hard-fail r(459) there) and is
-* kept as a stress arm -- an estimator that only works away from its own support
-* boundary should be caught saying so.
+* Both stratified arms impose a latest-entry wave at 1.0.  ts_mod uses the
+* ordinary group-dependent intensity (about 44% realized truncation), while
+* ts_bounded uses the stronger intensity (about 53%).  On the preregistered
+* seeds both retain 1000/1000 fits.  Leaving either arm unbounded crosses the
+* positivity boundary and makes a survivor-only coverage calculation possible.
 local NARM = 7
-local a1 "noLT|none|0.0|1000|"
-local a2 "light_n500|independent|0.5|500|"
-local a3 "light_n2000|independent|0.5|2000|"
-local a4 "heavy_n500|independent|2.0|500|"
-local a5 "heavy_n2000|independent|2.0|2000|"
-local a6 "ts_mod_n2000|bygroup|1.0|2000|truncstrata(z1)"
-local a7 "ts_heavy_n2000|bygroup|2.0|2000|truncstrata(z1)"
+local a1 "noLT|none|0.0|-1|1000|"
+local a2 "light_n500|independent|0.5|-1|500|"
+local a3 "light_n2000|independent|0.5|-1|2000|"
+local a4 "heavy_n500|independent|2.0|-1|500|"
+local a5 "heavy_n2000|independent|2.0|-1|2000|"
+local a6 "ts_mod_n2000|bygroup|1.0|1.0|2000|truncstrata(z1)"
+local a7 "ts_bounded_n2000|bygroup|2.0|1.0|2000|truncstrata(z1)"
 
 tempname pf
 tempfile res
-postfile `pf' str16 arm int rep double(b1 b2 se1_rob se2_rob se1_mod se2_mod tf) ///
+postfile `pf' str32 arm int rep double(b1 b2 se1_rob se2_rob se1_mod se2_mod tf) ///
     using "`res'", replace
 
 forvalues a = 1/`NARM' {
@@ -305,15 +305,19 @@ forvalues a = 1/`NARM' {
     local arm   "`1'"
     local trunc "`3'"
     local erate "`5'"
-    local nn    "`7'"
-    local opts  "`9'"
+    local ecap  "`7'"
+    local nn    "`9'"
+    local opts  "`11'"
 
-    display as text _newline "ARM `arm': trunc=`trunc' entryrate=`erate' n=`nn' opts=`opts'"
+    display as text _newline "ARM `arm': trunc=`trunc' entryrate=`erate' " ///
+        "entrycap=`ecap' n=`nn' opts=`opts'"
 
     forvalues r = 1/`REPS' {
         local seed = `SEED0' + 1000 * `a' + `r'
-        capture _zzfcvg_gen, n(`nn') seed(`seed') trunc(`trunc') entryrate(`=max(`erate',0.0001)')
+        capture _zzfcvg_gen, n(`nn') seed(`seed') trunc(`trunc') ///
+            entryrate(`=max(`erate',0.0001)') entrycap(`ecap')
         if _rc {
+            display as error "  FITFAIL `arm' rep `r': generator rc=`=_rc'"
             post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (.)
             continue
         }
@@ -323,6 +327,7 @@ forvalues a = 1/`NARM' {
 
         capture quietly finegray z1 z2, compete(status) cause(1) `opts'
         if _rc {
+            display as error "  FITFAIL `arm' rep `r': robust rc=`=_rc'"
             post `pf' ("`arm'") (`r') (.) (.) (.) (.) (.) (.) (`tf')
             continue
         }
@@ -333,6 +338,7 @@ forvalues a = 1/`NARM' {
 
         capture quietly finegray z1 z2, compete(status) cause(1) `opts' norobust
         if _rc {
+            display as error "  FITFAIL `arm' rep `r': model-based rc=`=_rc'"
             post `pf' ("`arm'") (`r') (`b1') (`b2') (`s1r') (`s2r') (.) (.) (`tf')
             continue
         }
@@ -380,6 +386,8 @@ foreach cand in mod rob {
             if `nr' == 0 {
                 display as error "  `arm' b`k' `candname': NO USABLE REPLICATIONS"
                 local ++n_fail
+                scalar _`cand'_`a'_`k'_ok  = 0
+                scalar _`cand'_`a'_`k'_cov = .
                 continue
             }
             * NO SILENT CAPS.  A replication that failed to fit is dropped from the
@@ -411,7 +419,7 @@ foreach cand in mod rob {
 
             local okc = (`cov' >= `COV_LO' & `cov' <= `COV_HI')
             local oks = (abs(`ratior' - 1) < `SE_TOL')
-            local ok  = (`okc' & `oks')
+            local ok  = (`okc' & `oks' & `nr' == `REPS')
 
             local mark = cond(`ok', "  ok", "FAIL")
             display as text "  " %-15s "`arm'" " b`k'" ///
@@ -447,31 +455,35 @@ display as text _newline "[Z-INF-PREREG] preregistered: model_based covers every
 display as text "               undercovers, worse at heavier truncation."
 display as text "[Z-INF-RESULT] THE PREREGISTRATION WAS REFUTED, and in the exact direction"
 display as text "               Bellach et al. (2020) sec. 5 predicts: it is model_based whose"
-display as text "               coverage decays with the truncation fraction (0.95 -> 0.90 ->"
-display as text "               0.85 -> 0.81).  Geskus's no-sandwich argument does NOT carry to"
-display as text "               this estimator, even though w_i(T_i) = 1 holds by construction."
+display as text "               coverage falls from about 0.95 without truncation to 0.89-0.91"
+display as text "               under light truncation, 0.85-0.86 under heavy truncation, and"
+display as text "               0.74-0.81 in the entry-stratified arms.  Geskus's no-sandwich"
+display as text "               argument does NOT carry because the product-limit weights are"
+display as text "               estimated rather than fixed."
 
 if !`FULL' {
     display as error _newline "SMOKE RUN -- NOT A GATE."
-    display as error "RESULT: SMOKE (`n_pass' ok, `n_fail' fail)"
+    display as text "RESULT: validation_finegray_zzf_coverage tests=1 pass=0 fail=1 smoke=1"
     log close _zzfcvg
-    exit 0
+    exit 9
 }
 
-if `win_mod' | `win_rob' {
-    display as result _newline "RESULT: PASS -- a grounded candidate covers in every supported arm."
-    if `win_mod' & !`win_rob' ///
-        display as result "  Ship model_based as the LT default (Geskus 2011 p.44 confirmed on our estimator)."
+if `win_rob' {
+    display as result _newline "RESULT: PASS -- the shipped fg_sandwich covers in every supported arm."
     if `win_rob' & !`win_mod' ///
         display as result "  Ship fg_sandwich as the LT default (the preregistered expectation was WRONG)."
     if `win_rob' & `win_mod' ///
         display as result "  BOTH cover: ship the narrower (see log) and label the other honestly."
 }
 else {
-    display as error _newline "RESULT: FAIL -- NEITHER grounded candidate covers in every supported arm."
+    display as error _newline "RESULT: FAIL -- the shipped fg_sandwich does not cover in every supported arm."
     display as error "  Gate Z-inference BLOCKS.  It does NOT get closed by relabelling a loser, and"
     display as error "  nuisance_adjusted does NOT get guessed: obtain ZZF (2011) Appendix B first."
     display as error "  (`n_fail' failing arm-coefficient cells)"
 }
 
+local gate_pass = `win_rob'
+local gate_fail = !`win_rob'
+display as text "RESULT: validation_finegray_zzf_coverage tests=1 pass=`gate_pass' fail=`gate_fail' smoke=0"
 log close _zzfcvg
+if !`win_rob' exit 9
