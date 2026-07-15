@@ -314,7 +314,7 @@ local p8_ok = 1
 * A harmless re-sort must NOT trip the guard.
 _p3_weighted
 gsort -time
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 0 {
     local p8_ok = 0
     display "  P8: a re-sort was rejected, rc " _rc " -- the signature is not sort-invariant"
@@ -323,7 +323,7 @@ if _rc != 0 {
 * Each of these is a real change and must be refused with 459.
 _p3_weighted
 drop in 1/50
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: dropped rows accepted, rc " _rc
@@ -331,7 +331,7 @@ if _rc != 459 {
 
 _p3_weighted
 quietly replace _iivw_weight = _iivw_weight * 2 in 7
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: an edited weight accepted, rc " _rc
@@ -339,7 +339,7 @@ if _rc != 459 {
 
 _p3_weighted
 quietly replace z = z + 1 in 11
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: an edited visit covariate accepted, rc " _rc
@@ -349,7 +349,7 @@ if _rc != 459 {
 * terms sum(w*t)/sum(w*k) catch it -- this is why they are in the signature.
 _p3_weighted
 quietly replace _iivw_weight = _iivw_weight[_N - _n + 1]
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: a PERMUTED weight column accepted, rc " _rc
@@ -431,12 +431,12 @@ local ++test_count
 local p10_ok = 1
 _p3_weighted
 
-capture iivw_fit y z, model(mixed)
+capture iivw_fit y z, vce(fixed) model(mixed)
 if _rc != 198 {
     local p10_ok = 0
     display "  P10: weighted model(mixed) ran without experimentalmixed, rc " _rc
 }
-capture iivw_fit y z, model(mixed) experimentalmixed
+capture iivw_fit y z, vce(fixed) model(mixed) experimentalmixed
 if _rc != 0 {
     local p10_ok = 0
     display "  P10: experimentalmixed did not permit the fit, rc " _rc
@@ -447,7 +447,7 @@ if _rc != 0 {
     local p10_ok = 0
     display "  P10: UNweighted model(mixed) was gated, rc " _rc
 }
-capture iivw_fit y z, model(gee)
+capture iivw_fit y z, vce(fixed) model(gee)
 if _rc != 0 {
     local p10_ok = 0
     display "  P10: model(gee) was gated, rc " _rc

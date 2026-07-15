@@ -151,7 +151,7 @@ if `run_only' == 0 | `run_only' == 3 {
         gen byte grp = 1 + mod(id, 4)
         label define _grplbl 1 "low" 2 "med" 3 "high" 4 "extreme"
         label values grp _grplbl
-        iivw_fit event severity grp, categorical(grp) nolog
+        iivw_fit event severity grp, vce(fixed) categorical(grp) nolog
         * Three non-base dummies should be created (2, 3, 4 vs base=1)
         * Sum of (dummy_low is base, so sum of med+high+extreme) + 1 if grp==1
         quietly count if _iivw_cat_med + _iivw_cat_high + _iivw_cat_extreme + ///
@@ -181,7 +181,7 @@ if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _setup_panel_v
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity sev_bl, timespec(cubic) ///
+        iivw_fit event severity sev_bl, vce(fixed) timespec(cubic) ///
             interaction(severity sev_bl) nolog
         * cubic -> 3 time vars (time, time_sq, time_cu)
         * 2 interaction vars * 3 time vars = 6 ix vars
@@ -209,7 +209,7 @@ if `run_only' == 0 | `run_only' == 5 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         gen byte grp = 1 + mod(id, 3)
         * basecat(2) -> no dummy for level 2; dummies for 1 and 3
-        iivw_fit event severity grp, categorical(grp) basecat(2) nolog
+        iivw_fit event severity grp, vce(fixed) categorical(grp) basecat(2) nolog
         * With no value labels -> numeric naming: _iivw_cat_grp_1, _iivw_cat_grp_3
         confirm variable _iivw_cat_grp_1
         confirm variable _iivw_cat_grp_3
@@ -234,7 +234,7 @@ if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_panel_v
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, timespec(cubic) nolog
+        iivw_fit event severity, vce(fixed) timespec(cubic) nolog
         gen double expected_sq = months^2
         gen double expected_cu = months^3
         gen double diff_sq = abs(_iivw_time_sq - expected_sq)
@@ -378,7 +378,7 @@ if `run_only' == 0 | `run_only' == 11 {
     capture noisily {
         _setup_panel_v
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, timespec(ns(4)) nolog
+        iivw_fit event severity, vce(fixed) timespec(ns(4)) nolog
         * All 4 basis vars have no missing inside data range
         forvalues k = 1/4 {
             quietly count if missing(_iivw_tns`k')
@@ -504,9 +504,9 @@ if `run_only' == 0 | `run_only' == 16 {
     capture noisily {
         _setup_panel_v
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, level(90) nolog
+        iivw_fit event severity, vce(fixed) level(90) nolog
         scalar b90 = _b[severity]
-        iivw_fit event severity, level(99) nolog
+        iivw_fit event severity, vce(fixed) level(99) nolog
         scalar b99 = _b[severity]
         assert reldif(b90, b99) < 1e-10
     }
@@ -560,7 +560,7 @@ if `run_only' == 0 | `run_only' == 18 {
         local p33 = r(r1)
         local p66 = r(r2)
 
-        iivw_fit event severity, timespec(ns(3)) nolog
+        iivw_fit event severity, vce(fixed) timespec(ns(3)) nolog
         * At months == p33, the second-basis numerator's (time - knot0) = p33 - min
         * Rather than reverse-engineer, check continuity around each internal knot
         gen double t_near_p33 = abs(months - `p33')

@@ -289,6 +289,11 @@ capture noisily {
         * benchmark_* are high-replication gates in their own lane, not curated
         * pass/fail suites the aggregate parses -- excluded like sim_*.
         if substr("`s'", 1, 10) == "benchmark_" continue
+        * validation_iivw_inference is the nested corrected-variance coverage-gate
+        * DRIVER (its own on-demand lane, never in quick/full/sim): its modes emit
+        * a gate / non-gate sentinel, not the curated tests=/pass=/fail= shape the
+        * aggregate parses. Excluded on the same basis as benchmark_*/sim_*.
+        if "`s'" == "validation_iivw_inference.do" continue
 
         preserve
         quietly import delimited using "`qa_dir'/`s'", delimiter(tab) ///

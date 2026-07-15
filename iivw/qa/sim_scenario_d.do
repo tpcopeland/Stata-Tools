@@ -180,7 +180,7 @@ forvalues s = 1/`n_sims' {
             visit_cov(u_i conf_tv) wtype(iivw) ///
             truncfinal(1 99) nolog replace
         if _rc == 0 {
-            capture iivw_fit y_obs treatment conf_ti, ///
+            capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
                 model(gee) timespec(linear) interaction(treatment) ///
                 nolog replace
             if _rc == 0 {
@@ -198,7 +198,7 @@ forvalues s = 1/`n_sims' {
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncfinal(1 99) nolog replace
         if _rc == 0 {
-            capture iivw_fit y_obs treatment conf_ti, ///
+            capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
                 model(gee) timespec(linear) interaction(treatment) ///
                 nolog replace
             if _rc == 0 {
@@ -216,7 +216,7 @@ forvalues s = 1/`n_sims' {
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncfinal(1 99) nolog replace
         if _rc == 0 {
-            capture iivw_fit y_obs treatment test_number conf_ti, ///
+            capture iivw_fit y_obs treatment test_number conf_ti, vce(fixed) ///
                 model(gee) timespec(linear) interaction(treatment) ///
                 nolog replace
             if _rc == 0 {

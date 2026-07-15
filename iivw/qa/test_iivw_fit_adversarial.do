@@ -112,7 +112,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _adv_setup_panel, wtype(fiptiw)
-        iivw_fit event treated sev_bl, model(gee) family(binomial) ///
+        iivw_fit event treated sev_bl, vce(fixed) model(gee) family(binomial) ///
             link(logit) timespec(linear) cluster(site) nolog
 
         assert e(N) > 0
@@ -139,7 +139,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _adv_setup_panel, wtype(fiptiw)
-        iivw_fit y treated sev_bl, model(mixed) experimentalmixed timespec(none) ///
+        iivw_fit y treated sev_bl, vce(fixed) model(mixed) experimentalmixed timespec(none) ///
             cluster(site) nolog
 
         assert e(N) > 0
@@ -165,7 +165,7 @@ if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         foreach ts in linear quadratic cubic "ns(3)" none {
             _adv_setup_panel, seed(20260513)
-            iivw_fit y severity, model(gee) timespec(`ts') replace nolog
+            iivw_fit y severity, vce(fixed) model(gee) timespec(`ts') replace nolog
             assert "`e(iivw_timespec)'" == "`ts'"
 
             if "`ts'" == "linear" {
@@ -209,7 +209,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
         _adv_setup_panel, seed(20260514)
-        capture iivw_fit y severity if visit_n == 1, timespec(ns(3)) nolog
+        capture iivw_fit y severity if visit_n == 1, vce(fixed) timespec(ns(3)) nolog
         assert _rc == 198
         capture confirm variable _iivw_tns1
         assert _rc != 0
@@ -232,7 +232,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
         _adv_setup_panel, seed(20260515) coarsetime
-        capture iivw_fit y severity, timespec(ns(8)) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(ns(8)) nolog
         assert _rc == 198
         capture confirm variable _iivw_tns1
         assert _rc != 0
@@ -255,7 +255,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _adv_setup_panel, seed(20260516)
-        capture iivw_fit y severity, timespec(ns(0)) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(ns(0)) nolog
         assert _rc == 198
         capture confirm variable _iivw_tns1
         assert _rc != 0
@@ -278,7 +278,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _adv_setup_panel, seed(20260517) wtype(fiptiw)
-        iivw_fit y arm severity, categorical(arm) basecat(2) ///
+        iivw_fit y arm severity, vce(fixed) categorical(arm) basecat(2) ///
             interaction(arm) timespec(quadratic) nolog
 
         confirm variable _iivw_cat_placebo
@@ -317,7 +317,7 @@ if `run_only' == 0 | `run_only' == 8 {
         label values grp1 dup01
         label values grp2 dup01
 
-        iivw_fit y grp1 grp2 severity, categorical(grp1 grp2) nolog
+        iivw_fit y grp1 grp2 severity, vce(fixed) categorical(grp1 grp2) nolog
 
         confirm variable _iivw_cat_active
         confirm variable _iivw_cat_grp2_1
@@ -358,11 +358,11 @@ if `run_only' == 0 | `run_only' == 9 {
         gen double _iivw_time_sq = 999
 
         * no replace: blocked, as before
-        capture iivw_fit y severity, timespec(quadratic) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(quadratic) nolog
         assert _rc == 110
 
         * WITH replace: still blocked, because we did not create this column
-        capture iivw_fit y severity, timespec(quadratic) replace nolog
+        capture iivw_fit y severity, vce(fixed) timespec(quadratic) replace nolog
         assert _rc == 110
         quietly summarize _iivw_time_sq
         assert r(min) == 999 & r(max) == 999
@@ -370,11 +370,11 @@ if `run_only' == 0 | `run_only' == 9 {
         * Drop the impostor. Now iivw_fit creates the column itself, stamps it,
         * and a rerun with replace overwrites its OWN output without complaint.
         drop _iivw_time_sq
-        iivw_fit y severity, timespec(quadratic) nolog
+        iivw_fit y severity, vce(fixed) timespec(quadratic) nolog
         confirm variable _iivw_time_sq
         assert "`: char _iivw_time_sq[_iivw_owner]'" == "iivw|_iivw_|design|2"
 
-        iivw_fit y severity, timespec(quadratic) replace nolog
+        iivw_fit y severity, vce(fixed) timespec(quadratic) replace nolog
         assert "`e(iivw_timespec)'" == "quadratic"
         confirm variable _iivw_time_sq
     }
@@ -438,7 +438,7 @@ if `run_only' == 0 | `run_only' == 11 {
             !missing(y, severity, _iivw_weight, months, id)
         local expected = r(N)
 
-        iivw_fit y severity if id > 5 in 1/220, timespec(linear) nolog
+        iivw_fit y severity if id > 5 in 1/220, vce(fixed) timespec(linear) nolog
         assert e(N) == `expected'
         quietly count if e(sample)
         assert r(N) == e(N)
@@ -462,7 +462,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 12 {
     capture noisily {
         _adv_setup_panel, seed(20260522) wtype(fiptiw)
-        iivw_fit y treated arm sev_bl, categorical(arm) interaction(treated arm) ///
+        iivw_fit y treated arm sev_bl, vce(fixed) categorical(arm) interaction(treated arm) ///
             timespec(ns(3)) cluster(site) nolog
 
         assert "`e(iivw_cmd)'" == "iivw_fit"
@@ -492,12 +492,12 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _adv_setup_panel, seed(20260523)
-        iivw_fit y severity, timespec(linear) nolog
+        iivw_fit y severity, vce(fixed) timespec(linear) nolog
         scalar b_before = _b[severity]
         local cmd_before "`e(iivw_cmd)'"
         local model_before "`e(iivw_model)'"
 
-        capture iivw_fit y severity, timespec(badvalue) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(badvalue) nolog
         assert _rc == 198
         assert "`e(iivw_cmd)'" == "`cmd_before'"
         assert "`e(iivw_model)'" == "`model_before'"
@@ -525,15 +525,15 @@ if `run_only' == 0 | `run_only' == 14 {
         _adv_setup_panel, seed(20260524)
 
         set varabbrev on
-        iivw_fit y severity, timespec(linear) nolog
+        iivw_fit y severity, vce(fixed) timespec(linear) nolog
         assert "`c(varabbrev)'" == "on"
 
-        capture iivw_fit y severity, family(badfamily) nolog
+        capture iivw_fit y severity, vce(fixed) family(badfamily) nolog
         assert _rc != 0
         assert "`c(varabbrev)'" == "on"
 
         set varabbrev off
-        capture iivw_fit y severity, link(badlink) nolog
+        capture iivw_fit y severity, vce(fixed) link(badlink) nolog
         assert _rc != 0
         assert "`c(varabbrev)'" == "off"
     }
@@ -553,12 +553,12 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 15 {
     capture noisily {
         _adv_setup_panel, seed(20260525) wtype(none)
-        capture iivw_fit y severity, timespec(linear) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(linear) nolog
         assert _rc == 198
 
         _adv_setup_panel, seed(20260525)
         drop _iivw_weight
-        capture iivw_fit y severity, timespec(linear) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(linear) nolog
         assert _rc == 111
         local fitted : char _dta[_iivw_fitted]
         assert "`fitted'" == ""
@@ -579,13 +579,13 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 16 {
     capture noisily {
         _adv_setup_panel, seed(20260526)
-        capture iivw_fit y severity, family(badfamily) nolog
+        capture iivw_fit y severity, vce(fixed) family(badfamily) nolog
         assert _rc != 0
         local fitted1 : char _dta[_iivw_fitted]
         assert "`fitted1'" == ""
 
         _adv_setup_panel, seed(20260527)
-        capture iivw_fit y severity, link(badlink) nolog
+        capture iivw_fit y severity, vce(fixed) link(badlink) nolog
         assert _rc != 0
         local fitted2 : char _dta[_iivw_fitted]
         assert "`fitted2'" == ""
@@ -612,7 +612,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 17 {
     capture noisily {
         _adv_setup_panel, seed(20260528)
-        iivw_fit y, model(gee) timespec(none) nolog
+        iivw_fit y, vce(fixed) model(gee) timespec(none) nolog
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
         quietly count if e(sample)
@@ -659,7 +659,7 @@ if `run_only' == 0 | `run_only' == 19 {
         _adv_setup_panel, nids(36) visits(4) seed(20260611)
         gen int dose = mod(id, 3) - 1
 
-        iivw_fit y dose, categorical(dose) basecat(0) ///
+        iivw_fit y dose, vce(fixed) categorical(dose) basecat(0) ///
             timespec(none) nolog
 
         confirm variable _iivw_cat_dose_m1

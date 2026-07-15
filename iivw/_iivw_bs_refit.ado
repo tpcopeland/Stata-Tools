@@ -60,6 +60,11 @@ program define _iivw_bs_refit, eclass
 
     marksample touse
 
+    * Same pass-through guard as iivw_fit (IIVW-B08): no variance/resampling
+    * token in geeopts()/mixedopts() may reach the inner glm inside a draw.
+    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
+    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
+
     local log_opt = cond("`log'" == "nolog", "nolog", "")
     local weight_var "`prefix'weight"
 

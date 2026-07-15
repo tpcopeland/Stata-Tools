@@ -108,7 +108,7 @@ capture noisily {
 
     * IIW-weighted recovery: visit model on Z, then marginal y-on-time
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, model(gee) timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) model(gee) timespec(linear) nolog replace
     scalar A_iiw = _b[months]
     scalar Asetup_ok = 1
 }
@@ -207,7 +207,7 @@ capture noisily {
 
     * IIW only: corrects informative visits but NOT confounding -> should still miss
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z C) wtype(iivw) nolog replace
-    iivw_fit y T, model(gee) timespec(linear) nolog replace
+    iivw_fit y T, vce(fixed) model(gee) timespec(linear) nolog replace
     scalar B_iiw = _b[T]
 
     * FIPTIW: visit model (Z C) + treatment model (C) -> recovers theta
@@ -215,7 +215,7 @@ capture noisily {
     * masks recovery; moderate confounding keeps positivity good without it.
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
         wtype(fiptiw) nolog replace
-    iivw_fit y T, model(gee) timespec(linear) nolog replace
+    iivw_fit y T, vce(fixed) model(gee) timespec(linear) nolog replace
     scalar B_fiptiw = _b[T]
     scalar Bsetup_ok = 1
 }

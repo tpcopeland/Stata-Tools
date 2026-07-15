@@ -282,25 +282,38 @@ standard errors; the {opt bootstrap(#)}/{opt refitweights} spellings below are
 retained as a legacy alias but name each method less clearly.
 
 {pmore}
-{cmd:vce(bootstrap, reps(#) [seed(#)])} is the recommended method: a
-subject-level bootstrap that {bf:refits} every nuisance model inside each draw,
-so the interval propagates weight-estimation uncertainty -- the variance
-Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) derive. {opt reps()}
-is required, as there is no defensible default replicate count; {opt seed()}
-fixes the resampling stream and is stored in {cmd:e(iivw_vce_seed)} for
-reproducibility.
+{cmd:vce(bootstrap, reps(#) [seed(#)])} is the {bf:default for weighted fits} and
+the recommended method: a subject-level bootstrap that {bf:refits} every nuisance
+model inside each draw, so the interval propagates weight-estimation uncertainty
+-- the practical estimator of the full sampling variability that Buzkova & Lumley
+(2007) and Coulombe, Moodie & Platt (2021) derive analytically. {opt reps()}
+omitted takes the release-frozen {bf:999}; fewer than 999 is allowed but stamped
+{cmd:e(iivw_inference_status)}={cmd:uncleared-low-reps}. The printed interval is
+the normal/Wald interval from the bootstrap covariance ({cmd:e(iivw_ci_type)} =
+{cmd:wald-normal}); percentile/BC/BCa are separate methods and are not implied.
+{opt seed()} fixes the resampling stream; with no seed, the exact pre-draw RNG
+state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
 
 {pmore}
 {cmd:vce(bootstrap, reps(#) fixedweights)} bootstraps with the weights held
 {bf:fixed} across draws, so the interval reflects outcome-model uncertainty
 only; {cmd:vce(fixed)} is the analytic cluster-robust sandwich. Both treat the
-estimated weights as {bf:known} and therefore understate uncertainty, so naming
-one explicitly is the acknowledgment of that, and the disclosure note still
-prints. {cmd:e(iivw_vce)} records which of the three was used.
+estimated weights as {bf:known} -- they {bf:omit the nuisance-estimation correction}
+that both source papers put inside the sandwich. That correction can
+make the interval either narrower or wider; under a correctly specified weight
+model the fixed sandwich is in fact {bf:conservative (over-wide)}, because the
+Buzkova-Lumley variance residualises the outcome score against the visit-model
+score before squaring and that projection is orthogonal for an MLE nuisance
+model. Naming one of these explicitly is the acknowledgment that the SE omits the
+correction; the disclosure note still prints. {cmd:e(iivw_vce)} records which of
+the three was used, and an unweighted fit keeps the cluster sandwich (no nuisance
+weights to propagate).
 
 {phang}
-{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. When
-{cmd:bootstrap(0)} (the default), sandwich standard errors are used. When
+{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates.
+{cmd:bootstrap(0)} explicitly requests the weights-known sandwich standard errors
+(equivalent to {cmd:vce(fixed)}); a weighted fit with no variance option instead
+takes the refit-bootstrap default. When
 positive, the {cmd:bootstrap} prefix is applied with clustering at
 {opt cluster()}, which defaults to the subject ID stored by
 {cmd:iivw_weight}. Negative values are not allowed. Prefer {opt vce()}; a plain
@@ -308,15 +321,16 @@ positive, the {cmd:bootstrap} prefix is applied with clustering at
 absence of {opt refitweights}.
 
 {pmore}
-By default the bootstrap treats the IIW/IPTW weights as fixed and does not
-re-estimate them in each draw, so standard errors reflect outcome model
-uncertainty only. {bf:This understates uncertainty.} Both source papers derive a
-variance that absorbs the weight-estimation term: Buzkova & Lumley (2007) add a
-correction to the sandwich for having estimated the visit-model coefficients,
-and Coulombe, Moodie & Platt (2021) build the FIPTIW variance as a two-step
-(Newey-McFadden) sandwich for the same reason. Neither licenses treating
-estimated weights as known. Use {opt refitweights} (see below) to propagate
-weight estimation uncertainty.
+The legacy {opt bootstrap(#)} without {opt refitweights} treats the IIW/IPTW
+weights as fixed and does not re-estimate them in each draw, so standard errors
+reflect outcome-model uncertainty only. This {bf:omits the weight-estimation correction}
+that both source papers put inside the sandwich: Buzkova & Lumley
+(2007) add a correction for having estimated the visit-model coefficients, and
+Coulombe, Moodie & Platt (2021) build the FIPTIW variance as a two-step
+(Newey-McFadden) sandwich for the same reason. Omitting it does not have a fixed
+direction -- under a correctly specified weight model the fixed sandwich is
+conservative (over-wide), not anti-conservative. Use the default refit bootstrap
+(or {opt refitweights}) to propagate weight-estimation uncertainty.
 
 {phang}
 {opt refitweights} re-estimates the IIW/IPTW/FIPTIW weights from scratch inside
@@ -694,15 +708,18 @@ positive interaction means the treatment becomes less protective (or more
 harmful) over time; a negative interaction means it becomes more protective.
 
 {pstd}
-{bf:Standard errors.} By default, standard errors are sandwich (robust)
-standard errors clustered at the subject level. These are consistent even
-under misspecification of the within-subject correlation structure, but they
-treat the IIW/IPTW weights as if they were known rather than estimated, and so
-omit the weight-estimation term that both Buzkova & Lumley (2007) and Coulombe,
-Moodie & Platt (2021) carry in their sandwich. They therefore understate
-uncertainty. To obtain standard errors that include weight estimation
-uncertainty, use {cmd:bootstrap(#) refitweights}, which re-estimates the weights
-inside each bootstrap replicate (see {opt bootstrap()} and {opt refitweights} in
+{bf:Standard errors.} For a {bf:weighted} fit the default is now the 999-draw
+refit subject bootstrap ({cmd:vce(bootstrap)}), which re-estimates every nuisance
+model inside each draw and so includes the weight-estimation term. {cmd:vce(fixed)}
+requests the analytic sandwich (robust, clustered at the subject level): it is
+consistent even under misspecification of the within-subject correlation
+structure, but it treats the IIW/IPTW weights as if they were known rather than
+estimated, and so omits the weight-estimation term that both Buzkova & Lumley
+(2007) and Coulombe, Moodie & Platt (2021) carry in their sandwich. Omitting that
+term does not have a fixed sign -- under a correctly specified weight model the
+fixed sandwich is conservative (over-wide). An {bf:unweighted} fit keeps the
+cluster sandwich as its default, since it estimates no nuisance weights. See
+{opt vce()} (and the legacy {opt bootstrap()}/{opt refitweights}) in
 the Options section).
 
 

@@ -187,7 +187,7 @@ if `run_only' == 0 | `run_only' == 5 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
         assert "`e(iivw_model)'" == "gee"
@@ -211,7 +211,7 @@ if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(quadratic) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(quadratic) nolog
         assert "`e(iivw_timespec)'" == "quadratic"
         confirm variable _iivw_time_sq
     }
@@ -233,7 +233,7 @@ if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(ns(3)) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(3)) nolog
         assert "`e(iivw_timespec)'" == "ns(3)"
         confirm variable _iivw_tns1
     }
@@ -255,7 +255,7 @@ if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(none) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(none) nolog
         assert "`e(iivw_timespec)'" == "none"
     }
     if _rc == 0 {
@@ -481,7 +481,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 18 {
     capture noisily {
         sysuse auto, clear
-        capture iivw_fit price mpg weight
+        capture iivw_fit price mpg weight, vce(fixed)
         assert _rc == 198
     }
     if _rc == 0 {
@@ -578,7 +578,7 @@ if `run_only' == 0 | `run_only' == 22 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         assert _N == `N_before'
         local N_before2 = _N
-        iivw_fit edss relapse, model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
         assert _N == `N_before2'
     }
     if _rc == 0 {
@@ -628,7 +628,7 @@ if `run_only' == 0 | `run_only' == 24 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit relapse treated edss_bl, ///
+        iivw_fit relapse treated edss_bl, vce(fixed) ///
             family(binomial) link(logit) timespec(linear) nolog
         assert "`e(iivw_model)'" == "gee"
     }
@@ -675,7 +675,7 @@ if `run_only' == 0 | `run_only' == 26 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, timespec(linear) interaction(treated) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) interaction(treated) nolog
         confirm variable _iivw_ix_treated_time
         assert "`e(iivw_interaction)'" == "treated"
         assert "`e(iivw_ix_vars)'" == " _iivw_ix_treated_time"
@@ -698,7 +698,7 @@ if `run_only' == 0 | `run_only' == 27 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, timespec(quadratic) interaction(relapse) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(quadratic) interaction(relapse) nolog
         confirm variable _iivw_ix_relapse_time
         confirm variable _iivw_ix_relapse_tsq
     }
@@ -720,7 +720,7 @@ if `run_only' == 0 | `run_only' == 28 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, timespec(ns(3)) interaction(relapse) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(ns(3)) interaction(relapse) nolog
         confirm variable _iivw_ix_relapse_tns1
         confirm variable _iivw_ix_relapse_tns2
         confirm variable _iivw_ix_relapse_tns3
@@ -745,7 +745,7 @@ if `run_only' == 0 | `run_only' == 29 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, timespec(linear) ///
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) ///
             interaction(treated edss_bl) nolog
         confirm variable _iivw_ix_treated_time
         confirm variable _iivw_ix_edss_bl_time
@@ -768,7 +768,7 @@ if `run_only' == 0 | `run_only' == 30 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        capture iivw_fit edss relapse, timespec(none) interaction(relapse)
+        capture iivw_fit edss relapse, vce(fixed) timespec(none) interaction(relapse)
         assert _rc == 198
     }
     if _rc == 0 {
@@ -791,7 +791,7 @@ if `run_only' == 0 | `run_only' == 31 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         * Force a fit error by using a string variable as depvar
         gen str5 badvar = "x"
-        capture iivw_fit edss badvar, timespec(linear) interaction(relapse) nolog
+        capture iivw_fit edss badvar, vce(fixed) timespec(linear) interaction(relapse) nolog
         * The interaction var should have been cleaned up
         capture confirm variable _iivw_ix_relapse_time
         assert _rc != 0
@@ -814,7 +814,7 @@ if `run_only' == 0 | `run_only' == 32 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, timespec(linear) interaction(relapse) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(linear) interaction(relapse) nolog
         * Verify the interaction is the product of relapse * days
         gen double _check_ix = relapse * days
         assert abs(_iivw_ix_relapse_time - _check_ix) < 1e-10
@@ -838,7 +838,7 @@ if `run_only' == 0 | `run_only' == 33 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, timespec(cubic) interaction(relapse) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(cubic) interaction(relapse) nolog
         confirm variable _iivw_ix_relapse_time
         confirm variable _iivw_ix_relapse_tsq
         confirm variable _iivw_ix_relapse_tcu
@@ -861,7 +861,7 @@ if `run_only' == 0 | `run_only' == 34 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, timespec(linear) interaction(relapse) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(linear) interaction(relapse) nolog
         local ix_char : char _dta[_iivw_interaction]
         assert "`ix_char'" == "relapse"
         local ix_vars_char : char _dta[_iivw_ix_vars]
@@ -889,7 +889,7 @@ if `run_only' == 0 | `run_only' == 35 {
         label values treated treated_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, categorical(treated) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) categorical(treated) nolog
         confirm variable _iivw_cat_drug
         local vlbl : variable label _iivw_cat_drug
         assert `"`vlbl'"' == `"Drug (vs. Placebo)"'
@@ -915,7 +915,7 @@ if `run_only' == 0 | `run_only' == 36 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         confirm variable _iivw_cat_low_dose
         confirm variable _iivw_cat_high_dose
         local vlbl1 : variable label _iivw_cat_low_dose
@@ -942,7 +942,7 @@ if `run_only' == 0 | `run_only' == 37 {
         _setup_relapses
         gen byte arm = mod(id, 3)
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         confirm variable _iivw_cat_arm_1
         confirm variable _iivw_cat_arm_2
         local vlbl : variable label _iivw_cat_arm_1
@@ -970,7 +970,7 @@ if `run_only' == 0 | `run_only' == 38 {
         label values treated treated_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, timespec(linear) ///
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) ///
             categorical(treated) interaction(treated) nolog
         confirm variable _iivw_cat_drug
         confirm variable _iivw_ix_drug_time
@@ -1001,7 +1001,7 @@ if `run_only' == 0 | `run_only' == 39 {
         label define site_lbl 0 "Site A" 1 "Site B", replace
         label values site site_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm site, categorical(arm site) nolog
+        iivw_fit edss arm site, vce(fixed) categorical(arm site) nolog
         confirm variable _iivw_cat_low_dose
         confirm variable _iivw_cat_high_dose
         confirm variable _iivw_cat_site_b
@@ -1027,7 +1027,7 @@ if `run_only' == 0 | `run_only' == 40 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) basecat(2) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) basecat(2) nolog
         confirm variable _iivw_cat_placebo
         confirm variable _iivw_cat_low_dose
         local vlbl : variable label _iivw_cat_placebo
@@ -1054,7 +1054,7 @@ if `run_only' == 0 | `run_only' == 41 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) basecat(99) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) basecat(99) nolog
         confirm variable _iivw_cat_low_dose
         confirm variable _iivw_cat_high_dose
         local vlbl : variable label _iivw_cat_low_dose
@@ -1082,7 +1082,7 @@ if `run_only' == 0 | `run_only' == 42 {
             1 "Very high dose experimental treatment arm", replace
         label values arm long_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         assert "`e(iivw_cat_vars)'" != ""
         local catvar : word 1 of `e(iivw_cat_vars)'
         assert strlen("`catvar'") <= 32
@@ -1108,7 +1108,7 @@ if `run_only' == 0 | `run_only' == 43 {
         label define coll_lbl 0 "Control" 1 "Low-dose" 2 "Low dose", replace
         label values arm coll_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         * Collision: both sanitize to "low_dose" -> numeric fallback
         confirm variable _iivw_cat_arm_1
         confirm variable _iivw_cat_arm_2
@@ -1134,7 +1134,7 @@ if `run_only' == 0 | `run_only' == 44 {
         _setup_relapses
         gen byte arm = mod(id, 3)
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        capture iivw_fit edss relapse, categorical(arm)
+        capture iivw_fit edss relapse, vce(fixed) categorical(arm)
         assert _rc == 198
     }
     if _rc == 0 {
@@ -1156,7 +1156,7 @@ if `run_only' == 0 | `run_only' == 45 {
         _setup_relapses
         gen double frac = mod(id, 3) + 0.5
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        capture iivw_fit edss frac, categorical(frac)
+        capture iivw_fit edss frac, vce(fixed) categorical(frac)
         assert _rc == 198
     }
     if _rc == 0 {
@@ -1178,7 +1178,7 @@ if `run_only' == 0 | `run_only' == 46 {
         _setup_relapses
         gen byte constvar = 1
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        capture iivw_fit edss constvar, categorical(constvar)
+        capture iivw_fit edss constvar, vce(fixed) categorical(constvar)
         assert _rc == 198
     }
     if _rc == 0 {
@@ -1202,7 +1202,7 @@ if `run_only' == 0 | `run_only' == 47 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         confirm variable _iivw_cat_low_dose
         confirm variable _iivw_cat_high_dose
         * No interaction vars should exist
@@ -1230,7 +1230,7 @@ if `run_only' == 0 | `run_only' == 48 {
         label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
         label values arm arm_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss arm, categorical(arm) nolog
+        iivw_fit edss arm, vce(fixed) categorical(arm) nolog
         assert _iivw_cat_low_dose == (arm == 1) if !missing(_iivw_cat_low_dose)
         assert _iivw_cat_high_dose == (arm == 2) if !missing(_iivw_cat_high_dose)
     }
@@ -1256,7 +1256,7 @@ if `run_only' == 0 | `run_only' == 49 {
         label values treated treated_lbl
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, categorical(treated) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) categorical(treated) nolog
         assert "`e(iivw_categorical)'" == "treated"
         assert "`e(iivw_cat_vars)'" != ""
         local cat_char : char _dta[_iivw_categorical]
@@ -1282,7 +1282,7 @@ if `run_only' == 0 | `run_only' == 50 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(mixed) experimentalmixed timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
         assert "`e(iivw_timespec)'" == "linear"
@@ -1339,7 +1339,7 @@ if `run_only' == 0 | `run_only' == 52 {
         * Create alternative cluster variable
         gen long site_id = mod(id, 10)
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             cluster(site_id) nolog
         assert e(N) > 0
         assert e(N_clust) <= 10
@@ -1362,7 +1362,7 @@ if `run_only' == 0 | `run_only' == 53 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             level(90) nolog
         assert e(N) > 0
     }
@@ -1436,7 +1436,7 @@ if `run_only' == 0 | `run_only' == 56 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
             geeopts(iterate(50)) nolog
         assert e(N) > 0
     }
@@ -1542,7 +1542,7 @@ if `run_only' == 0 | `run_only' == 60 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
         assert "`e(iivw_model)'" == "gee"
@@ -1801,7 +1801,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated, model(gee) timespec(linear) nolog
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) nolog
     assert "`e(iivw_cluster)'" == "id"
 }
 if _rc == 0 {
@@ -1821,7 +1821,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     gen long site = mod(id, 5)
-    iivw_fit edss treated, model(gee) timespec(linear) ///
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) ///
         cluster(site) nolog
     assert "`e(iivw_cluster)'" == "site"
 }
@@ -1842,7 +1842,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated, model(gee) timespec(linear) nolog
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) nolog
     * Verify model converged (e(converged) should be 1)
     assert e(converged) == 1
 }
@@ -1864,7 +1864,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * Normal data with sufficient variation should NOT trigger the guard
-    iivw_fit edss treated, model(gee) timespec(ns(3)) nolog replace
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(ns(3)) nolog replace
     assert e(N) > 0
     * Verify the knot validation code exists by confirming ns() works
     * The tied-knot guard fires when _pctile returns duplicate values,
@@ -1939,7 +1939,7 @@ capture noisily {
     replace site = . if mod(id, 2) == 0
     quietly count if !missing(site)
     local N_nonmiss = r(N)
-    iivw_fit edss treated, model(gee) timespec(linear) ///
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) ///
         cluster(site) nolog replace
     * e(N) should equal the non-missing cluster count
     assert e(N) == `N_nonmiss'
@@ -1963,10 +1963,10 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * First fit creates _iivw_time_sq
-    iivw_fit edss treated, model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
     assert e(N) > 0
     * Second fit with replace should succeed (overwrites _iivw_time_sq)
-    iivw_fit edss treated, model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
     assert e(N) > 0
 }
 if _rc == 0 {
@@ -1986,9 +1986,9 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * First fit creates _iivw_time_sq
-    iivw_fit edss treated, model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
     * Second fit WITHOUT replace should error
-    capture iivw_fit edss treated, model(gee) timespec(quadratic) nolog
+    capture iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog
     assert _rc == 110
 }
 if _rc == 0 {
@@ -2065,7 +2065,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss relapse, model(badval) nolog
+    capture iivw_fit edss relapse, vce(fixed) model(badval) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2084,7 +2084,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss relapse, timespec(badval) nolog
+    capture iivw_fit edss relapse, vce(fixed) timespec(badval) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2103,7 +2103,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss relapse, basecat(1) nolog
+    capture iivw_fit edss relapse, vce(fixed) basecat(1) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2123,7 +2123,7 @@ capture noisily {
     _setup_relapses
     gen byte arm = mod(id, 3)
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss arm, categorical(arm) basecat(1.5) nolog
+    capture iivw_fit edss arm, vce(fixed) categorical(arm) basecat(1.5) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2142,7 +2142,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss relapse if edss > 999, model(gee) nolog
+    capture iivw_fit edss relapse if edss > 999, vce(fixed) model(gee) nolog
     assert _rc == 2000
 }
 if _rc == 0 {
@@ -2179,7 +2179,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, model(gee) timespec(cubic) nolog
+    iivw_fit edss relapse, vce(fixed) model(gee) timespec(cubic) nolog
     assert "`e(iivw_timespec)'" == "cubic"
     confirm variable _iivw_time_sq
     confirm variable _iivw_time_cu
@@ -2202,7 +2202,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, model(gee) timespec(ns(2)) nolog
+    iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(2)) nolog
     assert "`e(iivw_timespec)'" == "ns(2)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns2
@@ -2224,7 +2224,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, model(gee) timespec(ns(4)) nolog
+    iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(4)) nolog
     assert "`e(iivw_timespec)'" == "ns(4)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns4
@@ -2248,7 +2248,7 @@ capture noisily {
     * Create a count outcome
     gen int n_visits = ceil(abs(edss)) + 1
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit n_visits relapse, family(poisson) link(log) ///
+    iivw_fit n_visits relapse, vce(fixed) family(poisson) link(log) ///
         timespec(linear) nolog
     assert e(N) > 0
     assert "`e(iivw_model)'" == "gee"
@@ -2270,7 +2270,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     local N_full = _N
-    iivw_fit edss relapse if edss > 3, model(gee) timespec(linear) nolog
+    iivw_fit edss relapse if edss > 3, vce(fixed) model(gee) timespec(linear) nolog
     assert e(N) < `N_full'
     assert e(N) > 0
     * Dataset should be unchanged
@@ -2417,7 +2417,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     set varabbrev on
-    iivw_fit edss relapse, model(gee) timespec(linear) nolog
+    iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
     assert c(varabbrev) == "on"
 }
 if _rc == 0 {
@@ -2436,7 +2436,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     set varabbrev on
-    capture iivw_fit price mpg weight
+    capture iivw_fit price mpg weight, vce(fixed)
     * Should error (no iivw_weight run)
     assert c(varabbrev) == "on"
 }
@@ -2524,7 +2524,7 @@ capture noisily {
     label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
     label values arm arm_lbl
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss arm, timespec(ns(2)) categorical(arm) ///
+    iivw_fit edss arm, vce(fixed) timespec(ns(2)) categorical(arm) ///
         interaction(arm) nolog
     confirm variable _iivw_cat_low_dose
     confirm variable _iivw_cat_high_dose
@@ -2557,7 +2557,7 @@ capture noisily {
     label define site_lbl2 0 "Control" 1 "Active", replace
     label values site site_lbl2
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss arm site, categorical(arm site) nolog
+    iivw_fit edss arm site, vce(fixed) categorical(arm site) nolog
     * When cross-variable collision detected, site should fall back to numeric
     * arm gets label-based: _iivw_cat_active
     * site should get numeric: _iivw_cat_site_1 (collision with arm's _iivw_cat_active)
@@ -2636,7 +2636,7 @@ capture noisily {
     _setup_relapses
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     * Verify e() results stored for all predictors
     assert _b[treated] != .
     assert _b[edss_bl] != .
@@ -2660,7 +2660,7 @@ capture noisily {
     _setup_relapses
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated edss_bl, model(mixed) experimentalmixed timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
     * Verify e() results stored for all predictors
     assert _b[treated] != .
     assert _b[edss_bl] != .
@@ -2685,7 +2685,7 @@ capture noisily {
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     collect clear
-    collect: iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     * Export without coef() - should auto-detect "Coef." for gaussian glm
     local _xlsxfile "`_xlsx_stub'_regtab_108.xlsx"
     capture erase "`_xlsxfile'"
@@ -2713,11 +2713,11 @@ capture noisily {
     collect clear
     * Model 1: IIW
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    collect: iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     * Model 2: FIPTIW
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
         treat(treated) treat_cov(edss_bl) replace nolog
-    collect: iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     * Export multi-model table
     local _xlsxfile "`_xlsx_stub'_regtab_109.xlsx"
     capture erase "`_xlsxfile'"
@@ -2744,7 +2744,7 @@ capture noisily {
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     collect clear
-    collect: iivw_fit edss treated edss_bl, model(mixed) experimentalmixed timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
     local _xlsxfile "`_xlsx_stub'_regtab_110.xlsx"
     capture erase "`_xlsxfile'"
     regtab, xlsx("`_xlsxfile'") sheet(Test110) title(Mixed Model)
@@ -2772,7 +2772,7 @@ capture noisily {
     label define arm_t111 0 "Placebo" 1 "Low" 2 "High", replace
     label values arm arm_t111
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss arm edss_bl, categorical(arm) model(gee) nolog
+    iivw_fit edss arm edss_bl, vce(fixed) categorical(arm) model(gee) nolog
     * Verify dummy coefficients are accessible
     assert e(N) > 0
     assert "`e(iivw_cat_vars)'" != ""
@@ -2825,7 +2825,7 @@ if `run_only' == 0 | `run_only' == 113 {
         * Run iivw_fit which depends on _iivw_check_weighted and _iivw_get_settings
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
         assert e(N) > 0
     }
     if _rc == 0 {
@@ -2849,7 +2849,7 @@ if `run_only' == 0 | `run_only' == 114 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         * Check iivw_weight did not change set more
         assert "`c(more)'" == "off"
-        iivw_fit edss relapse, model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
         * Check iivw_fit did not change set more
         assert "`c(more)'" == "off"
     }
@@ -2924,7 +2924,7 @@ if `run_only' == 0 | `run_only' == 117 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss, model(gee) timespec(linear) nolog
+        iivw_fit edss, vce(fixed) model(gee) timespec(linear) nolog
         assert e(N) > 0
         assert _b[days] != .
         assert "`e(iivw_display_vars)'" == "days"
@@ -2947,7 +2947,7 @@ if `run_only' == 0 | `run_only' == 118 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss, model(gee) timespec(none) nolog
+        iivw_fit edss, vce(fixed) model(gee) timespec(none) nolog
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
     }
@@ -2978,7 +2978,7 @@ if `run_only' == 0 | `run_only' == 119 {
             3 "Third visit" 4 "Fourth visit", replace
         label values visit_wave wave_t119
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) nolog
-        iivw_fit edss treated, model(gee) timespec(categorical) nolog
+        iivw_fit edss treated, vce(fixed) model(gee) timespec(categorical) nolog
         assert "`e(iivw_timespec)'" == "categorical"
         assert "`e(iivw_time_basecat)'" == "1"
         confirm variable _iivw_tcat_1
@@ -3023,7 +3023,7 @@ if `run_only' == 0 | `run_only' == 120 {
         label values treated treated_t120
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, model(gee) timespec(categorical) ///
+        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(categorical) ///
             categorical(treated) interaction(treated) nolog
         confirm variable _iivw_ix_drug_tcat_1
         local ixlbl : variable label _iivw_ix_drug_tcat_1
@@ -3057,7 +3057,7 @@ if `run_only' == 0 | `run_only' == 121 {
             3 "Third visit" 4 "Fourth visit", replace
         label values visit_wave wave_t121
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) nolog
-        iivw_fit edss treated, model(gee) timespec(categorical) ///
+        iivw_fit edss treated, vce(fixed) model(gee) timespec(categorical) ///
             timebasecat(2) nolog
         assert "`e(iivw_time_basecat)'" == "2"
         local tlbl : variable label _iivw_tcat_1
@@ -3097,7 +3097,7 @@ if `run_only' == 0 | `run_only' == 122 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
         collect clear
-        iivw_fit edss treated edss_bl, model(gee) timespec(categorical) ///
+        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(categorical) ///
             categorical(treated) interaction(treated) nolog collect
         local _xlsxfile "`_xlsx_stub'_regtab_122.xlsx"
         capture erase "`_xlsxfile'"

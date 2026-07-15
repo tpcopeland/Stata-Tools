@@ -252,7 +252,7 @@ local ++test_count
 capture noisily {
     _ka_iivw_dataset_fit
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
-    iivw_fit y treat x, timespec(linear) nolog
+    iivw_fit y treat x, vce(fixed) timespec(linear) nolog
     assert abs(_b[_cons] - 10) < 1e-12
     assert abs(_b[treat] - 2) < 1e-12
     assert abs(_b[x] - 3) < 1e-12
@@ -271,13 +271,13 @@ local ++test_count
 capture noisily {
     _ka_iivw_dataset_fit
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
-    iivw_fit y treat x, cluster(clinic) timespec(linear) nolog
+    iivw_fit y treat x, vce(fixed) cluster(clinic) timespec(linear) nolog
     assert abs(_b[_cons] - 10) < 1e-12
     assert abs(_b[treat] - 2) < 1e-12
     assert abs(_b[x] - 3) < 1e-12
     assert abs(_b[t] - 5) < 1e-12
     assert "`e(iivw_cluster)'" == "clinic"
-    iivw_fit y treat x, timespec(linear) replace nolog
+    iivw_fit y treat x, vce(fixed) timespec(linear) replace nolog
     assert "`e(iivw_cluster)'" == "id"
 }
 if _rc == 0 {
@@ -315,9 +315,9 @@ capture noisily {
     _ka_iivw_dataset_fit
     gen double user_w = 1
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
-    capture noisily iivw_fit y x [pw=user_w], timespec(none) nolog
+    capture noisily iivw_fit y x [pw=user_w], vce(fixed) timespec(none) nolog
     assert _rc != 0
-    capture noisily iivw_fit y x [iw=user_w], timespec(none) nolog
+    capture noisily iivw_fit y x [iw=user_w], vce(fixed) timespec(none) nolog
     assert _rc != 0
     capture noisily iivw_weight [pw=user_w], id(id) time(t) ///
         treat(treat) treat_cov(x) wtype(iptw) nolog
@@ -337,7 +337,7 @@ capture noisily {
     _ka_iivw_dataset_b
     gen double y = 10 + 2 * treat + cond(t == 1, 0.1, -0.1)
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
-    iivw_fit y treat, timespec(none) nolog
+    iivw_fit y treat, vce(fixed) timespec(none) nolog
     assert abs(_b[_cons] - 10) < 1e-12
     assert abs(_b[treat] - 2) < 1e-12
 }

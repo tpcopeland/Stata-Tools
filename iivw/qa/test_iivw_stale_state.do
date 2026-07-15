@@ -89,7 +89,7 @@ program define _iivw_stale_expect, rclass
     version 16.0
     syntax , WANT(integer)
 
-    capture iivw_fit y treat L1, model(gee) nolog
+    capture iivw_fit y treat L1, vce(fixed) model(gee) nolog
     local got = _rc
     return scalar rc = `got'
     display as text "    consumer rc=`got' (want `want')"
@@ -406,7 +406,7 @@ local ++test_count
 capture noisily {
     _iivw_stale_panel
     quietly drop L2
-    capture iivw_fit y treat L1, model(gee) nolog
+    capture iivw_fit y treat L1, vce(fixed) model(gee) nolog
     local got = _rc
     display as text "    consumer rc=`got' (want 459)"
     assert `got' == 459

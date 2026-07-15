@@ -99,7 +99,7 @@ if `run_only' == 0 | `run_only' == 1 {
 
         * Collision: levels 1 and 2 have identical labels after sanitization
         * Code should fall back to numeric naming
-        iivw_fit y arm severity, categorical(arm) nolog
+        iivw_fit y arm severity, vce(fixed) categorical(arm) nolog
         confirm variable _iivw_cat_arm_1
         confirm variable _iivw_cat_arm_2
         assert strpos("`e(iivw_cat_vars)'", "_iivw_cat_arm_1") > 0
@@ -139,7 +139,7 @@ if `run_only' == 0 | `run_only' == 2 {
 
         * Both non-base labels will produce >32 char var names after prefix
         * The truncation + collision fallback should handle this
-        iivw_fit y grp severity, categorical(grp) nolog
+        iivw_fit y grp severity, vce(fixed) categorical(grp) nolog
         local cat_vars "`e(iivw_cat_vars)'"
         * Both dummies must exist
         local n_cats : word count `cat_vars'
@@ -179,10 +179,10 @@ if `run_only' == 0 | `run_only' == 3 {
 
         * Pre-existing UNOWNED _iivw_tns1 blocks with or without replace
         gen double _iivw_tns1 = 999
-        capture iivw_fit y severity, timespec(ns(1)) nolog
+        capture iivw_fit y severity, vce(fixed) timespec(ns(1)) nolog
         assert _rc == 110
 
-        capture iivw_fit y severity, timespec(ns(1)) replace nolog
+        capture iivw_fit y severity, vce(fixed) timespec(ns(1)) replace nolog
         assert _rc == 110
         quietly summarize _iivw_tns1
         assert r(min) == 999 & r(max) == 999
@@ -190,11 +190,11 @@ if `run_only' == 0 | `run_only' == 3 {
         * Drop the impostor: iivw_fit now creates and owns the basis itself,
         * and replace overwrites its own output.
         drop _iivw_tns1
-        iivw_fit y severity, timespec(ns(1)) nolog
+        iivw_fit y severity, vce(fixed) timespec(ns(1)) nolog
         confirm variable _iivw_tns1
         assert "`: char _iivw_tns1[_iivw_owner]'" == "iivw|_iivw_|design|2"
 
-        iivw_fit y severity, timespec(ns(1)) replace nolog
+        iivw_fit y severity, vce(fixed) timespec(ns(1)) replace nolog
         confirm variable _iivw_tns1
         quietly summarize _iivw_tns1
         assert r(max) < 999
@@ -208,7 +208,7 @@ if `run_only' == 0 | `run_only' == 3 {
         assert _rc != 0
 
         * Error after ns(1) cleanup: force error with 0-obs if, check no tns1
-        capture iivw_fit y severity if id < 0, timespec(ns(1)) replace nolog
+        capture iivw_fit y severity if id < 0, vce(fixed) timespec(ns(1)) replace nolog
         assert _rc == 2000
         capture confirm variable _iivw_tns1
         * Variable may or may not exist after error cleanup depending on
@@ -233,7 +233,7 @@ if `run_only' == 0 | `run_only' == 4 {
         _final_panel, nids(60) visits(8) seed(10004)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
-        iivw_fit y severity, timespec(ns(3)) nolog
+        iivw_fit y severity, vce(fixed) timespec(ns(3)) nolog
         * ns(3) with 60*8=480 obs should have 2 internal knots
         * Basis variables should be finite everywhere
         foreach v in _iivw_tns1 _iivw_tns2 _iivw_tns3 {
@@ -309,16 +309,16 @@ if `run_only' == 0 | `run_only' == 6 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * geeopts(iterate(50)) should be passed through and not conflict
-        iivw_fit y severity, geeopts(iterate(50)) nolog
+        iivw_fit y severity, vce(fixed) geeopts(iterate(50)) nolog
         assert e(converged) == 1
 
         * geeopts(asis) allows passthrough of non-conflicting GLM options
-        iivw_fit y severity, geeopts(difficult) replace nolog
+        iivw_fit y severity, vce(fixed) geeopts(difficult) replace nolog
         assert e(converged) == 1
 
         * Verify point estimate is identical regardless of difficult flag
         scalar b_diff = _b[severity]
-        iivw_fit y severity, replace nolog
+        iivw_fit y severity, vce(fixed) replace nolog
         scalar b_def = _b[severity]
         assert reldif(b_diff, b_def) < 1e-10
     }
@@ -341,7 +341,7 @@ if `run_only' == 0 | `run_only' == 7 {
         _final_panel, seed(10007)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
-        iivw_fit y severity, model(mixed) experimentalmixed mixedopts(iterate(50)) nolog
+        iivw_fit y severity, vce(fixed) model(mixed) experimentalmixed mixedopts(iterate(50)) nolog
         assert e(N) > 0
         assert "`e(iivw_model)'" == "mixed"
     }
@@ -366,18 +366,18 @@ if `run_only' == 0 | `run_only' == 8 {
 
         * First collect
         collect clear
-        iivw_fit y severity, collect nolog
+        iivw_fit y severity, vce(fixed) collect nolog
         assert e(converged) == 1
 
         * Second collect appends without error
-        iivw_fit y severity treated, collect replace nolog
+        iivw_fit y severity treated, vce(fixed) collect replace nolog
         assert e(converged) == 1
 
         * After an error, collect state should be OK
-        capture iivw_fit y severity, timespec(invalid) collect nolog
+        capture iivw_fit y severity, vce(fixed) timespec(invalid) collect nolog
         assert _rc == 198
         * Successful collect after the error
-        iivw_fit y severity, collect replace nolog
+        iivw_fit y severity, vce(fixed) collect replace nolog
         assert e(converged) == 1
     }
     if _rc == 0 {
@@ -401,13 +401,13 @@ if `run_only' == 0 | `run_only' == 9 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Keep only sites 1-3 via if (eliminates 7 of 10 clusters)
-        iivw_fit y severity if site <= 3, cluster(site) nolog
+        iivw_fit y severity if site <= 3, vce(fixed) cluster(site) nolog
         assert e(N) > 0
         assert e(N_clust) <= 3
         assert "`e(iivw_cluster)'" == "site"
 
         * Extreme: if leaves only 1 cluster — should still run (SE may be .)
-        capture iivw_fit y severity if site == 1, cluster(site) replace nolog
+        capture iivw_fit y severity if site == 1, vce(fixed) cluster(site) replace nolog
         * Either succeeds or errors cleanly — no crash
         assert inlist(_rc, 0, 198, 459, 480)
     }
@@ -495,7 +495,7 @@ if `run_only' == 0 | `run_only' == 11 {
 
         * String id stored in metadata means markout on cluster fails
         * (markout excludes all obs for string vars). Must supply numeric cluster.
-        iivw_fit y severity, cluster(pid_num) nolog
+        iivw_fit y severity, vce(fixed) cluster(pid_num) nolog
         assert e(N) == 160
         assert "`e(iivw_cmd)'" == "iivw_fit"
         assert "`e(iivw_cluster)'" == "pid_num"
@@ -537,7 +537,7 @@ if `run_only' == 0 | `run_only' == 12 {
         assert r(n_ids) == `nids'
         assert r(ess) > 0
 
-        iivw_fit y treated sev_bl, timespec(quadratic) nolog
+        iivw_fit y treated sev_bl, vce(fixed) timespec(quadratic) nolog
         assert e(N) == `=`nids' * `nvis''
         assert e(converged) == 1
     }
@@ -650,7 +650,7 @@ if `run_only' == 0 | `run_only' == 15 {
         label values dose doselbl
 
         * basecat(30) = Medium as reference
-        iivw_fit y dose severity, categorical(dose) basecat(30) nolog
+        iivw_fit y dose severity, vce(fixed) categorical(dose) basecat(30) nolog
 
         * Dummies should be for Low(10) and High(50), not Medium(30)
         local cats "`e(iivw_cat_vars)'"
@@ -693,7 +693,7 @@ if `run_only' == 0 | `run_only' == 16 {
 
         * categorical(arm) with 3 levels -> 2 dummies
         * interaction(arm) x ns(2) -> 2 dummies x 2 basis = 4 interaction vars
-        iivw_fit y arm severity, categorical(arm) ///
+        iivw_fit y arm severity, vce(fixed) categorical(arm) ///
             interaction(arm) timespec(ns(2)) nolog
 
         * Count interaction variables
@@ -804,7 +804,7 @@ if `run_only' == 0 | `run_only' == 19 {
         replace y = 5
 
         * GLM with constant outcome should either converge or error cleanly
-        capture iivw_fit y severity, nolog
+        capture iivw_fit y severity, vce(fixed) nolog
         local fit_rc = _rc
         if `fit_rc' == 0 {
             * Coefficient on severity should be ~0
@@ -837,7 +837,7 @@ if `run_only' == 0 | `run_only' == 20 {
         assert "`wtype1'" == "iivw"
 
         * Step 2: Fit
-        iivw_fit y severity treated, timespec(quadratic) nolog
+        iivw_fit y severity treated, vce(fixed) timespec(quadratic) nolog
         scalar b1_severity = _b[severity]
         local fitted1 : char _dta[_iivw_fitted]
         assert "`fitted1'" == "1"
@@ -852,7 +852,7 @@ if `run_only' == 0 | `run_only' == 20 {
         assert "`fitted2'" == ""
 
         * Step 4: Refit with replace
-        iivw_fit y severity treated, timespec(ns(3)) replace nolog
+        iivw_fit y severity treated, vce(fixed) timespec(ns(3)) replace nolog
         scalar b2_severity = _b[severity]
         local fitted3 : char _dta[_iivw_fitted]
         assert "`fitted3'" == "1"

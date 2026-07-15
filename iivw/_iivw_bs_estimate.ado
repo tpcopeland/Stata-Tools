@@ -25,6 +25,11 @@ program define _iivw_bs_estimate, eclass
     }
     gettoken depvar covars : varlist
 
+    * Same pass-through guard as iivw_fit: a variance/resampling token in
+    * geeopts()/mixedopts() must not reach the inner glm here either (IIVW-B08).
+    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
+    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
+
     local log_opt = cond("`log'" == "nolog", "nolog", "")
     local wt_clause ""
     if "`weightvar'" != "" local wt_clause "[pw=`weightvar']"

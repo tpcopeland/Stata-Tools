@@ -181,7 +181,7 @@ capture noisily {
     * this -- which is how a tolerance gets fitted to a bug.
     local nw = r(N_weighted)
     assert `nw' == 596
-    quietly iivw_fit y treat L1, model(gee) nolog
+    quietly iivw_fit y treat L1, vce(fixed) model(gee) nolog
     assert e(N) == 595
     assert e(N) < `nw'
 }

@@ -784,7 +784,7 @@ if `run_only' == 0 | `run_only' == 9 {
         local b_unwt = _b[treated]
 
         * FIPTIW-weighted GEE
-        iivw_fit y treated, timespec(linear) nolog
+        iivw_fit y treated, vce(fixed) timespec(linear) nolog
         local b_fiptiw = _b[treated]
 
         local bias_unwt = abs(`b_unwt' - 0.5)
@@ -825,7 +825,7 @@ if `run_only' == 0 | `run_only' == 10 {
             visit_cov(treated wt_cov z_cov) ///
             treat(treated) treat_cov(w) nolog
 
-        iivw_fit y treated, timespec(linear) nolog
+        iivw_fit y treated, vce(fixed) timespec(linear) nolog
 
         local s_cons = _b[_cons]
         local s_treated = _b[treated]

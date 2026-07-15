@@ -65,18 +65,26 @@ This was **found, not designed**: a benchmark lane (n = 8,000, 50 truncation str
 
 ### The `gates` lane — hours, not minutes
 
-The two ZZF Monte Carlo gates live in their own lane (`run_all.do gates`) rather than in `full`. They are gates, not regression tests: a lane nobody can afford to run is a lane nobody runs, and putting a 4-hour Monte Carlo in `full` would take the ordinary suites down with it.
+The three ZZF Monte Carlo gates live in their own lane (`run_all.do gates`) rather than in `full`. They are gates, not regression tests: a lane nobody can afford to run is a lane nobody runs, and putting a 4-hour Monte Carlo in `full` would take the ordinary suites down with it.
 
 | Suite | Question | Cost |
 |---|---|---|
 | `validation_finegray_zzf_recovery.do` | **Gate Z2-green.** Does the ZZF estimator recover a known truth under delayed entry, where the released command was 63–190 MC SE off? | 100 reps × n = 100,000 × 4 arms (~4 h) |
 | `validation_finegray_zzf_coverage.do` | **Gate Z-inference.** Which LT variance actually covers? | 1000 reps × 7 arms × 2 fits (~1 h) |
+| `validation_finegray_zzf_factorization.do` | **Factorization sensitivity.** What does the product weight `A = G·H` cost when `L` and `C` share a dependence that does not split across `strata()`/`truncstrata()`, and why is the fully-joint alternative a positivity/variance (Z23) choice rather than the default? | 100 reps × n = 100,000 × 5 fits + a positivity ladder (~2 h) |
 
 **Gate Z2-green:** the full 2026-07-15 run passed 8/8 at 100 replications × 100,000 retained subjects. Every arm/coefficient cell contained all 100 planned fits. Arms A–C recovered the true coefficients within 1.10 Monte Carlo SE; the deliberately wrong old-weight arm D remained decisively biased (|z| = 9.63 and 90.35), so the gate also demonstrated that it can reject the superseded formula.
 
 **Gate Z-inference:** the full 2026-07-15 run passed on the corrected estimator: all 14 `fg_sandwich` arm/coefficient cells covered at 0.941–0.957 in the pooled arms and 0.943–0.949 in the two entry-stratified arms, with every cell containing all 1,000 planned fits. `model_based` covered without truncation but fell to 0.890–0.905 under light truncation, 0.850–0.858 under heavy truncation, and 0.737–0.806 in the entry-stratified arms. Smoke settings emit a failing sentinel/internal `r(9)`, and `run_all.sh` propagates that failure to the shell.
 
 The scale check uses an **IQR-implied** SD and prints the plain-SD ratio beside it. This choice was re-audited on final code rather than defended from the old survivor-only result. Bounded-entry probes at 43.9% and 52.8% truncation retained every one of 1,000 fits and covered at 0.939–0.943, while mean-SE/plain-SD remained 0.85–0.90 and mean-SE/IQR-SD was 0.95–0.97. The discrepancy therefore persisted away from fit attrition: it reflects a heavy sampling tail, not a few excluded positivity failures. Coverage is the direct interval criterion; IQR scale checks the central distribution. The gate applies it uniformly to both candidates and all arms, requires `nr == REPS` in every cell, and continues to print the raw ratio. Both stratified arms now use a latest-entry wave at 1.0, realized 43.9% and 52.8% truncation in the full run, and fitted 1,000/1,000 replications; an unbounded fixture can no longer pass on survivors.
+
+**Factorization sensitivity — the honest weakness, converted.** The product weight `A(t−) = G(t−)·H(t−)` (Geskus 2011 eq. 11) buys separability at the price of an assumption ZZF (2011 §3.2, after eq. 6) states directly: within a weight cell the joint truncation–censoring probability must factor, `P(L ≤ t ≤ C | cell) = P(L ≤ t | cell)·P(C ≥ t | cell)`, i.e. the entry mechanism `L` and the censoring mechanism `C` must be conditionally independent. ZZF §5 (the BMT example) is the paper's own negative control for the *covariate-dependent-truncation* half of that assumption; `validation_finegray_zzf_factorization.do` is the negative control for the *product* half — a shared factor `W` (correlated with the covariate of interest) that drives **both** `L` and `C`, so the dependence cannot be absorbed by conditioning on either grouping alone. This is the sensitivity analysis a referee who sees a factorized `G·H` weight will ask for, and it answers both questions the referee is really asking: is the product form fragile, and is it a defensible choice?
+
+- **Part 1 — the bias, quantified.** Five paired specifications fit the same correct mean model on the same data each replication. `JOINT` (`strata(W) truncstrata(W)` — the fully-joint, matching-groups eq. 7 form) conditions `W` in **both** factors and **recovers** the truth; `MARGINAL` (no strata) and the two `SPLIT` arms (`strata(W)` only, `truncstrata(W)` only) violate the factorization and are **biased**. The `SPLIT` arms are the literal content of "a dependence that does not split across the two groupings": conditioning `W` in one grouping alone does not fix it, and — a finding worth stating — the two `SPLIT` arms err in **opposite directions**, so half-conditioning is *worse* than the symmetric `MARGINAL` omission. A `NULL` control (`MARGINAL` on data where `W` is inert) recovers, proving the bias is the dependence and not the estimator. At the prototype scale used to design the gate (n = 8,000, corr(x1,W) ≈ 0.5) the b1 biases were roughly `SPLIT_H` −0.098, `SPLIT_G` +0.060, `MARGINAL` −0.046, `JOINT` +0.001; at the full 100,000-subject settings these project to |z| of order 30–55 for the three misspecified arms and < 1 for `JOINT`.
+- **Part 2 — the trade, priced.** The fully-joint fix is not free, and that is why it is not the default. It consults a stratum-specific denominator `A_W(X_i−)` in every joint cell — exactly the quantity **Z23** shows goes to zero under refinement. So the choice is bias-variance/**positivity**: `JOINT` is unbiased here but more variable than `MARGINAL` (mean analytic SE ratio ≈ 1.09 at K = 2), and as `W` is refined its denominator hits the Z23 hard failure `r(459)` while the pooling `MARGINAL` product stays feasible. The positivity ladder observes this directly — at K = 80 the fully-joint fit dies with the genuine Z23 message ("*consulted joint-stratum denominator cell(s) are zero*") on a dataset where `MARGINAL` fits without complaint. The shipped factorized default is that trade, made deliberately: a bounded bias when `L` and `C` share an unsplit dependence, in exchange for a weight that stays defined as strata refine.
+
+Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1` and a failing sentinel, which `run_all.sh`/the runner treat as non-gating).
 
 Last full run: 2026-07-15 via `stata-mp -b do run_all.do full`, R with `cmprsk` and `riskRegression` present: 23/23 suites, 533/533 checks, no failures or skips.
 
@@ -163,6 +171,7 @@ install.packages("fastcmprsk")
 | `crossval_finegray_zzf_r.R` | Independent direct-equation Weight-1 implementation, external-software controls, tied-time decision fixtures, and the quarantined `mstate::crprep` sentinel |
 | `validation_finegray_zzf_recovery.do` | Full known-truth delayed-entry recovery gate (smoke settings are explicitly non-gating) |
 | `validation_finegray_zzf_coverage.do` | Full delayed-entry variance-coverage gate (smoke settings are explicitly non-gating) |
+| `validation_finegray_zzf_factorization.do` | Factorization sensitivity gate: bias of the product weight `A=G·H` under an unsplit `L`–`C` dependence, contrasted with the fully-joint estimator as a positivity/variance (Z23) choice (smoke settings are explicitly non-gating) |
 | `validation_finegray_zzf_prereg_r.R` | Reproducible independent-R preregistration of the recovery gate's signed negative-control expectations |
 | `.gitignore` | Excludes generated artifacts (`.log`, `.csv`, `.dta`, `.xlsx`, …) |
 
@@ -174,7 +183,7 @@ install.packages("fastcmprsk")
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do` |
 | `full` | `core` + `python` |
-| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do` |
+| `gates` | `validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do` |
 | Standalone measurement | `benchmark_finegray_zzf.do` (uses `_benchmark_finegray_zzf_cell.do`; intentionally not a `run_all.do` lane) |
 
 ## Coverage map

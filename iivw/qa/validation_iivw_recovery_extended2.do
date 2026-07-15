@@ -114,7 +114,7 @@ capture noisily {
     scalar n1_naive_slope = _b[months]
     drop tm
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y T, timespec(linear) interaction(T) nolog replace
+    iivw_fit y T, vce(fixed) timespec(linear) interaction(T) nolog replace
     scalar n1_slope = _b[months]
     scalar n1_ix = _b[_iivw_ix_T_time]
     scalar n1_ok = 1
@@ -167,7 +167,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n2_naive_slope = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y grp, timespec(linear) categorical(grp) basecat(1) nolog replace
+    iivw_fit y grp, vce(fixed) timespec(linear) categorical(grp) basecat(1) nolog replace
     scalar n2_slope = _b[months]
     scalar n2_c2 = _b[_iivw_cat_grp_2]
     scalar n2_c3 = _b[_iivw_cat_grp_3]
@@ -220,7 +220,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n3_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z1 Z2) wtype(iivw) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n3_est = _b[months]
     scalar n3_ok = 1
 }
@@ -271,7 +271,7 @@ capture noisily {
     iivw_weight, id(id) time(months) treat(T) treat_cov(C) wtype(iptw) nolog replace
     scalar n4_wmax = r(max_weight)
     scalar n4_wcv = r(sd_weight)/r(mean_weight)
-    iivw_fit y T, timespec(none) nolog replace
+    iivw_fit y T, vce(fixed) timespec(none) nolog replace
     scalar n4_est = _b[T]
     scalar n4_ok = 1
 }
@@ -325,7 +325,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n5_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, family(gaussian) timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) family(gaussian) timespec(linear) nolog replace
     scalar n5_est = _b[months]
     scalar n5_ok = 1
 }
@@ -371,7 +371,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n6_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) efron nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n6_est = _b[months]
     scalar n6_ok = 1
 }
@@ -419,7 +419,7 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n7_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n7_est = _b[months]
     scalar n7_ok = 1
 }
@@ -468,10 +468,10 @@ capture noisily {
     drop nv
     gen double y = a_i + s_i*months + rnormal(0, 1)
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n8_bdef = _b[months]
     scalar n8_sedef = _se[months]
-    iivw_fit y, timespec(linear) cluster(site) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) cluster(site) nolog replace
     scalar n8_bsite = _b[months]
     scalar n8_sesite = _se[months]
     scalar n8_ok = 1
@@ -689,7 +689,7 @@ capture noisily {
     iivw_fit y, timespec(linear) unweighted nolog replace
     scalar n11_unw_slope = _b[months]
     estimates store UNW
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     estimates store WT
     glm y months Z, family(gaussian) link(identity) vce(cluster id)
     estimates store ADJ
@@ -752,7 +752,7 @@ capture noisily {
     scalar n12_naive = _b[T]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z C) treat(T) treat_cov(C) ///
         wtype(fiptiw) nolog replace
-    iivw_fit yc T, family(poisson) link(log) timespec(none) nolog replace
+    iivw_fit yc T, vce(fixed) family(poisson) link(log) timespec(none) nolog replace
     scalar n12_est = _b[T]
     scalar n12_ok = 1
 }
@@ -803,10 +803,10 @@ capture noisily {
     glm y months, family(gaussian) link(identity) vce(cluster id)
     scalar n13_naive = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n13_full = _b[months]
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) truncfinal(5 95) nolog replace
-    iivw_fit y, timespec(linear) nolog replace
+    iivw_fit y, vce(fixed) timespec(linear) nolog replace
     scalar n13_trunc = _b[months]
     scalar n13_ok = 1
 }

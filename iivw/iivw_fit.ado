@@ -65,7 +65,7 @@ program define iivw_fit, eclass
          UNWeighted ///
          ID(varname) TIME(varname) ///
          VCE(string asis) ///
-         BOOTstrap(integer 0) REFITweights ALLOWFAILEDReps ///
+         BOOTstrap(integer -999999) REFITweights ALLOWFAILEDReps ///
          Level(cilevel) noLOG ///
          REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
@@ -82,6 +82,18 @@ program define iivw_fit, eclass
     if "`model'" == "" local model "gee"
     if "`family'" == "" local family "gaussian"
     if "`timespec'" == "" local timespec "linear"
+
+    * bootstrap() default is an out-of-band SENTINEL so three states stay
+    * distinct: option omitted (sentinel) triggers the cleared refit-bootstrap
+    * default; an explicit bootstrap(0) is the legacy "no bootstrap, use the
+    * fixed sandwich" spelling; and an explicit negative like bootstrap(-1) is an
+    * INVALID value that must still error at the >= 0 check below. The sentinel is
+    * far outside any value a user would type, so bootstrap(-1) is never mistaken
+    * for "unset". Normalise only the sentinel back to 0.
+    * (Broke test_iivw_expanded E21 and test_iivw_fit_adversarial A16 before this.)
+    local _boot_sentinel = -999999
+    local _boot_explicit = (`bootstrap' != `_boot_sentinel')
+    if `bootstrap' == `_boot_sentinel' local bootstrap 0
 
     if "`unweighted'" == "" {
         if "`id'" != "" {
@@ -179,6 +191,15 @@ program define iivw_fit, eclass
     * vce(fixed) and the fixedweights bootstrap both treat the estimated weights
     * as KNOWN. Naming one of them explicitly IS the acknowledgment that the SE
     * omits nuisance-estimation uncertainty; the disclosure note still prints.
+    * Preserve the outer if/in across the vce() suboption parse. That parse runs
+    * a nested -syntax- on a rebuilt `0', which RESETS the `if'/`in' macros the
+    * later -marksample- depends on. Without this save/restore, any iivw_fit that
+    * combines an if/in restriction with vce() silently marks the WHOLE sample
+    * and fits it at rc=0 -- a wrong sample reported as success. (Latent until the
+    * Phase 3B call-site migration first combined if/in with vce(fixed); pinned by
+    * test_iivw Test 85/Test 91.)
+    local _iivw_if `"`if'"'
+    local _iivw_in `"`in'"'
     local vce_seed ""
     if `"`vce'"' != "" {
         if `bootstrap' > 0 | "`refitweights'" != "" {
@@ -223,12 +244,19 @@ program define iivw_fit, eclass
             local refitweights ""
         }
         else {
-            * vce(bootstrap): a bootstrap needs a replicate count. There is no
-            * defensible default -- too few replicates gives an unstable interval
-            * and silently picking a number hides that choice from the user.
+            * vce(bootstrap): the release-frozen default is 999 refit draws
+            * (COVERAGE_R at contract freeze). reps() omitted takes 999; fewer
+            * than two draws is rejected (a bootstrap variance is undefined from
+            * a single replicate); fewer than 999 is allowed but stamped
+            * uncleared-low-reps below, because the coverage gate was frozen at
+            * 999 and a smaller run has not earned the release claim.
             if `reps' <= 0 {
-                display as error "vce(bootstrap) requires reps(#) with # > 0"
-                display as error "  e.g. vce(bootstrap, reps(500)); use more for a release interval"
+                local reps 999
+            }
+            if `reps' < 2 {
+                display as error "vce(bootstrap) needs reps() >= 2"
+                display as error "  a bootstrap variance is undefined from a single draw"
+                display as error "  the release-cleared count is 999; omit reps() to get it"
                 error 198
             }
             local bootstrap `reps'
@@ -249,11 +277,42 @@ program define iivw_fit, eclass
         display as text ///
             "note: bootstrap()/refitweights is deprecated; use `_legacy_target'"
     }
+    else if "`weighttype'" != "unweighted" & "`model'" == "gee" & `_boot_explicit' == 0 {
+        * ---------------------------------------------------------------------
+        * THE CLEARED DEFAULT (IIVW-B02): a WEIGHTED model(gee) fit with no vce()
+        * and no legacy spelling gets the 999-draw subject bootstrap that REFITS
+        * every nuisance model inside each draw. Treating the estimated weights as
+        * known (vce(fixed)) omits the weight-estimation term that both source
+        * papers put inside the sandwich (B&L p.10-11; Coulombe PDF p.86), so it
+        * is now an explicit opt-in, not the silent default it used to be.
+        * model(mixed) is deliberately excluded: the weighted random-effects path
+        * is experimental and never inherits the cleared default (it keeps the
+        * analytic sandwich unless a variance is named explicitly).
+        *
+        * The refit bootstrap needs the stored replay contract (raw visit
+        * covariates, treatment model, risk-set end); the block below already
+        * errors with a precise message if iivw_weight was run before 2.0.0
+        * separated them. Unweighted fits fall through this branch and keep the
+        * analytic cluster sandwich -- they estimate no nuisance weights, so
+        * there is nothing to propagate.
+        * ---------------------------------------------------------------------
+        local bootstrap 999
+        local refitweights "refitweights"
+        display as text ///
+            "note: weighted fit with no vce(); using the cleared default" ///
+            " vce(bootstrap, reps(999)) [refit]"
+        display as text ///
+            "  for the weights-known analytic sandwich, request vce(fixed) explicitly"
+    }
 
     * =========================================================================
     * MARK SAMPLE
     * =========================================================================
 
+    * Restore the outer if/in (see the save above): the vce() parse may have
+    * cleared them, and marksample must see the user's real restriction.
+    local if `"`_iivw_if'"'
+    local in `"`_iivw_in'"'
     marksample touse
     if "`weight_var'" != "" {
         markout `touse' `weight_var'
@@ -1294,12 +1353,35 @@ program define iivw_fit, eclass
     * FIT MODEL
     * =========================================================================
 
+    * Token-aware pass-through guard (IIVW-B08). Reject any variance/resampling
+    * token in geeopts()/mixedopts() BEFORE it can reach the inner glm/mixed and
+    * either error or silently substitute a covariance under iivw's label. The
+    * post-fit variance lock re-verifies the result; this stops it at the door
+    * for every abbreviation and quoting form, not just the literal spellings.
+    _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
+    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
+
     * vce(bootstrap, seed(#)) fixes the resampling stream for reproducibility.
     * Set it immediately before the draws so no intervening RNG use consumes the
     * stream first. This deliberately advances the global seed, as any seeded
     * bootstrap does.
     if `bootstrap' > 0 & "`vce_seed'" != "" {
         set seed `vce_seed'
+    }
+
+    * Capture the exact pre-draw RNG state so a run made WITHOUT an explicit
+    * seed() is still replayable: c(rng) is the generator, c(rngstate) is the
+    * state the resampler is about to consume. We record but do NOT restore it
+    * afterwards -- a randomized command is expected to advance the stream, and
+    * restoring would make sequential fits reuse identical draws. Stored in e()
+    * below (iivw_rng, iivw_rngstate_start, iivw_vce_seed_explicit).
+    local iivw_rng ""
+    local iivw_rngstate_start ""
+    local iivw_seed_explicit 0
+    if `bootstrap' > 0 {
+        local iivw_rng "`c(rng)'"
+        local iivw_rngstate_start "`c(rngstate)'"
+        local iivw_seed_explicit = ("`vce_seed'" != "")
     }
 
     if "`model'" == "gee" {
@@ -1731,6 +1813,39 @@ program define iivw_fit, eclass
     else {
         ereturn local iivw_vce "fixed"
     }
+
+    * -------------------------------------------------------------------------
+    * POST-FIT VARIANCE LOCK (IIVW-B08 defense in depth)
+    * -------------------------------------------------------------------------
+    * A pre-call string scan of geeopts()/mixedopts() is not evidence that the
+    * variance the package believes it computed is the variance actually posted.
+    * Read it back from e() and confirm: a bootstrap fit must post e(vce)
+    * "bootstrap"; a fixed GEE fit must post e(vce) "cluster" on the package's
+    * own cluster variable. If a pass-through token reached glm and changed the
+    * VCE, that shows up here as a mismatch and the fit errors rather than
+    * reporting a variance under a method label it does not match. Only model(gee)
+    * -- the cleared surface -- is locked strictly; model(mixed) is experimental
+    * and never carries the cleared claim, so it is recorded unlocked.
+    local _obs_vce      "`e(vce)'"
+    local _obs_clustvar "`e(clustvar)'"
+    local iivw_vce_locked 0
+    if "`model'" == "gee" {
+        if `bootstrap' > 0 {
+            if "`_obs_vce'" == "bootstrap" local iivw_vce_locked 1
+        }
+        else if "`_obs_vce'" == "cluster" & "`_obs_clustvar'" == "`cluster'" {
+            local iivw_vce_locked 1
+        }
+        if `iivw_vce_locked' == 0 {
+            display as error "variance lock failed: the posted covariance does not"
+            display as error "  match the package-selected method (`e(iivw_vce)')"
+            display as error "  observed e(vce)=`_obs_vce', e(clustvar)=`_obs_clustvar'"
+            display as error "  a geeopts()/mixedopts() token may have altered the VCE"
+            error 459
+        }
+    }
+    ereturn scalar iivw_vce_locked = `iivw_vce_locked'
+
     ereturn local iivw_resample_unit = cond(`bootstrap' > 0, "`cluster'", "")
     ereturn scalar iivw_bs_reps_requested = `bs_reps_req'
     ereturn scalar iivw_bs_reps_completed = `bs_reps_done'
@@ -1738,6 +1853,45 @@ program define iivw_fit, eclass
     ereturn local iivw_allowfailedreps = ///
         cond(`bs_reps_fail' > 0 & "`allowfailedreps'" != "", "1", "0")
     ereturn local iivw_vce_seed "`vce_seed'"
+
+    * The printed interval is the normal/Wald interval from the reported
+    * covariance (b +/- z * se), the same convention the coefficient table and
+    * the coverage driver use. Percentile/basic/BC/BCa are separate methods and
+    * are NOT what "bootstrap" prints here; naming it stops that ambiguity.
+    ereturn local iivw_ci_type "wald-normal"
+
+    * RNG provenance: enough to replay a run made without an explicit seed().
+    ereturn local iivw_rng "`iivw_rng'"
+    ereturn local iivw_rngstate_start "`iivw_rngstate_start'"
+    ereturn local iivw_vce_seed_explicit = cond(`bootstrap' > 0, "`iivw_seed_explicit'", "")
+
+    * Inference status: which trust tier this run's variance belongs to. NEVER
+    * "cleared" here -- that word is reserved for a release in which the coverage
+    * AND mutation gates have actually passed, and this command cannot know that.
+    * The refit-999 default is a "candidate"; everything else is explicitly
+    * stamped uncleared so a reader can never mistake it for the release method.
+    local iivw_infstatus ""
+    if "`unweighted'" != "" {
+        local iivw_infstatus "not-applicable-unweighted"
+    }
+    else if `bootstrap' > 0 & "`refitweights'" != "" {
+        if `bs_reps_fail' > 0 & "`allowfailedreps'" != "" {
+            local iivw_infstatus "uncleared-failed-reps"
+        }
+        else if `bootstrap' < 999 {
+            local iivw_infstatus "uncleared-low-reps"
+        }
+        else {
+            local iivw_infstatus "candidate"
+        }
+    }
+    else if `bootstrap' > 0 {
+        local iivw_infstatus "uncleared-fixedweights-bootstrap"
+    }
+    else {
+        local iivw_infstatus "uncleared-fixedweights-analytic"
+    }
+    ereturn local iivw_inference_status "`iivw_infstatus'"
 
     * The weight contract these estimates rest on. If it is empty, the fit was
     * unweighted; if it is stale, _iivw_check_weighted already errored.

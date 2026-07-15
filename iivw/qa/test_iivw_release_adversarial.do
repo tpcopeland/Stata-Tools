@@ -611,7 +611,7 @@ capture noisily {
 
     capture program drop _iivw_check_weighted
     capture program drop _iivw_get_settings
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     assert "`e(iivw_cmd)'" == "iivw_fit"
     assert "`e(iivw_model)'" == "gee"
     assert "`e(iivw_weighttype)'" == "iivw"
@@ -646,27 +646,27 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
     summarize _iivw_weight, detail
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear)
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear)
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) ///
         truncfinal(1 99) replace nolog
 
-    iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
+    iivw_fit edss treated age sex edss_bl, vce(fixed) model(gee) timespec(quadratic)
 
-    iivw_fit edss treated age sex edss_bl, ///
+    iivw_fit edss treated age sex edss_bl, vce(fixed) ///
         model(gee) timespec(ns(3)) interaction(treated) replace
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog
-    iivw_fit edss treatment edss_bl, ///
+    iivw_fit edss treatment edss_bl, vce(fixed) ///
         categorical(treatment) timespec(ns(3)) interaction(treatment) replace
 
     iivw_fit edss treated edss_bl, bootstrap(2) nolog replace
 
     collect clear
-    iivw_fit edss treated edss_bl, model(gee) nolog replace collect
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) nolog replace collect
     which regtab
     regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
     capture confirm file "`work_dir'/iivw_results.xlsx"
@@ -757,33 +757,33 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) nolog
 
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear)
-    iivw_fit edss treated edss_bl, timespec(quadratic) replace
-    iivw_fit edss treated edss_bl, timespec(ns(3)) replace
-    iivw_fit edss treated edss_bl, timespec(linear) interaction(treated) replace
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear)
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(quadratic) replace
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(ns(3)) replace
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) interaction(treated) replace
     iivw_fit edss treated edss_bl, bootstrap(2) nolog replace
-    iivw_fit relapse treated edss_bl, family(binomial) link(logit) replace
+    iivw_fit relapse treated edss_bl, vce(fixed) family(binomial) link(logit) replace
 
     collect clear
-    iivw_fit edss treated edss_bl, model(gee) nolog replace collect
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) nolog replace collect
     which regtab
     regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
     capture confirm file "`work_dir'/iivw_results.xlsx"
     assert _rc == 0
     erase "`work_dir'/iivw_results.xlsx"
 
-    iivw_fit edss treated edss_bl, timespec(ns(3)) interaction(treated) replace
-    iivw_fit edss treated age edss_bl, timespec(quadratic) interaction(treated age) replace
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(ns(3)) interaction(treated) replace
+    iivw_fit edss treated age edss_bl, vce(fixed) timespec(quadratic) interaction(treated age) replace
 
     collect clear
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         truncfinal(1 99) replace nolog
-    iivw_fit edss treated edss_bl, model(gee) nolog collect
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) nolog collect
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) ///
         visit_cov(edss_bl age sex) lagvars(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) truncfinal(1 99) replace nolog
-    iivw_fit edss treated edss_bl, model(gee) nolog replace collect
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) nolog replace collect
     which regtab
     regtab, xlsx(iivw_results.xlsx) sheet(Comparison) ///
         models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint
@@ -791,14 +791,14 @@ capture noisily {
     assert _rc == 0
     erase "`work_dir'/iivw_results.xlsx"
 
-    iivw_fit edss treatment edss_bl, categorical(treatment) replace
-    iivw_fit edss treatment edss_bl, categorical(treatment) basecat(2) replace
-    iivw_fit edss treatment edss_bl, timespec(ns(3)) ///
+    iivw_fit edss treatment edss_bl, vce(fixed) categorical(treatment) replace
+    iivw_fit edss treatment edss_bl, vce(fixed) categorical(treatment) basecat(2) replace
+    iivw_fit edss treatment edss_bl, vce(fixed) timespec(ns(3)) ///
         categorical(treatment) interaction(treatment) replace
-    iivw_fit edss treated edss_bl, timespec(none) replace
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(none) replace
 
     if c(stata_version) >= 17 {
-        iivw_fit edss treated edss_bl, model(mixed) experimentalmixed replace
+        iivw_fit edss treated edss_bl, vce(fixed) model(mixed) experimentalmixed replace
     }
     else {
         display as text "note: Stata < 17; documented mixed-model example not run"

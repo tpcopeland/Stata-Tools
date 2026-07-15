@@ -64,8 +64,18 @@ local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.
 *                                         (1000 reps x 7 arms x 2 fits, ~1h)
 *                                         Passed 2026-07-15 on the equation-7
 *                                         stratified-weight correction.
+*   validation_finegray_zzf_factorization.do
+*                                         Factorization sensitivity: what the
+*                                         product weight A=G*H costs when L and C
+*                                         share a dependence that does not split
+*                                         across strata()/truncstrata(), and why
+*                                         the fully-joint alternative is a
+*                                         positivity/variance (Z23) choice
+*                                         (100 reps x n=100,000 x 5 fits + a
+*                                         positivity ladder, ~2h)
 local gates_files validation_finegray_zzf_recovery.do ///
-    validation_finegray_zzf_coverage.do
+    validation_finegray_zzf_coverage.do ///
+    validation_finegray_zzf_factorization.do
 
 local full_files `core_files' `python_files'
 

@@ -118,7 +118,7 @@ capture noisily {
     tempvar snap
     quietly gen double `snap' = xtime_sq
 
-    capture noisily iivw_fit y xtime_sq, timespec(quadratic) replace
+    capture noisily iivw_fit y xtime_sq, vce(fixed) timespec(quadratic) replace
     local got_rc = _rc
 
     capture confirm variable xtime_sq
@@ -262,7 +262,7 @@ capture noisily {
     local pfx "abcdefghijklmnopqrstuvw"
     quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z) generate(`pfx')
 
-    capture noisily iivw_fit y grp, categorical(grp) basecat(0) replace
+    capture noisily iivw_fit y grp, vce(fixed) categorical(grp) basecat(0) replace
     local got_rc = _rc
 
     if `got_rc' != 0 {
@@ -336,7 +336,7 @@ capture noisily {
     * returns rc 0, e(converged)=0, and stamps _dta[_iivw_fitted]=1.
     * (The audit cited geeopts(iterate(0)); that probe does not reproduce --
     * glm reports e(converged)=1 with iterate(0) -- so mixed is used here.)
-    capture noisily iivw_fit y z, model(mixed) experimentalmixed mixedopts(iterate(0))
+    capture noisily iivw_fit y z, vce(fixed) model(mixed) experimentalmixed mixedopts(iterate(0))
     local got_rc = _rc
 
     if `got_rc' == 0 {

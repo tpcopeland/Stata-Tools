@@ -146,7 +146,7 @@ capture noisily {
 
     * The fit carries it forward into e(), so a saved estimation result records
     * that this FIPTIW analysis put treatment in the visit-intensity model.
-    quietly iivw_fit y treat x, timespec(linear) nolog
+    quietly iivw_fit y treat x, vce(fixed) timespec(linear) nolog
     assert "`e(iivw_treat_in_visit)'" == "1"
 }
 if _rc == 0 {
@@ -354,12 +354,12 @@ capture noisily {
     * weighted estimating equation then solves for an h(X)-weighted average of
     * subject-specific effects, not for the beta the table prints. Before Phase 2
     * this ran to completion and printed a coefficient.
-    capture iivw_fit y treat x, timespec(linear) nolog replace
+    capture iivw_fit y treat x, vce(fixed) timespec(linear) nolog replace
     local rc_bad = _rc
     assert `rc_bad' == 198
 
     * Add z to the outcome model and the SAME weights become valid.
-    capture iivw_fit y treat x z, timespec(linear) nolog replace
+    capture iivw_fit y treat x z, vce(fixed) timespec(linear) nolog replace
     assert _rc == 0
     assert e(iivw_stabilization_validated) == 1
     assert "`e(iivw_stab_terms)'" == "z"
@@ -381,7 +381,7 @@ display as text "T9: unstabilized IIW needs no stabilization check"
 capture noisily {
     _p2_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) nolog
-    quietly iivw_fit y treat x, timespec(linear) nolog replace
+    quietly iivw_fit y treat x, vce(fixed) timespec(linear) nolog replace
     * Nothing to validate: there is no numerator. The flag says "not applicable",
     * not "checked and passed" -- a consumer must be able to tell those apart.
     assert e(iivw_stabilization_validated) == 0

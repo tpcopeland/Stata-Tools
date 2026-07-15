@@ -210,13 +210,13 @@ capture noisily {
     * one. Preserving the metadata (above) and refusing to fit on it (below) are
     * not in tension -- the metadata records what was done, the signature
     * records what it was done TO.
-    capture noisily iivw_fit x z, nolog
+    capture noisily iivw_fit x z, vce(fixed) nolog
     assert _rc == 459
 
     * Restoring the data restores the contract: the signature is a fact about
     * the data, not a latch.
     replace time = `orig_t2' in 2
-    capture noisily iivw_fit x z, nolog
+    capture noisily iivw_fit x z, vce(fixed) nolog
     assert _rc == 0
 }
 if _rc == 0 {

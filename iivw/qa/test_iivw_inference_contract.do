@@ -203,8 +203,10 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
         treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
 
-    * Fixed-weight sandwich: the weights are treated as known.
-    quietly iivw_fit y treat x, timespec(linear) nolog replace
+    * Fixed-weight sandwich: the weights are treated as known. Since the default
+    * flipped to the refit bootstrap (Phase 3B), the analytic sandwich is now an
+    * explicit vce(fixed) request, not the bare-call default.
+    quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
     assert "`e(iivw_vce)'" == "fixed"
     assert e(iivw_bs_reps_requested) == 0
 
@@ -353,7 +355,8 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
     local sig_data : char _dta[_iivw_wsig]
 
-    quietly iivw_fit y treat x, timespec(linear) nolog replace
+    * not an inference test: pin vce(fixed) so it does not run the 999 default.
+    quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
 
     * A saved estimation result must carry the fingerprint of the weights it
     * rests on. Without it, an e() saved to disk cannot be checked against the
@@ -423,9 +426,10 @@ capture noisily {
     capture iivw_fit y treat x, timespec(linear) vce(sandwich) nolog replace
     assert _rc == 198
 
-    * A bootstrap with no replicate count -- there is no defensible default, so
-    * it must be stated, not guessed.
-    capture iivw_fit y treat x, timespec(linear) vce(bootstrap) nolog replace
+    * vce(bootstrap) with no reps now takes the release-frozen default of 999
+    * (Phase 3B) -- it is no longer an error. What IS refused is a degenerate
+    * replicate count: a variance is undefined from a single draw.
+    capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(1)) nolog replace
     assert _rc == 198
 
     * vce(fixed) takes no replicate machinery.
@@ -480,6 +484,161 @@ else {
     display as error "  FAIL: I11 - vce() seed reproducibility (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' I11"
+}
+
+**# I12 - the implicit WEIGHTED default is an actual 999-draw refit bootstrap
+* (Phase 3B, IIVW-B02). This runs the real production default on a tiny fixture
+* -- a test-only replicate override would not prove the shipped default.
+
+local ++test_count
+display as text "I12: weighted iivw_fit with no vce() runs the 999-draw refit bootstrap"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
+        treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
+    set seed 4
+    quietly iivw_fit y treat x, timespec(linear) nolog replace
+
+    * the default flipped: bare weighted call == the refit bootstrap candidate.
+    assert "`e(iivw_vce)'" == "bootstrap"
+    assert "`e(iivw_refitweights)'" == "1"
+    assert e(iivw_bs_reps_requested) == 999
+    assert e(iivw_bs_reps_completed) == 999
+    assert "`e(iivw_inference_status)'" == "candidate"
+    assert "`e(iivw_ci_type)'" == "wald-normal"
+    assert e(iivw_vce_locked) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: I12 - implicit weighted default IS the 999 refit bootstrap"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I12 - weighted default (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I12"
+}
+
+**# I13 - the implicit UNWEIGHTED default stays the analytic cluster sandwich
+
+local ++test_count
+display as text "I13: unweighted iivw_fit with no vce() keeps the cluster sandwich"
+capture noisily {
+    _inf_panel
+    quietly iivw_fit y treat x, unweighted id(id) time(time) timespec(linear) nolog replace
+    assert "`e(iivw_vce)'" == "fixed"
+    assert e(iivw_bs_reps_requested) == 0
+    * unweighted estimates no nuisance weights, so there is nothing to refit and
+    * the correction does not apply -- stamped so, never "candidate".
+    assert "`e(iivw_inference_status)'" == "not-applicable-unweighted"
+    assert e(iivw_vce_locked) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: I13 - unweighted default stays the cluster sandwich"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I13 - unweighted default (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I13"
+}
+
+**# I14 - inference_status distinguishes candidate / low-reps / fixed paths
+
+local ++test_count
+display as text "I14: e(iivw_inference_status) never says 'cleared' and names each path"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
+        treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
+
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20)) nolog replace
+    assert "`e(iivw_inference_status)'" == "uncleared-low-reps"
+
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20) fixedweights) ///
+        nolog replace
+    assert "`e(iivw_inference_status)'" == "uncleared-fixedweights-bootstrap"
+
+    quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
+    assert "`e(iivw_inference_status)'" == "uncleared-fixedweights-analytic"
+
+    * No path this command can produce is ever stamped "cleared": that word is
+    * reserved for a release in which the coverage+mutation gates actually pass.
+    assert "`e(iivw_inference_status)'" != "cleared"
+}
+if _rc == 0 {
+    display as result "  PASS: I14 - inference_status names each path, never 'cleared'"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I14 - inference_status contract (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I14"
+}
+
+**# I15 - RNG provenance: a seedless run stores its pre-draw state and replays
+
+local ++test_count
+display as text "I15: a seedless bootstrap stores c(rngstate) and is replayable from it"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+
+    * no seed() supplied -> the pre-draw state must be recorded so the run is
+    * still reproducible after the fact.
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) nolog replace
+    local state0 "`e(iivw_rngstate_start)'"
+    local se0 = _se[treat]
+    assert "`state0'" != ""
+    assert "`e(iivw_vce_seed_explicit)'" == "0"
+
+    * restoring that exact state and refitting reproduces the SE to the bit.
+    set rngstate `state0'
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) nolog replace
+    local se1 = _se[treat]
+    assert reldif(`se0', `se1') < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: I15 - seedless run records its RNG state and replays from it"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I15 - RNG provenance (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I15"
+}
+
+**# I16 - the pass-through guard rejects every variance token spelling (B08)
+
+local ++test_count
+display as text "I16: geeopts()/mixedopts() cannot smuggle a vce/robust/cluster token"
+capture noisily {
+    _inf_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
+
+    * every abbreviation of robust, every abbreviation of cluster(), vce() in
+    * any spacing/case, must be refused -- not silently applied.
+    foreach bad in "r" "ro" "rob" "robu" "robus" "robust" ///
+        "cl(id)" "clu(id)" "cluster(id)" "vce(robust)" "  VCE( robust )" ///
+        "vce(cluster id)" {
+        capture iivw_fit y treat x, timespec(linear) vce(fixed) ///
+            geeopts(`bad') nolog replace
+        assert _rc == 198
+    }
+    * a benign pass-through option is still allowed.
+    capture iivw_fit y treat x, timespec(linear) vce(fixed) ///
+        geeopts(iterate(50)) nolog replace
+    assert _rc == 0
+    * and the post-fit lock confirms the variance that was actually posted.
+    assert e(iivw_vce_locked) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: I16 - hostile pass-through spellings are all refused"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: I16 - pass-through guard (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' I16"
 }
 
 **# Summary

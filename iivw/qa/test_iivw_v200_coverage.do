@@ -144,7 +144,7 @@ capture noisily {
     * A CONVERGED outcome fit must not erase the record that the WEIGHTS are
     * untrustworthy. Before the fix, iivw_fit cleared _iivw_nonconverged in its
     * own char reset loop and the taint vanished silently.
-    quietly iivw_fit y z
+    quietly iivw_fit y z, vce(fixed)
 
     local stamp : char _dta[_iivw_nonconverged]
     assert "`stamp'" == "1"
@@ -309,7 +309,7 @@ capture noisily {
     quietly iivw_balance
     assert inlist("`r(balance_flag)'", "within_rule", "exceeds_rule")
 
-    quietly iivw_fit y z, allownonconverged
+    quietly iivw_fit y z, vce(fixed) allownonconverged
     local fstamp : char _dta[_iivw_fit_nonconverged]
     assert "`fstamp'" == ""
 }

@@ -112,7 +112,7 @@ capture noisily {
     gen double abcdefghijklmnopqrB = z - 0.01 * id
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x z) ///
         wtype(iptw) nolog
-    capture iivw_fit y abcdefghijklmnopqrA abcdefghijklmnopqrB, ///
+    capture iivw_fit y abcdefghijklmnopqrA abcdefghijklmnopqrB, vce(fixed) ///
         interaction(abcdefghijklmnopqrA abcdefghijklmnopqrB) ///
         timespec(linear) replace nolog
     assert _rc == 198

@@ -351,7 +351,7 @@ if `run_only' == 0 | `run_only' == 8 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Fit via iivw_fit
-        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
         local b_fit = _b[severity]
         local se_fit = _se[severity]
 
@@ -576,7 +576,7 @@ if `run_only' == 0 | `run_only' == 14 {
         gen double outcome = 50 - 0.1 * months + rnormal(0, 2)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(cubic) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(cubic) nolog
 
         confirm variable _iivw_time_sq
         confirm variable _iivw_time_cu
@@ -647,7 +647,7 @@ if `run_only' == 0 | `run_only' == 16 {
         gen double outcome = 50 - 0.1 * months + rnormal(0, 2)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(quadratic) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(quadratic) nolog
 
         confirm variable _iivw_time_sq
         * Verify values: time_sq should be months^2
@@ -678,7 +678,7 @@ if `run_only' == 0 | `run_only' == 17 {
         gen double outcome = rnormal(5, 1)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(ns(1)) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(ns(1)) nolog
 
         * ns(1) = 1 df = just linear in time
         confirm variable _iivw_tns1
@@ -799,7 +799,7 @@ if `run_only' == 0 | `run_only' == 20 {
         label values arm arm_lbl
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome arm, categorical(arm) nolog
+        iivw_fit outcome arm, vce(fixed) categorical(arm) nolog
 
         * Base category (0=Placebo) has no dummy
         * Dummies for levels 1 and 2 should be mutually exclusive
@@ -848,7 +848,7 @@ if `run_only' == 0 | `run_only' == 21 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Sandwich SEs
-        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
         local se_sandwich = _se[severity]
 
         * Re-weight (iivw_fit clears some metadata)
@@ -894,7 +894,7 @@ if `run_only' == 0 | `run_only' == 22 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Non-bootstrap estimate
-        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
         local b_direct = _b[severity]
 
         * Re-weight
@@ -1010,7 +1010,7 @@ if `run_only' == 0 | `run_only' == 25 {
         gen double outcome = 50 + rnormal(0, 2)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(ns(2)) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(ns(2)) nolog
 
         confirm variable _iivw_tns1
         confirm variable _iivw_tns2
@@ -1047,7 +1047,7 @@ if `run_only' == 0 | `run_only' == 26 {
         gen double outcome = 50 + rnormal(0, 2)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(ns(3)) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(ns(3)) nolog
 
         confirm variable _iivw_tns1
         confirm variable _iivw_tns2
@@ -1086,12 +1086,12 @@ if `run_only' == 0 | `run_only' == 27 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * GEE estimate
-        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
         local b_gee = _b[severity]
 
         * Mixed estimate (need to re-weight since iivw_fit stores metadata)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
-        iivw_fit outcome severity, model(mixed) experimentalmixed timespec(linear) nolog replace
+        iivw_fit outcome severity, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog replace
         local b_mixed = _b[severity]
 
         * Both should be in same direction and within factor of 2
@@ -1125,7 +1125,7 @@ if `run_only' == 0 | `run_only' == 28 {
         gen double outcome = 50 - severity * months * 0.01 + rnormal(0, 2)
 
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, timespec(quadratic) ///
+        iivw_fit outcome severity, vce(fixed) timespec(quadratic) ///
             interaction(severity) nolog
 
         * ix_severity_time = severity * months

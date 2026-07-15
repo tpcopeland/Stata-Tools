@@ -126,7 +126,7 @@ capture noisily {
     assert reldif(se_norm, _se[treated]) < 1e-10
     * iivw_fit (timespec(linear) adds the panel time term, matching the manual
     * glm covariate set {treated, edss_bl, days}) reproduces the coefficient
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     assert reldif(_b[treated], b_norm) < 1e-8
 }
 if _rc == 0 {
@@ -150,7 +150,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     log close iivwcap
     _iivw_log_has using "`capf'", pattern("cluster-robust SEs can be")
     assert r(found) == 1
@@ -160,7 +160,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
     log close iivwcap
     _iivw_log_has using "`capf'", pattern("cluster-robust SEs can be")
     assert r(found) == 0
@@ -200,13 +200,13 @@ if c(stata_version) >= 17 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
 
         * weighted mixed WITHOUT the acknowledgment -> hard error, no fit
-        capture iivw_fit edss treated edss_bl, model(mixed) timespec(linear) nolog
+        capture iivw_fit edss treated edss_bl, vce(fixed) model(mixed) timespec(linear) nolog
         assert _rc == 198
 
         * weighted mixed WITH the acknowledgment -> fits, and the note fires
         capture log close iivwcap
         log using "`capf'", replace text name(iivwcap)
-        iivw_fit edss treated edss_bl, model(mixed) timespec(linear) ///
+        iivw_fit edss treated edss_bl, vce(fixed) model(mixed) timespec(linear) ///
             experimentalmixed nolog
         log close iivwcap
         _iivw_log_has using "`capf'", pattern("consistently weight-estimated")

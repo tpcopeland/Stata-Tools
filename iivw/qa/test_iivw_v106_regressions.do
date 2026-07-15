@@ -60,11 +60,11 @@ local ++test_count
 capture noisily {
     _iivw_v106_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
-    capture noisily iivw_fit y t treat x, timespec(linear) nolog
+    capture noisily iivw_fit y t treat x, vce(fixed) timespec(linear) nolog
     assert _rc == 198
-    capture noisily iivw_fit y t treat x, timespec(ns(3)) nolog
+    capture noisily iivw_fit y t treat x, vce(fixed) timespec(ns(3)) nolog
     assert _rc == 198
-    capture noisily iivw_fit y t treat x, timespec(quadratic) nolog
+    capture noisily iivw_fit y t treat x, vce(fixed) timespec(quadratic) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -83,7 +83,7 @@ local ++test_count
 capture noisily {
     _iivw_v106_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
-    iivw_fit y t treat x, timespec(none) nolog
+    iivw_fit y t treat x, vce(fixed) timespec(none) nolog
     assert _b[t] != .
     assert "`e(iivw_timespec)'" == "none"
 }
@@ -103,7 +103,7 @@ local ++test_count
 capture noisily {
     _iivw_v106_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(t) visit_cov(x z) wtype(iivw) nolog
-    iivw_fit y treat x, timespec(linear) nolog
+    iivw_fit y treat x, vce(fixed) timespec(linear) nolog
     local prior_fitted   : char _dta[_iivw_fitted]
     local prior_model    : char _dta[_iivw_model]
     local prior_timespec : char _dta[_iivw_timespec]
@@ -112,7 +112,7 @@ capture noisily {
     assert "`prior_timespec'" == "linear"
 
     * Validation failure (bad model())
-    capture noisily iivw_fit y treat x, model(foo) timespec(linear) nolog
+    capture noisily iivw_fit y treat x, vce(fixed) model(foo) timespec(linear) nolog
     assert _rc == 198
     local post_fitted   : char _dta[_iivw_fitted]
     local post_model    : char _dta[_iivw_model]
@@ -188,7 +188,7 @@ capture noisily {
     tempname fh
     tempfile fitlog
     log using "`fitlog'.txt", text replace
-    capture noisily iivw_fit y treat x x_copy, timespec(linear) nolog
+    capture noisily iivw_fit y treat x x_copy, vce(fixed) timespec(linear) nolog
     local fit_rc = _rc
     log close
     assert `fit_rc' == 0

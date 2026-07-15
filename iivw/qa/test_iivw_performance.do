@@ -78,7 +78,7 @@ capture noisily {
         treat(treat) treat_cov(age female severity_bl) truncfinal(1 99) nolog
     iivw_balance severity biomarker, balcut(10) nolog
     local balance_covars "`r(balance_covars)'"
-    iivw_fit y treat severity biomarker, timespec(linear) nolog
+    iivw_fit y treat severity biomarker, vce(fixed) timespec(linear) nolog
     timer off 1
     quietly timer list 1
     local elapsed = r(t1)
@@ -120,7 +120,7 @@ capture noisily {
     timer on 2
     iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(age female severity) ///
         wtype(iivw) nolog
-    iivw_fit y treat severity biomarker, timespec(quadratic) nolog
+    iivw_fit y treat severity biomarker, vce(fixed) timespec(quadratic) nolog
     timer off 2
     quietly timer list 2
     local elapsed = r(t2)

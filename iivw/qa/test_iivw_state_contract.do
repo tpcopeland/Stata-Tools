@@ -316,10 +316,10 @@ capture noisily {
     assert _rc != 0
     assert "`c(varabbrev)'" == "on"
 
-    quietly iivw_fit y treat L1, model(gee) nolog
+    quietly iivw_fit y treat L1, vce(fixed) model(gee) nolog
     assert "`c(varabbrev)'" == "on"
 
-    capture iivw_fit y nosuchvar, model(gee) nolog
+    capture iivw_fit y nosuchvar, vce(fixed) model(gee) nolog
     assert _rc != 0
     assert "`c(varabbrev)'" == "on"
 

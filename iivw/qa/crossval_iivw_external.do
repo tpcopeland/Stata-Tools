@@ -409,7 +409,7 @@ if `run_only' == 0 | `run_only' == 3 {
         assert `max_diff_fiptiw' < 1e-6
         assert `max_diff_product' < 1e-10
 
-        iivw_fit weight cu_high feed0, timespec(linear) nolog
+        iivw_fit weight cu_high feed0, vce(fixed) timespec(linear) nolog
 
         local s_cons = _b[_cons]
         local s_cu_high = _b[cu_high]
@@ -475,7 +475,7 @@ if `run_only' == 0 | `run_only' == 4 {
             treat(cu_high) treat_cov(startwt evit100 evit200) ///
             efron nolog
 
-        iivw_fit weight cu_high feed0, timespec(linear) ///
+        iivw_fit weight cu_high feed0, vce(fixed) timespec(linear) ///
             cluster(pen) level(90) geeopts(iterate(60)) nolog
 
         local s_cons = _b[_cons]
@@ -517,7 +517,7 @@ if `run_only' == 0 | `run_only' == 4 {
         assert abs(`s_se_feed0' - `r_se_feed0') / `r_se_feed0' < 0.10
         assert abs(`s_se_time' - `r_se_time') / `r_se_time' < 0.10
 
-        iivw_fit heavy cu_high feed0, timespec(linear) ///
+        iivw_fit heavy cu_high feed0, vce(fixed) timespec(linear) ///
             family(binomial) link(logit) nolog replace
 
         local s_cons = _b[_cons]

@@ -132,7 +132,7 @@ capture noisily {
     assert "`: char _dta[_iivw_weighttype]'" == "fiptiw"
     assert "`: char _dta[_iivw_weight_var]'" == "_iivw_weight"
 
-    iivw_fit y treat, timespec(linear) nolog
+    iivw_fit y treat, vce(fixed) timespec(linear) nolog
     assert e(N) == _N
     assert "`e(iivw_cmd)'" == "iivw_fit"
     assert "`e(iivw_weighttype)'" == "fiptiw"
@@ -144,7 +144,7 @@ capture noisily {
     assert _se[months] < .
     estimates store WF_weighted
 
-    iivw_fit y treat marker visit_need, timespec(linear) nolog
+    iivw_fit y treat marker visit_need, vce(fixed) timespec(linear) nolog
     assert e(N) == _N
     assert "`e(iivw_weighttype)'" == "fiptiw"
     assert "`e(iivw_timespec)'" == "linear"
@@ -216,7 +216,7 @@ else {
 local ++test_count
 capture noisily {
     _workflow_panel
-    capture noisily iivw_fit y treat, timespec(linear) nolog
+    capture noisily iivw_fit y treat, vce(fixed) timespec(linear) nolog
     assert _rc == 198
     capture confirm variable _iivw_weight
     assert _rc == 111

@@ -405,6 +405,20 @@ subdistribution hazard and the CIF is generally unavailable after a competing
 event.
 
 {pstd}
+{bf:When entry and censoring share a common driver.} The factorized weight
+A(t-) = G(t-)H(t-) treats the entry and censoring mechanisms as independent
+within a joint weight stratum. If one observed factor drives {it:both} -- an
+enrolment wave or site that shifts entry timing and follow-up intensity together
+-- name it in {bf:both} {opt strata()} and {opt truncstrata()}. Conditioning it
+in only one grouping does {it:not} remove the shared dependence and can bias the
+coefficients; conditioning it in both reproduces the stratified
+Zhang-Zhang-Fine weight, which removes that bias at the cost of somewhat larger
+standard errors. Should the fully-joint fit cross the positivity boundary and
+stop with {cmd:r(459)}, fall back to coarser groupings: the pooled or one-sided
+weight remains estimable, and its bias under a shared entry-censoring dependence
+is bounded -- the trade the factorized default makes on purpose.
+
+{pstd}
 {bf:Support boundary, and a breaking change.} Under delayed entry the weight A is
 estimated {it:per joint weight stratum}, so every level of {opt strata()} is also a
 weight stratum even when {opt truncstrata()} is not specified. At most 100 joint

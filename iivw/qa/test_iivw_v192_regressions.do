@@ -91,14 +91,14 @@ capture noisily {
 
     * numeric-id reference
     iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
-    iivw_fit y sev, nolog
+    iivw_fit y sev, vce(fixed) nolog
     local b_num = _b[sev]
     local se_num = _se[sev]
     drop _iivw_iw _iivw_weight
 
     * string-id run on identical data
     iivw_weight, endatlastvisit baseline(event) id(sid) time(time) visit_cov(sev) nolog
-    iivw_fit y sev, nolog
+    iivw_fit y sev, vce(fixed) nolog
     assert "`e(iivw_cluster)'" == "sid"
     assert reldif(_b[sev], `b_num') < 1e-10
     assert reldif(_se[sev], `se_num') < 1e-10

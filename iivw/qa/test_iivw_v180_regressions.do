@@ -152,7 +152,7 @@ capture noisily {
     assert "`time_after'" == "`time_before'" & "`time_after'" == "days"
 
     * a subsequent fit on the restored contract still works
-    iivw_fit y treat, model(gee) timespec(linear) nolog replace
+    iivw_fit y treat, vce(fixed) model(gee) timespec(linear) nolog replace
     assert e(N) > 0
 }
 if _rc == 0 {

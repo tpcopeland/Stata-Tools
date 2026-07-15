@@ -205,7 +205,7 @@ forvalues s = 1/`n_sims' {
             visit_cov(u_i conf_tv) wtype(iivw) ///
             truncfinal(1 99) nolog replace
         if _rc == 0 {
-            capture iivw_fit y_obs treatment ftime tx_time conf_ti, ///
+            capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
                 model(gee) timespec(none) nolog replace
             if _rc == 0 {
                 local b = _b[ftime]
@@ -230,7 +230,7 @@ forvalues s = 1/`n_sims' {
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncfinal(1 99) nolog replace
         if _rc == 0 {
-            capture iivw_fit y_obs treatment ftime tx_time conf_ti, ///
+            capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
                 model(gee) timespec(none) nolog replace
             if _rc == 0 {
                 local b_w_marg = _b[ftime]
@@ -256,7 +256,7 @@ forvalues s = 1/`n_sims' {
             truncfinal(1 99) nolog replace
         if _rc == 0 {
             gen double log_test_number = log(test_number + 1)
-            capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, ///
+            capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, vce(fixed) ///
                 model(gee) timespec(none) nolog replace
             if _rc == 0 {
                 local b_adj_marg = _b[ftime]
