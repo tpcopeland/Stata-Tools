@@ -248,8 +248,8 @@ That is a real reference distribution rather than a rearrangement of the same
 visits, so it has a null: it is 0 when the weights work. {cmd:r(balance_flag)}
 is {cmd:within_rule} when the largest absolute target SMD is at or below
 {opt balcut()}, and {cmd:exceeds_rule} otherwise. The flag names where the
-measured SMD falls relative to the {opt balcut()} convention (0.10 by default);
-it is not a proof that the visit model is correctly specified. Computing the
+measured SMD falls relative to the {opt balcut()} convention (0.10 by default); it
+is not a proof that the visit model is correctly specified. Computing the
 person-time target
 requires each subject's terminal at-risk interval, which is why the weights
 must have been built with {opt censor()} or {opt maxfu()} to get the most out

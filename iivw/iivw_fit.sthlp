@@ -290,8 +290,8 @@ model inside each draw, so the interval propagates weight-estimation uncertainty
 omitted takes the release-frozen {bf:999}; fewer than 999 is allowed but stamped
 {cmd:e(iivw_inference_status)}={cmd:uncleared-low-reps}. The printed interval is
 the normal/Wald interval from the bootstrap covariance ({cmd:e(iivw_ci_type)} =
-{cmd:wald-normal}); percentile/BC/BCa are separate methods and are not implied.
-{opt seed()} fixes the resampling stream; with no seed, the exact pre-draw RNG
+{cmd:wald-normal}); percentile/BC/BCa are separate methods and are not implied. {opt seed()}
+fixes the resampling stream; with no seed, the exact pre-draw RNG
 state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
 
 {pmore}
@@ -310,8 +310,8 @@ the three was used, and an unweighted fit keeps the cluster sandwich (no nuisanc
 weights to propagate).
 
 {phang}
-{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates.
-{cmd:bootstrap(0)} explicitly requests the weights-known sandwich standard errors
+{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. {cmd:bootstrap(0)}
+explicitly requests the weights-known sandwich standard errors
 (equivalent to {cmd:vce(fixed)}); a weighted fit with no variance option instead
 takes the refit-bootstrap default. When
 positive, the {cmd:bootstrap} prefix is applied with clustering at
@@ -354,10 +354,10 @@ fixed-weight bootstrap because the weight models are refit in every replicate.
 {pmore}
 A replicate can fail: a resampled panel may contain no variation in a covariate,
 so the outcome model drops that term and returns a missing coefficient for it; a
-nuisance model may not converge on a draw; a draw may retain no weighted rows.
-Stata's {helpb bootstrap} responds by computing the variance from the replicates
-that {it:did} return a number and recording the shortfall in {cmd:e(N_misreps)}.
-It does not stop.
+nuisance model may not converge on a draw; a draw may retain no weighted rows. Stata's
+{helpb bootstrap} responds by computing the variance from the replicates
+that {it:did} return a number and recording the shortfall in {cmd:e(N_misreps)}. It
+does not stop.
 
 {pmore}
 That subset is not random with respect to what is being estimated. The draws that
@@ -370,9 +370,9 @@ silence.
 
 {pmore}
 An incomplete bootstrap is therefore an {bf:error}. {opt allowfailedreps} is how
-you declare that a standard error from a subset of the draws is what you intend.
-Even then the counts are reported and stored:
-{cmd:e(iivw_bs_reps_requested)}, {cmd:e(iivw_bs_reps_completed)},
+you declare that a standard error from a subset of the draws is what you intend. Even
+then the counts are reported and stored: {cmd:e(iivw_bs_reps_requested)},
+{cmd:e(iivw_bs_reps_completed)},
 {cmd:e(iivw_bs_reps_failed)}. The usual cause is a rare binary covariate in a
 small panel; respecifying is almost always the better answer than accepting the
 option.
@@ -464,21 +464,21 @@ h0(X{it:i}(t)) = exp({it:delta}'X{it:i}(t)), where X is the {bf:outcome-model}
 covariate vector. That is not incidental notation. The stabilized estimating
 equation solves for the same {it:beta} as the unstabilized one precisely because
 the numerator is a function of covariates the outcome model conditions on: with
-E[Y - mu(X;{it:beta}) | X] = 0, the h-weighted score is mean-zero whatever h is.
-Stabilize on a variable this outcome model never sees and that argument
+E[Y - mu(X;{it:beta}) | X] = 0, the h-weighted score is mean-zero whatever h is. Stabilize
+on a variable this outcome model never sees and that argument
 collapses -- the weighted fit then targets an h-weighted average of
 subject-specific effects, not the {it:beta} in the table.
 
 {pstd}
-{cmd:iivw_weight} cannot check this: it runs before the outcome model exists.
-{cmd:iivw_fit} can, and does. If any {opt stabcov()} variable is not a source of
+{cmd:iivw_weight} cannot check this: it runs before the outcome model exists. {cmd:iivw_fit}
+can, and does. If any {opt stabcov()} variable is not a source of
 this outcome design -- an independent variable, a {opt categorical()} or
 {opt interaction()} source, or the panel time variable behind the fitted time
 terms -- the fit stops with an error before estimating anything, and names the
 offending variables. Add them to the outcome model, or recompute the weights
-with a numerator this model contains. Unstabilized IIW is always valid.
-{cmd:e(iivw_stabilization_validated)} records that the check ran and passed;
-{cmd:e(iivw_stab_terms)} records the terms it cleared.
+with a numerator this model contains. Unstabilized IIW is always valid. {cmd:e(iivw_stabilization_validated)}
+records that the check ran and passed; {cmd:e(iivw_stab_terms)}
+records the terms it cleared.
 
 {pstd}
 The check is deliberately conservative. A stabilization variable that is some
@@ -1017,6 +1017,11 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}resampling seed, when set via {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
+{synopt:{cmd:e(iivw_inference_status)}}inference-clearance status; never {cmd:cleared}{p_end}
+{synopt:{cmd:e(iivw_ci_type)}}confidence-interval type ({cmd:wald-normal}){p_end}
+{synopt:{cmd:e(iivw_vce_seed_explicit)}}1 if a seed was set via {opt vce(bootstrap, seed())}{p_end}
+{synopt:{cmd:e(iivw_rng)}}RNG type used, when bootstrapped{p_end}
+{synopt:{cmd:e(iivw_rngstate_start)}}starting RNG state, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_wsig)}}signature of the weight contract behind the estimates{p_end}
 {synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
@@ -1037,6 +1042,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} was validated against the outcome design{p_end}
+{synopt:{cmd:e(iivw_vce_locked)}}1 if the post-fit variance lock confirmed the VCE{p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}

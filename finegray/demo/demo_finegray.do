@@ -19,9 +19,16 @@ capture log close _all
 capture ado uninstall finegray
 quietly net install finegray, from("`c(pwd)'/finegray") replace
 
+* tc_schemes is a graph-cosmetic dependency shipped as a sibling Stata-Tools
+* package.  A checkout of finegray alone will not have it, so install and set
+* the scheme softly and fall back to s2color -- the numeric demo is unaffected.
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
-set scheme plotplainblind
+capture quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+capture set scheme plotplainblind
+if _rc {
+    set scheme s2color
+    display as text "note: tc_schemes not found; using s2color for graphs"
+}
 
 **# Estimation features
 webuse hypoxia, clear

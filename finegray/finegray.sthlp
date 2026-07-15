@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  15jul2026}{...}
+{* *! version 1.2.2  15jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -378,8 +378,11 @@ used by estimation and every postestimation calculation.
 
 {pstd}
 {cmd:e(lt_weight)} reports {cmd:zzf1_geskus} for a one-stratum delayed-entry
-fit and {cmd:zzf1_stratified} for the equation-7 pooled-stabilizer form with
-multiple joint strata, including the factorized extension just described.
+fit and {cmd:zzf1_stratified} for the equation-7 pooled-stabilizer form when
+{opt strata()} and {opt truncstrata()} name the same grouping (the paper's
+stratified construction). When they name different groupings -- the factorized
+extension described above -- it reports {cmd:zzf1_factorized} instead, so a
+consumer can tell the extension apart from the ZZF construction it is not.
 
 {pstd}
 {bf:Consequences you should expect.} Delayed-entry coefficients, standard errors,
@@ -957,7 +960,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.1, 2026-07-15{p_end}
+{pstd}Version 1.2.2, 2026-07-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

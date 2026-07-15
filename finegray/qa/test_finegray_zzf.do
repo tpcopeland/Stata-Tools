@@ -262,10 +262,20 @@ else {
     display as error "  FAIL: Z9 missing from e():`_missing'"
 }
 
-* Z10: lt_weight names the weight ACTUALLY computed, on both branches
+* Z10: lt_weight names the weight ACTUALLY computed, across every branch.
+*   zzf1_factorized : strata() and truncstrata() name DIFFERENT groupings.
+*                     The fit above used truncstrata(z1) with no strata(), so G
+*                     is estimated globally and H within z1 -- different
+*                     groupings, the factorized A=G*H package extension.
+*   zzf1_stratified : strata() and truncstrata() name the SAME grouping -- the
+*                     ZZF eq.7 stratified construction proper.
+*   zzf1_geskus     : one weight stratum (pooled delayed entry).
+*   right_censoring : no delayed entry.
 local ++test_count
-local _lt_zzf `"`e(lt_weight)'"'
+local _lt_fact `"`e(lt_weight)'"'
 preserve
+quietly finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)
+local _lt_strat `"`e(lt_weight)'"'
 quietly finegray z1 z2, compete(status) cause(1)
 local _lt_pool `"`e(lt_weight)'"'
 _zzf_fix, n(4000) seed(20260713) notrunc
@@ -274,14 +284,14 @@ quietly finegray z1 z2, compete(status) cause(1)
 local _lt_rc `"`e(lt_weight)'"'
 local _maxw_rc = e(max_lt_weight)
 restore
-if "`_lt_zzf'" == "zzf1_stratified" & "`_lt_pool'" == "zzf1_geskus" & ///
-        "`_lt_rc'" == "right_censoring" {
+if "`_lt_fact'" == "zzf1_factorized" & "`_lt_strat'" == "zzf1_stratified" & ///
+        "`_lt_pool'" == "zzf1_geskus" & "`_lt_rc'" == "right_censoring" {
     local ++pass_count
-    display as result "  PASS: Z10 e(lt_weight) distinguishes stratified / pooled LT / no LT"
+    display as result "  PASS: Z10 e(lt_weight) distinguishes factorized / stratified / pooled LT / no LT"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z10 got `_lt_zzf' / `_lt_pool' / `_lt_rc'"
+    display as error "  FAIL: Z10 got `_lt_fact' / `_lt_strat' / `_lt_pool' / `_lt_rc'"
 }
 
 * Z11: with no delayed entry H == 1, so A == G is nonincreasing and EVERY weight

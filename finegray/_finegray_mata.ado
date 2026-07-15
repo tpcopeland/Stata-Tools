@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.1  2026/07/15
+*! _finegray_mata Version 1.2.2  2026/07/15
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -66,11 +66,18 @@ real colvector _finegray_km_censor_single(
     real colvector delta,
     real scalar censval,
     real colvector event_type,
-    real colvector t0)
+    real colvector t0,
+    | real scalar quiet)
 {
     real colvector row_id
     real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, cur_time, ep
     real colvector G, ord, entry_ord
+
+    /* quiet suppresses the G-truncation note.  The fit prints it once (the
+       data characteristic is the user's to act on); post-estimation commands
+       recompute G for the influence function and must NOT reprint it, or a
+       fit-time warning appears attributed to predict/cif.  Omitted => 0. */
+    if (args() < 6) quiet = 0
 
     n = rows(t)
     G = J(n, 1, 1)
@@ -140,7 +147,7 @@ real colvector _finegray_km_censor_single(
             n_trunc++
         }
     }
-    if (n_trunc > 0) {
+    if (n_trunc > 0 & !quiet) {
         printf("{txt}note: G(t) truncated to 1e-10 for %g observations;" +
             " inference may be sensitive\n", n_trunc)
     }
@@ -155,10 +162,15 @@ real colvector _finegray_km_censor(
     real scalar censval,
     real colvector event_type,
     real colvector byg_id,
-    real colvector t0)
+    real colvector t0,
+    | real scalar quiet)
 {
     real scalar n, g, nlev
     real colvector G, levels, sel
+
+    /* Threaded to _single so the G-truncation note fires only where the caller
+       asks (the fit), never on a post-estimation recompute.  Omitted => 0. */
+    if (args() < 7) quiet = 0
 
     n = rows(t)
     G = J(n, 1, 1)
@@ -169,12 +181,12 @@ real colvector _finegray_km_censor(
         for (g = 1; g <= nlev; g++) {
             sel = selectindex(byg_id :== levels[g])
             G[sel] = _finegray_km_censor_single(t[sel], delta[sel],
-                censval, event_type[sel], t0[sel])
+                censval, event_type[sel], t0[sel], quiet)
         }
         return(G)
     }
 
-    G = _finegray_km_censor_single(t, delta, censval, event_type, t0)
+    G = _finegray_km_censor_single(t, delta, censval, event_type, t0, quiet)
     return(G)
 }
 
@@ -2393,7 +2405,8 @@ void _finegray_schoenfeld_compute(
         tg_id = J(rows(t), 1, 1)
     }
 
-    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    /* post-estimation recompute: quiet=1, the fit already printed any note */
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
 
     sch = _finegray_schoenfeld(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, do_scale, t0, tg_id)
@@ -2818,7 +2831,8 @@ real matrix _finegray_cif_core_zzf(
 
     n = rows(Z)
     p = cols(Z)
-    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    /* post-estimation recompute: quiet=1, the fit already printed any note */
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
     _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
     ng = rows(jc)
     Aden = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
@@ -3036,7 +3050,8 @@ real matrix _finegray_cif_core(
     n = rows(Z)
     p = cols(Z)
 
-    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    /* post-estimation recompute: quiet=1, the fit already printed any note */
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
     levels = uniqrows(byg_id)
     /* ZZF: the weight is now A = G(t-)H(t-) on CROSS-CLASSIFIED strata.  With no
        delayed entry H == 1 and this is bit-identical to the former G-only path. */
@@ -3432,7 +3447,8 @@ real matrix _finegray_bh_rebuild(
     if (tg_str != "")  tg_id = st_data(., tg_str, tousevar)
     else               tg_id = J(n, 1, 1)
 
-    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+    /* post-estimation recompute: quiet=1, the fit already printed any note */
+    G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 1)
     return(_finegray_basehazard(t, delta, cause, censval, event_type, Z, beta,
         G, byg_id, t0, tg_id))
 }

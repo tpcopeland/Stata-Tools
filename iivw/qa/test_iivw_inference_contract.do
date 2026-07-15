@@ -589,6 +589,9 @@ capture noisily {
     local state0 "`e(iivw_rngstate_start)'"
     local se0 = _se[treat]
     assert "`state0'" != ""
+    * the RNG-type provenance handle must also be posted, so a bootstrap run is
+    * fully replayable (rng type + starting state), not just the state alone.
+    assert "`e(iivw_rng)'" != ""
     assert "`e(iivw_vce_seed_explicit)'" == "0"
 
     * restoring that exact state and refitting reproduces the SE to the bit.

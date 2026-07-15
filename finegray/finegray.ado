@@ -1,4 +1,4 @@
-*! finegray Version 1.2.1  2026/07/15
+*! finegray Version 1.2.2  2026/07/15
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -884,12 +884,34 @@ program define finegray, eclass sortpreserve
     * Combined-weight contract.  lt_weight names the weight actually computed:
     *   right_censoring : no delayed entry; A == G; identical to prior releases
     *   zzf1_geskus       : one weight stratum; Geskus product-limit form
-    *   zzf1_stratified   : ZZF eq. 7 pooled-stabilizer form; when the
-    *                       censoring/entry groupings differ, the subject
-    *                       denominator uses the documented factorized extension
+    *   zzf1_stratified   : ZZF eq. 7 pooled-stabilizer form; strata() and
+    *                       truncstrata() name the SAME grouping -- the paper's
+    *                       stratified nonparametric construction
+    *   zzf1_factorized   : ZZF eq. 7 machinery, but strata() and truncstrata()
+    *                       name DIFFERENT groupings (including one side left
+    *                       unspecified): G is estimated within strata(), H
+    *                       within truncstrata(), and the components multiply.
+    *                       This is a package extension, NOT attributed to Zhang
+    *                       et al.; it is valid only when entry and censoring are
+    *                       independent within each joint cell.  It is named apart
+    *                       from zzf1_stratified because its validity conditions
+    *                       differ, so a consumer can branch on it.
+    * "Same grouping" compares the sorted variable lists: order does not change
+    * the partition egen group() forms, so a re-ordered strata() is still ZZF.
+    * _fg_njgrp is defined only on the delayed-entry branch, so every reference
+    * to it stays inside `if _fg_has_lt'; _fg_factorized is initialized here so
+    * the fit-time note below can test it unconditionally.
+    local _fg_factorized = 0
     if `_fg_has_lt' {
-        if `_fg_njgrp' > 1 ereturn local lt_weight "zzf1_stratified"
-        else                ereturn local lt_weight "zzf1_geskus"
+        if `_fg_njgrp' > 1 {
+            local _fg_strata_sorted : list sort strata
+            local _fg_trunc_sorted  : list sort truncstrata
+            if `"`_fg_strata_sorted'"' != `"`_fg_trunc_sorted'"' ///
+                local _fg_factorized = 1
+            if `_fg_factorized' ereturn local lt_weight "zzf1_factorized"
+            else                ereturn local lt_weight "zzf1_stratified"
+        }
+        else ereturn local lt_weight "zzf1_geskus"
     }
     else ereturn local lt_weight "right_censoring"
 
@@ -1072,6 +1094,19 @@ program define finegray, eclass sortpreserve
             display as text "(affected joint weight strata: `_fg_ws')"
             display as text ""
         }
+    }
+
+    * Factorized-extension note.  When strata() and truncstrata() name different
+    * groupings the weight is the package's factorized A=G*H extension, not the
+    * ZZF stratified construction.  The help file documents this, but the fit
+    * itself otherwise reports only e(lt_weight)=zzf1_factorized; say at fit time
+    * that the estimator differs from ZZF and under what condition it is valid.
+    if `_fg_factorized' {
+        display as text ""
+        display as text "note: the censoring weight G and entry weight H use different groupings,"
+        display as text "so finegray uses the factorized A=G*H extension -- a package extension,"
+        display as text "valid only when entry and censoring are independent within each joint"
+        display as text "cell. See Left truncation in {help finegray}. e(lt_weight)=zzf1_factorized."
     }
 
     if "`shr'" == "noshr" {

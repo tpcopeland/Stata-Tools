@@ -121,8 +121,8 @@ adjusts for the measurement process.
 
 {phang}
 {opt exogeneity(string)} controls interpretation of the measurement-process
-adjustment; it is a user {it:assertion}, not a condition the command tests.
-{cmd:exogenous} states that you are willing to read the shares as a descriptive
+adjustment; it is a user {it:assertion}, not a condition the command tests. {cmd:exogenous}
+states that you are willing to read the shares as a descriptive
 proportional attribution under additive separability, but the shares are still
 not a validated causal decomposition, and {cmd:iivw_diagnose} does not verify
 that the adjustment is exogenous. {cmd:unknown} reports the shares as descriptive

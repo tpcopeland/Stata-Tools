@@ -41,6 +41,36 @@ pass="${BASH_REMATCH[2]}"
 fail="${BASH_REMATCH[3]}"
 skip="${BASH_REMATCH[4]}"
 if (( tests > 0 && tests == pass + fail && fail == 0 && skip == 0 )); then
+    verdict="PASS"
+else
+    verdict="FAIL"
+fi
+
+# Committed, non-log receipt of the run.  run_all.log is gitignored (*.log) and
+# is overwritten by the next lane, so the per-suite RESULT trail is not auditable
+# after the fact -- the exact gap the 2026-07-15 audit flagged.  run_all_status.txt
+# is NOT gitignored: commit it to record which lane last passed and with what
+# per-suite counts, without re-running.  Each suite's own RESULT line is echoed
+# into run_all.log at column 0, so an anchored grep reproduces the trail exactly.
+{
+    echo "# finegray QA run receipt"
+    echo "# committed evidence; run_all.log itself is gitignored and transient."
+    echo "lane:    $lane"
+    echo "date:    $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    echo "verdict: $verdict"
+    echo
+    echo "per-suite RESULT trail (as echoed by each suite):"
+    grep -E '^RESULT: ' run_all.log || echo "(no RESULT lines found)"
+} > run_all_status.txt
+
+# Also keep a lane-pinned copy so the full-lane and (hours-long) gates-lane
+# receipts do not clobber each other: run "./run_all.sh gates" writes
+# run_status_gates.txt, "./run_all.sh full" writes run_status_full.txt, and
+# run_all_status.txt always mirrors the most recent run.  Commit whichever
+# lane receipt you want to record as evidence.
+cp -f run_all_status.txt "run_status_${lane}.txt"
+
+if [[ "$verdict" == "PASS" ]]; then
     echo "$result"
     exit 0
 fi

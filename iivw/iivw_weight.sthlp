@@ -360,16 +360,16 @@ the specification that attenuates the visit-intensity coefficient.{p_end}
 
 {phang}
 {bf:The supported default analysis is untruncated.} Trimming is a labelled
-sensitivity analysis, never the primary result. It does not drop observations;
-it caps the influence of extreme weights, and it does so by changing what is
+sensitivity analysis, never the primary result. It does not drop observations; it
+caps the influence of extreme weights, and it does so by changing what is
 being estimated.
 
 {phang}
 {opt trunctreat(# #)} winsorizes the {bf:IPTW component} at the given
-percentiles. This is the trim the sensitivity literature actually studies:
-Tompkins et al. (2025) report that trimming reduces bias when the extreme
-weights arise from the {it:treatment} model (near-violations of positivity).
-It is not free. Bounding an extreme propensity weight bounds the influence of
+percentiles. This is the trim the sensitivity literature actually studies: Tompkins
+et al. (2025) report that trimming reduces bias when the extreme
+weights arise from the {it:treatment} model (near-violations of positivity). It
+is not free. Bounding an extreme propensity weight bounds the influence of
 the subjects least like their counterfactual arm, so it shifts the target away
 from the ATE toward the overlap population. Report it as a sensitivity
 analysis and say that you did.
@@ -387,8 +387,8 @@ this option cannot be described as a remedy for misspecification.
 {phang}
 {opt truncfinal(# #)} winsorizes the {bf:final weight} after the components are
 multiplied. Under FIPTIW the final weight is IIW x IPTW, so a row clipped here
-could have been extreme through either factor, and this option cannot say which.
-Prefer {opt trunctreat()} or {opt truncvisit()} whenever you need to know.
+could have been extreme through either factor, and this option cannot say which. Prefer
+{opt trunctreat()} or {opt truncvisit()} whenever you need to know.
 
 {pmore}
 All three take percentiles strictly between 0 and 100, with the lower bound
@@ -671,8 +671,8 @@ different consequences. See {it:Sensitivity} above.
 {pstd}
 When computing IPTW or FIPTIW weights, propensity scores near 0 or 1 produce
 extreme weights because they appear in the denominator. {cmd:iivw_weight} displays a
-note if any observations have propensity scores below 0.01 or above 0.99.
-{opt trunctreat()} bounds their influence as a sensitivity analysis, at the cost
+note if any observations have propensity scores below 0.01 or above 0.99. {opt trunctreat()}
+bounds their influence as a sensitivity analysis, at the cost
 of shifting the target toward the overlap population. Extreme propensity scores can
 indicate positivity violations (some covariate patterns always or never
 receive treatment).
@@ -685,8 +685,8 @@ The effective sample size (ESS) measures how much information the weighted
 sample retains relative to an unweighted sample of the same size. It is
 calculated as (sum w)^2 / sum(w^2). An ESS much smaller than N indicates
 highly variable weights that may reduce statistical power. As a rule of
-thumb, an ESS below 50% of N warrants investigating model specification.
-Trimming will raise the ESS, but raising the ESS is not the same as fixing the
+thumb, an ESS below 50% of N warrants investigating model specification. Trimming
+will raise the ESS, but raising the ESS is not the same as fixing the
 model -- see {it:Sensitivity}.
 
 {pstd}
