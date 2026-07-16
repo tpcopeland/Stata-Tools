@@ -11,17 +11,18 @@ This suite is built on four assurance layers, applied in increasing order of aut
 
 ## Headline results
 
-The latest isolated `full` lane passed 23/23 suites and 533/533 checks on 2026-07-15, with no failures or skips. Smoke gate runs are never counted as passes.
+The latest isolated `full` lane passed 21/21 suites and 539/539 checks on 2026-07-16, with no failures or skips. Smoke gate runs are never counted as passes.
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
 | `test_finegray.do` | functional / regression | 133 | 133 | 0 | 0 |
 | `test_finegray_v110.do` | regression (v1.1.0: CIF/predict/bootstrap surface + graph polish, multi-record post-estimation, LT SEs, stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, factor-level bootstrap skips, `saving()` parsing, prediction-variable cleanup) | 52 | 52 | 0 | 0 |
+| `test_finegray_v120.do` | regression (v1.2.0: `finegray_phtest` omnibus test retired — `r(chi2)`/`r(df)`/`r(p)` no longer stored, no Global test row printed, no global row appended to `r(phtest)`, per-covariate return surface unchanged) | 4 | 4 | 0 | 0 |
 | `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
 | `test_finegray_bootstrap.do` | **bootstrap and refit integrity** (`if`/`in` stripped from the refit line, replication floor, `seed()` guard, validate-then-mutate) | 6 | 6 | 0 | 0 |
-| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, equivalent numeric factor tokens and truncated long names in `at()`, tampered `_fg_*` columns, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 17 | 17 | 0 | 0 |
+| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, equivalent numeric factor tokens and truncated long names in `at()`, tampered `_fg_*` columns, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 18 | 18 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
@@ -32,10 +33,10 @@ The latest isolated `full` lane passed 23/23 suites and 533/533 checks on 2026-0
 | `crossval_cif.do` | crossval vs `riskRegression` + bootstrap | 2 | 2 | 0 | 0 |
 | `crossval_predict_phtest.do` | crossval vs `cmprsk::crr` | 14 | 14 | 0 | 0 |
 | `crossval_predict_stcrreg.do` | crossval vs `stcrreg` | 15 | 15 | 0 | 0 |
-| `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 26 | 26 | 0 | 0 |
+| `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 27 | 27 | 0 | 0 |
 | `test_documentation_examples.do` | **runnable doc examples** — every README/help code block run verbatim (Quick Start, basic fit, `predict cif`, phtest, fit variants, cif/predict CI, `basehaz`/`basecshazard`) | 7 | 7 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
-| **Total** | | **533** | **533** | **0** | **0** |
+| **Total** | | **539** | **539** | **0** | **0** |
 
 ### The delayed-entry (ZZF) suites
 

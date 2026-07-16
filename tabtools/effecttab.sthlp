@@ -160,9 +160,15 @@ wrap{p_end}
 {phang}
 {opt level(#)} sets or verifies confidence-level provenance. With a collected
 result, the active collection's stored level is used and an explicit value must
-match it. Matrix input has no interval metadata, so it uses 95 unless
-{opt level()} is supplied. The resolved level is used in headers and methods
-text, returned in {cmd:r(ci_level)}, and stored on display and eplot frames.{p_end}
+match it. Not every Stata version records the level in the collection: Stata 17
+does, Stata 19 does not. When it is absent, {cmd:effecttab} uses {opt level()}
+if you supply one and otherwise falls back to the current {helpb set level},
+reporting a note; no conflict check is possible in that case, so supply
+{opt level()} if the collected models did not use the current default. Matrix
+input has no interval metadata, so it uses 95 unless {opt level()} is
+supplied. The resolved level labels intervals in headers and methods text, is
+returned in {cmd:r(ci_level)}, and is stored on display and eplot frames; it
+affects no computed quantity.{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with

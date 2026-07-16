@@ -503,14 +503,19 @@ foreach tf in rank log identity {
     capture noisily {
         finegray_phtest, time(`tf')
         matrix _P12m = r(phtest)
-        local _vnames ifp tumsize pelnode
+        * P11's active model is the SIMULATED fit `finegray x1 x2' -- two
+        * covariates -- not hypoxia.  These names key the r_phtest.csv lookup
+        * and must match that model, or every comparison reads a missing R
+        * value and the assert fails on missing rather than on disagreement.
+        local _vnames x1 x2
         preserve
         import delimited using "`datadir'/r_phtest.csv", clear
         * The GLOBAL row must no longer exist in the oracle output.
         quietly count if variable == "GLOBAL"
         assert r(N) == 0
         restore
-        forvalues v = 1/3 {
+        assert rowsof(_P12m) == 2
+        forvalues v = 1/2 {
             local vn : word `v' of `_vnames'
             local s_chi2 = _P12m[`v', 1]
             preserve

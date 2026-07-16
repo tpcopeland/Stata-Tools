@@ -65,6 +65,7 @@ Skip a file by listing it in `_skip.txt` (one `file.do | reason` per line).
 | `test_stratetab.do` | stratetab | strate-file workflows, multi-outcome/exposure scaffolds, rateratio, console/frame modes without xlsx(), sheet validation, row-order regression, error handling, varabbrev restore |
 | `test_diagtab.do` | diagtab | Se/Sp/PPV/NPV/AUC, cutoff sweeps, prevalence adjustment, degenerate 2x2 markers, single-cutoff zebra layout |
 | `test_comptab.do` | comptab | Composite tables from regtab/effecttab frames, varabbrev restore on error |
+| `test_ci_level_provenance.do` | regtab, effecttab, `_tabtools_collect_ci_level` | CI-level provenance: key present/absent/non-default, regtab+effecttab fallback to `level()` then `c(level)`, conflict guard still fires. Guards the Stata 19 `r(459)` breakage (`collect save` omits the undocumented `ci-level` key) |
 | `test_hrcomptab.do` | hrcomptab | stratetab scaffold + regtab model frames, rownames() patterns, reflabel() override + r(rateframe), xlsx success message |
 | `test_puttab.do` | puttab | Dataset/frame/matrix sources, styling options, markdown-only mode |
 | `test_stacktab.do` | stacktab | Workbook block assembly (vstack/hstack, columnmerge), frame replacement guard |

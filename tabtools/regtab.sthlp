@@ -193,10 +193,15 @@ wrap{p_end}
 
 {phang}
 {opt level(#)} verifies confidence-level provenance. By default, {cmd:regtab}
-uses the level stored in the active collection. An explicit value must match
-that stored level or the command fails before writing output. The resolved
-level is used in headers and methods text, returned in {cmd:r(ci_level)}, and
-stored on display and eplot frames.{p_end}
+uses the level stored in the active collection, and an explicit value must
+match that stored level or the command fails before writing output. Not every
+Stata version records the level in the collection: Stata 17 does, Stata 19 does
+not. When it is absent, {cmd:regtab} uses {opt level()} if you supply one and
+otherwise falls back to the current {helpb set level}, reporting a note; no
+conflict check is possible in that case, so supply {opt level()} if the
+collected models did not use the current default. The resolved level labels
+intervals in headers and methods text, is returned in {cmd:r(ci_level)}, and is
+stored on display and eplot frames; it affects no computed quantity.{p_end}
 
 {phang}
 {opt markdown(filename)} export the table as GitHub-Flavored Markdown{p_end}
