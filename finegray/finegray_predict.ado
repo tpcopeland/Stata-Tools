@@ -30,6 +30,7 @@ program define finegray_predict, rclass sortpreserve
     set varabbrev off
     local _held = 0
     local _bframe = 0
+    local _bh_stashed = 0
     local _created_vars ""
 
     capture noisily {
@@ -493,6 +494,15 @@ program define finegray_predict, rclass sortpreserve
                 tempname _esth
                 _estimates hold `_esth', restore
                 local _held = 1
+                * Each refit below calls finegray again and overwrites the single
+                * slot in the Mata baseline cache, bumping its seq past the one the
+                * held e(bh_seq) names.  Without this, a later `predict, cif' on new
+                * data (estimation sample dropped) finds a seq mismatch and errors
+                * r(459).  Snapshot the cache now, restore it after the loop; the
+                * bootstrap SE reads e(basehaz) on each refit, never this cache, so
+                * this cannot affect the SE.
+                mata: _finegray_bh_stash()
+                local _bh_stashed = 1
                 if "`seed'" != "" set seed `seed'
 
                 local _bok = 0
@@ -534,6 +544,11 @@ program define finegray_predict, rclass sortpreserve
                 local _bframe = 0
                 _estimates unhold `_esth'
                 local _held = 0
+                * Restore the fit's own baseline curve to the cache so a later
+                * predict on new data resolves against e(bh_seq) instead of the
+                * last resample's curve.
+                mata: _finegray_bh_unstash()
+                local _bh_stashed = 0
 
                 if `_bok' < `_minboot' {
                     display as error "bootstrap failed: only `_bok' of `bootstrap' replications succeeded"
@@ -728,6 +743,10 @@ program define finegray_predict, rclass sortpreserve
     local rc = _rc
     if `_bframe' capture frame drop `_bf'
     if `_held' capture _estimates unhold `_esth'
+    * A bootstrap that errored mid-loop leaves the cache snapshotted; restore it so
+    * the fit's baseline stays resolvable (falls back to prior behaviour if it too
+    * fails -- no worse than not stashing).
+    if `_bh_stashed' capture mata: _finegray_bh_unstash()
     * All-or-nothing output: drop any permanent variables this call created
     * when it exits with an error, so a failed ci/bootstrap/schoenfeld path
     * does not leave a partial prediction behind.

@@ -1,0 +1,33 @@
+# finegray QA run receipt
+# committed evidence; run_all.log itself is gitignored and transient.
+lane:    full
+date:    2026-07-15T22:54:57Z
+verdict: PASS
+
+per-suite RESULT trail (as echoed by each suite):
+RESULT: test_finegray tests=133 pass=133 fail=0
+RESULT: test_finegray_v110 tests=24 pass=24 fail=0
+RESULT: test_finegray_v111 tests=14 pass=14 fail=0
+RESULT: test_finegray_v112 tests=10 pass=10 fail=0
+RESULT: test_finegray_v114 tests=4 pass=4 fail=0
+RESULT: test_finegray_ties tests=6 pass=6 fail=0
+RESULT: test_finegray_optimizer tests=10 pass=10 fail=0
+RESULT: test_finegray_variance tests=6 pass=6 fail=0
+RESULT: test_finegray_bootstrap tests=6 pass=6 fail=0
+RESULT: test_finegray_postest tests=18 pass=18 fail=0
+RESULT: test_finegray_zzf tests=26 pass=26 fail=0
+RESULT: test_documentation_examples tests=7 pass=7 fail=0
+RESULT: validation_finegray tests=45 pass=45 fail=0
+RESULT: validation_finegray_recovery tests=4 pass=4 fail=0
+RESULT: validation_finegray_recovery_paths tests=15 pass=15 fail=0
+RESULT: validation_finegray_cif_recovery tests=5 pass=5 fail=0
+RESULT: validation_finegray_cif_se tests=7 pass=7 fail=0
+RESULT: validation_finegray_lt_se tests=6 pass=6 fail=0
+RESULT: crossval_predict_stcrreg tests=15 pass=15 fail=0 skip=0
+RESULT: crossval_cif tests=2 pass=2 fail=0 skip=0
+RESULT: PASS (all 14 tests passed)
+RESULT: crossval_predict_phtest tests=14 pass=14 fail=0 skip=0
+RESULT: crossval_finegray tests=55 pass=55 fail=0 skip=0
+RESULT: PASS (all 55 tests passed)
+RESULT: crossval_finegray_zzf tests=102 pass=102 fail=0
+RESULT: run_all tests=23 pass=23 fail=0 skip=0

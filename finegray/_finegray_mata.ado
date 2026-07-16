@@ -3499,6 +3499,35 @@ void _finegray_bh_have(real scalar seq, string scalar lname)
     st_local(lname, strofreal(ok))
 }
 
+/* Snapshot / restore the single-slot baseline cache around a side computation.
+   The cache holds ONE fit's curve, keyed by _finegray_bh_seq.  finegray_predict's
+   bootstrap refits each call finegray again -- every refit overwrites the cache
+   with its own baseline and bumps the seq -- so after the bootstrap the global
+   cache belongs to the LAST resample while the restored e(bh_seq) still names the
+   ORIGINAL fit.  A subsequent `predict, cif' on NEW data then finds a seq
+   mismatch, tries to rebuild from an estimation sample the user has since
+   dropped, and errors r(459).  The bootstrap SE itself is unaffected -- it reads
+   e(basehaz) on each refit, never this cache -- so stashing the cache before the
+   loop and restoring it after leaves the fit's baseline resolvable afterward at
+   zero cost to the SE.  Copying externals is O(K); it does NOT build a Stata
+   matrix (that would reintroduce the O(K^2) cost the cache exists to avoid). */
+void _finegray_bh_stash()
+{
+    external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
+    external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
+
+    _finegray_bh_cache_stash = _finegray_bh_cache
+    _finegray_bh_seq_stash   = _finegray_bh_seq
+}
+void _finegray_bh_unstash()
+{
+    external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
+    external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
+
+    _finegray_bh_cache = _finegray_bh_cache_stash
+    _finegray_bh_seq   = _finegray_bh_seq_stash
+}
+
 /* Step lookup against the cached curve.  Refuses a mismatched seq rather than
    answering from another fit's baseline. */
 void _finegray_step_lookup_cached(

@@ -622,6 +622,57 @@ else {
     local ++fail_count
 }
 
+**# FG-B04b: a bootstrap predict must not poison the baseline cache for a LATER
+* new-data prediction.  finegray_predict's bootstrap refits each call finegray
+* again, overwriting the single-slot Mata baseline cache and bumping its seq past
+* the held e(bh_seq).  Before the 1.2.2 stash/restore fix, a subsequent
+* predict, cif on new data (estimation sample dropped) found a seq mismatch,
+* could not rebuild, and errored r(459) -- confirmed on 1.2.1.  The point CIF is
+* baseline-only, so the post-bootstrap value must match the pre-bootstrap value
+* exactly; rc 0 alone would not prove the RIGHT baseline was restored.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55506
+    quietly set obs 2000
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    gen double t5 = 0.5
+    quietly stset t, failure(ev) id(id)
+    quietly finegray x, compete(ev) cause(1) nolog
+
+    * the truth, from the fit before any bootstrap runs
+    quietly finegray_predict double cif_pre, cif timevar(t5)
+    local truth = cif_pre[1]
+    local x1 = x[1]
+
+    * a bootstrap predict overwrites the cache once per replication
+    quietly finegray_predict double cif_bs, cif timevar(t5) ci level(90) ///
+        bootstrap(30) seed(999)
+
+    * destroy the estimation data and predict on a fresh profile
+    drop _all
+    set obs 1
+    gen double x = `x1'
+    gen double t5 = 0.5
+    capture noisily finegray_predict double cif_new, cif timevar(t5)
+    assert _rc == 0
+    assert !missing(cif_new[1])
+    assert reldif(cif_new[1], `truth') < 1e-10
+    display as text "  post-bootstrap new-data CIF = " %9.7f cif_new[1] ///
+        " matches pre-bootstrap " %9.7f `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: FG-B04b bootstrap predict leaves the baseline cache intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B04b bootstrap poisoned the baseline cache (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# FG-B05: the cache must never answer for a DIFFERENT fit, and must fail loudly
 * A cache keyed to nothing is a stale-state bug waiting to happen: predicting from
 * the PREVIOUS fit's baseline at rc 0 is exactly the silent-wrong-answer class.
