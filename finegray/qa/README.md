@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.2.1): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
+Quality assurance for the **finegray** package (v1.2.2): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
 This suite is built on four assurance layers, applied in increasing order of authority:
 
