@@ -843,6 +843,86 @@ else {
     display as error "        expected fg_sandwich / model_based / fg_sandwich / not_applicable"
 }
 
+* ---------------------------------------------------------------------------
+* Z27: the G-truncation note is printed ONCE per fit.
+*
+* It used to be emitted once per censoring stratum (by _finegray_km_censor's
+* per-stratum sweep) AND again from the pooled delayed-entry stabilizer on
+* every Newton iteration and step halving, so this exact command opened with
+* 15 copies of the same message.  The count below is the whole point of the
+* test: a stratified delayed-entry fit exercises both duplicate sources at
+* once, and against the pre-fix engine this assertion reads 15, not 1.
+*
+* The needle is built BEFORE the nested log opens.  A do-file echoes its own
+* source into any open log, so spelling the searched-for text inside the
+* logged region would make the test count its own comments and pass for the
+* wrong reason.
+* ---------------------------------------------------------------------------
+local ++test_count
+local _needle "truncated to 1e-10"
+
+_zzf_fix, n(4000) seed(20260713)
+quietly stset t, id(id) failure(status == 1 2) enter(time t0)
+
+* ereturn clear so the e(N) check below cannot be satisfied by the PREVIOUS
+* test's fit if this one dies before the scan.
+ereturn clear
+
+tempfile _z27log
+log using "`_z27log'", replace text name(_z27)
+finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
+log close _z27
+
+* Read the log as DATA.  Its own contents include quotes and vertical bars, so
+* a macro-based or import-delimited parse would die on the coefficient table.
+* This is a FUNCTION, not an interactive Mata block: at the Mata prompt a bare
+* "real scalar x, y" parses as the start of a function definition and dies
+* r(3000).
+capture mata: mata drop _z27_scan()
+mata:
+void _z27_scan(string scalar fn, string scalar needle)
+{
+    real scalar fh, cnt, nobs
+    string scalar line, tail
+
+    fh   = fopen(fn, "r")
+    cnt  = 0
+    nobs = .
+    while ((line = fget(fh)) != J(0, 0, "")) {
+        if (strpos(line, needle) > 0) {
+            cnt++
+            /* "note: G(t) ... 1e-10 for 57 observations; inference ..." */
+            tail = substr(line, strpos(line, " for ") + 5, .)
+            nobs = strtoreal(substr(tail, 1, strpos(tail, " ") - 1))
+        }
+    }
+    fclose(fh)
+    st_local("_n_note", strofreal(cnt))
+    st_local("_n_obs_note", strofreal(nobs))
+}
+end
+
+mata: _z27_scan(st_local("_z27log"), st_local("_needle"))
+
+* e(N) proves the fit itself ran, so a note count of 1 cannot be satisfied by a
+* command that errored out before reaching the scan.
+*
+* The 57 is the second half of the assertion and is not decoration: before the
+* fix this fixture's four censoring strata reported 13 / 13 / 17 / 14, summing
+* to 57.  Checking the NUMBER catches an aggregation that silently degraded to
+* first-stratum-wins (13) or last-stratum-wins (14) -- both of which would
+* still print exactly one line and pass a count-only test.
+local _z27_N = e(N)
+
+if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 {
+    local ++pass_count
+    display as result "  PASS: Z27 G-truncation note printed once per fit, aggregated over strata (13+13+17+14=57)"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N)=`_z27_N'"
+}
+
 * ===========================================================================
 display as text _newline "RESULT: test_finegray_zzf tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {

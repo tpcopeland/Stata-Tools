@@ -67,17 +67,11 @@ real colvector _finegray_km_censor_single(
     real scalar censval,
     real colvector event_type,
     real colvector t0,
-    | real scalar quiet)
+    | real scalar n_trunc_out)
 {
     real colvector row_id
     real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, cur_time, ep
     real colvector G, ord, entry_ord
-
-    /* quiet suppresses the G-truncation note.  The fit prints it once (the
-       data characteristic is the user's to act on); post-estimation commands
-       recompute G for the influence function and must NOT reprint it, or a
-       fit-time warning appears attributed to predict/cif.  Omitted => 0. */
-    if (args() < 6) quiet = 0
 
     n = rows(t)
     G = J(n, 1, 1)
@@ -147,10 +141,11 @@ real colvector _finegray_km_censor_single(
             n_trunc++
         }
     }
-    if (n_trunc > 0 & !quiet) {
-        printf("{txt}note: G(t) truncated to 1e-10 for %g observations;" +
-            " inference may be sensitive\n", n_trunc)
-    }
+    /* This function never prints.  A stratified sweep calls it once per
+       stratum, so a note emitted here would fire once PER STRATUM; the
+       decision to print, and the aggregation across strata, belong to
+       _finegray_km_censor.  Report the count back by reference instead. */
+    if (args() >= 6) n_trunc_out = n_trunc
 
     return(G)
 }
@@ -165,12 +160,15 @@ real colvector _finegray_km_censor(
     real colvector t0,
     | real scalar quiet)
 {
-    real scalar n, g, nlev
+    real scalar n, g, nlev, n_trunc, n_trunc_tot
     real colvector G, levels, sel
 
-    /* Threaded to _single so the G-truncation note fires only where the caller
-       asks (the fit), never on a post-estimation recompute.  Omitted => 0. */
+    /* quiet suppresses the G-truncation note.  The fit prints it once (the
+       data characteristic is the user's to act on); post-estimation commands
+       recompute G for the influence function and must NOT reprint it, or a
+       fit-time warning appears attributed to predict/cif.  Omitted => 0. */
     if (args() < 7) quiet = 0
+    n_trunc_tot = 0
 
     n = rows(t)
     G = J(n, 1, 1)
@@ -181,12 +179,25 @@ real colvector _finegray_km_censor(
         for (g = 1; g <= nlev; g++) {
             sel = selectindex(byg_id :== levels[g])
             G[sel] = _finegray_km_censor_single(t[sel], delta[sel],
-                censval, event_type[sel], t0[sel], quiet)
+                censval, event_type[sel], t0[sel], n_trunc)
+            n_trunc_tot = n_trunc_tot + n_trunc
         }
-        return(G)
+    }
+    else {
+        G = _finegray_km_censor_single(t, delta, censval, event_type, t0,
+            n_trunc)
+        n_trunc_tot = n_trunc
     }
 
-    G = _finegray_km_censor_single(t, delta, censval, event_type, t0, quiet)
+    /* One note per sweep, counting every stratum.  Truncation is a property of
+       the censoring KM as a whole; the per-stratum breakdown is not something
+       the user acts on differently, and printing it per stratum buried the
+       message under its own repeats. */
+    if (n_trunc_tot > 0 & !quiet) {
+        printf("{txt}note: G(t) truncated to 1e-10 for %g observations;" +
+            " inference may be sensitive\n", n_trunc_tot)
+    }
+
     return(G)
 }
 
@@ -542,7 +553,13 @@ real colvector _finegray_A_pool_at_times(
     real matrix Gpt, Hpt
 
     one = J(rows(t), 1, 1)
-    Gp = _finegray_km_censor(t, delta, censval, event_type, one, t0)
+    /* quiet=1 is mandatory, not cosmetic.  This runs inside _finegray_loglik,
+       _finegray_score and the Hessian, i.e. once per Newton iteration and once
+       per step halving, so a note here reprints the same fit-time fact dozens
+       of times.  The pooled A floor is separately surfaced -- and escalated to
+       r(459) when a consulted cell is zero -- by _finegray_positivity_check,
+       and the censoring KM's own truncation is reported once by the engine. */
+    Gp = _finegray_km_censor(t, delta, censval, event_type, one, t0, 1)
     Gpt = _finegray_G_at_times(t, Gp, one, target_t)
     Hpt = _finegray_H_at_times(t, t0, one, target_t)
     return(Gpt[., 1] :* Hpt[., 1])
