@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.9.8  2026/07/13
+*! _tabtools_common Version 1.9.9  2026/07/16
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -628,6 +628,11 @@ end
 
 * =============================================================================
 * _tabtools_collect_ci_level: Read CI provenance from collect's saved JSON
+*
+* The "ci-level" key is an undocumented collect internal. Stata 17 writes it;
+* Stata 19 does not write it at all and nothing replaced it. Absence is
+* therefore an expected outcome, not an error: report it via r(found) and let
+* callers fall back. Erroring here broke regtab/effecttab outright on Stata 19.
 * =============================================================================
 
 capture program drop _tabtools_collect_ci_level
@@ -644,7 +649,7 @@ program _tabtools_collect_ci_level, rclass
         file open `_fh' using "`_json'", read text
         local _fh_open = 1
         file read `_fh' _line
-        while r(eof) == 0 {
+        while r(eof) == 0 & missing(`_level') {
             local _needle `""ci-level""'
             local _pos = strpos(`"`_line'"', `"`_needle'"')
             if `_pos' > 0 {
@@ -653,23 +658,25 @@ program _tabtools_collect_ci_level, rclass
                     local _tail = substr(`"`_line'"', `_pos' + `_colon', .)
                     local _tail : subinstr local _tail "," "", all
                     local _tail : subinstr local _tail "}" "", all
-                    local _level = real(strtrim(`"`_tail'"'))
+                    local _cand = real(strtrim(`"`_tail'"'))
+                    * Accept only a usable level; a malformed or out-of-range
+                    * match must not be mistaken for provenance.
+                    if !missing(`_cand') & `_cand' > 0 & `_cand' < 100 {
+                        local _level = `_cand'
+                    }
                 }
             }
             file read `_fh' _line
         }
         file close `_fh'
         local _fh_open = 0
-        if missing(`_level') | `_level' <= 0 | `_level' >= 100 {
-            noisily display as error "the active collection does not contain usable confidence-level provenance"
-            exit 459
-        }
-        return scalar level = `_level'
     }
     local rc = _rc
     if `_fh_open' capture file close `_fh'
     capture erase "`_json'"
     if `rc' exit `rc'
+    return scalar found = !missing(`_level')
+    return scalar level = `_level'
 end
 
 * =============================================================================

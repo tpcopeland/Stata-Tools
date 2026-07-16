@@ -172,7 +172,21 @@ write.csv(as.data.frame(sch_mat),
 # 4. PH test: correlation of Schoenfeld residuals with time
 #    Pearson correlation is scale-invariant, so unscaled residuals
 #    give the same rho and chi2 as Grambsch-Therneau scaled residuals.
-#    chi2 = N * rho^2, summed for global test.
+#    chi2 = N * rho^2, per covariate.
+#
+#    ORACLE SCOPE.  cmprsk ships no PH test, so this script computes
+#    N*rho^2 itself -- by the SAME rule as the .ado.  The independent
+#    content of the comparison is therefore crr's beta and the Schoenfeld
+#    residuals built from it (section 3 / test P11), not the statistic.
+#
+#    Through 1.2.2 this script also emitted a "GLOBAL" row that summed the
+#    per-covariate chi2 and referred the total to chi2(p) -- reproducing
+#    finegray_phtest's own rule exactly.  That made the global comparison a
+#    MIRROR ORACLE: both sides shared the identical wrong semantics, so the
+#    check passed while the statistic was wrong on its face (the components
+#    are correlated, so the sum is not chi2(p)).  The omnibus was retired in
+#    finegray 1.2.3 and the GLOBAL row is removed here.  Do not re-add it:
+#    an oracle that recomputes the code's own rule tests nothing.
 # =====================================================================
 phtest_rows <- list()
 for (tf_name in c("rank", "log", "identity")) {
@@ -180,7 +194,6 @@ for (tf_name in c("rank", "log", "identity")) {
         rank = rank(sch_mat[, 1]),
         log = log(sch_mat[, 1]),
         identity = sch_mat[, 1])
-    global_chi2 <- 0
     for (k in seq_len(p)) {
         r_k <- sch_mat[, k + 1]
         valid <- !is.na(r_k) & !is.na(tf)
@@ -189,7 +202,6 @@ for (tf_name in c("rank", "log", "identity")) {
             rho <- cor(r_k[valid], tf[valid])
             chi2 <- nv * rho^2
             pval <- pchisq(chi2, 1, lower.tail = FALSE)
-            global_chi2 <- global_chi2 + chi2
             phtest_rows[[length(phtest_rows) + 1]] <- data.frame(
                 variable = cov_cols[k], time_func = tf_name,
                 rho = rho, chi2 = chi2, p_value = pval, n_events = nv,
@@ -198,13 +210,6 @@ for (tf_name in c("rank", "log", "identity")) {
                         cov_cols[k], tf_name, rho, chi2, pval))
         }
     }
-    global_p <- pchisq(global_chi2, p, lower.tail = FALSE)
-    phtest_rows[[length(phtest_rows) + 1]] <- data.frame(
-        variable = "GLOBAL", time_func = tf_name,
-        rho = NA, chi2 = global_chi2, p_value = global_p,
-        n_events = n_events, stringsAsFactors = FALSE)
-    cat(sprintf("  PH[GLOBAL,%s]: chi2=%.4f p=%.4f\n",
-                tf_name, global_chi2, global_p))
 }
 phtest_df <- do.call(rbind, phtest_rows)
 write.csv(phtest_df, file.path(output_dir, "r_phtest.csv"),

@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.2  2026/07/15
+*! finegray_cif Version 1.2.0  2026/07/16
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -488,7 +488,7 @@ program define finegray_cif, rclass sortpreserve
         matrix `R'[`r', 3] = `sev'
         * Confidence limits, or NOTHING.  `R' is initialised to missing, and a
         * limit we cannot compute must stay missing.  Writing the point estimate
-        * into lci/uci instead -- which is what this did through v1.1.4 --
+        * into lci/uci instead -- which is what this did through v1.1.0 --
         * manufactures a zero-width interval and presents it as a real one: an
         * interior CIF whose SE came back nonfinite was reported as an exact,
         * uncertainty-free estimate. It also meant r(table) carried

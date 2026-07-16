@@ -1,4 +1,4 @@
-*! regtab Version 1.9.8  2026/07/13
+*! regtab Version 1.9.9  2026/07/16
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -341,14 +341,24 @@ quietly{
         exit 119
     }
 	_tabtools_collect_ci_level
+	local _ci_found = r(found)
 	local _stored_ci_level = r(level)
-	local _ci_level = `_stored_ci_level'
-	if `level' != -1 {
-		if abs(`level' - `_stored_ci_level') > 1e-8 {
-			noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
-			exit 198
+	if `_ci_found' {
+		local _ci_level = `_stored_ci_level'
+		if `level' != -1 {
+			if abs(`level' - `_stored_ci_level') > 1e-8 {
+				noisily display as error "level(`level') conflicts with the active collection's `_stored_ci_level'% intervals"
+				exit 198
+			}
+			local _ci_level = `level'
 		}
+	}
+	else if `level' != -1 {
 		local _ci_level = `level'
+	}
+	else {
+		local _ci_level = c(level)
+		noisily display as text "note: this Stata version does not record confidence-level provenance in the collection; labeling intervals as `_ci_level'% from the current {bf:set level}. Specify {bf:level()} if the collected models used a different level."
 	}
 
     * Validation: Check xlsx if specified

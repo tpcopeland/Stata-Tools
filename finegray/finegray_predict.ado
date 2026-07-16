@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.2  2026/07/15
+*! finegray_predict Version 1.2.0  2026/07/16
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -600,7 +600,7 @@ program define finegray_predict, rclass sortpreserve
             quietly gen double `uci' = ///
                 1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
             local _created_vars "`_created_vars' `lci' `uci'"
-            * A limit that could not be computed stays MISSING.  Through v1.1.4
+            * A limit that could not be computed stays MISSING.  Through v1.1.0
             * these two lines collapsed it onto the point estimate, which turns
             * "we cannot quantify the uncertainty here" into "there is none":
             * a degenerate CIF, or an interior CIF whose SE came back nonfinite,

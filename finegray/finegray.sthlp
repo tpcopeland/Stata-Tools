@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  15jul2026}{...}
+{* *! version 1.2.0  16jul2026}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
 {vieweralsosee "finegray_phtest" "help finegray_phtest"}{...}
@@ -9,6 +9,7 @@
 {viewerjumpto "Description" "finegray##description"}{...}
 {viewerjumpto "Options" "finegray##options"}{...}
 {viewerjumpto "Remarks" "finegray##remarks"}{...}
+{viewerjumpto "Dataset side effects" "finegray##sideeffects"}{...}
 {viewerjumpto "Examples" "finegray##examples"}{...}
 {viewerjumpto "Stored results" "finegray##results"}{...}
 {viewerjumpto "Author" "finegray##author"}{...}
@@ -162,6 +163,21 @@ observed joint strata, each holding at least {bf:20} estimation-sample
 subjects. Exceeding either boundary is {cmd:r(459)}; groups are never silently
 pooled. See {help finegray##lt:Left truncation} for why the boundary applies to {opt strata()} as well
 once entry is delayed.
+
+{pmore}
+{bf:Neither boundary is overridable}, and both apply to delayed-entry fits
+only; a fit without delayed entry is unaffected by either. Both are
+{it:package conventions}, not values derived from the underlying theory: under delayed entry
+the censoring survivor G and the entry distribution H are each estimated
+{it:within} a joint stratum, so the 100-stratum ceiling bounds how finely the
+sample may be partitioned before those per-stratum product limits are estimated
+from too little data, and the 20-subject floor bounds the smallest partition that
+is allowed to carry its own G and H. Choosing to refuse rather than to pool or
+drop is the deliberate part; the two numbers themselves are conservative
+round figures. Note in particular that the 20-subject floor is a {it:size} check
+only -- it bounds how many subjects a stratum holds, not whether A stays away
+from zero where the weight scan divides by it, which is checked separately (see
+the paragraph below).
 
 {pmore}
 {bf:The size boundary does not guarantee a usable weight.} A retained
@@ -338,6 +354,45 @@ covariate increases the cumulative incidence of the cause of interest.
 {pstd}
 Unlike cause-specific hazard ratios, SHRs have a direct interpretation in terms
 of the cumulative incidence function.
+
+{marker sideeffects}{...}
+{pstd}
+{bf:What {cmd:finegray} changes in your dataset.} The fit itself runs inside a
+{cmd:preserve}, and the command is {cmd:sortpreserve}, so
+{bf:no observation is dropped, altered, or reordered} and your sort order is
+restored. What does persist, deliberately, is the following.
+
+{phang2}
+{bf:1. Factor-variable design columns} named {cmd:_fg_}{it:term}, one per
+expanded factor or interaction term, created only when the model uses
+factor-variable syntax. They are labelled and left in the dataset for
+{helpb finegray_predict}. A later {cmd:finegray} run drops only the columns its
+own prior run recorded; it never wildcard-drops {cmd:_fg_*}. A pre-existing
+{cmd:_fg_}{it:term} that finegray did not create is an error
+({cmd:r(198)}), not a silent overwrite.
+
+{phang2}
+{bf:2. An entry-time column} {cmd:_fg_entry}, created only when multiple records
+per subject are reduced. It holds each subject's earliest entry time and is
+required by the post-estimation commands; see
+{help finegray##lt:Left truncation}.
+
+{phang2}
+{bf:3. Dataset characteristics} recording the fit for post-estimation use; see
+{help finegray##results:Stored results} for the full list. These travel with the
+dataset when you {cmd:save} it.
+
+{phang2}
+{bf:4. A reduced {cmd:e(sample)}} on multiple-record data -- one record per
+subject rather than one per supplied record, with {cmd:e(N)} counting
+subjects. The data are untouched; only the estimation-sample marker is
+reduced. See {help finegray##lt:Left truncation}.
+
+{pstd}
+Items 1 and 2 are ordinary variables: {cmd:describe}, {cmd:save} and
+{cmd:drop} all see them. Dropping them is supported -- {helpb finegray_predict}
+rebuilds design columns on demand -- but do not drop {cmd:_fg_entry} while
+post-estimation on a multiple-record fit is still needed.
 
 {marker lt}{...}
 {pstd}
@@ -518,6 +573,16 @@ Such records are reduced automatically to one risk-set unit per subject
 handles the entry times.
 
 {pmore}
+{bf:The reduction is visible in {cmd:e(sample)}.} On multiple-record data
+{cmd:e(sample)} marks only the single retained record per subject -- not every
+record you supplied -- and {cmd:e(N)} counts subjects rather than records. So
+{cmd:count if e(sample)} returns the number of subjects, and any
+{cmd:summarize}, {cmd:tabulate} or {cmd:list} restricted to {cmd:e(sample)}
+sees one row per subject. The dataset itself is not reduced: your records are
+all still there, and no row is dropped or reordered. Single-record data is
+unaffected, since each subject already occupies exactly one row.
+
+{pmore}
 For multi-record fits, {cmd:finegray} records each subject's earliest entry
 time in the variable {cmd:_fg_entry}, which post-estimation commands
 ({helpb finegray_cif}, {helpb finegray_phtest}, and the {opt ci},
@@ -591,7 +656,7 @@ implementations do not all estimate the same variance.
 {cmd:finegray}'s default sandwich treats the estimated censoring weights as fixed
 and applies the same finite-sample adjustment as {helpb stcrreg} ({it:N}/({it:N}-1), or {it:g}/({it:g}-1)
 under {opt cluster()}). Standard errors agree with {cmd:stcrreg} to within 1e-3 in
-relative terms. Versions through 1.1.4 omitted the finite-sample adjustment,
+relative terms. Versions through 1.1.0 omitted the finite-sample adjustment,
 so they reproduced {cmd:stcrreg}'s {cmd:noadjust} variance while presenting it as the
 default; {opt noadjust} now reproduces those earlier numbers exactly.
 
@@ -960,7 +1025,7 @@ recoded; it does not silently impose a ridge penalty.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.2, 2026-07-15{p_end}
+{pstd}Version 1.2.0, 2026-07-16{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

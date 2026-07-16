@@ -1009,9 +1009,12 @@ capture noisily {
     stset t, failure(d) id(id)
     finegray x1, compete(status) cause(1) nolog
     finegray_phtest
+    * 1.2.0: single-covariate fit, so the retired omnibus scalar was exactly
+    * this row -- the power claim is unchanged.
+    matrix _Pv = r(phtest)
     * With 2000 obs and strong PH violation, p should be small
-    display as text "  PH violation test: chi2=" %8.3f r(chi2) " p=" %8.5f r(p)
-    assert r(p) < 0.10
+    display as text "  PH violation test: chi2=" %8.3f _Pv[1,1] " p=" %8.5f _Pv[1,3]
+    assert _Pv[1,3] < 0.10
 }
 if _rc == 0 {
     display as result "  PASS: C31 phtest detects PH violation"
@@ -1045,9 +1048,11 @@ capture noisily {
     stset t, failure(d) id(id)
     finegray x1, compete(status) cause(1) nolog
     finegray_phtest
+    * 1.2.0: single-covariate fit; see the note on the PH-violation arm above.
+    matrix _Pw = r(phtest)
     * With weak effect and moderate N, p should be non-significant
-    display as text "  Weak effect PH test: chi2=" %8.3f r(chi2) " p=" %8.5f r(p)
-    assert r(p) > 0.01
+    display as text "  Weak effect PH test: chi2=" %8.3f _Pw[1,1] " p=" %8.5f _Pw[1,3]
+    assert _Pw[1,3] > 0.01
 }
 if _rc == 0 {
     display as result "  PASS: C32 phtest non-rejection (weak effect)"

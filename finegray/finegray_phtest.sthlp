@@ -72,18 +72,51 @@ with a larger {opt iterate()} or a different specification.
 {bf:Statistical scope.} For each covariate, the command multiplies its raw
 Schoenfeld residual by the corresponding diagonal element of the inverse
 observed-information matrix. It then calculates the residual-time correlation
-rho and reports n*rho^2 against a one-degree-of-freedom chi-squared reference. The
-statistic labeled {it:Global test} is the sum of those marginal statistics,
-with {it:p} degrees of freedom.
+rho and reports n*rho^2 against a one-degree-of-freedom chi-squared
+reference. Each row is a separate marginal test.
 
 {pstd}
 This construction is inspired by weighted-residual diagnostics for Cox models,
 but it does not implement the full Grambsch-Therneau transformation or a
 published subdistribution-hazard calibration. The marginal p-values are
-therefore approximate. The summed statistic also ignores covariance between
-covariates and is not a formal joint test. Use the residual pattern and
-sensitivity across {opt time()} choices as diagnostic evidence, not as a
-stand-alone accept/reject procedure.
+therefore approximate. Use the residual pattern and sensitivity across
+{opt time()} choices as diagnostic evidence, not as a stand-alone accept/reject
+procedure.
+
+{marker global}{...}
+{pstd}
+{bf:Global test.} {cmd:finegray_phtest} reports {bf:no omnibus test}, and has not
+since version 1.2.0. Earlier versions printed a {it:Global test} row holding the
+sum of the per-covariate 1-df statistics, referred to a chi-squared with {it:p}
+degrees of freedom. That reference distribution is correct only if the
+components are independent. Scaled Schoenfeld residuals are correlated whenever
+the covariates are, so the sum is not chi-squared({it:p}): the printed
+probability had no stated null distribution and its error ran in an unknown
+direction. It was removed rather than relabeled.
+
+{pstd}
+The apparent repair does not transfer to this estimator. Grambsch and Therneau
+(1994) build a joint statistic for the {it:Cox} model whose null covariance is
+the Cox information -- an identity that holds because the Cox score is a
+martingale integral. {cmd:finegray}'s score is IPCW-weighted with an {it:estimated}
+censoring distribution, so its variance is a sandwich carrying an additional
+term for that estimation (Fine and Gray 1999, eq. 7-8; Bellach et al. 2019,
+sec. 3.3, "this additional variability cannot be ignored"). That is precisely why
+{cmd:finegray} itself defaults to {opt vce(robust)} rather than the inverse
+information. Reusing the information as a null covariance here would restate the
+original defect -- an unstated reference distribution -- in a form that merely
+looks rigorous.
+
+{pstd}
+No published omnibus test for the proportional {it:subdistribution} hazards
+assumption is implemented. Candidates exist -- Zhou et al. (2013) give a score
+test on modified Schoenfeld residuals, and Li, Scheike and Zhang (2015) a
+cumulative-sums-of-residuals test with simulated p-values -- but neither is
+implemented or validated here. PSHREG (Kohl et al. 2015), the closest reference
+implementation for this model, likewise reports only per-covariate correlation
+tests and residual plots. If a single global claim is needed, Bonferroni-adjust
+across the {it:p} rows reported below, or fit the time-interaction model
+directly and test the interaction terms.
 
 {pstd}
 The test is only defined where it can be computed. If every cause event occurs
@@ -159,9 +192,6 @@ less sensitive to extreme event times and is the default screening choice.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(chi2)}}sum of marginal chi-squared screening statistics{p_end}
-{synopt:{cmd:r(df)}}degrees of freedom{p_end}
-{synopt:{cmd:r(p)}}approximate p-value for the summed statistic{p_end}
 {synopt:{cmd:r(N_fail)}}number of cause events{p_end}
 
 {synoptset 20 tabbed}{...}
@@ -171,6 +201,14 @@ less sensitive to extreme event times and is the default screening choice.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(phtest)}}p x 3 matrix: marginal chi2, df, approximate p{p_end}
+
+{pstd}
+{bf:Changed in 1.2.0.} {cmd:r(chi2)}, {cmd:r(df)} and {cmd:r(p)} held the retired
+omnibus statistic and are {bf:no longer stored}; see
+{help finegray_phtest##global:Global test} above. Existing code that reads them
+will now see them as empty rather than receive a wrong number. Per-covariate
+statistics remain available in {cmd:r(phtest)}, whose columns and rownames are
+unchanged.
 
 
 {marker references}{...}
@@ -195,11 +233,43 @@ weighted residuals [correction]. {it:Biometrika} 1995; 82(3): 668.
 {pstd}{browse "https://doi.org/10.1093/biomet/82.3.668":doi:10.1093/biomet/82.3.668}{p_end}
 
 {pstd}
+Bellach A, Kosorok MR, Ruschendorf L, Fine JP. Weighted NPMLE for the
+subdistribution of a competing risk. {it:JASA} 2019; 114(525): 259-270.
+
+{pstd}{browse "https://doi.org/10.1080/01621459.2017.1401540":doi:10.1080/01621459.2017.1401540}{p_end}
+
+{pstd}
+Zhou B, Fine J, Laird G. Goodness-of-fit test for proportional subdistribution
+hazards model. {it:Statistics in Medicine} 2013; 32(22): 3804-3811.
+
+{pstd}{browse "https://doi.org/10.1002/sim.5815":doi:10.1002/sim.5815}{p_end}
+
+{pstd}
+Li J, Scheike TH, Zhang MJ. Checking Fine and Gray subdistribution hazards model
+with cumulative sums of residuals. {it:Lifetime Data Analysis} 2015; 21(2): 197-217
+(online 2014).
+
+{pstd}{browse "https://doi.org/10.1007/s10985-014-9313-9":doi:10.1007/s10985-014-9313-9}{p_end}
+
+{pstd}
+Kohl M, Plischke M, Leffondre K, Heinze G. PSHREG: a SAS macro for
+proportional and nonproportional subdistribution hazards
+regression. {it:Computer Methods and Programs in Biomedicine} 2015; 118(2): 218-233.
+
+{pstd}{browse "https://doi.org/10.1016/j.cmpb.2014.11.009":doi:10.1016/j.cmpb.2014.11.009}{p_end}
+
+{pstd}
 Fine and Gray (1999) support Schoenfeld-type residual plots for the
-subdistribution model. Grambsch and Therneau (1994, corrected 1995) concern
-the Cox model and are cited only as inspiration for time-transformed
-weighted-residual diagnostics. Neither article validates the marginal
-n*rho^2 statistics or their sum as implemented here.
+subdistribution model, and (eq. 7-8) ground the estimated-censoring variance
+term that, with Bellach et al. (2019, sec. 3.3), rules out the inverse
+information as a null covariance for a joint test here. Grambsch and Therneau
+(1994, corrected 1995) concern the Cox model and are cited only as inspiration
+for time-transformed weighted-residual diagnostics; their joint test is
+{bf:not} implemented, and their null covariance does not transfer to this
+estimator. No article cited here validates the marginal n*rho^2 statistics as
+implemented. Zhou et al. (2013), Li et al. (2015) and Kohl et al. (2015) are
+cited to document the state of omnibus testing for this model, not as
+implemented methods.
 
 
 {marker author}{...}

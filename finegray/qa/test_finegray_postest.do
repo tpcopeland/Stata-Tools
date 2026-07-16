@@ -408,11 +408,15 @@ capture noisily {
 
     capture noisily finegray_phtest
     assert _rc == 0
-    assert !missing(r(chi2))
-    assert !missing(r(p))
-    assert r(chi2) >= 0
-    assert r(p) >= 0 & r(p) <= 1
-    display as text "  chi2 = " %8.4f r(chi2) "  p = " %6.4f r(p)
+    * 1.2.0: read the per-covariate row.  This is a single-covariate fit, so
+    * the retired omnibus scalar was exactly this row's statistic.
+    matrix _Pm03 = r(phtest)
+    assert rowsof(_Pm03) == 1
+    assert !missing(_Pm03[1,1])
+    assert !missing(_Pm03[1,3])
+    assert _Pm03[1,1] >= 0
+    assert _Pm03[1,3] >= 0 & _Pm03[1,3] <= 1
+    display as text "  chi2 = " %8.4f _Pm03[1,1] "  p = " %6.4f _Pm03[1,3]
 }
 if _rc == 0 {
     display as result "  PASS: FG-M03 well-posed PH test still reports real statistics"

@@ -796,22 +796,29 @@ else {
 
 local tol = 1e-4
 
-* V30: Global chi2 == sum of per-variable chi2
+* V30: no omnibus statistic is stored (1.2.0)
+* This test formerly asserted r(chi2) == sum of the per-variable chi2 -- i.e.
+* it ENSHRINED the defect that 1.2.0 removes.  Summing 1-df components and
+* referring the total to chi2(p) is valid only under independence, which
+* scaled Schoenfeld residuals violate whenever the covariates are correlated.
+* The invariant now is that no such statistic is offered at all.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest
+    assert missing(r(chi2))
+    assert missing(r(df))
+    assert missing(r(p))
     matrix ph = r(phtest)
-    local sum_chi2 = ph[1,1] + ph[2,1] + ph[3,1]
-    assert abs(`sum_chi2' - r(chi2)) < 1e-8
+    assert rowsof(ph) == 3
 }
 if _rc == 0 {
-    display as result "  PASS: V30 global chi2 == sum of per-var chi2"
+    display as result "  PASS: V30 no omnibus statistic stored"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V30 chi2 sum (rc=`=_rc')"
+    display as error "  FAIL: V30 omnibus statistic still stored (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -879,16 +886,21 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    * 1.2.0: compare the per-covariate chi2 column rather than the retired
+    * omnibus scalar.  Summing was never needed here -- the claim is that the
+    * time transform moves the statistics, and column 1 shows that per row.
     finegray_phtest, time(rank)
-    local chi2_rank = r(chi2)
+    matrix _R = r(phtest)
     finegray_phtest, time(log)
-    local chi2_log = r(chi2)
+    matrix _L = r(phtest)
     finegray_phtest, time(identity)
-    local chi2_id = r(chi2)
+    matrix _I = r(phtest)
     * All three should differ (on real data with non-trivial time distribution)
-    assert abs(`chi2_rank' - `chi2_log') > 1e-6
-    assert abs(`chi2_rank' - `chi2_id') > 1e-6
-    assert abs(`chi2_log' - `chi2_id') > 1e-6
+    forvalues v = 1/3 {
+        assert abs(_R[`v',1] - _L[`v',1]) > 1e-6
+        assert abs(_R[`v',1] - _I[`v',1]) > 1e-6
+        assert abs(_L[`v',1] - _I[`v',1]) > 1e-6
+    }
 }
 if _rc == 0 {
     display as result "  PASS: V34 time functions produce different chi2"

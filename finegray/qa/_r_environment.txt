@@ -1,0 +1,19 @@
+# R comparator environment for finegray crossval_*_r.R
+#
+# P11 / synthesis C3: the shipped comparator code must be pinned to the
+# versions that produced the shipped numbers.  Regenerate with:
+#
+#   Rscript -e 'cat("R:", as.character(getRversion()), "\n"); \
+#     for (p in c("cmprsk","fastcmprsk","riskRegression","survival","prodlim")) \
+#       cat(sprintf("%-16s %s\n", p, as.character(packageVersion(p))))'
+#
+# Recorded on the machine that produced the committed qa/*.log files.
+recorded_on:    2026-07-16T13:52:08Z
+host_os:        Linux 6.17.0-40-generic
+stata:          stata17 MP (c(stata_version)=17, c(SE)=1, c(MP)=1, processors=16)
+R:              4.6.1
+cmprsk:         2.2.12
+fastcmprsk:     1.26.1
+riskRegression: 2026.3.11
+survival:       3.8.6
+prodlim:        2026.3.11

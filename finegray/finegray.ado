@@ -1,4 +1,4 @@
-*! finegray Version 1.2.2  2026/07/15
+*! finegray Version 1.2.0  2026/07/16
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())

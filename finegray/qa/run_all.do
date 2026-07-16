@@ -39,8 +39,7 @@ local skip_file "`qa_dir'/_skip.txt"
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local quick_files test_finegray.do test_finegray_v110.do test_finegray_v111.do ///
-    test_finegray_v112.do test_finegray_v114.do ///
+local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///

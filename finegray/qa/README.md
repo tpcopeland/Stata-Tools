@@ -1,6 +1,6 @@
 # finegray — QA suite
 
-Quality assurance for the **finegray** package (v1.2.2): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
+Quality assurance for the **finegray** package (v1.2.0): the Fine and Gray (1999) subdistribution-hazards estimator (`finegray`) and its post-estimation tools (`finegray_predict`, `finegray_cif`, `finegray_phtest`).
 
 This suite is built on four assurance layers, applied in increasing order of authority:
 
@@ -16,10 +16,7 @@ The latest isolated `full` lane passed 23/23 suites and 533/533 checks on 2026-0
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
 | `test_finegray.do` | functional / regression | 133 | 133 | 0 | 0 |
-| `test_finegray_v110.do` | regression (v1.1.0 surface + graph polish) | 24 | 24 | 0 | 0 |
-| `test_finegray_v111.do` | regression (v1.1.1 fixes: multi-record post-estimation, LT SEs, e(sample) after bootstrap, multi-var strata, string-id bootstrap, cluster resampling, factor `at()`) | 14 | 14 | 0 | 0 |
-| `test_finegray_v112.do` | regression (v1.1.2 review fixes: stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, safe saving) | 10 | 10 | 0 | 0 |
-| `test_finegray_v114.do` | regression (v1.1.4 fixes: factor-level bootstrap skips, unspaced `saving()`, prediction-variable cleanup) | 4 | 4 | 0 | 0 |
+| `test_finegray_v110.do` | regression (v1.1.0: CIF/predict/bootstrap surface + graph polish, multi-record post-estimation, LT SEs, stratified IPCW, stale-data/state guards, return gates, bootstrap accounting, factor-level bootstrap skips, `saving()` parsing, prediction-variable cleanup) | 52 | 52 | 0 | 0 |
 | `test_finegray_ties.do` | **estimator core numerics** (censoring-tie left limit, `(t0,t]` entry boundary, ZZF entry-time at-risk count, intentional stcrreg LT non-parity) | 6 | 6 | 0 | 0 |
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
@@ -142,10 +139,7 @@ install.packages("fastcmprsk")
 | `benchmark_finegray_zzf.do` | Standalone preregistered scaling measurement for the delayed-entry scan; fits CPU-time and incremental-memory log–log slopes and is intentionally outside `run_all.do` |
 | `_benchmark_finegray_zzf_cell.do` | Fresh-process worker used by `benchmark_finegray_zzf.do` for one measured fit |
 | `test_finegray.do` | Master functional/regression suite for all four commands |
-| `test_finegray_v110.do` | Regression tests for the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record stsplit, `level()`) and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths) |
-| `test_finegray_v111.do` | Regression tests for the v1.1.1 fixes: post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), and `finegray_cif, at()` factor-variable natural names |
-| `test_finegray_v112.do` | Regression tests for v1.1.2: estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, and helper `r()` isolation |
-| `test_finegray_v114.do` | Regression tests for v1.1.4: factor-level bootstrap skips/counts, unspaced `saving(filename,replace)` parsing, and all-or-nothing prediction-variable cleanup |
+| `test_finegray_v110.do` | Regression tests for everything the collapsed version history attributes to v1.1.0. Merged mechanically from the four version-pinned suites that predated the collapse (v110 + v111 + v112 + v114); section banners inside the file preserve their origin. Covers: the v1.1.0 feature surface (CIF curves, bootstrap CI, multi-record `stsplit`, `level()`) and `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths); post-estimation parity between single-record and `stsplit` (reduced) fits, bootstrap refits on true entry times, `e(sample)` survival across `finegray_cif, bootstrap()`, `_fg_entry` lifecycle, multi-variable `strata()` through the CIF SE paths, string-`id()` bootstrap (no `r(109)` crash, no char/type leak, matches numeric path), cluster-level bootstrap resampling (SE inflated vs subject resampling), `finegray_cif, at()` factor-variable natural names; estimation-data signatures, stale-state invalidation, graph/save return gates, strict `saving()`/`at()` validation, all/partial bootstrap nonconvergence, restored estimates and `e(sample)`, helper `r()` isolation; factor-level bootstrap skips/counts, unspaced `saving(filename,replace)` parsing, and all-or-nothing prediction-variable cleanup |
 | `test_finegray_ties.do` | Estimator core numerics: censoring ties use the left limit `G(t-)` (matching `cmprsk`'s `xout = ftime*(1-100*eps)` and `stcrreg`), and the risk-set entry boundary is `(t0, t]` so a subject entering at exactly `t` is not at risk at `t`. Asserts tied-data parity with `stcrreg`, exact entry-boundary invariance, and — as an executable fact — that `webuse hypoxia` has zero censor/event time collisions and is therefore blind to the tie convention |
 | `test_finegray_optimizer.do` | Optimizer safety: rank-deficient information is a hard error rather than a fabricated coefficient; nonconvergence, `tolerance(.)`/`(0)`/`(-1)` and `iterate(.)` are hard errors; `e(ll)` is recomputed at the accepted β; the convergence test is scale invariant (Newton decrement, not coefficient-scale step size); nonfinite trial likelihoods are never accepted as improvements |
 | `test_finegray_variance.do` | Variance and clustering: degenerate cluster counts are rejected (the clustered meat has rank at most `g-1`, so `g <= p` errors instead of reporting g-inverse artefacts — 1 cluster previously returned `rc 0` with `SE = 1.4e-11`); the finite-sample adjustment `N/(N-1)`, or `g/(g-1)` under `cluster()`, is applied by default and removed by exactly `noadjust`, matching `stcrreg`; `e(rank)` and `e(N_clust)` are posted and `e(df_m)` is the numerical rank of `e(V)`; default SEs agree with `stcrreg`'s default to `< 1e-3` relative and `noadjust` reproduces its `noadjust`; `norobust` reports a genuinely distinct (model-based) variance at identical coefficients |
@@ -179,7 +173,7 @@ install.packages("fastcmprsk")
 
 | Lane | Suites |
 |------|--------|
-| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do`, `test_finegray_v114.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do` |
+| `quick` | `test_finegray.do`, `test_finegray_v110.do`, `test_finegray_v120.do`, `test_finegray_ties.do`, `test_finegray_optimizer.do`, `test_finegray_variance.do`, `test_finegray_bootstrap.do`, `test_finegray_postest.do`, `test_finegray_zzf.do`, `test_documentation_examples.do` |
 | `core` | `quick` + `validation_finegray.do`, `validation_finegray_recovery.do`, `validation_finegray_recovery_paths.do`, `validation_finegray_cif_recovery.do`, `validation_finegray_cif_se.do`, `validation_finegray_lt_se.do`, `crossval_predict_stcrreg.do` |
 | `python` | `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_finegray.do`, `crossval_finegray_zzf.do` |
 | `full` | `core` + `python` |
@@ -201,7 +195,7 @@ Keyed to the command surface. Every public command, option, and stored result is
 | Combined options | T20 |
 | Error handling (no `stset`, missing `compete()`/`cause()`, bad cause, no competing events, no `id()`, removed options) | T21–T30 |
 | Stored results `e(b)`, `e(V)`, `e(basehaz)`, all scalars/macros, event-count identity | T31–T37, V19–V20 |
-| Data preservation, `if`/`in`, multi-record / left truncation | T8, T26, V23, V27–V28, test_v110, test_v111 |
+| Data preservation, `if`/`in`, multi-record / left truncation | T8, T26, V23, V27–V28, test_v110 |
 | Coefficients / LL / χ² / SEs vs `stcrreg` | V1–V6, V9–V10, V24b, C1–C10 |
 | Subdistribution-hazard / model invariants (SHR>0, scaling, reproducibility, convergence, explicit rank-deficiency rejection, separation, zero-event strata) | V7–V14, V37–V41 |
 
@@ -210,7 +204,7 @@ Keyed to the command surface. Every public command, option, and stored result is
 | Surface | Where tested |
 |---------|--------------|
 | `xb`, `cif`, `schoenfeld`, `basecshazard`, and `timevar()` | V15–V18, A1–A7, P1–P5; `test_documentation_examples.do` |
-| CIF confidence intervals, `level()`, `bootstrap()`, `seed()`, name-collision guard, `if`/`in` estimation-sample fix | `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_bootstrap.do` (multi-record fits, multi-var strata, LT jackknife) |
+| CIF confidence intervals, `level()`, `bootstrap()`, `seed()`, name-collision guard, `if`/`in` estimation-sample fix | `test_finegray_v110.do`, `test_finegray_bootstrap.do` (multi-record fits, multi-var strata, LT jackknife) |
 | `xb` / `cif` / `schoenfeld` bit-exact vs `stcrreg` | A1–A7 |
 | Row-level `xb` / `cif` / `schoenfeld` vs `cmprsk::crr` | P1–P11 |
 
@@ -218,8 +212,8 @@ Keyed to the command surface. Every public command, option, and stored result is
 
 | Surface | Where tested |
 |---------|--------------|
-| Fixed-horizon table, semantic factor-level `at()` mapping, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, complete `r()` payload | `test_finegray_v110.do`, `test_finegray_v111.do`, `test_finegray_v112.do`, `test_finegray_postest.do` (safe parsing and graph/save failure gates) |
-| Bootstrap CI, `level()` width control | test_v110, test_v111, test_v112 (nonconverged refits skipped; counts and state restoration) |
+| Fixed-horizon table, semantic factor-level `at()` mapping, `attime()`, `timepoints()`, `saving()`, `e(cmd)` guard, complete `r()` payload | `test_finegray_v110.do`, `test_finegray_postest.do` (safe parsing and graph/save failure gates) |
+| Bootstrap CI, `level()` width control | test_v110 (nonconverged refits skipped; counts and state restoration) |
 | Graph legend, `legend()`/`title()`/`xtitle()` passthrough, `nograph` | test_v110 |
 | CIF point estimates vs `riskRegression::predictRisk`; SEs vs bootstrap | crossval_cif |
 | Analytic CIF SE vs closed-form jackknife; `finegray_cif`/`finegray_predict` SE agreement | validation_cif_se |
@@ -235,7 +229,7 @@ Keyed to the command surface. Every public command, option, and stored result is
 
 ### 1. Functional / regression (263 checks across 12 suites)
 
-`test_finegray.do` (133) walks the full command surface in eleven sections: installation and helper auto-load, basic fits, every option individually and in combination, one test per documented error message, complete stored-result inventory, data preservation, and edge cases. `test_finegray_v110.do` (24) is a version-pinned regression suite that locks in the v1.1.0 CIF/predict/bootstrap surface and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths), so those features cannot silently regress. `test_finegray_v111.do` (14), `test_finegray_v112.do` (10), and `test_finegray_v114.do` (4) lock subsequent correctness, state-safety, return-gate, and bootstrap-convergence fixes. The tie, optimizer, variance, bootstrap, postestimation, delayed-entry-surface, and documentation-example suites contribute the remaining executable regression guards.
+`test_finegray.do` (133) walks the full command surface in eleven sections: installation and helper auto-load, basic fits, every option individually and in combination, one test per documented error message, complete stored-result inventory, data preservation, and edge cases. `test_finegray_v110.do` (52) is a version-pinned regression suite that locks in the v1.1.0 CIF/predict/bootstrap surface and the `finegray_cif` graph polish (single-row legend default, `legend()`/`title()`/`xtitle()` passthrough, single-curve/`nograph` paths), together with the correctness, state-safety, return-gate, and bootstrap-convergence fixes of that release, so none of it can silently regress. It was merged mechanically from the four version-pinned suites that predated the version-history collapse; the merged file reproduces their combined 52/52 exactly. The tie, optimizer, variance, bootstrap, postestimation, delayed-entry-surface, and documentation-example suites contribute the remaining executable regression guards.
 
 ### 2. Validation and deterministic oracles (58 checks across three suites)
 

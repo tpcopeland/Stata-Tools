@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.2  2026/07/15
+*! finegray_phtest Version 1.2.0  2026/07/16
 *! Proportional subdistribution hazards test after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,9 @@ Basic syntax:
 Description:
   Tests the proportional subdistribution hazards assumption after finegray.
   Computes scaled Schoenfeld residuals and tests their correlation with time.
-  Approximate PH diagnostic (diagonal scaling, independent per-variable tests).
+  Approximate PH diagnostic (diagonal scaling, per-covariate marginal tests).
+  No omnibus test is reported -- see the "No omnibus statistic" comment at the
+  end of the test loop, and help finegray_phtest (Global test).
 
 Options:
   time(string)  - time function: rank (default), log, identity
@@ -230,7 +232,7 @@ program define finegray_phtest, rclass
     * TIME, so it is undefined unless the event times actually vary.  With every
     * cause event at a single time the time function is constant, correlate()
     * returns a missing rho, and chi2 = n*rho^2 and its p-value are missing --
-    * which v1.1.4 reported at rc 0, as a completed test with blank statistics.
+    * which v1.1.0 reported at rc 0, as a completed test with blank statistics.
     tempname _uniqt
     mata: st_numscalar("`_uniqt'", ///
         rows(uniqrows(st_matrix("`sch_mat'")[., 1])))
@@ -248,8 +250,6 @@ program define finegray_phtest, rclass
 
     * Build test results: p x 3 matrix [chi2, df, p]
     matrix `test_mat' = J(`p', 3, .)
-
-    local global_chi2 = 0
 
     * Load Schoenfeld matrix into a temporary dataset once (svmat),
     * then loop correlations over columns — avoids O(p) preserve/clear cycles.
@@ -301,8 +301,6 @@ program define finegray_phtest, rclass
         matrix `test_mat'[`v', 1] = `chi2_v'
         matrix `test_mat'[`v', 2] = 1
         matrix `test_mat'[`v', 3] = `p_v'
-
-        local global_chi2 = `global_chi2' + `chi2_v'
     }
     restore
 
@@ -313,8 +311,35 @@ program define finegray_phtest, rclass
         exit 459
     }
 
-    local global_df = `p'
-    local global_p = chi2tail(`global_df', `global_chi2')
+    * No omnibus statistic is reported.  Through v1.1.0 this command summed the
+    * per-covariate 1-df statistics and referred the total to chi2(p).  That is
+    * valid only if the components are independent; the scaled Schoenfeld
+    * residuals are correlated across covariates whenever the covariates are,
+    * so the printed Prob>chi2 had no stated reference distribution and its
+    * error was in an unknown direction.
+    *
+    * The obvious repair -- build the joint quadratic form from the p x p
+    * inverse information, as Grambsch-Therneau (1994) do for the Cox model --
+    * does NOT transfer to this estimator.  GT's null covariance for the scaled
+    * residuals is the Cox information, an identity that holds because the Cox
+    * score is a martingale integral.  finegray's score is IPCW-weighted with an
+    * ESTIMATED censoring distribution, so its variance is a sandwich carrying
+    * an extra term for that estimation (Fine & Gray 1999, eq. 7-8; Bellach et
+    * al. 2019, Sec. 3.3: "this additional variability cannot be ignored").
+    * That is why the fit itself defaults to vce(robust) rather than the inverse
+    * information.  Reusing the information as a null covariance here would
+    * reintroduce the same defect -- an unstated reference distribution -- in a
+    * form that merely looks rigorous.
+    *
+    * No published omnibus test for the proportional SUBDISTRIBUTION hazards
+    * assumption is implemented here.  Candidates exist (Zhou et al. 2013, Stat
+    * Med 32:3804-3811, a score test on modified Schoenfeld residuals; Li,
+    * Scheike & Zhang 2015, Lifetime Data Anal, cumulative sums of residuals),
+    * but neither is grounded in this package's literature corpus yet.  PSHREG
+    * (Kohl et al. 2015), the closest reference implementation, likewise reports
+    * only per-covariate correlation tests and residual plots.  Users needing a
+    * global claim should Bonferroni-adjust across the p rows below, or fit the
+    * time-interaction model directly.
 
     * Label test matrix
     local rownames ""
@@ -345,15 +370,12 @@ program define finegray_phtest, rclass
             as result %10.2f `chi2_v' %6.0f 1 %12.4f `p_v'
     }
 
-    display as text "{hline 13}{c +}{hline 36}"
-    display as text %12s "Global test" " {c |}" ///
-        as result %10.2f `global_chi2' %6.0f `global_df' %12.4f `global_p'
     display as text "{hline 13}{c BT}{hline 36}"
+    display as text ""
+    display as text "Each row is a separate 1-df test; no omnibus test is"
+    display as text "reported.  See {bf:help finegray_phtest}."
 
     * Return results
-    return scalar chi2 = `global_chi2'
-    return scalar df = `global_df'
-    return scalar p = `global_p'
     return scalar N_fail = `n_fail'
     return local time "`time'"
     return matrix phtest = `test_mat'

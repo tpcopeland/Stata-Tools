@@ -1412,7 +1412,9 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest
-    assert r(chi2) >= 0
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] >= 0
 }
 if _rc == 0 {
     display as result "  PASS: T64 basic phtest"
@@ -1480,7 +1482,9 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_phtest, detail
-    assert r(chi2) >= 0
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] >= 0
 }
 if _rc == 0 {
     display as result "  PASS: T68 detail option"
@@ -1498,9 +1502,11 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     local nfail_e = e(N_fail)
     finegray_phtest
-    assert r(chi2) > 0
-    assert r(df) == 3
-    assert r(p) >= 0 & r(p) <= 1
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] > 0
+    assert rowsof(_Tph) == 3
+    assert _Tph[1,3] >= 0 & _Tph[1,3] <= 1
     assert r(N_fail) == `nfail_e'
 }
 if _rc == 0 {
@@ -1575,7 +1581,8 @@ capture noisily {
     _setup_hypoxia
     finegray ifp, compete(status) cause(1) nolog
     finegray_phtest
-    assert r(df) == 1
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    assert rowsof(r(phtest)) == 1
     assert rowsof(r(phtest)) == 1
 }
 if _rc == 0 {
@@ -2301,8 +2308,10 @@ capture noisily {
     _setup_hypoxia
     finegray ifp tumsize, compete(status) cause(1) nolog strata(pelnode)
     finegray_phtest
-    assert r(chi2) >= 0
-    assert r(df) == 2
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] >= 0
+    assert rowsof(_Tph) == 2
 }
 if _rc == 0 {
     display as result "  PASS: T109 phtest with strata"
@@ -2319,8 +2328,10 @@ capture noisily {
     _setup_hypoxia
     finegray i.pelnode ifp, compete(status) cause(1) nolog
     finegray_phtest
-    assert r(chi2) >= 0
-    assert r(df) == 2
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] >= 0
+    assert rowsof(_Tph) == 2
     cap drop _fg_*
 }
 if _rc == 0 {
@@ -2574,9 +2585,11 @@ capture noisily {
     finegray i.pelnode ifp, compete(status) cause(1) nolog
     cap drop _fg_*
     finegray_phtest
-    assert r(chi2) < .
-    assert r(df) == 2
-    assert r(p) < .
+    * 1.2.0: omnibus scalars retired; assert the per-covariate surface.
+    matrix _Tph = r(phtest)
+    assert _Tph[1,1] < .
+    assert rowsof(_Tph) == 2
+    assert _Tph[1,3] < .
 }
 if _rc == 0 {
     display as result "  PASS: T121 FV phtest rebuilds missing design columns"

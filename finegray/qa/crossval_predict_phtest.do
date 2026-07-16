@@ -219,9 +219,15 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     foreach tf in rank log identity {
         finegray_phtest, time(`tf')
-        assert r(chi2) > 0 & r(chi2) < .
-        assert r(df) == 3
-        assert r(p) >= 0 & r(p) <= 1
+        * 1.2.0: the omnibus scalars are retired; assert the per-covariate
+        * surface instead.
+        matrix _P3m = r(phtest)
+        assert rowsof(_P3m) == 3
+        forvalues v = 1/3 {
+            assert _P3m[`v',1] > 0 & _P3m[`v',1] < .
+            assert _P3m[`v',2] == 1
+            assert _P3m[`v',3] >= 0 & _P3m[`v',3] <= 1
+        }
         assert r(N_fail) == `N_fail_hyp'
     }
 }
@@ -474,33 +480,56 @@ else {
     local ++fail_count
 }
 
-* P12: Simulated phtest chi2 vs cmprsk — the AUTHORITATIVE PH-test parity.
+* P12: Simulated per-covariate phtest chi2 vs cmprsk.
 * Tie-free, well-conditioned data with the Schoenfeld residuals computed at a
 * COMMON beta (passed to R), so finegray's chi2 = N*rho^2 and cmprsk's must
 * agree to numerical precision across all three time transforms.  (The 20%
 * band the hypoxia checks used was tie/G-truncation slack — gone here.)
 * Model is still active from P11.
+*
+* ORACLE SCOPE — read before trusting this test.  cmprsk does NOT ship a PH
+* test, so the R side computes N*rho^2 itself, by the same rule as the .ado.
+* What is therefore independently checked is the SCHOENFELD RESIDUAL (P11) and
+* crr's beta: the chi2 comparison rides on those, and cannot detect a shared
+* misreading of the statistic itself.  This is why the retired global test
+* stayed green here for 23 comparison groups while being wrong on its face —
+* the R script reimplemented the same sum-and-refer-to-chi2(p) rule (mirror
+* oracle).  That GLOBAL row is gone from crossval_predict_phtest_r.R as of
+* 1.2.0; only the per-covariate rows, which are well-defined 1-df tests, are
+* compared.  A genuinely independent PH-test oracle would need Zhou et al.
+* (2013) or Li et al. (2015); neither is implemented.
 foreach tf in rank log identity {
     local ++test_count
     capture noisily {
         finegray_phtest, time(`tf')
-        local s_chi2 = r(chi2)
+        matrix _P12m = r(phtest)
+        local _vnames ifp tumsize pelnode
         preserve
         import delimited using "`datadir'/r_phtest.csv", clear
-        quietly summ chi2 if variable == "GLOBAL" & time_func == "`tf'", meanonly
-        local r_chi2 = r(mean)
-        local rel_diff = abs(`s_chi2' - `r_chi2') / max(`r_chi2', 0.01)
-        display as text "  sim `tf' chi2: Stata=" %9.5f `s_chi2' " R=" %9.5f `r_chi2' ///
-            " rel_diff=" %8.6f `rel_diff'
-        assert `rel_diff' < 0.005
+        * The GLOBAL row must no longer exist in the oracle output.
+        quietly count if variable == "GLOBAL"
+        assert r(N) == 0
         restore
+        forvalues v = 1/3 {
+            local vn : word `v' of `_vnames'
+            local s_chi2 = _P12m[`v', 1]
+            preserve
+            import delimited using "`datadir'/r_phtest.csv", clear
+            quietly summ chi2 if variable == "`vn'" & time_func == "`tf'", meanonly
+            local r_chi2 = r(mean)
+            restore
+            local rel_diff = abs(`s_chi2' - `r_chi2') / max(`r_chi2', 0.01)
+            display as text "  sim `tf' `vn' chi2: Stata=" %9.5f `s_chi2' ///
+                " R=" %9.5f `r_chi2' " rel_diff=" %8.6f `rel_diff'
+            assert `rel_diff' < 0.005
+        }
     }
     if _rc == 0 {
-        display as result "  PASS: P12 simulated phtest `tf' chi2 vs cmprsk (< 0.5%)"
+        display as result "  PASS: P12 simulated phtest `tf' per-covariate chi2 vs cmprsk (< 0.5%)"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: P12 simulated phtest `tf' chi2 vs cmprsk (rc=`=_rc')"
+        display as error "  FAIL: P12 simulated phtest `tf' per-covariate chi2 vs cmprsk (rc=`=_rc')"
         capture restore
         local ++fail_count
     }
@@ -561,7 +590,6 @@ capture noisily {
     finegray_predict sch_ic, schoenfeld
     * Run phtest for reference
     finegray_phtest, time(rank)
-    local ph_chi2 = r(chi2)
     matrix ph_mat = r(phtest)
     local ph_Nfail = r(N_fail)
     * Compute manual correlation from predict schoenfeld
@@ -569,7 +597,6 @@ capture noisily {
     keep if !missing(sch_ic)
     * Rank of event time
     egen double t_rank = rank(_t)
-    local manual_global_chi2 = 0
     local varnum = 0
     foreach v in sch_ic sch_ic_2 sch_ic_3 {
         local ++varnum
@@ -577,7 +604,6 @@ capture noisily {
         local rho = r(rho)
         local n_corr = r(N)
         local chi2_v = `n_corr' * (`rho')^2
-        local manual_global_chi2 = `manual_global_chi2' + `chi2_v'
         local ph_chi2_v = ph_mat[`varnum', 1]
         local vdiff = abs(`chi2_v' - `ph_chi2_v')
         display as text "  var `varnum': manual chi2=" %8.4f `chi2_v' ///
@@ -587,13 +613,10 @@ capture noisily {
             local p14_pass = 0
         }
     }
-    local global_diff = abs(`manual_global_chi2' - `ph_chi2')
-    display as text "  global: manual=" %8.4f `manual_global_chi2' ///
-        " phtest=" %8.4f `ph_chi2' " diff=" %8.6f `global_diff'
-    if `global_diff' >= 0.01 {
-        display as error "  FAIL: global chi2 diff " %8.6f `global_diff' " >= 0.01"
-        local p14_pass = 0
-    }
+    * 1.2.0: the manual-vs-phtest global comparison that stood here was dropped
+    * with the omnibus statistic.  It compared two computations of the same
+    * retired sum, so it could never have detected that the sum was the wrong
+    * statistic -- only that both sides added the same numbers the same way.
     restore
 }
 if _rc != 0 {
@@ -614,14 +637,13 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    * 1.2.0: determinism is now asserted on the full per-covariate matrix,
+    * which is strictly stronger than the two retired scalars it replaces.
     finegray_phtest, time(rank)
-    local chi2_run1 = r(chi2)
-    local p_run1 = r(p)
+    matrix _D1 = r(phtest)
     finegray_phtest, time(rank)
-    local chi2_run2 = r(chi2)
-    local p_run2 = r(p)
-    assert reldif(`chi2_run1', `chi2_run2') < 1e-10
-    assert reldif(`p_run1', `p_run2') < 1e-10
+    matrix _D2 = r(phtest)
+    assert mreldif(_D1, _D2) < 1e-10
 }
 if _rc == 0 {
     display as result "  PASS: P15 phtest deterministic (identical re-run)"
