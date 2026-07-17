@@ -91,6 +91,11 @@ population and each strategy (always-treated or never-treated), the command
 computes period-specific event probabilities from the fitted model by setting
 treatment to the strategy value (1 or 0) at every period. {p_end}
 
+{phang2}If the fit used {cmd:history()}, the corresponding prior-treatment,
+cumulative, duration, and interaction terms are recomputed from that static
+strategy at every period. Prediction never reuses the observed history terms
+for a counterfactual trajectory.{p_end}
+
 {phang2}3. {bf:Cumulative survival.} The product of (1 - period hazard) across
 periods gives cumulative survival. Cumulative incidence = 1 - survival.{p_end}
 
@@ -170,6 +175,13 @@ never-treated, and both. Dynamic or stochastic treatment regimes are out
 of scope.{p_end}
 
 {phang}
+{bf:Built-in history terms are supported.} Fits using
+{cmd:history(lag1 cumulative duration interaction)}
+remain prediction-compatible because every term has an exact value under the
+static always/never regimes. Custom
+{cmd:exposure()} or {cmd:tvcov()} terms remain estimation-only.{p_end}
+
+{phang}
 {bf:Outcome-model covariates must be time-fixed.} Any {cmd:outcome_cov()}
 from {helpb msm_fit} are standardized at baseline values, so they must not
 vary within person. Current {cmd:msm_fit} versions reject time-varying
@@ -228,10 +240,10 @@ datasets fitted by older versions.{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(predictions)}}prediction matrix (period, estimates, CIs per strategy; plus difference columns when {opt difference} is requested){p_end}
+{synopt:{cmd:r(predictions)}}estimates and intervals by strategy{p_end}
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(rd_#)}}risk difference at time # (only with {opt difference} and {cmd:strategy(both)}){p_end}
+{synopt:{cmd:r(rd_#)}}risk difference at time #, when requested{p_end}
 {synopt:{cmd:r(n_times)}}number of time points requested{p_end}
 {synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
 {synopt:{cmd:r(samples)}}number of MC draws used{p_end}
@@ -243,6 +255,7 @@ datasets fitted by older versions.{p_end}
 {synopt:{cmd:r(seed_state)}}full starting RNG state string{p_end}
 {synopt:{cmd:r(type)}}prediction type ({cmd:cum_inc} or {cmd:survival}){p_end}
 {synopt:{cmd:r(strategy)}}strategy used ({cmd:always}, {cmd:never}, or {cmd:both}){p_end}
+{synopt:{cmd:r(history_spec)}}built-in history terms used by the fit{p_end}
 
 
 {marker author}{...}

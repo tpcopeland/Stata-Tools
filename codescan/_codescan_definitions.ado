@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 3.0.2  2026/07/17
+*! _codescan_definitions Version 4.0.0  2026/07/17
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -381,8 +381,10 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // C2 exists to prevent, reached on an axis an empty subject cannot expose.
     //
     // A zero-length match is never meaningful here: this scanner matches codes,
-    // so a hit that consumes no characters has matched nothing and would leave
-    // matched_code() empty. Probe the anchored form against one code per leading
+    // so a hit that consumes no characters has identified nothing — the pattern
+    // matched the position before the code, not the code itself. (matched_code()
+    // would still record the whole cell, so the match is vacuous, not empty.)
+    // Probe the anchored form against one code per leading
     // character and reject any zero-length hit. Per-leading-char (not one probe
     // string) is what catches an assertion keyed to a specific character, e.g.
     // "(?=E)".
@@ -407,11 +409,11 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     for (k = 32; k <= 126; k++) {
         if (ustrregexm(char(k) + "00", "^(" + pat + ")") == 1) {
             if (ustrregexs(0) == "") {
-                errprintf("{err}" + ptype + " for %s: pattern can match zero characters (matches every code): %s\n", cname, pat)
+                errprintf("{err}" + ptype + " for %s: pattern matches without consuming any characters (zero-width): %s\n", cname, pat)
                 // No backslash in this literal on purpose: Mata printf-style
                 // escapes make a literal backslash in a message a silent hazard.
-                errprintf("{err}  a zero-width assertion (word boundary, lookahead) matches without consuming a code\n")
-                errprintf("{err}  to match any non-empty code use the pattern . instead\n")
+                errprintf("{err}  a zero-width assertion (word boundary, lookahead) matches a position, not a code, so it identifies nothing\n")
+                errprintf("{err}  write the required leading characters literally (E for codes starting E), or . to match any non-empty code\n")
                 exit(198)
             }
         }

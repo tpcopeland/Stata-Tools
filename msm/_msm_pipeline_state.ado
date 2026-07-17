@@ -49,38 +49,18 @@ program define _msm_pipeline_state
         local sens_effect_label : char _dta[_msm_sens_effect_label]
         local sens_level : char _dta[_msm_sens_level]
 
-        local prepared = cond("`prepared_flag'" == "1", 1, 0)
-        if `prepared' {
-            foreach var in `id' `period' `treatment' `outcome' {
-                if "`var'" == "" {
-                    local prepared = 0
-                }
-                else {
-                    capture confirm variable `var'
-                    if _rc != 0 {
-                        local prepared = 0
-                    }
-                }
-            }
-            foreach var of local censor {
-                capture confirm variable `var'
-                if _rc != 0 {
-                    local prepared = 0
-                }
-            }
-            foreach var of local covariates {
-                capture confirm variable `var'
-                if _rc != 0 {
-                    local prepared = 0
-                }
-            }
-            foreach var of local bl_covariates {
-                capture confirm variable `var'
-                if _rc != 0 {
-                    local prepared = 0
-                }
-            }
-        }
+        * Stage validity comes from _msm_verify, the same authority the guards
+        * use, so `msm, status' can never advertise a stage that the next
+        * command will refuse -- or hide one it would accept. Verification is
+        * read-only here (nohydrate): a status display must not mutate session
+        * matrices.
+        *
+        * These flags used to be existence checks (is the char set, do the
+        * variables still exist, does a matrix by that name exist). Every one
+        * of the audit's contamination cases satisfied them.
+        _msm_verify prepare
+        local prepared = r(ok)
+        local prepared_why "`r(why)'"
 
         local weight_vars ""
         foreach var in _msm_weight _msm_tw_weight _msm_cw_weight {
@@ -92,21 +72,39 @@ program define _msm_pipeline_state
         local weight_vars : list retokenize weight_vars
 
         local weighted = 0
-        if "`weighted_flag'" == "1" & "`weight_vars'" != "" {
-            local weighted = 1
+        local weighted_why ""
+        if `prepared' {
+            _msm_verify weight
+            local weighted = r(ok)
+            local weighted_why "`r(why)'"
+        }
+        else if "`weighted_flag'" == "1" {
+            local weighted_why "stale"
         }
 
-        capture confirm matrix _msm_fit_b
-        local has_fit_b = cond(_rc == 0, 1, 0)
+        local fitted = 0
+        local fitted_why ""
+        if `weighted' {
+            _msm_verify fit, nohydrate
+            local fitted = r(ok)
+            local fitted_why "`r(why)'"
+        }
+        else if "`fitted_flag'" == "1" {
+            local fitted_why "stale"
+        }
 
-        capture confirm matrix _msm_fit_V
-        local has_fit_v = cond(_rc == 0, 1, 0)
-
+        * Report the artifacts that actually exist, whether or not the stage
+        * verifies. This list is descriptive (what is in the dataset), while
+        * `fitted' above is the verdict (whether it may be used). Keeping them
+        * separate is what lets status say "coefficients are present but do not
+        * belong to these data" instead of silently claiming a usable fit.
         local fit_artifacts ""
-        if `has_fit_b' {
+        capture confirm matrix _msm_fit_b
+        if _rc == 0 {
             local fit_artifacts "`fit_artifacts' _msm_fit_b"
         }
-        if `has_fit_v' {
+        capture confirm matrix _msm_fit_V
+        if _rc == 0 {
             local fit_artifacts "`fit_artifacts' _msm_fit_V"
         }
         capture confirm variable _msm_esample
@@ -115,32 +113,32 @@ program define _msm_pipeline_state
         }
         local fit_artifacts : list retokenize fit_artifacts
 
-        local fitted = 0
-        if "`fitted_flag'" == "1" & `has_fit_b' & `has_fit_v' {
-            local fitted = 1
-        }
-
+        * Stages below the fit cannot be usable when the fit itself is not:
+        * they were computed from coefficients that no longer verify. The
+        * dependency is enforced here as well as in _msm_invalidate, because
+        * invalidation only runs on OUR commit paths -- a dataset arriving from
+        * elsewhere has never been through one.
         capture confirm matrix _msm_pred_matrix
         local has_pred_matrix = cond(_rc == 0, 1, 0)
         local pred_saved = 0
-        if "`pred_flag'" == "1" & `has_pred_matrix' {
+        if "`pred_flag'" == "1" & `has_pred_matrix' & `fitted' {
             local pred_saved = 1
         }
 
         capture confirm matrix _msm_bal_matrix
         local has_bal_matrix = cond(_rc == 0, 1, 0)
         local bal_saved = 0
-        if "`bal_flag'" == "1" & `has_bal_matrix' {
+        if "`bal_flag'" == "1" & `has_bal_matrix' & `weighted' {
             local bal_saved = 1
         }
 
         local diag_saved = 0
-        if "`diag_flag'" == "1" & "`diag_mean'" != "" {
+        if "`diag_flag'" == "1" & "`diag_mean'" != "" & `weighted' {
             local diag_saved = 1
         }
 
         local sens_saved = 0
-        if "`sens_flag'" == "1" & "`sens_effect'" != "" {
+        if "`sens_flag'" == "1" & "`sens_effect'" != "" & `fitted' {
             local sens_saved = 1
         }
 
@@ -234,6 +232,13 @@ program define _msm_pipeline_state
         c_local _msm_state_prepared "`prepared'"
         c_local _msm_state_weighted "`weighted'"
         c_local _msm_state_fitted "`fitted'"
+
+        * Why a claimed stage did not verify: "" when the stage is usable or
+        * was never claimed. Tokens: mapping, stale, edited, nomatrix, partial,
+        * dims (see _msm_verify).
+        c_local _msm_state_prepared_why "`prepared_why'"
+        c_local _msm_state_weighted_why "`weighted_why'"
+        c_local _msm_state_fitted_why "`fitted_why'"
         c_local _msm_state_pred_saved "`pred_saved'"
         c_local _msm_state_bal_saved "`bal_saved'"
         c_local _msm_state_diag_saved "`diag_saved'"

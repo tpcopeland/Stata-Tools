@@ -212,10 +212,11 @@ see the current pipeline state:{p_end}
 {p2col 5 25 29 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}total number of observations in the dataset{p_end}
 {synopt:{cmd:r(n_ids)}}number of unique individuals{p_end}
-{synopt:{cmd:r(n_periods)}}number of distinct periods (max - min + 1){p_end}
+{synopt:{cmd:r(n_periods)}}number of distinct period values present{p_end}
+{synopt:{cmd:r(period_span)}}period span (max - min + 1){p_end}
 {synopt:{cmd:r(n_events)}}number of observations where outcome = 1{p_end}
 {synopt:{cmd:r(n_treated)}}number of observations where treatment = 1{p_end}
-{synopt:{cmd:r(n_censored)}}number of censored observations (0 if no censor variable){p_end}
+{synopt:{cmd:r(n_censored)}}censored count; 0 without {opt censor()}{p_end}
 
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(id)}}name of the ID variable{p_end}

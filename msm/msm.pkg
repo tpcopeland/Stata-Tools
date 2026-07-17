@@ -57,7 +57,15 @@ f _msm_tbl_sens.ado
 f _msm_coef_display_name.ado
 f _msm_coef_pvalue_string.ado
 f _msm_coef_scale_label.ado
-f _msm_clear_downstream_state.ado
+f _msm_contract.ado
+f _msm_invalidate.ado
+f _msm_verify.ado
+f _msm_uuid.ado
+f _msm_signature.ado
+f _msm_own.ado
+f _msm_mat_save.ado
+f _msm_mat_load.ado
+f _msm_mat_clear.ado
 f _msm_check_prepared.ado
 f _msm_check_weighted.ado
 f _msm_check_fitted.ado
@@ -67,6 +75,9 @@ f _msm_pipeline_state.ado
 f _msm_post_export_open.ado
 f _msm_smd.ado
 f _msm_time_invariant_hint.ado
+f _msm_timefixed.ado
+f _msm_restore_order.ado
+f _msm_role_check.ado
 f _msm_col_letter.ado
 f _msm_xlsx_colwidths.ado
 f _msm_xlsx_footnote.ado

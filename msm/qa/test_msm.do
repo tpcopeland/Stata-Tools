@@ -731,7 +731,7 @@ msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
     treat_n_cov(age sex) truncate(1 99)
 
 * Step 3: Fit
-msm_fit, model(logistic) period_spec(quadratic) nolog
+msm_fit, outcome_cov(age sex) model(logistic) period_spec(quadratic) nolog
 
 * Step 4: Predict
 msm_predict, times(3 5 7) difference seed(12345)
@@ -1475,7 +1475,7 @@ else {
 local ++test_count
 capture {
     _setup_pipeline, nolog
-    capture msm_fit, model(poisson) nolog
+    capture msm_fit, outcome_cov(age sex) model(poisson) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -1492,7 +1492,7 @@ else {
 local ++test_count
 capture {
     _setup_pipeline, nolog
-    capture msm_fit, model(logistic) period_spec(spline) nolog
+    capture msm_fit, outcome_cov(age sex) model(logistic) period_spec(spline) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -1509,7 +1509,7 @@ else {
 local ++test_count
 capture {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) period_spec(quadratic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) period_spec(quadratic) nolog
     assert _b[treatment] != .
 }
 if _rc == 0 {
@@ -1707,7 +1707,7 @@ else {
 local ++test_count
 capture {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) period_spec(linear) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) period_spec(linear) nolog
     capture msm_predict, times(5) samples(5) seed(1)
     assert _rc == 198
 }
@@ -2845,19 +2845,39 @@ else {
     local failed_tests "`failed_tests' M13"
 }
 
-* --- M14: _msm_check_fitted rejects when matrices are missing ---
+* --- M14: _msm_check_fitted rejects when the stored fit is missing ---
+*
+* CONTRACT CHANGE (Phase 1, audit A01 fix #3). Coefficients are now persisted
+* into the dataset, not held only in session-global matrices. Dropping the
+* SESSION matrices is therefore no longer a failure mode -- the guard rebuilds
+* them from the dataset, which is the entire point of the fix. This test used
+* to drop them and require r(301); that now (correctly) succeeds.
+*
+* The property still worth guarding is the real one: a dataset flagged fitted
+* that carries no stored coefficients must be refused, not silently backfilled
+* from whatever the session happens to hold.
 local ++test_count
 capture {
     _setup_pipeline, nolog
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
 
-    * Manually drop saved matrices but leave flag
+    * Dropping only the session copies must NOT break the fit: it is rebuilt
+    * from the dataset, and rebuilt to the same numbers.
+    local b_before = _msm_fit_b[1, 1]
     matrix drop _msm_fit_b
     matrix drop _msm_fit_V
+    _msm_check_fitted
+    assert reldif(_msm_fit_b[1, 1], `b_before') < 1e-12
 
-    * _msm_check_fitted should catch this
+    * Removing the STORED fit while leaving the flag set must be refused.
+    char _dta[_msm_fit_b_nk]
+    char _dta[_msm_fit_b_d1]
+    char _dta[_msm_fit_b_r]
+    char _dta[_msm_fit_b_c]
+    capture matrix drop _msm_fit_b
+    capture matrix drop _msm_fit_V
     capture _msm_check_fitted
-    assert _rc == 301
+    assert _rc != 0
 }
 if _rc == 0 {
     display as result "  PASS M14: _msm_check_fitted catches missing matrices"
@@ -2893,7 +2913,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     * After Cox fit, stset should be fully cleared
     local _st_id : char _dta[st_id]
     local _st_bt : char _dta[st_bt]
@@ -2940,7 +2960,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue
     * Verify correct return name
     assert r(evalue_point) > 0
@@ -2963,7 +2983,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(linear) nolog
+    msm_fit, outcome_cov(age sex) model(linear) nolog
     * E-value should still work (skips evalue for linear, returns effect)
     msm_sensitivity, evalue
     assert "`r(effect_label)'" == "Coef"
@@ -2987,7 +3007,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(linear) nolog
+    msm_fit, outcome_cov(age sex) model(linear) nolog
     msm_sensitivity, confounding_strength(2 3)
     * For linear models, bias_factor should NOT be returned
     capture assert r(bias_factor) != .
@@ -3036,7 +3056,7 @@ local ++test_count
 capture noisily {
     set varabbrev on
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     assert c(varabbrev) == "on"
     set varabbrev off
 }
@@ -3350,7 +3370,12 @@ capture noisily {
     keep if censored == 1
     bysort id (period): keep if _n == 1
     keep id period treatment outcome censored biomarker comorbidity age sex
-    replace period = period + 100
+    * Append a single post-censor follow-up row at the NEXT period. Censoring is
+    * terminal in msm_example (the censor row is the id's last period), so
+    * period+1 is consecutive -- a large jump would be a gap, which msm_prepare
+    * now rejects (audit A09). This row is still post-censor and must be excluded
+    * from the fit, which is what R12 checks.
+    replace period = period + 1
     replace outcome = 0
     replace censored = 0
     tempfile postcens

@@ -91,12 +91,16 @@ follow-up").{p_end}
 treatment effect: always treated vs. never treated").{p_end}
 
 {phang2}6. {bf:Weight specification} {hline 2} How are the inverse probability
-weights constructed? Document stabilization, truncation, and any censoring
-weights (e.g., "Stabilized IPTW, truncated at 1st/99th percentile").{p_end}
+weights constructed? Document stabilization, the probability-support policy
+({cmd:error} or an explicit clipping threshold), weight truncation, and any
+censoring weights (e.g., "Stabilized IPTW, probability errors hard-fail,
+weights truncated at 1st/99th percentile").{p_end}
 
-{phang2}7. {bf:Statistical analysis} {hline 2} What outcome model and estimation
-approach? (e.g., "Pooled logistic regression with robust SE clustered by
-ID").{p_end}
+{phang2}7. {bf:Statistical analysis} {hline 2} What outcome model, estimation
+approach, treatment-history form, and effect scale? State either the
+current-treatment-only no-carryover assumption or the exact
+{cmd:msm_fit, history()} terms (e.g., "Pooled logistic regression with robust
+SE clustered by ID; lag-1 and cumulative treatment history").{p_end}
 
 
 {marker options}{...}

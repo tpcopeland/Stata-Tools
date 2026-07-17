@@ -518,7 +518,7 @@ capture noisily {
     local rn : rowfullnames S
     local cn : colfullnames S
     assert "`rn'" == "dm2 htn"
-    assert "`cn'" == "count prevalence ci_low ci_high total_hits positive_units"
+    assert "`cn'" == "count prevalence total_hits positive_units"
 }
 if _rc == 0 {
     display as result "  PASS: Summary matrix row/col names"
@@ -723,63 +723,6 @@ else {
     display as error "  FAIL: varabbrev restore both states (error `=_rc')"
     local ++fail_count
     capture set varabbrev on
-}
-
-
-* ============================================================
-* NEW: r(ci_level) and Non-Default Confidence Level
-* ============================================================
-
-**## r(ci_level) returned at default 95%
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11")
-    assert r(ci_level) == 95
-}
-if _rc == 0 {
-    display as result "  PASS: r(ci_level) returns 95 at default"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: r(ci_level) default (error `=_rc')"
-    local ++fail_count
-}
-
-* Restore the suite baseline. This sits AFTER the verdict, never before:
-* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
-* would make the test pass unconditionally. Leaving it unrestored let a
-* varabbrev=on leak into every later suite in the lane.
-set varabbrev `_qa_va0'
-
-**## Non-default c(level) = 90 changes CI width
-local ++test_count
-capture noisily {
-    local _orig_level = c(level)
-    _make_test_data
-    set level 95
-    codescan dx1-dx3, define(dm2 "E11") replace
-    matrix S95 = r(summary)
-    local ci_lo_95 = S95[1,3]
-    local ci_hi_95 = S95[1,4]
-    set level 90
-    codescan dx1-dx3, define(dm2 "E11") replace
-    matrix S90 = r(summary)
-    local ci_lo_90 = S90[1,3]
-    local ci_hi_90 = S90[1,4]
-    assert r(ci_level) == 90
-    * 90% CI should be narrower than 95% CI
-    assert (`ci_hi_90' - `ci_lo_90') < (`ci_hi_95' - `ci_lo_95')
-    set level `_orig_level'
-}
-if _rc == 0 {
-    display as result "  PASS: Non-default c(level)=90 narrows CI"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Non-default c(level) (error `=_rc')"
-    local ++fail_count
-    capture set level 95
 }
 
 
@@ -1304,76 +1247,6 @@ else {
     local ++fail_count
 }
 
-**## export() — CSV contains ci_low and ci_high columns
-local ++test_count
-capture noisily {
-    clear
-    set obs 6
-    gen str8 dx1 = ""
-    replace dx1 = "E11" in 1
-    replace dx1 = "E11" in 2
-    replace dx1 = "I10" in 3
-    replace dx1 = "I10" in 4
-    replace dx1 = ""    in 5
-    replace dx1 = ""    in 6
-    gen pid = cond(_n <= 2, 1, cond(_n <= 4, 2, 3))
-    local _export_path `"`qa_dir'/codescan_ci_test.csv"'
-    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
-        export(`"`_export_path'"')
-    preserve
-    import delimited `"`_export_path'"', clear varnames(1)
-    confirm variable ci_low
-    confirm variable ci_high
-    * ci values should be in [0,100]
-    quietly summarize ci_low
-    assert r(min) >= 0 & r(max) <= 100
-    quietly summarize ci_high
-    assert r(min) >= 0 & r(max) <= 100
-    * ci_high > ci_low for all rows with n_match > 0
-    quietly count if ci_high < ci_low
-    assert r(N) == 0
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: export() CSV has ci_low and ci_high in [0,100]"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: export() CI columns (error `=_rc')"
-    local ++fail_count
-}
-
-**## export() — CI values in r(summary) match exported CSV
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "E11" in 1
-    replace dx1 = "E11" in 2
-    replace dx1 = "I10" in 3
-    gen pid = _n
-    local _export2_path `"`qa_dir'/codescan_ci_match.csv"'
-    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
-        export(`"`_export2_path'"')
-    local r_ci_low  = r(summary)[1,3]
-    local r_ci_high = r(summary)[1,4]
-    preserve
-    import delimited `"`_export2_path'"', clear varnames(1)
-    * dm2 is row 1 in export
-    assert abs(ci_low[1]  - `r_ci_low')  < 0.01
-    assert abs(ci_high[1] - `r_ci_high') < 0.01
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: export() CI values match r(summary)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: export() CI match r(summary) (error `=_rc')"
-    local ++fail_count
-}
-
 **## codescan_describe — obs guard exits 2000 on empty if/in sample
 local ++test_count
 capture noisily {
@@ -1410,37 +1283,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: codescan_describe if false guard (error `=_rc')"
-    local ++fail_count
-}
-
-**## r(summary) — ci_low and ci_high columns are correct
-* Known answer: 2/3 prevalence with N=3 → Wilson 95% CI ≈ [20.8, 93.9]
-local ++test_count
-capture noisily {
-    clear
-    set obs 3
-    gen str8 dx1 = ""
-    replace dx1 = "E11" in 1
-    replace dx1 = "E11" in 2
-    replace dx1 = "I10" in 3
-    gen pid = _n
-    codescan dx1, define(dm2 "E11") id(pid) collapse
-    local _ci_lo = r(summary)[1,3]
-    local _ci_hi = r(summary)[1,4]
-    * Wilson 95% CI for 2/3: approx [20.8, 93.9]
-    assert abs(`_ci_lo' - 20.8) < 1.0
-    assert abs(`_ci_hi' - 93.9) < 1.0
-    * Sanity bounds
-    assert `_ci_lo' >= 0 & `_ci_lo' <= 100
-    assert `_ci_hi' >= 0 & `_ci_hi' <= 100
-    assert `_ci_hi' > `_ci_lo'
-}
-if _rc == 0 {
-    display as result "  PASS: r(summary) ci_low/ci_high known-answer Wilson CI"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: r(summary) CI values (error `=_rc')"
     local ++fail_count
 }
 

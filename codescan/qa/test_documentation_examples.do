@@ -567,8 +567,8 @@ capture noisily {
 
     codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode
     matrix S = r(summary)
-    assert S[1,5] == 3      // total_hits: code slots
-    assert S[1,6] == 2      // positive_units: patients
+    assert S[1,3] == 3      // total_hits: code slots
+    assert S[1,4] == 2      // positive_units: patients
     assert reldif(S[1,2], 100) < 1e-6
 
     * detail credits the two-slot row to dx1 alone...

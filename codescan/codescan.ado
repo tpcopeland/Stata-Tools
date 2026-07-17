@@ -1,4 +1,4 @@
-*! codescan Version 3.0.2  2026/07/17
+*! codescan Version 4.0.0  2026/07/17
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -63,12 +63,10 @@ STORED RESULTS:
     r(detail_allslots) - 1 if detail counted every matching slot, 0 if it
                         attributed each row to its first matching variable
                         (if detail specified)
-    r(ci_level)       - Confidence level for the prevalence CIs
     r(summary)        - Matrix, one row per condition, columns:
                         count          legacy: total_hits under countmode,
                                        positive_units otherwise
                         prevalence     % of units with at least one match
-                        ci_low ci_high Wilson interval at r(ci_level)
                         total_hits     total matching code slots; missing
                                        without countmode, which never counts
                                        repeat hits
@@ -294,7 +292,6 @@ program define codescan, rclass
         }
     }
     local _prev_fmt = cond("`format'" != "", "`format'", "%9.1f")
-    local _ci_fmt   = cond("`format'" != "", "`format'", "%5.1f")
 
     * saving() validation (distinct from save() which saves the define to CSV)
     local _saving_replace = 0
@@ -580,7 +577,13 @@ program define codescan, rclass
             exit 198
         }
         if `"`export'"' != "" {
-            if inlist("`nm'", "condition", "matches", "prevalence", "pattern", "exclusion", "ci_low", "ci_high") {
+            * Every column the export dataset creates (see the export block near
+            * the end of this file). Kept as a single list so it cannot drift
+            * behind the export gens the way it did when total_hits/positive_units
+            * were added: `list in' has no arg-count limit and reads as one set.
+            local _reserved_cols condition label matches total_hits positive_units prevalence pattern exclusion
+            local _nm_reserved : list nm in _reserved_cols
+            if `_nm_reserved' {
                 display as error "`_defsrc': condition name `nm' conflicts with a reserved export column name"
                 exit 198
             }
@@ -1483,21 +1486,20 @@ program define codescan, rclass
     display as text ""
     if "`countmode'" != "" {
         display as text "  Condition" _col(24) %9s "Hits" _col(36) %9s "Units>0" ///
-            _col(48) %10s "Prevalence" _col(62) %16s "[`=c(level)'% CI]"
-        display as text "  {hline 76}"
+            _col(48) %10s "Prevalence"
+        display as text "  {hline 56}"
     }
     else {
         display as text "  Condition" _col(24) %9s "Matches" ///
-            _col(36) %10s "Prevalence" _col(50) %16s "[`=c(level)'% CI]"
-        display as text "  {hline 64}"
+            _col(36) %10s "Prevalence"
+        display as text "  {hline 44}"
     }
 
-    * I3: columns 1-4 are the historical surface (count prevalence ci_low
-    * ci_high); 5-6 name the two count quantities explicitly. Column 1 stays
-    * where it was — under countmode it is the hit total, otherwise the matched
-    * unit count — so existing summary[i,1..4] references keep working.
+    * Columns: 1 count, 2 prevalence, 3 total_hits, 4 positive_units. Column 1
+    * stays where it was — under countmode it is the hit total, otherwise the
+    * matched unit count.
     tempname summary
-    matrix `summary' = J(`n_conditions', 6, .)
+    matrix `summary' = J(`n_conditions', 4, .)
     local rnames ""
 
     forvalues i = 1/`n_conditions' {
@@ -1547,16 +1549,6 @@ program define codescan, rclass
         }
         local pct = `n_match' / `N_display' * 100
 
-        * O5: Wilson score confidence interval
-        local _p_hat = `n_match' / `N_display'
-        local _z = invnormal(1 - (1 - c(level)/100)/2)
-        local _z2n = `_z'^2 / `N_display'
-        local _denom = 1 + `_z2n'
-        local _center = (`_p_hat' + `_z2n' / 2) / `_denom'
-        local _margin = `_z' * sqrt((`_p_hat' * (1 - `_p_hat') + `_z2n' / 4) / `N_display') / `_denom'
-        local ci_low = max(0, (`_center' - `_margin') * 100)
-        local ci_high = min(100, (`_center' + `_margin') * 100)
-
         * Compound quotes around the label: it is free text, so a double quote
         * inside it would terminate a plain-quoted argument and abort the whole
         * table with r(132) — an error message that names neither label() nor
@@ -1564,32 +1556,26 @@ program define codescan, rclass
         if "`countmode'" != "" {
             display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_total_match' ///
                 _col(36) as result %9.0fc `n_match' ///
-                _col(48) as result `_prev_fmt' `pct' as text "%" ///
-                _col(62) as text "[" as result `_ci_fmt' `ci_low' ///
-                as text ", " as result `_ci_fmt' `ci_high' as text "]"
+                _col(48) as result `_prev_fmt' `pct' as text "%"
         }
         else {
             display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_match' ///
-                _col(36) as result `_prev_fmt' `pct' as text "%" ///
-                _col(50) as text "[" as result `_ci_fmt' `ci_low' ///
-                as text ", " as result `_ci_fmt' `ci_high' as text "]"
+                _col(36) as result `_prev_fmt' `pct' as text "%"
         }
 
         if "`countmode'" != "" {
             matrix `summary'[`i', 1] = `n_total_match'
-            matrix `summary'[`i', 5] = `n_total_match'
+            matrix `summary'[`i', 3] = `n_total_match'
         }
         else {
             matrix `summary'[`i', 1] = `n_match'
             * Binary mode records only whether a unit matched, never how many
             * times, so there is no hit total to report. Missing says that;
             * copying n_match here would assert one hit per unit.
-            matrix `summary'[`i', 5] = .
+            matrix `summary'[`i', 3] = .
         }
         matrix `summary'[`i', 2] = `pct'
-        matrix `summary'[`i', 3] = `ci_low'
-        matrix `summary'[`i', 4] = `ci_high'
-        matrix `summary'[`i', 6] = `n_match'
+        matrix `summary'[`i', 4] = `n_match'
         local rnames "`rnames' `name'"
     }
 
@@ -1600,10 +1586,10 @@ program define codescan, rclass
     if "`countmode'" != "" {
         display as text _n "  Hits = total matching code slots; Units>0 = `_unit_lbl'" ///
             " with at least one hit."
-        display as text "  Prevalence and its CI are built from Units>0."
+        display as text "  Prevalence is built from Units>0."
     }
 
-    matrix colnames `summary' = count prevalence ci_low ci_high total_hits positive_units
+    matrix colnames `summary' = count prevalence total_hits positive_units
     matrix rownames `summary' = `rnames'
     if "`merge'" != "" {
         quietly sort `_merge_input_order'
@@ -1793,8 +1779,8 @@ program define codescan, rclass
     forvalues i = 1/`n_conditions' {
         matrix `codelist'[`i', 1] = `summary'[`i', 1]
         matrix `codelist'[`i', 2] = `summary'[`i', 2]
-        matrix `codelist'[`i', 3] = `summary'[`i', 5]
-        matrix `codelist'[`i', 4] = `summary'[`i', 6]
+        matrix `codelist'[`i', 3] = `summary'[`i', 3]
+        matrix `codelist'[`i', 4] = `summary'[`i', 4]
         local cl_rnames "`cl_rnames' `def_name_`i''"
     }
     matrix rownames `codelist' = `cl_rnames'
@@ -1828,7 +1814,6 @@ program define codescan, rclass
     if `has_lookback' | `has_lookfwd'  return local refdate "`refdate'"
     if `has_lookback' | `has_lookfwd'  return scalar n_excluded_missingdate = `_n_excl_missdate'
     if "`frame'" != ""                 return local frame "`frame'"
-    return scalar ci_level = c(level)
     * , copy — keep local tempname matrices alive for the export block below.
     return matrix summary = `summary', copy
     return matrix codelist = `codelist', copy
@@ -1900,19 +1885,15 @@ program define codescan, rclass
             gen long total_hits = .
             gen long positive_units = .
             gen double prevalence = .
-            gen double ci_low = .
-            gen double ci_high = .
             gen str80 pattern = ""
             gen str80 exclusion = ""
             forvalues i = 1/`n_conditions' {
                 replace condition = "`def_name_`i''" in `i'
                 replace label = `"`_cs_dlab_`i''"' in `i'
                 replace matches = `summary'[`i', 1] in `i'
-                replace total_hits = `summary'[`i', 5] in `i'
-                replace positive_units = `summary'[`i', 6] in `i'
+                replace total_hits = `summary'[`i', 3] in `i'
+                replace positive_units = `summary'[`i', 4] in `i'
                 replace prevalence = `summary'[`i', 2] in `i'
-                replace ci_low  = `summary'[`i', 3] in `i'
-                replace ci_high = `summary'[`i', 4] in `i'
                 replace pattern = `"`def_pattern_`i''"' in `i'
                 replace exclusion = `"`def_excl_`i''"' in `i'
             }
@@ -1922,7 +1903,7 @@ program define codescan, rclass
             label variable matches "Legacy count: total_hits under countmode, else positive_units"
             label variable total_hits "Total matching code slots (countmode only)"
             label variable positive_units "Units with at least one match"
-            format prevalence ci_low ci_high `_prev_fmt'
+            format prevalence `_prev_fmt'
             }
             if "`_exp_ext'" == ".csv" {
                 quietly export delimited using `"`_export_fn'"', replace

@@ -36,7 +36,15 @@ program define msm_sensitivity, rclass
     set varabbrev off
     set more off
 
+
+    * Several steps below use bysort over each individual's history, which
+    * leaves the caller's observations in id/period order. Capture the incoming
+    * order now and restore it on every exit path (audit A06).
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     syntax [, EVAlue ///
         CONFounding_strength(numlist min=2 max=2) ///
@@ -437,6 +445,11 @@ program define msm_sensitivity, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    * Restore the caller's observation order on success and on every error path.
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'

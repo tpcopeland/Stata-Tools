@@ -10,6 +10,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+do "`qa_dir'/_msm_qa_common.do"
 
 local pass_count = 0
 local fail_count = 0
@@ -264,22 +265,37 @@ capture noisily {
         outcome(outcome) censor(censored) covariates(x) ///
         baseline_covariates(bl)
 
+    * Build genuinely PACKAGE-OWNED downstream artifacts.
+    *
+    * This test used to create them with a bare `gen', which makes them USER
+    * variables, and then required msm_prepare to delete them. That is audit
+    * A05 -- msm_prepare destroying data it never created -- and
+    * test_msm_state_identity S11/S12 assert the exact opposite. Both cannot
+    * be right. Ownership is what separates them: msm_prepare must clear the
+    * artifacts IT created and leave identically-named user variables alone.
+    * This probe covers the first half; S11/S12 cover the second.
     gen double _msm_weight = 1
     gen double _msm_tw_weight = 1
     gen double _msm_cw_weight = 1
-    gen byte _msm_esample = 1
+    _msm_qa_register_weights
+
+    tempname pv_b pv_V
+    matrix `pv_b' = (0, 0)
+    matrix colnames `pv_b' = treatment _cons
+    matrix `pv_V' = J(2, 2, 0)
+    _msm_qa_register_fit, b(`pv_b') v(`pv_V')
+
     gen double _msm_period_sq = period^2
     gen double _msm_period_cu = period^3
     gen double _msm_per_ns1 = period
     gen double _msm_per_ns2 = period^2
+    local pv8_fit_uuid : char _dta[_msm_fit_uuid]
+    _msm_own claim _msm_period_sq _msm_period_cu _msm_per_ns1 _msm_per_ns2, ///
+        token(`pv8_fit_uuid')
 
-    matrix _msm_fit_b = J(1, 1, 0)
-    matrix _msm_fit_V = J(1, 1, 1)
     matrix _msm_pred_matrix = J(1, 1, 1)
     matrix _msm_bal_matrix = J(1, 1, 1)
 
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_fitted] "1"
     char _dta[_msm_model] "logistic"
     char _dta[_msm_period_spec] "spline"
     char _dta[_msm_outcome_cov] "bl"
@@ -338,7 +354,7 @@ else {
     local failed_tests "`failed_tests' PV8"
 }
 
-**## PV9: msm_fit applies model-specific binary guards after data mutation
+**## PV9: msm_fit refuses every model after post-prepare data mutation
 local ++test_count
 capture noisily {
     clear
@@ -361,42 +377,92 @@ capture noisily {
 
     replace outcome = 0.25 in 1
     set varabbrev on
-    capture msm_fit, model(linear) period_spec(linear) nolog
+    capture msm_fit, outcome_cov(bl) model(linear) period_spec(linear) nolog
     local linear_rc = _rc
 
-    capture msm_fit, model(logistic) period_spec(linear) nolog
+    capture msm_fit, outcome_cov(bl) model(logistic) period_spec(linear) nolog
     local logistic_rc = _rc
 
-    capture msm_fit, model(cox) period_spec(linear) nolog
+    capture msm_fit, outcome_cov(bl) model(cox) period_spec(linear) nolog
     local cox_rc = _rc
 
     local _orig_treatment = treatment[2]
     replace treatment = 0.25 in 2
-    capture msm_fit, model(linear) period_spec(linear) nolog
+    capture msm_fit, outcome_cov(bl) model(linear) period_spec(linear) nolog
     local treatment_rc = _rc
     replace treatment = `_orig_treatment' in 2
 
     replace censored = 0.25 in 3
-    capture msm_fit, model(linear) period_spec(linear) nolog
+    capture msm_fit, outcome_cov(bl) model(linear) period_spec(linear) nolog
     local censor_rc = _rc
 
-    assert `linear_rc' == 0
-    assert `logistic_rc' == 198
-    assert `cox_rc' == 198
-    assert `treatment_rc' == 198
-    assert `censor_rc' == 198
+    * Every model refuses, including model(linear).
+    *
+    * This is the Q10 regression.  msm 1.2.3 returned linear_rc == 0 here: the
+    * outcome had been mutated to a non-binary value AFTER msm_prepare validated
+    * and mapped it, and model(linear) accepted it because its binary guard was
+    * model-specific.  That tolerance is precisely the hole the continuous-outcome
+    * recovery tests drove through -- map a dummy binary outcome, replace it with
+    * a continuous one, fit.  Phase 1 closes it structurally rather than by adding
+    * another model-specific guard: the per-stage input signature no longer
+    * matches, so the data are not the data msm_prepare validated, and every model
+    * exits 459 before any model-specific check is reached.
+    *
+    * 459 (not 198) is the point.  The refusal is now about data identity, not
+    * about the value 0.25 being non-binary, so it fires uniformly for outcome,
+    * treatment and censor mutations alike.
+    assert `linear_rc' == 459
+    assert `logistic_rc' == 459
+    assert `cox_rc' == 459
+    assert `treatment_rc' == 459
+    assert `censor_rc' == 459
     assert c(varabbrev) == "on"
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS PV9: msm_fit model-specific binary guards"
+    display as result "PASS PV9: msm_fit refuses every model after data mutation"
     local ++pass_count
 }
 else {
-    display as error "FAIL PV9: model-specific binary fit guards (rc=`=_rc')"
+    display as error "FAIL PV9: post-prepare mutation guard (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' PV9"
     set varabbrev off
+}
+
+**## PV10: the shared order helper restores order and removes its marker
+local ++test_count
+capture noisily {
+    clear
+    set obs 12
+    gen long expected_order = _n
+    gen long order_marker = _n
+    gsort -expected_order
+
+    * Positive control: the helper does its job on a valid marker.  Without this
+    * the 198 assertion below could pass on any unrelated syntax failure.
+    _msm_restore_order order_marker
+    assert expected_order == _n
+    capture confirm variable order_marker
+    assert _rc != 0
+
+    * A missing marker is a deliberate no-op, not a failure: callers invoke the
+    * helper in footer cleanup, where a preserved dataset may have been restored.
+    capture _msm_restore_order order_marker
+    assert _rc == 0
+
+    * An empty argument is a caller bug and must be refused.
+    capture _msm_restore_order
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS PV10: order-restoration helper contract"
+    local ++pass_count
+}
+else {
+    display as error "FAIL PV10: order-restoration helper contract (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' PV10"
 }
 
 **# Summary

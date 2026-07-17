@@ -100,6 +100,7 @@ local ++test_count
 capture noisily {
     _outadv_setup_pipeline
     set varabbrev on
+    local k_before = c(k)
 
     capture msm_report, export("/tmp/msm_missing_dir/report.xlsx") ///
         format(excel) eform replace
@@ -107,6 +108,7 @@ capture noisily {
 
     assert `report_rc' != 0
     assert c(varabbrev) == "on"
+    assert c(k) == `k_before'
     _outadv_assert_pipeline_intact
     set varabbrev off
 }

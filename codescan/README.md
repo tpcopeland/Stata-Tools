@@ -1,12 +1,12 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 3.0.2** | 2026-07-17
+**Version 4.0.0** | 2026-07-17
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
 ## What it does
 
-You tell `codescan` which code patterns to look for and what to name each condition. The command scans every code slot on every row, marks which conditions are present, and returns a summary with prevalence and Wilson confidence intervals. You can:
+You tell `codescan` which code patterns to look for and what to name each condition. The command scans every code slot on every row, marks which conditions are present, and returns a summary with the prevalence of each condition. You can:
 
 - Stay at the **row level** (one 0/1 indicator per encounter per condition)
 - **Collapse** to one row per patient with `collapse`
@@ -229,7 +229,7 @@ frame results: list
 
 ### 9. Export a summary table and save the result dataset
 
-Use `export()` for the prevalence table and `saving()` for the transformed dataset. `format()` controls the number format in both the console output and the exported file — with `format(%9.2f)` the workbook's prevalence and CI cells carry the Excel number format `0.00`.
+Use `export()` for the prevalence table and `saving()` for the transformed dataset. `format()` controls the number format in both the console output and the exported file — with `format(%9.2f)` the workbook's prevalence cell carries the Excel number format `0.00`.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
@@ -317,19 +317,18 @@ do demo/demo_codescan.do
 - **collapse vs. merge:** `collapse` creates one row per `id()`. `merge` attaches patient-level results back to the original row structure.
 - **alldates:** shorthand for `earliestdate`, `latestdate`, and `countdate`. These create `_first`, `_last`, and `_count` date-summary variables.
 - **countrows:** creates `_nrows` variables counting the number of rows (not unique dates) with a qualifying match. Does not require `date()`.
-- **countmode:** changes created variables from 0/1 indicators to integer counts (number of code slots matched per row, summed across rows after collapse/merge). It reports two quantities that are easy to confuse: `total_hits` counts matching code *slots* (a patient coded `E110` in `dx1` and `E119` in `dx2` contributes 2), while `positive_units` counts observations — or `id()` values under `collapse`/`merge` — with a count above zero. Prevalence and its CI are built from `positive_units`, so prevalence means the same thing with and without `countmode`. Both appear in the console table (`Hits`, `Units>0`), `r(summary)`, `r(codelist)`, and `export()`. Without `countmode`, `total_hits` is missing rather than a copy of `positive_units`, because binary matching never counts repeat hits.
+- **countmode:** changes created variables from 0/1 indicators to integer counts (number of code slots matched per row, summed across rows after collapse/merge). It reports two quantities that are easy to confuse: `total_hits` counts matching code *slots* (a patient coded `E110` in `dx1` and `E119` in `dx2` contributes 2), while `positive_units` counts observations — or `id()` values under `collapse`/`merge` — with a count above zero. Prevalence is built from `positive_units`, so prevalence means the same thing with and without `countmode`. Both appear in the console table (`Hits`, `Units>0`), `r(summary)`, `r(codelist)`, and `export()`. Without `countmode`, `total_hits` is missing rather than a copy of `positive_units`, because binary matching never counts repeat hits.
 - **detail is order-dependent by default:** binary matching stops at the first slot that matches a condition, so `r(varcounts)` credits each row to the **first** matching variable in varlist order. Scanning `dx2 dx1` instead of `dx1 dx2` moves counts between columns without changing the cohort, the prevalence, or `r(summary)`. Add `allslots` to count every matching slot independently; the table is then order-free, its row totals equal the `countmode` hit totals, and the indicators stay 0/1. `r(detail_allslots)` records which rule produced the table.
 - **generate:** prefixes all created variable names, useful when running separate diagnosis, procedure, and medication scans on the same dataset.
 - **unmatched:** creates a row-level flag with three states — 1 = analyzed and matched nothing, 0 = analyzed and matched, `.` = not analyzed (excluded by `if`/`in`, a missing `id()`, or a time window). So `count if flag == 1` counts genuine non-matches, and `count if !missing(flag)` reproduces `r(N)`.
 - **matched_code:** creates a row-level variable holding the first code value that survived matching.
 - **frame:** stores the result in a named frame and implies `preserve`, so the original data are untouched.
-- **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting. The interval reflects sampling error only — not coding error or misclassification.
 - **Analysis unit:** the console header names the denominator (`observations` at the row level, `id()` values after `collapse`/`merge`), so row-level prevalence is never misread as person-level.
 - **Diagnosis position:** rules apply to every scanned slot equally. To honor first-listed (main) diagnosis validity, scan `dx1` on its own, or run the positions as separate calls with `generate()` prefixes.
 
 ### Interpreting prevalence
 
-`codescan` reports the prevalence of the **code definition** you supply — the share of encounters or patients whose codes match your rule — not the prevalence of the underlying disease. The gap between the two is governed by the **positive predictive value and sensitivity** of the codes in your data. Validate your case definition against the relevant register-validation literature before reading the output as disease frequency; the Wilson CI quantifies sampling error, not misclassification.
+`codescan` reports the prevalence of the **code definition** you supply — the share of encounters or patients whose codes match your rule — not the prevalence of the underlying disease. The gap between the two is governed by the **positive predictive value and sensitivity** of the codes in your data. Validate your case definition against the relevant register-validation literature before reading the output as disease frequency.
 
 ## Definition Rules and Codefiles
 
@@ -400,7 +399,7 @@ Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable code
 | `export(f [, replace])` | Write the summary to CSV or Excel |
 | `save(f [, replace])` | Write reusable definitions (or describe chapters) to CSV |
 | `saving(f [, replace])` | Save the transformed result dataset |
-| `format()` | Set the prevalence/CI display format |
+| `format()` | Set the prevalence display format |
 | `countmode` | Store code-slot counts instead of binary indicators |
 | `top()` | Set the number of codes shown by `codescan_describe` |
 
@@ -444,8 +443,7 @@ File options reject quotes, shell metacharacters, and control characters inside 
 | `r(refdate)` | Reference-date variable |
 | `r(n_excluded_missingdate)` | Rows excluded for missing window dates |
 | `r(frame)` | Result frame name |
-| `r(ci_level)` | Confidence level |
-| `r(summary)` | `count`, `prevalence`, `ci_low`, `ci_high`, `total_hits`, `positive_units` |
+| `r(summary)` | `count`, `prevalence`, `total_hits`, `positive_units` |
 | `r(codelist)` | `count`, `prevalence`, `total_hits`, `positive_units` |
 | `r(varcounts)` | Per-variable match counts |
 | `r(cooccurrence)` | Pairwise co-occurrence matrix |
@@ -483,6 +481,10 @@ The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `c
 The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
 
 ## Version History
+
+### 4.0.0 (2026-07-17)
+
+- **BREAKING: confidence intervals removed.** `codescan` no longer computes or displays the Wilson score interval for prevalence. The console table drops its `[level% CI]` column, `r(summary)` drops the `ci_low` and `ci_high` columns (now four columns: `count`, `prevalence`, `total_hits`, `positive_units`), `export()` output drops the `ci_low`/`ci_high` columns, and `r(ci_level)` is no longer returned. Prevalence, counts, and every other stored result are unchanged. Code that read `r(ci_level)` or the `ci_low`/`ci_high` columns of `r(summary)` or the exported table must be updated.
 
 ### 3.0.2 (2026-07-17)
 

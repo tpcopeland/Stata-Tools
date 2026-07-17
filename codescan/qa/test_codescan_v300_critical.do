@@ -1059,12 +1059,12 @@ capture noisily {
 
     matrix S = r(summary)
     local cn : colfullnames S
-    assert "`cn'" == "count prevalence ci_low ci_high total_hits positive_units"
+    assert "`cn'" == "count prevalence total_hits positive_units"
     * 3 slot hits (E110, E119 on pid 1; E118 on pid 2) across 2 patients.
-    assert S[1,5] == 3
-    assert S[1,6] == 2
+    assert S[1,3] == 3
+    assert S[1,4] == 2
     * The legacy column keeps its legacy meaning: the hit total under countmode.
-    assert S[1,1] == S[1,5]
+    assert S[1,1] == S[1,3]
     * Prevalence is built from positive_units, not from the hit total. If it
     * used hits it would read 150%.
     assert reldif(S[1,2], 100) < 1e-6
@@ -1094,10 +1094,10 @@ capture noisily {
     * Binary mode never counts repeat hits, so there is no hit total to report.
     * Missing says that; copying positive_units here would assert one hit per
     * unit, which is false for pid 1 (two hits).
-    assert missing(S[1,5])
-    assert S[1,6] == 2
+    assert missing(S[1,3])
+    assert S[1,4] == 2
     * Legacy column 1 is the matched-unit count without countmode.
-    assert S[1,1] == S[1,6]
+    assert S[1,1] == S[1,4]
 }
 if _rc == 0 {
     local ++pass_count

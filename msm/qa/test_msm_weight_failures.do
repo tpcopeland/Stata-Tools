@@ -104,7 +104,7 @@ capture noisily {
     _mw_make_treat_fail_data
 
     msm_weight, treat_d_cov(L age sex) treat_n_cov(age sex) ///
-        fitfailure(marginal) nolog
+        fitfailure(marginal) probpolicy(clip) clip(0.001) nolog
 
     assert r(fitfailure_fallback) == 1
     assert r(n_fitfail_fallback) == 2
@@ -176,7 +176,7 @@ capture noisily {
 
     msm_weight, treat_d_cov(L age sex) treat_n_cov(age sex) ///
         censor_d_cov(L age sex) censor_n_cov(age sex) ///
-        fitfailure(marginal) nolog
+        fitfailure(marginal) probpolicy(clip) clip(0.001) nolog
 
     assert r(fitfailure_fallback) == 1
     assert r(n_fitfail_fallback) == 2
@@ -216,7 +216,7 @@ else {
     local failed_tests "`failed_tests' WFAIL4"
 }
 
-* --- WFAIL5: missing at-risk treatment covariate makes weights missing ---
+* --- WFAIL5: missing at-risk treatment covariate hard-fails atomically ---
 local ++test_count
 capture noisily {
     use "`pkg_dir'/msm_example.dta", clear
@@ -227,18 +227,17 @@ capture noisily {
         covariates(biomarker comorbidity) ///
         baseline_covariates(age sex)
 
-    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+    capture msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         treat_n_cov(age sex) nolog
-
-    confirm variable _msm_weight
-    confirm variable _msm_tw_weight
-    quietly count if id == 1 & period >= 2 & missing(_msm_tw_weight)
-    assert r(N) > 0
-    quietly count if id == 1 & period == 2 & _msm_tw_weight < .
-    assert r(N) == 0
+    assert _rc == 459
+    capture confirm variable _msm_weight
+    assert _rc != 0
+    capture confirm variable _msm_tw_weight
+    assert _rc != 0
+    assert "`: char _dta[_msm_weighted]'" == ""
 }
 if _rc == 0 {
-    display as result "  PASS WFAIL5: missing treatment covariate does not carry weights forward"
+    display as result "  PASS WFAIL5: missing treatment covariate hard-fails atomically"
     local ++pass_count
 }
 else {

@@ -37,7 +37,15 @@ program define msm_report, rclass
     set varabbrev off
     set more off
 
+
+    * Several steps below use bysort over each individual's history, which
+    * leaves the caller's observations in id/period order. Capture the incoming
+    * order now and restore it on every exit path (audit A06).
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     syntax [, EXPort(string) FORmat(string) DECimals(integer 4) ///
         EFORM REPLACE TITle(string) Font(string) FONTSize(integer 10) ///
@@ -101,10 +109,16 @@ program define msm_report, rclass
     local max_per = r(max)
 
     * Weight info
+    *
+    * A stage that is CLAIMED must verify before it is reported. Reporting used
+    * to key on a characteristic being set and the variable existing, which is
+    * true in every contamination case the audit found. A stage that was never
+    * claimed is simply omitted from the report, which is what lets report
+    * summarize a partially-completed pipeline (audit A01, A02).
     local has_weights = 0
     local _weighted_flag : char _dta[_msm_weighted]
-    capture confirm variable _msm_weight
-    if _rc == 0 & "`_weighted_flag'" == "1" {
+    if "`_weighted_flag'" == "1" {
+        _msm_check_weighted
         local has_weights = 1
         quietly summarize _msm_weight, detail
         local w_mean = r(mean)
@@ -126,11 +140,18 @@ program define msm_report, rclass
     }
 
     * Model info
+    *
+    * Keyed on the fitted flag and verified, not on a leftover model name.
+    * _msm_check_fitted also rebuilds _msm_fit_b / _msm_fit_V from THIS
+    * dataset's characteristics, so the coefficients reported below cannot be
+    * whatever the session last fitted (audit A01).
     local has_model = 0
     local model : char _dta[_msm_model]
     local fit_level : char _dta[_msm_fit_level]
     if "`fit_level'" == "" local fit_level "95"
-    if "`model'" != "" {
+    local _fitted_flag : char _dta[_msm_fitted]
+    if "`_fitted_flag'" == "1" {
+        _msm_check_fitted
         local has_model = 1
         local period_spec : char _dta[_msm_period_spec]
         local outcome_cov : char _dta[_msm_outcome_cov]
@@ -731,9 +752,17 @@ program define msm_report, rclass
     } /* end capture noisily */
     local _rc = _rc
 
+    * A failed export may leave the working, cleared dataset active. Restore the
+    * caller snapshot before looking for its order marker (audit A06).
     if `_restore_needed' {
         capture restore
+        local _restore_needed = 0
     }
+
+    * Restore the caller's observation order on success and on every error path.
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'

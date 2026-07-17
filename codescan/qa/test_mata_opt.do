@@ -291,16 +291,16 @@ capture noisily {
     local k = 0
     foreach c in dm2 htn copd obesity multi {
         local ++k
-        * total_hits (col 5) counts every matching slot...
-        assert S[`k', 5] == `tot_`c''
-        * ...positive_units (col 6) counts rows with at least one.
-        assert S[`k', 6] == `pos_`c''
+        * total_hits (col 3) counts every matching slot...
+        assert S[`k', 3] == `tot_`c''
+        * ...positive_units (col 4) counts rows with at least one.
+        assert S[`k', 4] == `pos_`c''
         * The per-row counter itself must equal the oracle row by row.
         assert `c' == c_`c'
     }
     * The two must actually diverge, or this block would pass on a build that
     * conflates them. multi is row 5.
-    assert S[5, 5] > S[5, 6]
+    assert S[5, 3] > S[5, 4]
     matrix drop S
 }
 if _rc == 0 {

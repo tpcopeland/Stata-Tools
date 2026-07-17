@@ -29,11 +29,11 @@
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt eva:lue}}compute E-value (default if nothing else specified){p_end}
+{synopt:{opt eva:lue}}compute E-value; default with no options{p_end}
 {synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor computation{p_end}
 {synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
-{synopt:{opt rarethr:eshold(#)}}max weighted outcome prevalence for auto-approximation; default {cmd:0.10}{p_end}
-{synopt:{opt orapprox}}force OR-based rare-outcome approximation for logistic models{p_end}
+{synopt:{opt rarethr:eshold(#)}}prevalence limit for automatic approximation{p_end}
+{synopt:{opt orapprox}}force logistic rare-outcome approximation{p_end}
 {synoptline}
 
 

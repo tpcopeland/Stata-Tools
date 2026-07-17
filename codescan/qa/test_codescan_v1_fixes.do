@@ -1678,7 +1678,7 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace
     matrix S = r(summary)
-    assert colsof(S) == 6
+    assert colsof(S) == 4
     assert rowsof(S) == 2
 }
 if _rc == 0 {
@@ -1687,46 +1687,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: O5 summary has 4 columns (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 121: O5 — CI bounds: ci_low <= prevalence <= ci_high
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace
-    matrix S = r(summary)
-    forvalues i = 1/`=rowsof(S)' {
-        assert S[`i', 3] <= S[`i', 2]
-        assert S[`i', 4] >= S[`i', 2]
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: O5 CI bounds ordered"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: O5 CI bounds ordered (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 122: O5 — CI bounds in [0, 100]
-local ++test_count
-capture noisily {
-    _make_test_data
-    codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace
-    matrix S = r(summary)
-    forvalues i = 1/`=rowsof(S)' {
-        assert S[`i', 3] >= 0
-        assert S[`i', 4] <= 100
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: O5 CI bounds in [0,100]"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: O5 CI bounds in [0,100] (error `=_rc')"
     local ++fail_count
 }
 

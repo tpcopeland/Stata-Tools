@@ -12,6 +12,7 @@ local mode = lower(strtrim("`0'"))
 local keep_outputs = inlist("`mode'", "keep", "retain")
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+do "`qa_dir'/_msm_qa_common.do"
 
 local work_id = string(floor(runiform() * 1000000000), "%09.0f")
 local work_root "`c(tmpdir)'/msm_external_`work_id'"
@@ -84,9 +85,13 @@ import delimited using "`data_dir'/external_pbcseq_cox.csv", clear varnames(1)
 
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) baseline_covariates(age_dec female stage_bl)
+* Uniform weights: this suite compares msm_fit's OUTCOME model against R and
+* Python on identical data, so the weighting must contribute nothing. The
+* values are chosen here; the artifact identity is minted through the package's
+* own helpers rather than forged with char _dta[_msm_weighted] "1".
 gen double _msm_weight = 1
 label variable _msm_weight "External validation uniform weight"
-char _dta[_msm_weighted] "1"
+_msm_qa_register_weights
 
 msm_fit, model(cox) outcome_cov(age_dec female) vce(cluster id) nolog
 

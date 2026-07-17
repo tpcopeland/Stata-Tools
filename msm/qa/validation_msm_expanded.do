@@ -14,6 +14,7 @@ local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+do "`qa_dir'/_msm_qa_common.do"
 
 local pass_count = 0
 local fail_count = 0
@@ -150,7 +151,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue
     assert r(evalue_point) >= 1
     assert r(evalue_ci) >= 1
@@ -174,7 +175,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, confounding_strength(2 3)
     local expected_bf = (2 * 3) / (2 + 3 - 1)
     assert abs(r(bias_factor) - `expected_bf') < 0.0001
@@ -194,7 +195,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, confounding_strength(2 2)
     local expected_bf = (2 * 2) / (2 + 2 - 1)
     assert abs(r(bias_factor) - `expected_bf') < 0.0001
@@ -214,7 +215,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, confounding_strength(2 3)
     if r(effect) < 1 {
         local expected_corrected = r(effect) * r(bias_factor)
@@ -257,13 +258,10 @@ capture noisily {
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(x)
-    * Generate dummy weights (all = 1)
+    * Unit weights, registered through the package's own artifact contract.
     gen double _msm_weight = 1
     gen double _msm_tw_weight = 1
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_weight_var] "_msm_weight"
-    label variable _msm_weight "MSM cumulative IP weight"
-    label variable _msm_tw_weight "MSM treatment weight (cumulative)"
+    _msm_qa_register_weights
 
     msm_diagnose, balance_covariates(x)
 
@@ -301,10 +299,7 @@ capture noisily {
         outcome(outcome) covariates(x)
     gen double _msm_weight = 1
     gen double _msm_tw_weight = 1
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_weight_var] "_msm_weight"
-    label variable _msm_weight "MSM cumulative IP weight"
-    label variable _msm_tw_weight "MSM treatment weight (cumulative)"
+    _msm_qa_register_weights
 
     msm_diagnose, balance_covariates(x)
     tempname bal
@@ -409,13 +404,10 @@ capture noisily {
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome)
-    * Create uniform weights
+    * Uniform weights, registered through the package's own artifact contract.
     gen double _msm_weight = 1
     gen double _msm_tw_weight = 1
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_weight_var] "_msm_weight"
-    label variable _msm_weight "MSM cumulative IP weight"
-    label variable _msm_tw_weight "MSM treatment weight (cumulative)"
+    _msm_qa_register_weights
 
     msm_diagnose
     * ESS with all weights = 1 should equal N
@@ -440,7 +432,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
 
     msm_predict, times(1 3 5) samples(30) seed(77777)
     tempname p1
@@ -448,7 +440,7 @@ capture noisily {
 
     * Re-run with same seed (need re-fit due to char changes)
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
 
     msm_predict, times(1 3 5) samples(30) seed(77777)
     tempname p2
@@ -476,14 +468,14 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
 
     msm_predict, times(1 3 5) type(cum_inc) samples(20) seed(42)
     tempname ci
     matrix `ci' = r(predictions)
 
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
 
     msm_predict, times(1 3 5) type(survival) samples(20) seed(42)
     tempname sv
@@ -516,7 +508,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 2 3 4 5) type(cum_inc) samples(20) seed(42)
     tempname p
     matrix `p' = r(predictions)
@@ -544,7 +536,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 3 5) difference samples(20) seed(42)
     tempname p
     matrix `p' = r(predictions)
@@ -656,7 +648,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(ns(1)) nolog
+    msm_fit, outcome_cov(age sex) period_spec(ns(1)) nolog
     confirm variable _msm_per_ns1
     * Should NOT have _msm_per_ns2
     capture confirm variable _msm_per_ns2
@@ -676,7 +668,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(ns(2)) nolog
+    msm_fit, outcome_cov(age sex) period_spec(ns(2)) nolog
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
     capture confirm variable _msm_per_ns3
@@ -696,7 +688,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(ns(3)) nolog
+    msm_fit, outcome_cov(age sex) period_spec(ns(3)) nolog
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
     confirm variable _msm_per_ns3
@@ -880,7 +872,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue
     assert "`: char _dta[_msm_sens_saved]'" == "1"
     assert "`: char _dta[_msm_sens_effect]'" != ""
@@ -900,7 +892,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 3 5) samples(20) seed(42)
     assert "`: char _dta[_msm_pred_saved]'" == "1"
     assert "`: char _dta[_msm_pred_type]'" == "cum_inc"
@@ -975,7 +967,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_sensitivity, evalue confounding_strength(2 3)
     assert r(effect) > 0
     assert r(effect_lo) > 0
@@ -1000,7 +992,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 3 5) samples(20) seed(42)
     assert r(n_times) == 3
     assert r(n_ref) > 0
@@ -1151,7 +1143,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     assert "`e(msm_model)'" == "cox"
     assert e(N) > 0
     assert _b[treatment] != .
@@ -1170,7 +1162,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     msm_sensitivity, evalue
     assert "`r(effect_label)'" == "HR"
     assert r(effect) > 0
@@ -1193,7 +1185,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(logistic) nolog
+    msm_fit, outcome_cov(age sex) model(logistic) nolog
     assert "`: char _dta[_msm_fitted]'" == "1"
 
     * Re-run prepare - should clear fitted flag

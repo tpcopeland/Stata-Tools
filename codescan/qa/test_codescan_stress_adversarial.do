@@ -86,8 +86,8 @@ capture noisily {
     assert r(collapsed) == 1
     assert r(mode) == "regex"
     assert rowsof(r(summary)) == 4
-    * 3.0.0: count prevalence ci_low ci_high total_hits positive_units
-    assert colsof(r(summary)) == 6
+    * 4.0.0: count prevalence total_hits positive_units
+    assert colsof(r(summary)) == 4
 
     assert dm2 == 1 if pid == 1
     assert htn == 1 if pid == 1

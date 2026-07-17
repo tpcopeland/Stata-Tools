@@ -44,6 +44,13 @@ program define _setup_exposure
 
     bysort id (period): gen double cum_trt  = sum(treatment)
     bysort id (period): gen double cum_comp = sum(1 - treatment)
+
+    * Lagged treatment: a deterministic function of the same binary treatment
+    * process msm_weight balances (the documented licence for tvcov()), and the
+    * standard companion to a cumulative-exposure term in MSM practice. Unlike
+    * cum_comp it is not a linear function of follow-up time, so the exposure
+    * effect stays identified -- see the E8 note below.
+    bysort id (period): gen byte lag_trt = cond(_n == 1, 0, treatment[_n - 1])
 end
 
 **# E1: binary-treatment default path is unchanged
@@ -83,34 +90,64 @@ else {
 }
 
 **# E2: continuous-exposure Cox surface
+*
+* SPEC CHANGE (Phase 1, finding N01). This probe used to fit
+*     exposure(cum_trt) tvcov(cum_comp)
+* which is not an identified model in ANY dataset msm accepts. msm_prepare
+* requires treatment in {0,1}, so there is no "on neither" state and
+*     cum_trt + cum_comp == period + 1
+* holds exactly. Cox compares subjects within a risk set at one failure time,
+* where period is constant, so cum_comp is a perfect linear function of cum_trt
+* inside every comparison. Stata resolves the rank deficiency by omitting one
+* term -- and under this estimation sample it omits cum_trt, the exposure
+* itself, reporting b = -.01410812 with se = 0 exactly: HR 0.986, CI
+* [0.986, 0.986], p = . The old probe asserted only the point estimate, so it
+* passed on that. Note the coefficient is NOT zero, so the output does not read
+* as a null -- it reads as a precise finding, which is worse.
+*
+* The companion term is now lag_trt, which honours the same tvcov() contract
+* (a deterministic function of the treatment process) without collapsing the
+* design. E8 pins the refusal of the old spec.
 
 local ++test_count
 capture noisily {
     _setup_exposure, nolog
-    msm_fit, model(cox) exposure(cum_trt) tvcov(cum_comp) ///
+    msm_fit, model(cox) exposure(cum_trt) tvcov(lag_trt) ///
         outcome_cov(age sex) vce(cluster id) nolog
 
     * eclass + char surface report the override.
     assert "`e(msm_exposure)'" == "cum_trt"
-    assert "`e(msm_tvcov)'"    == "cum_comp"
+    assert "`e(msm_tvcov)'"    == "lag_trt"
     assert "`e(msm_treatment)'" == "treatment"
     local pd : char _dta[_msm_predict_disabled]
     local ex : char _dta[_msm_exposure]
     local tv : char _dta[_msm_tvcov]
     assert "`pd'" == "1"
     assert "`ex'" == "cum_trt"
-    assert "`tv'" == "cum_comp"
+    assert "`tv'" == "lag_trt"
 
     * The exposure term is the primary effect, not the binary treatment.
     matrix eff = e(effects)
     assert reldif(eff[1,1], _b[cum_trt]) < 1e-12
+    local eff_rows : rownames eff
+    assert "`eff_rows'" == "cum_trt"
+
+    * The exposure effect is actually estimated, not omitted as collinear.
+    * Asserting the point estimate alone is what let the degenerate cum_comp
+    * spec pass: an omitted term reports b = 0 with a zero-width CI, and
+    * eff[1,1] == _b[cum_trt] holds trivially when both are 0.
+    matrix _eV = e(V)
+    assert _eV[1,1] > 0 & !missing(_eV[1,1])
+    assert _se[cum_trt] > 0 & !missing(_se[cum_trt])
+    assert eff[1,3] > eff[1,2]
+    assert !missing(eff[1,4])
 
     * Both new terms entered the model; the binary treatment did not.
     * (`: list X in Y' treats X as a macro NAME, so hold each var in a macro.)
     matrix _eb = e(b)
     local cn : colnames _eb
     local v_exp "cum_trt"
-    local v_tv  "cum_comp"
+    local v_tv  "lag_trt"
     local v_trt "treatment"
     assert `: list v_exp in cn'
     assert `: list v_tv in cn'
@@ -175,17 +212,17 @@ local ++test_count
 capture noisily {
     * exposure() also listed in outcome_cov()
     _setup_exposure, nolog
-    capture msm_fit, model(cox) exposure(cum_trt) outcome_cov(cum_trt age) nolog
+    capture msm_fit, model(cox) exposure(cum_trt) outcome_cov(cum_trt age sex) nolog
     assert _rc == 198
 
     * tvcov() sharing a variable with outcome_cov()
     _setup_exposure, nolog
-    capture msm_fit, model(cox) tvcov(cum_comp) outcome_cov(cum_comp age) nolog
+    capture msm_fit, model(cox) tvcov(cum_comp) outcome_cov(cum_comp age sex) nolog
     assert _rc == 198
 
     * tvcov() containing the mapped treatment
     _setup_exposure, nolog
-    capture msm_fit, model(cox) tvcov(treatment) outcome_cov(age) nolog
+    capture msm_fit, model(cox) tvcov(treatment) outcome_cov(age sex) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -209,13 +246,20 @@ capture noisily {
     assert !missing(r(evalue_point))
 
     * exposure fit: sensitivity finds the exposure coefficient, not treatment
+    * (tvcov is lag_trt, not cum_comp -- see the E2 and E8 notes on N01)
     _setup_exposure, nolog
-    msm_fit, model(cox) exposure(cum_trt) tvcov(cum_comp) ///
+    msm_fit, model(cox) exposure(cum_trt) tvcov(lag_trt) ///
         outcome_cov(age sex) vce(cluster id) nolog
     local fit_hr = exp(_b[cum_trt])
     msm_sensitivity, evalue
     assert reldif(r(effect), `fit_hr') < 1e-8
     assert !missing(r(evalue_point))
+
+    * The rendered effect is a real one. Under the old degenerate spec the
+    * exposure was omitted, so fit_hr was exp(0) == 1 and the E-value was 1:
+    * this assertion is what distinguishes "sensitivity found the exposure"
+    * from "sensitivity faithfully rendered a hole".
+    assert abs(`fit_hr' - 1) > 1e-6
 }
 if _rc == 0 {
     display as result "  PASS E6: msm_sensitivity renders exposure fit"
@@ -246,6 +290,53 @@ else {
     display as error "  FAIL E7: logistic exposure predict fence (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' E7"
+}
+
+**# E8: an unidentified exposure is refused, not reported as a precise finding
+*
+* Regression for finding N01. msm 1.2.3 accepted exposure(cum_trt)
+* tvcov(cum_comp), stored fitted state, and reported the exposure at
+* b = -.01410812 with se = 0 exactly -- HR 0.986, CI [0.986, 0.986], p = . --
+* because Stata had omitted the term as collinear and nothing checked. The
+* zero-width CI is the tell, not the point estimate: the coefficient is not
+* zero, so the result reads as a precisely measured small effect rather than
+* as the hole it is. This probe fails on 1.2.3 (which returns rc=0) and passes
+* once msm_fit verifies the exposure coefficient is estimable before committing
+* any state.
+*
+* Note this spec is not merely degenerate in this fixture: msm_prepare
+* requires binary treatment, so cum_trt + cum_comp == period + 1 in EVERY
+* dataset msm accepts, and the pairing can never be identified in a Cox model.
+
+local ++test_count
+capture noisily {
+    _setup_exposure, nolog
+
+    * The trap is exact and structural, not a numerical near-miss.
+    gen double _chk = cum_trt + cum_comp - (period + 1)
+    quietly summarize _chk
+    assert r(min) == 0 & r(max) == 0
+    drop _chk
+
+    capture msm_fit, model(cox) exposure(cum_trt) tvcov(cum_comp) ///
+        outcome_cov(age sex) vce(cluster id) nolog
+    local fit_rc = _rc
+    assert `fit_rc' != 0
+
+    * The refusal commits no fitted state.
+    assert "`: char _dta[_msm_fitted]'" == ""
+    assert "`: char _dta[_msm_fit_uuid]'" == ""
+    capture confirm variable _msm_esample
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS E8: unidentified exposure refused, no state committed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL E8: unidentified exposure guard (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' E8"
 }
 
 **# Summary

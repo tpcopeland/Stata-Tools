@@ -29,98 +29,6 @@ local _qa_level0 = c(level)
 local _qa_va0 "`c(varabbrev)'"
 local _qa_pwd0 "`c(pwd)'"
 
-**# Wilson Score CI Validation
-
-**## V13a — Wilson CI hand-calculation for known prevalence
-* 4 matches out of 20 = 20% prevalence
-* Wilson score CI with z=1.96:
-*   p_hat = 0.20, N = 20, z^2/N = 3.8416/20 = 0.19208
-*   denom = 1 + 0.19208 = 1.19208
-*   center = (0.20 + 0.09604) / 1.19208 = 0.24835
-*   margin = 1.96 * sqrt((0.16 + 0.04802) / 20) / 1.19208
-*          = 1.96 * sqrt(0.010401) / 1.19208 = 1.96 * 0.10199 / 1.19208 = 0.16769
-*   ci_low  = max(0, (0.24835 - 0.16769)*100) = 8.066
-*   ci_high = min(100, (0.24835 + 0.16769)*100) = 41.604
-local ++test_count
-capture noisily {
-    clear
-    set obs 20
-    gen str10 dx1 = "Z00"
-    replace dx1 = "E110" in 1
-    replace dx1 = "E119" in 5
-    replace dx1 = "E110" in 10
-    replace dx1 = "E111" in 15
-
-    codescan dx1, define(dm2 "E11")
-    matrix S = r(summary)
-
-    * count = 4
-    assert S[1,1] == 4
-    * prevalence = 20.0
-    assert abs(S[1,2] - 20.0) < 0.01
-
-    * Wilson CI bounds (hand-computed above)
-    assert abs(S[1,3] - 8.066) < 0.5
-    assert abs(S[1,4] - 41.604) < 0.5
-    * Ordering: low <= prev <= high
-    assert S[1,3] <= S[1,2]
-    assert S[1,4] >= S[1,2]
-}
-if _rc == 0 {
-    display as result "  PASS: V13a - Wilson CI hand-calculation (20%, N=20)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V13a - Wilson CI hand-calculation (error `=_rc')"
-    local ++fail_count
-}
-
-**## V13b — Wilson CI: 100% prevalence → CI upper bound = 100
-local ++test_count
-capture noisily {
-    clear
-    set obs 10
-    gen str10 dx1 = "E110"
-    codescan dx1, define(dm2 "E11")
-    matrix S = r(summary)
-    assert abs(S[1,2] - 100.0) < 0.01
-    assert abs(S[1,4] - 100) < 0.001
-    assert S[1,3] > 0
-}
-if _rc == 0 {
-    display as result "  PASS: V13b - Wilson CI at 100% prevalence"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V13b - Wilson CI 100% (error `=_rc')"
-    local ++fail_count
-}
-
-**## V13c — Wilson CI: 0% prevalence → CI lower bound = 0, upper bound > 0
-* Wilson CI at 0%: lower bound clamped to 0, but upper bound is positive
-* (this is a property of the Wilson score — even with 0 successes, there is
-* a plausible upper bound for the proportion)
-local ++test_count
-capture noisily {
-    clear
-    set obs 10
-    gen str10 dx1 = "Z00"
-    codescan dx1, define(dm2 "E11")
-    matrix S = r(summary)
-    assert S[1,2] == 0
-    assert S[1,3] == 0
-    * Upper bound should be > 0 (Wilson property)
-    assert S[1,4] > 0
-    assert S[1,4] < 100
-}
-if _rc == 0 {
-    display as result "  PASS: V13c - Wilson CI at 0% prevalence"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V13c - Wilson CI 0% (error `=_rc')"
-    local ++fail_count
-}
 
 
 **# Exclusion Pattern Correctness
@@ -1098,46 +1006,6 @@ else {
 }
 
 
-* ============================================================
-* NEW: Wilson CI at Non-Default Level
-* ============================================================
-
-**## V43 — Wilson CI at 90% is narrower than at 95% (invariant)
-local ++test_count
-capture noisily {
-    local _orig_level = c(level)
-    clear
-    set obs 20
-    gen str10 dx1 = ""
-    replace dx1 = "E110" if _n <= 5
-    replace dx1 = "Z00"  if _n > 5
-
-    set level 95
-    codescan dx1, define(dm2 "E11") replace
-    matrix S95 = r(summary)
-    local w95 = S95[1,4] - S95[1,3]
-
-    set level 90
-    codescan dx1, define(dm2 "E11") replace
-    matrix S90 = r(summary)
-    local w90 = S90[1,4] - S90[1,3]
-
-    * 90% CI must be strictly narrower
-    assert `w90' < `w95'
-    * Prevalence unchanged
-    assert abs(S95[1,2] - S90[1,2]) < 0.001
-    set level `_orig_level'
-}
-if _rc == 0 {
-    display as result "  PASS: V43 - Wilson CI 90% narrower than 95%"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V43 - Wilson CI level invariant (error `=_rc')"
-    local ++fail_count
-    capture set level `_qa_level0'
-}
-
 
 * ============================================================
 * NEW: Matched_code Under Multi-Condition Exclusion
@@ -1292,9 +1160,9 @@ capture noisily {
     matrix S = r(summary)
     forvalues i = 1/5 {
         assert S[`i',2] >= 0 & S[`i',2] <= 100
-        assert S[`i',3] >= 0
-        assert S[`i',4] <= 100
-        assert S[`i',3] <= S[`i',4]
+        * binary mode: total_hits (col 3) missing; positive_units (col 4) == count
+        assert missing(S[`i',3])
+        assert S[`i',4] == S[`i',1]
     }
 }
 if _rc == 0 {

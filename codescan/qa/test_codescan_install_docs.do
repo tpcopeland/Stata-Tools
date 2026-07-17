@@ -328,17 +328,18 @@ capture noisily {
     confirm variable condition
     confirm variable matches
     confirm variable prevalence
-    confirm variable ci_low
-    confirm variable ci_high
     confirm variable pattern
     confirm variable exclusion
+    * 4.0.0: CI columns removed from the export
+    capture confirm variable ci_low
+    assert _rc != 0
+    capture confirm variable ci_high
+    assert _rc != 0
     assert _N == 2
     count if condition == "dm2" & matches == 2 & abs(prevalence - 40) < 1e-8 & pattern == "E11"
     assert r(N) == 1
     count if condition == "htn" & matches == 1 & abs(prevalence - 20) < 1e-8 & pattern == "I1[0-35]"
     assert r(N) == 1
-    assert inrange(ci_low, 0, 100)
-    assert inrange(ci_high, 0, 100)
 }
 if _rc == 0 {
     display as result "  PASS: export() CSV has expected installed-user content"
@@ -375,8 +376,11 @@ capture noisily {
     confirm variable condition
     confirm variable matches
     confirm variable prevalence
-    confirm variable ci_low
-    confirm variable ci_high
+    * 4.0.0: CI columns removed from the export
+    capture confirm variable ci_low
+    assert _rc != 0
+    capture confirm variable ci_high
+    assert _rc != 0
     assert _N == 2
     count if condition == "dm2" & matches == 1 & abs(prevalence - 33.33) < 0.01
     assert r(N) == 1

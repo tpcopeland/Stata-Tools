@@ -12,6 +12,7 @@ local pkg_dir "`qa_dir'/.."
 local data_dir "`qa_dir'/data"
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+do "`qa_dir'/_msm_qa_common.do"
 
 local test_count = 0
 local pass_count = 0
@@ -368,8 +369,10 @@ else {
 local ++test_count
 capture {
     msm_weight, treat_d_cov(cd4_sqrt sex age) ///
-        treat_n_cov(sex age) nolog
+        treat_n_cov(sex age) probpolicy(clip) clip(0.001) nolog
 
+    assert "`r(probability_policy)'" == "clip"
+    assert abs(r(clip_threshold) - 0.001) < 1e-12
     local w_mean = r(mean_weight)
     local r_mean = 1.0418
     local pct_diff = abs(`w_mean' - `r_mean') / `r_mean' * 100
@@ -448,7 +451,8 @@ local ++test_count
 capture {
     * Re-fit with truncation
     msm_weight, treat_d_cov(cd4_sqrt sex age) ///
-        treat_n_cov(sex age) truncate(1 99) nolog replace
+        treat_n_cov(sex age) truncate(1 99) ///
+        probpolicy(clip) clip(0.001) nolog replace
     msm_fit, model(logistic) outcome_cov(sex age) period_spec(linear) nolog
 
     local b_trunc = _b[treatment]
@@ -1220,6 +1224,12 @@ program define _v6_generate_dgp
         }
     }
 
+    * Censor-first timing convention (audit A08): a censored subject has no
+    * observed outcome that period, so resolve incidental outcome==1 & censored==1
+    * ties by censor-first. msm_fit excludes censor==1 rows from the outcome fit,
+    * so this leaves the recovered estimate unchanged.
+    quietly replace outcome = 0 if censored == 1
+
     * Baseline covariate
     gen double bl_L0 = .
     sort id period
@@ -1790,7 +1800,7 @@ log using "`qa_dir'/crossval_msm.log", replace name(crossval)
 * STEP 1: Generate shared datasets
 display "STEP 1: Generating shared DGP datasets..."
 
-do "`qa_dir'/crossval_dgp_generate.do"
+do "`qa_dir'/_crossval_dgp_generate.do"
 
 * STEP 2: Run msm on DGP1 (time-varying treatment)
 display "STEP 2: Running msm on DGP1..."
@@ -2396,17 +2406,11 @@ capture {
     gen byte treatment = mod(_n, 2)
     gen byte outcome = 0
 
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
+
     * Unit weights => ESS = N
     gen double _msm_weight = 1
-    char _dta[_msm_prepared] "1"
-    char _dta[_msm_id] "id"
-    char _dta[_msm_period] "period"
-    char _dta[_msm_treatment] "treatment"
-    char _dta[_msm_outcome] "outcome"
-    char _dta[_msm_censor] ""
-    char _dta[_msm_covariates] ""
-    char _dta[_msm_bl_covariates] ""
-    char _dta[_msm_weighted] "1"
+    _msm_qa_register_weights
 
     msm_diagnose
     local ess_unit = r(ess)
@@ -2420,6 +2424,10 @@ capture {
     * sum_w2 = 4+0.25+4+0.25 = 8.5
     * ESS = 25/8.5 = 2.94118
     local expected_ess = 25 / 8.5
+
+    * Editing the weights invalidates the weighting artifact -- its signature
+    * covers the weight values -- so the new values are re-registered.
+    _msm_qa_register_weights
 
     msm_diagnose
     local ess_nonunif = r(ess)
@@ -2499,17 +2507,11 @@ capture {
     local target_logor = ln(2)
     replace outcome = runiform() < invlogit(-3 + `target_logor' * treatment)
 
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
+
     gen double _msm_weight = 1
-    char _dta[_msm_prepared] "1"
-    char _dta[_msm_id] "id"
-    char _dta[_msm_period] "period"
-    char _dta[_msm_treatment] "treatment"
-    char _dta[_msm_outcome] "outcome"
-    char _dta[_msm_censor] ""
-    char _dta[_msm_covariates] ""
-    char _dta[_msm_bl_covariates] ""
-    char _dta[_msm_weighted] "1"
-    gen byte _msm_tw_weight = 1
+    gen double _msm_tw_weight = 1
+    _msm_qa_register_weights
 
     msm_fit, model(logistic) period_spec(none) nolog
 
@@ -2843,18 +2845,12 @@ capture {
     gen byte treatment = runiform() < 0.5
     * OR = 0.5 => log-OR = -0.693
     gen byte outcome = runiform() < invlogit(-3 - 0.693 * treatment)
-    gen double _msm_weight = 1
-    gen byte _msm_tw_weight = 1
 
-    char _dta[_msm_prepared] "1"
-    char _dta[_msm_id] "id"
-    char _dta[_msm_period] "period"
-    char _dta[_msm_treatment] "treatment"
-    char _dta[_msm_outcome] "outcome"
-    char _dta[_msm_censor] ""
-    char _dta[_msm_covariates] ""
-    char _dta[_msm_bl_covariates] ""
-    char _dta[_msm_weighted] "1"
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
+
+    gen double _msm_weight = 1
+    gen double _msm_tw_weight = 1
+    _msm_qa_register_weights
 
     msm_fit, model(logistic) period_spec(none) nolog
     local fitted_or = exp(_b[treatment])
@@ -3030,18 +3026,12 @@ capture {
     gen int period = 0
     gen byte treatment = runiform() < 0.5
     gen byte outcome = runiform() < invlogit(-3 + 0.01 * treatment)
-    gen double _msm_weight = 1
-    gen byte _msm_tw_weight = 1
 
-    char _dta[_msm_prepared] "1"
-    char _dta[_msm_id] "id"
-    char _dta[_msm_period] "period"
-    char _dta[_msm_treatment] "treatment"
-    char _dta[_msm_outcome] "outcome"
-    char _dta[_msm_censor] ""
-    char _dta[_msm_covariates] ""
-    char _dta[_msm_bl_covariates] ""
-    char _dta[_msm_weighted] "1"
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
+
+    gen double _msm_weight = 1
+    gen double _msm_tw_weight = 1
+    _msm_qa_register_weights
 
     msm_fit, model(logistic) period_spec(none) nolog
     local or = exp(_b[treatment])
@@ -3206,8 +3196,12 @@ capture {
         outcome(outcome) ///
         covariates(x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
 
+    * Stabilize on the BASELINE versions: a numerator covariate is not balanced
+    * away, so the MSM is conditional on it and it must be baseline-fixed (A10).
+    * x1/x2 are drawn per row and are time-varying; bl_x1/bl_x2 are their baseline
+    * values, which is why the fixture builds them.
     msm_weight, treat_d_cov(x1 x2 x3 x4 x5 x6 x7 x8 x9 x10) ///
-        treat_n_cov(x1 x2) truncate(1 99) nolog
+        treat_n_cov(bl_x1 bl_x2) truncate(1 99) nolog
 
     quietly summarize _msm_weight
     assert r(min) > 0
@@ -3538,6 +3532,8 @@ capture {
     gen byte outcome = runiform() < invlogit(-4 - 0.3 * treatment + 0.2 * L)
     * Heavy censoring: ~4% per period => ~40% over 10 periods
     gen byte censored = runiform() < invlogit(-3 + 0.2 * L - 0.3 * treatment)
+    * Censor-first: a censored subject has no observed event that period (A08)
+    replace outcome = 0 if censored == 1
     gen double bl = .
     bysort id (period): replace bl = L[1]
 
@@ -3630,8 +3626,8 @@ capture {
     clear
     set seed 11131
     set obs 5000
-    gen long id = ceil(_n / 5)
-    bysort id: gen int period = _n - 1
+    gen long id = _n
+    gen int period = 0
     gen double L = rnormal()
     gen byte treatment = runiform() < invlogit(-1 + 0.3 * L)
     gen byte outcome = runiform() < invlogit(-4 - 0.3 * treatment + 0.2 * L)
@@ -3639,7 +3635,9 @@ capture {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(L)
 
-    * Same covariates in numerator and denominator
+    * At this one-row baseline, the numerator and denominator models are truly
+    * identical and L is baseline-fixed. No unsupported history-MSM escape is
+    * needed to test the weight-ratio algebra.
     msm_weight, treat_d_cov(L) treat_n_cov(L) nolog
 
     * When num and denom models are identical, weight should be ~1

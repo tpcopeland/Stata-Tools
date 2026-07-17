@@ -7,7 +7,7 @@ d rules or a reusable CSV/.dta code dictionary.
 d
 d codescan generates binary indicators or per-row counts, applies
 d lookback/lookforward time windows around a reference date,
-d reports prevalence with Wilson confidence intervals, and can
+d reports prevalence, and can
 d collapse to patient-level summaries or merge them back onto the
 d rows. Results are available in r(), in a named frame, saved as a
 d dataset, or exported to .csv/.xlsx. Diagnostics include

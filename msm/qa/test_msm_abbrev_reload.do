@@ -94,7 +94,7 @@ else {
 capture noisily {
     _setup_pipeline
     msm_weight, treat_n_cov(age sex) truncate(1 99) nolog
-    msm_fit, model(logistic)
+    msm_fit, outcome_cov(age sex) model(logistic)
 }
 quietly summarize period
 local max_period = r(max)
@@ -178,7 +178,7 @@ local ++test_count
 capture noisily {
     _setup_pipeline
     msm_weight, treat_n_cov(age sex) truncate(1 99) replace nolog
-    msm_fit, model(logistic)
+    msm_fit, outcome_cov(age sex) model(logistic)
     msm_predict, times(5) seed(12345)
     matrix _p1 = r(predictions)
     msm_predict, times(5) seed(12345)

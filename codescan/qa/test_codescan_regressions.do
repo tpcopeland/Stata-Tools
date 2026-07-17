@@ -114,7 +114,7 @@ capture noisily {
     assert `"`r(conditions)'"' == `"`_condsOK'"'
     matrix _Smry = r(summary)
     assert rowsof(_Smry) == 2
-    assert colsof(_Smry) == 6
+    assert colsof(_Smry) == 4
     assert mreldif(_Smry, _SmryOK) < 1e-12
     matrix drop _Smry _SmryOK
 
@@ -419,13 +419,22 @@ else {
 local ++test_count
 capture noisily {
     _make_v101_data
-    capture codescan dx1, define(pattern "E11") export(test_reserved.xlsx)
-    assert _rc == 198
-    capture codescan dx1, define(matches "E11") export(test_reserved.xlsx)
-    assert _rc == 198
-    * Without export(), same names should be fine
+    * Every column the export dataset creates is reserved (4.0.0: the guard
+    * covers all of them, including label/total_hits/positive_units that were
+    * added to the export by I3 but were once missing from the guard).
+    foreach nm in condition label matches total_hits positive_units prevalence pattern exclusion {
+        capture codescan dx1, define(`nm' "E11") export(test_reserved.xlsx)
+        assert _rc == 198
+    }
+    * Without export(), the same names are fine (positive control).
     capture codescan dx1, define(pattern "E11")
     assert _rc == 0
+    capture codescan dx1, define(total_hits "E11")
+    assert _rc == 0
+    * A non-reserved name works WITH export (guard is not over-rejecting).
+    capture codescan dx1, define(diabetes "E11") export(test_reserved.xlsx, replace)
+    assert _rc == 0
+    capture erase test_reserved.xlsx
 }
 if _rc == 0 {
     display as result "  PASS T9: reserved export column names rejected"
@@ -807,7 +816,7 @@ capture noisily {
     assert `"`=r(conditions)'"' == "dm2 htn"
     matrix _SmrySv = r(summary)
     assert rowsof(_SmrySv) == 2
-    assert colsof(_SmrySv) == 6
+    assert colsof(_SmrySv) == 4
     matrix drop _SmrySv
     * The collapse ran and left patient-level data in memory (5 pids).
     assert _N == 5

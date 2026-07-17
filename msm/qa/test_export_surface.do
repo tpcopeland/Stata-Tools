@@ -42,7 +42,7 @@ program define _setup_export_surface
         baseline_covariates(age sex)
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         treat_n_cov(age sex) truncate(1 99) nolog
-    msm_fit, model(logistic) outcome_cov(age) period_spec(linear) nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
     msm_predict, times(1 3 5) difference samples(20) seed(4242)
     msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
     msm_sensitivity, evalue
@@ -145,7 +145,7 @@ local ++test_count
 tempfile x3_status
 capture noisily shell python3 "`checker'" "`report_xlsx'" ///
     --sheet Coefficients ///
-    --exact-rows 7 ///
+    --exact-rows 8 ///
     --exact-cols 4 ///
     --cell A1 "Outcome Model (logistic)" ///
     --header-row 2 Variable OR "95% CI" p-value ///
@@ -157,8 +157,8 @@ capture noisily shell python3 "`checker'" "`report_xlsx'" ///
     --border-row 2 top medium ///
     --cell-not-empty B3 C3 D3 ///
     --number-format B3 "0.0000" ///
-    --cell A7 "Report QA footnote for export surface" ///
-    --italic-row 7 ///
+    --cell A8 "Report QA footnote for export surface" ///
+    --italic-row 8 ///
     --has-pattern ci p-values ///
     --result-file "`x3_status'"
 quietly _read_check_status "`x3_status'"
@@ -347,9 +347,11 @@ else {
 
 local ++test_count
 tempfile x10_status
+* The fitted model has five reported terms, including _cons: title + header +
+* five coefficient rows + footnote = eight workbook rows.
 capture noisily shell python3 "`checker'" "`table_coef_xlsx'" ///
     --sheet Coefficients ///
-    --exact-rows 7 ///
+    --exact-rows 8 ///
     --exact-cols 4 ///
     --cell A1 "Coefficient Surface Table" ///
     --header-row 2 Variable OR "95% CI" p-value ///
@@ -361,8 +363,8 @@ capture noisily shell python3 "`checker'" "`table_coef_xlsx'" ///
     --cell-contains C3 " to " ///
     --row-bold-contains Treatment ///
     --row-fill-contains Treatment "255 255 204" ///
-    --cell A7 "Coefficient sheet QA footnote" ///
-    --italic-row 7 ///
+    --cell A8 "Coefficient sheet QA footnote" ///
+    --italic-row 8 ///
     --result-file "`x10_status'"
 quietly _read_check_status "`x10_status'"
 if "`r(status)'" == "PASS" {

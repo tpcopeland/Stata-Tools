@@ -466,7 +466,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, nolog
+    msm_fit, outcome_cov(age sex) nolog
     assert "`e(msm_model)'" == "logistic"
     assert "`e(msm_period_spec)'" == "quadratic"
 }
@@ -484,7 +484,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(linear) nolog
+    msm_fit, outcome_cov(age sex) model(linear) nolog
     assert "`e(msm_model)'" == "linear"
 }
 if _rc == 0 {
@@ -501,7 +501,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     assert "`e(msm_model)'" == "cox"
 }
 if _rc == 0 {
@@ -518,7 +518,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(linear) nolog
+    msm_fit, outcome_cov(age sex) period_spec(linear) nolog
     assert "`e(msm_period_spec)'" == "linear"
 }
 if _rc == 0 {
@@ -535,7 +535,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(cubic) nolog
+    msm_fit, outcome_cov(age sex) period_spec(cubic) nolog
     assert "`e(msm_period_spec)'" == "cubic"
     confirm variable _msm_period_cu
 }
@@ -553,7 +553,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(none) nolog
+    msm_fit, outcome_cov(age sex) period_spec(none) nolog
     assert "`e(msm_period_spec)'" == "none"
 }
 if _rc == 0 {
@@ -570,7 +570,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(ns(2)) nolog
+    msm_fit, outcome_cov(age sex) period_spec(ns(2)) nolog
     assert "`e(msm_period_spec)'" == "ns(2)"
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
@@ -589,7 +589,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, period_spec(ns(3)) nolog
+    msm_fit, outcome_cov(age sex) period_spec(ns(3)) nolog
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
     confirm variable _msm_per_ns3
@@ -626,7 +626,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, level(90) nolog
+    msm_fit, outcome_cov(age sex) level(90) nolog
     * Should run without error
     assert e(N) > 0
 }
@@ -644,7 +644,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    capture msm_fit, bootstrap(100) nolog
+    capture msm_fit, outcome_cov(age sex) bootstrap(100) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -661,7 +661,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    capture msm_fit, model(invalid) nolog
+    capture msm_fit, outcome_cov(age sex) model(invalid) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -763,7 +763,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    capture msm_fit, model(linear) vce(robust) cluster(id) nolog
+    capture msm_fit, outcome_cov(age sex) model(linear) vce(robust) cluster(id) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -780,7 +780,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    capture msm_fit, model(linear) strata(sex) nolog
+    capture msm_fit, outcome_cov(age sex) model(linear) strata(sex) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -797,7 +797,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) outcome_cov(age) strata(sex) vce(cluster id) nolog
+    msm_fit, model(cox) outcome_cov(age sex) strata(sex) vce(cluster id) nolog
     assert "`e(msm_vce)'" == "cluster"
     assert "`e(msm_cluster)'" == "id"
     assert "`e(msm_strata)'" == "sex"
@@ -1119,7 +1119,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     capture msm_predict, times(1 3) samples(10)
     assert _rc == 198
 }
@@ -1217,7 +1217,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(cox) nolog
+    msm_fit, outcome_cov(age sex) model(cox) nolog
     msm_sensitivity, evalue
     assert r(evalue_point) != .
     assert "`r(effect_label)'" == "HR"
@@ -1236,7 +1236,7 @@ else {
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
-    msm_fit, model(linear) nolog
+    msm_fit, outcome_cov(age sex) model(linear) nolog
     msm_sensitivity, evalue
     assert "`r(effect_label)'" == "Coef"
     assert r(effect) != .

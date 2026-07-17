@@ -576,15 +576,14 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11" | obesity "E66")
     matrix S = r(summary)
     assert rowsof(S) == 2
-    * 3.0.0: count prevalence ci_low ci_high total_hits positive_units
-    assert colsof(S) == 6
+    * 4.0.0: count prevalence total_hits positive_units
+    assert colsof(S) == 4
     assert S[1,1] > 0
     assert S[1,2] > 0
     assert S[1,2] <= 100
-    assert S[1,3] >= 0
-    assert S[1,4] <= 100
-    assert S[1,3] <= S[1,2]
-    assert S[1,4] >= S[1,2]
+    * binary mode: total_hits (col 3) is missing; positive_units (col 4) == count
+    assert missing(S[1,3])
+    assert S[1,4] == S[1,1]
 }
 if _rc == 0 {
     display as result "  PASS: Summary matrix dimensions and content"

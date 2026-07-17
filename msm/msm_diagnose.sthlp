@@ -32,8 +32,8 @@
 {synopt:{opth bal:ance_covariates(varlist)}}covariates for SMD balance assessment{p_end}
 {synopt:{opt by_:period}}show weight statistics separately by period{p_end}
 {synopt:{opt thr:eshold(#)}}SMD balance threshold; default is {cmd:0.1}{p_end}
-{synopt:{opt accum:ulate(name)}}append a one-row diagnostic summary to a named {help frames:frame}{p_end}
-{synopt:{opt cont:rast(string)}}contrast label for the accumulate row (required with {cmd:accumulate()}){p_end}
+{synopt:{opt accum:ulate(name)}}append a diagnostic row to a named frame{p_end}
+{synopt:{opt cont:rast(string)}}label for the accumulated diagnostic row{p_end}
 {synopt:{opt out:come(string)}}outcome label for the accumulate row{p_end}
 {synoptline}
 
@@ -49,10 +49,10 @@
 distribution (mean, SD, percentiles, min, max), the effective sample size
 (ESS), and per-treatment-group summaries.{p_end}
 
-{phang2}2. {bf:Did weighting achieve covariate balance?} When covariates are
-specified, it computes the standardized mean difference (SMD) between treated
-and untreated groups both before and after weighting, and reports how much
-each covariate improved.{p_end}
+{phang2}2. {bf:Did weighting achieve longitudinal covariate balance?} It
+computes treatment SMDs within period and prior-treatment history, reports
+period-specific propensity support and ESS, and reports censoring balance
+separately when IPCW was fitted.{p_end}
 
 {pstd}
 This command does not change observations or create/drop data variables. It
@@ -91,17 +91,36 @@ violations. Use {cmd:by_period} to identify which periods are affected, and
 consider period-specific investigation or truncation.{p_end}
 
 {pstd}
-{bf:Covariate balance:}
+{bf:Longitudinal covariate balance:}
+
+{phang2}{bf:Period and treatment history first:} The primary treatment-balance
+matrix compares treated and untreated decisions separately at each period and,
+after baseline, within prior-treatment strata. Opposite imbalances can cancel
+in a pooled person-period SMD.{p_end}
+
+{phang2}{bf:Balance targets:} A {cmd:target} value of 1 marks denominator-only
+covariates expected to balance. Stabilized-numerator covariates have
+{cmd:target=0}: the numerator intentionally retains their target distribution,
+so they must also enter the outcome model rather than be declared balanced
+away.{p_end}
+
+{phang2}{bf:Censoring separately:} When IPCW is present, censoring SMDs are
+reported by period in the censoring decision risk set. The diagnostic carries
+forward prior uncensoring factors and replaces the current all-uncensored IPCW
+factor with the stabilized factor for the observed censoring decision. This
+permits a valid comparison of currently censored and uncensored groups. The
+censoring SMDs are not folded into the treatment table.{p_end}
 
 {phang2}{bf:SMD < 0.1:} The standard threshold for acceptable balance. SMDs
 above 0.1 after weighting suggest residual confounding for that variable.{p_end}
 
-{phang2}{bf:% Change:} A large negative change means weighting improved
+{phang2}{bf:Secondary pooled % change:} A large negative change means weighting improved
 balance. A positive change means weighting made balance worse for that
 covariate, which warrants investigation.{p_end}
 
-{phang2}Covariates exceeding the threshold are marked with {cmd:*} in the
-output.{p_end}
+{phang2}The legacy pooled table marks covariates exceeding the threshold with
+{cmd:*}; treat it as a secondary person-period summary, not the primary
+longitudinal balance decision.{p_end}
 
 
 {marker options}{...}
@@ -179,7 +198,10 @@ missing only when there are no covariates to assess.
 {bf:Inspecting the balance matrix programmatically:}{p_end}
 
 {phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:. matrix list r(balance)}{p_end}
+{phang2}{cmd:. matrix list r(treatment_balance)}{p_end}
+{phang2}{cmd:. matrix list r(support)}{p_end}
+{phang2}{cmd:. capture matrix list r(censor_balance)}{p_end}
+{phang2}{cmd:. matrix list r(balance)} {it:// secondary pooled summary}{p_end}
 
 {pstd}
 {bf:Visualizing the diagnostics.} Follow up with {helpb msm_plot} for weight
@@ -222,12 +244,46 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {synopt:{cmd:r(n_extreme)}}number of observations with extreme weights (above P99){p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(balance)}}covariate balance matrix (columns: raw_smd, weighted_smd, pct_change){p_end}
+{synopt:{cmd:r(treatment_balance)}}primary period/history-specific treatment balance{p_end}
+{synopt:{cmd:r(censor_balance)}}separate period-specific censoring balance, when IPCW exists{p_end}
+{synopt:{cmd:r(support)}}period-specific propensity overlap and ESS{p_end}
+{synopt:{cmd:r(balance)}}secondary pooled person-period balance matrix{p_end}
+
+{pstd}
+{cmd:r(treatment_balance)} has columns {cmd:period}, {cmd:history},
+{cmd:covariate}, {cmd:raw_smd}, {cmd:weighted_smd}, {cmd:n_treated},
+{cmd:n_untreated}, {cmd:ess}, and {cmd:target}. At the common baseline,
+{cmd:history=-1}; later rows use prior treatment 0 or 1. The numeric covariate
+index follows the order supplied to {cmd:balance_covariates()}.
+
+{pstd}
+{cmd:r(censor_balance)} has columns {cmd:period}, {cmd:covariate},
+{cmd:raw_smd}, {cmd:weighted_smd}, {cmd:n_censored}, {cmd:n_uncensored}, and
+{cmd:ess}. Its weighted SMD and ESS use the cumulative observed-decision
+censoring weight: prior periods retain their uncensoring factors and the
+current period uses the stabilized probability of the observed censoring
+status. {cmd:r(support)} has columns {cmd:period}, {cmd:N}, {cmd:treated},
+{cmd:untreated}, {cmd:ps_min}, {cmd:ps_max}, {cmd:common_lo}, {cmd:common_hi},
+{cmd:n_outside}, and {cmd:ess}.
+
+{pstd}
+The backward-compatible {cmd:r(balance)} has columns {cmd:raw_smd},
+{cmd:weighted_smd}, and {cmd:pct_change}; it pools person-period rows and is
+therefore secondary.
 
 {pstd}
 When {opt accumulate(name)} is specified, {cmd:msm_diagnose} also appends one summary row
 to the named frame (see the {help msm_diagnose##options:Options}); this is a side effect and is not part of
 {cmd:r()}.
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Adenyo D, Guertin JR, Candas B, Sirois C, Talbot D. 2024. Evaluation and
+comparison of covariate balance metrics in studies with time-dependent
+confounding. {it:Statistics in Medicine}. doi:10.1002/sim.10188.{p_end}
 
 
 {marker author}{...}

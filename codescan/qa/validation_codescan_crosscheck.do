@@ -1270,43 +1270,6 @@ else {
 }
 
 
-* XV34: Wilson score CI in r(summary) vs manual Wilson formula
-local ++test_count
-capture noisily {
-    clear
-    set obs 100
-    gen str10 dx1 = "Z00"
-    replace dx1 = "E110" in 1/20
-
-    codescan dx1, define(dm2 "E11")
-    matrix S = r(summary)
-    local cnt = S[1, 1]
-    local NN  = r(N)
-
-    * Manual Wilson 95% CI (matches ado lines: max(0,..)*100, min(100,..)*100)
-    local z      = invnormal(1 - (1 - c(level)/100)/2)
-    local phat   = `cnt' / `NN'
-    local z2n    = `z'^2 / `NN'
-    local denom  = 1 + `z2n'
-    local center = (`phat' + `z2n'/2) / `denom'
-    local margin = `z' * sqrt((`phat'*(1 - `phat') + `z2n'/4) / `NN') / `denom'
-    local lo     = max(0,   (`center' - `margin') * 100)
-    local hi     = min(100, (`center' + `margin') * 100)
-
-    assert S[1, 1] == 20
-    assert reldif(S[1, 3], `lo') < 1e-8
-    assert reldif(S[1, 4], `hi') < 1e-8
-}
-if _rc == 0 {
-    display as result "  PASS: XV34 - Wilson CI vs manual formula"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XV34 - Wilson CI (error `=_rc')"
-    local ++fail_count
-}
-
-
 * XV35: unmatched() vs manual no-condition-matched flag (strict 0/1)
 local ++test_count
 capture noisily {

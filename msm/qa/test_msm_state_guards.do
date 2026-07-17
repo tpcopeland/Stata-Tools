@@ -10,6 +10,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+do "`qa_dir'/_msm_qa_common.do"
 
 local pass_count = 0
 local fail_count = 0
@@ -41,7 +42,26 @@ program define _guard_setup_fitted
 end
 
 **# Prediction Guards
-**## Empty fitted reference population fails before saving predictions
+**## Tampering with the estimation sample is refused before predicting
+*
+* CONTRACT CHANGE (Phase 1, audit A02). This probe used to empty the reference
+* population by `replace _msm_esample = 0', and required msm_predict's
+* empty-reference guard to fire with r(2000).
+*
+* The fit signature now covers the exact estimation sample -- the audit
+* requires it ("fitting: weighting signature plus outcome-model inputs and
+* exact e(sample)") -- so editing _msm_esample invalidates the fit and
+* msm_predict refuses at r(459) BEFORE it ever computes a reference
+* population. Editing e(sample) under a fitted model silently repoints every
+* downstream prediction, which is the contamination class this rework exists
+* to close; refusing earlier is the stronger behaviour.
+*
+* What this probe now asserts: the tamper is refused, and the failure commits
+* no prediction state.
+*
+* COVERAGE GAP (recorded, not silent): msm_predict's own empty-reference guard
+* (r 2000) is no longer reachable by tampering, and needs a data-driven
+* trigger. Phase 4 owns fitted risk-set period support and must supply one.
 local ++test_count
 capture noisily {
     _guard_setup_fitted
@@ -56,22 +76,19 @@ capture noisily {
     capture msm_predict, times(`min_period') samples(10) seed(90210)
     local pred_rc = _rc
 
-    assert `pred_rc' == 2000
+    assert `pred_rc' == 459
     assert c(varabbrev) == "on"
-    assert "`: char _dta[_msm_pred_saved]'" == ""
     assert "`: char _dta[_msm_pred_type]'" == ""
     assert "`: char _dta[_msm_pred_strategy]'" == ""
     assert "`: char _dta[_msm_pred_level]'" == ""
-    capture matrix list _msm_pred_matrix
-    assert _rc != 0
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS SG1: msm_predict rejects empty reference population"
+    display as result "PASS SG1: msm_predict refuses a tampered estimation sample"
     local ++pass_count
 }
 else {
-    display as error "FAIL SG1: msm_predict empty reference guard (rc=`=_rc')"
+    display as error "FAIL SG1: msm_predict esample tamper guard (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' SG1"
     set varabbrev off
@@ -95,7 +112,7 @@ capture noisily {
     capture msm_weight, treat_d_cov(L) fitfailure(marginal) nolog
     local weight_rc = _rc
 
-    assert `weight_rc' == 2000
+    assert `weight_rc' == 459
     assert "`: char _dta[_msm_weighted]'" == ""
     capture confirm variable _msm_weight
     assert _rc != 0
@@ -159,10 +176,22 @@ capture noisily {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(x)
 
+    * SG4 checks varabbrev restoration, so the guards below must SUCCEED --
+    * their error paths are covered elsewhere. That needs genuine weighted and
+    * fitted artifacts. Hand-setting char _dta[_msm_weighted] "1" and a bare
+    * J(1,1,0) matrix (what this test used to do) produces state with no
+    * identity, which the Phase 1 guards correctly refuse, so the guards would
+    * error and the probe would test nothing.
     gen double _msm_weight = 1
-    char _dta[_msm_weighted] "1"
-    matrix _msm_fit_b = J(1, 1, 0)
-    char _dta[_msm_fitted] "1"
+    _msm_qa_register_weights
+
+    tempname sg_b sg_V
+    matrix `sg_b' = (0, 0)
+    matrix colnames `sg_b' = treatment _cons
+    matrix `sg_V' = J(2, 2, 0)
+    _msm_qa_register_fit, b(`sg_b') v(`sg_V')
+    char _dta[_msm_model] "logistic"
+    char _dta[_msm_fit_level] "95"
 
     set varabbrev on
     _msm_check_prepared

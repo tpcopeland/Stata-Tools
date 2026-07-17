@@ -34,8 +34,23 @@ program define msm_validate, rclass
 
     syntax [, STRict VERbose]
 
-    * Check data has been prepared
-    _msm_check_prepared
+    * Check data has been prepared.
+    *
+    * msm_validate exists to FIND problems in the prepared data, and the checks
+    * below are explicitly written to run "in case the data changed after
+    * msm_prepare". A stale signature is therefore one of its FINDINGS, not a
+    * reason to refuse to run: hard-failing on it would make the command
+    * useless for its own purpose. Every other stage does hard-fail (audit
+    * A02); this one reports.
+    _msm_verify prepare
+    local _prep_ok = r(ok)
+    local _prep_why "`r(why)'"
+    if `_prep_ok' == 0 & "`_prep_why'" != "edited" {
+        * Not prepared at all, or a mapped variable is gone: there is nothing
+        * to validate. _msm_check_prepared re-derives the verdict and emits the
+        * appropriate message and return code.
+        _msm_check_prepared
+    }
     _msm_get_settings
 
     local id         "`_msm_id'"
@@ -55,6 +70,22 @@ program define msm_validate, rclass
     display as result "msm_validate" as text " - Data Quality Checks"
     display as text "{hline 70}"
     display as text ""
+
+    * Note a stale preparation. Downstream stages refuse to run against it, so
+    * the user is better told here than at msm_fit (audit A02).
+    *
+    * Deliberately a NOTE, not a check/warning/error: msm_validate's public
+    * contract is r(n_checks)/r(n_warnings)/r(n_errors), and changing those
+    * counts is a documented-behaviour change that belongs to the
+    * documentation and QA phases, not to the state rework. Phase 1's only
+    * obligation here is not to break this command.
+    if "`_prep_why'" == "edited" {
+        display as text "  Note: the data have changed since {bf:msm_prepare} ran."
+        display as text "        Mapped variables were edited, or observations were"
+        display as text "        added or dropped. {bf:msm_weight} and {bf:msm_fit} will"
+        display as text "        refuse to run until {bf:msm_prepare} is re-run."
+        display as text ""
+    }
 
     * Re-check binary mappings in case the data changed after msm_prepare.
     foreach var in `treatment' `outcome' {
@@ -395,39 +426,60 @@ program define msm_validate, rclass
     }
 
     * =========================================================================
-    * CHECK 10: Positivity by period
+    * CHECK 10: Treatment support by period (audit A25)
     * =========================================================================
     local ++n_checks
-    display as text "Check 10: Positivity by period"
+    display as text "Check 10: Treatment support by period"
 
-    * Check that both treatment values exist in each period
-    tempvar _p_tag _p_t1 _p_t0
-    quietly bysort `period': egen long `_p_t1' = total(`treatment')
-    quietly bysort `period': gen long `_p_t0' = _N - `_p_t1'
+    * Count treated and untreated SEPARATELY among nonmissing rows. The old
+    * check computed untreated as _N - total(treatment), which counts a missing
+    * treatment as untreated, so a period with no genuine untreated subject
+    * passed whenever missing rows padded the count. Missing treatment leaves
+    * support indeterminate and is reported as its own failure.
+    tempvar _p_tag _p_n1 _p_n0 _p_nm _p_nn
+    quietly bysort `period': egen long `_p_n1' = total(`treatment' == 1)
+    quietly bysort `period': egen long `_p_n0' = total(`treatment' == 0)
+    quietly bysort `period': egen long `_p_nm' = total(missing(`treatment'))
+    quietly bysort `period': gen long `_p_nn' = `_p_n1' + `_p_n0'
     quietly bysort `period': gen byte `_p_tag' = (_n == 1)
 
-    quietly count if `_p_tag' & (`_p_t1' == 0 | `_p_t0' == 0)
+    quietly count if `_p_tag' & (`_p_n1' == 0 | `_p_n0' == 0)
     local n_no_pos = r(N)
+    quietly count if `_p_tag' & `_p_nm' > 0
+    local n_indet = r(N)
 
     if `n_no_pos' > 0 {
         if "`strict'" != "" {
-            display as error "  FAIL: `n_no_pos' periods with no treatment variation (positivity violation)"
+            display as error "  FAIL: `n_no_pos' period(s) with no treated or no untreated subject (support violation)"
             local ++n_errors
         }
         else {
-            display as text "  WARNING: `n_no_pos' periods with no treatment variation"
+            display as text "  WARNING: `n_no_pos' period(s) with no treated or no untreated subject"
             local ++n_warnings
         }
         if "`verbose'" != "" {
-            * Show which periods
-            quietly levelsof `period' if `_p_tag' & (`_p_t1' == 0 | `_p_t0' == 0), local(bad_periods)
+            quietly levelsof `period' if `_p_tag' & (`_p_n1' == 0 | `_p_n0' == 0), local(bad_periods)
             display as text "    Affected periods: `bad_periods'"
         }
     }
-    else {
-        * Show treatment prevalence range across periods
+    if `n_indet' > 0 {
+        if "`strict'" != "" {
+            display as error "  FAIL: `n_indet' period(s) with missing treatment (support indeterminate)"
+            local ++n_errors
+        }
+        else {
+            display as text "  WARNING: `n_indet' period(s) with missing treatment (support indeterminate)"
+            local ++n_warnings
+        }
+        if "`verbose'" != "" {
+            quietly levelsof `period' if `_p_tag' & `_p_nm' > 0, local(miss_periods)
+            display as text "    Periods with missing treatment: `miss_periods'"
+        }
+    }
+    if `n_no_pos' == 0 & `n_indet' == 0 {
+        * Treatment prevalence range across periods, over nonmissing rows.
         tempvar _p_pct
-        quietly bysort `period': gen double `_p_pct' = 100 * `_p_t1' / _N if `_p_tag'
+        quietly bysort `period': gen double `_p_pct' = 100 * `_p_n1' / `_p_nn' if `_p_tag' & `_p_nn' > 0
         quietly summarize `_p_pct' if `_p_tag'
         local min_prev = r(min)
         local max_prev = r(max)
@@ -437,7 +489,7 @@ program define msm_validate, rclass
             as result %4.1f `min_prev' "%" as text " - " ///
             as result %4.1f `max_prev' "%" as text ")"
     }
-    drop `_p_tag' `_p_t1' `_p_t0'
+    drop `_p_tag' `_p_n1' `_p_n0' `_p_nm' `_p_nn'
 
     * =========================================================================
     * SUMMARY
@@ -503,11 +555,9 @@ program define msm_validate, rclass
     } /* end capture noisily */
     local _rc = _rc
 
-    capture confirm variable `_msm_orig_order'
-    if _rc == 0 {
-        capture sort `_msm_orig_order'
-        capture drop `_msm_orig_order'
-    }
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'

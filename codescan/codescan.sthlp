@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.0.2  17jul2026}{...}
+{* *! version 4.0.0  17jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -72,7 +72,7 @@
 {synopt:{opt match:ed_code(name)}}row-level first surviving code value{p_end}
 {synopt:{opt gr:aph}}draw a prevalence bar chart{p_end}
 {synopt:{opt exp:ort(filename [, replace])}}export the summary table{p_end}
-{synopt:{opt for:mat(%fmt)}}format for prevalence and CI columns{p_end}
+{synopt:{opt for:mat(%fmt)}}format for the prevalence column{p_end}
 
 {syntab:Matching behavior and naming}
 {synopt:{opt mod:e(string)}}{cmd:regex} (default) or {cmd:prefix}{p_end}
@@ -105,7 +105,7 @@ codes.
 {bf:In plain language:} You tell {cmd:codescan} which code patterns to look
 for and what to name each condition. The command scans every code slot on
 every row, marks which conditions are present, and returns a summary with
-prevalence and confidence intervals. You can stay at the row level (one
+prevalence for each condition. You can stay at the row level (one
 indicator per encounter), collapse to one row per patient, or merge
 patient-level summaries back onto the original data.
 
@@ -502,7 +502,7 @@ is empty when nothing matched. Like {cmd:unmatched()}, it is not retained after
 {cmd:.xlsx}. An existing file is never overwritten unless the {cmd:replace}
 suboption is given. Exported columns are {cmd:condition}, {cmd:label},
 {cmd:matches}, {cmd:total_hits}, {cmd:positive_units}, {cmd:prevalence},
-{cmd:ci_low}, {cmd:ci_high}, {cmd:pattern}, and {cmd:exclusion}.
+{cmd:pattern}, and {cmd:exclusion}.
 
 {pmore}
 {cmd:condition} is the machine name and {cmd:label} the display text from
@@ -514,8 +514,8 @@ receives a second sheet named {cmd:cooccurrence} with a {cmd:condition} column a
 column per condition containing the pairwise count.
 
 {phang}
-{opt format(%fmt)} controls the displayed and exported format of prevalence and
-confidence-interval columns. The default prevalence format is {cmd:%9.1f}.
+{opt format(%fmt)} controls the displayed and exported format of the prevalence
+column. The default prevalence format is {cmd:%9.1f}.
 
 {dlgtab:Matching behavior and naming}
 
@@ -562,7 +562,7 @@ under {cmd:collapse}/{cmd:merge}, with a count greater than zero{p_end}
 {p2colreset}{...}
 
 {pmore}
-Prevalence and its confidence interval are built from {cmd:positive_units}, so
+Prevalence is built from {cmd:positive_units}, so
 prevalence means the same thing with and without {cmd:countmode}. Both quantities
 appear in the displayed table (as {cmd:Hits} and {cmd:Units>0}), in
 {cmd:r(summary)}, in {cmd:r(codelist)}, and in {cmd:export()}. Without
@@ -623,9 +623,7 @@ the codes in your data: a code's positive predictive value and sensitivity
 govern how far coded prevalence sits from true prevalence. The row-level
 console header labels the denominator as {cmd:observations} (encounters), and the
 person-level header labels it as {cmd:id()} values, so the analysis unit is never
-ambiguous. The Wilson confidence interval reflects sampling error only; it
-does {it:not} account for coding error, misclassification, or incomplete
-capture. Treat {cmd:codescan} output as the prevalence of a code-based case
+ambiguous. Treat {cmd:codescan} output as the prevalence of a code-based case
 definition and validate that definition against the relevant
 register-validation literature before reading it as disease frequency.
 
@@ -737,7 +735,7 @@ index date.
 {pstd}
 The simplest use case. Scan {cmd:dx1} and {cmd:dx2} for two conditions. Each
 row gets a 0/1 variable for each condition. The console output shows
-prevalence and Wilson confidence intervals.
+prevalence for each condition.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")}{p_end}
 
@@ -882,7 +880,6 @@ its own, which makes the table independent of {varlist} order.
 {synopt:{cmd:r(lookback)}}the single lookback window, if only one{p_end}
 {synopt:{cmd:r(lookforward)}}lookforward window when specified{p_end}
 {synopt:{cmd:r(n_excluded_missingdate)}}rows dropped for a missing date{p_end}
-{synopt:{cmd:r(ci_level)}}confidence level used for Wilson intervals{p_end}
 
 {p2col 5 26 30 2: Macros}{p_end}
 {synopt:{cmd:r(conditions)}}condition names in output order{p_end}
@@ -900,7 +897,7 @@ its own, which makes the table independent of {varlist} order.
 {synopt:{cmd:r(lookback)}}the lookback values, if more than one{p_end}
 
 {p2col 5 26 30 2: Matrices}{p_end}
-{synopt:{cmd:r(summary)}}counts, prevalence, and Wilson interval{p_end}
+{synopt:{cmd:r(summary)}}counts and prevalence{p_end}
 {synopt:{cmd:r(codelist)}}the count columns of {cmd:r(summary)}{p_end}
 {synopt:{cmd:r(varcounts)}}per-variable counts, with {cmd:detail}{p_end}
 {synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence counts{p_end}
@@ -916,9 +913,9 @@ only when a window was requested, and counts the rows dropped for a missing
 {cmd:date()} or {cmd:refdate()}.
 
 {pstd}
-{cmd:r(summary)} has one row per condition, named for the condition, and six
-columns: {cmd:count}, {cmd:prevalence}, {cmd:ci_low}, {cmd:ci_high},
-{cmd:total_hits}, and {cmd:positive_units}. {cmd:count} is the historical
+{cmd:r(summary)} has one row per condition, named for the condition, and four
+columns: {cmd:count}, {cmd:prevalence}, {cmd:total_hits}, and
+{cmd:positive_units}. {cmd:count} is the historical
 column and keeps its historical meaning -- {cmd:total_hits} under
 {cmd:countmode}, {cmd:positive_units} otherwise -- so code written against
 earlier versions still reads what it read before. New code should prefer the two

@@ -52,7 +52,7 @@
 {synopt:{opt border:style(style)}}{cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt nfor:mat(string)}}Excel number format for numeric cells{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
-{synopt:{opt bold:p(#)}}bold p-values below threshold (Coefficients sheet only){p_end}
+{synopt:{opt bold:p(#)}}bold p-values below threshold{p_end}
 {synopt:{opt high:light(#)}}highlight significant rows (Coefficients sheet only){p_end}
 {synopt:{opt foot:note(string)}}merged footnote below each table{p_end}
 {synopt:{opt open}}auto-open Excel file after export{p_end}
@@ -111,7 +111,7 @@ to model type: OR (logistic), HR (Cox), or Coef. (linear).
 {phang}
 {opt pred:ictions} exports counterfactual predictions from {helpb msm_predict}. For
 {cmd:strategy(both)}, includes Never-Treat and Always-Treat estimates with two-level
-merged headers. Includes Risk Difference columns if {opt difference} was specified
+merged headers. Includes Risk Difference columns if {cmd:difference} was specified
 during prediction.
 
 {phang}

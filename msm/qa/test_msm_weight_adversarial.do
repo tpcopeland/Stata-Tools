@@ -39,10 +39,19 @@ program define _wadv_make_panel
     gen byte censored = runiform() < p_censor
 
     replace outcome = 1 if id == 5 & period == 1
+    replace censored = 0 if id == 5 & period == 1   // event => uncensored (censor-first)
     replace censored = 1 if id == 6 & period == 1
+    replace outcome = 0 if id == 6 & period == 1     // censored => no observed event
 
     replace outcome = 0 if inlist(id, 7, 8)
     replace censored = 0 if inlist(id, 7, 8)
+
+    * Enforce the package's censor-first timing convention: a censored subject
+    * has no observed outcome that period, so an outcome==1 & censored==1 tie is
+    * contradictory data (rejected by msm_prepare, audit A08). Incidental ties
+    * from the independent draws above are resolved here; because censored
+    * subjects leave the risk set, this leaves every weighting oracle exact.
+    replace outcome = 0 if censored == 1
 
     drop p_treat p_outcome p_censor
 end
@@ -148,6 +157,20 @@ else {
 }
 
 * --- WADV2: manual censoring probabilities match command IPCW and combined weights ---
+*
+* SCOPE WARNING -- this is a TRANSCRIPTION CHECK, not an oracle.  The "manual"
+* computation below is a line-by-line copy of _msm_weight_censor's algorithm,
+* down to the 0.001/0.999 truncation bounds.  It asserts that msm's code agrees
+* with a hand-copy of msm's code, so it cannot detect a wrong *convention* --
+* only an accidental divergence between the two copies.
+*
+* It demonstrably could not: it passed for the entire life of finding N05, and
+* it went red the moment N05 was FIXED, because it still transcribed the broken
+* `outcome == 0' conditioning (2026-07-17, A10).  Updated below to the corrected
+* censor-first convention -- see validation_msm_dgp_recovery.do D14, which is the
+* actual oracle (forward-simulated, independent of msm's implementation).
+*
+* Do not read a WADV2 pass as evidence that the IPCW is correct.
 local ++test_count
 capture noisily {
     tempfile source observed manual
@@ -177,34 +200,34 @@ capture noisily {
     gen byte `at_risk' = (`cum_out' == 0 & `cum_cens' == 0)
 
     tempvar denom_pr denom_complete numer_pr numer_complete
-    gen byte `denom_complete' = `at_risk' & outcome == 0 & ///
+    gen byte `denom_complete' = `at_risk' & ///
         !missing(censored, treatment, L, bl, period)
     quietly logit censored treatment L bl period if `denom_complete', nolog
     predict double `denom_pr' if `denom_complete', pr
 
-    gen byte `numer_complete' = `at_risk' & outcome == 0 & ///
+    gen byte `numer_complete' = `at_risk' & ///
         !missing(censored, treatment, bl)
     quietly logit censored treatment bl if `numer_complete', nolog
     predict double `numer_pr' if `numer_complete', pr
 
     replace `denom_pr' = max(`denom_pr', 0.001) if `at_risk' & ///
-        outcome == 0 & !missing(`denom_pr')
+        !missing(`denom_pr')
     replace `denom_pr' = min(`denom_pr', 0.999) if `at_risk' & ///
-        outcome == 0 & !missing(`denom_pr')
+        !missing(`denom_pr')
     replace `numer_pr' = max(`numer_pr', 0.001) if `at_risk' & ///
-        outcome == 0 & !missing(`numer_pr')
+        !missing(`numer_pr')
     replace `numer_pr' = min(`numer_pr', 0.999) if `at_risk' & ///
-        outcome == 0 & !missing(`numer_pr')
+        !missing(`numer_pr')
 
     tempvar cw_t miss_cw log_cw cum_log_cw cum_miss_cw
     gen double `cw_t' = 1
     replace `cw_t' = (1 - `numer_pr') / (1 - `denom_pr') if ///
-        `at_risk' & outcome == 0 & !missing(`denom_pr', `numer_pr')
-    gen byte `miss_cw' = `at_risk' & outcome == 0 & ///
+        `at_risk' & !missing(`denom_pr', `numer_pr')
+    gen byte `miss_cw' = `at_risk' & ///
         (missing(censored) | missing(`denom_pr') | missing(`numer_pr'))
     gen double `log_cw' = ln(`cw_t') if !`miss_cw' & ///
         !missing(`cw_t') & `cw_t' > 0
-    replace `log_cw' = 0 if !`at_risk' | outcome != 0
+    replace `log_cw' = 0 if !`at_risk'
     bysort id (period): gen byte `cum_miss_cw' = (sum(`miss_cw') > 0)
     bysort id (period): gen double `cum_log_cw' = sum(`log_cw')
     gen double cw_manual = exp(`cum_log_cw')
@@ -260,6 +283,11 @@ capture noisily {
     replace treatment = 1 - treatment if `post_out' | `post_cens'
     replace outcome = 1 if `post_out'
     replace censored = 1 if `post_cens'
+    * A row that is both post-outcome and post-censor would be set to an
+    * outcome==1 & censored==1 tie; resolve by censor-first (audit A08). These
+    * are post-risk rows, so their values cannot affect any at-risk weight --
+    * which is exactly what this test asserts.
+    replace outcome = 0 if censored == 1
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) censor(censored) covariates(L) baseline_covariates(bl)
@@ -281,7 +309,7 @@ else {
     local failed_tests "`failed_tests' WADV3"
 }
 
-* --- WADV4: missing current treatment invalidates IPTW from that period forward ---
+* --- WADV4: missing current treatment refuses a partial weighting ---
 local ++test_count
 capture noisily {
     _wadv_make_panel
@@ -289,17 +317,15 @@ capture noisily {
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(L) baseline_covariates(bl)
-    msm_weight, treat_d_cov(L bl) treat_n_cov(bl) nolog
-
-    quietly count if id == 7 & period < 2 & !missing(_msm_tw_weight)
-    assert r(N) == 2
-    quietly count if id == 7 & period >= 2 & missing(_msm_tw_weight)
-    assert r(N) == 3
-    quietly count if id == 7 & period >= 2 & missing(_msm_weight)
-    assert r(N) == 3
+    capture msm_weight, treat_d_cov(L bl) treat_n_cov(bl) nolog
+    assert _rc == 459
+    capture confirm variable _msm_tw_weight
+    assert _rc != 0
+    capture confirm variable _msm_weight
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS WADV4: missing treatment does not get silent unit weights"
+    display as result "  PASS WADV4: missing treatment refuses partial weights"
     local ++pass_count
 }
 else {
@@ -308,7 +334,7 @@ else {
     local failed_tests "`failed_tests' WADV4"
 }
 
-* --- WADV5: missing current censoring invalidates IPCW from that period forward ---
+* --- WADV5: missing current censoring refuses a partial weighting ---
 local ++test_count
 capture noisily {
     _wadv_make_panel
@@ -316,20 +342,16 @@ capture noisily {
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) censor(censored) covariates(L) baseline_covariates(bl)
-    msm_weight, treat_d_cov(L bl) treat_n_cov(bl) ///
+    capture msm_weight, treat_d_cov(L bl) treat_n_cov(bl) ///
         censor_d_cov(L bl) censor_n_cov(bl) nolog
-
-    quietly count if id == 8 & period < 2 & !missing(_msm_cw_weight)
-    assert r(N) == 2
-    quietly count if id == 8 & period >= 2 & missing(_msm_cw_weight)
-    assert r(N) == 3
-    quietly count if id == 8 & period >= 2 & missing(_msm_weight)
-    assert r(N) == 3
-    quietly count if id == 8 & period >= 2 & !missing(_msm_tw_weight)
-    assert r(N) == 3
+    assert _rc == 459
+    foreach _v in _msm_cw_weight _msm_tw_weight _msm_weight {
+        capture confirm variable `_v'
+        assert _rc != 0
+    }
 }
 if _rc == 0 {
-    display as result "  PASS WADV5: missing censoring does not get silent IPCW"
+    display as result "  PASS WADV5: missing censoring refuses partial weights"
     local ++pass_count
 }
 else {
@@ -351,17 +373,21 @@ capture noisily {
     msm_weight, treat_d_cov(L bl) treat_n_cov(bl) ///
         censor_d_cov(L bl) censor_n_cov(bl) nolog
 
-    _pctile _msm_weight if !missing(_msm_weight), percentiles(10 90)
+    * Truncation cutoffs are computed on the risk set only (audit A11): the
+    * percentiles, the truncated count, and the caps are all defined over
+    * _msm_decision_risk, so this oracle mirrors the corrected implementation.
+    _pctile _msm_weight if _msm_decision_risk & !missing(_msm_weight), percentiles(10 90)
     local lo = r(r1)
     local hi = r(r2)
-    quietly count if _msm_weight < `lo' & !missing(_msm_weight)
+    quietly count if _msm_decision_risk & _msm_weight < `lo' & !missing(_msm_weight)
     local n_lo = r(N)
-    quietly count if _msm_weight > `hi' & !missing(_msm_weight)
+    quietly count if _msm_decision_risk & _msm_weight > `hi' & !missing(_msm_weight)
     local n_hi = r(N)
     local n_expected = `n_lo' + `n_hi'
 
-    keep id period _msm_weight
+    keep id period _msm_weight _msm_decision_risk
     rename _msm_weight untruncated_weight
+    rename _msm_decision_risk untrunc_risk
     save `untruncated'
 
     use `source', clear
@@ -375,9 +401,10 @@ capture noisily {
     assert abs(r(max_weight) - `hi') < `tol'
 
     merge 1:1 id period using `untruncated', nogenerate
+    * caps apply to risk-set rows only; post-risk rows keep their carry-forward
     gen double expected_weight = untruncated_weight
-    replace expected_weight = `lo' if expected_weight < `lo' & !missing(expected_weight)
-    replace expected_weight = `hi' if expected_weight > `hi' & !missing(expected_weight)
+    replace expected_weight = `lo' if untrunc_risk & expected_weight < `lo' & !missing(expected_weight)
+    replace expected_weight = `hi' if untrunc_risk & expected_weight > `hi' & !missing(expected_weight)
     assert reldif(_msm_weight, expected_weight) < `tol' if !missing(expected_weight)
 }
 if _rc == 0 {
@@ -430,6 +457,21 @@ else {
 }
 
 * --- WADV8: representative combined-weight snapshot stays fixed ---
+*
+* RE-BASELINED 2026-07-17 (finding N05, fixed under A10).  The previous snapshot
+* pinned the pre-fix censoring weights, so it pinned WRONG values; it is exactly
+* the kind of golden test that turns a defect into a "regression" the moment the
+* defect is repaired.  Re-baselining is only defensible because the new values
+* were independently established correct -- see validation_msm_dgp_recovery.do
+* D14 (forward-sim oracle, two censoring strengths) and the N05 mechanism probe
+* (0/5483 event rows frozen, was 1744/1744).  It is NOT defensible on the grounds
+* that the suite went green.
+*
+* Corroboration that the change is scoped to the IPCW and nothing else: every
+* _msm_tw_weight value below is UNCHANGED to all 16 digits (0.9974944973378391,
+* 0.6359360121111731, 1.2602290650067010).  Only _msm_cw_weight, _msm_weight and
+* the truncation/ESS summaries moved.  If a future edit shifts a tw value here,
+* it has touched the treatment path and is out of scope for an IPCW change.
 local ++test_count
 capture noisily {
     _wadv_make_panel
@@ -446,24 +488,37 @@ capture noisily {
     local ess = r(ess)
     local repairs = r(n_probability_repairs)
 
-    assert `n_truncated' == 177
-    assert abs(`mean_weight' - 0.9529898614330415) < `tol'
-    assert abs(`min_weight' - 0.5156611662660014) < `tol'
-    assert abs(`max_weight' - 1.5647614277191191) < `tol'
-    assert abs(`ess' - 807.2369832496900) < `tol'
+    * RE-BASELINED 2026-07-17 (audit A11, Phase 2).  The truncation cutoffs, the
+    * truncated count, and the mean/min/max/ESS summaries are now computed on the
+    * risk set (_msm_decision_risk) instead of every row, so post-event/post-
+    * censor carry-forward rows no longer distort them.  This panel keeps all 5
+    * periods per id, so it HAS post-risk rows and these aggregates moved.  The
+    * new values are independently established by WADV6 above (percentile oracle
+    * over _msm_decision_risk) and by test_msm_phase2.do's A11 invariance test
+    * (appended post-risk rows leave every at-risk result bit-for-bit identical),
+    * NOT because the suite went green.  Scope check: every _msm_tw_weight value
+    * below is unchanged to 16 digits -- A11 touched only the truncation/ESS
+    * masking, not the treatment path.
+    assert `n_truncated' == 148
+    assert abs(`mean_weight' - 0.9519584850978235) < `tol'
+    assert abs(`min_weight' - 0.5015873965291691) < `tol'
+    assert abs(`max_weight' - 1.5877987839354910) < `tol'
+    assert abs(`ess' - 664.5545548970006) < `tol'
     assert `repairs' == 0
 
     assert abs(_msm_tw_weight - 0.9974944973378391) < `tol' if id == 1 & period == 0
-    assert abs(_msm_cw_weight - 0.9887670482398930) < `tol' if id == 1 & period == 0
-    assert abs(_msm_weight - 0.9862896897682710) < `tol' if id == 1 & period == 0
+    assert abs(_msm_cw_weight - 0.9884290360399728) < `tol' if id == 1 & period == 0
+    assert abs(_msm_weight - 0.9859525244588175) < `tol' if id == 1 & period == 0
     assert abs(_msm_tw_weight - 0.6359360121111731) < `tol' if id == 1 & period == 4
-    assert abs(_msm_cw_weight - 1.0734940180082200) < `tol' if id == 1 & period == 4
-    assert abs(_msm_weight - 0.6826735048373475) < `tol' if id == 1 & period == 4
+    assert abs(_msm_cw_weight - 1.0782693449893961) < `tol' if id == 1 & period == 4
+    assert abs(_msm_weight - 0.6857103072342833) < `tol' if id == 1 & period == 4
     assert abs(_msm_tw_weight - 1.2602290650067010) < `tol' if id == 7 & period == 2
-    assert abs(_msm_cw_weight - 0.9795108379149934) < `tol' if id == 7 & period == 2
-    assert abs(_msm_weight - 1.2344080274295419) < `tol' if id == 7 & period == 2
-    assert abs(_msm_weight - 0.5156611662660014) < `tol' if id == 25 & period == 3
-    assert abs(_msm_weight - 0.5156611662660014) < `tol' if id == 101 & period == 4
+    assert abs(_msm_cw_weight - 0.9839382408073766) < `tol' if id == 7 & period == 2
+    assert abs(_msm_weight - 1.2399875692370184) < `tol' if id == 7 & period == 2
+    * These two rows sit at the lower truncation cap, which moved with the
+    * risk-set-based percentiles (0.5203556059080199 -> 0.5015873965291691).
+    assert abs(_msm_weight - 0.5015873965291691) < `tol' if id == 25 & period == 3
+    assert abs(_msm_weight - 0.5015873965291691) < `tol' if id == 101 & period == 4
 }
 if _rc == 0 {
     display as result "  PASS WADV8: representative combined-weight snapshot"

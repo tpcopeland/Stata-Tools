@@ -17,6 +17,7 @@ Description:
 Options:
   model(string)           - logistic (default) | linear | cox
   outcome_cov(varlist)    - Time-fixed additional covariates for outcome model
+  history(string)         - lag1 | cumulative | duration | interaction
   period_spec(string)     - Period specification: linear | quadratic | cubic | ns(#) | none
                             (default: quadratic)
   cluster(varname)        - Cluster variable (default: id variable)
@@ -33,17 +34,25 @@ program define msm_fit, eclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _fit_preserved = 0
     set varabbrev off
     set more off
 
+    * Marking the at-risk sample uses bysort over each individual's history,
+    * which leaves the caller's observations in id/period order. Capture the
+    * incoming order now and restore it on every exit path (audit A06).
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     * =========================================================================
     * SYNTAX PARSING
     * =========================================================================
 
     syntax , [MODel(string) OUTcome_cov(varlist numeric) ///
-        EXPosure(varname numeric) TVCov(varlist numeric) ///
+        EXPosure(varname numeric) TVCov(varlist numeric) HISTory(string) ///
         PERiod_spec(string) CLuster(varname) ///
         VCE(string asis) STRata(varlist numeric) ///
         BOOTstrap(integer 0) Level(cilevel) noLOG]
@@ -68,6 +77,21 @@ program define msm_fit, eclass
 
     if "`model'" == "" local model "logistic"
     if "`period_spec'" == "" local period_spec "quadratic"
+
+    * A current-treatment-only MSM is a no-carryover model. history() makes
+    * delayed/cumulative effects explicit while retaining exact static-regime
+    * standardization in msm_predict.
+    local history = lower(strtrim("`history'"))
+    local history_clean ""
+    foreach _h of local history {
+        if !inlist("`_h'", "lag1", "cumulative", "duration", "interaction") {
+            display as error ///
+                "history() terms must be lag1, cumulative, duration, or interaction"
+            exit 198
+        }
+        if !`: list _h in history_clean' local history_clean "`history_clean' `_h'"
+    }
+    local history : list retokenize history_clean
 
     * Validate model type before model-specific outcome checks.
     if !inlist("`model'", "logistic", "linear", "cox") {
@@ -134,6 +158,12 @@ program define msm_fit, eclass
         }
         local predict_disabled "1"
     }
+    if "`history'" != "" & ("`exposure'" != "" | "`tvcov'" != "") {
+        display as error "history() may not be combined with exposure() or tvcov()"
+        display as error ///
+            "Use the mapped binary treatment with built-in history terms so msm_predict can standardize them exactly."
+        exit 198
+    }
     * Reject overlapping term lists that would silently collinear-drop or
     * double-count a variable in the outcome model.
     if "`exposure'" != "" {
@@ -153,6 +183,13 @@ program define msm_fit, eclass
             exit 198
         }
     }
+
+    * Central structural-role validation (audit A07): the exposure, time-varying
+    * companion, outcome covariates, and strata must not coincide with the id,
+    * period, outcome, or censor. exposure(outcome), tvcov(outcome), and
+    * exposure(period) all leaked into the outcome model at rc 0 before this.
+    _msm_role_check, id(`id') period(`period') outcome(`outcome') ///
+        censor(`censor') predictors(`exposure' `tvcov' `outcome_cov' `strata')
 
     local vce_type ""
     local vce_cluster ""
@@ -197,24 +234,48 @@ program define msm_fit, eclass
     }
 
     if "`outcome_cov'" != "" {
-        local varying_outcome_cov ""
-        foreach var of local outcome_cov {
-            tempvar _cov_min _cov_max _cov_tag
-            quietly bysort `id': egen double `_cov_min' = min(`var')
-            quietly bysort `id': egen double `_cov_max' = max(`var')
-            quietly bysort `id': gen byte `_cov_tag' = (_n == 1)
-            quietly count if `_cov_tag' & (`_cov_min' != `_cov_max') & ///
-                !missing(`_cov_min') & !missing(`_cov_max')
-            if r(N) > 0 {
-                local varying_outcome_cov "`varying_outcome_cov' `var'"
-            }
-            drop `_cov_min' `_cov_max' `_cov_tag'
-        }
-        local varying_outcome_cov = strtrim("`varying_outcome_cov'")
+        _msm_timefixed `outcome_cov', id(`id')
+        local varying_outcome_cov "`r(varying)'"
         if "`varying_outcome_cov'" != "" {
             display as error "outcome_cov() variables must be time-fixed within `id'"
             display as error "These variables vary over time: `varying_outcome_cov'"
             display as error "Use baseline/time-fixed covariates in outcome_cov(); keep time-varying confounders in the weight model."
+            exit 198
+        }
+    }
+
+    * =========================================================================
+    * ENFORCE THE STABILIZED-NUMERATOR CONTRACT (audit A10)
+    *
+    * Stabilization does not balance away the numerator covariates -- it leaves
+    * them confounding the outcome association on purpose, and the structural
+    * model is conditional on them. Omitting them yields a well-behaved weight
+    * distribution, a tight confidence interval, and a badly confounded "causal
+    * estimate" at rc=0. Hernan, Brumback & Robins (2000) p.562 carry a beta_2*V
+    * term in the MSM for precisely the V that appears in their weight numerator.
+    *
+    * This is an input-contract check: it runs before any period variable is
+    * built, so a refused fit does no work and mutates nothing.
+    * =========================================================================
+
+    local _numer_covars : char _dta[_msm_numer_covars]
+    if "`_numer_covars'" != "" {
+        local _model_covars "`outcome_cov' `tvcov' `strata' `treatment' `exposure'"
+        local _model_covars : list retokenize _model_covars
+        local _missing_numer ""
+        foreach _v of local _numer_covars {
+            if !`: list _v in _model_covars' local _missing_numer "`_missing_numer' `_v'"
+        }
+        if "`_missing_numer'" != "" {
+            local _missing_numer : list retokenize _missing_numer
+            display as error ///
+                "stabilized numerator covariate(s) missing from the outcome model: `_missing_numer'"
+            display as error ///
+                "msm_weight kept these in the weight numerator, so they are NOT balanced"
+            display as error ///
+                "away and still confound the treatment-outcome association."
+            display as error ///
+                "Add them to {bf:outcome_cov()} (or {bf:strata()} for a Cox MSM)."
             exit 198
         }
     }
@@ -227,6 +288,27 @@ program define msm_fit, eclass
         display as error "period_spec() must be linear, quadratic, cubic, ns(#), or none"
         exit 198
     }
+
+    * Everything from basis construction through metadata serialization is one
+    * dataset transaction. Any later error restores variables, characteristics,
+    * and the previous valid stage exactly (audit A04).
+    preserve
+    local _fit_preserved = 1
+
+    * Remove every basis column owned by the prior fit before constructing the
+    * replacement. This runs inside the transaction, so a failed refit restores
+    * the old fit exactly. Without this cleanup, cubic and spline columns became
+    * stale, unowned debris when refitting with a simpler period specification.
+    local _old_fit_splines ""
+    _msm_own inventory
+    local _old_fit_inventory "`r(vars)'"
+    foreach _v of local _old_fit_inventory {
+        if strpos("`_v'", "_msm_per_ns") == 1 {
+            local _old_fit_splines "`_old_fit_splines' `_v'"
+        }
+    }
+    _msm_own dropowned _msm_period_sq _msm_period_cu `_old_fit_splines' ///
+        _msm_hist_lag1 _msm_hist_cum _msm_hist_dur _msm_hist_int
 
     * =========================================================================
     * BUILD PERIOD SPECIFICATION VARIABLES
@@ -244,15 +326,19 @@ program define msm_fit, eclass
     if "`period_spec'" != "none" {
         local time_vars "`period'"
 
+        * Reserved period-basis names that msm did not create belong to the
+        * user; refuse rather than overwrite them (audit A05).
+        _msm_own require_free _msm_period_sq _msm_period_cu
+
         if inlist("`period_spec'", "quadratic", "cubic") {
-            capture drop _msm_period_sq
+            _msm_own dropowned _msm_period_sq
             gen double _msm_period_sq = `period'^2
             label variable _msm_period_sq "Period squared"
             local time_vars "`time_vars' _msm_period_sq"
             local time_vars_created "`time_vars_created' _msm_period_sq"
         }
         if "`period_spec'" == "cubic" {
-            capture drop _msm_period_cu
+            _msm_own dropowned _msm_period_cu
             gen double _msm_period_cu = `period'^3
             label variable _msm_period_cu "Period cubed"
             local time_vars "`time_vars' _msm_period_cu"
@@ -260,13 +346,77 @@ program define msm_fit, eclass
         }
         if regexm("`period_spec'", "^ns\(([0-9]+)\)$") {
             local ns_df = regexs(1)
-            capture drop _msm_per_ns*
+
             _msm_natural_spline `period', df(`ns_df') prefix(_msm_per_ns)
             local time_vars "`_msm_spline_vars'"
             local time_vars_created "`time_vars_created' `_msm_spline_vars'"
             local per_ns_knots "`_msm_spline_knots'"
             local per_ns_df "`_msm_spline_df'"
         }
+    }
+
+    * =========================================================================
+    * BUILD PREDICTION-COMPATIBLE TREATMENT-HISTORY TERMS
+    * =========================================================================
+
+    local history_vars ""
+    local history_vars_created ""
+    if "`history'" != "" {
+        * Static-regime prediction uses elapsed integer periods, so refuse gaps
+        * rather than silently treating unequal spacing as one treatment step.
+        tempvar _history_gap
+        bysort `id' (`period'): gen byte `_history_gap' = ///
+            (_n > 1 & `period' != `period'[_n-1] + 1)
+        quietly count if `_history_gap'
+        if r(N) > 0 {
+            display as error "history() requires consecutive unit-spaced periods within each `id'"
+            display as error as result r(N) as error " gap(s) were found."
+            exit 459
+        }
+        drop `_history_gap'
+
+        _msm_own require_free _msm_hist_lag1 _msm_hist_cum ///
+            _msm_hist_dur _msm_hist_int
+
+        if `: list posof "lag1" in history' | ///
+            `: list posof "interaction" in history' {
+            gen byte _msm_hist_lag1 = 0
+            bysort `id' (`period'): replace _msm_hist_lag1 = ///
+                `treatment'[_n-1] if _n > 1
+            label variable _msm_hist_lag1 "Prior-period treatment"
+            local history_vars_created "`history_vars_created' _msm_hist_lag1"
+        }
+        if `: list posof "cumulative" in history' {
+            gen double _msm_hist_cum = 0
+            bysort `id' (`period'): replace _msm_hist_cum = ///
+                _msm_hist_cum[_n-1] + `treatment'[_n-1] if _n > 1
+            label variable _msm_hist_cum "Cumulative prior treatment periods"
+            local history_vars_created "`history_vars_created' _msm_hist_cum"
+        }
+        if `: list posof "duration" in history' {
+            gen double _msm_hist_dur = 0
+            bysort `id' (`period'): replace _msm_hist_dur = ///
+                cond(missing(`treatment'[_n-1]), ., ///
+                cond(`treatment'[_n-1] == 1, _msm_hist_dur[_n-1] + 1, 0)) ///
+                if _n > 1
+            label variable _msm_hist_dur "Consecutive treated periods before current"
+            local history_vars_created "`history_vars_created' _msm_hist_dur"
+        }
+        if `: list posof "interaction" in history' {
+            gen byte _msm_hist_int = `treatment' * _msm_hist_lag1
+            label variable _msm_hist_int "Current by prior treatment interaction"
+            local history_vars_created "`history_vars_created' _msm_hist_int"
+        }
+
+        foreach _h of local history {
+            if "`_h'" == "lag1" local history_vars "`history_vars' _msm_hist_lag1"
+            else if "`_h'" == "cumulative" local history_vars "`history_vars' _msm_hist_cum"
+            else if "`_h'" == "duration" local history_vars "`history_vars' _msm_hist_dur"
+            else if "`_h'" == "interaction" local history_vars "`history_vars' _msm_hist_int"
+        }
+        local history_vars : list retokenize history_vars
+        local history_vars_created : list retokenize history_vars_created
+        local history_vars_created : list uniq history_vars_created
     }
 
     * =========================================================================
@@ -283,6 +433,10 @@ program define msm_fit, eclass
     if "`tvcov'" != "" {
         local all_covars "`all_covars' `tvcov'"
     }
+    if "`history_vars'" != "" {
+        local all_covars "`all_covars' `history_vars'"
+    }
+
 
     * =========================================================================
     * DISPLAY MODEL INFO
@@ -295,6 +449,13 @@ program define msm_fit, eclass
         display as text "Exposure term:    " as result "`exposure'"
     }
     display as text "Period spec:      " as result "`period_spec'"
+    if "`history'" == "" {
+        display as text "Treatment history:" as result ///
+            " none (current-treatment-only; assumes no carryover)"
+    }
+    else {
+        display as text "Treatment history:" as result " `history'"
+    }
     if "`outcome_cov'" != "" {
         display as text "Covariates:       " as result "`outcome_cov'"
     }
@@ -400,42 +561,24 @@ program define msm_fit, eclass
     else if "`model'" == "cox" {
         display as text "Setting up survival data..."
 
-        * Isolate the temporary stset so we can restore any caller-owned
-        * survival-time settings on exit while keeping the Cox e(sample).
-        tempvar _time_enter _time_exit _failure _cox_obs_index _cox_esample
-        tempfile cox_sample_map
+        * Run stset/stcox against a saved copy of the current transaction.
+        * Restoring only the st_* characteristics is insufficient: stset also
+        * creates or rewrites _st, _d, _t, and _t0. Reloading the pre-stset
+        * copy restores caller-owned survival state byte-for-byte, including
+        * ordinary variables with those names. The Cox estimates and sample
+        * are stored separately, restored, and reposted afterwards.
+        tempvar _time_enter _time_exit _failure _cox_esample _cox_rowid
+        tempfile _cox_caller_file _cox_sample_file
+        tempname _cox_estimates
+        quietly gen long `_cox_rowid' = _n
         local _caller_st_dataset : char _dta[_dta]
-        local _caller_had_stset = ("`_caller_st_dataset'" == "st")
         foreach _stchar in st_ver st_id st_bt st_bd st_o st_s st_bs ///
             st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
             local _caller_`_stchar' : char _dta[`_stchar']
         }
-        gen long `_cox_obs_index' = _n
+        quietly save "`_cox_caller_file'", replace
 
-        preserve
-
-        * Create interval survival data
-        gen double `_time_enter' = `period'
-        gen double `_time_exit' = `period' + 1
-        gen byte `_failure' = `outcome'
-
-        * Standard MSM pooled Cox: pweights in stset, clustered SEs by id.
-        * id() is omitted because Stata requires weights constant within
-        * subject, but IPTW weights vary by period. The vce(cluster) handles
-        * the within-subject correlation (Hernan & Robins standard approach).
-        capture noisily stset `_time_exit' [pw=_msm_weight] if `_esample', ///
-            enter(`_time_enter') failure(`_failure')
-        local _cox_rc = _rc
-        if `_cox_rc' {
-            restore
-            exit `_cox_rc'
-        }
-
-        display as text ""
-        display as text "Fitting weighted Cox proportional hazards model..."
-        display as text ""
-
-        * Remove period from covariates for Cox (time is the outcome)
+        * Remove period from covariates for Cox (time is the outcome).
         local cox_covars "`effect_term'"
         if "`outcome_cov'" != "" {
             local cox_covars "`cox_covars' `outcome_cov'"
@@ -443,89 +586,127 @@ program define msm_fit, eclass
         if "`tvcov'" != "" {
             local cox_covars "`cox_covars' `tvcov'"
         }
+        if "`history_vars'" != "" {
+            local cox_covars "`cox_covars' `history_vars'"
+        }
         local cox_strata_opt ""
         if "`strata'" != "" {
             local cox_strata_opt "strata(`strata')"
         }
 
-        capture noisily stcox `cox_covars', ///
-            `cox_strata_opt' `vce_opt' level(`level') `log_opt'
+        * -----------------------------------------------------------------
+        * Rebase interval time to a zero origin (audit A17)
+        *
+        * stset ignores analysis times at or below its origin (default 0), so
+        * with signed external periods (e.g. -2,-1,0) every row whose exit time
+        * is <= 0 is silently dropped -- the Cox branch then fits on a strict
+        * subset of the logistic sample without warning. Rebasing every
+        * interval by the external minimum period puts the earliest decision at
+        * analysis time 0->1 so no at-risk row is discarded. The external
+        * origin is stored and displayed; msm_predict maps external times back.
+        * Delayed entry is already refused in msm_weight, so all subjects share
+        * this baseline.
+        * -----------------------------------------------------------------
+        quietly summarize `period' if `_esample', meanonly
+        local _cox_origin = r(min)
+        if `_cox_origin' != 0 {
+            display as text "External period origin: " as result `_cox_origin' ///
+                as text " (interval time rebased to a zero origin for Cox)"
+        }
+
+        capture noisily {
+            gen double `_time_enter' = `period' - `_cox_origin'
+            gen double `_time_exit' = `period' - `_cox_origin' + 1
+            gen byte `_failure' = `outcome'
+
+            * Standard MSM pooled Cox: pweights in stset, clustered SEs by id.
+            * id() is omitted because Stata requires weights constant within
+            * subject, but IPTW weights vary by period. vce(cluster) handles
+            * within-subject correlation.
+            stset `_time_exit' [pw=_msm_weight] if `_esample', ///
+                enter(`_time_enter') failure(`_failure')
+
+            * stset must retain every intended estimation row. If the origin
+            * rule still dropped rows, refuse rather than fit a silent subset.
+            quietly count if `_esample'
+            local _n_intended = r(N)
+            quietly count if _st == 1
+            local _n_stset = r(N)
+            if `_n_stset' != `_n_intended' {
+                display as error "stset retained " as result `_n_stset' as error ///
+                    " of " as result `_n_intended' as error ///
+                    " intended estimation rows; refusing to fit a silent subset."
+                exit 459
+            }
+
+            display as text ""
+            display as text "Fitting weighted Cox proportional hazards model..."
+            display as text ""
+
+            stcox `cox_covars', `cox_strata_opt' `vce_opt' ///
+                level(`level') `log_opt'
+            if e(converged) == 0 {
+                display as text ""
+                display as error "Cox model did not converge; refusing to persist fitted MSM state"
+                display as error "Revise the outcome model or weighting specification and rerun msm_fit."
+                exit 430
+            }
+
+            * The fitted Cox sample must equal the intended estimation sample.
+            quietly count if e(sample)
+            if r(N) != `_n_intended' {
+                display as error "Cox fitted on " as result r(N) as error ///
+                    " of " as result `_n_intended' as error ///
+                    " intended rows; refusing an inconsistent estimation sample."
+                exit 459
+            }
+
+            estimates store `_cox_estimates'
+            gen byte `_cox_esample' = e(sample)
+            keep `_cox_rowid' `_cox_esample'
+            save "`_cox_sample_file'", replace
+        }
         local _cox_rc = _rc
         if `_cox_rc' {
-            restore
+            capture estimates drop `_cox_estimates'
             exit `_cox_rc'
         }
-        if e(converged) == 0 {
-            display as text ""
-            display as error "Cox model did not converge; refusing to persist fitted MSM state"
-            display as error "Revise the outcome model or weighting specification and rerun msm_fit."
-            restore
-            exit 430
-        }
 
-        gen byte `_cox_esample' = e(sample)
-        keep `_cox_obs_index' `_cox_esample'
-        quietly save `cox_sample_map', replace
-        restore
-
-        merge 1:1 `_cox_obs_index' using `cox_sample_map', ///
-            nogen assert(match)
-        if `_caller_had_stset' {
-            char _dta[_dta] "`_caller_st_dataset'"
-            foreach _stchar in st_ver st_id st_bt st_bd st_o st_s st_bs ///
-                st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
-                local _caller_value `"`_caller_`_stchar''"'
-                char _dta[`_stchar'] `"`_caller_value'"'
-            }
-        }
-        else {
-            foreach _stchar in _dta st_ver st_id st_bt st_bd st_o st_s st_bs ///
-                st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
-                char _dta[`_stchar'] ""
-            }
+        quietly use "`_cox_caller_file'", clear
+        estimates restore `_cox_estimates'
+        estimates drop `_cox_estimates'
+        * estimates restore reactivates the stcox result and, as a side effect,
+        * its survival-data characteristics. Reload once more after activating
+        * the estimate: e(b)/e(V) survive use, while the caller's exact data and
+        * stset state replace those estimation-time characteristics.
+        quietly use "`_cox_caller_file'", clear
+        merge 1:1 `_cox_rowid' using "`_cox_sample_file'", ///
+            assert(match) nogen
+        drop `_cox_rowid'
+        char _dta[_dta] `"`_caller_st_dataset'"'
+        foreach _stchar in st_ver st_id st_bt st_bd st_o st_s st_bs ///
+            st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
+            local _caller_value `"`_caller_`_stchar''"'
+            char _dta[`_stchar'] `"`_caller_value'"'
         }
         ereturn repost, esample(`_cox_esample')
     }
 
     * =========================================================================
-    * STORE METADATA
+    * VALIDATE THE FIT BEFORE COMMITTING ANY STATE
+    *
+    * Everything below works on tempnames. No fitted state is written until the
+    * primary effect is known to be estimable. This validation used to run
+    * AFTER the commit, so a model whose exposure was omitted exited 111 while
+    * leaving _msm_fitted=1 and a zero coefficient persisted -- a failed fit
+    * that looked fitted (audit A03).
     * =========================================================================
 
-    capture drop _msm_esample
-    gen byte _msm_esample = e(sample)
-    label variable _msm_esample "In estimation sample"
+    tempname _fit_b _fit_V
+    matrix `_fit_b' = e(b)
+    matrix `_fit_V' = e(V)
 
-    char _dta[_msm_fitted] "1"
-    char _dta[_msm_model] "`model'"
-    char _dta[_msm_period_spec] "`period_spec'"
-    char _dta[_msm_outcome_cov] "`outcome_cov'"
-    char _dta[_msm_exposure] "`exposure'"
-    char _dta[_msm_tvcov] "`tvcov'"
-    char _dta[_msm_predict_disabled] "`predict_disabled'"
-    char _dta[_msm_per_ns_knots] "`per_ns_knots'"
-    char _dta[_msm_per_ns_df] "`per_ns_df'"
-    char _dta[_msm_cluster] "`vce_cluster'"
-    char _dta[_msm_vce] "`vce_type'"
-    char _dta[_msm_strata] "`strata'"
-    char _dta[_msm_time_vars] "`time_vars'"
-    char _dta[_msm_fit_level] "`level'"
-
-    * Persist coefficients so downstream commands survive intervening
-    * estimation commands (Finding 1)
-    capture matrix drop _msm_fit_b
-    capture matrix drop _msm_fit_V
-    matrix _msm_fit_b = e(b)
-    matrix _msm_fit_V = e(V)
-
-    * =========================================================================
-    * DISPLAY SUMMARY
-    * =========================================================================
-
-    display as text ""
-    display as text "{hline 70}"
-
-    * Treatment effect from saved matrices
-    local _coef_names : colnames _msm_fit_b
+    local _coef_names : colnames `_fit_b'
     local _tidx = 0
     local _ii = 0
     foreach _cn of local _coef_names {
@@ -534,8 +715,114 @@ program define msm_fit, eclass
     }
     if `_tidx' == 0 {
         display as error "exposure term `effect_term' not found in model coefficients"
+        display as error ""
+        display as error "The term was dropped from the model, usually because it does not vary"
+        display as error "in the estimation sample or is collinear with another covariate."
+        display as error "No fitted model has been stored."
         exit 111
     }
+
+    * A term can be present in the coefficient vector and still carry no
+    * information: Stata retains omitted terms with a zero coefficient and a
+    * zero variance. Reporting that as an estimate is exactly the rc=0-but-
+    * wrong case this rework exists to eliminate.
+    local _v_treat = `_fit_V'[`_tidx', `_tidx']
+    if missing(`_v_treat') | `_v_treat' <= 0 {
+        display as error "exposure term `effect_term' has no estimable standard error"
+        display as error ""
+        display as error "The term was omitted or perfectly collinear, so its coefficient"
+        display as error "carries no information. No fitted model has been stored."
+        exit 111
+    }
+
+    * =========================================================================
+    * COMMIT FIT STATE
+    * =========================================================================
+
+    * _msm_esample is package-created; never overwrite a user variable of the
+    * same name (audit A05).
+    _msm_own require_free _msm_esample
+    _msm_own dropowned _msm_esample
+    gen byte _msm_esample = e(sample)
+    label variable _msm_esample "In estimation sample"
+
+    * Refitting invalidates predictions and sensitivity results: they were
+    * computed from the coefficients this fit just replaced (audit A03).
+    _msm_invalidate, from(fit)
+
+    _msm_uuid
+    local _fit_uuid "`r(uuid)'"
+
+    local _fit_created "_msm_esample"
+    if "`time_vars_created'" != "" {
+        local _fit_created "`_fit_created' `time_vars_created'"
+    }
+    if "`history_vars_created'" != "" {
+        local _fit_created "`_fit_created' `history_vars_created'"
+    }
+    local _fit_created : list retokenize _fit_created
+    _msm_own claim `_fit_created', token(`_fit_uuid')
+
+    char _dta[_msm_fitted] "1"
+    char _dta[_msm_model] "`model'"
+    char _dta[_msm_period_spec] "`period_spec'"
+    char _dta[_msm_outcome_cov] "`outcome_cov'"
+    char _dta[_msm_exposure] "`exposure'"
+    char _dta[_msm_tvcov] "`tvcov'"
+    char _dta[_msm_history_spec] "`history'"
+    char _dta[_msm_history_vars] "`history_vars'"
+    if "`history'" == "" char _dta[_msm_history_assumption] "no_carryover"
+    else char _dta[_msm_history_assumption] "explicit_history"
+    char _dta[_msm_predict_disabled] "`predict_disabled'"
+    char _dta[_msm_per_ns_knots] "`per_ns_knots'"
+    char _dta[_msm_per_ns_df] "`per_ns_df'"
+    char _dta[_msm_cluster] "`vce_cluster'"
+    char _dta[_msm_vce] "`vce_type'"
+    char _dta[_msm_strata] "`strata'"
+    char _dta[_msm_time_vars] "`time_vars'"
+    char _dta[_msm_fit_level] "`level'"
+    char _dta[_msm_fit_uuid] "`_fit_uuid'"
+    char _dta[_msm_fit_effect_term] "`effect_term'"
+
+    * Bind this fit to the weighting it used. If the weights are re-estimated
+    * afterwards, this dependency no longer resolves and the fit is refused
+    * rather than silently combined with weights it never saw (audit A03).
+    local _weight_uuid : char _dta[_msm_weight_uuid]
+    char _dta[_msm_fit_dep] "`_weight_uuid'"
+
+    * Persist the coefficients INTO THE DATASET. Session-global matrices alone
+    * meant a saved .dta reloaded with fitted characteristics but no
+    * coefficients, while a same-session matrix could belong to an entirely
+    * different dataset (audit A01).
+    capture matrix drop _msm_fit_b
+    capture matrix drop _msm_fit_V
+    matrix _msm_fit_b = `_fit_b'
+    matrix _msm_fit_V = `_fit_V'
+    _msm_mat_save _msm_fit_b, key(_msm_fit_b) token(`_fit_uuid')
+    _msm_mat_save _msm_fit_V, key(_msm_fit_V) token(`_fit_uuid')
+
+    * Record what the fit consumed, so a later stage can prove the data still
+    * are the data that produced these coefficients (audit A02).
+    local _fsigvars "`id' `period' `outcome' `treatment' `effect_term'"
+    local _fsigvars "`_fsigvars' _msm_weight _msm_esample"
+    local _fsigvars "`_fsigvars' `outcome_cov' `tvcov' `time_vars_created' `history_vars_created'"
+    local _fsigvars "`_fsigvars' `vce_cluster' `strata'"
+    local _fsigvars : list retokenize _fsigvars
+    local _fsigvars : list uniq _fsigvars
+    _msm_signature `_fsigvars'
+    char _dta[_msm_fit_sig] "`r(sig)'"
+    char _dta[_msm_fit_sigvars] "`_fsigvars'"
+
+    _msm_contract fit
+    char _dta[_msm_fit_contract] `"`r(contract)'"'
+
+    * =========================================================================
+    * DISPLAY SUMMARY
+    * =========================================================================
+
+    display as text ""
+    display as text "{hline 70}"
+
     local b_treat = _msm_fit_b[1, `_tidx']
     local se_treat = sqrt(_msm_fit_V[`_tidx', `_tidx'])
     local z_treat = `b_treat' / `se_treat'
@@ -609,6 +896,9 @@ program define msm_fit, eclass
     ereturn local msm_treatment "`treatment'"
     ereturn local msm_exposure "`exposure'"
     ereturn local msm_tvcov "`tvcov'"
+    ereturn local msm_history_spec "`history'"
+    if "`history'" == "" ereturn local msm_history_assumption "no_carryover"
+    else ereturn local msm_history_assumption "explicit_history"
     ereturn local msm_period_spec "`period_spec'"
     ereturn local msm_vce "`vce_type'"
     ereturn local msm_cluster "`vce_cluster'"
@@ -639,11 +929,26 @@ program define msm_fit, eclass
     local _pval = 2 * normal(-abs(`_est' / `_se'))
     matrix `_msm_effects' = (`_est', `_ci_lo', `_ci_hi', `_pval')
     matrix colnames `_msm_effects' = estimate ci_lower ci_upper pvalue
-    matrix rownames `_msm_effects' = treatment
+    matrix rownames `_msm_effects' = `effect_term'
     ereturn matrix effects = `_msm_effects'
+
+    restore, not
+    local _fit_preserved = 0
 
     } /* end capture noisily */
     local _rc = _rc
+
+    if `_fit_preserved' {
+        capture restore
+        * Rehydrate a prior valid fit (if one existed) after rolling back a
+        * failed replacement; otherwise remove any live partial matrices.
+        capture _msm_verify fit
+    }
+
+    * Restore the caller's observation order on success and on every error path.
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'

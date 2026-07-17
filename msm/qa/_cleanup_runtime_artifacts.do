@@ -7,10 +7,17 @@ local qa_dir "`c(pwd)'"
 
 foreach f in ///
     _cleanup_runtime_artifacts.log ///
-    run_all_validations.log ///
+    run_all_runner.log ///
     test_export_surface.log ///
     test_msm.log ///
+    test_msm_abbrev_reload.log ///
+    test_msm_continuous_exposure.log ///
+    test_msm_cox_state.log ///
+    test_msm_diagtab.log ///
+    test_msm_independent_review.log ///
+    test_msm_psdash_contract.log ///
     test_msm_state_guards.log ///
+    test_msm_state_identity.log ///
     test_msm_status.log ///
     test_msm_weight_ergonomics.log ///
     test_msm_fit_guidance.log ///
@@ -23,11 +30,18 @@ foreach f in ///
     validation_msm.log ///
     validation_msm_known_answers.log ///
     validation_msm_expanded.log ///
+    validation_msm_dgp_recovery.log ///
+    validation_msm_recovery.log ///
     validation_msm_sensitivity.log ///
     crossval_external_models.log ///
     crossval_msm.log {
     capture erase "`qa_dir'/`f'"
 }
+
+* Deliberately do not erase run_all.log or the compatibility
+* run_all_validations.log here. In batch mode Stata opens that file before this
+* do-file starts; erasing it unlinks the only log that survives child suites'
+* `log close _all` calls (audit finding N06).
 
 local orphan_logs : dir "`qa_dir'" files "msm_*.log"
 foreach f of local orphan_logs {

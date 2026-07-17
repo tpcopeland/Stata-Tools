@@ -32,7 +32,7 @@
 {synoptline}
 {syntab:Treatment weight models}
 {synopt:{opt treat_d_cov(varlist)}}covariates for the treatment denominator model{p_end}
-{synopt:{opt treat_n_cov(varlist)}}covariates for the treatment numerator model (stabilization){p_end}
+{synopt:{opt treat_n_cov(varlist)}}treatment numerator covariates{p_end}
 
 {syntab:Censoring weight models}
 {synopt:{opt cen:sor_d_cov(varlist)}}covariates for the censoring denominator model{p_end}
@@ -42,7 +42,9 @@
 {synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., {cmd:1} or {cmd:1 99}){p_end}
 
 {syntab:Model behavior}
-{synopt:{opt fitfailure(policy)}}model-failure policy: {cmd:error} (default) or {cmd:marginal}{p_end}
+{synopt:{opt fitfailure(policy)}}failure policy; default is {cmd:error}{p_end}
+{synopt:{opt probpolicy(policy)}}probability-support policy; default is {cmd:error}{p_end}
+{synopt:{opt clip(#)}}probability bound required with {cmd:probpolicy(clip)}{p_end}
 {synopt:{opt preview}}display resolved model specs without fitting{p_end}
 {synopt:{opt replace}}replace existing weight variables{p_end}
 {synopt:{opt nolog}}suppress logistic model iteration log{p_end}
@@ -75,6 +77,15 @@ New variables are created in the dataset:
 (only if IPCW is requested){p_end}
 {phang2}{cmd:_msm_ps} {hline 2} the per-period treatment propensity
 P(A_t = 1 | history) from the denominator model, kept for diagnostics{p_end}
+{phang2}{cmd:_msm_treat_den_raw}, {cmd:_msm_treat_num_raw} {hline 2} raw fitted
+treatment probabilities before any explicit repair{p_end}
+{phang2}{cmd:_msm_treat_den_p}, {cmd:_msm_treat_num_p} {hline 2} treatment
+probabilities actually used in the weights{p_end}
+{phang2}{cmd:_msm_cens_den_raw}, {cmd:_msm_cens_num_raw},
+{cmd:_msm_cens_den_p}, {cmd:_msm_cens_num_p} {hline 2} analogous censoring
+probabilities when IPCW is requested{p_end}
+{phang2}{cmd:_msm_decision_risk} {hline 2} marker for treatment/censoring
+decision risk sets used by diagnostics{p_end}
 
 {pstd}
 Well-specified stabilized weights should have a mean close to 1.0 and moderate
@@ -86,8 +97,9 @@ treatment model specification.
 After {cmd:msm_weight}, run {helpb psdash:psdash combined} for a longitudinal
 period-by-period propensity-score overlap and weight diagnostic. It reads the
 treatment, {cmd:_msm_ps}, the treatment weight, and the id/period structure
-from the msm contract and complements {helpb msm_diagnose} (which reports pooled
-balance, weight summaries, and effective sample size).
+from the msm contract and complements {helpb msm_diagnose} (which reports
+period/history-specific balance, separate censoring balance, support, weight
+summaries, and effective sample size).
 
 
 {marker mechanics}{...}
@@ -138,10 +150,17 @@ prepared default.
 
 {phang}
 {opth treat_n_cov(varlist)} specifies the covariates for the treatment
-numerator model. This should typically include only baseline covariates
-(e.g., age, sex) that do not change over time. Including fewer variables than
-the denominator produces stabilized weights with lower variance. If omitted,
-the numerator model uses only lagged treatment and an intercept.
+numerator model. Including fewer variables than the denominator produces
+stabilized weights with lower variance. If omitted, the numerator model uses
+only lagged treatment and an intercept.
+
+{phang2}
+Numerator covariates must be baseline-fixed (constant within {it:id}); a
+time-varying variable is refused because {helpb msm_fit} cannot verify a
+compatible treatment-history MSM. They are {it:not} balanced away by the
+weights, so {cmd:msm_fit} requires every one in the structural outcome model
+via {cmd:outcome_cov()} or, for Cox models, {cmd:strata()}, and refuses a fit
+that omits one. See the {help msm_weight##numerator:numerator contract} below.
 
 {dlgtab:Censoring weight models}
 
@@ -155,7 +174,8 @@ predict both censoring and the outcome.
 {opth censor_n_cov(varlist)} specifies the covariates for the censoring
 numerator model (stabilization). If omitted, the censoring numerator model
 uses only current treatment status and an intercept. Requires
-{cmd:censor_d_cov()} to be specified.
+{cmd:censor_d_cov()} to be specified. The same baseline-fixed and outcome-model
+requirements apply as for {cmd:treat_n_cov()}.
 
 {dlgtab:Weight processing}
 
@@ -179,6 +199,22 @@ pooled marginal probability substituted for the failed model. Affected model
 names are stored in {cmd:r(fitfailure_models)}.
 
 {phang}
+{opt probpolicy(policy)} controls unusable fitted probabilities after a model
+has run. The default {cmd:probpolicy(error)} stops with error 459 when an
+at-risk decision has a missing probability (including separation or an
+incomplete weighting covariate) or a probability at exactly 0 or 1. The whole
+weighting transaction is rolled back. There is no hidden clipping.
+
+{phang}
+{opt clip(#)} is required with {cmd:probpolicy(clip)} and must be strictly
+between 0 and 0.5. The explicit clip policy replaces missing probabilities
+for observed decisions at the appropriate endpoint and bounds all fitted
+probabilities to [{it:#}, 1-{it:#}]. This changes the estimator and should be
+used as a named sensitivity policy, not as evidence that positivity holds,
+every missing, low, and high repair remains visible in the raw probability
+variables and in {cmd:r(probability_repairs)}.
+
+{phang}
 {opt preview} resolves and displays the treatment and censoring model specifications
 (including any {cmd:treat_d_cov()} defaulting and {cmd:truncate()} shorthand expansion)
 without fitting any models or creating weight variables. Use this to verify
@@ -194,6 +230,32 @@ exits with an error.
 {phang}
 {opt nolog} suppresses the iteration log from the logistic models. Recommended for
 production scripts.
+
+
+{marker numerator}{...}
+{title:The stabilized numerator contract}
+
+{pstd}
+Stabilization does not remove the numerator covariates' confounding -- it
+deliberately leaves it in place. A variable kept in the numerator is still
+associated with treatment in the pseudo-population, so the structural model is
+{it:conditional} on it and must include it. Hernan, Brumback and Robins (2000)
+carry a {bf:beta_2*V} term in their marginal structural model for exactly the
+{bf:V} that appears in their weight numerator.
+
+{pstd}
+This matters because the failure is silent. Weights built from a numerator
+that the outcome model omits can look perfect -- mean 1, small spread, and
+no positivity warning -- while retaining all of the confounding. {helpb msm_fit}
+therefore refuses such a fit (error 198) rather than reporting a
+confounded estimate with a tight confidence interval.
+
+{pstd}
+The package offers no override for time-varying numerator covariates because
+such a covariate changes the estimand and requires a treatment-history outcome
+model whose terms and prediction contract this package cannot establish. Build
+and validate that model directly rather than treating the current-only MSM as
+equivalent.
 
 
 {marker interpreting}{...}
@@ -248,7 +310,15 @@ covariates default to the prepared variables:{p_end}
 investigated and are willing to accept a marginal probability substitute:{p_end}
 
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    treat_n_cov(age sex) fitfailure(marginal) nolog}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) fitfailure(marginal)}{p_end}
+{phang2}{cmd:    probpolicy(clip) clip(0.001) nolog}{p_end}
+
+{pstd}
+{bf:Explicit probability clipping sensitivity policy:}{p_end}
+
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) probpolicy(clip) clip(0.01) nolog}{p_end}
+{phang2}{cmd:. matrix list r(probability_repairs)}{p_end}
 
 {pstd}
 {bf:Re-running weights after adjusting truncation:}{p_end}
@@ -282,7 +352,11 @@ Scalars are available only after fitting. They are not returned by
 {synopt:{cmd:r(n_truncated)}}number of observations truncated{p_end}
 {synopt:{cmd:r(n_fitfail_fallback)}}number of model-level marginal fallback events{p_end}
 {synopt:{cmd:r(fitfailure_fallback)}}1 if any fallback was used, 0 otherwise{p_end}
-{synopt:{cmd:r(n_probability_repairs)}}observations repaired after perfect prediction{p_end}
+{synopt:{cmd:r(n_probability_repairs)}}total missing, low, and high probability repairs{p_end}
+{synopt:{cmd:r(clip_threshold)}}explicit probability bound, with {cmd:probpolicy(clip)}{p_end}
+
+{p2col 5 28 32 2: Matrices}{p_end}
+{synopt:{cmd:r(probability_repairs)}}model-period-cell probability audit{p_end}
 
 {p2col 5 28 32 2: Macros}{p_end}
 {pstd}
@@ -293,6 +367,8 @@ are meaningful after fitting.
 {synopt:{cmd:r(weight_var)}}name of the final weight variable ({cmd:_msm_weight}){p_end}
 {synopt:{cmd:r(fitfailure_policy)}}resolved failure policy ({cmd:error} or {cmd:marginal}){p_end}
 {synopt:{cmd:r(fitfailure_models)}}model identifiers that used marginal fallback{p_end}
+{synopt:{cmd:r(probability_policy)}}resolved policy ({cmd:error} or {cmd:clip}){p_end}
+{synopt:{cmd:r(probability_models)}}numeric model codes used in the repair matrix{p_end}
 {synopt:{cmd:r(preview)}}{cmd:1} if preview mode was used, {cmd:0} otherwise{p_end}
 {synopt:{cmd:r(treat_d_cov)}}resolved treatment denominator covariates{p_end}
 {synopt:{cmd:r(treat_d_cov_source)}}{cmd:explicit} or {cmd:prepared}{p_end}
@@ -305,13 +381,21 @@ are meaningful after fitting.
 For scripted specification checks, the most useful preview results are
 {cmd:r(preview)}, {cmd:r(treat_d_cov)}, {cmd:r(treat_d_cov_source)},
 {cmd:r(treat_n_cov)}, {cmd:r(censor_d_cov)}, {cmd:r(censor_n_cov)},
-{cmd:r(truncate)}, and {cmd:r(fitfailure_policy)}.
+{cmd:r(truncate)}, {cmd:r(fitfailure_policy)}, and
+{cmd:r(probability_policy)}.
 
 {pstd}
 For scripted post-fit checks, the most useful diagnostics are
 {cmd:r(weight_var)}, {cmd:r(mean_weight)}, {cmd:r(ess)},
 {cmd:r(n_truncated)}, {cmd:r(n_fitfail_fallback)}, {cmd:r(fitfailure_fallback)},
 {cmd:r(fitfailure_models)}, and {cmd:r(n_probability_repairs)}.
+
+{pstd}
+{cmd:r(probability_repairs)} has columns {cmd:model}, {cmd:period}, {cmd:cell},
+{cmd:N}, {cmd:n_missing}, {cmd:n_low}, {cmd:n_high}, {cmd:raw_min},
+{cmd:raw_max}, {cmd:repaired_min}, and {cmd:repaired_max}. Model codes are
+decoded by {cmd:r(probability_models)}. A row is returned for every observed
+decision cell, including cells with zero repairs.
 
 {pstd}
 For routine QA thresholds, scripts commonly inspect {cmd:r(mean_weight)},

@@ -128,7 +128,7 @@ else {
 
 local qa_status = cond(`fail_count' > 0, "FAIL", "PASS")
 display as text ""
-display as text "RESULT: Cox state tests=`test_count' pass=`pass_count' fail=`fail_count' status=`qa_status'"
+display as text "RESULT: test_msm_cox_state tests=`test_count' pass=`pass_count' fail=`fail_count' status=`qa_status'"
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"
     exit 9

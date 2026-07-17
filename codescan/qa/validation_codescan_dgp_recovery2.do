@@ -2,7 +2,7 @@
 *
 * SECOND batch of known-answer DGP recovery scenarios for codescan.  The first
 * batch (validation_codescan_dgp_recovery.do) covers row/patient prevalence,
-* windows, counts, cooccurrence, sensitivity, and Wilson CIs.  This file targets
+* windows, counts, cooccurrence, and sensitivity.  This file targets
 * the option/output paths that batch did NOT exercise at large N:
 *   matched_code first-hit, unmatched flag, regex/prefix alternation within one
 *   condition, multi-pattern exclusion chains, prefix-mode exclusion,
@@ -10,11 +10,11 @@
 *   date summaries / counts, countrows+collapse, countmode+merge, patient-level
 *   cooccurrence (collapse), tostring on numeric codes, label() variable labels,
 *   detail varcounts first-slot attribution, a combined multi-output collapse,
-*   alldates shorthand, empty-window boundary, and a wide (99%) Wilson CI.
+*   alldates shorthand, and an empty-window boundary.
 *
 * As in batch 1 the oracle is computed INDEPENDENTLY of codescan's Mata scanner:
 * regex via Stata-level ustrregexm(), prefixes via substr(), dates via hand
-* arithmetic, Wilson via the closed form.  Same intended semantics, different code.
+* arithmetic.  Same intended semantics, different code.
 
 clear all
 set varabbrev off
@@ -662,55 +662,6 @@ else {
     display as error "  FAIL: window-boundary contract (error `=_rc')"
     local ++fail_count
 }
-
-**# Scenario 19: Wilson score CI closed-form recovery at level 99 (wider than 95)
-
-local ++test_count
-* Captured OUTSIDE the block: the restore below must run even when an
-* assertion inside fails, or level 99 leaks into every later scenario.
-local lvl0 = c(level)
-capture noisily {
-    _cs_makedata
-    quietly count if o_dm2 == 1
-    local k = r(N)
-    local n = _N
-    local p = `k' / `n'
-    * hand-computed 99% Wilson interval (percentages, clamped)
-    local z = invnormal(1 - (1 - 99/100)/2)
-    local z2 = `z' * `z'
-    local center = (`p' + `z2'/(2*`n')) / (1 + `z2'/`n')
-    local halfw  = (`z'/(1 + `z2'/`n')) * sqrt(`p'*(1-`p')/`n' + `z2'/(4*`n'*`n'))
-    local lo99 = max(0,   (`center' - `halfw') * 100)
-    local hi99 = min(100, (`center' + `halfw') * 100)
-    set level 99
-    codescan dx1 dx2 dx3, define(dm2 "E11")
-    matrix SUM = r(summary)
-    assert SUM[1,1] == `k'
-    assert abs(SUM[1,2] - `p'*100) < 1e-6
-    assert abs(SUM[1,3] - `lo99') < 1e-6
-    assert abs(SUM[1,4] - `hi99') < 1e-6
-    assert r(ci_level) == 99
-    * a 99% interval is strictly wider than the default 95% interval
-    local width99 = `hi99' - `lo99'
-    local z95 = invnormal(0.975)
-    local z952 = `z95' * `z95'
-    local c95 = (`p' + `z952'/(2*`n')) / (1 + `z952'/`n')
-    local h95 = (`z95'/(1 + `z952'/`n')) * sqrt(`p'*(1-`p')/`n' + `z952'/(4*`n'*`n'))
-    local width95 = (min(100,(`c95'+`h95')*100)) - (max(0,(`c95'-`h95')*100))
-    assert `width99' > `width95'
-}
-local _s19_rc = _rc
-* Restore unconditionally, outside the captured block, before the verdict.
-set level `lvl0'
-if `_s19_rc' == 0 {
-    display as result "  PASS: Wilson CI recovery at level 99 (wider than 95)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Wilson CI recovery at level 99 (error `_s19_rc')"
-    local ++fail_count
-}
-
 
 **# Settings hygiene
 

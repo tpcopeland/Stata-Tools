@@ -14,7 +14,6 @@ Writes PASS or FAIL to the requested result file and prints diagnostics to stdou
 from __future__ import annotations
 
 import argparse
-import math
 import re
 import sys
 from pathlib import Path
@@ -47,16 +46,6 @@ def used_cols(ws) -> int:
 
 def approx_equal(a: float, b: float, tol: float = 1e-9) -> bool:
     return abs(float(a) - float(b)) <= tol
-
-
-def wilson_ci(count: int, n: int, level: float = 0.95) -> tuple[float, float]:
-    z = 1.959963984540054
-    p_hat = count / n
-    z2n = (z * z) / n
-    denom = 1 + z2n
-    center = (p_hat + z2n / 2) / denom
-    margin = z * math.sqrt((p_hat * (1 - p_hat) + z2n / 4) / n) / denom
-    return max(0.0, (center - margin) * 100), min(100.0, (center + margin) * 100)
 
 
 def check_font_block(ws, max_row: int, max_col: int, errors: list[str]) -> None:
@@ -96,11 +85,11 @@ def check_xlsx(path: str, number_format: str = "0") -> list[str]:
     summary = wb["Sheet1"]
     cooc = wb["cooccurrence"]
 
-    # 3.0.0 layout: condition, label, matches, total_hits, positive_units,
-    # prevalence, ci_low, ci_high, pattern, exclusion.
+    # 4.0.0 layout: condition, label, matches, total_hits, positive_units,
+    # prevalence, pattern, exclusion. (Confidence-interval columns removed.)
     expected_headers = [
         "condition", "label", "matches", "total_hits", "positive_units",
-        "prevalence", "ci_low", "ci_high", "pattern", "exclusion",
+        "prevalence", "pattern", "exclusion",
     ]
     ncols = len(expected_headers)
     # Column letters are derived from the header list rather than written out,
@@ -140,7 +129,6 @@ def check_xlsx(path: str, number_format: str = "0") -> list[str]:
     ]
     n = 4
     for i, (condition, count, prevalence, pattern, exclusion) in enumerate(expected_rows, start=2):
-        low, high = wilson_ci(count, n)
 
         def cell(name):
             return summary[f"{col_of[name]}{i}"]
@@ -164,20 +152,18 @@ def check_xlsx(path: str, number_format: str = "0") -> list[str]:
             )
         expect("positive_units", count)
         expect("prevalence", prevalence, 1e-9)
-        expect("ci_low", low, 1e-9)
-        expect("ci_high", high, 1e-9)
         expect("pattern", pattern)
         expect("exclusion", exclusion)
 
         # The count columns are integers and unaffected by format(); the
-        # prevalence/CI columns carry the format() format.
+        # prevalence column carries the format() format.
         for name in ("matches", "positive_units"):
             if cell(name).number_format != "0":
                 errors.append(
                     f"Sheet1 {cell(name).coordinate}: expected number format 0, "
                     f"got {cell(name).number_format}"
                 )
-        for name in ("prevalence", "ci_low", "ci_high"):
+        for name in ("prevalence",):
             if cell(name).number_format != number_format:
                 errors.append(
                     f"Sheet1 {cell(name).coordinate}: expected number format {number_format}, "

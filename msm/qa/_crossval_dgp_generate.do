@@ -1,4 +1,4 @@
-* crossval_dgp_generate.do
+* _crossval_dgp_generate.do
 * Generate shared DGP datasets for cross-language validation
 * Exports to CSV so R and Python can analyze the same data
 *

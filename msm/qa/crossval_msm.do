@@ -34,7 +34,7 @@ capture mkdir "`work_qa_dir'"
 capture mkdir "`data_dir'"
 capture mkdir "`results_dir'"
 
-copy "`qa_dir'/crossval_dgp_generate.do" "`work_qa_dir'/crossval_dgp_generate.do", replace
+copy "`qa_dir'/_crossval_dgp_generate.do" "`work_qa_dir'/_crossval_dgp_generate.do", replace
 copy "`qa_dir'/crossval_r.R" "`work_qa_dir'/crossval_r.R", replace
 copy "`qa_dir'/crossval_python.py" "`work_qa_dir'/crossval_python.py", replace
 
@@ -69,7 +69,7 @@ display "STEP 1: Generating shared DGP datasets..."
 
 local orig_pwd "`c(pwd)'"
 cd "`work_qa_dir'"
-do "`work_qa_dir'/crossval_dgp_generate.do"
+do "`work_qa_dir'/_crossval_dgp_generate.do"
 cd "`orig_pwd'"
 
 * ============================================================

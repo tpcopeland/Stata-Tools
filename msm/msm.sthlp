@@ -12,6 +12,7 @@
 {vieweralsosee "msm_protocol" "help msm_protocol"}{...}
 {vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
 {viewerjumpto "Syntax" "msm##syntax"}{...}
+{viewerjumpto "Options" "msm##options"}{...}
 {viewerjumpto "Description" "msm##description"}{...}
 {viewerjumpto "When to use this package" "msm##when"}{...}
 {viewerjumpto "Commands" "msm##commands"}{...}
@@ -42,11 +43,30 @@
 {synopt:{opt list}}display command names as a simple list{p_end}
 {synopt:{opt detail}}show detailed descriptions of each command{p_end}
 {synopt:{opt prot:ocol}}show the 7-component MSM protocol framework{p_end}
-{synopt:{opt stat:us}}show current pipeline stage, mapped variables, and saved artifacts{p_end}
+{synopt:{opt stat:us}}show pipeline stage and saved artifacts{p_end}
 {synoptline}
 
 {pstd}
 With no options, {cmd:msm} displays the command overview and workflow guide.
+
+
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt list} displays the names of all user-facing commands in the suite.
+
+{phang}
+{opt detail} displays a detailed overview of each command and its role in the
+analysis workflow.
+
+{phang}
+{opt prot:ocol} displays the seven-component MSM protocol framework.
+
+{phang}
+{opt stat:us} reports the current pipeline stage, mapped variables, saved
+artifacts, and recommended next command. It reads the current dataset state
+without fitting models or modifying the data.
 
 
 {marker description}{...}

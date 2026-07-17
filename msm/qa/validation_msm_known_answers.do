@@ -28,6 +28,14 @@ local fail_count = 0
 local failed_tests ""
 local tol = 1e-6
 
+do "`qa_dir'/_msm_qa_common.do"
+
+* Unit weights let these tests recover an exact hand-computed coefficient. The
+* values are chosen here; the artifact identity is minted by the package's own
+* helpers via _msm_qa_register_weights. Writing char _dta[_msm_weighted] "1"
+* directly -- what this helper used to do -- produces a weighting with no
+* ownership, no uuid, no dependency, and no signature, which the Phase 1 guards
+* correctly refuse.
 capture program drop _ka_set_unit_weights
 program define _ka_set_unit_weights
     version 16.0
@@ -37,11 +45,7 @@ program define _ka_set_unit_weights
     gen double _msm_weight = 1
     gen double _msm_tw_weight = 1
 
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_weight_var] "_msm_weight"
-
-    label variable _msm_weight "MSM cumulative IP weight"
-    label variable _msm_tw_weight "MSM treatment weight (cumulative)"
+    _msm_qa_register_weights
 end
 
 capture program drop _ka_store_manual_fit
@@ -54,15 +58,8 @@ program define _ka_store_manual_fit
     if "`id'" == "" local id "id"
     if "`period_spec'" == "" local period_spec "none"
 
-    capture matrix drop _msm_fit_b
-    capture matrix drop _msm_fit_V
-    matrix _msm_fit_b = `b'
-    matrix _msm_fit_V = `v'
-
-    capture drop _msm_esample
-    gen byte _msm_esample = 1
-
-    char _dta[_msm_fitted] "1"
+    * Model metadata first: _msm_qa_register_fit reads outcome_cov/tvcov to
+    * build the fit signature.
     char _dta[_msm_model] "`model'"
     char _dta[_msm_period_spec] "`period_spec'"
     char _dta[_msm_outcome_cov] "`outcome_cov'"
@@ -71,6 +68,13 @@ program define _ka_store_manual_fit
     char _dta[_msm_cluster] "`id'"
     char _dta[_msm_time_vars] ""
     char _dta[_msm_fit_level] "`level'"
+
+    * The coefficients are chosen by the test; the artifact identity (uuid,
+    * dependency on the weighting, ownership, signature, and the persisted
+    * copy in the dataset) is minted by the package's own helpers. Setting
+    * char _dta[_msm_fitted] "1" by hand -- what this helper used to do --
+    * produces a fit with no identity, which the Phase 1 guards refuse.
+    _msm_qa_register_fit, b(`b') v(`v')
 end
 
 display as text ""
@@ -166,7 +170,21 @@ else {
 }
 
 * --- KA3: exact linear coefficient and intercept under unit weights ---
-* Untreated mean = 2, treated mean = 5 => treatment coefficient = 3
+* Linear probability model on the mapped binary outcome.
+* Control risk = 20/100 = 0.20  => intercept = 0.20
+* Treated risk = 50/100 = 0.50  => treatment coefficient = 0.30
+*
+* This test used to run msm_prepare on a binary outcome and THEN
+* `replace outcome = cond(treatment == 1, 5, 2)', making the outcome
+* continuous behind msm_prepare's back -- msm_prepare rejects a non-binary
+* outcome, so editing afterwards was the only way to get one past it. That is
+* the exact hole audit A02 says must close (a stage consuming data that are no
+* longer the data that were validated), and Phase 1 closes it: msm_fit now
+* refuses with r(459).
+*
+* msm maps a binary outcome, so model(linear) is a linear probability model.
+* The exact-recovery property the test exists to check holds there too, and it
+* holds without smuggling an unsupported outcome past the mapping.
 local ++test_count
 capture noisily {
     clear
@@ -176,17 +194,19 @@ capture noisily {
     gen byte treatment = (_n > 100)
     gen byte outcome = 0
 
+    replace outcome = 1 if inrange(_n, 1, 20)
+    replace outcome = 1 if inrange(_n, 101, 150)
+
     msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
-    replace outcome = cond(treatment == 1, 5, 2)
     _ka_set_unit_weights
     msm_fit, model(linear) period_spec(none) nolog
 
     tempname effects
     matrix `effects' = e(effects)
 
-    assert abs(_b[_cons] - 2) < 1e-12
-    assert abs(_b[treatment] - 3) < 1e-12
-    assert abs(`effects'[1, 1] - 3) < 1e-12
+    assert abs(_b[_cons] - 0.20) < 1e-12
+    assert abs(_b[treatment] - 0.30) < 1e-12
+    assert abs(`effects'[1, 1] - 0.30) < 1e-12
 }
 if _rc == 0 {
     display as result "  PASS KA3: exact linear coefficient and intercept"

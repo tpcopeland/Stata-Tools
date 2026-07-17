@@ -35,11 +35,11 @@
 {synopt:{opt sheet(string)}}sheet name; default is {cmd:Weight Diagnostics}{p_end}
 {synopt:{opt tit:le(string)}}title written to cell A1{p_end}
 {synopt:{opt foot:note(string)}}merged footnote below the table{p_end}
-{synopt:{opt dec:imals(#)}}decimal places for weights and {cmd:max_abs_smd}; default is {cmd:3}{p_end}
-{synopt:{opt thr:eshold(#)}}imbalance threshold reported in the default footnote; default is {cmd:0.1}{p_end}
+{synopt:{opt dec:imals(#)}}decimal places; default is {cmd:3}{p_end}
+{synopt:{opt thr:eshold(#)}}imbalance threshold; default is {cmd:0.1}{p_end}
 {synopt:{opt f:ont(string)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}; default is {cmd:thin}{p_end}
+{synopt:{opt border:style(string)}}border style; default is {cmd:thin}{p_end}
 {synopt:{opt zebra}}alternating row shading (light gray){p_end}
 {synopt:{opt open}}auto-open the workbook after export{p_end}
 {synopt:{opt replace}}replace the sheet in an existing workbook{p_end}
@@ -136,7 +136,7 @@ unrelated sheets. Without {cmd:replace}, an existing file is an error.
 {synopt:{cmd:max_weight}}maximum weight{p_end}
 {synopt:{cmd:p99_weight}}99th-percentile weight{p_end}
 {synopt:{cmd:n_extreme}}number of weights above P99{p_end}
-{synopt:{cmd:n_imbalanced}}covariates with |weighted SMD| > threshold (missing if balance not assessed){p_end}
+{synopt:{cmd:n_imbalanced}}number above the weighted-SMD threshold{p_end}
 {synopt:{cmd:max_abs_smd}}maximum |weighted SMD| (missing if balance not assessed){p_end}
 
 {pstd}

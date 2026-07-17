@@ -34,10 +34,19 @@ program define msm_predict, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _restore_needed = 0
     set varabbrev off
     set more off
 
+
+    * Several steps below use bysort over each individual's history, which
+    * leaves the caller's observations in id/period order. Capture the incoming
+    * order now and restore it on every exit path (audit A06).
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     * =========================================================================
     * SYNTAX PARSING
@@ -64,6 +73,7 @@ program define msm_predict, rclass
     local period_spec      : char _dta[_msm_period_spec]
     local outcome_cov      : char _dta[_msm_outcome_cov]
     local predict_disabled : char _dta[_msm_predict_disabled]
+    local history_spec     : char _dta[_msm_history_spec]
 
     * =========================================================================
     * DEFAULTS AND VALIDATION
@@ -96,19 +106,8 @@ program define msm_predict, rclass
         exit 198
     }
     if "`outcome_cov'" != "" {
-        local varying_outcome_cov ""
-        foreach var of local outcome_cov {
-            tempvar _min_cov _max_cov _id_tag
-            quietly bysort `id': egen double `_min_cov' = min(`var')
-            quietly bysort `id': egen double `_max_cov' = max(`var')
-            quietly bysort `id': gen byte `_id_tag' = (_n == 1)
-            quietly count if `_id_tag' & (`_min_cov' != `_max_cov') & ///
-                !missing(`_min_cov') & !missing(`_max_cov')
-            if r(N) > 0 {
-                local varying_outcome_cov "`varying_outcome_cov' `var'"
-            }
-        }
-        local varying_outcome_cov = strtrim("`varying_outcome_cov'")
+        _msm_timefixed `outcome_cov', id(`id')
+        local varying_outcome_cov "`r(varying)'"
         if "`varying_outcome_cov'" != "" {
             display as error "msm_predict requires outcome_cov() variables to be time-fixed within id"
             display as error "These variables vary over time: `varying_outcome_cov'"
@@ -175,6 +174,7 @@ program define msm_predict, rclass
     display as text "Computing predictions..."
 
     preserve
+    local _restore_needed = 1
 
     * Reference population: unique individuals at first period
     quietly summarize `period'
@@ -186,12 +186,14 @@ program define msm_predict, rclass
         if `t' < `min_period' {
             display as error "times() value `t' is less than the minimum period (`min_period')"
             restore
+            local _restore_needed = 0
             exit 198
         }
         if `t' > `max_period' & "`extrapolate'" == "" {
             display as error "times() value `t' exceeds the maximum observed period (`max_period')"
             display as error "Use the {bf:extrapolate} option to allow predictions beyond observed follow-up."
             restore
+            local _restore_needed = 0
             exit 198
         }
     }
@@ -209,6 +211,7 @@ program define msm_predict, rclass
         display as error "msm_predict requires at least one baseline row in the fitted estimation sample."
         display as error "Re-run {bf:msm_fit} or check why baseline rows are excluded from _msm_esample."
         restore
+        local _restore_needed = 0
         capture matrix drop _msm_pred_matrix
         char _dta[_msm_pred_saved]
         char _dta[_msm_pred_type]
@@ -263,6 +266,7 @@ program define msm_predict, rclass
             quietly _msm_predict_xb, time(`s') treat_val(`treat_val') ///
                 treatment(`treatment') period(`period') ///
                 period_spec(`period_spec') ///
+                baseline(`min_period') ///
                 outcome_cov(`outcome_cov') b_hat(`b_hat') ///
                 probvar(`_prob_i')
 
@@ -395,6 +399,7 @@ program define msm_predict, rclass
                 quietly _msm_predict_xb, time(`s') treat_val(`treat_val') ///
                     treatment(`treatment') period(`period') ///
                     period_spec(`period_spec') ///
+                    baseline(`min_period') ///
                     outcome_cov(`outcome_cov') b_hat(`b_draw') ///
                     probvar(`_prob_mc')
 
@@ -469,6 +474,7 @@ program define msm_predict, rclass
     }
 
     restore
+    local _restore_needed = 0
 
     * =========================================================================
     * DISPLAY RESULTS
@@ -592,6 +598,7 @@ program define msm_predict, rclass
     return local seed_state `"`seed_state'"'
     return local type "`type'"
     return local strategy "`strategy'"
+    return local history_spec "`history_spec'"
     return scalar n_times = `n_times'
     return scalar n_ref = `n_ref'
     return scalar samples = `samples'
@@ -607,6 +614,15 @@ program define msm_predict, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    if `_restore_needed' {
+        capture restore
+    }
+
+    * Restore the caller's observation order on success and on every error path.
+    capture _msm_restore_order `_msm_orig_order'
+    local _order_rc = _rc
+    if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
     set varabbrev `_varabbrev'
     set more `_more'
@@ -627,7 +643,7 @@ program define _msm_predict_xb
 
         syntax , time(integer) treat_val(integer) ///
             treatment(varname) period(varname) ///
-            period_spec(string) ///
+            period_spec(string) baseline(real) ///
             [outcome_cov(string)] b_hat(name) probvar(varname)
 
         * Get coefficient names
@@ -650,6 +666,29 @@ program define _msm_predict_xb
             local cname: word `i' of `coef_names'
             if "`cname'" == "`treatment'" {
                 quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `treat_val'
+            }
+        }
+
+        * Built-in treatment-history terms under static always/never regimes.
+        * elapsed is the number of completed treatment decisions before time().
+        local _elapsed = `time' - `baseline'
+        local _lag = cond(`_elapsed' > 0, `treat_val', 0)
+        local _cum = `treat_val' * max(0, `_elapsed')
+        local _dur = `treat_val' * max(0, `_elapsed')
+        local _int = `treat_val' * `_lag'
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "_msm_hist_lag1" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_lag'
+            }
+            else if "`cname'" == "_msm_hist_cum" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_cum'
+            }
+            else if "`cname'" == "_msm_hist_dur" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_dur'
+            }
+            else if "`cname'" == "_msm_hist_int" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_int'
             }
         }
 

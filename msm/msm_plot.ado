@@ -295,19 +295,24 @@ program define msm_plot, rclass
     * =========================================================================
 
     else if "`type'" == "positivity" {
-        if `"`title'"' == "" local title "Treatment Probability by Period"
+        * This graph shows the marginal proportion treated in each period, which
+        * is NOT positivity (positivity concerns conditional treatment support
+        * given history/covariates -- see msm_diagnose). Label it honestly and
+        * drop the arbitrary 0.5 reference line (audit A25).
+        if `"`title'"' == "" local title "Proportion Treated by Period"
 
         preserve
         local _restore_needed = 1
         quietly {
+            * (mean) over `treatment' uses nonmissing rows, so a missing
+            * treatment is not silently counted as untreated.
             collapse (mean) treat_prob = `treatment' (count) n = `treatment', by(`period')
         }
 
         twoway (connected treat_prob `period', lcolor(navy) mcolor(navy) ///
                 lwidth(medthick) msymbol(O)), ///
-            yline(0.5, lcolor(gs10) lpattern(dash)) ///
             ylabel(0(0.1)1) ///
-            xtitle("Period") ytitle("Treatment Probability") ///
+            xtitle("Period") ytitle("Proportion treated") ///
             title(`"`title'"') `save_opts'
 
         restore
