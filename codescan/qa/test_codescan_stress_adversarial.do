@@ -3,6 +3,7 @@
 
 clear all
 version 16.0
+set varabbrev off
 
 capture log close _all
 tempfile adversarial_log
@@ -306,6 +307,7 @@ else {
 
 **# Summary
 
+_codescan_qa_publish "test_codescan_stress_adversarial" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_stress_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"

@@ -2,6 +2,7 @@
 
 clear all
 version 16.0
+set varabbrev off
 set seed 98765
 
 capture log close _all
@@ -459,6 +460,7 @@ else {
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
+_codescan_qa_publish "test_codescan_adversarial" `test_count' `pass_count' `fail_count'
 display "RESULT: test_codescan_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     log close _all

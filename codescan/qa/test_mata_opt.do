@@ -758,6 +758,7 @@ else {
 * Summary
 
 display ""
+_codescan_qa_publish "test_mata_opt" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_mata_opt tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

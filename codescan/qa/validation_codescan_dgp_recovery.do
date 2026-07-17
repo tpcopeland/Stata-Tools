@@ -820,6 +820,7 @@ else {
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
+_codescan_qa_publish "validation_codescan_dgp_recovery" `test_count' `pass_count' `fail_count'
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     display "RESULT: validation_codescan_dgp_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"

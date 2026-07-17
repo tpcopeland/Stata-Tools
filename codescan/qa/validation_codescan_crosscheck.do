@@ -7,6 +7,7 @@
 clear all
 set seed 54321
 version 16.0
+set varabbrev off
 
 local test_count = 0
 local pass_count = 0
@@ -1446,6 +1447,7 @@ else {
 
 * Summary
 display ""
+_codescan_qa_publish "validation_codescan_crosscheck" `test_count' `pass_count' `fail_count'
 display as result "RESULT: validation_codescan_crosscheck tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Cross-check Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

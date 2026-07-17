@@ -3,6 +3,7 @@
 
 clear all
 version 16.0
+set varabbrev off
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
@@ -322,6 +323,7 @@ else {
 * Summary
 
 display ""
+_codescan_qa_publish "validation_mata" `test_count' `pass_count' `fail_count'
 display as result "RESULT: validation_mata tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

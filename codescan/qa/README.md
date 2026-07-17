@@ -35,12 +35,15 @@ is to exercise the package as a freshly installed user sees it.
 The last line of a run is the aggregate sentinel:
 
 ```
-RESULT: run_all_full tests=26 pass=26 fail=0
+RESULT: run_all_full tests=33 pass=33 fail=0
 ```
 
 Gate on that line, not on the shell exit status — `stata-mp -b do` exits 0 even
 when the do-file ends in `r(1)`. An absent or malformed sentinel is itself a
-failure, and a crashed runner cannot fake one.
+failure, and a crashed runner cannot fake one. Each suite also publishes its
+name and counters back to the runner; a missing report, zero-test report,
+counter mismatch, or nonzero reported failure makes the lane red even when the
+suite do-file itself returns 0.
 
 ### Dependency: Python + openpyxl
 
@@ -56,8 +59,10 @@ The `quick` lane has no Python dependency.
 
 ## Conventions
 
-- Every suite ends with `RESULT: <name> tests=N pass=N fail=N` and `exit 1`
-  on any failure. Runners and `qa parse` key on that line.
+- Every suite ends with `RESULT: <name> tests=N pass=N fail=N`, publishes the
+  same counters through `_codescan_qa_publish`, and exits 1 on any failure.
+  The runner verifies both the handshake and its counter arithmetic; `qa parse`
+  keys on the displayed line.
 - No decorative display lines; `**#`/`**##` bookmarks mark sections.
 - Test data is built inline (seeded `input` blocks / generators); no `.dta`
   fixtures are tracked. Generated `.dta`/`.xlsx`/`.csv`/`.log` artifacts land
@@ -72,6 +77,8 @@ The `quick` lane has no Python dependency.
 - Every suite ends with a settings-hygiene test asserting `c(level)`,
   `c(varabbrev)` and `c(pwd)` match what it started with, so a leak cannot
   cascade silently into the suites that run after it.
+- `run_all.do` separately restores the caller's original `PLUS`, `PERSONAL`,
+  `more`, and `varabbrev` settings and drops its temporary QA globals.
 
 ## File index
 
@@ -100,7 +107,8 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | functional | 19 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
 | `test_release_integrity.do` | functional | 7 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris |
-| `validation_codescan.do` | validation | 66 | Hand-computed oracles for `codescan` |
+| `validation_codescan.do` | validation | 26 | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
+| `validation_codescan_extended.do` | validation | 41 | Extended Wilson-CI, exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
 | `validation_codescan_known_answers.do` | validation | 9 | Known-answer matrix across option combinations |
 | `validation_codescan_dgp_recovery.do` | validation | 24 | DGP known-answer recovery (batch 1): simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic/Wilson) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, CI, and describe |
 | `validation_codescan_dgp_recovery2.do` | validation | 20 | DGP known-answer recovery (batch 2): the option/output paths batch 1 omitted — matched_code first-hit, unmatched flag, regex/prefix alternation in one condition, multi-pattern & prefix exclusion, multi-window lookback + fixed lookforward, merge-broadcast date/count summaries, countrows+collapse, countmode+merge, patient-level cooccurrence, tostring numeric codes, label() variable labels, detail varcounts first-slot attribution, combined multi-output collapse, alldates shorthand, empty/wide window contract, and a 99% Wilson CI |
@@ -150,7 +158,8 @@ created-variable list on the normal path and as an empty string after
 `preserve`/`frame()`, where nothing is left in memory.
 
 Headline coverage by area: option-by-option (the seven `test_codescan*` suites
-split out of the former monolith, `validation_codescan.do`), counting modes (`*countrows*`), date windows
+split out of the former functional monolith, `validation_codescan.do`, and
+`validation_codescan_extended.do`), counting modes (`*countrows*`), date windows
 (`lookback`/`lookforward`/`refdate`), codefiles & I/O & export failure cleanup
 (`validation_codescan_io.do`, `validation_codescan_output.do`), Mata fast
 paths (`test_mata_opt.do`, `validation_mata.do`), the v2.0 no-scoring
@@ -178,6 +187,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_codescan_v300_critical` | ✓ | ✓ | ✓ |
 | `test_codescan_perf_equiv` | ✓ | ✓ | ✓ |
 | `validation_codescan` | ✓ | ✓ | ✓ |
+| `validation_codescan_extended` | ✓ | ✓ | ✓ |
 | `validation_countrows` | ✓ | ✓ | ✓ |
 | `validation_codescan_known_answers` |  | ✓ | ✓ |
 | `validation_codescan_dgp_recovery` |  | ✓ | ✓ |
@@ -195,8 +205,8 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |
 
-`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **26 suites,
-723 assertions**. Every runnable suite belongs to at least one lane except the
+`quick` ⊆ `core` ⊆ `full`. The `full` lane is the release gate: **33 suites,
+746 assertions**. Every runnable suite belongs to at least one lane except the
 two exploratory benchmarks above; there is no `_skip.txt`.
 
 ## Adversarial coverage notes

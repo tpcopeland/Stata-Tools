@@ -2,6 +2,7 @@
 
 clear all
 version 16.0
+set varabbrev off
 set seed 12345
 
 local test_count = 0
@@ -415,6 +416,7 @@ else {
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
+_codescan_qa_publish "validation_codescan_known_answers" `test_count' `pass_count' `fail_count'
 display "RESULT: validation_codescan_known_answers tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     exit 1

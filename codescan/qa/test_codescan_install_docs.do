@@ -3,6 +3,7 @@
 clear all
 set seed 13579
 version 16.0
+set varabbrev off
 
 local test_count = 0
 local pass_count = 0
@@ -446,6 +447,10 @@ else {
 }
 
 
+global CODESCAN_QA_RESULT_NAME "test_codescan_install_docs"
+global CODESCAN_QA_RESULT_TESTS "`test_count'"
+global CODESCAN_QA_RESULT_PASS "`pass_count'"
+global CODESCAN_QA_RESULT_FAIL "`fail_count'"
 display as result "RESULT: test_codescan_install_docs tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

@@ -47,6 +47,22 @@ program define _codescan_qa_bootstrap, rclass
 end
 
 
+* Publish a suite-level handshake for run_all.do.  The aggregate runner does
+* not trust a zero return code alone: an empty or truncated do-file can exit 0
+* without executing a single assertion.  Each suite calls this immediately
+* before its RESULT: line; the runner checks the name and counter arithmetic.
+capture program drop _codescan_qa_publish
+program define _codescan_qa_publish
+    version 16.0
+    args suite tests pass fail
+
+    global CODESCAN_QA_RESULT_NAME "`suite'"
+    global CODESCAN_QA_RESULT_TESTS "`tests'"
+    global CODESCAN_QA_RESULT_PASS "`pass'"
+    global CODESCAN_QA_RESULT_FAIL "`fail'"
+end
+
+
 * ============================================================
 * Helper: Create standard test dataset
 * ============================================================

@@ -2,12 +2,16 @@
 *! Usage: cd codescan/qa && stata-mp -b do run_all.do [quick|core|full]
 
 version 16.0
+local _runner_more0 "`c(more)'"
+local _runner_va0 "`c(varabbrev)'"
 set more off
 set varabbrev off
 
 args mode extra
 
 local qa_dir "`c(pwd)'"
+local _runner_plus0 "`c(sysdir_plus)'"
+local _runner_personal0 "`c(sysdir_personal)'"
 do "`qa_dir'/_codescan_qa_common.do"
 quietly _codescan_qa_bootstrap
 local pass = 0
@@ -39,7 +43,7 @@ local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
     test_codescan_regressions test_codescan_v208 test_codescan_v2_no_scoring ///
     test_codescan_v203_hardening test_codescan_v300_critical ///
     test_codescan_perf_equiv ///
-    validation_codescan validation_countrows
+    validation_codescan validation_codescan_extended validation_countrows
 
 * Correctness lane: quick plus every validation suite and the adversarial
 * functional suites.
@@ -67,12 +71,33 @@ foreach f in `suite_list' {
     clear all
     set more off
     set varabbrev off
+    capture macro drop CODESCAN_QA_RESULT_NAME
+    capture macro drop CODESCAN_QA_RESULT_TESTS
+    capture macro drop CODESCAN_QA_RESULT_PASS
+    capture macro drop CODESCAN_QA_RESULT_FAIL
     capture noisily do "`qa_dir'/`f'.do"
     local suite_rc = _rc
+    local report_name "$CODESCAN_QA_RESULT_NAME"
+    local report_tests = real("$CODESCAN_QA_RESULT_TESTS")
+    local report_pass = real("$CODESCAN_QA_RESULT_PASS")
+    local report_fail = real("$CODESCAN_QA_RESULT_FAIL")
+
+    local report_ok = 1
+    if "`report_name'" != "`f'" local report_ok = 0
+    if missing(`report_tests') | `report_tests' <= 0 local report_ok = 0
+    if missing(`report_pass') | missing(`report_fail') local report_ok = 0
+    if `report_tests' != `report_pass' + `report_fail' local report_ok = 0
+    if `report_fail' != 0 local report_ok = 0
+
     cd "`qa_dir'"
-    if `suite_rc' {
+    if `suite_rc' | !`report_ok' {
         local ++fail
-        display as error "FAILED: `f'.do"
+        if `suite_rc' {
+            display as error "FAILED: `f'.do (rc=`suite_rc')"
+        }
+        else {
+            display as error "FAILED: `f'.do (missing, malformed, empty, or failing RESULT handshake)"
+        }
     }
     else {
         local ++pass
@@ -85,7 +110,22 @@ foreach f in `suite_list' {
 * (run_all.log) is open while this code runs. Input fixtures under qa/data/ are
 * untouched.
 cd "`qa_dir'"
-capture shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.csv" -o -name "*.dta" -o -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
+shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.csv" -o -name "*.dta" -o -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
+
+* Leave an interactive caller's adopath settings exactly as run_all.do found
+* them.  Batch Stata exits immediately afterward, but restoration is still part
+* of the runner's state contract.
+sysdir set PLUS "`_runner_plus0'"
+sysdir set PERSONAL "`_runner_personal0'"
+set more `_runner_more0'
+set varabbrev `_runner_va0'
+capture macro drop CODESCAN_QA_RESULT_NAME
+capture macro drop CODESCAN_QA_RESULT_TESTS
+capture macro drop CODESCAN_QA_RESULT_PASS
+capture macro drop CODESCAN_QA_RESULT_FAIL
+capture macro drop CODESCAN_QA_PLUS
+capture macro drop CODESCAN_QA_PERSONAL
+capture macro drop CODESCAN_QA_ISOLATED
 
 display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed"
 
@@ -93,10 +133,10 @@ display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed
 *
 * This is the signal CI must gate on. `stata-mp -b do' exits with OS status 0
 * even when the do-file ends in r(1), so the shell status is not a verdict; and
-* a suite that dies before printing its own RESULT: line leaves no per-suite
-* sentinel to notice. This line is emitted last and always, so CI can require it
-* to be present, well-formed, and fail=0 — an absent or malformed sentinel is
-* itself a failure, which a crashed runner cannot fake.
+* each suite must also publish a nonempty, internally consistent RESULT
+* handshake. This line is emitted last and always, so CI can require it to be
+* present, well-formed, and fail=0 — an absent or malformed sentinel is itself a
+* failure, which a crashed or vacuous suite cannot fake.
 local _total = `pass' + `fail'
 display as text "RESULT: run_all_`mode' tests=`_total' pass=`pass' fail=`fail'"
 

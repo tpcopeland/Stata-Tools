@@ -11,7 +11,7 @@ version 16.0
 set varabbrev off
 
 capture log close _all
-log using "test_codescan_v203_hardening.log", text replace nomsg
+quietly log using "test_codescan_v203_hardening.log", text replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -316,6 +316,7 @@ else {
 **# Summary
 
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
+_codescan_qa_publish "test_codescan_v203_hardening" `test_count' `pass_count' `fail_count'
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     display "RESULT: test_codescan_v203_hardening tests=`test_count' pass=`pass_count' fail=`fail_count'"

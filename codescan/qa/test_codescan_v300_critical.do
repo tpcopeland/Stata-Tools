@@ -22,7 +22,7 @@ set varabbrev off
 version 16.0
 
 capture log close
-log using "test_codescan_v300_critical.log", replace nomsg
+quietly log using "test_codescan_v300_critical.log", replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -1315,6 +1315,7 @@ display as text "  tests:  `test_count'"
 display as text "  passed: `pass_count'"
 display as text "  failed: `fail_count'"
 
+_codescan_qa_publish "test_codescan_v300_critical" `test_count' `pass_count' `fail_count'
 display as text "RESULT: test_codescan_v300_critical tests=`test_count' pass=`pass_count' fail=`fail_count'"
 
 capture log close
