@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 3.0.0  2026/07/17
+*! _codescan_definitions Version 3.0.1  2026/07/17
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -232,6 +232,8 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     real scalar j, sp, db, esc
     real colvector cur_nonempty, has_alt
     string scalar c2
+    real scalar k
+    string scalar zalpha
 
     n = strlen(pat)
     depth_paren = 0
@@ -369,6 +371,40 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
         // this message is written without embedded quotes on purpose.
         errprintf("{err}  to match any non-empty code use the pattern . instead (not .* or empty groups)\n")
         exit(198)
+    }
+
+    // ── Zero-length-match guard (zero-width assertions) ──────────────────────
+    // The probe above asks whether the pattern matches an EMPTY subject. A
+    // zero-width assertion needing surrounding context answers no and is still
+    // match-everything: "^(\b)" finds no boundary in "" (score 0, passes) but
+    // matches a zero-length string at the start of every real code, so
+    // define(x "\b") returned a 100% cohort at rc=0 in 3.0.0 — the exact defect
+    // C2 exists to prevent, reached on an axis an empty subject cannot expose.
+    //
+    // A zero-length match is never meaningful here: this scanner matches codes,
+    // so a hit that consumes no characters has matched nothing and would leave
+    // matched_code() empty. Probe the anchored form against one code per leading
+    // character of the realistic code alphabet and reject any zero-length hit.
+    // Per-leading-char (not one probe string) is what catches an assertion keyed
+    // to a specific character, e.g. "(?=E)".
+    //
+    // This is a domain guard, not a proof: an assertion keyed to a character
+    // outside this alphabet still slips through, which is why the help file
+    // claims rejection of patterns that can match empty at the start of a code
+    // rather than completeness. Legitimate patterns are untouched — "\bE11"
+    // consumes E11 on every probe it matches, so it never trips this.
+    zalpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    for (k = 1; k <= strlen(zalpha); k++) {
+        if (ustrregexm(substr(zalpha, k, 1) + "00", "^(" + pat + ")") == 1) {
+            if (ustrregexs(0) == "") {
+                errprintf("{err}" + ptype + " for %s: pattern can match zero characters (matches every code): %s\n", cname, pat)
+                // No backslash in this literal on purpose: Mata printf-style
+                // escapes make a literal backslash in a message a silent hazard.
+                errprintf("{err}  a zero-width assertion (word boundary, lookahead) matches without consuming a code\n")
+                errprintf("{err}  to match any non-empty code use the pattern . instead\n")
+                exit(198)
+            }
+        }
     }
 }
 end

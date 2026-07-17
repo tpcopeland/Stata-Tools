@@ -290,7 +290,15 @@ capture erase "`tmp'/codescan_qa_c1c_snap.dta"
 * inclusion it is match-everything, as an exclusion it is exclude-everything.
 * Note: define() splits conditions on "|", so an alternation cannot be passed
 * inline here; the (E11|) case is covered through codefile() below.
-local c2_pats `" "()" "(())" "A*" "A?" "A{0}" "'
+*
+* The first five match an EMPTY subject, so an ustrregexm("", ...) probe finds
+* them. The zero-width assertions after them do NOT -- "\b" needs a word
+* character beside it, so it scores 0 against an empty probe while matching a
+* zero-length string at the start of every real code. That is the same
+* match-everything cohort at rc=0, reached on an axis the empty-subject probe
+* cannot see: codescan 3.0.0 shipped C2 with all five of the first group
+* rejected and `define(bug "\b")' returning a 100% cohort.
+local c2_pats `" "()" "(())" "A*" "A?" "A{0}" "\b" "(?=A)" "(?=E)" "(?=1)" "'
 
 foreach p of local c2_pats {
     local ++test_count

@@ -79,7 +79,13 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 
 | File | Type | Tests | What it covers |
 |------|------|------:|----------------|
-| `test_codescan.do` | functional | 309 | Core `codescan` behaviour across every option |
+| `test_codescan.do` | functional | 41 | Core `codescan` behaviour: basic/regex/prefix modes, time windows, collapse, labels, `replace`, `noisily`, `if`/`in`, return values, edge cases, error handling |
+| `test_codescan_v1_fixes.do` | functional | 88 | Regression guards for the v1.0.2-v1.3.0 fixes: varabbrev restore, collapse `if`/`in`, `countdate` tag logic, name collision, missing `id`, cleanup, `codescan_describe`, `frame()`, `preserve`, `tostring`, `nodots` |
+| `test_codescan_errors.do` | functional | 33 | Error paths: `define()`/`codefile()` grammar, window and `level()` bounds, output-name collisions, extension and file-existence rejection |
+| `test_codescan_functional.do` | functional | 47 | Extended functional coverage: `alldates`, `detail`, `countmode`, exclusions, codefile DTA, merge semantics, `save()`, co-occurrence, boundary name lengths, data preservation |
+| `test_codescan_edge_cases.do` | functional | 30 | `frame()`/`export()`/`graph` output, codefile edge cases, co-occurrence, single-obs and degenerate windows, extended `codescan_describe` and merge cases |
+| `test_codescan_install_verify.do` | functional | 7 | `which` resolves both commands after `net install`; README example runs; v1.4.1 regressions |
+| `test_codescan_coverage.do` | functional | 69 | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, CI levels, `saving()`/`format()`/`export()` content, cross-variable exclusion |
 | `test_countrows.do` | functional | 25 | `countrows`/`countmode` counting semantics |
 | `test_mata_opt.do` | functional | 15 | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
 | `test_codescan_regressions.do` | functional | 31 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary describe row names, prefix validation, and path guards |
@@ -143,8 +149,8 @@ scalar for a single window and as a macro for several, and `r(newvars)` as the
 created-variable list on the normal path and as an empty string after
 `preserve`/`frame()`, where nothing is left in memory.
 
-Headline coverage by area: option-by-option (`test_codescan.do`,
-`validation_codescan.do`), counting modes (`*countrows*`), date windows
+Headline coverage by area: option-by-option (the seven `test_codescan*` suites
+split out of the former monolith, `validation_codescan.do`), counting modes (`*countrows*`), date windows
 (`lookback`/`lookforward`/`refdate`), codefiles & I/O & export failure cleanup
 (`validation_codescan_io.do`, `validation_codescan_output.do`), Mata fast
 paths (`test_mata_opt.do`, `validation_mata.do`), the v2.0 no-scoring
@@ -157,6 +163,12 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | Suite | quick | core | full |
 |-------|:---:|:---:|:---:|
 | `test_codescan` | ✓ | ✓ | ✓ |
+| `test_codescan_v1_fixes` | ✓ | ✓ | ✓ |
+| `test_codescan_errors` | ✓ | ✓ | ✓ |
+| `test_codescan_functional` | ✓ | ✓ | ✓ |
+| `test_codescan_edge_cases` | ✓ | ✓ | ✓ |
+| `test_codescan_install_verify` | ✓ | ✓ | ✓ |
+| `test_codescan_coverage` | ✓ | ✓ | ✓ |
 | `test_countrows` | ✓ | ✓ | ✓ |
 | `test_mata_opt` | ✓ | ✓ | ✓ |
 | `test_codescan_regressions` | ✓ | ✓ | ✓ |

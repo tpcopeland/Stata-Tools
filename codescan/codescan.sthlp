@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.0.0  17jul2026}{...}
+{* *! version 3.0.1  17jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -661,6 +661,16 @@ would otherwise match {it:every} code and silently produce a match-everything
 cohort (or, in an exclusion, drop every row). Empty alternatives are rejected
 in {cmd:prefix} mode as well, where silently dropping one would hide a malformed
 code list.
+
+{pstd}
+More generally, a {cmd:regex} pattern that can match
+{it:without consuming a character} is rejected, because anchored at the start of
+a code it matches every code while capturing nothing. This covers an empty group
+({cmd:"()"}), a wholly optional pattern ({cmd:"A*"} or {cmd:"A?"}), and a
+zero-width assertion used on its own, such as a bare word boundary or a bare
+lookahead. Assertions remain usable as part of a pattern that does consume a
+code, so {cmd:"\bE11"} is accepted. To match any non-empty code, use
+{cmd:.} rather than {cmd:.*}.
 
 {pstd}
 {bf:File paths.} For safety, {cmd:codefile()}, {cmd:save()}, {cmd:export()},

@@ -640,7 +640,8 @@ capture noisily {
     quietly count if dm2 == 1
     local t_plain = r(N)
     assert `t_plain' > 0
-    * DOCUMENTED CONTRACT (test_codescan.do:3225): lookback(0) WITHOUT inclusive
+    * DOCUMENTED CONTRACT (test_codescan_functional.do, "Lookback(0) without
+    * inclusive yields error 2000"): lookback(0) WITHOUT inclusive
     * yields the empty window [ref, ref); an empty analysis sample is a
     * deliberate error, not an all-zero cohort.  codescan errors 2000.
     capture codescan dx1 dx2 dx3, define(dm2 "E11") date(visit_dt) ///

@@ -29,7 +29,13 @@ if !inlist("`mode'", "quick", "core", "full") {
 
 * Routine development lane: fast functional coverage plus the two headline
 * validation suites. No install/docs smoke, no adversarial stress.
-local quick_suites test_codescan test_countrows test_mata_opt ///
+* test_codescan.do was split at its section boundaries (audit Q8); the seven
+* test_codescan* suites below together carry the 308 tests it used to run, plus
+* one settings-hygiene test each.
+local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
+    test_codescan_functional test_codescan_edge_cases ///
+    test_codescan_install_verify test_codescan_coverage ///
+    test_countrows test_mata_opt ///
     test_codescan_regressions test_codescan_v208 test_codescan_v2_no_scoring ///
     test_codescan_v203_hardening test_codescan_v300_critical ///
     test_codescan_perf_equiv ///

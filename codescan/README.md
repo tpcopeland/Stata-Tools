@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 3.0.0** | 2026-07-17
+**Version 3.0.1** | 2026-07-17
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -478,36 +478,15 @@ File options reject quotes, shell metacharacters, and control characters inside 
 
 ## QA
 
-The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `core`, and `full` lanes. See `qa/README.md` for lane membership and the coverage map. The full lane runs 26 suites and 680 assertions:
+The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `core`, and `full` lanes.
 
-- `test_codescan.do` - 308 tests
-- `test_countrows.do` - 24 tests
-- `test_mata_opt.do` - 14 tests
-- `test_codescan_regressions.do` - 30 tests
-- `test_codescan_v208.do` - 4 tests
-- `test_codescan_v2_no_scoring.do` - 4 tests
-- `test_codescan_v203_hardening.do` - 14 tests
-- `test_codescan_v300_critical.do` - 30 tests
-- `test_codescan_perf_equiv.do` - 5 tests
-- `validation_codescan.do` - 65 validations
-- `validation_countrows.do` - 8 validations
-- `validation_codescan_known_answers.do` - 8 validations
-- `validation_codescan_dgp_recovery.do` - 23 validations
-- `validation_codescan_dgp_recovery2.do` - 19 validations
-- `validation_mata.do` - 8 validations
-- `validation_codescan_io.do` - 5 validations
-- `validation_codescan_output.do` - 4 validations
-- `validation_codescan_describe.do` - 6 validations
-- `validation_codescan_describe_adversarial.do` - 9 validations
-- `validation_codescan_crosscheck.do` - 33 validations
-- `test_codescan_adversarial.do` - 11 tests
-- `test_codescan_describe_adversarial.do` - 9 tests
-- `test_codescan_stress_adversarial.do` - 6 tests
-- `test_codescan_install_docs.do` - 11 tests
-- `test_documentation_examples.do` - 16 tests
-- `test_release_integrity.do` - 6 tests
+The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
 
 ## Version History
+
+### 3.0.1 (2026-07-17)
+
+- **Bugfix (completes 3.0.0's C2 guard):** a `regex` pattern or exclusion that can match *without consuming a character* is now rejected. 3.0.0 rejected patterns that match an empty string — `"()"`, `"A*"`, `"E11|"` — by probing them against an empty subject. A zero-width assertion escapes that probe: `"\b"` finds no word boundary in an empty string and so passed validation, then matched a zero-length string at the start of every real code, silently producing a **100% cohort at rc=0** (or, as an exclusion, dropping every row). This is the defect class 3.0.0 was released to eliminate, reached on an axis the empty-subject probe could not see. Patterns that consume a code are unaffected, including assertions used as part of one: `"\bE11"` still works.
 
 ### 3.0.0 (2026-07-17)
 
