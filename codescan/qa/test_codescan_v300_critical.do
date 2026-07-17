@@ -298,7 +298,13 @@ capture erase "`tmp'/codescan_qa_c1c_snap.dta"
 * match-everything cohort at rc=0, reached on an axis the empty-subject probe
 * cannot see: codescan 3.0.0 shipped C2 with all five of the first group
 * rejected and `define(bug "\b")' returning a 100% cohort.
-local c2_pats `" "()" "(())" "A*" "A?" "A{0}" "\b" "(?=A)" "(?=E)" "(?=1)" "'
+*
+* The last group keys the assertion to a character that is not a letter or
+* digit. 3.0.1 probed an alphabet of [A-Za-z0-9._-] only, so `(?=/)' scored 0
+* against every probe and returned a 100% cohort at rc=0 on codes beginning
+* "/" -- the same defect one alphabet further out. The probe now spans printable
+* ASCII, which covers every character real code systems use.
+local c2_pats `" "()" "(())" "A*" "A?" "A{0}" "\b" "(?=A)" "(?=E)" "(?=1)" "(?=/)" "(?= )" "(?=%)" "(?=[+])" "'
 
 foreach p of local c2_pats {
     local ++test_count

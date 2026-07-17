@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 3.0.1  2026/07/17
+*! _codescan_definitions Version 3.0.2  2026/07/17
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -233,7 +233,6 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     real colvector cur_nonempty, has_alt
     string scalar c2
     real scalar k
-    string scalar zalpha
 
     n = strlen(pat)
     depth_paren = 0
@@ -384,18 +383,29 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // A zero-length match is never meaningful here: this scanner matches codes,
     // so a hit that consumes no characters has matched nothing and would leave
     // matched_code() empty. Probe the anchored form against one code per leading
-    // character of the realistic code alphabet and reject any zero-length hit.
-    // Per-leading-char (not one probe string) is what catches an assertion keyed
-    // to a specific character, e.g. "(?=E)".
+    // character and reject any zero-length hit. Per-leading-char (not one probe
+    // string) is what catches an assertion keyed to a specific character, e.g.
+    // "(?=E)".
     //
-    // This is a domain guard, not a proof: an assertion keyed to a character
-    // outside this alphabet still slips through, which is why the help file
-    // claims rejection of patterns that can match empty at the start of a code
-    // rather than completeness. Legitimate patterns are untouched — "\bE11"
-    // consumes E11 on every probe it matches, so it never trips this.
-    zalpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
-    for (k = 1; k <= strlen(zalpha); k++) {
-        if (ustrregexm(substr(zalpha, k, 1) + "00", "^(" + pat + ")") == 1) {
+    // The probe alphabet spans printable ASCII (32-126) rather than just
+    // [A-Za-z0-9._-]. 3.0.1 used the narrow alphabet and was breached the same
+    // way 3.0.0 was: "(?=/)" is keyed to a character the alphabet omitted, so it
+    // scored 0 on every probe and returned a 100% cohort at rc=0 on codes
+    // beginning "/". Printable ASCII covers every character real code systems
+    // use (ICD "." and "+", NDC "-", Read "%", padded codes with spaces).
+    // char() builds each subject, so the double-quote probe costs nothing to
+    // express — Mata string literals have no backslash escape for a quote.
+    //
+    // This remains a domain guard, not a proof: an assertion keyed to a
+    // non-ASCII character (e.g. "(?=å)") on non-ASCII codes still slips,
+    // which is why the help file claims rejection of patterns that can match
+    // empty at the start of a code rather than completeness. Exact coverage
+    // needs the data's own leading characters, which are not available at
+    // option-validation time — and validating before any work is a C5 contract.
+    // Legitimate patterns are untouched: "\bE11" consumes E11 on every probe it
+    // matches, so it never trips this.
+    for (k = 32; k <= 126; k++) {
+        if (ustrregexm(char(k) + "00", "^(" + pat + ")") == 1) {
             if (ustrregexs(0) == "") {
                 errprintf("{err}" + ptype + " for %s: pattern can match zero characters (matches every code): %s\n", cname, pat)
                 // No backslash in this literal on purpose: Mata printf-style

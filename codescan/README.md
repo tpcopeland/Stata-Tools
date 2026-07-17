@@ -1,6 +1,6 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 3.0.1** | 2026-07-17
+**Version 3.0.2** | 2026-07-17
 
 `codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
@@ -123,7 +123,7 @@ codescan dx1 dx2, define(dm2 "E11" ~ "E116")
 
 In `mode(prefix)`, regex metacharacters are not special. The pattern is treated as one or more simple starts-with tokens separated by `|`, so `"XF001|XF002"` means "starts with `XF001` or starts with `XF002`".
 
-**Patterns that can match an empty string are rejected** with `r(198)`. Because every pattern is anchored, such a pattern matches *every* code — as an inclusion it would flag the whole dataset, and as an exclusion it would empty it, in both cases silently. This rules out the empty pattern, `()`, `(())`, a trailing empty alternative like `(E11|)`, and zero-width quantifiers like `A*`, `A?`, and `A{0}`. To match any nonempty code on purpose, use `.` — one arbitrary character — rather than `.*`.
+**Patterns that can match without consuming a character are rejected** with `r(198)`. Because every pattern is anchored, such a pattern matches *every* code — as an inclusion it would flag the whole dataset, and as an exclusion it would empty it, in both cases silently. This rules out the empty pattern, `()`, `(())`, a trailing empty alternative like `(E11|)`, zero-width quantifiers like `A*`, `A?`, and `A{0}`, and a zero-width assertion used on its own, such as a bare `\b` or a bare lookahead. Assertions remain usable as part of a pattern that does consume a code, so `"\bE11"` is accepted. To match any nonempty code on purpose, use `.` — one arbitrary character — rather than `.*`.
 
 ## Choosing the Output Shape
 
@@ -483,6 +483,10 @@ The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `c
 The per-suite file index, test counts, lane membership, and the coverage map live in `qa/README.md` and are not duplicated here. A hand-maintained copy of those counts sat in this file and went stale silently — it read 26 suites and 680 assertions while the full lane ran 723. The authoritative counts are the `RESULT: ... tests=N` sentinels each suite prints, aggregated by `run_all.do`.
 
 ## Version History
+
+### 3.0.2 (2026-07-17)
+
+- **Bugfix (widens 3.0.1's zero-length guard):** the guard rejects a pattern that can match without consuming a character by probing one code per leading character. 3.0.1 probed only `[A-Za-z0-9._-]`, so an assertion keyed to any other character — `"(?=/)"`, `"(?= )"` — scored zero against every probe and still returned a **100% cohort at rc=0** on codes beginning with that character. Same defect as 3.0.1 fixed, one alphabet further out. The probe now spans printable ASCII, covering every character real code systems use (ICD `.` and `+`, NDC `-`, Read `%`, space-padded codes). Still a domain guard, not a proof: an assertion keyed to a non-ASCII character on non-ASCII codes is not probed.
 
 ### 3.0.1 (2026-07-17)
 
