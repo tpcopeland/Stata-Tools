@@ -7,9 +7,6 @@ clear all
 local orig_more "`c(more)'"
 local orig_varabbrev "`c(varabbrev)'"
 local orig_rngstate = c(rngstate)
-set more off
-set varabbrev off
-set seed 20260511
 
 local source_path ""
 local path_added = 0
@@ -19,6 +16,9 @@ local post_open = 0
 * adopath. Keep the entire operation inside one failure boundary so every exit
 * reaches the cleanup zone and the original rc survives cleanup commands.
 capture noisily {
+    set more off
+    set varabbrev off
+    set seed 20260511
     local cwd "`c(pwd)'"
     capture confirm file "`cwd'/rangematch.ado"
     if _rc == 0 local source_path "`cwd'"

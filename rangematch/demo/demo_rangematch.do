@@ -7,10 +7,10 @@
 
 version 16.1
 clear all
-set more off
-set varabbrev off
-set linesize 120
-set seed 20260226
+local old_more "`c(more)'"
+local old_varabbrev "`c(varabbrev)'"
+local old_linesize = c(linesize)
+local old_rngstate = c(rngstate)
 
 **# Paths
 local cwd "`c(pwd)'"
@@ -58,6 +58,10 @@ local personal_changed = 0
 * reaches the cleanup zone. `local rc = _rc' is the first line after it.
 capture noisily {
 
+set more off
+set varabbrev off
+set linesize 120
+set seed 20260226
 mkdir "`demo_plus'"
 mkdir "`demo_personal'"
 local plus_changed = 1
@@ -322,6 +326,14 @@ if `plus_changed' {
     capture sysdir set PLUS "`old_plus'"
     if _rc & !`cleanup_rc' local cleanup_rc = _rc
 }
+capture set more `old_more'
+if _rc & !`cleanup_rc' local cleanup_rc = _rc
+capture set varabbrev `old_varabbrev'
+if _rc & !`cleanup_rc' local cleanup_rc = _rc
+capture set linesize `old_linesize'
+if _rc & !`cleanup_rc' local cleanup_rc = _rc
+capture set rngstate `old_rngstate'
+if _rc & !`cleanup_rc' local cleanup_rc = _rc
 clear
 if !`rc' & `cleanup_rc' local rc = `cleanup_rc'
 if `rc' {

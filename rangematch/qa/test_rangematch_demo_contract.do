@@ -105,6 +105,10 @@ local statefile "`c(tmpdir)'/rm_demo_state_`tag'.txt"
 sysdir set PERSONAL "`stale'"
 local expect_plus "`c(sysdir_plus)'"
 local expect_personal "`c(sysdir_personal)'"
+local expect_more "`c(more)'"
+local expect_varabbrev "`c(varabbrev)'"
+local expect_linesize = c(linesize)
+local expect_rngstate = c(rngstate)
 
 tempname sf
 file open `sf' using "`statefile'", write replace text
@@ -113,6 +117,10 @@ file write `sf' `"`expect_personal'"' _n
 file write `sf' `"`scratch'"' _n
 file write `sf' `"`stale'"' _n
 file write `sf' `"`pkg_dir'"' _n
+file write `sf' `"`expect_more'"' _n
+file write `sf' `"`expect_varabbrev'"' _n
+file write `sf' `"`expect_linesize'"' _n
+file write `sf' `"`expect_rngstate'"' _n
 file close `sf'
 
 **# Run the demo, expecting the injected failure
@@ -179,6 +187,10 @@ file read `sf2' expect_personal
 file read `sf2' scratch
 file read `sf2' stale
 file read `sf2' pkg_dir
+file read `sf2' expect_more
+file read `sf2' expect_varabbrev
+file read `sf2' expect_linesize
+file read `sf2' expect_rngstate
 file read `sf2' had_pkg_on_path
 file close `sf2'
 erase "`statefile'"
@@ -252,6 +264,20 @@ if `workflow_open' | `benchmark_open' {
 else {
     local ++pass_count
     display as result "PASS: demo closed its logs on the failure path"
+}
+
+**# T6: other session settings are restored exactly
+local ++test_count
+if "`c(more)'" == "`expect_more'" & ///
+    "`c(varabbrev)'" == "`expect_varabbrev'" & ///
+    c(linesize) == real("`expect_linesize'") & ///
+    "`c(rngstate)'" == "`expect_rngstate'" {
+    local ++pass_count
+    display as result "PASS: demo restored more, varabbrev, linesize, and RNG state"
+}
+else {
+    local ++fail_count
+    display as error "FAIL: demo leaked a non-sysdir session setting"
 }
 
 **# Cleanup

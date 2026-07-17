@@ -73,7 +73,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
 | `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; missing-bound semantics; cleanup-safe install/net-get distribution contract |
-| `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs restored, and logs closed |
+| `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs, logs, `more`, `varabbrev`, `linesize`, and RNG state are restored |
 | `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, and failed-bootstrap restoration |
 | `test_rangematch_bench_smoke.do` | RM-I19 gate: analytic expected counts for all six shipped scenarios, rc=0 wrong-count rejection, installed-comparator parity, optional-comparator skip, small known answer, and adopath/session restoration |
 | `test_rangematch_runner_contract.do` | RM-I20 gate: strict sentinel scanner rejects missing/nested, wrong-name, duplicate, inconsistent-count, and reported-failure fixtures |

@@ -205,7 +205,7 @@ if _rc | strpos("`r(fn)'", "`user_plus'") != 1 local ok = 0
 
 if `ok' {
     local ++pass_count
-    display as result "PASS T6: failed bootstrap restored both trees and the user's copy"
+    display as result "PASS T6: bootstrap-error path restored both trees and the user's copy"
 }
 else {
     local ++fail_count
