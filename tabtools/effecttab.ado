@@ -1,4 +1,4 @@
-*! effecttab Version 1.9.9  2026/07/16
+*! effecttab Version 1.9.10  2026/07/17
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -208,6 +208,15 @@ quietly {
 	if !`_from_matrix' {
 		capture quietly collect query row
 		if _rc {
+			noisily display as error "No active collect table found"
+			noisily display as error "Run teffects or margins with {bf:collect:} prefix first"
+			noisily display as error "Hint: {bf:collect clear} then {bf:collect: teffects ipw ...}"
+			noisily display as error "Or use from(matrix_name) to pass a matrix directly"
+			exit 119
+		}
+		quietly collect dims
+		local _collect_dims `"`s(dimnames)'"'
+		if strpos(" `_collect_dims' ", " cmdset ") == 0 {
 			noisily display as error "No active collect table found"
 			noisily display as error "Run teffects or margins with {bf:collect:} prefix first"
 			noisily display as error "Hint: {bf:collect clear} then {bf:collect: teffects ipw ...}"

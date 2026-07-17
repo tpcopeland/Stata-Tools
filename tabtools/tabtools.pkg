@@ -28,7 +28,7 @@ d Requires: Stata version 16+ (tabtools, tabtools_tips, table1_tc, stacktab, sim
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d Optional: simsum / siman for simtab ingest mode (from()) and analysis
 d
-d Distribution-Date: 20260716
+d Distribution-Date: 20260717
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

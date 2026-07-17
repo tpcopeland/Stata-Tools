@@ -13,8 +13,22 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 capture program drop _load_codescan_setup
 program define _load_codescan_setup
@@ -308,7 +322,324 @@ else {
     local ++fail_count
 }
 
+* ============================================================
+* Documented examples the suite previously omitted
+* ============================================================
+* The qa/README claimed "every documented example runs as shown" while the
+* exclusion, frame, merge, multi-window, describe-nodots, if, and tostring
+* examples were never exercised. Each block below is a documented example run
+* as written, asserted against a hand-computed expectation.
+
+* README Quick Start — the whole pasted block must run in one session, and the
+* documented prevalences (row 40%, patient 33%) must be what it prints.
+local ++test_count
+capture noisily {
+    clear
+    input long pid str6 dx1 str6 dx2
+    1 "E110" "I10"
+    1 "Z00"  "E119"
+    2 "I50"  ""
+    2 "E102" ""
+    3 "Z00"  ""
+    end
+
+    codescan_describe dx1 dx2
+
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
+    assert r(N) == 5
+    matrix _qs = r(summary)
+    assert el(_qs, 1, 1) == 2
+    assert reldif(el(_qs, 1, 2), 40) < 1e-8
+
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
+    assert r(N) == 3
+    matrix _qs2 = r(summary)
+    assert el(_qs2, 1, 1) == 1
+    assert reldif(el(_qs2, 1, 2), 100/3) < 1e-6
+    matrix drop _qs _qs2
+}
+if _rc == 0 {
+    display as result "  PASS: README Quick Start block (row 40% / patient 33%)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README Quick Start block (error `=_rc')"
+    local ++fail_count
+}
+
+* Exclusion example: define(dm2 "E11" ~ "E116") — E11 codes except E116.
+local ++test_count
+capture noisily {
+    clear
+    input str6 dx1
+    "E110"
+    "E116"
+    "E119"
+    "Z00"
+    end
+    codescan dx1, define(dm2 "E11" ~ "E116")
+    assert dm2 == 1 in 1
+    assert dm2 == 0 in 2
+    assert dm2 == 1 in 3
+    assert dm2 == 0 in 4
+    assert r(N) == 4
+}
+if _rc == 0 {
+    display as result "  PASS: documented exclusion example (~ E116)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented exclusion example (error `=_rc')"
+    local ++fail_count
+}
+
+* frame() example: original data untouched, collapsed result in the frame.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    local n_before = _N
+    capture frame drop results
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
+        frame(results) replace
+    assert _N == `n_before'
+    capture confirm variable dm2
+    assert _rc != 0
+    frame results {
+        assert _N == 3
+        assert dm2 == 1 in 1
+    }
+    frame drop results
+}
+if _rc == 0 {
+    display as result "  PASS: documented frame() example (data untouched)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented frame() example (error `=_rc')"
+    local ++fail_count
+    capture frame drop results
+}
+
+* merge example: every row of a pid carries the same patient-level value.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    local n_before = _N
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge
+    assert _N == `n_before'
+    * pid 1 has E110 (row 1) and E119 (row 2) -> both rows get dm2 == 1
+    assert dm2 == 1 in 1
+    assert dm2 == 1 in 2
+    * pid 3 never matches
+    assert dm2 == 0 in 5
+}
+if _rc == 0 {
+    display as result "  PASS: documented merge example (broadcast to rows)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented merge example (error `=_rc')"
+    local ++fail_count
+}
+
+* Multi-window example: lookback(90 365) returns sensitivity + denominators.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
+        define(dm2 "E11" | htn "I1[0-35]") ///
+        lookback(90 365) inclusive collapse
+    matrix _sens = r(sensitivity)
+    matrix _sensn = r(sensitivity_n)
+    assert rowsof(_sens) == 2
+    assert colsof(_sens) == 2
+    assert rowsof(_sensn) == 1
+    assert colsof(_sensn) == 2
+    * Denominators must be positive and the wider window cannot analyze fewer.
+    assert el(_sensn, 1, 1) > 0
+    assert el(_sensn, 1, 2) >= el(_sensn, 1, 1)
+    matrix drop _sens _sensn
+}
+if _rc == 0 {
+    display as result "  PASS: documented multi-window example (+ r(sensitivity_n))"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented multi-window example (error `=_rc')"
+    local ++fail_count
+}
+
+* codescan_describe nodots example: dotted and undotted forms merge.
+local ++test_count
+capture noisily {
+    clear
+    input str8 dx1
+    "E11.9"
+    "E119"
+    "I10"
+    end
+    codescan_describe dx1, top(10) nodots
+    matrix _tc = r(top_codes)
+    * E11.9 and E119 collapse to one code with frequency 2
+    assert rowsof(_tc) == 2
+    assert el(_tc, 1, 1) == 2
+    matrix drop _tc
+}
+if _rc == 0 {
+    display as result "  PASS: documented codescan_describe nodots example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented codescan_describe nodots example (error `=_rc')"
+    local ++fail_count
+}
+
+* Documented `if` example: codescan_describe dx1 dx2 if dx1 != ""
+local ++test_count
+capture noisily {
+    clear
+    input str6 dx1 str6 dx2
+    "E110" "I10"
+    ""     "Z00"
+    "I50"  ""
+    end
+    codescan_describe dx1 dx2 if dx1 != ""
+    * Row 2 is excluded, so Z00 must not appear: 3 entries over 3 codes.
+    assert r(n_unique) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: documented codescan_describe if example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented codescan_describe if example (error `=_rc')"
+    local ++fail_count
+}
+
+* Help Example 5: tostring on genuinely numeric codes, including a missing.
+* The original numeric variables must survive unchanged and the numeric
+* missing must not surface as a code.
+local ++test_count
+capture noisily {
+    clear
+    input icd9_1 icd9_2
+    25000 4019
+    25000 .
+    4019  25001
+    end
+    quietly replace icd9_2 = .a in 2
+    local t1 : type icd9_1
+    codescan_describe icd9_1 icd9_2, tostring
+    * 6 cells, 1 missing -> 5 entries; 3 distinct codes
+    assert r(n_unique) == 3
+    assert r(n_entries) == 5
+    * Originals unchanged and still numeric
+    local t2 : type icd9_1
+    assert "`t1'" == "`t2'"
+    assert icd9_1[1] == 25000
+    assert icd9_2[2] == .a
+}
+if _rc == 0 {
+    display as result "  PASS: documented tostring example (numeric codes + missing)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented tostring example (error `=_rc')"
+    local ++fail_count
+}
+
+* README example 12 / help example 10: hits vs cases, and slot attribution.
+* The example's whole point is that the numbers differ, so the assertions here
+* are the numbers a reader would compute from the two-slot patient it describes.
+local ++test_count
+capture noisily {
+    * One patient with E11 in BOTH slots on one encounter, one with E11 in dx2
+    * only: 3 slot hits, 2 cases.
+    clear
+    input long pid str6 dx1 str6 dx2
+    1 "E110" "E119"
+    1 "I10"  "Z00"
+    2 "Z00"  "E118"
+    end
+    tempfile doc_slots
+    quietly save `doc_slots'
+
+    codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode
+    matrix S = r(summary)
+    assert S[1,5] == 3      // total_hits: code slots
+    assert S[1,6] == 2      // positive_units: patients
+    assert reldif(S[1,2], 100) < 1e-6
+
+    * detail credits the two-slot row to dx1 alone...
+    quietly use `doc_slots', clear
+    codescan dx1 dx2, define(dm2 "E11") detail
+    matrix V = r(varcounts)
+    assert V[1,1] == 1
+    assert V[1,2] == 1
+    assert r(detail_allslots) == 0
+
+    * ... and allslots counts both of its slots.
+    quietly use `doc_slots', clear
+    codescan dx1 dx2, define(dm2 "E11") detail allslots
+    matrix A = r(varcounts)
+    assert A[1,1] == 1
+    assert A[1,2] == 2
+    assert r(detail_allslots) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: documented hits-vs-cases and allslots example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented hits-vs-cases and allslots example (error `=_rc')"
+    local ++fail_count
+}
+
+* README/help label() example: the demo block labels six conditions with the \
+* separator, and the docs promise those labels reach the console and the export.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") ///
+        label(dm2 "Type 2 diabetes" \ htn "Hypertension")
+    local vl : variable label dm2
+    assert "`vl'" == "Type 2 diabetes"
+    * The identifier is unchanged by labelling -- the promise a do-file relies on.
+    assert "`r(conditions)'" == "dm2 htn"
+    matrix S = r(summary)
+    local rn : rowfullnames S
+    assert "`rn'" == "dm2 htn"
+}
+if _rc == 0 {
+    display as result "  PASS: documented label() example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented label() example (error `=_rc')"
+    local ++fail_count
+}
+
 display ""
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
+
 display as result "RESULT: test_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

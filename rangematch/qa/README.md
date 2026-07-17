@@ -29,6 +29,13 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 - Paths are derived from `c(pwd)` and temporary files. No QA file should depend
   on a machine-local repository path.
 - Runtime debris (`*.log`, `*.smcl`, workbooks, generated data) stays untracked.
+- Documentation is gated on **two** axes. `test_documentation_examples.do`
+  covers the source/behavior axis (the examples run as printed);
+  `test_rangematch_sthlp_render.do` covers the render axis (the Viewer prints
+  what the source intends). Source-text checks cannot see a help file that is
+  textually perfect and renders wrong, so the second gate is not redundant with
+  the first — the lane once ran green while shipping a `{synopt}` row wide
+  enough to corrupt every Stored Results row below it.
 
 ## File Index
 
@@ -38,6 +45,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
 | `test_release_integrity.do` | Version/date/package surface and release metadata |
+| `test_rangematch_sthlp_render.do` | Help-file **render** axis: `{synopt}` descriptions fit the Viewer column, and no source line breaks after sentence-ending punctuation |
 | `test_rangematch_basic.do` | Basic point-in-interval joins, unmatched rows, naming, maxpairs |
 | `test_rangematch_by.do` | `by()` partitioning and grouped joins |
 | `test_rangematch_overlap.do` | Interval-overlap mode and overlap option interactions |
@@ -56,6 +64,13 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_labels.do` | Variable, value-label, and dataset-label preservation |
 | `test_rangematch_missing_using.do` | Using-side missing-key/bound policies |
 | `test_rangematch_overlap_inverted.do` | Inverted using-interval warning and return contract |
+| `test_rangematch_provenance.do` | `usingid()` reports the original using row across every `missing()` policy, source, and ordering |
+| `test_rangematch_interval_validity.do` | Closure-aware interval nonemptiness: inverted and open-degenerate intervals emit no matches |
+| `test_rangematch_group_types.do` | Numeric `by()` group keys survive the direct/catalog paths across integer storage widths |
+| `test_rangematch_frame_safety.do` | `frame()` may not name the using source frame; source preservation and cleanup |
+| `test_rangematch_internal_names.do` | User variables matching private pair-index names across all three backends |
+| `test_rangematch_option_grammar.do` | Empty required arguments, `keepusing()` varlist expansion, empty-side `missing(drop)`, `r(saving)` path normalization |
+| `test_rangematch_missing_key_labels.do` | `missing()` policy over the master key where it is a matching input (`r(N_master_key_missing)`), no counts posted under `missing(error)`, and value-label collision resolution under collision-free names |
 | `test_rangematch_ties_random.do` | Random tie-breaking, seed reproducibility, and RNG restoration |
 | `test_rangematch_saving_matrix.do` | Saved-output routing and matrix-like result consistency |
 | `test_rangematch_abbrev.do` | Minimum option abbreviations |
@@ -77,12 +92,13 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `validation_rangematch_manual.do` | Manual count/statistic validation |
 | `validation_rangematch_nearest.do` | Nearest/ties validation scenarios |
 | `validation_rangematch_known_answers.do` | 21 hand-computed scenarios: 4 closure rules, inverted/degenerate intervals, wildcard vs literal open bounds, `missing()` policy, scalar key-offsets, `by()` isolation, match statistics, `maxpairs()` guard, point-mode distance, tolerance boundaries, full-outer accounting, overlap incl. open-ended bounds |
+| `validation_rangematch_overlap_oracle.do` | Overlap backend vs a brute-force `cross` oracle (both closures, `tolerance()`, every interval relation), emission order, and the scaling contract |
 
 ## Coverage Map
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle | N/A | documentation examples and release integrity |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle | N/A | documentation examples and release integrity |
 
 `rangematch` is a deterministic data-join command, so no external R/Python
 cross-validation suite is required. The validation layer uses hand-built oracle
@@ -93,4 +109,4 @@ datasets and invariant checks.
 | Lane | Suites |
 |------|--------|
 | `quick` | All `test_*.do` suites listed in `run_all.do`, including the complete backend, edge, label, missing-using, tie, version-regression, documentation, install, and release gates |
-| `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do`, `validation_rangematch_known_answers.do` |
+| `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do`, `validation_rangematch_known_answers.do`, `validation_rangematch_overlap_oracle.do` |

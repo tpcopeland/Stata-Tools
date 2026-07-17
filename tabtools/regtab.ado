@@ -1,4 +1,4 @@
-*! regtab Version 1.9.9  2026/07/16
+*! regtab Version 1.9.10  2026/07/17
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -340,6 +340,14 @@ quietly{
         noisily display as error "Hint: {bf:collect clear} then {bf:collect: regress y x1 x2}"
         exit 119
     }
+	quietly collect dims
+	local _collect_dims `"`s(dimnames)'"'
+	if strpos(" `_collect_dims' ", " cmdset ") == 0 {
+		noisily display as error "No active collect table found"
+		noisily display as error "Run regression commands with {bf:collect:} prefix first"
+		noisily display as error "Hint: {bf:collect clear} then {bf:collect: regress y x1 x2}"
+		exit 119
+	}
 	_tabtools_collect_ci_level
 	local _ci_found = r(found)
 	local _stored_ci_level = r(level)

@@ -1,4 +1,4 @@
-*! simtab Version 1.9.9  2026/07/16
+*! simtab Version 1.9.10  2026/07/17
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

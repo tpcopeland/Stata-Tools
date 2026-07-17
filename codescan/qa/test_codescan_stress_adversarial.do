@@ -11,8 +11,22 @@ log using "`adversarial_log'", replace text name(adversarial) nomsg
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 local test_count = 0
 local pass_count = 0
@@ -71,7 +85,8 @@ capture noisily {
     assert r(collapsed) == 1
     assert r(mode) == "regex"
     assert rowsof(r(summary)) == 4
-    assert colsof(r(summary)) == 4
+    * 3.0.0: count prevalence ci_low ci_high total_hits positive_units
+    assert colsof(r(summary)) == 6
 
     assert dm2 == 1 if pid == 1
     assert htn == 1 if pid == 1
@@ -142,12 +157,25 @@ capture noisily {
     assert nohit == 0 in 1
     assert nohit == 1 in 12
 
+    * Each probe gets fresh data. Without that, the indicator variables left
+    * behind by the previous call change which guard fires first, so the return
+    * code depends on scan history rather than on the option being rejected —
+    * that ambiguity is why this used to accept inlist(_rc, 110, 198).
+    _make_codescan_adversarial_data
     capture codescan dx1-dx4, define(dm2 "E11") matched_code(dm2)
-    assert inlist(_rc, 110, 198)
+    assert _rc == 198
+
+    _make_codescan_adversarial_data
     capture codescan dx1-dx4, define(dm2 "E11") unmatched(dx1)
-    assert inlist(_rc, 110, 198)
+    assert _rc == 198
+    * The rejected call must not have damaged the input column it named.
+    assert dx1[1] == "E11.9"
+
+    _make_codescan_adversarial_data
     capture codescan dx1-dx4, define(pid "E11") id(pid) collapse
     assert _rc == 198
+
+    _make_codescan_adversarial_data
     capture codescan dx1-dx4, define(dm2 "E11") generate(thisprefixistoolongforstatavarnames_)
     assert _rc == 198
 }
@@ -160,32 +188,44 @@ else {
     local ++fail_count
 }
 
+local _orig_va_stress = c(varabbrev)
 local ++test_count
 capture noisily {
     _make_codescan_adversarial_data
 
-    capture codescan dx1-dx3, define(dm2 "E11") mode(exact)
-    assert _rc == 198
-    capture codescan dx1-dx3, define(dm2 "E11") lookback(10)
-    assert _rc == 198
-    capture codescan dx1-dx3, define(dm2 "E11") lookforward(-2) date(dxdate) refdate(refdate)
-    assert _rc == 198
-    capture codescan dx1-dx3, define(dm2 "E11") codefile("not_allowed.csv")
-    assert _rc == 198
-    capture codescan dx1-dx3, define(dm2 "E11") export("bad.ext")
-    assert _rc == 198
-    capture codescan dx1-dx3, define(dm2 "E11") saving("")
-    assert _rc == 198
+    * Run the whole error battery under BOTH settings. Asserting only that
+    * c(varabbrev) is "on" or "off" is a tautology; asserting only the "off"
+    * case would pass on a command that hardcodes `set varabbrev off` in its
+    * cleanup, which is the actual failure mode this guards.
+    foreach va in on off {
+        set varabbrev `va'
 
-    local after_errors = c(varabbrev)
-    assert "`after_errors'" == "on" | "`after_errors'" == "off"
+        capture codescan dx1-dx3, define(dm2 "E11") mode(exact)
+        assert _rc == 198
+        capture codescan dx1-dx3, define(dm2 "E11") lookback(10)
+        assert _rc == 198
+        capture codescan dx1-dx3, define(dm2 "E11") lookforward(-2) date(dxdate) refdate(refdate)
+        assert _rc == 198
+        capture codescan dx1-dx3, define(dm2 "E11") codefile("not_allowed.csv")
+        assert _rc == 198
+        capture codescan dx1-dx3, define(dm2 "E11") export("bad.ext")
+        assert _rc == 198
+        capture codescan dx1-dx3, define(dm2 "E11") saving("")
+        assert _rc == 198
+
+        * The caller's setting must come back exactly as it was left.
+        assert "`c(varabbrev)'" == "`va'"
+    }
 }
-if _rc == 0 {
+local _stress_rc = _rc
+* Restore unconditionally, outside the captured block, before the verdict.
+set varabbrev `_orig_va_stress'
+if `_stress_rc' == 0 {
     display as result "  PASS: invalid option combinations reject deterministically"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: invalid option stress (error `=_rc')"
+    display as error "  FAIL: invalid option stress (error `_stress_rc')"
     local ++fail_count
 }
 
@@ -198,7 +238,7 @@ capture noisily {
         _make_codescan_adversarial_data
         capture drop dm2 htn dm2_first dm2_last dm2_count htn_first htn_last htn_count hitcode nohit
         codescan dx1-dx8, define(dm2 "E11" | htn "I1") nocase replace ///
-            matched_code(hitcode) unmatched(nohit) export("`csvout'.csv")
+            matched_code(hitcode) unmatched(nohit) export("`csvout'.csv", replace)
         assert r(N) == 12
         assert r(n_conditions) == 2
         assert dm2 == 1 in 1
@@ -243,6 +283,26 @@ else {
     display as error "  FAIL: codescan_describe wide sparse stress (error `=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

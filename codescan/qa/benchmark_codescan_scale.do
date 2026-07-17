@@ -29,8 +29,13 @@ log using "benchmark_codescan_scale.log", text replace nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
 discard
 
 * 20 ICD-10-ish prefixes spread across chapters

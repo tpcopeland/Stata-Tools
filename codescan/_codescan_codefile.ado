@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 2.0.9  2026/07/09
+*! _codescan_codefile Version 3.0.0  2026/07/17
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -49,23 +49,44 @@ program define _codescan_parse_codefile, rclass
         }
     }
 
-    * Validate required columns
-    capture confirm string variable name
-    if _rc {
-        display as error "codefile(): file must contain a string variable {bf:name}"
-        exit 198
-    }
-    capture confirm string variable pattern
-    if _rc {
-        display as error "codefile(): file must contain a string variable {bf:pattern}"
-        exit 198
+    * Validate required columns. Report absent and wrong-type separately so the
+    * message names the actual problem.
+    foreach _cfreq in name pattern {
+        capture confirm variable `_cfreq'
+        if _rc {
+            display as error "codefile(): file must contain a string variable {bf:`_cfreq'}"
+            exit 198
+        }
+        capture confirm string variable `_cfreq'
+        if _rc {
+            local _cftype : type `_cfreq'
+            display as error "codefile(): column {bf:`_cfreq'} must be a string variable; found `_cftype'"
+            exit 198
+        }
     }
 
-    * Optional columns
-    capture confirm string variable label
-    local _cf_has_label = (_rc == 0)
-    capture confirm string variable exclusion
-    local _cf_has_excl = (_rc == 0)
+    * Optional columns. A bare `capture confirm string variable' conflates two
+    * materially different states — column absent, and column present with the
+    * wrong storage type — and treating the second as the first silently
+    * discards the column: a visible numeric exclusion is ignored and produces
+    * an incorrect positive cohort at rc=0. Check existence first, then require
+    * string storage. Do not coerce a numeric column, because its display format
+    * can change the resulting text.
+    local _cf_has_label = 0
+    local _cf_has_excl = 0
+    foreach _cfopt in label exclusion {
+        capture confirm variable `_cfopt'
+        if _rc continue
+        capture confirm string variable `_cfopt'
+        if _rc {
+            local _cftype : type `_cfopt'
+            display as error "codefile(): column {bf:`_cfopt'} must be a string variable; found `_cftype'"
+            display as error "  convert it with {bf:tostring `_cfopt', replace} before use"
+            exit 198
+        }
+        if "`_cfopt'" == "label"     local _cf_has_label = 1
+        if "`_cfopt'" == "exclusion" local _cf_has_excl  = 1
+    }
 
     quietly count
     local n_conditions = r(N)

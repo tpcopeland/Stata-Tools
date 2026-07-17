@@ -5,7 +5,7 @@ version 16.0
 set seed 98765
 
 capture log close _all
-log using "/tmp/codescan_test_adversarial.log", text replace nomsg
+log using "test_codescan_adversarial.log", text replace nomsg
 
 local test_count = 0
 local pass_count = 0
@@ -14,11 +14,26 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 **# State Preservation
 
+local _orig_va = c(varabbrev)
 local ++test_count
 capture noisily {
     clear
@@ -33,15 +48,30 @@ capture noisily {
     gen str10 before_dx2 = dx2
     local N_before = _N
 
+    * Signature over the input columns only — the scan legitimately ADDS dm2
+    * and htn, so a whole-dataset signature would fire on a correct run.
+    * datasignature takes no varlist (a leading name parses as a subcommand),
+    * hence the keep-inside-preserve.
+    preserve
+    keep seq dx1 dx2
+    quietly datasignature
+    local sig_before `r(datasignature)'
+    restore
+
     set varabbrev on
     codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I10")
 
     assert _N == `N_before'
+    preserve
+    keep seq dx1 dx2
+    quietly datasignature
+    assert "`r(datasignature)'" == "`sig_before'"
+    restore
     forvalues i = 1/`=_N' {
-        assert seq[`i'] == seq[`i']
         assert dx1[`i'] == before_dx1[`i']
         assert dx2[`i'] == before_dx2[`i']
     }
+    * The input is deliberately unsorted: row order is part of the contract.
     assert seq[1] == 5
     assert seq[2] == 2
     assert seq[3] == 4
@@ -49,12 +79,16 @@ capture noisily {
     assert seq[5] == 3
     assert "`c(varabbrev)'" == "on"
 }
-if _rc == 0 {
+local _sp_rc = _rc
+* Restore unconditionally, outside the captured block, so an assertion failure
+* above cannot leak varabbrev=on into every later test in this suite.
+set varabbrev `_orig_va'
+if `_sp_rc' == 0 {
     display as result "  PASS: row-level data and varabbrev preserved on success"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: row-level data and varabbrev preserved on success (error `=_rc')"
+    display as error "  FAIL: row-level data and varabbrev preserved on success (error `_sp_rc')"
     local ++fail_count
 }
 
@@ -164,12 +198,17 @@ else {
 
 local ++test_count
 capture noisily {
+    * exp_unmatched follows the v3.0.0 I4 contract: 1 = analyzed and nothing
+    * matched, 0 = analyzed and something matched, . = outside the analysis
+    * sample. The two keepme==0 rows are filtered out by the if, so they are not
+    * analyzed and must be missing -- previously they were 0, which was
+    * indistinguishable from the row that genuinely matched.
     clear
     input byte keepme str10 dx1 byte exp_dm2 byte exp_unmatched str10 exp_mc
     1 "E110" 1 0 "E110"
-    0 "E110" 0 0 ""
+    0 "E110" 0 . ""
     1 "Z00"  0 1 ""
-    0 "Z00"  0 0 ""
+    0 "Z00"  0 . ""
     end
 
     codescan dx1 if keepme, define(dm2 "E11") unmatched(nohit) matched_code(mc)
@@ -396,6 +435,26 @@ else {
     display as error "  FAIL: return contract with adversarial options (error `=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

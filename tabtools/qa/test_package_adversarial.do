@@ -322,7 +322,8 @@ capture noisily {
     collect clear
     set varabbrev on
     capture regtab
-    assert _rc == 459
+    * Missing active collection uses Stata's standard r(119) contract.
+    assert _rc == 119
     assert c(varabbrev) == "on"
 
     sysuse auto, clear
@@ -367,7 +368,8 @@ capture noisily {
     collect clear
     set varabbrev on
     capture effecttab
-    assert _rc == 459
+    * Missing active collection uses Stata's standard r(119) contract.
+    assert _rc == 119
     assert c(varabbrev) == "on"
 
     matrix bad_eff = J(1, 3, .)

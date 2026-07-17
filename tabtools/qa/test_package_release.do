@@ -1108,7 +1108,13 @@ version 16.0
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-local repo_root = subinstr("`pkg_dir'", "/tabtools", "", 1)
+* Strip only the terminal package directory. A scratch parent may itself
+* contain "tabtools" (for example /tmp/tabtools-audit-*/tabtools).
+local repo_root = regexr("`pkg_dir'", "/tabtools$", "")
+if "`repo_root'" == "`pkg_dir'" {
+    display as error "could not derive the repository root from `pkg_dir'"
+    exit 198
+}
 local tracked_demo_dir "`pkg_dir'/demo"
 local old_pwd "`c(pwd)'"
 tempname _demo_stage_id

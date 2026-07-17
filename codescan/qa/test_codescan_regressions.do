@@ -4,11 +4,11 @@
 * Covers:
 *   T1: r() scalars/matrices populated even when export() target fails
 *   T2: r() scalars/matrices populated even when export() writes to a locked csv
-*   T3: unmatched() is strict 0/1 when rows are filtered by if
-*   T4: unmatched() is strict 0/1 when rows have missing id under merge
+*   T3: unmatched() marks rows filtered out by if as missing, not 0 (I4, 3.0.0)
+*   T4: unmatched() marks a missing-id row under merge as missing, not 0 (I4)
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports the current package version
+*   T7: the .ado version header agrees with the flagship help version
 *   T8: label() with generate() accepts bare names (I3 fix)
 *   T9: Reserved export column names rejected as condition names (I5 fix)
 *   T11: r(date) returned when date() specified (I8 fix)
@@ -38,8 +38,22 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 
 capture program drop _make_v101_data
@@ -65,19 +79,46 @@ end
 * T1: r() survives export() to an unwritable directory
 * ============================================================
 
+* The export target lives under a uniquely named directory that is never
+* created, so the failure is owned by this suite and cannot be satisfied by
+* residue from an earlier run.
+local _nodir "`c(tmpdir)'/cs_regr_absent_`=strofreal(runiformint(1, 999999999))'"
+capture confirm file "`_nodir'/out.csv"
+assert _rc != 0
+
 local ++test_count
 capture noisily {
     _make_v101_data
+    * Baseline for the r() surface, taken from a run that writes nowhere.
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse
+    matrix _SmryOK = r(summary)
+    local _condsOK `"`r(conditions)'"'
+    local _nOK = r(n_conditions)
+    tempfile _dataOK
+    quietly save `_dataOK'
+
+    _make_v101_data
     capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
-        export(/nonexistent_dir_codescan_v101/out.csv)
+        export("`_nodir'/out.csv")
     local _export_rc = _rc
-    * Whether export succeeded or failed, r(summary) and r(n_conditions) must be present.
-    assert r(n_conditions) == 2
-    assert `"`=r(conditions)'"' == "dm2 htn"
+    * The export must actually fail — without this the test passes on a build
+    * that silently writes the file, or one that ignores export() entirely.
+    assert `_export_rc' == 603
+    capture confirm file "`_nodir'/out.csv"
+    assert _rc == 601
+
+    * The analytical payload must survive the failed side effect intact, and
+    * must equal what the same scan returns when no export is requested.
+    assert r(n_conditions) == `_nOK'
+    assert `"`r(conditions)'"' == `"`_condsOK'"'
     matrix _Smry = r(summary)
     assert rowsof(_Smry) == 2
-    assert colsof(_Smry) == 4
-    matrix drop _Smry
+    assert colsof(_Smry) == 6
+    assert mreldif(_Smry, _SmryOK) < 1e-12
+    matrix drop _Smry _SmryOK
+
+    * ...and the data left in memory must be the collapsed result, unchanged.
+    cf _all using `_dataOK'
 }
 if _rc == 0 {
     display as result "  PASS T1: r() present after unwritable export path"
@@ -96,12 +137,22 @@ else {
 local ++test_count
 capture noisily {
     _make_v101_data
+    codescan dx1, define(dm2 "E11" | htn "I10")
+    matrix _Smry2OK = r(summary)
+    local _n2OK = r(n_conditions)
+
+    _make_v101_data
     capture codescan dx1, define(dm2 "E11" | htn "I10") ///
-        export(/nonexistent_dir_codescan_v101/out.xlsx)
-    assert r(n_conditions) == 2
+        export("`_nodir'/out.xlsx")
+    assert _rc == 603
+    capture confirm file "`_nodir'/out.xlsx"
+    assert _rc == 601
+
+    assert r(n_conditions) == `_n2OK'
     matrix _Smry2 = r(summary)
     assert rowsof(_Smry2) == 2
-    matrix drop _Smry2
+    assert mreldif(_Smry2, _Smry2OK) < 1e-12
+    matrix drop _Smry2 _Smry2OK
 }
 if _rc == 0 {
     display as result "  PASS T2: r() present after unwritable xlsx export"
@@ -114,36 +165,40 @@ else {
 
 
 * ============================================================
-* T3: unmatched() strict 0/1 under if filter
+* T3: unmatched() marks non-analyzed rows missing under an if filter (I4)
 * ============================================================
+* v3.0.0 contract: 1 = analyzed, nothing matched; 0 = analyzed, something
+* matched; . = not analyzed. This test previously asserted the opposite — that a
+* filtered-out row carried 0, i.e. was indistinguishable from a row that
+* genuinely matched. That was the I4 defect, asserted as if it were the contract.
 
 local ++test_count
 capture noisily {
     _make_v101_data
     * if filter removes rows 3-10; only rows 1-2 analyzed.
     codescan dx1 if _n <= 2, define(dm2 "E11") unmatched(nomatch)
-    * Filtered rows must have nomatch == 0 (not missing).
-    assert nomatch == 0 if _n > 2
+    * Rows outside the analysis sample are missing, NOT 0.
+    assert missing(nomatch) if _n > 2
     * Included row 1 (E110) matches -> nomatch == 0
     assert nomatch == 0 if _n == 1
     * Included row 2 (Z00) does not match -> nomatch == 1
     assert nomatch == 1 if _n == 2
-    * No missing values anywhere.
+    * Exactly the filtered rows are missing.
     count if missing(nomatch)
-    assert r(N) == 0
+    assert r(N) == 8
 }
 if _rc == 0 {
-    display as result "  PASS T3: unmatched() 0/1 under if filter"
+    display as result "  PASS T3: unmatched() marks non-analyzed rows missing under if"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T3: unmatched() strict 0/1 under if (rc=`=_rc')"
+    display as error "  FAIL T3: unmatched() analysis-sample semantics under if (rc=`=_rc')"
     local ++fail_count
 }
 
 
 * ============================================================
-* T4: unmatched() strict 0/1 with missing id under merge
+* T4: unmatched() marks a missing-id row missing under merge (I4)
 * ============================================================
 
 local ++test_count
@@ -157,18 +212,22 @@ capture noisily {
     2 "Z00"
     end
     codescan dx1, define(dm2 "E11") id(pid) merge unmatched(nomatch)
-    * Missing-pid row is excluded from touse; nomatch must be 0 not missing.
+    * The missing-pid row is excluded from touse, so it is NOT analyzed and must
+    * be missing -- not 0, which would claim a condition matched it.
     * (merge may reorder rows, so filter by missing(pid) rather than row number.)
-    assert nomatch == 0 if missing(pid)
+    assert missing(nomatch) if missing(pid)
+    * Exactly one row was excluded; every analyzed row has a real 0/1.
     count if missing(nomatch)
+    assert r(N) == 1
+    count if !missing(pid) & missing(nomatch)
     assert r(N) == 0
 }
 if _rc == 0 {
-    display as result "  PASS T4: unmatched() 0/1 with missing id (merge)"
+    display as result "  PASS T4: unmatched() marks missing-id row missing (merge)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T4: unmatched() 0/1 under merge/missing id (rc=`=_rc')"
+    display as error "  FAIL T4: unmatched() analysis-sample semantics under merge (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -204,13 +263,41 @@ else {
 
 local ++test_count
 capture noisily {
-    _make_v101_data
-    codescan dx1, define(dm2 "E11" | htn "I10" | cvd "I2") id(pid) collapse cooccurrence
+    * _make_v101_data cannot test this: no patient there carries two
+    * conditions, so its co-occurrence matrix is diagonal and every
+    * off-diagonal cell is structurally zero. Use data with real overlap.
+    clear
+    input long pid str10 dx1 str10 dx2
+    1 "E110" "I10"
+    2 "E119" "Z00"
+    3 "I10"  "I21"
+    4 "Z00"  "Z00"
+    5 "E110" "I10"
+    5 "I21"  "Z00"
+    end
+    codescan dx1 dx2, define(dm2 "E11" | htn "I10" | cvd "I2") ///
+        id(pid) collapse cooccurrence
     matrix _C = r(cooccurrence)
     assert rowsof(_C) == 3
     assert colsof(_C) == 3
-    * Diagonal must equal per-condition counts (patient-level).
-    assert _C[1,1] >= 0
+    assert "`: rownames _C'" == "dm2 htn cvd"
+    assert "`: colnames _C'" == "dm2 htn cvd"
+
+    * Hand-computed patient-level counts from the six rows above:
+    *   dm2 = pids 1,2,5   htn = pids 1,3,5   cvd = pids 3,5
+    * Diagonal = per-condition patient count.
+    assert _C[1,1] == 3
+    assert _C[2,2] == 3
+    assert _C[3,3] == 2
+    * Off-diagonal = patients carrying BOTH conditions.
+    assert _C[2,1] == 2
+    assert _C[3,1] == 1
+    assert _C[3,2] == 2
+    * Co-occurrence counts patients, not rows: pid 5 contributes once to
+    * dm2&htn despite matching both on two separate rows.
+    assert _C[1,2] == _C[2,1]
+    assert _C[1,3] == _C[3,1]
+    assert _C[2,3] == _C[3,2]
     matrix drop _C
 }
 if _rc == 0 {
@@ -224,21 +311,44 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 2.0.7
+* T7: the .ado header version matches the flagship help version
 * ============================================================
+* This used to assert a hardcoded literal, which went stale on every release
+* (its own section comment still said 2.0.7 while the assert had been bumped to
+* 2.0.9). Compare the two surfaces to each other instead: the flagship .sthlp
+* owns the package version, and the .ado header must agree with it.
 
 local ++test_count
 capture noisily {
     findfile codescan.ado
-    local _path `"`r(fn)'"'
+    local _ado_path `"`r(fn)'"'
     tempname fh
-    file open `fh' using `"`_path'"', read
+    file open `fh' using `"`_ado_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "2.0.9") > 0
+    assert ustrregexm(`"`macval(_line1)'"', "^\*! codescan Version ([0-9]+\.[0-9]+\.[0-9]+)")
+    local _ado_ver = ustrregexs(1)
+
+    findfile codescan.sthlp
+    local _help_path `"`r(fn)'"'
+    tempname fh2
+    file open `fh2' using `"`_help_path'"', read
+    file read `fh2' _hline
+    local _help_ver ""
+    while r(eof) == 0 {
+        if ustrregexm(`"`macval(_hline)'"', "^\{\* \*! version ([0-9]+\.[0-9]+\.[0-9]+)") {
+            local _help_ver = ustrregexs(1)
+            continue, break
+        }
+        file read `fh2' _hline
+    }
+    file close `fh2'
+
+    assert "`_help_ver'" != ""
+    assert "`_ado_ver'" == "`_help_ver'"
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 2.0.9"
+    display as result "  PASS T7: .ado header version matches flagship help version"
     local ++pass_count
 }
 else {
@@ -696,7 +806,7 @@ capture noisily {
     assert `"`=r(conditions)'"' == "dm2 htn"
     matrix _SmrySv = r(summary)
     assert rowsof(_SmrySv) == 2
-    assert colsof(_SmrySv) == 4
+    assert colsof(_SmrySv) == 6
     matrix drop _SmrySv
     * The collapse ran and left patient-level data in memory (5 pids).
     assert _N == 5
@@ -1061,6 +1171,26 @@ else {
     local ++fail_count
 }
 * ============================================================
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
+
 * Summary
 * ============================================================
 

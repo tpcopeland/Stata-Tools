@@ -27,8 +27,22 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 **# DGP builder
 
@@ -678,13 +692,15 @@ else {
 **# Scenario 21: Wilson CI narrows at a lower c(level) (set level 80)
 
 local ++test_count
+* Captured OUTSIDE the block: the restore below must run even when an
+* assertion inside fails, or level 80 leaks into every later scenario.
+local lvl0 = c(level)
 capture noisily {
     _cs_makedata
     quietly count if o_dm2 == 1
     local k = r(N)
     local n = _N
     local p = `k' / `n'
-    local lvl0 = c(level)
     * hand-computed 80% Wilson interval (percentages, clamped)
     local z = invnormal(1 - (1 - 80/100)/2)
     local z2 = `z' * `z'
@@ -695,7 +711,6 @@ capture noisily {
     set level 80
     codescan dx1 dx2 dx3, define(dm2 "E11")
     matrix SUM = r(summary)
-    set level `lvl0'
     assert abs(SUM[1,3] - `lo80') < 1e-6
     assert abs(SUM[1,4] - `hi80') < 1e-6
     assert r(ci_level) == 80
@@ -708,12 +723,15 @@ capture noisily {
     local width95 = (min(100,(`c95'+`h95')*100)) - (max(0,(`c95'-`h95')*100))
     assert `width80' < `width95'
 }
-if _rc == 0 {
+local _s21_rc = _rc
+* Restore unconditionally, outside the captured block, before the verdict.
+set level `lvl0'
+if `_s21_rc' == 0 {
     display as result "  PASS: Wilson CI recovery at level 80 (narrower than 95)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Wilson CI recovery at level 80 (error `=_rc')"
+    display as error "  FAIL: Wilson CI recovery at level 80 (error `_s21_rc')"
     local ++fail_count
 }
 
@@ -778,6 +796,26 @@ else {
     display as error "  FAIL: codescan_describe inventory recovery (error `=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

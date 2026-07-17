@@ -31,7 +31,8 @@ if !inlist("`mode'", "quick", "core", "full") {
 * validation suites. No install/docs smoke, no adversarial stress.
 local quick_suites test_codescan test_countrows test_mata_opt ///
     test_codescan_regressions test_codescan_v208 test_codescan_v2_no_scoring ///
-    test_codescan_v203_hardening test_codescan_perf_equiv ///
+    test_codescan_v203_hardening test_codescan_v300_critical ///
+    test_codescan_perf_equiv ///
     validation_codescan validation_countrows
 
 * Correctness lane: quick plus every validation suite and the adversarial
@@ -81,4 +82,16 @@ cd "`qa_dir'"
 capture shell bash -lc 'find "$1" -maxdepth 1 -type f \( -name "*.csv" -o -name "*.dta" -o -name "*.xlsx" -o -name "*.smcl" \) -delete' bash "`qa_dir'"
 
 display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed"
+
+* Final machine-readable aggregate sentinel.
+*
+* This is the signal CI must gate on. `stata-mp -b do' exits with OS status 0
+* even when the do-file ends in r(1), so the shell status is not a verdict; and
+* a suite that dies before printing its own RESULT: line leaves no per-suite
+* sentinel to notice. This line is emitted last and always, so CI can require it
+* to be present, well-formed, and fail=0 — an absent or malformed sentinel is
+* itself a failure, which a crashed runner cannot fake.
+local _total = `pass' + `fail'
+display as text "RESULT: run_all_`mode' tests=`_total' pass=`pass' fail=`fail'"
+
 if `fail' > 0 exit 1

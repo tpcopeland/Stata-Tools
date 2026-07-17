@@ -11,14 +11,45 @@ if !inlist("`mode'", "full", "quick") {
 capture log close _all
 log using "run_all.log", replace text nomsg
 
-* Remove any installed rangematch copy so the per-suite `adopath ++` resolves to
-* the local dev directory. `adopath ++` appends at lowest priority, so a copy in
-* PLUS (SSC/GitHub or a stale net install) would otherwise silently shadow the
-* package under test. Uninstall by index until none remain (uninstall-by-name
-* fails rc=111 when multiple copies are present).
+* Remove every installed rangematch copy so the per-suite install resolves to
+* the local dev directory, and so test_install.do's bare `net install' (no
+* replace) does not fail r(602) against a stale PLUS copy.
+*
+* The previous version of this block claimed to "uninstall by index until none
+* remain (uninstall-by-name fails rc=111 when multiple copies are present)" but
+* then called `ado uninstall rangematch' -- by NAME -- inside
+* `if _rc != 0 continue, break'. So in the very situation the comment describes
+* it broke on its first pass and removed NOTHING, while reading as if it had.
+*
+* Uninstalling by index does not work either: measured on stata-mp 17, `ado
+* uninstall <n>' returns r(111) "package not found" even for a single, freshly
+* installed package whose index `ado dir' printed one line earlier. The index
+* form is not a usable API here, so do not reintroduce it.
+*
+* What works is `ado uninstall <name>' (verified rc=0 for one copy, and for two
+* copies installed from different source directories). It is not guaranteed
+* against a stata.trk carrying duplicate orphan entries for one package name,
+* which is why the sweep is VERIFIED below rather than assumed.
 forvalues _i = 1/20 {
     capture ado uninstall rangematch
     if _rc != 0 continue, break
+}
+
+* Prove the sweep actually happened. A surviving PLUS copy shadows the package
+* under test and makes test_install.do's bare `net install' fail r(602); both
+* are silent-wrong-result modes for the lane, so fail loudly and early rather
+* than report a green (or confusingly red) lane for the wrong reason.
+capture which rangematch
+if _rc == 0 {
+    display as error ///
+        "an installed rangematch copy survived the uninstall sweep; lane aborted"
+    display as error ///
+        "run {bf:ado dir} to list the copies; if {bf:ado uninstall rangematch}"
+    display as error ///
+        "fails r(111), stata.trk holds duplicate entries for this package and"
+    display as error ///
+        "needs repair before the lane can prove which code it tested"
+    exit 459
 }
 
 local suites ///
@@ -52,11 +83,19 @@ local suites ///
     test_rangematch_float_warn.do ///
     test_rangematch_ties_random.do ///
     test_rangematch_overlap_inverted.do ///
+    test_rangematch_provenance.do ///
+    test_rangematch_interval_validity.do ///
+    test_rangematch_group_types.do ///
+    test_rangematch_frame_safety.do ///
+    test_rangematch_internal_names.do ///
+    test_rangematch_option_grammar.do ///
+    test_rangematch_missing_key_labels.do ///
     test_rangematch_edge_topup.do ///
     test_rangematch_saving_matrix.do ///
     test_rangematch_labels.do ///
     test_rangematch_v16compat.do ///
     test_documentation_examples.do ///
+    test_rangematch_sthlp_render.do ///
     test_release_integrity.do
 
 if "`mode'" == "full" {
@@ -64,6 +103,7 @@ if "`mode'" == "full" {
     local suites `suites' validation_rangematch_manual.do
     local suites `suites' validation_rangematch_nearest.do
     local suites `suites' validation_rangematch_known_answers.do
+    local suites `suites' validation_rangematch_overlap_oracle.do
 }
 
 local suite_count = 0

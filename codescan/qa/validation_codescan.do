@@ -14,8 +14,22 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 
 * ============================================================
@@ -1608,15 +1622,15 @@ capture noisily {
     "Z00"
     "Z01"
     end
-    capture erase "/tmp/_cs_v31.csv"
-    codescan dx1, define(dm2 "E11" | htn "I10") export("/tmp/_cs_v31.csv")
+    capture erase "_cs_v31.csv"
+    codescan dx1, define(dm2 "E11" | htn "I10") export("_cs_v31.csv")
     matrix S = r(summary)
     local dm2_matches = S[1,1]
     local dm2_prev = S[1,2]
     local htn_matches = S[2,1]
 
     preserve
-    import delimited using "/tmp/_cs_v31.csv", clear
+    import delimited using "_cs_v31.csv", clear
     * Row 1 = dm2, Row 2 = htn
     assert condition[1] == "dm2"
     assert matches[1] == `dm2_matches'
@@ -1624,7 +1638,7 @@ capture noisily {
     assert condition[2] == "htn"
     assert matches[2] == `htn_matches'
     restore
-    capture erase "/tmp/_cs_v31.csv"
+    capture erase "_cs_v31.csv"
 }
 if _rc == 0 {
     display as result "  PASS: V31 - Export CSV matches r(summary)"
@@ -1834,13 +1848,21 @@ capture noisily {
     codescan dx1, define(dm2 "E11" | htn "I10")
     matrix CL = r(codelist)
     assert rowsof(CL) == 2
-    assert colsof(CL) == 2
+    * 3.0.0: count prevalence total_hits positive_units
+    assert colsof(CL) == 4
     * dm2: 2 matches out of 5 → count=2, prevalence=40
     assert CL[1,1] == 2
     assert abs(CL[1,2] - 40) < 0.1
     * htn: 1 match out of 5 → count=1, prevalence=20
     assert CL[2,1] == 1
     assert abs(CL[2,2] - 20) < 0.1
+    * Only one scan variable and no countmode, so each match is one unit and
+    * there is no hit total to report. positive_units repeats the counts above;
+    * total_hits is missing rather than a copy of them.
+    assert missing(CL[1,3])
+    assert missing(CL[2,3])
+    assert CL[1,4] == 2
+    assert CL[2,4] == 1
 }
 if _rc == 0 {
     display as result "  PASS: V38 - Codelist matrix (hand-verified)"
@@ -2216,10 +2238,18 @@ capture noisily {
     end
     * Collapse directly
     codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse
-    local N_direct = _N
-    local dm2_1 = dm2[1]
-    local dm2_2 = dm2[2]
-    local htn_1 = htn[1]
+    sort pid
+    tempfile v49_direct
+    quietly save `v49_direct'
+    quietly ds
+    local v49_vars `r(varlist)'
+    quietly datasignature
+    local v49_sig `r(datasignature)'
+
+    * Hand-computed, so a defect shared by both paths still fails.
+    assert _N == 3
+    assert dm2[1] == 1 & dm2[2] == 1 & dm2[3] == 0
+    assert htn[1] == 1 & htn[2] == 1 & htn[3] == 0
 
     * Now use frame
     clear
@@ -2233,12 +2263,15 @@ capture noisily {
     codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") ///
         id(pid) collapse frame(test_v49) replace
 
+    * Compare the COMPLETE datasets. ds+datasignature cover variable names and
+    * count, which cf _all cannot see because it walks the master's varlist.
     frame test_v49 {
-        quietly count
-        assert r(N) == `N_direct'
-        assert dm2[1] == `dm2_1'
-        assert dm2[2] == `dm2_2'
-        assert htn[1] == `htn_1'
+        sort pid
+        quietly ds
+        assert "`r(varlist)'" == "`v49_vars'"
+        quietly datasignature
+        assert "`r(datasignature)'" == "`v49_sig'"
+        cf _all using `v49_direct'
     }
     capture frame drop test_v49
 }
@@ -2366,12 +2399,12 @@ capture noisily {
     clear
     set obs 20
     gen str10 dx1 = cond(_n <= 5, "E110", cond(_n <= 12, "I10", "Z00"))
-    codescan dx1, define(dm2 "E11" | htn "I10") export("/tmp/_codescan_v53.csv")
+    codescan dx1, define(dm2 "E11" | htn "I10") export("_codescan_v53.csv", replace)
     matrix S = r(summary)
     local prev_dm2 = S[1,2]
     local prev_htn = S[2,2]
     preserve
-    import delimited using "/tmp/_codescan_v53.csv", clear
+    import delimited using "_codescan_v53.csv", clear
     assert abs(prevalence[1] - `prev_dm2') < 0.01
     assert abs(prevalence[2] - `prev_htn') < 0.01
     restore
@@ -2414,6 +2447,26 @@ else {
     display as error "  FAIL: V55 - nodots equivalence (error `=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

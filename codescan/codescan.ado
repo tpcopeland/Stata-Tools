@@ -1,4 +1,4 @@
-*! codescan Version 2.0.9  2026/07/09
+*! codescan Version 3.0.0  2026/07/17
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -21,8 +21,9 @@ SYNTAX:
          LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily
          DETail NODots TOSTRing PREserve FRAME(name) COOCcurrence
          NOCase GENerate(string)
-         UNMatched(name) MATCHed_code(name) LEVel(integer) GRaph EXPort(string)
-         SAVE(string) SAVing(string asis) FORmat(string) COUNTMode]
+         UNMatched(name) MATCHed_code(name) LEVel(integer) GRaph
+         EXPort(filename [, replace]) SAVE(filename [, replace])
+         SAVing(filename [, replace]) FORmat(string) COUNTMode]
 
 EXAMPLES:
     * Row-level indicators
@@ -59,18 +60,40 @@ STORED RESULTS:
     r(nocase)         - "nocase" if case-insensitive matching was used
     r(generate)       - Output-name prefix (if generate() specified)
     r(mode_count)     - 1 if countmode specified, 0 otherwise
+    r(detail_allslots) - 1 if detail counted every matching slot, 0 if it
+                        attributed each row to its first matching variable
+                        (if detail specified)
     r(ci_level)       - Confidence level for the prevalence CIs
-    r(summary)        - Matrix of counts, prevalences, and Wilson 95% CIs
-    r(codelist)       - Matrix: count, prevalence per condition
-    r(varcounts)      - Per-variable match counts (if detail specified)
+    r(summary)        - Matrix, one row per condition, columns:
+                        count          legacy: total_hits under countmode,
+                                       positive_units otherwise
+                        prevalence     % of units with at least one match
+                        ci_low ci_high Wilson interval at r(ci_level)
+                        total_hits     total matching code slots; missing
+                                       without countmode, which never counts
+                                       repeat hits
+                        positive_units units with at least one match
+    r(codelist)       - Matrix: count, prevalence, total_hits, positive_units
+    r(varcounts)      - Per-variable match counts (if detail specified). Row
+                        totals equal the unit counts only under the default
+                        first-slot attribution; see r(detail_allslots)
     r(cooccurrence)   - Pairwise co-occurrence matrix (if cooccurrence specified)
     r(sensitivity)    - Multi-window comparison matrix (if multi-window lookback)
+    r(sensitivity_n)  - Per-window denominators for r(sensitivity): the units
+                        with at least one row in each window (if multi-window
+                        lookback). A denominator that varies across windows means
+                        the population entering each window differs.
 */
 
 program define codescan, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    * Cleanup flags. Initialized here, before capture noisily, so the cleanup
+    * zone can read them even when the error fires during syntax parsing.
+    local _did_preserve      = 0
+    local _internal_preserve = 0
+    local _outputs_created   = 0
     capture noisily {
 
     * =========================================================================
@@ -81,10 +104,10 @@ program define codescan, rclass
         LOOKBack(string) LOOKForward(integer -1) INCLusive ///
         EARLIESTdate LATESTdate COUNTdate COUNTRows ALLDates ///
         LABel(string asis) COLLapse MERge MODe(string) REPlace NOIsily ///
-        DETail NODots TOSTRing PREserve FRAME(name) COOCcurrence ///
+        DETail ALLSlots NODots TOSTRing PREserve FRAME(name) COOCcurrence ///
         NOCase GENerate(string) ///
         UNMatched(name) MATCHed_code(name) LEVel(integer 0) ///
-        GRaph EXPort(string) SAVE(string) SAVing(string asis) ///
+        GRaph EXPort(string asis) SAVE(string asis) SAVing(string asis) ///
         FORmat(string) COUNTMode]
 
     * =========================================================================
@@ -125,6 +148,13 @@ program define codescan, rclass
     }
     if `"`define'"' != "" & "`codefile'" != "" {
         display as error "define() and codefile() cannot both be specified"
+        exit 198
+    }
+
+    * allslots only changes how detail attributes a row across scan variables,
+    * so it is meaningless — and silently ignorable — without detail.
+    if "`allslots'" != "" & "`detail'" == "" {
+        display as error "allslots requires detail"
         exit 198
     }
 
@@ -238,11 +268,17 @@ program define codescan, rclass
         }
     }
 
-    * Export validation
+    * Export validation. export(filename [, replace]) — the file is only
+    * overwritten on explicit authorization; the check runs here, before any
+    * data mutation, so a refusal leaves data and file untouched.
+    local _export_replace = 0
+    local _export_fn ""
     if `"`export'"' != "" {
-        _codescan_validate_path, path(`"`export'"') context(export())
-        local _exp_ext = lower(substr(`"`export'"', -4, .))
-        local _exp_ext5 = lower(substr(`"`export'"', -5, .))
+        _codescan_parse_filespec, spec(`"`export'"') context(export()) checkexists
+        local _export_fn `"`r(filename)'"'
+        local _export_replace = r(replace)
+        local _exp_ext = lower(substr(`"`_export_fn'"', -4, .))
+        local _exp_ext5 = lower(substr(`"`_export_fn'"', -5, .))
         if "`_exp_ext'" != ".csv" & "`_exp_ext'" != ".xlsx" & "`_exp_ext5'" != ".xlsx" {
             display as error "export() must be a .csv or .xlsx file"
             exit 198
@@ -262,54 +298,15 @@ program define codescan, rclass
 
     * saving() validation (distinct from save() which saves the define to CSV)
     local _saving_replace = 0
+    local _saving_fn ""
     if `"`saving'"' != "" {
         if "`collapse'" == "" & "`merge'" == "" {
             display as error "saving() requires collapse or merge"
             exit 198
         }
-        * Split filename from suboptions at the first comma outside quotes, so
-        * a quoted filename may itself contain a comma.
-        local _saving_len = length(`"`saving'"')
-        local _comma_pos = 0
-        local _saving_in_quotes = 0
-        forvalues _c = 1/`_saving_len' {
-            if substr(`"`saving'"', `_c', 1) == char(34) {
-                local _saving_in_quotes = !`_saving_in_quotes'
-            }
-            else if substr(`"`saving'"', `_c', 1) == char(44) & !`_saving_in_quotes' {
-                local _comma_pos = `_c'
-                continue, break
-            }
-        }
-        if `_comma_pos' > 0 {
-            local _saving_fn  = strtrim(substr(`"`saving'"', 1, `_comma_pos' - 1))
-            local _saving_sub = strtrim(substr(`"`saving'"', `_comma_pos' + 1, .))
-            if lower(`"`_saving_sub'"') == "replace" {
-                local _saving_replace = 1
-            }
-            else if `"`_saving_sub'"' != "" {
-                display as error `"saving(): unknown suboption `_saving_sub' (only replace is allowed)"'
-                exit 198
-            }
-        }
-        else {
-            local _saving_fn = strtrim(`"`saving'"')
-        }
-        * Strip surrounding quotes from filename
-        * handles: "path" (regular) and `"path"' (compound, from string asis option)
-        if substr(`"`_saving_fn'"', 1, 1) == char(96) {
-            * compound-quote wrapped: `"path"' — strip 2 chars at start, 2 at end
-            local _saving_fn = substr(`"`_saving_fn'"', 3, length(`"`_saving_fn'"') - 4)
-        }
-        else if substr(`"`_saving_fn'"', 1, 1) == `"""' {
-            * regular double-quote wrapped: "path"
-            local _saving_fn = substr(`"`_saving_fn'"', 2, length(`"`_saving_fn'"') - 2)
-        }
-        if `"`_saving_fn'"' == "" {
-            display as error "saving() requires a filename"
-            exit 198
-        }
-        _codescan_validate_path, path(`"`_saving_fn'"') context(saving())
+        _codescan_parse_filespec, spec(`"`saving'"') context(saving()) checkexists
+        local _saving_fn `"`r(filename)'"'
+        local _saving_replace = r(replace)
     }
 
     * Validate date/refdate are numeric
@@ -653,6 +650,26 @@ program define codescan, rclass
                 exit 198
             }
 
+            * Once the outer quotes are off, a well-formed entry's text holds no
+            * double quote at all. Anything that still does was mis-parsed, and
+            * both ways of getting here used to produce a WRONG LABEL at rc=0:
+            *
+            *   label(dm2 "Diabetes" | htn "Hypertension")
+            *       label() separates entries with \ ; define() uses |. With |
+            *       this is ONE entry whose text is  Diabetes" | htn "Hypertension
+            *       — dm2 gets that nonsense, htn gets nothing.
+            *
+            *   label(dm2 `"He said "yes""')
+            *       The strip below removes plain quotes only, so the compound
+            *       markers survive into the label itself. Embedded quotes are
+            *       not supported; saying so beats emitting `"He said "yes""' as
+            *       a variable label, a bar label, and an export cell.
+            if strpos(`"`lab_txt'"', `"""') > 0 {
+                display as error `"label(): the label text for `lab_nm' contains a double quote"'
+                display as error "label text may not contain quotes; entries are separated by \ (backslash), not |"
+                exit 198
+            }
+
             local ++n_labels
             local lab_name_`n_labels' "`lab_nm'"
             local lab_label_`n_labels' `"`lab_txt'"'
@@ -686,8 +703,10 @@ program define codescan, rclass
     * SAVE DEFINE TO CSV (W3)
     * =========================================================================
     if `"`save'"' != "" {
-        _codescan_validate_path, path(`"`save'"') context(save())
-        local _save_ext = lower(substr(`"`save'"', -4, .))
+        _codescan_parse_filespec, spec(`"`save'"') context(save()) checkexists
+        local _save_fn `"`r(filename)'"'
+        local _save_replace = r(replace)
+        local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
         if "`_save_ext'" != ".csv" {
             display as error "save() requires a .csv file extension"
             exit 198
@@ -719,10 +738,10 @@ program define codescan, rclass
                     }
                 }
             }
-            export delimited using `"`save'"', replace
+            export delimited using `"`_save_fn'"', replace
         }
         restore
-        display as text `"(define() saved to `save')"'
+        display as text `"(define() saved to `_save_fn')"'
     }
 
     * =========================================================================
@@ -730,6 +749,7 @@ program define codescan, rclass
     * =========================================================================
     if "`preserve'" != "" {
         preserve
+        local _did_preserve = 1
     }
 
     * =========================================================================
@@ -756,6 +776,13 @@ program define codescan, rclass
             noisily display as text "(note: converting `var' from numeric to string)"
             tempvar _scan_string_`_scan_index'
             quietly tostring `var', generate(`_scan_string_`_scan_index'') force
+            * Stata's extended missings .a-.z stringify to the literal strings
+            * ".a".."z", not to "." — so the downstream ""/"." filter misses
+            * them, nodots turns them into bare letters, and nocase then lets
+            * them match an ordinary pattern: a missing registry code becomes a
+            * false diagnosis at rc=0. Blank every numeric missing here, before
+            * any nodots or case transformation can see it.
+            quietly replace `_scan_string_`_scan_index'' = "" if missing(`var')
             local scan_varlist "`scan_varlist' `_scan_string_`_scan_index''"
         }
         else {
@@ -831,6 +858,33 @@ program define codescan, rclass
     }
 
     * =========================================================================
+    * TRANSACTIONAL SNAPSHOT FOR IN-PLACE REPLACEMENT
+    * =========================================================================
+    * Under replace, a planned output name may already exist in the caller's
+    * data. Dropping it outright leaves nothing to roll back to when a later
+    * side effect (graph, export, saving, frame) fails: the caller's variable is
+    * gone for good, and the error-path cleanup then drops it a second time from
+    * the restored data. Take an internal snapshot so the cleanup zone's restore
+    * is a complete, metadata-exact rollback — variable order, types, formats,
+    * labels, value labels, sort order, characteristics, and observation order.
+    *
+    * Only needed when no user preserve is already active (which is itself a
+    * snapshot) and a collision actually exists. When the planned outputs are all
+    * new, the existing drop-what-we-created cleanup is already a correct
+    * rollback and costs no memory.
+    if "`replace'" != "" & !`_did_preserve' {
+        local _collides = 0
+        foreach _onm of local _outputs {
+            capture confirm variable `_onm'
+            if _rc == 0 local _collides = 1
+        }
+        if `_collides' {
+            preserve
+            local _internal_preserve = 1
+        }
+    }
+
+    * =========================================================================
     * CREATE ROW-LEVEL INDICATORS (Mata-accelerated)
     * =========================================================================
     local _outputs_created = 1
@@ -861,6 +915,7 @@ program define codescan, rclass
         local _mata_scanvars "`scan_varlist'"
         local _mata_touse "`touse'"
         local _mata_detail "`detail'"
+        local _mata_allslots "`allslots'"
         local _mata_nocase "`nocase'"
         local _mata_nodots "`nodots'"
         local _mata_countmode "`countmode'"
@@ -929,17 +984,26 @@ program define codescan, rclass
             }
         }
 
-        * C1: Unmatched code report — flag rows with no condition matches.
-        * Strict 0/1 at row level: filtered rows (if/in, missing id for
-        * collapse/merge) get 0, not missing, matching the sthlp contract.
+        * I4: Unmatched code report — flag rows with no condition matches.
+        *
+        * 1 = analyzed and nothing matched; 0 = analyzed and something matched;
+        * . = NOT ANALYZED.
+        *
+        * The flag used to be initialized to 0 for every row and set to 1 only
+        * inside the final touse, so every row excluded from the analysis —
+        * if/in, a missing id() under collapse/merge, a missing date, or a row
+        * outside the requested time window — was indistinguishable from a row
+        * that genuinely matched a condition. "unmatched == 0" therefore
+        * conflated "matched" with "never looked at". Rows outside the analysis
+        * sample now carry missing, so the three states are distinct.
         if "`unmatched'" != "" {
             if "`replace'" != "" capture drop `unmatched'
-            gen byte `unmatched' = 0
+            gen byte `unmatched' = .
             replace `unmatched' = 1 if `touse'
             forvalues i = 1/`n_conditions' {
                 replace `unmatched' = 0 if `def_name_`i'' > 0 & `touse'
             }
-            label variable `unmatched' "No condition matched"
+            label variable `unmatched' "No condition matched (. = outside analysis sample)"
         }
 
         * F6: matched_code — label (P1: capture moved to Mata scanner)
@@ -1014,6 +1078,7 @@ program define codescan, rclass
                 local _mata_name_`i' "`_uind_`i''"
             }
             local _mata_detail ""
+            local _mata_allslots ""
             local _mata_countmode ""
             * matched_code is a primary-scan output; the supplementary scan
             * must not populate it for secondary-window-only rows (those lie
@@ -1069,6 +1134,7 @@ program define codescan, rclass
             local _mata_name_`i' "`def_name_`i''"
         }
         local _mata_detail "`detail'"
+        local _mata_allslots "`allslots'"
         local _mata_countmode "`countmode'"
         local _mata_matched_code "`matched_code'"
 
@@ -1303,6 +1369,32 @@ program define codescan, rclass
     }
 
     * =========================================================================
+    * RESOLVE DISPLAY LABELS (I1)
+    * =========================================================================
+    * One resolution, reused by every presentation path (variable labels, the
+    * console table, the detail table, the graph, and the label column of the
+    * export). Resolving per-path is how the console and the workbook drifted
+    * back to raw names while the variable label was correct.
+    *
+    * Precedence: label() beats a codefile label, because codefile labels are
+    * appended to lab_*_ first and the last matching entry wins here.
+    * Fallback: the condition's machine name.
+    *
+    * The machine name stays the identity everywhere a program reads results —
+    * r(conditions), matrix row/column names, and the export's condition column.
+    * Labels are presentation only, so relabeling never breaks a do-file.
+    forvalues i = 1/`n_conditions' {
+        local _cs_dlab_`i' `"`def_name_`i''"'
+        forvalues j = 1/`n_labels' {
+            if "`lab_name_`j''" == "`def_name_`i''" {
+                if `"`lab_label_`j''"' != "" {
+                    local _cs_dlab_`i' `"`lab_label_`j''"'
+                }
+            }
+        }
+    }
+
+    * =========================================================================
     * APPLY LABELS
     * =========================================================================
     forvalues i = 1/`n_conditions' {
@@ -1390,7 +1482,7 @@ program define codescan, rclass
 
     display as text ""
     if "`countmode'" != "" {
-        display as text "  Condition" _col(24) %9s "Total" _col(36) %9s "Obs>0" ///
+        display as text "  Condition" _col(24) %9s "Hits" _col(36) %9s "Units>0" ///
             _col(48) %10s "Prevalence" _col(62) %16s "[`=c(level)'% CI]"
         display as text "  {hline 76}"
     }
@@ -1400,12 +1492,24 @@ program define codescan, rclass
         display as text "  {hline 64}"
     }
 
+    * I3: columns 1-4 are the historical surface (count prevalence ci_low
+    * ci_high); 5-6 name the two count quantities explicitly. Column 1 stays
+    * where it was — under countmode it is the hit total, otherwise the matched
+    * unit count — so existing summary[i,1..4] references keep working.
     tempname summary
-    matrix `summary' = J(`n_conditions', 4, .)
+    matrix `summary' = J(`n_conditions', 6, .)
     local rnames ""
 
     forvalues i = 1/`n_conditions' {
         local name "`def_name_`i''"
+        * Console label (I1). The Condition column is 21 display columns wide;
+        * a longer label is truncated with a trailing "~" rather than allowed to
+        * push the numeric columns out of alignment. ustrlen()/usubstr() so a
+        * multibyte label is cut on a character, not inside one.
+        local _dlab `"`_cs_dlab_`i''"'
+        if ustrlen(`"`_dlab'"') > 21 {
+            local _dlab = usubstr(`"`_dlab'"', 1, 20) + "~"
+        }
         if "`countmode'" != "" & "`merge'" != "" {
             * merge+countmode: compute from patient-level (one row per patient).
             * Patients with no in-window rows come back from the merge with a
@@ -1453,15 +1557,19 @@ program define codescan, rclass
         local ci_low = max(0, (`_center' - `_margin') * 100)
         local ci_high = min(100, (`_center' + `_margin') * 100)
 
+        * Compound quotes around the label: it is free text, so a double quote
+        * inside it would terminate a plain-quoted argument and abort the whole
+        * table with r(132) — an error message that names neither label() nor
+        * the condition it came from.
         if "`countmode'" != "" {
-            display as text "  `name'" _col(24) as result %9.0fc `n_total_match' ///
+            display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_total_match' ///
                 _col(36) as result %9.0fc `n_match' ///
                 _col(48) as result `_prev_fmt' `pct' as text "%" ///
                 _col(62) as text "[" as result `_ci_fmt' `ci_low' ///
                 as text ", " as result `_ci_fmt' `ci_high' as text "]"
         }
         else {
-            display as text "  `name'" _col(24) as result %9.0fc `n_match' ///
+            display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_match' ///
                 _col(36) as result `_prev_fmt' `pct' as text "%" ///
                 _col(50) as text "[" as result `_ci_fmt' `ci_low' ///
                 as text ", " as result `_ci_fmt' `ci_high' as text "]"
@@ -1469,17 +1577,33 @@ program define codescan, rclass
 
         if "`countmode'" != "" {
             matrix `summary'[`i', 1] = `n_total_match'
+            matrix `summary'[`i', 5] = `n_total_match'
         }
         else {
             matrix `summary'[`i', 1] = `n_match'
+            * Binary mode records only whether a unit matched, never how many
+            * times, so there is no hit total to report. Missing says that;
+            * copying n_match here would assert one hit per unit.
+            matrix `summary'[`i', 5] = .
         }
         matrix `summary'[`i', 2] = `pct'
         matrix `summary'[`i', 3] = `ci_low'
         matrix `summary'[`i', 4] = `ci_high'
+        matrix `summary'[`i', 6] = `n_match'
         local rnames "`rnames' `name'"
     }
 
-    matrix colnames `summary' = count prevalence ci_low ci_high
+    * I3: name the two quantities countmode reports. "Hits" and "Units>0" differ
+    * whenever a unit carries the same condition more than once, and prevalence
+    * is built from the latter — so a table showing only the hit total invites
+    * reading a hit count as a case count.
+    if "`countmode'" != "" {
+        display as text _n "  Hits = total matching code slots; Units>0 = `_unit_lbl'" ///
+            " with at least one hit."
+        display as text "  Prevalence and its CI are built from Units>0."
+    }
+
+    matrix colnames `summary' = count prevalence ci_low ci_high total_hits positive_units
     matrix rownames `summary' = `rnames'
     if "`merge'" != "" {
         quietly sort `_merge_input_order'
@@ -1525,6 +1649,24 @@ program define codescan, rclass
         matrix rownames `sensitivity' = `all_names'
         matrix colnames `sensitivity' = `_sens_cnames'
 
+        * Per-window denominators (I2).
+        *
+        * Each window's denominator is the number of IDs with at least one row
+        * inside that window, so widening the window changes the denominator as
+        * well as the numerator. A prevalence that rises with window length can
+        * therefore reflect population ENTRY rather than sensitivity to
+        * ascertainment length — the two are indistinguishable from the
+        * percentages alone, and the counts were previously computed and thrown
+        * away. Return and display them so the reader can tell which is which.
+        tempname sensitivity_n
+        matrix `sensitivity_n' = J(1, `n_lookback_windows', .)
+        matrix `sensitivity_n'[1, 1] = `N_display'
+        forvalues _wi = 2/`n_lookback_windows' {
+            matrix `sensitivity_n'[1, `_wi'] = `_sens_N_`_wi''
+        }
+        matrix rownames `sensitivity_n' = N
+        matrix colnames `sensitivity_n' = `_sens_cnames'
+
         display as text _n "  Multi-window sensitivity (prevalence %):"
         display as text _col(20) _continue
         forvalues _wi = 1/`n_lookback_windows' {
@@ -1539,14 +1681,46 @@ program define codescan, rclass
             }
             display ""
         }
+        * The denominator row: the IDs eligible in each window.
+        local _sens_rule = 18 + 9 * `n_lookback_windows'
+        display as text "  {hline `_sens_rule'}"
+        display as text "  N" _col(20) _continue
+        forvalues _wi = 1/`n_lookback_windows' {
+            display as result %9.0fc el(`sensitivity_n', 1, `_wi') _continue
+        }
+        display ""
+        display as text "  (N is the number of " _continue
+        if "`collapse'" != "" | "`merge'" != "" {
+            display as text "`id' values" _continue
+        }
+        else {
+            display as text "observations" _continue
+        }
+        display as text " with at least one row in the window;"
+        display as text "   a denominator that changes across windows means the" ///
+            " population entering each"
+        display as text "   window differs, not only the ascertainment length.)"
     }
 
     * Detail display: per-variable match contribution
     if "`detail'" != "" {
         display as text _n "  Per-variable match contribution:"
+        if "`allslots'" != "" {
+            display as text "  (every matching slot counted; a row with the same" ///
+                " condition in two variables adds to both)"
+        }
+        else if "`countmode'" == "" {
+            * I5: name the attribution rule where the numbers are read, not only
+            * in the help. Reordering varlist moves rows between columns here
+            * while leaving the cohort untouched.
+            display as text "  (each row counted once per condition, against the" ///
+                " FIRST matching variable in"
+            display as text "   varlist order; add allslots to count every" ///
+                " matching slot instead)"
+        }
         forvalues i = 1/`n_conditions' {
-            local name "`def_name_`i''"
-            display as text "  `name': " _continue
+            local name `"`_cs_dlab_`i''"'
+            display as text `"  `name': "' _continue
             local first = 1
             local j = 0
             foreach var of local varlist {
@@ -1614,15 +1788,17 @@ program define codescan, rclass
 
     * I2: Build codelist matrix
     tempname codelist
-    matrix `codelist' = J(`n_conditions', 2, .)
+    matrix `codelist' = J(`n_conditions', 4, .)
     local cl_rnames ""
     forvalues i = 1/`n_conditions' {
         matrix `codelist'[`i', 1] = `summary'[`i', 1]
         matrix `codelist'[`i', 2] = `summary'[`i', 2]
+        matrix `codelist'[`i', 3] = `summary'[`i', 5]
+        matrix `codelist'[`i', 4] = `summary'[`i', 6]
         local cl_rnames "`cl_rnames' `def_name_`i''"
     }
     matrix rownames `codelist' = `cl_rnames'
-    matrix colnames `codelist' = count prevalence
+    matrix colnames `codelist' = count prevalence total_hits positive_units
 
     return scalar N = `N_display'
     return scalar n_conditions = `n_conditions'
@@ -1634,6 +1810,9 @@ program define codescan, rclass
     return local varlist "`varlist'"
     return local mode "`mode'"
     if "`nocase'" != ""                return local nocase "nocase"
+    * I5: r(varcounts) means different things under the two attribution rules,
+    * and the matrix itself cannot say which produced it.
+    if "`detail'" != ""                return scalar detail_allslots = ("`allslots'" != "")
     if "`generate'" != ""              return local generate "`generate'"
     if `"`define'"' != ""              return local define `"`define'"'
     if "`_orig_codefile'" != ""         return local codefile "`_orig_codefile'"
@@ -1656,6 +1835,7 @@ program define codescan, rclass
     if "`detail'" != ""                return matrix varcounts = `varcounts', copy
     if "`cooccurrence'" != ""          return matrix cooccurrence = `cooc', copy
     if `_has_sensitivity'              return matrix sensitivity = `sensitivity', copy
+    if `_has_sensitivity'              return matrix sensitivity_n = `sensitivity_n', copy
 
     * =========================================================================
     * GRAPH — prevalence bar chart (O1)
@@ -1667,10 +1847,13 @@ program define codescan, rclass
             quietly {
                 clear
                 set obs `n_conditions'
-                gen str32 condition = ""
+                * I1: the bar labels are presentation, so they carry the human
+                * label when there is one. str80 because a label is prose, not
+                * a Stata name.
+                gen str80 condition = ""
                 gen double prevalence = .
                 forvalues i = 1/`n_conditions' {
-                    replace condition = "`def_name_`i''" in `i'
+                    replace condition = `"`_cs_dlab_`i''"' in `i'
                     replace prevalence = `summary'[`i', 2] in `i'
                 }
                 gsort -prevalence
@@ -1678,7 +1861,10 @@ program define codescan, rclass
                 tempname _glab
                 forvalues _gi = 1/`=_N' {
                     local _gcond = condition[`_gi']
-                    label define `_glab' `_gi' "`_gcond'", add
+                    * Compound quotes: a label is free text and may contain a
+                    * double quote, which plain quotes would let terminate the
+                    * argument early.
+                    label define `_glab' `_gi' `"`_gcond'"', add
                 }
                 label values order `_glab'
             }
@@ -1698,15 +1884,21 @@ program define codescan, rclass
     * EXPORT — save results to file (O2)
     * =========================================================================
     if `"`export'"' != "" {
-        local _exp_ext = lower(substr(`"`export'"', -4, .))
+        local _exp_ext = lower(substr(`"`_export_fn'"', -4, .))
         tempfile _export_save
         quietly save `_export_save'
         capture noisily {
             quietly {
             clear
             set obs `n_conditions'
+            * condition stays the machine name — it is what a downstream merge
+            * or reshape keys on. label (I1) carries the human text alongside
+            * it, so relabeling a condition never moves the join key.
             gen str32 condition = ""
+            gen str80 label = ""
             gen long matches = .
+            gen long total_hits = .
+            gen long positive_units = .
             gen double prevalence = .
             gen double ci_low = .
             gen double ci_high = .
@@ -1714,20 +1906,29 @@ program define codescan, rclass
             gen str80 exclusion = ""
             forvalues i = 1/`n_conditions' {
                 replace condition = "`def_name_`i''" in `i'
+                replace label = `"`_cs_dlab_`i''"' in `i'
                 replace matches = `summary'[`i', 1] in `i'
+                replace total_hits = `summary'[`i', 5] in `i'
+                replace positive_units = `summary'[`i', 6] in `i'
                 replace prevalence = `summary'[`i', 2] in `i'
                 replace ci_low  = `summary'[`i', 3] in `i'
                 replace ci_high = `summary'[`i', 4] in `i'
                 replace pattern = `"`def_pattern_`i''"' in `i'
                 replace exclusion = `"`def_excl_`i''"' in `i'
             }
+            * I3: matches is the legacy column and keeps its legacy meaning —
+            * the hit total under countmode, the matched-unit count otherwise.
+            * The two named columns say which is which without reading the call.
+            label variable matches "Legacy count: total_hits under countmode, else positive_units"
+            label variable total_hits "Total matching code slots (countmode only)"
+            label variable positive_units "Units with at least one match"
             format prevalence ci_low ci_high `_prev_fmt'
             }
             if "`_exp_ext'" == ".csv" {
-                quietly export delimited using `"`export'"', replace
+                quietly export delimited using `"`_export_fn'"', replace
             }
             else {
-                quietly export excel using `"`export'"', firstrow(variables) replace
+                quietly export excel using `"`_export_fn'"', firstrow(variables) replace
                 * Add co-occurrence as second sheet if available
                 if "`cooccurrence'" != "" {
                     quietly {
@@ -1745,7 +1946,7 @@ program define codescan, rclass
                             }
                         }
                     }
-                    quietly export excel using `"`export'"', firstrow(variables) ///
+                    quietly export excel using `"`_export_fn'"', firstrow(variables) ///
                         sheet("cooccurrence") sheetmodify
                 }
             }
@@ -1755,7 +1956,7 @@ program define codescan, rclass
         local _export_restore_rc = _rc
         if `_export_restore_rc' & `_export_rc' == 0 exit `_export_restore_rc'
         if `_export_rc' exit `_export_rc'
-        display as text _n `"  Results exported to `export'"'
+        display as text _n `"  Results exported to `_export_fn'"'
     }
 
     * =========================================================================
@@ -1783,16 +1984,40 @@ program define codescan, rclass
             frame put *, into(`frame')
         }
         restore
-        * After restore, indicators no longer exist in memory
+        local _did_preserve = 0
+        * After restore, indicators no longer exist in memory — and neither does
+        * anything for the cleanup zone to drop.
+        local _outputs_created = 0
         return local newvars ""
+    }
+
+    * =========================================================================
+    * COMMIT
+    * =========================================================================
+    * Every fallible side effect has succeeded, so the in-place result is final:
+    * discard the internal snapshot without restoring it.
+    if `_internal_preserve' {
+        restore, not
+        local _internal_preserve = 0
     }
 
     } // end capture noisily
     local rc = _rc
     if `rc' {
-        * Clean up: restore any active user preserve, drop only variables this run started creating.
-        capture restore
-        if "`_outputs'" != "" & "`_outputs_created'" == "1" {
+        * Roll back. A snapshot — the user's preserve or our internal one — is a
+        * complete rollback on its own.
+        local _rolled_back = 0
+        if `_did_preserve' | `_internal_preserve' {
+            capture restore
+            if _rc == 0 local _rolled_back = 1
+        }
+        * Drop the planned outputs ONLY when no snapshot rolled the data back.
+        * After a successful restore the data IS the caller's pre-call data, and
+        * the planned output names may name the caller's OWN pre-existing
+        * variables — dropping them there is the C1 data-loss defect, not
+        * cleanup. Reached only when nothing collided, in which case every
+        * planned name was created by this run and is ours to remove.
+        if !`_rolled_back' & "`_outputs'" != "" & `_outputs_created' {
             capture noisily _codescan_cleanup_outputs, outputs("`_outputs'") ///
                 scanvars("`varlist'") protected("`id' `date' `refdate'")
         }
@@ -1819,7 +2044,7 @@ void _codescan_mata_scan()
 {
     real scalar      ncond, nvars, N, i, j, k, len, npfx, enpfx
     real scalar      is_prefix, has_detail, has_excl, use_nocase, is_count, has_mcode
-    real scalar      matched, excluded, strip_dots
+    real scalar      matched, excluded, strip_dots, all_slots, already
     string scalar    mode, touse_name, vcname, val, mcname, mc_name
     string rowvector scanvars, cond_names
     string colvector patterns, excl_patterns, anchored_pats, anchored_excl
@@ -1846,6 +2071,7 @@ void _codescan_mata_scan()
     N          = st_nobs()
     is_prefix  = (mode == "prefix")
     has_detail = (st_local("_mata_detail") != "")
+    all_slots  = (st_local("_mata_allslots") != "")
     vcname     = st_local("_mata_vcname")
     use_nocase = (st_local("_mata_nocase") != "")
     strip_dots = (st_local("_mata_nodots") != "")
@@ -2039,7 +2265,16 @@ void _codescan_mata_scan()
             if (anymatch[didx] == 0) continue
 
             for (k = 1; k <= ncond; k++) {
-                if (!is_count && indicators[i, k]) continue
+                // Binary mode stops scanning a condition once it has matched
+                // this row — the indicator cannot change again. That early exit
+                // also hides the row's later slots from the detail tally, which
+                // is why default detail attributes each row to the FIRST
+                // matching scan variable in varlist order. all_slots keeps
+                // walking the remaining slots for the tally only; the indicator
+                // and match_counts are still written exactly once, so the
+                // cohort is identical either way.
+                already = (!is_count & indicators[i, k])
+                if (already & !all_slots) continue
                 if (!D[didx, k]) continue
 
                 // ── Code passed inclusion and exclusion — record match ──
@@ -2047,11 +2282,11 @@ void _codescan_mata_scan()
                     if (indicators[i, k] == 0) match_counts[k] = match_counts[k] + 1
                     indicators[i, k] = indicators[i, k] + 1
                 }
-                else {
+                else if (!already) {
                     match_counts[k] = match_counts[k] + 1
                     indicators[i, k] = 1
                 }
-                if (has_mcode) {
+                if (has_mcode & !already) {
                     if (mcode[i] == "") mcode[i] = col[i]
                 }
                 if (has_detail) varcounts[k, j] = varcounts[k, j] + 1

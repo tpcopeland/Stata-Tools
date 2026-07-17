@@ -13,8 +13,22 @@ local repo_dir "`pkg_dir'/.."
 
 * Install the local copy so a stale installed build cannot shadow it, and so the
 * release surface is checked against a package that genuinely net-installs.
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 capture program drop _assert_marker_pass
 program define _assert_marker_pass
@@ -26,6 +40,29 @@ program define _assert_marker_pass
     file read `fh' status
     file close `fh'
     assert strtrim("`status'") == "PASS"
+end
+
+* Return the first regex capture group found in a file, or "" if the pattern
+* never matches. Parsing the fact out of the file that owns it keeps this suite
+* from carrying stale literals that must be hand-edited on every release.
+capture program drop _cs_extract_first
+program define _cs_extract_first, rclass
+    version 16.0
+    args path pattern
+
+    tempname fh
+    local value ""
+    file open `fh' using "`path'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if ustrregexm(`"`macval(line)'"', "`pattern'") {
+            local value = ustrregexs(1)
+            continue, break
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    return local value "`value'"
 end
 
 **# Tests
@@ -71,6 +108,7 @@ capture noisily {
         _codescan_codefile.ado ///
         _codescan_definitions.ado ///
         _codescan_outputs.ado ///
+        _codescan_parse_filespec.ado ///
         _codescan_validate_path.ado ///
         codescan.sthlp ///
         codescan_describe.ado ///
@@ -88,11 +126,55 @@ else {
     local ++fail_count
 }
 
+* Version/date synchronization. Facts are parsed from the surfaces that own
+* them and compared only against compatible facts. The previous version of this
+* test hardcoded the whole version/date tuple as shell grep literals, which made
+* it (a) stale on every release and (b) wrong: it required each .ado's code-edit
+* date to equal the package distribution date, which are different facts about
+* different events.
 local ++test_count
 capture noisily {
-    tempfile marker
-    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 2.0.9  2026/07/09" codescan.ado && grep -Fq "codescan_describe Version 2.0.9  2026/07/09" codescan_describe.ado && grep -Fq "_codescan_codefile Version 2.0.9  2026/07/09" _codescan_codefile.ado && grep -Fq "_codescan_outputs Version 2.0.9  2026/07/09" _codescan_outputs.ado && grep -Fq "_codescan_definitions Version 2.0.9  2026/07/09" _codescan_definitions.ado && grep -Fq "_codescan_validate_path Version 2.0.9  2026/07/09" _codescan_validate_path.ado && grep -Fq "{* *! version 2.0.9  09jul2026}" codescan.sthlp && ! grep -Fq "*! version" codescan_describe.sthlp && grep -Fq "**Version 2.0.9** | 2026-07-09" README.md && grep -Fq "d Distribution-Date: 20260709" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
-    _assert_marker_pass "`marker'"
+    * The flagship help file owns the package version.
+    _cs_extract_first "`pkg_dir'/codescan.sthlp" "^\{\* \*! version ([0-9]+\.[0-9]+\.[0-9]+)"
+    local ver "`r(value)'"
+    assert "`ver'" != ""
+
+    * Every .ado header must carry that same version. Their dates are NOT
+    * compared to the distribution date.
+    foreach f in codescan.ado codescan_describe.ado _codescan_codefile.ado ///
+        _codescan_definitions.ado _codescan_outputs.ado ///
+        _codescan_parse_filespec.ado _codescan_validate_path.ado {
+        _cs_extract_first "`pkg_dir'/`f'" "^\*! [_a-zA-Z]+ Version ([0-9]+\.[0-9]+\.[0-9]+)"
+        if "`r(value)'" != "`ver'" {
+            display as error "    `f' version [`r(value)'] != flagship [`ver']"
+            exit 9
+        }
+    }
+
+    * Version numbers live in the flagship help only; a sub-command help file
+    * must not carry one.
+    _cs_extract_first "`pkg_dir'/codescan_describe.sthlp" "(\*! version)"
+    assert "`r(value)'" == ""
+
+    * README header version must match the flagship version.
+    _cs_extract_first "`pkg_dir'/README.md" "^\*\*Version ([0-9]+\.[0-9]+\.[0-9]+)\*\*"
+    if "`r(value)'" != "`ver'" {
+        display as error "    README version [`r(value)'] != flagship [`ver']"
+        exit 9
+    }
+
+    * Release-date facts: the README header date and the .pkg Distribution-Date
+    * describe the same event, so they must agree with each other.
+    _cs_extract_first "`pkg_dir'/README.md" "^\*\*Version [0-9.]+\*\* \| ([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])"
+    local rdate "`r(value)'"
+    _cs_extract_first "`pkg_dir'/codescan.pkg" "^d Distribution-Date: ([0-9]+)"
+    local pdate "`r(value)'"
+    assert "`rdate'" != ""
+    assert "`pdate'" != ""
+    if subinstr("`rdate'", "-", "", .) != "`pdate'" {
+        display as error "    README date [`rdate'] != .pkg Distribution-Date [`pdate']"
+        exit 9
+    }
 }
 if _rc == 0 {
     display as result "  PASS: version strings synchronized"
@@ -152,6 +234,26 @@ else {
     display as error "  FAIL: tracked generated debris outside demo allowances (error `=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

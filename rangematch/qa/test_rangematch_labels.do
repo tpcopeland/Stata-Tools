@@ -144,7 +144,10 @@ assert "`v'" == "gradelbl"
 local m : label gradelbl 2
 assert `"`m'"' == "mid"
 
-**# T8: value-label name collision -- the master definition wins
+**# T8: value-label name collision -- both definitions survive (RM-I08)
+* Before 1.3.3 the master definition won and the carried using variable kept
+* its code but acquired the master's meaning: decode returned the wrong text at
+* rc=0. The using definition is now copied under a collision-free name.
 local ++test_count
 clear
 set obs 3
@@ -163,10 +166,20 @@ gen byte mflag = 1
 label define dupl 1 "master-one"
 label values mflag dupl
 rangematch key lo hi using "`rml_dup'"
+* The master keeps the original name and its own meaning.
 local m : label dupl 1
 assert `"`m'"' == "master-one"
+local vm : value label mflag
+assert "`vm'" == "dupl"
+* The carried using variable is attached to a renamed copy of its own map, so
+* it decodes to the using data's text rather than the master's.
 local v : value label flag
-assert "`v'" == "dupl"
+assert "`v'" == "dupl_U"
+local u : label dupl_U 1
+assert `"`u'"' == "using-one"
+decode flag, gen(_t8_txt)
+assert _t8_txt[1] == "using-one"
+drop _t8_txt
 
 **# T9: strL by() variable in the master data errors upfront with r(109)
 local ++test_count

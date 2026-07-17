@@ -33,8 +33,8 @@
 {synoptline}
 {synopt:{opt t:op(#)}}report the top {it:#} codes; default is {cmd:top(20)}{p_end}
 {synopt:{opt nod:ots}}strip dots before tabulating{p_end}
-{synopt:{opt tostr:ing}}convert numeric code variables to string before tabulating{p_end}
-{synopt:{opt save(filename)}}write a draft chapter-level codefile CSV{p_end}
+{synopt:{opt tostr:ing}}convert numeric code variables to string{p_end}
+{synopt:{opt save(filename [, replace])}}write a draft codefile CSV{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -226,9 +226,22 @@ encounters:
 
 {pstd}
 If your code variables were imported as numeric rather than string, add
-{cmd:tostring} so that {cmd:codescan_describe} can inspect them:
+{cmd:tostring} so that {cmd:codescan_describe} can inspect them. Build a small
+numeric example, including a missing value:
 
-{phang2}{cmd:. codescan_describe dx1 dx2, tostring}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input icd9_1 icd9_2}{p_end}
+{phang2}{cmd:      25000  4019}{p_end}
+{phang2}{cmd:      25000      .}{p_end}
+{phang2}{cmd:      4019   25001}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. codescan_describe icd9_1 icd9_2, tostring}{p_end}
+
+{pstd}
+The codes are tabulated as {cmd:25000}, {cmd:25001}, and {cmd:4019}. The
+original numeric variables are unchanged. Numeric missing values — including
+the extended missings {cmd:.a} through {cmd:.z} — are treated as absent codes
+and never appear as the code values {cmd:.} or {cmd:.a} in the table.
 
 
 {marker results}{...}
@@ -247,8 +260,14 @@ If your code variables were imported as numeric rather than string, add
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
-{synopt:{cmd:r(top_codes)}}displayed top codes; row names are codes and columns are {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}{p_end}
-{synopt:{cmd:r(chapters)}}first-character summary; row names are characters and columns are {cmd:codes} and {cmd:entries}{p_end}
+{synopt:{cmd:r(top_codes)}}the displayed top codes{p_end}
+{synopt:{cmd:r(chapters)}}first-character summary{p_end}
+
+{pstd}
+In {cmd:r(top_codes)} the row names are the code values and the columns are
+{cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}. In {cmd:r(chapters)} the
+row names are the leading characters and the columns are {cmd:codes} and
+{cmd:entries}.
 
 
 {marker author}{...}

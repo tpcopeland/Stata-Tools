@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 
 def write_result(path: str, ok: bool) -> None:
@@ -76,7 +77,15 @@ def check_font_block(ws, max_row: int, max_col: int, errors: list[str]) -> None:
                 )
 
 
-def check_xlsx(path: str) -> list[str]:
+def check_xlsx(path: str, number_format: str = "0") -> list[str]:
+    """Validate the exported workbook.
+
+    number_format is the Excel format the numeric cells must carry. Stata's
+    `export excel` propagates the variable's display format, so codescan's
+    format() option is observable here: the default %9.1f lands as "0" and
+    format(%9.2f) lands as "0.00". Passing the expected format in is what makes
+    a non-default format() testable rather than assumed.
+    """
     errors: list[str] = []
     wb = load_workbook(path, data_only=True)
 
@@ -87,9 +96,22 @@ def check_xlsx(path: str) -> list[str]:
     summary = wb["Sheet1"]
     cooc = wb["cooccurrence"]
 
-    if used_rows(summary) != 4 or used_cols(summary) != 7:
+    # 3.0.0 layout: condition, label, matches, total_hits, positive_units,
+    # prevalence, ci_low, ci_high, pattern, exclusion.
+    expected_headers = [
+        "condition", "label", "matches", "total_hits", "positive_units",
+        "prevalence", "ci_low", "ci_high", "pattern", "exclusion",
+    ]
+    ncols = len(expected_headers)
+    # Column letters are derived from the header list rather than written out,
+    # so adding a column moves every downstream check with it. Hardcoded letters
+    # are how this checker came to assert prevalence in C after it had moved.
+    col_of = {name: get_column_letter(i) for i, name in enumerate(expected_headers, start=1)}
+
+    if used_rows(summary) != 4 or used_cols(summary) != ncols:
         errors.append(
-            f"Sheet1 expected used range A1:G4, got rows={used_rows(summary)} cols={used_cols(summary)}"
+            f"Sheet1 expected used range A1:{get_column_letter(ncols)}4, "
+            f"got rows={used_rows(summary)} cols={used_cols(summary)}"
         )
     if used_rows(cooc) != 4 or used_cols(cooc) != 4:
         errors.append(
@@ -103,13 +125,13 @@ def check_xlsx(path: str) -> list[str]:
             f"cooccurrence expected no merged cells, got {list(cooc.merged_cells.ranges)}"
         )
 
-    check_font_block(summary, 4, 7, errors)
+    check_font_block(summary, 4, ncols, errors)
     check_font_block(cooc, 4, 4, errors)
 
-    expected_headers = ["condition", "matches", "prevalence", "ci_low", "ci_high", "pattern", "exclusion"]
-    actual_headers = [summary.cell(row=1, column=col).value for col in range(1, 8)]
+    actual_headers = [summary.cell(row=1, column=col).value for col in range(1, ncols + 1)]
     if actual_headers != expected_headers:
         errors.append(f"Sheet1 headers expected {expected_headers}, got {actual_headers}")
+        return errors
 
     expected_rows = [
         ("dm2", 3, 75.0, "E11", ""),
@@ -119,24 +141,47 @@ def check_xlsx(path: str) -> list[str]:
     n = 4
     for i, (condition, count, prevalence, pattern, exclusion) in enumerate(expected_rows, start=2):
         low, high = wilson_ci(count, n)
-        if summary[f"A{i}"].value != condition:
-            errors.append(f"Sheet1 A{i}: expected {condition}, got {summary[f'A{i}'].value}")
-        if summary[f"B{i}"].value != count:
-            errors.append(f"Sheet1 B{i}: expected {count}, got {summary[f'B{i}'].value}")
-        if not approx_equal(summary[f"C{i}"].value, prevalence, 1e-9):
-            errors.append(f"Sheet1 C{i}: expected {prevalence}, got {summary[f'C{i}'].value}")
-        if not approx_equal(summary[f"D{i}"].value, low, 1e-9):
-            errors.append(f"Sheet1 D{i}: expected {low}, got {summary[f'D{i}'].value}")
-        if not approx_equal(summary[f"E{i}"].value, high, 1e-9):
-            errors.append(f"Sheet1 E{i}: expected {high}, got {summary[f'E{i}'].value}")
-        if summary[f"F{i}"].value != pattern:
-            errors.append(f"Sheet1 F{i}: expected {pattern}, got {summary[f'F{i}'].value}")
-        if summary[f"G{i}"].value != exclusion:
-            errors.append(f"Sheet1 G{i}: expected empty exclusion, got {summary[f'G{i}'].value}")
-        for col in ("B", "C", "D", "E"):
-            if summary[f"{col}{i}"].number_format != "0":
+
+        def cell(name):
+            return summary[f"{col_of[name]}{i}"]
+
+        def expect(name, want, tol=None):
+            got = cell(name).value
+            ok = approx_equal(got, want, tol) if tol is not None else got == want
+            if not ok:
+                errors.append(f"Sheet1 {cell(name).coordinate} ({name}): expected {want!r}, got {got!r}")
+
+        expect("condition", condition)
+        # No label() in this call, so label falls back to the condition name.
+        expect("label", condition)
+        expect("matches", count)
+        # This export is not in countmode, so there is no hit total: the cell is
+        # empty, not a copy of the unit count.
+        if cell("total_hits").value is not None:
+            errors.append(
+                f"Sheet1 {cell('total_hits').coordinate}: expected empty total_hits without "
+                f"countmode, got {cell('total_hits').value!r}"
+            )
+        expect("positive_units", count)
+        expect("prevalence", prevalence, 1e-9)
+        expect("ci_low", low, 1e-9)
+        expect("ci_high", high, 1e-9)
+        expect("pattern", pattern)
+        expect("exclusion", exclusion)
+
+        # The count columns are integers and unaffected by format(); the
+        # prevalence/CI columns carry the format() format.
+        for name in ("matches", "positive_units"):
+            if cell(name).number_format != "0":
                 errors.append(
-                    f"Sheet1 {col}{i}: expected number format 0, got {summary[f'{col}{i}'].number_format}"
+                    f"Sheet1 {cell(name).coordinate}: expected number format 0, "
+                    f"got {cell(name).number_format}"
+                )
+        for name in ("prevalence", "ci_low", "ci_high"):
+            if cell(name).number_format != number_format:
+                errors.append(
+                    f"Sheet1 {cell(name).coordinate}: expected number format {number_format}, "
+                    f"got {cell(name).number_format}"
                 )
 
     cooc_headers = ["condition", "dm2", "htn", "asthma"]
@@ -227,10 +272,16 @@ def main() -> int:
     parser.add_argument("mode", choices=["xlsx", "svg"])
     parser.add_argument("artifact")
     parser.add_argument("result_file")
+    parser.add_argument(
+        "--number-format",
+        default="0",
+        help="Excel number format the prevalence/CI cells must carry "
+        "(default 0, matching codescan's default %%9.1f; pass 0.00 for format(%%9.2f))",
+    )
     args = parser.parse_args()
 
     if args.mode == "xlsx":
-        errors = check_xlsx(args.artifact)
+        errors = check_xlsx(args.artifact, args.number_format)
     else:
         errors = check_svg(args.artifact)
 

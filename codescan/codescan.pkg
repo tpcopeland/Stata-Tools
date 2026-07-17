@@ -2,14 +2,27 @@ v 3
 d 'CODESCAN': Scan wide-format code variables for pattern matches
 d
 d Scans wide-format code variables (dx1-dx30, proc1-proc20, etc.)
-d for pattern matches using regex or prefix matching. Generates
-d binary indicators, applies time windows, and collapses to
-d patient-level summaries. Works with ICD, KVA, CPT, ATC, OPCS,
-d or any string code system.
+d for pattern matches using regex or prefix matching, from inline
+d rules or a reusable CSV/.dta code dictionary.
+d
+d codescan generates binary indicators or per-row counts, applies
+d lookback/lookforward time windows around a reference date,
+d reports prevalence with Wilson confidence intervals, and can
+d collapse to patient-level summaries or merge them back onto the
+d rows. Results are available in r(), in a named frame, saved as a
+d dataset, or exported to .csv/.xlsx. Diagnostics include
+d per-variable contributions, pairwise co-occurrence, and
+d multi-window sensitivity with denominators.
+d
+d codescan_describe inventories the code values in the same
+d variables before any rules are written, and can draft a starter
+d codefile.
+d
+d Works with ICD, KVA, CPT, ATC, OPCS, or any string code system.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260710
+d Distribution-Date: 20260717
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -26,6 +39,7 @@ f codescan.ado
 f _codescan_codefile.ado
 f _codescan_definitions.ado
 f _codescan_outputs.ado
+f _codescan_parse_filespec.ado
 f _codescan_validate_path.ado
 f codescan.sthlp
 f codescan_describe.ado

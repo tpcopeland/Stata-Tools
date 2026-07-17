@@ -14,8 +14,22 @@ local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local tools_dir "`qa_dir'/tools"
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 capture program drop _read_check_status
 program define _read_check_status, rclass
@@ -183,7 +197,70 @@ else {
     local ++fail_count
 }
 
+* ============================================================
+* V4: Non-default format() reaches the exported workbook
+* ============================================================
+* format() is documented as the display AND export format. `export excel'
+* propagates the variable's display format, so a non-default format(%9.2f) must
+* land on the prevalence/CI cells as Excel format "0.00" while the integer
+* match count stays "0". Without this, V1 only ever exercises the default and a
+* regression that dropped format() on the export path would stay green.
+
+local ++test_count
+capture noisily {
+    tempfile out_base status_base
+    local out_xlsx "`out_base'.xlsx"
+    local status_txt "`status_base'.txt"
+
+    clear
+    input str10 dx1 str10 dx2
+    "E110" "I10"
+    "E110" ""
+    "E110" "J45"
+    "I10"  ""
+    end
+
+    codescan dx1 dx2, define(dm2 "E11" | htn "I10" | asthma "J45") ///
+        cooccurrence export("`out_xlsx'", replace) format(%9.2f)
+
+    confirm file "`out_xlsx'"
+
+    shell python3 "`tools_dir'/check_codescan_artifacts.py" ///
+        xlsx "`out_xlsx'" "`status_txt'" --number-format "0.00"
+
+    quietly _read_check_status "`status_txt'"
+    assert "`r(status)'" == "PASS"
+}
+if _rc == 0 {
+    display as result "  PASS: V4 - format(%9.2f) reaches exported XLSX cell format"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V4 - format(%9.2f) reaches exported XLSX cell format (error `=_rc')"
+    local ++fail_count
+}
+
 display ""
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
+
 display as result "RESULT: validation_codescan_output tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

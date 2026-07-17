@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.9  09jul2026}{...}
+{* *! version 3.0.0  17jul2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -42,46 +42,47 @@
 {synopt:{opt def:ine(string asis)}}inline condition definitions{p_end}
 {synopt:{opt codef:ile(string)}}CSV or {cmd:.dta} code dictionary{p_end}
 {synopt:{opt lab:el(string asis)}}condition labels specified inline{p_end}
-{synopt:{opt save(filename)}}write parsed {cmd:define()} rules to a CSV codefile{p_end}
+{synopt:{opt save(filename [, replace])}}write parsed rules to a CSV codefile{p_end}
 
 {syntab:Identifiers and windows}
-{synopt:{opt id(varname)}}patient or entity identifier; required with {cmd:collapse} or {cmd:merge}{p_end}
-{synopt:{opt date(varname)}}row-level event date; required for windowing and date summaries{p_end}
+{synopt:{opt id(varname)}}patient or entity identifier{p_end}
+{synopt:{opt date(varname)}}row-level event date{p_end}
 {synopt:{opt refd:ate(varname)}}reference date for windowing{p_end}
-{synopt:{opt lookb:ack(#|numlist)}}days before {cmd:refdate}; multiple values return sensitivity results{p_end}
+{synopt:{opt lookb:ack(#|numlist)}}days before {cmd:refdate}; {it:numlist} allowed{p_end}
 {synopt:{opt lookf:orward(#)}}days after {cmd:refdate}{p_end}
 {synopt:{opt incl:usive}}include {cmd:refdate} in single-direction windows{p_end}
 
 {syntab:Result dataset}
 {synopt:{opt coll:apse}}reduce to one row per {cmd:id()}{p_end}
-{synopt:{opt mer:ge}}attach patient-level results back to row-level data{p_end}
+{synopt:{opt mer:ge}}attach patient-level results to row-level data{p_end}
 {synopt:{opt earliest:date}}create {it:name}_first variables{p_end}
 {synopt:{opt latest:date}}create {it:name}_last variables{p_end}
 {synopt:{opt count:date}}create {it:name}_count variables (unique dates){p_end}
 {synopt:{opt countr:ows}}create {it:name}_nrows variables (row counts){p_end}
 {synopt:{opt alld:ates}}shorthand for all three date-summary options{p_end}
-{synopt:{opt pre:serve}}restore the original data after producing results{p_end}
-{synopt:{opt frame(name)}}store the final result dataset in a named frame{p_end}
+{synopt:{opt pre:serve}}restore the original data afterward{p_end}
+{synopt:{opt frame(name)}}store the result dataset in a named frame{p_end}
 {synopt:{opt sav:ing(filename [, replace])}}save the final result dataset to disk{p_end}
 
 {syntab:Diagnostics and reporting}
 {synopt:{opt det:ail}}return per-variable match counts{p_end}
+{synopt:{opt alls:lots}}with {cmd:detail}, count every matching slot{p_end}
 {synopt:{opt cooc:currence}}return pairwise co-occurrence counts{p_end}
-{synopt:{opt unm:atched(name)}}row-level flag for observations with no matches{p_end}
-{synopt:{opt match:ed_code(name)}}row-level variable holding the first code that survived matching{p_end}
+{synopt:{opt unm:atched(name)}}row-level flag for rows that matched nothing{p_end}
+{synopt:{opt match:ed_code(name)}}row-level first surviving code value{p_end}
 {synopt:{opt gr:aph}}draw a prevalence bar chart{p_end}
-{synopt:{opt exp:ort(filename)}}export the summary table to {cmd:.csv} or {cmd:.xlsx}{p_end}
-{synopt:{opt for:mat(%fmt)}}display and export format for prevalence and CI columns{p_end}
+{synopt:{opt exp:ort(filename [, replace])}}export the summary table{p_end}
+{synopt:{opt for:mat(%fmt)}}format for prevalence and CI columns{p_end}
 
 {syntab:Matching behavior and naming}
 {synopt:{opt mod:e(string)}}{cmd:regex} (default) or {cmd:prefix}{p_end}
-{synopt:{opt lev:el(#)}}truncate each prefix token to {it:#} characters in prefix mode{p_end}
+{synopt:{opt lev:el(#)}}prefix token length in {cmd:mode(prefix)}{p_end}
 {synopt:{opt noc:ase}}case-insensitive matching{p_end}
 {synopt:{opt nod:ots}}strip dots during matching{p_end}
-{synopt:{opt tostr:ing}}convert numeric code variables to string before scanning{p_end}
+{synopt:{opt tostr:ing}}convert numeric code variables to string{p_end}
 {synopt:{opt countm:ode}}store counts rather than binary indicators{p_end}
 {synopt:{opt gen:erate(prefix)}}prefix all created variable names{p_end}
-{synopt:{opt rep:lace}}allow overwriting existing output variables or frames{p_end}
+{synopt:{opt rep:lace}}allow overwriting existing outputs{p_end}
 {synopt:{opt noi:sily}}display per-condition progress notes{p_end}
 
 {synoptline}
@@ -218,7 +219,7 @@ medication codes need different dictionaries, run separate scans and add
 {pstd}
 In the default {cmd:mode(regex)}, {cmd:codescan} uses Stata's {cmd:ustrregexm()}
 function and automatically adds a start-of-string anchor. The rule
-{cmd:define(dm2 "E11")} is checked like {cmd:regexm(code, "^(E11)")}: the code
+{cmd:define(dm2 "E11")} is checked like {cmd:ustrregexm(code, "^(E11)")}: the code
 must start with {cmd:E11}.
 
 {phang2}{cmd:"E11"} matches {cmd:E110}, {cmd:E119}, and {cmd:E11.9}; it does
@@ -244,6 +245,16 @@ Use {cmd:~} for exclusions: {cmd:define(dm2 "E11" ~ "E116")} matches codes
 that start with {cmd:E11}, except codes that start with {cmd:E116}. In
 {cmd:mode(prefix)}, regex characters are not special; {cmd:"XF001|XF002"} means
 "starts with {cmd:XF001} or starts with {cmd:XF002}".
+
+{pstd}
+{cmd:codescan} rejects any inclusion or exclusion pattern that can match an
+empty string, because anchoring makes such a pattern
+match {it:every} code: an inclusion of that shape flags the whole dataset and an exclusion of that
+shape empties it, both silently. Rejected shapes include the empty pattern,
+{cmd:()}, {cmd:(())}, a trailing empty alternative such as {cmd:(E11|)}, and
+quantifiers that permit zero characters such as {cmd:A*}, {cmd:A?}, and
+{cmd:A{c -(}0{c )-}}. To match any nonempty code deliberately, use the pattern
+{cmd:.} — one arbitrary character — rather than {cmd:.*}.
 
 {pstd}
 For troubleshooting, add {cmd:detail} to see how many matches came from each
@@ -313,18 +324,41 @@ variable groups need different dictionaries.
 
 {phang}
 {opt label(string)} assigns labels to named conditions. Entries are separated by
-{cmd:\}. Example: {cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")}. Labels apply to
-the main indicator/count variable and any date-summary variables. If labels
-were supplied in {cmd:codefile()}, {cmd:label()} overrides them. Conditions without an
-explicit label use the condition name as the default label in displayed and
-exported output. When {cmd:generate()} is used, label names may be written with bare
-condition names; the generate-prefix fallback is applied automatically.
+{cmd:\}, not {cmd:|}. For example
+{cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")} labels two conditions. If
+labels were supplied
+in {cmd:codefile()}, {cmd:label()} overrides them. Conditions without an explicit
+label fall back to the condition name. When {cmd:generate()} is used, label names
+may be written with bare condition names; the generate-prefix fallback is applied
+automatically.
+
+{pmore}
+A label is used everywhere the result is {it:presented}: the variable label of
+the indicator/count variable and any date-summary variables, the {cmd:Condition}
+column of the displayed table, the {cmd:detail} table, the bar labels of
+{cmd:graph}, and a dedicated {cmd:label} column in {cmd:export()}. A label longer
+than the console column is truncated there with a trailing {cmd:~}; it reaches
+the export whole.
+
+{pmore}
+Labels never become identifiers. {cmd:r(conditions)}, the row names of every
+returned matrix, and the {cmd:condition} column of {cmd:export()} always carry
+the condition {it:name}, so relabeling a condition cannot break a do-file that
+reads the results.
+
+{pmore}
+Label text may not contain a double quote. The most common way to trip this is
+writing {cmd:define()}'s separator by mistake: with {cmd:|} the whole option is
+read as a single entry whose label text runs on past the closing quote, which
+would label one condition with nonsense and leave the rest unlabelled. That is
+rejected with {cmd:r(198)} rather than applied.
 
 {phang}
-{opt save(filename)} writes the parsed {cmd:define()} rules to a CSV with columns
-{cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. The filename must
-end in {cmd:.csv}. This option is not allowed with {cmd:codefile()} because a
-file-based definition source already exists.
+{opt save(filename [, replace])} writes the parsed {cmd:define()} rules to a CSV
+with columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. The
+filename must end in {cmd:.csv}. This option is not allowed with
+{cmd:codefile()} because a file-based definition source already exists. An
+existing file is never overwritten unless the {cmd:replace} suboption is given.
 
 {dlgtab:Identifiers and windows}
 
@@ -344,9 +378,11 @@ stored on Stata's daily date scale. It is required for windowing and for
 
 {phang}
 {opt lookback(#|numlist)} limits matches to observations within a backward window
-relative to {cmd:refdate}. A single value such as {cmd:lookback(365)} scans one window. A
+relative to {cmd:refdate}. Every value must be a nonnegative integer. A single
+value such as {cmd:lookback(365)} scans one window. A
 numlist such as {cmd:lookback(90 365 1825)} or {cmd:lookback(30(30)90)} performs a
-multi-window sensitivity analysis and returns {cmd:r(sensitivity)}. Multi-window use
+multi-window sensitivity analysis and returns {cmd:r(sensitivity)} together with
+its denominators in {cmd:r(sensitivity_n)}. Multi-window use
 requires {cmd:collapse} or {cmd:merge}.
 
 {phang}
@@ -399,20 +435,39 @@ the created variables are not left in the active dataset. On that path,
 
 {phang}
 {opt frame(name)} stores the final result dataset in a named frame and implies
-{cmd:preserve}. With {cmd:collapse}, the frame receives the collapsed patient- level
-dataset. With {cmd:merge}, the frame receives the merged row-level result. If the
+{cmd:preserve}. With {cmd:collapse}, the frame receives the collapsed
+patient-level dataset. With {cmd:merge}, the frame receives the merged row-level result. If the
 frame already exists, add {cmd:replace}.
 
 {phang}
 {opt saving(filename [, replace])} saves the final result dataset to disk after
-{cmd:collapse} or {cmd:merge}. The only supported suboption is {cmd:replace}.
+{cmd:collapse} or {cmd:merge}. The only supported suboption is {cmd:replace}, and
+without it an existing file is never overwritten.
 
 {dlgtab:Diagnostics and reporting}
 
 {phang}
 {opt detail} displays and returns a per-variable contribution table in
-{cmd:r(varcounts)}. Counts reflect effective matches after exclusions and after
-binary short-circuiting.
+{cmd:r(varcounts)}. Counts reflect effective matches after exclusions.
+
+{pmore}
+By default the table is {bf:order-dependent}. Binary matching stops examining a
+condition once it has matched an observation, so each row is counted once per
+condition and attributed to the {bf:first} matching variable in {varlist}
+order. If an observation carries the same condition in {cmd:dx1} and {cmd:dx2}, the
+match is credited to {cmd:dx1} alone; scanning {cmd:dx2 dx1} instead credits
+{cmd:dx2}. The cohort, the prevalence, and {cmd:r(summary)} are identical either
+way -- only the attribution moves. Row totals therefore equal the number of
+matching observations, not the number of matching code slots.
+
+{pmore}
+{opt allslots} counts every matching slot instead, so an observation with the
+condition in two variables adds one to each. The table then does not depend on
+{varlist} order and its row totals equal the slot-hit totals reported by
+{cmd:countmode}. The indicator variables stay 0/1 -- {cmd:allslots} changes only
+the {cmd:detail} tally, never the cohort. It requires {cmd:detail} and is
+redundant with {cmd:countmode}, which already counts every slot. The scalar
+{cmd:r(detail_allslots)} records which rule produced {cmd:r(varcounts)}.
 
 {phang}
 {opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
@@ -420,11 +475,18 @@ of pairwise counts. In row-level mode it counts observations. After
 {cmd:collapse} or {cmd:merge}, it counts unique {cmd:id()} values.
 
 {phang}
-{opt unmatched(name)} creates a row-level 0/1 flag equal to 1 when an observation
-matched no condition. Rows excluded by {cmd:if}, {cmd:in}, or missing
-{cmd:id()} under {cmd:collapse}/{cmd:merge} are assigned 0, not missing — the
-flag is strict 0/1 over all rows. It is not retained after {cmd:collapse}, but
-it is retained in row-level or {cmd:merge} output.
+{opt unmatched(name)} creates a row-level flag with three states: 1 when an
+analyzed observation matched no condition, 0 when an analyzed observation
+matched at least one, and missing ({cmd:.}) when the row was not analyzed at
+all. Rows fall outside the analysis sample when they are excluded by {cmd:if} or
+{cmd:in}, by a missing {cmd:id()} under {cmd:collapse}/{cmd:merge}, or by a time
+window. It is not retained after {cmd:collapse}, but it is retained in
+row-level or {cmd:merge} output.
+
+{pmore}
+Counting unanalyzed rows as matched-nothing would inflate any denominator built
+from the flag, so {cmd:count if `name' == 1} counts genuine non-matches and
+{cmd:count if !missing(`name')} reproduces {cmd:r(N)} at the row level.
 
 {phang}
 {opt matched_code(name)} creates a row-level {cmd:str244} variable containing the first
@@ -436,9 +498,18 @@ is empty when nothing matched. Like {cmd:unmatched()}, it is not retained after
 {opt graph} draws a horizontal bar chart of condition prevalence.
 
 {phang}
-{opt export(filename)} writes the summary table to {cmd:.csv} or {cmd:.xlsx}. Exported columns
-are {cmd:condition}, {cmd:matches}, {cmd:prevalence}, {cmd:ci_low}, {cmd:ci_high}, {cmd:pattern}, and
-{cmd:exclusion}. When both {cmd:cooccurrence} and {cmd:export(.xlsx)} are used, the workbook
+{opt export(filename [, replace])} writes the summary table to {cmd:.csv} or
+{cmd:.xlsx}. An existing file is never overwritten unless the {cmd:replace}
+suboption is given. Exported columns are {cmd:condition}, {cmd:label},
+{cmd:matches}, {cmd:total_hits}, {cmd:positive_units}, {cmd:prevalence},
+{cmd:ci_low}, {cmd:ci_high}, {cmd:pattern}, and {cmd:exclusion}.
+
+{pmore}
+{cmd:condition} is the machine name and {cmd:label} the display text from
+{cmd:label()}, falling back to the name. {cmd:matches} is retained for
+compatibility and mirrors {cmd:r(summary)}'s {cmd:count} column, while
+{cmd:total_hits} and {cmd:positive_units} name the two quantities explicitly and
+are the ones to read. When both {cmd:cooccurrence} and {cmd:export(.xlsx)} are used, the workbook
 receives a second sheet named {cmd:cooccurrence} with a {cmd:condition} column and one
 column per condition containing the pairwise count.
 
@@ -477,8 +548,27 @@ with {helpb compress} or {helpb recast}.
 {opt countmode} stores integer counts rather than 0/1 indicators. At the row
 level, each count is the number of code slots in {varlist} that matched the
 condition. Under {cmd:collapse} or {cmd:merge}, patient-level counts are sums
-across qualifying rows. Prevalence is still based on the proportion of
-observations or patients with a count greater than zero.
+across qualifying rows.
+
+{pmore}
+{cmd:countmode} makes two different quantities available, and they are reported
+separately because confusing them overstates a cohort:
+
+{p2colset 9 28 30 2}{...}
+{p2col:{cmd:total_hits}}the number of matching code slots -- a patient with the
+same condition in two slots contributes 2{p_end}
+{p2col:{cmd:positive_units}}the number of observations, or of {cmd:id()} values
+under {cmd:collapse}/{cmd:merge}, with a count greater than zero{p_end}
+{p2colreset}{...}
+
+{pmore}
+Prevalence and its confidence interval are built from {cmd:positive_units}, so
+prevalence means the same thing with and without {cmd:countmode}. Both quantities
+appear in the displayed table (as {cmd:Hits} and {cmd:Units>0}), in
+{cmd:r(summary)}, in {cmd:r(codelist)}, and in {cmd:export()}. Without
+{cmd:countmode} there is no hit total to report -- binary matching never counts
+repeat hits -- so {cmd:total_hits} is missing rather than a copy of
+{cmd:positive_units}.
 
 {phang}
 {opt generate(prefix)} prefixes all created variable names, including date-summary
@@ -488,7 +578,9 @@ medication scans should coexist in the same dataset.
 {phang}
 {opt replace} allows overwriting existing output variables and existing frames
 named in {cmd:frame()}, but scan variables named in {varlist} are never valid
-output targets.
+output targets. It governs variables and frames only; overwriting a {it:file}
+requires the {cmd:replace} suboption of {cmd:export()}, {cmd:save()}, or
+{cmd:saving()}.
 
 {phang}
 {opt noisily} prints progress notes during execution, including per-condition
@@ -544,7 +636,9 @@ the main (first-listed) diagnosis carries higher validity than contributory
 positions, so when position matters, scan the positions separately — for example
 {cmd:codescan dx1, ...} for a main-diagnosis-only definition, or run the primary
 and secondary slots as separate calls with {cmd:generate()} prefixes. Use
-{cmd:detail} to see each slot's contribution to a condition.
+{cmd:detail} to see each slot's contribution to a condition -- with
+{cmd:allslots} if you want each slot's contribution counted independently rather
+than each row credited to its first matching slot.
 
 {pstd}
 {bf:Pattern choice.} Use {cmd:regex} when you need character classes,
@@ -738,6 +832,28 @@ the encounter detail and the condition flags in one dataset.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge}{p_end}
 
+{pstd}
+{bf:Example 10: Tell hits apart from cases, and see which slot they came from}
+
+{pstd}
+A patient coded {cmd:E110} in {cmd:dx1} and {cmd:E119} in {cmd:dx2} on the same
+encounter is {it:one} case carrying {it:two} hits. Both are reported by
+{cmd:countmode}: the displayed {cmd:Hits} column and {cmd:r(summary)}'s {cmd:total_hits} count
+slots, while {cmd:Units>0} and {cmd:positive_units} count patients, which is what
+prevalence uses.
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode}{p_end}
+{phang2}{cmd:. matrix list r(summary)}{p_end}
+
+{pstd}
+{cmd:detail} attributes that patient's row to {cmd:dx1} alone, because binary
+matching stops at the first slot that matches; scanning {cmd:dx2 dx1} would
+credit {cmd:dx2} instead. Add {cmd:allslots} when you want each slot counted on
+its own, which makes the table independent of {varlist} order.
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") detail}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") detail allslots}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -747,18 +863,20 @@ the encounter detail and the condition flags in one dataset.
 
 {synoptset 26 tabbed}{...}
 {p2col 5 26 30 2: Scalars}{p_end}
-{synopt:{cmd:r(N)}}analyzed observations, or unique {cmd:id()} values after {cmd:collapse}/{cmd:merge}{p_end}
+{synopt:{cmd:r(N)}}analyzed observations, or unique {cmd:id()} values{p_end}
 {synopt:{cmd:r(n_conditions)}}number of conditions defined{p_end}
 {synopt:{cmd:r(collapsed)}}1 if {cmd:collapse} was used, otherwise 0{p_end}
 {synopt:{cmd:r(merged)}}1 if {cmd:merge} was used, otherwise 0{p_end}
 {synopt:{cmd:r(mode_count)}}1 if {cmd:countmode} was used, otherwise 0{p_end}
-{synopt:{cmd:r(lookback)}}single lookback window when only one value was requested{p_end}
+{synopt:{cmd:r(detail_allslots)}}1 if {cmd:detail} counted every slot{p_end}
+{synopt:{cmd:r(lookback)}}the single lookback window, if only one{p_end}
 {synopt:{cmd:r(lookforward)}}lookforward window when specified{p_end}
+{synopt:{cmd:r(n_excluded_missingdate)}}rows dropped for a missing date{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for Wilson intervals{p_end}
 
 {p2col 5 26 30 2: Macros}{p_end}
-{synopt:{cmd:r(conditions)}}space-separated condition names in output order{p_end}
-{synopt:{cmd:r(newvars)}}variables left in memory on exit; empty after {cmd:preserve}/{cmd:restore}{p_end}
+{synopt:{cmd:r(conditions)}}condition names in output order{p_end}
+{synopt:{cmd:r(newvars)}}variables left in memory on exit{p_end}
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
 {synopt:{cmd:r(mode)}}matching mode, {cmd:regex} or {cmd:prefix}{p_end}
 {synopt:{cmd:r(nocase)}}{cmd:nocase} when case-insensitive matching was used{p_end}
@@ -768,16 +886,51 @@ the encounter detail and the condition flags in one dataset.
 {synopt:{cmd:r(id)}}identifier variable when specified{p_end}
 {synopt:{cmd:r(date)}}event-date variable when {cmd:date()} was specified{p_end}
 {synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
-{synopt:{cmd:r(n_excluded_missingdate)}}rows dropped from the time window for a missing {cmd:date()}/{cmd:refdate()}, when a window was used{p_end}
 {synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
-{synopt:{cmd:r(lookback)}}space-separated lookback values when multiple windows were requested{p_end}
+{synopt:{cmd:r(lookback)}}the lookback values, if more than one{p_end}
 
 {p2col 5 26 30 2: Matrices}{p_end}
-{synopt:{cmd:r(summary)}}count, prevalence, ci_low, ci_high by condition{p_end}
-{synopt:{cmd:r(codelist)}}two-column subset of {cmd:r(summary)} with count and prevalence{p_end}
-{synopt:{cmd:r(varcounts)}}per-variable contribution counts when {cmd:detail} was used{p_end}
-{synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence matrix when {cmd:cooccurrence} was used{p_end}
-{synopt:{cmd:r(sensitivity)}}multi-window prevalence matrix when multiple lookbacks were requested{p_end}
+{synopt:{cmd:r(summary)}}counts, prevalence, and Wilson interval{p_end}
+{synopt:{cmd:r(codelist)}}the count columns of {cmd:r(summary)}{p_end}
+{synopt:{cmd:r(varcounts)}}per-variable counts, with {cmd:detail}{p_end}
+{synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence counts{p_end}
+{synopt:{cmd:r(sensitivity)}}prevalence by lookback window{p_end}
+{synopt:{cmd:r(sensitivity_n)}}denominators for {cmd:r(sensitivity)}{p_end}
+
+{pstd}
+{cmd:r(N)} counts analyzed observations at the row level and unique {cmd:id()}
+values after {cmd:collapse} or {cmd:merge}. {cmd:r(newvars)} lists the variables
+left in memory on exit; it is empty after {cmd:preserve} or {cmd:frame()},
+because nothing was left behind. {cmd:r(n_excluded_missingdate)} is returned
+only when a window was requested, and counts the rows dropped for a missing
+{cmd:date()} or {cmd:refdate()}.
+
+{pstd}
+{cmd:r(summary)} has one row per condition, named for the condition, and six
+columns: {cmd:count}, {cmd:prevalence}, {cmd:ci_low}, {cmd:ci_high},
+{cmd:total_hits}, and {cmd:positive_units}. {cmd:count} is the historical
+column and keeps its historical meaning -- {cmd:total_hits} under
+{cmd:countmode}, {cmd:positive_units} otherwise -- so code written against
+earlier versions still reads what it read before. New code should prefer the two
+named columns, which never change meaning. {cmd:total_hits} is missing without
+{cmd:countmode}. The same count columns repeat in {cmd:r(codelist)} as
+{cmd:count}, {cmd:prevalence}, {cmd:total_hits}, {cmd:positive_units}.
+
+{pstd}
+{cmd:r(lookback)} is returned as a {it:scalar} when one window was requested and
+as a {it:macro} of space-separated values when several were. Test for the
+multi-window case with {cmd:if "`r(lookback)'" != ""} rather than assuming
+either type.
+
+{pstd}
+{cmd:r(varcounts)} is returned with {cmd:detail}, {cmd:r(cooccurrence)} with
+{cmd:cooccurrence}, and {cmd:r(sensitivity)} plus {cmd:r(sensitivity_n)} when
+{cmd:lookback()} named more than one window. {cmd:r(sensitivity)} holds
+prevalence per condition (rows) by window (columns); {cmd:r(sensitivity_n)} is
+the matching single-row matrix of denominators, since each window analyzes a
+different number of observations or patients. Read the two together — a
+prevalence that moves across windows may reflect a changing denominator rather
+than a changing numerator.
 
 
 {marker author}{...}

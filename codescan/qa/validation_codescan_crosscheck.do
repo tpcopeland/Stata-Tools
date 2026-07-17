@@ -17,8 +17,22 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 
 * XV1: Regex row-level indicators vs manual regexm loop
@@ -360,48 +374,78 @@ else {
 
 
 * XV9: Sort invariance — reordering data produces same collapsed result
+* The complete result dataset is compared across three permutations, plus an
+* independent expectation so a bug that is identical under every order still
+* fails. cf _all walks only the master's varlist, so a variable dropped under
+* one ordering would slip past it; datasignature covers names and count.
+capture program drop _xv9_data
+program define _xv9_data
+    clear
+    quietly set obs 7
+    quietly gen long pid = .
+    quietly gen str10 dx1 = ""
+    quietly gen str10 dx2 = ""
+    quietly gen double visit_dt = .
+    local pids 1 1 1 2 2 3 3
+    local d1s E110 Z00 Z00 I10 Z00 E110 E110
+    local d2s . E119 . . . . .
+    local dts 21900 21910 21920 21900 21910 21950 21960
+    forvalues i = 1/7 {
+        quietly replace pid = `: word `i' of `pids'' in `i'
+        quietly replace dx1 = "`: word `i' of `d1s''" in `i'
+        local _d2 : word `i' of `d2s'
+        if "`_d2'" != "." quietly replace dx2 = "`_d2'" in `i'
+        quietly replace visit_dt = `: word `i' of `dts'' in `i'
+    }
+    format visit_dt %td
+end
+
 local ++test_count
 capture noisily {
-    clear
-    input long pid str10 dx1 str10 dx2 double visit_dt
-    1 "E110" ""     21900
-    1 "Z00"  "E119" 21910
-    1 "Z00"  ""     21920
-    2 "I10"  ""     21900
-    2 "Z00"  ""     21910
-    3 "E110" ""     21950
-    3 "E110" ""     21960
-    end
-    format visit_dt %td
-
-    * Run on original order
-    preserve
+    _xv9_data
     codescan dx1 dx2, define(dm2 "E11") id(pid) date(visit_dt) collapse ///
         earliestdate latestdate countdate
-    tempfile result_orig
-    save `result_orig'
-    restore
-
-    * Reverse sort
-    gen double sortkey = -_n
-    sort sortkey
-    drop sortkey
-
-    codescan dx1 dx2, define(dm2 "E11") id(pid) date(visit_dt) collapse ///
-        earliestdate latestdate countdate
-
     sort pid
-    merge 1:1 pid using `result_orig', nogenerate
+    tempfile result_orig
+    quietly save `result_orig'
+    quietly ds
+    local vars_orig `r(varlist)'
+    quietly datasignature
+    local sig_orig `r(datasignature)'
 
-    * Renaming not needed — collapse+merge lines up by pid
-    * Just verify both datasets have same values
-    * The result_orig variables are dm2, dm2_first, dm2_last, dm2_count
-    * They got merged with current data which also has same names
-    * merge will succeed since both have same pid values; variables match
+    * Hand-computed from the seven input rows above.
     assert _N == 3
-    assert dm2 == 1 if pid == 1
-    assert dm2 == 0 if pid == 2
-    assert dm2 == 1 if pid == 3
+    assert dm2[1] == 1 & dm2[2] == 0 & dm2[3] == 1
+    assert dm2_count[1] == 2 & dm2_count[2] == 0 & dm2_count[3] == 2
+    assert dm2_first[1] == 21900 & dm2_last[1] == 21910
+    assert dm2_first[3] == 21950 & dm2_last[3] == 21960
+
+    * p1 reverse, p2 grouped by code with pid descending, p3 seeded shuffle
+    forvalues p = 1/3 {
+        _xv9_data
+        if `p' == 1 {
+            gen double _k = -_n
+            sort _k
+            drop _k
+        }
+        else if `p' == 2 {
+            gsort dx1 -pid
+        }
+        else {
+            set seed 90210
+            gen double _k = runiform()
+            sort _k
+            drop _k
+        }
+        codescan dx1 dx2, define(dm2 "E11") id(pid) date(visit_dt) collapse ///
+            earliestdate latestdate countdate
+        sort pid
+        quietly ds
+        assert "`r(varlist)'" == "`vars_orig'"
+        quietly datasignature
+        assert "`r(datasignature)'" == "`sig_orig'"
+        cf _all using `result_orig'
+    }
 }
 if _rc == 0 {
     display as result "  PASS: XV9 - Sort invariance for collapsed results"
@@ -872,12 +916,12 @@ capture noisily {
     }
 
     codescan dx1, define(dm2 "E11" | htn "I10") ///
-        export("/tmp/_codescan_xv22.csv")
+        export("_codescan_xv22.csv", replace)
     matrix S = r(summary)
 
     * Import and compare
     preserve
-    import delimited using "/tmp/_codescan_xv22.csv", clear
+    import delimited using "_codescan_xv22.csv", clear
     assert condition[1] == "dm2"
     assert condition[2] == "htn"
     assert abs(matches[1] - S[1,1]) < 0.01
@@ -991,9 +1035,16 @@ capture noisily {
         refdate(index_dt) lookback(365) collapse
     matrix S365 = r(summary)
 
-    * Multi-window prevalences should match individual scans
-    assert abs(MW[1,1] - S180[1,2]) < 0.5
-    assert abs(MW[1,2] - S365[1,2]) < 0.5
+    * Multi-window prevalences should match individual scans. Both sides run
+    * the same deterministic scan on the same rows, so this is exact equality —
+    * a 0.5pp tolerance spans a whole patient in a 3-patient cohort.
+    assert reldif(MW[1,1], S180[1,2]) < 1e-10
+    assert reldif(MW[1,2], S365[1,2]) < 1e-10
+
+    * Anchor both to hand-computed values: within 180d only pid 2 (21800) is in
+    * window; within 365d pid 1 (21550) joins. 1/3 and 2/3 of the cohort.
+    assert reldif(S180[1,2], 100/3) < 1e-8
+    assert reldif(S365[1,2], 200/3) < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: XV24 - Multi-window vs sequential single-window"
@@ -1014,7 +1065,7 @@ capture noisily {
     "dm2" "E11" "E116"
     "htn" "I10" ""
     end
-    quietly export delimited using "/tmp/_codescan_xv25.csv", replace
+    quietly export delimited using "_codescan_xv25.csv", replace
 
     * Test data
     clear
@@ -1032,7 +1083,7 @@ capture noisily {
     drop dm2 htn
 
     * Run with codefile()
-    codescan dx1 dx2, codefile("/tmp/_codescan_xv25.csv")
+    codescan dx1 dx2, codefile("_codescan_xv25.csv")
 
     assert dm2 == def_dm2
     assert htn == def_htn
@@ -1061,13 +1112,13 @@ capture noisily {
 
     * First run with define + save
     codescan dx1, define(dm2 "E11" | htn "I10") ///
-        save("/tmp/_codescan_xv26.csv")
+        save("_codescan_xv26.csv", replace)
     gen byte run1_dm2 = dm2
     gen byte run1_htn = htn
     drop dm2 htn
 
     * Second run loading the saved codefile
-    codescan dx1, codefile("/tmp/_codescan_xv26.csv")
+    codescan dx1, codefile("_codescan_xv26.csv")
 
     assert dm2 == run1_dm2
     assert htn == run1_htn
@@ -1369,6 +1420,26 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: XV37 - countrows (error `=_rc')"
+    local ++fail_count
+}
+
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
     local ++fail_count
 }
 

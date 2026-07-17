@@ -1,12 +1,12 @@
 # codescan — Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 2.0.9** | 2026-07-10
+**Version 3.0.0** | 2026-07-17
 
-`codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data.  `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
+`codescan` scans wide-format code slots (such as `dx1`–`dx30` or `proc1`–`proc20`) with anchored regex or prefix rules and creates condition indicators, counts, or patient-level summaries — all without reshaping your data. `codescan_describe` is the reconnaissance companion: it shows what codes are actually present before you commit to a scanning rule set.
 
 ## What it does
 
-You tell `codescan` which code patterns to look for and what to name each condition.  The command scans every code slot on every row, marks which conditions are present, and returns a summary with prevalence and Wilson confidence intervals.  You can:
+You tell `codescan` which code patterns to look for and what to name each condition. The command scans every code slot on every row, marks which conditions are present, and returns a summary with prevalence and Wilson confidence intervals. You can:
 
 - Stay at the **row level** (one 0/1 indicator per encounter per condition)
 - **Collapse** to one row per patient with `collapse`
@@ -28,6 +28,33 @@ capture ado uninstall codescan
 net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan") replace
 ```
 
+## Quick Start
+
+Self-contained — paste the whole block into a clean Stata session.
+
+```stata
+clear
+input long pid str6 dx1 str6 dx2
+1 "E110" "I10"
+1 "Z00"  "E119"
+2 "I50"  ""
+2 "E102" ""
+3 "Z00"  ""
+end
+
+* What codes are actually in the data?
+codescan_describe dx1 dx2
+
+* Flag type 2 diabetes and hypertension on every encounter row.
+codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
+
+* Same rules, one row per patient. `replace` is needed because the row-level
+* call above already created dm2 and htn in memory.
+codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
+```
+
+The row-level call reports prevalence across the 5 encounters (dm2 40%, 2 of 5); the `collapse` call reports it across the 3 patients (dm2 33%, 1 of 3 — both `E11` encounters belong to the same patient). The denominator is the analysis unit, so it changes when the output shape does — see [Choosing the Output Shape](#choosing-the-output-shape). Both calls leave the prevalence table in `r(summary)` for programmatic use.
+
 ## Commands
 
 | Command | Description |
@@ -39,14 +66,14 @@ net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 
 The recommended workflow has four steps:
 
-1. **Inspect the code inventory** with `codescan_describe`.  This shows which codes and chapter prefixes actually occur in your data, and suggests patterns to target.
-2. **Draft simple rules** with `define()` and check the row-level results.  At this stage the created variables appear alongside the original data so you can verify matches.
-3. **Choose the output shape.**  Stay row-level for auditing, `collapse` to one row per `id()`, or `merge` patient-level summaries back to encounter rows.
-4. **Add advanced features last.**  Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), and export/save options.
+1. **Inspect the code inventory** with `codescan_describe`. This shows which codes and chapter prefixes actually occur in your data, and suggests patterns to target.
+2. **Draft simple rules** with `define()` and check the row-level results. At this stage the created variables appear alongside the original data so you can verify matches.
+3. **Choose the output shape.** Stay row-level for auditing, `collapse` to one row per `id()`, or `merge` patient-level summaries back to encounter rows.
+4. **Add advanced features last.** Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), and export/save options.
 
 ## Which Variables to Scan
 
-The words between `codescan` and the comma are a normal Stata varlist: they tell `codescan` which columns contain codes.  The rules in `define()` or `codefile()` are then applied to every variable in that varlist.
+The words between `codescan` and the comma are a normal Stata varlist: they tell `codescan` which columns contain codes. The rules in `define()` or `codefile()` are then applied to every variable in that varlist.
 
 ```stata
 codescan dx1 dx2 dx3, define(dm2 "E11")
@@ -55,7 +82,7 @@ codescan dx*, define(dm2 "E11")
 codescan dx1-dx30 proc1-proc20, define(dm2 "E11" | proc "XF001")
 ```
 
-Use explicit names (`dx1 dx2 dx3`) when there are only a few variables.  Use a range (`dx1-dx30`) when the variables sit next to each other in the dataset order.  Use a wildcard (`dx*`) when all variables with that prefix should be scanned.  You can mix groups in one varlist when the same definitions should be checked across all of them.
+Use explicit names (`dx1 dx2 dx3`) when there are only a few variables. Use a range (`dx1-dx30`) when the variables sit next to each other in the dataset order. Use a wildcard (`dx*`) when all variables with that prefix should be scanned. You can mix groups in one varlist when the same definitions should be checked across all of them.
 
 If diagnosis codes, procedure codes, and medication codes need different dictionaries, run separate scans and use `generate()` so the output names do not collide:
 
@@ -65,18 +92,18 @@ codescan proc1-proc20, define(mammo "XF001|XF002" | colectomy "JFB|JFH") ///
     mode(prefix) generate(proc_)
 ```
 
-For troubleshooting, add `detail` to see how many matches came from each scanned variable.  `codescan_describe dx1-dx30` is for inventory: it pools the nonempty codes across the listed variables so you can decide what rules to write.
+For troubleshooting, add `detail` to see how many matches came from each scanned variable. `codescan_describe dx1-dx30` is for inventory: it pools the nonempty codes across the listed variables so you can decide what rules to write.
 
 ## Regex Patterns in Plain English
 
-`mode(regex)` is the default.  For each code value, `codescan` uses Stata's unicode-aware regex engine (`ustrregexm()`) and automatically adds a start-of-string anchor.  That means `define(dm2 "E11")` is checked like `ustrregexm(code, "^(E11)")`: the code must start with `E11`.  With `nocase`, matching folds case across unicode (so `"Å"` matches `å`).
+`mode(regex)` is the default. For each code value, `codescan` uses Stata's unicode-aware regex engine (`ustrregexm()`) and automatically adds a start-of-string anchor. That means `define(dm2 "E11")` is checked like `ustrregexm(code, "^(E11)")`: the code must start with `E11`. With `nocase`, matching folds case across unicode (so `"Å"` matches `å`).
 
 Common patterns:
 
 - `"E11"` matches `E110`, `E119`, and `E11.9`; it does not match `AE11`.
-- `"I1[0-35]"` matches `I10`, `I11`, `I12`, `I13`, and `I15`.  The brackets mean "one character from this set"; `[0-35]` means `0`, `1`, `2`, `3`, or `5`.
+- `"I1[0-35]"` matches `I10`, `I11`, `I12`, `I13`, and `I15`. The brackets mean "one character from this set"; `[0-35]` means `0`, `1`, `2`, `3`, or `5`.
 - `"E1[01]"` matches `E10` and `E11`.
-- `"C7[7-9]|C80"` matches `C77`, `C78`, `C79`, or `C80`.  A `|` inside a quoted regex pattern means "or".
+- `"C7[7-9]|C80"` matches `C77`, `C78`, `C79`, or `C80`. A `|` inside a quoted regex pattern means "or".
 
 The unquoted `|` in `define()` has a different job: it separates conditions.
 
@@ -88,13 +115,15 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
 codescan dx1 dx2, define(metastatic "C7[7-9]|C80")
 ```
 
-Use `~` for exclusions.  This keeps the broad rule readable while removing specific subcodes:
+Use `~` for exclusions. This keeps the broad rule readable while removing specific subcodes:
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" ~ "E116")
 ```
 
-In `mode(prefix)`, regex metacharacters are not special.  The pattern is treated as one or more simple starts-with tokens separated by `|`, so `"XF001|XF002"` means "starts with `XF001` or starts with `XF002`".
+In `mode(prefix)`, regex metacharacters are not special. The pattern is treated as one or more simple starts-with tokens separated by `|`, so `"XF001|XF002"` means "starts with `XF001` or starts with `XF002`".
+
+**Patterns that can match an empty string are rejected** with `r(198)`. Because every pattern is anchored, such a pattern matches *every* code — as an inclusion it would flag the whole dataset, and as an exclusion it would empty it, in both cases silently. This rules out the empty pattern, `()`, `(())`, a trailing empty alternative like `(E11|)`, and zero-width quantifiers like `A*`, `A?`, and `A{0}`. To match any nonempty code on purpose, use `.` — one arbitrary character — rather than `.*`.
 
 ## Choosing the Output Shape
 
@@ -107,8 +136,7 @@ In `mode(prefix)`, regex metacharacters are not special.  The pattern is treated
 | Save the transformed dataset to disk | `saving(results.dta, replace)` | Same data as the selected output shape |
 | Save the prevalence summary table | `export(results.xlsx)` or `export(results.csv)` | Data in memory are unchanged by the export |
 
-For most analytic workflows, start with row-level output while checking the
-rules, then use `collapse` once the definitions are stable.
+For most analytic workflows, start with row-level output while checking the rules, then use `collapse` once the definitions are stable.
 
 ## Worked Examples
 
@@ -130,7 +158,7 @@ format visit_dt index_dt %td
 
 ### 2. Inspect the code inventory before writing rules
 
-Start here when you do not yet know which prefixes or patterns are in the raw data.  `codescan_describe` tabulates unique codes across wide-format variables, showing the top N by frequency and a chapter summary grouped by first character.
+Start here when you do not yet know which prefixes or patterns are in the raw data. `codescan_describe` tabulates unique codes across wide-format variables, showing the top N by frequency and a chapter summary grouped by first character.
 
 ```stata
 codescan_describe dx1 dx2, top(10)
@@ -144,7 +172,7 @@ codescan_describe dx1 dx2, save(chapter_rules.csv)
 
 ### 3. Start with a row-level scan
 
-This is the simplest use case.  It creates one 0/1 output variable per named condition.  Keep the first pass simple and verify the matches before adding windows or patient-level aggregation.
+This is the simplest use case. It creates one 0/1 output variable per named condition. Keep the first pass simple and verify the matches before adding windows or patient-level aggregation.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]" | chf "I50")
@@ -154,7 +182,7 @@ After this command, `dm2` is 1 on rows where `dx1` or `dx2` starts with `E11`; `
 
 ### 4. Collapse to one row per patient with a lookback window
 
-Once the rule set looks right, add IDs and dates.  `lookback(365)` limits matches to the prior year relative to `refdate()`, and `alldates` requests `_first`, `_last`, and `_count` date-summary variables for each condition.
+Once the rule set looks right, add IDs and dates. `lookback(365)` limits matches to the prior year relative to `refdate()`, and `alldates` requests `_first`, `_last`, and `_count` date-summary variables for each condition.
 
 ```stata
 codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
@@ -164,7 +192,7 @@ codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
 
 ### 5. Use exclusion patterns
 
-Use `~` after the inclusion pattern to exclude specific codes.  Here `dm2` matches all `E11*` codes except `E116`:
+Use `~` after the inclusion pattern to exclude specific codes. Here `dm2` matches all `E11*` codes except `E116`:
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")
@@ -172,7 +200,7 @@ codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")
 
 ### 6. Prefix matching for procedure codes
 
-`regex` is the default.  Switch to `mode(prefix)` when simple starts-with logic is enough and you do not need regex features.  Pipe-separated tokens are alternative prefixes.
+`regex` is the default. Switch to `mode(prefix)` when simple starts-with logic is enough and you do not need regex features. Pipe-separated tokens are alternative prefixes.
 
 ```stata
 codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") mode(prefix)
@@ -180,18 +208,18 @@ codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") mode(prefix)
 
 ### 7. Save reusable definitions, then load them back as a codefile
 
-This is the transition from ad hoc rule drafting to a reusable dictionary workflow.  `save()` writes the parsed `define()` rules to a CSV, and `codefile()` reads them back.
+This is the transition from ad hoc rule drafting to a reusable dictionary workflow. `save()` writes the parsed `define()` rules to a CSV, and `codefile()` reads them back.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)
 codescan dx1 dx2, codefile(dm_rules.csv) replace
 ```
 
-The first run leaves the `dm2` and `htn` indicators in memory, so the codefile re-run adds `replace` to overwrite them.  A fresh session that loads only the saved rules does not need `replace`.
+The first run leaves the `dm2` and `htn` indicators in memory, so the codefile re-run adds `replace` to overwrite them. A fresh session that loads only the saved rules does not need `replace`.
 
 ### 8. Non-destructive workflow with frames
 
-`frame()` stores the collapsed result in a named frame, leaving the original data untouched.  This is the recommended pattern when you need both encounter-level data and a patient-level summary in the same session.
+`frame()` stores the collapsed result in a named frame, leaving the original data untouched. This is the recommended pattern when you need both encounter-level data and a patient-level summary in the same session.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
@@ -201,14 +229,16 @@ frame results: list
 
 ### 9. Export a summary table and save the result dataset
 
-Use `export()` for the prevalence table and `saving()` for the transformed dataset.  `format()` controls the number format in both the console output and the exported file.
+Use `export()` for the prevalence table and `saving()` for the transformed dataset. `format()` controls the number format in both the console output and the exported file — with `format(%9.2f)` the workbook's prevalence and CI cells carry the Excel number format `0.00`.
 
 ```stata
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///
-    export(codescan_results.xlsx) ///
+    export(codescan_results.xlsx, replace) ///
     saving(codescan_results.dta, replace) ///
     format(%9.2f)
 ```
+
+Both `replace` suboptions are what let you re-run this block; drop either one and a second run stops with `r(602)` rather than overwriting your file.
 
 ### 10. Merge patient-level results back to original rows
 
@@ -220,7 +250,7 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge
 
 ### 11. Multi-window sensitivity analysis
 
-Supply several lookback values to compare how prevalence changes across windows.  `r(sensitivity)` returns a matrix of prevalences by condition and window.
+Supply several lookback values to compare how prevalence changes across windows. `r(sensitivity)` returns a matrix of prevalences by condition and window.
 
 ```stata
 codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
@@ -228,77 +258,78 @@ codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
     lookback(90 365) inclusive collapse
 ```
 
-## Demo
+### 12. Tell hits apart from cases, and see which slot they came from
 
-The demo uses synthetic administrative data: 500 patients with 3 encounters each, 4 wide-format ICD-10 diagnosis slots, and 1 procedure code variable.
-
-### Inline define — row-level scan
+A patient coded `E110` in `dx1` and `E119` in `dx2` on the same encounter is *one* case carrying *two* hits. `countmode` reports both: `Hits` (and `r(summary)`'s `total_hits`) counts code slots, while `Units>0` (`positive_units`) counts patients — and prevalence uses the latter.
 
 ```stata
-. noisily codescan dx1 dx2 dx3 dx4,
->     define(dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" |
->            cancer "C[0-7]" ~ "C77|C78|C79|C80" | metastatic "C7[789]|C80")
->     label(dm "Diabetes" \ htn "Hypertension" \ chf "Heart failure" \
->           copd "COPD" \ cancer "Cancer (non-met)" \ metastatic "Metastatic cancer")
->     detail noisily
+codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode
+matrix list r(summary)
 ```
 
-```
-  dm: 384 matches across 4 variables
-  htn: 227 matches across 4 variables
-  chf: 51 matches across 4 variables
-  copd: 159 matches across 4 variables
-  cancer: 212 matches across 4 variables
-  metastatic: 171 matches across 4 variables
+`detail` credits that patient's row to `dx1` alone, because binary matching stops at the first slot that matches; scanning `dx2 dx1` would credit `dx2` instead, with an identical cohort. Add `allslots` to count each slot on its own, which makes the table independent of varlist order.
 
-codescan: 6 conditions, 4 variables, N =      1,500
-
-  Condition              Matches   Prevalence            [95% CI]
-  ----------------------------------------------------------------
-  dm                         384        25.6%    [ 23.5,  27.9]
-  htn                        227        15.1%    [ 13.4,  17.0]
-  chf                         51         3.4%    [  2.6,   4.4]
-  copd                       159        10.6%    [  9.1,  12.3]
-  cancer                     212        14.1%    [ 12.5,  16.0]
-  metastatic                 171        11.4%    [  9.9,  13.1]
-
-  Per-variable match contribution:
-  dm: 129 in dx1, 96 in dx2, 100 in dx3, 59 in dx4
-  htn: 84 in dx1, 47 in dx2, 45 in dx3, 51 in dx4
-  chf: 16 in dx1, 10 in dx2, 13 in dx3, 12 in dx4
-  copd: 51 in dx1, 31 in dx2, 39 in dx3, 38 in dx4
-  cancer: 66 in dx1, 50 in dx2, 46 in dx3, 50 in dx4
-  metastatic: 42 in dx1, 51 in dx2, 39 in dx3, 39 in dx4
+```stata
+codescan dx1 dx2, define(dm2 "E11") detail
+codescan dx1 dx2, define(dm2 "E11") detail allslots
 ```
 
-### Prevalence chart
+## Demo
+
+`demo/demo_codescan.do` builds synthetic administrative data — 500 patients with 3 encounters each (1,500 rows), 4 wide-format ICD-10 diagnosis slots, and 1 procedure code variable — and scans it with a six-condition rule set:
+
+```stata
+codescan dx1 dx2 dx3 dx4, ///
+    define(dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" | ///
+           cancer "C[0-7]" ~ "C77|C78|C79|C80" | metastatic "C7[789]|C80") ///
+    label(dm "Diabetes" \ htn "Hypertension" \ chf "Heart failure" \ ///
+          copd "COPD" \ cancer "Cancer (non-met)" \ metastatic "Metastatic cancer") ///
+    id(pid) collapse graph
+```
+
+### Prevalence chart — patient level
+
+Prevalence among the 500 **patients**, after `id(pid) collapse`:
 
 ![Condition prevalence](demo/prevalence_chart.png)
 
+The same rules run without `collapse` report prevalence among the 1,500 **encounters** instead, and every number is lower — a patient counts once here but contributes up to three encounter rows there. Neither is more correct; they answer different questions. The console header names the denominator (`observations` versus `pid values`) on every run, so check it before comparing two scans.
+
+### Excel workbook
+
+The demo also writes `demo/codescan_results.xlsx` with a summary sheet and a co-occurrence sheet, via `cooccurrence export(...) format(%9.2f)`.
+
+Reproduce both assets from the repository root or from `codescan/demo/`:
+
+```stata
+do demo/demo_codescan.do
+```
+
 ## Key Behaviors
 
-- **Anchored matching:** patterns are anchored at the start of each code value.  `define(dm2 "E11")` matches `E110` and `E119`, not `AE11`.
-- **Default labels:** if neither `label()` nor a codefile `label` column supplies a label, displayed and exported output use the condition name.
-- **Regex vs. prefix:** `mode(regex)` (default) supports character classes and alternation.  `mode(prefix)` uses simple starts-with comparisons and is usually faster.
-- **Exclusion patterns:** use `~` after the inclusion pattern, e.g. `define(dm2 "E11" ~ "E116")`.  Multiple exclusions are allowed: `define(x "A" ~ "A1" ~ "A2")`.
+- **Anchored matching:** patterns are anchored at the start of each code value. `define(dm2 "E11")` matches `E110` and `E119`, not `AE11`.
+- **Labels are presentation only:** `label()` (or a codefile `label` column) supplies the text used for the variable label, the `Condition` column of the console table, the `detail` table, the bar labels of `graph`, and a dedicated `label` column in `export()`. Conditions without a label fall back to the condition name. Identifiers never change: `r(conditions)`, every matrix row name, and the export's `condition` column always carry the condition *name*, so relabeling cannot break a do-file. Entries are separated by `\`, not `|`, and label text may not contain a double quote — using `|` by mistake is rejected with `r(198)` rather than silently labelling one condition with the rest of the option.
+- **Regex vs. prefix:** `mode(regex)` (default) supports character classes and alternation. `mode(prefix)` uses simple starts-with comparisons and is usually faster.
+- **Exclusion patterns:** use `~` after the inclusion pattern, e.g. `define(dm2 "E11" ~ "E116")`. Multiple exclusions are allowed: `define(x "A" ~ "A1" ~ "A2")`.
 - **nodots:** strips periods during matching without modifying the stored data.
 - **nocase:** performs unicode-aware case-insensitive matching without rewriting regex escapes such as `\d`.
 - **tostring:** converts numeric code variables to string before scanning; original data are restored afterward.
-- **collapse vs. merge:** `collapse` creates one row per `id()`.  `merge` attaches patient-level results back to the original row structure.
-- **alldates:** shorthand for `earliestdate`, `latestdate`, and `countdate`.  These create `_first`, `_last`, and `_count` date-summary variables.
-- **countrows:** creates `_nrows` variables counting the number of rows (not unique dates) with a qualifying match.  Does not require `date()`.
-- **countmode:** changes created variables from 0/1 indicators to integer counts (number of code slots matched per row, summed across rows after collapse/merge).
+- **collapse vs. merge:** `collapse` creates one row per `id()`. `merge` attaches patient-level results back to the original row structure.
+- **alldates:** shorthand for `earliestdate`, `latestdate`, and `countdate`. These create `_first`, `_last`, and `_count` date-summary variables.
+- **countrows:** creates `_nrows` variables counting the number of rows (not unique dates) with a qualifying match. Does not require `date()`.
+- **countmode:** changes created variables from 0/1 indicators to integer counts (number of code slots matched per row, summed across rows after collapse/merge). It reports two quantities that are easy to confuse: `total_hits` counts matching code *slots* (a patient coded `E110` in `dx1` and `E119` in `dx2` contributes 2), while `positive_units` counts observations — or `id()` values under `collapse`/`merge` — with a count above zero. Prevalence and its CI are built from `positive_units`, so prevalence means the same thing with and without `countmode`. Both appear in the console table (`Hits`, `Units>0`), `r(summary)`, `r(codelist)`, and `export()`. Without `countmode`, `total_hits` is missing rather than a copy of `positive_units`, because binary matching never counts repeat hits.
+- **detail is order-dependent by default:** binary matching stops at the first slot that matches a condition, so `r(varcounts)` credits each row to the **first** matching variable in varlist order. Scanning `dx2 dx1` instead of `dx1 dx2` moves counts between columns without changing the cohort, the prevalence, or `r(summary)`. Add `allslots` to count every matching slot independently; the table is then order-free, its row totals equal the `countmode` hit totals, and the indicators stay 0/1. `r(detail_allslots)` records which rule produced the table.
 - **generate:** prefixes all created variable names, useful when running separate diagnosis, procedure, and medication scans on the same dataset.
-- **unmatched:** creates a row-level 0/1 flag for observations that matched no condition.
+- **unmatched:** creates a row-level flag with three states — 1 = analyzed and matched nothing, 0 = analyzed and matched, `.` = not analyzed (excluded by `if`/`in`, a missing `id()`, or a time window). So `count if flag == 1` counts genuine non-matches, and `count if !missing(flag)` reproduces `r(N)`.
 - **matched_code:** creates a row-level variable holding the first code value that survived matching.
 - **frame:** stores the result in a named frame and implies `preserve`, so the original data are untouched.
-- **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting.  The interval reflects sampling error only — not coding error or misclassification.
+- **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting. The interval reflects sampling error only — not coding error or misclassification.
 - **Analysis unit:** the console header names the denominator (`observations` at the row level, `id()` values after `collapse`/`merge`), so row-level prevalence is never misread as person-level.
-- **Diagnosis position:** rules apply to every scanned slot equally.  To honor first-listed (main) diagnosis validity, scan `dx1` on its own, or run the positions as separate calls with `generate()` prefixes.
+- **Diagnosis position:** rules apply to every scanned slot equally. To honor first-listed (main) diagnosis validity, scan `dx1` on its own, or run the positions as separate calls with `generate()` prefixes.
 
 ### Interpreting prevalence
 
-`codescan` reports the prevalence of the **code definition** you supply — the share of encounters or patients whose codes match your rule — not the prevalence of the underlying disease.  The gap between the two is governed by the **positive predictive value and sensitivity** of the codes in your data.  Validate your case definition against the relevant register-validation literature before reading the output as disease frequency; the Wilson CI quantifies sampling error, not misclassification.
+`codescan` reports the prevalence of the **code definition** you supply — the share of encounters or patients whose codes match your rule — not the prevalence of the underlying disease. The gap between the two is governed by the **positive predictive value and sensitivity** of the codes in your data. Validate your case definition against the relevant register-validation literature before reading the output as disease frequency; the Wilson CI quantifies sampling error, not misclassification.
 
 ## Definition Rules and Codefiles
 
@@ -308,8 +339,8 @@ Inline definitions use this structure:
 define(name "inclusion_pattern" ~ "exclusion_pattern" | name2 "pattern2")
 ```
 
-The inclusion and exclusion patterns are anchored at the start of each code value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
-`I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as simple alternative prefixes.
+The inclusion and exclusion patterns are anchored at the start of each code value. In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
+`I13`, and `I15`. In `mode(prefix)`, pipe-separated tokens are treated as simple alternative prefixes.
 
 There are three practical ways to list condition definitions:
 
@@ -317,9 +348,9 @@ There are three practical ways to list condition definitions:
 2. Put many conditions in a CSV or `.dta` codefile, with one row per condition.
 3. Use `codescan_describe, save(chapter_rules.csv)` or `codescan, save(rules.csv)` to create a starter CSV, then edit it.
 
-Definitions apply to all variables in the varlist.  To use different definitions for different variable groups, run separate calls with `generate()` prefixes, as shown above.
+Definitions apply to all variables in the varlist. To use different definitions for different variable groups, run separate calls with `generate()` prefixes, as shown above.
 
-Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched case-insensitively.
+Reusable codefiles may be CSV or Stata `.dta` files. Column names are matched case-insensitively.
 
 | Column | Required | Meaning |
 |--------|----------|---------|
@@ -328,7 +359,7 @@ Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched c
 | `exclusion` | No | Exclusion pattern(s), combined with `|` when more than one is needed |
 | `label` | No | Human-readable label for output variables and tables |
 
-Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable codefile.  Use `saving(results.dta, replace)` for the final transformed dataset; the two option names deliberately do different jobs.
+Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable codefile. Use `saving(results.dta, replace)` for the final transformed dataset; the two option names deliberately do different jobs.
 
 ## Options
 
@@ -354,6 +385,7 @@ Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable code
 | `replace` | Permit replacement of planned outputs or frames |
 | `noisily` | Display per-condition match totals |
 | `detail` | Return per-variable match contributions |
+| `allslots` | With `detail`, count every matching slot (order-free) |
 | `nodots` | Remove dots while matching/tabulating |
 | `tostring` | Scan numeric codes through temporary strings |
 | `preserve` | Restore the active data after patient-level processing |
@@ -361,23 +393,24 @@ Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable code
 | `cooccurrence` | Return pairwise condition co-occurrence counts |
 | `nocase` | Use unicode-aware case-insensitive matching |
 | `generate()` | Prefix created variable names |
-| `unmatched()` | Create a row-level no-match flag |
+| `unmatched()` | Create a row-level no-match flag (1/0/`.`) |
 | `matched_code()` | Store the first matching code on each row |
 | `level()` | Truncate prefix tokens to a fixed length |
 | `graph` | Draw a prevalence bar chart |
-| `export()` | Write the summary to CSV or Excel |
-| `save()` | Write reusable definitions (or describe chapters) to CSV |
-| `saving()` | Save the transformed result dataset |
+| `export(f [, replace])` | Write the summary to CSV or Excel |
+| `save(f [, replace])` | Write reusable definitions (or describe chapters) to CSV |
+| `saving(f [, replace])` | Save the transformed result dataset |
 | `format()` | Set the prevalence/CI display format |
 | `countmode` | Store code-slot counts instead of binary indicators |
 | `top()` | Set the number of codes shown by `codescan_describe` |
 
-File options reject quotes, shell metacharacters, and control characters inside
-filenames. Ordinary quoted paths containing spaces or hyphens are supported.
+File options reject quotes, shell metacharacters, and control characters inside filenames. Ordinary quoted paths containing spaces or hyphens are supported.
+
+`export()`, `save()`, and `saving()` never overwrite an existing file unless you add the `replace` suboption; without it the command stops with `r(602)` before touching your data. That suboption is distinct from the `replace` option, which authorizes overwriting output *variables and frames* and says nothing about files.
 
 ## Stored Results
 
-`codescan` creates one variable per condition.  Without `countmode`, those variables are 0/1 indicators.  With `countmode`, they are integer counts of matching code slots.  With `collapse` or `merge`, optional date/count variables are added as requested:
+`codescan` creates one variable per condition. Without `countmode`, those variables are 0/1 indicators. With `countmode`, they are integer counts of matching code slots. With `collapse` or `merge`, optional date/count variables are added as requested:
 
 | Option | Created variables |
 |--------|-------------------|
@@ -395,6 +428,7 @@ filenames. Ordinary quoted paths containing spaces or hyphens are supported.
 | `r(collapsed)` | Whether `collapse` ran |
 | `r(merged)` | Whether `merge` ran |
 | `r(mode_count)` | Whether `countmode` was used |
+| `r(detail_allslots)` | Whether `detail` counted every slot (with `detail`) |
 | `r(conditions)` | Condition names |
 | `r(newvars)` | Created variables remaining in memory |
 | `r(varlist)` | Scanned variables |
@@ -411,11 +445,14 @@ filenames. Ordinary quoted paths containing spaces or hyphens are supported.
 | `r(n_excluded_missingdate)` | Rows excluded for missing window dates |
 | `r(frame)` | Result frame name |
 | `r(ci_level)` | Confidence level |
-| `r(summary)` | Counts, prevalence, and Wilson CI |
-| `r(codelist)` | Counts and prevalence |
+| `r(summary)` | `count`, `prevalence`, `ci_low`, `ci_high`, `total_hits`, `positive_units` |
+| `r(codelist)` | `count`, `prevalence`, `total_hits`, `positive_units` |
 | `r(varcounts)` | Per-variable match counts |
 | `r(cooccurrence)` | Pairwise co-occurrence matrix |
 | `r(sensitivity)` | Multi-window prevalence matrix |
+| `r(sensitivity_n)` | Denominators behind `r(sensitivity)` |
+
+`r(lookback)` is a scalar when one window was requested and a macro of space-separated values when several were. `r(n_excluded_missingdate)` is a scalar, returned only when a window was used.
 
 `codescan_describe` returns:
 
@@ -439,39 +476,64 @@ filenames. Ordinary quoted paths containing spaces or hyphens are supported.
 | A condition matches zero observations | Check spelling, dots, case, anchoring, and whether `mode(regex)` or `mode(prefix)` matches the intended rule |
 | Multi-window `lookback()` fails | Multiple windows require `collapse` or `merge` because the comparison is patient-level |
 
-## Validation
+## QA
 
-The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`,
-`core`, and `full` lanes. The full lane currently includes 14 functional test
-files and 11 validation files, for 641 tests:
+The QA suite is in `qa/` and uses a curated `run_all.do` runner with `quick`, `core`, and `full` lanes. See `qa/README.md` for lane membership and the coverage map. The full lane runs 26 suites and 680 assertions:
 
 - `test_codescan.do` - 308 tests
-- `test_codescan_adversarial.do` - 11 tests
-- `test_codescan_describe_adversarial.do` - 9 tests
-- `test_codescan_install_docs.do` - 11 tests
-- `test_codescan_regressions.do` - 30 tests
-- `test_codescan_perf_equiv.do` - 5 tests
-- `test_codescan_v203_hardening.do` - 14 tests
-- `test_codescan_v208.do` - 4 tests
-- `test_codescan_stress_adversarial.do` - 6 tests
-- `test_codescan_v2_no_scoring.do` - 4 tests
 - `test_countrows.do` - 24 tests
-- `test_documentation_examples.do` - 8 tests
 - `test_mata_opt.do` - 14 tests
-- `test_release_integrity.do` - 6 tests
+- `test_codescan_regressions.do` - 30 tests
+- `test_codescan_v208.do` - 4 tests
+- `test_codescan_v2_no_scoring.do` - 4 tests
+- `test_codescan_v203_hardening.do` - 14 tests
+- `test_codescan_v300_critical.do` - 30 tests
+- `test_codescan_perf_equiv.do` - 5 tests
 - `validation_codescan.do` - 65 validations
-- `validation_codescan_crosscheck.do` - 33 validations
-- `validation_codescan_describe.do` - 6 validations
-- `validation_codescan_describe_adversarial.do` - 9 validations
+- `validation_countrows.do` - 8 validations
+- `validation_codescan_known_answers.do` - 8 validations
 - `validation_codescan_dgp_recovery.do` - 23 validations
 - `validation_codescan_dgp_recovery2.do` - 19 validations
-- `validation_codescan_io.do` - 5 validations
-- `validation_codescan_known_answers.do` - 8 validations
-- `validation_codescan_output.do` - 3 validations
-- `validation_countrows.do` - 8 validations
 - `validation_mata.do` - 8 validations
+- `validation_codescan_io.do` - 5 validations
+- `validation_codescan_output.do` - 4 validations
+- `validation_codescan_describe.do` - 6 validations
+- `validation_codescan_describe_adversarial.do` - 9 validations
+- `validation_codescan_crosscheck.do` - 33 validations
+- `test_codescan_adversarial.do` - 11 tests
+- `test_codescan_describe_adversarial.do` - 9 tests
+- `test_codescan_stress_adversarial.do` - 6 tests
+- `test_codescan_install_docs.do` - 11 tests
+- `test_documentation_examples.do` - 16 tests
+- `test_release_integrity.do` - 6 tests
 
-## Changelog
+## Version History
+
+### 3.0.0 (2026-07-17)
+
+Breaking release. It repairs five defects that could lose data or produce a silently wrong cohort, and it repairs an analytical contract that promised more than it delivered. Do-files that parse `codescan` output or rely on silent file overwrite need review.
+
+**Breaking changes**
+
+- Output files are never overwritten without authorization. `export()`, `save()`, and `saving()` — and `codescan_describe`'s `save()` — now take `filename [, replace]`. Writing over an existing file without the `replace` suboption is an error (`r(602)`), raised before any data are touched. This is separate from the `replace` option, which still governs variables and frames only.
+- Regex patterns that can match an empty string are rejected with `r(198)`. Anchoring makes such a pattern match every code, so an inclusion of that shape silently flagged the whole dataset and an exclusion silently emptied it. Rejected shapes include `()`, `(())`, `(E11|)`, `A*`, `A?`, and `A{0}`. **`.*` is rejected too** — the match-any-nonempty idiom is now `.`.
+- `unmatched()` distinguishes analyzed from excluded rows: 1 = analyzed and matched nothing, 0 = analyzed and matched, `.` = not analyzed. Previously rows dropped by `if`, `in`, a missing `id()`, or a time window were coded 0, which inflated any denominator built from the flag.
+- `label()` now reaches the console table, the `graph` bar labels, and a new `label` column in `export()`. Previously it set the variable label and nothing else, so tables and workbooks documented as labelled showed raw condition names. Identifiers are unaffected: `r(conditions)`, matrix row names, and the export's `condition` column still carry the condition name.
+- `label()` text may no longer contain a double quote (`r(198)`). The common cause is writing `define()`'s `|` separator instead of `label()`'s `\`, which used to label one condition with the remainder of the option text and leave the rest unlabelled, at `rc=0`.
+- `r(summary)` gained two columns (`total_hits`, `positive_units`) and `r(codelist)` gained the same two. Existing column positions are unchanged and `count` keeps its old meaning, so `summary[i,1..4]` still reads what it read before; `matrix colnames` output differs.
+- `export()` gained the `label`, `total_hits`, and `positive_units` columns. `matches` is retained with its old value.
+
+**Fixes**
+
+- A late error no longer deletes pre-existing variables. Output-variable creation and rollback are now transactional, so a failure leaves the caller's data exactly as it was. Previously the cleanup path could delete a variable that a `restore` had already put back.
+- Optional `codefile()` columns of the wrong type now fail explicitly. A numeric `exclusion` or `label` column was silently treated as absent, so exclusions were dropped and the resulting cohort was wrong at `rc=0`.
+- Numeric extended missing values (`.a` through `.z`) no longer enter matching or `codescan_describe` totals as the literal codes `.a`–`.z` under `tostring`.
+
+**New**
+
+- `r(sensitivity_n)` returns the denominator behind each `r(sensitivity)` cell. Each lookback window analyzes a different number of observations, so a prevalence that moves across windows may reflect a changing denominator rather than a changing numerator.
+- `allslots` makes `detail` count every matching slot rather than crediting each row to its first matching variable. The default table is order-dependent — scanning `dx2 dx1` instead of `dx1 dx2` moves counts between columns without changing the cohort — which is now stated in the help, the README, and the `detail` output itself. `allslots` is order-free and leaves the indicators 0/1. `r(detail_allslots)` records which rule was used.
+- `countmode` reports total hits and positive units separately, in the console (`Hits`, `Units>0`), in `r(summary)`/`r(codelist)`, and in `export()`. The single reported quantity was the slot-hit total under a name (`matches`) that reads like a case count, while prevalence was built from positive units.
 
 ### 2.0.9 (2026-07-09)
 
@@ -548,3 +610,7 @@ files and 11 validation files, for 641 tests:
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT

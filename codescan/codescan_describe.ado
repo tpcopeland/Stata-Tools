@@ -1,4 +1,4 @@
-*! codescan_describe Version 2.0.9  2026/07/09
+*! codescan_describe Version 3.0.0  2026/07/17
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -13,7 +13,8 @@ DESCRIPTION:
     conditions for scanning.
 
 SYNTAX:
-    codescan_describe varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string)]
+    codescan_describe varlist [if] [in] [, Top(integer 20) NODots TOSTRing
+        SAVE(filename [, replace])]
 
 STORED RESULTS:
     r(n_unique)   - Number of unique codes found
@@ -31,10 +32,16 @@ program define codescan_describe, rclass
     local _did_preserve = 0
     capture noisily {
 
-    syntax varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string)]
+    syntax varlist [if] [in] [, Top(integer 20) NODots TOSTRing SAVE(string asis)]
 
+    * save(filename [, replace]) — refuse an existing file unless authorized.
+    * Checked here, before any work, so a refusal costs the caller nothing.
+    local _save_fn ""
+    local _save_replace = 0
     if `"`save'"' != "" {
-        _codescan_validate_path, path(`"`save'"') context(save())
+        _codescan_parse_filespec, spec(`"`save'"') context(save()) checkexists
+        local _save_fn `"`r(filename)'"'
+        local _save_replace = r(replace)
     }
 
     * Validate top
@@ -90,7 +97,15 @@ program define codescan_describe, rclass
             capture confirm string variable `var'
             if _rc {
                 noisily display as text "(note: converting `var' from numeric to string)"
+                * Extended missings .a-.z stringify to ".a".."z", which the
+                * downstream ""/"." filter does not catch — they would be counted
+                * as real entries and unique codes. tostring replaces the
+                * variable in place, so record the missing mask first.
+                tempvar _ts_miss
+                quietly gen byte `_ts_miss' = missing(`var')
                 quietly tostring `var', replace force
+                quietly replace `var' = "" if `_ts_miss'
+                drop `_ts_miss'
             }
         }
     }
@@ -239,7 +254,7 @@ program define codescan_describe, rclass
 
     * Save draft codefile from chapter summary
     if `"`save'"' != "" {
-        local _save_ext = lower(substr(`"`save'"', -4, .))
+        local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
         if "`_save_ext'" != ".csv" {
             display as error "save() requires a .csv file extension"
             exit 198
@@ -258,12 +273,12 @@ program define codescan_describe, rclass
                 replace pattern = `"`_desc_ch_`i''"' in `i'
             }
             keep name pattern exclusion label
-            export delimited using `"`save'"', replace
+            export delimited using `"`_save_fn'"', replace
         }
         restore
         local _did_preserve = 0
         noisily display as text ///
-            `"(draft codefile saved to `save' -- edit condition names and patterns before use)"'
+            `"(draft codefile saved to `_save_fn' -- edit condition names and patterns before use)"'
     }
 
     } // end capture noisily

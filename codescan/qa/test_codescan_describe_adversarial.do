@@ -14,8 +14,22 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 **# T1: no-observation if/in path exits 2000 and restores varabbrev
 
@@ -41,6 +55,12 @@ else {
     display as error "  FAIL: T1 - no-observation path/varabbrev (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 **# T2: top() rejects zero and negative values with rc 198
 
@@ -89,6 +109,12 @@ else {
     display as error "  FAIL: T3 - numeric variable error/varabbrev (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 **# T4: tostring preserves storage types, values, observation order, and sort order
 
@@ -154,6 +180,12 @@ else {
     local ++fail_count
 }
 
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
 **# T6: all-empty no-code path succeeds and does not leave stray variables
 
 local ++test_count
@@ -209,6 +241,12 @@ else {
     display as error "  FAIL: T7 - successful varabbrev restoration (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 **# T8: installed-user behavior works from an isolated PLUS directory
 
@@ -284,6 +322,32 @@ else {
     display as error "  FAIL: T9 - failed save() return/state contract (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

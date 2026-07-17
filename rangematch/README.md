@@ -179,7 +179,7 @@ rangematch event_date -30 30 using `events'
 rangematch event_date . 30 using `events'
 ```
 
-Output preserves variable labels, value-label attachments and definitions, and the master dataset label for both master and carried using variables, as `merge` does. If master and using data define the same value-label name with different mappings, the master definition wins.
+Output preserves variable labels, value-label attachments and definitions, and the master dataset label for both master and carried using variables, as `merge` does. If master and using data define the same value-label name with the same mapping, the single definition is shared. If they define it with *different* mappings, the master keeps the original name and the using definition is copied under a collision-free name (`name_U`, then `name_U2`, and so on), to which the carried using variables are attached; carried variables sharing one mapping share one copy. Both meanings survive, so `decode` on a carried variable returns the using data's own text.
 
 ## Options
 
@@ -203,7 +203,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
-| `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_using_missing)`. |
+| `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds, the master `keyvar` where it is a matching input (scalar offsets or `nearest()`), and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key or master matching key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_master_key_missing)`/`r(N_using_missing)`. On `missing(error)` the counts appear in the error message, not in `r()`. |
 | `nearest(before|after|both)` | Keep nearest using observations within the interval relative to the master key. |
 | `ties(all|first|last|random)` | Tie handling for `nearest()`; `random` chooses one tied row uniformly. Default is `all`. |
 | `seed(#)` | Reproducible seed for `ties(random)`; the caller's RNG state is restored after the call. |
@@ -226,6 +226,7 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `r(N_unmatched)` | Unmatched output rows |
 | `r(N_matched_pairs)` | Matched output rows |
 | `r(N_missing_bounds)` | Master rows with a missing variable bound for `low` or `high` |
+| `r(N_master_key_missing)` | Master rows with a missing `keyvar` where it is a matching input (scalar offsets or `nearest()`); 0 otherwise |
 | `r(N_using_missing)` | Using rows with a missing point key or interval bound |
 | `r(N_using_inverted)` | Using intervals with inverted bounds in overlap mode; 0 otherwise |
 | `r(tolerance)` | Boundary-comparison tolerance used |

@@ -7,8 +7,22 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 local test_count = 0
 local pass_count = 0
@@ -29,6 +43,12 @@ input str4 pid str5 dx1 str5 dx2 double(visit_dt refdate)
 end
 format visit_dt refdate %td
 
+* Immutable fixture. Every block below reloads it, so no test can inherit
+* indicator columns, a changed row order, or a collapsed dataset from the test
+* before it -- the nine tests used to share one mutable copy in memory.
+tempfile mfx
+quietly save `mfx'
+
 * Hand-computed expected values for the full dataset (no time window):
 *   dm2 (E11):  P001 rows 1,2; P003 row 6; P005 row 8 → 4 rows, 3 patients
 *   htn (I10):  P001 row 1; P002 row 4; P004 row 7    → 3 rows, 3 patients
@@ -41,6 +61,7 @@ format visit_dt refdate %td
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     codescan dx1 dx2, define(dm2 "E11" | htn "I10" | copd "J44" | obesity "E66") id(pid)
     assert r(N) == 9
 
@@ -68,6 +89,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     preserve
     codescan dx1 dx2, define(dm2 "E11" | htn "I10" | copd "J44" | obesity "E66") ///
         id(pid) collapse replace
@@ -97,6 +119,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     codescan dx1 dx2, define(dm2 "E11" | htn "I10") id(pid) countmode replace
     * dm2 total matches: E110 in row1, E112 in row2, E115 in row6, E110 in row8 dx2 = 4
     * But P005 has E110 in dx2, so dm2 matches 4 rows, some with 1 match each
@@ -126,6 +149,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     * refdate = 21990 (approx 2020-02-24)
     * lookback(30): visit_dt >= 21960  → rows: 3(21960), 6(21985), 8(21970) = 3 rows
     *   P003 row3 (Z00, no match), P003 row6 (E115→dm2), P005 row8 (E66+E110→obesity+dm2)
@@ -175,6 +199,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     * dm2 and htn overlap: P001 has both → 1 row (row1 has E110+I10)
     * dm2 and obesity overlap: P005 has both → 1 row (row8)
     * htn and obesity: P002 has both → 1 row (row4 has E66+I10)
@@ -200,6 +225,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     codescan_describe dx1 dx2
     * Non-empty codes: E110(row1,row8 dx2), E112(row2), J440(row3), E66(row4,row8 dx1),
     *   I10(row1 dx2, row4 dx2, row7 dx1), Z00(row5 dx2), E115(row6)
@@ -225,6 +251,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     codescan dx1 dx2, define(dm2 "E11" | htn "I10") id(pid) detail replace
     matrix list r(varcounts)
     * dm2 in dx1: rows 1,2,6 = 3 matches
@@ -250,6 +277,7 @@ else {
 
 local ++test_count
 capture noisily {
+    quietly use `mfx', clear
     preserve
     codescan dx1 dx2, define(dm2 "E11" | htn "I10") ///
         id(pid) date(visit_dt) refdate(refdate) lookback(30 90) merge replace
@@ -266,6 +294,27 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: KA8 multi-window with merge (error `=_rc')"
+    local ++fail_count
+}
+
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    quietly use `mfx', clear
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
     local ++fail_count
 }
 

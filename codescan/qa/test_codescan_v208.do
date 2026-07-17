@@ -8,8 +8,10 @@
 *       no longer aborts with r(132); the backslash is preserved inside the
 *       variable label while the "\" entry separator still splits entries.
 *   T2: a bare "." code slot (missing-value placeholder) is skipped by
-*       codescan, matching codescan_describe — a broad pattern like ".*" no
+*       codescan, matching codescan_describe — a broad match-any pattern no
 *       longer picks up phantom "." rows, and the two commands agree.
+*       (v3.0.0: the match-any pattern here is "." rather than ".*", which is
+*       now rejected as an empty-match pattern.)
 *   T3: under nodots, an all-dots value ("..", "...") that strips to "" is
 *       likewise skipped by codescan and codescan_describe (no phantom match).
 *   T4: an if-expression referencing a numeric scan variable now works with
@@ -27,8 +29,22 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 **# T1: backslash inside quoted label text + separator still splits
 
@@ -73,8 +89,11 @@ capture noisily {
     * codescan_describe treats "." as missing -> 2 unique codes.
     codescan_describe dx1
     assert r(n_unique) == 2
-    * codescan must agree: ".*" matches only the 2 real codes, not the 2 dots.
-    codescan dx1, define(anyc ".*")
+    * codescan must agree: a match-any pattern hits only the 2 real codes, not
+    * the 2 dots. v3.0.0 rejects ".*" as an empty-match pattern (it matches every
+    * code, including "", which is the C2 false-cohort class); "." is the
+    * equivalent match-any-non-empty-code idiom and is what the error suggests.
+    codescan dx1, define(anyc ".")
     count if anyc == 1
     assert r(N) == 2
 }
@@ -100,8 +119,8 @@ capture noisily {
     * Under nodots, ".." strips to "" -> describe reports 1 unique code.
     codescan_describe dx1, nodots
     assert r(n_unique) == 1
-    * codescan under nodots must also skip ".." -> ".*" matches only E11.
-    codescan dx1, define(anyc ".*") nodots
+    * codescan under nodots must also skip ".." -> match-any hits only E11.
+    codescan dx1, define(anyc ".") nodots
     count if anyc == 1
     assert r(N) == 1
 }
@@ -137,6 +156,26 @@ else {
     display as error "  FAIL T4: if + tostring ordering (rc=`=_rc')"
     local ++fail_count
 }
+
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
 
 **# Summary
 

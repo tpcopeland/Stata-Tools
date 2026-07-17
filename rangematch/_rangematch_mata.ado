@@ -7,15 +7,24 @@ version 16.1
 capture mata: mata drop _rm_build_pairs()
 capture mata: mata drop _rm_build_pairs_sweep()
 capture mata: mata drop _rm_build_pairs_overlap()
+capture mata: mata drop _rm_overlap_count_group()
+capture mata: mata drop _rm_overlap_emit_group()
+capture mata: mata drop _rm_interval_nonempty()
 capture mata: mata drop _rm_prepare_sweep_master()
 capture mata: mata drop _rm_compute_match_stats()
 capture mata: mata drop _rm_post_pair_results()
 capture mata: mata drop _rm_mata_version()
+capture mata: mata drop _rm_blank_quoted()
+capture mata: mata drop _rm_first_empty_opt()
+capture mata: mata drop _rm_dta_name()
 capture mata: mata drop _rm_bsearch_left()
 capture mata: mata drop _rm_bsearch_right()
 capture mata: mata drop _rm_bsearch_first_gt()
 capture mata: mata drop _rm_bsearch_last_lt()
 capture mata: mata drop _rm_key_block_uobs()
+capture mata: mata drop _rm_vl_same()
+capture mata: mata drop _rm_vl_candidate()
+capture mata: mata drop _rm_vl_resolve()
 capture mata: mata drop _rm_materialize()
 capture mata: mata drop _rm_fill_using_only()
 capture mata: mata drop _rm_generate_distance()
@@ -27,6 +36,113 @@ mata:
 string scalar _rm_mata_version()
 {
     return("1.3.3")
+}
+
+// ============================================================================
+// Empty-option-argument scanner.
+//
+// Stata's `syntax' treats `missing()' as NOT SUPPLIED: an explicitly empty
+// option argument is indistinguishable from an omitted option, so an option
+// whose grammar requires content silently becomes its default or a no-op.
+// (`missing(`policy')' with an empty `policy' would quietly disable the
+// requested check.) The parser therefore cannot make this distinction and the
+// raw argument list is scanned instead.
+//
+// _rm_blank_quoted() first masks every double-quoted payload so that a path,
+// label, or expression containing "()" cannot be misread as an empty option.
+// Quote characters are written as char(34): Mata has no backslash escape for a
+// double quote, and embedding one silently kills the whole mata block.
+//
+// The mask character is "x", NOT a space: masking with spaces would turn
+// saving("/path/out.dta") into saving(        ), which reads as an EMPTY
+// argument and rejects a perfectly valid call. The mask must keep a quoted
+// payload looking like content while destroying any option-like text inside it.
+// ============================================================================
+string scalar _rm_blank_quoted(string scalar s0)
+{
+    string scalar out, ch, dq, mask
+    real scalar i, n, inq
+
+    dq = char(34)
+    mask = "x"
+    out = ""
+    n = strlen(s0)
+    inq = 0
+    for (i = 1; i <= n; i++) {
+        ch = substr(s0, i, 1)
+        if (ch == dq) {
+            inq = !inq
+            out = out + mask
+        }
+        else {
+            out = out + (inq ? mask : ch)
+        }
+    }
+    return(out)
+}
+
+// Return the full name of the first option found written with an empty
+// argument, or "" if none. Abbreviations are honoured exactly as `syntax'
+// defines them: for each option every prefix from its minimum abbreviation up
+// to the full name is tested, so miss(), missi(), missin() and missing() are
+// all caught. prefix()/suffix() are excluded by design -- an empty prefix is a
+// meaningful value, not a missing argument -- as are the numeric-typed
+// tolerance()/maxpairs(), which `syntax' already rejects when empty.
+string scalar _rm_first_empty_opt(string scalar cmdline)
+{
+    string colvector fulls
+    real colvector mins
+    string scalar s, cand
+    real scalar i, j, L
+
+    fulls = ("by"       \ "keepusing" \ "unmatched" \ "generate" \
+             "distance" \ "masterid"  \ "usingid"   \ "overlap"  \
+             "frame"    \ "closed"    \ "nearest"   \ "ties"     \
+             "seed"     \ "missing"   \ "assert"    \ "saving")
+    // Minimum abbreviation length, matching the capitals in the syntax line:
+    // BY KEEPUsing UNMATCHed GENerate DISTance MASTERID USINGID OVERLAP
+    // FRAME CLOSED NEARest TIES SEED MISSing ASsert SAVing
+    mins  = (2 \ 5 \ 7 \ 3 \
+             4 \ 8 \ 7 \ 7 \
+             5 \ 6 \ 4 \ 4 \
+             4 \ 4 \ 2 \ 3)
+
+    s = strlower(_rm_blank_quoted(cmdline))
+    for (i = 1; i <= rows(fulls); i++) {
+        L = strlen(fulls[i])
+        for (j = mins[i]; j <= L; j++) {
+            cand = substr(fulls[i], 1, j)
+            // <abbrev> ( ) at a token boundary, allowing internal blanks.
+            if (ustrregexm(s, "(^|[ ,])" + cand + " *\( *\)")) {
+                return(fulls[i])
+            }
+        }
+    }
+    return("")
+}
+
+// ============================================================================
+// Resolve a dataset path the way Stata's own `save' resolves it.
+//
+// Stata appends .dta only when the FILE NAME carries no extension. Measured
+// with save:
+//     "plain"       -> plain.dta
+//     "dotted.foo"  -> dotted.foo    (left alone)
+//     "St99.000002" -> St99.000002   (left alone -- a tempfile already has an
+//                                     ".<seq>" extension)
+// so the rule is "no extension -> append .dta", NOT "does not end in .dta ->
+// append .dta". saving("/tmp/out") wrote /tmp/out.dta while r(saving) and the
+// console both reported the nonexistent /tmp/out, so automation that confirmed
+// or reused r(saving) failed after a successful command.
+//
+// pathsuffix() is used rather than a strpos(".") test because it confines
+// itself to the file name: a dot in a DIRECTORY component (as in
+// "~/my.dir/out") must not count as an extension.
+// ============================================================================
+string scalar _rm_dta_name(string scalar fname)
+{
+    if (pathsuffix(fname) == "") return(fname + ".dta")
+    return(fname)
 }
 
 void _rm_prepare_sweep_master(
@@ -227,7 +343,9 @@ void _rm_build_pairs_sweep(
     real scalar compute_stats,
     real scalar assert_match,
     real scalar assert_using,
-    real scalar sweep_mode
+    real scalar sweep_mode,
+    string scalar mi_var,
+    string scalar ui_var
 )
 {
     string scalar oldframe
@@ -491,11 +609,11 @@ void _rm_build_pairs_sweep(
         if (n_pairs > 0) {
             st_addobs(n_pairs)
         }
-        (void) st_addvar("double", "__rm_mi")
-        (void) st_addvar("double", "__rm_ui")
+        (void) st_addvar("double", mi_var)
+        (void) st_addvar("double", ui_var)
         if (n_pairs > 0) {
-            st_store(., "__rm_mi", mi[1..n_pairs])
-            st_store(., "__rm_ui", ui[1..n_pairs])
+            st_store(., mi_var, mi[1..n_pairs])
+            st_store(., ui_var, ui[1..n_pairs])
         }
     }
 
@@ -519,7 +637,9 @@ void _rm_build_pairs(
     real scalar progress,
     real scalar compute_stats,
     real scalar assert_match,
-    real scalar assert_using
+    real scalar assert_using,
+    string scalar mi_var,
+    string scalar ui_var
 )
 {
     string scalar oldframe
@@ -890,11 +1010,11 @@ void _rm_build_pairs(
         if (n_pairs > 0) {
             st_addobs(n_pairs)
         }
-        (void) st_addvar("double", "__rm_mi")
-        (void) st_addvar("double", "__rm_ui")
+        (void) st_addvar("double", mi_var)
+        (void) st_addvar("double", ui_var)
         if (n_pairs > 0) {
-            st_store(., "__rm_mi", mi[1..n_pairs])
-            st_store(., "__rm_ui", ui[1..n_pairs])
+            st_store(., mi_var, mi[1..n_pairs])
+            st_store(., ui_var, ui[1..n_pairs])
         }
     }
 
@@ -917,12 +1037,45 @@ void _rm_build_pairs(
 // Using  work frame columns: 1=gid, 2=ulo, 3=uhi, 4=obs.
 //
 // Reuses the same group-map, stats, unmatched-row, and output (__rm_mi/__rm_ui)
-// contract as _rm_build_pairs. Using rows are sorted by (gid, ulo); for each
-// master interval, a binary search bounds the candidate prefix on ulo and a
-// linear scan within that prefix filters on uhi. Complexity is
-// O(M log U + scan); worst-case O(M*U) for mutually overlapping data, near
-// O(M log U + K) for selective, by()-partitioned intervals. Output pairs are
-// streamed, so the full Cartesian product is never materialized.
+// contract as _rm_build_pairs.
+//
+// ALGORITHM: forward-scan plane sweep, run per by()-group over both sides
+// sorted by lower bound. It is output sensitive -- O((M+U) log U + K) -- which
+// the previous design was not: that one binary-searched a candidate prefix on
+// ulo and then LINEARLY RESCANNED the whole prefix to filter on uhi, so data
+// whose using intervals all start early and end early put every using row in
+// the prefix and none in the output. Measured 0.257/0.935/3.637/15.129s at
+// 2k/4k/8k/16k rows while returning zero pairs: quadratic comparison work for
+// an empty result, which maxpairs() cannot guard because the pair count is 0.
+//
+// The sweep advances whichever side opens next and reports from the other:
+//
+//   master i opens first (mlo_s[i] < ulo[j])
+//       every using k >= j with ulo[k] inside master i overlaps it
+//   using j opens first (mlo_s[i] >= ulo[j])
+//       every master k >= i with mlo_s[k] inside using j overlaps it
+//
+// Each branch tests ONE inequality; the other holds for free. When master i
+// opens first, ulo[k] >= ulo[j] > mlo_s[i], and a nonempty using interval ends
+// at or after it starts, so uhi[k] > mlo_s[i] without being compared. That is
+// why the closure-aware nonemptiness screen below is load-bearing rather than
+// cosmetic: the free half of each test is only sound once both intervals are
+// known nonempty, so invalid rows are compacted OUT of the swept arrays (they
+// still surface as unmatched using rows, the same disposition as before).
+// The scan end points come from binary search, so a branch that reports nothing
+// costs O(log U) instead of a full prefix walk. Every inner iteration then
+// yields exactly one output pair, which is what bounds the sweep by K.
+//
+// Two passes run: the first counts each master's matches WITHOUT enumerating
+// them (the count is a binary-searched range width, so it carries no K term and
+// needs no per-pair memory), which lets the second pass write pairs straight
+// into slots reserved in original master-row order. That ordering is the public
+// contract -- pairs grouped by master, ascending in sorted-using position --
+// and it is also what keeps the maxpairs() trigger point and its reported count
+// identical to the old row-at-a-time loop.
+//
+// Output pairs are streamed, so the full Cartesian product is never
+// materialized.
 //
 // DRIFT GUARD: the tvtools package keeps a slimmed inner-join copy of this
 // overlap logic (_tvm_build_pairs_overlap in tvtools/_tvmerge_mata.ado). The two
@@ -930,6 +1083,150 @@ void _rm_build_pairs(
 // inner-join case; tvtools/qa/test_tvm_overlap_drift_guard.do pins them together.
 // If you change overlap semantics here, update that copy and re-run its guard.
 // ============================================================================
+
+// Closure-aware interval-nonemptiness predicate, applied symmetrically to the
+// master and using sides. An interval describes a genuine, nonempty region only
+// if its bounds are ordered:
+//   closed(both) -> [lo,hi] is nonempty iff lo <= hi; lo == hi is the valid
+//                   degenerate single point.
+//   closed(none) -> (lo,hi) is nonempty iff lo <  hi; the open degenerate
+//                   interval (x,x) contains nothing.
+// Inverted bounds (lo > hi) are empty under either closure, so an inverted
+// using interval can never be a genuine overlap match.
+//
+// Validity is a property of the recorded data, so it is evaluated on the raw
+// bounds (after open-ended missing->+/-inf substitution) and is deliberately
+// NOT widened by tolerance(): tolerance fuzzes boundary comparisons between two
+// genuine intervals; it does not promote an empty interval into a nonempty one.
+// Screening the two cross-interval inequalities alone is insufficient, because
+// those are sufficient only once both intervals are known to be nonempty.
+real scalar _rm_interval_nonempty(
+    real scalar lo,
+    real scalar hi,
+    real scalar both
+)
+{
+    return(both ? (lo <= hi) : (lo < hi))
+}
+
+// Forward-scan sweep over one group, COUNTING pass. Adds each master's match
+// count to cnt_point (a point add, when the master opens first) or to cnt_diff
+// (a difference array, when a using row opens first and reports a contiguous
+// RANGE of masters at once). Neither branch enumerates pairs -- the count is
+// the width of a binary-searched range -- so this pass costs O((m+u) log u)
+// with no K term and no per-pair storage. cnt_diff is prefix-summed by the
+// caller; every +1 at i has its -1 at e+1 within the same group, so the running
+// sum returns to zero at each group boundary and one global pass suffices.
+//
+// Indices are positions in the caller's compacted, group-sorted valid arrays.
+void _rm_overlap_count_group(
+    real colvector vmlo,
+    real colvector vmhi,
+    real colvector vulo,
+    real colvector vuhi,
+    real scalar ms,
+    real scalar me,
+    real scalar us,
+    real scalar ue,
+    real scalar both,
+    real colvector cnt_point,
+    real colvector cnt_diff
+)
+{
+    real scalar i, j, e
+
+    i = ms
+    j = us
+    while (i <= me & j <= ue) {
+        if (vmlo[i] < vulo[j]) {
+            e = (both ? _rm_bsearch_right(vulo, vmhi[i], j, ue)
+                      : _rm_bsearch_last_lt(vulo, vmhi[i], j, ue))
+            if (e >= j) cnt_point[i] = cnt_point[i] + (e - j + 1)
+            i++
+        }
+        else {
+            e = (both ? _rm_bsearch_right(vmlo, vuhi[j], i, me)
+                      : _rm_bsearch_last_lt(vmlo, vuhi[j], i, me))
+            if (e >= i) {
+                cnt_diff[i] = cnt_diff[i] + 1
+                cnt_diff[e + 1] = cnt_diff[e + 1] - 1
+            }
+            j++
+        }
+    }
+}
+
+// Forward-scan sweep over one group, EMITTING pass. Same traversal as the
+// counting pass, but walks each reported range and writes one pair per step.
+//
+// cursor holds, per ORIGINAL master row, the next output slot reserved for that
+// master; the caller sized those blocks from the counting pass. Writing through
+// cursor is what restores original master-row order from a sweep that visits
+// masters in lower-bound order. Within one master the pairs still land
+// ascending in sorted-using position, because a master's range-reported pairs
+// (using j opens first) all precede its own opening event, and both branches
+// walk ascending.
+void _rm_overlap_emit_group(
+    real colvector vmlo,
+    real colvector vmhi,
+    real colvector vmidx,
+    real colvector vulo,
+    real colvector vuhi,
+    real colvector vuobs,
+    real scalar ms,
+    real scalar me,
+    real scalar us,
+    real scalar ue,
+    real scalar both,
+    real colvector mobs_all,
+    real colvector cursor,
+    real colvector mi,
+    real colvector ui,
+    real colvector matched_using,
+    real scalar track_using,
+    real scalar dryrun
+)
+{
+    real scalar i, j, e, k, idx, target, slot
+
+    i = ms
+    j = us
+    while (i <= me & j <= ue) {
+        if (vmlo[i] < vulo[j]) {
+            e = (both ? _rm_bsearch_right(vulo, vmhi[i], j, ue)
+                      : _rm_bsearch_last_lt(vulo, vmhi[i], j, ue))
+            idx = vmidx[i]
+            for (k = j; k <= e; k++) {
+                target = vuobs[k]
+                if (track_using) matched_using[target] = 1
+                if (!dryrun) {
+                    slot = cursor[idx]
+                    mi[slot] = mobs_all[idx]
+                    ui[slot] = target
+                }
+                cursor[idx] = cursor[idx] + 1
+            }
+            i++
+        }
+        else {
+            e = (both ? _rm_bsearch_right(vmlo, vuhi[j], i, me)
+                      : _rm_bsearch_last_lt(vmlo, vuhi[j], i, me))
+            target = vuobs[j]
+            for (k = i; k <= e; k++) {
+                idx = vmidx[k]
+                if (track_using) matched_using[target] = 1
+                if (!dryrun) {
+                    slot = cursor[idx]
+                    mi[slot] = mobs_all[idx]
+                    ui[slot] = target
+                }
+                cursor[idx] = cursor[idx] + 1
+            }
+            j++
+        }
+    }
+}
+
 void _rm_build_pairs_overlap(
     string scalar master_frame,
     string scalar using_frame,
@@ -943,20 +1240,26 @@ void _rm_build_pairs_overlap(
     real scalar progress,
     real scalar compute_stats,
     real scalar assert_match,
-    real scalar assert_using
+    real scalar assert_using,
+    string scalar mi_var,
+    string scalar ui_var
 )
 {
     string scalar oldframe
-    real matrix M, U, Usorted
-    real colvector mi, ui, ulo, uhi, uobs, ugid, match_counts
-    real colvector gstart_map, gend_map, matched_using
+    real matrix M, U, Usorted, VM
+    real colvector mi, ui, ulo, uhi, uobs, ugid, match_counts, uvalid
+    real colvector gstart_map, gend_map, matched_using, mobs_all
+    real colvector vmgid, vmlo, vmhi, vmidx, vugid, vulo, vuhi, vuobs
+    real colvector vgstart_map, vgend_map, cnt_point, cnt_diff, counts_all
+    real colvector cursor
     real rowvector match_stats
-    real scalar nm, nu, nu_all, i, mlo, mhi, mlo_s, mhi_s, n_pairs
-    real scalar gstart, gend, mobs, g, outcap, nmatch, u, pos, p, target, needed
+    real scalar nm, nu, nu_all, i, n_pairs
+    real scalar outcap, nmatch, u, p, needed
     real scalar n_matched_pairs, n_matched_master
     real scalar n_unmatched_master, n_matched_using, n_unmatched_using
     real scalar progress_next, progress_step, progress_pct, progress_last
     real scalar max_gid, gid_i, track_using, both
+    real scalar nvm, nvu, a, b, g, us, ue, running, need_emit
 
     oldframe = st_framecurrent()
     keep_unmatched_using = (keep_unmatched_using != 0)
@@ -1000,12 +1303,23 @@ void _rm_build_pairs_overlap(
         ulo  = Usorted[., 2]
         uhi  = Usorted[., 3]
         uobs = Usorted[., 4]
+        // Screen using intervals for closure-aware nonemptiness. Invalid
+        // (inverted or open-degenerate) rows stay in the arrays so the binary
+        // search and group map are untouched, but they can never be emitted as
+        // a match. Because matched_using is only set when a pair is emitted,
+        // they surface as unmatched using rows under unmatched(using|both),
+        // which is the correct disposition for an empty interval.
+        uvalid = J(nu, 1, 0)
+        for (u = 1; u <= nu; u++) {
+            uvalid[u] = _rm_interval_nonempty(ulo[u], uhi[u], both)
+        }
     }
     else {
         ugid = J(0, 1, .)
         ulo  = J(0, 1, .)
         uhi  = J(0, 1, .)
         uobs = J(0, 1, .)
+        uvalid = J(0, 1, .)
     }
 
     max_gid = (nm > 0 ? max(M[., 1]) : 0)
@@ -1027,10 +1341,145 @@ void _rm_build_pairs_overlap(
         gend_map = J(0, 1, 0)
     }
 
+    // ---- Compact the valid rows into the swept arrays ----------------------
+    // The sweep's free half-test (see the algorithm note above) is sound only
+    // for nonempty intervals, so invalid rows are removed rather than skipped
+    // mid-scan. Their disposition is unchanged: an invalid using row is never
+    // marked matched, so it still surfaces under unmatched(using|both), and an
+    // invalid master row still reports zero matches.
+    //
+    // gstart_map/gend_map above are deliberately NOT rebuilt from the compacted
+    // rows. _rm_compute_match_stats() reads them to decide whether a master's
+    // group had any using rows at all, which is a property of the data, not of
+    // interval validity: a group holding only inverted using rows is not an
+    // empty group.
+    nvu = 0
+    for (u = 1; u <= nu; u++) {
+        if (uvalid[u]) nvu++
+    }
+    vugid = J(nvu, 1, .)
+    vulo  = J(nvu, 1, .)
+    vuhi  = J(nvu, 1, .)
+    vuobs = J(nvu, 1, .)
+    p = 0
+    for (u = 1; u <= nu; u++) {
+        if (uvalid[u]) {
+            p++
+            vugid[p] = ugid[u]
+            vulo[p]  = ulo[u]
+            vuhi[p]  = uhi[u]
+            vuobs[p] = uobs[u]
+        }
+    }
+
+    // Per-gid ranges into the COMPACTED using rows. Compaction preserves the
+    // (gid, ulo, uobs) order, so groups stay contiguous and no re-sort is needed.
+    if (max_gid > 0) {
+        vgstart_map = J(max_gid, 1, 0)
+        vgend_map = J(max_gid, 1, 0)
+        for (u = 1; u <= nvu; u++) {
+            gid_i = trunc(vugid[u])
+            if (gid_i >= 1 & gid_i <= max_gid) {
+                if (vgstart_map[gid_i] == 0) vgstart_map[gid_i] = u
+                vgend_map[gid_i] = u
+            }
+        }
+    }
+    else {
+        vgstart_map = J(0, 1, 0)
+        vgend_map = J(0, 1, 0)
+    }
+
+    // Valid master rows, tolerance-shifted, sorted by (gid, mlo_s, orig row).
+    // Validity is judged on the RAW bounds, exactly as before: the shift cannot
+    // rescue an empty interval.
+    //
+    // The sweep needs mlo_s <= mhi_s, and it gets that from tolerance being
+    // NONNEGATIVE -- widening a nonempty interval leaves it nonempty. That is
+    // enforced by the caller (rangematch.ado rejects a negative or nonfinite
+    // tolerance()), not here. It is a real coupling, not a comment: a negative
+    // tolerance would invert the shifted master interval, and the sweep would
+    // then trust a free half-test that no longer holds and emit wrong pairs at
+    // rc=0. The prefix-rescan this replaced tested both inequalities outright,
+    // so it did not care. If that guard is ever relaxed, screen the SHIFTED
+    // bounds here too.
+    //
+    // Column 4 carries the original master row index -- it makes ties
+    // reproducible (Mata's sort() does not order them deterministically) and is
+    // how the emit pass finds its way back to original row order.
+    nvm = 0
+    for (i = 1; i <= nm; i++) {
+        if (_rm_interval_nonempty(M[i, 2], M[i, 3], both)) nvm++
+    }
+    VM = J(nvm, 4, .)
+    p = 0
+    for (i = 1; i <= nm; i++) {
+        if (_rm_interval_nonempty(M[i, 2], M[i, 3], both)) {
+            p++
+            VM[p, 1] = M[i, 1]
+            VM[p, 2] = M[i, 2] - tolerance
+            VM[p, 3] = M[i, 3] + tolerance
+            VM[p, 4] = i
+        }
+    }
+    if (nvm > 0) {
+        VM = sort(VM, (1, 2, 4))
+        vmgid = VM[., 1]
+        vmlo  = VM[., 2]
+        vmhi  = VM[., 3]
+        vmidx = VM[., 4]
+    }
+    else {
+        vmgid = J(0, 1, .)
+        vmlo  = J(0, 1, .)
+        vmhi  = J(0, 1, .)
+        vmidx = J(0, 1, .)
+    }
+    VM = J(0, 0, .)
+
+    // ---- Sweep pass 1: how many matches does each master have? -------------
+    cnt_point = J(nvm, 1, 0)
+    cnt_diff = J(nvm + 1, 1, 0)
+    a = 1
+    while (a <= nvm) {
+        g = vmgid[a]
+        b = a
+        // Mata's & does not short-circuit, so the bound check cannot be folded
+        // into the loop condition alongside vmgid[b+1].
+        while (b < nvm) {
+            if (vmgid[b + 1] != g) break
+            b++
+        }
+        gid_i = trunc(g)
+        us = 0
+        ue = -1
+        if (gid_i >= 1 & gid_i <= rows(vgstart_map)) {
+            us = vgstart_map[gid_i]
+            ue = vgend_map[gid_i]
+        }
+        if (us != 0) {
+            _rm_overlap_count_group(vmlo, vmhi, vulo, vuhi, a, b, us, ue, ///
+                both, cnt_point, cnt_diff)
+        }
+        a = b + 1
+    }
+
+    counts_all = J(nm, 1, 0)
+    running = 0
+    for (a = 1; a <= nvm; a++) {
+        running = running + cnt_diff[a]
+        counts_all[vmidx[a]] = cnt_point[a] + running
+    }
+
+    // ---- Reserve output slots, walking masters in ORIGINAL row order -------
+    // Counts are known before a single pair is written, so the maxpairs() limit
+    // trips at the same master row, with the same reported count, as the old
+    // row-at-a-time loop did.
     n_pairs = 0
     n_matched_pairs = 0
     n_matched_master = 0
     match_counts = (compute_stats ? J(nm, 1, 0) : J(0, 1, 0))
+    cursor = J(nm, 1, 0)
     progress = (progress != 0 & nm > 100000)
     if (progress) {
         progress_step = ceil(nm / 10)
@@ -1043,46 +1492,16 @@ void _rm_build_pairs_overlap(
         mi = J(outcap, 1, .)
         ui = J(outcap, 1, .)
     }
+    else {
+        // Assigned even though a dry run writes no pairs: the emit pass still
+        // runs when using-side tracking is on, and Mata cannot pass an
+        // unassigned variable.
+        mi = J(0, 1, .)
+        ui = J(0, 1, .)
+    }
 
     for (i = 1; i <= nm; i++) {
-        g    = M[i, 1]
-        mlo  = M[i, 2]
-        mhi  = M[i, 3]
-        mobs = M[i, 4]
-        mlo_s = mlo - tolerance
-        mhi_s = mhi + tolerance
-
-        nmatch = 0
-        gstart = 0
-        gend = -1
-        p = 0
-        if (!(mlo > mhi)) {
-            gid_i = trunc(g)
-            if (gid_i >= 1 & gid_i <= rows(gstart_map)) {
-                gstart = gstart_map[gid_i]
-                gend = gend_map[gid_i]
-            }
-            if (gstart != 0) {
-                // Candidate prefix: ulo <= mhi_s (both) or ulo < mhi_s (none)
-                if (both) {
-                    p = _rm_bsearch_right(ulo, mhi_s, gstart, gend)
-                }
-                else {
-                    p = _rm_bsearch_last_lt(ulo, mhi_s, gstart, gend)
-                }
-                if (p != 0 & p >= gstart) {
-                    // Filter prefix on uhi >= mlo_s (both) or uhi > mlo_s (none)
-                    for (pos = gstart; pos <= p; pos++) {
-                        if (both) {
-                            if (uhi[pos] >= mlo_s) nmatch++
-                        }
-                        else {
-                            if (uhi[pos] > mlo_s) nmatch++
-                        }
-                    }
-                }
-            }
-        }
+        nmatch = counts_all[i]
 
         if (nmatch == 0) {
             if (keep_unmatched_master) {
@@ -1098,7 +1517,7 @@ void _rm_build_pairs_overlap(
                         mi = mi \ J(rows(mi), 1, .)
                         ui = ui \ J(rows(ui), 1, .)
                     }
-                    mi[n_pairs] = mobs
+                    mi[n_pairs] = M[i, 4]
                     ui[n_pairs] = .
                 }
             }
@@ -1121,17 +1540,8 @@ void _rm_build_pairs_overlap(
                     ui = ui \ J(rows(ui), 1, .)
                 }
             }
-            for (pos = gstart; pos <= p; pos++) {
-                if (both ? (uhi[pos] >= mlo_s) : (uhi[pos] > mlo_s)) {
-                    target = uobs[pos]
-                    if (track_using) matched_using[target] = 1
-                    n_pairs++
-                    if (!dryrun) {
-                        mi[n_pairs] = mobs
-                        ui[n_pairs] = target
-                    }
-                }
-            }
+            cursor[i] = n_pairs + 1
+            n_pairs = n_pairs + nmatch
         }
 
         if (progress & i >= progress_next) {
@@ -1144,6 +1554,36 @@ void _rm_build_pairs_overlap(
     if (progress) {
         if (progress_last < 100) printf(" 100%%")
         printf("\n")
+    }
+
+    // ---- Sweep pass 2: write the pairs into the reserved slots -------------
+    // Skipped only when nothing could observe it: a dry run that tracks no
+    // using-side state neither writes mi/ui nor reads matched_using.
+    need_emit = ((!dryrun) | track_using)
+    if (need_emit & n_matched_pairs > 0) {
+        mobs_all = M[., 4]
+        a = 1
+        while (a <= nvm) {
+            g = vmgid[a]
+            b = a
+            while (b < nvm) {
+                if (vmgid[b + 1] != g) break
+                b++
+            }
+            gid_i = trunc(g)
+            us = 0
+            ue = -1
+            if (gid_i >= 1 & gid_i <= rows(vgstart_map)) {
+                us = vgstart_map[gid_i]
+                ue = vgend_map[gid_i]
+            }
+            if (us != 0) {
+                _rm_overlap_emit_group(vmlo, vmhi, vmidx, vulo, vuhi, vuobs, ///
+                    a, b, us, ue, both, mobs_all, cursor, mi, ui, ///
+                    matched_using, track_using, dryrun)
+            }
+            a = b + 1
+        }
     }
 
     n_unmatched_master = (compute_stats | assert_match ? nm - n_matched_master : .)
@@ -1186,11 +1626,11 @@ void _rm_build_pairs_overlap(
         if (n_pairs > 0) {
             st_addobs(n_pairs)
         }
-        (void) st_addvar("double", "__rm_mi")
-        (void) st_addvar("double", "__rm_ui")
+        (void) st_addvar("double", mi_var)
+        (void) st_addvar("double", ui_var)
         if (n_pairs > 0) {
-            st_store(., "__rm_mi", mi[1..n_pairs])
-            st_store(., "__rm_ui", ui[1..n_pairs])
+            st_store(., mi_var, mi[1..n_pairs])
+            st_store(., ui_var, ui[1..n_pairs])
         }
     }
 
@@ -1333,6 +1773,86 @@ real colvector _rm_key_block_uobs(
 }
 
 
+// ============================================================================
+// Value-label collision resolution.
+//
+// Value-label definitions are frame-scoped and keyed by name, so a using
+// variable whose label name is already defined in the output frame (by a master
+// variable materialized earlier) used to silently inherit the master's map: a
+// carried code kept its number but acquired the master's meaning, or lost its
+// meaning entirely. That is silent semantic corruption at rc=0 -- decode on the
+// carried variable returns the wrong text.
+//
+// Definitions are therefore compared by value/text pairs. An identical
+// definition is shared (the common case: both sides labelled from one codebook,
+// which must NOT produce a rename). A genuine conflict gets the incoming
+// definition copied under a collision-free name, and any later variable
+// carrying that same map reuses the copy rather than minting another.
+// ============================================================================
+
+// Is the definition already stored under `nm' identical to (vals, txt)?
+// Compared as ordered sets: st_vlload's row order is not part of the contract,
+// but label codes are unique within a name, so order(vals, 1) has no ties and
+// the comparison is deterministic.
+real scalar _rm_vl_same(string scalar nm, real colvector vals,
+    string colvector txt)
+{
+    real colvector evals, o1, o2
+    string colvector etxt
+
+    st_vlload(nm, evals, etxt)
+    if (rows(evals) != rows(vals)) return(0)
+    if (rows(vals) == 0) return(1)
+    o1 = order(vals, 1)
+    o2 = order(evals, 1)
+    if (vals[o1] != evals[o2]) return(0)
+    if (txt[o1] != etxt[o2]) return(0)
+    return(1)
+}
+
+// The k-th collision-free candidate name derived from `base'. Stata caps label
+// names at 32 characters, so the base is truncated to make room for the suffix
+// rather than producing an over-long name that st_vlmodify would reject.
+string scalar _rm_vl_candidate(string scalar base, real scalar k)
+{
+    string scalar sfx, b
+
+    sfx = (k == 1 ? "_U" : "_U" + strofreal(k))
+    b = base
+    if (strlen(b) + strlen(sfx) > 32) {
+        b = substr(b, 1, 32 - strlen(sfx))
+    }
+    return(b + sfx)
+}
+
+// Return the label name to attach in the CURRENT frame for a variable whose
+// source definition is (vals, txt) under the name `vvl', creating or reusing a
+// renamed copy on conflict.
+string scalar _rm_vl_resolve(string scalar vvl, real colvector vals,
+    string colvector txt)
+{
+    string scalar cand
+    real scalar k
+
+    if (!st_vlexists(vvl)) {
+        st_vlmodify(vvl, vals, txt)
+        return(vvl)
+    }
+    if (_rm_vl_same(vvl, vals, txt)) return(vvl)
+
+    for (k = 1; k <= 999; k++) {
+        cand = _rm_vl_candidate(vvl, k)
+        if (!st_vlexists(cand)) {
+            st_vlmodify(cand, vals, txt)
+            return(cand)
+        }
+        if (_rm_vl_same(cand, vals, txt)) return(cand)
+    }
+    // Never pad or fall back to the wrong map: an unresolvable name must error
+    // rather than silently attach a definition that means something else.
+    _error("unable to derive a collision-free value-label name from " + vvl)
+}
+
 void _rm_materialize(
     string scalar out_frame,
     string scalar src_frame,
@@ -1385,9 +1905,11 @@ void _rm_materialize(
         if (vlbl != "") st_varlabel(out_vars[j], vlbl)
         if (vvl != "") {
             // Value-label definitions are frame-scoped; recreate the source
-            // definition in the output frame. If master and using both define
-            // the same label name, the first copy (master) wins.
-            if (havedef & !st_vlexists(vvl)) st_vlmodify(vvl, vlvals, vltxt)
+            // definition in the output frame, renaming it if the name is
+            // already taken by a different map. A name attached in the source
+            // but never defined there (havedef == 0) carries the dangling name
+            // through unchanged, as before.
+            if (havedef) vvl = _rm_vl_resolve(vvl, vlvals, vltxt)
             st_varvaluelabel(out_vars[j], vvl)
         }
 

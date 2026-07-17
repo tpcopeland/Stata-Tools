@@ -13,8 +13,22 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 * ============================================================
 * V1: save() writes exact define() dictionary rows
@@ -35,7 +49,7 @@ capture noisily {
     codescan dx1 dx2, ///
         define(dm2 "E11" ~ "E116" | htn "I1[0-35]" | chf "I50") ///
         label(cs_dm2 "Type 2 Diabetes" \ cs_htn "Hypertension" \ cs_chf "Heart Failure") ///
-        generate(cs_) save("`vio1_csv'")
+        generate(cs_) save("`vio1_csv'", replace)
 
     import delimited using "`vio1_csv'", clear stringcols(_all) varnames(1)
 
@@ -129,7 +143,7 @@ capture noisily {
     codescan dx1 dx2, ///
         define(dm2 "E11" ~ "E116" | htn "I1[0-35]" | chf "I50") ///
         label(dm2 "Type 2 Diabetes" \ htn "Hypertension" \ chf "Heart Failure") ///
-        save("`vio3_csv'")
+        save("`vio3_csv'", replace)
 
     clear
     input str10 dx1 str10 dx2 byte expected_dm2 byte expected_htn byte expected_chf
@@ -305,6 +319,26 @@ else {
 }
 
 display ""
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
+
 display as result "RESULT: validation_codescan_io tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
 

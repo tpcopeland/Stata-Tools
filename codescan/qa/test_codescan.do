@@ -1,6 +1,9 @@
 * test_codescan.do - Functional tests for codescan
-* Tests: 344
 * Date: 2026-04-05
+*
+* The authoritative test count is the RESULT: sentinel this suite prints at the
+* end. A hand-maintained count in a comment goes stale silently (this one read
+* 344 while the suite ran 308), so it is not repeated here.
 
 clear all
 set seed 12345
@@ -19,8 +22,22 @@ local fail_count = 0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall codescan
-quietly net install codescan, from("`pkg_dir'") replace
+* Guarded shared bootstrap. Sandboxes PLUS/PERSONAL under c(tmpdir), then
+* installs this working copy. Running this suite standalone must not mutate
+* the developer's real adopath, which the bare net install here used to do;
+* only run_all.do was sandboxed. Idempotent, so the lane re-entering it is
+* harmless.
+quietly do "`qa_dir'/_codescan_qa_common.do"
+_codescan_qa_bootstrap
+
+* Session settings captured for the hygiene check at the end of this suite.
+* A suite that leaves c(level) or c(varabbrev) changed silently alters every
+* later suite in the lane -- the level-80/99 CI scenarios restored inside a
+* captured block, so any assertion failure above them used to leak.
+local _qa_level0 = c(level)
+local _qa_va0 "`c(varabbrev)'"
+local _qa_pwd0 "`c(pwd)'"
+
 
 * ============================================================
 * Helper: Create standard test dataset
@@ -616,7 +633,8 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11" | obesity "E66")
     matrix S = r(summary)
     assert rowsof(S) == 2
-    assert colsof(S) == 4
+    * 3.0.0: count prevalence ci_low ci_high total_hits positive_units
+    assert colsof(S) == 6
     assert S[1,1] > 0
     assert S[1,2] > 0
     assert S[1,2] <= 100
@@ -926,6 +944,12 @@ else {
     local ++fail_count
 }
 
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
 * Test 42: varabbrev restored after error
 local ++test_count
 capture noisily {
@@ -943,6 +967,12 @@ else {
     display as error "  FAIL: varabbrev restored after error (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 * Test 43: collapse respects if condition
 local ++test_count
@@ -1560,6 +1590,12 @@ else {
     local ++fail_count
 }
 
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
 * Test 71: codescan_describe data preservation (N, sort, values unchanged)
 local ++test_count
 capture noisily {
@@ -1820,6 +1856,12 @@ else {
     local ++fail_count
 }
 
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
 
 * ============================================================
 * v1.3.0 New Features
@@ -1965,7 +2007,8 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]")
     matrix CL = r(codelist)
     assert rowsof(CL) == 2
-    assert colsof(CL) == 2
+    * 3.0.0: count prevalence total_hits positive_units
+    assert colsof(CL) == 4
     assert el(CL, 1, 1) == 4
 }
 if _rc == 0 {
@@ -2091,11 +2134,11 @@ capture noisily {
     input str10 Name str20 Pattern str30 Label
     "dm2" "E11" "Diabetes"
     end
-    save "/tmp/_codescan_test_case.dta", replace
+    save "_codescan_test_case.dta", replace
     restore
 
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_codescan_test_case.dta")
+    codescan dx1-dx3, codefile("_codescan_test_case.dta")
     confirm variable dm2
     assert dm2 == 1 if _n == 1
 }
@@ -2112,11 +2155,11 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/codescan_test_qa.xlsx"
+    capture erase "codescan_test_qa.xlsx"
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
         id(pid) collapse cooccurrence replace ///
-        export("/tmp/codescan_test_qa.xlsx")
-    confirm file "/tmp/codescan_test_qa.xlsx"
+        export("codescan_test_qa.xlsx")
+    confirm file "codescan_test_qa.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: O2 export xlsx"
@@ -2131,9 +2174,9 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/codescan_test_qa.csv"
-    codescan dx1-dx3, define(dm2 "E11") export("/tmp/codescan_test_qa.csv") replace
-    confirm file "/tmp/codescan_test_qa.csv"
+    capture erase "codescan_test_qa.csv"
+    codescan dx1-dx3, define(dm2 "E11") export("codescan_test_qa.csv") replace
+    confirm file "codescan_test_qa.csv"
 }
 if _rc == 0 {
     display as result "  PASS: O2 export csv"
@@ -2313,7 +2356,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_empty.csv"
+    capture erase "_cs_test_r3_empty.csv"
     preserve
     clear
     set obs 2
@@ -2323,10 +2366,10 @@ capture noisily {
     replace pattern = "E11" in 1
     replace name = "htn" in 2
     replace pattern = "I10" in 2
-    export delimited using "/tmp/_cs_test_r3_empty.csv", replace
+    export delimited using "_cs_test_r3_empty.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_test_r3_empty.csv") replace
+    capture codescan dx1-dx3, codefile("_cs_test_r3_empty.csv") replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2342,7 +2385,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_dup.csv"
+    capture erase "_cs_test_r3_dup.csv"
     preserve
     clear
     set obs 2
@@ -2352,10 +2395,10 @@ capture noisily {
     replace pattern = "E11" in 1
     replace name = "dm2" in 2
     replace pattern = "I10" in 2
-    export delimited using "/tmp/_cs_test_r3_dup.csv", replace
+    export delimited using "_cs_test_r3_dup.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_test_r3_dup.csv") replace
+    capture codescan dx1-dx3, codefile("_cs_test_r3_dup.csv") replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2371,16 +2414,16 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_pat.csv"
+    capture erase "_cs_test_r3_pat.csv"
     preserve
     clear
     set obs 1
     gen str32 name = "dm2"
     gen str32 pattern = ""
-    export delimited using "/tmp/_cs_test_r3_pat.csv", replace
+    export delimited using "_cs_test_r3_pat.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_test_r3_pat.csv") replace
+    capture codescan dx1-dx3, codefile("_cs_test_r3_pat.csv") replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2396,16 +2439,16 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_bad.csv"
+    capture erase "_cs_test_r3_bad.csv"
     preserve
     clear
     set obs 1
     gen str32 name = "2bad"
     gen str32 pattern = "E11"
-    export delimited using "/tmp/_cs_test_r3_bad.csv", replace
+    export delimited using "_cs_test_r3_bad.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_test_r3_bad.csv") replace
+    capture codescan dx1-dx3, codefile("_cs_test_r3_bad.csv") replace
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2421,7 +2464,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_ok.csv"
+    capture erase "_cs_test_r3_ok.csv"
     preserve
     clear
     set obs 2
@@ -2431,10 +2474,10 @@ capture noisily {
     replace pattern = "E11" in 1
     replace name = "htn" in 2
     replace pattern = "I10" in 2
-    export delimited using "/tmp/_cs_test_r3_ok.csv", replace
+    export delimited using "_cs_test_r3_ok.csv", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_r3_ok.csv") replace
+    codescan dx1-dx3, codefile("_cs_test_r3_ok.csv") replace
     assert r(n_conditions) == 2
 }
 if _rc == 0 {
@@ -2450,11 +2493,11 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_w3.csv"
-    codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace save("/tmp/_cs_test_w3.csv")
-    confirm file "/tmp/_cs_test_w3.csv"
+    capture erase "_cs_test_w3.csv"
+    codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace save("_cs_test_w3.csv")
+    confirm file "_cs_test_w3.csv"
     preserve
-    import delimited using "/tmp/_cs_test_w3.csv", clear
+    import delimited using "_cs_test_w3.csv", clear
     assert _N == 2
     assert name[1] == "dm2"
     assert pattern[1] == "E11"
@@ -2473,7 +2516,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") replace save("/tmp/test.txt")
+    capture codescan dx1-dx3, define(dm2 "E11") replace save("test.txt")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2489,16 +2532,16 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r3_ok.csv"
+    capture erase "_cs_test_r3_ok.csv"
     preserve
     clear
     set obs 1
     gen str32 name = "dm2"
     gen str32 pattern = "E11"
-    export delimited using "/tmp/_cs_test_r3_ok.csv", replace
+    export delimited using "_cs_test_r3_ok.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_test_r3_ok.csv") replace save("/tmp/out.csv")
+    capture codescan dx1-dx3, codefile("_cs_test_r3_ok.csv") replace save("out.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2516,7 +2559,7 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace
     matrix S = r(summary)
-    assert colsof(S) == 4
+    assert colsof(S) == 6
     assert rowsof(S) == 2
 }
 if _rc == 0 {
@@ -2734,11 +2777,11 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_i3.csv"
-    codescan_describe dx1-dx3, save("/tmp/_cs_test_i3.csv")
-    confirm file "/tmp/_cs_test_i3.csv"
+    capture erase "_cs_test_i3.csv"
+    codescan_describe dx1-dx3, save("_cs_test_i3.csv")
+    confirm file "_cs_test_i3.csv"
     preserve
-    import delimited using "/tmp/_cs_test_i3.csv", clear
+    import delimited using "_cs_test_i3.csv", clear
     * Should have at least 1 row (one per chapter)
     assert _N >= 1
     * Columns should exist
@@ -2828,7 +2871,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") codefile("/tmp/dummy.csv")
+    capture codescan dx1-dx3, define(dm2 "E11") codefile("dummy.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2940,7 +2983,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/test.txt")
+    capture codescan dx1-dx3, codefile("test.txt")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2956,7 +2999,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/nonexistent_codescan_test.csv")
+    capture codescan dx1-dx3, codefile("nonexistent_codescan_test.csv")
     assert _rc == 601
 }
 if _rc == 0 {
@@ -2976,10 +3019,10 @@ capture noisily {
     set obs 0
     gen str32 name = ""
     gen str32 pattern = ""
-    export delimited using "/tmp/_cs_empty_cf.csv", replace
+    export delimited using "_cs_empty_cf.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_empty_cf.csv")
+    capture codescan dx1-dx3, codefile("_cs_empty_cf.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -2999,10 +3042,10 @@ capture noisily {
     set obs 1
     gen str32 pattern = "E11"
     gen str32 code = "dm2"
-    export delimited using "/tmp/_cs_no_name.csv", replace
+    export delimited using "_cs_no_name.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_no_name.csv")
+    capture codescan dx1-dx3, codefile("_cs_no_name.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -3022,10 +3065,10 @@ capture noisily {
     set obs 1
     gen str32 name = "dm2"
     gen str32 label = "Diabetes"
-    export delimited using "/tmp/_cs_no_pattern.csv", replace
+    export delimited using "_cs_no_pattern.csv", replace
     restore
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_cs_no_pattern.csv")
+    capture codescan dx1-dx3, codefile("_cs_no_pattern.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -3057,7 +3100,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") export("/tmp/test.txt")
+    capture codescan dx1-dx3, define(dm2 "E11") export("test.txt")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -3471,10 +3514,10 @@ capture noisily {
     "dm2" "E11" "E116" "Type 2 Diabetes"
     "htn" "I1[0-35]" "" "Hypertension"
     end
-    save "/tmp/_cs_test_dta.dta", replace
+    save "_cs_test_dta.dta", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_dta.dta") replace
+    codescan dx1-dx3, codefile("_cs_test_dta.dta") replace
     assert r(n_conditions) == 2
     confirm variable dm2
     confirm variable htn
@@ -3567,11 +3610,11 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_excl_save.csv"
+    capture erase "_cs_excl_save.csv"
     codescan dx1-dx3, define(dm2 "E11" ~ "E116" | htn "I1[0-35]") ///
-        replace save("/tmp/_cs_excl_save.csv")
+        replace save("_cs_excl_save.csv")
     preserve
-    import delimited using "/tmp/_cs_excl_save.csv", clear
+    import delimited using "_cs_excl_save.csv", clear
     assert _N == 2
     assert name[1] == "dm2"
     assert exclusion[1] == "E116"
@@ -3611,11 +3654,11 @@ capture noisily {
     set obs 1
     gen str32 name = "dm2"
     gen str32 pattern = "E11"
-    export delimited using "/tmp/_cs_test_rmacro.csv", replace
+    export delimited using "_cs_test_rmacro.csv", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_rmacro.csv") replace
-    assert "`r(codefile)'" == "/tmp/_cs_test_rmacro.csv"
+    codescan dx1-dx3, codefile("_cs_test_rmacro.csv") replace
+    assert "`r(codefile)'" == "_cs_test_rmacro.csv"
 }
 if _rc == 0 {
     display as result "  PASS: r(codefile) macro returned"
@@ -3939,9 +3982,9 @@ capture noisily {
     replace dx1 = "Z00" in 3
     replace dx1 = "E11.0" in 4
     replace dx1 = "I10.1" in 5
-    capture erase "/tmp/_cs_desc_nd.csv"
-    codescan_describe dx1, nodots save("/tmp/_cs_desc_nd.csv")
-    confirm file "/tmp/_cs_desc_nd.csv"
+    capture erase "_cs_desc_nd.csv"
+    codescan_describe dx1, nodots save("_cs_desc_nd.csv")
+    confirm file "_cs_desc_nd.csv"
     assert r(n_vars) == 1
 }
 if _rc == 0 {
@@ -4283,7 +4326,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan_describe dx1-dx3, save("/tmp/test.xlsx")
+    capture codescan_describe dx1-dx3, save("test.xlsx")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -4378,12 +4421,12 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_export_test.csv"
+    capture erase "_cs_export_test.csv"
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
-        replace export("/tmp/_cs_export_test.csv")
-    confirm file "/tmp/_cs_export_test.csv"
+        replace export("_cs_export_test.csv")
+    confirm file "_cs_export_test.csv"
     preserve
-    import delimited using "/tmp/_cs_export_test.csv", clear
+    import delimited using "_cs_export_test.csv", clear
     assert _N == 2
     confirm variable condition
     confirm variable matches
@@ -4393,7 +4436,7 @@ capture noisily {
     assert condition[2] == "htn"
     assert matches[1] > 0
     restore
-    capture erase "/tmp/_cs_export_test.csv"
+    capture erase "_cs_export_test.csv"
 }
 if _rc == 0 {
     display as result "  PASS: export() CSV correct content"
@@ -4408,11 +4451,11 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_export_test.xlsx"
+    capture erase "_cs_export_test.xlsx"
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
-        replace export("/tmp/_cs_export_test.xlsx")
-    confirm file "/tmp/_cs_export_test.xlsx"
-    capture erase "/tmp/_cs_export_test.xlsx"
+        replace export("_cs_export_test.xlsx")
+    confirm file "_cs_export_test.xlsx"
+    capture erase "_cs_export_test.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: export() XLSX writes file"
@@ -4427,20 +4470,20 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_export_cooc.xlsx"
+    capture erase "_cs_export_cooc.xlsx"
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
-        replace cooccurrence export("/tmp/_cs_export_cooc.xlsx")
-    confirm file "/tmp/_cs_export_cooc.xlsx"
+        replace cooccurrence export("_cs_export_cooc.xlsx")
+    confirm file "_cs_export_cooc.xlsx"
     * Read cooccurrence sheet
     preserve
-    import excel using "/tmp/_cs_export_cooc.xlsx", sheet("cooccurrence") ///
+    import excel using "_cs_export_cooc.xlsx", sheet("cooccurrence") ///
         firstrow clear
     assert _N == 2
     confirm variable condition
     confirm variable dm2
     confirm variable htn
     restore
-    capture erase "/tmp/_cs_export_cooc.xlsx"
+    capture erase "_cs_export_cooc.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: export() XLSX cooccurrence sheet"
@@ -4490,20 +4533,20 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_r2_case.csv"
+    capture erase "_cs_test_r2_case.csv"
     preserve
     clear
     set obs 1
     gen str32 Name = "dm2"
     gen str32 Pattern = "E11"
     gen str32 Label = "Diabetes"
-    export delimited using "/tmp/_cs_test_r2_case.csv", replace
+    export delimited using "_cs_test_r2_case.csv", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_r2_case.csv") replace
+    codescan dx1-dx3, codefile("_cs_test_r2_case.csv") replace
     assert r(n_conditions) == 1
     assert dm2[1] == 1
-    capture erase "/tmp/_cs_test_r2_case.csv"
+    capture erase "_cs_test_r2_case.csv"
 }
 if _rc == 0 {
     display as result "  PASS: R2 codefile case-tolerant column names"
@@ -4518,7 +4561,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_extra.csv"
+    capture erase "_cs_test_extra.csv"
     preserve
     clear
     set obs 1
@@ -4526,12 +4569,12 @@ capture noisily {
     gen str32 pattern = "E11"
     gen str32 notes = "some extra column"
     gen int priority = 1
-    export delimited using "/tmp/_cs_test_extra.csv", replace
+    export delimited using "_cs_test_extra.csv", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_extra.csv") replace
+    codescan dx1-dx3, codefile("_cs_test_extra.csv") replace
     assert r(n_conditions) == 1
-    capture erase "/tmp/_cs_test_extra.csv"
+    capture erase "_cs_test_extra.csv"
 }
 if _rc == 0 {
     display as result "  PASS: Codefile extra columns ignored"
@@ -4546,7 +4589,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture erase "/tmp/_cs_test_cflbl.csv"
+    capture erase "_cs_test_cflbl.csv"
     preserve
     clear
     set obs 2
@@ -4559,15 +4602,15 @@ capture noisily {
     replace name = "htn" in 2
     replace pattern = "I10" in 2
     replace label = "Hypertension" in 2
-    export delimited using "/tmp/_cs_test_cflbl.csv", replace
+    export delimited using "_cs_test_cflbl.csv", replace
     restore
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_cs_test_cflbl.csv") replace
+    codescan dx1-dx3, codefile("_cs_test_cflbl.csv") replace
     local lbl1 : variable label dm2
     local lbl2 : variable label htn
     assert `"`lbl1'"' == "Type 2 Diabetes"
     assert `"`lbl2'"' == "Hypertension"
-    capture erase "/tmp/_cs_test_cflbl.csv"
+    capture erase "_cs_test_cflbl.csv"
 }
 if _rc == 0 {
     display as result "  PASS: Codefile labels applied to indicators"
@@ -4919,6 +4962,12 @@ else {
     display as error "  FAIL: codescan_describe varabbrev on error (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 set varabbrev off
 
 **## codescan_describe with tostring and nodots combined
@@ -4941,6 +4990,12 @@ else {
     display as error "  FAIL: codescan_describe tostring + nodots (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 
 **# Merge Extended Tests
@@ -5632,7 +5687,7 @@ capture noisily {
     local rn : rowfullnames S
     local cn : colfullnames S
     assert "`rn'" == "dm2 htn"
-    assert "`cn'" == "count prevalence ci_low ci_high"
+    assert "`cn'" == "count prevalence ci_low ci_high total_hits positive_units"
 }
 if _rc == 0 {
     display as result "  PASS: Summary matrix row/col names"
@@ -5860,6 +5915,12 @@ else {
     local ++fail_count
 }
 
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
+
 **## Non-default c(level) = 90 changes CI width
 local ++test_count
 capture noisily {
@@ -5922,12 +5983,12 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
-        save("/tmp/_codescan_test_save.csv")
+        save("_codescan_test_save.csv", replace)
     local r1_dm2 = r(summary)[1,1]
     local r1_htn = r(summary)[2,1]
 
     _make_test_data
-    codescan dx1-dx3, codefile("/tmp/_codescan_test_save.csv")
+    codescan dx1-dx3, codefile("_codescan_test_save.csv")
     local r2_dm2 = r(summary)[1,1]
     local r2_htn = r(summary)[2,1]
     assert `r1_dm2' == `r2_dm2'
@@ -5967,7 +6028,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, codefile("/tmp/_codescan_test_save.csv") save("/tmp/out.csv")
+    capture codescan dx1-dx3, codefile("_codescan_test_save.csv") save("out.csv")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -5999,7 +6060,7 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
-    capture codescan dx1-dx3, define(dm2 "E11") save("/tmp/out.xlsx")
+    capture codescan dx1-dx3, define(dm2 "E11") save("out.xlsx")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -6176,8 +6237,8 @@ capture noisily {
     replace dx1 = "J45"  in 3
     replace dx1 = "K21"  in 4
     replace dx1 = "E119" in 5
-    codescan_describe dx1, save("/tmp/_codescan_describe_save.csv")
-    confirm file "/tmp/_codescan_describe_save.csv"
+    codescan_describe dx1, save("_codescan_describe_save.csv", replace)
+    confirm file "_codescan_describe_save.csv"
 }
 if _rc == 0 {
     display as result "  PASS: codescan_describe save() generates CSV"
@@ -6194,7 +6255,7 @@ capture noisily {
     clear
     set obs 5
     gen str10 dx1 = "E110"
-    capture codescan_describe dx1, save("/tmp/out.xlsx")
+    capture codescan_describe dx1, save("out.xlsx")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -6225,6 +6286,12 @@ else {
     display as error "  FAIL: Describe varabbrev on error (error `=_rc')"
     local ++fail_count
 }
+
+* Restore the suite baseline. This sits AFTER the verdict, never before:
+* `set varabbrev' resets _rc, so restoring ahead of the `if _rc == 0'
+* would make the test pass unconditionally. Leaving it unrestored let a
+* varabbrev=on leak into every later suite in the lane.
+set varabbrev `_qa_va0'
 
 
 * ============================================================
@@ -6756,6 +6823,26 @@ else {
 
 
 * ============================================================
+
+**# Settings hygiene
+
+* This suite must not leak a session setting to whatever runs next.
+local ++test_count
+capture noisily {
+    assert c(level) == `_qa_level0'
+    assert "`c(varabbrev)'" == "`_qa_va0'"
+    assert "`c(pwd)'" == "`_qa_pwd0'"
+}
+if _rc == 0 {
+    display as result "  PASS: no session setting leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: session setting leaked (error `=_rc')"
+    local ++fail_count
+}
+
+
 * Summary
 * ============================================================
 

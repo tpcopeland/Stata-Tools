@@ -280,18 +280,34 @@ program define _rangematch_load_using, sclass
 
         if `"`keepusing'"' != "" {
             if `using_is_frame' {
-                foreach kv of local keepusing {
-                    frame `using_frame': capture confirm variable `kv'
-                    if _rc {
-                        display as error ///
-                            `"keepusing() variable {bf:`kv'} not found in using frame {bf:`using_frame'}"'
-                        exit 111
-                    }
+                * keepusing() is documented as a varlist, so it may contain
+                * wildcards, hyphen ranges, or _all. Validate with `unab' rather
+                * than a per-token `confirm variable': confirm rejects every
+                * expansion form, so a frame source could not use the documented
+                * notation at all.
+                capture frame `using_frame': unab _rm_kutmp : `keepusing'
+                if _rc {
+                    display as error ///
+                        `"keepusing() does not match any variable in using frame {bf:`using_frame'}: `keepusing'"'
+                    exit 111
                 }
             }
             else {
+                * `describe varlist using' parses plain names and wildcards but
+                * NOT hyphen ranges or _all, even though `use' -- the loader
+                * that actually reads the file -- parses all three. Pre-checking
+                * with describe therefore rejected documented varlist notation
+                * outright (rc=111). Only pre-check the forms describe
+                * understands; for a range or _all, let the load validate.
+                * A hyphen is unambiguous here: Stata variable names cannot
+                * contain one, so it can only introduce a range.
+                local _rm_keep_needs_load = 0
+                if strpos(`"`keepusing'"', "-") local _rm_keep_needs_load = 1
+                foreach kv of local keepusing {
+                    if "`kv'" == "_all" local _rm_keep_needs_load = 1
+                }
                 capture quietly describe `keepusing' using `"`using'"'
-                if _rc {
+                if _rc & !`_rm_keep_needs_load' {
                     local _rm_keep_rc = _rc
                     quietly describe using `"`using'"', varlist
                     local _rm_using_vars `r(varlist)'
@@ -336,7 +352,11 @@ program define _rangematch_load_using, sclass
         if "`by'" != "" {
             local using_load_vars `"`using_load_vars' `by'"'
         }
-        if `"`keepusing'"' != "" & !`dryrun_mode' {
+        if `"`keepusing'"' != "" {
+            * Loaded in dry runs too. `use'/`frame put' expand a varlist
+            * pattern natively, and the loaded frame is what the canonical
+            * expansion below is derived from; a dry run that skipped these
+            * columns could not resolve x* into real output names.
             local using_load_vars `"`using_load_vars' `keepusing'"'
         }
         local using_load_vars : list uniq using_load_vars
@@ -421,10 +441,30 @@ program define _rangematch_load_using, sclass
             }
         }
 
+        * -------------------------------------------------------------------
+        * Canonicalize keepusing() into a real expanded varlist.
+        *
+        * keepusing() is documented as a varlist, but the raw tokens were
+        * reused verbatim for output naming, so keepusing(x*) built the
+        * invalid output name x*_U and failed rc=198 -- the documented Stata
+        * notation did not work at all. `use'/`frame put' already expanded the
+        * pattern while loading, so re-expanding inside __rm_using returns
+        * exactly the loaded columns, in source order.
+        *
+        * Runs before the private original-row id is generated, so no pattern
+        * can capture it. by() variables are removed downstream (exactly once)
+        * by _rangematch_build_output_names.
+        * -------------------------------------------------------------------
+        if `"`keepusing'"' != "" {
+            frame __rm_using: unab keepusing : `keepusing'
+            local keepusing : list uniq keepusing
+        }
+
         local N_using = 0
         frame __rm_using: local N_using = _N
 
         sreturn clear
+        sreturn local keepusing `"`keepusing'"'
         sreturn local using `"`using'"'
         sreturn local using_source "`using_source'"
         sreturn local using_frame "`using_frame'"
@@ -453,6 +493,19 @@ program define _rangematch_build_group_ids
                 local _rm_by1 : word 1 of `by'
                 capture confirm numeric variable `_rm_by1'
                 if !_rc {
+                    * The loader accepts a by-variable whose master and using
+                    * storage types differ, provided both are integer types. The
+                    * catalog path below widens the key safely; this direct path
+                    * does not, so a using-only group code that does not fit the
+                    * master type would be written to the output as missing
+                    * (silently, and only once N is large enough to make the
+                    * direct path eligible). Require exact type equality here and
+                    * fall back to the catalog path otherwise.
+                    local _rm_by1_mtype : type `_rm_by1'
+                    frame __rm_using: local _rm_by1_utype : type `_rm_by1'
+                    local _rm_type_match = ///
+                        ("`_rm_by1_mtype'" == "`_rm_by1_utype'")
+
                     quietly count if `touse' & missing(`_rm_by1')
                     local _rm_miss_master = r(N)
                     frame __rm_using: quietly count if missing(`_rm_by1')
@@ -472,6 +525,7 @@ program define _rangematch_build_group_ids
 
                     if `_rm_miss_master' == 0 & `_rm_miss_using' == 0 ///
                             & `_rm_bad_master' == 0 & `_rm_bad_using' == 0 ///
+                            & `_rm_type_match' ///
                             & `_rm_gid_max' <= (`N_master' + `N_using') {
                         local _rm_direct_gid = 1
                     }
@@ -566,7 +620,7 @@ program define _rangematch_run_backend, sclass
             ASSERTUsing(real) KEEPMASTER(real) KEEPUSING(real) ///
             MAXPairs(real) CLOSEDCode(real) TOLerance(real) ///
             NEARESTCode(real) TIESCode(real) TIMing(real) ///
-            OVERLAPMode(real)
+            OVERLAPMode(real) MIVar(name) UIVar(name)
 
         capture frame drop __rm_out
         local _rm_drop_rc = _rc
@@ -581,7 +635,8 @@ program define _rangematch_run_backend, sclass
             mata: _rm_build_pairs_overlap("__rm_master", "__rm_uwork", ///
                 "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
                 `closedcode', `tolerance', `dryrun', `showprogress', ///
-                `statsmode', `assertmatch', `assertusing')
+                `statsmode', `assertmatch', `assertusing', ///
+                "`mivar'", "`uivar'")
             local _rm_backend "overlap"
         }
         else {
@@ -593,7 +648,8 @@ program define _rangematch_run_backend, sclass
                     "__rm_out", `keepmaster', `keepusing', ///
                     `maxpairs', `closedcode', `tolerance', `dryrun', ///
                     `showprogress', `statsmode', `assertmatch', ///
-                    `assertusing', `_rm_sweep_mode')
+                    `assertusing', `_rm_sweep_mode', ///
+                    "`mivar'", "`uivar'")
                 if "`_rm_err_maxpairs'" != "1" {
                     local _rm_backend "sweep"
                 }
@@ -603,7 +659,7 @@ program define _rangematch_run_backend, sclass
                     "__rm_out", `keepmaster', `keepusing', `maxpairs', ///
                     `closedcode', `nearestcode', `tiescode', `tolerance', ///
                     `dryrun', `showprogress', `statsmode', `assertmatch', ///
-                    `assertusing')
+                    `assertusing', "`mivar'", "`uivar'")
             }
         }
 
@@ -757,6 +813,10 @@ program define rangematch, rclass
     * Parse syntax
     * -------------------------------------------------------------------
     local _rm_cmdline `"rangematch `0'"'
+    * Keep the unparsed argument list: `syntax' consumes `0', and the
+    * empty-argument screen below scans the original line to tell an
+    * explicitly empty option from an omitted one (syntax cannot).
+    local _rm_raw0 `"`0'"'
 
     syntax anything(name=interval id="keyvar low high") ///
         [if] [in] using/ , ///
@@ -767,6 +827,28 @@ program define rangematch, rclass
           CLOSED(string) NEARest(string) TIES(string) SEED(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
+
+    * -------------------------------------------------------------------
+    * Reject explicitly empty arguments for options whose grammar requires
+    * content. Stata's own `syntax' treats `missing()' as NOT SUPPLIED -- it is
+    * indistinguishable from an omitted missing() -- so every such option
+    * silently fell through to its default or to a no-op. That is not cosmetic:
+    * `missing(`policy')' where `policy' expanded to nothing would silently
+    * disable a requested safety check. Because the parser cannot see the
+    * difference, the original argument list is scanned textually instead.
+    *
+    * prefix()/suffix() are deliberately NOT screened: an empty prefix is a
+    * meaningful value, not a missing argument. tolerance()/maxpairs() are typed
+    * numeric and already fail rc=198 on an empty argument.
+    * -------------------------------------------------------------------
+    mata: st_local("_rm_empty_opt", _rm_first_empty_opt(st_local("_rm_raw0")))
+    if "`_rm_empty_opt'" != "" {
+        display as error ///
+            "option {bf:`_rm_empty_opt'()} requires an argument"
+        display as error ///
+            "specify a value or remove the option"
+        exit 198
+    }
 
     * Fixed internal frame names are private implementation details, but they
     * must never overwrite a same-named user frame. Once this preflight passes,
@@ -1175,6 +1257,26 @@ program define rangematch, rclass
         quietly count if `touse' & missing(`high')
         local N_missing_bounds = r(N)
     }
+    * -------------------------------------------------------------------
+    * The master key is a matching input -- not merely carried -- whenever
+    * scalar offsets derive the interval from it (`key'+low, `key'+high) or
+    * nearest() measures distance from it. In those modes a missing master key
+    * is exactly as fatal to the derived interval as a missing bound variable,
+    * so missing() must govern it; restricting the policy to bound variables
+    * let missing(error) return rc=0 on data it exists to reject.
+    *
+    * Counted separately as r(N_master_key_missing) rather than folded into
+    * r(N_missing_bounds), which is defined as a bound-variable count. A row
+    * with both a missing key and a missing bound is counted in BOTH
+    * diagnostics; the two are independent screens, not a partition.
+    * -------------------------------------------------------------------
+    local _rm_master_key_input = (`uses_key_offsets' | `nearest_code' != 0)
+    local N_master_key_missing = 0
+    if `_rm_master_key_input' {
+        quietly count if `touse' & missing(`key')
+        local N_master_key_missing = r(N)
+    }
+
     if `N_missing_bounds' > 0 {
         if "`missing'" == "error" {
             display as error ///
@@ -1200,6 +1302,44 @@ program define rangematch, rclass
         }
     }
 
+    * Apply the policy to the master key. Ordered after the bound screen so a
+    * dataset failing both reports the bound diagnostic first, matching the
+    * historical message for bound-only data. wildcard is a no-op: the derived
+    * interval sentinel below (`_rm_low'=1, `_rm_high'=0) and nearest's missing
+    * distance already make a missing-key row match nothing, which is the same
+    * contract wildcard gives a missing using key.
+    if `N_master_key_missing' > 0 & "`missing'" != "wildcard" {
+        if "`missing'" == "error" {
+            display as error ///
+                "`N_master_key_missing' master row(s) have a missing match key {bf:`key'}"
+            * Offsets and nearest() can both be active; each makes the key a
+            * matching input for its own reason, so report every reason that
+            * applies rather than only the first. An if/else here explained the
+            * offsets and stayed silent about the distance.
+            if `uses_key_offsets' {
+                display as error ///
+                    "scalar offset bounds are derived from {bf:`key'}, so the match interval is undefined"
+            }
+            if `nearest_code' != 0 {
+                display as error ///
+                    "nearest() measures distance from {bf:`key'}, so the match distance is undefined"
+            }
+            display as error ///
+                "specify {bf:missing(drop)} to ignore them or {bf:missing(wildcard)} to keep current never-match behavior"
+            exit 459
+        }
+        else if "`missing'" == "drop" {
+            quietly replace `touse' = 0 if missing(`key')
+            quietly count if `touse'
+            local N_master = r(N)
+            if `N_master' == 0 {
+                display as error ///
+                    "missing(drop) removed all master observations"
+                exit 2000
+            }
+        }
+    }
+
     * -------------------------------------------------------------------
     * Load and validate using data
     * -------------------------------------------------------------------
@@ -1212,12 +1352,49 @@ program define rangematch, rclass
     _rangematch_load_using `"`using'"' `"`_rm_using_keys'"' `"`by'"' ///
         `"`keepusing'"' `"`dryrun_mode'"' `"`_rm_caller_frame'"'
     local using `"`s(using)'"'
+    * Canonical expanded keepusing(): output naming, materialization, and
+    * r(keepusing) must all use the expanded list, never the raw pattern.
+    local keepusing `"`s(keepusing)'"'
     local using_source "`s(using_source)'"
     local using_frame "`s(using_frame)'"
     local using_is_frame = `s(using_is_frame)'
     local all_using_vars `"`s(all_using_vars)'"'
     local N_using_pre = `s(N_using_pre)'
     local N_using = `s(N_using)'
+
+    * -------------------------------------------------------------------
+    * The using source frame may not also be the frame() target. Output
+    * routing drops the target frame and renames __rm_out over it, which would
+    * destroy the using source and break the documented promise that a using
+    * frame is left unchanged. replace authorizes overwriting the target, not
+    * the source, so this is rejected regardless of replace. Checked here
+    * rather than in the target preflight because only the loader knows
+    * whether `using' resolved to a frame or a file.
+    * -------------------------------------------------------------------
+    if `using_is_frame' & "`frame'" != "" & !`dryrun_mode' {
+        if "`frame'" == "`using_frame'" {
+            display as error ///
+                `"frame() may not name the using source frame {bf:`using_frame'}"'
+            display as error ///
+                "the source and destination frames must differ"
+            exit 198
+        }
+    }
+
+    * -------------------------------------------------------------------
+    * Record the original using observation number BEFORE any missing()
+    * policy drops rows. usingid() documents this as the original using
+    * observation number, so it must survive missing(drop): the later
+    * `_rm_uobs' index is a physical row position in __rm_using (the Mata
+    * materializer indexes the source frame by position), and a post-drop
+    * position is not an original row number. Keeping the two separate lets
+    * every index path stay position-based while usingid() reports provenance.
+    * Excluded from all_using_vars below so it never reaches carry_vars.
+    * -------------------------------------------------------------------
+    tempvar _rm_uid0
+    frame __rm_using {
+        quietly gen long `_rm_uid0' = _n
+    }
 
     * -------------------------------------------------------------------
     * Apply the missing() policy to the using side, symmetrically with the
@@ -1257,24 +1434,39 @@ program define rangematch, rclass
                     frame __rm_using: quietly drop if missing(`key')
                 }
                 frame __rm_using: local N_using = _N
-                if `N_using' == 0 {
-                    display as error ///
-                        "missing(drop) removed all using observations"
-                    exit 2000
-                }
+                * A post-policy empty using side is NOT an error. missing(drop)
+                * is documented as equivalent to dropping those rows upstream,
+                * and an initially zero-row using dataset is already supported
+                * and returns the unmatched master rows. Erroring here made the
+                * result depend on whether identical filtering ran inside or
+                * immediately before the command. The backends handle nu==0, so
+                * let it through and honour unmatched()/assert()/stats normally.
+                *
+                * The master side keeps its error: there, both the upstream drop
+                * and an empty if/in sample already exit 2000 ("no
+                * observations"), so equivalence holds at 2000 and removing it
+                * would introduce the very inconsistency this fixes.
             }
         }
     }
 
     * -------------------------------------------------------------------
-    * Inverted using-interval screen (overlap mode). A using interval with
+    * Inverted using-interval report (overlap mode). A using interval with
     * ulow > uhigh is a common registry data-quality defect (swapped
-    * start/stop). The overlap backend does not screen these, so they can emit
-    * matches that reflect the inverted bounds rather than a genuine overlap.
-    * Count and warn non-fatally, mirroring the float-precision warning; the
-    * count is posted in r(N_using_inverted) under every mode (0 outside
-    * overlap mode). A master interval with low > high is already treated as
-    * empty upstream, so only the using side needs this screen.
+    * start/stop). The overlap backend screens these out -- an inverted interval
+    * is empty, and _rm_interval_nonempty() rejects it on both sides -- so they
+    * cannot produce a match. The warning is not about a wrong answer; it exists
+    * because silently returning nothing for a row the user believes is real is
+    * itself a way to be misread. Count and warn non-fatally, mirroring the
+    * float-precision warning; the count is posted in r(N_using_inverted) under
+    * every mode (0 outside overlap mode).
+    *
+    * This message described the OPPOSITE behaviour until the screen landed:
+    * it told users inverted rows "are not screened and may produce matches
+    * reflecting the swapped bounds". If the screen is ever changed, change this
+    * text with it -- a warning that misdescribes the disposition is worse than
+    * no warning, because it sends the reader looking for matches that cannot
+    * exist.
     * -------------------------------------------------------------------
     local N_using_inverted = 0
     if `overlap_mode' {
@@ -1285,7 +1477,7 @@ program define rangematch, rclass
             display as error ///
                 "warning: `N_using_inverted' using interval(s) have {bf:`ulo'} > {bf:`uhi'} (inverted bounds);"
             display as error ///
-                "         these are not screened and may produce matches reflecting the swapped bounds -- validate using-interval order upstream"
+                "         an inverted interval is empty, so these match nothing -- validate using-interval order upstream"
         }
     }
 
@@ -1318,6 +1510,8 @@ program define rangematch, rclass
     if !`dryrun_mode' {
         frame __rm_using: quietly describe, varlist short
         local all_using_vars `r(varlist)'
+        * The private original-row identifier is not a user variable.
+        local all_using_vars : list all_using_vars - _rm_uid0
     }
 
     _rangematch_build_output_names `"`all_using_vars'"' `"`touse'"' ///
@@ -1346,7 +1540,13 @@ program define rangematch, rclass
     capture frame drop __rm_master
     local _rm_drop_rc = _rc
     local _rm_need_master_key = (`nearest_code' != 0)
+    * _rm_mi/_rm_ui are the private master/using pair-index columns written by
+    * the Mata builders into __rm_out. They were fixed literals (__rm_mi and
+    * __rm_ui), which collided with legal user variables of the same name once
+    * master/carried variables were materialized into that frame (r(110) on
+    * valid input). Tempvars make the names collision-free.
     tempvar _rm_obs _rm_key _rm_low _rm_high _rm_gid _rm_uobs _rm_ugid
+    tempvar _rm_mi _rm_ui
     quietly {
         gen long `_rm_obs' = _n
         if `_rm_need_master_key' {
@@ -1447,7 +1647,7 @@ program define rangematch, rclass
         maxpairs(`maxpairs') closedcode(`closed_code') ///
         tolerance(`tolerance') nearestcode(`nearest_code') ///
         tiescode(`ties_code') timing(`_rm_timing') ///
-        overlapmode(`overlap_mode')
+        overlapmode(`overlap_mode') mivar(`_rm_mi') uivar(`_rm_ui')
 
     if `_rm_timing' {
         timer off `_rm_timer_match'
@@ -1538,7 +1738,7 @@ program define rangematch, rclass
     * Materialize master variables
     if "`master_vars'" != "" {
         mata: _rm_materialize("__rm_out", "`_rm_caller_frame'", ///
-            "__rm_mi", ///
+            "`_rm_mi'", ///
             tokens(st_local("master_vars")), ///
             tokens(st_local("master_vars")))
     }
@@ -1546,7 +1746,7 @@ program define rangematch, rclass
     * Materialize using variables
     if "`carry_vars'" != "" {
         mata: _rm_materialize("__rm_out", "__rm_using", ///
-            "__rm_ui", ///
+            "`_rm_ui'", ///
             tokens(st_local("carry_vars")), ///
             tokens(st_local("out_names")))
     }
@@ -1554,26 +1754,30 @@ program define rangematch, rclass
     * Fill equality keys from using rows for full-outer by() output.
     if "`by'" != "" & `keep_unmatched_using' {
         mata: _rm_fill_using_only("__rm_out", "__rm_using", ///
-            "__rm_mi", "__rm_ui", ///
+            "`_rm_mi'", "`_rm_ui'", ///
             tokens(st_local("by")), tokens(st_local("by")))
     }
 
     * Expose original row numbers when requested.
     if "`masterid'" != "" {
         frame __rm_out {
-            quietly gen long `masterid' = __rm_mi
+            quietly gen long `masterid' = `_rm_mi'
         }
     }
     if "`usingid'" != "" {
-        frame __rm_out {
-            quietly gen long `usingid' = __rm_ui
-        }
+        * __rm_ui is a physical row position in __rm_using, which missing(drop)
+        * may have renumbered. Materialize the pre-policy original row number
+        * instead so usingid() keeps its documented provenance contract.
+        mata: _rm_materialize("__rm_out", "__rm_using", ///
+            "`_rm_ui'", ///
+            tokens(st_local("_rm_uid0")), ///
+            tokens(st_local("usingid")))
     }
 
     * Generate signed using-key minus master-key distance when requested.
     if "`distance'" != "" {
         mata: _rm_generate_distance("__rm_out", "`_rm_caller_frame'", ///
-            "__rm_using", "__rm_mi", "__rm_ui", "`key'", "`key'", ///
+            "__rm_using", "`_rm_mi'", "`_rm_ui'", "`key'", "`key'", ///
             "`distance'")
     }
 
@@ -1595,8 +1799,8 @@ program define rangematch, rclass
                 exit 498
             }
             quietly gen byte `generate' = ///
-                cond(__rm_mi >= . & __rm_ui < ., 2, ///
-                cond(__rm_ui < ., 3, 1))
+                cond(`_rm_mi' >= . & `_rm_ui' < ., 2, ///
+                cond(`_rm_ui' < ., 3, 1))
             label define `_rm_merge_label' 1 "master only" ///
                 2 "using only" 3 "matched", replace
             label values `generate' `_rm_merge_label'
@@ -1606,13 +1810,13 @@ program define rangematch, rclass
     * Apply deterministic output ordering unless the caller requests nosort.
     if `sort_output' {
         frame __rm_out {
-            quietly sort __rm_mi __rm_ui
+            quietly sort `_rm_mi' `_rm_ui'
         }
     }
 
     * Drop internal columns
     frame __rm_out {
-        quietly drop __rm_mi __rm_ui
+        quietly drop `_rm_mi' `_rm_ui'
     }
 
     * Carry the master dataset label onto the output (as merge does).
@@ -1641,6 +1845,12 @@ program define rangematch, rclass
         else {
             frame __rm_out: save `"`saving_file'"'
         }
+        * Report the file that was actually written. `save' appends .dta only
+        * when the name has no extension, so saving("out") creates "out.dta"
+        * while the bare "out" does not exist. Reporting the raw argument left
+        * r(saving) and the console naming a nonexistent path, breaking any
+        * caller that confirms or reuses it.
+        mata: st_local("saving_file", _rm_dta_name(st_local("saving_file")))
         frame change `_rm_caller_frame'
     }
     else {
@@ -1782,6 +1992,7 @@ program define rangematch, rclass
         return scalar N_unmatched      = `N_unmatched'
         return scalar N_matched_pairs  = `N_matched_pairs'
         return scalar N_missing_bounds = `N_missing_bounds'
+        return scalar N_master_key_missing = `N_master_key_missing'
         return scalar N_using_missing  = `N_using_missing'
         return scalar N_using_inverted = `N_using_inverted'
         if `_rm_stats_mode' {

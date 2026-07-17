@@ -134,7 +134,13 @@ a named frame and leaves the current data unchanged.
 Output preserves variable labels, value-label attachments and definitions, and
 the master dataset label for both master and carried using variables, as
 {helpb merge} does. If the master and using data define the same value-label
-name with different mappings, the master definition wins.
+name with the same mapping, the single definition is shared. If they define it
+with {it:different} mappings, the master keeps the original name and the using
+definition is copied under a collision-free name ({it:name}{cmd:_U}, then
+{it:name}{cmd:_U2}, and so on), to which the carried using variables are
+attached; carried variables sharing one mapping share one copy. Both meanings
+therefore survive, and {helpb decode} on a carried variable returns the using
+data's own text.
 
 {pstd}
 If you only need summary statistics over a range, {cmd:rangestat} is usually
@@ -163,15 +169,16 @@ reject rows with a missing bound on either side (see {opt miss:ing()}
 below). {opt tolerance()} shifts the comparison boundaries exactly as in point mode.
 
 {pmore}
-Each interval is assumed well-formed, with {it:low} <= {it:high} (and
-{it:ulow} <= {it:uhigh}). A master interval with {it:low} > {it:high} is
-treated as empty and matches nothing. A using interval with {it:ulow} >
-{it:uhigh} is not screened and may produce matches that reflect the inverted
-bounds rather than a genuine overlap; because inverted bounds are a common
-registry data-quality defect (swapped start/stop), {cmd:rangematch} counts such
-using intervals, posts the count in {cmd:r(N_using_inverted)}, and prints a
-non-fatal warning so they are not silently trusted. Validate using-side interval
-order upstream if it is not already guaranteed.
+An interval is empty unless its bounds are ordered: {it:low} <= {it:high} under
+{opt closed(both)}, and {it:low} < {it:high} under {opt closed(none)}, where the
+degenerate point interval contains nothing. An empty interval on either side --
+master or using -- matches nothing, so inverted bounds ({it:ulow} > {it:uhigh})
+never produce a match. Because inverted bounds are a common registry
+data-quality defect (swapped start/stop), {cmd:rangematch} counts such using
+intervals, posts the count in {cmd:r(N_using_inverted)}, and prints a non-fatal
+warning rather than passing over them silently; under {opt unmatched(using)} or
+{opt unmatched(both)} they appear as unmatched using rows. Validate using-side
+interval order upstream if it is not already guaranteed.
 
 {pmore}
 Interval-overlap mode emits matched pairs directly through the same Mata
@@ -295,12 +302,33 @@ to {it:variables}; a literal {cmd:.} positional bound is the user's explicit ope
 token and is unaffected.
 
 {pmore}
+The policy also governs the master {it:keyvar} whenever it is a matching input
+rather than a carried value: with scalar offset bounds, which derive the
+interval as {it:keyvar}{cmd:+}{it:low} to {it:keyvar}{cmd:+}{it:high}, and with
+{opt near:est()}, which measures distance from it. In those modes a master row
+with a missing {it:keyvar} has no defined match interval or distance, so
+{opt miss:ing(error)} rejects it and {opt miss:ing(drop)} removes
+it. {opt miss:ing(wildcard)} keeps the row, which then matches nothing -- the
+same contract a missing using key gets. The count is posted separately in
+{cmd:r(N_master_key_missing)} rather than folded into
+{cmd:r(N_missing_bounds)}, which counts bound variables only; a row with both a
+missing key and a missing bound is counted in both, and under
+{opt miss:ing(error)} the bound diagnostic is reported first. When the master
+{it:keyvar} is only carried into the output (variable bounds, no
+{opt near:est()}), it is not a matching input and the policy does not apply.
+
+{pmore}
 If {opt miss:ing(drop)} empties an entire {opt by()} group from one side, the
 counterpart rows in that group still surface as unmatched under the relevant
-{opt unmatch:ed()} setting and will trip the matching {opt as:sert()}. The count
-of master rows with missing variable bounds is always posted in
-{cmd:r(N_missing_bounds)} and the count of using rows with a missing key/bound in
-{cmd:r(N_using_missing)}, under every policy. Under {opt miss:ing(drop)},
+{opt unmatch:ed()} setting and will trip the matching {opt as:sert()}. On a
+successful {opt miss:ing(wildcard)} or {opt miss:ing(drop)} run, the count of
+master rows with missing variable bounds is posted in
+{cmd:r(N_missing_bounds)}, the count of master rows with a missing match key in
+{cmd:r(N_master_key_missing)}, and the count of using rows with a missing
+key/bound in {cmd:r(N_using_missing)}. Under {opt miss:ing(error)} the command
+exits before posting any result, so these counts are reported in the error
+message itself rather than in {cmd:r()}; a captured error leaves no
+{cmd:rangematch} counts behind to read. Under {opt miss:ing(drop)},
 {cmd:r(N_master)} and {cmd:r(N_using)} are the post-drop counts, and adding back
 the corresponding missing count recovers the post-{cmd:if}/{cmd:in}, pre-drop
 total for that side.
@@ -705,6 +733,7 @@ posted only when {opt stats} is specified.
 {synopt:{cmd:r(N_unmatched)}}unmatched output rows{p_end}
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
 {synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
+{synopt:{cmd:r(N_master_key_missing)}}master rows with a missing matching {it:keyvar}; 0 otherwise{p_end}
 {synopt:{cmd:r(N_using_missing)}}using rows with a missing point key or interval bound{p_end}
 {synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode){p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}

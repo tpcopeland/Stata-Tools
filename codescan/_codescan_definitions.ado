@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 2.0.9  2026/07/09
+*! _codescan_definitions Version 3.0.0  2026/07/17
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -350,6 +350,24 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // _codescan_mata_scan) and reject -1.
     if (ustrregexm("__codescan_probe__", "^(" + pat + ")") == -1) {
         errprintf("{err}" + ptype + " for %s: invalid regex pattern: %s\n", cname, pat)
+        exit(198)
+    }
+
+    // ── Empty-match guard (match-everything false-cohort catch-all) ──────────
+    // The structural checks above reject empty alternation branches, but many
+    // other patterns can also match the empty string: "()", "(())", "A*", "A?",
+    // "A{0}", nested empty groups. ICU compiles every one of them, so neither
+    // the structural pass nor the compile probe rejects them. Anchored as
+    // "^(pat)" — the form _codescan_mata_scan actually applies — an
+    // empty-capable pattern matches the start of EVERY nonempty code: as an
+    // inclusion it silently yields a cohort of everyone, as an exclusion it
+    // silently removes every match. Both are analytic-validity failures that
+    // return rc=0. Probe the anchored form against "" and reject a match.
+    if (ustrregexm("", "^(" + pat + ")") == 1) {
+        errprintf("{err}" + ptype + " for %s: pattern can match an empty string (matches every code): %s\n", cname, pat)
+        // Mata string literals have no backslash escape for a double quote, so
+        // this message is written without embedded quotes on purpose.
+        errprintf("{err}  to match any non-empty code use the pattern . instead (not .* or empty groups)\n")
         exit(198)
     }
 }
