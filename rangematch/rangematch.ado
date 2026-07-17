@@ -1,4 +1,4 @@
-*! rangematch Version 1.3.3  2026/07/09
+*! rangematch Version 1.4.0  2026/07/17
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -212,6 +212,7 @@ program define _rangematch_build_output_names, sclass
         sreturn local carry_vars `"`carry_vars'"'
         sreturn local master_vars `"`master_vars'"'
         sreturn local out_names `"`out_names'"'
+        sreturn local all_out `"`all_out_uniq'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -462,7 +463,6 @@ program define _rangematch_load_using, sclass
 
         local N_using = 0
         frame __rm_using: local N_using = _N
-
         sreturn clear
         sreturn local keepusing `"`keepusing'"'
         sreturn local using `"`using'"'
@@ -484,7 +484,6 @@ program define _rangematch_build_group_ids
     set varabbrev off
     capture noisily {
         args by touse N_master N_using master_gid using_gid master_obs using_obs
-
         local _rm_need_obs_resort = 0
         if "`by'" != "" {
             local _rm_direct_gid = 0
@@ -539,54 +538,90 @@ program define _rangematch_build_group_ids
                 }
             }
             else {
-                tempvar _rm_catalog_gid
-                local _rm_need_obs_resort = 1
+                * Build the catalog only in thin private frames. Stata's merge
+                * allocates __000000-style work variables globally across
+                * frames, so the catalog below deliberately uses no merge.
+                local _rm_aliases ""
+                local _rm_occupied "`by' `master_obs' `using_obs'"
+                local _rm_j = 0
+                foreach _rm_bv of local by {
+                    local ++_rm_j
+                    local _rm_alias ""
+                    forvalues _rm_try = 0/`=c(maxvar)' {
+                        if `_rm_try' == 0 local _rm_candidate "__rmb`_rm_j'"
+                        else local _rm_candidate "__rmb`_rm_j'_`_rm_try'"
+                        local _rm_taken : list _rm_candidate in _rm_occupied
+                        if !`_rm_taken' {
+                            local _rm_alias "`_rm_candidate'"
+                            continue, break
+                        }
+                    }
+                    if "`_rm_alias'" == "" {
+                        display as error "could not allocate a private group-key alias"
+                        exit 110
+                    }
+                    local _rm_aliases "`_rm_aliases' `_rm_alias'"
+                    local _rm_occupied "`_rm_occupied' `_rm_alias'"
+                }
+                local _rm_row_alias "__rm_row"
+                local _rm_gid_alias "__rm_catalog_gid"
+                local _rm_side_alias "__rm_side"
+                local _rm_first_alias "__rm_first"
+
                 capture frame drop __rm_grp
                 local _rm_drop_rc = _rc
-                quietly frame put `by' if `touse', into(__rm_grp)
-                frame __rm_grp: quietly duplicates drop
+                quietly frame put `by' `master_obs' if `touse', into(__rm_grp)
 
                 frame __rm_using {
                     capture frame drop __rm_grp_u
                     local _rm_drop_rc = _rc
-                    quietly frame put `by', into(__rm_grp_u)
-                    frame __rm_grp_u: quietly duplicates drop
+                    quietly frame put `by' `using_obs', into(__rm_grp_u)
                 }
 
-                tempfile _grp_u_tmp
-                frame __rm_grp_u: quietly save `"`_grp_u_tmp'"'
+                local _rm_j = 0
+                foreach _rm_bv of local by {
+                    local ++_rm_j
+                    local _rm_alias : word `_rm_j' of `_rm_aliases'
+                    frame __rm_grp: rename `_rm_bv' `_rm_alias'
+                    frame __rm_grp_u: rename `_rm_bv' `_rm_alias'
+                }
+                frame __rm_grp: rename `master_obs' `_rm_row_alias'
+                frame __rm_grp_u: rename `using_obs' `_rm_row_alias'
+                frame __rm_grp: quietly gen byte `_rm_side_alias' = 0
+                frame __rm_grp_u: quietly gen byte `_rm_side_alias' = 1
+
+                * Append both sides and assign one sorted group id per distinct
+                * key. No merge is used anywhere: merge's private tempvars are
+                * global across frames and can delete legal __000000-style user
+                * variables even when the merge itself runs in a thin frame.
+                tempfile _grp_u_rows
+                frame __rm_grp_u: quietly save `"`_grp_u_rows'"'
                 frame __rm_grp {
                     quietly {
-                        append using `"`_grp_u_tmp'"'
-                        duplicates drop
-                        sort `by'
-                        gen long `_rm_catalog_gid' = _n
+                        append using `"`_grp_u_rows'"'
+                        sort `_rm_aliases'
+                        by `_rm_aliases': gen byte `_rm_first_alias' = (_n == 1)
+                        gen long `_rm_gid_alias' = sum(`_rm_first_alias')
+                        drop `_rm_first_alias'
                     }
                 }
+
                 capture frame drop __rm_grp_u
                 local _rm_drop_rc = _rc
+                frame __rm_grp: quietly frame put `_rm_row_alias' ///
+                    `_rm_gid_alias' if `_rm_side_alias' == 1, into(__rm_grp_u)
+                frame __rm_grp: quietly drop if `_rm_side_alias' == 1
 
-                tempfile _grp_catalog
-                frame __rm_grp: quietly save `"`_grp_catalog'"'
+                quietly gen double `master_gid' = 0
+                frame __rm_using: quietly gen double `using_gid' = 0
+                local _rm_master_frame = c(frame)
+                mata: _rm_store_indexed("__rm_grp", "`_rm_row_alias'", ///
+                    "`_rm_gid_alias'", "`_rm_master_frame'", "`master_gid'")
+                mata: _rm_store_indexed("__rm_grp_u", "`_rm_row_alias'", ///
+                    "`_rm_gid_alias'", "__rm_using", "`using_gid'")
 
-                quietly {
-                    merge m:1 `by' using `"`_grp_catalog'"', ///
-                        keep(match master) nogenerate ///
-                        keepusing(`_rm_catalog_gid')
-                    rename `_rm_catalog_gid' `master_gid'
-                    replace `master_gid' = 0 if `master_gid' >= .
-                }
-
-                frame __rm_using {
-                    quietly {
-                        merge m:1 `by' using `"`_grp_catalog'"', ///
-                            keep(match master) nogenerate ///
-                            keepusing(`_rm_catalog_gid')
-                        rename `_rm_catalog_gid' `using_gid'
-                        replace `using_gid' = 0 if `using_gid' >= .
-                    }
-                }
-
+                capture frame drop __rm_grp_u
+                local _rm_drop_rc = _rc
                 capture frame drop __rm_grp
                 local _rm_drop_rc = _rc
             }
@@ -783,10 +818,11 @@ program define rangematch, rclass
     local _rm_timer_materialize = 0
     local _rm_return_ready = 0
     local _rm_output_succeeded = 0
+    local _rm_touse_owned = 0
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.3.3"
+    local _rm_required_mata_version "1.4.0"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1230,13 +1266,29 @@ program define rangematch, rclass
         }
     }
 
-    marksample touse, novarlist
+    * marksample allocates a tempvar. That is normally ideal, but this command
+    * later replaces the current frame with variables carried from a different
+    * frame. If a legal using variable has the same tempvar-style name, Stata's
+    * automatic tempvar cleanup silently drops it from the final output. Use an
+    * explicitly owned, collision-checked mark variable and clean it ourselves.
+    local touse ""
+    forvalues _rm_try = 0/`=c(maxvar)' {
+        if `_rm_try' == 0 local _rm_candidate "__rm_touse"
+        else local _rm_candidate "__rm_touse`_rm_try'"
+        capture confirm new variable `_rm_candidate'
+        if !_rc {
+            local touse "`_rm_candidate'"
+            continue, break
+        }
+    }
+    if "`touse'" == "" {
+        display as error "could not allocate a collision-free sample marker"
+        exit 110
+    }
+    quietly mark `touse' `if' `in'
+    local _rm_touse_owned = 1
 
     quietly count if `touse'
-    if r(N) == 0 {
-        display as error "no observations"
-        exit 2000
-    }
     local N_master = r(N)
 
     * -------------------------------------------------------------------
@@ -1294,11 +1346,6 @@ program define rangematch, rclass
             }
             quietly count if `touse'
             local N_master = r(N)
-            if `N_master' == 0 {
-                display as error ///
-                    "missing(drop) removed all master observations"
-                exit 2000
-            }
         }
     }
 
@@ -1332,11 +1379,6 @@ program define rangematch, rclass
             quietly replace `touse' = 0 if missing(`key')
             quietly count if `touse'
             local N_master = r(N)
-            if `N_master' == 0 {
-                display as error ///
-                    "missing(drop) removed all master observations"
-                exit 2000
-            }
         }
     }
 
@@ -1391,7 +1433,24 @@ program define rangematch, rclass
     * every index path stay position-based while usingid() reports provenance.
     * Excluded from all_using_vars below so it never reaches carry_vars.
     * -------------------------------------------------------------------
-    tempvar _rm_uid0
+    * A Stata tempvar is collision-free only in the current frame, and its
+    * automatic cleanup can later delete a same-named user variable after the
+    * output frame becomes current. Use an unregistered private name checked in
+    * the frame where it will actually live.
+    local _rm_uid0 ""
+    forvalues _rm_try = 0/`=c(maxvar)' {
+        if `_rm_try' == 0 local _rm_candidate "__rm_uid0"
+        else local _rm_candidate "__rm_uid`_rm_try'"
+        frame __rm_using: capture confirm new variable `_rm_candidate'
+        if !_rc {
+            local _rm_uid0 "`_rm_candidate'"
+            continue, break
+        }
+    }
+    if "`_rm_uid0'" == "" {
+        display as error "could not allocate a collision-free using-row identifier"
+        exit 110
+    }
     frame __rm_using {
         quietly gen long `_rm_uid0' = _n
     }
@@ -1442,10 +1501,9 @@ program define rangematch, rclass
                 * immediately before the command. The backends handle nu==0, so
                 * let it through and honour unmatched()/assert()/stats normally.
                 *
-                * The master side keeps its error: there, both the upstream drop
-                * and an empty if/in sample already exit 2000 ("no
-                * observations"), so equivalence holds at 2000 and removing it
-                * would introduce the very inconsistency this fixes.
+                * The master side follows the same contract below: a post-policy
+                * empty side reaches the backend and unmatched()/assert() decide
+                * the result.
             }
         }
     }
@@ -1513,13 +1571,13 @@ program define rangematch, rclass
         * The private original-row identifier is not a user variable.
         local all_using_vars : list all_using_vars - _rm_uid0
     }
-
     _rangematch_build_output_names `"`all_using_vars'"' `"`touse'"' ///
         `"`keepusing'"' `"`by'"' `"`prefix'"' `"`suffix'"' `"`all'"' ///
         `"`generate'"' `"`distance'"' `"`masterid'"' `"`usingid'"'
     local carry_vars `"`s(carry_vars)'"'
     local master_vars `"`s(master_vars)'"'
     local out_names `"`s(out_names)'"'
+    local all_out `"`s(all_out)'"'
 
     if `_rm_timing' {
         timer off `_rm_timer_load'
@@ -1532,21 +1590,84 @@ program define rangematch, rclass
     preserve
 
     * -------------------------------------------------------------------
-    * Build working frames. User-facing frames use tempvars; disposable work
-    * frames are renamed to the fixed column order expected by the Mata backend.
+    * Build working frames. Collision-checked private variables are renamed to
+    * the fixed column order expected by the Mata backend.
     * -------------------------------------------------------------------
     * Master work frame: __rm_gid, __rm_low, __rm_high, __rm_obs,
     * plus __rm_key only for nearest().
     capture frame drop __rm_master
     local _rm_drop_rc = _rc
     local _rm_need_master_key = (`nearest_code' != 0)
-    * _rm_mi/_rm_ui are the private master/using pair-index columns written by
-    * the Mata builders into __rm_out. They were fixed literals (__rm_mi and
-    * __rm_ui), which collided with legal user variables of the same name once
-    * master/carried variables were materialized into that frame (r(110) on
-    * valid input). Tempvars make the names collision-free.
-    tempvar _rm_obs _rm_key _rm_low _rm_high _rm_gid _rm_uobs _rm_ugid
-    tempvar _rm_mi _rm_ui
+    * Private variables in the master work path. These are deliberately NOT
+    * tempvars: automatic tempvar cleanup runs in whichever frame is current at
+    * program exit and can silently delete a same-named carried using variable.
+    local _rm_master_private ""
+    foreach _rm_slot in _rm_obs _rm_key _rm_low _rm_high _rm_gid {
+        local `_rm_slot' ""
+        local _rm_stem = subinstr("`_rm_slot'", "_rm_", "__rm_", 1)
+        forvalues _rm_try = 0/`=c(maxvar)' {
+            if `_rm_try' == 0 local _rm_candidate "`_rm_stem'"
+            else local _rm_candidate "`_rm_stem'`_rm_try'"
+            capture confirm new variable `_rm_candidate'
+            local _rm_master_new = (_rc == 0)
+            local _rm_reserved : list _rm_candidate in _rm_master_private
+            if `_rm_master_new' & !`_rm_reserved' {
+                local `_rm_slot' "`_rm_candidate'"
+                local _rm_master_private "`_rm_master_private' `_rm_candidate'"
+                continue, break
+            }
+        }
+        if "``_rm_slot''" == "" {
+            display as error "could not allocate a collision-free master work variable"
+            exit 110
+        }
+    }
+
+    * Private variables created in __rm_using.
+    local _rm_using_private "`_rm_uid0'"
+    foreach _rm_slot in _rm_uobs _rm_ugid {
+        local `_rm_slot' ""
+        local _rm_stem = subinstr("`_rm_slot'", "_rm_", "__rm_", 1)
+        forvalues _rm_try = 0/`=c(maxvar)' {
+            if `_rm_try' == 0 local _rm_candidate "`_rm_stem'"
+            else local _rm_candidate "`_rm_stem'`_rm_try'"
+            frame __rm_using: capture confirm new variable `_rm_candidate'
+            local _rm_using_new = (_rc == 0)
+            local _rm_reserved : list _rm_candidate in _rm_using_private
+            if `_rm_using_new' & !`_rm_reserved' {
+                local `_rm_slot' "`_rm_candidate'"
+                local _rm_using_private "`_rm_using_private' `_rm_candidate'"
+                continue, break
+            }
+        }
+        if "``_rm_slot''" == "" {
+            display as error "could not allocate a collision-free using work variable"
+            exit 110
+        }
+    }
+
+    * Pair indices live in __rm_out before user variables are materialized.
+    * Exclude every eventual output name, including requested generate/id names.
+    local _rm_pair_private ""
+    foreach _rm_slot in _rm_mi _rm_ui {
+        local `_rm_slot' ""
+        local _rm_stem = subinstr("`_rm_slot'", "_rm_", "__rm_", 1)
+        forvalues _rm_try = 0/`=c(maxvar)' {
+            if `_rm_try' == 0 local _rm_candidate "`_rm_stem'"
+            else local _rm_candidate "`_rm_stem'`_rm_try'"
+            local _rm_output_collision : list _rm_candidate in all_out
+            local _rm_pair_collision : list _rm_candidate in _rm_pair_private
+            if !`_rm_output_collision' & !`_rm_pair_collision' {
+                local `_rm_slot' "`_rm_candidate'"
+                local _rm_pair_private "`_rm_pair_private' `_rm_candidate'"
+                continue, break
+            }
+        }
+        if "``_rm_slot''" == "" {
+            display as error "could not allocate a collision-free pair index"
+            exit 110
+        }
+    }
     quietly {
         gen long `_rm_obs' = _n
         if `_rm_need_master_key' {
@@ -1740,7 +1861,8 @@ program define rangematch, rclass
         mata: _rm_materialize("__rm_out", "`_rm_caller_frame'", ///
             "`_rm_mi'", ///
             tokens(st_local("master_vars")), ///
-            tokens(st_local("master_vars")))
+            tokens(st_local("master_vars")), ///
+            "__rm_using", tokens(st_local("by")))
     }
 
     * Materialize using variables
@@ -1748,7 +1870,7 @@ program define rangematch, rclass
         mata: _rm_materialize("__rm_out", "__rm_using", ///
             "`_rm_ui'", ///
             tokens(st_local("carry_vars")), ///
-            tokens(st_local("out_names")))
+            tokens(st_local("out_names")), "", J(1, 0, ""))
     }
 
     * Fill equality keys from using rows for full-outer by() output.
@@ -1771,7 +1893,7 @@ program define rangematch, rclass
         mata: _rm_materialize("__rm_out", "__rm_using", ///
             "`_rm_ui'", ///
             tokens(st_local("_rm_uid0")), ///
-            tokens(st_local("usingid")))
+            tokens(st_local("usingid")), "", J(1, 0, ""))
     }
 
     * Generate signed using-key minus master-key distance when requested.
@@ -1865,6 +1987,7 @@ program define rangematch, rclass
             frame __rm_out: local outN = _N
 
             clear
+            local _rm_touse_owned = 0
             quietly set obs `outN'
             if `"`_rm_data_label'"' != "" {
                 label data `"`_rm_data_label'"'
@@ -1896,6 +2019,7 @@ program define rangematch, rclass
         }
         else {
             frame rename __rm_out `_rm_caller_frame'
+            local _rm_touse_owned = 0
         }
     }
 
@@ -1982,6 +2106,10 @@ program define rangematch, rclass
     }
     if `rc' {
         capture restore
+    }
+    if `_rm_touse_owned' & "`touse'" != "" {
+        capture frame `_rm_caller_frame': drop `touse'
+        local _rm_cleanup_rc = _rc
     }
     set varabbrev `_orig_varabbrev'
 

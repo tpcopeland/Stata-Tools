@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# Shared using data for sweep regressions
+local ++TESTS
 
 tempfile using_speed
 clear
@@ -29,6 +31,7 @@ end
 save "`using_speed'", replace
 
 **# Unsorted master defaults to sorted sweep output
+local ++TESTS
 
 clear
 input int id double(lo hi)
@@ -53,6 +56,7 @@ assert id[5] == 20 & uid[5] == 3
 assert id[6] == 20 & uid[6] == 4
 
 **# nosort keeps the binary backend for unsorted master intervals
+local ++TESTS
 
 clear
 input int id double(lo hi)
@@ -76,6 +80,7 @@ assert id[5] == 20 & uid[5] == 3
 assert id[6] == 20 & uid[6] == 4
 
 **# stats remains sweep-eligible and posts density results
+local ++TESTS
 
 clear
 input int id double(lo hi)
@@ -107,6 +112,7 @@ assert r(N_empty_groups) == 0
 assert r(N_master_groups) == 1
 
 **# assert(using) can run on the sweep path when all using rows match
+local ++TESTS
 
 clear
 input int uid double keyval
@@ -143,6 +149,7 @@ assert _rc == 9
 assert _N == 1
 
 **# unmatched(using) materializes using-only rows from the sweep path
+local ++TESTS
 
 clear
 input int uid double keyval
@@ -172,6 +179,7 @@ assert id[2] == 1 & uid[2] == 2 & _merge[2] == 3
 assert missing(id[3]) & uid[3] == 3 & _merge[3] == 2
 
 **# unmatched(both) materializes master-only and using-only rows from sweep
+local ++TESTS
 
 clear
 input int id double(lo hi)
@@ -194,6 +202,7 @@ assert id[3] == 2 & missing(uid[3]) & _merge[3] == 1
 assert missing(id[4]) & uid[4] == 3 & _merge[4] == 2
 
 **# count and dryrun use the safe sweep fast path without changing data
+local ++TESTS
 
 clear
 input int id double(lo hi sentinel)
@@ -231,4 +240,9 @@ assert id[3] == 20 & sentinel[3] == 102
 capture frame dryrun_results: describe
 assert _rc != 0
 
-display as result "ALL RANGEMATCH V1.4.5 SPEED REGRESSION TESTS PASSED"
+display as result "ALL RANGEMATCH SWEEP-OPTION REGRESSION TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_regress_sweep_options tests=`TESTS' pass=`TESTS' fail=0"

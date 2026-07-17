@@ -38,15 +38,44 @@ if _rc {
 }
 
 capture mkdir "`demo_dir'"
+
+**# Sandbox the ado path
+* PERSONAL precedes PLUS on the adopath, so redirecting PLUS alone leaves a stale
+* PERSONAL copy able to shadow the package under test -- the demo would then
+* benchmark the wrong code and report it as the local install. Both directories
+* move, both originals are saved, and both are restored on every exit path below.
+* The directories are process-unique so concurrent runs cannot share state.
+tempfile _uniq_probe
+mata: st_local("_uniq_tok", pathbasename(st_local("_uniq_probe")))
 local old_plus "`c(sysdir_plus)'"
-local demo_plus "`c(tmpdir)'/rangematch_demo_plus"
+local old_personal "`c(sysdir_personal)'"
+local demo_plus "`c(tmpdir)'/rm_demo_plus_`_uniq_tok'"
+local demo_personal "`c(tmpdir)'/rm_demo_personal_`_uniq_tok'"
 capture mkdir "`demo_plus'"
+capture mkdir "`demo_personal'"
 sysdir set PLUS "`demo_plus'"
+sysdir set PERSONAL "`demo_personal'"
+
+* Everything that can fail runs inside this block so that a mid-demo error still
+* reaches the cleanup zone. `local rc = _rc' is the first line after it.
+capture noisily {
 
 **# Install package from local source
 capture ado uninstall rangematch
 quietly net install rangematch, from("`pkg_dir'") replace
 discard
+
+* Prove the demo runs the copy just installed. Without this the local-install
+* claim rests on the sysdir edits above rather than on observed resolution.
+capture findfile rangematch.ado
+if _rc {
+    display as error "rangematch.ado does not resolve after the demo install"
+    exit 601
+}
+if strpos("`r(fn)'", "`demo_plus'") != 1 {
+    display as error "rangematch resolved to `r(fn)', not the demo install under `demo_plus'"
+    exit 459
+}
 
 **# Install comparison packages in temporary PLUS
 capture ado uninstall rangestat
@@ -269,6 +298,20 @@ logdoc using "`demo_dir'/benchmark.log", ///
     output("`demo_dir'/benchmark.md") ///
     format(md) replace quiet
 
+}
+
 **# Cleanup
-sysdir set PLUS "`old_plus'"
+* Runs on the success path and on every error path above. `local rc = _rc' must
+* stay the first line: log close and sysdir set each consume a capture
+* internally and would otherwise overwrite the original error with 0.
+local rc = _rc
+capture log close _all
+* Do not uninstall here: PLUS has already been restored, so an uninstall would
+* remove the caller's real installation. The temporary trees are throwaway.
+capture sysdir set PLUS "`old_plus'"
+capture sysdir set PERSONAL "`old_personal'"
 clear
+if `rc' {
+    display as error "demo_rangematch.do failed with rc=`rc'"
+    exit `rc'
+}

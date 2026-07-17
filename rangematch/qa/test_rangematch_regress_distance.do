@@ -1,7 +1,7 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
-
+version 16.1
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,12 +13,11 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 
 **# T1: distance() conformability when using has exactly one row
-* Reproduces a v1.4.6 bug: master_key_vals[1x1][mi[matched]] returned a row
+* Reproduces a pre-release bug: master_key_vals[1x1][mi[matched]] returned a row
 * vector under matrix subscripting, causing rc=3200 in the elementwise op.
 local ++test_count
 tempfile using_one
@@ -64,7 +63,7 @@ assert d[2] == 1
 assert d[3] == 2
 display as result "PASS: distance() with single-row master dataset"
 
-**# T3: distance() with duplicate master-row references (v1.4.6 baseline)
+**# T3: distance() with duplicate master-row references
 local ++test_count
 clear
 input int id double(keyval lo hi)
@@ -79,7 +78,7 @@ sort id uid
 assert d[1] == -1 & d[2] == 1 & d[3] == 2
 assert d[4] == -1 & d[5] == 1 & d[6] == 2
 assert d[7] == -1 & d[8] == 1 & d[9] == 2
-display as result "PASS: distance() with duplicate master indices (v1.4.6 fix retained)"
+display as result "PASS: distance() with duplicate master indices (fix retained)"
 
 **# T4: sweep backend still selected for compatible monotone workloads
 local ++test_count
@@ -104,7 +103,7 @@ rangematch keyval lo hi using "`using_speed'", ///
     keepusing(uid) unmatched(none)
 assert "`r(backend)'" == "sweep"
 assert r(N_pairs) == 5
-display as result "PASS: sweep backend retained after v1.4.7 cleanup"
+display as result "PASS: sweep backend retained after the Mata cleanup"
 
 **# T5: maxpairs guard still fires on sweep path after cleanup
 local ++test_count
@@ -130,5 +129,5 @@ assert "`r(backend)'" == "binary"
 assert r(N_pairs) == 2
 display as result "PASS: nearest() routes to binary after cleanup"
 
-display as result "ALL RANGEMATCH 1.4.7 REGRESSION TESTS PASSED"
+display as result "ALL RANGEMATCH DISTANCE REGRESSION TESTS PASSED"
 display "RESULT: test_rangematch_v147 tests=`test_count' pass=`test_count' fail=0"

@@ -1,7 +1,8 @@
 * test_rangematch_labels.do
 * v1.3.1 regression suite: label preservation on every output route,
 * compound-quoted saving(), and the strL by() guard.
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 
@@ -16,7 +17,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 

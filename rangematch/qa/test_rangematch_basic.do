@@ -1,7 +1,11 @@
 * test_rangematch_basic.do — Basic smoke tests for rangematch
 * Tests: simple joins, unmatched rows, no-match case
 
-capture ado uninstall rangematch
+version 16.1
+
+local TESTS 0
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -12,7 +16,6 @@ else {
     local pkg_dir "`cwd'"
     local qa_dir "`pkg_dir'/qa"
 }
-adopath ++ "`pkg_dir'"
 
 tempfile master_basic using_basic master_known using_known ///
     master_unmatched using_unmatched master_conflict using_conflict ///
@@ -53,6 +56,7 @@ assert r(N_master) == 5
 assert r(N_using)  == 10
 assert r(N_pairs) > 0
 
+local ++TESTS
 display as result "PASS: Test 1 — simple range join"
 
 * -----------------------------------------------------------------------
@@ -94,6 +98,7 @@ assert id[3] == 2 & keyval[3] == 5
 assert id[4] == 2 & keyval[4] == 7
 assert id[5] == 3 & keyval[5] == 10
 
+local ++TESTS
 display as result "PASS: Test 2 — known-data correctness"
 
 * -----------------------------------------------------------------------
@@ -129,6 +134,7 @@ sort id
 assert id[2] == 2
 assert uid[2] == .
 
+local ++TESTS
 display as result "PASS: Test 3 — unmatched master rows"
 
 * -----------------------------------------------------------------------
@@ -143,6 +149,7 @@ assert r(N_pairs) == 2
 assert r(N_unmatched) == 0
 assert _N == 2
 
+local ++TESTS
 display as result "PASS: Test 4 — unmatched(none)"
 
 * -----------------------------------------------------------------------
@@ -162,6 +169,7 @@ if _rc == 0 {
     error 9
 }
 
+local ++TESTS
 display as result "PASS: Test 5 — keepusing()"
 
 * -----------------------------------------------------------------------
@@ -178,6 +186,7 @@ assert _merge[2] == 1  // unmatched (id=2 had no match)
 assert _merge[1] == 3  // matched
 assert _merge[3] == 3  // matched
 
+local ++TESTS
 display as result "PASS: Test 6 — generate()"
 
 * -----------------------------------------------------------------------
@@ -190,6 +199,7 @@ capture noisily rangematch keyval lo hi ///
 assert _rc != 0
 assert _N == `orig_N'
 
+local ++TESTS
 display as result "PASS: Test 7 — data restored on error"
 
 * -----------------------------------------------------------------------
@@ -217,6 +227,7 @@ confirm variable keyval_U    // using's keyval (renamed)
 assert keyval[1] == 99       // master value
 assert keyval_U[1] == 2      // using value
 
+local ++TESTS
 display as result "PASS: Test 8 — default suffix resolves name conflict"
 
 * -----------------------------------------------------------------------
@@ -242,6 +253,12 @@ capture noisily rangematch keyval lo hi ///
 
 assert _rc == 198
 
+local ++TESTS
 display as result "PASS: Test 9 — maxpairs() guard"
 
 display as result _newline "ALL BASIC TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_basic tests=`TESTS' pass=`TESTS' fail=0"

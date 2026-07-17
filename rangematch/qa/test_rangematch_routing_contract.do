@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,7 +15,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 capture program drop _rm_assert_no_internal_frames
 program define _rm_assert_no_internal_frames
@@ -35,6 +36,7 @@ end
 save "`using_route'", replace
 
 **# Current-data replacement restores the caller frame
+local ++TESTS
 
 clear
 input int id byte group double(keyval lo hi)
@@ -57,6 +59,7 @@ assert id[3] == 2 & uid[3] == 3
 _rm_assert_no_internal_frames
 
 **# frame() output leaves current data unchanged
+local ++TESTS
 
 capture frame drop routing_contract_out
 clear
@@ -83,6 +86,7 @@ _rm_assert_no_internal_frames
 capture frame drop routing_contract_out
 
 **# saving() output leaves current data unchanged
+local ++TESTS
 
 clear
 input int id byte group double(keyval lo hi) byte sentinel
@@ -109,6 +113,7 @@ restore
 _rm_assert_no_internal_frames
 
 **# dryrun/count do not create output frames or mutate data
+local ++TESTS
 
 capture frame drop routing_contract_out
 clear
@@ -142,6 +147,7 @@ assert _rc != 0
 _rm_assert_no_internal_frames
 
 **# using-frame routing and error cleanup
+local ++TESTS
 
 capture frame drop route_using_frame
 frame create route_using_frame
@@ -182,3 +188,8 @@ _rm_assert_no_internal_frames
 capture frame drop route_using_frame
 
 display as result "ALL RANGEMATCH ROUTING CONTRACT TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_routing_contract tests=`TESTS' pass=`TESTS' fail=0"

@@ -7,7 +7,8 @@ version 16.1
 clear all
 set more off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -16,7 +17,6 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 
 local FAIL 0
 tempfile UTIE M0 UEMPTY U5
@@ -113,11 +113,16 @@ if _rc != 459 {
     di as error "A7b error: rc=" _rc " (want 459)"
     local ++FAIL
 }
-* drop: removes the only master row -> rc 2000 (no observations)
+* drop: removes the only master row; empty-side routing returns normally
 use "`MNAN'", clear
 capture rangematch key lo hi using "`U5'", missing(drop)
-if _rc != 2000 {
-    di as error "A7b drop-empties-master: rc=" _rc " (want 2000)"
+local drop_rc = _rc
+if `drop_rc' != 0 | r(N_master) != 0 | r(N_using) != 5 ///
+        | r(N_pairs) != 0 | r(N_matched_pairs) != 0 | _N != 0 {
+    di as error "A7b drop-empties-master: rc=" `drop_rc' ///
+        " N_master=" r(N_master) " N_using=" r(N_using) ///
+        " pairs=" r(N_pairs) " matched=" r(N_matched_pairs) ///
+        " output N=" _N " (want 0,0,5,0,0,0)"
     local ++FAIL
 }
 
@@ -162,6 +167,9 @@ if _rc | _N != `Nbefore' | sentinel[1] != `sent_before' {
 di as txt "{hline 60}"
 if `FAIL' > 0 {
     di as error "test_rangematch_edge_topup: FAILED (`FAIL')"
+    di "RESULT: test_rangematch_edge_topup tests=5 pass=" 5-`FAIL' ///
+        " fail=" `FAIL'
     exit 9
 }
 di as result "test_rangematch_edge_topup: PASSED"
+di "RESULT: test_rangematch_edge_topup tests=5 pass=5 fail=0"

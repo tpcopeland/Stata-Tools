@@ -9,10 +9,12 @@
 *   - invalid token -> rc=198
 *   - r(missing) macro reflects parsed mode
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -21,7 +23,6 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-quietly net install rangematch, from("`pkg_dir'") replace
 quietly run "`pkg_dir'/_rangematch_mata.ado"
 
 local test_count = 0
@@ -66,6 +67,7 @@ assert r(N_pairs) == 7
 assert r(N_matched_pairs) == 7
 assert r(N_missing_bounds) == 2
 assert "`r(missing)'" == "wildcard"
+local ++TESTS
 display as result "PASS T`test_count': missing(wildcard) default preserves open-ended-on-missing behavior; r(N_missing_bounds)=`r(N_missing_bounds)'"
 
 **# T2: missing(drop) removes missing-bound master rows before matching
@@ -80,6 +82,7 @@ assert r(N_master) == 1
 * N_missing_bounds still reflects pre-drop count
 assert r(N_missing_bounds) == 2
 assert "`r(missing)'" == "drop"
+local ++TESTS
 display as result "PASS T`test_count': missing(drop) shrinks master to non-missing-bound rows; r(N_missing_bounds)=2 still posted"
 
 **# T3: missing(error) aborts with rc=459 when missing-bound rows present
@@ -88,6 +91,7 @@ use "`m_data'", clear
 capture noisily rangematch event_date lo hi using "`u_data'", by(id) ///
     unmatched(none) missing(error) frame(out3) replace
 assert _rc == 459
+local ++TESTS
 display as result "PASS T`test_count': missing(error) -> rc=459 with `r(N_missing_bounds)' missing-bound rows"
 
 **# T4: missing(error) is a no-op when no missing variable bounds present
@@ -105,6 +109,7 @@ rangematch event_date lo hi using "`u_data'", by(id) ///
 assert r(N_missing_bounds) == 0
 assert r(N_pairs) > 0
 assert "`r(missing)'" == "error"
+local ++TESTS
 display as result "PASS T`test_count': missing(error) does not fire when no missing-bound rows present"
 
 **# T5: literal `.' positional bound is NOT subject to missing(drop)/missing(error)
@@ -125,6 +130,7 @@ assert r(N_missing_bounds) == 0
 * For master row event_date=100: open-ended below, hi=event_date+150=250 -> id=1 events <= 250: {100, 110, 200} = 3
 * For master row event_date=200: open-ended below, hi=event_date+150=350 -> id=1 events <= 350: {100, 110, 200} = 3
 assert r(N_pairs) == 6
+local ++TESTS
 display as result "PASS T`test_count': literal `.' positional bound is unaffected by missing(error)"
 
 **# T6: invalid missing() value -> rc=198
@@ -133,6 +139,7 @@ use "`m_data'", clear
 capture noisily rangematch event_date lo hi using "`u_data'", by(id) ///
     unmatched(none) missing(zorp) frame(out6) replace
 assert _rc == 198
+local ++TESTS
 display as result "PASS T`test_count': invalid missing() value -> rc=198"
 
 **# T7: missing(drop) + unmatched(both) — dropped rows never surface as unmatched
@@ -148,6 +155,7 @@ quietly rangematch event_date lo hi using "`u_data'", by(id) ///
 frame out7: count
 local n_out = r(N)
 assert `n_out' == 6
+local ++TESTS
 display as result "PASS T`test_count': missing(drop) + unmatched(both): N_out=`n_out', dropped rows absent from output"
 
 **# T8: r(N_missing_bounds) posted in dryrun mode too
@@ -156,6 +164,12 @@ use "`m_data'", clear
 rangematch event_date lo hi using "`u_data'", by(id) ///
     unmatched(none) dryrun
 assert r(N_missing_bounds) == 2
+local ++TESTS
 display as result "PASS T`test_count': r(N_missing_bounds)=`r(N_missing_bounds)' posted in dryrun mode"
 
 display as result _newline "test_rangematch_missing_option.do: `test_count'/`test_count' PASS"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_missing_option tests=`TESTS' pass=`TESTS' fail=0"

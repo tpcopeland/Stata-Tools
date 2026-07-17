@@ -10,7 +10,8 @@ version 16.1
 clear all
 set more off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -19,10 +20,9 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 
 local FAIL 0
-
+local TESTS 0
 * Single-group tie block: master key 100, two using rows tie at key 110
 * (the nearest key at or after 100), plus a farther in-range row at 150.
 tempfile U M UG MG
@@ -46,6 +46,7 @@ save "`M'"
 use "`M'", clear
 rangematch key lo hi using "`U'", nearest(after) ties(all) ///
     usingid(urow) unmatched(none) frame(o1) replace
+local ++TESTS
 if r(N_matched_pairs) != 2 {
     di as error "S1 ties(all): N_matched_pairs=" r(N_matched_pairs) " (want 2)"
     local ++FAIL
@@ -61,6 +62,7 @@ frame o2 {
     quietly summarize urow, meanonly
     local pick2 = r(mean)
 }
+local ++TESTS
 if `n2' != 1 | `pick2' != 1 {
     di as error "S2 ties(first): n=`n2' urow=`pick2' (want 1, 1)"
     local ++FAIL
@@ -76,6 +78,7 @@ frame o3 {
     quietly summarize urow, meanonly
     local pick3 = r(mean)
 }
+local ++TESTS
 if `n3' != 1 | `pick3' != 2 {
     di as error "S3 ties(last): n=`n3' urow=`pick3' (want 1, 2)"
     local ++FAIL
@@ -94,11 +97,13 @@ frame o4 {
     quietly summarize urow, meanonly
     local pick4 = r(mean)
 }
+local ++TESTS
 if `n4' != 1 | !inlist(`pick4', 1, 2) {
     di as error "S4 ties(random): n=`n4' urow=`pick4' (want 1, in {1,2})"
     local ++FAIL
 }
 * r(seed)/r(ties) contract
+local ++TESTS
 if "`r4_ties'" != "random" | "`r4_seed'" != "12345" {
     di as error "S4 contract: ties=`r4_ties' seed=`r4_seed' (want random, 12345)"
     local ++FAIL
@@ -151,11 +156,13 @@ _rm_pickvec "`MG'" "`UG'" 99999
 local vecC `"`r(vec)'"'
 
 * --- 5: same seed -> identical picks
+local ++TESTS
 if `"`vecA'"' != `"`vecB'"' {
     di as error "S5 same seed not reproducible"
     local ++FAIL
 }
 * --- 6: different seed -> at least one differing pick
+local ++TESTS
 if `"`vecA'"' == `"`vecC'"' {
     di as error "S6 different seeds produced identical picks (astronomically unlikely)"
     local ++FAIL
@@ -168,6 +175,7 @@ use "`M'", clear
 rangematch key lo hi using "`U'", nearest(after) ties(random) seed(12345) ///
     usingid(urow) unmatched(none) frame(o7) replace
 local after = c(rngstate)
+local ++TESTS
 if "`before'" != "`after'" {
     di as error "S7 seeded call did not restore c(rngstate)"
     local ++FAIL
@@ -180,6 +188,7 @@ use "`M'", clear
 rangematch key lo hi using "`U'", nearest(after) ties(random) ///
     usingid(urow) unmatched(none) frame(o8) replace
 local after8 = c(rngstate)
+local ++TESTS
 if "`before8'" == "`after8'" {
     di as error "S8 no-seed ties(random) did not advance the RNG stream"
     local ++FAIL
@@ -188,16 +197,19 @@ if "`before8'" == "`after8'" {
 * --- 9: seed() without ties(random) is rejected (rc 198)
 use "`M'", clear
 capture rangematch key lo hi using "`U'", nearest(after) ties(first) seed(1)
+local ++TESTS
 if _rc != 198 {
     di as error "S9 seed()+ties(first): rc=" _rc " (want 198)"
     local ++FAIL
 }
 capture rangematch key lo hi using "`U'", seed(1)
+local ++TESTS
 if _rc != 198 {
     di as error "S9b seed() alone: rc=" _rc " (want 198)"
     local ++FAIL
 }
 
+display "RESULT: ties_random tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_ties_random: FAILED (`FAIL')"
     exit 9

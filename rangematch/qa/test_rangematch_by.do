@@ -1,6 +1,10 @@
 * test_rangematch_by.do — Tests for by() option
 
-capture ado uninstall rangematch
+version 16.1
+
+local TESTS 0
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -11,7 +15,6 @@ else {
     local pkg_dir "`cwd'"
     local qa_dir "`pkg_dir'/qa"
 }
-adopath ++ "`pkg_dir'"
 
 tempfile by_master by_using by_master_str by_using_str ///
     by_master_unmatch by_using_unmatch by_master_multi by_using_multi
@@ -52,6 +55,7 @@ assert id[1] == 1 & keyval[1] == 3 & group[1] == 1
 assert id[2] == 2 & keyval[2] == 15 & group[2] == 1
 assert id[3] == 3 & keyval[3] == 3 & group[3] == 2
 
+local ++TESTS
 display as result "PASS: Test 1 — numeric by-variable"
 
 * -----------------------------------------------------------------------
@@ -86,6 +90,7 @@ assert id[1] == 1 & keyval[1] == 3 & site[1] == "A"
 assert id[2] == 2 & keyval[2] == 15 & site[2] == "A"
 assert id[3] == 3 & keyval[3] == 3 & site[3] == "B"
 
+local ++TESTS
 display as result "PASS: Test 2 — string by-variable"
 
 * -----------------------------------------------------------------------
@@ -115,6 +120,7 @@ rangematch keyval lo hi ///
 assert r(N_pairs) == 2
 assert r(N_unmatched) == 1
 
+local ++TESTS
 display as result "PASS: Test 3 — by() with unmatched groups"
 
 * -----------------------------------------------------------------------
@@ -150,6 +156,12 @@ assert id[1] == 1 & uid[1] == 1
 assert id[2] == 2 & uid[2] == 2
 assert id[3] == 3 & uid[3] == 3
 
+local ++TESTS
 display as result "PASS: Test 4 — multiple by-variables"
 
 display as result _newline "ALL BY-GROUP TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_by tests=`TESTS' pass=`TESTS' fail=0"

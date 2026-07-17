@@ -7,7 +7,8 @@
 *
 * All of these FAIL on the shipped 1.3.3 code.
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 set varabbrev off
@@ -23,7 +24,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -338,38 +338,80 @@ else {
     display as error "FAIL: missing(drop) upstream equivalence"
 }
 
-**# T10: RM-I05 -- the master side deliberately KEEPS rc=2000, matching both
-*        the equivalent upstream drop and an empty if/in sample
+**# T10: RM-I05 -- missing(drop) may empty the MASTER side too
+*        The phase contract says post-policy empty sides (plural) reach the
+*        backends and honour unmatched()/assert()/stats/count. Pin exact output
+*        instead of treating r(2000) as success.
 local ++test_count
 capture noisily {
     _rm_mk_using
     tempfile uok
     quietly save "`uok'"
 
-    clear
-    quietly set obs 1
-    quietly gen double mlow = .
-    quietly gen double mhigh = .
-    capture rangematch key mlow mhigh using "`uok'", missing(drop) unmatched(using)
-    assert _rc == 2000
+    foreach um in master none using both {
+        clear
+        quietly set obs 1
+        quietly gen double mlow = .
+        quietly gen double mhigh = .
+        rangematch key mlow mhigh using "`uok'", missing(drop) unmatched(`um')
+        if inlist("`um'", "using", "both") assert _N == 2
+        if inlist("`um'", "master", "none") assert _N == 0
+        assert r(N_master) == 0
+        assert r(N_using) == 2
+        assert r(N_matched_pairs) == 0
+    }
 
-    * upstream equivalent: a zero-row master
+    * The equivalent upstream zero-row master follows the same join contract.
     clear
     quietly set obs 1
     quietly gen double mlow = .
     quietly gen double mhigh = .
-    quietly drop if missing(mlow)
-    capture rangematch key mlow mhigh using "`uok'", unmatched(using)
-    assert _rc == 2000
+    quietly drop in 1
+    rangematch key mlow mhigh using "`uok'", unmatched(using)
+    assert _N == 2
+    assert r(N_master) == 0
+
+    * A missing matching key can independently empty the master side.
+    clear
+    quietly set obs 1
+    quietly gen double key = .
+    rangematch key -1 1 using "`uok'", missing(drop) unmatched(using)
+    assert _N == 2
+    assert r(N_master_key_missing) == 1
+
+    * Diagnostics/count routing survive; assert(using) still detects that no
+    * using row matched, while assert(match) is vacuously true for zero masters.
+    clear
+    quietly set obs 1
+    quietly gen double mlow = .
+    quietly gen double mhigh = .
+    rangematch key mlow mhigh using "`uok'", missing(drop) unmatched(using) stats
+    clear
+    quietly set obs 1
+    quietly gen double mlow = .
+    quietly gen double mhigh = .
+    rangematch key mlow mhigh using "`uok'", missing(drop) count
+    clear
+    quietly set obs 1
+    quietly gen double mlow = .
+    quietly gen double mhigh = .
+    capture rangematch key mlow mhigh using "`uok'", missing(drop) assert(using)
+    assert _rc == 9
+    clear
+    quietly set obs 1
+    quietly gen double mlow = .
+    quietly gen double mhigh = .
+    rangematch key mlow mhigh using "`uok'", missing(drop) assert(match) unmatched(none)
+    assert _N == 0
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "PASS: empty master side is rc=2000 on both paths"
+    display as result "PASS: empty master side honours output/assert routing"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' T10_empty_master"
-    display as error "FAIL: empty master side consistency"
+    display as error "FAIL: missing(drop) empty master side"
 }
 
 **# T11: RM-I07 -- r(saving) names a file that exists, for every path shape

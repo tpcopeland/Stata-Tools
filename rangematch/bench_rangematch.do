@@ -157,4 +157,36 @@ display as text _newline "Benchmark results"
 list command scenario n_master n_using groups halfwidth status seconds pairs ///
     pairs_per_second rc, noobs abbreviate(16)
 
+* Failure gate (RM-I19).
+*
+* Every rangematch call above runs under `capture noisily' so that one bad
+* scenario does not abandon the whole run -- but the price was that a FAILED
+* call merely posted status="error" into the table and the file went on to
+* print "complete" and exit 0. A benchmark that reports success while every
+* row errored is worse than one that crashes: an automated workflow reads the
+* exit code, not the table.
+*
+* rangejoin is optional and its absence is a legitimate skip. A rangematch
+* error never is.
+quietly count if command == "rangematch" & status != "ok"
+local n_bad = r(N)
+quietly count if command == "rangematch"
+local n_rm = r(N)
+
+* A gate that counts failures passes vacuously when there is nothing to count:
+* if a refactor left no rangematch rows at all, `n_bad'==0 would read as
+* success. Require the rows to exist.
+if `n_rm' == 0 {
+    display as error "bench_rangematch.do: no rangematch scenarios were run"
+    exit 9
+}
+
+display "RESULT: bench_rangematch scenarios=`n_rm' ok=`=`n_rm' - `n_bad'' error=`n_bad'"
+
+if `n_bad' > 0 {
+    display as error "bench_rangematch.do: `n_bad' of `n_rm' rangematch scenarios FAILED"
+    display as error "see the rc column above; the benchmark is not valid"
+    exit 9
+}
+
 display as result _newline "bench_rangematch.do complete"

@@ -9,7 +9,8 @@ version 16.1
 clear all
 set more off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -18,10 +19,9 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 
 local FAIL 0
-
+local TESTS 0
 * Run a command with the console captured to a text log and report whether the
 * inverted-bounds warning appeared. Returns r(warned) and r(rc).
 capture program drop _rm_did_warn_inv
@@ -90,6 +90,7 @@ save "`PU'"
 * --- 1: overlap mode with 2 inverted using intervals -> count 2, warn, rc 0
 use "`M'", clear
 _rm_did_warn_inv `"rangematch mlo mhi using "`U'", overlap(ulo uhi) keepusing(urow) unmatched(both)"'
+local ++TESTS
 if r(warned) != 1 | r(rc) != 0 {
     di as error "S1 inverted overlap: warned=" r(warned) " rc=" r(rc) " (want 1, 0)"
     local ++FAIL
@@ -98,6 +99,7 @@ if r(warned) != 1 | r(rc) != 0 {
 use "`M'", clear
 rangematch mlo mhi using "`U'", overlap(ulo uhi) keepusing(urow) ///
     unmatched(both) frame(o1) replace
+local ++TESTS
 if r(N_using_inverted) != 2 {
     di as error "S1b r(N_using_inverted)=" r(N_using_inverted) " (want 2)"
     local ++FAIL
@@ -106,6 +108,7 @@ if r(N_using_inverted) != 2 {
 * --- 2: overlap mode with only well-formed intervals -> count 0, no warning
 use "`M'", clear
 _rm_did_warn_inv `"rangematch mlo mhi using "`UOK'", overlap(ulo uhi) keepusing(urow) unmatched(both)"'
+local ++TESTS
 if r(warned) != 0 {
     di as error "S2 well-formed overlap: warned=" r(warned) " (want 0)"
     local ++FAIL
@@ -113,6 +116,7 @@ if r(warned) != 0 {
 use "`M'", clear
 rangematch mlo mhi using "`UOK'", overlap(ulo uhi) keepusing(urow) ///
     unmatched(both) frame(o2) replace
+local ++TESTS
 if r(N_using_inverted) != 0 {
     di as error "S2b r(N_using_inverted)=" r(N_using_inverted) " (want 0)"
     local ++FAIL
@@ -121,11 +125,13 @@ if r(N_using_inverted) != 0 {
 * --- 3: point mode always reports r(N_using_inverted) == 0
 use "`PM'", clear
 rangematch key lo hi using "`PU'", keepusing(uid) frame(o3) replace
+local ++TESTS
 if r(N_using_inverted) != 0 {
     di as error "S3 point-mode r(N_using_inverted)=" r(N_using_inverted) " (want 0)"
     local ++FAIL
 }
 
+display "RESULT: overlap_inverted tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_overlap_inverted: FAILED (`FAIL')"
     exit 9

@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.3.3  2026/07/09
+*! _rangematch_mata Version 1.4.0  2026/07/17
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -22,6 +22,7 @@ capture mata: mata drop _rm_bsearch_right()
 capture mata: mata drop _rm_bsearch_first_gt()
 capture mata: mata drop _rm_bsearch_last_lt()
 capture mata: mata drop _rm_key_block_uobs()
+capture mata: mata drop _rm_store_indexed()
 capture mata: mata drop _rm_vl_same()
 capture mata: mata drop _rm_vl_candidate()
 capture mata: mata drop _rm_vl_resolve()
@@ -35,7 +36,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.3.3")
+    return("1.4.0")
 }
 
 // ============================================================================
@@ -1773,6 +1774,37 @@ real colvector _rm_key_block_uobs(
 }
 
 
+// Copy a value column from a thin work frame back to arbitrary observation
+// positions in a destination frame. The group catalog avoids merge entirely:
+// Stata's merge uses __000000-style internals that are global across frames and
+// can delete a legal same-named user variable even when merge runs elsewhere.
+void _rm_store_indexed(
+    string scalar src_frame,
+    string scalar obs_var,
+    string scalar value_var,
+    string scalar dest_frame,
+    string scalar out_var)
+{
+    string scalar oldframe
+    real colvector idx, values
+
+    oldframe = st_framecurrent()
+    st_framecurrent(src_frame)
+    idx = st_data(., obs_var)
+    values = st_data(., value_var)
+
+    st_framecurrent(dest_frame)
+    if (rows(idx) > 0) {
+        if (any(idx :< 1) | any(idx :> st_nobs()) | any(idx :!= floor(idx))) {
+            st_framecurrent(oldframe)
+            _error(498)
+        }
+        st_store(idx, out_var, values)
+    }
+    st_framecurrent(oldframe)
+}
+
+
 // ============================================================================
 // Value-label collision resolution.
 //
@@ -1858,12 +1890,15 @@ void _rm_materialize(
     string scalar src_frame,
     string scalar index_var,
     string rowvector src_vars,
-    string rowvector out_vars
+    string rowvector out_vars,
+    string scalar widen_frame,
+    string rowvector widen_vars
 )
 {
-    string scalar oldframe, vtype, fmt, vlbl, vvl
+    string scalar oldframe, vtype, widen_type, fmt, vlbl, vvl
     string rowvector num_types, num_fmts, num_out
     real scalar j, k, nv, nout, vidx_src, vidx_out, nnum, all_valid
+    real scalar type_rank, widen_rank, type_width, widen_width
     real scalar c0, c1, chunk_cols, havedef
     real rowvector num_src_idx, num_out_idx, src_chunk, out_chunk
     real colvector idx, valid_idx, vlvals
@@ -1888,6 +1923,36 @@ void _rm_materialize(
     for (j = 1; j <= nv; j++) {
         st_framecurrent(src_frame)
         vtype = st_vartype(src_vars[j])
+
+        // Equality keys in a full-outer join are first materialized from the
+        // master side and then filled from using-only rows. Choose the wider
+        // storage type before creating the output variable. Doing this here is
+        // deliberately stronger than Stata's recast command: recast allocates
+        // global __000000-style work variables and can silently delete a legal
+        // same-named variable from another frame.
+        if (widen_frame != "" & any(widen_vars :== src_vars[j])) {
+            st_framecurrent(widen_frame)
+            widen_type = st_vartype(src_vars[j])
+            if (substr(vtype, 1, 3) == "str" &
+                    substr(widen_type, 1, 3) == "str") {
+                type_width = strtoreal(substr(vtype, 4, .))
+                widen_width = strtoreal(substr(widen_type, 4, .))
+                if (widen_width > type_width) vtype = widen_type
+            }
+            else if (substr(vtype, 1, 3) != "str" &
+                    substr(widen_type, 1, 3) != "str") {
+                type_rank = (vtype == "byte" ? 1 :
+                    (vtype == "int" ? 2 :
+                    (vtype == "long" ? 3 :
+                    (vtype == "float" ? 4 : 5))))
+                widen_rank = (widen_type == "byte" ? 1 :
+                    (widen_type == "int" ? 2 :
+                    (widen_type == "long" ? 3 :
+                    (widen_type == "float" ? 4 : 5))))
+                if (widen_rank > type_rank) vtype = widen_type
+            }
+            st_framecurrent(src_frame)
+        }
         fmt = st_varformat(src_vars[j])
         vlbl = st_varlabel(src_vars[j])
         vvl = st_varvaluelabel(src_vars[j])

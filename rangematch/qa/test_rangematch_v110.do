@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# Scalar offset syntax
+local ++TESTS
 
 tempfile using_offsets
 clear
@@ -56,6 +58,7 @@ assert id[9] == 2 & uid[9] == 8
 assert id[10] == 2 & uid[10] == 9
 
 **# Literal open bound with scalar and variable counterparts
+local ++TESTS
 
 clear
 input int id double event_date
@@ -108,6 +111,7 @@ assert id[12] == 2 & uid[12] == 8
 assert id[13] == 2 & uid[13] == 9
 
 **# Endpoint closure semantics
+local ++TESTS
 
 tempfile using_closed
 clear
@@ -170,6 +174,7 @@ assert _N == 1
 assert uid[1] == 2
 
 **# frame() output and replace contract
+local ++TESTS
 
 capture frame drop results
 clear
@@ -202,6 +207,7 @@ frame results: assert _N == 3
 capture frame drop results
 
 **# stats returns and returned macros
+local ++TESTS
 
 tempfile using_stats
 clear
@@ -235,6 +241,7 @@ assert strpos(`"`r(cmdline)'"', "rangematch") > 0
 assert "`r(using)'" == "`using_stats'"
 
 **# dryrun and count preserve current data and do not create output frame
+local ++TESTS
 
 capture frame drop dryrun_results
 clear
@@ -266,6 +273,7 @@ capture frame dryrun_results: describe
 assert _rc != 0
 
 **# Dense output succeeds beyond st_matrix row limits
+local ++TESTS
 
 tempfile using_dense
 clear
@@ -297,6 +305,7 @@ assert `dense_pairs' == 11250
 assert `dense_N' == 11250
 
 **# Empty using behavior
+local ++TESTS
 
 tempfile using_empty
 clear
@@ -336,3 +345,8 @@ assert _rc == 111
 assert _N == 0
 
 display as result "ALL RANGEMATCH V1.1.0 TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_v110 tests=`TESTS' pass=`TESTS' fail=0"

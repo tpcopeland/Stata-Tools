@@ -1,4 +1,4 @@
-*! tvage Version 1.7.0  2026/07/13
+*! tvage Version 1.7.1  2026/07/17
 *! Generate time-varying age intervals for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

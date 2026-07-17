@@ -12,7 +12,8 @@
 * matching key, r(N_master_key_missing) did not exist, and a carried using
 * variable silently acquired the master's value-label meaning.
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 set varabbrev off
@@ -26,7 +27,6 @@ else {
     local pkg_dir "`cwd'"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0

@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,7 +15,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 capture program drop _rm_assert_log_has
 program define _rm_assert_log_has
@@ -42,6 +43,7 @@ gen double keyval = _n
 save "`using_display'", replace
 
 **# Normal, stats, verbose, timing, and warning labels
+local ++TESTS
 
 clear
 input int id double(keyval lo hi)
@@ -66,6 +68,7 @@ _rm_assert_log_has "`normal_log'", needle("Using observations")
 _rm_assert_log_has "`normal_log'", needle("warning:")
 
 **# dryrun/count labels
+local ++TESTS
 
 clear
 input int id double(keyval lo hi)
@@ -93,6 +96,7 @@ _rm_assert_log_has "`count_log'", needle("Dry run result")
 _rm_assert_log_has "`count_log'", needle("(data unchanged)")
 
 **# Output destination labels
+local ++TESTS
 
 capture frame drop display_contract_out
 clear
@@ -111,3 +115,8 @@ _rm_assert_log_has "`frame_log'", needle("display_contract_out")
 capture frame drop display_contract_out
 
 display as result "ALL RANGEMATCH DISPLAY CONTRACT TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_display_contract tests=`TESTS' pass=`TESTS' fail=0"

@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
-**# v1.4.1 performance-path regressions
+**# Performance-path regressions
+local ++TESTS
 
 tempfile using_missing_by
 clear
@@ -76,4 +78,9 @@ assert arm[2] == "drug_b"
 assert uid[2] == 2
 assert event_type[2] == "fatigue"
 
-display as result "ALL RANGEMATCH 1.4.1 REGRESSION TESTS PASSED"
+display as result "ALL RANGEMATCH PERFORMANCE-PATH REGRESSION TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_regress_performance tests=`TESTS' pass=`TESTS' fail=0"

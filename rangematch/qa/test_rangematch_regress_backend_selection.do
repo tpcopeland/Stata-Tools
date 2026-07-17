@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# Automatic sweep backend for monotone default joins
+local ++TESTS
 
 tempfile using_sweep
 clear
@@ -53,6 +55,7 @@ assert uid[6] == 4
 assert uid[7] == 5
 
 **# Sweep handles unmatched master rows and count mode
+local ++TESTS
 
 clear
 input int id byte group double(lo hi)
@@ -95,6 +98,7 @@ assert id[8] == 5
 assert missing(uid[8])
 
 **# Nonmonotone intervals fall back to binary backend
+local ++TESTS
 
 clear
 input int id byte group double(lo hi)
@@ -114,6 +118,7 @@ assert id[3] == 2 & uid[3] == 1
 assert id[4] == 2 & uid[4] == 2
 
 **# Stats and using-side assertions are sweep-eligible when monotone
+local ++TESTS
 
 clear
 input int id byte group double(lo hi)
@@ -143,4 +148,9 @@ capture noisily rangematch keyval lo hi using "`using_sweep'", ///
 assert _rc == 9
 assert _N == 4
 
-display as result "ALL RANGEMATCH 1.4.4 REGRESSION TESTS PASSED"
+display as result "ALL RANGEMATCH BACKEND-SELECTION REGRESSION TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_regress_backend_selection tests=`TESTS' pass=`TESTS' fail=0"

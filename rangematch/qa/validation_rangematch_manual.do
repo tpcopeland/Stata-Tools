@@ -9,9 +9,9 @@
 * expected values are derived either from a hand-rolled joinby + inrange brute
 * force or from hand-computed known answers, never from rangematch itself.
 clear all
-version 17.0
-
-capture ado uninstall rangematch
+version 16.1
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -22,7 +22,6 @@ else {
     local pkg_dir "`cwd'"
     local qa_dir "`pkg_dir'/qa"
 }
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 

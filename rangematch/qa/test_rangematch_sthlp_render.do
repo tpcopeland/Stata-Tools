@@ -26,7 +26,8 @@ version 16.1
 
 * This suite only inspects package files on disk; it never invokes rangematch.
 * Uninstall anyway to keep every QA file uniform.
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")

@@ -1,0 +1,33 @@
+# Expected-warning allowlist for the rangematch QA lane (RM-M03).
+#
+# Every entry is a warning that rangematch is SUPPOSED to emit and that a suite
+# in this directory deliberately provokes and asserts on. Without this file the
+# log reviewer reports each one as an issue to triage, so a lane that correctly
+# tests its warning paths looks dirtier than one that does not test them at all
+# -- the exact inversion RM-M03 describes.
+#
+# Scope: warnings only. This file cannot downgrade an error, a FAIL marker, or a
+# false green; the reviewer refuses to apply it to anything but severity=warning.
+#
+# Adding an entry is a claim that a test asserts the warning. Keep the claim
+# true: if the test goes away, so should the entry, or the reviewer stops
+# reporting a warning nobody is checking any more.
+
+# Match-density advisory: one master row matching many using rows.
+# Provoked and asserted by test_rangematch_v133.do (maxpairs/density) and
+# test_rangematch_regress_options_output.do (stats density results).
+warning: one master row matched [0-9]+ using rows
+
+# by-groups present in the master with no using rows.
+# Provoked and asserted by test_rangematch_by.do and the group-coding tests.
+warning: [0-9]+ of [0-9]+ by-groups had no using rows
+
+# Float-precision advisory for keys/bounds beyond 2^24.
+# This is test_rangematch_float_warn.do's entire subject: it asserts both that
+# the warning fires when it should and that it does NOT fire when it should not.
+warning: (using key|master bound) .* is stored as float with values beyond
+
+# Inverted using intervals (ulow > uhigh) in overlap mode.
+# Provoked and asserted by test_rangematch_overlap_inverted.do, which also
+# checks the accompanying r(N_using_inverted) return.
+warning: [0-9]+ using interval\(s\) have (ulo|ulow) > (uhi|uhigh) \(inverted bounds\)

@@ -39,7 +39,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | [fvgen](https://github.com/tpcopeland/Stata-Tools/tree/main/fvgen) | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--14-brightgreen) | Flatten factor-variable interactions into labeled main and product variables for clean regression export |
 | [massdesas](https://github.com/tpcopeland/Stata-Tools/tree/main/massdesas) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--10-brightgreen) | Batch convert SAS datasets to Stata (Stata 14+; requires import sas, filelist, and fs) |
 | [pkgtransfer](https://github.com/tpcopeland/Stata-Tools/tree/main/pkgtransfer) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--10-brightgreen) | Transfer installed package sets between systems via online reinstall or offline ZIP |
-| [rangematch](https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch) | ![version](https://img.shields.io/badge/version-1.3.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--10-brightgreen) | Range join between master and using datasets (file or frame) via a Mata binary-search backend (Stata 16.1+) |
+| [rangematch](https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch) | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--17-brightgreen) | Range join between master and using datasets (file or frame) via a Mata binary-search backend (Stata 16.1+) |
 
 ### Analysis
 
@@ -58,7 +58,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--13-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.7.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--13-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
+| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.7.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--07--17-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
 
 ### Reporting & Visualization
 

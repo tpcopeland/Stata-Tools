@@ -21,7 +21,9 @@
 
 version 16.1
 
-capture ado uninstall rangematch
+local TESTS 0
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -32,7 +34,6 @@ else {
     local pkg_dir "`cwd'"
     local qa_dir "`pkg_dir'/qa"
 }
-adopath ++ "`pkg_dir'"
 
 * ---------------------------------------------------------------------------
 * Probe 1: caller's Stata supports version 16.1
@@ -41,6 +42,7 @@ if c(stata_version) < 16.1 {
     display as error "test_rangematch_v16compat requires Stata 16.1+ (have " c(stata_version) ")"
     exit 9
 }
+local ++TESTS
 display as result "v16compat probe 1: caller Stata is " c(stata_version) " (>= 16.1) -- PASS"
 
 * ---------------------------------------------------------------------------
@@ -80,6 +82,7 @@ if `hits' > 0 {
     display as error "v16compat probe 2: found `hits' Stata-17-only symbol(s):`hit_detail'"
     exit 9
 }
+local ++TESTS
 display as result "v16compat probe 2: no Stata-17-only command names referenced in `: word count `files'' file(s) -- PASS"
 
 * ---------------------------------------------------------------------------
@@ -115,6 +118,7 @@ foreach f of local files {
         exit 9
     }
 }
+local ++TESTS
 display as result "v16compat probe 2b: both .ado files declare 'version 16.1' and none declares '16.0' -- PASS"
 
 * ---------------------------------------------------------------------------
@@ -163,6 +167,10 @@ if `n1' <= 0 | `n2' <= 0 | `n3' <= 0 {
     display as error "v16compat probe 3: rangematch produced no rows (n1=`n1' n2=`n2' n3=`n3')"
     exit 9
 }
+local ++TESTS
 display as result "v16compat probe 3: rangematch callable from a v16.1 caller (basic=`n1' by=`n2' unmatched=`n3') -- PASS"
 
+* Terminal sentinel (RM-I20): assert-driven, so reaching this line is the
+* pass condition and its ABSENCE is what a runner must treat as failure.
+display "RESULT: rangematch_v16compat tests=`TESTS' pass=`TESTS' fail=0"
 display as result _newline "test_rangematch_v16compat: ALL PROBES PASSED"

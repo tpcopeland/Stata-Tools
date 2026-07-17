@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,7 +15,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 tempfile using_save saved_file saved_frame
 
@@ -26,6 +27,7 @@ end
 save "`using_save'", replace
 
 **# saving() with by(), keepusing(), missing(drop), and file input
+local ++TESTS
 
 clear
 input int id byte group double(keyval lo hi)
@@ -60,6 +62,7 @@ assert id[3] == 3 & uid[3] == 3 & _merge[3] == 3
 restore
 
 **# saving() with using-frame input
+local ++TESTS
 
 capture frame drop saving_using_frame
 frame create saving_using_frame
@@ -94,6 +97,7 @@ restore
 capture frame drop saving_using_frame
 
 **# saving() rejects dryrun/count and missing(error) keeps failure cleanup local
+local ++TESTS
 
 clear
 input int id byte group double(keyval lo hi)
@@ -120,3 +124,8 @@ assert _rc == 459
 assert _N == 1
 
 display as result "ALL RANGEMATCH SAVING MATRIX TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_saving_matrix tests=`TESTS' pass=`TESTS' fail=0"

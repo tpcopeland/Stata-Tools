@@ -1,7 +1,7 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
-
+version 16.1
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,7 +13,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 quietly run "`pkg_dir'/_rangematch_mata.ado"
 
 local test_count = 0
@@ -124,5 +123,5 @@ assert r(N_pairs) == 4
 assert r(N_matched_pairs) == 4
 display as result "PASS: grouped matching unaffected by cleanup"
 
-display as result "ALL RANGEMATCH 1.4.8 REGRESSION TESTS PASSED"
+display as result "ALL RANGEMATCH MATA-SURFACE REGRESSION TESTS PASSED"
 display "RESULT: test_rangematch_v148 tests=`test_count' pass=`test_count' fail=0"

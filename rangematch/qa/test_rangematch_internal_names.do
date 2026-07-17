@@ -13,7 +13,8 @@
 * Coverage spans all three backends (binary, sweep, overlap) because the
 * literal appeared in each of the three builders independently.
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 set varabbrev off
@@ -29,7 +30,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -254,6 +254,105 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' T7_no_leak"
     display as error "FAIL: private index columns leaked"
+}
+
+**# T8: tempvar-style user names in the USING frame are collision-free
+* Indirectly exercises _rm_store_indexed() through the catalog group path.
+* Stata's tempvar allocator checks only the current frame. The first phase fix
+* replaced __rm_mi/__rm_ui with tempvars but then created those names -- plus
+* the provenance/work ids -- in other frames. A using dataset containing legal
+* names __000000...__000040 therefore failed r(110). This fixture spans enough
+* sequential names to collide with every private allocation site and exercises
+* both the no-by and catalog-group paths.
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 1
+    quietly gen double key = 5
+    quietly gen long group = 1
+    forvalues j = 0/40 {
+        local nm = "__" + string(`j', "%06.0f")
+        quietly gen double `nm' = `j'
+    }
+    tempfile utempnames
+    quietly save "`utempnames'"
+
+    clear
+    quietly set obs 1
+    quietly gen double mlow = 0
+    quietly gen double mhigh = 10
+    rangematch key mlow mhigh using "`utempnames'", unmatched(none)
+    confirm variable __000000
+    confirm variable __000040
+    assert __000000 == 0
+    assert __000040 == 40
+    assert r(N_matched_pairs) == 1
+
+    * Exact numeric type mismatch forces the merge-free catalog group-id path.
+    clear
+    quietly set obs 1
+    quietly gen double mlow = 0
+    quietly gen double mhigh = 10
+    quietly gen byte group = 1
+    rangematch key mlow mhigh using "`utempnames'", by(group) unmatched(none)
+    confirm variable __000000
+    confirm variable __000040
+    assert group == 1
+    assert r(N_matched_pairs) == 1
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: cross-frame tempvar-style names are collision-free"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' T8_tempvar_namespace"
+    display as error "FAIL: cross-frame tempvar-style user names"
+}
+
+**# T9: owned sample marker and private frames are cleaned after an error
+* A user-owned __rm_touse must survive. The command should select a different
+* marker, restore the caller dataset after maxpairs(), and remove only the
+* marker it owns while restoring varabbrev and dropping private frames.
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 2
+    quietly gen double key = 4 + _n
+    tempfile ucleanup
+    quietly save "`ucleanup'"
+
+    clear
+    quietly set obs 1
+    quietly gen double mlow = 0
+    quietly gen double mhigh = 10
+    quietly gen double __rm_touse = 99
+    set varabbrev on
+
+    capture noisily rangematch key mlow mhigh using "`ucleanup'", maxpairs(1)
+    assert _rc == 198
+    assert "`c(varabbrev)'" == "on"
+    assert _N == 1
+    assert mlow == 0
+    assert mhigh == 10
+    assert __rm_touse == 99
+    capture confirm variable __rm_touse1
+    assert _rc != 0
+    foreach f in __rm_using __rm_master __rm_out __rm_grp __rm_grp_u {
+        capture frame `f': describe
+        assert _rc != 0
+    }
+    set varabbrev off
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: error cleanup preserves caller data and state"
+}
+else {
+    capture set varabbrev off
+    local ++fail_count
+    local failed_tests "`failed_tests' T9_error_cleanup"
+    display as error "FAIL: error cleanup leaked state or private objects"
 }
 
 display as result _newline "INTERNAL NAMES TEST SUMMARY"

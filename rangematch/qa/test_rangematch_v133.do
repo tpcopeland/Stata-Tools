@@ -6,7 +6,8 @@
 clear all
 version 16.1
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
@@ -19,7 +20,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 

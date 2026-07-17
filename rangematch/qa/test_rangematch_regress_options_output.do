@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# keepusing() pre-validation
+local ++TESTS
 
 tempfile using_keep
 clear
@@ -37,6 +39,7 @@ capture frame __rm_using: describe
 assert _rc != 0
 
 **# Date and datetime format preservation
+local ++TESTS
 
 tempfile using_dates
 clear
@@ -91,6 +94,7 @@ local fmt : format event_time_U
 assert "`fmt'" == "%tc"
 
 **# Match-density stored results require stats
+local ++TESTS
 
 tempfile using_stats
 clear
@@ -166,6 +170,7 @@ foreach scalar_name in N_matched_master N_matched_using N_unmatched_master ///
 }
 
 **# tolerance() boundary comparisons
+local ++TESTS
 
 tempfile using_tol
 clear
@@ -213,6 +218,7 @@ capture noisily rangematch keyval lo hi using "`using_tol'", ///
 assert _rc == 198
 
 **# sort and nosort output order
+local ++TESTS
 
 tempfile using_order
 clear
@@ -254,4 +260,9 @@ capture noisily rangematch keyval lo hi using "`using_order'", ///
     keepusing(uid) sort nosort
 assert _rc == 198
 
-display as result "ALL RANGEMATCH V1.4.0 TESTS PASSED"
+display as result "ALL RANGEMATCH OPTION/OUTPUT REGRESSION TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_regress_options_output tests=`TESTS' pass=`TESTS' fail=0"

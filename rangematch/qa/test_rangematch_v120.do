@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# masterid(), usingid(), and unmatched(both)
+local ++TESTS
 
 tempfile using_outer
 clear
@@ -66,6 +68,7 @@ assert group == 3 if uid == 4
 assert code == "miss" if uid == 4
 
 **# nearest() and ties()
+local ++TESTS
 
 tempfile using_nearest
 clear
@@ -111,6 +114,7 @@ assert id[1] == 1 & uid[1] == 3
 assert id[2] == 2 & uid[2] == 5
 
 **# saving() leaves the caller's data unchanged
+local ++TESTS
 
 tempfile saved_output
 clear
@@ -135,6 +139,7 @@ confirm variable uid
 restore
 
 **# Numeric by() precision-hazard guard
+local ++TESTS
 
 tempfile using_float_by
 clear
@@ -153,6 +158,7 @@ capture noisily rangematch event_date lo hi using "`using_float_by'", ///
 assert _rc == 109
 
 **# Integer by() storage widening remains allowed
+local ++TESTS
 
 tempfile using_long_by
 clear
@@ -173,6 +179,7 @@ assert r(N_pairs) == 1
 assert uid[1] == 1
 
 **# Density warning path does not alter results
+local ++TESTS
 
 tempfile using_dense_warn
 clear
@@ -194,6 +201,7 @@ assert r(max_matches) == 101
 assert _N == 101
 
 **# Wide numeric materialization smoke test
+local ++TESTS
 
 tempfile using_wide
 clear
@@ -223,3 +231,8 @@ assert x40[3] == 43
 assert tag[2] == "u2"
 
 display as result "ALL RANGEMATCH V1.2.0 TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_v120 tests=`TESTS' pass=`TESTS' fail=0"

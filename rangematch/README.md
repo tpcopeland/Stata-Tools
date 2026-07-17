@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.3.3, 10jul2026
+Version 1.4.0, 17jul2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend. Two match modes are supported: **point-in-interval** (a using `keyvar` point falls in the master `[low, high]` interval) and **interval-overlap** (`overlap()`, where the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval).
 
@@ -123,8 +123,20 @@ frame exposed: list id entry exit rx_start rx_stop drug, sepby(id)
 
 The demo script (`rangematch/demo/demo_rangematch.do`) installs the local package, runs an exposure-window workflow, and regenerates the benchmark output used below.
 
+This is a **maintainer demo, not an installed-user workflow**: `net install` does not deliver it. The package manifest ships the command, its Mata backend, the help file, and `bench_rangematch.do` — `demo/` is repository-only. Running it requires a clone of the [Stata-Tools](https://github.com/tpcopeland/Stata-Tools) repository, the working directory set to the repository root, and the sibling `logdoc` package present in that clone (the demo installs `logdoc` from it to regenerate the markdown output). Without those, the script exits 601.
+
 ```bash
+git clone https://github.com/tpcopeland/Stata-Tools.git
+cd Stata-Tools
 stata-mp -b do rangematch/demo/demo_rangematch.do
+```
+
+Installed users who only want to reproduce the benchmark can run `bench_rangematch.do`, which needs no repository clone. It is an ancillary file: `net install` does not place it, so retrieve it with `net get`, which writes it into the current directory.
+
+```stata
+net install rangematch, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/rangematch") replace
+net get rangematch, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/rangematch") replace
+do bench_rangematch.do
 ```
 
 ## Syntax
@@ -139,21 +151,21 @@ rangematch keyvar low high using filename_or_framename [if] [in]
        frame(name) replace saving(filename[, replace]) stats
        closed(both|left|right|none) nearest(before|after|both)
        tolerance(#) missing(wildcard|drop|error)
-       ties(all|first|last) assert(match|using)
-       sort nosort dryrun count verbose]
+       ties(all|first|last|random) seed(#) assert(match|using)
+       nosort dryrun count verbose]
 ```
 
 Interval-overlap mode (the master `[low, high]` interval overlaps the using `[ulow, uhigh]` interval):
 
 ```stata
-rangematch low high using filename_or_framename [if] [in],
-    overlap(ulow uhigh)
-    [, by(varlist) keepusing(varlist) prefix(string) suffix(string)
+rangematch low high using filename_or_framename [if] [in]
+    , overlap(ulow uhigh)
+      [by(varlist) keepusing(varlist) prefix(string) suffix(string)
        all unmatched(master|none|using|both) generate(name)
        masterid(name) usingid(name) maxpairs(#)
        frame(name) replace saving(filename[, replace]) stats
        closed(both|none) tolerance(#) missing(wildcard|drop|error)
-       assert(match|using) sort nosort dryrun count verbose]
+       assert(match|using) nosort dryrun count verbose]
 ```
 
 ## Positional Arguments
@@ -164,18 +176,21 @@ rangematch low high using filename_or_framename [if] [in],
 | `low` | Numeric master variable defining the lower bound, numeric scalar offset from master `keyvar`, or literal `.` for open-ended below. |
 | `high` | Numeric master variable defining the upper bound, numeric scalar offset from master `keyvar`, or literal `.` for open-ended above. |
 
-Examples:
+Examples. These continue the Quick Start above and reuse its `` `master' `` and `` `events' `` tempfiles. Each `rangematch` call below replaces the data in memory with joined output, so every example reloads the master first and the three are independent, not a pipeline:
 
 ```stata
-* Variable bounds, after creating lo and hi in the Quick Start master data
+* Variable bounds
+use `master', clear
 generate double lo = event_date - 14
 generate double hi = event_date + 14
 rangematch event_date lo hi using `events'
 
 * Scalar offsets from master event_date
+use `master', clear
 rangematch event_date -30 30 using `events'
 
 * Open-ended lower bound through 30 days after master event_date
+use `master', clear
 rangematch event_date . 30 using `events'
 ```
 
@@ -203,13 +218,12 @@ Output preserves variable labels, value-label attachments and definitions, and t
 | `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
-| `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds, the master `keyvar` where it is a matching input (scalar offsets or `nearest()`), and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key or master matching key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_master_key_missing)`/`r(N_using_missing)`. On `missing(error)` the counts appear in the error message, not in `r()`. |
+| `missing(wildcard|drop|error)` | Symmetric policy for master variable bounds, the master `keyvar` where it is a matching input (scalar offsets or `nearest()`), and using keys/bounds. `wildcard` (default) treats missing bounds as open-ended while a missing using point key or master matching key never matches; `drop` removes offending rows; `error` aborts. Literal `.` positional bounds are unaffected. If `drop` empties either side, counterpart rows still follow `unmatched()` and the post-policy count for that side is zero. Post-policy counts are in `r(N_master)`/`r(N_using)` and pre-policy missing counts in `r(N_missing_bounds)`/`r(N_master_key_missing)`/`r(N_using_missing)`. On `missing(error)` the counts appear in the error message, not in `r()`. |
 | `nearest(before|after|both)` | Keep nearest using observations within the interval relative to the master key. |
 | `ties(all|first|last|random)` | Tie handling for `nearest()`; `random` chooses one tied row uniformly. Default is `all`. |
 | `seed(#)` | Reproducible seed for `ties(random)`; the caller's RNG state is restored after the call. |
 | `assert(match|using)` | Abort if every master row must match (`match`), every using row must match (`using`), or both. |
-| `sort` | Sort output by original master row and using row; default. |
-| `nosort` | Skip the final output sort and leave rows in backend materialization order. |
+| `nosort` | Skip the final output sort and leave rows in backend materialization order. Output is sorted by original master row and using row by default; there is no `sort` option, because sorting is not optional-on. |
 | `dryrun` | Validate and report output counts without replacing data or writing a frame; any `frame()` target is ignored. Alias: `count`. |
 | `count` | Synonym for `dryrun`. |
 | `verbose` | Display diagnostics plus elapsed seconds for load, match, and materialize phases. Very large joins also display matching progress. |
@@ -337,7 +351,7 @@ Three things change when porting:
 
 2. **`unmatched()` defaults differ.** `joinby` drops unmatched rows; `rangematch` defaults to `unmatched(master)`. Specify `unmatched(none)` to reproduce `joinby` semantics.
 
-3. **Missing variable bounds are handled differently.** When a `joinby` is followed by `keep if inrange(date, lo, hi)`, rows with missing `lo` or `hi` are silently dropped because every comparison against missing returns false. `rangematch` treats a missing bound as open-ended on that side, consistent with the literal `.` positional bound, so those rows wildcard-match every using row in the same `by()` group. **If your bound variables can be missing and you are porting from `joinby`+filter, drop missing-bound rows upstream or specify `missing(drop)`; otherwise output may contain spurious wildcard matches.** Use `missing(error)` to make `rangematch` refuse to run when missing-bound rows are present — the recommended setting for production registry pipelines.
+3. **Missing variable bounds are handled differently.** When a `joinby` is followed by `keep if inrange(date, lo, hi)`, rows with missing `lo` or `hi` are silently dropped because every comparison against missing returns false. `rangematch` treats a missing bound as open-ended on that side, consistent with the literal `.` positional bound, so those rows match more using rows than the `joinby`+filter pipeline returned — not fewer. A missing bound removes only its own side's restriction: with `lo` missing, `hi` still applies, so the row matches every using key at or below `hi`. Only rows missing *both* bounds match every using row in the `by()` group. **If your bound variables can be missing and you are porting from `joinby`+filter, drop missing-bound rows upstream or specify `missing(drop)`; otherwise output may contain spurious open-ended matches.** Use `missing(error)` to make `rangematch` refuse to run when missing-bound rows are present — the recommended setting for production registry pipelines.
 
 ```stata
 * joinby pattern: missing bounds silently dropped by the inrange() filter
@@ -414,6 +428,46 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.4.0 (2026-07-17)
+
+- Fixed four silent-result defects: `usingid()` now retains original using-row
+  provenance after `missing(drop)`; inverted and open-degenerate intervals are
+  empty under the documented closure rules; and grouped full-outer joins no
+  longer overflow using-only keys when integer storage widths differ.
+- Repaired public contracts for source/target frame safety, collision-free
+  private names, real `keepusing()` varlists, empty option arguments, empty-side
+  routing, master-key missing policies, `r(saving)`, and conflicting value-label
+  definitions.
+- Replaced overlap candidate-prefix rescanning with an output-sensitive plane
+  sweep and synchronized the shared tvtools overlap engine.
+- Review follow-up now accepts legal `__000000`-style variables across frames
+  and catalog grouping, removes `merge` from group-ID construction to avoid
+  Stata's global private-name collision, and permits either side to be empty
+  while honoring `unmatched()` and `assert()`.
+- Corrected the documented surface to match the parser. The README syntax
+  advertised a `sort` option that does not exist (calls returned `r(198)`) and
+  omitted `ties(random)` and `seed()`, which do; the overlap diagram carried a
+  stray second comma and did not run as printed. The missing-bound rules said a
+  missing bound wildcard-matches every counterpart — it removes only its own
+  side's restriction, and only a row missing *both* bounds matches every
+  counterpart in the group. The positional examples now reload the master
+  between calls, so the published sequence runs as displayed instead of failing
+  `r(110)` on the second call.
+- `bench_rangematch.do` now fails when the benchmark fails. Every timed call
+  runs under `capture` so one bad scenario cannot abandon the run, but a failed
+  call merely recorded `status="error"` in the results table and the script
+  still printed "complete" and exited 0 — so a broken installed command
+  produced a zero-exit benchmark that automation read as success. Any
+  rangematch error now exits nonzero and reports a `RESULT:` line; a missing
+  `rangejoin` remains a recorded skip, which it always legitimately was.
+- The demo is now labeled a maintainer/repository script with its clone and
+  `logdoc` prerequisites stated, because `net install` never delivered it;
+  installed users are pointed at `bench_rangematch.do`, retrievable via
+  `net get`. The demo sandboxes both `PERSONAL` and `PLUS` (`PERSONAL` precedes
+  `PLUS` on the adopath, so a stale copy could shadow the package under test),
+  verifies which copy it resolved, and restores both sysdirs and closes its logs
+  on every exit path rather than only on success.
 
 ### 1.3.3 (2026-07-09)
 

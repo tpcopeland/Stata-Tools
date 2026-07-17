@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.3  09jul2026}{...}
+{* *! version 1.4.0  17jul2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -287,8 +287,12 @@ using side a missing point {it:keyvar} (point mode) or a missing {it:ulow} or
 {pmore}
 {opt miss:ing(wildcard)}, the default, preserves the historical behavior exactly
 and treats a missing {it:bound} as open-ended on that side, consistent with the
-semantics of a literal {cmd:.} positional bound; such rows wildcard-match every
-counterpart in the same {opt by()} group. A missing point {it:keyvar} has no
+semantics of a literal {cmd:.} positional bound. A missing bound removes only
+its own side's restriction: the opposite bound still applies, so a master row
+{cmd:[.,} {it:high}{cmd:]} matches every counterpart at or below {it:high}, not
+every counterpart in the group. Only a row whose {it:low} and {it:high} are
+{it:both} missing is fully open and matches every valid counterpart in the same
+{opt by()} group. A missing point {it:keyvar} has no
 open-ended interpretation, so under {cmd:wildcard} a using row with a missing key
 never matches (and surfaces only as an unmatched-using row under
 {opt unmatch:ed(using)} or {opt unmatch:ed(both)}).
@@ -321,6 +325,9 @@ missing key and a missing bound is counted in both, and under
 If {opt miss:ing(drop)} empties an entire {opt by()} group from one side, the
 counterpart rows in that group still surface as unmatched under the relevant
 {opt unmatch:ed()} setting and will trip the matching {opt as:sert()}. On a
+global empty side -- including a zero-row input master or a side emptied by the
+policy -- the same rule applies: counterpart rows surface according to
+{opt unmatch:ed()}, and the posted post-policy count for that side is zero. On a
 successful {opt miss:ing(wildcard)} or {opt miss:ing(drop)} run, the count of
 master rows with missing variable bounds is posted in
 {cmd:r(N_missing_bounds)}, the count of master rows with a missing match key in
@@ -793,7 +800,7 @@ posted only when {opt stats} is specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.3, 09jul2026{p_end}
+{pstd}Version 1.4.0, 17jul2026{p_end}
 
 
 {title:Also see}

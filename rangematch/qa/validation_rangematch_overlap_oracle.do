@@ -31,8 +31,8 @@ else {
     local pkg_dir "`cwd'"
 }
 
-capture ado uninstall rangematch
-quietly net install rangematch, from("`pkg_dir'") replace
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 
 local test_count = 0
 local pass_count = 0

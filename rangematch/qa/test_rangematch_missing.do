@@ -1,6 +1,10 @@
 * test_rangematch_missing.do — Missing value and boundary tests
 
-capture ado uninstall rangematch
+version 16.1
+
+local TESTS 0
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -11,7 +15,6 @@ else {
     local pkg_dir "`cwd'"
     local qa_dir "`pkg_dir'/qa"
 }
-adopath ++ "`pkg_dir'"
 
 tempfile miss_master miss_using miss_lo miss_using2 miss_hi ///
     miss_both miss_inverted miss_using3 miss_ext
@@ -42,6 +45,7 @@ sort keyval
 assert keyval[1] == 5
 assert keyval[2] == 10
 
+local ++TESTS
 display as result "PASS: Test 1 — missing using key never matches"
 
 * -----------------------------------------------------------------------
@@ -73,6 +77,7 @@ assert keyval[1] == -100
 assert keyval[2] == 0
 assert keyval[3] == 5
 
+local ++TESTS
 display as result "PASS: Test 2 — missing lower bound = -infinity"
 
 * -----------------------------------------------------------------------
@@ -94,6 +99,7 @@ sort keyval
 assert keyval[1] == 5
 assert keyval[2] == 6
 
+local ++TESTS
 display as result "PASS: Test 3 — missing upper bound = +infinity"
 
 * -----------------------------------------------------------------------
@@ -111,6 +117,7 @@ rangematch keyval lo hi using "`miss_using2'"
 * Both missing = match all non-missing keys
 assert r(N_pairs) == 4
 
+local ++TESTS
 display as result "PASS: Test 4 — both bounds missing = match all"
 
 * -----------------------------------------------------------------------
@@ -142,6 +149,7 @@ sort id
 assert uid[1] == .   // id=1 is unmatched (inverted bounds)
 assert uid[2] == 1   // id=2 matched uid=1 (keyval=2)
 
+local ++TESTS
 display as result "PASS: Test 5 — lo > hi = no match (retained as unmatched)"
 
 * -----------------------------------------------------------------------
@@ -160,6 +168,12 @@ rangematch keyval lo hi using "`miss_using2'"
 * Should match keyval -100, 0, 5
 assert r(N_pairs) == 3
 
+local ++TESTS
 display as result "PASS: Test 6 — extended missing in bounds"
 
 display as result _newline "ALL MISSING VALUE TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_missing tests=`TESTS' pass=`TESTS' fail=0"

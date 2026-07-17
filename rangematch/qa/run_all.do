@@ -11,46 +11,27 @@ if !inlist("`mode'", "full", "quick") {
 capture log close _all
 log using "run_all.log", replace text nomsg
 
-* Remove every installed rangematch copy so the per-suite install resolves to
-* the local dev directory, and so test_install.do's bare `net install' (no
-* replace) does not fail r(602) against a stale PLUS copy.
+* Sandbox PLUS and PERSONAL under c(tmpdir) and install the package under test
+* once, before any suite runs (RM-I17).
 *
-* The previous version of this block claimed to "uninstall by index until none
-* remain (uninstall-by-name fails rc=111 when multiple copies are present)" but
-* then called `ado uninstall rangematch' -- by NAME -- inside
-* `if _rc != 0 continue, break'. So in the very situation the comment describes
-* it broke on its first pass and removed NOTHING, while reading as if it had.
+* This lane used to sweep `ado uninstall rangematch' against the caller's REAL
+* PLUS tree, on the reasoning that a stale installed copy would shadow the code
+* under review. The reasoning was sound and the remedy was not: running the
+* documented gate silently uninstalled the user's own rangematch, and a lane
+* has no business editing the environment of the person running it. Isolating
+* the trees removes the shadow AND the collateral damage, so no sweep is needed.
 *
-* Uninstalling by index does not work either: measured on stata-mp 17, `ado
-* uninstall <n>' returns r(111) "package not found" even for a single, freshly
-* installed package whose index `ado dir' printed one line earlier. The index
-* form is not a usable API here, so do not reintroduce it.
-*
-* What works is `ado uninstall <name>' (verified rc=0 for one copy, and for two
-* copies installed from different source directories). It is not guaranteed
-* against a stata.trk carrying duplicate orphan entries for one package name,
-* which is why the sweep is VERIFIED below rather than assumed.
-forvalues _i = 1/20 {
-    capture ado uninstall rangematch
-    if _rc != 0 continue, break
-}
+* Do not reintroduce an index-based sweep here. Measured on stata-mp 17,
+* `ado uninstall <n>' returns r(111) "package not found" even for a single,
+* freshly installed package whose index `ado dir' printed one line earlier --
+* the index form is not a usable API.
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
-* Prove the sweep actually happened. A surviving PLUS copy shadows the package
-* under test and makes test_install.do's bare `net install' fail r(602); both
-* are silent-wrong-result modes for the lane, so fail loudly and early rather
-* than report a green (or confusingly red) lane for the wrong reason.
-capture which rangematch
-if _rc == 0 {
-    display as error ///
-        "an installed rangematch copy survived the uninstall sweep; lane aborted"
-    display as error ///
-        "run {bf:ado dir} to list the copies; if {bf:ado uninstall rangematch}"
-    display as error ///
-        "fails r(111), stata.trk holds duplicate entries for this package and"
-    display as error ///
-        "needs repair before the lane can prove which code it tested"
-    exit 459
-}
+* Record the caller's real trees so the summary can prove they came back.
+local real_plus "$RM_QA_OLD_PLUS"
+local real_personal "$RM_QA_OLD_PERSONAL"
 
 local suites ///
     test_install.do ///
@@ -61,12 +42,12 @@ local suites ///
     test_rangematch_v110.do ///
     test_rangematch_v120.do ///
     test_rangematch_v130.do ///
-    test_rangematch_v140.do ///
-    test_rangematch_v141.do ///
-    test_rangematch_v144.do ///
-    test_rangematch_v145.do ///
-    test_rangematch_v147.do ///
-    test_rangematch_v148.do ///
+    test_rangematch_regress_options_output.do ///
+    test_rangematch_regress_performance.do ///
+    test_rangematch_regress_backend_selection.do ///
+    test_rangematch_regress_sweep_options.do ///
+    test_rangematch_regress_distance.do ///
+    test_rangematch_regress_mata_surface.do ///
     test_rangematch_v132.do ///
     test_rangematch_v133.do ///
     test_rangematch_v101.do ///
@@ -95,6 +76,10 @@ local suites ///
     test_rangematch_labels.do ///
     test_rangematch_v16compat.do ///
     test_documentation_examples.do ///
+    test_rangematch_doc_contract.do ///
+    test_rangematch_demo_contract.do ///
+    test_rangematch_lane_isolation.do ///
+    test_rangematch_bench_smoke.do ///
     test_rangematch_sthlp_render.do ///
     test_release_integrity.do
 
@@ -115,6 +100,13 @@ foreach suite of local suites {
     local ++suite_count
     display as text _newline "Running `suite'"
     clear all
+
+    * Hand every suite the same adopath. A suite that appends the source
+    * directory and never removes it changes what the NEXT suite resolves, so
+    * the lane's result would depend on suite order -- which is exactly how the
+    * demo-contract suite came to need a private adopath workaround.
+    capture adopath - "`pkg_dir'"
+
     capture noisily do "`suite'"
     local rc = _rc
     if `rc' == 0 {
@@ -128,10 +120,97 @@ foreach suite of local suites {
     }
 }
 
+* Require a terminal sentinel from every suite the lane just called green
+* (RM-I20).
+*
+* rc=0 alone cannot distinguish a suite that ran to completion from one whose
+* log was truncated or that exited early having executed a fraction of its
+* tests. Every suite emits one `RESULT: <name> tests=N pass=N fail=N' line as
+* its last act, so a passing suite with no sentinel is a suite that did not
+* finish -- and this lane will no longer report it as green.
+*
+* Close the log to read it back, scan, then reopen with append to record the
+* verdict. The scan must anchor at column 0: `text' logs echo each command, so
+* the ECHO of `display "RESULT: ..."' also contains the token "RESULT: " and a
+* naive substring search matches the suite's own source line whether or not it
+* ever executed -- the search would then confirm itself.
+log close _all
+
+mata:
+string scalar _rm_missing_sentinels(string scalar logpath)
+{
+    real scalar fh
+    string scalar line, cur, missing
+    real scalar seen
+
+    fh = fopen(logpath, "r")
+    cur = ""
+    seen = 0
+    missing = ""
+    while ((line = fget(fh)) != J(0, 0, "")) {
+        // Real output starts at column 0; an echoed command starts with ". ".
+        if (substr(line, 1, 8) == "Running ") {
+            if (cur != "" & !seen) missing = missing + " " + cur
+            cur = strtrim(substr(line, 9, .))
+            seen = 0
+        }
+        else if (substr(line, 1, 8) == "RESULT: ") {
+            seen = 1
+        }
+        else if (substr(line, 1, 6) == "FAIL: ") {
+            // A failing suite is already reported by rc; do not double-report
+            // it as a missing sentinel.
+            seen = 1
+        }
+    }
+    if (cur != "" & !seen) missing = missing + " " + cur
+    fclose(fh)
+    return(strtrim(missing))
+}
+end
+
+mata: st_local("no_sentinel", _rm_missing_sentinels("run_all.log"))
+capture mata: mata drop _rm_missing_sentinels()
+
+log using "run_all.log", append text nomsg
+
+* Restore the caller's real ado trees, on the pass path and the fail path
+* alike, and PROVE the restore happened. A teardown that silently no-ops would
+* leave the user pointed at a c(tmpdir) sandbox that the OS later deletes --
+* their rangematch would simply stop resolving, with nothing to point at.
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_teardown
+capture adopath - "`pkg_dir'"
+
+local restore_ok = 1
+if "`c(sysdir_plus)'" != "`real_plus'" {
+    display as error "PLUS not restored: is `c(sysdir_plus)', want `real_plus'"
+    local restore_ok = 0
+}
+if "`c(sysdir_personal)'" != "`real_personal'" {
+    display as error "PERSONAL not restored: is `c(sysdir_personal)', want `real_personal'"
+    local restore_ok = 0
+}
+
 display as result _newline "RANGEMATCH QA SUMMARY"
 display as result "Suites: `suite_count'"
 display as result "Passed: `pass_count'"
 display as result "Failed: `fail_count'"
+
+if !`restore_ok' {
+    display as error "ado-tree restore FAILED; lane result is not trustworthy"
+    display "RESULT: run_all suites=`suite_count' pass=`pass_count' fail=`fail_count'"
+    log close _all
+    exit 459
+}
+
+if `"`no_sentinel'"' != "" {
+    display as error "suites finished without a terminal RESULT: sentinel:`no_sentinel'"
+    display as error "a suite that exits 0 without its sentinel did not run to completion"
+    display "RESULT: run_all suites=`suite_count' pass=`pass_count' fail=`fail_count'"
+    log close _all
+    exit 9
+}
 
 if `fail_count' > 0 {
     display as error "Failed suites:`failed_suites'"

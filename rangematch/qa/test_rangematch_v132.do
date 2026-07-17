@@ -14,7 +14,8 @@ clear all
 set more off
 set varabbrev off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -23,11 +24,10 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 discard
 
 local FAIL 0
-
+local TESTS 0
 * ---------------------------------------------------------------------------
 * Fixture: 8 using intervals, all in the same (single) group, all sharing the
 * SAME lower bound ulo=0 (a tied block), with distinct upper bounds. A single
@@ -67,6 +67,7 @@ frame v132a {
         if urow[`i'] != `i' local ok1 0
     }
 }
+local ++TESTS
 if !`ok1' {
     frame v132a: list urow, clean noobs
     di as error "T1 nosort overlap tied-ulo order not ascending by original row"
@@ -94,11 +95,13 @@ _v132_ordervec "`M1'" "`U1'"
 local vecA `"`r(vec)'"'
 _v132_ordervec "`M1'" "`U1'"
 local vecB `"`r(vec)'"'
+local ++TESTS
 if `"`vecA'"' != `"`vecB'"' {
     di as error "T2 nosort order not reproducible across runs: [`vecA'] vs [`vecB']"
     local ++FAIL
 }
 * And the reproducible order is the ascending original-row order.
+local ++TESTS
 if trim(`"`vecA'"') != "1 2 3 4 5 6 7 8" {
     di as error "T2 order=[`vecA'] (want 1 2 3 4 5 6 7 8)"
     local ++FAIL
@@ -137,6 +140,7 @@ frame v132c {
         if g[`i'] == g[`i'-1] & urow[`i'] <= urow[`i'-1] local ok3 0
     }
 }
+local ++TESTS
 if !`ok3' {
     frame v132c: list g urow, clean noobs sepby(g)
     di as error "T3 by-group nosort tied-ulo order not ascending within group"
@@ -160,6 +164,7 @@ save "`M4'"
 use "`M4'", clear
 capture rangematch mlo mhi using "`U4'", overlap(ulo uhi) ///
     maxpairs(5) frame(v132d) replace
+local ++TESTS
 if _rc != 198 {
     di as error "T4 maxpairs overflow rc=" _rc " (want 198)"
     local ++FAIL
@@ -183,6 +188,7 @@ while r(eof) == 0 {
 }
 file close `fh'
 capture erase "v132_maxpairs.log"
+local ++TESTS
 if !`found_atleast' {
     di as error "T4 maxpairs message missing 'would produce at least' wording"
     local ++FAIL
@@ -212,6 +218,7 @@ rangematch mlo mhi using "`U5'", overlap(ulo uhi) keepusing(cat) ///
 local vl : value label cat
 local lbl1 : label (cat) 1
 local lbl2 : label (cat) 2
+local ++TESTS
 if "`vl'" != "catlbl" | "`lbl1'" != "one" | "`lbl2'" != "two" {
     di as error "T5 value label lost on default-frame path: vl=`vl' 1=`lbl1' 2=`lbl2'"
     local ++FAIL
@@ -226,11 +233,20 @@ if "`vl'" != "catlbl" | "`lbl1'" != "one" | "`lbl2'" != "two" {
 * backend was bumped to this release's version (guards a "forgot to bump the
 * handshake after changing the backend" regression).
 capture mata: st_local("_mv", _rm_mata_version())
-if "`_mv'" != "1.3.3" {
-    di as error "T6 backend version=`_mv' (want 1.3.3) -- bump _rm_mata_version() and _rm_required_mata_version together"
+tempname _rm_vfh
+file open `_rm_vfh' using "`pkg_dir'/rangematch.ado", read text
+file read `_rm_vfh' _rm_header
+file close `_rm_vfh'
+local _rm_vpos = strpos(`"`_rm_header'"', "Version ")
+local _rm_vrest = substr(`"`_rm_header'"', `_rm_vpos' + 8, .)
+gettoken _rm_expected : _rm_vrest
+local ++TESTS
+if "`_mv'" != "`_rm_expected'" {
+    di as error "T6 backend version=`_mv' (want `_rm_expected') -- bump _rm_mata_version() and _rm_required_mata_version together"
     local ++FAIL
 }
 
+display "RESULT: v132 tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_v132: FAILED (`FAIL')"
     exit 9

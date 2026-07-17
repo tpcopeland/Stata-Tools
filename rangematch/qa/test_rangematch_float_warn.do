@@ -8,7 +8,8 @@ version 16.1
 clear all
 set more off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -17,10 +18,9 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 
 local FAIL 0
-
+local TESTS 0
 * Run a rangematch call with console captured to a text log, then report
 * whether the float warning text appeared. Returns r(warned) and r(rc).
 capture program drop _rm_did_warn
@@ -87,6 +87,7 @@ save "`MF'"
 * --- 1: float %tc using key -> WARN, rc 0 (non-fatal)
 use "`M'", clear
 _rm_did_warn `"rangematch key_f lo hi using "`U1'", keepusing(uid)"'
+local ++TESTS
 if r(warned) != 1 | r(rc) != 0 {
     di as error "S1 float %tc key: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
     local ++FAIL
@@ -95,6 +96,7 @@ if r(warned) != 1 | r(rc) != 0 {
 * --- 2: double %tc using key -> NO warn
 use "`M'", clear
 _rm_did_warn `"rangematch key_d lo hi using "`U1'", keepusing(uid)"'
+local ++TESTS
 if r(warned) != 0 {
     di as error "S2 double %tc key: warned=" r(warned) " (want 0)"
     local ++FAIL
@@ -107,6 +109,7 @@ gen double lo = td(01jan2019)
 gen double hi = td(01jan2021)
 gen long   mid = 1
 _rm_did_warn `"rangematch key_f lo hi using "`U3'", keepusing(uid)"'
+local ++TESTS
 if r(warned) != 0 {
     di as error "S3 small float %td key: warned=" r(warned) " (want 0)"
     local ++FAIL
@@ -115,12 +118,14 @@ if r(warned) != 0 {
 * --- 4: float %tc master bound -> WARN, rc 0
 use "`MF'", clear
 _rm_did_warn `"rangematch key_d lo hi using "`U1'", keepusing(uid)"'
+local ++TESTS
 if r(warned) != 1 | r(rc) != 0 {
     di as error "S4 float %tc master bound: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
     local ++FAIL
 }
 
 di as txt "{hline 60}"
+display "RESULT: float_warn tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_float_warn: FAILED (`FAIL')"
     exit 9

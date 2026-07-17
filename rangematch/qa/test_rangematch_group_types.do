@@ -15,7 +15,8 @@
 * The control cases pin that the catalog path was already correct, so the
 * defect is specific to fast-path eligibility.
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 set varabbrev off
@@ -31,7 +32,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0

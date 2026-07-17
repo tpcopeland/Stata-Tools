@@ -10,7 +10,8 @@ version 16.1
 clear all
 set more off
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -19,10 +20,9 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-adopath ++ "`pkg_dir'"
 
 local FAIL 0
-
+local TESTS 0
 tempfile UP MP UO MO
 
 * ============================ POINT MODE ============================
@@ -47,6 +47,7 @@ save "`MP'"
 * --- wildcard (default), unmatched(none): missing keys never match
 use "`MP'", clear
 quietly rangematch key mlo mhi using "`UP'", keepusing(uid) unmatched(none)
+local ++TESTS
 if r(N_matched_pairs) != 3 | r(N_pairs) != 3 | r(N_using_missing) != 2 {
     di as error "POINT wildcard/none: matched=" r(N_matched_pairs) ///
         " pairs=" r(N_pairs) " using_missing=" r(N_using_missing) " (want 3,3,2)"
@@ -56,6 +57,7 @@ if r(N_matched_pairs) != 3 | r(N_pairs) != 3 | r(N_using_missing) != 2 {
 * --- error: aborts
 use "`MP'", clear
 capture rangematch key mlo mhi using "`UP'", missing(error)
+local ++TESTS
 if _rc != 459 {
     di as error "POINT error: rc=" _rc " (want 459)"
     local ++FAIL
@@ -64,6 +66,7 @@ if _rc != 459 {
 * --- drop, unmatched(none): reduced using, same 3 matches
 use "`MP'", clear
 quietly rangematch key mlo mhi using "`UP'", keepusing(uid) missing(drop) unmatched(none)
+local ++TESTS
 if r(N_matched_pairs) != 3 | r(N_using) != 3 | r(N_using_missing) != 2 {
     di as error "POINT drop/none: matched=" r(N_matched_pairs) ///
         " N_using=" r(N_using) " using_missing=" r(N_using_missing) " (want 3,3,2)"
@@ -73,6 +76,7 @@ if r(N_matched_pairs) != 3 | r(N_using) != 3 | r(N_using_missing) != 2 {
 * --- wildcard, unmatched(using): the 2 missing-key rows surface as unmatched
 use "`MP'", clear
 quietly rangematch key mlo mhi using "`UP'", keepusing(uid) unmatched(using)
+local ++TESTS
 if r(N_pairs) != 5 | r(N_matched_pairs) != 3 {
     di as error "POINT wildcard/using: pairs=" r(N_pairs) ///
         " matched=" r(N_matched_pairs) " (want 5,3 -> 2 unmatched using)"
@@ -82,6 +86,7 @@ if r(N_pairs) != 5 | r(N_matched_pairs) != 3 {
 * --- drop, unmatched(using): the 2 missing-key rows are gone, not surfaced
 use "`MP'", clear
 quietly rangematch key mlo mhi using "`UP'", keepusing(uid) missing(drop) unmatched(using)
+local ++TESTS
 if r(N_pairs) != 3 | r(N_matched_pairs) != 3 {
     di as error "POINT drop/using: pairs=" r(N_pairs) ///
         " matched=" r(N_matched_pairs) " (want 3,3 -> dropped rows absent)"
@@ -111,6 +116,7 @@ save "`MO'"
 * --- wildcard (default): open-ended bounds match; 4 matches, 3 flagged missing
 use "`MO'", clear
 quietly rangematch mlo mhi using "`UO'", overlap(ulo uhi) keepusing(uid) unmatched(none)
+local ++TESTS
 if r(N_matched_pairs) != 4 | r(N_using_missing) != 3 {
     di as error "OVERLAP wildcard: matched=" r(N_matched_pairs) ///
         " using_missing=" r(N_using_missing) " (want 4,3)"
@@ -120,6 +126,7 @@ if r(N_matched_pairs) != 4 | r(N_using_missing) != 3 {
 * --- error: aborts
 use "`MO'", clear
 capture rangematch mlo mhi using "`UO'", overlap(ulo uhi) missing(error)
+local ++TESTS
 if _rc != 459 {
     di as error "OVERLAP error: rc=" _rc " (want 459)"
     local ++FAIL
@@ -128,6 +135,7 @@ if _rc != 459 {
 * --- drop: only (12,14) and (50,60) remain; just (12,14) overlaps [10,20]
 use "`MO'", clear
 quietly rangematch mlo mhi using "`UO'", overlap(ulo uhi) keepusing(uid) missing(drop) unmatched(none)
+local ++TESTS
 if r(N_matched_pairs) != 1 | r(N_using) != 2 | r(N_using_missing) != 3 {
     di as error "OVERLAP drop: matched=" r(N_matched_pairs) ///
         " N_using=" r(N_using) " using_missing=" r(N_using_missing) " (want 1,2,3)"
@@ -135,6 +143,7 @@ if r(N_matched_pairs) != 1 | r(N_using) != 2 | r(N_using_missing) != 3 {
 }
 
 di as txt "{hline 60}"
+display "RESULT: missing_using tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_missing_using: FAILED (`FAIL')"
     exit 9

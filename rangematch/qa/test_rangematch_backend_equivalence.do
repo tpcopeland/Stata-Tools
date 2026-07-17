@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,7 +15,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 tempfile using_backend sweep_out binary_out sweep_nearest binary_nearest
 
@@ -28,6 +29,7 @@ end
 save "`using_backend'", replace
 
 **# Sweep/default and forced binary/nosort agree on pair IDs and stats
+local ++TESTS
 
 clear
 input int id double(lo hi)
@@ -75,6 +77,7 @@ assert _merge == 3
 drop _merge
 
 **# Binary nearest variants remain deterministic against themselves
+local ++TESTS
 
 clear
 input int id double(keyval lo hi)
@@ -112,3 +115,8 @@ merge 1:1 id uid using "`binary_nearest'"
 assert _merge == 3
 
 display as result "ALL RANGEMATCH BACKEND EQUIVALENCE TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_backend_equivalence tests=`TESTS' pass=`TESTS' fail=0"

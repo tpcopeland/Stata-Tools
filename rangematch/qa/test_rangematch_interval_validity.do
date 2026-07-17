@@ -19,7 +19,8 @@
 * master row is also emitted as an output row, so r(N_pairs) cannot distinguish
 * "matched the inverted interval" from "correctly matched nothing".
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
 version 16.1
 set varabbrev off
@@ -35,7 +36,6 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0

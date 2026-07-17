@@ -1,7 +1,9 @@
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
+version 16.1
 
+local TESTS 0
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -13,9 +15,9 @@ else {
     local qa_dir "`pkg_dir'/qa"
 }
 
-quietly net install rangematch, from("`pkg_dir'") replace
 
 **# distance(), generated labels, and parsed-option returns
+local ++TESTS
 
 tempfile using_dist
 clear
@@ -63,6 +65,7 @@ assert status_text[1] == "matched"
 assert status_text[4] == "master only"
 
 **# assert() failures use side-specific counters
+local ++TESTS
 
 tempfile using_assert
 clear
@@ -101,6 +104,7 @@ assert _rc == 9
 assert _N == 1
 
 **# using frame input preserves source and current frames
+local ++TESTS
 
 capture frame drop events_frame
 capture frame drop frame_matches
@@ -150,6 +154,7 @@ capture frame drop events_frame
 capture frame drop frame_matches
 
 **# Empty by-group diagnostics
+local ++TESTS
 
 tempfile using_groups
 clear
@@ -172,6 +177,7 @@ assert r(N_empty_groups) == 2
 assert r(N_pairs) == 3
 
 **# Large-join progress path
+local ++TESTS
 
 tempfile using_progress
 clear
@@ -193,3 +199,8 @@ assert r(N_master) == 100001
 assert r(N_pairs) == 100001
 
 display as result "ALL RANGEMATCH V1.3.0 TESTS PASSED"
+
+* Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
+* aborts the do-file, so reaching this line IS the pass condition and the
+* absence of this line is what a runner must treat as failure.
+display "RESULT: rangematch_v130 tests=`TESTS' pass=`TESTS' fail=0"

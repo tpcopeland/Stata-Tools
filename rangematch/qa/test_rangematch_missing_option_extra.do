@@ -1,7 +1,7 @@
 * test_rangematch_missing_option_extra.do — v1.1.0 missing() extended coverage
 *
 * Fills coverage gaps not exercised by test_rangematch_missing_option.do:
-*   E1: missing(drop) wipes out all master rows -> rc=2000
+*   E1: missing(drop) may wipe out all master rows; empty-side contract holds
 *   E2: N_missing_bounds respects if/in (only counts rows in touse)
 *   E3: missing() ignores rows already excluded by if/in
 *   E4: missing(drop) + scalar offset bound (variable+literal mix)
@@ -15,10 +15,10 @@
 *   E12: r(N_master) under missing(drop) equals post-drop count and equals
 *        pre-drop count - N_missing_bounds (only when those are the only excluded rows)
 
-capture ado uninstall rangematch
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+_rm_qa_bootstrap
 clear all
-version 17.0
-
+version 16.1
 local cwd "`c(pwd)'"
 local cwd_len = strlen("`cwd'")
 if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
@@ -27,7 +27,6 @@ if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
 else {
     local pkg_dir "`cwd'"
 }
-quietly net install rangematch, from("`pkg_dir'") replace
 quietly run "`pkg_dir'/_rangematch_mata.ado"
 
 local test_count = 0
@@ -46,7 +45,7 @@ input int id double event_date
 end
 save "`u_data'", replace
 
-**# E1: missing(drop) wipes out all master rows -> rc=2000
+**# E1: missing(drop) wipes out all master rows without bypassing the join
 local ++test_count
 clear
 input int id double(lo hi)
@@ -58,8 +57,20 @@ save "`m_all_miss'", replace
 use "`m_all_miss'", clear
 capture noisily rangematch event_date lo hi using "`u_data'", by(id) ///
     unmatched(none) missing(drop) frame(out_e1) replace
-assert _rc == 2000
-display as result "PASS E`test_count': missing(drop) removing all master rows -> rc=2000"
+local e1_rc = _rc
+local e1_master = r(N_master)
+local e1_using = r(N_using)
+local e1_pairs = r(N_pairs)
+local e1_matched = r(N_matched_pairs)
+assert `e1_rc' == 0
+assert `e1_master' == 0
+assert `e1_using' == 6
+assert `e1_pairs' == 0
+assert `e1_matched' == 0
+frame out_e1: quietly count
+assert r(N) == 0
+capture frame drop out_e1
+display as result "PASS E`test_count': missing(drop) empty-master contract"
 
 **# E2: N_missing_bounds respects if/in (only counts rows in touse)
 local ++test_count
@@ -311,3 +322,4 @@ assert r(N_matched_pairs) == 4
 display as result "PASS E`test_count': both-bounds-missing row counted once, wildcards under default, dropped under missing(drop)"
 
 display as result _newline "test_rangematch_missing_option_extra.do: `test_count'/`test_count' PASS"
+display "RESULT: test_rangematch_missing_option_extra tests=`test_count' pass=`test_count' fail=0"
