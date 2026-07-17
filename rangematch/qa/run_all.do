@@ -26,7 +26,17 @@ log using "run_all.log", replace text nomsg
 * freshly installed package whose index `ado dir' printed one line earlier --
 * the index form is not a usable API.
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
-_rm_qa_bootstrap
+capture noisily _rm_qa_bootstrap
+local bootstrap_rc = _rc
+if `bootstrap_rc' {
+    * Bootstrap normally restores its own first-time mutations. Retry teardown
+    * if a restore itself failed and left a recoverable isolation state.
+    capture noisily _rm_qa_teardown
+    local teardown_rc = _rc
+    display as error "rangematch QA bootstrap failed (rc=`bootstrap_rc'; teardown rc=`teardown_rc')"
+    log close _all
+    exit `bootstrap_rc'
+}
 local pkg_dir "`r(pkg_dir)'"
 
 * Record the caller's real trees so the summary can prove they came back.
@@ -81,6 +91,7 @@ local suites ///
     test_rangematch_lane_isolation.do ///
     test_rangematch_bench_smoke.do ///
     test_rangematch_sthlp_render.do ///
+    test_rangematch_runner_contract.do ///
     test_release_integrity.do
 
 if "`mode'" == "full" {
@@ -120,8 +131,7 @@ foreach suite of local suites {
     }
 }
 
-* Require a terminal sentinel from every suite the lane just called green
-* (RM-I20).
+* Require one exact, internally consistent sentinel from every suite (RM-I20).
 *
 * rc=0 alone cannot distinguish a suite that ran to completion from one whose
 * log was truncated or that exited early having executed a fraction of its
@@ -136,41 +146,11 @@ foreach suite of local suites {
 * ever executed -- the search would then confirm itself.
 log close _all
 
-mata:
-string scalar _rm_missing_sentinels(string scalar logpath)
-{
-    real scalar fh
-    string scalar line, cur, missing
-    real scalar seen
-
-    fh = fopen(logpath, "r")
-    cur = ""
-    seen = 0
-    missing = ""
-    while ((line = fget(fh)) != J(0, 0, "")) {
-        // Real output starts at column 0; an echoed command starts with ". ".
-        if (substr(line, 1, 8) == "Running ") {
-            if (cur != "" & !seen) missing = missing + " " + cur
-            cur = strtrim(substr(line, 9, .))
-            seen = 0
-        }
-        else if (substr(line, 1, 8) == "RESULT: ") {
-            seen = 1
-        }
-        else if (substr(line, 1, 6) == "FAIL: ") {
-            // A failing suite is already reported by rc; do not double-report
-            // it as a missing sentinel.
-            seen = 1
-        }
-    }
-    if (cur != "" & !seen) missing = missing + " " + cur
-    fclose(fh)
-    return(strtrim(missing))
-}
-end
-
-mata: st_local("no_sentinel", _rm_missing_sentinels("run_all.log"))
-capture mata: mata drop _rm_missing_sentinels()
+* The final suite may have run `clear all', so reload the shared validator.
+quietly do "`c(pwd)'/_rangematch_qa_common.do"
+capture noisily _rm_qa_scan_sentinels using "run_all.log"
+local scanner_rc = _rc
+local bad_sentinel `"`r(issues)'"'
 
 log using "run_all.log", append text nomsg
 
@@ -179,10 +159,15 @@ log using "run_all.log", append text nomsg
 * leave the user pointed at a c(tmpdir) sandbox that the OS later deletes --
 * their rangematch would simply stop resolving, with nothing to point at.
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
-_rm_qa_teardown
+capture noisily _rm_qa_teardown
+local teardown_rc = _rc
 capture adopath - "`pkg_dir'"
 
 local restore_ok = 1
+if `teardown_rc' {
+    display as error "QA teardown failed with rc=`teardown_rc'"
+    local restore_ok = 0
+}
 if "`c(sysdir_plus)'" != "`real_plus'" {
     display as error "PLUS not restored: is `c(sysdir_plus)', want `real_plus'"
     local restore_ok = 0
@@ -204,9 +189,9 @@ if !`restore_ok' {
     exit 459
 }
 
-if `"`no_sentinel'"' != "" {
-    display as error "suites finished without a terminal RESULT: sentinel:`no_sentinel'"
-    display as error "a suite that exits 0 without its sentinel did not run to completion"
+if `scanner_rc' | `"`bad_sentinel'"' != "" {
+    display as error "invalid suite RESULT: contract:`bad_sentinel'"
+    display as error "each suite must emit exactly one correctly named tests/pass/fail sentinel"
     display "RESULT: run_all suites=`suite_count' pass=`pass_count' fail=`fail_count'"
     log close _all
     exit 9

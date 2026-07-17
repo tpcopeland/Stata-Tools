@@ -130,4 +130,4 @@ assert r(N_pairs) == 2
 display as result "PASS: nearest() routes to binary after cleanup"
 
 display as result "ALL RANGEMATCH DISTANCE REGRESSION TESTS PASSED"
-display "RESULT: test_rangematch_v147 tests=`test_count' pass=`test_count' fail=0"
+display "RESULT: test_rangematch_regress_distance tests=`test_count' pass=`test_count' fail=0"

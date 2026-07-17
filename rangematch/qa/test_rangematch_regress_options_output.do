@@ -265,4 +265,4 @@ display as result "ALL RANGEMATCH OPTION/OUTPUT REGRESSION TESTS PASSED"
 * Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
 * aborts the do-file, so reaching this line IS the pass condition and the
 * absence of this line is what a runner must treat as failure.
-display "RESULT: rangematch_regress_options_output tests=`TESTS' pass=`TESTS' fail=0"
+display "RESULT: test_rangematch_regress_options_output tests=`TESTS' pass=`TESTS' fail=0"

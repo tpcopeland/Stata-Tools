@@ -99,6 +99,29 @@ real scalar _qa_file_contains(string scalar path, string scalar needle)
     fclose(fh)
     return(found)
 }
+
+// Count the unique package-table row and require both release badges on that
+// SAME row. File-wide searches are falsely green when another package happens
+// to share the expected date or version fragment.
+void _qa_badge_row_contract(
+    string scalar path, string scalar anchor, string scalar vbadge, string scalar dbadge)
+{
+    real scalar fh, nrow, ngood
+    string scalar line
+
+    fh = fopen(path, "r")
+    nrow = 0
+    ngood = 0
+    while ((line = fget(fh)) != J(0, 0, "")) {
+        if (strpos(line, anchor)) {
+            nrow++
+            if (strpos(line, vbadge) & strpos(line, dbadge)) ngood++
+        }
+    }
+    fclose(fh)
+    st_numscalar("__badge_rows", nrow)
+    st_numscalar("__badge_good", ngood)
+}
 end
 
 local test_count = 0
@@ -282,13 +305,13 @@ if _rc {
 else {
     local vbadge "version-`pkg_version'-blue"
     local dbadge "updated-`badge_date'-brightgreen"
-    foreach b in "`vbadge'" "`dbadge'" {
-        mata: st_numscalar("__found", _qa_file_contains(st_local("repo_readme"), st_local("b")))
-        if scalar(__found) != 1 {
-            display as error "top-level README.md does not carry the badge [`b']"
-            display as error "the package tables in the repo README are part of the release surface"
-            exit 9
-        }
+    local anchor "tree/main/rangematch)"
+    mata: _qa_badge_row_contract(st_local("repo_readme"), st_local("anchor"), st_local("vbadge"), st_local("dbadge"))
+    if scalar(__badge_rows) != 1 | scalar(__badge_good) != 1 {
+        display as error "top-level README.md must contain one rangematch row with both current badges"
+        display as error "found `=scalar(__badge_rows)' rangematch rows and `=scalar(__badge_good)' rows with both badges"
+        display as error "the package-table row is the release contract; badges elsewhere do not satisfy it"
+        exit 9
     }
     display as result "PASS: top-level README badges match (`vbadge', `dbadge')"
 }

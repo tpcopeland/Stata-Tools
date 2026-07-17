@@ -192,4 +192,4 @@ display as result "ALL RANGEMATCH ROUTING CONTRACT TESTS PASSED"
 * Terminal sentinel (RM-I20). This suite is assert-driven: a failed assert
 * aborts the do-file, so reaching this line IS the pass condition and the
 * absence of this line is what a runner must treat as failure.
-display "RESULT: rangematch_routing_contract tests=`TESTS' pass=`TESTS' fail=0"
+display "RESULT: test_rangematch_routing_contract tests=`TESTS' pass=`TESTS' fail=0"

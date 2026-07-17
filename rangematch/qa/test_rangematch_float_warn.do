@@ -125,7 +125,7 @@ if r(warned) != 1 | r(rc) != 0 {
 }
 
 di as txt "{hline 60}"
-display "RESULT: float_warn tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
+display "RESULT: test_rangematch_float_warn tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_float_warn: FAILED (`FAIL')"
     exit 9

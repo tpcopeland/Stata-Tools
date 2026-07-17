@@ -24,15 +24,14 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 - `test_*.do` files cover functional, option, state, regression, release, and
   adversarial contracts for the public command.
 - `validation_*.do` files contain hand-computable or invariant oracles.
-- **Every** suite emits exactly one terminal `RESULT: <name> tests=N pass=N fail=N`
-  sentinel, and `run_all.do` requires one from every suite it calls green. rc=0
-  alone cannot tell a suite that finished from one whose log was truncated or
-  that died partway; 25 of 51 suites once emitted no sentinel at all. In an
-  assert-driven suite a failed `assert` aborts the file, so the sentinel's
-  *absence* is the failure signal — which is exactly why the runner checks for
-  it rather than only reading rc.
+- **Every** suite emits exactly one terminal
+  `RESULT: <file-stem> tests=N pass=N fail=N` sentinel. `run_all.do` requires the
+  exact suite name, `N>0`, `pass+fail=N`, and `fail=0`; duplicate, malformed,
+  wrong-name, and nested suite sentinels are rejected. rc=0 alone cannot tell a
+  suite that finished from one whose log was truncated or died partway.
 - `run_all.do` sandboxes `PLUS` and `PERSONAL` under `c(tmpdir)` via
-  `_rangematch_qa_common.do` and restores them unconditionally. No suite may
+  `_rangematch_qa_common.do`, installs once, and restores both trees on setup
+  failure, suite failure, scanner failure, and normal completion. No suite may
   `ado uninstall` against the caller's real tree or append the source directory
   to the adopath: the lane must not edit the environment of the person running
   it, and must test the installed copy rather than the source directory.
@@ -73,11 +72,12 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
-| `test_rangematch_doc_contract.do` | Advertised-surface axis: every option the README's syntax blocks advertise is accepted by the parser; the published example sequence is extracted and run verbatim; missing-bound semantics (lower-only, upper-only, both); demo is repository-only while `net get` delivers the benchmark |
-| `test_rangematch_demo_contract.do` | Demo hygiene: runs the real demo with a stale `PERSONAL` copy seeded ahead of it and a forced mid-demo error, then asserts the failure propagates, both sysdirs are restored, and the logs are closed |
-| `test_rangematch_lane_isolation.do` | RM-I17 gate: the bootstrap sandboxes both ado trees, resolves the command from the sandbox, leaves a (simulated) user's installed copy untouched, and restores exactly on teardown |
-| `test_rangematch_bench_smoke.do` | RM-I19 gate: the shipped `bench_rangematch.do` exits nonzero when rangematch errors, completes against the real command, and a hand-computed fixture yields exactly 17 pairs |
-| `test_release_integrity.do` | Version/date/package surface and release metadata |
+| `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; missing-bound semantics; cleanup-safe install/net-get distribution contract |
+| `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs restored, and logs closed |
+| `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, and failed-bootstrap restoration |
+| `test_rangematch_bench_smoke.do` | RM-I19 gate: analytic expected counts for all six shipped scenarios, rc=0 wrong-count rejection, installed-comparator parity, optional-comparator skip, small known answer, and adopath/session restoration |
+| `test_rangematch_runner_contract.do` | RM-I20 gate: strict sentinel scanner rejects missing/nested, wrong-name, duplicate, inconsistent-count, and reported-failure fixtures |
+| `test_release_integrity.do` | Version/date/package surface and release metadata, including both badges on the unique rangematch table row |
 | `test_rangematch_sthlp_render.do` | Help-file **render** axis: `{synopt}` descriptions fit the Viewer column, and no source line breaks after sentence-ending punctuation |
 | `test_rangematch_basic.do` | Basic point-in-interval joins, unmatched rows, naming, maxpairs |
 | `test_rangematch_by.do` | `by()` partitioning and grouped joins |
@@ -91,7 +91,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_routing_contract.do` | `frame()`, `saving()`, `dryrun`, and `count` routing contracts |
 | `test_rangematch_display_contract.do` | Display-only and count/dryrun display contracts |
 | `test_rangematch_backend_equivalence.do` | Binary/sweep/overlap backend equivalence checks |
-| `test_rangematch_backend_diff.do` | Differential sweep-versus-binary backend grid |
+| `test_rangematch_backend_diff.do` | Differential sweep-versus-binary grid over all scalars, every backend-invariant macro, complete output values/metadata/labels, and `assert()` outcomes |
 | `test_rangematch_edge_topup.do` | Zero-row, missing-bound, maxpairs-boundary, and restore edge cases |
 | `test_rangematch_float_warn.do` | Float precision warnings and false-positive guards |
 | `test_rangematch_labels.do` | Variable, value-label, and dataset-label preservation |
@@ -131,7 +131,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle | N/A | documentation examples, doc contract (advertised surface), demo contract (sysdir/log hygiene), and release integrity |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle | N/A | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity |
 
 `rangematch` is a deterministic data-join command, so no external R/Python
 cross-validation suite is required. The validation layer uses hand-built oracle
@@ -141,5 +141,5 @@ datasets and invariant checks.
 
 | Lane | Suites |
 |------|--------|
-| `quick` | All `test_*.do` suites listed in `run_all.do`, including the complete backend, edge, label, missing-using, tie, behavior-named regression, documentation, doc-contract, demo-contract, lane-isolation, benchmark-smoke, install, and release gates |
+| `quick` | All `test_*.do` suites listed in `run_all.do`, including complete backend/output parity, edge, label, missing-using, tie, behavior-named regression, documentation, doc-contract, demo-contract, lane-isolation, benchmark-smoke, strict runner-contract, install, and release gates |
 | `full` | All `quick` suites plus `validation_rangematch_oracle.do`, `validation_rangematch_manual.do`, `validation_rangematch_nearest.do`, `validation_rangematch_known_answers.do`, `validation_rangematch_overlap_oracle.do` |

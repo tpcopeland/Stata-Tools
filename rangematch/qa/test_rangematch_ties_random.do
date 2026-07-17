@@ -209,7 +209,7 @@ if _rc != 198 {
     local ++FAIL
 }
 
-display "RESULT: ties_random tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
+display "RESULT: test_rangematch_ties_random tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_ties_random: FAILED (`FAIL')"
     exit 9

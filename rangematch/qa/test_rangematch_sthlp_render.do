@@ -221,7 +221,9 @@ capture noisily {
     file write `fh' "A sentence that ends right here." _n
     file write `fh' "{cmd:continuation} of the same paragraph." _n
     file close `fh'
-    mata: _qa_render_check("`bad'")
+    * The planted defects are expected diagnostics, not lane failures. Suppress
+    * their literal [FAIL] output so qa log-review sees only real failures.
+    quietly mata: _qa_render_check("`bad'")
     assert `nbad_width' == 1
     assert `nbad_punct' == 1
 }

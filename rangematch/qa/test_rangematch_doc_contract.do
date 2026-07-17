@@ -128,6 +128,38 @@ string scalar _rmdoc_readme_syntax(string scalar fn)
     return(out)
 }
 
+// Return one specific fenced block under "## Syntax" (1=point, 2=overlap).
+// Keeping the modes separate is essential: the union can be correct while one
+// mode silently advertises an option that belongs only to the other.
+string scalar _rmdoc_readme_syntax_block(string scalar fn, real scalar want)
+{
+    string colvector L
+    real scalar i, seen, inblk, block
+    string scalar out, s
+
+    L = cat(fn)
+    seen = 0
+    inblk = 0
+    block = 0
+    out = ""
+    for (i = 1; i <= rows(L); i++) {
+        s = strtrim(L[i])
+        if (s == "## Syntax") seen = 1
+        if (seen & strpos(s, "## Positional") == 1) break
+        if (!seen) continue
+        if (strpos(s, "```") == 1) {
+            if (inblk) inblk = 0
+            else {
+                inblk = 1
+                block++
+            }
+            continue
+        }
+        if (inblk & block == want) out = out + " " + s
+    }
+    return(out)
+}
+
 // Write the README's Quick Start block and its Positional-Arguments Examples
 // block, verbatim and in document order, into one runnable do-file. Extracting
 // rather than transcribing is the point: a hand-copied sequence in this suite
@@ -219,6 +251,18 @@ mata: st_local("advertised_all", _rmdoc_norm(_rmdoc_readme_syntax(st_local("read
 local advertised ""
 foreach tok of local advertised_all {
     if !strpos(" `noise' ", " `tok' ") local advertised "`advertised' `tok'"
+}
+mata: st_local("point_raw", _rmdoc_readme_syntax_block(st_local("readme"), 1))
+mata: st_local("overlap_raw", _rmdoc_readme_syntax_block(st_local("readme"), 2))
+mata: st_local("point_all", _rmdoc_norm(st_local("point_raw")))
+mata: st_local("overlap_all", _rmdoc_norm(st_local("overlap_raw")))
+local point_advertised ""
+local overlap_advertised ""
+foreach tok of local point_all {
+    if !strpos(" `noise' ", " `tok' ") local point_advertised "`point_advertised' `tok'"
+}
+foreach tok of local overlap_all {
+    if !strpos(" `noise' ", " `tok' ") local overlap_advertised "`overlap_advertised' `tok'"
 }
 capture noisily {
     if trim("`advertised'") == "" {
@@ -315,9 +359,73 @@ else {
     display as error "FAIL: sort option contract"
 }
 
-**# T3 (RM-I11): ties(random)/seed() are accepted and are advertised
+**# T3 (RM-I11): each syntax mode advertises its exact grammar
 local ++test_count
 capture noisily {
+    local expected_point "by keepusing prefix suffix all unmatched generate distance masterid usingid maxpairs frame replace saving stats closed nearest tolerance missing ties seed assert nosort dryrun count verbose"
+    local expected_overlap "overlap by keepusing prefix suffix all unmatched generate masterid usingid maxpairs frame replace saving stats closed tolerance missing assert nosort dryrun count verbose"
+
+    foreach tok of local expected_point {
+        if !strpos(" `point_advertised' ", " `tok' ") {
+            display as error "point syntax omits option `tok'"
+            exit 459
+        }
+    }
+    foreach tok of local point_advertised {
+        if !strpos(" `expected_point' ", " `tok' ") {
+            display as error "point syntax advertises unexpected option `tok'"
+            exit 459
+        }
+    }
+    foreach tok of local expected_overlap {
+        if !strpos(" `overlap_advertised' ", " `tok' ") {
+            display as error "overlap syntax omits option `tok'"
+            exit 459
+        }
+    }
+    foreach tok of local overlap_advertised {
+        if !strpos(" `expected_overlap' ", " `tok' ") {
+            display as error "overlap syntax advertises unexpected option `tok'"
+            exit 459
+        }
+    }
+
+    * Bare option-name sets cannot see enum or argument drift. Pin the exact
+    * alternatives users can copy, including random ties and overlap's narrower
+    * closed() contract, and pin the one-comma syntax structure for both modes.
+    foreach frag in ///
+        "unmatched(master|none|using|both)" ///
+        "closed(both|left|right|none)" ///
+        "nearest(before|after|both)" ///
+        "missing(wildcard|drop|error)" ///
+        "ties(all|first|last|random)" ///
+        "seed(#)" ///
+        "assert(match|using)" {
+        if !strpos(`"`point_raw'"', "`frag'") {
+            display as error "point syntax lacks exact fragment `frag'"
+            exit 459
+        }
+    }
+    foreach frag in ///
+        "overlap(ulow uhigh)" ///
+        "unmatched(master|none|using|both)" ///
+        "closed(both|none)" ///
+        "missing(wildcard|drop|error)" ///
+        "assert(match|using)" {
+        if !strpos(`"`overlap_raw'"', "`frag'") {
+            display as error "overlap syntax lacks exact fragment `frag'"
+            exit 459
+        }
+    }
+    if !strpos(`"`point_raw'"', "[in] [, by") {
+        display as error "point syntax no longer has exactly one option comma"
+        exit 459
+    }
+    if !strpos(`"`overlap_raw'"', "[in] , overlap(ulow uhigh)") {
+        display as error "overlap syntax no longer has exactly one option comma before overlap()"
+        exit 459
+    }
+
     use "`master'", clear
     generate double lo = event_date - 40
     generate double hi = event_date + 40
@@ -333,11 +441,11 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "PASS: ties(random)/seed() run and are advertised"
+    display as result "PASS: point/overlap syntax blocks match their exact option and enum contracts"
 }
 else {
     local ++fail_count
-    display as error "FAIL: ties(random)/seed() contract"
+    display as error "FAIL: mode-specific README syntax contract"
 }
 
 **# T4 (RM-I11): the overlap diagram runs as written (one comma before options)
@@ -490,15 +598,22 @@ else {
 * The README once told installed users to run demo/demo_rangematch.do. Prove
 * what install actually delivers rather than trusting the manifest text.
 local ++test_count
+local sandbox "`c(tmpdir)'/rm_i14_`uniq'"
+local keep_plus "`c(sysdir_plus)'"
+local keep_personal "`c(sysdir_personal)'"
+local keep_pwd "`c(pwd)'"
+local plus_changed = 0
+local personal_changed = 0
 capture noisily {
-    local sandbox "`c(tmpdir)'/rm_i14_`uniq'"
-    capture mkdir "`sandbox'"
-    capture mkdir "`sandbox'/plus"
-    capture mkdir "`sandbox'/work"
+    mkdir "`sandbox'"
+    mkdir "`sandbox'/plus"
+    mkdir "`sandbox'/personal"
+    mkdir "`sandbox'/work"
 
-    local keep_plus "`c(sysdir_plus)'"
-    local keep_pwd "`c(pwd)'"
+    local plus_changed = 1
     sysdir set PLUS "`sandbox'/plus"
+    local personal_changed = 1
+    sysdir set PERSONAL "`sandbox'/personal"
     cd "`sandbox'/work"
 
     quietly net install rangematch, from("`pkg_dir'") replace
@@ -514,9 +629,6 @@ capture noisily {
     local bench_here = (_rc == 0)
     capture confirm file "demo_rangematch.do"
     local demo_gotten = (_rc == 0)
-
-    sysdir set PLUS "`keep_plus'"
-    cd "`keep_pwd'"
 
     if `demo_installed' {
         display as error "demo_rangematch.do resolved after net install; README's maintainer-only framing is now wrong"
@@ -535,16 +647,30 @@ capture noisily {
         exit 459
     }
 }
-if _rc == 0 {
+local t7_rc = _rc
+local cleanup_rc = 0
+capture cd "`keep_pwd'"
+if _rc & !`cleanup_rc' local cleanup_rc = _rc
+if `personal_changed' {
+    capture sysdir set PERSONAL "`keep_personal'"
+    if _rc & !`cleanup_rc' local cleanup_rc = _rc
+}
+if `plus_changed' {
+    capture sysdir set PLUS "`keep_plus'"
+    if _rc & !`cleanup_rc' local cleanup_rc = _rc
+}
+if !`t7_rc' & `cleanup_rc' local t7_rc = `cleanup_rc'
+
+if `t7_rc' == 0 {
     local ++pass_count
     display as result "PASS: demo is repository-only; net get delivers bench_rangematch.do"
 }
 else {
     local ++fail_count
-    display as error "FAIL: demo/benchmark distribution contract"
+    display as error "FAIL: demo/benchmark distribution contract (rc=`t7_rc')"
 }
 
 **# Summary
 display as text "tests=`test_count' pass=`pass_count' fail=`fail_count'"
-display as result "RESULT: rangematch_doc_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "RESULT: test_rangematch_doc_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 exit 1

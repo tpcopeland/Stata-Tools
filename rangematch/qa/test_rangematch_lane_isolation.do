@@ -24,6 +24,7 @@
 *! T3 the user's installed copy is untouched by a full bootstrap
 *! T4 teardown restores both trees exactly
 *! T5 teardown leaves the user's copy installed and resolvable
+*! T6 a failed first-time bootstrap restores both trees and clears its cycle
 
 clear all
 version 16.1
@@ -176,6 +177,41 @@ else {
     display as error "T5 FAIL: after teardown rangematch resolved to `r(fn)' (rc=`_rc')"
 }
 
+**# T6 — failed first-time bootstrap restores both trees
+* Run from an empty package-shaped directory so net install must fail after the
+* bootstrap has redirected PLUS and PERSONAL. The old implementation exited at
+* that point and stranded both trees in its temporary sandbox.
+local ++test_count
+local failroot "`c(tmpdir)'/rm_iso_fail_`tok'"
+capture mkdir "`failroot'"
+capture mkdir "`failroot'/rangematch"
+capture mkdir "`failroot'/rangematch/qa"
+local before_fail_plus "`c(sysdir_plus)'"
+local before_fail_personal "`c(sysdir_personal)'"
+local keep_pwd "`c(pwd)'"
+quietly cd "`failroot'/rangematch/qa"
+quietly do "`qa_dir'/_rangematch_qa_common.do"
+capture quietly _rm_qa_bootstrap
+local failed_boot_rc = _rc
+quietly cd "`keep_pwd'"
+
+local ok = (`failed_boot_rc' != 0)
+if "`c(sysdir_plus)'" != "`before_fail_plus'" local ok = 0
+if "`c(sysdir_personal)'" != "`before_fail_personal'" local ok = 0
+if "$RM_QA_ISOLATED" != "" local ok = 0
+discard
+capture findfile rangematch.ado
+if _rc | strpos("`r(fn)'", "`user_plus'") != 1 local ok = 0
+
+if `ok' {
+    local ++pass_count
+    display as result "PASS T6: failed bootstrap restored both trees and the user's copy"
+}
+else {
+    local ++fail_count
+    display as error "T6 FAIL: failed bootstrap rc=`failed_boot_rc' left PLUS=`c(sysdir_plus)' PERSONAL=`c(sysdir_personal)' isolated=$RM_QA_ISOLATED"
+}
+
 **# Hand the session back exactly as it was found
 * Put the lane's isolation state back, then re-point the sysdirs where the
 * caller had them: at the lane's sandbox if run_all.do is driving, at the
@@ -197,7 +233,7 @@ else {
 }
 capture discard
 
-display "RESULT: lane_isolation tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_rangematch_lane_isolation tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error "test_rangematch_lane_isolation: FAILED (`fail_count')"
     exit 9

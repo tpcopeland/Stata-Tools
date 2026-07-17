@@ -86,5 +86,5 @@ foreach f in rangematch.ado _rangematch_mata.ado rangematch.sthlp {
 * succeeds; the public command resolves; the Mata helper resolves; the smoke
 * join returns the known pair count; the backend version matches the .ado
 * banner. Assert-driven, so its absence is the failure signal.
-display "RESULT: install tests=5 pass=5 fail=0"
+display "RESULT: test_install tests=5 pass=5 fail=0"
 display as result "INSTALL TEST PASSED"

@@ -9,9 +9,9 @@
 *! the wrong code while reporting it as the local one.
 *!
 *! This suite runs the real demo script with a stale PERSONAL copy seeded ahead
-*! of it and a forced mid-demo error, then checks what the session looks like
-*! afterwards. It runs the demo in-process (`do'), because sysdir state is
-*! per-process and a batch child could not show restoration.
+*! of it and a forced setup-transition error immediately after PLUS moves, then
+*! checks what the session looks like afterwards. It runs the demo in-process
+*! (`do'), because sysdir state is per-process.
 
 clear all
 set varabbrev off
@@ -61,10 +61,9 @@ copy "`pkg_dir'/rangematch.pkg"          "`scratch'/rangematch/rangematch.pkg", 
 copy "`pkg_dir'/stata.toc"               "`scratch'/rangematch/stata.toc", replace
 copy "`pkg_dir'/bench_rangematch.do"     "`scratch'/rangematch/bench_rangematch.do", replace
 
-**# Copy the demo, forcing an error immediately after its resolution check
-* Injecting the failure early keeps the suite fast (the demo's own benchmarks
-* run to 1M rows) and puts the error exactly where the old script would have
-* skipped its cleanup.
+**# Copy the demo, forcing an error after PLUS moves but before PERSONAL moves
+* This is the precise old-code gap: both sysdir changes sat outside the captured
+* body, so a setup error could bypass cleanup before the demo even began.
 tempname in out
 local injected = 0
 file open `in'  using "`pkg_dir'/demo/demo_rangematch.do", read text
@@ -72,12 +71,8 @@ file open `out' using "`scratch'/rangematch/demo/demo_rangematch.do", write repl
 file read `in' line
 while r(eof) == 0 {
     file write `out' `"`macval(line)'"' _n
-    if strpos(`"`macval(line)'"', "not the demo install under") {
-        * next two lines are `exit 459' and the closing brace; emit them, then fail
-        file read `in' line
-        file write `out' `"`macval(line)'"' _n
-        file read `in' line
-        file write `out' `"`macval(line)'"' _n
+    if strpos(`"`macval(line)'"', "sysdir set PLUS") & ///
+        strpos(`"`macval(line)'"', "demo_plus") {
         file write `out' "error 9" _n
         local injected = 1
     }
@@ -154,7 +149,9 @@ if `"`outer_type'"' == "" local outer_type "text"
 
 local keep_pwd "`c(pwd)'"
 cd "`scratch'"
-capture noisily do "`scratch'/rangematch/demo/demo_rangematch.do"
+* The failure is deliberate. Keep its internal r(9) out of run_all.log so the
+* hidden-error scanner remains a real-failure detector; the rc is asserted below.
+capture quietly do "`scratch'/rangematch/demo/demo_rangematch.do"
 local demo_rc = _rc
 cd "`keep_pwd'"
 
@@ -193,18 +190,11 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-**# T1: the injected failure propagates as a nonzero rc
-* rc=9 also proves the resolution check passed: had the stale PERSONAL copy
-* shadowed the local install, the demo would have exited 459 before reaching
-* the injected error.
+**# T1: the setup-transition failure propagates as a nonzero rc
 local ++test_count
 if `demo_rc' == 9 {
     local ++pass_count
-    display as result "PASS: demo propagated the injected failure (rc=9) and resolved its own install"
-}
-else if `demo_rc' == 459 {
-    local ++fail_count
-    display as error "FAIL: demo resolved the stale PERSONAL copy instead of its own install (rc=459)"
+    display as result "PASS: demo propagated the injected setup failure (rc=9)"
 }
 else if `demo_rc' == 0 {
     local ++fail_count
@@ -271,5 +261,5 @@ capture rmdir "`stale'"
 
 **# Summary
 display as text "tests=`test_count' pass=`pass_count' fail=`fail_count'"
-display as result "RESULT: rangematch_demo_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "RESULT: test_rangematch_demo_contract tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 exit 1

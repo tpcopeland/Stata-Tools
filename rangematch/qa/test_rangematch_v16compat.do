@@ -172,5 +172,5 @@ display as result "v16compat probe 3: rangematch callable from a v16.1 caller (b
 
 * Terminal sentinel (RM-I20): assert-driven, so reaching this line is the
 * pass condition and its ABSENCE is what a runner must treat as failure.
-display "RESULT: rangematch_v16compat tests=`TESTS' pass=`TESTS' fail=0"
+display "RESULT: test_rangematch_v16compat tests=`TESTS' pass=`TESTS' fail=0"
 display as result _newline "test_rangematch_v16compat: ALL PROBES PASSED"

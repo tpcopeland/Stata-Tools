@@ -51,14 +51,19 @@ local old_plus "`c(sysdir_plus)'"
 local old_personal "`c(sysdir_personal)'"
 local demo_plus "`c(tmpdir)'/rm_demo_plus_`_uniq_tok'"
 local demo_personal "`c(tmpdir)'/rm_demo_personal_`_uniq_tok'"
-capture mkdir "`demo_plus'"
-capture mkdir "`demo_personal'"
-sysdir set PLUS "`demo_plus'"
-sysdir set PERSONAL "`demo_personal'"
+local plus_changed = 0
+local personal_changed = 0
 
 * Everything that can fail runs inside this block so that a mid-demo error still
 * reaches the cleanup zone. `local rc = _rc' is the first line after it.
 capture noisily {
+
+mkdir "`demo_plus'"
+mkdir "`demo_personal'"
+local plus_changed = 1
+sysdir set PLUS "`demo_plus'"
+local personal_changed = 1
+sysdir set PERSONAL "`demo_personal'"
 
 **# Install package from local source
 capture ado uninstall rangematch
@@ -305,12 +310,20 @@ logdoc using "`demo_dir'/benchmark.log", ///
 * stay the first line: log close and sysdir set each consume a capture
 * internally and would otherwise overwrite the original error with 0.
 local rc = _rc
+local cleanup_rc = 0
 capture log close _all
-* Do not uninstall here: PLUS has already been restored, so an uninstall would
-* remove the caller's real installation. The temporary trees are throwaway.
-capture sysdir set PLUS "`old_plus'"
-capture sysdir set PERSONAL "`old_personal'"
+* Do not uninstall in the cleanup zone: once PLUS is restored, an uninstall
+* would remove the caller's real installation. The temporary trees are throwaway.
+if `personal_changed' {
+    capture sysdir set PERSONAL "`old_personal'"
+    if _rc & !`cleanup_rc' local cleanup_rc = _rc
+}
+if `plus_changed' {
+    capture sysdir set PLUS "`old_plus'"
+    if _rc & !`cleanup_rc' local cleanup_rc = _rc
+}
 clear
+if !`rc' & `cleanup_rc' local rc = `cleanup_rc'
 if `rc' {
     display as error "demo_rangematch.do failed with rc=`rc'"
     exit `rc'

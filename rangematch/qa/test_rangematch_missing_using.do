@@ -143,7 +143,7 @@ if r(N_matched_pairs) != 1 | r(N_using) != 2 | r(N_using_missing) != 3 {
 }
 
 di as txt "{hline 60}"
-display "RESULT: missing_using tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
+display "RESULT: test_rangematch_missing_using tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_missing_using: FAILED (`FAIL')"
     exit 9

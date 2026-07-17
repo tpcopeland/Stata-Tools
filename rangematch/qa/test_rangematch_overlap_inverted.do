@@ -131,7 +131,7 @@ if r(N_using_inverted) != 0 {
     local ++FAIL
 }
 
-display "RESULT: overlap_inverted tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
+display "RESULT: test_rangematch_overlap_inverted tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_overlap_inverted: FAILED (`FAIL')"
     exit 9

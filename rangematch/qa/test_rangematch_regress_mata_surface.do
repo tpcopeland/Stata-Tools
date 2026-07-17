@@ -124,4 +124,4 @@ assert r(N_matched_pairs) == 4
 display as result "PASS: grouped matching unaffected by cleanup"
 
 display as result "ALL RANGEMATCH MATA-SURFACE REGRESSION TESTS PASSED"
-display "RESULT: test_rangematch_v148 tests=`test_count' pass=`test_count' fail=0"
+display "RESULT: test_rangematch_regress_mata_surface tests=`test_count' pass=`test_count' fail=0"

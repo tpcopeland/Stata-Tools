@@ -8,8 +8,9 @@
 *! N_unmatched (RM-I21). The twelve stats-conditional scalars were not merely
 *! unchecked -- they were never returned, so no number of cells could have
 *! caught backend drift in them. Both runs now request `stats', all 22 scalars
-*! and 15 option macros are compared, and a floor on the count of non-missing
-*! comparisons stops the grid passing vacuously if that surface ever collapses.
+*! and every backend-invariant return macro are compared. The complete output
+*! datasets (including carried values, types, formats, variable labels, and
+*! decoded value labels) and assert() outcomes are compared as well.
 *!
 *! Point-in-interval semantics: keyvar is the USING-side point; low/high are
 *! MASTER-side interval bounds. A using row matches a master row when the
@@ -54,6 +55,13 @@ gen int    grp = 1 + mod(_n, 3)            // using groups 1,2,3
 gen double key = floor(runiform()*40)      // integer points 0..39, many ties
 gen long   uid = _n
 gen str8   ulab = "u" + string(_n)
+gen byte   ucat = mod(_n, 3)
+label define rm_ucat 0 "zero" 1 "one" 2 "two"
+label values ucat rm_ucat
+label variable uid "Using identifier"
+label variable ulab "Using text label"
+label variable ucat "Using category"
+format uid %12.0g
 save "`USING'"
 
 * Master A: VARIABLE-width intervals. After sort by (grp, lo), hi is not
@@ -101,8 +109,14 @@ global RM_DIFF_SCALARS ///
     max_matches mean_matches median_matches p50_matches p90_matches ///
     p99_matches N_empty_groups N_master_groups tolerance
 global RM_DIFF_MACROS ///
-    using_source key low high by keepusing prefix suffix unmatched ///
-    closed missing nearest ties assert generate
+    using using_source frame saving key low high overlap by keepusing ///
+    prefix suffix unmatched closed missing nearest ties seed assert ///
+    generate distance masterid usingid maxpairs all stats dryrun count ///
+    verbose cmd
+
+* Deliberately excluded macros: r(backend) is the lever under comparison;
+* r(sort)/r(nosort) and r(cmdline) encode the intentionally different routing
+* request. Every other documented macro is invariant and appears above.
 
 * Snapshot the whole r() surface under a prefix, immediately after a rangematch
 * call and before anything else touches r().
@@ -127,7 +141,7 @@ end
 capture program drop _rm_diff_cell
 program define _rm_diff_cell, rclass
     args master using cl tol bystr unm openmode
-    tempfile SW BIN
+    tempfile SW BIN SWDESC BINDESC
 
     if "`openmode'" == "vars"  local spec "key lo hi"
     if "`openmode'" == "litlo" local spec "key . hi"
@@ -141,7 +155,7 @@ program define _rm_diff_cell, rclass
     * the twelve conditional statistics scalars at all, so a differential grid
     * that omits it cannot compare them no matter how many cells it runs -- and
     * this suite claimed to compare "every r() scalar" while doing exactly that.
-    local rmopts `bystr' keepusing(uid ulab) closed(`cl') tolerance(`tol') ///
+    local rmopts `bystr' keepusing(uid ulab ucat) closed(`cl') tolerance(`tol') ///
         unmatched(`unm') stats
 
     * ===== SWEEP run (default sort, sortable master) =====
@@ -150,9 +164,12 @@ program define _rm_diff_cell, rclass
     quietly rangematch `spec' using "`using'", `rmopts'
     _rm_capture_returns sw
     return add
-    keep mid0 uid
+    decode ucat, generate(ucat_text)
     gsort mid0 uid
     save "`SW'"
+    describe, replace clear
+    sort name
+    save "`SWDESC'"
 
     * ===== BINARY run (nosort + shuffled, non-(by,low)-sorted master) =====
     use "`master'", clear
@@ -163,20 +180,26 @@ program define _rm_diff_cell, rclass
     quietly rangematch `spec' using "`using'", `rmopts' nosort
     _rm_capture_returns bin
     return add
-    keep mid0 uid
+    decode ucat, generate(ucat_text)
     gsort mid0 uid
     save "`BIN'"
+    describe, replace clear
+    sort name
+    save "`BINDESC'"
 
     * Compare the saved pair sets row-for-row.
     *
-    * `cf _all' compares only the MASTER's varlist, so it is blind to a
-    * variable the other file lacks. Both files are reduced to exactly
-    * (mid0, uid) above, and the row counts are compared explicitly below, so
-    * that blindness cannot hide a difference here.
+    * Compare every output value. The describe datasets separately compare the
+    * complete variable inventory, storage type, display format, value-label
+    * name, and variable label. Decoded ucat_text makes value-label definition
+    * drift visible on the value axis too.
     use "`SW'", clear
     local sw_N = _N
     capture cf _all using "`BIN'"
     return scalar cf_rc = _rc
+    use "`SWDESC'", clear
+    capture cf _all using "`BINDESC'"
+    return scalar meta_cf_rc = _rc
     use "`BIN'", clear
     return scalar n_sw  = `sw_N'
     return scalar n_bin = _N
@@ -201,6 +224,7 @@ foreach cl in both left right none {
             local swb  = r(sw_backend)
             local binb = r(bin_backend)
             local cfrc = r(cf_rc)
+            local metarc = r(meta_cf_rc)
             local tag  "closed(`cl') tol(`tol') `by' unm(`unm') open(`om')"
 
             * Sweep run must always be the sweep backend.
@@ -261,6 +285,11 @@ foreach cl in both left right none {
                     local ++nfail
                     local cellfail 1
                 }
+                if `metarc' != 0 {
+                    di as error "OUTPUT-METADATA MISMATCH (cf rc=`metarc') :: `tag'"
+                    local ++nfail
+                    local cellfail 1
+                }
                 if `cellfail' local ++ncellfail
             }
         }
@@ -270,8 +299,96 @@ foreach cl in both left right none {
 }
 }
 
+* -------------------------------------------------------------------
+* assert() outcomes are part of backend parity too.
+* -------------------------------------------------------------------
+tempfile ASSERT_USING ASSERT_PASS ASSERT_FAIL
+clear
+input double key
+1
+2
+3
+end
+save "`ASSERT_USING'"
+
+clear
+input long mid0 double(lo hi)
+1 1 1
+2 2 2
+3 3 3
+end
+save "`ASSERT_PASS'"
+
+clear
+input long mid0 double(lo hi)
+1 1 1
+2 2 2
+3 4 4
+end
+save "`ASSERT_FAIL'"
+
+capture program drop _rm_assert_outcome
+program define _rm_assert_outcome, rclass
+    version 16.1
+    args master using assertopt
+
+    * Prove the two routing levers on this exact fixture before comparing the
+    * captured assertion rc values.
+    use "`master'", clear
+    sort lo
+    quietly rangematch key lo hi using "`using'", unmatched(both)
+    local sw_backend "`r(backend)'"
+    use "`master'", clear
+    gsort -lo
+    quietly rangematch key lo hi using "`using'", unmatched(both) nosort
+    local bin_backend "`r(backend)'"
+
+    use "`master'", clear
+    sort lo
+    capture quietly rangematch key lo hi using "`using'", ///
+        unmatched(both) assert(`assertopt')
+    local sw_rc = _rc
+    use "`master'", clear
+    gsort -lo
+    capture quietly rangematch key lo hi using "`using'", ///
+        unmatched(both) assert(`assertopt') nosort
+    local bin_rc = _rc
+
+    return scalar sw_rc = `sw_rc'
+    return scalar bin_rc = `bin_rc'
+    return local sw_backend "`sw_backend'"
+    return local bin_backend "`bin_backend'"
+end
+
+local nassert = 0
+local nassertfail = 0
+foreach spec in ///
+    "`ASSERT_PASS'|match|0" ///
+    "`ASSERT_PASS'|using|0" ///
+    "`ASSERT_PASS'|match using|0" ///
+    "`ASSERT_FAIL'|match|9" ///
+    "`ASSERT_FAIL'|using|9" ///
+    "`ASSERT_FAIL'|match using|9" {
+    local ++nassert
+    gettoken afile rest : spec, parse("|")
+    gettoken bar rest : rest, parse("|")
+    gettoken aopt rest : rest, parse("|")
+    gettoken bar expected : rest, parse("|")
+    local expected = real("`expected'")
+
+    _rm_assert_outcome "`afile'" "`ASSERT_USING'" "`aopt'"
+    if "`r(sw_backend)'" != "sweep" | "`r(bin_backend)'" != "binary" | ///
+        r(sw_rc) != `expected' | r(bin_rc) != `expected' | r(sw_rc) != r(bin_rc) {
+        di as error "ASSERT OUTCOME MISMATCH assert(`aopt') expected rc=`expected'"
+        di as error "  sweep backend=`r(sw_backend)' rc=`=r(sw_rc)' binary backend=`r(bin_backend)' rc=`=r(bin_rc)'"
+        local ++nassertfail
+        local ++nfail
+    }
+}
+
 di as txt "backend_diff compared: `ncmp'   skipped(lever n/a): `nskip'   failures: `nfail'"
 di as txt "backend_diff scalar comparisons with a non-missing side: `nreal'"
+di as txt "backend_diff assert outcomes: `nassert'   failures: `nassertfail'"
 
 * Anti-vacuity gate (RM-I21). Comparing `.' to `.' passes and proves nothing,
 * so a regression that stopped rangematch returning the stats scalars would
@@ -290,16 +407,17 @@ if `ncmp' > 0 & `nreal' < `nreal_floor' {
     di as error "collapsed, so the comparisons above were passing vacuously"
     exit 9
 }
-* Terminal sentinel (RM-I20). `ncmp' is the honest test count: cells where the
-* binary backend actually engaged and a comparison was therefore made. Skipped
-* cells are NOT counted as passes -- a skip is not a pass, and reporting them
-* as tests would let this suite advertise coverage it did not perform.
+* Terminal sentinel (RM-I20). The honest test count is the cells where binary
+* engaged plus the six explicit assert() outcome contracts. Skipped grid cells
+* are not passes.
 * Sentinel counts CELLS, consistently. `nfail' counts individual mismatched
 * comparisons and can exceed the cell count many times over (one broken
 * backend produced 3840 across 320 cells), so using it as the fail field
 * printed a NEGATIVE pass count. Report cells failed; keep the comparison
 * detail on its own line.
-display "RESULT: rangematch_backend_diff tests=`ncmp' pass=`=`ncmp' - `ncellfail'' fail=`ncellfail' skip=`nskip'"
+local total_tests = `ncmp' + `nassert'
+local total_fail = `ncellfail' + `nassertfail'
+display "RESULT: test_rangematch_backend_diff tests=`total_tests' pass=`=`total_tests' - `total_fail'' fail=`total_fail' skip=`nskip'"
 di as txt "backend_diff mismatched comparisons: `nfail'"
 
 if `ncmp' == 0 {

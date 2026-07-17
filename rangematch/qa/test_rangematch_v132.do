@@ -246,7 +246,7 @@ if "`_mv'" != "`_rm_expected'" {
     local ++FAIL
 }
 
-display "RESULT: v132 tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
+display "RESULT: test_rangematch_v132 tests=`TESTS' pass=`=`TESTS' - `FAIL'' fail=`FAIL'"
 if `FAIL' > 0 {
     di as error "test_rangematch_v132: FAILED (`FAIL')"
     exit 9
