@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.2.0  2026/07/16
+*! finegray_phtest Version 1.2.0  2026/07/18
 *! Proportional subdistribution hazards test after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,6 +25,7 @@ program define finegray_phtest, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _preserved = 0
 
     capture noisily {
 
@@ -187,6 +188,7 @@ program define finegray_phtest, rclass
 
     * Preserve and compute Schoenfeld residuals on estimation sample
     preserve
+    local _preserved = 1
     quietly keep if e(sample)
 
     sort _t
@@ -215,6 +217,7 @@ program define finegray_phtest, rclass
         "`_byg_mata'", "`_tg_mata'", 1, "`_t0var'")
 
     restore
+    local _preserved = 0
 
     * Retrieve the Schoenfeld matrix (n_fail x (p+1))
     tempname sch_mat
@@ -244,17 +247,15 @@ program define finegray_phtest, rclass
         exit 459
     }
 
-    * Compute time function
-    tempname times test_mat
-    matrix `times' = `sch_mat'[1..`n_fail', 1]
-
     * Build test results: p x 3 matrix [chi2, df, p]
+    tempname test_mat
     matrix `test_mat' = J(`p', 3, .)
 
     * Load Schoenfeld matrix into a temporary dataset once (svmat),
     * then loop correlations over columns — avoids O(p) preserve/clear cycles.
     tempvar _tfunc
     preserve
+    local _preserved = 1
     quietly {
         clear
         svmat double `sch_mat', names(_sch)
@@ -303,6 +304,7 @@ program define finegray_phtest, rclass
         matrix `test_mat'[`v', 3] = `p_v'
     }
     restore
+    local _preserved = 0
 
     if "`_undef'" != "" {
         display as error "proportional-hazards test is undefined for:`_undef'"
@@ -397,6 +399,7 @@ program define finegray_phtest, rclass
     } /* end capture noisily */
 
     local rc = _rc
+    if `_preserved' capture restore
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

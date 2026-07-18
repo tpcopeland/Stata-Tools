@@ -1,4 +1,4 @@
-*! finegray Version 1.2.0  2026/07/16
+*! finegray Version 1.2.0  2026/07/18
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -802,8 +802,9 @@ program define finegray, eclass sortpreserve
     }
 
     * `_fg_warnstrata' is set directly in this scope by _finegray_weight_diag via
-    * st_local (a string cannot ride back in a matrix). It is "" when nothing was
-    * flagged, and on the no-LT branch where the diagnostics do not run.
+    * st_local (a string cannot ride back in a matrix). _finegray_weight_diag runs
+    * on every fit (including the ordinary no-delayed-entry branch, where it scores
+    * the A=G weights); the local is "" whenever nothing tripped a threshold.
 
     * Compute p-value from chi2
     if `_fg_chi2' != . & `_fg_df_m' > 0 {

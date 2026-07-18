@@ -629,9 +629,9 @@ else {
 **# FG-B04b: a bootstrap predict must not poison the baseline cache for a LATER
 * new-data prediction.  finegray_predict's bootstrap refits each call finegray
 * again, overwriting the single-slot Mata baseline cache and bumping its seq past
-* the held e(bh_seq).  Before the 1.2.2 stash/restore fix, a subsequent
+* the held e(bh_seq).  Before the stash/restore fix, a subsequent
 * predict, cif on new data (estimation sample dropped) found a seq mismatch,
-* could not rebuild, and errored r(459) -- confirmed on 1.2.1.  The point CIF is
+* could not rebuild, and errored r(459) -- confirmed on the pre-fix code.  The point CIF is
 * baseline-only, so the post-bootstrap value must match the pre-bootstrap value
 * exactly; rc 0 alone would not prove the RIGHT baseline was restored.
 local ++test_count
@@ -812,6 +812,146 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: FG-M05 long factor name remapped at rc 0 (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-H12: finegray_cif rebuilds dropped _fg_* design columns on demand (A2).
+* _finegray_check_data documents dropping the package-owned _fg_* columns as
+* SUPPORTED, because each consumer rebuilds on demand: finegray_predict rebuilds
+* from e(fvsemantic), finegray_phtest via fvexpand.  finegray_cif had NO rebuild
+* path and died r(111) ("variable _fg_pelnode_1 not found") -- the one design-
+* column consumer that contradicted the contract.  The rebuilt CIF/CI must be
+* bit-identical to the persistent-column result, and being read-only it must NOT
+* leave rebuilt columns behind.  RED on the pre-fix code: raw r(111).
+local ++test_count
+capture noisily {
+    webuse hypoxia, clear
+    gen byte status = failtype
+    quietly stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
+    quietly finegray_cif, attime(1 3 5) ci
+    matrix _cif_full = r(table)
+    quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
+    drop _fg_*
+    finegray_cif, attime(1 3 5) ci
+    matrix _cif_reb = r(table)
+    assert mreldif(_cif_full, _cif_reb) == 0
+    capture ds _fg_*
+    assert _rc != 0
+    display as text "  rebuilt CIF/CI bit-identical; no _fg_* columns leaked"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H12 finegray_cif rebuilds dropped _fg_* columns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H12 finegray_cif cannot rebuild dropped _fg_* (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-H12b: the rebuild survives the bootstrap refit path too.  finegray_cif,
+* bootstrap() refits finegray on resampled data, which re-creates the _fg_*
+* columns; the rebuilt columns this command materialized must not collide with
+* that refit (finegray replaces a prior-run _fg_* listed in _dta[_finegray_fvvars],
+* which survives the drop) and must still not leak.  Bit-identical to the
+* persistent-column bootstrap band under the same seed.
+local ++test_count
+capture noisily {
+    webuse hypoxia, clear
+    gen byte status = failtype
+    quietly stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
+    quietly finegray_cif, attime(1 5) ci bootstrap(30) seed(42)
+    matrix _bcif_full = r(table)
+    quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
+    drop _fg_*
+    finegray_cif, attime(1 5) ci bootstrap(30) seed(42)
+    matrix _bcif_reb = r(table)
+    assert mreldif(_bcif_full, _bcif_reb) == 0
+    capture ds _fg_*
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H12b rebuild survives the bootstrap refit path"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H12b rebuild broke under bootstrap (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-H13: a dropped RAW covariate earns a curated refusal (r(459)), not a raw
+* r(111) (A2, contract).  The rebuild honors the contract only for package-owned
+* _fg_* columns; when the user's own factor variable is also gone there is
+* nothing to rebuild FROM, so finegray_cif refuses with a curated r(459).  (Old
+* code already returned 459 on this exact input via a different path; this pins
+* the contract so the new rebuild path keeps the curated refusal rather than
+* regressing to a bare "variable not found".)
+local ++test_count
+capture noisily {
+    webuse hypoxia, clear
+    gen byte status = failtype
+    quietly stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
+    drop _fg_*
+    drop pelnode
+    capture finegray_cif, attime(1 5)
+    assert _rc == 459
+}
+if _rc == 0 {
+    display as result "  PASS: FG-H13 dropped factor var => curated r(459)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-H13 dropped factor var not refused cleanly (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-C01: finegray_phtest preserves the caller's data across a mid-preserve
+* error (C1, invariant -- passes on old and new alike).  phtest opens two
+* preserve blocks (keep if e(sample); then clear+svmat).  The audit worried an
+* abort inside them would strand the data reduced/cleared, but Stata AUTO-restores
+* an active preserve when the program exits (normally OR on error), so the data is
+* protected even without an explicit restore -- verified: the pre-fix code returns
+* the data to _N=200 here.  This test documents and guards that invariant; the
+* command now ALSO tracks _preserved and restores in its cleanup zone (matching
+* finegray_cif/finegray_predict) so the guarantee survives future refactors.
+* Force a deterministic abort AFTER the first preserve: _finegray_mata_ok() is an
+* empty liveness probe, so dropping ONLY _finegray_schoenfeld_compute leaves the
+* probe passing (no reload) and the schoenfeld call aborts while mid-preserve.
+local ++test_count
+capture noisily {
+    clear
+    set seed 90210
+    quietly set obs 200
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(ev) id(id)
+    quietly finegray x if id <= 100, compete(ev) cause(1) nolog
+    local _N0 = _N
+    datasignature clear
+    quietly datasignature set
+    mata: mata drop _finegray_schoenfeld_compute()
+    capture finegray_phtest
+    local _phrc = _rc
+    * reload the whole engine (clear first: re-running over live functions r(3000))
+    mata: mata clear
+    quietly findfile _finegray_mata.ado
+    quietly run "`r(fn)'"
+    assert `_phrc' != 0
+    assert _N == `_N0'
+    capture datasignature confirm
+    assert _rc == 0
+    display as text "  phtest aborted (rc=`_phrc') with data restored to _N=`_N0'"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-C01 finegray_phtest restores data on mid-preserve error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-C01 finegray_phtest left data modified on error (rc=`=_rc')"
     local ++fail_count
 }
 

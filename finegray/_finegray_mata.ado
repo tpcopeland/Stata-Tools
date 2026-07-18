@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.2.0  2026/07/16
+*! _finegray_mata Version 1.2.0  2026/07/18
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -3307,7 +3307,6 @@ void _finegray_cif_predict(
     string scalar est_touse,
     string scalar eval_touse,
     string scalar tvar,
-    string scalar cifvar,
     string scalar sevar,
     string scalar t0var)
 {
@@ -3339,7 +3338,8 @@ void _finegray_cif_predict(
 
     out = _finegray_cif_core(Z, t, t0, delta, event_type, beta, byg_id, tg_id,
         clust_id, has_clust, cause, censval, E)
-    st_store(sel, cifvar, out[., 1])
+    /* out[.,1] is the CIF; the analytic point CIF is taken from the step-lookup
+       path in finegray_predict, so only the influence-function SE is stored. */
     st_store(sel, sevar, out[., 2])
 }
 

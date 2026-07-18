@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.2.0  2026/07/16
+*! finegray_predict Version 1.2.0  2026/07/18
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -454,8 +454,7 @@ program define finegray_predict, rclass sortpreserve
             confirm new variable `lci'
             confirm new variable `uci'
 
-            tempvar cif_chk se_cif
-            quietly gen double `cif_chk' = .
+            tempvar se_cif
             quietly gen double `se_cif' = .
             if `bootstrap' > 0 {
                 * Exact SE via subject bootstrap; resample in a separate frame
@@ -582,7 +581,7 @@ program define finegray_predict, rclass sortpreserve
                 mata: _finegray_cif_predict( ///
                     "`_score_varlist'", "`e(compete)'", `=e(cause)', ///
                     `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
-                    "`_fvbasis'", "`touse'", "`tvar'", "`cif_chk'", ///
+                    "`_fvbasis'", "`touse'", "`tvar'", ///
                     "`se_cif'", "`_t0var'")
             }
 

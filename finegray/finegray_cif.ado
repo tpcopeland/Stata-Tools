@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.2.0  2026/07/16
+*! finegray_cif Version 1.2.0  2026/07/18
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -30,6 +30,7 @@ program define finegray_cif, rclass sortpreserve
     local _preserved = 0
     local _held = 0
     local _side_rc = 0
+    local _fgrebuilt ""
 
     capture noisily {
 
@@ -139,6 +140,68 @@ program define finegray_cif, rclass sortpreserve
 
     local covs "`e(covariates)'"
     local p : word count `covs'
+
+    * =====================================================================
+    * REBUILD DROPPED _fg_* DESIGN COLUMNS (contract: dropping them is supported)
+    * =====================================================================
+    * The package-owned _fg_* columns are DERIVED from the raw factor variables,
+    * so _finegray_check_data treats dropping them as supported and expects each
+    * consumer to rebuild on demand.  finegray_predict rebuilds from the fit-time
+    * expansion e(fvsemantic) by level VALUE; do the same here.  The influence-
+    * function SE path reads these columns from the data BY NAME (st_data over
+    * e(covariates)), so they must be materialized as the real _fg_* names, not
+    * tempvars -- but only the ones we create are dropped again in the cleanup
+    * zone, so a read-only finegray_cif never leaks columns into the caller's
+    * data.  A dropped RAW covariate (the user's own variable) cannot be rebuilt
+    * and earns a curated refusal rather than a raw "variable not found" r(111).
+    local _fvsem_r `"`e(fvsemantic)'"'
+    local _nbterms ""
+    if `"`_fvsem_r'"' != "" & `"`_fvsem_r'"' != "." {
+        * Non-base semantic terms align 1:1, in order, with e(covariates).
+        foreach _t of local _fvsem_r {
+            if regexm("`_t'", "[0-9]+b\.") continue
+            local _nbterms `"`_nbterms' `_t'"'
+        }
+    }
+    local _cj = 0
+    foreach _cv of local covs {
+        local ++_cj
+        capture confirm numeric variable `_cv'
+        if !_rc continue
+        * Missing column.  Only a package-owned _fg_* column may be rebuilt.
+        if substr("`_cv'", 1, 4) != "_fg_" | `"`_nbterms'"' == "" {
+            display as error "covariate `_cv' is missing and cannot be rebuilt"
+            display as error "re-run {bf:finegray} before {bf:finegray_cif}, or restore the dropped variable"
+            exit 459
+        }
+        local _term : word `_cj' of `_nbterms'
+        local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
+        quietly gen double `_cv' = 1 if e(sample)
+        local _fgrebuilt "`_fgrebuilt' `_cv'"
+        foreach _tp of local _tparts {
+            if regexm("`_tp'", "^([0-9]+)\.(.+)$") {
+                local _flev = regexs(1)
+                local _fvar = regexs(2)
+                capture confirm numeric variable `_fvar'
+                if _rc {
+                    display as error "factor variable `_fvar' is missing; cannot rebuild `_cv'"
+                    display as error "re-run {bf:finegray} before {bf:finegray_cif}"
+                    exit 459
+                }
+                quietly replace `_cv' = `_cv' * (`_fvar' == `_flev') if e(sample)
+            }
+            else {
+                local _cvar = subinstr("`_tp'", "c.", "", .)
+                capture confirm numeric variable `_cvar'
+                if _rc {
+                    display as error "covariate `_cvar' is missing; cannot rebuild `_cv'"
+                    display as error "re-run {bf:finegray} before {bf:finegray_cif}"
+                    exit 459
+                }
+                quietly replace `_cv' = `_cv' * `_cvar' if e(sample)
+            }
+        }
+    }
 
     * =====================================================================
     * BUILD COVARIATE PROFILE (default: estimation-sample means)
@@ -299,6 +362,10 @@ program define finegray_cif, rclass sortpreserve
     if "`attime'" != "" {
         local grid "`attime'"
         local mode "table"
+        * attime() draws no graph, so any leftover twoway options cannot apply.
+        if `"`options'"' != "" {
+            display as text "note: graph (twoway) options are ignored with attime()"
+        }
     }
     else if "`timepoints'" != "" {
         local grid "`timepoints'"
@@ -508,8 +575,14 @@ program define finegray_cif, rclass sortpreserve
     * =====================================================================
     if "`mode'" == "table" {
         display as text ""
-        display as text "Cumulative incidence (cause " as result e(cause) ///
-            as text "), `level'% CI"
+        if "`ci'" != "" {
+            display as text "Cumulative incidence (cause " as result e(cause) ///
+                as text "), `level'% CI"
+        }
+        else {
+            display as text "Cumulative incidence (cause " as result e(cause) ///
+                as text ")"
+        }
         display as text "{hline 13}{c TT}{hline 40}"
         if "`ci'" != "" {
             display as text %12s "time" " {c |}" ///
@@ -592,6 +665,12 @@ program define finegray_cif, rclass sortpreserve
     local rc = _rc
     if `_preserved' capture restore
     if `_held' capture _estimates unhold `_esth'
+    * Drop only the _fg_* columns this command rebuilt (see the rebuild block):
+    * finegray_cif is read-only and must not leave design columns behind.  After
+    * any restore above these are back in the data, so the drop is unconditional.
+    foreach _v of local _fgrebuilt {
+        capture drop `_v'
+    }
     set varabbrev `_orig_varabbrev'
 
     * Post the complete analytical payload even when graph/save side work

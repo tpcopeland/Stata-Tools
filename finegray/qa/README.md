@@ -11,7 +11,7 @@ This suite is built on four assurance layers, applied in increasing order of aut
 
 ## Headline results
 
-The latest isolated `full` lane passed 21/21 suites and 539/539 checks on 2026-07-16, with no failures or skips. Smoke gate runs are never counted as passes.
+The latest isolated `full` lane passed 21/21 suites and 543/543 checks on 2026-07-18, with no failures or skips. Smoke gate runs are never counted as passes.
 
 | Suite | Type | Tests | Pass | Fail | Skip |
 |-------|------|------:|-----:|-----:|-----:|
@@ -22,7 +22,7 @@ The latest isolated `full` lane passed 21/21 suites and 539/539 checks on 2026-0
 | `test_finegray_optimizer.do` | **optimizer safety** (identification, nonconvergence, stale `e(ll)`, degenerate `tolerance()`, scale invariance, nonfinite likelihoods) | 10 | 10 | 0 | 0 |
 | `test_finegray_variance.do` | **variance and clustering** (cluster degeneracy, finite-sample adjustment, `e(rank)`/`e(N_clust)`, `stcrreg` SE parity, `norobust` contract) | 6 | 6 | 0 | 0 |
 | `test_finegray_bootstrap.do` | **bootstrap and refit integrity** (`if`/`in` stripped from the refit line, replication floor, `seed()` guard, validate-then-mutate) | 6 | 6 | 0 | 0 |
-| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, equivalent numeric factor tokens and truncated long names in `at()`, tampered `_fg_*` columns, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 18 | 18 | 0 | 0 |
+| `test_finegray_postest.do` | **post-estimation contract, CIF/predict output, PH test** (factor terms aligned by level value, equivalent numeric factor tokens and truncated long names in `at()`, tampered `_fg_*` columns, `finegray_cif` rebuild of dropped `_fg_*` columns + curated refusal, `finegray_phtest` data preservation on error, zero-width CIs, `e(basehaz)` uniqueness, CIF terminal time, degenerate PH tests) | 22 | 22 | 0 | 0 |
 | `validation_finegray.do` | validation / invariants | 45 | 45 | 0 | 0 |
 | `validation_finegray_recovery.do` | known-truth recovery | 4 | 4 | 0 | 0 |
 | `validation_finegray_recovery_paths.do` | known-truth recovery across option/coding/estimand paths | 15 | 15 | 0 | 0 |
@@ -36,7 +36,7 @@ The latest isolated `full` lane passed 21/21 suites and 539/539 checks on 2026-0
 | `test_finegray_zzf.do` | **delayed-entry (ZZF) surface** (`truncstrata()` parsing/guards, cross-classified support boundaries, `e()` weight + `e(lt_vce)` variance contract, postestimation design rebuild, FG-M06 limiting cases, delayed-entry breaking change, hard positivity failure, refit fidelity, weight warnings) | 27 | 27 | 0 | 0 |
 | `test_documentation_examples.do` | **runnable doc examples** — every README/help code block run verbatim (Quick Start, basic fit, `predict cif`, phtest, fit variants, cif/predict CI, `basehaz`/`basecshazard`) | 7 | 7 | 0 | 0 |
 | `crossval_finegray_zzf.do` | **ZZF per-dataset parity vs the R oracle** (100 datasets, arms A/B/C/D/X, plus manifest/tolerance guards) | 102 | 102 | 0 | 0 |
-| **Total** | | **539** | **539** | **0** | **0** |
+| **Total** | | **543** | **543** | **0** | **0** |
 
 ### The delayed-entry (ZZF) suites
 
@@ -84,7 +84,7 @@ The scale check uses an **IQR-implied** SD and prints the plain-SD ratio beside 
 
 Like its two sibling gates, this is run on demand (smoke settings emit `smoke=1` and a failing sentinel, which `run_all.sh`/the runner treat as non-gating).
 
-Last full run: 2026-07-15 via `stata-mp -b do run_all.do full`, R with `cmprsk` and `riskRegression` present: 23/23 suites, 533/533 checks, no failures or skips.
+This gate runs under the `gates` lane (on demand, hours not minutes), separately from the `full` lane whose counts appear in the Headline results above; its last recorded green run was 2026-07-15.
 
 ### Why the tie and optimizer suites exist
 
@@ -145,7 +145,7 @@ install.packages("fastcmprsk")
 | `test_finegray_optimizer.do` | Optimizer safety: rank-deficient information is a hard error rather than a fabricated coefficient; nonconvergence, `tolerance(.)`/`(0)`/`(-1)` and `iterate(.)` are hard errors; `e(ll)` is recomputed at the accepted β; the convergence test is scale invariant (Newton decrement, not coefficient-scale step size); nonfinite trial likelihoods are never accepted as improvements |
 | `test_finegray_variance.do` | Variance and clustering: degenerate cluster counts are rejected (the clustered meat has rank at most `g-1`, so `g <= p` errors instead of reporting g-inverse artefacts — 1 cluster previously returned `rc 0` with `SE = 1.4e-11`); the finite-sample adjustment `N/(N-1)`, or `g/(g-1)` under `cluster()`, is applied by default and removed by exactly `noadjust`, matching `stcrreg`; `e(rank)` and `e(N_clust)` are posted and `e(df_m)` is the numerical rank of `e(V)`; default SEs agree with `stcrreg`'s default to `< 1e-3` relative and `noadjust` reproduces its `noadjust`; `norobust` reports a genuinely distinct (model-based) variance at identical coefficients |
 | `test_finegray_bootstrap.do` | Bootstrap and refit integrity: an `in`-qualified fit can be bootstrapped (the refit replays `e(refitcmd)`, which carries no sample qualifier — replaying `e(cmdline)` gave `rc 498, 0/B`), while a variable-based `if` fit still resamples the estimation sample only; the replication floor of 25 is enforced on both the request and the successes (a band was previously built from two replications); `seed()` without `bootstrap()` errors instead of being silently ignored, and seeded runs reproduce; multi-record reduction validates before it mutates, so a failed re-fit cannot strand the prior fit's `_fg_entry`; `e(refitcmd)` replayed on the estimation sample reproduces the fit exactly |
-| `test_finegray_postest.do` | Post-estimation data contract and output correctness (Phases 5-7). Factor terms are rebuilt from the fit-time expansion `e(fvsemantic)` and aligned to the current data **by level value**, not positionally: fitting on `i.grp` over {1,2,3} and shifting the data to {2,3,4} used to apply the level-2 coefficient to level 3 at rc 0, and an unfitted level on new data was silently collapsed onto the base category. `finegray_cif, at()` uses that same semantic map, so equivalent numeric spellings and a generated `_fg_*` name truncated before a long level suffix cannot silently select the reference profile. A `_fg_*` design column that is *altered in place* is now detected (dropping one is still supported, since consumers rebuild it). Confidence limits that cannot be computed stay missing instead of collapsing onto the point estimate — through v1.1.4 a nonfinite SE produced a zero-width interval presented as a real one, and `r(table)` carried `lci = uci = cif` even when `ci` was never requested. `e(basehaz)` carries one row per unique cause-event *time* (it was one row per *event*, so 50 tied events gave 50 rows and 1 unique time). The CIF grid always closes on the terminal basehaz row — the thinning stride used to step over it depending on the *parity* of the row count, silently dropping the CIF's plateau. And a proportional-hazards test with no time variation errors instead of reporting a blank chi-squared at rc 0 |
+| `test_finegray_postest.do` | Post-estimation data contract and output correctness (Phases 5-7). Factor terms are rebuilt from the fit-time expansion `e(fvsemantic)` and aligned to the current data **by level value**, not positionally: fitting on `i.grp` over {1,2,3} and shifting the data to {2,3,4} used to apply the level-2 coefficient to level 3 at rc 0, and an unfitted level on new data was silently collapsed onto the base category. `finegray_cif, at()` uses that same semantic map, so equivalent numeric spellings and a generated `_fg_*` name truncated before a long level suffix cannot silently select the reference profile. A `_fg_*` design column that is *altered in place* is now detected (dropping one is still supported, since consumers rebuild it: `finegray_cif` reconstructs dropped `_fg_*` columns from `e(fvsemantic)` to a bit-identical CIF/CI — analytic and bootstrap paths — and refuses with a curated `r(459)` when the underlying raw variable is also gone, instead of a bare `r(111)`; `finegray_phtest` leaves the caller's data intact if it aborts mid-`preserve`). Confidence limits that cannot be computed stay missing instead of collapsing onto the point estimate — through v1.1.4 a nonfinite SE produced a zero-width interval presented as a real one, and `r(table)` carried `lci = uci = cif` even when `ci` was never requested. `e(basehaz)` carries one row per unique cause-event *time* (it was one row per *event*, so 50 tied events gave 50 rows and 1 unique time). The CIF grid always closes on the terminal basehaz row — the thinning stride used to step over it depending on the *parity* of the row count, silently dropping the CIF's plateau. And a proportional-hazards test with no time variation errors instead of reporting a blank chi-squared at rc 0 |
 | `test_finegray_zzf.do` | Delayed-entry surface and regression contract: `truncstrata()` parsing, cross-classified support/positivity boundaries, weight diagnostics, `e(lt_weight)`/`e(lt_vce)`, post-estimation design rebuilding, limiting cases, refit fidelity, and live warning paths |
 | `test_documentation_examples.do` | Runs the documented README/help workflows and advertised baseline options verbatim after a local install |
 | `validation_finegray.do` | 45 known-answer and invariant checks (incl. live `stcrreg` parity) |
@@ -223,7 +223,7 @@ Keyed to the command surface. Every public command, option, and stored result is
 
 | Surface | Where tested |
 |---------|--------------|
-| Global χ², per-variable χ²/df/p, `r(N_fail)`, `time()` functions, and `detail` output | V30–V36; `test_documentation_examples.do` |
+| Per-variable χ²/df/p, `r(N_fail)`, `time()` functions, and `detail` output (the omnibus test was retired in 1.2.0) | V30–V36; `test_documentation_examples.do` |
 | χ² vs `cmprsk` at a common β (rank/log/identity, tie-free sim — exact); hypoxia functional validity; internal consistency and determinism | P3, P12, P14–P15 |
 
 ## The four assurance layers in detail

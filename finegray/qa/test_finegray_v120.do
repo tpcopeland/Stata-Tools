@@ -2,14 +2,14 @@
 * Regression tests for finegray 1.2.0:
 *   the finegray_phtest omnibus ("Global test") statistic is RETIRED.
 *
-* Through 1.2.2 finegray_phtest summed the per-covariate 1-df statistics and
+* Before this release, finegray_phtest summed the per-covariate 1-df statistics and
 * referred the total to chi2(p), returning it in r(chi2)/r(df)/r(p) and printing
 * it as "Global test | chi2 df Prob>chi2".  The sum is chi2(p) only if the
 * components are independent; scaled Schoenfeld residuals are correlated
 * whenever the covariates are, so the printed probability had no stated
 * reference distribution.  It was removed rather than relabeled.
 *
-* These tests FAIL on 1.2.2 and earlier by construction: on the old code
+* These tests FAIL on the pre-retirement code by construction: on the old code
 * r(chi2)/r(df)/r(p) are populated and the "Global test" row is printed.
 clear all
 set varabbrev off
@@ -46,7 +46,7 @@ program define _mk_ph_120
 end
 
 **# 1. r(chi2), r(df), r(p) are no longer stored
-* On 1.2.2 all three are populated -> this block errors on the old code.
+* On the pre-retirement code all three are populated -> this block errors on the old code.
 local ++test_count
 capture noisily {
     _mk_ph_120
